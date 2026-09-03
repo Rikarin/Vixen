@@ -11,7 +11,7 @@ status: preview
 related: [editor/shader-graph-materials, editor/shader-graph-previews, editor/graph-diagnostics]
 ---
 
-## What they are
+## What it is
 
 Five nodes that produce a pattern or move a coordinate, without a texture.
 
@@ -23,12 +23,14 @@ Five nodes that produce a pattern or move a coordinate, without a texture.
 | `Vector/Rotate UV` | a `float2` | turns a coordinate about a pivot, in radians |
 | `Vector/Flipbook` | a `float2` | one cell of a sprite sheet, rows counted from the top |
 
+## What it is for
+
 **Each one is a call, not an implementation.** The functions live in
 `Raven/Library/Material/ComputeColor.rvn`, whose header describes itself as "the shader-graph node
 vocabulary: the primitives a visual material graph compiles down to". So a node adds no shader code,
 `CheckShaders` already compiles what it calls, and the CPU has no second opinion about what noise is.
 
-## Using them
+## Using it
 
 **Leave the UV port unwired and the node uses the mesh's own coordinate.** An unconnected port carries
 the literal its default made, which is not a coordinate — so every node here asks the emitter for the
@@ -72,3 +74,33 @@ asks for more.
 So a node *asks*, through `RavenEmitter.Import`, and the compiler writes only what was asked for. A
 graph with no procedural node in it emits no import line, and the surface shape drops a request that
 duplicates one of its four, because Raven refuses a repeated import.
+
+## Examples
+
+A slow drift of colour across a surface, with no texture bound at all:
+
+```csharp no-compile="a description of a graph, which is authored rather than written"
+// Procedural/Fractal Noise  →  Math/Lerp (T)
+//   Scale    3      cells across the UV square, not a multiplier
+//   Octaves  4      rounded down and clamped to at least one
+//   A, B            the two colours to move between
+```
+
+Turning a coordinate before it is sampled, which is what a rotating pattern actually is:
+
+```csharp no-compile="a description of a graph, which is authored rather than written"
+// Vector/Rotate UV  →  Procedural/Checker
+//   Angle    Time * 0.2      radians, so a full turn is a little over 31 seconds
+//   Pivot    (0.5, 0.5)      the middle of the square rather than its corner
+```
+
+⚠ Both leave the UV port unwired, so both take the mesh's own coordinate. Wiring
+`Vector/Tiling and Offset` in front is how you change that — a literal on the port is not a
+coordinate.
+
+## See also
+
+- [A material that draws with a graph](shader-graph-materials.md) — where the emitted surface goes,
+  and why only one of the two graph shapes can be drawn.
+- [Shader-graph preview thumbnails](shader-graph-previews.md) — why these five have no preview, which
+  is the preview's limit and not theirs.
