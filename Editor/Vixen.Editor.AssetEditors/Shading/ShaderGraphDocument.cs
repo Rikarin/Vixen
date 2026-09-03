@@ -43,11 +43,15 @@ namespace Vixen.Editor.AssetEditors.Shading;
 ///         <see cref="Attribute" /> is the join.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing imports a <c>.vxshadergraph</c> yet</b>, for the reason
-///         <c>CompositorDocument</c> gives about a <c>.vxcomp</c>: <c>NativeFormatImporter</c> carries
-///         a document forward unchanged, and what a build needs from a graph is the compiled shader.
-///         That is an importer that runs <see cref="Compile" /> and hands the source to Raven, which
-///         is doc 08's seam and not a panel's.
+///         ⚠ <b>A <c>.vxshadergraph</c> is imported now, and by an importer that writes no
+///         artefact.</b> This paragraph used to say nothing imported one and to describe the missing
+///         step as "an importer that runs <see cref="Compile" /> and hands the source to Raven" —
+///         which is half right and misplaces the other half. What a graph produces is Raven
+///         <em>source</em>, and source is not content: it is an input to a shader compilation, so
+///         <c>ShaderGraphImporter</c> exists only to report the graph's diagnostics against its own
+///         file, and <c>ShaderGraphSources</c> is what <c>EditorEffects</c> and
+///         <c>ShaderBuildRunner</c> enumerate when a compilation is actually wanted. Writing the text
+///         into the artefact store would put a second copy behind an address nothing resolves.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>A file this build cannot read opens empty and says why.</b>
