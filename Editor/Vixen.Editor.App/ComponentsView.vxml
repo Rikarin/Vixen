@@ -1,0 +1,777 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 — the last panel the ledger still called portable, declined three times, and the
+    thing that unblocked it is one word.
+
+    ⚠ **`slot="header"`.** Wave 8 recorded four obstacles and wave 9 found that three of them were
+    not obstacles at all: `Sections` is `host.Children.OfType<Expander>()`, which a keyed `@for`
+    produces exactly, so `Drop`'s `ReferenceEquals` scan is untouched; and `Aim` measures against
+    this control's own `AbsoluteLeft`/`AbsoluteTop`, which markup does not move. The one that
+    blocked was that `Expander.ContentHost` is the *body*, so markup could fill a foldout and had no
+    spelling for its **header** — where all three of this panel's per-section additions go. The
+    control publishes one now.
+
+    ⚠ **The icon needs no `Document.Move`.** It used to be appended and then moved to index 1, to
+    sit between the chevron the control made and the label it made. The header slot appends, and
+    `order` — which the layout has implemented all along and no stylesheet here was using — is what
+    puts it in front. See `BrowserTheme.vcss`; the rule is three lines and the C# is gone.
+
+    ⚠ **The drag is on the foldout and asks where the gesture started, which is the same set of
+    events the header handler saw.** `on:` is an attribute on a tag and the header is a *part*, so
+    markup can fill it and still cannot subscribe to it — a real gap, named in this file rather than
+    worked around silently. `Grabbed` walks up from `DragEvent.Source` and answers "this drag began
+    inside some foldout's header", which is precisely what bubbling to the header meant: a pointer
+    that came down on the icon or the remove button still grabs, and one that came down on a slider
+    in the body still does not.
+
+    ⚠ **And it is three subscriptions, not one, which cost an afternoon.** `AddHandler<DragEvent>`
+    delivers every stage; the runtime's `on:` table splits the same event across three names, and
+    `on:drag` is the *middle* one — `Moved` only. A single `on:drag` compiles, binds, fires on every
+    pointer move of a drag, and never sees the start or the finish, so `dragging` stays null and
+    nothing is ever dropped. What it looked like was a drag that faded the foldout not at all and
+    reordered nothing, with no exception anywhere.
+
+    ⚠ **One signal holding the whole list, not a revision counter.** What the loop reads is a
+    function of the entity, what it carries and the user's arrangement — and the middle one is a
+    chunk, which cannot be a signal. `GpuTimelineView`'s answer applies: recompute an immutable
+    snapshot and assign it, and let `Signal<T>` refuse an equal one.
+
+    ⚠ **The key carries the entity as well as the bridge, and that is not decoration.** A surviving
+    key keeps its region and does not re-run its body, so a `Transform` foldout would survive a
+    change of selection with the *previous* entity's box still in it — the panel showing what the
+    last thing you clicked used to hold. Two entities' rows are two keys.
+-->
+@component ComponentsView
+@namespace Vixen.Editor.App
+@inherits Vixen.Ui.Controls.Control
+@tag components
+@using System.Collections.Immutable
+@using Vixen.Core
+@using Vixen.Core.Reflection
+@using Vixen.Editor.Core
+@using Vixen.Editor.Inspector
+@using Vixen.Editor.SceneView
+@using Vixen.Editor.Ui
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+@using Vixen.Editor.AssetEditors.Prefabs
+
+<component-list ref="@host">
+    @for (var row in Rows) {
+        <Expander key="@row"
+                  class="component"
+                  Label="@row.Bridge.DisplayName"
+                  IsExpanded="true"
+                  on:dragstart="@((DragEvent args) => Rearrange(args))"
+                  on:drag="@((DragEvent args) => Rearrange(args))"
+                  on:dragend="@((DragEvent args) => Rearrange(args))">
+            <!--
+                ⚠ Every foldout gets one, and until it did the surface was half-implemented in
+                practice: three component types ship a registration, so a header that drew a picture
+                only where one existed drew nothing for a transform, an audio source or anything a
+                game declares. `ComponentArt` is what the slot means when nothing more specific has
+                been said, which is "this is a component".
+            -->
+            <Icon slot="header" class="component-icon" Art="@Art(row.Bridge)" />
+
+            <IconButton slot="header"
+                        class="remove-component"
+                        LeadingIcon.Geometry="@ControlIcons.Close"
+                        Variant="Subtle"
+                        Size="Small"
+                        Label="Remove Component"
+                        TabIndex="-1"
+                        on:click.stop="@(() => Remove(row.Bridge))" />
+
+            @if (ReflectedDescriptor.For(row.Bridge.ComponentType) is null) {
+                <!--
+                    ⚠ Named rather than skipped. A component with no description is one whose
+                    declaring assembly does not run the serialization generator, and a foldout that
+                    is simply absent reads as the entity not having it.
+                -->
+                <property-readonly class="property-readonly">
+                    No description, so there is nothing to draw. Its assembly needs [DataContract].
+                </property-readonly>
+            } else {
+                <!--
+                    ⚠ `use`, which is the sanctioned spelling for a control fed by a *method*, and
+                    the method is `InspectorRows.Add(parent, field, registry, built)` — four
+                    arguments, none of them a `[UiProperty]`. `use` is an effect, so `Draw` is
+                    written to read no signal and to clear before it fills: an effect that ran twice
+                    would otherwise draw every row of a component twice.
+                -->
+                <component-fields use="@(fields => Draw(fields, row.Bridge))" />
+            }
+        </Expander>
+    }
+</component-list>
+
+<!--
+    ⚠ After the list, so it draws over the foldouts rather than under them. It is absolutely
+    positioned and takes no space, so where it sits among its siblings decides only that.
+
+    The class is written once and moved by hand afterwards — a *bound* class would be repainted on
+    the next flush over whatever the drag had just put there, which is the failure `KeyBindingsView`
+    recorded for `Status.Text`.
+-->
+<component-drop-indicator ref="@DropIndicator" class="hidden" />
+
+<Button ref="@add"
+        class="@(Alive ? "add-component" : "add-component hidden")"
+        Label="Add Component"
+        on:click="@Offer" />
+
+@code {
+    /// <summary>One foldout: which entity it is showing, and which of its components.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The entity is in here because it is in the key.</b> A record struct's value is its
+    ///     identity, which is what the <c>@for</c> rule asks for — and including the entity is what
+    ///     makes a change of selection replace every region rather than leave a surviving foldout
+    ///     holding the previous entity's box.
+    /// </remarks>
+    /// <param name="Entity">Whose component this is.</param>
+    /// <param name="Bridge">Which component.</param>
+    internal readonly record struct Row(Entity Entity, IComponentBridge Bridge);
+
+    SceneDocument scene = null!;
+    IReadOnlyList<IComponentBridge> bridges = [];
+    UiElement host = null!;
+    Button add = null!;
+    AddComponentMenu? picker;
+
+    /// <summary>What is on screen, as one immutable snapshot.</summary>
+    /// <inheritdoc cref="Row" select="remarks" />
+    readonly Signal<ImmutableArray<Row>> rows = new([]);
+
+    /// <summary>Whether there is a live entity to add a component to.</summary>
+    readonly Signal<bool> alive = new(false);
+
+    /// <summary>The boxes the rows are editing, one per shown component.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Re-read on every rebuild rather than kept.</b> A gizmo drag, an undo and a play-mode
+    ///     restore all change what is in the chunk without going through these rows, and a box held
+    ///     across one of those is a panel showing what the entity used to hold.
+    /// </remarks>
+    readonly Dictionary<IComponentBridge, List<object>> working = [];
+
+    /// <summary>The rows on screen, so that <see cref="Reload" /> can re-read them.</summary>
+    /// <remarks>
+    ///     Kept beside the boxes rather than walked out of the element tree, because a row is an
+    ///     <c>InspectorRow</c> with a field and a drawer on it and the tree only has elements — and
+    ///     because the walk would be per undo rather than per rebuild.
+    /// </remarks>
+    readonly List<(IComponentBridge Bridge, InspectorRow Row)> drawn = [];
+
+    /// <summary>The order the foldouts are shown in, by component name.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A view order rather than a fact about the entity, and it has to be.</b> An
+    ///         archetype is a set — the ECS hands out dense component ids in first-touch order and a
+    ///         chunk has no notion of "third" — so there is nowhere on an entity to record that
+    ///         somebody dragged Light above Primitive Shape. What a person is arranging when they
+    ///         drag a foldout is <i>their inspector</i>, which is the same kind of thing as a panel
+    ///         layout, and it applies to every entity for the same reason a layout applies to every
+    ///         project.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Names, not bridges.</b> The list outlives any particular set of bridges — a
+    ///         plugin's component is in it after the plugin is unloaded and back again when it
+    ///         returns — and a name is what a preferences file can hold. Anything not named here
+    ///         sorts after everything that is, in the order the bridges were given.
+    ///     </para>
+    /// </remarks>
+    readonly List<string> order = [];
+
+    /// <summary>Where a row's override mark comes from, or <see langword="null" /> for none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The boxes are what get paired, and a box is replaced rather than mutated on every
+    ///     re-read</b> — see <see cref="working" /> — so every place that replaces one has to move
+    ///     the pairing with it. A pairing left on the old box answers for an object nothing can
+    ///     reach, and the new box answers for nothing at all: the marks would simply stop appearing
+    ///     after the first undo.
+    /// </remarks>
+    PrefabSource? prefabs;
+
+    /// <summary>The foldout being dragged, or <see langword="null" />.</summary>
+    Expander? dragging;
+
+    Entity entity;
+
+    /// <summary>What has been contributed, which is where a foldout's header icon comes from.</summary>
+    IEditorRegistry? icons;
+
+    /// <summary>The line showing where a dragged foldout would land.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A drag with no indicator is a drag you have to do twice.</b> The header lifts and
+    ///     nothing else changes, so the only way to find out whether Light lands above or below Mesh
+    ///     Shape is to drop it and look — and then drag it back. <c>TreeView</c> has had one of these
+    ///     since it was written and this is the same element under a different name, for the same
+    ///     reason and drawn in the same accent.
+    /// </remarks>
+    public UiElement DropIndicator { get; private set; } = null!;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>What the loop walks.</summary>
+    ImmutableArray<Row> Rows => rows.Value;
+
+    /// <summary>Whether the Add Component button is offered.</summary>
+    bool Alive => alive.Value;
+
+    /// <summary>Points the section at a document and the components it may show.</summary>
+    /// <param name="document">The document an edit is recorded against.</param>
+    /// <param name="shown">Which components can be shown, in menu order.</param>
+    /// <param name="extensions">What has been contributed, for the header icons.</param>
+    /// <remarks>
+    ///     Separate from construction because a <c>Control</c> is made by the framework with no
+    ///     arguments — and because a panel's factory runs again when it is reopened, so this runs
+    ///     once per panel rather than once per session.
+    /// </remarks>
+    public void Attach(SceneDocument document, IReadOnlyList<IComponentBridge> shown, IEditorRegistry extensions) {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(shown);
+        ArgumentNullException.ThrowIfNull(extensions);
+
+        scene = document;
+        bridges = shown;
+        icons = extensions;
+
+        Show(Entity.Null);
+    }
+
+    /// <summary>Which entity is being shown, or <see cref="Entity.Null" /> for none.</summary>
+    public Entity Entity => entity;
+
+    /// <summary>The foldouts, in the order they are shown.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read off the children rather than out of the snapshot, and that is deliberate.</b>
+    ///     The drag reads this and compares with <c>ReferenceEquals</c>, so it has to be the
+    ///     elements the loop actually reconciled — a projection of the model would be right up until
+    ///     the frame where the two disagree, which is the frame somebody is dragging in.
+    /// </remarks>
+    public IReadOnlyList<Expander> Sections => [.. host.Children.OfType<Expander>()];
+
+    /// <summary>What order the foldouts are shown in, by component name.</summary>
+    /// <inheritdoc cref="order" select="remarks" />
+    public IReadOnlyList<string> Order {
+        get => order;
+
+        set {
+            ArgumentNullException.ThrowIfNull(value);
+
+            order.Clear();
+            order.AddRange(value);
+
+            Rebuild();
+        }
+    }
+
+    /// <summary>Raised after a drag has rearranged the foldouts.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Because a panel's factory runs again when it is reopened.</b> This control is built
+    ///     fresh every time the inspector is opened, so an arrangement it kept to itself would be
+    ///     forgotten by closing the tab — which is the same failure the outliner's filter and the
+    ///     content browser's view toggle both had. Whoever built it holds the answer.
+    /// </remarks>
+    public event Action<IReadOnlyList<string>>? Reordered;
+
+    /// <summary>Says where the foldouts' override marks and Revert items are to read from.</summary>
+    /// <param name="source">The pairing, or <see langword="null" /> when there is none.</param>
+    /// <remarks>
+    ///     ⚠ <b>Before <see cref="Show" />, because building a row is what asks whether its member is
+    ///     overridden.</b> A source handed over afterwards would draw one unmarked panel and start
+    ///     telling the truth at the next selection, which is the sort of bug that is only ever seen
+    ///     by somebody who was not looking for it.
+    /// </remarks>
+    public void Pair(PrefabSource? source) => prefabs = source;
+
+    /// <summary>Shows an entity's components.</summary>
+    /// <param name="target">The entity, or <see cref="Entity.Null" /> to show nothing.</param>
+    /// <remarks>
+    ///     ⚠ <b>One entity, not the selection.</b> Two entities rarely carry the same set, and a
+    ///     panel that showed the intersection would hide the component somebody selected the second
+    ///     object to look at. Multi-object component editing is a real feature and it is a different
+    ///     one; this is the primary object's, which is what the header of every other editor's
+    ///     component panel says it is.
+    /// </remarks>
+    public void Show(Entity target) {
+        entity = target;
+        Rebuild();
+    }
+
+    /// <summary>Recomputes what the loop shows from what the entity currently carries.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An assignment, not a teardown.</b> This used to remove every child and build
+    ///         them again; the loop reconciles instead, so a foldout whose key survives keeps its
+    ///         element, its expansion and its focus. A component added or removed therefore no
+    ///         longer collapses the section somebody was reading, which the old one did every time.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And <see cref="Reload" /> after it, which is what the teardown used to buy.</b>
+    ///         The reason this is called at all is that the component <i>set</i> changed, and the
+    ///         surviving foldouts' boxes are copies made before it did — so without the re-read a
+    ///         section would keep showing what it held when it was built.
+    ///     </para>
+    /// </remarks>
+    public void Rebuild() {
+        var live = entity != Entity.Null && scene.World.IsAlive(entity);
+
+        alive.Value = live;
+
+        if (!live) {
+            Forget();
+            rows.Value = [];
+
+            return;
+        }
+
+        var wanted = Shown().Select(bridge => new Row(entity, bridge)).ToImmutableArray();
+
+        // ⚠ Whatever is going has to let go of its box before the loop drops its region, because
+        // the pairing is held by the *prefab source* rather than by anything the region owns — a
+        // link left behind names an object nothing can reach and marks nothing ever again.
+        Prune(wanted);
+
+        rows.Value = wanted;
+
+        Reload();
+    }
+
+    /// <summary>What the entity carries, in the order the user arranged.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A stable sort on the position in <see cref="order" />, with everything unnamed after
+    ///     everything named.</b> A component added since the last drag has no place in the list, and
+    ///     putting it first would make adding one silently rearrange the panel; putting it last, in
+    ///     the bridges' own order, is where a new thing goes.
+    /// </remarks>
+    IEnumerable<IComponentBridge> Shown() =>
+        bridges
+            .Where(bridge => bridge.Has(scene.World, entity))
+            .OrderBy(bridge => order.IndexOf(bridge.Name) is var at && at >= 0 ? at : int.MaxValue)
+            .ToList();
+
+    /// <summary>Fills one foldout's body with the component's rows.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Cleared first, so running twice is the same as running once.</b> <c>use</c> is an
+    ///     effect: it re-runs when something it read changes, and this reads no signal on purpose —
+    ///     but "on purpose" is a claim about today's code, and the cost of being wrong about it is a
+    ///     component drawn twice. Clearing is one line and makes the claim not matter.
+    /// </remarks>
+    void Draw(UiElement fields, IComponentBridge bridge) {
+        while (fields.Children.Count > 0) {
+            fields.Children[^1].Remove();
+        }
+
+        drawn.RemoveAll(entry => ReferenceEquals(entry.Bridge, bridge));
+
+        if (ReflectedDescriptor.For(bridge.ComponentType) is not { } descriptor) {
+            return;
+        }
+
+        // One box, held in a list because that is what an `InspectorField` takes as its targets, and
+        // re-read by `Rebuild` rather than carried across one.
+        List<object> box = [bridge.Read(scene.World, entity)];
+
+        Unlink(bridge);
+        working[bridge] = box;
+        Link(bridge, box[0]);
+
+        foreach (var member in descriptor.Members) {
+            // ⚠ No document, and a prefab source all the same. The row writes into the box and
+            // records nothing; the command below is the one thing that reaches the stack and it
+            // carries the whole component. The claim a write records goes on the *scene's* stack
+            // through the source, which is the one it belongs on — a component's override is a fact
+            // about the level, not about the copy this panel is editing.
+            var field = new InspectorField(descriptor, member, box, null, prefabs);
+
+            if (InspectorRows.Add(
+                    fields,
+                    field,
+                    DrawerRegistry.Default,
+                    made => field.Changed += _ => Commit(bridge, made)
+                ) is { } row) {
+                drawn.Add((bridge, row));
+            }
+        }
+    }
+
+    /// <summary>Reads every editor back from the entity, without rebuilding anything.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What an undo needs, and what a value edit deliberately does not raise.</b>
+    ///         <c>SetComponentCommand</c> announces itself only when the <i>set</i> of components
+    ///         changed — telling the panel on every field write would rebuild it under the pointer of
+    ///         whoever is dragging a slider — so a Ctrl+Z that put a light's intensity back changed
+    ///         the world, the viewport and the undo history, and left the number on screen as it was.
+    ///         The row is read from its box when it is built and after an edit it made itself;
+    ///         nothing else ever told it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The boxes are re-read first.</b> They are copies — that is the whole arrangement,
+    ///         one command carrying a whole component — so refreshing the rows against the boxes they
+    ///         already hold would faithfully redisplay what the undo just discarded.
+    ///     </para>
+    /// </remarks>
+    public void Reload() {
+        if (entity == Entity.Null || !scene.World.IsAlive(entity)) {
+            return;
+        }
+
+        foreach (var (bridge, box) in working) {
+            if (box.Count > 0 && bridge.Has(scene.World, entity)) {
+                // ⚠ The pairing moves with the box. The old one names an object nothing can reach and
+                // the new one would name nothing, so the override marks would go out after the first
+                // undo and never come back.
+                prefabs?.Unlink(box[0]);
+                box[0] = bridge.Read(scene.World, entity);
+                Link(bridge, box[0]);
+            }
+        }
+
+        foreach (var (_, row) in drawn) {
+            InspectorRows.Show(row);
+        }
+    }
+
+    /// <summary>Tells the source which entity and component a box stands for.</summary>
+    /// <remarks>
+    ///     The <c>[DataContract]</c> alias rather than the type's name, because <c>Alias.Member</c> is
+    ///     the spelling a <c>.vxscene</c>'s <c>overrides:</c> list already uses for a component's
+    ///     member — doc 47 § 4 — and a second spelling of one name is a mark that never matches.
+    /// </remarks>
+    void Link(IComponentBridge bridge, object box) {
+        if (prefabs is { } source && TypeRegistry.TryGet(bridge.ComponentType, out var described)) {
+            source.Link(box, entity, described.Alias);
+        }
+    }
+
+    /// <summary>Drops one bridge's pairing and its box.</summary>
+    void Unlink(IComponentBridge bridge) {
+        if (working.TryGetValue(bridge, out var box) && box.Count > 0) {
+            prefabs?.Unlink(box[0]);
+        }
+
+        working.Remove(bridge);
+    }
+
+    /// <summary>Drops the boxes of the foldouts that are about to go.</summary>
+    void Prune(ImmutableArray<Row> wanted) {
+        foreach (var bridge in working.Keys.ToList()) {
+            if (!wanted.Any(row => ReferenceEquals(row.Bridge, bridge))) {
+                Unlink(bridge);
+                drawn.RemoveAll(entry => ReferenceEquals(entry.Bridge, bridge));
+            }
+        }
+    }
+
+    /// <summary>Drops every box and every row.</summary>
+    void Forget() {
+        foreach (var bridge in working.Keys.ToList()) {
+            Unlink(bridge);
+        }
+
+        drawn.Clear();
+    }
+
+    /// <summary>Which foldout a drag that started here belongs to, or null.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The markup limitation this file works around, named here so the next port finds
+    ///     it.</b> <c>on:</c> is an attribute on a tag; the grab handle is
+    ///     <c>Expander.Header</c>, which is a <i>part</i>. <c>slot="header"</c> lets markup put
+    ///     children in it and there is still no spelling for a handler <i>on</i> it — so the
+    ///     subscription is on the foldout and this reproduces what bubbling to the header selected:
+    ///     the event's route passed through some foldout's header on its way out. A pointer that
+    ///     came down on the icon or the remove button is inside the header and still grabs, which is
+    ///     what the hand-written version did; one that came down in the body is not, and does not.
+    /// </remarks>
+    Expander? Grabbed(UiElement? source) {
+        for (var element = source; element is not null; element = element.Parent) {
+            if (element is ExpanderHeader { Parent: Expander fold } && ReferenceEquals(fold.Parent, host)) {
+                return fold;
+            }
+
+            if (ReferenceEquals(element, host)) {
+                break;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Moves a foldout to where it was dropped.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The dragged section comes from the drag's own start rather than from a hit test
+    ///         under the pointer.</b> A drag does not begin until the pointer has passed the slop
+    ///         threshold, which in a panel of twenty-six-pixel headers is most of the way to the next
+    ///         one — so asking what is under the pointer picks up the neighbour and drags the wrong
+    ///         component. It is the same reason <c>TreeView.Dragged</c> reads the event's source.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing is recorded on the undo stack.</b> Rearranging the panel does not change
+    ///         the entity — see <see cref="order" /> — and a Ctrl+Z that undid a drag of the
+    ///         inspector rather than the edit before it would be the worst kind of surprise.
+    ///     </para>
+    /// </remarks>
+    void Rearrange(DragEvent args) {
+        switch (args.Stage) {
+            case DragStage.Started when Grabbed(args.Source) is { } section:
+                dragging = section;
+                section.AddClass("dragging");
+
+                Aim(args.Y);
+                break;
+
+            case DragStage.Moved when dragging is not null:
+                Aim(args.Y);
+                break;
+
+            case DragStage.Completed when dragging is { } moved:
+                moved.RemoveClass("dragging");
+                dragging = null;
+
+                DropIndicator.AddClass("hidden");
+                Drop(moved, args.Y);
+
+                break;
+
+            case DragStage.Cancelled:
+                dragging?.RemoveClass("dragging");
+                dragging = null;
+
+                DropIndicator.AddClass("hidden");
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    /// <summary>Puts the line where a drop at this height would land.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Off the same <see cref="Gap" /> the drop itself uses.</b> Two rules that agreed most
+    ///     of the time would be worse than none: a line that says "here" and a drop that lands one
+    ///     place further down is the panel lying about what a release will do, which is exactly what
+    ///     somebody dragging is watching it to find out.
+    /// </remarks>
+    void Aim(float y) {
+        var sections = Sections;
+
+        if (sections.Count == 0) {
+            DropIndicator.AddClass("hidden");
+            return;
+        }
+
+        var gap = Gap(y);
+        var bounds = sections[Math.Min(gap, sections.Count - 1)].Bounds;
+
+        // The gap past the last section is its bottom edge, which is the only one that is not some
+        // section's top.
+        var top = gap >= sections.Count ? bounds.Y + bounds.Height : bounds.Y;
+
+        DropIndicator.RemoveClass("hidden");
+        DropIndicator.SetStyle("width", Px(bounds.Width));
+
+        // ⚠ Written as `left` and `top` against this control, not nudged with `OffsetY` against
+        // wherever the last pass happened to put it. It is absolutely positioned, so its own laid-out
+        // origin is this element's — and an offset computed from `AbsoluteTop` reads a position from
+        // *before* the width above was applied, which is a pass out of date the first time it runs
+        // and wrong by that amount for ever after.
+        DropIndicator.SetStyle("left", Px(bounds.X - AbsoluteLeft));
+        DropIndicator.SetStyle("top", Px(top - AbsoluteTop));
+    }
+
+    /// <summary>Which gap between foldouts a pointer at a height is in, from 0 to the count.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A gap and not an index, which is what makes moving down work.</b> There are
+    ///     <c>n + 1</c> places a section can land among <c>n</c> of them, and naming the landing after
+    ///     the section it displaces cannot tell "above the last" from "below the last" — which is why
+    ///     dragging a foldout to the bottom of the panel used to stop one short of it.
+    /// </remarks>
+    int Gap(float y) {
+        var sections = Sections;
+
+        for (var index = 0; index < sections.Count; index++) {
+            var bounds = sections[index].Bounds;
+
+            // The first section whose middle is below the pointer is the one it lands above.
+            if (y < bounds.Y + (bounds.Height * 0.5f)) {
+                return index;
+            }
+        }
+
+        return sections.Count;
+    }
+
+    static string Px(float value) =>
+        value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "px";
+
+    /// <summary>Puts a section where a drop at a height means, and reports the new order.</summary>
+    void Drop(Expander moved, float y) {
+        var sections = Sections;
+        var from = -1;
+
+        for (var index = 0; index < sections.Count; index++) {
+            if (ReferenceEquals(sections[index], moved)) {
+                from = index;
+                break;
+            }
+        }
+
+        var gap = Gap(y);
+
+        // ⚠ The gap is measured before the section is taken out, so every gap after it closes up by
+        // one once it is. Inserting at the gap index itself would put a section dragged downwards one
+        // place short of where the line said it would go.
+        var to = gap > from ? gap - 1 : gap;
+
+        if (from < 0 || from == to) {
+            return;
+        }
+
+        // ⚠ Rebuilt from what is on screen rather than edited in place, because `order` also holds
+        // the names of components this entity does not carry — a list this reordered by index would
+        // interleave the two and shuffle everything the panel is not showing.
+        //
+        // ⚠ And from the snapshot rather than from the foldouts' labels. A label is written out now
+        // — see `IComponentBridge.DisplayName` — and `order` is a preferences key, so reading one
+        // back here would write "Primitive Shape" into a file that has always held "PrimitiveShape".
+        var showing = Rows;
+
+        if (from >= showing.Length) {
+            return;
+        }
+
+        var names = showing.Select(row => row.Bridge.Name).ToList();
+        var name = showing[from].Bridge.Name;
+
+        names.RemoveAt(from);
+        names.Insert(Math.Clamp(to, 0, names.Count), name);
+
+        // Whatever the panel is not showing keeps its place behind what it is.
+        var updated = names.Concat(order.Where(existing => !names.Contains(existing, StringComparer.Ordinal))).ToList();
+
+        order.Clear();
+        order.AddRange(updated);
+
+        Rebuild();
+        Reordered?.Invoke(updated);
+    }
+
+    /// <summary>Writes the edited box back to the entity as one undo step.</summary>
+    void Commit(IComponentBridge bridge, InspectorRow row) {
+        if (!working.TryGetValue(bridge, out var box) || box.Count == 0 || !scene.World.IsAlive(entity)) {
+            return;
+        }
+
+        var before = bridge.Read(scene.World, entity);
+
+        scene.Stack.Execute(
+            new SetComponentCommand(scene, bridge, entity, before, box[0], "Set " + bridge.DisplayName)
+        );
+
+        scene.Stack.Seal();
+        InspectorRows.Restate(row);
+    }
+
+    void Remove(IComponentBridge bridge) {
+        if (!scene.World.IsAlive(entity) || !bridge.Has(scene.World, entity)) {
+            return;
+        }
+
+        scene.Stack.Execute(
+            new SetComponentCommand(
+                scene,
+                bridge,
+                entity,
+                bridge.Read(scene.World, entity),
+                after: null,
+                "Remove " + bridge.DisplayName
+            )
+        );
+
+        scene.Stack.Seal();
+    }
+
+    /// <summary>What a foldout's header draws for a component.</summary>
+    /// <param name="bridge">The component.</param>
+    /// <returns>Its registered picture, or the generic one.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A behaviour falls through to the same generic glyph as a component, deliberately.</b>
+    ///     Which of the two it is, is already said by the Add Component menu's "Script" subtitle and
+    ///     by the category it was found under; a second picture saying it again in the inspector would
+    ///     be sorting the foldouts by our implementation on the one surface where they are sorted by
+    ///     the user's own arrangement.
+    /// </remarks>
+    IconArt Art(IComponentBridge bridge) =>
+        (icons is { } registry ? EditorArt.Of(registry.All<TypeIcon>(), bridge.ComponentType) : null)
+        ?? ComponentArt;
+
+    /// <summary>What a component with no registered picture draws.</summary>
+    /// <remarks>
+    ///     Not a registration, for <c>EditorApplication.EntityArt</c>'s reason: it is the absence of
+    ///     every other answer rather than the picture for a type, and a <c>TypeIcon</c> keyed on
+    ///     <c>object</c> would be one every base-type walk found.
+    /// </remarks>
+    static readonly IconArt ComponentArt = IconArt.Of(EditorIcons.Component);
+
+    /// <summary>Offers what the entity does not already have.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Rebuilt on every open, which is what makes it dynamic.</b> The list is "everything
+    ///         registered minus what is already on this entity", and both halves move — a plugin
+    ///         loading changes the first and the last click changed the second.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Components and behaviours are one list, which is doc 36 § D5.</b> They used to
+    ///         come out in registration order, which put every component above every behaviour — so a
+    ///         person adding <c>PlayerController</c> had to know it was a script before they could
+    ///         find it, and the list answered a question about our implementation rather than the one
+    ///         they asked. That still holds: a behaviour is filed under <c>Scripts</c> like anything
+    ///         else is filed somewhere, and the search does not care which it is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What the flat sorted list could not survive was a project.</b> Sorting by name is
+    ///         right up to about a screenful; the engine ships past that on its own, and a game's
+    ///         components go in the same list. See <see cref="AddComponentMenu" /> for the shape that
+    ///         replaced it and why the search deliberately does not match a category.
+    ///     </para>
+    /// </remarks>
+    void Offer() {
+        if (!scene.World.IsAlive(entity)) {
+            return;
+        }
+
+        // ⚠ Made on first use rather than in the markup. An overlay is a child of the document root
+        // and a control has no document until it is in one — and markup builds this control's own
+        // subtree, not the root's.
+        if (picker is null) {
+            picker = Document.Root.Add<AddComponentMenu>();
+            picker.Chose += Add;
+        }
+
+        picker.OpenUnder(
+            add,
+            bridges
+                .Where(bridge => !bridge.Has(scene.World, entity))
+                .Select(bridge => new AddComponentMenu.Entry(bridge, CategoryOf(bridge)))
+        );
+    }
+
+    void Add(IComponentBridge bridge) {
+        if (!scene.World.IsAlive(entity) || bridge.Has(scene.World, entity)) {
+            return;
+        }
+
+        scene.Stack.Execute(
+            new SetComponentCommand(scene, bridge, entity, before: null, bridge.Create(), "Add " + bridge.DisplayName)
+        );
+
+        scene.Stack.Seal();
+    }
+}
