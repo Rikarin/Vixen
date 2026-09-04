@@ -60,6 +60,25 @@ struct UiShape {
 
     /// Where the three stops sit, then whether the middle one exists.
     var stops: float4
+
+    /// The ramp's own centre in pixels from the tile's centre, then how far it reaches.
+    ///
+    /// ⚠ **A zero reach means the box**, which is what every gradient written before this lane
+    /// existed meant and is why the lane could be appended at all. Read only for `background-position`
+    /// and `background-size`, and for a round gradient's `at <position>` — see the host's
+    /// `DrawListBuilder.RampFrame`, which also explains why a radial reach is the *farthest-side*
+    /// distance and is exactly right rather than an approximation.
+    var paint: float4
+
+    /// The first tile's centre in pixels from the box's centre, then half the tile — signed.
+    ///
+    /// ⚠ **The sign of `zw` is that axis's `background-repeat`**: positive tiles the ramp with a
+    /// period of twice the component, negative paints one tile and clips outside it. A half-extent
+    /// has no natural sign, so the lane is free, and the two readings are exclusive by construction —
+    /// an axis that tiles has no outside and an axis that clips has no period. All zero means the
+    /// tile is the box and there is neither, which is the fast path every gradient in the interface
+    /// takes.
+    var area: float4
 }
 
 /// What the four fragment stages share.
@@ -160,19 +179,70 @@ shader UiBox {
         var fill = colour
 
         if (box.size.w > 0f) {
-            fill = GradientColour(box, colour, Parameter(box, uv, halfSize))
+            // Where this pixel sits inside the tile the layer is painted in, and how far the ramp
+            // reaches from its own centre. Both are the box unless a `background-position`,
+            // a `background-size` or an `at <position>` said otherwise, and the guards are what keep
+            // the overwhelming majority of gradients on the arrangement this shader had before the
+            // two lanes existed.
+            var local = uv
+            var reach = halfSize
+
+            if (box.area.z != 0f || box.area.w != 0f) {
+                val tile = float2(abs(box.area.z), abs(box.area.w))
+                val inside = uv - box.area.xy
+
+                local = float2(
+                    box.area.z > 0f ? Wrap(inside.x, tile.x) : inside.x,
+                    box.area.w > 0f ? Wrap(inside.y, tile.y) : inside.y
+                )
+
+                // ⚠ An axis that does not tile is clipped instead, because CSS paints nothing outside
+                // a `no-repeat` layer — the ramp's end colours must not spill across the rest of the
+                // box, which is what clamping alone would do. Antialiased through the same
+                // `Ui.Coverage` the box's own edge uses, so the two executors take the same number.
+                // ⚠ Two statements and one multiplication rather than one expression over two lines:
+                // in Raven a newline ends a statement, so a trailing `*` is `RVN1001` and a *leading*
+                // one would have been two statements with the second silently discarded.
+                val clipX = box.area.z > 0f ? 1f : Ui.Coverage(abs(local.x) - tile.x, width)
+                val clipY = box.area.w > 0f ? 1f : Ui.Coverage(abs(local.y) - tile.y, width)
+
+                coverage = coverage * clipX * clipY
+                reach = tile
+            }
+
+            if (box.paint.z > 0f && box.paint.w > 0f) {
+                local = local - box.paint.xy
+                reach = box.paint.zw
+            }
+
+            fill = GradientColour(box, colour, Parameter(box, local, reach))
         }
 
         return Ui.Premultiply(float4(fill.rgb, fill.a * coverage))
     }
 
+    /// Where a point sits inside the tile it lands in, as an offset from that tile's centre.
+    ///
+    /// ⚠ `floor` rather than a `frac`-based wrap, so that a negative offset lands in the tile below
+    /// rather than mirroring into the one above — a gradient tiled across a box is symmetric about
+    /// the first tile, and the mirrored version is a picture that looks right until the tile is not
+    /// centred.
+    func Wrap(value: float, half: float): float {
+        val period = half * 2f
+        val shifted = value + half
+
+        return shifted - period * floor(shifted / period) - half
+    }
+
     /// Where this pixel sits along the gradient's ramp, before the stop positions are applied.
     ///
-    /// ⚠ **All three shapes take the same `uv` — the offset from the box's centre in pixels — and none
-    /// of them needs a centre or a radius in the record.** That is what made the whole of A11 fit in
-    /// two more `float4`s: CSS's defaults for `radial-gradient()` and `conic-gradient()` are both
-    /// *at center*, and both of their extents are functions of the box the shader already has. A
-    /// stored centre would have been three more lanes and a third `float4`.
+    /// ⚠ **All three shapes take one point and one reach, and the caller is what decides whose.**
+    /// CSS's defaults for `radial-gradient()` and `conic-gradient()` are both *at center* with an
+    /// extent that is a function of the box, so the common case passes the box's own offset and half
+    /// size and costs no lanes at all. An explicit centre, a `background-position` or a
+    /// `background-size` moves the frame *before* this is called rather than adding a branch inside
+    /// it — which is what lets one function serve four arrangements and keeps the radial reach in the
+    /// one convention `DrawListBuilder.RampFrame` computes.
     func Parameter(box: UiShape, point: float2, halfSize: float2): float {
         val kind = int(box.size.w + 0.5f)
 

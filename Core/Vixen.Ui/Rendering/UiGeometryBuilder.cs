@@ -1563,7 +1563,11 @@ public sealed class UiGeometryBuilder {
             Via(style),
             style.HasVia,
             style.Stops,
-            blur
+            blur,
+            style.PaintCentre,
+            style.PaintExtent,
+            style.AreaCentre,
+            style.AreaHalf
         );
 
     /// <summary>A gradient's far colour, brought into the surface's gamut — if there is a gradient.</summary>

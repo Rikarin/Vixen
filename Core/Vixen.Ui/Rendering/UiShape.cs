@@ -14,12 +14,12 @@ namespace Vixen.Ui.Rendering;
 ///         fifteen, and a box is four vertices — so carrying them on the vertex would take it from
 ///         forty-eight bytes to well past a hundred, and every glyph and every path triangle in the
 ///         frame would pay for fields no shader reads on them. One record per box costs a hundred and
-///         twelve bytes against the sixty-four the four vertices already spend on <c>Shape</c>, and
+///         forty-four bytes against the sixty-four the four vertices already spend on <c>Shape</c>, and
 ///         the vertex layout does not move at all: a box's <c>Shape.X</c> becomes the index of its
 ///         record.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Seven <c>Vector4</c>s, written out rather than left to a struct layout to work out.</b>
+///         ⚠ <b>Nine <c>Vector4</c>s, written out rather than left to a struct layout to work out.</b>
 ///         This is copied into a storage buffer with <c>MemoryMarshal</c> and read back by a shader
 ///         whose own alignment rules are not C#'s — a <c>float</c> beside a <c>Vector2</c> lays out
 ///         differently under std430 than under sequential, and the failure is a box drawn with
@@ -48,9 +48,10 @@ namespace Vixen.Ui.Rendering;
 ///         <c>Marshal.SizeOf</c>, so that one cannot drift again; the other three still can.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The two new lanes are <i>appended</i>, and the two repurposed ones were both zero.</b>
-///         Growing from eighty bytes to a hundred and twelve left every existing offset exactly where
-///         the shader already read it: <c>Axis.w</c> was declared padding and is now the interpolation
+///         ⚠ <b>Every lane this record has ever grown was <i>appended</i>, and the two repurposed ones
+///         were both zero.</b> Growing from eighty bytes to a hundred and twelve, and then to a
+///         hundred and forty-four, left every existing offset exactly where the shader already read
+///         it: <c>Axis.w</c> was declared padding and is now the interpolation
 ///         space, whose zero is <see cref="GradientSpace.Linear" /> — which is what the shader did
 ///         before there was a choice — and <c>Size.w</c> was a zero-or-one gradient flag and is now
 ///         the shape, whose one is <see cref="GradientShape.Linear" />, which is what a flag set to
@@ -107,6 +108,19 @@ public readonly record struct UiShape {
     /// <param name="hasVia">Whether the middle stop exists.</param>
     /// <param name="stops">Where the three stops sit along the ramp.</param>
     /// <param name="blur">A shadow's spread in pixels, or zero.</param>
+    /// <param name="paintCentre">
+    ///     Where the ramp's own centre sits, in pixels from the centre of the tile it fills. Read only
+    ///     when <paramref name="paintExtent" /> is non-zero.
+    /// </param>
+    /// <param name="paintExtent">
+    ///     How far the ramp reaches from its centre, in pixels. Zero means the box, which is what every
+    ///     gradient written before this lane existed meant.
+    /// </param>
+    /// <param name="areaCentre">Where the first tile's centre sits, in pixels from the box's centre.</param>
+    /// <param name="areaHalf">
+    ///     Half the tile, signed — positive tiles along that axis and negative clips. Zero means the
+    ///     tile is the box and there is neither.
+    /// </param>
     public UiShape(
         Vector2 half,
         float thickness,
@@ -118,7 +132,11 @@ public readonly record struct UiShape {
         Color4 gradientVia,
         bool hasVia,
         GradientStops stops,
-        float blur = 0f
+        float blur = 0f,
+        Vector2 paintCentre = default,
+        Vector2 paintExtent = default,
+        Vector2 areaCentre = default,
+        Vector2 areaHalf = default
     ) {
         // ⚠ The shape goes in the lane that was a zero-or-one gradient flag, and `Linear` is one, so
         // the sentinel the shader already tests — `size.w > 0` — keeps meaning exactly what it meant.
@@ -140,6 +158,15 @@ public readonly record struct UiShape {
         // stop genuinely may sit at zero — `via-red via-0%` is a hard edge at the start, which CSS
         // draws and a sentinel would erase.
         Stops = new Vector4(stops.From, stops.Via, stops.To, hasVia ? 1f : 0f);
+
+        // ⚠ Appended again, and again with a zero that is what the shader did before the lane
+        // existed: a zero `Paint.zw` is "the ramp is the box", a zero `Area.zw` is "the tile is the
+        // box, do not tile and do not clip". A stale shader that reads neither draws exactly the
+        // picture it drew, and a stale *host* that writes neither asks for exactly that picture —
+        // which is the property the eighty-to-a-hundred-and-twelve growth had and is the only reason
+        // a nine-lane record can be added to eight files one at a time.
+        Paint = new Vector4(paintCentre.X, paintCentre.Y, paintExtent.X, paintExtent.Y);
+        Area = new Vector4(areaCentre.X, areaCentre.Y, areaHalf.X, areaHalf.Y);
     }
 
     /// <summary>Half width, half height, border thickness, and which family of gradient.</summary>
@@ -162,4 +189,13 @@ public readonly record struct UiShape {
 
     /// <summary>Where the three stops sit, then whether the middle one exists.</summary>
     public Vector4 Stops { get; }
+
+    /// <summary>The ramp's own centre, then how far it reaches. A zero reach means the box.</summary>
+    public Vector4 Paint { get; }
+
+    /// <summary>
+    ///     The first tile's centre, then half its size with <c>background-repeat</c> in the sign. All
+    ///     zero means the tile is the box.
+    /// </summary>
+    public Vector4 Area { get; }
 }
