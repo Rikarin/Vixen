@@ -894,8 +894,8 @@ public partial class UiElement : Composition.IComposable {
                 for (var i = at; i < here; i++) {
                     // The snap rule of `TextLine.NextStop` and `LineWrapper.Width`: strictly the next
                     // stop, so two tabs in a row are two columns.
-                    width = stop > 0f && text[i] == '\t'
-                        ? (MathF.Floor(width / stop) + 1f) * stop
+                    width = text[i] == '\t'
+                        ? stop > 0f ? (MathF.Floor(width / stop) + 1f) * stop : width
                         : width + advances[i];
                 }
 
@@ -1028,7 +1028,7 @@ public partial class UiElement : Composition.IComposable {
                 // ⚠ Only when there is a tab, so every label in an interface takes the loop it took
                 // before — one shaping call for the whole string, hitting the cache entry it already
                 // had rather than one per fragment.
-                foreach (var (cut, end) in Segments(text, from, to, tabStop)) {
+                foreach (var (cut, end) in Segments(text, from, to)) {
                     // ⚠ The whole string when one face and one level cover it, and a substring only
                     // otherwise. Not a micro-optimisation: `text[0..Length]` is a fresh string every
                     // call, and the shaping cache keys on the string's contents, so it would hash and
@@ -1069,12 +1069,18 @@ public partial class UiElement : Composition.IComposable {
     /// <param name="chain">The resolved font chain, whose first face owns the space that is counted.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Zero whenever the text has no tab in it, and that is not an optimisation — it is
-    ///         what keeps the property from changing a picture it has no business in.</b> Zero is the
-    ///         "measure a tab as a glyph" path in <see cref="TextLine" /> and <c>LineWrapper</c>, and
-    ///         a string with no tab measures identically either way; taking it costs the wrapper one
-    ///         comparison per character across every paragraph in the interface, which is the hottest
-    ///         loop in text layout.
+    ///         ⚠ <b>Zero whenever the text has no tab in it, which is free rather than a special
+    ///         case.</b> Zero is a real stop distance downstream — a tab at it occupies nothing — and
+    ///         a string with no tab has none to occupy anything, so the two answers coincide. What
+    ///         the early return buys is the substring and the shaping call per fragment in
+    ///         <c>Segments</c>, which is the expensive half.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is not a sentinel, and it used to be.</b> Reading a non-positive stop as
+    ///         "measure the tab as a glyph" made <c>tab-size: 0</c> indistinguishable from "no tabs
+    ///         here" and gave the first of them the width of a .notdef box that
+    ///         <see cref="TextRun.Place" /> then refused to draw — invisible width, which is the
+    ///         worse of the two failures it sat between.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The space of the chain's <i>first</i> face, not of whichever face covers the tab.</b>
@@ -1101,12 +1107,22 @@ public partial class UiElement : Composition.IComposable {
 
     /// <summary>A range, cut so that every tab in it is a piece of its own.</summary>
     /// <remarks>
-    ///     ⚠ <b>One entry — the range itself — whenever there is no tab stop or no tab</b>, which is
-    ///     every string in an interface. The iterator allocates either way; what the fast path saves
-    ///     is the substring and the shaping call per fragment, which is the expensive half.
+    ///     <para>
+    ///         ⚠ <b>One entry — the range itself — whenever there is no tab</b>, which is every
+    ///         string in an interface. The iterator allocates either way; what the fast path saves is
+    ///         the substring and the shaping call per fragment, which is the expensive half.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The cut does not depend on how wide the stops are, and reading it that way was a
+    ///         defect.</b> A version of this skipped the split when the stop was zero, on the
+    ///         reasoning that a zero stop meant "no tabs to place" — so under <c>tab-size: 0</c> the
+    ///         tab stayed inside its neighbours' run, <see cref="TextRun.IsTab" /> was false for it,
+    ///         and it was measured as the .notdef glyph the face maps U+0009 to. What makes a tab
+    ///         need its own run is that it *is* a tab, not that the stops happen to be wide.
+    ///     </para>
     /// </remarks>
-    static IEnumerable<(int Start, int End)> Segments(string text, int from, int to, float tabStop) {
-        if (tabStop <= 0f || text.AsSpan(from, to - from).IndexOf('\t') < 0) {
+    static IEnumerable<(int Start, int End)> Segments(string text, int from, int to) {
+        if (text.AsSpan(from, to - from).IndexOf('\t') < 0) {
             yield return (from, to);
             yield break;
         }

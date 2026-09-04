@@ -329,7 +329,14 @@ public static class LineWrapper {
             // rule `TextLine.NextStop` applies, written twice because the two are different passes
             // over different data. Two tabs in a row are two columns under this rule and one under a
             // "nearest stop at or after" one.
-            x = tabStop > 0f && text[i] == '\t' ? (MathF.Floor(x / tabStop) + 1f) * tabStop : x + advances[i];
+            //
+            // ⚠ And a non-positive stop leaves the pen where it is rather than falling back to the
+            // character's own advance: a tab is a *space* whose width the stops decide, so with no
+            // stops it is a space of no width. That is `tab-size: 0`, and it is also what keeps this
+            // agreeing with `TextRun.Place`, which never draws U+0009's glyph whatever the face said.
+            x = text[i] == '\t'
+                ? tabStop > 0f ? (MathF.Floor(x / tabStop) + 1f) * tabStop : x
+                : x + advances[i];
         }
 
         return x - origin;

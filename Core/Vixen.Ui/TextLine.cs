@@ -163,7 +163,7 @@ public sealed class TextLine {
 
         foreach (var index in Order(runs)) {
             pens[index] = pen;
-            widths[index] = tabStop > 0f && runs[index].IsTab
+            widths[index] = runs[index].IsTab
                 ? NextStop(offset + pen, tabStop) - (offset + pen)
                 : runs[index].Width;
 
@@ -262,14 +262,26 @@ public sealed class TextLine {
     /// </remarks>
     public float WidthOf(int run) => widths[run];
 
-    /// <summary>The next tab stop at or after a position.</summary>
+    /// <summary>The next tab stop after a position, or the position itself when there are none.</summary>
     /// <remarks>
-    ///     ⚠ <b>Strictly after, never at.</b> A tab that begins exactly on a stop advances to the
-    ///     next one — CSS Text 3 § 6.1, and the only reading under which two tabs in a row are two
-    ///     columns rather than one. A rule that snapped to the nearest stop at or after the pen would
-    ///     make the second tab of a pair zero wide, which looks like the tab was dropped.
+    ///     <para>
+    ///         ⚠ <b>Strictly after, never at.</b> A tab that begins exactly on a stop advances to the
+    ///         next one — CSS Text 3 § 6.1, and the only reading under which two tabs in a row are
+    ///         two columns rather than one. A rule that snapped to the nearest stop at or after the
+    ///         pen would make the second tab of a pair zero wide, which looks like the tab was
+    ///         dropped.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A stop of zero or less means a tab occupies nothing, and that is a value rather
+    ///         than a sentinel.</b> It is what <c>tab-size: 0</c> asks for, and it is also the only
+    ///         answer consistent with <see cref="TextRun.Place" />, which suppresses U+0009's glyph
+    ///         unconditionally: measuring the tab as whatever the face mapped it to would reserve the
+    ///         width of a .notdef box and then draw nothing in it. An earlier arrangement here read
+    ///         a non-positive stop as "measure it as a glyph", which made <c>tab-size: 0</c> and
+    ///         "this line has no tabs" the same number and gave the first of them invisible width.
+    ///     </para>
     /// </remarks>
-    static float NextStop(float x, float stop) => (MathF.Floor(x / stop) + 1f) * stop;
+    static float NextStop(float x, float stop) => stop > 0f ? (MathF.Floor(x / stop) + 1f) * stop : x;
 
     /// <summary>Places every glyph of every run relative to the start of the line.</summary>
     /// <param name="into">Where to put them.</param>
