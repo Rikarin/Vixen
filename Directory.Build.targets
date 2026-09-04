@@ -48,8 +48,15 @@
 
       A property *assignment* is different: those do happen in document order. Reading the flags into
       two names before the imports run is therefore the only way to ask "did the project wire itself
-      up, or am I about to?" — and the answer is what keeps this file out of the way of the fifteen
+      up, or am I about to?" — and the answer is what keeps this file out of the way of the fourteen
       projects that still name everything by hand.
+
+      ⚠ **The count in this file said fifteen for three revisions; recounting it gave twelve, and by
+      the time that reached this file it was fourteen.** That is the whole lesson rather than a
+      correction: a number written in a comment is a number nothing measures. It is fourteen on this
+      tree — five in `Core/` and nine under `Editor/` — counted by grepping every committed
+      `.csproj` for a literal import of `Core/Vixen.Ui/build/Vixen.Ui.targets`. Recount rather than
+      trust it.
       ==============================================================================================
     -->
     <_VixenUiWiredByProject>$(VixenUiBuildImported)</_VixenUiWiredByProject>
@@ -58,7 +65,7 @@
 
   <!--
     The item types, from the same file the package imports. Guarded by the flag that file sets, so a
-    project that still names it by hand — there are fifteen, and converting them is a separate change
+    project that still names it by hand — there are fourteen, and converting them is a separate change
     — keeps its own import and gets no second copy of either glob.
   -->
   <Import Project="$(VixenRepositoryRoot)Core/Vixen.Ui/build/Vixen.Ui.targets"
@@ -147,7 +154,7 @@
     per-directory cache — as the `**/*.cs` glob that has already walked this tree, instead of paying
     for a second recursive walk of every project on every build. Comparing inside a target is what
     makes the answer trustworthy: `AdditionalFiles` is final by `CoreCompile` and is not final at
-    the end of evaluation, and this file is imported after the fifteen projects that still write
+    the end of evaluation, and this file is imported after the fourteen projects that still write
     their own `Import` at the bottom of their body.
 
     ⚠ `DefaultItemExcludes` and `DefaultExcludesInProjectFolder`, spelled out, for the reason the
