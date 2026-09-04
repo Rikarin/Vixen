@@ -617,6 +617,75 @@ public class DrawListTests {
         Assert.Equal(DrawCommandKind.Rectangle, Assert.Single(document.Drawing.Commands).Kind);
     }
 
+    /// <summary>The two other things a <c>box-shadow</c> can say that this refuses whole.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Recorded because they are blockers other work is filed against, and an unrecorded
+    ///         refusal is indistinguishable from an oversight the day somebody registers a family on
+    ///         top of it.</b> <c>inset-shadow-*</c>, <c>inset-ring-*</c> and <c>ring-offset-*</c> are
+    ///         three utility roots that cannot be spelt until these change, and <c>box-shadow</c>
+    ///         <i>is</i> read — so a registration would score green in the consumption gate over a
+    ///         class that paints nothing at all. See `Rikarin/Vixen#279`.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The list is refused earlier than the method's own remark suggests, and the
+    ///         difference matters to whoever lifts it.</b> The refusal is not a branch in
+    ///         <c>EmitShadow</c>: <c>StyleValueParser</c> splits a value on top-level <i>whitespace</i>
+    ///         only, so <c>#000,</c> is one token, is not a colour, and takes the whole value to
+    ///         <c>Unknown</c> before this method sees it. Supporting a list therefore means splitting
+    ///         on commas at depth here — not relaxing a check.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And <c>calc()</c> is a third blocker that is easy to miss.</b> Tailwind's
+    ///         <c>ring-offset-*</c> writes its outer ring's spread as
+    ///         <c>calc(var(--tw-ring-offset-width) + var(--tw-ring-width))</c>, and nothing in
+    ///         <c>StyleValueParser</c> reads <c>calc</c> — the substitution happens on the text and
+    ///         then the function falls out as a keyword. A <c>var()</c> alone resolves fine, which is
+    ///         what makes this one easy to assume away.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("0px 4px 12px #000000, 0px 8px 24px #ff0000")]
+    [InlineData("0 0 0 2px #000000, 0 0 0 4px #ff0000")]
+    [InlineData("0 0 0 calc(2px + 2px) #000000")]
+    public void A_shadow_list_and_a_calculated_length_are_refused_whole(string shadow) {
+        using var document = Drawn(
+            $$"""
+            root { width: 400px; height: 300px; }
+            .card {
+                width: 100px; height: 60px; background-color: #ffffff;
+                box-shadow: {{shadow}};
+            }
+            """,
+            document => document.Root.Add("div", classNames: "card")
+        );
+
+        // Nothing at all, rather than the first item of the list — which is the refusal being made
+        // deliberately: painting one shadow of two looks like it worked.
+        Assert.Equal(DrawCommandKind.Rectangle, Assert.Single(document.Drawing.Commands).Kind);
+    }
+
+    /// <summary>But a <c>var()</c> in the same position does resolve, which is what makes the ring work.</summary>
+    [Fact]
+    public void A_shadow_spread_written_as_a_custom_property_resolves() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; --ring: 3px; }
+            .card {
+                width: 100px; height: 60px; background-color: #ffffff;
+                box-shadow: 0 0 0 var(--ring) #000000;
+            }
+            """,
+            document => document.Root.Add("div", classNames: "card")
+        );
+
+        var shadow = document.Drawing.Commands[0];
+
+        Assert.Equal(DrawCommandKind.Shadow, shadow.Kind);
+        Assert.Equal(-3f, shadow.X, Tolerance);
+        Assert.Equal(106f, shadow.Width, Tolerance);
+    }
+
     /// <summary>A shadow measured in something that is not a distance draws nothing.</summary>
     /// <remarks>
     ///     <para>
