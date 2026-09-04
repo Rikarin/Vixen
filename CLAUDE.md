@@ -193,6 +193,11 @@ zero is a valid-looking value.
   with the code.
 - **`CheckStrings`** fails on a declared string id used nowhere, and on a call site that rebuilds an id
   a declaration class already declares.
+- **`CheckWhitespace`** (also run inside `CheckFormat`) fails on a file that disagrees with
+  `dotnet format whitespace` and is not in `docs/WhitespaceExempt.txt` — **and equally on a file in
+  that list that has become clean**, so the list can only shrink. ⚠ It is 13 s for the whole tree,
+  not minutes: `--folder` loads no MSBuild workspace. `./build.sh CheckWhitespace --update-exemptions`
+  rewrites the list; read the diff, because a commit that grows it added mis-indented code.
 - **`CheckArchitecture`** globs directories rather than reading the solution, so it sees the
   out-of-solution mobile/web projects that `Test`, `CheckFormat`, `CheckApi` and `Pack` never evaluate.
 

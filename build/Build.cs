@@ -201,18 +201,28 @@ partial class Build : NukeBuild {
                 // minute-long passes below.
                 CheckAttributionManifest();
 
+                // Third, because it is 13.6 s against the minutes below and it is the pass that
+                // catches damage a human notices and this target could not: see CheckWhitespace,
+                // which is also a target of its own.
+                CheckWhitespaceFormatting();
+
                 // Invoked raw rather than through Nuke's typed settings, whose shape has moved
                 // between versions; the CLI's has not.
                 //
                 // `style` and `analyzers`, deliberately not `whitespace`. The repository indents a
                 // lambda body passed as an argument one level further than `dotnet format` does,
                 // consistently, in every file — and there is no .editorconfig key that expresses
-                // that, so the whitespace pass reports about nine hundred violations against code
-                // that is entirely consistent with itself. Gating on it would mean reformatting
-                // twenty-eight files against the tool that actually formats them, after which the
-                // next edit in the IDE would put them back. The brace and spacing rules the config
-                // *can* express are set (see .editorconfig § Layout), which is what took that
-                // number down from roughly forty thousand.
+                // that, so the whitespace pass reports violations against code that is entirely
+                // consistent with itself. The brace and spacing rules the config *can* express are
+                // set (see .editorconfig § Layout), which is what took that number down from roughly
+                // forty thousand.
+                //
+                // ⚠ That argument is about 551 files out of 4 842, and it was used to refuse the
+                // pass over all of them — so mis-indentation was ungated everywhere and reached
+                // master three times (#516). `CheckWhitespaceFormatting` above now runs it against
+                // the other seven eighths, with those 551 named in docs/WhitespaceExempt.txt. The
+                // two numbers this comment used to carry were both wrong: "about nine hundred"
+                // violations are 5 167, and "twenty-eight files" are 551.
                 foreach (var workspace in FormatWorkspaces()) {
                     DotNet($"format style \"{workspace}\" --verify-no-changes --severity warn --no-restore");
                     DotNet($"format analyzers \"{workspace}\" --verify-no-changes --severity warn --no-restore");
