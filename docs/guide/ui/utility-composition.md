@@ -223,9 +223,10 @@ on one side and late on the other, which reads as a gradient somebody positioned
 ⚠ **Refused still means nothing is painted, not that the nearest supported gradient is.** A
 declaration with an explicit ending *shape* — `circle`, `closest-side`, an explicit radius — draws no
 gradient at all rather than a farthest-corner approximation of one, because a gradient of the right
-colours ending in the wrong place reads as a rendering bug rather than as a missing feature. The `background-color` underneath is unaffected — the image is a
-second layer over it, as in CSS — so a refused gradient leaves a flat element and not an invisible
-one. See `GradientRefusal` for the reasons enumerated.
+colours ending in the wrong place reads as a rendering bug rather than as a missing feature. The
+`background-color` underneath is unaffected — the image is a second layer over it, as in CSS — so a
+refused gradient leaves a flat element and not an invisible one. See `GradientRefusal` for the
+reasons enumerated.
 
 ## See also
 

@@ -153,11 +153,16 @@ of the mask storage buffer.
 
 ⚠ **The mask entries are in a storage buffer rather than in push constants, and that is a ceiling
 reached rather than a design preference.** `mask-image` is a list — twelve of Tailwind's mask roots
-are per-edge ramps that only mean anything combined — and one entry is already sixty-four bytes. With
-the matrix's forty-eight that came to a hundred and twelve, which set the pipeline layout's fragment
-range, and 16 + 112 is exactly the 128 Vulkan guarantees on every device. A second entry could not
-have fitted, never mind eight. So the entries ride binding 2 of the shared descriptor set — the one
-`UiShape` already uses — and the draw pushes an index and a count.
+are per-edge ramps that only mean anything combined — and one entry was already sixty-four bytes when
+the decision was made. With the matrix's forty-eight that came to a hundred and twelve, which set the
+pipeline layout's fragment range, and 16 + 112 is exactly the 128 Vulkan guarantees on every device.
+A second entry could not have fitted, never mind eight. So the entries ride binding 2 of the shared
+descriptor set — the one `UiShape` already uses — and the draw pushes an index and a count.
+
+⚠ **An entry is eighty bytes now**, since `mask-size`, `mask-position` and `mask-repeat` added a
+fifth `vec4`, so the push-constant arrangement it was compared against would no longer fit even for
+one. The ceiling was reached earlier than the numbers above suggest, and the storage buffer is the
+reason growing the entry was a lane and a `MaskFloats` constant rather than a redesign.
 
 ⚠ **That buffer has a fixed capacity and is allocated once, which is what keeps every image
 descriptor set valid.** A composite draw binds an *image* set, so that set's binding 2 is what

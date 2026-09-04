@@ -195,11 +195,19 @@ A gradient can fade a group out instead of dimming it:
 <div class="mask-linear-from-70%">…</div>
 ```
 
-Only the **alpha** of the mask gradient is read — `mask-mode` resolves to `alpha` for every image
-that is not an SVG `<mask>` — so `linear-gradient(to bottom, black, transparent)` and
+By default only the **alpha** of the mask gradient is read — `mask-mode` resolves to `alpha` for
+every image that is not an SVG `<mask>` — so `linear-gradient(to bottom, black, transparent)` and
 `linear-gradient(to bottom, #ff0000, #00ff0000)` are the same mask. Linear, radial and conic all
 work, with the same geometry `background-image` uses, so a mask and a background written with the
 same gradient line up exactly.
+
+`mask-luminance` (`mask-mode: luminance`) reads the stops' **brightness** instead, which CSS Masking
+1 § 7.2 defines as `luminance(rgb) × a`. ⚠ **That is a scalar per stop, so it costs no lane in the
+entry and no branch in either executor**: `DrawListBuilder.MaskAlphas` computes it from colours it
+has already read and writes it into the same three floats the alpha reading fills. The two modes are
+not slightly different numbers — a ramp between two *opaque* colours is the identity under `alpha`
+and a full ramp under `luminance`. `mask-alpha` is the opt-out, and `mask-match` (`match-source`) is
+the alpha reading, because there is no SVG `<mask>` element here for it to resolve against.
 
 Like a colour matrix and unlike a blur, a mask is per pixel: it adds **no second surface, no extra
 pass and no bounds outset**, and it rides the composite draw as `ui-mask.frag`. A masked group is
@@ -281,17 +289,42 @@ mask that nearly works. Dropping one bad layer out of the middle is worse still:
 arithmetic of every operator around it, and a missing `subtract` leaves the thing it was meant to
 punch out.
 
-⚠ **The entries ride a storage buffer, not push constants.** One entry is sixty-four bytes and
+⚠ **The entries ride a storage buffer, not push constants.** One entry is eighty bytes and
 `ui-mask.frag` already pushes a colour matrix at forty-eight; with the vertex stage's sixteen that
-came to exactly the 128 bytes Vulkan guarantees. So the draw pushes an index and a count and the
-entries come through the descriptor binding `UiShape` already uses — see the renderer's README for
-why that buffer has a fixed capacity.
+came to more than the 128 bytes Vulkan guarantees before the placement lane was added at all. So the
+draw pushes an index and a count and the entries come through the descriptor binding `UiShape`
+already uses — see the renderer's README for why that buffer has a fixed capacity.
 
-⚠ **What is still absent, and now for one reason rather than two.** `mask-origin-*`,
-`mask-position-*`, `mask-size-*` and `mask-repeat-*` describe placing a mask image inside a box it
-does not already fill, which a gradient sized to the border box does not need. `mask-type-*` applies
-to SVG `<mask>` elements, which this engine has none of. `bg-clip-text` is a separate matter again —
-see doc 43, which names the text-coverage surface it is waiting on.
+### Placing the mask
+
+`mask-size-*`, `mask-position-*` and `mask-repeat-*` place a **tile** inside the mask box, through
+the same two parsers `background-size` and `background-position` use — Masking 1 § 4 defers to
+Backgrounds 3 for all three grammars, so a mask and a background written the same way put their
+layers in the same place. The tile is one pair of lanes on the entry: `AreaCentre`, and `AreaHalf`
+with `mask-repeat` encoded in its **sign** — positive tiles with a period of twice the component,
+negative paints one tile and gives *zero* coverage outside it, which is what CSS means by not
+painting a layer there. All zero means the tile is the mask box, which is what every entry written
+before the lane existed meant.
+
+⚠ **Nothing is written unless a size or a position was stated, and that guard is load-bearing
+twice.** With the tile equal to the mask box every keyword of `mask-repeat` draws the same picture,
+so the lane would say nothing; and because a clipping tile is never opaque, a lane written anyway
+would stop `Reduce` dropping the five opaque layers every Tailwind mask emits — turning a one-entry
+list into six and opening a group for each.
+
+`mask-radial-at-*` is a different frame again: it moves the **ramp** inside the tile rather than the
+tile inside the box, and it grows the reach with the centre, because CSS's default ending shape is
+`farthest-corner`. It is per *layer*, where the tile is per element — `mask-image` is a list and each
+layer carries its own gradient function.
+
+⚠ **What is still absent, and each for a stated reason.** `mask-origin-*` and `mask-clip-*` both
+default to `border-box`, which is the only rectangle this engine has — there is no padding, content,
+fill, stroke or view box to resolve the other values against, so every one of them would draw the
+same picture. `mask-type-*` applies to SVG `<mask>` elements, which this engine has none of. The
+radial *ending shapes* — `mask-circle`, `mask-ellipse`, `mask-radial-closest-side` and its siblings —
+each name a different ellipse from the `farthest-corner` one computed here, so `GradientReader`
+refuses them; a refused layer is no mask at all rather than a slightly wrong one. `bg-clip-text` is a
+separate matter again — see doc 43, which names the text-coverage surface it is waiting on.
 
 `UiRenderer.Masked` is what says a mask happened, and it is worth having for `Filtered`'s reason plus
 one: `ui-mask.frag` serves masked groups *and* carries the colour matrix, so a renderer that picked
