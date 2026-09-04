@@ -42,8 +42,12 @@ needs_lock() {
 # distinction `NukeBuild.IsLocalBuild` makes inside the build. VIXEN_NO_BUILD_LOCK is the escape
 # hatch for someone who knows what else is running, and a machine with no python3 falls through it
 # rather than refusing to build.
+#
+# ⚠ `${1+"$@"}` rather than `"$@"`: with `set -u` and no arguments, bash 4.3 and earlier — which
+# includes the 3.2 macOS ships — treat an empty `"$@"` as an unbound variable and abort. That is the
+# bare `./build.sh` case, which is also the one this lock most wants to catch.
 if [ -n "${CI:-}" ] || [ -n "${VIXEN_NO_BUILD_LOCK:-}" ] || ! command -v python3 > /dev/null 2>&1 \
-    || ! needs_lock "$@"; then
+    || ! needs_lock ${1+"$@"}; then
     exec dotnet run --project "${root}/build/_build.csproj" --no-launch-profile -- "$@"
 fi
 
