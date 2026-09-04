@@ -114,6 +114,34 @@ public partial class UiElement : Composition.IComposable {
     /// </remarks>
     protected internal virtual UiElement ContentHost => this;
 
+    /// <summary>Where content addressed to one of this control's named slots goes.</summary>
+    /// <param name="name">The name, as written in <c>slot="…"</c>.</param>
+    /// <returns>The element to build under, or <see langword="null" /> when the control publishes
+    ///     nothing under that name.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="ContentHost" /> is one place and some controls are two things.</b> An
+    ///         <c>Expander</c> is a header and a body. Markup could fill the body, because that is
+    ///         what <see cref="ContentHost" /> answers, and had no spelling at all for the header —
+    ///         so every panel wanting an icon, a remove button or a grab handle on a foldout header
+    ///         built its whole loop in C#. That one missing name is what kept the last portable
+    ///         editor panel out of <c>.vxml</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A lookup rather than one property per part, and <see cref="ContentHost" /> stays
+    ///         the default.</b> A control publishes the extra places it has and no more; a name it
+    ///         does not publish throws in <c>BuildContext.Into</c> rather than falling back on the
+    ///         content host, because content landing silently in the body when the author asked for
+    ///         the header draws a panel that is wrong in a way nothing reports.
+    ///     </para>
+    ///     <para>
+    ///         The <see cref="Composition.Component" /> mirror is <c>&lt;slot name="…" /&gt;</c>,
+    ///         which fills the dictionary this virtual stands in for. <c>BuildContext.Into</c> is
+    ///         the one call site of both.
+    ///     </para>
+    /// </remarks>
+    protected internal virtual UiElement? NamedHost(string name) => null;
+
     /// <summary>Its parent, or <c>null</c> for the root.</summary>
     public UiElement? Parent { get; private set; }
 

@@ -581,6 +581,7 @@ static Vixen.Ui.Markup.Syntax.SyntaxTree.ParseText(string text, string? path = "
 static Vixen.Ui.Markup.Syntax.VxmlSyntaxExtensions.get_Kind(Vixen.Core.Syntax.SyntaxToken token) -> Vixen.Ui.Markup.Syntax.SyntaxKind
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.DuplicateAttribute -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.DuplicateSlot -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.DynamicSlotName -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.EmptyComponent -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ExpectedExpression -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ExpectedExpressionValue -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor

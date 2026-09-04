@@ -117,6 +117,40 @@ public class SlotProjectionTests {
         Assert.Contains("status", error.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>A control answers for the names it publishes, and refuses the ones it does not.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This method used to be a bare <c>throw</c>, and its remark said a control has no
+    ///     slots to name and never will.</b> That was wrong: a control has as many places as it has
+    ///     <i>parts</i>, and <see cref="UiElement.ContentHost" /> can name exactly one of them — so
+    ///     an <c>Expander</c>'s body was reachable from markup and its header was not, which is what
+    ///     kept the last portable editor panel in C#. Both halves are here because either alone
+    ///     passes against the wrong implementation: a <c>NamedHost</c> answering every name would
+    ///     satisfy the first, and the original throw satisfied the second.
+    /// </remarks>
+    [Fact]
+    public void A_control_answers_for_a_slot_it_publishes_and_refuses_one_it_does_not() {
+        using var fixture = new ControlFixture(400f, 400f);
+
+        var expander = fixture.Document.Root.Add<Expander>();
+        fixture.Update();
+
+        Assert.Same(expander.Header, BuildContext.Into(expander, Expander.HeaderSlot));
+
+        // ⚠ And the body is still `Inner`'s, not a name. `ContentHost` stays the default so that
+        // markup with no `slot` attribute anywhere emits exactly the call it always emitted.
+        Assert.Same(expander.Content, BuildContext.Inner((UiElement)expander));
+
+        var error = Assert.Throws<InvalidOperationException>(() => BuildContext.Into(expander, "footer"));
+
+        Assert.Contains("footer", error.Message, StringComparison.Ordinal);
+        Assert.Contains("expander", error.Message, StringComparison.Ordinal);
+
+        // A control that publishes nothing lands in the same message, which is what the method was
+        // written for and is still what it does.
+        var panel = fixture.Document.Root.Add<UiElement>();
+        Assert.Throws<InvalidOperationException>(() => BuildContext.Into(panel, "header"));
+    }
+
     /// <summary>The binder's spelling of the default slot is the runtime's.</summary>
     /// <remarks>
     ///     <c>Vixen.Ui.Markup</c> is a <c>netstandard2.1</c> analyser and cannot reference

@@ -1003,9 +1003,9 @@ Vixen.Ui.TextDecorationLine.Overline = 2 -> Vixen.Ui.TextDecorationLine
 Vixen.Ui.TextDecorationLine.TextDecorationLine() -> void
 Vixen.Ui.TextDecorationLine.Underline = 1 -> Vixen.Ui.TextDecorationLine
 Vixen.Ui.TextDecorationStyle -> enum : byte
-Vixen.Ui.TextDecorationStyle.Double = 1 -> Vixen.Ui.TextDecorationStyle
 Vixen.Ui.TextDecorationStyle.Dashed = 2 -> Vixen.Ui.TextDecorationStyle
 Vixen.Ui.TextDecorationStyle.Dotted = 3 -> Vixen.Ui.TextDecorationStyle
+Vixen.Ui.TextDecorationStyle.Double = 1 -> Vixen.Ui.TextDecorationStyle
 Vixen.Ui.TextDecorationStyle.Solid = 0 -> Vixen.Ui.TextDecorationStyle
 Vixen.Ui.TextDecorationStyle.TextDecorationStyle() -> void
 Vixen.Ui.TextInputEvent -> sealed class
@@ -1513,6 +1513,7 @@ virtual Vixen.Ui.Composition.Component.Style.get -> string?
 virtual Vixen.Ui.Composition.Component.StyleIsScoped.get -> bool
 virtual Vixen.Ui.Composition.Component.TagName.get -> string
 virtual Vixen.Ui.UiElement.ContentHost.get -> Vixen.Ui.UiElement
+virtual Vixen.Ui.UiElement.NamedHost(string name) -> Vixen.Ui.UiElement?
 virtual Vixen.Ui.UiElement.NativeAccessibleName.get -> string?
 virtual Vixen.Ui.UiElement.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
 virtual Vixen.Ui.UiElement.NativeAccessibleValue.get -> string?

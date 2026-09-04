@@ -203,6 +203,54 @@ public class BinderTests {
         Assert.Equal(["VXML2016"], Ids("@component A\n<Shell><div><p slot=\"footer\" /></div></Shell>"));
     }
 
+    /// <summary>A region's body is not a direct child either, and it was accepted and dropped.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half the position rule missed, and it failed silently rather than loudly.</b>
+    ///     <c>RefuseSlotAttributes</c> walked an element's own <c>ElementSyntax</c> children, so a
+    ///     <c>slot</c> written inside an <c>@if</c> under a component tag was reported by nobody —
+    ///     and the emitter's partition reads the attribute off <c>BoundElement</c> children, which a
+    ///     <c>BoundIf</c> is not, so the whole region including the slotted child went to the default
+    ///     host. Bound clean, ran, and drew the header's content in the body.
+    /// </remarks>
+    [Fact]
+    public void A_slot_attribute_inside_a_control_flow_region_is_refused() {
+        Assert.Equal(["VXML2016"], Ids("@component A\n<Shell>@if (x) { <p slot=\"footer\" /> }</Shell>"));
+        Assert.Equal(["VXML2016"], Ids("@component A\n<Shell>@if (x) { } else { <p slot=\"footer\" /> }</Shell>"));
+        Assert.Equal(
+            ["VXML2016"],
+            Ids("@component A\n<Shell>@for (var i in xs) { <p key=\"@i\" slot=\"footer\" /> }</Shell>")
+        );
+
+        Assert.Equal(
+            ["VXML2016"],
+            Ids("@component A\n<Shell>@switch (x) { case 1: <p slot=\"footer\" /> }</Shell>")
+        );
+
+        // ⚠ Once, not twice. A region inside a plain tag is swept by the region, and the tag's own
+        // sweep sees an `IfSyntax` rather than an element — so neither reports the other's children.
+        Assert.Equal(["VXML2016"], Ids("@component A\n<div>@if (x) { <p slot=\"footer\" /> }</div>"));
+
+        // ⚠ And the top level, which was the third place it was accepted and dropped. A component's
+        // own markup builds into its root; there is no parent above it to publish a name.
+        Assert.Equal(["VXML2016"], Ids("@component A\n<p slot=\"footer\" />"));
+    }
+
+    /// <summary>The name is read once, so it has to be one that cannot change.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An interpolated name was read as the <i>default</i> slot.</b> The emitter asks the
+    ///     attribute for its literal and falls back to <c>default</c> when there is none, which is
+    ///     right for the bare <c>slot</c> an author writes to mean the default and wrong for
+    ///     <c>slot="@Which"</c> — where it silently put the content somewhere the author did not ask
+    ///     for. Both halves here: the bare one still binds, the expression does not.
+    /// </remarks>
+    [Fact]
+    public void A_slot_name_has_to_be_a_literal() {
+        Assert.Equal(["VXML2018"], Ids("@component A\n<Shell><p slot=\"@Which\" /></Shell>"));
+        Assert.Equal(["VXML2018"], Ids("@component A\n<Shell><p slot=\"foot@Which\" /></Shell>"));
+        Assert.Empty(Ids("@component A\n<Shell><p slot /></Shell>"));
+        Assert.Empty(Ids("@component A\n<Shell><p slot=\"footer\" /></Shell>"));
+    }
+
     /// <summary>Content inside a slot was discarded in silence, and is now refused out loud.</summary>
     [Fact]
     public void A_slot_cannot_carry_fallback_content() {

@@ -136,10 +136,10 @@ tab's own content lands where it shows. A tab pairs itself with a panel in `OnCr
 in `OnRemoved`, which is what lets an `@if` or `@for` add and remove tabs — markup removes elements
 without calling `RemoveTab`.
 
-### `slot`, for a component with more than one place for content
+### `slot`, for a tag with more than one place for content
 
-A control has one `ContentHost`. A *component* can declare as many holes as it likes and let the
-consumer say which one each child goes in:
+A tag's children go to its content host unless they say otherwise. A *component* can declare as many
+holes as it likes and let the consumer say which one each child goes in:
 
 ```vxml no-compile="Core/Vixen.Ui.Controls.Tests/Markup/ToolbarShell.vxml"
 <shell-root>
@@ -162,14 +162,40 @@ The shell decides the order: the status line is written first and drawn last. Ch
 
 | | |
 |---|---|
-| Declaring a *named* slot | Needs a plain component. `@inherits` makes the class an element, which has one `ContentHost` and therefore one slot — a second name is `VXML2012`. |
+| Declaring a *named* slot in markup | Needs a plain component. `@inherits` makes the class an element, which has one `ContentHost` and therefore one `<slot>` — a second name is `VXML2012`. |
 | Filling one | Any tag may, from anywhere. The restriction is on the declaring side only. |
-| Where `slot="…"` may go | On a **direct child of a component tag** and nowhere else — `VXML2016`. A grandchild's name is addressed to a tag that is not listening. |
+| Where `slot="…"` may go | On a **direct child of a capitalised tag** and nowhere else — `VXML2016`. A grandchild's name is addressed to a tag that is not listening, and an `@if`/`@for`/`@switch` body is not a direct child either. |
+| What the name may be | A literal — `VXML2018`. It is read once, when the element is made, exactly as `tag` is. A bare `slot` with no value still means the default one. |
 | A name that matches no slot | Throws at compose, naming the slots the component does declare. Not dropped: the two sides are compiled together, so it is a typo you can fix. |
 | Fallback content | Not supported — `VXML2017`. `<slot>Nothing yet</slot>` refuses rather than silently drawing nothing. Put the default in the consumer. |
 
 ⚠ `slot="…"` is consumed at placement, like `key` and `tag`. It never reaches the document, so a
 stylesheet rule written against `[slot]` matches nothing.
+
+#### A control's named slots
+
+A control's parts are named by C#, not by `<slot>`, and `Expander` publishes one:
+
+```vxml no-compile="Core/Vixen.Ui.Controls.Tests/Markup/FoldoutSheet.vxml"
+<Expander Label="Transform" IsExpanded="true">
+    <Icon slot="header" class="section-icon" />
+    <IconButton slot="header" class="section-remove" Label="Remove" />
+    <section-body>0, 0, 0</section-body>
+</Expander>
+```
+
+Without a `slot` a child goes to `ContentHost`, which for an expander is the body that collapsing
+hides. `slot="header"` puts it in the strip that opens it, beside the chevron and the label — where
+a panel puts a component's icon, a remove button and the handle a drag reads.
+
+⚠ **A slot appends, so anything that belongs in front of the label needs `order`.** The header's own
+parts are built before any markup child exists, so a slotted glyph lands after the name. Two CSS
+rules move it: `expander-header label { order: 1 }` and `.section-remove { order: 2 }`.
+
+⚠ **A control publishes the names it has and no more.** A name it does not publish throws at compose
+rather than falling back on the content host — a misspelt slot that quietly put the header's icon in
+the body draws a panel that is wrong in a way nothing reports. To publish one on your own control,
+override `UiElement.NamedHost`.
 
 ### Where a `ref` may go
 

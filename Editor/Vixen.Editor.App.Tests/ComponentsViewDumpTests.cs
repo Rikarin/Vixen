@@ -1,0 +1,394 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Editor.Testing;
+using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
+using Vixen.Ui;
+using Vixen.Ui.Controls;
+using Xunit;
+
+namespace Vixen.Editor.App.Tests;
+
+/// <summary>The ported component panel, written down in four states.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>A committed dump rather than a wave note.</b> Nine rows of the panel ledger claim
+///         "byte-identical in N dumped states" and only a handful of test files ever dumped a tree;
+///         every other comparison was run once, read and deleted. This is the comparison, kept —
+///         and it is the evidence for the last row on that ledger.
+///     </para>
+///     <para>
+///         ⚠ <b>The header is one subject, because the header is what changed.</b> The port's claim
+///         is that <c>slot="header"</c> plus two <c>order</c> rules put the icon, the label and the
+///         remove button exactly where <c>Document.Move(glyph, 1)</c> used to. The tree dump below
+///         is in <i>document</i> order — chevron, label, icon, button, which is what appending to a
+///         slot produces — and its <i>rectangles</i> are in painted order. Both halves are the
+///         claim: the markup does not reorder and the stylesheet does.
+///     </para>
+///     <para>
+///         ⚠ <b>And a flags dump, because a tree dump is blind.</b> <c>Label</c> lives in a part the
+///         control owns, <c>IsExpanded</c> is a property and <c>Number</c> is a drawer's; none of
+///         them appears in a tree. Wave 7 shipped a panel that matched byte-for-byte in six states
+///         while carrying a binding that could not work, which is what <c>UiTest.Flags</c> exists
+///         for.
+///     </para>
+///     <para>
+///         ⚠ <b>Every state is reached through the interface.</b> The collapse is a click on the
+///         header, the reorder is a real pointer drag, and the removal is a click on the button the
+///         markup put in the header — so what is exercised is the routed <c>on:</c> legs the port
+///         introduced, and not a model somebody poked. Wave 7's dumps only ever drove the model,
+///         which is the leg that cannot fail.
+///     </para>
+/// </remarks>
+public sealed class ComponentsViewDumpTests {
+    /// <summary>The header a foldout is built with, in full.</summary>
+    [Fact]
+    public void The_header_is_the_one_the_hand_written_loop_built() {
+        using var editor = Crate(out var components);
+
+        Assert.Equal(
+            """
+            <expander-header .variant-default .size-md> 0,1 320×36
+              <icon .variant-default .size-md> 6,12 12×12
+              <label> 54,7 117×22 "Primitive Shape"
+              <icon .variant-default .size-md .component-icon> 26,10 16×16
+              <icon-button .remove-component .variant-subtle .size-sm> 294,7 20×20
+                <icon .variant-default .size-md> 4,4 12×12
+                <label> 0,0 0×0 "Remove Component"
+            """,
+            editor.Ui.Tree(components.Sections[0].Header)
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The icon is <i>painted</i> between the chevron and the label, which the dump above
+    ///     shows only in its numbers.</b> A slot appends, so the document order is chevron, label,
+    ///     icon, button and the tree walks children — the four rectangles are the only thing that
+    ///     says the <c>order</c> rules took effect. This is the assertion that goes red if somebody
+    ///     deletes them and leaves the markup alone, which a byte comparison of the tree would not.
+    /// </summary>
+    [Fact]
+    public void The_slotted_icon_is_painted_between_the_chevron_and_the_label() {
+        using var editor = Crate(out var components);
+        var header = components.Sections[0].Header;
+
+        var chevron = header.Children.First(child => child is Icon && !child.HasClass("component-icon"));
+        var glyph = header.Children.First(child => child.HasClass("component-icon"));
+        var label = header.Children.First(child => child.Tag == "label");
+        var remove = header.Children.First(child => child.HasClass("remove-component"));
+
+        Assert.True(
+            chevron.AbsoluteLeft < glyph.AbsoluteLeft
+            && glyph.AbsoluteLeft < label.AbsoluteLeft
+            && label.AbsoluteLeft < remove.AbsoluteLeft,
+            $"chevron {chevron.AbsoluteLeft}, icon {glyph.AbsoluteLeft}, "
+            + $"label {label.AbsoluteLeft}, remove {remove.AbsoluteLeft}"
+        );
+    }
+
+    /// <summary>What the tree cannot see, in four states, each reached through the interface.</summary>
+    [Fact]
+    public void The_flags_dump_follows_the_panel_through_four_states() {
+        using var editor = Crate(out var components);
+
+        Assert.Equal(Open, Flags(editor, components));
+
+        // ── Collapsed, by clicking the header the markup filled ──────────────
+        editor.Click(components.Sections[0].Header);
+        editor.Settle();
+
+        Assert.Equal(Shut, Flags(editor, components));
+
+        // ── Open again, which is a state a person can get back to ────────────
+        editor.Click(components.Sections[0].Header);
+        editor.Settle();
+
+        Assert.Equal(Reopened, Flags(editor, components));
+
+        // ── Reordered, by a real pointer drag on the second header ───────────
+        var handle = components.Sections[1].Header.Bounds;
+        var target = components.Sections[0].Header.Bounds;
+
+        editor.Ui
+            .At(handle.X + (handle.Width * 0.5f), handle.Y + (handle.Height * 0.5f))
+            .DragTo(target.X + (target.Width * 0.5f), target.Y + 2f);
+
+        editor.Settle();
+
+        Assert.Equal(Swapped, Flags(editor, components));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The remove button in the header removes the component and nothing else.</b> It is a
+    ///     button inside the strip that toggles the foldout, so its click bubbles through
+    ///     <c>Expander.Chosen</c> on the way out — which is what <c>on:click.stop</c> is on it for.
+    ///     Without the modifier the section it is removing shuts as it goes, and so does any other
+    ///     one whose header a stray click reaches.
+    /// </summary>
+    [Fact]
+    public void The_remove_button_takes_the_component_off_and_leaves_the_other_open() {
+        using var editor = Crate(out var components);
+
+        var remove = components.Sections[1].Header.Children.First(child => child.HasClass("remove-component"));
+
+        editor.Click(remove);
+        editor.Settle();
+
+        var section = Assert.Single(components.Sections);
+
+        Assert.Equal("Primitive Shape", section.Label);
+        Assert.True(section.IsExpanded, "the surviving foldout shut when its neighbour was removed");
+    }
+
+    /// <summary>The state the panel opens in: two foldouts, both open, nothing focused.</summary>
+    const string Open =
+        """
+        <expander .variant-default .size-md .component .open> IsExpanded=True Label="Primitive Shape"
+        <expander-header .variant-default .size-md> State=Checked Label="Primitive Shape"
+        <icon-button .remove-component .variant-subtle .size-sm> Label="Remove Component"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <select .variant-default .size-md> Value="Cube"
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <icon-button .variant-subtle .size-sm> Label="Pick"
+        <icon-button .variant-subtle .size-sm> Label="Clear"
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <expander .variant-default .size-md .component .open> IsExpanded=True Label="Light"
+        <expander-header .variant-default .size-md> State=Checked Label="Light"
+        <icon-button .remove-component .variant-subtle .size-sm> Label="Remove Component"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <select .variant-default .size-md> Value="Point"
+        <icon-button .variant-subtle .size-sm> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <color-input .variant-default .size-md> Value=(1, 1, 1, 1)
+        <icon-button .variant-subtle .size-sm> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="127.324" Number=127.324
+        <icon-button .variant-subtle .size-sm> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <select .variant-default .size-md> Value="Candela"
+        <icon-button .variant-subtle .size-sm> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="0.000" Number=0
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="10.000" Number=10
+        <icon-button .variant-subtle .size-sm> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="0.000" Number=0
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="0.000" Number=0
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="0.000" Number=0
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="0.000" Number=0
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <button .variant-default .size-md .add-component> Label="Add Component"
+        """;
+
+    /// <summary>The first one collapsed, and the header that took the click has the focus.</summary>
+    const string Shut =
+        """
+        <components .variant-default .size-md> State=FocusWithin
+        <component-list> State=FocusWithin
+        <expander .variant-default .size-md .component> State=FocusWithin Label="Primitive Shape"
+        <expander-header .variant-default .size-md> State=Focus, FocusWithin Label="Primitive Shape"
+        <icon-button .remove-component .variant-subtle .size-sm> Label="Remove Component"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <select .variant-default .size-md> Value="Cube"
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <icon-button .variant-subtle .size-sm> Label="Pick"
+        <icon-button .variant-subtle .size-sm> Label="Clear"
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <expander .variant-default .size-md .component .open> IsExpanded=True Label="Light"
+        <expander-header .variant-default .size-md> State=Checked Label="Light"
+        <icon-button .remove-component .variant-subtle .size-sm> Label="Remove Component"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <select .variant-default .size-md> Value="Point"
+        <icon-button .variant-subtle .size-sm> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <color-input .variant-default .size-md> Value=(1, 1, 1, 1)
+        <icon-button .variant-subtle .size-sm> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="127.324" Number=127.324
+        <icon-button .variant-subtle .size-sm> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <select .variant-default .size-md> Value="Candela"
+        <icon-button .variant-subtle .size-sm> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="0.000" Number=0
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="10.000" Number=10
+        <icon-button .variant-subtle .size-sm> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="0.000" Number=0
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="0.000" Number=0
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="0.000" Number=0
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="0.000" Number=0
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <button .variant-default .size-md .add-component> Label="Add Component"
+        """;
+
+    /// <summary>Open again. Not byte-identical with the first state, and must not be.</summary>
+    const string Reopened =
+        """
+        <components .variant-default .size-md> State=FocusWithin
+        <component-list> State=FocusWithin
+        <expander .variant-default .size-md .component .open> State=FocusWithin IsExpanded=True Label="Primitive Shape"
+        <expander-header .variant-default .size-md> State=Focus, Checked, FocusWithin Label="Primitive Shape"
+        <icon-button .remove-component .variant-subtle .size-sm> Label="Remove Component"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <select .variant-default .size-md> Value="Cube"
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <icon-button .variant-subtle .size-sm> Label="Pick"
+        <icon-button .variant-subtle .size-sm> Label="Clear"
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <expander .variant-default .size-md .component .open> IsExpanded=True Label="Light"
+        <expander-header .variant-default .size-md> State=Checked Label="Light"
+        <icon-button .remove-component .variant-subtle .size-sm> Label="Remove Component"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <select .variant-default .size-md> Value="Point"
+        <icon-button .variant-subtle .size-sm> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <color-input .variant-default .size-md> Value=(1, 1, 1, 1)
+        <icon-button .variant-subtle .size-sm> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="127.324" Number=127.324
+        <icon-button .variant-subtle .size-sm> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <select .variant-default .size-md> Value="Candela"
+        <icon-button .variant-subtle .size-sm> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="0.000" Number=0
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="10.000" Number=10
+        <icon-button .variant-subtle .size-sm> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="0.000" Number=0
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="0.000" Number=0
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="0.000" Number=0
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="0.000" Number=0
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <button .variant-default .size-md .add-component> Label="Add Component"
+        """;
+
+    /// <summary>After the drag. The focus moved with the element rather than staying at index 0.</summary>
+    const string Swapped =
+        """
+        <components .variant-default .size-md> State=FocusWithin
+        <component-list> State=FocusWithin
+        <expander .variant-default .size-md .component .open> State=FocusWithin IsExpanded=True Label="Light"
+        <expander-header .variant-default .size-md> State=Focus, Checked, FocusWithin Label="Light"
+        <icon-button .remove-component .variant-subtle .size-sm> Label="Remove Component"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <select .variant-default .size-md> Value="Point"
+        <icon-button .variant-subtle .size-sm> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <color-input .variant-default .size-md> Value=(1, 1, 1, 1)
+        <icon-button .variant-subtle .size-sm> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="127.324" Number=127.324
+        <icon-button .variant-subtle .size-sm> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <select .variant-default .size-md> Value="Candela"
+        <icon-button .variant-subtle .size-sm> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="0.000" Number=0
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="10.000" Number=10
+        <icon-button .variant-subtle .size-sm> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="0.000" Number=0
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="0.000" Number=0
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="0.000" Number=0
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <numeric-input .variant-default .size-md> Value="0.000" Number=0
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <expander .variant-default .size-md .component .open> IsExpanded=True Label="Primitive Shape"
+        <expander-header .variant-default .size-md> State=Checked Label="Primitive Shape"
+        <icon-button .remove-component .variant-subtle .size-sm> Label="Remove Component"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <select .variant-default .size-md> Value="Cube"
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
+        <icon-button .variant-subtle .size-sm> Label="Pick"
+        <icon-button .variant-subtle .size-sm> Label="Clear"
+        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
+        <button .variant-default .size-md .add-component> Label="Add Component"
+        """;
+    /// <summary>The panel's flags, with the pointer parked first.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>State</c> is pointer-dependent and three of these states are reached by
+    ///     clicking.</b> A reading taken with the pointer still resting on the header it just
+    ///     pressed carries <c>Hover</c> and one taken elsewhere does not — a property of the thing
+    ///     being measured rather than of the measurement, and the same difference wave 6 recorded
+    ///     between a pooled row's hover and a keyed one's. Parking is what makes the four dumps
+    ///     comparable with each other.
+    /// </remarks>
+    static string Flags(EditorSession editor, ComponentsView components) {
+        editor.Ui.At(2f, 2f).Hover();
+        editor.Settle();
+
+        return editor.Ui.Flags(components);
+    }
+
+    /// <summary>An editor showing a crate with two components on it, settled.</summary>
+    static EditorSession Crate(out ComponentsView components) {
+        var editor = EditorSession.Start();
+
+        editor.Open("hierarchy");
+        editor.ExpandAll(editor.Hierarchy);
+        editor.ClickRow(editor.Hierarchy, "Crate");
+        editor.Open("inspector");
+        editor.Settle();
+
+        var found = Descendants(editor.Panel("inspector")).OfType<ComponentsView>().FirstOrDefault()
+            ?? throw editor.Fail("the inspector has no components section");
+
+        // The crate has a mesh shape; a light as well is two foldouts, which is what a reorder and a
+        // removal both need.
+        Lights.Attach(editor.Scene.World, editor.Scene.Selection[0], LightKind.Point);
+
+        found.Show(editor.Scene.Selection[0]);
+        editor.Settle();
+
+        components = found;
+        return editor;
+    }
+
+    static IEnumerable<UiElement> Descendants(UiElement element) {
+        foreach (var child in element.Children) {
+            yield return child;
+
+            foreach (var found in Descendants(child)) {
+                yield return found;
+            }
+        }
+    }
+}

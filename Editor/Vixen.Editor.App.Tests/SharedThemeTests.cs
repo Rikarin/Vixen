@@ -3,6 +3,8 @@
 
 using Vixen.Editor.AssetEditors;
 using Vixen.Editor.Debugger;
+using Vixen.Editor.Inspector;
+using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Profiler;
 using Vixen.Editor.Ui;
 using Xunit;
@@ -59,18 +61,32 @@ public class SharedThemeTests {
     /// </remarks>
     /// <remarks>
     ///     ⚠ <b>This list is also the ledger of which assemblies have opted in, and it is deliberately
-    ///     hand-written.</b> Nine or so editor assemblies still do not take part; joining is one
-    ///     <c>Import</c> in the <c>.csproj</c> and one line here, and the reason there is no
-    ///     reflection over "every assembly with a theme" is that opting in is a decision — a project
-    ///     with a design of its own should declare its own tokens and must not be swept into the
-    ///     editor's.
+    ///     hand-written.</b> Joining is one <c>Import</c> in the <c>.csproj</c> and one line here, and
+    ///     the reason there is no reflection over "every assembly with a theme" is that opting in is a
+    ///     decision — a project with a design of its own should declare its own tokens and must not be
+    ///     swept into the editor's.
+    /// </remarks>
+    /// <remarks>
+    ///     ⚠ <b>This note used to say "nine or so editor assemblies still do not take part", and the
+    ///     number was a guess that turned into an issue title.</b> Counted rather than estimated: of
+    ///     the 49 projects under <c>Editor/</c>, exactly five held a <c>.vxml</c> or a <c>.vcss</c>
+    ///     and were not participating — <c>App</c>, <c>Inspector</c>, <c>NodeGraph</c>,
+    ///     <c>Terrain</c> and <c>Water</c>. Three of them are here now. <b><c>Terrain</c> and
+    ///     <c>Water</c> are deliberately not</b>, and the reason is the one this remark already
+    ///     gives: neither writes a single <c>class</c> attribute in any of its six <c>.vxml</c>
+    ///     files, and neither declares a <c>.vcss</c> or an <c>Install</c> — so joining them means
+    ///     inventing a loader in each to publish a sheet with nothing in it, which is the sweep this
+    ///     list exists to refuse. The other 39 have no markup and no stylesheet at all.
     /// </remarks>
     public static TheoryData<string, string> Participants =>
         new() {
             { "Vixen.Editor.Ui", EditorStyles.Utilities },
             { "Vixen.Editor.Profiler", ProfilerTheme.Utilities },
             { "Vixen.Editor.AssetEditors", AssetEditorTheme.Utilities },
-            { "Vixen.Editor.Debugger", DebuggerTheme.Utilities }
+            { "Vixen.Editor.Debugger", DebuggerTheme.Utilities },
+            { "Vixen.Editor.App", EditorApplication.WorldTheme.Utilities },
+            { "Vixen.Editor.Inspector", InspectorTheme.Utilities },
+            { "Vixen.Editor.NodeGraph", NodeGraphTheme.Utilities }
         };
 
     /// <summary>The shared tokens reached the assembly: a token only the editor declares resolves.</summary>
@@ -78,7 +94,7 @@ public class SharedThemeTests {
     ///     <c>surface</c> is the editor's own colour token. It is declared in
     ///     <c>Vixen.Editor.Ui/Theming/vixen.ui.vcss</c> and nowhere else, and it is not one of
     ///     Tailwind's, so a sheet containing <c>.bg-surface</c> is a sheet that read the editor's
-    ///     <c>@theme</c> — which for two of the three assemblies below is only possible across a
+    ///     <c>@theme</c> — which for six of the seven assemblies below is only possible across a
     ///     project boundary.
     /// </remarks>
     [Theory]

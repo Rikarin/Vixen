@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.BackgroundTask, T:Vixen.Ui.BackgroundTaskManager, T:Vixen.Ui.Ba
 tags: [ui, tasks, progress, cancellation, threading, reactivity]
 since: 0.2
 status: preview
-related: [ui/commands, ui/reactive-collections, editor/index]
+related: [ui/commands, ui/reactive-collections, ui/desktop-application, editor/index]
 ---
 
 ## What it is

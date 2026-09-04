@@ -534,9 +534,9 @@ Two differences remain, and both are the base class being honest:
 - **`<style scoped>`** works, but the sheet is loaded by the generated `OnCreated` rather than by
   `Component.Mount`, because a `UiElement` has no `Style` property to read.
 - **`<slot />`** becomes `ContentHost`, which is the control library's existing answer to "where
-  does a caller's content go". A *named* slot is `VXML2012`: a component has as many slots as it
-  declares because `Inner(Component)` reads a dictionary, and an element has one because
-  `ContentHost` is one property. A second name would be an element nothing can address.
+  does a caller's content go". *Declaring* a named slot is `VXML2012`: a component has as many slots
+  as it declares because `Inner(Component)` reads a dictionary, and an element declares one because
+  `ContentHost` is one property. A second declared name would be an element nothing can address.
 
   ⚠ **So a shell with named slots has to be a plain component**, and that is the constraint to know
   before reaching for one. The panels in the editor that most want a toolbar/body/status shell —
@@ -574,9 +574,21 @@ order — the emitter partitions rather than emitting a call per child.
 consumer wrote its content in. That is the whole of what projection buys over three parameters.
 
 ⚠ **`slot="…"` is legal by virtue of its parent**, so it is refused by position rather than by name:
-`VXML2016` on anything that is not a direct child of a component tag, reported against the attribute
-and naming the tag it was written under. A grandchild is refused too — its slot name is addressed to
-a tag that is not listening.
+`VXML2016` on anything that is not a direct child of a capitalised tag, reported against the
+attribute and naming what it was written under. A grandchild is refused too — its slot name is
+addressed to a tag that is not listening.
+
+⚠ **And an `@if`, `@for` or `@switch` body is not a direct child either**, which is the half that is
+about the emitter rather than about the model. A region anchors on the parent it was handed and
+reconciles against the children it made *there*, so a child built under a different parent would be
+counted in a sibling list it is not in. Until this was checked, a `slot` inside a region bound
+clean and was then dropped without a word: the emitter partitions by reading the attribute off each
+`BoundElement` child, and a region is not one, so the whole region went to the default host.
+
+⚠ **The name has to be a literal — `VXML2018`.** It is read once, when the element is made, exactly
+as `tag` is; nothing moves an element between parents afterwards, so an interpolated name would be
+a lie for the rest of the region's life. A bare `slot` with no value still means the default one,
+which is what an author who wrote the word and nothing else meant.
 
 ⚠ **A name the component does not declare throws at compose**, naming the ones it does. That is the
 opposite of the web platform, which drops unmatched slotted content silently; the two sides are
@@ -589,6 +601,35 @@ misspelling in the consumer that it is.
 default slot through `Component.Content`, which falls back to the component's root when it declared
 no slot at all; `Into` reads the dictionary and throws. The unnamed children go through `Inner`, so
 markup that names no slot compiles to exactly what it always did.
+
+### A control's side of it
+
+⚠ **A control publishes named slots too, and `BuildContext.Into` used to say it never would.** The
+`UiElement` overload was a bare `throw` whose remark read "a control has no slots to name and never
+will" — and that was wrong, because a control has as many places as it has *parts* and `ContentHost`
+can name exactly one of them. An `Expander` is a header and a body: markup could fill the body and
+had no spelling at all for the header, which is where an inspector puts a component's icon, its
+remove button and the grab handle a drag reads. That one missing name is what kept the last portable
+editor panel written in C#.
+
+The control-side answer is `UiElement.NamedHost(string)`, a lookup rather than one property per
+part. `Expander` overrides it for `header`; everything else inherits the `null` that lands in the
+same message the overload was written for. `ContentHost` stays the default, so markup with no `slot`
+attribute anywhere emits exactly the call it always emitted.
+
+```
+<Expander Label="Transform">
+    <Icon slot="header" class="section-icon" />
+    <IconButton slot="header" Label="Remove" />
+    <section-body>0, 0, 0</section-body>
+</Expander>
+```
+
+⚠ **A slot appends, so anything that belongs in *front* of the header's own parts says so with
+`order`.** The header already holds the chevron and the label; slotted children land after them.
+`LayoutStyle.Order` has been implemented all along — two CSS rules put a glyph between the chevron
+and the name, which is what makes a `Document.Move(glyph, 1)` in a panel deletable rather than
+merely moved.
 
 ## Whitespace
 

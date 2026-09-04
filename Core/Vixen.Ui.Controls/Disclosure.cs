@@ -89,6 +89,30 @@ public sealed partial class Expander : Control {
     /// </remarks>
     protected override UiElement ContentHost => Content;
 
+    /// <summary>The name markup writes to reach <see cref="Header" />.</summary>
+    public const string HeaderSlot = "header";
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>slot="header"</c>, and it is what took the last panel out of C#.</b> An
+    ///         expander is two things and <see cref="ContentHost" /> can only be one of them, so
+    ///         markup could fill a foldout's body and had no spelling at all for its header — which
+    ///         is where an inspector puts a component's icon, its remove button and the grab handle
+    ///         a drag reads. The whole of <c>ComponentsView</c>'s foldout loop stayed hand-written
+    ///         for that one missing name.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The header itself, not a wrapper inside it.</b> A container would be a second
+    ///         box in the flex row that every existing rule — <c>expander-header icon</c>,
+    ///         <c>expander-header:hover .remove-component</c> — would have had to be taught about.
+    ///         Content lands after the label, which is where appending puts it; anything belonging
+    ///         in front of the label says so with <c>order</c>, the way it would on the web.
+    ///     </para>
+    /// </remarks>
+    protected override UiElement? NamedHost(string name) =>
+        string.Equals(name, HeaderSlot, StringComparison.Ordinal) ? Header : base.NamedHost(name);
+
     /// <summary>What the header says.</summary>
     public string? Label {
         get => Header.Label;

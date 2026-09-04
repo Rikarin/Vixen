@@ -3381,14 +3381,11 @@ T:Vixen.Ui.Controls.ValueChangedEvent`1 sweep-pending
 T:Vixen.Ui.Controls.VirtualizingGrid sweep-pending
 T:Vixen.Ui.Controls.VirtualizingPanel sweep-pending
 T:Vixen.Ui.CornerRadii sweep-pending
-T:Vixen.Ui.Desktop.HotReload.DesktopHotReload sweep-pending
-T:Vixen.Ui.Desktop.SystemFonts sweep-pending
-T:Vixen.Ui.Desktop.UiApplication sweep-pending
-T:Vixen.Ui.Desktop.UiApplicationOptions sweep-pending
-T:Vixen.Ui.Desktop.UiDevelopment sweep-pending
-T:Vixen.Ui.Desktop.UiFrame sweep-pending
-T:Vixen.Ui.Desktop.UiShaderLibrary sweep-pending
-T:Vixen.Ui.Desktop.UiWindowSurface sweep-pending
+T:Vixen.Ui.Desktop.HotReload.DesktopHotReload arrives-by-reference — nothing calls it and nothing should: a Debug-only reference to Vixen.Ui.Desktop.HotReload is the whole of turning hot reload on, and UiApplication loads the assembly by name. The guide page for the thing an author does write is ui/desktop-application
+T:Vixen.Ui.Desktop.SystemFonts sweep-pending — UiApplicationOptions.InstallSystemFont is the only thing most applications say about it, and that is documented in ui/desktop-application; a page of its own is owed once font fallback is more than one borrowed face
+T:Vixen.Ui.Desktop.UiDevelopment sweep-pending — the hot-reload seam UiApplicationOptions.Mount exists for; owed with the hot-reload guide rather than with ui/desktop-application
+T:Vixen.Ui.Desktop.UiShaderLibrary sweep-pending — the interface renderer's own shaders, which no application names; owed with the UI rendering guide
+T:Vixen.Ui.Desktop.UiWindowSurface sweep-pending — the one piece of the loop the editor still holds on its own (Vixen.Editor.Host has its own frame); owed when EditorHost joins UiApplication
 T:Vixen.Ui.DragEvent sweep-pending
 T:Vixen.Ui.DragStage sweep-pending
 T:Vixen.Ui.DrawBatch sweep-pending

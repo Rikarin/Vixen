@@ -123,7 +123,7 @@ disagrees with that ledger is this page being stale, not the ledger being wrong.
 | **`outline`/`outline-<n>`**, **`outline-<colour>`**, **`outline-offset-<n>`**, **`outline-solid`/`-none`/`-dashed`/`-dotted`/`-double`**, **`outline-hidden`** | — all five keywords are drawn |
 | `border`/`border-t`/`-r`/`-b`/`-l`/`-x`/`-y`, both widths and colours; **`border-bs`/`-be`**, both; `border-s`/`-e` widths; **`border-solid`/`-dashed`/`-dotted`/`-double`/`-none`/`-hidden`** | `border-s-<colour>` and `border-e-<colour>` — the *inline* logical pair never reached the draw list. `border-groove` and friends are not Tailwind classes and are not drawn: all four are two-tone and the border record carries one colour |
 | **`divide-x-`**, **`divide-y-`**, **`divide-<colour>`**, **`divide-solid`/`-dashed`/`-dotted`/`-double`/`-none`** | `divide-x-reverse`, `divide-y-reverse` — the reverse pair needs `calc()` |
-| `overflow-hidden`, `overflow-scroll`, `overflow-auto`, **`overflow-clip`**, **`overflow-x-*`**, **`overflow-y-*`**, `truncate` | |
+| **`overflow-visible`**, `overflow-hidden`, `overflow-scroll`, `overflow-auto`, **`overflow-clip`**, **`overflow-x-*`**, **`overflow-y-*`**, **`scrollbar-auto`/`-thin`/`-none`**, `truncate` | |
 | `cursor-`, `caret-`, `pointer-events-`, `transition`, `duration-`, `ease-`, `aspect-` | `select-` (`user-select`) |
 | **`bg-linear-*`**, **`bg-radial`**, **`bg-conic`** with `from-`/`via-`/`to-` and stop positions | |
 
@@ -178,8 +178,9 @@ does. The **block** ones — `scroll-mbs-*`, `scroll-mbe-*`, `scroll-pbs-*`, `sc
 written now and emit the *physical* `scroll-margin-top` and friends, for the reason `inset-bs-*` does
 one section up: nothing interns a block longhand and there is no writing mode for the block axis to
 be anything but top-to-bottom, so the physical name is the same declaration in a spelling
-`ScrollView` can read. `snap-*` and `scrollbar-*` are still deferred; see
-`docs/plan/43-web-styling-parity.md` Part 8 § 3.
+`ScrollView` can read. ~~`snap-*` and `scrollbar-*` are still deferred~~ — `scrollbar-*` landed with
+`LayoutStyle.ScrollbarWidth` and is in the overflow row of the table above; `snap-*` is still
+deferred. See `docs/plan/43-web-styling-parity.md` Part 8 § 3.
 
 ⚠ **`caret-*` is the one interactivity colour with a reader, and `accent-*` is not.** `caret-accent`
 on a `<TextBox>`, a `<TextArea>` or a `<CodeEditor>` colours the insertion point: both controls ask
@@ -217,10 +218,25 @@ its own drag and hit-tests only its own text. The document-wide selection `user-
 one that would let a drag cross a label or two sibling elements, does not exist. So `select-none` on
 a button has nothing to suppress, because nothing there would have been selectable.
 
-⚠ **`overflow-auto` is in neither column.** The draw list clips on any value that is not `visible`, so
-it clips; the layout's keyword table has `visible`, `hidden` and `scroll` and not `auto`, so the
-layout goes on treating the box as visible. Write `overflow-scroll` when the layout is meant to hear
-about it — and note that scrolling itself is `ScrollView`, not a property.
+⚠ **`overflow-auto` is read, and it means what CSS means by it.** This page used to say it was in
+neither column — that the draw list clipped on it and the layout did not hear about it, so an author
+should write `overflow-scroll` instead. That was true and is not: `Vixen.Ui.OverflowReader` is the
+single place all three names resolve, for the clip stack and the hit test alike, and
+`LayoutStyleBuilder` maps `auto` onto `Overflow.Scroll` — which is the layout CSS gives it, since the
+only thing `auto` and `scroll` disagree about is whether the gutter is always there. Following the
+old advice now buys a permanent scrollbar where `auto` was wanted.
+
+⚠ **The gutter is `scrollbar-*`, and it is what separates the two names here.** `LayoutStyle.ScrollbarWidth`
+is a length rather than CSS's keyword, and `StyleResolution` reserves it only where the overflow is
+`Scroll` — so `overflow-auto scrollbar-none` is the pair that clips and scrolls and reserves nothing,
+and `overflow-scroll scrollbar-auto` is the one that always leaves room. Writing neither leaves the
+gutter at zero.
+
+⚠ **A named axis beats the shorthand, and the two axes do not coerce each other.** `overflow-x-*` and
+`overflow-y-*` are each read on their own; an element with `overflow-hidden overflow-y-scroll` clips
+horizontally and scrolls vertically, which is not CSS's rule about a `visible`/non-`visible` pair and
+is deliberate — see `Vixen.Ui.Styling.Utilities/README.md`. And note that scrolling itself is
+`ScrollView`, not a property: a clip is not a scrollbar.
 
 ## Examples
 

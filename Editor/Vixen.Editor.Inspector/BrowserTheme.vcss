@@ -148,6 +148,14 @@ components { flex-direction: column; flex-shrink: 0; position: relative; }
    was three component foldouts side by side, each squeezed to a third of the panel. */
 component-list { flex-direction: column; flex-shrink: 0; }
 
+/* ⚠ **And the same trap one level down, which the port walked straight into.** The markup names
+   the foldout's field region so that `use` has something to fill, and an element no stylesheet
+   mentions is built from the CSS initial — `row`. The symptom was every property of a component
+   laid out across the panel in one thirty-pixel strip: Kind at x=0, Colour at x=243, Intensity at
+   x=441. It is the same defect as `component-list` above and it is worth two rules rather than one
+   comment, because the next element somebody introduces here will need the third. */
+component-fields { flex-direction: column; flex-shrink: 0; }
+
 expander.component { border-width: 1px 0px 0px 0px; border-color: var(--border); }
 expander.component > expander-header { flex-direction: row; align-items: center; }
 
@@ -157,6 +165,19 @@ expander.component > expander-header { flex-direction: row; align-items: center;
    at chevron size in chevron grey reads as a second arrow. `flex-shrink: 0` because a long
    component name must push the label, never squash the glyph. */
 .component-icon { width: 16px; height: 16px; flex-shrink: 0; margin-right: 4px; color: var(--text); }
+
+/* ⚠ **What replaced `Document.Move(glyph, 1)`, and it is three lines of CSS for a reason.**
+   `Expander` publishes its header as a slot now, and a slot appends — so the markup's icon and
+   remove button land *after* the label the control made. `order` is what the web uses to say
+   otherwise, the layout has implemented it all along (`LayoutStyle.Order`, sorted into
+   order-modified document order), and nothing in this theme was using it. Document order is
+   chevron, label, icon, button; this makes the painted order chevron, icon, label, button.
+
+   ⚠ The chevron is left at the initial `order: 0` deliberately. Giving the *icon* a negative
+   order instead would put it in front of the chevron too — ties break by document position and
+   the chevron is position 0 — which is one line shorter and wrong. */
+expander.component > expander-header > label { order: 1; }
+expander.component > expander-header > .remove-component { order: 2; }
 
 /* ⚠ The remove button is faint until the header is hovered, and it is inside the header
    rather than beside it — a component's Remove has to be unmistakably *that* component's,

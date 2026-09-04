@@ -1117,8 +1117,30 @@ sealed partial class EditorApplication {
         public static int Install(UiDocument document) {
             ArgumentNullException.ThrowIfNull(document);
 
-            return document.Load(Css, StyleOrigin.UserAgent);
+            var loaded = document.Load(Css, StyleOrigin.UserAgent);
+
+            document.Load(Utilities, StyleOrigin.UserAgent);
+
+            return loaded;
         }
+
+        /// <summary>This assembly's utility rules, in <c>@layer utilities</c>.</summary>
+        /// <remarks>
+        ///     ⚠ <b>A sheet of its own rather than a share of the editor's, and that is shape C working
+        ///     rather than a duplication of it.</b> What
+        ///     <c>Vixen.Editor.Ui/build/Vixen.Editor.Ui.Styling.targets</c> shares is the <i>tokens</i>;
+        ///     the scan and the output stay this project's, so the build stays incremental and this
+        ///     assembly is not rebuilt because a panel somewhere else started using <c>gap-3</c>.
+        ///     Everything here is inside <c>@layer utilities</c>, where document order decides nothing,
+        ///     so a dozen assemblies loading a dozen of these behaves as one sheet.
+        ///     <para>
+        ///         ⚠ Loaded at the same origin as the sheet above, which is what keeps the ladder
+        ///         meaningful: origin is the cascade's first question and the layer only its second, so
+        ///         loading these as <c>Author</c> would stop them being ordered against the sheet at all
+        ///         and start them beating a user's accessibility overrides.
+        ///     </para>
+        /// </remarks>
+        public static string Utilities => VixenUtilityStyles.Utilities;
 
         /// <summary>The stylesheet's text.</summary>
         /// <remarks>

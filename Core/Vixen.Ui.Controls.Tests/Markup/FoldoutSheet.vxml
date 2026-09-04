@@ -1,0 +1,31 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component FoldoutSheet
+@namespace Vixen.Ui.Controls.Tests
+@using Vixen.Ui.Controls
+
+<expander-host>
+    @for (var section in Rows) {
+        <Expander key="@section" Label="@section.Name" IsExpanded="true">
+            <!--
+                The header, which had no markup spelling at all until `Expander` published one.
+                Two children, so the ordering claim is not a single-element coincidence.
+            -->
+            <Icon slot="header" class="section-icon" />
+            <IconButton slot="header" class="section-remove" Label="Remove" />
+
+            <!-- And the body, which is `ContentHost` and needs no attribute. -->
+            <section-body>@section.Value</section-body>
+        </Expander>
+    }
+</expander-host>
+
+@code {
+    /// <summary>One section, so the loop has an identity of its own to key on.</summary>
+    public sealed record Section(string Name, string Value);
+
+    /// <summary>What the loop walks.</summary>
+    public IReadOnlyList<Section> Rows { get; init; } = [];
+}

@@ -71,6 +71,18 @@ is that project, and it names `Microsoft.NET.Sdk` rather than this one because a
 that succeeded with no interface in it. Found by extracting a produced `.nupkg` and building against
 it, which had never been done.
 
+⚠ **Doc 43 § D1 asked for the fold again and the answer is still no, so the answer is written down
+here rather than re-derived.** The queued task was *fold `.vxml`, `.vcss` and `vixen.ui.yaml` into
+`Vixen.Sdk`*; the third of the three was dropped when `@theme` replaced it, and the other two are the
+paragraph above — the globs live in `Vixen.Ui`'s `buildTransitive/`, every project with an interface
+in it reaches that package, and a project with both would get `**/*.vxml` declared twice. The two
+things D1 wanted carried along with them turn out to be in the right place already: `VixenStyleBase`
+and `VixenStyleTokens` are *read* by `Vixen.Ui.Styling.Utilities.targets`, which is itself packed
+into `buildTransitive/`, and the `Inputs` lesson — the declaring `.targets` and the project file are
+in the input set, because a safelist, a namespace and a token source are arguments rather than files
+— is a line in that same file. The only thing genuinely specific to the editor is which sheet is the
+palette, and one `Import` in a `.csproj` is the right size for that.
+
 ⚠ **Inside this repository there are no packages**, so `Directory.Build.targets` stands in for the
 reference: `<VixenUi>true</VixenUi>` in a project's `PropertyGroup` names the two generators, imports
 the same two `.targets` the packages import, and orders the build against `Tools/Vixen.StyleGen`.
