@@ -692,6 +692,67 @@ value and the valued class is the size — so the join is legitimate in both dir
 column is a question and not a verdict**: it means somebody has to look, and looking twice found one
 case where the honest answer was to make the collision true.
 
+### The `note` column carries the expiry, and until now nothing could read it
+
+**The most-repeated finding in this document, and the only one that had no mechanism behind it.** A
+refusal is a verdict plus a condition. This file records the verdict in bold and the condition in a
+subordinate clause, and six times in one month a refusal that was correct when written was false when
+read — Transforms, whose closing sentence named a compositor that had landed a week earlier;
+`origin-*`, refused as unobservable "until `scale` and `rotate` land"; `scale-x/y-*`, which cited
+`scale`'s refusal and inherited its expiry; `mix-blend-mode`, half of whose premise the compositor
+retired; `on:click`, whose note described a mapping `ControlMarkup` had replaced three weeks before;
+and `StyleGen`, whose entire stated reason had evaporated.
+
+⚠ **Four of the fourteen columns had no accessor in `ParityLedger`, and `note` was the one that
+mattered** — a reason no test can see is a reason that expires unobserved.
+
+**The mechanism, which is a clause in the note rather than a fifteenth column.** A refusal may end its
+note with one of two bracketed clauses, and `Core/Vixen.Ui.Styling.Utilities.Tests/RefusalExpiryTests`
+holds it to them:
+
+- `[expires-with <root>]` — this refusal stands only while that ledger root is itself refused
+  (`absent` or `inert`). The cited root's `state` is a **computed** column, so this needs no foresight
+  from whoever writes it and cannot be spelt around: whatever closes the cited root changes its state,
+  and that run is the run this fails on. Issue **#288**'s literal subject, and for that shape it is
+  exact.
+- `[expires-on <Namespace.Type>.<Member>]` — this refusal stands only while that member does not
+  exist. ⚠ **A tripwire, not a proof**: whoever eventually builds the thing picks the name, and a
+  different name leaves the clause green for ever. It is here because some refusals have no root to
+  hang on — `mix-blend`'s surviving half is a fact about a struct — and where both are available the
+  root is the one to name.
+
+**Why a clause in the prose and not another column.** The failure being prevented is that nobody
+writes the condition down *as* a condition. Anything that makes recording one a separate act loses to
+what it competes with, which is finishing the sentence you were already writing.
+
+⚠ **Detecting an *undeclared* citation was tried first and abandoned, with a measurement.** Requiring
+a note that mentions another root to declare it finds 106 mentions across 42 of the 47 refusal-shaped
+notes — and almost all are English, because the roots include `list-*`, `from-*`, `text`, `block-*`,
+`mask`, `scroll`, `transform`, `border`, `display` and `flex`. "The draw list", "read back from the
+target" and "the border box" all match. The vocabulary collides with English by construction, which
+the `vixen_family` paragraph above already says about four other names, so the declaration has to be
+written and what a machine can do is check it.
+
+**What it prints on the day it does not run.** `RefusalExpiry.txt` is the committed census of every
+clause, derived and regenerated with `VIXEN_REGENERATE=1`, and it is held against the ledger as an
+**exact set in both directions** — not a floor. A sweep that derives a set and checks its members
+reports nothing when the set is empty, so a ledger whose notes lost their clauses would go green; a
+floor does not help either, because "at least one" and "more than one distinct reason" are the two
+guards this suite's neighbours have already had eaten by success. A malformed clause fails rather than
+being skipped, for the same reason one level down: the opening bracket is counted with a pattern that
+cannot be fooled by the contents, so `[expires-witth …]` is a red test and not a silent exemption.
+
+⚠ **And the anti-typo half, which is how a check like this normally dies.** "Assert this symbol is
+absent" is satisfied by a misspelt symbol, for ever. So an `expires-on` anchor is checked in two
+halves: the *type* must resolve and the *member* must not exist. This repository has shipped the
+misspelt-key bug three times this year in a navmesh, a security policy and a shader key.
+
+**Seeded with nine clauses over eight refusals**, two of which — `mix-blend` and `isolation`, the two
+this finding leads with — had an **entirely empty `note` column** until now, which is why neither was
+ever re-read. Three of the nine share one anchor: `rotate-x-*`, `rotate-z-*` and `scale-z-*` are all
+waiting on a representation for transform functions, and a refusal that is one of several resting on a
+single premise is the one most likely to be read as settled.
+
 ---
 
 ## Part 1 — What the survey found that nothing in the tree said
@@ -2502,7 +2563,7 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A4 🟢 | `order` | `LayoutStyleBuilder` + flex line ordering | **#22** | 0.1 |
 | A5 ✅ | `overflow-x`/`overflow-y`, and `auto` in the layout keyword table | `OverflowReader`, `LayoutStyleBuilder` | done | — |
 | A6 🟡 | **Three of the four landed, in three different ways, and the fourth is refused.** `fill`/`stroke` were the honest case: the emission was already v4's and the renderer had had the channel all along — `IconPath` carries a fill paint and a stroke paint and `IconPaintKind.Foreground` is SVG's `currentColor` marker — so it was two `ColorOf` reads in `Icon.Resolve`, plus the two names in `InheritedProperties` without which the class only works written on the icon itself. `outline` is **gone rather than done**: `ring-*` emitted `outline-color`, a property no Tailwind has ever emitted for it (see § D5, corrected), and under v4's box-shadow shape the existing spread path paints it with no new rendering. That needed `currentcolor` in `EmitShadow`. ⚠ **`user-select` stays inert and is not waiting for a reader.** A selection model exists — `TextField` has `CaretIndex`/`SelectionAnchor`/`SelectWord` and drag-to-select, `CodeEditor` has its own — but both are per-control: each captures the pointer for its own drag and hit-tests only its own `TextLayout`. The *document-wide* selection `user-select` governs does not exist, so `select-none` on a button, which is what the class is for, has nothing to suppress. Teaching `TextField` to honour it would expire the allow-list line and leave that promise unkept. ⚠ Also owed: `overflow-clip`. ⚠ And the parity gate could not see `fill`/`stroke` until `UtilityConsumptionProbe` could build an `Icon` — `grid-cols-3`'s missing grid again | `Icon`, `DrawListBuilder`, `InheritedProperties` | **#24** | 0.05 of 0.25 |
-| A7 🟢 | **Transforms — the three independent properties are all read now.** `translate-x-*` and `translate-y-*` are composed (a `--tw-*` fragment per axis, one `translate` between them, both classes assemblers) and read by `TranslationReader` in `UiDocument.Accumulate` — the same sum that already carried `OffsetX`, so the draw list, the hit test and arrow navigation all read one translated position and *cannot* disagree. Lengths and percentages, percentages against the element's own border box per Transforms 1 §8; not layout, so siblings do not move; the subtree comes along; a translated clip moves with the box and is still a rectangle. Interpolatable for free, because `StyleValue` already lerps a two-part list. ⚠ **`scale` and `rotate` are read now, and the refusal that used to be here is the most useful thing in this row.** It said: a `DrawCommand` is an axis-aligned rectangle and the clip stack intersects rectangles, so a rotated box and a rotated clip cannot be represented; scale can scale the box and not the picture, because glyph advances are shaped at `run.Size` during *layout*. Every clause is still true. Its last sentence — "both need the offscreen compositor `DrawListBuilder`'s opacity remark already owes" — is the one that mattered, and that compositor landed with `opacity` and was extended four more times before anybody re-read this. ⚠ **A refusal whose premise names another feature has an expiry date, and nothing in the repository checks it**: `InertProperties.txt`'s expiry only fires once someone has already written the reader. **What it took:** a transform is the fifth thing to open a group, `TransformReader` composes `rotate`, `scale` and `transform-origin` into one `UiTransform` in `UiDocument.Accumulate`, and the matrix is spent on the composite quad's four vertex positions — so no `DrawCommand` was rotated, no clip stopped being a rectangle, and no glyph was re-shaped. It cost **no shader and no vertex format**: both executors already interpolate a quad's texture coordinate linearly, and an affine map is exactly the class for which that is exact. The hit test maps the pointer through the inverse at the top of the walk, one line, and nested transforms compose because the recursion does. **Owed:** `transform` itself and `skew-*`, which need a `<transform-function>` parser rather than a renderer; the 3D family, which needs a third axis and a projective composite `UiTransform` deliberately cannot express; and `backdrop-filter` on a transformed group, refused in `UiGeometryBuilder.Layer` rather than approximated | `TransformReader`, `UiTransform`, `UiDocument`, `UiGeometryBuilder` | **#23** | 0.35 |
+| A7 🟢 | **Transforms — the three independent properties are all read now.** `translate-x-*` and `translate-y-*` are composed (a `--tw-*` fragment per axis, one `translate` between them, both classes assemblers) and read by `TranslationReader` in `UiDocument.Accumulate` — the same sum that already carried `OffsetX`, so the draw list, the hit test and arrow navigation all read one translated position and *cannot* disagree. Lengths and percentages, percentages against the element's own border box per Transforms 1 §8; not layout, so siblings do not move; the subtree comes along; a translated clip moves with the box and is still a rectangle. Interpolatable for free, because `StyleValue` already lerps a two-part list. ⚠ **`scale` and `rotate` are read now, and the refusal that used to be here is the most useful thing in this row.** It said: a `DrawCommand` is an axis-aligned rectangle and the clip stack intersects rectangles, so a rotated box and a rotated clip cannot be represented; scale can scale the box and not the picture, because glyph advances are shaped at `run.Size` during *layout*. Every clause is still true. Its last sentence — "both need the offscreen compositor `DrawListBuilder`'s opacity remark already owes" — is the one that mattered, and that compositor landed with `opacity` and was extended four more times before anybody re-read this. ⚠ **A refusal whose premise names another feature has an expiry date, and until #288 nothing in the repository checked it**: `InertProperties.txt`'s expiry only fires once someone has already written the reader. `RefusalExpiryTests` is the half that fires before that — see Part 0 § *The `note` column carries the expiry*. **What it took:** a transform is the fifth thing to open a group, `TransformReader` composes `rotate`, `scale` and `transform-origin` into one `UiTransform` in `UiDocument.Accumulate`, and the matrix is spent on the composite quad's four vertex positions — so no `DrawCommand` was rotated, no clip stopped being a rectangle, and no glyph was re-shaped. It cost **no shader and no vertex format**: both executors already interpolate a quad's texture coordinate linearly, and an affine map is exactly the class for which that is exact. The hit test maps the pointer through the inverse at the top of the walk, one line, and nested transforms compose because the recursion does. **Owed:** `transform` itself and `skew-*`, which need a `<transform-function>` parser rather than a renderer; the 3D family, which needs a third axis and a projective composite `UiTransform` deliberately cannot express; and `backdrop-filter` on a transformed group, refused in `UiGeometryBuilder.Layer` rather than approximated | `TransformReader`, `UiTransform`, `UiDocument`, `UiGeometryBuilder` | **#23** | 0.35 |
 | A8 🟢 | **`filter: blur()` is done and the rest of A8 is not.** `blur-*` emits a `--tw-blur` fragment assembled into a real `filter`, closing the `--blur` placeholder the same way the translations closed theirs; `DrawListBuilder` opens a composited group for it — *and never collapses one*, since the single-command peephole is an identity for opacity and nonsense for a filter — `UiGeometryBuilder` outsets the group's bounds by three sigma before the clip narrows them, and both executors convolve the finished surface with the same kernel from `UiLayer.KernelRadius`. On the device that is two extra passes and **one** shared scratch target for the whole frame, not one per blurred group. Measured at 1920×1080: the twelve composited groups an editor frame already had cost **1.10 ms**, and a blurred group adds 0.17 ms at σ=4 — ⚠ **the surfaces are the expensive part of this design and the blur is not**, which is the finding worth carrying into any future work here. ⚠ **Owed:** the rest of `filter` (`brightness`, `contrast`, `saturate`, `grayscale`, …), all of which are *absent* roots rather than inert ones and each of which is a constant, an initial and a slot in `UtilityComposition.Filter`; <s>`backdrop-filter`, which needs the frame *under* a group and the compositor does not keep it</s> — **landed**: the frame under a group is not kept, it is *re-rendered*, so `UiRenderer.Submit` took a `stop`, `Compose`'s walk became post-order and the host hands over what it had already painted; and `Vixen.Editor.Host`, which supplies no blur stage because Raven's `[PushConstant]` cannot place a block at a byte offset — see `Vixen.Ui.Renderer/README.md` | `DrawListBuilder`, `UiGeometryBuilder`, `UiRenderer`, `SoftwareUiRasterizer` | **#28** | 0.35 of 0.75 |
 | A9 ✅ | `color-mix()` in `StyleValueParser` — four interpolation spaces (`srgb`, `srgb-linear`, `oklab`, `oklch`) with the four hue methods, premultiplied alpha, and the CSS Values 5 percentage normalisation. `UtilityFamilies.TryColor` emits one for `/opacity`, which retires **#12**'s colour half: an opacity on a token that is not a hex triple used to be dropped silently, and every token in the editor's palette is a `var()`. **Owed:** the interim out-of-gamut behaviour is *carry it unclamped* — see § D4 | `Vixen.Ui.Styling`, `ColorFunctions` | done | — |
 | A10 ✅ | `oklch()`/`oklab()` colour syntax, both notations, `none`, and every angle unit | `Vixen.Ui.Styling` | done | — |

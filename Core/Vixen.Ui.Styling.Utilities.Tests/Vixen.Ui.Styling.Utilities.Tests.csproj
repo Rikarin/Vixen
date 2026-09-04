@@ -94,5 +94,12 @@
             copy so that it appears in the IDE beside the tests that own it.
         -->
         <None Include="..\..\docs\plan\43-web-styling-parity.tsv" Link="43-web-styling-parity.tsv" />
+
+        <!--
+            The expiry census, and it is a `None` for the same reason the ledger is: `RefusalExpiryTests`
+            writes it under VIXEN_REGENERATE=1, so it has to be the file in the tree. It is found beside
+            the repository root rather than in `bin`.
+        -->
+        <None Include="RefusalExpiry.txt" />
     </ItemGroup>
 </Project>
