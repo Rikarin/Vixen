@@ -272,25 +272,111 @@ public static class UtilityFamilies {
             ["1"] = "1 1 0%", ["auto"] = "1 1 auto", ["initial"] = "0 1 auto", ["none"] = "none"
         });
 
+        // ⚠ <b>The <c>-safe</c> suffix is a prefix in the CSS, and the two halves are one value.</b>
+        // Tailwind spells CSS Box Alignment §4.1's <c>[ safe | unsafe ]? &lt;position&gt;</c> with the
+        // overflow position last — <c>items-end-safe</c> — and CSS writes it first, so the keyword
+        // tables below map one to the other rather than composing the class name.
+        //
+        // ⚠ <b>These arrived in two stages and the gap between them was invisible from either
+        // end.</b> The layout has had `OverflowAlignment`, six `*Overflow` fields and
+        // `LayoutTree.SafeFallback` at six sites since safe alignment landed, and 76 conformance
+        // fixtures pass against it — but `LayoutStyleBuilder` never read the prefix, because a
+        // two-word value reaches it as a token list and `TryKeyword` wants one keyword. So the
+        // engine could do this and no stylesheet could ask for it. The reader is now
+        // `LayoutStyleBuilder.TryAlignment` and these are what spell it.
+        //
+        // ⚠ <b>Only <c>center</c> and <c>end</c> take the suffix, and that is not an omission.</b>
+        // `safe start` is a contradiction — start is where safe falls back to — and the prefix is
+        // invalid on `stretch`, `baseline` and the three `space-*` distributions, which the bridge
+        // refuses by name. `items-baseline-last`, `self-baseline-last`, `justify-baseline` and
+        // `justify-stretch` are Tailwind roots deliberately still absent: `Align` has no
+        // last-baseline member and `Justify` has no `Stretch`, so each would be a class that
+        // resolves onto a keyword the bridge drops. See `43-web-styling-parity.tsv`'s `value_gap`.
         Keywords("items", "align-items", new() {
             ["start"] = "flex-start", ["end"] = "flex-end", ["center"] = "center",
-            ["baseline"] = "baseline", ["stretch"] = "stretch"
+            ["baseline"] = "baseline", ["stretch"] = "stretch",
+            ["center-safe"] = "safe center", ["end-safe"] = "safe end"
         });
 
         Keywords("self", "align-self", new() {
             ["auto"] = "auto", ["start"] = "flex-start", ["end"] = "flex-end",
-            ["center"] = "center", ["baseline"] = "baseline", ["stretch"] = "stretch"
+            ["center"] = "center", ["baseline"] = "baseline", ["stretch"] = "stretch",
+            ["center-safe"] = "safe center", ["end-safe"] = "safe end"
         });
 
+        // ⚠ <b><c>normal</c> is the initial value written out, and it is not a no-op</b> — the same
+        // argument `visible` makes two sections up. `justify-content: normal` behaves as
+        // `flex-start` and `align-content: normal` as `stretch`, which is what the bridge already
+        // does with the property unset; what the class buys is overriding a `justify-center` that a
+        // theme sheet or an earlier utility set, which nothing else in this vocabulary can say.
         Keywords("justify", "justify-content", new() {
+            ["normal"] = "normal",
             ["start"] = "flex-start", ["end"] = "flex-end", ["center"] = "center",
-            ["between"] = "space-between", ["around"] = "space-around", ["evenly"] = "space-evenly"
+            ["between"] = "space-between", ["around"] = "space-around", ["evenly"] = "space-evenly",
+            ["center-safe"] = "safe center", ["end-safe"] = "safe end"
         });
 
         Keywords("content", "align-content", new() {
+            ["normal"] = "normal",
             ["start"] = "flex-start", ["end"] = "flex-end", ["center"] = "center",
-            ["between"] = "space-between", ["around"] = "space-around", ["stretch"] = "stretch"
+            ["between"] = "space-between", ["around"] = "space-around", ["stretch"] = "stretch",
+            ["evenly"] = "space-evenly",
+            ["center-safe"] = "safe center", ["end-safe"] = "safe end"
         });
+
+        // ── The three `place-*` shorthands ──────────────────────────────────────────────────
+        //
+        // ⚠ <b>Two longhands each and not the shorthand, and the difference is ExCSS.</b> The same
+        // trade `scroll-m-*` makes further down, arrived at the same way: ExCSS has never heard of
+        // `place-content`, `place-items` or `place-self`, so it hands each back whole — and
+        // `ShorthandExpansion` does not take them apart, which its own remark says and lists them
+        // for. A family emitting `place-content: center` would therefore produce a declaration that
+        // parses, cascades, resolves, and reaches a computed style under a name no consumer asks
+        // for. Measured: the class would have resolved and moved nothing.
+        //
+        // ⚠ <b>So a <i>hand-written</i> `place-content: center` in a `.vcss` is still silent</b>, and
+        // registering these does not change that. Filed as `Rikarin/Vixen#529`; the grammar is the
+        // reason it is not done here — `place-content: safe center` is one value and not two, so a
+        // whitespace split would emit `align-content: safe` and `justify-content: center`, which is
+        // two refused declarations rather than one honoured one.
+        //
+        // ⚠ <b>`place-items-baseline` is half a real answer and is registered anyway.</b>
+        // `align-items: baseline` is genuine — grid shims the row and flex aligns the line — while
+        // `justify-items: baseline` falls through `AlignInArea`'s switch to the start edge, which is
+        // exactly the fallback alignment CSS Box Alignment §9.3 specifies when baseline alignment
+        // cannot be performed. A degradation the spec names is not an inert half.
+        Register(new Family(
+            "place-content",
+            ValueKind.Keyword,
+            ["align-content", "justify-content"],
+            new Dictionary<string, string>(StringComparer.Ordinal) {
+                ["center"] = "center", ["start"] = "start", ["end"] = "end",
+                ["center-safe"] = "safe center", ["end-safe"] = "safe end",
+                ["between"] = "space-between", ["around"] = "space-around", ["evenly"] = "space-evenly"
+            }
+        ));
+
+        Register(new Family(
+            "place-items",
+            ValueKind.Keyword,
+            ["align-items", "justify-items"],
+            new Dictionary<string, string>(StringComparer.Ordinal) {
+                ["center"] = "center", ["start"] = "start", ["end"] = "end",
+                ["center-safe"] = "safe center", ["end-safe"] = "safe end",
+                ["baseline"] = "baseline", ["stretch"] = "stretch"
+            }
+        ));
+
+        Register(new Family(
+            "place-self",
+            ValueKind.Keyword,
+            ["align-self", "justify-self"],
+            new Dictionary<string, string>(StringComparer.Ordinal) {
+                ["auto"] = "auto", ["center"] = "center", ["start"] = "start", ["end"] = "end",
+                ["center-safe"] = "safe center", ["end-safe"] = "safe end",
+                ["stretch"] = "stretch"
+            }
+        ));
 
         // ── Flex and grid ───────────────────────────────────────────────────────────────────
         Number("grow", "flex-grow");
@@ -379,24 +465,56 @@ public static class UtilityFamilies {
         Keywords("row-start", "grid-row-start", new() { ["auto"] = "auto" });
         Keywords("row-end", "grid-row-end", new() { ["auto"] = "auto" });
 
+        // ⚠ <b>The bare roots, which are the shorthand and not a sixth and seventh longhand.</b>
+        // `col-3` is `grid-column: 3` — v4's own spelling for "put this item in column 3" — and it
+        // is a different statement from `col-start-3`, which names only the start edge and leaves
+        // the end auto. They happen to compute the same thing here, because `ShorthandExpansion`
+        // splits `grid-column: 3` into `grid-column-start: 3` and `grid-column-end: auto`, and that
+        // is exactly what makes the shorthand worth emitting rather than the pair: the expansion
+        // gives the cascade two comparable declarations, so a later `col-end-5` beats the `auto`
+        // this one wrote and an earlier one loses to it. Emitting the longhands here would have made
+        // the class unable to reset an end edge, which is the half of a shorthand that is not the
+        // value it names.
+        //
+        // ⚠ <b>Two-letter names under five longer ones that start with them, which `SplitName`
+        // settles and registration order does not.</b> `Names` is sorted longest-first at the end of
+        // this constructor, so `col-span-2`, `col-start-3` and `col-end-1` go on splitting on their
+        // own prefixes and these two only ever catch `col-<n>`, `col-auto`, `row-<n>` and
+        // `row-auto`. Written here beside the four they could otherwise have swallowed, because the
+        // guarantee is thirteen hundred lines away.
+        //
+        // `Number` rather than `CountTemplate` for `col-start`'s reason: a line number is emitted as
+        // written, so `-col-3` is `grid-column: -3` and §8.3 counts it back from the end edge.
+        Number("col", "grid-column");
+        Number("row", "grid-row");
+
+        Keywords("col", "grid-column", new() { ["auto"] = "auto" });
+        Keywords("row", "grid-row", new() { ["auto"] = "auto" });
+
         // ⚠ <b>`start` and `end` rather than `flex-start` and `flex-end`, which is the opposite of
         // what `items-*` above emits.</b> Both spellings reach `Align.FlexStart` through the bridge's
         // one alignment table, so the choice is about what a generated sheet reads like next to
         // Tailwind's documentation — and `justify-items: flex-start` is not a value CSS Box Alignment
         // gives that property, so a browser would drop the very declaration this engine honours.
         //
-        // ⚠ <b>`normal` and the two `-safe` values are missing on purpose.</b> `justify-items: safe
-        // center` is two tokens and the cascade hands the bridge one interned keyword, so it would
-        // fall out of the alignment table and leave the property at its initial value with nothing
-        // said — an inert class that looks like it works. They belong here the day
-        // `LayoutStyleBuilder.Keywords.Alignments` has a reading of them.
+        // ⚠ <b>`normal` and the two `-safe` values used to be missing on purpose, and the reason
+        // given for it was half right.</b> The note here said `justify-items: safe center` "is two
+        // tokens and the cascade hands the bridge one interned keyword, so it would fall out of the
+        // alignment table" — the conclusion was correct and the mechanism was not. The cascade hands
+        // the bridge a `StyleValueKind.List` of two keywords, because `StyleValueParser` splits on
+        // top-level whitespace before it decides anything; there is no interned `"safe center"` for
+        // the table to miss. Either way the property stayed at its initial value with nothing said.
+        // `LayoutStyleBuilder.TryAlignment` is the reading these were waiting for.
         Keywords("justify-items", "justify-items", new() {
-            ["start"] = "start", ["end"] = "end", ["center"] = "center", ["stretch"] = "stretch"
+            ["normal"] = "normal",
+            ["start"] = "start", ["end"] = "end", ["center"] = "center", ["stretch"] = "stretch",
+            ["center-safe"] = "safe center", ["end-safe"] = "safe end"
         });
 
         Keywords("justify-self", "justify-self", new() {
             ["auto"] = "auto", ["start"] = "start", ["end"] = "end",
-            ["center"] = "center", ["stretch"] = "stretch"
+            ["center"] = "center", ["stretch"] = "stretch",
+            ["center-safe"] = "safe center", ["end-safe"] = "safe end"
         });
 
         // ── Gap and spacing ─────────────────────────────────────────────────────────────────

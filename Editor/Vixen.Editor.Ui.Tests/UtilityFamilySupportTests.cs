@@ -136,12 +136,58 @@ public class UtilityFamilySupportTests {
         // reason `flex-1` does: it is what the cascade ends up holding and what the bridge reads.
         { "col-span-2", "grid-column-start", "span 2" },
         { "col-span-2", "grid-column-end", "span 2" },
+
+        // ⚠ <b>The bare roots are the shorthand, and the second row is the load-bearing one.</b>
+        // `col-3` is `grid-column: 3`, which `ShorthandExpansion` splits at load — so the class
+        // states the start edge *and* resets the end edge to `auto`, which is the whole difference
+        // between it and `col-start-3`. A family that emitted the two longhands itself would have
+        // computed the same first row and nothing at all for the second.
+        { "col-3", "grid-column-start", "3" },
+        { "col-3", "grid-column-end", "auto" },
+        { "row-3", "grid-row-start", "3" },
+        { "row-3", "grid-row-end", "auto" },
+        { "col-auto", "grid-column-start", "auto" },
+        { "row-auto", "grid-row-start", "auto" },
         { "flex-col", "flex-direction", "column" },
         { "flex-wrap", "flex-wrap", "wrap" },
         { "items-center", "align-items", "center" },
         { "self-start", "align-self", "flex-start" },
         { "justify-between", "justify-content", "space-between" },
         { "content-center", "align-content", "center" },
+
+        // ⚠ <b>Tailwind's suffix is CSS's prefix, so the expectation is the reversed pair.</b> These
+        // rows only say the cascade holds `safe end` — that it *means* anything is
+        // `Vixen.Ui.Tests.SafeAlignmentFromCssTests`, which measures a box, and
+        // `A_safe_alignment_keeps_an_overflowing_child_inside_the_editor_s_own_row` below, which
+        // measures one against the editor's tokens. The distinction is the point of this file: the
+        // cascade held `safe end` perfectly for as long as the bridge dropped it.
+        { "items-end-safe", "align-items", "safe end" },
+        { "items-center-safe", "align-items", "safe center" },
+        { "self-end-safe", "align-self", "safe end" },
+        { "justify-end-safe", "justify-content", "safe end" },
+        { "content-center-safe", "align-content", "safe center" },
+        { "justify-items-end-safe", "justify-items", "safe end" },
+        { "justify-self-center-safe", "justify-self", "safe center" },
+
+        // `normal` is `justify-content`'s and `align-content`'s initial keyword written out. Not a
+        // no-op: it is the only thing in this vocabulary that undoes a `justify-center` set earlier.
+        { "justify-normal", "justify-content", "normal" },
+        { "content-normal", "align-content", "normal" },
+        { "justify-items-normal", "justify-items", "normal" },
+
+        // ⚠ <b>The three `place-*` roots emit two longhands each and never the shorthand.</b> ExCSS
+        // has never heard of `place-content`, and `ShorthandExpansion` does not take it apart, so a
+        // family emitting it would have computed a value under a name no consumer asks for — the
+        // `scroll-m-*` trade, one category over. Both halves are listed for each, because a family
+        // that emitted into only its first property would satisfy either row alone.
+        { "place-content-center", "align-content", "center" },
+        { "place-content-center", "justify-content", "center" },
+        { "place-items-center", "align-items", "center" },
+        { "place-items-center", "justify-items", "center" },
+        { "place-self-end", "align-self", "end" },
+        { "place-self-end", "justify-self", "end" },
+        { "place-content-end-safe", "align-content", "safe end" },
+        { "place-content-end-safe", "justify-content", "safe end" },
 
         // Flex. `flex-1` is a shorthand ExCSS expands while parsing, so the cascade only ever sees
         // the three longhands — which is why the assertion names one of them.
@@ -1266,6 +1312,80 @@ public class UtilityFamilySupportTests {
         Assert.Equal("span 2", ui.StyleOf(wide, "grid-column-end"));
         Assert.Equal(128f, wide.Width);
         Assert.Equal(wide.AbsoluteLeft + 128f, next.AbsoluteLeft);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The keyword the family table cannot tell apart from the one beside it.</b>
+    ///     <c>items-end-safe</c> and <c>items-end</c> emit the same property, so the consumption gate
+    ///     scores the family green off either — and for as long as the bridge dropped the prefix they
+    ///     were the same class. What separates them is a box that does not fit.
+    /// </summary>
+    /// <remarks>
+    ///     Both halves, because a <c>safe</c> alignment with room to spare is <i>defined</i> to be
+    ///     indistinguishable from an <c>unsafe</c> one: a reader that answered "start" unconditionally
+    ///     would satisfy the overflowing row on its own.
+    /// </remarks>
+    [Fact]
+    public void A_safe_alignment_keeps_an_overflowing_child_inside_the_editor_s_own_row() {
+        using var ui = Sheet("flex", "items-end", "items-end-safe", "h-8", "h-24", "w-4");
+
+        var tight = ui.Create("probe", ui.Document.Root, null, "flex", "items-end", "h-8");
+        var overflowing = ui.Create("probe", tight, null, "h-24", "w-4");
+
+        var safe = ui.Create("probe", ui.Document.Root, null, "flex", "items-end-safe", "h-8");
+        var rescued = ui.Create("probe", safe, null, "h-24", "w-4");
+
+        var roomy = ui.Create("probe", ui.Document.Root, null, "flex", "items-end-safe", "h-24");
+        var small = ui.Create("probe", roomy, null, "h-8", "w-4");
+
+        ui.Frame();
+
+        // `h-8` is 32 points and `h-24` is 96, so the child overflows its row by 64.
+        Assert.Equal(-64f, overflowing.AbsoluteTop - tight.AbsoluteTop);
+        Assert.Equal(0f, rescued.AbsoluteTop - safe.AbsoluteTop);
+
+        // ⚠ And where it fits, `-safe` is `end` and says nothing: 96 − 32.
+        Assert.Equal(64f, small.AbsoluteTop - roomy.AbsoluteTop);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The bare <c>col-*</c> root, which is a line number and not a span.</b>
+    ///     <c>col-span-3</c> and <c>col-3</c> both emit <c>grid-column</c> and the ledger joins them
+    ///     to the same property, so nothing about the emission tells them apart — the third track is
+    ///     where the item lands only if the value was read as a line.
+    /// </summary>
+    [Fact]
+    public void Col_puts_the_item_in_the_track_its_number_names() {
+        using var ui = Sheet("grid", "grid-cols-4", "col-3", "w-48", "h-8");
+
+        var host = ui.Create("probe", ui.Document.Root, null, "grid", "grid-cols-4", "w-48");
+        var placed = ui.Create("probe", host, null, "col-3", "h-8");
+
+        ui.Frame();
+
+        // Four tracks across 192 points is 48 apiece; line 3 is the start of the third one.
+        Assert.Equal(48f, placed.Width);
+        Assert.Equal(host.AbsoluteLeft + 96f, placed.AbsoluteLeft);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A <c>place-*</c> class has to move <i>both</i> axes, and the half that fails silently
+    ///     is the second one.</b> A family emitting into only its first property would centre the
+    ///     item vertically, leave it at the inline start, and look like a working alignment utility
+    ///     in every screenshot where the item happens to fill its track.
+    /// </summary>
+    [Fact]
+    public void Place_items_centres_a_grid_item_on_both_axes() {
+        using var ui = Sheet("grid", "grid-cols-1", "place-items-center", "w-48", "h-24", "w-4", "h-4");
+
+        var host = ui.Create("probe", ui.Document.Root, null, "grid", "grid-cols-1", "place-items-center", "w-48", "h-24");
+        var dot = ui.Create("probe", host, null, "w-4", "h-4");
+
+        ui.Frame();
+
+        // A 16-point box in a 192 × 96 area: (192 − 16) / 2 and (96 − 16) / 2.
+        Assert.Equal(88f, dot.AbsoluteLeft - host.AbsoluteLeft);
+        Assert.Equal(40f, dot.AbsoluteTop - host.AbsoluteTop);
     }
 
     /// <summary>

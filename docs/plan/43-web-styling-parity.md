@@ -92,10 +92,10 @@ Every one of those was right when it was written. The number is a denominator, s
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **178** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **49** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **185** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **47** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **96** |
+| **absent** | not emitted at all | **91** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -390,7 +390,7 @@ refusal block, which already says so for the same reason.
 |---|--:|--:|--:|--:|--:|--:|--:|
 | Layout | 49 | 22 | 10 | 0 | 13 | 3 | 1 |
 | Interactivity | 39 | 27 | 0 | 1 | 11 | 0 | 0 |
-| Flexbox and Grid | 34 | 20 | 7 | 0 | 7 | 0 | 0 |
+| Flexbox and Grid | 34 | 27 | 5 | 0 | 2 | 0 | 0 |
 | Typography | 34 | 14 | 6 | 0 | 14 | 0 | 0 |
 | Borders | 34 | 24 | 6 | 0 | 4 | 0 | 0 |
 | Effects | 33 | 24 | 0 | 0 | 9 | 0 | 0 |
@@ -403,11 +403,21 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 1 | 1 | 0 | 1 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **328** | **178** | **49** | **1** | **96** | **3** | **1** |
+| **Total** | **328** | **185** | **47** | **1** | **91** | **3** | **1** |
 
-Effects is now the strongest category — 24 of 33, and with no `partial` left in it — followed by
-Interactivity at 26 of 39 and Flexbox and Grid at 20 of 34, up from 10, then Spacing, Borders and
-Layout. Tables and Accessibility still have **no working root at all**.
+Flexbox and Grid is now the strongest category — 27 of 34, with only two absent roots left in it —
+followed by Effects at 24 of 33 with no `partial` in it, Interactivity at 27 of 39, then Spacing,
+Borders and Layout. Tables and Accessibility still have **no working root at all**.
+
+⚠ **Flexbox and Grid went from 20 to 27 and every one of the seven was a family, not a reader.**
+Five were `absent` roots whose consumers had been finished for weeks — `col-*` and `row-*` against
+the `grid-column`/`grid-row` shorthand `ShorthandExpansion` already splits at load, and the three
+`place-*` shorthands against six longhands the bridge already read. Two were `partial` roots
+(`justify-items`, `justify-self`) waiting on one reader: the `[ safe | unsafe ]? <position>` grammar,
+which the layout has honoured at six sites since safe alignment landed and which nothing crossing
+`LayoutStyleBuilder` could ask for, because a two-word value arrives as a token list and
+`TryKeyword` wants one keyword. That last is the shape this table is worst at showing — the *engine*
+could do it and the *vocabulary* could not, so every measured column read exactly as it should.
 
 ⚠ **Interactivity went from 20 to 26 with no `partial` left, and the six that moved split three
 ways, which is the part worth reading.** Four were renames — `scroll-mbs/mbe/pbs/pbe-*` emit the
