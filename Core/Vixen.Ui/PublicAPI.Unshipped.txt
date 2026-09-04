@@ -420,8 +420,10 @@ Vixen.Ui.DrawList.Version.get -> int
 Vixen.Ui.DrawListBuilder -> sealed class
 Vixen.Ui.DrawListBuilder.Build(Vixen.Ui.UiDocument document, Vixen.Ui.DrawList into) -> bool
 Vixen.Ui.DrawListBuilder.Build(Vixen.Ui.UiDocument document, Vixen.Ui.UiElement root, Vixen.Ui.DrawList into) -> bool
+Vixen.Ui.DrawListBuilder.ClearDiagnostics() -> void
 Vixen.Ui.DrawListBuilder.Compositing.get -> bool
 Vixen.Ui.DrawListBuilder.Compositing.set -> bool
+Vixen.Ui.DrawListBuilder.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Styling.SelectorDiagnostic>
 Vixen.Ui.DrawListBuilder.DrawListBuilder(Vixen.Ui.Styling.NameTable properties, Vixen.Ui.Styling.NameTable values, Vixen.Ui.Styling.NameTable keywords) -> void
 Vixen.Ui.EventRouter -> static class
 Vixen.Ui.FocusDirection -> enum : byte

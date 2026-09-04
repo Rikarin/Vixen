@@ -37,6 +37,12 @@ public sealed class DrawListBuilder {
 
     readonly List<PositionedGlyph> placed = [];
     readonly StyleValueParser parser;
+
+    /// <summary>The two tables a refusal needs to name the declaration it refused.</summary>
+    readonly NameTable propertyNames;
+    readonly NameTable valueNames;
+
+    readonly List<SelectorDiagnostic> diagnostics = [];
     readonly int backgroundColor;
 
     /// <summary>The four <c>border-*-color</c> longhands, clockwise from the top.</summary>
@@ -202,6 +208,8 @@ public sealed class DrawListBuilder {
         ArgumentNullException.ThrowIfNull(keywords);
 
         parser = new StyleValueParser(values, keywords);
+        propertyNames = properties;
+        valueNames = values;
 
         backgroundColor = properties.Intern("background-color");
 
@@ -442,6 +450,56 @@ public sealed class DrawListBuilder {
     ///     </para>
     /// </remarks>
     public bool Compositing { get; set; } = true;
+
+    /// <summary>What this builder could not draw, and why.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The third list of this shape, and the first one produced in the <i>draw</i> pass
+    ///         rather than at load or in the style pass.</b> <c>StyleSheetLoader</c> reports what
+    ///         would not parse and <c>LayoutStyleBuilder</c> what parsed and meant nothing to layout;
+    ///         this reports what parsed, reached an element, and then could not be painted — a
+    ///         <c>box-shadow</c> whose offset is in a unit that measures no distance, a
+    ///         <c>filter</c> holding a function this executor does not have.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every entry here is a refusal whose only other trace is an absence.</b> CSS drops
+    ///         an invalid declaration, which is what this file does, and the result is a frame with no
+    ///         shadow and no filter — indistinguishable from a frame that was never asked for one.
+    ///         `Rikarin/Vixen#521` is that gap: the swap from <c>PixelsPer</c> to <c>ToLength</c> made
+    ///         these refusals <i>correct</i> and left them <i>silent</i>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Deduplicated by text, which is what makes a per-frame producer affordable.</b>
+    ///         A refused declaration is refused again every frame for as long as it is on the
+    ///         element; without the collapse this list would grow without bound at frame rate, which
+    ///         is a leak wearing a diagnostic's clothes.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<SelectorDiagnostic> Diagnostics => diagnostics;
+
+    /// <summary>Forgets every refusal recorded so far.</summary>
+    /// <remarks>
+    ///     ⚠ For <see cref="LayoutStyleBuilder.ClearDiagnostics" />'s reason: the builder outlives a
+    ///     frame, so a caller that watches the list — a hot reload comparing before with after — has
+    ///     to be able to say "from here".
+    /// </remarks>
+    public void ClearDiagnostics() => diagnostics.Clear();
+
+    /// <summary>Records a declaration that reached this file and could not be drawn.</summary>
+    /// <param name="property">The interned property name.</param>
+    /// <param name="value">The interned value, as the author wrote it.</param>
+    /// <param name="reason">Why it could not be drawn.</param>
+    void Refuse(int property, int value, string reason) {
+        var text = $"{propertyNames.NameOf(property)}: {valueNames.NameOf(value)}";
+
+        foreach (var existing in diagnostics) {
+            if (existing.Text == text) {
+                return;
+            }
+        }
+
+        diagnostics.Add(new SelectorDiagnostic(text, reason));
+    }
 
     /// <summary>Walks a document and fills a draw list.</summary>
     /// <param name="document">The document, already updated.</param>
@@ -1712,6 +1770,21 @@ public sealed class DrawListBuilder {
         // A shadow is at least two lengths and a colour, so anything that is not a list of values is
         // `none`, `inset` on its own, or a mistake — all of which draw nothing.
         if (value.Kind != StyleValueKind.List) {
+            // ⚠ <b>Only <see cref="StyleValueKind.Unknown" /> is worth a word, and that is the
+            // narrower half of this branch on purpose.</b> `box-shadow: none` is a keyword and is how
+            // the property is switched off; reporting it would put a warning in the log for every
+            // control that turns a theme's shadow back off. `Unknown` is the parser saying it had no
+            // reading at all — a comma-separated list of two shadows, or a `calc()` — which is a
+            // refusal of exactly the kind this list exists to stop being invisible.
+            if (value.Kind == StyleValueKind.Unknown) {
+                Refuse(
+                    boxShadow,
+                    id,
+                    "this shadow could not be read — a list of shadows and `calc()` are both still "
+                    + "refused whole"
+                );
+            }
+
             return;
         }
 
@@ -1743,6 +1816,13 @@ public sealed class DrawListBuilder {
                 // matters: an inset shadow drawn as an outer one is not a near miss, it is a shadow
                 // on the wrong side of the box.
                 case StyleValueKind.Keyword:
+                    Refuse(
+                        boxShadow,
+                        id,
+                        "a shadow is two to four lengths and a colour, and `inset` is the one this "
+                        + "engine cannot draw"
+                    );
+
                     return;
 
                 // ⚠ <b><see cref="LengthContext.ToLength" /> and not
@@ -1761,12 +1841,24 @@ public sealed class DrawListBuilder {
                     lengths[count++] = length.Value;
                     continue;
 
+                // ⚠ The exit the `ToLength` swap above created, and the one this diagnostic exists
+                // for. A `box-shadow: 90deg 2px #000` is a well-formed CSS declaration in a unit that
+                // measures no distance; refusing it is right and leaves a frame with no shadow, which
+                // is exactly what an element with no `box-shadow` looks like.
                 default:
+                    Refuse(
+                        boxShadow,
+                        id,
+                        "a shadow's offsets, blur and spread must be distances, and this holds a "
+                        + "value that is not one"
+                    );
+
                     return;
             }
         }
 
         if (count < 2 || shade is not { } colour) {
+            Refuse(boxShadow, id, "a shadow needs at least two lengths and a colour");
             return;
         }
 
@@ -2047,7 +2139,13 @@ public sealed class DrawListBuilder {
         // pair. A many-function list can never begin with a keyword: every function parses to a list
         // of its own, so `items[0].Kind` is `List` whenever there is more than one.
         if (items[0].Kind == StyleValueKind.Keyword) {
-            return Settle(One(document, element, items, default, backdrop) ?? default);
+            // ⚠ The `?? default` used to be the whole of this line, and a refused function and a
+            // function that read to the identity came out of it as the same answer — which is the
+            // very distinction the null in `One`'s return type exists to keep. Separated so the
+            // refusal can be said out loud; the value returned is unchanged.
+            return One(document, element, items, default, backdrop) is { } only
+                ? Settle(only)
+                : Refused(property, id);
         }
 
         var accumulated = new ElementFilter();
@@ -2062,7 +2160,7 @@ public sealed class DrawListBuilder {
             if (item.Kind != StyleValueKind.List
                 || item.Items.Length < 2
                 || item.Items[0].Kind != StyleValueKind.Keyword) {
-                return default;
+                return Refused(property, id);
             }
 
             // ⚠ Null and not `default`, because "refused" and "read, and it came to the identity" are
@@ -2070,13 +2168,36 @@ public sealed class DrawListBuilder {
             // sentinel of `default` would drop the blur on the floor for being preceded by a
             // do-nothing colour function.
             if (One(document, element, item.Items, accumulated, backdrop) is not { } folded) {
-                return default;
+                return Refused(property, id);
             }
 
             accumulated = folded;
         }
 
         return Settle(accumulated);
+    }
+
+    /// <summary>Says that a whole filter list was thrown away, and answers the identity.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One reporting site for nine functions, because the whole list is what is refused.</b>
+    ///     Filter Effects 1 makes a <c>filter</c> a single declaration: one function this executor
+    ///     cannot run takes the eight beside it with it, so <c>blur(200ms) invert(1)</c> is not an
+    ///     inversion. Reporting inside <see cref="One" /> would name the function and lose the
+    ///     property; reporting here names the declaration as the author wrote it, which is the thing
+    ///     they can go and grep for.
+    /// </remarks>
+    /// <param name="property">Either <see cref="filter" /> or <see cref="backdropFilter" />.</param>
+    /// <param name="value">The declared value, interned.</param>
+    /// <returns>The identity filter, which is what a dropped declaration leaves behind.</returns>
+    ElementFilter Refused(int property, int value) {
+        Refuse(
+            property,
+            value,
+            "a filter list is one declaration, and this one holds a function or an argument that "
+            + "cannot be executed — so none of it is applied"
+        );
+
+        return default;
     }
 
     /// <summary>Drops a colour transform that came out the identity, so nothing pays for it.</summary>

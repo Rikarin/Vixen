@@ -1461,6 +1461,13 @@ public sealed partial class UiDocument : IDisposable {
                 // drops the declaration at parse time, and what an element with no `line-height` of
                 // its own gets is its parent's — which is what `lineHeight` and `factor` still hold.
                 case StyleValueKind.Length:
+                    RefuseText(
+                        this.lineHeight,
+                        declared,
+                        "a line height must be a number, a percentage or a distance, and this unit "
+                        + "measures no distance"
+                    );
+
                     break;
 
                 // `normal`, and anything else with no reading — the font's own recommendation.
@@ -1487,6 +1494,8 @@ public sealed partial class UiDocument : IDisposable {
                 tracking = resolved.Value;
             } else if (value.Kind != StyleValueKind.Length) {
                 tracking = 0f;
+            } else {
+                RefuseText(letterSpacing, spacing, NotADistance);
             }
         }
 
@@ -1505,6 +1514,8 @@ public sealed partial class UiDocument : IDisposable {
                 words = resolved.Value;
             } else if (value.Kind != StyleValueKind.Length) {
                 words = 0f;
+            } else {
+                RefuseText(wordSpacing, between, NotADistance);
             }
         }
 
@@ -1529,6 +1540,8 @@ public sealed partial class UiDocument : IDisposable {
                 indent = resolved.Value;
             } else if (value.Kind != StyleValueKind.Length || value.Unit == StyleUnit.Percent) {
                 indent = 0f;
+            } else {
+                RefuseText(textIndent, declared_indent, NotADistance);
             }
         }
 
@@ -1642,7 +1655,14 @@ public sealed partial class UiDocument : IDisposable {
         // the same order as one per frame and it catches the caller that names its own surface.
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(surface);
-        return drawings.Build(this, surface.Root, surface.Drawing);
+
+        var changed = drawings.Build(this, surface.Root, surface.Drawing);
+
+        // ⚠ After the build, which makes this the one drain point outside the style pass. See
+        // `DrainDrawingDiagnostics` for why a per-frame drain costs nothing after the first frame.
+        DrainDrawingDiagnostics();
+
+        return changed;
     }
 
     /// <summary>The element a pointer would land on.</summary>

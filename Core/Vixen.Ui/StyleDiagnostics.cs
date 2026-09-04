@@ -68,6 +68,68 @@ public sealed partial class UiDocument {
     object? drainedBuilder;
     int drainedBuilderCount;
 
+    object? drainedText;
+    int drainedTextCount;
+
+    object? drainedDrawing;
+    int drainedDrawingCount;
+
+    /// <summary>What <see cref="ResolveText" /> could not read, and why.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A fourth producer, and it is here rather than on
+    ///         <see cref="LayoutStyleBuilder" /> because this pass is not the bridge.</b>
+    ///         <c>line-height</c>, <c>letter-spacing</c>, <c>word-spacing</c> and <c>text-indent</c>
+    ///         are resolved by <see cref="ResolveText" /> against <i>this element's own</i> font size
+    ///         and inherited as answers rather than as declarations, which is exactly why the bridge
+    ///         cannot do it. Logging them as the bridge's would send a reader to a file that never
+    ///         saw the value.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The refusals these record are invisible by construction, which is what makes the
+    ///         list worth its bytes.</b> A <c>letter-spacing</c> in a unit that measures no distance
+    ///         leaves the tracking inherited, and inherited-from-a-root is zero, and zero tracking
+    ///         <i>is</i> <c>letter-spacing: normal</c> — the initial value. There is no frame in
+    ///         which that declaration looks any different from never having written it. Same for
+    ///         <c>text-indent</c>; <c>line-height</c> at least stacks the baselines, which reads as a
+    ///         layout bug rather than as a stylesheet the engine refused. See `Rikarin/Vixen#521`.
+    ///     </para>
+    /// </remarks>
+    readonly List<SelectorDiagnostic> textDiagnostics = [];
+
+    /// <summary>The one reason three of the four text properties are refused for.</summary>
+    /// <remarks>
+    ///     ⚠ Shared text rather than three near-identical strings, because the failure really is one
+    ///     failure: <c>LengthContext.ToLength</c> answers a length only for a unit that measures a
+    ///     distance, and <c>letter-spacing: 2deg</c>, <c>word-spacing: 200ms</c> and
+    ///     <c>text-indent: 3s</c> are the same mistake spelt three ways. The declaration is dropped,
+    ///     as CSS drops it, and the property keeps what it inherited.
+    /// </remarks>
+    const string NotADistance =
+        "this property takes a distance, and the declared unit measures none — so the declaration "
+        + "is dropped and the inherited value stands";
+
+    /// <summary>Records a text declaration that resolved to nothing, once per distinct declaration.</summary>
+    /// <remarks>
+    ///     ⚠ Deduplicated by text for <see cref="LayoutStyleBuilder" />'s reason and not a weaker
+    ///     one: this runs once per element per restyle, so one bad declaration in a theme sheet is a
+    ///     line per element per frame if nothing collapses it.
+    /// </remarks>
+    /// <param name="property">The interned property name.</param>
+    /// <param name="value">The interned value, as the author wrote it.</param>
+    /// <param name="reason">Why it could not be used.</param>
+    void RefuseText(int property, int value, string reason) {
+        var text = $"{Styles.Properties.NameOf(property)}: {Styles.Values.NameOf(value)}";
+
+        foreach (var existing in textDiagnostics) {
+            if (existing.Text == text) {
+                return;
+            }
+        }
+
+        textDiagnostics.Add(new SelectorDiagnostic(text, reason));
+    }
+
     /// <summary>Logs every refusal the cascade has recorded since the last time this ran.</summary>
     /// <remarks>
     ///     Called after anything that can add to either list: a <see cref="Load" />, a
@@ -111,13 +173,51 @@ public sealed partial class UiDocument {
     ///         way out of an exception, where the exception is the news.
     ///     </para>
     /// </remarks>
-    void DrainBuilderDiagnostics() =>
+    void DrainBuilderDiagnostics() {
         Drain(
             "The layout bridge",
             Builder,
             Builder.Diagnostics,
             ref drainedBuilder,
             ref drainedBuilderCount
+        );
+
+        // The same drain point, because `ResolveText` runs in the same per-element pass the bridge
+        // does — a second producer rather than a second place to read one.
+        Drain(
+            "The text resolver",
+            textDiagnostics,
+            textDiagnostics,
+            ref drainedText,
+            ref drainedTextCount
+        );
+    }
+
+    /// <summary>Logs every declaration the draw list refused while building the frame just drawn.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A per-frame drain, and it costs one integer comparison per frame.</b>
+    ///         <see cref="DrawListBuilder" /> is the only producer that runs in the draw pass rather
+    ///         than the style pass, so it needs a drain point of its own and the only honest one is
+    ///         after the build. What makes that affordable is that its list deduplicates by text: a
+    ///         <c>box-shadow</c> refused on frame one is refused on every frame after it and adds
+    ///         nothing, so from the second frame on this is <c>drained &lt; entries.Count</c> and
+    ///         returns.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Per surface rather than per <see cref="Draw()" />, because a host may draw one
+    ///         window and skip another.</b> The watermark is on the builder, which is shared by every
+    ///         surface, so a refusal is logged by whichever surface's build recorded it and not once
+    ///         per window.
+    ///     </para>
+    /// </remarks>
+    void DrainDrawingDiagnostics() =>
+        Drain(
+            "The draw list",
+            drawings,
+            drawings.Diagnostics,
+            ref drainedDrawing,
+            ref drainedDrawingCount
         );
 
     /// <summary>Logs the tail of one producer's list and remembers how far it got.</summary>
