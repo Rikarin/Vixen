@@ -1640,13 +1640,27 @@ public sealed partial class NodeCanvas : Control {
     /// </remarks>
     void Pointed(PointerEvent args) {
         switch (args.Action) {
-            // ⚠ Any field, not only a port's boxes. `Begin` focuses the canvas, so a press inside a
-            // text field the canvas happens to contain — a port's number, a sticky note being
-            // written — would take the focus off the field being clicked into, which commits the
-            // edit and puts the caret nowhere. The field's own handlers are further along the same
-            // route, so this is left unhandled rather than swallowed.
+            // ⚠ <b>A port's editor, and only that.</b> This used to decline a press under any
+            // `TextField` as well, with a rationale about `Begin` focusing the canvas and so
+            // committing an edit the user was clicking into — and that arm could not run.
+            // `TextField.Pointed` marks a primary press `Handled` where it places the caret, and
+            // this handler is an ordinary `AddHandler<PointerEvent>` whose `handledEventsToo` is
+            // false, so a press inside a field never reaches `Pointed` at all. Narrowing it back
+            // left both suites green, which is what a guard nothing can trigger does.
+            //
+            // What protects a note being written is the field's own handler, and
+            // `ViewTests.A_press_in_a_notes_editor_reaches_the_canvas_already_handled` asserts the
+            // `Handled` flag rather than the focus — because a test asking who has the focus passes
+            // either way and was measured doing so. See #505.
+            //
+            // The port editor stays, and it is reachable for the half of it that is not a box: a
+            // lane letter is a plain element nobody marks handled, so a press on the `X` beside a
+            // number does arrive here — and without this the press starts a wire from the port and
+            // `Begin` takes the caret out of the box being typed in. Both halves are red under
+            // `PortValueTests.Pressing_a_lane_letter_starts_nothing_and_leaves_the_caret_where_it_was`
+            // with this case removed.
             case PointerAction.Pressed when args.Button == PointerButton.Primary
-                && (Under<NodePortEditor>(args.Source) is not null || Under<TextField>(args.Source) is not null):
+                && Under<NodePortEditor>(args.Source) is not null:
                 return;
 
             case PointerAction.Pressed:
