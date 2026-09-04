@@ -125,11 +125,26 @@ about **a hundred times** the early-out — which is why repeated out-of-gamut c
 rather than recomputed: a palette is a few dozen values drawn thousands of times, so the cache turns
 milliseconds a frame into microseconds.
 
-**What is cached, and on what.** The builder keeps a small fixed-size direct-mapped table of repairs.
-The key is the colour's three channel *bit patterns*; alpha is not part of it, because alpha is not
-part of the answer — so one entry serves a token used at every opacity a `/50` modifier can ask for.
-The gamut is not part of the key either: it is a property of the surface, so a change to it makes the
-whole table stale at once and clears it.
+**What is cached, and on what.** The builder keeps a small fixed-size table of repairs — 256 slots,
+and a colour may be remembered in the slot its hash names or in the next one. The key is the colour's
+three channel *bit patterns*; alpha is not part of it, because alpha is not part of the answer — so
+one entry serves a token used at every opacity a `/50` modifier can ask for. The gamut is not part of
+the key either: it is a property of the surface, so a change to it makes the whole table stale at once
+and clears it.
+
+⚠ **The one probe is what makes two colours cost two searches**, and the table was direct-mapped
+without it. A pair of tokens that landed in the same slot then evicted each other on every lookup, so
+a palette of two colours paid a full search *per quad* for the life of the process — invisible except
+as time, which is the only way this can go wrong. Probing one step costs a comparison on a path that
+is about to spend a thousand nanoseconds anyway, and it keeps the table's other properties: no
+allocation, no growth, and eviction only once three colours want the same pair of slots.
+
+⚠ **And the index is a fixed mix rather than `HashCode.Combine`**, which folds in a seed drawn once
+per process. Under that, which two colours collided was re-rolled at every start — so the direct-mapped
+table's worst case could not be reproduced on the run where it happened, and a test that counted
+searches for two particular colours was an instrument whose verdict was a coin toss at about 1 in 256.
+Nothing reaches this table from untrusted input, so the seed bought it no defence and cost it
+reproducibility.
 
 **Why the algorithm ends in a clip.** The search reduces chroma until the colour is within one JND of
 the gamut boundary, then returns the *clipped* version rather than the reduced one. That is the
