@@ -113,6 +113,14 @@ public sealed class InheritedProperties {
         // `UiDocument.EllipsisOf`.
         "text-overflow",
 
+        // ⚠ And `-webkit-line-clamp` for exactly `text-overflow`'s reason and no other. It is not
+        // CSS-inherited either — in CSS it applies to a `-webkit-box`, whose line boxes hold the
+        // inline content of its descendants — and the same missing shared line box is what leaves
+        // inheritance as the only route from the container a `line-clamp-3` is written on to the
+        // element that owns the glyphs. `class="line-clamp-3"` on a card whose text sits in a child
+        // span is the shape every panel in this tree writes.
+        "-webkit-line-clamp",
+
         // ⚠ <b>None of these five is CSS-inherited, and all five are here for `text-overflow`'s
         // reason, one step stronger.</b> CSS does not inherit a decoration; it <i>propagates</i> one.
         // A block container's `text-decoration-line` decorates the in-flow inline content of its own

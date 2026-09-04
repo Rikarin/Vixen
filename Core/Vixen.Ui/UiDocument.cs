@@ -46,6 +46,7 @@ public sealed partial class UiDocument : IDisposable {
     readonly int overflowWrap;
     readonly int wordBreak;
     readonly int textOverflow;
+    readonly int lineClamp;
     readonly int ellipsis;
     readonly int nowrap;
     readonly int anywhere;
@@ -146,6 +147,7 @@ public sealed partial class UiDocument : IDisposable {
         overflowWrap = Styles.Properties.Intern("overflow-wrap");
         wordBreak = Styles.Properties.Intern("word-break");
         textOverflow = Styles.Properties.Intern("text-overflow");
+        lineClamp = Styles.Properties.Intern("-webkit-line-clamp");
         ellipsis = Styles.Values.Intern("ellipsis");
         nowrap = Styles.Values.Intern("nowrap");
         anywhere = Styles.Values.Intern("anywhere");
@@ -1908,6 +1910,41 @@ public sealed partial class UiDocument : IDisposable {
     /// </remarks>
     internal bool EllipsisOf(ComputedStyle style) =>
         style.TryGet(textOverflow, out var value) && value == ellipsis;
+
+    /// <summary>How many lines the block may have before the rest are dropped, or zero for all.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>-webkit-line-clamp</c>, which is the only spelling: CSS Overflow 4's unprefixed
+    ///         <c>line-clamp</c> is not shipped anywhere and Tailwind emits the prefixed name.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read in <see cref="UiElement.Block(float)" /> and not at paint, which is the one
+    ///         place this differs from <see cref="EllipsisOf" />.</b> An ellipsis changes the picture
+    ///         and nothing else — the element is as wide as it always was, which is what makes its
+    ///         parent shrink it in the first place. A clamp changes <i>how many lines there are</i>,
+    ///         so it changes the element's height, so it has to happen before the height is reported.
+    ///         The two are otherwise the same machinery and the marker on the last kept line is
+    ///         literally <see cref="EllipsisOf" />'s.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Vixen drops the lines rather than clipping them, and that is why the utility
+    ///         emits no <c>overflow</c>.</b> A browser lays out every line and hides the ones past
+    ///         the clamp, so it needs <c>overflow: hidden</c> to do the hiding; here the block
+    ///         genuinely has N lines and there is nothing left to clip. Emitting the declaration
+    ///         anyway would be a class asking for a mechanism this engine does not use.
+    ///     </para>
+    /// </remarks>
+    internal int LineClampOf(ComputedStyle style) {
+        if (!style.TryGet(lineClamp, out var id)) {
+            return 0;
+        }
+
+        var value = reader.Parse(id);
+
+        // `none` — and anything else that is not a positive count — is no clamp. Zero is the same
+        // answer as absent rather than "no lines at all", which is what a browser does with it.
+        return value.Kind == StyleValueKind.Number ? Math.Max((int) value.Number, 0) : 0;
+    }
 
     /// <summary>What to do with a word wider than the line it has to fit in.</summary>
     internal TextWrapMode WrapModeOf(ComputedStyle style) =>

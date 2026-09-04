@@ -941,6 +941,31 @@ public static class UtilityFamilies {
             ["top"] = "top", ["middle"] = "middle", ["bottom"] = "bottom", ["baseline"] = "baseline"
         });
 
+        // ── Line clamp ──────────────────────────────────────────────────────────────────────
+        // ⚠ <b>One declaration where Tailwind emits four, and the three that are missing are three
+        // separate decisions rather than one shortfall.</b>
+        //
+        // `display: -webkit-box` and `-webkit-box-orient: vertical` are dropped under
+        // `-webkit-backdrop-filter`'s rule: a prefixed name no engine here can read is a line in
+        // every generated sheet that nothing will ever look at. ⚠ And the sizing that called them
+        // "a box model Vixen does not have" was measuring the wrong thing — the 2009 box *is*
+        // expressible, it is a flex column, and mapping it that way would be actively wrong: it
+        // would make a text element a flex container, and a text element here is a leaf that
+        // measures itself. In a browser the pair is a marker Chrome special-cases; here
+        // `UiDocument.LineClampOf` reads the clamp directly, so the marker has nothing to mark.
+        //
+        // `overflow: hidden` is dropped for a different reason: a browser lays out every line and
+        // *hides* the ones past the clamp, so it needs the clip to do the hiding. `UiElement.Block`
+        // drops them, so a clamped block genuinely has N lines and there is nothing left to clip.
+        //
+        // ⚠ <b>Two registrations for one family, and the order is load-bearing.</b> `Register` keeps
+        // the first family under a name and merges a later one's keywords into it, so the numeric
+        // kind has to be registered first for `line-clamp-none` to be a keyword rather than a value
+        // that fails to parse — the same arrangement `decoration` uses for its three properties.
+        Number("line-clamp", "-webkit-line-clamp");
+
+        Keywords("line-clamp", "-webkit-line-clamp", new() { ["none"] = "none" });
+
         // ── Text transform ──────────────────────────────────────────────────────────────────
         // ⚠ <b>Four bare words for one property, and the fourth is spelled `normal-case` rather than
         // `case-normal`.</b> That is v4's name and it is also the only one that does not collide:

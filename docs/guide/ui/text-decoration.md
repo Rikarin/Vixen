@@ -123,8 +123,16 @@ cleanly, compute a value, and paint a **straight** line, which is worse than not
 
 ### What is not here at all
 
-`text-shadow` — the draw list has no glyph-shadow path. `line-clamp` — it changes how many lines there
-are, which belongs to the measure pass.
+`text-shadow` — the draw list has no glyph-shadow path.
+
+`line-clamp` **is** here now, and it landed exactly where the sentence this replaces said it belonged:
+in the measure pass. `-webkit-line-clamp` is read by `UiElement.Block`, which drops the lines past the
+budget before the height is reported — so a `line-clamp-3` block is three lines tall to its parent,
+which is the one truncation in this engine that is a fact about the layout rather than about the
+picture. The marker on the last kept line is this file's own ellipsis, put there at paint. ⚠ Vixen's
+`line-clamp-N` emits one declaration where Tailwind emits four: `display: -webkit-box` and
+`-webkit-box-orient` are a marker a browser needs and this engine does not, and `overflow: hidden` is
+a clip for lines that here were never laid out.
 
 `text-transform` **is** here now, on its own page: it was refused under exactly the blocker described
 above — `straße` uppercases to `STRASSE`, so a case mapping changes the UTF-16 length and every caret

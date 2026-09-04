@@ -596,6 +596,7 @@ public partial class UiElement : Composition.IComposable {
         var mode = Document.WrapModeOf(Style);
         var breaking = Document.WordBreakOf(Style);
         var transform = Document.TextTransformOf(Style);
+        var clamp = Document.LineClampOf(Style);
 
         if (!Document.WrapsOf(Style)) {
             width = float.PositiveInfinity;
@@ -619,6 +620,11 @@ public partial class UiElement : Composition.IComposable {
             // the wrong width and wrapped at the wrong characters. It is *not* covered by the
             // reference test on `Text` above — the element's own string did not change.
             && lineTransform == transform
+
+            // ⚠ And the clamp, which is the one entry in this key that changes the block's *height*
+            // rather than its width. A stale clamp is a paragraph that measured five lines and draws
+            // three, so the box is two lines too tall and the gap looks like a margin nobody wrote.
+            && lineClamp == clamp
             && lineWidth.Equals(width)
             && lineSize.Equals(FontSize)
             && lineTracking.Equals(LetterSpacing)
@@ -673,9 +679,26 @@ public partial class UiElement : Composition.IComposable {
             Wrap(text, whole, width, mode, breaking, indent, chain, drawn, lines);
         }
 
+        // ⚠ <b>The clamp drops the lines here, in the measure path, and this is where it differs from
+        // every other truncation in this file.</b> An ellipsis is a fact about the picture — see
+        // `Ellipsized`, which is why that one happens at paint. A clamp is a fact about the *height*:
+        // a three-line block is three lines tall to its parent, so a budget applied after layout
+        // would reserve room for lines that are never drawn and leave a hole under the text.
+        //
+        // ⚠ Only the *count* is applied here and not the marker. The lines that remain are still
+        // whole substrings of the text, so `TextLine.Start`, the caret and the selection go on
+        // meaning what they mean; the ellipsis on the last kept line is `Ellipsized`'s, put there at
+        // paint like every other ellipsis, and `clamped` is what tells it to.
+        clamped = clamp > 0 && lines.Count > clamp;
+
+        if (clamped) {
+            lines.Count = clamp;
+        }
+
         block = new TextLayout(lines.ToImmutable());
         lineText = Text;
         lineTransform = transform;
+        lineClamp = clamp;
         lineTransformed = drawn;
         lineFamily = family;
         lineWeight = weight;
@@ -728,7 +751,12 @@ public partial class UiElement : Composition.IComposable {
     public TextLayout? Ellipsized(float contentWidth) {
         var source = Block();
 
-        if (source is null || !Document.EllipsisOf(Style)) {
+        // ⚠ <b>A clamp implies the marker, which is what makes `line-clamp-3` one class rather than
+        // two.</b> CSS says so — a `-webkit-line-clamp` ellipsises the last kept line without
+        // `text-overflow` being written anywhere — and it is also the only reading that is any use:
+        // three lines that simply stop are indistinguishable from three lines that were all there
+        // was. `clamped` belongs to the block `Block()` has just returned, so it is read after it.
+        if (source is null || !(Document.EllipsisOf(Style) || clamped)) {
             return source;
         }
 
@@ -759,11 +787,20 @@ public partial class UiElement : Composition.IComposable {
         // guarantees it is not stale.
         var drawn = lineTransformed ?? TransformedText.Of(Text, TextTransform.None);
 
-        foreach (var line in source.Lines) {
+        for (var i = 0; i < source.Lines.Length; i++) {
+            var line = source.Lines[i];
+
+            // ⚠ The last line of a clamped block is marked whether or not it fits, and that is the
+            // whole difference between the two features. An ellipsis says "this line was too wide";
+            // a clamp says "there was more text after this" — the line it lands on is a line that
+            // fitted perfectly, and testing the width first would silently drop the marker on every
+            // clamped paragraph whose last kept line happens to be short.
+            var truncating = clamped && i == source.Lines.Length - 1;
+
             // The indent is part of what has to fit: an indented line whose glyphs are narrower than
             // the box can still run past its right-hand edge, and that is exactly the line an
             // ellipsis is for.
-            if (line.Offset + line.Width <= contentWidth) {
+            if (!truncating && line.Offset + line.Width <= contentWidth) {
                 lines.Add(line);
                 continue;
             }
@@ -1096,6 +1133,12 @@ public partial class UiElement : Composition.IComposable {
     float lineWords;
     float lineIndent;
     TextTransform lineTransform;
+    int lineClamp;
+
+    // Whether `Block` dropped lines to honour `-webkit-line-clamp`, which is what tells `Ellipsized`
+    // to mark the last one even though it fits. Belongs to the current `block` and is rewritten
+    // whenever that is.
+    bool clamped;
 
     // ⚠ The transformed text the current `block` was built from, kept so that `Ellipsized` cuts the
     // string the runs were actually shaped from. Rebuilding it there instead would be a second
