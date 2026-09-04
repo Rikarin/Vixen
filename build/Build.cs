@@ -201,22 +201,86 @@ partial class Build : NukeBuild {
                 // minute-long passes below.
                 CheckAttributionManifest();
 
+                // Third, because it is 13.6 s against the minutes below and it is the pass that
+                // catches damage a human notices and this target could not: see CheckWhitespace,
+                // which is also a target of its own.
+                CheckWhitespaceFormatting();
+
                 // Invoked raw rather than through Nuke's typed settings, whose shape has moved
                 // between versions; the CLI's has not.
                 //
                 // `style` and `analyzers`, deliberately not `whitespace`. The repository indents a
                 // lambda body passed as an argument one level further than `dotnet format` does,
                 // consistently, in every file — and there is no .editorconfig key that expresses
-                // that, so the whitespace pass reports about nine hundred violations against code
-                // that is entirely consistent with itself. Gating on it would mean reformatting
-                // twenty-eight files against the tool that actually formats them, after which the
-                // next edit in the IDE would put them back. The brace and spacing rules the config
-                // *can* express are set (see .editorconfig § Layout), which is what took that
-                // number down from roughly forty thousand.
-                DotNet($"format style \"{Solution.Path}\" --verify-no-changes --severity warn --no-restore");
-                DotNet($"format analyzers \"{Solution.Path}\" --verify-no-changes --severity warn --no-restore");
+                // that, so the whitespace pass reports violations against code that is entirely
+                // consistent with itself. The brace and spacing rules the config *can* express are
+                // set (see .editorconfig § Layout), which is what took that number down from roughly
+                // forty thousand.
+                //
+                // ⚠ That argument is about 551 files out of 4 842, and it was used to refuse the
+                // pass over all of them — so mis-indentation was ungated everywhere and reached
+                // master three times (#516). `CheckWhitespaceFormatting` above now runs it against
+                // the other seven eighths, with those 551 named in docs/WhitespaceExempt.txt. The
+                // two numbers this comment used to carry were both wrong: "about nine hundred"
+                // violations are 5 167, and "twenty-eight files" are 551.
+                foreach (var workspace in FormatWorkspaces()) {
+                    DotNet($"format style \"{workspace}\" --verify-no-changes --severity warn --no-restore");
+                    DotNet($"format analyzers \"{workspace}\" --verify-no-changes --severity warn --no-restore");
+                }
             }
         );
+
+    /// <summary>
+    ///     What the two format passes are pointed at: the solution, or — under
+    ///     <see cref="Since" /> — the projects that own what changed.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>--include</c> is not where the saving is, and the issue that asked for it
+    ///         (#556) is refuted on its own terms.</b> Measured on this tree, one project
+    ///         (<c>Core/Vixen.Net</c>, 70 files) warm: the unscoped <c>style</c> pass takes
+    ///         <b>5.03 s</b>, the same pass with <c>--include</c> naming a single file takes
+    ///         <b>4.90 s</b>. Scoping the input scopes the analysis and not the load, and the load is
+    ///         essentially all of it — about 1.9 ms per file against roughly 4.8 s of workspace
+    ///         evaluation. Extrapolated to the 4 510 files in scope that is under ten seconds off a
+    ///         pass the target's own comment calls minute-long, so <c>--include</c> against the
+    ///         solution would buy single-digit percent.
+    ///     </para>
+    ///     <para>
+    ///         So the workspace is what gets narrowed. A project is a workspace <c>dotnet format</c>
+    ///         accepts, and pointing it at four of them instead of at 395 is the 20-fold difference
+    ///         the measurement above says the load is worth.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is an inner-loop convenience and not the gate.</b> The unattended run — CI,
+    ///         and the sweep on master — passes no <c>--since</c> and checks the solution, because a
+    ///         branch narrowed to its own diff cannot see a file its neighbour's merge broke, which
+    ///         is the mechanism #516 records reaching master three times. Narrowing also drops the
+    ///         two whole-tree checks' scope not at all: <see cref="CheckLicenceHeaders" /> and
+    ///         <see cref="CheckAttributionManifest" /> run over everything either way, because they
+    ///         take milliseconds.
+    ///     </para>
+    /// </remarks>
+    IReadOnlyList<AbsolutePath> FormatWorkspaces() {
+        if (Since is null) {
+            return [Solution.Path];
+        }
+
+        var projects = AffectedProjectsSince(Since);
+
+        if (projects.Count == 0) {
+            Log.Information("Nothing changed since {Since} belongs to a project — no format pass to run.", Since);
+        } else {
+            Log.Information(
+                "Formatting {Count} project(s) changed since {Since}: {Projects}",
+                projects.Count,
+                Since,
+                string.Join(", ", projects.Select(project => project.NameWithoutExtension))
+            );
+        }
+
+        return projects;
+    }
 
     /// <summary>
     ///     The two tags every authored source file has to carry, in the first

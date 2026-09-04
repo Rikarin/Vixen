@@ -69,9 +69,23 @@ sed -n '/Target.*Status/,/═══/p' /tmp/gate.log
 ⚠ **Gates are per-tree, so run them after the last merge, not before the first.** A `CheckFormat`
 regression reached master twice this way; three separate agents rediscovered it independently.
 
+`--since <ref>` narrows a target to what changed — `./build.sh CheckFormat --since master` formats
+only the projects that own the diff, `./build.sh AffectedTests --since master` runs only the test
+projects reachable from them (one at a time), and `./build.sh AffectedProjects --since master` prints
+both sets without running anything. These are inner-loop conveniences and **never the gate**:
+narrowing cannot see a file a neighbour's merge broke, and a `ProjectReference` closure cannot see a
+golden image, a content bundle, an `.rvn` import closure or a test that walks the repository.
+⚠ `--include` is *not* what makes `CheckFormat --since` fast — scoping the input scopes the analysis
+and not the workspace load, and the load is essentially all of the cost.
+
 ⚠ **Run gates and test projects one at a time** on a developer machine. The whole-solution `Test`
 target runs ~176 assemblies concurrently and will saturate a laptop; runs have been SIGTERM'd
-mid-compile under that load.
+mid-compile under that load. `build.sh` now enforces the *between-checkouts* half of that: the
+expensive targets take a machine-wide advisory lock, so a second sweep — an agent in another
+worktree — waits and says what it is waiting for instead of competing. The cheap targets
+(`CheckStrings`, `AffectedProjects`, …) never queue, CI never locks, and `VIXEN_NO_BUILD_LOCK=1` is
+the escape hatch. Nothing serialises `dotnet test` run directly, which is the point: that is the one
+you are supposed to be able to run.
 
 ### Configuration, which is not uniform
 
@@ -179,6 +193,11 @@ zero is a valid-looking value.
   with the code.
 - **`CheckStrings`** fails on a declared string id used nowhere, and on a call site that rebuilds an id
   a declaration class already declares.
+- **`CheckWhitespace`** (also run inside `CheckFormat`) fails on a file that disagrees with
+  `dotnet format whitespace` and is not in `docs/WhitespaceExempt.txt` — **and equally on a file in
+  that list that has become clean**, so the list can only shrink. ⚠ It is 13 s for the whole tree,
+  not minutes: `--folder` loads no MSBuild workspace. `./build.sh CheckWhitespace --update-exemptions`
+  rewrites the list; read the diff, because a commit that grows it added mis-indented code.
 - **`CheckArchitecture`** globs directories rather than reading the solution, so it sees the
   out-of-solution mobile/web projects that `Test`, `CheckFormat`, `CheckApi` and `Pack` never evaluate.
 
