@@ -145,6 +145,22 @@ public static class UtilityComposition {
     /// <summary>Where a conic mask's sweep starts.</summary>
     public const string MaskConicAngle = Prefix + "mask-conic-angle";
 
+    /// <summary>How long a transition the <c>transition</c> class started runs for.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A fragment rather than a plain declaration on the <c>transition</c> family, and the
+    ///     reason is the generated sheet's own ordering.</b> <see cref="UtilityGenerator" /> writes
+    ///     its rules in <i>ordinal class-name order</i> — deliberately, so that a project produces the
+    ///     same file byte for byte — which makes class-name order the cascade order between two
+    ///     utilities of equal specificity. <c>duration-1000</c> sorts before <c>transition</c>, so a
+    ///     <c>transition</c> that wrote <c>transition-duration: 150ms</c> directly would land
+    ///     <i>after</i> the <c>duration-*</c> beside it and beat it — turning
+    ///     <c>class="transition duration-1000"</c>, which is how the class is written in practice,
+    ///     into a 150 ms transition. Read through a <see cref="Reference" /> the value comes from the
+    ///     fragment whichever rule is written second, and the initial value below is what
+    ///     <c>transition</c> means on its own.
+    /// </remarks>
+    public const string TransitionDuration = Prefix + "duration";
+
     /// <summary>Where a radial mask's centre sits, as a CSS <c>&lt;position&gt;</c>.</summary>
     /// <remarks>
     ///     ⚠ <b><c>center</c>, which is CSS's own default, so the fragment costs nothing while nobody
@@ -420,6 +436,13 @@ public static class UtilityComposition {
         [MaskLinearAngle] = "180deg",
         [MaskConicAngle] = "0deg",
         [MaskRadialPosition] = "center",
+
+        // ⚠ v4's own number, and that is the whole of why it is this one. A different default would
+        // make `class="transition"` mean a different animation in the two systems, which is a
+        // divergence nobody would find by reading either sheet. There is deliberately no companion
+        // for the timing function: CSS's initial value is already `ease`, so `transition` gets v4's
+        // curve by saying nothing, and saying it would overwrite the `ease-*` beside it.
+        [TransitionDuration] = "150ms",
 
         // See the mask layers' own remark: an opaque layer is the identity under `intersect`, which
         // is the operator every mask utility emits, so a slot nobody filled costs nothing and says

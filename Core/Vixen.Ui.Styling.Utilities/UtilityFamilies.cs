@@ -1761,11 +1761,54 @@ public static class UtilityFamilies {
         });
 
         // ── Transitions ─────────────────────────────────────────────────────────────────────
+        //
+        // ⚠ <b>The duration rides alongside, and without it the class was half of one.</b>
+        // `transition-duration` defaults to <i>zero</i>, so a `transition` that named a property and
+        // set no duration was a declaration that could not move a pixel — `class="transition"` did
+        // nothing at all unless a `duration-*` happened to sit beside it. That is not a smaller family
+        // than Tailwind's, it is a family whose single value is inert on its own, which is the shape
+        // the consumption gate exists to refuse and could not see here: `transition-property` measures
+        // as read off the `primed` scene, where the duration comes from the scene and not the class.
+        //
+        // ⚠ <b>The duration is the ONLY half that was missing, and the timing function is deliberately
+        // not written — v4 emits `ease` and so does this, by saying nothing.</b> Tailwind's `transition`
+        // sets `150ms` and `ease`; CSS's initial `transition-duration` is `0s`, which is why the first
+        // is load-bearing, but its initial `transition-timing-function` is *already* `ease`, and
+        // `Animator.ReadSpecs` falls back to `TimingFunction.Ease` for exactly that reason. Emitting it
+        // anyway would buy nothing and cost `ease-*`, which sorts before `transition` and would be
+        // overwritten by it — see the ordering note below.
+        //
+        // ⚠ <b>150 ms is v4's own number, not a choice made here.</b> A different default would make
+        // the same class name mean a different animation in the two systems — the failure
+        // `bg-conic-<angle>` is recorded under, arriving where it would be much harder to see.
+        //
+        // ⚠ <b>Through the composition fragments and NOT as two plain declarations, and the test that
+        // says why is `TransitionUtilityTests.A_duration_beside_it_overrides_the_families_own_default`
+        // — it was written against the plain version and it failed.</b> `UtilityGenerator` writes its
+        // rules in ordinal class-name order for byte-determinism, which makes class-name order the
+        // cascade order between two utilities of equal specificity; `duration-1000` sorts before
+        // `transition`, so a `transition` writing `transition-duration: 150ms` directly lands after it
+        // and wins. `class="transition duration-1000"` — the way the class is actually written —
+        // would have become a 150 ms transition, which is a regression wearing a fix's clothes.
+        // A `var(--tw-duration, 150ms)` takes the fragment whichever rule comes second.
         Register(new Family("transition", ValueKind.Static, ["transition-property"], new Dictionary<string, string>(StringComparer.Ordinal) {
             [string.Empty] = "all"
-        }));
+        }, Alongside: [
+            new UtilityDeclaration("transition-duration", UtilityComposition.Reference(UtilityComposition.TransitionDuration))
+        ]));
 
-        Register(new Family("duration", ValueKind.Duration, ["transition-duration"]));
+        // ⚠ Both the fragment and the longhand, which is v4's shape too. The longhand alone would be
+        // invisible to the `transition` above; the fragment alone would make the family `composed`,
+        // and `duration-*` has to keep working beside a hand-written `transition-property` that knows
+        // nothing about any `--tw-*`.
+        Register(new Family("duration", ValueKind.Duration, ["transition-duration", UtilityComposition.TransitionDuration]));
+
+        // ⚠ <b>`transition-delay` had a reader before it had a class</b> — `Animator.ReadSpecs` reads
+        // it into `RunningTransition.Delay`, which `Progress` and `IsFinished` both consult — so this
+        // is a family gap and not an engine one, and the `Duration` kind it shares with `duration-*`
+        // is the whole of what it needed. That asymmetry is why `delay-*` lands here while `animate-*`
+        // does not: one was missing a spelling, the other is missing three mechanisms.
+        Register(new Family("delay", ValueKind.Duration, ["transition-delay"]));
 
         Keywords("ease", "transition-timing-function", new() {
             ["linear"] = "linear", ["in"] = "ease-in", ["out"] = "ease-out", ["in-out"] = "ease-in-out"
