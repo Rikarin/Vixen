@@ -429,12 +429,19 @@ design exists to avoid.
 ```html
 @using Vixen.Ui.Controls
 @using Prefab = Vixen.Editor.AssetEditors.Prefabs.PrefabSource
+@using static System.Math
 ```
 
-Either shape is copied verbatim into the generated file, which is the whole of what the directive
+Every shape is copied verbatim into the generated file, which is the whole of what the directive
 does. The alias is held in `UsingDirectiveSyntax.Alias`, *ahead* of `Name` rather than instead of
-it, so every reader of a using sees the imported thing under one property whichever shape the file
-wrote.
+it, and `static` in `StaticKeyword` ahead of both, so every reader of a using sees the imported
+thing under one property whichever shape the file wrote.
+
+⚠ **`static` is only the keyword when whitespace follows it.** `IsNamePart` takes a `.`, so a word
+boundary alone would read the head of a name as the keyword and leave the directive with no name at
+all. The one combination C# has no spelling for — `@using static X = Y` — is refused by the binder
+with `VXML2019` rather than copied through, because both halves reaching the generated file would
+be `using static X = Y;` reported against a line the author never wrote.
 
 ⚠ **The alias half used not to lex at all, and the author was told about a type instead.** `@using`
 took a name and stopped there, so `@using Prefab = A.B.Prefab` emitted `using Prefab;` and what came
@@ -444,7 +451,10 @@ workaround, and it is only a workaround while nothing clashes: a name that needs
 no other spelling. The refusal-with-a-diagnostic that was the alternative would at least have named
 the directive; producing C# that does not compile names nothing.
 
-`@using static` is still not lexed and has the shape of problem the alias had — [#579](https://github.com/Rikarin/Vixen/issues/579).
+⚠ **`@using static` was the same defect one directive-shape over** — [#579](https://github.com/Rikarin/Vixen/issues/579).
+The directive lexed exactly one name, so `static` *was* the name: the emitter wrote `using static;`,
+Roslyn answered `CS1001: Identifier expected` against generated code, and ` System.Math` became a
+text node in the markup, silently, so a second error named a method that is right there.
 
 ## `@tag`, and what a component is called
 

@@ -115,6 +115,55 @@ public class ParserTests {
         Assert.Equal(Source, document.ToFullString());
     }
 
+    /// <summary>
+    ///     ⚠ <b><c>static</c> is a keyword of the directive, not the name it imports.</b> Lexed as
+    ///     one name and nothing else, <c>@using static System.Math</c> parsed <c>static</c> as the
+    ///     namespace and left <c>System.Math</c> as a text node in the markup.
+    /// </summary>
+    [Fact]
+    public void A_using_directive_parses_a_static_import() {
+        var document = Vxml.ParseClean("""
+            @component Counter
+            @using static System.Math
+            <panel />
+            """);
+
+        var @using = Assert.Single(document.Usings);
+        Assert.Equal("static", @using.StaticKeyword!.Text);
+        Assert.Equal("System.Math", @using.Name.Text);
+        Assert.Null(@using.Alias);
+        Assert.Empty(document.Content.Items().OfType<TextSyntax>());
+    }
+
+    [Fact]
+    public void A_using_directive_that_is_not_static_has_no_static_keyword() =>
+        Assert.Null(
+            Assert.Single(Vxml.ParseClean("@component Counter\n@using System.Text\n<panel />").Usings).StaticKeyword
+        );
+
+    /// <summary>
+    ///     ⚠ <b>A namespace whose first segment merely starts with <c>static</c> is still a name.</b>
+    ///     The keyword is only taken when whitespace follows it, because <c>IsNamePart</c> takes a
+    ///     <c>.</c> — so a boundary rule that did not look would have eaten the head of the name and
+    ///     left the parser with no name at all.
+    /// </summary>
+    [Theory]
+    [InlineData("@component Counter\n@using staticly.Typed\n<panel />", "staticly.Typed")]
+    [InlineData("@component Counter\n@using static.Typed\n<panel />", "static.Typed")]
+    public void A_name_beginning_with_static_is_not_a_static_import(string source, string expected) {
+        var @using = Assert.Single(Vxml.ParseClean(source).Usings);
+
+        Assert.Null(@using.StaticKeyword);
+        Assert.Equal(expected, @using.Name.Text);
+    }
+
+    /// <summary>A static import prints back into its file like every other shape of using.</summary>
+    [Theory]
+    [InlineData("@component Counter\n@using static System.Math\n<panel />")]
+    [InlineData("@component Counter\n@using   static   System.Math  \n<panel />")]
+    public void A_static_using_prints_back_into_the_file_it_came_from(string source) =>
+        Assert.Equal(source, Vxml.ParseClean(source).ToFullString());
+
     [Fact]
     public void A_namespace_directive_parses() {
         var document = Vxml.ParseClean("""

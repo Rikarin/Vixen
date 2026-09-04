@@ -100,6 +100,29 @@ public class EmitterTests {
     }
 
     /// <summary>
+    ///     ⚠ <b><c>@using static</c> is the same defect one directive-shape over.</b> The directive
+    ///     lexed exactly one name, so <c>static</c> <i>was</i> the name: the emitter wrote
+    ///     <c>using static;</c> — <c>CS1001: Identifier expected</c> against generated code — and
+    ///     <c> System.Math</c> became a text node in the markup, silently, so the author also got
+    ///     <c>CS0103</c> about a method that is right there.
+    /// </summary>
+    [Fact]
+    public void A_static_import_survives_into_the_generated_file() {
+        const string Source = """
+                              @component Greeter
+                              @using static System.Math
+
+                              @code {
+                                  private double X => Sqrt(4);
+                              }
+
+                              <div>@X</div>
+                              """;
+
+        Assert.Empty(Errors(Compile(Emit(Source))));
+    }
+
+    /// <summary>
     ///     The claim the whole design rests on. The binder resolves no types at all; it can afford
     ///     not to because a wrong expression is reported by Roslyn, against the characters in the
     ///     <c>.vxml</c> rather than against generated code the author has never seen.
