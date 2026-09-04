@@ -109,9 +109,16 @@ starts lying, and the row instead says what it would take to fix (split it, or d
 Five (`space-x/y-*`, `divide-*`, `divide-x/y-*`) were never composition at all: they are child-scoped
 families that emit real declarations onto `> :not(:last-child)`, and they now measure `works`. Three
 (`mask-radial-*`, `mask-radial-at-*`, `ring-offset-*`) are composition *in Tailwind* and Vixen
-registers no family for them, which is `absent` — calling them `composed` read as "handled" for three
+registered no family for them, which is `absent` — calling them `composed` read as "handled" for three
 roots with nothing behind them. What is left is the three gradient-stop families, which are genuinely
 fragments with a working assembler.
+
+⚠ **`mask-radial-at-*` has since left that group and reads `works`**, which is the point of having
+moved it out of `composed`: it was buildable all along and the flattering state was what hid it. A
+`--tw-mask-radial-position` fragment defaulting to `center` — CSS's own default — feeds an
+`at <position>` that `DrawListBuilder.MaskFrame` resolves, so an unmoved radial mask reaches the
+shader as the record it always had. Its sibling `mask-radial-*` stays `absent` and is now a refusal
+with a named blocker rather than an unregistered family; see its row.
 
 ### The composition mechanism
 
@@ -2809,8 +2816,12 @@ inventory with an unexplained hole in it is how a subset gets rationalised the n
 ## Part 9 — The sixteen absent `Layout` roots, triaged
 
 ⚠ **They are not one feature, and the useful finding is that they are not even one *kind* of
-absence.** Sixteen roots in the `Layout` category read `absent`. Four of them belong to work in
-flight elsewhere — `mask-radial-*`, `mask-radial-at-*`, `ring-offset-*` and `@container-*`. The
+absence.** Sixteen roots in the `Layout` category read `absent` *when this was written*; the count is
+twelve now, and the four below are why the headline is left at sixteen — it is the triage's own
+denominator and rewriting it would falsify what was triaged. Four of them belong to work in
+flight elsewhere — `mask-radial-*`, `mask-radial-at-*`, `ring-offset-*` and `@container-*`; ⚠ of
+those, **`mask-radial-at-*` has since landed and reads `works`**, and `mask-radial-*` is now a
+refusal with a named blocker (`GradientRefusal.Extent`) rather than an unregistered family. The
 other twelve were triaged together, and they fall into four buckets that want four different
 answers. **Only one bucket was buildable, and the other three are refusals with a measurement
 behind each.** The costs below are the deliverable; the one implementation is the small part.
