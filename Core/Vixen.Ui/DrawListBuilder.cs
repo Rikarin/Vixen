@@ -486,6 +486,16 @@ public sealed class DrawListBuilder {
     public void ClearDiagnostics() => diagnostics.Clear();
 
     /// <summary>Records a declaration that reached this file and could not be drawn.</summary>
+    /// <remarks>
+    ///     ⚠ <b>No <c>Rule</c>, for <see cref="LayoutStyleBuilder" />'s reason and not a weaker
+    ///     one.</b> `Rikarin/Vixen#520` made a refusal name the rule it was written in wherever the
+    ///     rule is still in hand — the compiler's and the loader's, which run while a sheet is being
+    ///     read. This one is handed a <see cref="UiElement" /> whose <c>Style</c> is interned
+    ///     property and value ids: the rule that declared them, its origin, its layer and its
+    ///     specificity were all resolved and discarded before the cascade produced it. What stands in
+    ///     for the locator is <c>Text</c>, which is the declaration as the author wrote it and is
+    ///     greppable across a project's sheets.
+    /// </remarks>
     /// <param name="property">The interned property name.</param>
     /// <param name="value">The interned value, as the author wrote it.</param>
     /// <param name="reason">Why it could not be drawn.</param>

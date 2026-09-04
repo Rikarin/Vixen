@@ -111,9 +111,18 @@ public sealed partial class UiDocument {
 
     /// <summary>Records a text declaration that resolved to nothing, once per distinct declaration.</summary>
     /// <remarks>
-    ///     ⚠ Deduplicated by text for <see cref="LayoutStyleBuilder" />'s reason and not a weaker
-    ///     one: this runs once per element per restyle, so one bad declaration in a theme sheet is a
-    ///     line per element per frame if nothing collapses it.
+    ///     <para>
+    ///         ⚠ Deduplicated by text for <see cref="LayoutStyleBuilder" />'s reason and not a weaker
+    ///         one: this runs once per element per restyle, so one bad declaration in a theme sheet is
+    ///         a line per element per frame if nothing collapses it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>No <c>Rule</c>, and it is the same unavailability the bridge documents rather
+    ///         than a lapse from `Rikarin/Vixen#520`.</b> A rule can be named only while the sheet is
+    ///         being read; by the time a declaration is resolved against an element the cascade has
+    ///         picked a winner per property and thrown the provenance away. <c>Text</c> — the
+    ///         declaration as the author wrote it — is the locator this side of that line has.
+    ///     </para>
     /// </remarks>
     /// <param name="property">The interned property name.</param>
     /// <param name="value">The interned value, as the author wrote it.</param>
