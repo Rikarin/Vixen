@@ -69,6 +69,13 @@ sed -n '/Target.*Status/,/═══/p' /tmp/gate.log
 ⚠ **Gates are per-tree, so run them after the last merge, not before the first.** A `CheckFormat`
 regression reached master twice this way; three separate agents rediscovered it independently.
 
+`--since <ref>` narrows a target to the projects that own what changed — `./build.sh CheckFormat
+--since master` is seconds where the unscoped pass is minutes, and `./build.sh AffectedProjects
+--since master` prints the set without running anything. It is an inner-loop convenience and **never
+the gate**: it cannot see a file a neighbour's merge broke, which is the mechanism above.
+⚠ `--include` is *not* what makes it fast — scoping the input scopes the analysis and not the
+workspace load, and the load is essentially all of the cost.
+
 ⚠ **Run gates and test projects one at a time** on a developer machine. The whole-solution `Test`
 target runs ~176 assemblies concurrently and will saturate a laptop; runs have been SIGTERM'd
 mid-compile under that load.
