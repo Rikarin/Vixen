@@ -77,7 +77,7 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **328** | 128 families |
+| Utility **roots** (the unit of this table) | **329** | 128 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
 | Variant keys | **88** | **25** |
@@ -2546,7 +2546,7 @@ of each other.
 **B · Layout modes.** `display` is `{ Flex, None }`. Block, grid and inline formatting are three
 algorithms over the existing store.
 
-**C · Families.** The 328 roots.
+**C · Families.** The 329 roots.
 
 ⚠ **C depends on A and B, and inverting that is how the present state came about.** `grid-cols-3`
 exists as a family and emits `grid-template-columns` because a family is a line of a table and the
@@ -3286,7 +3286,7 @@ ask is not "where is this read" but "what else reads the number it changes".**
 
 ## Exit criteria (measured)
 
-1. **Every one of the 328 roots is `works`, or carries an open task number, or is one of the four
+1. **Every one of the 329 roots is `works`, or carries an open task number, or is one of the four
    exclusions in Part 8.** Checked by regenerating the TSV; the states are computed, not asserted.
 2. ✅ **No family emits a property no consumer *acts on***, except entries on the allow-list, each of
    which names a task this document contains. `UtilityConsumptionGateTests` fails otherwise — a test
@@ -3318,7 +3318,7 @@ ask is not "where is this read" but "what else reads the number it changes".**
 being matched is Tailwind's utility index, which is a much smaller and better-defined thing than CSS.
 
 **A second styling language.** Every gap here closes by making the *existing* property bridge wider.
-There is no case in the 328 rows for a Vixen-specific styling concept, and adding one would be the
+There is no case in the 329 rows for a Vixen-specific styling concept, and adding one would be the
 third version of the mistake in the README.
 
 **A promise that a Tailwind stylesheet drops in.** Class names and semantics match; the generator is
