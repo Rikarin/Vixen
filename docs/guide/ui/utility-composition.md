@@ -166,8 +166,11 @@ into pixels, and it understands a subset:
 | `via-*` — a middle stop | ✅ |
 | `from-10%` / `to-90%` — stop positions | ✅ including positions outside the box |
 | `bg-radial`, `bg-conic` | ✅ at CSS's default geometry, which is what those two classes mean |
-| `bg-radial-[at_…]`, `bg-conic-<angle>` | ❌ an explicit centre needs a `Vector4` no record has |
-| `background-position`, `-size`, `-repeat` | ❌ still inert |
+| `bg-radial-[at_…]`, `bg-conic-<angle>`, `bg-linear-<angle>` | ✅ the centre is `UiShape.Paint`, the angle rides the axis lane |
+| `bg-size-[…]`, `bg-position-[…]`, `bg-repeat`/`bg-no-repeat`/`bg-repeat-x`/`bg-repeat-y` | ✅ |
+| `bg-auto`, `bg-cover`, `bg-contain` | ❌ refused — for a gradient all three *are* the positioning area |
+| `bg-repeat-round`, `bg-repeat-space` | ❌ refused — a second size computed from the box, not a flag |
+| `radial-gradient(circle …)`, `closest-side`, an explicit radius | ❌ refused — a different ellipse |
 | `translate-x-*`, `translate-y-*` — one or both axes, in lengths or percentages | ✅ drawn, clipped and hit-tested in the new place |
 | `scale-*`, `rotate-*` | ❌ refused — see below |
 
@@ -201,10 +204,26 @@ ask for a perceptual space explicitly, because the palette ships as v4.3.3's `ok
 interpolating two of them anywhere else throws the uniformity away at the midpoint. See
 [gradients](gradients.md).
 
+⚠ **A gradient's centre and the box it is painted in are two different frames, and both are lanes
+now.** `background-position` and `background-size` place a *tile* in the border box;
+`at <position>` moves the ramp inside that tile. `UiShape.Area` carries the first and `UiShape.Paint`
+the second, and neither is written at all unless something said so — with the tile equal to the box
+the clip would run along the box's own antialiased edge and darken every gradient in the interface by
+a pixel. That guard is also why `background-repeat` measured inert for a year: while the tile is the
+box, every one of its keywords is the same picture.
+
+⚠ **A moved radial centre changes the *reach* and not only the origin, and the closed form is
+surprisingly small.** CSS's default ending shape is `farthest-corner` — the `farthest-side` ellipse
+scaled to pass through the farthest corner — and because that corner maximises each axis
+independently, the scale is always root two wherever the centre is. The shader's parameterisation is
+already `length(offset / reach) / √2`, so the reach it wants *is* the farthest-side pair,
+`tile + abs(centre)`. Storing the centre and leaving the reach alone draws a ramp that finishes early
+on one side and late on the other, which reads as a gradient somebody positioned oddly.
+
 ⚠ **Refused still means nothing is painted, not that the nearest supported gradient is.** A
-declaration with an explicit radial centre draws no gradient at all rather than a centred
-approximation of one, because a gradient of the right colours in the wrong place reads as a rendering
-bug rather than as a missing feature. The `background-color` underneath is unaffected — the image is a
+declaration with an explicit ending *shape* — `circle`, `closest-side`, an explicit radius — draws no
+gradient at all rather than a farthest-corner approximation of one, because a gradient of the right
+colours ending in the wrong place reads as a rendering bug rather than as a missing feature. The `background-color` underneath is unaffected — the image is a
 second layer over it, as in CSS — so a refused gradient leaves a flat element and not an invisible
 one. See `GradientRefusal` for the reasons enumerated.
 

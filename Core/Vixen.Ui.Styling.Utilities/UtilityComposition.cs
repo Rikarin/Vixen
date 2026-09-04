@@ -145,6 +145,17 @@ public static class UtilityComposition {
     /// <summary>Where a conic mask's sweep starts.</summary>
     public const string MaskConicAngle = Prefix + "mask-conic-angle";
 
+    /// <summary>Where a radial mask's centre sits, as a CSS <c>&lt;position&gt;</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>center</c>, which is CSS's own default, so the fragment costs nothing while nobody
+    ///     sets it.</b> <c>DrawListBuilder.MaskFrame</c> resolves a centred <c>at</c> to a zero offset
+    ///     and the box's own half size — the arrangement the entry already had — so
+    ///     <c>radial-gradient(at center, …)</c> and <c>radial-gradient(…)</c> reach the shader as the
+    ///     same record. Without that the fragment would put every radial mask in the interface on the
+    ///     positioned path to arrive where it started.
+    /// </remarks>
+    public const string MaskRadialPosition = Prefix + "mask-radial-position";
+
     // ── The mask layers ─────────────────────────────────────────────────────────────────────
     //
     // ⚠ <b>A `mask-image` is a list, and these are the slots the utilities fill it from.</b> Every
@@ -408,6 +419,7 @@ public static class UtilityComposition {
         [MaskToPosition] = "100%",
         [MaskLinearAngle] = "180deg",
         [MaskConicAngle] = "0deg",
+        [MaskRadialPosition] = "center",
 
         // See the mask layers' own remark: an opaque layer is the identity under `intersect`, which
         // is the operator every mask utility emits, so a slot nobody filled costs nothing and says

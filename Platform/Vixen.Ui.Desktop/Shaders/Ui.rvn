@@ -589,6 +589,19 @@ struct MaskEntry {
     /// value rather than merely the first name in the enum — so an entry nobody set an operator on
     /// unions.
     var stops: float4
+
+    /// The first tile's centre in document pixels, then half the tile — signed.
+    ///
+    /// ⚠ **All zero means the tile is the mask box**: no tiling, no clipping, and the arrangement
+    /// every entry written before this lane existed had. A `mask-size` of zero in either axis is a
+    /// layer CSS does not paint at all, so nothing real collides with the sentinel.
+    ///
+    /// ⚠ **The sign of `zw` is that axis's `mask-repeat`**: positive tiles with a period of twice the
+    /// component, negative paints one tile and gives *zero* coverage outside it. A half-extent has no
+    /// natural sign, and the two readings are exclusive by construction — an axis that tiles has no
+    /// outside, an axis that clips has no period. `UiShape.area` uses the identical encoding so that a
+    /// `mask-size` and a `background-size` written the same way place their layers in the same place.
+    var area: float4
 }
 
 /// What the three compositing stages share: the colour matrix, and where their push constants sit.
@@ -872,10 +885,47 @@ shader UiMask {
         return saturate(result)
     }
 
+    /// Where a point sits inside the tile it lands in, as an offset from that tile's centre.
+    ///
+    /// ⚠ `floor` rather than a `frac`-based wrap, so a negative offset lands in the tile below rather
+    /// than mirroring into the one above — invisible on a tile centred in its box, obvious on one a
+    /// `mask-position` has moved.
+    func Wrap(value: float, half: float): float {
+        val period = half * 2f
+        val shifted = value + half
+
+        return shifted - period * floor(shifted / period) - half
+    }
+
     /// One entry's coverage at a point, in document pixels. The host's `UiMask.Coverage` is the
     /// transcription.
     func Coverage(entry: MaskEntry, point: float2): float {
-        val progress = Progress(point - entry.box.xy, entry.box.zw, entry.ramp.xy, int(entry.ramp.z + 0.5f))
+        var local = point
+
+        if (entry.area.z != 0f || entry.area.w != 0f) {
+            val tile = float2(abs(entry.area.z), abs(entry.area.w))
+            val inside = point - entry.area.xy
+
+            // Outside a tile that does not repeat there is no layer, and no layer is zero coverage —
+            // not the ramp's end value clamped, which is what doing nothing here would give.
+            if (entry.area.z <= 0f && abs(inside.x) > tile.x) {
+                return 0f
+            }
+
+            if (entry.area.w <= 0f && abs(inside.y) > tile.y) {
+                return 0f
+            }
+
+            // ⚠ Back into document pixels rather than staying tile-relative: `box.xy` is the ramp's
+            // own centre *in the first tile* and is absolute, so subtracting one origin twice is the
+            // error this shape exists to make impossible.
+            local = entry.area.xy + float2(
+                entry.area.z > 0f ? Wrap(inside.x, tile.x) : inside.x,
+                entry.area.w > 0f ? Wrap(inside.y, tile.y) : inside.y
+            )
+        }
+
+        val progress = Progress(local - entry.box.xy, entry.box.zw, entry.ramp.xy, int(entry.ramp.z + 0.5f))
 
         if (entry.ramp.w > 0.5f) {
             if (progress < entry.stops.x) {

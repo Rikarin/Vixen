@@ -133,6 +133,38 @@ public readonly record struct UiMask(
     /// </remarks>
     public MaskComposite Composite { get; init; }
 
+    /// <summary>Where the first tile's centre sits, in document pixels. See <see cref="AreaHalf" />.</summary>
+    public Vector2 AreaCentre { get; init; }
+
+    /// <summary>Half the tile, signed: <c>mask-size</c>, with <c>mask-repeat</c> in the sign.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Zero means the tile is the mask box, and that is the reading every entry written
+    ///         before this pair existed keeps.</b> A <c>mask-size</c> of zero in either axis is a
+    ///         layer CSS does not paint at all — Backgrounds 3 § 3.9, which Masking 1 § 4 defers to —
+    ///         so nothing real collides with the sentinel, and the fold below can skip the whole
+    ///         tiling branch for the overwhelming majority of masks.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The sign of each component is that axis's <c>mask-repeat</c></b>: positive tiles
+    ///         with a period of twice the component, negative paints one tile and gives <i>zero</i>
+    ///         coverage outside it. A half-extent has no natural sign, and the two readings are
+    ///         exclusive by construction — an axis that tiles has no outside, an axis that clips has
+    ///         no period — so this is one lane rather than a fifth <c>vec4</c> whose other half would
+    ///         be padding. The same encoding <c>UiShape.Area</c> uses, deliberately: a
+    ///         <c>mask-size</c> and a <c>background-size</c> written the same way have to place their
+    ///         layers in the same place.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Zero outside a non-repeating tile, and not the ramp's end value clamped.</b> CSS
+    ///         paints nothing where a <c>no-repeat</c> layer is not, and a mask layer that is not
+    ///         painted is transparent — which under <c>intersect</c> erases and under <c>add</c>
+    ///         contributes nothing. Clamping instead is what a shader gets for free by doing nothing,
+    ///         and it spreads the last stop's coverage across the rest of the element.
+    ///     </para>
+    /// </remarks>
+    public Vector2 AreaHalf { get; init; }
+
     /// <summary>A mask that hides everything, which is what an unresolvable <c>mask-image</c> is not.</summary>
     /// <remarks>
     ///     ⚠ Present so that the <i>refusal</i> path has somewhere to point and deliberately not used
@@ -161,7 +193,13 @@ public readonly record struct UiMask(
     ///     one, and it should cost nothing while it says nothing.
     /// </remarks>
     public bool IsOpaque =>
-        Alphas.X >= 1f && Alphas.Z >= 1f && (!Via || Alphas.Y >= 1f);
+        Alphas.X >= 1f && Alphas.Z >= 1f && (!Via || Alphas.Y >= 1f)
+
+        // ⚠ And nowhere is opaque outside a tile that does not repeat, however opaque the stops are.
+        // Without this clause `Reduce` would drop a `mask-size`d clipping layer as the identity and
+        // the element would keep the half of itself the layer was written to remove — a mask that
+        // works until you make it opaque, which reads as the size being ignored.
+        && (AreaHalf == Vector2.Zero || (AreaHalf.X > 0f && AreaHalf.Y > 0f));
 
     /// <summary>The coverage at a point, in document pixels.</summary>
     /// <remarks>
@@ -173,7 +211,28 @@ public readonly record struct UiMask(
     ///     number the same way rather than a number that ought to agree.
     /// </remarks>
     public float Coverage(Vector2 point) {
-        var offset = point - Centre;
+        var local = point;
+
+        if (AreaHalf != Vector2.Zero) {
+            var tile = Vector2.Abs(AreaHalf);
+            var inside = point - AreaCentre;
+
+            // Outside a tile that does not repeat there is no layer, and no layer is zero coverage.
+            if ((AreaHalf.X <= 0f && MathF.Abs(inside.X) > tile.X)
+                || (AreaHalf.Y <= 0f && MathF.Abs(inside.Y) > tile.Y)) {
+                return 0f;
+            }
+
+            // ⚠ Back into document pixels rather than staying tile-relative, because `Centre` is the
+            // ramp's own centre *in the first tile* and is absolute. Subtracting one origin twice is
+            // the arithmetic error this shape is chosen to make impossible.
+            local = AreaCentre + new Vector2(
+                AreaHalf.X > 0f ? Wrap(inside.X, tile.X) : inside.X,
+                AreaHalf.Y > 0f ? Wrap(inside.Y, tile.Y) : inside.Y
+            );
+        }
+
+        var offset = local - Centre;
         var progress = Progress(offset);
 
         return Via
@@ -210,6 +269,19 @@ public readonly record struct UiMask(
         var reach = MathF.Abs(axis.X * Half.X) + MathF.Abs(axis.Y * Half.Y);
 
         return ((((offset.X * axis.X) + (offset.Y * axis.Y)) / MathF.Max(reach, 1e-4f)) * 0.5f) + 0.5f;
+    }
+
+    /// <summary>Where a point sits inside the tile it lands in, as an offset from that tile's centre.</summary>
+    /// <remarks>
+    ///     ⚠ <c>Floor</c> rather than a fractional-part wrap, so that a negative offset lands in the
+    ///     tile below rather than mirroring into the one above. The mirrored version is invisible on a
+    ///     tile centred in its box and obvious on one a <c>mask-position</c> has moved.
+    /// </remarks>
+    static float Wrap(float value, float half) {
+        var period = half * 2f;
+        var shifted = value + half;
+
+        return shifted - (period * MathF.Floor(shifted / period)) - half;
     }
 
     /// <summary>Where <c>t</c> sits between two stops, flat outside them.</summary>

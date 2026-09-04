@@ -98,6 +98,155 @@ public class MaskGradientTests {
         return Blue(bare, 20, 20);
     }
 
+    /// <summary>An <c>at &lt;position&gt;</c> moves a mask layer's centre, and its reach with it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The comparison is between the two corners of the square, because "the centre is
+    ///         ignored" produces a perfectly good radial mask.</b> A centred radial fades outwards
+    ///         symmetrically, so both corners read the same; only an honoured centre makes the near
+    ///         corner opaque and the far one faded. An assertion phrased as "the top left is bright"
+    ///         passes against the unmoved mask on a fixture where the ramp happens to be shallow.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The reach has to move with the centre or the ramp finishes in the wrong place.</b>
+    ///         CSS's default ending shape is <c>farthest-corner</c>, so a mask centred on the top left
+    ///         of a 20-pixel square reaches 20 rather than 10 — see
+    ///         <c>DrawListBuilder.MaskFrame</c>. Storing the centre and leaving the reach alone makes
+    ///         the far half of the square fully transparent, which this file's <c>Far</c> reading is
+    ///         positioned to notice.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_explicit_centre_moves_a_mask_layer() {
+        using var ui = Square("mask-image: radial-gradient(at 0% 0%, #000000, transparent);");
+
+        var near = Blue(ui, 11, 11);
+        var far = Blue(ui, 28, 28);
+        var middle = Blue(ui, 20, 20);
+
+        Assert.True(near - far > 60, $"the corners barely differ: {near} then {far}");
+
+        // And the far corner is faded rather than gone, which is what says the reach grew with the
+        // centre: a mask that kept the box's half size would have finished the ramp long before here.
+        Assert.InRange(middle, far + 5, near - 5);
+        Assert.True(far > 5, $"the far corner is fully masked out: {far}");
+    }
+
+    /// <summary>
+    ///     <c>mask-mode: luminance</c> reads the stops' brightness where the default reads their alpha.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The fixture's two stops are both fully opaque, which is the whole instrument.</b>
+    ///         Under <c>alpha</c> — CSS's answer for every image that is not an SVG
+    ///         <c>&lt;mask&gt;</c>, and so the default here — a ramp from opaque white to opaque black
+    ///         is a mask that is opaque everywhere and changes nothing. Under <c>luminance</c> the same
+    ///         two colours are a full ramp. So the two modes are not "slightly different numbers":
+    ///         one of them is the identity and the other is not, and a reader that ignored the
+    ///         property would leave the square untouched.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>match-source</c> is asserted to be the <i>alpha</i> reading and not a third
+    ///         one.</b> CSS resolves it to luminance only for an SVG <c>&lt;mask&gt;</c> element,
+    ///         which is not a thing this engine has — so a reading that treated it as luminance would
+    ///         make <c>mask-match</c> quietly mean the opposite of what it means in a browser.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_luminance_mask_reads_brightness_where_the_default_reads_alpha() {
+        const string Ramp = "mask-image: linear-gradient(to right, #ffffff, #000000);";
+
+        var unmasked = Unmasked();
+
+        using var alpha = Square(Ramp);
+        using var matched = Square(Ramp, "mask-mode: match-source;");
+        using var luminance = Square(Ramp, "mask-mode: luminance;");
+
+        // Two opaque stops are an opaque mask: the default leaves the square exactly as it found it.
+        Assert.Equal(unmasked, Blue(alpha, Near, 20));
+        Assert.Equal(unmasked, Blue(alpha, Far, 20));
+        Assert.Equal(unmasked, Blue(matched, Far, 20));
+
+        // And under luminance the same declaration is a ramp from white to black.
+        Assert.True(
+            Blue(luminance, Near, 20) - Blue(luminance, Far, 20) > 60,
+            $"the luminance mask does not ramp: {Blue(luminance, Near, 20)} then {Blue(luminance, Far, 20)}"
+        );
+
+        Assert.True(Blue(luminance, Far, 20) < 20, $"the black end is not masked out: {Blue(luminance, Far, 20)}");
+    }
+
+    /// <summary>A mask tile repeats across the box unless <c>mask-repeat</c> says otherwise.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The repeating and the clipping case are one test, because either alone is
+    ///         satisfied by an implementation that is wrong in the other direction.</b> A reader that
+    ///         ignored <c>mask-size</c> draws one ramp across the whole square, which passes any
+    ///         assertion phrased as "the left side fades"; a reader that clipped every layer passes
+    ///         the <c>no-repeat</c> half while breaking every mask in the interface. What separates
+    ///         them is comparing two points one whole period apart.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Outside a <c>no-repeat</c> tile the coverage is <i>zero</i> and not the ramp's end
+    ///         value.</b> CSS paints nothing where the layer is not, and a mask layer that is not
+    ///         painted is transparent — so the square disappears there rather than keeping whatever
+    ///         the last stop was. Clamping is what a shader gets for free by doing nothing, and on
+    ///         this fixture it leaves the square fully visible, which is the reading this asserts
+    ///         against.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_sized_mask_repeats_across_the_box_unless_it_is_told_not_to() {
+        const string Ramp = "mask-image: linear-gradient(to right, #000000, transparent);";
+
+        var unmasked = Unmasked();
+
+        using var tiled = Square(Ramp, "mask-size: 50% 100%;");
+
+        // The square spans x 10 to 30, so a half-width tile is ten wide: 12 and 22 are one period
+        // apart and therefore the same place in two different tiles.
+        Assert.InRange(Blue(tiled, 22, 20) - Blue(tiled, 12, 20), -6, 6);
+
+        // Half a period apart, and therefore visibly along the ramp — without this the row above is
+        // satisfied by a mask that is flat.
+        Assert.True(
+            Blue(tiled, 12, 20) - Blue(tiled, 17, 20) > 30,
+            $"the tile does not ramp: {Blue(tiled, 12, 20)} then {Blue(tiled, 17, 20)}"
+        );
+
+        using var once = Square(Ramp, "mask-size: 50% 100%; mask-repeat: no-repeat;");
+
+        // The first tile is still the ramp.
+        Assert.True(Blue(once, 12, 20) - Blue(once, 17, 20) > 30, "the first tile does not ramp");
+
+        // And the second half of the square is masked out entirely rather than left at the ramp's end.
+        Assert.True(Blue(once, 25, 20) < 8, $"outside the tile is not masked out: {Blue(once, 25, 20)}");
+        Assert.True(unmasked > 100, "the fixture is not visible unmasked, so nothing above measures a mask");
+    }
+
+    /// <summary>A <c>mask-position</c> moves the tile, and the layer with it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>CSS's initial <c>mask-position</c> is the top left and not the middle</b>, so a size
+    ///     written alone tucks the tile into the corner. Moving it to the far corner therefore swaps
+    ///     which half of the square keeps its ink — an assertion that cannot be satisfied by a reader
+    ///     that honours the size and drops the position, which is the likely half-implementation.
+    /// </remarks>
+    [Fact]
+    public void A_mask_position_moves_the_tile() {
+        const string Ramp = "mask-image: linear-gradient(to right, #000000, transparent);"
+            + " mask-size: 50% 100%; mask-repeat: no-repeat;";
+
+        using var start = Square(Ramp);
+        using var end = Square(Ramp, "mask-position: 100% 0%;");
+
+        // The left half is painted at the start and empty at the end, and the right half the reverse.
+        Assert.True(Blue(start, 12, 20) > 40, $"the tile is not on the left to begin with: {Blue(start, 12, 20)}");
+        Assert.True(Blue(start, 25, 20) < 8, $"the right half is painted to begin with: {Blue(start, 25, 20)}");
+
+        Assert.True(Blue(end, 12, 20) < 8, $"the left half is still painted: {Blue(end, 12, 20)}");
+        Assert.True(Blue(end, 22, 20) > 40, $"the tile did not move to the right: {Blue(end, 22, 20)}");
+    }
+
     /// <summary>The columns of the square, and the two facts about them that the readings depend on.</summary>
     /// <remarks>
     ///     ⚠ <b>The square spans <i>x</i> 10 to 30, so its pixels are columns 10 to 29 and its centre

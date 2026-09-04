@@ -1603,6 +1603,36 @@ public static class UtilityFamilies {
         // already writes one.</b> `intersect` is what the families emit because it is what makes an
         // unfilled layer harmless; an author combining a radial and a conic deliberately may well
         // want `subtract` or `exclude` instead, and there is no other way to say so from a class.
+        // ⚠ <b>The nine positions, and they set a fragment rather than writing the whole layer</b> —
+        // `mask-radial-at-top mask-radial-from-40%` is two classes that have to agree about one
+        // `mask-image`, which is what the fragments exist for. Tailwind's own spelling: `at` is part
+        // of the class name, not of the value.
+        //
+        // ⚠ <b>`mask-radial-*`'s other half — the ending shapes, `mask-circle`, `mask-ellipse`,
+        // `mask-radial-closest-side` and its three siblings — is deliberately NOT registered, and
+        // that is a refusal with a named blocker rather than an omission.</b> Each of those names a
+        // different ellipse from the `farthest-corner` one this engine computes, so
+        // `GradientReader` refuses them as `GradientRefusal.Extent` — and a refused layer is not a
+        // slightly wrong mask, it is *no mask at all*, so registering them would make the class
+        // delete the masking it was written to shape. They land when `UiMask` carries a stated pair
+        // of radii; the centre could land without them because moving a farthest-corner ellipse
+        // leaves it one.
+        Keywords("mask-radial-at", UtilityComposition.MaskRadialPosition, new() {
+            ["top"] = "top", ["top-left"] = "top left", ["top-right"] = "top right",
+            ["left"] = "left", ["center"] = "center", ["right"] = "right",
+            ["bottom"] = "bottom", ["bottom-left"] = "bottom left", ["bottom-right"] = "bottom right"
+        }, [.. MaskAlongside(UtilityComposition.MaskRadial, Radial)]);
+
+        // ⚠ <b>`mask-mode`, and it is the one property of the six that costs no lane and no branch.</b>
+        // CSS Masking 1 § 7.2 makes a luminance mask `luminance(rgb) × a` — a scalar per stop — so
+        // `DrawListBuilder.MaskAlphas` computes it from colours it already has and writes it into the
+        // same three floats the alpha reading fills. `match-source` is `alpha` for every image that is
+        // not an SVG `<mask>`, which is every image here; it earns its place as the opt-out from a
+        // `mask-luminance` a component set, the same argument `text-clip` and `filter-none` make.
+        Static("mask-alpha", "mask-mode", "alpha");
+        Static("mask-luminance", "mask-mode", "luminance");
+        Static("mask-match", "mask-mode", "match-source");
+
         Static("mask-add", "mask-composite", "add");
         Static("mask-subtract", "mask-composite", "subtract");
         Static("mask-intersect", "mask-composite", "intersect");
@@ -1633,6 +1663,28 @@ public static class UtilityFamilies {
         // ⚠ Its own family rather than a keyword on one of the above, because `mask-none` has to work
         // where nothing else set a mask — a keyword hanging off `mask-linear` would need the author to
         // have written a `mask-linear-*` first.
+        // ⚠ <b>The mask's placement trio, and the same three shapes the background's has — because CSS
+        // gives them one grammar apiece.</b> Masking 1 § 4 defers to Backgrounds 3 for
+        // `mask-position`, `mask-size` and `mask-repeat`, so these are `ValueKind.Placement` and a
+        // keyword table for exactly the reasons written up beside `bg-size-*` two hundred lines up:
+        // v4 gives the first two no named scale, and `round`/`space` are a second size computed from
+        // the box rather than a flag.
+        //
+        // ⚠ <b>`mask-repeat-*` is not one of the nine roots doc 43 lists as owed, and it is here
+        // anyway, because `mask-size-*` is wrong without it.</b> CSS's initial `mask-repeat` is
+        // `repeat`; a mask tile smaller than the box that did not tile would be `no-repeat` under
+        // another name, and every `mask-size-*` in the world would draw one tile with its last stop
+        // smeared across the rest of the element.
+        Register(new Family("mask-size", ValueKind.Placement, ["mask-size"]));
+        Register(new Family("mask-position", ValueKind.Placement, ["mask-position"]));
+
+        Keywords("mask", "mask-repeat", new() {
+            ["repeat"] = "repeat",
+            ["no-repeat"] = "no-repeat",
+            ["repeat-x"] = "repeat-x",
+            ["repeat-y"] = "repeat-y"
+        });
+
         Static("mask-none", "mask-image", "none");
 
         // A token names a whole declaration rather than a number, because a shadow is a designed
@@ -3136,8 +3188,17 @@ public static class UtilityFamilies {
     /// <summary>A linear mask, swept by <c>--tw-mask-linear-angle</c>.</summary>
     static string Linear => UtilityComposition.MaskImage("linear", UtilityComposition.Reference(UtilityComposition.MaskLinearAngle));
 
-    /// <summary>A round mask. CSS's default is a centred farthest-corner ellipse, which is what Tailwind means.</summary>
-    static string Radial => UtilityComposition.MaskImage("radial", string.Empty);
+    /// <summary>A round mask, centred where <c>mask-radial-at-*</c> put it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The <c>at</c> is written unconditionally and its fragment defaults to <c>center</c>,
+    ///     which is CSS's own default — so this says what "no geometry at all" said before it.</b>
+    ///     <c>DrawListBuilder.MaskFrame</c> resolves a centred position to a zero offset and the box's
+    ///     half size, which is the record a radial mask already had; the alternative, emitting the
+    ///     <c>at</c> only from <c>mask-radial-at-*</c>, would need that class to win the cascade
+    ///     against every other <c>mask-radial-*</c> on the element, and it does not.
+    /// </remarks>
+    static string Radial =>
+        UtilityComposition.MaskImage("radial", $"at {UtilityComposition.Reference(UtilityComposition.MaskRadialPosition)}");
 
     /// <summary>A swept mask, started by <c>--tw-mask-conic-angle</c>.</summary>
     static string Conic => UtilityComposition.MaskImage("conic", $"from {UtilityComposition.Reference(UtilityComposition.MaskConicAngle)}");

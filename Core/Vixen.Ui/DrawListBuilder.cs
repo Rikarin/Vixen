@@ -101,6 +101,10 @@ public sealed class DrawListBuilder {
     ///     one, and a keyword comparison would have had to fall back to text for the rest anyway.
     /// </remarks>
     readonly int maskComposite;
+    readonly int maskMode;
+    readonly int maskPosition;
+    readonly int maskSize;
+    readonly int maskRepeat;
 
     /// <summary>The operators of each <c>mask-composite</c> value seen, keyed by its id.</summary>
     /// <remarks>
@@ -231,6 +235,23 @@ public sealed class DrawListBuilder {
         // mask utilities all write `intersect` explicitly, because that is the operator under which
         // an unset layer — which they emit as a fully opaque gradient — changes nothing.
         maskComposite = properties.Intern("mask-composite");
+
+        // ⚠ <b>The one of the six placement-and-source properties that costs no lane anywhere, because
+        // it changes what a stop <i>is</i> rather than where it is.</b> CSS Masking 1 § 7.2 makes a
+        // luminance mask `luminance(rgb) × a`, which is a number this builder can compute from the
+        // colours it already reads and drop into the same `Alphas` the alpha reading fills. So
+        // `mask-luminance` reaches the shader as a different set of three floats and not as a mode
+        // the shader has to branch on — see `MaskAlphas`.
+        maskMode = properties.Intern("mask-mode");
+
+        // ⚠ <b>Read through the same two parsers `background-position` and `background-size` are, and
+        // that sharing is the point rather than a saving.</b> CSS gives the two families one grammar
+        // apiece — Masking 1 § 4 defers to Backgrounds 3 for both — so a `mask-size` and a
+        // `background-size` written the same way have to place their layers in the same place, and
+        // two readers of one grammar is where that stops being true.
+        maskPosition = properties.Intern("mask-position");
+        maskSize = properties.Intern("mask-size");
+        maskRepeat = properties.Intern("mask-repeat");
         this.values = values;
 
         // ⚠ The longhands, never the shorthands, and *all* of them. A shorthand is expanded before
@@ -2596,8 +2617,19 @@ public sealed class DrawListBuilder {
         // against that would slide it the moment somebody added `blur-sm` beside the mask. See
         // `UiMask`, which carries the box for this reason. Every layer shares it, because
         // `mask-origin`, `mask-position` and `mask-size` — the three properties that would let them
-        // differ — are not read: see `maskImage`.
+        // differ — are not read: see `maskImage`. An `at <position>` *does* differ per layer and is
+        // applied below, because it moves the ramp inside the box rather than moving the box.
         var centre = new Vector2(element.AbsoluteLeft + half.X, element.AbsoluteTop + half.Y);
+
+        var luminance = Text(element, maskMode) is { } mode
+            && mode.Trim().Equals("luminance", StringComparison.OrdinalIgnoreCase);
+
+        // ⚠ <b>One tile for the whole list, where CSS gives a value per layer.</b> A stated
+        // simplification with the same shape `mask-mode`'s is: Tailwind's `mask-size-*` and
+        // `mask-position-*` emit a single value, and a comma-separated one falls out of the two
+        // parsers and leaves the tile at the mask box — the initial arrangement — rather than
+        // applying some of each. Recorded on the ledger row rather than papered over.
+        var (areaCentre, areaHalf) = MaskArea(element, width, height);
 
         for (var layer = 0; layer < layers.Count; layer++) {
             var gradient = layers[layer];
@@ -2612,6 +2644,13 @@ public sealed class DrawListBuilder {
                 return 0;
             }
 
+            // ⚠ <b>An `at <position>` is per layer here where a background's is per element, and that
+            // is CSS rather than generosity.</b> `mask-image` is a list and every layer carries its
+            // own gradient function, so `mask-image: radial-gradient(at top left, …),
+            // radial-gradient(at bottom right, …)` is two ramps centred in two places — and a centre
+            // hoisted out of this loop could only have expressed one of them.
+            var (moved, reach) = MaskFrame(gradient, half);
+
             // ⚠ <b>Alphas alone, and the three colours are dropped on the floor here rather than
             // downstream.</b> `mask-mode` resolves to `alpha` for every image that is not an SVG
             // `<mask>`, so `linear-gradient(to right, black, transparent)` and
@@ -2619,10 +2658,10 @@ public sealed class DrawListBuilder {
             // to find that out later would be carrying a field whose only correct use is being
             // ignored.
             into[layer] = new UiMask(
-                centre,
-                half,
+                centre + moved,
+                reach,
                 axis,
-                new Vector3(gradient.Start.A, gradient.Via.A, gradient.End.A),
+                MaskAlphas(gradient, luminance),
                 gradient.Stops,
                 gradient.Shape,
                 gradient.HasVia
@@ -2632,12 +2671,136 @@ public sealed class DrawListBuilder {
                 // matters: Tailwind writes one `intersect` for a list of six.
                 Composite = operators.Length == 0
                     ? MaskComposite.Add
-                    : operators[layer % operators.Length]
+                    : operators[layer % operators.Length],
+                AreaCentre = centre + areaCentre,
+                AreaHalf = areaHalf
             };
         }
 
         return Reduce(into[..layers.Count]);
     }
+
+    /// <summary>Where the mask's first tile sits, and whether it repeats.</summary>
+    /// <param name="element">The element.</param>
+    /// <param name="width">The mask box's width, which is the border box's.</param>
+    /// <param name="height">Its height.</param>
+    /// <returns>
+    ///     The tile's centre in pixels from the box's centre, and half the tile signed by
+    ///     <c>mask-repeat</c>. Both zero when the tile is the box, which is <c>UiMask.AreaHalf</c>'s
+    ///     zero.
+    /// </returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>PaintArea</c>'s arithmetic and its guard, on a different box — and the guard is
+    ///         load-bearing here for a second reason.</b> Nothing is written unless a size or a
+    ///         position was stated, because with the tile equal to the mask box every keyword of
+    ///         <c>mask-repeat</c> is the same picture; and because <c>UiMask.IsOpaque</c> answers
+    ///         false for any clipping tile, a lane written to say nothing would stop
+    ///         <c>Reduce</c> dropping the five opaque layers every Tailwind mask emits — turning a
+    ///         one-entry list into six and opening a group for each.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The positioning area is the border box, so <c>mask-origin</c> and
+    ///         <c>mask-clip</c> stay unread.</b> Masking 1 gives both a default of <c>border-box</c>
+    ///         and this engine has no second rectangle to resolve a padding box against; every value
+    ///         of either would draw the same picture, which is the inert family the consumption gate
+    ///         exists to keep out.
+    ///     </para>
+    /// </remarks>
+    (Vector2 Centre, Vector2 Half) MaskArea(UiElement element, float width, float height) {
+        var box = new Vector2(width, height);
+        var size = Text(element, maskSize) is { } sized ? GradientReader.ReadSize(sized) : null;
+        var placed = Text(element, maskPosition) is { } put ? GradientReader.ReadPlacement(put) : null;
+
+        if (size is null && placed is null) {
+            return (Vector2.Zero, Vector2.Zero);
+        }
+
+        var tile = size?.Resolve(width, height) ?? box;
+
+        if (tile.X <= 0f || tile.Y <= 0f) {
+            return (Vector2.Zero, Vector2.Zero);
+        }
+
+        var anchor = placed ?? new GradientPoint(new GradientOffset(0f, 0f), new GradientOffset(0f, 0f));
+        var free = box - tile;
+        var corner = new Vector2(anchor.X.Resolve(free.X), anchor.Y.Resolve(free.Y));
+        var repeat = MaskRepeat(element);
+
+        return (
+            corner + (tile * 0.5f) - (box * 0.5f),
+            new Vector2(tile.X * 0.5f * (repeat.X ? 1f : -1f), tile.Y * 0.5f * (repeat.Y ? 1f : -1f))
+        );
+    }
+
+    /// <summary>Which axes <c>mask-repeat</c> tiles along. CSS's initial value is both.</summary>
+    /// <remarks>⚠ <c>round</c> and <c>space</c> fall out of the table, exactly as they do in <c>Repeat</c>.</remarks>
+    (bool X, bool Y) MaskRepeat(UiElement element) => RepeatOf(Text(element, maskRepeat));
+
+    /// <summary>Where one mask layer's ramp is centred and how far it reaches, inside the mask box.</summary>
+    /// <param name="gradient">The layer.</param>
+    /// <param name="half">Half the mask box, which is the border box.</param>
+    /// <returns>The centre's offset from the box's centre, and the reach.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The radial reach is `half + abs(offset)`, which is <c>RampFrame</c>'s closed form and
+    ///     is the same number for the same reason.</b> CSS's default ending shape is
+    ///     <c>farthest-corner</c>; the farthest corner maximises each axis independently, so the
+    ///     scale is always root two and the reach the shader's <c>length(offset / reach) / √2</c>
+    ///     wants is the farthest-<i>side</i> pair. Sharing the derivation and not the code is
+    ///     deliberate — <c>UiMask</c> is in document pixels and <c>UiShape</c> in box-relative ones —
+    ///     but the two must not disagree, because a <c>mask-radial-*</c> and a <c>bg-radial-*</c>
+    ///     written with the same <c>at</c> have to line up.
+    /// </remarks>
+    static (Vector2 Centre, Vector2 Reach) MaskFrame(BackgroundGradient gradient, Vector2 half) {
+        if (gradient.Centre is not { } at) {
+            return (Vector2.Zero, half);
+        }
+
+        var offset = at.Resolve(half.X * 2f, half.Y * 2f) - half;
+
+        return (offset, gradient.Shape == GradientShape.Radial ? half + Vector2.Abs(offset) : half);
+    }
+
+    /// <summary>The three stops' coverages, under whichever <c>mask-mode</c> the element asked for.</summary>
+    /// <param name="gradient">The layer.</param>
+    /// <param name="luminance">Whether <c>mask-mode</c> is <c>luminance</c>.</param>
+    /// <returns>The from, via and to coverages.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Computed here rather than carried, which is what makes <c>mask-mode</c> cost no
+    ///         lane in <c>MaskEntry</c> and no branch in either executor.</b> CSS Masking 1 § 7.2
+    ///         defines a luminance mask's value as <c>luminance(rgb) × a</c> — a scalar per stop —
+    ///         so the mode is a question about how to read three colours this builder already has,
+    ///         and the answer is three floats of exactly the shape the alpha reading produces.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>match-source</c> is <c>alpha</c> here and not a third reading.</b> CSS makes it
+    ///         luminance for an SVG <c>&lt;mask&gt;</c> element and alpha for every other image, and a
+    ///         gradient is every other image. That is also why <c>mask-type</c> — which is the
+    ///         property an SVG <c>&lt;mask&gt;</c> sets to answer <c>match-source</c> — is read by
+    ///         nothing: there is no element here for it to sit on.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Linear luminance, because a <c>Color4</c> here is linear.</b> Filter Effects 1's
+    ///         coefficients are the linear-RGB ones, which is what <c>ColorSpace.Luminance</c>
+    ///         applies; running them over sRGB-encoded values instead is a mask that is roughly
+    ///         right in the mid-tones and wrong at both ends.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One mode for the whole list, where CSS gives a value per layer.</b> A stated
+    ///         simplification: Tailwind's <c>mask-alpha</c>/<c>mask-luminance</c> emit a single
+    ///         keyword, and a comma-separated <c>mask-mode</c> falls out of this comparison and is
+    ///         read as <c>alpha</c> — the initial behaviour — rather than as some of each.
+    ///     </para>
+    /// </remarks>
+    static Vector3 MaskAlphas(BackgroundGradient gradient, bool luminance) =>
+        luminance
+            ? new Vector3(
+                gradient.Start.Luminance() * gradient.Start.A,
+                gradient.Via.Luminance() * gradient.Via.A,
+                gradient.End.Luminance() * gradient.End.A
+            )
+            : new Vector3(gradient.Start.A, gradient.Via.A, gradient.End.A);
 
     /// <summary>Drops the entries of a mask list that provably cannot change its coverage.</summary>
     /// <param name="masks">The list, topmost first. Rewritten in place.</param>
@@ -2924,8 +3087,13 @@ public sealed class DrawListBuilder {
     ///     the shader's <c>mod</c> can express. Painting them as plain <c>repeat</c> would be a tiling
     ///     that is nearly right, which is the failure `GradientRefusal` exists to avoid one file over.
     /// </remarks>
-    (bool X, bool Y) Repeat(UiElement element) {
-        if (Text(element, backgroundRepeat) is not { } text) {
+    (bool X, bool Y) Repeat(UiElement element) => RepeatOf(Text(element, backgroundRepeat));
+
+    /// <summary>One reading of the <c>repeat</c> grammar, which <c>background</c> and <c>mask</c> share.</summary>
+    /// <param name="text">The computed value, or null.</param>
+    /// <returns>Which axes tile.</returns>
+    static (bool X, bool Y) RepeatOf(string? text) {
+        if (text is null) {
             return (true, true);
         }
 
