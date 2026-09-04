@@ -1618,9 +1618,17 @@ public sealed class UiGeometryBuilder {
     ///         barycentrics in <c>SoftwareUiRasterizer.Triangle</c>, the device by the rasteriser's own
     ///         — and the composition of an affine map with a linear interpolation is that same
     ///         interpolation, so the two triangles agree along the shared diagonal and no seam appears.
-    ///         A projective map would not have that property and would need a <c>w</c> this vertex
-    ///         format has nowhere to put; see <see cref="UiTransform" /> for why the type cannot
-    ///         express one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A projective map does not have that property, and this paragraph used to say the
+    ///         type could not express one — it can now.</b> <see cref="UiTransform" /> is a 3×3 since
+    ///         #547, so <see cref="UiTransform.Apply" /> here silently drops the <c>w</c> that a
+    ///         perspective needs: the four positions land correctly and the texture coordinate between
+    ///         them is interpolated as though they were affine, which is a seam along the shared
+    ///         diagonal and a picture that is wrong in the middle and right at the corners. Nothing
+    ///         constructs a projective transform yet, so nothing reaches this — and
+    ///         <see cref="UiTransform.Project" /> is the call this becomes when #548 gives the vertex
+    ///         format somewhere to put it.
     ///     </para>
     ///     <para>
     ///         Null is the ordinary case and costs one null check per quad, on a path that already

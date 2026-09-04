@@ -915,16 +915,25 @@ Vixen.Ui.Rendering.UiTransform.Dx.init -> float
 Vixen.Ui.Rendering.UiTransform.Dy.get -> float
 Vixen.Ui.Rendering.UiTransform.Dy.init -> float
 Vixen.Ui.Rendering.UiTransform.Invert() -> Vixen.Ui.Rendering.UiTransform?
+Vixen.Ui.Rendering.UiTransform.IsAffine.get -> bool
 Vixen.Ui.Rendering.UiTransform.IsIdentity.get -> bool
 Vixen.Ui.Rendering.UiTransform.M11.get -> float
 Vixen.Ui.Rendering.UiTransform.M11.init -> float
 Vixen.Ui.Rendering.UiTransform.M12.get -> float
 Vixen.Ui.Rendering.UiTransform.M12.init -> float
+Vixen.Ui.Rendering.UiTransform.M13.get -> float
+Vixen.Ui.Rendering.UiTransform.M13.init -> float
 Vixen.Ui.Rendering.UiTransform.M21.get -> float
 Vixen.Ui.Rendering.UiTransform.M21.init -> float
 Vixen.Ui.Rendering.UiTransform.M22.get -> float
 Vixen.Ui.Rendering.UiTransform.M22.init -> float
+Vixen.Ui.Rendering.UiTransform.M23.get -> float
+Vixen.Ui.Rendering.UiTransform.M23.init -> float
+Vixen.Ui.Rendering.UiTransform.M33.get -> float
+Vixen.Ui.Rendering.UiTransform.M33.init -> float
+Vixen.Ui.Rendering.UiTransform.Project(Vixen.Core.Mathematics.Vector2 point) -> Vixen.Core.Mathematics.Vector3
 Vixen.Ui.Rendering.UiTransform.Then(in Vixen.Ui.Rendering.UiTransform then) -> Vixen.Ui.Rendering.UiTransform
+Vixen.Ui.Rendering.UiTransform.TryBounds(Vixen.Core.Mathematics.Rectangle rectangle, out Vixen.Core.Mathematics.Rectangle bounds) -> bool
 Vixen.Ui.Rendering.UiTransform.UiTransform() -> void
 Vixen.Ui.Rendering.UiTransform.UiTransform(float M11, float M12, float M21, float M22, float Dx, float Dy) -> void
 Vixen.Ui.Rendering.UiVertex -> readonly struct
