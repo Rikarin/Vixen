@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using Nuke.Common;
 using Nuke.Common.IO;
 using Nuke.Common.ProjectModel;
+using Nuke.Common.Tooling;
 using Nuke.Common.Tools.DotNet;
 using Nuke.Common.Tools.Git;
 using Serilog;
@@ -27,6 +28,49 @@ partial class Build : NukeBuild {
 
     [Parameter("Configuration to build — Debug (default locally) or Release (default in CI)")]
     readonly Configuration Configuration = IsLocalBuild ? Configuration.Debug : Configuration.Release;
+
+    /// <summary>
+    ///     How many MSBuild nodes the fan-out targets may use — and therefore how many projects
+    ///     compile, and how many test assemblies run, at once. Zero means unbounded, which is what
+    ///     MSBuild does when nobody says otherwise.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Capping this is very nearly free, which is the opposite of what a concurrency
+    ///         limit usually is.</b> Measured from the 176 TRX of the 2026-09-02 run: the
+    ///         per-assembly wall times sum to 3 024 s, the longest single assembly
+    ///         (<c>Vixen.Editor.App.Tests</c>) is 695 s on its own, and the unbounded run finished
+    ///         in 17 min. A perfectly packed run on ten cores cannot beat
+    ///         <c>max(695, 3024 / 10) ≈ 11.6 min</c>, so unbounded concurrency is buying about five
+    ///         minutes — while 395 compilations and up to 178 test hosts, each parallelising its own
+    ///         collections to the core count, take the machine away from everything else on it. The
+    ///         long pole is one assembly, not the fan-out.
+    ///     </para>
+    ///     <para>
+    ///         <b>Four locally, unbounded in CI.</b> A CI leg has the machine to itself and there is
+    ///         nothing there for a cap to protect; a developer — or several agents in their own
+    ///         worktrees — does not. The default is deliberately a number a laptop survives rather
+    ///         than a fraction of the core count, because the thing being bounded is competition for
+    ///         the whole box and not this build's share of it.
+    ///     </para>
+    ///     <para>
+    ///         The second multiplier is inside each test host and this parameter cannot reach it:
+    ///         see <c>xunit.runner.json</c> at the repository root, which caps xunit's own thread
+    ///         pool per assembly.
+    ///     </para>
+    /// </remarks>
+    [Parameter("How many projects compile or test assemblies run at once — 0 is unbounded (the CI default)")]
+    readonly int Workers = IsLocalBuild ? 4 : 0;
+
+    /// <summary>
+    ///     <see cref="Workers" /> as the MSBuild switch, or nothing at all when it is unbounded.
+    /// </summary>
+    /// <remarks>
+    ///     An empty array rather than <c>-m</c> with no value: bare <c>-m</c> means "as many nodes as
+    ///     there are processors", which is the behaviour being opted out of, so a target that is
+    ///     supposed to be unbounded has to pass no switch rather than a permissive one.
+    /// </remarks>
+    string[] WorkerArguments => Workers > 0 ? [$"-m:{Workers}"] : [];
 
     [Solution(GenerateProjects = false)]
     readonly Solution Solution;
@@ -53,6 +97,7 @@ partial class Build : NukeBuild {
         .Executes(() =>
             DotNetRestore(settings => settings
                 .SetProjectFile(Solution)
+                .AddProcessAdditionalArguments(WorkerArguments)
             )
         );
 
@@ -64,6 +109,7 @@ partial class Build : NukeBuild {
                 .SetProjectFile(Solution)
                 .SetConfiguration(Configuration)
                 .EnableNoRestore()
+                .AddProcessAdditionalArguments(WorkerArguments)
             )
         );
 
@@ -74,24 +120,48 @@ partial class Build : NukeBuild {
         .Executes(() => {
                 TestResultsDirectory.CreateOrCleanDirectory();
 
-                DotNetTest(settings => settings
-                    .SetProjectFile(Solution)
-                    .SetConfiguration(Configuration)
-                    .EnableNoRestore()
-                    .EnableNoBuild()
+                // ⚠ `dotnet msbuild -t:VSTest` rather than `dotnet test`, and the reason is the one
+                // thing the CLI does not expose: how many assemblies may run at once. `dotnet test`
+                // takes no `-m`, and passing MSBuild switches through it does not reach the node
+                // count either — but `dotnet test` *is* this MSBuild target underneath, so invoking
+                // it directly loses nothing and gains the switch. Every argument below is the
+                // property the CLI would have set for us; they are named here rather than typed
+                // because the typed settings are `DotNetTest`'s, and this is no longer that.
+                //
+                // Raw rather than through Nuke's typed MSBuild settings for the reason CheckFormat
+                // already records: the typed shape has moved between versions and the CLI's has not.
+                var arguments = new List<string> {
+                    $"msbuild \"{Solution.Path}\"",
+                    "-t:VSTest",
+                    "-nologo",
+                    $"-p:Configuration={Configuration}",
+
+                    // `--no-build`. `Compile` is a dependency and has just built the same
+                    // configuration; without this the VSTest target builds each project again.
+                    "-p:VSTestNoBuild=true",
+
                     // Environment that has to exist before the process starts, which is the only
                     // kind that cannot be arranged from inside a test. See .runsettings for what
                     // and why; the short version is that macOS resolves the Vulkan validation
                     // layer's library through dyld, and dyld reads its search path exactly once.
-                    .SetSettingsFile(RootDirectory / ".runsettings")
+                    $"-p:VSTestSetting=\"{RootDirectory / ".runsettings"}\"",
+
                     // A directory and no filename, deliberately. Naming the file pointed every test
                     // project in the solution at the same path, and they run concurrently — so the
                     // artifact CI published was whichever assembly finished last, and the other
                     // seventeen were silently overwritten. The build still failed on a red test,
                     // because the exit code does not go through the file; but the report a human
                     // opens to find out *which* test is the whole point of producing one.
-                    .SetResultsDirectory(TestResultsDirectory)
-                );
+                    //
+                    // The name still comes from VSTestLogger in Directory.Build.props, which reads
+                    // MSBuildProjectName and therefore only means anything inside a project — that
+                    // is a project property and survives this switch untouched.
+                    $"-p:VSTestResultsDirectory=\"{TestResultsDirectory}\""
+                };
+
+                arguments.AddRange(WorkerArguments);
+
+                DotNet(string.Join(' ', arguments));
             }
         );
 
