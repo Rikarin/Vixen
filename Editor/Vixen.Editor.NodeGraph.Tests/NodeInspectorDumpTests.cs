@@ -418,6 +418,66 @@ public sealed class NodeInspectorDumpTests : IDisposable {
     static string? Text(UiElement panel, string tag) =>
         panel.Children.FirstOrDefault(child => string.Equals(child.Tag, tag, StringComparison.Ordinal))?.Text;
 
+    // ── What the sheet is allowed to assume about this panel ────────────────
+
+    /// <summary>
+    ///     ⚠ <b>The oracle two rules in <c>AssetEditorTheme.vcss</c> never had, which is why they were
+    ///     left in place when they were found dead.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A read-only sweep of that sheet's 54 combinator rules found
+    ///         <c>node-inspector fact-value &gt; numeric-input</c> stale: the numeric editors moved to
+    ///         <c>InspectorView</c>'s <c>inspector-editor</c> when this panel was ported, and the one
+    ///         <c>fact-value</c> this panel renders holds literal text. It was reported and not
+    ///         removed, because the sweep was a grep and a grep cannot say a selector matches nothing
+    ///         — it can only say it did not find the pairing where it looked. This is the assertion
+    ///         that can, against a real panel in the state that has both shapes on screen at once.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both shapes at once is the whole arrangement.</b> "No numeric input under a
+    ///         <c>fact-value</c>" is trivially true of a panel with no <c>fact-value</c> in it, and
+    ///         trivially true of one with no numeric inputs — either alone would be a green test
+    ///         proving nothing. One port wired and one not gives a panel holding a <c>fact-row</c> and
+    ///         a number box side by side, which is the only state in which the claim has content.
+    ///     </para>
+    ///     <para>
+    ///         <c>lane-name</c> is the same finding one line up and a stronger form of it: that tag is
+    ///         created nowhere in the repository at all. It survives
+    ///         <c>Vixen.Ui.Styling.Tests.TypeSelectorReachTests</c> precisely <i>because</i> nothing
+    ///         writes it — that gate fires on a name written somewhere as a non-creation literal, and
+    ///         a name written nowhere is a deliberate false negative it documents.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void No_numeric_input_sits_under_a_fact_value_in_this_panel() {
+        var source = graph.Add("Test/Vector", new(40f, 40f));
+        var sink = graph.Add("Test/Combine", new(320f, 40f));
+        var panel = Show([sink]);
+
+        graph.Connect(new(source.Id, "Out"), new(sink.Id, "A"));
+        fixture.Update();
+
+        // Both shapes are on screen, or the claim below is vacuous.
+        Assert.NotEmpty(Boxes(panel));
+        Assert.Contains(Inside<UiElement>(panel), element => Is("fact-value")(element));
+
+        Assert.DoesNotContain(Boxes(panel), box => Ancestors(box).Any(Is("fact-value")));
+
+        // And the tag one rule above it styles is not here either — nor anywhere else, which is a
+        // claim about the repository rather than about this panel and is made in the commit message.
+        Assert.DoesNotContain(Inside<UiElement>(panel), element => Is("lane-name")(element));
+    }
+
+    static Func<UiElement, bool> Is(string tag) =>
+        element => string.Equals(element.Tag, tag, StringComparison.Ordinal);
+
+    static IEnumerable<UiElement> Ancestors(UiElement element) {
+        for (var parent = element.Parent; parent is not null; parent = parent.Parent) {
+            yield return parent;
+        }
+    }
+
     static IEnumerable<T> Inside<T>(UiElement element) where T : UiElement {
         foreach (var child in element.Children) {
             if (child is T found) {

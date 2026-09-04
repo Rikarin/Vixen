@@ -494,9 +494,13 @@ prefab-banner { flex-direction: row; align-items: center; gap: 8px; padding: 4px
 node-inspector { flex-direction: column; gap: 2px; flex-shrink: 0; }
 node-inspector-title { font-weight: 600; }
 node-inspector-summary { color: var(--text-muted); font-size: 11px; }
-lane-name { color: var(--text-muted); font-size: 11px; width: 10px; flex-shrink: 0; }
+/* ⚠ The `lane-name` rule and a `> numeric-input` child rule stood here and were removed: the
+   numeric editors moved to `InspectorView`'s `inspector-editor` when this panel was ported, and
+   `lane-name` is a tag nothing in the repository creates. Both matched nothing, which is a claim a
+   grep cannot make and `NodeInspectorDumpTests.No_numeric_input_sits_under_a_fact_value_in_this_panel`
+   can — it holds a real panel showing a wired port and an unwired one at the same time. This rule
+   stays: the `fact-value` it names is really there, holding text. */
 node-inspector fact-value { flex-direction: row; align-items: center; gap: 4px; }
-node-inspector fact-value > numeric-input { flex-grow: 1; flex-basis: 0px; min-width: 0; }
 
 /* ── The shader graph editor ────────────────────────────────────────
    Three columns, and the middle one is usually not there: a graph is what is being looked
