@@ -8,7 +8,7 @@ api: [D:VX4001, D:VX4002]
 tags: [ui, markup, vxml, msbuild, build, diagnostics]
 since: 0.2
 status: preview
-related: [ui/markup-panels]
+related: [ui/markup-panels, ui/desktop-application]
 ---
 
 ## What it is
@@ -117,5 +117,6 @@ A template project that ships markup as content rather than as source:
 ## See also
 
 - [Panels in markup](markup-panels.md) — what to write once the file compiles.
+- [Running a UI application](desktop-application.md) — the `Main` that hosts what the file compiles to, and where the generated utility sheet has to be named.
 - `docs/manual/diagnostic-codes.md` — the register the `VX` ranges are allocated from, and why these
   two are not `VXML`.
