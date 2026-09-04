@@ -130,38 +130,18 @@ partial class Build : NukeBuild {
                 //
                 // Raw rather than through Nuke's typed MSBuild settings for the reason CheckFormat
                 // already records: the typed shape has moved between versions and the CLI's has not.
-                var arguments = new List<string> {
-                    $"msbuild \"{Solution.Path}\"",
-                    "-t:VSTest",
-                    "-nologo",
-                    $"-p:Configuration={Configuration}",
+                // ⚠ One interpolated string literal, not a joined list. Nuke's
+                // `ArgumentStringHandler` quotes an interpolation hole whose value contains
+                // whitespace, so handing it a whole pre-joined command line produced a single
+                // quoted argument and `dotnet` looked for a command by that name — the target died
+                // in under a second having run no assembly at all. The holes below each hold one
+                // whitespace-free value, which is why the manual quotes around the two paths are
+                // the ones that survive to the process.
+                var workers = Workers > 0 ? $"-m:{Workers}" : string.Empty;
 
-                    // `--no-build`. `Compile` is a dependency and has just built the same
-                    // configuration; without this the VSTest target builds each project again.
-                    "-p:VSTestNoBuild=true",
-
-                    // Environment that has to exist before the process starts, which is the only
-                    // kind that cannot be arranged from inside a test. See .runsettings for what
-                    // and why; the short version is that macOS resolves the Vulkan validation
-                    // layer's library through dyld, and dyld reads its search path exactly once.
-                    $"-p:VSTestSetting=\"{RootDirectory / ".runsettings"}\"",
-
-                    // A directory and no filename, deliberately. Naming the file pointed every test
-                    // project in the solution at the same path, and they run concurrently — so the
-                    // artifact CI published was whichever assembly finished last, and the other
-                    // seventeen were silently overwritten. The build still failed on a red test,
-                    // because the exit code does not go through the file; but the report a human
-                    // opens to find out *which* test is the whole point of producing one.
-                    //
-                    // The name still comes from VSTestLogger in Directory.Build.props, which reads
-                    // MSBuildProjectName and therefore only means anything inside a project — that
-                    // is a project property and survives this switch untouched.
-                    $"-p:VSTestResultsDirectory=\"{TestResultsDirectory}\""
-                };
-
-                arguments.AddRange(WorkerArguments);
-
-                DotNet(string.Join(' ', arguments));
+                DotNet(
+                    $"msbuild \"{Solution.Path}\" -t:VSTest -nologo -p:Configuration={Configuration} -p:VSTestNoBuild=true -p:VSTestSetting=\"{RootDirectory / ".runsettings"}\" -p:VSTestResultsDirectory=\"{TestResultsDirectory}\" {workers}"
+                );
             }
         );
 
