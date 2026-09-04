@@ -1054,8 +1054,9 @@ Vixen.Ui.TextLine.PenOf(int run) -> float
 Vixen.Ui.TextLine.Place(System.Collections.Generic.List<Vixen.Ui.PositionedGlyph> into) -> void
 Vixen.Ui.TextLine.Runs.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.TextRun>
 Vixen.Ui.TextLine.Start.get -> int
-Vixen.Ui.TextLine.TextLine(System.Collections.Immutable.ImmutableArray<Vixen.Ui.TextRun> runs, float width = NaN, float offset = 0) -> void
+Vixen.Ui.TextLine.TextLine(System.Collections.Immutable.ImmutableArray<Vixen.Ui.TextRun> runs, float width = NaN, float offset = 0, Vixen.Ui.Text.TransformedText? transformed = null, float tabStop = 0) -> void
 Vixen.Ui.TextLine.Width.get -> float
+Vixen.Ui.TextLine.WidthOf(int run) -> float
 Vixen.Ui.TextRun -> sealed record
 Vixen.Ui.TextRun : System.IEquatable<Vixen.Ui.TextRun>
 Vixen.Ui.TextRun.Bar(Vixen.Ui.TextDecorationLine line, Vixen.Ui.TextDecoration decoration) -> Vixen.Ui.DecorationBar
@@ -1070,6 +1071,7 @@ Vixen.Ui.TextRun.Font.get -> Vixen.Ui.Text.FontFace
 Vixen.Ui.TextRun.Font.init -> Vixen.Ui.Text.FontFace
 Vixen.Ui.TextRun.Height.get -> float
 Vixen.Ui.TextRun.IsRightToLeft.get -> bool
+Vixen.Ui.TextRun.IsTab.get -> bool
 Vixen.Ui.TextRun.Leading.get -> float
 Vixen.Ui.TextRun.Leading.init -> float
 Vixen.Ui.TextRun.Level.get -> int

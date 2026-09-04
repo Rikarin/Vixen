@@ -46,12 +46,19 @@ public sealed partial class UiDocument : IDisposable {
     readonly int overflowWrap;
     readonly int wordBreak;
     readonly int textOverflow;
+    readonly int lineClamp;
+    readonly int tabSize;
+    readonly int hyphens;
     readonly int ellipsis;
     readonly int nowrap;
     readonly int anywhere;
     readonly int breakWord;
     readonly int breakAll;
     readonly int keepAll;
+    readonly int textTransform;
+    readonly int uppercase;
+    readonly int lowercase;
+    readonly int capitalize;
     readonly int letterSpacing;
     readonly int wordSpacing;
     readonly int textIndent;
@@ -142,12 +149,19 @@ public sealed partial class UiDocument : IDisposable {
         overflowWrap = Styles.Properties.Intern("overflow-wrap");
         wordBreak = Styles.Properties.Intern("word-break");
         textOverflow = Styles.Properties.Intern("text-overflow");
+        lineClamp = Styles.Properties.Intern("-webkit-line-clamp");
+        tabSize = Styles.Properties.Intern("tab-size");
+        hyphens = Styles.Properties.Intern("hyphens");
         ellipsis = Styles.Values.Intern("ellipsis");
         nowrap = Styles.Values.Intern("nowrap");
         anywhere = Styles.Values.Intern("anywhere");
         breakWord = Styles.Values.Intern("break-word");
         breakAll = Styles.Values.Intern("break-all");
         keepAll = Styles.Values.Intern("keep-all");
+        textTransform = Styles.Properties.Intern("text-transform");
+        uppercase = Styles.Values.Intern("uppercase");
+        lowercase = Styles.Values.Intern("lowercase");
+        capitalize = Styles.Values.Intern("capitalize");
         letterSpacing = Styles.Properties.Intern("letter-spacing");
         wordSpacing = Styles.Properties.Intern("word-spacing");
         textIndent = Styles.Properties.Intern("text-indent");
@@ -1901,6 +1915,41 @@ public sealed partial class UiDocument : IDisposable {
     internal bool EllipsisOf(ComputedStyle style) =>
         style.TryGet(textOverflow, out var value) && value == ellipsis;
 
+    /// <summary>How many lines the block may have before the rest are dropped, or zero for all.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>-webkit-line-clamp</c>, which is the only spelling: CSS Overflow 4's unprefixed
+    ///         <c>line-clamp</c> is not shipped anywhere and Tailwind emits the prefixed name.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read in <see cref="UiElement.Block(float)" /> and not at paint, which is the one
+    ///         place this differs from <see cref="EllipsisOf" />.</b> An ellipsis changes the picture
+    ///         and nothing else — the element is as wide as it always was, which is what makes its
+    ///         parent shrink it in the first place. A clamp changes <i>how many lines there are</i>,
+    ///         so it changes the element's height, so it has to happen before the height is reported.
+    ///         The two are otherwise the same machinery and the marker on the last kept line is
+    ///         literally <see cref="EllipsisOf" />'s.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Vixen drops the lines rather than clipping them, and that is why the utility
+    ///         emits no <c>overflow</c>.</b> A browser lays out every line and hides the ones past
+    ///         the clamp, so it needs <c>overflow: hidden</c> to do the hiding; here the block
+    ///         genuinely has N lines and there is nothing left to clip. Emitting the declaration
+    ///         anyway would be a class asking for a mechanism this engine does not use.
+    ///     </para>
+    /// </remarks>
+    internal int LineClampOf(ComputedStyle style) {
+        if (!style.TryGet(lineClamp, out var id)) {
+            return 0;
+        }
+
+        var value = reader.Parse(id);
+
+        // `none` — and anything else that is not a positive count — is no clamp. Zero is the same
+        // answer as absent rather than "no lines at all", which is what a browser does with it.
+        return value.Kind == StyleValueKind.Number ? Math.Max((int) value.Number, 0) : 0;
+    }
+
     /// <summary>What to do with a word wider than the line it has to fit in.</summary>
     internal TextWrapMode WrapModeOf(ComputedStyle style) =>
         style.TryGet(overflowWrap, out var value) && (value == anywhere || value == breakWord)
@@ -1933,6 +1982,87 @@ public sealed partial class UiDocument : IDisposable {
         return value == breakAll ? WordBreakMode.BreakAll :
             value == keepAll ? WordBreakMode.KeepAll : WordBreakMode.Normal;
     }
+
+    /// <summary>What to do to the characters before they are shaped. CSS Text 3 § 2.1.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Read here and applied in <c>UiElement.Block</c>, which is <i>before</i> the
+    ///         shaping and the wrapping and the measuring</b> — a case mapping changes how wide the
+    ///         text is, so a transform applied at paint would draw a paragraph the layout had
+    ///         measured at the other width.
+    ///     </para>
+    ///     <para>
+    ///         <c>none</c> is the initial value and needs no test: anything that is not one of the
+    ///         three keywords is it. <c>full-width</c> and <c>full-size-kana</c> are not registered
+    ///         and therefore cannot arrive here.
+    ///     </para>
+    /// </remarks>
+    internal TextTransform TextTransformOf(ComputedStyle style) {
+        if (!style.TryGet(textTransform, out var value)) {
+            return TextTransform.None;
+        }
+
+        return value == uppercase ? TextTransform.Uppercase :
+            value == lowercase ? TextTransform.Lowercase :
+            value == capitalize ? TextTransform.Capitalize : TextTransform.None;
+    }
+
+    /// <summary>Whether a soft hyphen may end a line. CSS Text 4 § 6.1's <c>hyphens</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two values where CSS has three, and <c>auto</c> is refused rather than
+    ///         approximated.</b> It needs a per-language Liang pattern set — tens of kilobytes a
+    ///         language — <i>and</i> a language to choose one with, and <c>TextShaper</c> leaves
+    ///         HarfBuzz's language unset on purpose so that shaping does not depend on the machine's
+    ///         locale. So the input is missing as well as the algorithm. No utility emits it, and a
+    ///         declaration carrying it lands on <see cref="HyphenMode.Manual" /> — which is what a
+    ///         browser with hyphenation patterns it does not have would also do.
+    ///     </para>
+    ///     <para>
+    ///         <c>manual</c> is the initial value and needs no test: anything that is not
+    ///         <c>none</c> is it.
+    ///     </para>
+    /// </remarks>
+    internal HyphenMode HyphensOf(ComputedStyle style) =>
+        style.TryGet(hyphens, out var value) && value == none ? HyphenMode.None : HyphenMode.Manual;
+
+    /// <summary>How many spaces wide a tab stop is. CSS Text 3 § 6.1's <c>tab-size</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A count of spaces and not a distance, which is why this returns a number and the
+    ///         pixels are worked out where a font is in scope.</b> CSS defines the <c>&lt;number&gt;</c>
+    ///         form as that many advances of the element's own space character — so the same
+    ///         declaration is a different width in a different face, and resolving it here would
+    ///         resolve it against nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <c>&lt;length&gt;</c> form is refused rather than resolved, and it is a value
+    ///         gap rather than an oversight.</b> A length on this property takes relative units, so it
+    ///         would have to be computed and inherited beside <c>line-height</c> instead of living in
+    ///         <c>InheritedProperties</c> — a second computed text property, a field on
+    ///         <c>ComputedText</c> and a second reading of the same property, for a form no utility
+    ///         emits: Tailwind's <c>tab-*</c> is a bare count. An element that writes one keeps the
+    ///         initial eight, which is what a browser does with a declaration it drops.
+    ///     </para>
+    ///     <para>
+    ///         The initial value is <b>8</b>, and it applies to text nobody styled — so a tab in a
+    ///         label is eight spaces wide by default rather than the .notdef box it used to draw.
+    ///     </para>
+    /// </remarks>
+    internal float TabSizeOf(ComputedStyle style) {
+        if (!style.TryGet(tabSize, out var id)) {
+            return DefaultTabSize;
+        }
+
+        var value = reader.Parse(id);
+
+        // Zero is a real value — CSS says a tab is then no wider than nothing — and negative is not,
+        // so it clamps rather than falling back to the initial value.
+        return value.Kind == StyleValueKind.Number ? MathF.Max(value.Number, 0f) : DefaultTabSize;
+    }
+
+    /// <summary>CSS Text 3 § 6.1's initial <c>tab-size</c>.</summary>
+    internal const float DefaultTabSize = 8f;
 
     internal string? FontFamilyOf(ComputedStyle style) =>
         style.TryGet(fontFamily, out var value) ? Styles.Values.NameOf(value) : null;

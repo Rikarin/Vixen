@@ -987,6 +987,90 @@ public static class UtilityFamilies {
             ["top"] = "top", ["middle"] = "middle", ["bottom"] = "bottom", ["baseline"] = "baseline"
         });
 
+        // ── Line clamp ──────────────────────────────────────────────────────────────────────
+        // ⚠ <b>One declaration where Tailwind emits four, and the three that are missing are three
+        // separate decisions rather than one shortfall.</b>
+        //
+        // `display: -webkit-box` and `-webkit-box-orient: vertical` are dropped under
+        // `-webkit-backdrop-filter`'s rule: a prefixed name no engine here can read is a line in
+        // every generated sheet that nothing will ever look at. ⚠ And the sizing that called them
+        // "a box model Vixen does not have" was measuring the wrong thing — the 2009 box *is*
+        // expressible, it is a flex column, and mapping it that way would be actively wrong: it
+        // would make a text element a flex container, and a text element here is a leaf that
+        // measures itself. In a browser the pair is a marker Chrome special-cases; here
+        // `UiDocument.LineClampOf` reads the clamp directly, so the marker has nothing to mark.
+        //
+        // `overflow: hidden` is dropped for a different reason: a browser lays out every line and
+        // *hides* the ones past the clamp, so it needs the clip to do the hiding. `UiElement.Block`
+        // drops them, so a clamped block genuinely has N lines and there is nothing left to clip.
+        //
+        // ⚠ <b>Two registrations for one family, and the order is load-bearing.</b> `Register` keeps
+        // the first family under a name and merges a later one's keywords into it, so the numeric
+        // kind has to be registered first for `line-clamp-none` to be a keyword rather than a value
+        // that fails to parse — the same arrangement `decoration` uses for its three properties.
+        Number("line-clamp", "-webkit-line-clamp");
+
+        Keywords("line-clamp", "-webkit-line-clamp", new() { ["none"] = "none" });
+
+        // ── Text transform ──────────────────────────────────────────────────────────────────
+        // ⚠ <b>Four bare words for one property, and the fourth is spelled `normal-case` rather than
+        // `case-normal`.</b> That is v4's name and it is also the only one that does not collide:
+        // `case` is not a prefix any other family uses, and inventing one for a single opt-out would
+        // put a family in the table whose only member is a value already reachable by writing
+        // nothing.
+        //
+        // ⚠ <b>These are read at *shaping* time, which is where the property's cost lives.</b>
+        // `UiDocument.TextTransformOf` is consulted by `UiElement.Block` before a glyph is chosen,
+        // because a case mapping changes how wide the text is; and `TransformedText` carries the map
+        // back to what the author wrote, because a full Unicode uppercase changes the string's
+        // *length* — `straße` becomes `STRASSE` — and every caret index in the tree is an index into
+        // the element's own text. The four classes were held back until that map existed, for
+        // exactly the reason `tab-*` was: a text feature that misplaces a caret is worse than
+        // an absent one.
+        Static("uppercase", "text-transform", "uppercase");
+        Static("lowercase", "text-transform", "lowercase");
+        Static("capitalize", "text-transform", "capitalize");
+        Static("normal-case", "text-transform", "none");
+
+        // ── Tab size ────────────────────────────────────────────────────────────────────────
+        // ⚠ <b>A bare count, which is why this is a `Number` family and not a length one.</b> v4
+        // spells `tab-1`, `tab-2`, `tab-4`, `tab-8` and an arbitrary count. CSS Text 3 § 6.1 also
+        // allows a `<length>`, and `UiDocument.TabSizeOf` refuses that form rather than resolving
+        // it — a length here takes relative units, so it would have to be computed and inherited
+        // beside `line-height` instead of living in `InheritedProperties`, for a form no class in
+        // this table can even spell.
+        //
+        // ⚠ <b>The reader is a layout seam rather than a property lookup, which is why this row sat
+        // `absent` while its four siblings above shipped.</b> A tab's advance is the distance to the
+        // next stop, so it is a fact about where the run *sits* — while `TextLine.Place`,
+        // `CaretOffset` and `Width`, and every width in `LineWrapper`, are prefix sums over advances
+        // that are facts about the character. `TextRun.IsTab` and `TextLine.WidthOf` are what
+        // separate the two; before they existed a `tab-*` that resolved would have broken the
+        // paragraph in one place, drawn it in another, and put the caret a stop out.
+        Number("tab", "tab-size");
+
+        // ── Hyphens ─────────────────────────────────────────────────────────────────────────
+        // ⚠ <b>Two of Tailwind's three, and the third is left unregistered on purpose.</b>
+        // `hyphens-auto` needs a per-language Liang pattern set AND a language to pick one with, and
+        // `TextShaper` leaves HarfBuzz's language unset so that shaping does not depend on the
+        // machine's locale — so the input is missing as well as the algorithm. Registering it would
+        // put a class in the table that resolves, computes a value and hyphenates nothing, which is
+        // the exact state `UtilityConsumptionGateTests` exists to keep out. The root stays `partial`
+        // with the reason named, which is the honest state rather than the flattering one.
+        //
+        // ⚠ <b>`hyphens-manual` is the initial value, and it is registered anyway.</b> Normally a
+        // class whose only effect is "write nothing" earns no place — `normal-case` is the exception
+        // above and argues its own case. This one is different: `hyphens` inherits, so `manual` is
+        // the only way to opt a child back in under an ancestor's `hyphens-none`, and there is no
+        // other spelling for it.
+        //
+        // ⚠ <b>And `manual` was already half-implemented, which made this a defect and not a
+        // gap.</b> `LineBreaker` has always broken at U+00AD; the hyphen was never drawn, because
+        // the character is `Default_Ignorable` and the shaper deletes it. `UiElement.Hyphenated`
+        // supplies the visible half.
+        Static("hyphens-none", "hyphens", "none");
+        Static("hyphens-manual", "hyphens", "manual");
+
         // ── Text decoration ─────────────────────────────────────────────────────────────────
         // ⚠ <b>Four families for one line, and it is `text-decoration-line` that gets its own class
         // names rather than a value.</b> v4 spells the lines as bare words — `underline`, not

@@ -147,7 +147,9 @@ sealed record ProbeScene(
     bool Unbroken = false,
     bool Edited = false,
     bool Figured = false,
-    bool Floated = false
+    bool Floated = false,
+    bool Tabbed = false,
+    bool Hyphenated = false
 );
 
 /// <summary>Runs a declaration past the engine and reports what moved.</summary>
@@ -812,6 +814,66 @@ static class UtilityConsumptionProbe {
             Figured: true
         ),
 
+        // ⚠ <b>Tabbed: the fifth time a finished reader measured inert because no scene's text held
+        // the one character the property is about.</b> `font-style`, `overflow-wrap`, `caret-color`
+        // and `font-variant-numeric` were the first four, and the shape is identical every time —
+        // `UiDocument.TabSizeOf` reads `tab-size`, `UiElement.TabStop` resolves it against a space
+        // and `TextLine` lays the columns out, and all three do nothing observable to a string with
+        // no U+0009 in it. Which is every string in every other scene, and every string in an
+        // interface, which is exactly why the property needed its own one.
+        //
+        // ⚠ <b>Open Sans rather than TestShapeLana, and the reason is the ingredient again one level
+        // down.</b> A tab stop is a *count of space advances*, so the measurement is only as real as
+        // the face's space is wide — a face whose U+0020 advanced nothing would put every stop at
+        // zero and leave the property inert with all three of its readers running. Open Sans' space
+        // is 4.15625px at 16px, which is measured rather than assumed; it is already loaded for
+        // `figured` and is asked for here by name for the same reason that one does.
+        //
+        // ⚠ The declaration lands on `#probe` and the tab is in a child, so this measures the
+        // inheritance at the same time — `tab-size` is in `InheritedProperties`, and a count written
+        // on a container whose text is in its rows is the way anybody writes it.
+        new(
+            "tabbed",
+            """
+            #host    { display: flex; flex-direction: row; width: 240px; height: 90px; align-items: flex-start; }
+            #probe   { display: flex; flex-direction: row; flex-wrap: wrap; width: 200px;
+                       background-color: #204080; color: #e0e0e0; }
+            .kid     { width: 8px; height: 8px; }
+            #wide    { width: 8px; height: 8px; }
+            #label   { width: 40px; }
+            #short   { width: 40px; }
+            #tabbed  { font-family: Figured; font-size: 16px; }
+            #after   { width: 30px; height: 20px; background-color: #a0a040; }
+            """,
+            Tabbed: true
+        ),
+
+        // ⚠ <b>Hyphenated: the sixth, and the ingredient is a character *and* a box narrow enough
+        // for it to matter.</b> `hyphens` decides whether a soft hyphen may end a line, so a scene
+        // proves nothing about it unless some line actually wants to end there — a wide box holds
+        // `supply` whole and both values of the property produce the identical picture. `#hyphens`
+        // is 36px, which fits `sup-` and not `supply`.
+        //
+        // ⚠ Open Sans again, and this time for a second reason on top of coverage: what the property
+        // does when it fires is *substitute* U+002D for U+00AD, so the face has to have both. It has
+        // glyphs 111 and 16; `TestShapeLana` has 13 and 16. Either would serve, and the one already
+        // loaded is the one that does not re-baseline thirteen signatures.
+        new(
+            "hyphenated",
+            """
+            #host    { display: flex; flex-direction: row; width: 240px; height: 90px; align-items: flex-start; }
+            #probe   { display: flex; flex-direction: row; flex-wrap: wrap; width: 200px;
+                       background-color: #204080; color: #e0e0e0; }
+            .kid     { width: 8px; height: 8px; }
+            #wide    { width: 8px; height: 8px; }
+            #label   { width: 40px; }
+            #short   { width: 40px; }
+            #hyphens { font-family: Figured; font-size: 16px; width: 36px; }
+            #after   { width: 30px; height: 20px; background-color: #a0a040; }
+            """,
+            Hyphenated: true
+        ),
+
         // ⚠ <b>Decorated: the probe already carries an underline, and without that the four
         // properties that <i>modify</i> one all measure inert.</b> `primed`'s lesson again, and this
         // time it was predicted rather than discovered — but only just, and the measurement is worth
@@ -1468,6 +1530,24 @@ static class UtilityConsumptionProbe {
         if (scene.Figured) {
             var figures = document.Create("span", body, "figures");
             figures.Text = "0123456789";
+        }
+
+        // A tab, in the one face here whose space is known to advance. Two letters on each side of it
+        // so the column it opens has something to be measured between, and a second tab so that the
+        // scene can tell "the stops moved" from "the tab was dropped" — a single tab at a stop of
+        // zero and a single tab measured as a glyph both shorten the line, and only a pair
+        // distinguishes the grid from a fixed width.
+        if (scene.Tabbed) {
+            var tabbed = document.Create("span", body, "tabbed");
+            tabbed.Text = "Ag\tjq\tWm";
+        }
+
+        // A word with a soft hyphen in it, in a box that fits the first half and not the whole. Both
+        // halves are the ingredient: `hyphens` moves nothing in a word that had nowhere it needed to
+        // break, and nothing in a word with no U+00AD to break at.
+        if (scene.Hyphenated) {
+            var hyphenated = document.Create("span", body, "hyphens");
+            hyphenated.Text = "sup­ply";
         }
 
         // The focused field. `Focus` is called after the value is set rather than before, because a

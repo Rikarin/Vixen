@@ -69,6 +69,17 @@
         -->
         <EmbeddedResource Include="..\Vixen.Ui.Text.Tests\Fonts\TestShapeAran.ttf"
                           LogicalName="Vixen.Ui.Tests.Fonts.TestShapeAran.ttf" />
+
+        <!--
+            And a real text face, because `text-transform` is the first feature here whose subject is
+            the *characters* rather than the layout. None of the Consortium fixtures above covers
+            `ß`, `ﬁ` or the Greek iota-subscript letters, and a case mapping asserted against a face
+            that draws every one of them as .notdef measures the same width whatever it mapped them
+            to — the shape of green the `font-variant-numeric` sweep hit for the same reason. Linked
+            from the editor's own fonts, as Vixen.Ui.Testing.Tests already does.
+        -->
+        <EmbeddedResource Include="..\..\Editor\Vixen.Editor.App\Fonts\OpenSans-Regular.ttf"
+                          LogicalName="Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf" />
     </ItemGroup>
 
     <ItemGroup>

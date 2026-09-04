@@ -623,6 +623,15 @@ public partial class UiElement : Composition.IComposable {
         var revision = Document.Fonts.Revision;
         var mode = Document.WrapModeOf(Style);
         var breaking = Document.WordBreakOf(Style);
+        var transform = Document.TextTransformOf(Style);
+        var clamp = Document.LineClampOf(Style);
+
+        // ⚠ The count and not the pixels, because the pixels need a font and the font chain is
+        // resolved below — but the count is what has to be in the key. Everything the count is
+        // multiplied by (the family, the weight, the slant, the size, the font revision) is already
+        // compared here, so keying on it keys on the stop.
+        var tabSize = Document.TabSizeOf(Style);
+        var hyphens = Document.HyphensOf(Style);
 
         if (!Document.WrapsOf(Style)) {
             width = float.PositiveInfinity;
@@ -640,6 +649,29 @@ public partial class UiElement : Composition.IComposable {
             && lineRevision == revision
             && lineMode == mode
             && lineBreaking == breaking
+
+            // ⚠ In the key for the same reason `word-spacing` is: a case mapping changes how wide
+            // the text is, so a block built before the transform arrived is a paragraph measured at
+            // the wrong width and wrapped at the wrong characters. It is *not* covered by the
+            // reference test on `Text` above — the element's own string did not change.
+            && lineTransform == transform
+
+            // ⚠ And the clamp, which is the one entry in this key that changes the block's *height*
+            // rather than its width. A stale clamp is a paragraph that measured five lines and draws
+            // three, so the box is two lines too tall and the gap looks like a margin nobody wrote.
+            && lineClamp == clamp
+
+            // ⚠ In the key for `word-spacing`'s reason and one of its own: a tab's advance is the
+            // distance to the next stop, so moving the stops moves every wrap point after the first
+            // tab on the line. A block built at the old spacing rewraps at the old columns and goes
+            // on doing so until something else invalidates it.
+            && lineTabSize.Equals(tabSize)
+
+            // ⚠ In the key because it changes where the paragraph breaks *and* what the broken line
+            // draws — the mode decides both whether a soft hyphen is an opportunity and whether the
+            // line that took one ends in a visible hyphen. A stale mode is a paragraph split at a
+            // word the author asked to keep whole.
+            && lineHyphens == hyphens
             && lineWidth.Equals(width)
             && lineSize.Equals(FontSize)
             && lineTracking.Equals(LetterSpacing)
@@ -664,15 +696,24 @@ public partial class UiElement : Composition.IComposable {
             return null;
         }
 
+        // ⚠ <b>The transform happens here, before anything is shaped or measured.</b> `drawn.Text`
+        // is what the runs, the wrapper and the ellipsis all work in; `drawn` itself is the map back
+        // to what the author wrote, and every index this block hands out goes through it. When
+        // nothing moved it *is* the element's own string, instance and all, so the shaping cache's
+        // fast path and every reference test below carry on meaning what they meant.
+        var drawn = TransformedText.Of(Text, transform);
+        var text = drawn.Text;
+
         var lines = ImmutableArray.CreateBuilder<TextLine>();
         var indent = TextIndent;
-        var whole = Runs(Text, 0, chain, offset: indent);
+        var tabStop = TabStop(text, tabSize, chain);
+        var whole = Runs(text, 0, chain, drawn, offset: indent, tabStop: tabStop);
 
         // ⚠ The indent narrows the fast path's test as well as the wrapper's, and leaving it out is
         // the shape of bug that only shows on the one paragraph where it matters: a line that fits
         // in the box but not in the box *minus the indent* would take the unwrapped path, be shifted
         // right by the indent, and hang over the edge.
-        if ((float.IsPositiveInfinity(width) || whole.Width <= width - indent) && !HasHardBreak(Text)) {
+        if ((float.IsPositiveInfinity(width) || whole.Width <= width - indent) && !HasHardBreak(text)) {
             // ⚠ The unwrapped path is not an optimisation, it is the answer. A paragraph that fits
             // needs no break opportunities computed and no line re-shaped, and this is every label in
             // an interface.
@@ -683,11 +724,33 @@ public partial class UiElement : Composition.IComposable {
             // whatever glyph the font has for it — however wide the box is.
             lines.Add(whole);
         } else {
-            Wrap(Text, whole, width, mode, breaking, indent, chain, lines);
+            Wrap(text, whole, width, mode, breaking, indent, chain, drawn, tabStop, hyphens, lines);
+        }
+
+        // ⚠ <b>The clamp drops the lines here, in the measure path, and this is where it differs from
+        // every other truncation in this file.</b> An ellipsis is a fact about the picture — see
+        // `Ellipsized`, which is why that one happens at paint. A clamp is a fact about the *height*:
+        // a three-line block is three lines tall to its parent, so a budget applied after layout
+        // would reserve room for lines that are never drawn and leave a hole under the text.
+        //
+        // ⚠ Only the *count* is applied here and not the marker. The lines that remain are still
+        // whole substrings of the text, so `TextLine.Start`, the caret and the selection go on
+        // meaning what they mean; the ellipsis on the last kept line is `Ellipsized`'s, put there at
+        // paint like every other ellipsis, and `clamped` is what tells it to.
+        clamped = clamp > 0 && lines.Count > clamp;
+
+        if (clamped) {
+            lines.Count = clamp;
         }
 
         block = new TextLayout(lines.ToImmutable());
         lineText = Text;
+        lineTransform = transform;
+        lineClamp = clamp;
+        lineTabSize = tabSize;
+        lineHyphens = hyphens;
+        lineTabStop = tabStop;
+        lineTransformed = drawn;
         lineFamily = family;
         lineWeight = weight;
         lineStyle = slant;
@@ -739,7 +802,12 @@ public partial class UiElement : Composition.IComposable {
     public TextLayout? Ellipsized(float contentWidth) {
         var source = Block();
 
-        if (source is null || !Document.EllipsisOf(Style)) {
+        // ⚠ <b>A clamp implies the marker, which is what makes `line-clamp-3` one class rather than
+        // two.</b> CSS says so — a `-webkit-line-clamp` ellipsises the last kept line without
+        // `text-overflow` being written anywhere — and it is also the only reading that is any use:
+        // three lines that simply stop are indistinguishable from three lines that were all there
+        // was. `clamped` belongs to the block `Block()` has just returned, so it is read after it.
+        if (source is null || !(Document.EllipsisOf(Style) || clamped)) {
             return source;
         }
 
@@ -765,16 +833,30 @@ public partial class UiElement : Composition.IComposable {
         var lines = ImmutableArray.CreateBuilder<TextLine>(source.Lines.Length);
         var cut = false;
 
-        foreach (var line in source.Lines) {
+        // The block that is being truncated was built from this, so it is the string the line's
+        // runs index — and the one the kept prefix has to be cut out of. `Block()` above is what
+        // guarantees it is not stale.
+        var drawn = lineTransformed ?? TransformedText.Of(Text, TextTransform.None);
+
+        for (var i = 0; i < source.Lines.Length; i++) {
+            var line = source.Lines[i];
+
+            // ⚠ The last line of a clamped block is marked whether or not it fits, and that is the
+            // whole difference between the two features. An ellipsis says "this line was too wide";
+            // a clamp says "there was more text after this" — the line it lands on is a line that
+            // fitted perfectly, and testing the width first would silently drop the marker on every
+            // clamped paragraph whose last kept line happens to be short.
+            var truncating = clamped && i == source.Lines.Length - 1;
+
             // The indent is part of what has to fit: an indented line whose glyphs are narrower than
             // the box can still run past its right-hand edge, and that is exactly the line an
             // ellipsis is for.
-            if (line.Offset + line.Width <= contentWidth) {
+            if (!truncating && line.Offset + line.Width <= contentWidth) {
                 lines.Add(line);
                 continue;
             }
 
-            lines.Add(Truncate(line, marker, contentWidth, chain));
+            lines.Add(Truncate(line, marker, contentWidth, chain, drawn));
             cut = true;
         }
 
@@ -795,10 +877,20 @@ public partial class UiElement : Composition.IComposable {
     ///     cut a cursive script mid-word without unjoining it — the same reason
     ///     <c>UiElement.Wrap</c> re-shapes each line instead of slicing the paragraph's shaping.
     /// </remarks>
-    TextLine Truncate(TextLine line, TextLine marker, float contentWidth, List<FontFace> chain) {
-        var text = Text!;
-        var start = line.Start;
-        var end = start + line.Length;
+    TextLine Truncate(
+        TextLine line,
+        TextLine marker,
+        float contentWidth,
+        List<FontFace> chain,
+        TransformedText transformed
+    ) {
+        // ⚠ <b>The transformed text and transformed indices throughout.</b> `TextLine.Start` speaks
+        // the element's own string, which is a different number the moment a case mapping expanded
+        // anything — so the prefix would be cut a character short of where the glyphs actually end
+        // and the ellipsis would eat a letter that fitted.
+        var text = transformed.Text;
+        var start = transformed.ToDrawn(line.Start);
+        var end = transformed.ToDrawn(line.Start + line.Length);
 
         var advances = new float[text.Length + 1];
 
@@ -815,10 +907,17 @@ public partial class UiElement : Composition.IComposable {
         var boundaries = new List<int>();
         GraphemeBreaker.Collect(text.AsSpan(start, end - start), boundaries);
 
+        // ⚠ <b>The stop `Block` measured with, and the pen it is measured from is the line's own
+        // offset.</b> The tab stops are laid out from the line box's start edge, so a cut that summed
+        // advances from zero would snap this line's tabs to columns half a stop away from the ones
+        // the layout chose, and the ellipsis would land inside a column instead of after it.
+        var stop = lineTabStop;
+        var pen = line.Offset;
+
         var kept = start;
 
         if (room > 0f) {
-            var width = 0f;
+            var width = pen;
             var at = start;
 
             foreach (var boundary in boundaries) {
@@ -829,10 +928,14 @@ public partial class UiElement : Composition.IComposable {
                 }
 
                 for (var i = at; i < here; i++) {
-                    width += advances[i];
+                    // The snap rule of `TextLine.NextStop` and `LineWrapper.Width`: strictly the next
+                    // stop, so two tabs in a row are two columns.
+                    width = text[i] == '\t'
+                        ? stop > 0f ? (MathF.Floor(width / stop) + 1f) * stop : width
+                        : width + advances[i];
                 }
 
-                if (width > room) {
+                if (width - pen > room) {
                     break;
                 }
 
@@ -846,7 +949,9 @@ public partial class UiElement : Composition.IComposable {
         // indistinguishable from an element with no text, and the clip will trim the glyph if even it
         // does not fit.
         if (kept <= start) {
-            return marker.Runs.Length == 0 ? line : Runs(Ellipsis, start, chain, offset: line.Offset);
+            return marker.Runs.Length == 0
+                ? line
+                : Runs(Ellipsis, start, chain, transformed, offset: line.Offset, tabStop: stop);
         }
 
         // ⚠ Trailing space is trimmed before the ellipsis, the way a browser does it: `"ab  "` cut at
@@ -859,7 +964,12 @@ public partial class UiElement : Composition.IComposable {
 
         var body = last > start ? text[start..last] : text[start..kept];
 
-        return Runs(body + Ellipsis, start, chain, offset: line.Offset);
+        // ⚠ The map is carried so that this line's `Start` still speaks the element's own string
+        // like every other line's — but only its start is meaningful. The string handed to the
+        // shaper is a *prefix plus a marker*, so an index inside the marker maps to nothing the
+        // author wrote. That is sound because a truncated line is a fact about the picture and
+        // nothing puts a caret on one: see `Ellipsized`'s remarks on why `Block()` is left alone.
+        return Runs(body + Ellipsis, start, chain, transformed, offset: line.Offset, tabStop: stop);
     }
 
     /// <summary>The width this element wraps its text to, from the layout it was last given.</summary>
@@ -921,7 +1031,15 @@ public partial class UiElement : Composition.IComposable {
     ///         because a level change is a change of strong direction, and no script joins across one.
     ///     </para>
     /// </remarks>
-    TextLine Runs(string text, int start, List<FontFace> chain, float width = float.NaN, float offset = 0f) {
+    TextLine Runs(
+        string text,
+        int start,
+        List<FontFace> chain,
+        TransformedText? transformed = null,
+        float width = float.NaN,
+        float offset = 0f,
+        float tabStop = 0f
+    ) {
         var spans = new List<FontSpan>();
         FontRegistry.Cover(text, chain, spans);
 
@@ -937,37 +1055,192 @@ public partial class UiElement : Composition.IComposable {
                     continue;
                 }
 
-                // ⚠ The whole string when one face and one level cover it, and a substring only
-                // otherwise. Not a micro-optimisation: `text[0..Length]` is a fresh string every
-                // call, and the shaping cache keys on the string's contents, so it would hash and
-                // compare the whole label to find the entry it already had. This is every label in
-                // an interface, and it is the same fast path the coverage-only version had.
-                var piece = from == 0 && to == text.Length ? text : text[from..to];
+                // ⚠ <b>A third cut, and it is the only one that is not about the characters being
+                // shapeable together.</b> A tab's width is the distance to the next stop, which is a
+                // fact about where it *sits* — see `TextRun.IsTab` — so it has to be alone in a run
+                // for the line to be able to give it one. Nothing is lost by cutting there: no
+                // shaper joins across a tab, and CSS Text 3 makes it a space rather than a glyph.
+                //
+                // ⚠ Only when there is a tab, so every label in an interface takes the loop it took
+                // before — one shaping call for the whole string, hitting the cache entry it already
+                // had rather than one per fragment.
+                foreach (var (cut, end) in Segments(text, from, to)) {
+                    // ⚠ The whole string when one face and one level cover it, and a substring only
+                    // otherwise. Not a micro-optimisation: `text[0..Length]` is a fresh string every
+                    // call, and the shaping cache keys on the string's contents, so it would hash and
+                    // compare the whole label to find the entry it already had. This is every label in
+                    // an interface, and it is the same fast path the coverage-only version had.
+                    var piece = cut == 0 && end == text.Length ? text : text[cut..end];
 
-                // ⚠ The level's own direction, not the paragraph's. The piece has one level
-                // throughout, so which way it is drawn is decided — handing the shaper the
-                // paragraph's `Auto` would make it guess again from the piece's first strong
-                // character, and a piece of neutrals between two Arabic words would guess wrong.
-                var direction = (level.Level & 1) != 0
-                    ? ParagraphDirection.RightToLeft
-                    : ParagraphDirection.LeftToRight;
+                    // ⚠ The level's own direction, not the paragraph's. The piece has one level
+                    // throughout, so which way it is drawn is decided — handing the shaper the
+                    // paragraph's `Auto` would make it guess again from the piece's first strong
+                    // character, and a piece of neutrals between two Arabic words would guess wrong.
+                    var direction = (level.Level & 1) != 0
+                        ? ParagraphDirection.RightToLeft
+                        : ParagraphDirection.LeftToRight;
 
-                runs.Add(
-                    new TextRun(
-                        span.Font,
-                        Document.Shaping.Shape(span.Font, piece, direction, features: FontFeatures),
-                        FontSize,
-                        LetterSpacing,
-                        LineHeight,
-                        start + from,
-                        level.Level,
-                        WordSpacing
-                    )
-                );
+                    runs.Add(
+                        new TextRun(
+                            span.Font,
+                            Document.Shaping.Shape(span.Font, piece, direction, features: FontFeatures),
+                            FontSize,
+                            LetterSpacing,
+                            LineHeight,
+                            start + cut,
+                            level.Level,
+                            WordSpacing
+                        )
+                    );
+                }
             }
         }
 
-        return new TextLine(runs.ToImmutable(), width, offset);
+        return new TextLine(runs.ToImmutable(), width, offset, transformed, tabStop);
+    }
+
+    /// <summary>A line, with a soft hyphen it ends on replaced by one that draws.</summary>
+    /// <param name="line">The line's own text, cut out of the paragraph.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The visible half of <c>hyphens: manual</c>, and its absence was a defect rather
+    ///         than a gap.</b> <see cref="LineBreaker" /> has always offered a break after U+00AD —
+    ///         <c>"sup­ply"</c> and <c>"sup-ply"</c> return the identical opportunity list — so
+    ///         Vixen already broke <c>sup|ply</c>. It then drew no hyphen at all, because U+00AD is
+    ///         <c>Default_Ignorable</c> and <c>TextShaper</c> sets
+    ///         <c>BufferFlags.RemoveDefaultIgnorables</c>: seven characters shaped to six glyphs
+    ///         <i>even though the face has the glyph</i>. A word split with nothing to show for it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>U+002D and not U+2010, which is what the sizing for this said and is measurably
+    ///         wrong.</b> <c>FontFace.GlyphFor(0x2010)</c> is <b>0</b> — <c>.notdef</c> — in Open
+    ///         Sans and in <c>TestShapeLana</c> alike. What glyph 0 <i>draws</i> then differs by
+    ///         face, and both outcomes are bad: <c>TestShapeLana</c>'s has two contours and is the
+    ///         familiar hollow box, while Open Sans' has <b>zero</b> and draws nothing at all. So the
+    ///         prescribed substitution either shows a tofu box at every hyphenation point or, in the
+    ///         engine's own interface face, silently reproduces the defect it was meant to fix — and
+    ///         the silent one is the worse, because it looks like the change never took. U+002D is
+    ///         glyph 16 in both, and is what a browser draws here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One character for one, which is the property that makes this safe.</b> Every
+    ///         index the block hands out — <c>TextLine.Start</c>, the caret, the selection — is an
+    ///         index into the element's own string, and a substitution of equal length moves none of
+    ///         them. Appending a hyphen instead would move all of them by one from here to the end of
+    ///         the paragraph.
+    ///     </para>
+    ///     <para>
+    ///         Only the <i>last</i> character, because that is the only soft hyphen a line ending
+    ///         proves anything about. One in the middle of a line was not used as a break and must go
+    ///         on drawing nothing, which is what the shaper already does with it.
+    ///     </para>
+    /// </remarks>
+    static string Hyphenated(string line) =>
+        line.Length > 0 && line[^1] == '­' ? string.Concat(line.AsSpan(0, line.Length - 1), "-") : line;
+
+    /// <summary>What the hyphen a broken line draws costs, in pixels.</summary>
+    /// <param name="chain">The resolved font chain, whose first face draws it.</param>
+    /// <remarks>
+    ///     ⚠ <b>U+002D and not U+00AD, because U+00AD measures zero — the shaper deletes it.</b>
+    ///     Measuring the character the author wrote would tell the wrapper the hyphen is free, which
+    ///     is precisely the wrong answer and the one this code had before the measurement existed:
+    ///     the paragraph broke as though the hyphen cost nothing and then drew it, so a hyphenated
+    ///     line overflowed its box by exactly one hyphen. What has to be measured is the character
+    ///     <see cref="Hyphenated" /> substitutes.
+    /// </remarks>
+    float HyphenWidth(List<FontFace> chain) {
+        if (chain.Count == 0) {
+            return 0f;
+        }
+
+        var font = chain[0];
+        var shaped = Document.Shaping.Shape(font, "-", ParagraphDirection.LeftToRight, features: FontFeatures);
+
+        return shaped.Advance * (FontSize / font.UnitsPerEm);
+    }
+
+    /// <summary>How far apart this element's tab stops are, in pixels, or zero for no tab.</summary>
+    /// <param name="text">The text as it will be drawn, after any case mapping.</param>
+    /// <param name="tabSize">How many spaces wide a stop is. <c>UiDocument.TabSizeOf</c>.</param>
+    /// <param name="chain">The resolved font chain, whose first face owns the space that is counted.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Zero whenever the text has no tab in it, which is free rather than a special
+    ///         case.</b> Zero is a real stop distance downstream — a tab at it occupies nothing — and
+    ///         a string with no tab has none to occupy anything, so the two answers coincide. What
+    ///         the early return buys is the substring and the shaping call per fragment in
+    ///         <c>Segments</c>, which is the expensive half.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is not a sentinel, and it used to be.</b> Reading a non-positive stop as
+    ///         "measure the tab as a glyph" made <c>tab-size: 0</c> indistinguishable from "no tabs
+    ///         here" and gave the first of them the width of a .notdef box that
+    ///         <see cref="TextRun.Place" /> then refused to draw — invisible width, which is the
+    ///         worse of the two failures it sat between.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The space of the chain's <i>first</i> face, not of whichever face covers the tab.</b>
+    ///         CSS Text 3 § 6.1 counts advances of "the element's font", and a fallback is not that —
+    ///         it is a face the element never asked for. Counting per-run would also make a tab stop
+    ///         depend on the script beside it, so the columns of a paragraph that fell back once would
+    ///         stop lining up with the columns of one that did not.
+    ///     </para>
+    ///     <para>
+    ///         The shaping goes through the same cache every other string does, so the one-space
+    ///         measurement is a dictionary hit after the first paragraph in a given face and size.
+    ///     </para>
+    /// </remarks>
+    float TabStop(string text, float tabSize, List<FontFace> chain) {
+        if (tabSize <= 0f || chain.Count == 0 || !text.Contains('\t')) {
+            return 0f;
+        }
+
+        var font = chain[0];
+        var space = Document.Shaping.Shape(font, " ", ParagraphDirection.LeftToRight, features: FontFeatures);
+
+        return tabSize * space.Advance * (FontSize / font.UnitsPerEm);
+    }
+
+    /// <summary>A range, cut so that every tab in it is a piece of its own.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One entry — the range itself — whenever there is no tab</b>, which is every
+    ///         string in an interface. The iterator allocates either way; what the fast path saves is
+    ///         the substring and the shaping call per fragment, which is the expensive half.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The cut does not depend on how wide the stops are, and reading it that way was a
+    ///         defect.</b> A version of this skipped the split when the stop was zero, on the
+    ///         reasoning that a zero stop meant "no tabs to place" — so under <c>tab-size: 0</c> the
+    ///         tab stayed inside its neighbours' run, <see cref="TextRun.IsTab" /> was false for it,
+    ///         and it was measured as the .notdef glyph the face maps U+0009 to. What makes a tab
+    ///         need its own run is that it *is* a tab, not that the stops happen to be wide.
+    ///     </para>
+    /// </remarks>
+    static IEnumerable<(int Start, int End)> Segments(string text, int from, int to) {
+        if (text.AsSpan(from, to - from).IndexOf('\t') < 0) {
+            yield return (from, to);
+            yield break;
+        }
+
+        var at = from;
+
+        for (var i = from; i < to; i++) {
+            if (text[i] != '\t') {
+                continue;
+            }
+
+            if (i > at) {
+                yield return (at, i);
+            }
+
+            yield return (i, i + 1);
+            at = i + 1;
+        }
+
+        if (at < to) {
+            yield return (at, to);
+        }
     }
 
     /// <summary>The text's bidi levels, as the longest stretches over which one level holds.</summary>
@@ -1012,6 +1285,9 @@ public partial class UiElement : Composition.IComposable {
         WordBreakMode breaking,
         float indent,
         List<FontFace> chain,
+        TransformedText transformed,
+        float tabStop,
+        HyphenMode hyphens,
         ImmutableArray<TextLine>.Builder into
     ) {
         var advances = new float[text.Length + 1];
@@ -1026,7 +1302,14 @@ public partial class UiElement : Composition.IComposable {
         }
 
         var wrapped = new List<WrappedLine>();
-        LineWrapper.Wrap(text, advances, width, wrapped, mode, breaking, indent);
+        // ⚠ What the hyphen this paragraph might draw would cost, so the wrapper can break with it
+        // in hand. Measured only when there is a soft hyphen to pay for, in the chain's first face
+        // for `TabStop`'s reason — a fallback is a face the element never asked for, and the hyphen
+        // that gets drawn comes from the run the substitution lands in, which is the same face the
+        // letters before it are in.
+        var hyphen = hyphens == HyphenMode.Manual && text.Contains('­') ? HyphenWidth(chain) : 0f;
+
+        LineWrapper.Wrap(text, advances, width, wrapped, mode, breaking, indent, tabStop, hyphens, hyphen);
 
         foreach (var line in wrapped) {
             // ⚠ Each line is shaped as its own string rather than sliced out of the paragraph's
@@ -1041,11 +1324,21 @@ public partial class UiElement : Composition.IComposable {
             // first line that was measured against the narrower width.
             into.Add(
                 Runs(
-                    text.Substring(line.Start, line.Length),
+                    // ⚠ <b>Only a line the wrapper actually broke, which `line.End < text.Length`
+                    // is exactly.</b> A soft hyphen the paragraph merely *ends* on was not used as
+                    // a break and must go on drawing nothing — `"sup­"` in a wide box is one line
+                    // reading `sup`, not `sup-`. The test is on the paragraph rather than on the
+                    // mode because it is also what makes the last line right under `hyphens: none`,
+                    // where the opportunity was suppressed but the character is still sitting there.
+                    line.End < text.Length
+                        ? Hyphenated(text.Substring(line.Start, line.Length))
+                        : text.Substring(line.Start, line.Length),
                     line.Start,
                     chain,
+                    transformed,
                     line.Advance,
-                    line.Start == 0 ? indent : 0f
+                    line.Start == 0 ? indent : 0f,
+                    tabStop
                 )
             );
         }
@@ -1075,6 +1368,25 @@ public partial class UiElement : Composition.IComposable {
     float lineTracking;
     float lineWords;
     float lineIndent;
+    TextTransform lineTransform;
+    int lineClamp;
+    float lineTabSize;
+    HyphenMode lineHyphens;
+
+    // ⚠ The stop the current `block` was measured with, in pixels, kept for the same reason
+    // `lineTransformed` is: `Ellipsized` measures the line it is cutting, and measuring it with a
+    // different stop than `Block` used would put the ellipsis at a column the layout never chose.
+    float lineTabStop;
+
+    // Whether `Block` dropped lines to honour `-webkit-line-clamp`, which is what tells `Ellipsized`
+    // to mark the last one even though it fits. Belongs to the current `block` and is rewritten
+    // whenever that is.
+    bool clamped;
+
+    // ⚠ The transformed text the current `block` was built from, kept so that `Ellipsized` cuts the
+    // string the runs were actually shaped from. Rebuilding it there instead would be a second
+    // place the transform is applied, and the two would agree until one of them was changed.
+    TransformedText? lineTransformed;
 
     // ⚠ Reference equality, not `Equals`, and it is sound because `ResolveText` produces one
     // instance per style pass and hands the same one to every element that resolved alike. Two

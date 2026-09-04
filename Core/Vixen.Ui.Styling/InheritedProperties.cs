@@ -96,6 +96,19 @@ public sealed class InheritedProperties {
         // only as text that is slightly too loose, in the one direction nobody measures.
         "text-align",
         "text-transform",
+
+        // ⚠ CSS-inherited, and unlike `line-height` and its three siblings it can live here: the
+        // only value Vixen reads is a unitless *number* of spaces, which means the same thing
+        // whatever font size it lands on. A `<length>` form is refused rather than resolved, for the
+        // reason those four are not in this list — see `UiDocument.TabSizeOf`.
+        "tab-size",
+
+        // ⚠ CSS-inherited, and it belongs here for `tab-size`'s reason rather than `line-height`'s:
+        // the value is a keyword, so it means the same thing wherever it lands and needs no
+        // computation against the element it was written on. What it is *for* needs the inheritance
+        // — `hyphens: none` is written on a card or a column to say that the words inside it are not
+        // to be split, and the words are in its children.
+        "hyphens",
         "white-space",
 
         // CSS Text 4 § 4 splits `white-space` into a collapsing half and a wrapping half, and both
@@ -112,6 +125,14 @@ public sealed class InheritedProperties {
         // that owns the glyphs. The full argument, and what it over-applies, is on
         // `UiDocument.EllipsisOf`.
         "text-overflow",
+
+        // ⚠ And `-webkit-line-clamp` for exactly `text-overflow`'s reason and no other. It is not
+        // CSS-inherited either — in CSS it applies to a `-webkit-box`, whose line boxes hold the
+        // inline content of its descendants — and the same missing shared line box is what leaves
+        // inheritance as the only route from the container a `line-clamp-3` is written on to the
+        // element that owns the glyphs. `class="line-clamp-3"` on a card whose text sits in a child
+        // span is the shape every panel in this tree writes.
+        "-webkit-line-clamp",
 
         // ⚠ <b>None of these five is CSS-inherited, and all five are here for `text-overflow`'s
         // reason, one step stronger.</b> CSS does not inherit a decoration; it <i>propagates</i> one.

@@ -179,6 +179,10 @@ Vixen.Ui.Text.GraphemeBreakClass.T = 11 -> Vixen.Ui.Text.GraphemeBreakClass
 Vixen.Ui.Text.GraphemeBreakClass.V = 12 -> Vixen.Ui.Text.GraphemeBreakClass
 Vixen.Ui.Text.GraphemeBreakClass.ZWJ = 13 -> Vixen.Ui.Text.GraphemeBreakClass
 Vixen.Ui.Text.GraphemeBreaker -> static class
+Vixen.Ui.Text.HyphenMode -> enum : byte
+Vixen.Ui.Text.HyphenMode.HyphenMode() -> void
+Vixen.Ui.Text.HyphenMode.Manual = 0 -> Vixen.Ui.Text.HyphenMode
+Vixen.Ui.Text.HyphenMode.None = 1 -> Vixen.Ui.Text.HyphenMode
 Vixen.Ui.Text.IndicConjunctClass -> enum : byte
 Vixen.Ui.Text.IndicConjunctClass.Consonant = 1 -> Vixen.Ui.Text.IndicConjunctClass
 Vixen.Ui.Text.IndicConjunctClass.Extend = 2 -> Vixen.Ui.Text.IndicConjunctClass
@@ -642,10 +646,22 @@ Vixen.Ui.Text.TextItem.TextItem() -> void
 Vixen.Ui.Text.TextItem.TextItem(int Start, int Length, int Level, Vixen.Ui.Text.Script Script) -> void
 Vixen.Ui.Text.TextItemizer -> static class
 Vixen.Ui.Text.TextShaper -> static class
+Vixen.Ui.Text.TextTransform -> enum : byte
+Vixen.Ui.Text.TextTransform.Capitalize = 3 -> Vixen.Ui.Text.TextTransform
+Vixen.Ui.Text.TextTransform.Lowercase = 2 -> Vixen.Ui.Text.TextTransform
+Vixen.Ui.Text.TextTransform.None = 0 -> Vixen.Ui.Text.TextTransform
+Vixen.Ui.Text.TextTransform.TextTransform() -> void
+Vixen.Ui.Text.TextTransform.Uppercase = 1 -> Vixen.Ui.Text.TextTransform
 Vixen.Ui.Text.TextWrapMode -> enum : byte
 Vixen.Ui.Text.TextWrapMode.Anywhere = 1 -> Vixen.Ui.Text.TextWrapMode
 Vixen.Ui.Text.TextWrapMode.TextWrapMode() -> void
 Vixen.Ui.Text.TextWrapMode.Word = 0 -> Vixen.Ui.Text.TextWrapMode
+Vixen.Ui.Text.TransformedText -> sealed class
+Vixen.Ui.Text.TransformedText.IsIdentity.get -> bool
+Vixen.Ui.Text.TransformedText.Source.get -> string
+Vixen.Ui.Text.TransformedText.Text.get -> string
+Vixen.Ui.Text.TransformedText.ToDrawn(int index) -> int
+Vixen.Ui.Text.TransformedText.ToSource(int index) -> int
 Vixen.Ui.Text.WordBreakClass -> enum : byte
 Vixen.Ui.Text.WordBreakClass.ALetter = 1 -> Vixen.Ui.Text.WordBreakClass
 Vixen.Ui.Text.WordBreakClass.CR = 2 -> Vixen.Ui.Text.WordBreakClass
@@ -713,8 +729,8 @@ static Vixen.Ui.Text.LineBreaker.IsMandatory(System.ReadOnlySpan<char> text, int
 static Vixen.Ui.Text.LineBreaker.Opportunities(string text) -> System.Collections.Generic.List<int>
 static Vixen.Ui.Text.LineWrapper.Advances(Vixen.Ui.Text.ShapedText shaped) -> float[]
 static Vixen.Ui.Text.LineWrapper.Lines(Vixen.Ui.Text.ShapedText shaped, float maxAdvance, Vixen.Ui.Text.TextWrapMode mode = Vixen.Ui.Text.TextWrapMode.Word, Vixen.Ui.Text.WordBreakMode wordBreak = Vixen.Ui.Text.WordBreakMode.Normal) -> System.Collections.Generic.List<Vixen.Ui.Text.WrappedLine>
-static Vixen.Ui.Text.LineWrapper.Wrap(Vixen.Ui.Text.ShapedText shaped, float maxAdvance, System.Collections.Generic.List<Vixen.Ui.Text.WrappedLine> lines, Vixen.Ui.Text.TextWrapMode mode = Vixen.Ui.Text.TextWrapMode.Word, Vixen.Ui.Text.WordBreakMode wordBreak = Vixen.Ui.Text.WordBreakMode.Normal, float indent = 0) -> void
-static Vixen.Ui.Text.LineWrapper.Wrap(string text, System.ReadOnlySpan<float> advances, float maxAdvance, System.Collections.Generic.List<Vixen.Ui.Text.WrappedLine> lines, Vixen.Ui.Text.TextWrapMode mode = Vixen.Ui.Text.TextWrapMode.Word, Vixen.Ui.Text.WordBreakMode wordBreak = Vixen.Ui.Text.WordBreakMode.Normal, float indent = 0) -> void
+static Vixen.Ui.Text.LineWrapper.Wrap(Vixen.Ui.Text.ShapedText shaped, float maxAdvance, System.Collections.Generic.List<Vixen.Ui.Text.WrappedLine> lines, Vixen.Ui.Text.TextWrapMode mode = Vixen.Ui.Text.TextWrapMode.Word, Vixen.Ui.Text.WordBreakMode wordBreak = Vixen.Ui.Text.WordBreakMode.Normal, float indent = 0, float tabStop = 0, Vixen.Ui.Text.HyphenMode hyphens = Vixen.Ui.Text.HyphenMode.Manual) -> void
+static Vixen.Ui.Text.LineWrapper.Wrap(string text, System.ReadOnlySpan<float> advances, float maxAdvance, System.Collections.Generic.List<Vixen.Ui.Text.WrappedLine> lines, Vixen.Ui.Text.TextWrapMode mode = Vixen.Ui.Text.TextWrapMode.Word, Vixen.Ui.Text.WordBreakMode wordBreak = Vixen.Ui.Text.WordBreakMode.Normal, float indent = 0, float tabStop = 0, Vixen.Ui.Text.HyphenMode hyphens = Vixen.Ui.Text.HyphenMode.Manual, float hyphen = 0) -> void
 static Vixen.Ui.Text.Outlines.GlyphOutline.Empty.get -> Vixen.Ui.Text.Outlines.GlyphOutline
 static Vixen.Ui.Text.Outlines.GlyphOutline.FromSegments(System.Collections.Generic.IEnumerable<Vixen.Ui.Text.Outlines.OutlineSegment> segments) -> Vixen.Ui.Text.Outlines.GlyphOutline
 static Vixen.Ui.Text.Rasterizing.DistanceField.Generate(Vixen.Ui.Text.Outlines.GlyphOutline outline, int width, int height, float scale, System.Numerics.Vector2 origin, float range = 4) -> Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap
@@ -725,6 +741,7 @@ static Vixen.Ui.Text.TextItemizer.Itemize(string text, Vixen.Ui.Text.ParagraphDi
 static Vixen.Ui.Text.TextItemizer.VisualOrder(System.Collections.Generic.IReadOnlyList<Vixen.Ui.Text.TextItem> items) -> int[]
 static Vixen.Ui.Text.TextItemizer.VisualOrder(System.ReadOnlySpan<int> levels) -> int[]
 static Vixen.Ui.Text.TextShaper.Shape(Vixen.Ui.Text.FontFace font, string text, Vixen.Ui.Text.ParagraphDirection direction = Vixen.Ui.Text.ParagraphDirection.Auto, Vixen.Ui.Text.FontVariation? variation = null, Vixen.Ui.Text.FontFeatureSet? features = null) -> Vixen.Ui.Text.ShapedText
+static Vixen.Ui.Text.TransformedText.Of(string? source, Vixen.Ui.Text.TextTransform transform) -> Vixen.Ui.Text.TransformedText
 static Vixen.Ui.Text.WordBreaker.Boundaries(string text) -> System.Collections.Generic.List<int>
 static Vixen.Ui.Text.WordBreaker.Collect(System.ReadOnlySpan<char> text, System.Collections.Generic.List<int> boundaries) -> void
 static Vixen.Ui.Text.WordBreaker.WordAt(System.ReadOnlySpan<char> text, int index) -> (int Start, int End)

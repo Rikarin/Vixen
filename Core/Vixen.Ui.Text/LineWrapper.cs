@@ -77,16 +77,20 @@ public static class LineWrapper {
     /// <param name="mode">What to do with a word wider than the line.</param>
     /// <param name="wordBreak">Whether a break inside a word is allowed, forbidden, or UAX#14's call.</param>
     /// <param name="indent">How much narrower the first line is. CSS's <c>text-indent</c>.</param>
+    /// <param name="tabStop">How far apart the tab stops are, or zero for a tab of no width.</param>
+    /// <param name="hyphens">Whether a soft hyphen may end a line. CSS's <c>hyphens</c>.</param>
     public static void Wrap(
         ShapedText shaped,
         float maxAdvance,
         List<WrappedLine> lines,
         TextWrapMode mode = TextWrapMode.Word,
         WordBreakMode wordBreak = WordBreakMode.Normal,
-        float indent = 0f
+        float indent = 0f,
+        float tabStop = 0f,
+        HyphenMode hyphens = HyphenMode.Manual
     ) {
         ArgumentNullException.ThrowIfNull(shaped);
-        Wrap(shaped.Text, Advances(shaped), maxAdvance, lines, mode, wordBreak, indent);
+        Wrap(shaped.Text, Advances(shaped), maxAdvance, lines, mode, wordBreak, indent, tabStop, hyphens);
     }
 
     /// <summary>Wraps a paragraph whose widths the caller measured.</summary>
@@ -108,6 +112,54 @@ public static class LineWrapper {
     ///     all. Its caller builds the advances in pixels instead, one run at a time, and hands them
     ///     here. Nothing else about wrapping depends on the unit.
     /// </remarks>
+    /// <param name="tabStop">
+    ///     <para>
+    ///         How far apart the tab stops are, in the same unit as the advances. CSS Text 3 § 6.1.
+    ///         Zero is a distance rather than a sentinel — a tab at it occupies nothing, which is
+    ///         <c>tab-size: 0</c> and is equally the right answer for a paragraph with no tab in it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The one advance here that is not a property of the character.</b> Every width in
+    ///         this file is a prefix sum over <paramref name="advances" />, and a tab's is the
+    ///         distance to the next stop from wherever the pen has got to — so it cannot be written
+    ///         into that array, and every range measurement has to know where its range <i>starts</i>
+    ///         on the line. That is the argument the sums below carry an origin for, and it is the
+    ///         reason a tab needed the wrapper as well as the line: measured as a glyph, a tabbed
+    ///         paragraph breaks in one place and draws in another.
+    ///     </para>
+    /// </param>
+    /// <param name="hyphens">
+    ///     <para>
+    ///         Whether a soft hyphen may end a line. CSS Text 4 § 6.1's <c>hyphens</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Applied as a filter over the opportunities rather than as a mode inside
+    ///         <see cref="LineBreaker" />, and that is deliberate.</b> UAX#14 is right to offer a
+    ///         break after U+00AD — the character exists to say so — and the algorithm is judged
+    ///         against a Consortium test file that has never heard of a CSS property. What
+    ///         <see cref="HyphenMode.None" /> asks for is that a break the algorithm was correct to
+    ///         offer is not taken, which is a decision about this paragraph and belongs here.
+    ///     </para>
+    /// </param>
+    /// <param name="hyphen">
+    ///     <para>
+    ///         What a drawn hyphen costs, in the same unit as the advances, for a line that ends on a
+    ///         soft one. Zero to break as though it were free.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The second advance here that is not a property of the character, and it is the
+    ///         tab's problem wearing a different hat.</b> U+00AD has no entry in
+    ///         <paramref name="advances" /> worth anything — the shaper deletes it, which is what
+    ///         makes it invisible mid-word — and yet a line that *ends* on one draws a hyphen. So its
+    ///         width depends on whether this range is a line end, which a prefix sum cannot say.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Passed in rather than measured here, for the reason the whole overload exists:</b>
+    ///         a paragraph in several faces has no single scale, so what a hyphen costs is the
+    ///         caller's question. Left at zero the wrapper breaks as though the hyphen were free and
+    ///         the line then draws it anyway, overflowing its box by exactly one hyphen.
+    ///     </para>
+    /// </param>
     public static void Wrap(
         string text,
         ReadOnlySpan<float> advances,
@@ -115,10 +167,20 @@ public static class LineWrapper {
         List<WrappedLine> lines,
         TextWrapMode mode = TextWrapMode.Word,
         WordBreakMode wordBreak = WordBreakMode.Normal,
-        float indent = 0f
+        float indent = 0f,
+        float tabStop = 0f,
+        HyphenMode hyphens = HyphenMode.Manual,
+        float hyphen = 0f
     ) {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(lines);
+
+        // `none` draws no hyphen, so it pays for none. Folded here rather than at each of the six
+        // measurement sites, and it also means a caller that passes a width but asks for `none` gets
+        // the answer the mode implies rather than the one the argument does.
+        if (hyphens == HyphenMode.None) {
+            hyphen = 0f;
+        }
 
         lines.Clear();
 
@@ -128,6 +190,23 @@ public static class LineWrapper {
 
         var opportunities = new List<int>();
         LineBreaker.Collect(text, opportunities, wordBreak);
+
+        // ⚠ <b>`hyphens: none` is a filter over the opportunities and not a mode inside UAX#14</b>,
+        // which is the same shape `keep-all` takes and for a different reason. `keep-all` changes
+        // what the algorithm thinks the *characters* are; this removes a break the algorithm was
+        // right to offer, because the property is about whether the author's mark is honoured rather
+        // than about the text. Removing it here also keeps `LineBreaker` judged by the Consortium's
+        // test file alone, which has never heard of a CSS property.
+        //
+        // ⚠ Only where a soft hyphen is what created the opportunity. `"co­-op"` breaks after
+        // the ASCII hyphen too, and that break is nothing to do with this property — a filter keyed
+        // on "the line would end at index i" rather than on "text[i - 1] is U+00AD" would take both.
+        if (hyphens == HyphenMode.None) {
+            // ⚠ The opportunity at `text.Length` is left alone whatever precedes it. That one is
+            // structural — it is where the paragraph ends, not a place a line may be broken — and
+            // removing it when the text happens to finish on a soft hyphen would drop the last line.
+            opportunities.RemoveAll(at => at > 0 && at < text.Length && text[at - 1] == '­');
+        }
 
         var start = 0;
         var candidate = -1;
@@ -139,6 +218,14 @@ public static class LineWrapper {
         // exactly the indent. A hanging indent is the same arithmetic with the sign reversed: the
         // first line is wider than the rest and starts to the left of them.
         var room = maxAdvance - indent;
+
+        // ⚠ <b>Where this line's content begins, measured from the line box's start edge — and the
+        // only reason it exists is the tab.</b> Every other advance in this file is the same wherever
+        // it sits, so a range's width needed no origin; a tab's is the distance to the next stop, and
+        // the stops are laid out from the box's edge. On the first line that edge is an indent away,
+        // which is exactly what `TextLine` does with `Offset` — the two arithmetics have to agree or
+        // the paragraph breaks in one place and draws in another.
+        var origin = indent;
 
         while (index < opportunities.Count) {
             var here = opportunities[index];
@@ -154,15 +241,16 @@ public static class LineWrapper {
             // comes back marked mandatory, and a paragraph that fits on one line comes back as one
             // mandatory line, which is the opposite of what the flag is for.
             if (here < text.Length && LineBreaker.IsMandatory(text, here)) {
-                lines.Add(Line(text, advances, start, here, mandatory: true));
+                lines.Add(Line(text, advances, start, here, origin, tabStop, hyphen, mandatory: true));
                 start = here;
                 room = maxAdvance;
+                origin = 0f;
                 candidate = -1;
                 index++;
                 continue;
             }
 
-            if (Width(text, advances, start, here) <= room) {
+            if (Width(text, advances, start, here, origin, tabStop, hyphen) <= room) {
                 candidate = here;
                 index++;
                 continue;
@@ -173,33 +261,36 @@ public static class LineWrapper {
                 // reconsidered against the new start rather than skipped — it may well fit now, and a
                 // wrapper that dropped it would put two words' worth of text on the next line and
                 // then break in the wrong place for the rest of the paragraph.
-                lines.Add(Line(text, advances, start, candidate, mandatory: false));
+                lines.Add(Line(text, advances, start, candidate, origin, tabStop, hyphen, mandatory: false));
                 start = candidate;
                 room = maxAdvance;
+                origin = 0f;
                 candidate = -1;
                 continue;
             }
 
             // Nothing fits: one unbreakable run is wider than the whole line.
             if (mode == TextWrapMode.Anywhere) {
-                var forced = Squeeze(text, advances, start, here, room);
+                var forced = Squeeze(text, advances, start, here, room, origin, tabStop, hyphen);
 
                 if (forced > start) {
-                    lines.Add(Line(text, advances, start, forced, mandatory: false));
+                    lines.Add(Line(text, advances, start, forced, origin, tabStop, hyphen, mandatory: false));
                     start = forced;
                     room = maxAdvance;
+                    origin = 0f;
                     continue;
                 }
             }
 
-            lines.Add(Line(text, advances, start, here, mandatory: false));
+            lines.Add(Line(text, advances, start, here, origin, tabStop, hyphen, mandatory: false));
             start = here;
             room = maxAdvance;
+            origin = 0f;
             index++;
         }
 
         if (start < text.Length) {
-            lines.Add(Line(text, advances, start, text.Length, mandatory: false));
+            lines.Add(Line(text, advances, start, text.Length, origin, tabStop, hyphen, mandatory: false));
         }
     }
 
@@ -253,8 +344,17 @@ public static class LineWrapper {
     }
 
     /// <summary>One line, with its trailing whitespace measured out of it.</summary>
-    static WrappedLine Line(string text, ReadOnlySpan<float> advances, int start, int end, bool mandatory) =>
-        new(start, end - start, Width(text, advances, start, end), mandatory);
+    static WrappedLine Line(
+        string text,
+        ReadOnlySpan<float> advances,
+        int start,
+        int end,
+        float origin,
+        float tabStop,
+        float hyphen,
+        bool mandatory
+    ) =>
+        new(start, end - start, Width(text, advances, start, end, origin, tabStop, hyphen), mandatory);
 
     /// <summary>How wide a range is, ignoring whitespace at its end.</summary>
     /// <remarks>
@@ -264,20 +364,67 @@ public static class LineWrapper {
     ///     not, and a right-aligned paragraph would come out with a ragged right edge made of
     ///     invisible characters.
     /// </remarks>
-    static float Width(string text, ReadOnlySpan<float> advances, int start, int end) {
+    /// <param name="text">The paragraph.</param>
+    /// <param name="advances">One entry per UTF-16 index.</param>
+    /// <param name="start">Where the range begins.</param>
+    /// <param name="end">One past its last character.</param>
+    /// <param name="origin">Where the range begins on the line, for the tab stops to be measured from.</param>
+    /// <param name="tabStop">How far apart the stops are, or zero for a tab of no width.</param>
+    /// <param name="hyphen">
+    ///     What a hyphen costs, for a range that ends on a soft one, or zero when none will be drawn.
+    /// </param>
+    static float Width(
+        string text,
+        ReadOnlySpan<float> advances,
+        int start,
+        int end,
+        float origin,
+        float tabStop,
+        float hyphen
+    ) {
         var last = end;
 
         while (last > start && char.IsWhiteSpace(text[last - 1])) {
             last--;
         }
 
-        var total = 0f;
+        var x = origin;
 
         for (var i = start; i < last; i++) {
-            total += advances[i];
+            // ⚠ Snapped rather than added, and to the next stop *strictly* after the pen — the same
+            // rule `TextLine.NextStop` applies, written twice because the two are different passes
+            // over different data. Two tabs in a row are two columns under this rule and one under a
+            // "nearest stop at or after" one.
+            //
+            // ⚠ And a non-positive stop leaves the pen where it is rather than falling back to the
+            // character's own advance: a tab is a *space* whose width the stops decide, so with no
+            // stops it is a space of no width. That is `tab-size: 0`, and it is also what keeps this
+            // agreeing with `TextRun.Place`, which never draws U+0009's glyph whatever the face said.
+            x = text[i] == '\t'
+                ? tabStop > 0f ? (MathF.Floor(x / tabStop) + 1f) * tabStop : x
+                : x + advances[i];
         }
 
-        return total;
+        // ⚠ <b>A second advance that is not a property of the character, and it is the tab's problem
+        // wearing a different hat.</b> A soft hyphen has no advance in the array — the shaper deleted
+        // it, which is what makes it invisible mid-line — and yet a line that *ends* on one draws a
+        // hyphen, because that is what the character is for. So its width depends on whether this
+        // range is a line end, which is exactly the thing a prefix sum cannot express.
+        //
+        // ⚠ Without this the paragraph breaks as though the hyphen were free and then draws it
+        // anyway, so a hyphenated line overflows its box by one hyphen. That is not hypothetical: it
+        // is what `HyphensTests.The_broken_line_measures_like_a_real_hyphen` caught, and the sizing
+        // for this feature missed it — "one character for one" is true of the *indices* and false of
+        // the width, since U+00AD measures zero and U+002D does not.
+        //
+        // ⚠ `end` and not `last`: a range ending in whitespace did not end at the hyphen. And
+        // `end < text.Length`, because the last line of a paragraph ends where the text does rather
+        // than at a break, so a trailing soft hyphen is never drawn and must not be paid for.
+        if (hyphen > 0f && end < text.Length && last == end && last > start && text[last - 1] == '­') {
+            x += hyphen;
+        }
+
+        return x - origin;
     }
 
     /// <summary>
@@ -295,7 +442,16 @@ public static class LineWrapper {
     ///     reconciliation going away — the moment one grapheme cluster carries two advances, the
     ///     largest fitting UTF-16 index is a broken character.
     /// </remarks>
-    static int Squeeze(string text, ReadOnlySpan<float> advances, int start, int end, float maxAdvance) {
+    static int Squeeze(
+        string text,
+        ReadOnlySpan<float> advances,
+        int start,
+        int end,
+        float maxAdvance,
+        float origin,
+        float tabStop,
+        float hyphen
+    ) {
         var boundaries = new List<int>();
         GraphemeBreaker.Collect(text.AsSpan(start, end - start), boundaries);
 
@@ -308,7 +464,7 @@ public static class LineWrapper {
                 continue;
             }
 
-            if (Width(text, advances, start, here) > maxAdvance) {
+            if (Width(text, advances, start, here, origin, tabStop, hyphen) > maxAdvance) {
                 break;
             }
 

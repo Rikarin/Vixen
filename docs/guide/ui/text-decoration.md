@@ -4,11 +4,11 @@ slug: ui/text-decoration
 kind: guide
 area: Core
 summary: Underline, overline and line-through — where the lines come from (the font's own tables, never a constant), what the classes are, and the four places Vixen's behaviour is deliberately not CSS's.
-api: [T:Vixen.Ui.TextDecoration, T:Vixen.Ui.TextDecorationLine, T:Vixen.Ui.TextDecorationStyle, T:Vixen.Ui.DecorationBar, T:Vixen.Ui.Text.DecorationMetrics]
+api: [T:Vixen.Ui.TextDecoration, T:Vixen.Ui.TextDecorationLine, T:Vixen.Ui.TextDecorationStyle, T:Vixen.Ui.DecorationBar, T:Vixen.Ui.Text.DecorationMetrics, T:Vixen.Ui.Text.HyphenMode]
 tags: [ui, text, typography, vcss, utilities, underline, fonts]
 since: 0.2
 status: preview
-related: [editor/utility-styles, ui/cascade-layers, ui/inline-layout]
+related: [editor/utility-styles, ui/cascade-layers, ui/inline-layout, ui/text-transform]
 ---
 
 ## What it is
@@ -123,11 +123,57 @@ cleanly, compute a value, and paint a **straight** line, which is worse than not
 
 ### What is not here at all
 
-`text-shadow` — the draw list has no glyph-shadow path. `line-clamp` — it changes how many lines there
-are, which belongs to the measure pass. `text-transform` — a shaping-time change, and the blocker is
-sharper than the shaping: `straße` uppercases to `STRASSE` and `ﬁne` to `FINE`, so a case mapping
-changes the UTF-16 length, and every caret index in `TextRun`, `TextLine` and `TextField` is an index
-into the element's own string.
+`text-shadow` — the draw list has no glyph-shadow path.
+
+`line-clamp` **is** here now, and it landed exactly where the sentence this replaces said it belonged:
+in the measure pass. `-webkit-line-clamp` is read by `UiElement.Block`, which drops the lines past the
+budget before the height is reported — so a `line-clamp-3` block is three lines tall to its parent,
+which is the one truncation in this engine that is a fact about the layout rather than about the
+picture. The marker on the last kept line is this file's own ellipsis, put there at paint. ⚠ Vixen's
+`line-clamp-N` emits one declaration where Tailwind emits four: `display: -webkit-box` and
+`-webkit-box-orient` are a marker a browser needs and this engine does not, and `overflow: hidden` is
+a clip for lines that here were never laid out.
+
+`text-transform` **is** here now, on its own page: it was refused under exactly the blocker described
+above — `straße` uppercases to `STRASSE`, so a case mapping changes the UTF-16 length and every caret
+index in `TextRun`, `TextLine` and `TextField` is an index into the element's own string — and what
+closed it was the index map rather than the four keywords. See [Text transform](text-transform.md).
+
+`tab-size` **is** here now, as `tab-1` through `tab-8` and any count. A tab is the one character whose
+advance is not a property of the character: CSS makes it the distance to the next stop, so it depends
+on where the run *sits*, while `TextRun.Width`, `TextLine.Place`, the caret and every width in
+`LineWrapper` are prefix sums over advances that do not. `TextRun.IsTab` and `TextLine.WidthOf` are
+the seam — the line is the first thing that knows where a run begins — and `TextRun.Place` suppresses
+U+0009's glyph, because a face that has no glyph for it shapes a tab to `.notdef` and draws a box.
+
+⚠ **Two things about it that a browser would not lead you to expect.** The stops are measured from the
+start of the line *box*, so a `text-indent` sits inside the first column rather than shifting the grid
+— which is what makes a tabbed table under a hanging indent line up. And `tab-size` is visible on
+ordinary text here, where in a browser it shows only under `white-space: pre`: Vixen's `white-space`
+answers the wrapping question and no other, so a literal tab is never collapsed to a space.
+
+The `<length>` form is dropped rather than resolved — it takes relative units, so it would have to be
+computed and inherited beside `line-height`, and no utility can spell it. An element that writes one
+keeps the initial eight, which is what a browser does with a declaration it cannot use.
+
+`hyphens` **is** here now, as `hyphens-none` and `hyphens-manual`. ⚠ This one closed a *defect*: the
+break already worked and the hyphen was never drawn. `LineBreaker` has always offered a break after a
+soft hyphen — `"sup­ply"` and `"sup-ply"` return the identical opportunity list — so Vixen split
+`sup|ply` where the author asked, and then showed nothing for it, because U+00AD is `Default_Ignorable`
+and the shaper deletes it. `UiElement.Hyphenated` substitutes a drawn hyphen on a line that ends on
+one, which is one character for one and so moves no caret index.
+
+⚠ **The substituted character is U+002D and not U+2010**, which is worth knowing if you are reading an
+older plan document that says otherwise: U+2010 HYPHEN is `.notdef` in Open Sans and in this repo's
+test face alike. What that *draws* differs by face and both answers are wrong — a hollow box in
+`TestShapeLana`, and in Open Sans nothing at all, because its `.notdef` is an empty glyph. The second
+is the one to watch for: it looks exactly like a hyphenation fix that never took effect.
+
+`hyphens-auto` is **not registered**, and that is a refusal rather than an omission: it needs a
+per-language hyphenation pattern set *and* a language to choose one with, and `TextShaper` leaves
+HarfBuzz's language unset on purpose so that shaping never depends on the machine's locale. A
+hand-written `hyphens: auto` lands on `manual` — `auto` also honours the author's own soft hyphens, and
+that half Vixen can do.
 
 ## Examples
 
