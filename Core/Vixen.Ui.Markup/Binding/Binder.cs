@@ -350,7 +350,7 @@ public sealed class Binder {
         // its *parent* and an attribute cannot see one. This is the only place in the walk that holds
         // a tag and its own children at once.
         if (!component) {
-            RefuseSlotAttributes(element, tag);
+            RefuseSlotAttributes(element.Content, $"'<{tag}>'");
         }
 
         return new BoundElement(
@@ -362,16 +362,29 @@ public sealed class Binder {
         );
     }
 
-    /// <summary>Reports every <c>slot="…"</c> written under a tag that has no slots.</summary>
+    /// <summary>Reports every <c>slot="…"</c> written somewhere that has no slots to name.</summary>
+    /// <param name="content">The children written directly there.</param>
+    /// <param name="parent">What to call the thing they were written in, quoted for the message.</param>
     /// <remarks>
-    ///     ⚠ <b>Only the immediate children, and that is the rule rather than a shortcut.</b> A slot
-    ///     name is read by the tag it is written directly inside; a grandchild carrying one is
-    ///     addressed to nobody, and its own parent is the tag this runs for. So walking deeper would
-    ///     report the same attribute twice, once at each level, and reporting it at the level it was
-    ///     written is the one that names the element the author has to move.
+    ///     <para>
+    ///         ⚠ <b>Only the immediate children, and that is the rule rather than a shortcut.</b> A
+    ///         slot name is read by the tag it is written directly inside; a grandchild carrying one
+    ///         is addressed to nobody, and its own parent is what this runs for. So walking deeper
+    ///         would report the same attribute twice, once at each level, and reporting it at the
+    ///         level it was written is the one that names the element the author has to move.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An <c>@if</c>, an <c>@for</c> and an <c>@switch</c> arm each call this for their
+    ///         own body, and until they did a <c>slot</c> inside one was accepted and then
+    ///         discarded.</b> The emitter partitions a capitalised tag's children by reading the
+    ///         <c>slot</c> off each <c>BoundElement</c>, and a region is not one — so the whole
+    ///         region, slotted children and all, went to the default host with nothing reported.
+    ///         Making the region legal is not the alternative: it anchors on the parent it was
+    ///         handed and reconciles against the children it made there.
+    ///     </para>
     /// </remarks>
-    void RefuseSlotAttributes(ElementSyntax parent, string tag) {
-        foreach (var child in parent.Content) {
+    void RefuseSlotAttributes(SyntaxList<MarkupSyntax> content, string parent) {
+        foreach (var child in content) {
             if (child is not ElementSyntax element) {
                 continue;
             }
@@ -389,7 +402,7 @@ public sealed class Binder {
                     MarkupDiagnostics.MisplacedSlotAttribute,
                     attribute.Name.Span,
                     Literal(attribute) ?? DefaultSlotName,
-                    tag
+                    parent
                 );
             }
         }
@@ -443,6 +456,7 @@ public sealed class Binder {
         // what an emitter wants — one chain of tested arms and at most one untested one.
         for (var current = @if; current is not null;) {
             if (!current.Condition.IsMissing) {
+                RefuseSlotAttributes(current.Body.Content, "'@if'");
                 branches.Add(new(Expression(current.Condition), BindContent(current.Body.Content)));
             }
 
@@ -451,6 +465,7 @@ public sealed class Binder {
                     current = next;
                     continue;
                 case MarkupBlockSyntax block:
+                    RefuseSlotAttributes(block.Content, "'@else'");
                     @else = BindContent(block.Content);
                     break;
                 default:
@@ -472,6 +487,7 @@ public sealed class Binder {
         inLoop = true;
         item = variable;
         loops++;
+        RefuseSlotAttributes(@for.Body.Content, "'@for'");
         var body = BindContent(@for.Body.Content);
         loops--;
         item = outerVariable;
@@ -522,6 +538,7 @@ public sealed class Binder {
 
         foreach (var section in @switch.Sections) {
             var pattern = section.Pattern is { IsMissing: false } token ? Expression(token) : null;
+            RefuseSlotAttributes(section.Content, "'@switch'");
             cases.Add(new(pattern, BindContent(section.Content)));
         }
 
@@ -574,6 +591,16 @@ public sealed class Binder {
         // the attribute exists. See `MarkupDiagnostics.TagOnElement`.
         if (kind == BoundAttributeKind.Tag && !isComponent) {
             Report(MarkupDiagnostics.TagOnElement, attribute.Name.Span, tag);
+            return null;
+        }
+
+        // ⚠ `tag`'s rule for `tag`'s reason: both are read once, when the element is made. An empty
+        // value is the bare `slot`, which names the default one and is what an author who wrote the
+        // word and no value meant; anything with an expression in it was silently *also* read as the
+        // default, because the emitter asks the attribute for its literal and takes `default` when
+        // there is none. See `MarkupDiagnostics.DynamicSlotName`.
+        if (kind == BoundAttributeKind.Slot && value is not ([] or [BoundLiteralPart])) {
+            Report(MarkupDiagnostics.DynamicSlotName, attribute.Name.Span, written);
             return null;
         }
 

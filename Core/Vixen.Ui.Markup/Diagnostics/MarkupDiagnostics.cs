@@ -316,13 +316,24 @@ public static class MarkupDiagnostics {
         DiagnosticSeverity.Error
     );
 
-    /// <summary><c>slot="…"</c> on something that is not a direct child of a component tag.</summary>
+    /// <summary><c>slot="…"</c> on something that is not a direct child of a capitalised tag.</summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Position is the whole of what makes this attribute legal, so position is what the
-    ///         rule checks.</b> <c>slot="footer"</c> tells a component which of its holes to put this
-    ///         child in, and only the component's own tag can read it — a <c>&lt;div&gt;</c> has no
-    ///         slots, and a grandchild's is addressed to a tag that is not listening.
+    ///         rule checks.</b> <c>slot="footer"</c> tells the parent which of its holes to put this
+    ///         child in, and only the parent's own tag can read it — a <c>&lt;div&gt;</c> has no
+    ///         slots, and a grandchild's is addressed to a tag that is not listening. What answers
+    ///         the name is <c>Component.Slots</c> or <c>UiElement.NamedHost</c>, and only a
+    ///         capitalised tag has either.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An <c>@if</c> or an <c>@for</c> body is not a direct child either, and that half
+    ///         is about the emitter rather than about the model.</b> A region is anchored on the
+    ///         parent it was handed and counts the children it made <i>there</i>; one built under a
+    ///         different parent would be reconciled against a sibling list it is not in. So the rule
+    ///         is the one the region already obeys — slot where you are — and until it was checked,
+    ///         a <c>slot</c> inside a region bound clean and was dropped without a word, because the
+    ///         emitter's partition reads <c>BoundElement</c> children and a region is not one.
     ///     </para>
     ///     <para>
     ///         An error rather than a warning because the two silent readings are both bad: dropped,
@@ -332,9 +343,9 @@ public static class MarkupDiagnostics {
     /// </remarks>
     public static readonly DiagnosticDescriptor MisplacedSlotAttribute = new(
         "VXML2016",
-        "'slot' is not on a component's child",
-        "'slot=\"{0}\"' says which of a component's slots this content fills, so it belongs on a "
-        + "direct child of a component tag. '<{1}>' is not one.",
+        "'slot' is not on a direct child of a capitalised tag",
+        "'slot=\"{0}\"' says which of the parent's named slots this content fills, so it belongs on "
+        + "a direct child of a capitalised tag. {1} is not one.",
         BindingCategory,
         DiagnosticSeverity.Error
     );
@@ -360,6 +371,32 @@ public static class MarkupDiagnostics {
         "a slot cannot carry fallback content",
         "'<slot>' is a hole a consumer fills, and content written inside one is not drawn when the "
         + "slot is empty. Give the default to the consumer instead.",
+        BindingCategory,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>A <c>slot</c> attribute whose value is an expression rather than one name.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A slot is resolved when the element is created and never again, exactly as
+    ///         <see cref="TagOnElement" />'s <c>tag</c> is.</b> It names the <i>parent</i> the
+    ///         element is built under, and nothing moves an element between parents afterwards — so
+    ///         an interpolated name would be read once and be a lie for the rest of the region's
+    ///         life.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Refused because it was read as the default slot, silently.</b> The emitter asks
+    ///         the attribute for its literal and takes <c>default</c> when there is none, which is
+    ///         the right answer for a bare <c>slot</c> — an author who wrote the word and no value
+    ///         meant the default — and the wrong one for <c>slot="@Which"</c>, where it puts the
+    ///         header's content in the body and reports nothing.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor DynamicSlotName = new(
+        "VXML2018",
+        "'slot' is not a literal name",
+        "'slot' is read once, when the element is made, so it has to be a literal name. "
+        + "'{0}' interpolates.",
         BindingCategory,
         DiagnosticSeverity.Error
     );

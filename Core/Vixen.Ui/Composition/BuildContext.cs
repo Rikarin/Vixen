@@ -1149,21 +1149,35 @@ public sealed class BuildContext {
     /// <param name="element">The control the content was written inside.</param>
     /// <param name="name">The slot's name.</param>
     /// <remarks>
-    ///     ⚠ <b>Present so that the failure is about slots rather than about overload resolution.</b>
-    ///     A capitalised tag names a component or a control and the emitter cannot tell which — the
-    ///     two <see cref="Inner(Component)" /> overloads exist for exactly that reason. Without this
-    ///     one, <c>slot="footer"</c> inside a <c>&lt;ScrollView&gt;</c> would be a Roslyn error about
-    ///     converting a <see cref="UiElement" /> to a <see cref="Component" />, on generated code the
-    ///     author never wrote, and the fix would not be visible in it. A control has no slots to name
-    ///     and never will; saying so is more useful than pointing at the conversion.
+    ///     <para>
+    ///         ⚠ <b>Present so that the failure is about slots rather than about overload
+    ///         resolution.</b> A capitalised tag names a component or a control and the emitter
+    ///         cannot tell which — the two <see cref="Inner(Component)" /> overloads exist for
+    ///         exactly that reason. Without this one, <c>slot="footer"</c> inside a
+    ///         <c>&lt;ScrollView&gt;</c> would be a Roslyn error about converting a
+    ///         <see cref="UiElement" /> to a <see cref="Component" />, on generated code the author
+    ///         never wrote, and the fix would not be visible in it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This used to say a control has no slots and never will, and that was wrong.</b>
+    ///         A control has exactly as many places as it has <i>parts</i>, and
+    ///         <see cref="UiElement.ContentHost" /> can name one of them: an <c>Expander</c> is a
+    ///         header and a body, so markup could fill the body and had no word for the header at
+    ///         all. <see cref="UiElement.NamedHost" /> is the control-side answer, and a control
+    ///         that overrides nothing still lands here with the message this method was written for.
+    ///     </para>
     /// </remarks>
     public static UiElement Into(UiElement element, string name) {
         ArgumentNullException.ThrowIfNull(element);
         ArgumentNullException.ThrowIfNull(name);
 
+        if (element.NamedHost(name) is { } host) {
+            return host;
+        }
+
         throw new InvalidOperationException(
-            $"'{element.Tag}' is a control rather than a component, so it declares no slots and "
-            + $"content inside it cannot be addressed to '{name}'."
+            $"'{element.Tag}' publishes no slot named '{name}'. A control's named slots come from "
+            + "'UiElement.NamedHost'; drop the 'slot' attribute to write into its content."
         );
     }
 

@@ -804,6 +804,7 @@ Vixen.Ui.Controls.VirtualizingPanel.SetRowHeight(int item, float height) -> void
 Vixen.Ui.Controls.VirtualizingPanel.TotalHeight.get -> float
 Vixen.Ui.Controls.VirtualizingPanel.VirtualizingPanel() -> void
 abstract Vixen.Ui.Controls.SelectBase.OnOptionChosen(Vixen.Ui.Controls.Option option) -> void
+const Vixen.Ui.Controls.Expander.HeaderSlot = "header" -> string
 const Vixen.Ui.Controls.ScrollView.SmoothingConstant = 0.075 -> float
 const Vixen.Ui.Controls.VirtualizingGrid.Overscan = 2 -> int
 const Vixen.Ui.Controls.VirtualizingPanel.Overscan = 2 -> int
@@ -870,6 +871,7 @@ override Vixen.Ui.Controls.EmptyState.OnCreated() -> void
 override Vixen.Ui.Controls.EmptyState.TagName.get -> string
 override Vixen.Ui.Controls.Expander.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Expander.ContentHost.get -> Vixen.Ui.UiElement
+override Vixen.Ui.Controls.Expander.NamedHost(string name) -> Vixen.Ui.UiElement?
 override Vixen.Ui.Controls.Expander.OnCreated() -> void
 override Vixen.Ui.Controls.Expander.TagName.get -> string
 override Vixen.Ui.Controls.ExpanderHeader.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
