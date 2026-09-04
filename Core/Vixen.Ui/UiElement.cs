@@ -1086,10 +1086,13 @@ public partial class UiElement : Composition.IComposable {
     ///     <para>
     ///         ⚠ <b>U+002D and not U+2010, which is what the sizing for this said and is measurably
     ///         wrong.</b> <c>FontFace.GlyphFor(0x2010)</c> is <b>0</b> — <c>.notdef</c> — in Open
-    ///         Sans and in <c>TestShapeLana</c> alike, so the prescribed substitution would have
-    ///         replaced an invisible break with a tofu box at every hyphenation point: a worse defect
-    ///         than the one it was fixing, and one that would have passed any test counting glyphs
-    ///         rather than asking which. U+002D is glyph 16 in both, and is what a browser draws here.
+    ///         Sans and in <c>TestShapeLana</c> alike. What glyph 0 <i>draws</i> then differs by
+    ///         face, and both outcomes are bad: <c>TestShapeLana</c>'s has two contours and is the
+    ///         familiar hollow box, while Open Sans' has <b>zero</b> and draws nothing at all. So the
+    ///         prescribed substitution either shows a tofu box at every hyphenation point or, in the
+    ///         engine's own interface face, silently reproduces the defect it was meant to fix — and
+    ///         the silent one is the worse, because it looks like the change never took. U+002D is
+    ///         glyph 16 in both, and is what a browser draws here.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>One character for one, which is the property that makes this safe.</b> Every

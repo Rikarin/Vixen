@@ -165,7 +165,9 @@ one, which is one character for one and so moves no caret index.
 
 ⚠ **The substituted character is U+002D and not U+2010**, which is worth knowing if you are reading an
 older plan document that says otherwise: U+2010 HYPHEN is `.notdef` in Open Sans and in this repo's
-test face alike, so substituting it draws a tofu box rather than a hyphen.
+test face alike. What that *draws* differs by face and both answers are wrong — a hollow box in
+`TestShapeLana`, and in Open Sans nothing at all, because its `.notdef` is an empty glyph. The second
+is the one to watch for: it looks exactly like a hyphenation fix that never took effect.
 
 `hyphens-auto` is **not registered**, and that is a refusal rather than an omission: it needs a
 per-language hyphenation pattern set *and* a language to choose one with, and `TextShaper` leaves

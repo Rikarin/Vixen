@@ -23,9 +23,16 @@ namespace Vixen.Ui.Tests;
 ///         ⚠ <b>The substitution is U+002D and the sizing said U+2010, which was measurably
 ///         wrong.</b> <see cref="The_drawn_hyphen_is_one_the_face_actually_has" /> is that
 ///         assertion, and it is here rather than in a comment because it is the one mistake in this
-///         area that would have looked like a success: a tofu box has a glyph id, an advance and a
-///         pixel footprint, so a test that counted glyphs or measured a width would have passed
-///         against it.
+///         area that would have looked like a success: <c>.notdef</c> has a glyph id and an advance,
+///         so a test that counted glyphs or measured a width passes against it.
+///     </para>
+///     <para>
+///         ⚠ <b>And what U+2010 would have <i>drawn</i> depends on the face, which matters because
+///         the harmless-sounding outcome is the dangerous one.</b> Glyph 0 in <c>TestShapeLana</c>
+///         has two contours — a hollow box, visible and obviously wrong. In Open Sans it has
+///         <b>zero</b> and draws nothing, so in the engine's own interface face the prescribed
+///         substitution would have reproduced the exact defect it was written to fix and looked like
+///         a change that simply did not take.
 ///     </para>
 /// </remarks>
 public class HyphensTests {
@@ -81,8 +88,9 @@ public class HyphensTests {
         return text;
     }
 
-    // ⚠ 60px holds `sup-` and not `supply`, so the paragraph has to take the opportunity the soft
-    // hyphen offers. Wide enough for the whole word and the test asserts nothing.
+    // ⚠ 44px holds `sup-` and not `supply` in Open Sans at 16px, so the paragraph has to take the
+    // opportunity the soft hyphen offers. Any wider and the word fits whole, both values of the
+    // property draw the same picture, and every test below asserts nothing at all.
     const float Narrow = 44f;
 
     // ────────────────────────────────────────────────────────────────────────────────────────
@@ -137,8 +145,8 @@ public class HyphensTests {
     ///     ⚠ <b>The assertion that refutes the sizing, and it is about the font rather than the
     ///     engine.</b> The plan document said to substitute U+2010 HYPHEN. `GlyphFor` reads the
     ///     cmap: U+2010 is glyph <b>0</b> — <c>.notdef</c> — in Open Sans and in
-    ///     <c>TestShapeLana</c> alike, so that substitution would have drawn a tofu box at every
-    ///     hyphenation point. U+002D is glyph 16 in both. The second half of this test is what makes
+    ///     <c>TestShapeLana</c> alike, so that substitution draws a box in the one and nothing at
+    ///     all in the other. U+002D is glyph 16 in both. The second half of this test is what makes
     ///     the first half worth having: it says the engine picked the character the face can draw,
     ///     not merely that it picked one.
     /// </remarks>
