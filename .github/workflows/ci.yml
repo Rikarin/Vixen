@@ -349,6 +349,28 @@ jobs:
         run: ./build.sh CheckArchitecture CheckApi CheckFormat CheckDocs CheckStrings --configuration Release
         shell: bash
 
+      # ⚠ A gate the whole repository was told to rely on and no job ran. CLAUDE.md tells every agent
+      # to run CheckShaders after a codegen change, `UiShapeLayoutTests`, `ShaderReflectionTests` and
+      # `Vixen.Ui.Desktop/README.md` all name it as the half that keeps a committed `.spv` in step
+      # with the `.rvn` beside it — and until this step, "after a codegen change" meant "if somebody
+      # remembered". A change to Raven's SPIR-V backend rewrites what every one of those modules
+      # should contain, and nothing in CI opened them.
+      #
+      # A separate step rather than another name on the line above, because it shares nothing with
+      # it: it builds Vixen.Raven.Cli and runs the compiler over shader sources, where those five
+      # read the solution's assemblies and its text. A failure in either half then says which.
+      #
+      # ⚠ It needs no spirv-tools and no Vulkan, which is why it belongs on this leg rather than on
+      # the three that install them. The target compares bytes with `File.ReadAllBytes`; `spirv-val`
+      # appears in it only as a sentence printed after `--update-shaders` rewrites the modules.
+      #
+      # `--configuration Release` changes nothing here — the target hard-codes Release for the
+      # compiler it builds and runs, as CLAUDE.md § Configuration records — and is passed so this
+      # line does not read as the one job that opted out of it.
+      - name: Shader modules against their sources
+        run: ./build.sh CheckShaders --configuration Release
+        shell: bash
+
   # The three net10.0-browser projects, which until this job existed were built by nothing at all.
   #
   # They are outside Vixen.slnx — a net10.0-browser project cannot be *evaluated* without the
