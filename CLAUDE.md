@@ -80,7 +80,12 @@ and not the workspace load, and the load is essentially all of the cost.
 
 ⚠ **Run gates and test projects one at a time** on a developer machine. The whole-solution `Test`
 target runs ~176 assemblies concurrently and will saturate a laptop; runs have been SIGTERM'd
-mid-compile under that load.
+mid-compile under that load. `build.sh` now enforces the *between-checkouts* half of that: the
+expensive targets take a machine-wide advisory lock, so a second sweep — an agent in another
+worktree — waits and says what it is waiting for instead of competing. The cheap targets
+(`CheckStrings`, `AffectedProjects`, …) never queue, CI never locks, and `VIXEN_NO_BUILD_LOCK=1` is
+the escape hatch. Nothing serialises `dotnet test` run directly, which is the point: that is the one
+you are supposed to be able to run.
 
 ### Configuration, which is not uniform
 
