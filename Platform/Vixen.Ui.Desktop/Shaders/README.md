@@ -79,9 +79,11 @@ The gate does it:
 ./build.sh CheckShaders --update-shaders
 ```
 
-`CheckShaders` recompiles every Raven source in the repository — this one included, since
-2026-08-23 — and fails when a committed module differs from what the compiler produces. So a `.rvn`
-edited without recompiling cannot sit in a commit.
+`CheckShaders` recompiles every Raven source whose modules are *committed* — this one included, since
+2026-08-23 — and fails when a committed module differs from what the compiler produces. It fails the
+other way too: a `.spv` or `.reflect.json` in this directory that no entry in the target produces is a
+module nothing recompiles, and is reported rather than skipped. So a `.rvn` edited without recompiling
+cannot sit in a commit, and `ci.yml`'s `checks` leg is what says so on a pull request.
 
 To do one by hand, from the repository root:
 

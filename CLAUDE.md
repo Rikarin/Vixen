@@ -163,8 +163,11 @@ zero is a valid-looking value.
   `PermutationKeys[shader]` never reaches the compiler — the variant silently takes the `.rvn` default.
 - After editing a published `.rvn`, regenerate with `VIXEN_REGENERATE=1` on `LibraryReflectionTests`;
   generated binding keys come from the `reflect.json`.
-- `./build.sh CheckShaders` recompiles every `Raven/Library` shader from its import closure and reports
-  whether any committed `.spv` drifted. Run it after any codegen change.
+- `./build.sh CheckShaders` recompiles the shaders whose `.spv` is **committed** — the three the editor
+  loads out of `Raven/Library/Terrain` (from their import closure), plus the four `.rvn` written beside
+  `Vixen.Editor.Host` and `Vixen.Ui.Desktop` — and reports whether any committed `.spv` drifted. ⚠ It
+  is **not** every library shader: the library has over a hundred and `LibraryReflectionTests` is what
+  binds it whole. `ci.yml`'s `checks` leg runs the target, so drift no longer depends on remembering.
 - Diagnostics: a new rule needs a positive test **and** an id-named negative, and the negative is proved
   by widening the rule in the compiler until the fixture goes red, then reverting. `Raven/README.md`
   carries the ranking heuristic and the traps.

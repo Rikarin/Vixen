@@ -43,6 +43,23 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
 ///         What that costs is drift, which is what the check half of this target exists to make
 ///         impossible: a change to <c>Terrain.rvn</c> that nobody regenerated fails here.
 ///     </para>
+///     <para>
+///         ⚠ <b>It is checked in both directions, and only one of those was here first.</b> The lists
+///         below say what to compile and the comparison walks them, so for as long as that was the
+///         whole gate a committed module the lists had stopped naming was never opened — and neither
+///         was anything at all if the lists were emptied, which the comparison would have reported as
+///         success. Every <c>.spv</c> and <c>.reflect.json</c> in the directories those entries write
+///         to now has to be one this target produced, with a floor under each directory so a rename
+///         cannot shrink the gate to green either. This is the repository's "three empty manifests
+///         are identical" failure, which the <c>content-bytes</c> job carries its own version of.
+///     </para>
+///     <para>
+///         ⚠ <b>It compiles what the editor and the interface load, not the library.</b>
+///         <c>Raven/Library</c> declares over a hundred shaders across a hundred and twelve files; the
+///         entries below name three of them plus two permutations, because the check is about
+///         committed bytes and those are the only ones committed. <c>LibraryReflectionTests</c> is
+///         what binds the library as a whole.
+///     </para>
 /// </remarks>
 partial class Build {
     [Parameter("Rewrite the committed shader modules instead of checking them")]
@@ -213,7 +230,10 @@ partial class Build {
     }
 
     Target CheckShaders => definition => definition
-        .Description("Fails if a committed editor shader module differs from what Raven produces now")
+        .Description(
+            "Fails if a committed editor shader module differs from what Raven produces now, or if a "
+            + "committed one is produced by nothing"
+        )
         .DependsOn(Restore)
         .Executes(() => {
                 var compiler = RootDirectory / "Raven" / "Vixen.Raven.Cli" / "Vixen.Raven.Cli.csproj";
@@ -276,6 +296,8 @@ partial class Build {
                         .SetApplicationArguments(arguments)
                     );
 
+                    var before = produced.Count;
+
                     foreach (var file in into.GlobFiles("*.spv").OrderBy(path => path.Name, System.StringComparer.Ordinal)) {
                         // The backend names a unit `<shader>.<stage>`; the committed file swaps the
                         // shader for the entry's output name and keeps the stage.
@@ -286,6 +308,17 @@ partial class Build {
                         // moved to `Platform/Vixen.Ui.Desktop`.
                         produced.Add((file, $"Editor/Vixen.Editor.Host/Shaders/{output}{file.Name[shader.Length..]}"));
                     }
+
+                    // ⚠ An entry that emitted nothing has to fail here, because everything after this
+                    // loop is a comparison and a comparison of nothing passes. The compiler is loud
+                    // about most of the ways that happens — it refuses a `--shader` it did not
+                    // generate — but the glob is a second place the two names have to agree, and a
+                    // backend that changed its extension would leave this entry silently unchecked.
+                    Assert.True(
+                        produced.Count > before,
+                        $"{shader} in {package} compiled and wrote no .spv into {into} — nothing was "
+                        + "compared for this entry."
+                    );
                 }
 
                 // ⚠ The editor's own sources, compiled whole. `--emit-reflection` because the
@@ -320,6 +353,8 @@ partial class Build {
                         )
                     );
 
+                    var before = produced.Count;
+
                     foreach (var file in into.GlobFiles("*.spv", "*.reflect.json")
                                  .OrderBy(path => path.Name, System.StringComparer.Ordinal)) {
                         // ⚠ The name carries its directory now, because two projects both produce a
@@ -327,6 +362,52 @@ partial class Build {
                         // the editor's — which differ, and are meant to.
                         produced.Add((file, $"{project}/Shaders/{file.Name}"));
                     }
+
+                    Assert.True(
+                        produced.Count > before,
+                        $"{project}/Shaders/{source}.rvn compiled and wrote nothing into {into} — "
+                        + "nothing was compared for this source."
+                    );
+                }
+
+                // ⚠ The other direction, and it is the floor this target did not have. Everything
+                // above walks the two lists and compares what they name, so a committed module the
+                // lists stopped naming — an entry deleted, a shader renamed, a source dropped from
+                // `EditorSources` — was never opened, and the check reported green over a binary the
+                // editor still loads. Emptying the lists altogether did the same thing on a larger
+                // scale: nothing to compare is not the same as nothing wrong, which is the shape of
+                // every "three empty manifests are identical" failure this repository has had.
+                var directories = new SortedSet<string>(System.StringComparer.Ordinal) {
+                    "Editor/Vixen.Editor.Host/Shaders"
+                };
+
+                foreach (var (project, _) in EditorSources) {
+                    directories.Add($"{project}/Shaders");
+                }
+
+                var names = produced
+                    .Select(entry => entry.Committed)
+                    .ToHashSet(System.StringComparer.Ordinal);
+
+                var uncovered = new List<string>();
+
+                foreach (var directory in directories) {
+                    var artefacts = (RootDirectory / directory).GlobFiles("*.spv", "*.reflect.json");
+
+                    // The same floor `CheckLicenceHeaders` carries, for the same reason: move or
+                    // rename one of these directories and the glob quietly returns nothing, which
+                    // leaves a gate reporting success over a tree it can no longer see.
+                    Assert.True(
+                        artefacts.Count > 0,
+                        $"{directory} holds no committed .spv, which cannot be right — the directory "
+                        + "has moved and this target is checking nothing in it."
+                    );
+
+                    uncovered.AddRange(artefacts
+                        .Select(file => $"{directory}/{file.Name}")
+                        .Where(name => !names.Contains(name))
+                        .OrderBy(name => name, System.StringComparer.Ordinal)
+                    );
                 }
 
                 var differing = new List<string>();
@@ -357,6 +438,17 @@ partial class Build {
                         + "validator in its own tests, but these are the modules the editor loads."
                     );
 
+                    // ⚠ Said rather than fixed, because rewriting cannot fix it: nothing here
+                    // produces these, so the answer is to delete them or to add the entry that does.
+                    if (uncovered.Count > 0) {
+                        Log.Warning(
+                            "{Count} committed file(s) were left untouched because nothing in this "
+                            + "target produces them:\n  {Files}",
+                            uncovered.Count,
+                            string.Join("\n  ", uncovered)
+                        );
+                    }
+
                     return;
                 }
 
@@ -367,7 +459,22 @@ partial class Build {
                     + "\nRun `./build.sh CheckShaders --update-shaders` and read the diff."
                 );
 
-                Log.Information("{Count} editor shader modules match their sources.", produced.Count);
+                Assert.True(
+                    uncovered.Count == 0,
+                    "These committed files are compared with nothing, because no entry in "
+                    + "EditorShaders or EditorSources produces them:\n  "
+                    + string.Join("\n  ", uncovered)
+                    + "\nEither the list lost an entry it should still name, or the file is a leftover "
+                    + "and should be deleted — a module nothing recompiles is a module nobody notices "
+                    + "going stale."
+                );
+
+                Log.Information(
+                    "{Count} editor shader modules match their sources, and every committed module in "
+                    + "{Directories} is one of them.",
+                    produced.Count,
+                    string.Join(", ", directories)
+                );
             }
         );
 }
