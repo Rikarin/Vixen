@@ -47,6 +47,7 @@ public sealed partial class UiDocument : IDisposable {
     readonly int wordBreak;
     readonly int textOverflow;
     readonly int lineClamp;
+    readonly int tabSize;
     readonly int ellipsis;
     readonly int nowrap;
     readonly int anywhere;
@@ -148,6 +149,7 @@ public sealed partial class UiDocument : IDisposable {
         wordBreak = Styles.Properties.Intern("word-break");
         textOverflow = Styles.Properties.Intern("text-overflow");
         lineClamp = Styles.Properties.Intern("-webkit-line-clamp");
+        tabSize = Styles.Properties.Intern("tab-size");
         ellipsis = Styles.Values.Intern("ellipsis");
         nowrap = Styles.Values.Intern("nowrap");
         anywhere = Styles.Values.Intern("anywhere");
@@ -2002,6 +2004,44 @@ public sealed partial class UiDocument : IDisposable {
             value == lowercase ? TextTransform.Lowercase :
             value == capitalize ? TextTransform.Capitalize : TextTransform.None;
     }
+
+    /// <summary>How many spaces wide a tab stop is. CSS Text 3 § 6.1's <c>tab-size</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A count of spaces and not a distance, which is why this returns a number and the
+    ///         pixels are worked out where a font is in scope.</b> CSS defines the <c>&lt;number&gt;</c>
+    ///         form as that many advances of the element's own space character — so the same
+    ///         declaration is a different width in a different face, and resolving it here would
+    ///         resolve it against nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <c>&lt;length&gt;</c> form is refused rather than resolved, and it is a value
+    ///         gap rather than an oversight.</b> A length on this property takes relative units, so it
+    ///         would have to be computed and inherited beside <c>line-height</c> instead of living in
+    ///         <c>InheritedProperties</c> — a second computed text property, a field on
+    ///         <c>ComputedText</c> and a second reading of the same property, for a form no utility
+    ///         emits: Tailwind's <c>tab-*</c> is a bare count. An element that writes one keeps the
+    ///         initial eight, which is what a browser does with a declaration it drops.
+    ///     </para>
+    ///     <para>
+    ///         The initial value is <b>8</b>, and it applies to text nobody styled — so a tab in a
+    ///         label is eight spaces wide by default rather than the .notdef box it used to draw.
+    ///     </para>
+    /// </remarks>
+    internal float TabSizeOf(ComputedStyle style) {
+        if (!style.TryGet(tabSize, out var id)) {
+            return DefaultTabSize;
+        }
+
+        var value = reader.Parse(id);
+
+        // Zero is a real value — CSS says a tab is then no wider than nothing — and negative is not,
+        // so it clamps rather than falling back to the initial value.
+        return value.Kind == StyleValueKind.Number ? MathF.Max(value.Number, 0f) : DefaultTabSize;
+    }
+
+    /// <summary>CSS Text 3 § 6.1's initial <c>tab-size</c>.</summary>
+    internal const float DefaultTabSize = 8f;
 
     internal string? FontFamilyOf(ComputedStyle style) =>
         style.TryGet(fontFamily, out var value) ? Styles.Values.NameOf(value) : null;

@@ -109,6 +109,23 @@ public sealed record TextRun(
     /// <summary>Whether the run is drawn right to left.</summary>
     public bool IsRightToLeft => (Level & 1) != 0;
 
+    /// <summary>Whether this run is one tab, whose width its line decides rather than its font.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A tab is the one character whose advance is not a property of the character.</b>
+    ///         CSS Text 3 § 6.1 makes it the distance to the next tab stop, which depends on where
+    ///         the run <i>starts</i> — and every measurement on this type is a prefix sum over
+    ///         advances that do not. So <see cref="Width" /> is wrong for a tab run and
+    ///         <see cref="TextLine.WidthOf" /> is the number to read: the line is the first thing
+    ///         that knows where a run begins.
+    ///     </para>
+    ///     <para>
+    ///         <c>UiElement.Runs</c> is what guarantees a tab is alone in its run, so this is a
+    ///         property of the run rather than a per-character question.
+    ///     </para>
+    /// </remarks>
+    public bool IsTab => Shaped.Text.Length == 1 && Shaped.Text[0] == '\t';
+
     /// <summary>What multiplies a design unit to give a pixel.</summary>
     public float Scale => Size / Font.UnitsPerEm;
 
@@ -314,6 +331,16 @@ public sealed record TextRun(
         var text = Shaped.Text;
 
         foreach (var placement in Shaped.Placements()) {
+            // ⚠ <b>A tab draws nothing, whatever the face had to say about it.</b> HarfBuzz maps
+            // U+0009 through the cmap like any other character, so a face without a glyph for it —
+            // which is most of them — shapes it to .notdef and the pen puts a tofu box in the middle
+            // of the line. Suppressed here rather than in the line, because it is true of a tab
+            // wherever it appears and for every consumer: CSS Text 3 makes a tab a *space*, and the
+            // width of that space is `TextLine`'s question rather than this glyph's.
+            if ((uint) placement.Cluster < (uint) text.Length && text[placement.Cluster] == '\t') {
+                continue;
+            }
+
             if (Tracking != 0f || WordSpacing != 0f) {
                 if (previous != int.MinValue && placement.Cluster != previous) {
                     offset += Tracking;

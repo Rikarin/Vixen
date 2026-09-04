@@ -975,7 +975,8 @@ public partial class UiElement : Composition.IComposable {
         List<FontFace> chain,
         TransformedText? transformed = null,
         float width = float.NaN,
-        float offset = 0f
+        float offset = 0f,
+        float tabStop = 0f
     ) {
         var spans = new List<FontSpan>();
         FontRegistry.Cover(text, chain, spans);
@@ -992,37 +993,80 @@ public partial class UiElement : Composition.IComposable {
                     continue;
                 }
 
-                // ⚠ The whole string when one face and one level cover it, and a substring only
-                // otherwise. Not a micro-optimisation: `text[0..Length]` is a fresh string every
-                // call, and the shaping cache keys on the string's contents, so it would hash and
-                // compare the whole label to find the entry it already had. This is every label in
-                // an interface, and it is the same fast path the coverage-only version had.
-                var piece = from == 0 && to == text.Length ? text : text[from..to];
+                // ⚠ <b>A third cut, and it is the only one that is not about the characters being
+                // shapeable together.</b> A tab's width is the distance to the next stop, which is a
+                // fact about where it *sits* — see `TextRun.IsTab` — so it has to be alone in a run
+                // for the line to be able to give it one. Nothing is lost by cutting there: no
+                // shaper joins across a tab, and CSS Text 3 makes it a space rather than a glyph.
+                //
+                // ⚠ Only when there is a tab, so every label in an interface takes the loop it took
+                // before — one shaping call for the whole string, hitting the cache entry it already
+                // had rather than one per fragment.
+                foreach (var (cut, end) in Segments(text, from, to, tabStop)) {
+                    // ⚠ The whole string when one face and one level cover it, and a substring only
+                    // otherwise. Not a micro-optimisation: `text[0..Length]` is a fresh string every
+                    // call, and the shaping cache keys on the string's contents, so it would hash and
+                    // compare the whole label to find the entry it already had. This is every label in
+                    // an interface, and it is the same fast path the coverage-only version had.
+                    var piece = cut == 0 && end == text.Length ? text : text[cut..end];
 
-                // ⚠ The level's own direction, not the paragraph's. The piece has one level
-                // throughout, so which way it is drawn is decided — handing the shaper the
-                // paragraph's `Auto` would make it guess again from the piece's first strong
-                // character, and a piece of neutrals between two Arabic words would guess wrong.
-                var direction = (level.Level & 1) != 0
-                    ? ParagraphDirection.RightToLeft
-                    : ParagraphDirection.LeftToRight;
+                    // ⚠ The level's own direction, not the paragraph's. The piece has one level
+                    // throughout, so which way it is drawn is decided — handing the shaper the
+                    // paragraph's `Auto` would make it guess again from the piece's first strong
+                    // character, and a piece of neutrals between two Arabic words would guess wrong.
+                    var direction = (level.Level & 1) != 0
+                        ? ParagraphDirection.RightToLeft
+                        : ParagraphDirection.LeftToRight;
 
-                runs.Add(
-                    new TextRun(
-                        span.Font,
-                        Document.Shaping.Shape(span.Font, piece, direction, features: FontFeatures),
-                        FontSize,
-                        LetterSpacing,
-                        LineHeight,
-                        start + from,
-                        level.Level,
-                        WordSpacing
-                    )
-                );
+                    runs.Add(
+                        new TextRun(
+                            span.Font,
+                            Document.Shaping.Shape(span.Font, piece, direction, features: FontFeatures),
+                            FontSize,
+                            LetterSpacing,
+                            LineHeight,
+                            start + cut,
+                            level.Level,
+                            WordSpacing
+                        )
+                    );
+                }
             }
         }
 
-        return new TextLine(runs.ToImmutable(), width, offset, transformed);
+        return new TextLine(runs.ToImmutable(), width, offset, transformed, tabStop);
+    }
+
+    /// <summary>A range, cut so that every tab in it is a piece of its own.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One entry — the range itself — whenever there is no tab stop or no tab</b>, which is
+    ///     every string in an interface. The iterator allocates either way; what the fast path saves
+    ///     is the substring and the shaping call per fragment, which is the expensive half.
+    /// </remarks>
+    static IEnumerable<(int Start, int End)> Segments(string text, int from, int to, float tabStop) {
+        if (tabStop <= 0f || text.AsSpan(from, to - from).IndexOf('\t') < 0) {
+            yield return (from, to);
+            yield break;
+        }
+
+        var at = from;
+
+        for (var i = from; i < to; i++) {
+            if (text[i] != '\t') {
+                continue;
+            }
+
+            if (i > at) {
+                yield return (at, i);
+            }
+
+            yield return (i, i + 1);
+            at = i + 1;
+        }
+
+        if (at < to) {
+            yield return (at, to);
+        }
     }
 
     /// <summary>The text's bidi levels, as the longest stretches over which one level holds.</summary>

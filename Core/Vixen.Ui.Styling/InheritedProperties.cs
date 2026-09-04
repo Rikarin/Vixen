@@ -96,6 +96,12 @@ public sealed class InheritedProperties {
         // only as text that is slightly too loose, in the one direction nobody measures.
         "text-align",
         "text-transform",
+
+        // ⚠ CSS-inherited, and unlike `line-height` and its three siblings it can live here: the
+        // only value Vixen reads is a unitless *number* of spaces, which means the same thing
+        // whatever font size it lands on. A `<length>` form is refused rather than resolved, for the
+        // reason those four are not in this list — see `UiDocument.TabSizeOf`.
+        "tab-size",
         "white-space",
 
         // CSS Text 4 § 4 splits `white-space` into a collapsing half and a wrapping half, and both

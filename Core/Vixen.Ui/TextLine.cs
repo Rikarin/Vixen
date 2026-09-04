@@ -37,6 +37,14 @@ namespace Vixen.Ui;
 public sealed class TextLine {
     readonly float[] pens;
 
+    /// <summary>How wide each run is <i>on this line</i>, which is not always its own width.</summary>
+    /// <remarks>
+    ///     ⚠ Equal to <see cref="TextRun.Width" /> for every run but a tab, whose advance CSS makes
+    ///     the distance to the next stop and therefore a fact about where it sits. See
+    ///     <see cref="WidthOf" />.
+    /// </remarks>
+    readonly float[] widths;
+
     /// <summary>The map between the element's own text and the text the runs were shaped from.</summary>
     /// <remarks>
     ///     Null for the identity, which is every line of text no <c>text-transform</c> touched and
@@ -68,6 +76,18 @@ public sealed class TextLine {
     ///         handed the wrong one puts the caret in the wrong place with nothing to see.
     ///     </para>
     /// </param>
+    /// <param name="tabStop">
+    ///     <para>
+    ///         How far apart the tab stops are, in pixels, or zero for a line with no tab in it —
+    ///         which is every line in an interface, and costs one comparison.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Measured from the start of the line <i>box</i> and not from the first glyph</b>,
+    ///         so <see cref="Offset" /> is inside the arithmetic. An indented paragraph's columns
+    ///         line up with the block's stops, which is what CSS specifies and what makes a tabbed
+    ///         table under a hanging indent readable.
+    ///     </para>
+    /// </param>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The width is separable from the runs because of trailing whitespace.</b> A break
@@ -90,7 +110,8 @@ public sealed class TextLine {
         ImmutableArray<TextRun> runs,
         float width = float.NaN,
         float offset = 0f,
-        TransformedText? transformed = null
+        TransformedText? transformed = null,
+        float tabStop = 0f
     ) {
         if (runs.IsDefaultOrEmpty) {
             throw new ArgumentException("a line has at least one run", nameof(runs));
@@ -103,6 +124,7 @@ public sealed class TextLine {
         // transform costs the same null test rather than two array lookups per caret question.
         this.transformed = transformed is { IsIdentity: false } ? transformed : null;
         pens = new float[runs.Length];
+        widths = new float[runs.Length];
 
         var above = 0f;
         var below = 0f;
@@ -129,11 +151,23 @@ public sealed class TextLine {
         //
         // Free for the overwhelmingly common line — `VisualOrder` of a single level is the identity,
         // and one run of level 0 is every label in an interface.
+        //
+        // ⚠ <b>And this loop is where a tab gets its width, because it is the first place that knows
+        // where a run starts.</b> `TextRun.Width` is `Shaped.Advance * Scale`, which for a tab is
+        // whatever glyph the face mapped U+0009 to — usually .notdef. CSS Text 3 § 6.1 says the
+        // advance is the distance to the next stop instead, measured from the start of the *line
+        // box*, so `Offset` is inside the arithmetic: an indented first line's stops are where the
+        // block's are and not where its glyphs begin. Getting that wrong puts every tabbed line
+        // after an indent a fraction of a stop out, which reads as a wobbly column.
         var pen = 0f;
 
         foreach (var index in Order(runs)) {
             pens[index] = pen;
-            pen += runs[index].Width;
+            widths[index] = tabStop > 0f && runs[index].IsTab
+                ? NextStop(offset + pen, tabStop) - (offset + pen)
+                : runs[index].Width;
+
+            pen += widths[index];
         }
 
         Width = float.IsNaN(width) ? pen : width;
@@ -217,6 +251,26 @@ public sealed class TextLine {
     /// <remarks><see cref="Offset" /> is included, so this is where the glyphs actually go.</remarks>
     public float PenOf(int run) => Offset + pens[run];
 
+    /// <summary>How wide a run is on this line, in pixels.</summary>
+    /// <param name="run">The run's index in <see cref="Runs" />.</param>
+    /// <remarks>
+    ///     ⚠ <b>Read this and not <see cref="TextRun.Width" /> wherever a run's extent is wanted.</b>
+    ///     They are the same number for everything but a tab, whose advance is the distance to the
+    ///     next stop and therefore depends on where the run begins — which a run cannot know and a
+    ///     line can. The two agreeing everywhere else is what makes the difference easy to miss: a
+    ///     consumer that reads the run's own width is correct on every line without a tab in it.
+    /// </remarks>
+    public float WidthOf(int run) => widths[run];
+
+    /// <summary>The next tab stop at or after a position.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Strictly after, never at.</b> A tab that begins exactly on a stop advances to the
+    ///     next one — CSS Text 3 § 6.1, and the only reading under which two tabs in a row are two
+    ///     columns rather than one. A rule that snapped to the nearest stop at or after the pen would
+    ///     make the second tab of a pair zero wide, which looks like the tab was dropped.
+    /// </remarks>
+    static float NextStop(float x, float stop) => (MathF.Floor(x / stop) + 1f) * stop;
+
     /// <summary>Places every glyph of every run relative to the start of the line.</summary>
     /// <param name="into">Where to put them.</param>
     /// <remarks>
@@ -282,7 +336,13 @@ public sealed class TextLine {
             }
 
             if (index <= end || i == Runs.Length - 1) {
-                return PenOf(i) + run.CaretOffset(index, affinity);
+                // ⚠ A tab has two caret positions and no interior, and the run cannot answer either
+                // of them: `TextRun.CaretOffset` would return the .notdef glyph's advance, which is
+                // not this tab's width on this line. Before it or after it, and after it is the next
+                // stop — which is what puts the caret where the next column starts.
+                return run.IsTab
+                    ? PenOf(i) + (index >= end ? widths[i] : 0f)
+                    : PenOf(i) + run.CaretOffset(index, affinity);
             }
         }
 
@@ -310,8 +370,23 @@ public sealed class TextLine {
     /// </remarks>
     public (int Index, CaretAffinity Affinity) CaretPositionAt(float x) {
         for (var i = 0; i < Runs.Length; i++) {
-            if (x < PenOf(i) + Runs[i].Width || i == Runs.Length - 1) {
-                var found = Runs[i].CaretPositionAt(x - PenOf(i));
+            if (x < PenOf(i) + widths[i] || i == Runs.Length - 1) {
+                var run = Runs[i];
+
+                // ⚠ A tab has no interior to hit-test, so the click goes to whichever of its two
+                // ends is nearer. Asking the run instead would divide by the .notdef advance and put
+                // the boundary at a fraction of the tab that has nothing to do with its width — the
+                // caret landing before the tab for most of a wide one.
+                if (run.IsTab) {
+                    var after = x - PenOf(i) >= widths[i] / 2f;
+
+                    return (
+                        ToSource(run.Start + (after ? run.Shaped.Text.Length : 0)),
+                        after ? CaretAffinity.Downstream : CaretAffinity.Upstream
+                    );
+                }
+
+                var found = run.CaretPositionAt(x - PenOf(i));
                 return (ToSource(found.Index), found.Affinity);
             }
         }

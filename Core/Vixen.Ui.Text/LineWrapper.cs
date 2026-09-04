@@ -77,16 +77,18 @@ public static class LineWrapper {
     /// <param name="mode">What to do with a word wider than the line.</param>
     /// <param name="wordBreak">Whether a break inside a word is allowed, forbidden, or UAX#14's call.</param>
     /// <param name="indent">How much narrower the first line is. CSS's <c>text-indent</c>.</param>
+    /// <param name="tabStop">How far apart the tab stops are, or zero to measure a tab as a glyph.</param>
     public static void Wrap(
         ShapedText shaped,
         float maxAdvance,
         List<WrappedLine> lines,
         TextWrapMode mode = TextWrapMode.Word,
         WordBreakMode wordBreak = WordBreakMode.Normal,
-        float indent = 0f
+        float indent = 0f,
+        float tabStop = 0f
     ) {
         ArgumentNullException.ThrowIfNull(shaped);
-        Wrap(shaped.Text, Advances(shaped), maxAdvance, lines, mode, wordBreak, indent);
+        Wrap(shaped.Text, Advances(shaped), maxAdvance, lines, mode, wordBreak, indent, tabStop);
     }
 
     /// <summary>Wraps a paragraph whose widths the caller measured.</summary>
@@ -108,6 +110,21 @@ public static class LineWrapper {
     ///     all. Its caller builds the advances in pixels instead, one run at a time, and hands them
     ///     here. Nothing else about wrapping depends on the unit.
     /// </remarks>
+    /// <param name="tabStop">
+    ///     <para>
+    ///         How far apart the tab stops are, in the same unit as the advances, or zero to measure
+    ///         a tab as whatever glyph the font gave it. CSS Text 3 § 6.1.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The one advance here that is not a property of the character.</b> Every width in
+    ///         this file is a prefix sum over <paramref name="advances" />, and a tab's is the
+    ///         distance to the next stop from wherever the pen has got to — so it cannot be written
+    ///         into that array, and every range measurement has to know where its range <i>starts</i>
+    ///         on the line. That is the argument the sums below carry an origin for, and it is the
+    ///         reason a tab needed the wrapper as well as the line: measured as a glyph, a tabbed
+    ///         paragraph breaks in one place and draws in another.
+    ///     </para>
+    /// </param>
     public static void Wrap(
         string text,
         ReadOnlySpan<float> advances,
@@ -115,7 +132,8 @@ public static class LineWrapper {
         List<WrappedLine> lines,
         TextWrapMode mode = TextWrapMode.Word,
         WordBreakMode wordBreak = WordBreakMode.Normal,
-        float indent = 0f
+        float indent = 0f,
+        float tabStop = 0f
     ) {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(lines);
@@ -140,6 +158,14 @@ public static class LineWrapper {
         // first line is wider than the rest and starts to the left of them.
         var room = maxAdvance - indent;
 
+        // ⚠ <b>Where this line's content begins, measured from the line box's start edge — and the
+        // only reason it exists is the tab.</b> Every other advance in this file is the same wherever
+        // it sits, so a range's width needed no origin; a tab's is the distance to the next stop, and
+        // the stops are laid out from the box's edge. On the first line that edge is an indent away,
+        // which is exactly what `TextLine` does with `Offset` — the two arithmetics have to agree or
+        // the paragraph breaks in one place and draws in another.
+        var origin = indent;
+
         while (index < opportunities.Count) {
             var here = opportunities[index];
 
@@ -154,15 +180,16 @@ public static class LineWrapper {
             // comes back marked mandatory, and a paragraph that fits on one line comes back as one
             // mandatory line, which is the opposite of what the flag is for.
             if (here < text.Length && LineBreaker.IsMandatory(text, here)) {
-                lines.Add(Line(text, advances, start, here, mandatory: true));
+                lines.Add(Line(text, advances, start, here, origin, tabStop, mandatory: true));
                 start = here;
                 room = maxAdvance;
+                origin = 0f;
                 candidate = -1;
                 index++;
                 continue;
             }
 
-            if (Width(text, advances, start, here) <= room) {
+            if (Width(text, advances, start, here, origin, tabStop) <= room) {
                 candidate = here;
                 index++;
                 continue;
@@ -173,33 +200,36 @@ public static class LineWrapper {
                 // reconsidered against the new start rather than skipped — it may well fit now, and a
                 // wrapper that dropped it would put two words' worth of text on the next line and
                 // then break in the wrong place for the rest of the paragraph.
-                lines.Add(Line(text, advances, start, candidate, mandatory: false));
+                lines.Add(Line(text, advances, start, candidate, origin, tabStop, mandatory: false));
                 start = candidate;
                 room = maxAdvance;
+                origin = 0f;
                 candidate = -1;
                 continue;
             }
 
             // Nothing fits: one unbreakable run is wider than the whole line.
             if (mode == TextWrapMode.Anywhere) {
-                var forced = Squeeze(text, advances, start, here, room);
+                var forced = Squeeze(text, advances, start, here, room, origin, tabStop);
 
                 if (forced > start) {
-                    lines.Add(Line(text, advances, start, forced, mandatory: false));
+                    lines.Add(Line(text, advances, start, forced, origin, tabStop, mandatory: false));
                     start = forced;
                     room = maxAdvance;
+                    origin = 0f;
                     continue;
                 }
             }
 
-            lines.Add(Line(text, advances, start, here, mandatory: false));
+            lines.Add(Line(text, advances, start, here, origin, tabStop, mandatory: false));
             start = here;
             room = maxAdvance;
+            origin = 0f;
             index++;
         }
 
         if (start < text.Length) {
-            lines.Add(Line(text, advances, start, text.Length, mandatory: false));
+            lines.Add(Line(text, advances, start, text.Length, origin, tabStop, mandatory: false));
         }
     }
 
@@ -253,8 +283,16 @@ public static class LineWrapper {
     }
 
     /// <summary>One line, with its trailing whitespace measured out of it.</summary>
-    static WrappedLine Line(string text, ReadOnlySpan<float> advances, int start, int end, bool mandatory) =>
-        new(start, end - start, Width(text, advances, start, end), mandatory);
+    static WrappedLine Line(
+        string text,
+        ReadOnlySpan<float> advances,
+        int start,
+        int end,
+        float origin,
+        float tabStop,
+        bool mandatory
+    ) =>
+        new(start, end - start, Width(text, advances, start, end, origin, tabStop), mandatory);
 
     /// <summary>How wide a range is, ignoring whitespace at its end.</summary>
     /// <remarks>
@@ -264,20 +302,37 @@ public static class LineWrapper {
     ///     not, and a right-aligned paragraph would come out with a ragged right edge made of
     ///     invisible characters.
     /// </remarks>
-    static float Width(string text, ReadOnlySpan<float> advances, int start, int end) {
+    /// <param name="text">The paragraph.</param>
+    /// <param name="advances">One entry per UTF-16 index.</param>
+    /// <param name="start">Where the range begins.</param>
+    /// <param name="end">One past its last character.</param>
+    /// <param name="origin">Where the range begins on the line, for the tab stops to be measured from.</param>
+    /// <param name="tabStop">How far apart the stops are, or zero to measure a tab as a glyph.</param>
+    static float Width(
+        string text,
+        ReadOnlySpan<float> advances,
+        int start,
+        int end,
+        float origin,
+        float tabStop
+    ) {
         var last = end;
 
         while (last > start && char.IsWhiteSpace(text[last - 1])) {
             last--;
         }
 
-        var total = 0f;
+        var x = origin;
 
         for (var i = start; i < last; i++) {
-            total += advances[i];
+            // ⚠ Snapped rather than added, and to the next stop *strictly* after the pen — the same
+            // rule `TextLine.NextStop` applies, written twice because the two are different passes
+            // over different data. Two tabs in a row are two columns under this rule and one under a
+            // "nearest stop at or after" one.
+            x = tabStop > 0f && text[i] == '\t' ? (MathF.Floor(x / tabStop) + 1f) * tabStop : x + advances[i];
         }
 
-        return total;
+        return x - origin;
     }
 
     /// <summary>
@@ -295,7 +350,15 @@ public static class LineWrapper {
     ///     reconciliation going away — the moment one grapheme cluster carries two advances, the
     ///     largest fitting UTF-16 index is a broken character.
     /// </remarks>
-    static int Squeeze(string text, ReadOnlySpan<float> advances, int start, int end, float maxAdvance) {
+    static int Squeeze(
+        string text,
+        ReadOnlySpan<float> advances,
+        int start,
+        int end,
+        float maxAdvance,
+        float origin,
+        float tabStop
+    ) {
         var boundaries = new List<int>();
         GraphemeBreaker.Collect(text.AsSpan(start, end - start), boundaries);
 
@@ -308,7 +371,7 @@ public static class LineWrapper {
                 continue;
             }
 
-            if (Width(text, advances, start, here) > maxAdvance) {
+            if (Width(text, advances, start, here, origin, tabStop) > maxAdvance) {
                 break;
             }
 
