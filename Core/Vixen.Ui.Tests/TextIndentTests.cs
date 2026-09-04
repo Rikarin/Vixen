@@ -91,17 +91,149 @@ public class TextIndentTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A percentage resolves to zero, and that is a refusal rather than a bug.</b> CSS
-    ///     measures one against the containing block's width, which is a layout result the style pass
-    ///     does not have — and the style pass is where the value has to be computed, because an
-    ///     <c>em</c> on it must measure against the element that wrote it. Recorded here so the
-    ///     refusal is a fact somebody can find rather than a surprise.
+    ///     ⚠ <b>A percentage is measured against the width the text is laid out in, which is a used
+    ///     value and not a computed one.</b>
     /// </summary>
-    [Fact]
-    public void A_percentage_is_refused_rather_than_guessed_at() {
-        using var document = Documented("width: 80px; text-indent: 50%;");
+    /// <remarks>
+    ///     <para>
+    ///         This used to resolve to zero, and zero is the initial value — so
+    ///         <c>text-indent: 50%</c> was a declaration that parsed, cascaded, reached the element
+    ///         and left no trace whatever. The refusal was correct at the point it was made: CSS
+    ///         measures the percentage against the containing block's width, which is a layout result
+    ///         the style pass does not have, and the style pass is where the value has to be computed
+    ///         because an <c>em</c> on it must measure against the element that wrote it. Both stay
+    ///         true; what changed is that the percentage now <i>travels</i> to
+    ///         <c>UiElement.UsedTextIndent</c>, which is called from <c>Block(float)</c> and does have
+    ///         a width. `Rikarin/Vixen#457`.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Asserted on the line's offset and not on <c>TextIndent</c>.</b> The computed
+    ///         property is still zero here and correctly so — a percentage has no pixels until there
+    ///         is a box — so a test written against it would pass against the old behaviour and the
+    ///         new one alike, which is exactly the instrument this issue is about.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("50%", 40f)]
+    [InlineData("25%", 20f)]
+    [InlineData("0%", 0f)]
+    [InlineData("-25%", -20f)]
+    public void A_percentage_is_resolved_against_the_width_the_text_wraps_to(string indent, float expected) {
+        using var document = Documented($"width: 80px; text-indent: {indent};");
+        var block = Labelled(document, "aa bb").Block()!;
 
-        Assert.Equal(0f, Labelled(document, "aa bb").TextIndent);
+        Assert.Equal(expected, block.Lines[0].Offset, Tolerance);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A percentage inherits as a percentage, so two boxes of different widths under one
+    ///     declaration are indented by different numbers of pixels.</b>
+    /// </summary>
+    /// <remarks>
+    ///     This is the fact that makes a second field necessary rather than a nicety. CSS inherits
+    ///     <c>text-indent</c>'s computed value, and a percentage's computed value is the percentage —
+    ///     so resolving it on the ancestor and handing the pixels down, which is what the other three
+    ///     text properties do and is right for them, would indent the narrow paragraph by the wide
+    ///     panel's measure.
+    /// </remarks>
+    [Fact]
+    public void A_percentage_inherits_as_a_percentage_and_not_as_the_ancestors_pixels() {
+        using var document = new UiDocument(400f, 300f);
+        document.Fonts.Register("Test", Font);
+
+        document.Load(
+            """
+            root { width: 400px; height: 300px; align-items: flex-start; }
+            #outer { width: 200px; text-indent: 25%; }
+            #inner { width: 40px; }
+            """
+        );
+
+        var outer = document.Root.Add("div", "outer");
+        var inner = outer.Add("label", "inner");
+        inner.Text = "aa bb";
+        document.Update();
+
+        // A quarter of forty, not a quarter of two hundred. The inherited *pixels* are zero, which is
+        // what the assertion beside this one is for.
+        Assert.Equal(10f, inner.Block()!.Lines[0].Offset, Tolerance);
+        Assert.Equal(0f, inner.TextIndent, Tolerance);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A length written after a percentage replaces it, and a percentage after a length
+    ///     replaces that.</b>
+    /// </summary>
+    /// <remarks>
+    ///     The two halves of the indent travel in separate fields, so the plausible bug is leaving
+    ///     the other one behind — a <c>text-indent: 25%</c> on a paragraph inside a panel that said
+    ///     <c>text-indent: 12px</c> would then be indented by both. Either declaration is the whole
+    ///     property, so each clears the other.
+    /// </remarks>
+    [Theory]
+    [InlineData("12px", "25%", 20f)]
+    [InlineData("25%", "12px", 12f)]
+    public void Each_form_of_the_declaration_replaces_the_other_whole(string outer, string inner, float expected) {
+        using var document = new UiDocument(400f, 300f);
+        document.Fonts.Register("Test", Font);
+
+        document.Load(
+            $$"""
+              root { width: 400px; height: 300px; align-items: flex-start; }
+              #outer { width: 80px; text-indent: {{outer}}; }
+              #inner { width: 80px; text-indent: {{inner}}; }
+              """
+        );
+
+        var host = document.Root.Add("div", "outer");
+        var label = host.Add("label", "inner");
+        label.Text = "aa bb";
+        document.Update();
+
+        Assert.Equal(expected, label.Block()!.Lines[0].Offset, Tolerance);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>An unbounded width gives no indent, which is CSS's answer and not a fallback.</b>
+    /// </summary>
+    /// <remarks>
+    ///     An intrinsic measurement has no containing block for a percentage to be a percentage of —
+    ///     CSS Sizing resolves a percentage against an indefinite size as <c>auto</c>, and for this
+    ///     property that is zero. It matters because <c>Block()</c> takes this path whenever wrapping
+    ///     is off, and an indent computed as a fraction of infinity is infinity.
+    /// </remarks>
+    [Fact]
+    public void A_percentage_of_an_unbounded_width_is_no_indent() {
+        using var document = Documented("width: 80px; text-indent: 50%;");
+        var block = Labelled(document, "aa bb").Block(float.PositiveInfinity)!;
+
+        Assert.Equal(0f, block.Lines[0].Offset, Tolerance);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Declaring a percentage where there was none re-measures the element, even though the
+    ///     computed value did not move.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <c>UiDocument.Apply</c> marks a text node dirty by comparing what the last pass resolved
+    ///     with what this one did, and going from no <c>text-indent</c> to <c>text-indent: 25%</c>
+    ///     leaves the computed pixels at zero both times. A key holding only those would never notice,
+    ///     and the paragraph would keep the block it wrapped without the indent — a picture that is
+    ///     wrong only until something else happens to touch it, which is the hardest kind to see
+    ///     reported.
+    /// </remarks>
+    [Fact]
+    public void Adding_a_percentage_invalidates_the_block_the_element_already_wrapped() {
+        using var document = Documented("width: 80px;");
+        var label = Labelled(document, "aa bb");
+
+        Assert.Equal(0f, label.Block()!.Lines[0].Offset, Tolerance);
+
+        document.Load(".pushed { text-indent: 25%; }");
+        label.AddClass("pushed");
+        document.Update();
+
+        Assert.Equal(20f, label.Block()!.Lines[0].Offset, Tolerance);
     }
 
     /// <summary>

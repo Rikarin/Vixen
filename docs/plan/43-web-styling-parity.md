@@ -59,6 +59,13 @@ interns seven names — `font-stretch`, `font-variant`, `text-transform`, `word-
 `WordSpacingId`/`TextIndentId`, and **nothing in the repository reads either property**. So the
 useful count is not the interning count.
 
+⚠ **Both halves of that sentence have since stopped being true, in opposite directions.**
+`UiDocument.ResolveText` reads all four text properties for real — `word-spacing` and `text-indent`
+included — so they are consumers now. The *ids* went the other way: `WordSpacingId`,
+`TextIndentId`, `LetterSpacingId`, `TryTextLength` and `TryLineHeight` were five public members with
+no caller anywhere, two of them a second copy of rules `ResolveText` executes, and they were removed
+(#457). The survey's point stands; the example is now history.
+
 | | |
 |---|---|
 | CSS properties interned anywhere | **93** |
