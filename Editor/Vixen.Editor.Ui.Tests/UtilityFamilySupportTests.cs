@@ -1652,13 +1652,14 @@ public class UtilityFamilySupportTests {
 
         // ⚠ <b>And it is *the accent*, held against the token itself rather than against a property
         // of the colour.</b> The obvious oracle here is "blue-dominant", which is what
-        // `A_per_edge_border_colour_paints_only_the_edge_it_names` below uses — and it does not
+        // `A_per_edge_border_colour_paints_only_the_edge_it_names` used to use — and it does not
         // discriminate: this assertion was written that way first and stayed green when
         // `divide-accent` was swapped for `divide-border`, because the editor's greys are *cool*
-        // greys. `--border` is `#a9adb4` light and `#1e1e20` dark, and B exceeds R in both. So the
-        // accent is resolved a second way, through a family whose own row is in `Supported`, and the
-        // divider is required to equal that and to differ from the hairline it would most plausibly
-        // have fallen back to.
+        // greys. `--border` is `#a9adb4` light and `#1e1e20` dark, and B exceeds R in both, as it
+        // does for `--surface` and `--text`. So the accent is resolved a second way, through a family
+        // whose own row is in `Supported`, and the divider is required to equal that and to differ
+        // from the hairline it would most plausibly have fallen back to. That test was corrected in
+        // the same change and now holds its band against the cascaded value.
         var accent = ui.ColorOf(accentSource, "background-color");
         var hairline = ui.ColorOf(hairlineSource, "background-color");
 
