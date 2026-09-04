@@ -144,7 +144,6 @@ float mask_progress(vec2 offset, vec2 half_size, vec2 axis, int kind) {
     return ((dot(offset, direction) / max(reach, 1e-4)) * 0.5) + 0.5;
 }
 
-// One entry's coverage at a point, in document pixels. `UiMask.Coverage` is the transcription.
 // Where a point sits inside the tile it lands in, as an offset from that tile's centre.
 //
 // ⚠ `floor` rather than a `fract`-based wrap, so a negative offset lands in the tile below rather than
@@ -156,6 +155,7 @@ float mask_wrap(float value, float half_tile) {
     return shifted - (period * floor(shifted / period)) - half_tile;
 }
 
+// One entry's coverage at a point, in document pixels. `UiMask.Coverage` is the transcription.
 float mask_coverage(MaskEntry entry, vec2 point) {
     vec2 local = point;
 
