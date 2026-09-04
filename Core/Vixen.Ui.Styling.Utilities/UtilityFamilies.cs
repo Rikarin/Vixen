@@ -998,6 +998,16 @@ public static class UtilityFamilies {
         Color("fill", "fill");
         Color("stroke", "stroke");
 
+        // ⚠ <b>`none` is a paint and not a colour, and the reader had to learn the difference
+        // first.</b> This is the trap `docs/plan/43` § F8 files under refusal shape 3 and the ledger
+        // recorded against `stroke-none` for weeks: `fill` and `stroke` are both read, so the
+        // consumption gate would have scored a registration green — while `Icon.Resolve` asked
+        // `ColorOf` for the slot, got `null` because `none` is not a colour, and fell through to the
+        // foreground. The class would have resolved, cascaded, and painted the very glyph it was
+        // written to hide. `Icon.IsNone` is the reading that closes it, at both draw paths.
+        Keywords("fill", "fill", new() { ["none"] = "none" });
+        Keywords("stroke", "stroke", new() { ["none"] = "none" });
+
         // ⚠ <b>The one interactivity colour with a reader, and finding the reader is what decided
         // it.</b> `TextField` and `CodeEditor` have drawn their insertion point off Vixen's own
         // `--caret-color` token since they were written; the standard spelling is now asked before

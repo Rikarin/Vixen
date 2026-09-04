@@ -92,10 +92,10 @@ Every one of those was right when it was written. The number is a denominator, s
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **185** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **47** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **187** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **46** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **91** |
+| **absent** | not emitted at all | **90** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -400,14 +400,23 @@ refusal block, which already says so for the same reason.
 | Sizing | 15 | 12 | 1 | 0 | 2 | 0 | 0 |
 | Backgrounds | 11 | 3 | 1 | 0 | 7 | 0 | 0 |
 | Transitions and Animation | 6 | 2 | 1 | 0 | 3 | 0 | 0 |
-| SVG | 3 | 1 | 1 | 0 | 1 | 0 | 0 |
+| SVG | 3 | 3 | 0 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **328** | **185** | **47** | **1** | **91** | **3** | **1** |
+| **Total** | **328** | **187** | **46** | **1** | **90** | **3** | **1** |
 
-Flexbox and Grid is now the strongest category — 27 of 34, with only two absent roots left in it —
-followed by Effects at 24 of 33 with no `partial` in it, Interactivity at 27 of 39, then Spacing,
-Borders and Layout. Tables and Accessibility still have **no working root at all**.
+SVG is the first category to be **complete** — all three roots, no `partial` — followed by Flexbox
+and Grid at 27 of 34 with only two absent roots left, Effects at 24 of 33 with no `partial` in it,
+Interactivity at 27 of 39, then Spacing, Borders and Layout. Tables and Accessibility still have
+**no working root at all**.
+
+⚠ **SVG closed on a keyword rather than a property, which is the shape this table is least able to
+show.** `fill` and `stroke` have measured `read` since A6, off the colour half — so a registration of
+`fill-none` or `stroke-none` would have scored green while `Icon.Resolve` asked `ColorOf`, got the
+`null` that `none` and an unset property both produce, and painted the glyph in the inherited colour.
+The class would have hidden nothing. `none` is a *paint* in SVG 2 § 13.2 and not a colour, so the
+close was a fourth reading on `UiDocument` — `KeywordOf`, beside `ColorOf`, `LengthOf` and
+`NumberOf` — and `Icon.IsNone` at both draw paths.
 
 ⚠ **Flexbox and Grid went from 20 to 27 and every one of the seven was a family, not a reader.**
 Five were `absent` roots whose consumers had been finished for weeks — `col-*` and `row-*` against

@@ -482,6 +482,15 @@ public class UtilityFamilySupportTests {
         { "fill-accent", "fill", "#2f6ecd" },
         { "stroke-accent", "stroke", "#2f6ecd" },
 
+        // ⚠ <b>And the two keywords, which are exactly the case these rows cannot prove.</b> `none`
+        // is a *paint* and not a colour, so `Icon.Resolve`'s `ColorOf` answered `null` to it and to
+        // an unset property alike and painted the foreground for both — `fill-none` resolved,
+        // cascaded, and drew the glyph it was written to hide, with `fill` measuring read the whole
+        // time. That is why they were refused for weeks rather than registered. Proved in pixels by
+        // `Vixen.Ui.Controls.Tests.IconArtTests`, which is the only place the answer exists.
+        { "fill-none", "fill", "none" },
+        { "stroke-none", "stroke", "none" },
+
         // Borders, all four edges and all four corners. ⚠ The colours and the radii were in `Inert`
         // until the draw list learned the rest of the longhands: it interned `border-top-color` and
         // `border-top-left-radius` and nothing else, so seven of the eight per-edge colours computed
