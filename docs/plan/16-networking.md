@@ -194,7 +194,7 @@ Everything PurrNet's weaver generates becomes an incremental source generator in
 │  Channels (Reliable · Unreliable · ReliableUnordered · Sequenced)      │
 │  Fragmentation · ordering · ack/nack · congestion · BitPacker          │
 ├─ Transport (ITransport) ───────────────────────────────────────────────┤
-│  Udp · WebSocket · Local(in-proc) · Relay · Composite                  │
+│  Udp · WebSocket · Local(in-proc) · Composite                          │
 │  + NetworkSimulation decorator (latency/jitter/loss/duplication)       │
 └────────────────────────────────────────────────────────────────────────┘
 ```
@@ -209,13 +209,28 @@ Core/
 ├── Vixen.Net.Transport.Udp/          # reliable+unreliable over UDP
 ├── Vixen.Net.Transport.WebSocket/    # incl. the browser path via Vixen.Platform.Web's ISocket
 ├── Vixen.Net.Transport.Local/        # in-process; powers host mode, offline, and every test
-├── Vixen.Net.Transport.Relay/        # rendezvous + relay client (NAT traversal)
 └── Vixen.Net.Transport.*.Tests/
 ```
 
 Steam/EOS/platform transports are **addons**, not in-box — they carry SDK dependencies and licensing we
 do not want in the core. The `ITransport` surface is the contract; PurrNet's addon layout
 (`Addons/Steam`, `Addons/UTP`, `Addons/Nakama`, `Addons/Edgegap`) is the right precedent.
+
+⚠ **A relay client is one of them, and this list used to say otherwise four lines above.**
+`Vixen.Net.Transport.Relay/` was listed inside `Core/` while this paragraph made platform transports
+addons; a relay client is a platform transport by every property the paragraph names. **Decided
+2026-09-04: Vixen does not operate a relay** — nothing in this repository is a service with our name on
+the address, and `Live/` is emphatically software somebody else runs. With no reference server, a relay
+client can only speak a vendor's protocol (Steam datagram relay, EOS, Nakama, Edgegap), and there is no
+neutral one — which is the addon answer arriving by a second route, and the one
+[27](27-mmo-framework.md) § M-Q1 already recommended. So the relay is out of `Core/` and out of the
+box, and `Addons/` does not exist yet: whoever builds the first one pays for the directory, a layer
+rule, and an entry in `build/Build.ArchitectureRules.cs`'s eight-directory glob.
+
+**Transport fallback does not wait for it.** Starting several inner clients at once and keeping
+whichever answers is worth having the moment one server is reachable two ways — a `CompositeTransport`
+server with a UDP listener and a WebSocket listener on 443 is exactly that, and a client racing them is
+a client that gets through a corporate firewall. That is work rather than a decision now.
 
 ### Tick and time
 

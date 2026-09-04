@@ -534,10 +534,12 @@ guesses. That is the cookie working exactly as designed, and it meant the reliab
 fragment reassembler sat behind a door the fuzzer could not open. An authenticated client is still an
 untrusted one, so the target now connects properly and *then* sends rubbish.
 
-**Owed.** The `Relay` transport is **blocked on a scope decision rather than on work** — doc 16 asks for
-"rendezvous + relay client", and a relay client with no relay server to talk to is untestable and
-unshippable, so whether one is hosted, in-box or an addon wants an answer before code. Transport
-*fallback* belongs with it. Everything else is in the `Vixen.Net*` READMEs and
+**Owed.** The `Relay` transport is **answered rather than owed. Decided 2026-09-04: Vixen does not
+operate a relay**, so there is no reference server to talk to and a relay client can only speak a
+vendor's protocol — the addon shape doc [27](27-mmo-framework.md) § M-Q1 recommended, recorded in
+doc [16](16-networking.md) § Projects. ⚠ Transport *fallback* was owed **with** it and no longer is:
+one `CompositeTransport` server listening on UDP and on WebSocket 443 is one server reachable two ways,
+which is something for a client to race. Everything else is in the `Vixen.Net*` READMEs and
 [`../overview.md`](../overview.md) § 1.12.
 
 ---

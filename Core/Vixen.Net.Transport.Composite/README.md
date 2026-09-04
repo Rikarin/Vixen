@@ -34,8 +34,8 @@ there cannot be one. `ClientsOnDifferentTransports_AreNumberedApart` is the test
 
 **The client half is a single choice, not a race.** Composing servers is the useful direction — a
 client knows what it is and which address it was given. Starting every inner client at once and
-keeping whichever answers first is a different feature, transport fallback, and it belongs with the
-relay work rather than being smuggled in here.
+keeping whichever answers first is a different feature, transport fallback, and it is not smuggled in
+here. ⚠ It used to be filed under the relay work; it is not any more — see Owed.
 
 **Capabilities are the pessimistic answer to all three questions.** The smallest `MaxPayloadBytes` of
 any of them, in-process only if all of them are, lossy if any of them is. A caller sizing a buffer
@@ -52,12 +52,18 @@ transport it came in on, and that the capabilities are the conservative ones.
 
 ## Owed
 
-- **A relay, and the client half that would talk to it.** Doc [16](../../docs/plan/16-networking.md)
-  asks for "rendezvous + relay client", and a relay client with no relay server is untestable and
-  unshippable — so building it is a decision about scope rather than a piece of work waiting to be
-  done. Do we host one? Is it in-box, or an addon the way Steam and EOS are? That wants an answer
-  before code.
-- **Transport fallback**, which belongs with it. Start several, keep whichever answers. **This
-  package's client half is deliberately a single choice rather than a race**, and that is why: a race
-  is only worth having when there is something to race against, and today the two client transports go
-  to different kinds of server rather than to the same one by different routes.
+- ~~**A relay, and the client half that would talk to it.**~~ **Answered, not owed.** Decided
+  2026-09-04: **Vixen does not operate a relay.** With no reference server a relay client can only
+  speak a vendor's protocol, and there is no neutral one — so it is an addon if it is ever anything,
+  the way Steam and EOS are. Recorded in doc [16](../../docs/plan/16-networking.md) § Projects, which
+  until then listed `Vixen.Net.Transport.Relay/` inside `Core/` four lines above the paragraph making
+  platform transports addons.
+- **Transport fallback.** Start several, keep whichever answers. ⚠ **It no longer waits on the
+  relay**, and the reason this package's client half is a single choice has expired with it. That
+  reason was *"a race is only worth having when there is something to race against, and today the two
+  client transports go to different kinds of server rather than to the same one by different routes"* —
+  true of the two transports, and never true of **this** package's own server: a composite listening on
+  UDP and on WebSocket 443 is one server reachable two ways, and a client racing them is a client that
+  gets through a corporate firewall. What the work costs is the semantics of a race, not a decision:
+  which connection wins, what happens to the loser mid-handshake, and which `TransportCapabilities` the
+  layers above are told about before it resolves.

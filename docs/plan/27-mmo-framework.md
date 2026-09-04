@@ -124,8 +124,8 @@ packet.
 **When a proxy is genuinely warranted, and why the design already admits one.** DDoS scrubbing,
 IPv4 exhaustion, hostile mobile carriers that drop UDP, and console platform requirements are all real
 reasons to put something in front of a realm. The seam for that already exists and it is
-`ITransport`: `Vixen.Net.Transport.Relay` is doc 16's owed transport, and `Composite` lets one realm
-accept direct and relayed clients at once. Because the client learns *"an endpoint and a ticket"* from
+`ITransport`: a relay is an addon transport (M-Q1, answered 2026-09-04 — **we do not operate one**), and
+`Composite` lets one realm accept direct and relayed clients at once whoever wrote the relay half. Because the client learns *"an endpoint and a ticket"* from
 the gate and nothing above the transport knows the difference, swapping a direct endpoint for a
 relay-allocated one is a placement decision, not an architecture change. That is the property worth
 protecting, and it is why the endpoint is data rather than configuration.
@@ -1611,7 +1611,7 @@ rolling upgrade mid-run, and which is the exit criterion for the whole document 
 
 | # | Open question | Recommendation |
 |---|---|---|
-| M-Q1 | Ship a relay/proxy transport in-box, or leave it to addons? | **Addon**, consistent with doc 16's Steam/EOS position — but `ITransport` and the endpoint-as-data property are the seam, and both are in L0 |
+| ~~M-Q1~~ | ~~Ship a relay/proxy transport in-box, or leave it to addons?~~ | **Answered 2026-09-04: addon, and no relay is operated** — [#200](https://github.com/Rikarin/Vixen/issues/200), recorded in [16](16-networking.md) § Projects. This recommendation was the standing one all along; ⚠ what was missing was anyone citing it, so the roadmap, `overview.md` and the Composite README all said "no decision recorded" while it sat here. `ITransport` and the endpoint-as-data property remain the seam, and both are in L0, so nothing has to be redesigned if a game brings its own |
 | M-Q2 | Does the gate host chat, or is chat its own service? | **The gate**, until it is not. One WSS connection is the client's whole service plane; splitting it is a scaling decision to make with numbers |
 | M-Q3 | Postgres only, or an abstraction with two implementations from day one? | **One implementation behind an interface.** Two implementations from day one is two half-tested ones, which is ADR-012's argument in a different domain |
 | M-Q4 | Move `Tools/Vixen.App` into `Core/`? | **Yes, separately.** Allow-list the `Live → Tools` edge now so this work is not blocked on that argument |
