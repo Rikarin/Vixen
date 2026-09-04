@@ -1602,6 +1602,39 @@ public class UtilityFamilySupportTests {
         Assert.NotEqual(inherited, painted.Color);
     }
 
+    /// <summary>
+    ///     ⚠ <b><c>fill-none</c> has to reach the icon from where the class is actually written,
+    ///     which is the ancestor.</b> This is the shape <c>accent-*</c> was refused for: a property
+    ///     the engine reads on one element and the author writes on another, where testing it on the
+    ///     element that reads it passes and the class stays dead everywhere it is used. The colour
+    ///     half is proved one test up; a keyword is a different value on the same property, so it
+    ///     rides the same <c>InheritedProperties</c> entry — measured rather than assumed, because
+    ///     "the property inherits" and "this value survives inheritance" are two claims and only one
+    ///     of them had a test.
+    /// </summary>
+    [Fact]
+    public void Fill_none_reaches_an_icon_from_the_ancestor_the_class_is_written_on() {
+        using var ui = Sheet("fill-none", "text-text-muted", "w-8", "h-8", "w-4", "h-4");
+
+        var host = ui.Create("probe", ui.Document.Root, null, "fill-none", "text-text-muted", "w-8", "h-8");
+        var icon = host.Add<Icon>(null, null, "w-4", "h-4");
+
+        icon.Art = new IconArt(
+            new IconPath(new PathBuilder().AddRectangle(new Rectangle(4f, 4f, 16f, 16f)), IconPaint.Foreground)
+        );
+
+        ui.Frame();
+
+        Assert.DoesNotContain(ui.Document.Drawing.Commands, command => command.Kind == DrawCommandKind.Field);
+
+        // ⚠ The half that stops this passing against an icon that never drew at all: the same art at
+        // the same size, one class away, does emit a field.
+        host.RemoveClass("fill-none");
+        ui.Frame();
+
+        Assert.Contains(ui.Document.Drawing.Commands, command => command.Kind == DrawCommandKind.Field);
+    }
+
     /// <summary>The one clip an element's subtree contributes to the frame.</summary>
     /// <remarks>
     ///     ⚠ Sized, because <c>DrawListBuilder</c> gives up on a zero-area box before it ever looks at
