@@ -424,6 +424,28 @@ claiming one name, a loop whose elements have no identity. Every `VXML2xxx` is o
 is deliberately no `VXML3xxx` range, because a second and worse typechecker is exactly what this
 design exists to avoid.
 
+## `@using`, and the one import that had no workaround
+
+```html
+@using Vixen.Ui.Controls
+@using Prefab = Vixen.Editor.AssetEditors.Prefabs.PrefabSource
+```
+
+Either shape is copied verbatim into the generated file, which is the whole of what the directive
+does. The alias is held in `UsingDirectiveSyntax.Alias`, *ahead* of `Name` rather than instead of
+it, so every reader of a using sees the imported thing under one property whichever shape the file
+wrote.
+
+⚠ **The alias half used not to lex at all, and the author was told about a type instead.** `@using`
+took a name and stopped there, so `@using Prefab = A.B.Prefab` emitted `using Prefab;` and what came
+back was `CS0246: the type or namespace name 'Prefab' could not be found` — reported against
+generated line 15, about a type that is right there. Importing the namespace instead is the
+workaround, and it is only a workaround while nothing clashes: a name that needs disambiguating has
+no other spelling. The refusal-with-a-diagnostic that was the alternative would at least have named
+the directive; producing C# that does not compile names nothing.
+
+`@using static` is still not lexed and has the shape of problem the alias had — [#579](https://github.com/Rikarin/Vixen/issues/579).
+
 ## `@tag`, and what a component is called
 
 ```html

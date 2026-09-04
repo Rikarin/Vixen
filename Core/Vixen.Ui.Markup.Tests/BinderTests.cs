@@ -25,6 +25,29 @@ public class BinderTests {
         Assert.Equal(["Vixen.Ui.Controls"], component.Usings);
     }
 
+    /// <summary>
+    ///     An alias is joined here rather than in the emitter, so that the one place that writes
+    ///     <c>using {text};</c> does not have to know an alias exists.
+    /// </summary>
+    [Fact]
+    public void A_using_alias_reaches_the_component_as_one_string() {
+        var component = BindClean("@component A\n@using Prefab = Game.Assets.Prefab\n<div />");
+        Assert.Equal(["Prefab = Game.Assets.Prefab"], component.Usings);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And an alias with nothing after the <c>=</c> reaches nothing at all.</b> The parser
+    ///     has already reported the missing name; carrying half a directive through would turn one
+    ///     diagnostic on the markup into a second one on generated C#.
+    /// </summary>
+    [Fact]
+    public void A_using_alias_with_no_target_is_dropped_rather_than_half_emitted() {
+        var component = Binder.Bind(Vxml.Parse("@component A\n@using Prefab =\n<div />"), out var diagnostics);
+
+        Assert.NotEmpty(diagnostics.Where(d => d.IsError));
+        Assert.Empty(component!.Usings);
+    }
+
     [Fact]
     public void A_tag_directive_reaches_the_bound_component_and_its_absence_is_null() {
         Assert.Equal("task-center", BindClean("@component A\n@tag task-center\n<div />").Tag);

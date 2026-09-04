@@ -47,6 +47,74 @@ public class ParserTests {
         Assert.Equal("Vixen.Ui.Controls", Assert.Single(document.Usings).Name.Text);
     }
 
+    /// <summary>
+    ///     <c>@using X = A.B.C</c>. The alias is held ahead of the name rather than instead of it,
+    ///     so <see cref="UsingDirectiveSyntax.Name" /> means the imported thing whichever shape the
+    ///     file wrote.
+    /// </summary>
+    [Fact]
+    public void A_using_directive_parses_an_alias() {
+        var document = Vxml.ParseClean("""
+            @component Counter
+            @using Prefab = Vixen.Editor.AssetEditors.Prefabs.PrefabSource
+            <panel />
+            """);
+
+        var @using = Assert.Single(document.Usings);
+        Assert.Equal("Prefab", @using.Alias!.Text);
+        Assert.Equal("Vixen.Editor.AssetEditors.Prefabs.PrefabSource", @using.Name.Text);
+    }
+
+    [Fact]
+    public void A_using_directive_without_an_alias_has_none() {
+        var document = Vxml.ParseClean("""
+            @component Counter
+            @using System.Text
+            <panel />
+            """);
+
+        var @using = Assert.Single(document.Usings);
+        Assert.Null(@using.Alias);
+        Assert.Null(@using.EqualsToken);
+        Assert.Equal("System.Text", @using.Name.Text);
+    }
+
+    /// <summary>Whichever shape it is written in, a using still prints back into its file.</summary>
+    [Theory]
+    [InlineData("@component Counter\n@using System\n<panel />")]
+    [InlineData("@component Counter\n@using Text = System.Text\n<panel />")]
+    [InlineData("@component Counter\n@using   Text   =   System.Text  \n<panel />")]
+    public void A_using_prints_back_into_the_file_it_came_from(string source) =>
+        Assert.Equal(source, Vxml.ParseClean(source).ToFullString());
+
+    /// <summary>
+    ///     ⚠ <b>The <c>=</c> is looked for without consuming the whitespace in front of it.</b> A
+    ///     directive hands the lexer straight back to content, where a whitespace run that does not
+    ///     span a line break is <i>text</i> — so a scan that skipped ahead to see whether an alias
+    ///     followed would quietly turn the space after every plain <c>@using X</c> into trivia.
+    ///     Round-tripping cannot see that, because trivia prints too.
+    /// </summary>
+    [Fact]
+    public void The_space_after_a_using_with_no_alias_is_still_text() {
+        var document = Vxml.ParseClean("@component Counter\n@using System <panel />");
+        var text = Assert.IsType<TextSyntax>(document.Content.Items().First());
+
+        Assert.Equal(" ", text.TextToken.Text);
+    }
+
+    /// <summary>
+    ///     An <c>=</c> on the next line belongs to that line, not to the using above it — the scan
+    ///     stops at the break, so this is a plain import followed by content.
+    /// </summary>
+    [Fact]
+    public void An_equals_on_the_next_line_is_not_an_alias() {
+        const string Source = "@component Counter\n@using System\n= x\n<panel />";
+        var document = Vxml.ParseClean(Source);
+
+        Assert.Null(Assert.Single(document.Usings).Alias);
+        Assert.Equal(Source, document.ToFullString());
+    }
+
     [Fact]
     public void A_namespace_directive_parses() {
         var document = Vxml.ParseClean("""

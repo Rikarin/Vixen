@@ -91,14 +91,40 @@
         <Field Name="UsingKeyword" Type="SyntaxToken">
             <Kind Name="UsingKeyword"/>
         </Field>
+        <Field Name="Alias" Type="SyntaxToken" Optional="true">
+            <Kind Name="NameToken"/>
+            <PropertyComment>
+                <summary>
+                    The name on the left of the <c>=</c> in <c>@using Prefab = A.B.Prefab</c>.
+                    Absent for a plain import, which is what makes <see cref="Name" /> mean the
+                    same thing either way.
+                </summary>
+            </PropertyComment>
+        </Field>
+        <Field Name="EqualsToken" Type="SyntaxToken" Optional="true">
+            <Kind Name="EqualsToken"/>
+        </Field>
         <Field Name="Name" Type="SyntaxToken">
             <Kind Name="NameToken"/>
             <PropertyComment>
-                <summary>A dotted namespace, carried whole as one token.</summary>
+                <summary>
+                    A dotted namespace — or, with an alias, the type or namespace it names — carried
+                    whole as one token.
+                </summary>
             </PropertyComment>
         </Field>
         <TypeComment>
-            <summary><c>@using Vixen.Ui.Controls</c> — copied verbatim into the generated file.</summary>
+            <summary>
+                <c>@using Vixen.Ui.Controls</c>, or <c>@using Prefab = A.B.Prefab</c> — copied
+                verbatim into the generated file.
+            </summary>
+            <remarks>
+                ⚠ <b>The alias is stored ahead of the name, not instead of it.</b> Held as one
+                <c>Name</c> that meant the alias when there was one, every reader of a using had to
+                know which shape it was looking at — and the emitter, which does not, wrote
+                <c>using Prefab;</c> for the aliased form and left the author with a
+                <c>CS0246</c> on a line they never typed.
+            </remarks>
         </TypeComment>
     </Node>
 

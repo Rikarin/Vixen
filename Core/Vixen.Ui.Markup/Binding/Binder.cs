@@ -132,11 +132,20 @@ public sealed class Binder {
 
         isElement = document.Inherits is { Name.IsMissing: false };
 
+        // An alias is carried into the model already joined, because the emitter's job is to write
+        // `using {text};` and a model that made it re-assemble the two halves would be a second
+        // place that has to know the alias exists.
         var usings = ImmutableArray.CreateBuilder<string>();
         foreach (var @using in document.Usings) {
-            if (!@using.Name.IsMissing) {
-                usings.Add(@using.Name.Text);
+            if (@using.Name.IsMissing) {
+                continue;
             }
+
+            usings.Add(
+                @using.Alias is { IsMissing: false } alias
+                    ? $"{alias.Text} = {@using.Name.Text}"
+                    : @using.Name.Text
+            );
         }
 
         var code = ImmutableArray.CreateBuilder<BoundExpression>();

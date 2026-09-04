@@ -71,6 +71,35 @@ public class EmitterTests {
         Assert.Empty(Errors(Compile(Emit(Counter))));
 
     /// <summary>
+    ///     ⚠ <b>An aliased <c>@using</c> reaches the generated file whole.</b> Lexed as a name and
+    ///     nothing else, the <c>= A.B.C</c> was dropped and the emitter wrote <c>using Knob;</c> —
+    ///     a namespace nobody declared, so what the author saw was <c>CS0246</c> against a type
+    ///     that is right there, on a generated line they never wrote. The alias is the one shape of
+    ///     import with no workaround, because a name that needs disambiguating cannot be spelled
+    ///     any other way.
+    /// </summary>
+    [Fact]
+    public void A_using_alias_survives_into_the_generated_file() {
+        const string Elsewhere = """
+                                 namespace Far.Away { public class Knob { public int Turns => 3; } }
+                                 """;
+
+        const string Source = """
+                              @component Greeter
+                              @using Knob = Far.Away.Knob
+
+                              @code {
+                                  private readonly Knob _knob = new();
+                                  private int Turns => _knob.Turns;
+                              }
+
+                              <div>@Turns</div>
+                              """;
+
+        Assert.Empty(Errors(Compile(Emit(Source), Elsewhere)));
+    }
+
+    /// <summary>
     ///     The claim the whole design rests on. The binder resolves no types at all; it can afford
     ///     not to because a wrong expression is reported by Roslyn, against the characters in the
     ///     <c>.vxml</c> rather than against generated code the author has never seen.
