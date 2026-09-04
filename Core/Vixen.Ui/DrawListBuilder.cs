@@ -1468,7 +1468,15 @@ public sealed class DrawListBuilder {
                         DrawCommandKind.Text,
                         x + line.PenOf(i),
                         y,
-                        run.Width,
+
+                        // ⚠ The line's width for this run and not the run's own, which differ only
+                        // for a tab — whose advance is the distance to the next stop and so is a
+                        // fact about where it sits. A tab run is unreachable here today, because it
+                        // places no glyphs and the `placed.Count == 0` test above skips it; that
+                        // makes `run.Width` correct by accident rather than by construction, and
+                        // the accident is one `Place` change away from emitting a command as wide
+                        // as whatever .notdef the face has for U+0009.
+                        line.WidthOf(i),
                         line.Height,
                         color,
                         0f,
