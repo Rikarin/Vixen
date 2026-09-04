@@ -37,6 +37,16 @@
         <Compile Include="..\Vixen.Editor.Plugin.Tests\PluginFolder.cs" Link="PluginFolder.cs" />
 
         <!--
+            And the throwaway file system the headless platform is pointed at, linked for the reason
+            above: `EditorHostTests` runs a real `EditorHost`, which writes a layout, a keymap and a
+            window placement on the way down — into the developer's home directory unless something
+            says otherwise. A third copy of thirty lines that already exist twice would be the
+            drift this project already refuses.
+        -->
+        <Compile Include="..\..\Platform\Vixen.Platform.Headless.Tests\TemporaryFileSystemHost.cs"
+                 Link="TemporaryFileSystemHost.cs" />
+
+        <!--
             The editor's own tool modules, which the head embeds and this project cannot reach. The
             capture builds a real `FramePresenter`, whose line and mesh pipelines a device refuses
             without valid SPIR-V — and a `UiRenderer`, because `Resize` registers the pane's texture
@@ -88,6 +98,14 @@
             scenario tests, the golden suite and anybody's plugin have to each rewrite.
         -->
         <ProjectReference Include="..\Vixen.Editor.Testing\Vixen.Editor.Testing.csproj" />
+
+        <!--
+            The platform with nothing attached, which is what `EditorHostTests` builds the host over.
+            One reference and one fixture is the whole cost of running the editor's own frame loop:
+            `EditorHost` takes an `IPlatform` and an `IWindow`, and a headless window's surface
+            cannot present, so the loop runs its nine CPU steps and returns before Vulkan.
+        -->
+        <ProjectReference Include="..\..\Platform\Vixen.Platform.Headless\Vixen.Platform.Headless.csproj" />
 
         <!--
             The picker fixture below declares [Inspector] members of its own, so this assembly needs

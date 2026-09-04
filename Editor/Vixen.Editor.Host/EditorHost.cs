@@ -315,12 +315,12 @@ sealed class EditorHost : IDisposable {
             // the other is `UiApplication` — and a host that forgets it is a host where every
             // `cursor-*` class in every theme resolves correctly and shows nothing.
             //
-            // ⚠ THE OTHER ONE IS TESTED AND THIS ONE IS NOT, and the gap is the loop rather than the
-            // line. `UiApplicationTests.TheLoopTellsTheWindowWhatThePointerIsOver` asserts the twin
-            // against a real headless window; nothing builds an `EditorHost` at all — `grep -rn "new
-            // EditorHost"` has one hit, in `Program.cs` — so every step of this loop is uncovered and
-            // singling this one out would give false comfort about the rest. Recorded, with the
-            // route that was costed and declined, in `PlatformCursorTests`' class remarks.
+            // ⚠ The gap here was the loop rather than the line, and the loop is covered now:
+            // `EditorHostTests` builds this host over a headless platform and runs frames through
+            // it, so every step above and below is reached by a test. What is still asserted only
+            // against the *other* host is what this call hands the window —
+            // `UiApplicationTests.TheLoopTellsTheWindowWhatThePointerIsOver`, and
+            // `PlatformCursorTests`' class remarks say why the assertion is there and not here.
             PlatformCursor.Apply(windows);
 
             // ⚠ Between the two, and it is not arbitrary. A viewport measures itself in render pixels
