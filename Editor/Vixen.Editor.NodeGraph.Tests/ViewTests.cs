@@ -544,6 +544,59 @@ public class ViewTests : IDisposable {
     }
 
     /// <summary>
+    ///     ⚠ <b>What keeps a press inside a note from stealing the note's focus is the field, not
+    ///     the canvas.</b> <c>NodeCanvas.Pointed</c> carried a second arm declining a primary press
+    ///     under any <c>TextField</c>, with a written rationale about <c>Begin</c> focusing the
+    ///     canvas — and narrowing that guard back to ports alone left both suites green, which is
+    ///     the shape this repository treats as a defect.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         This is the measurement that settles it. <c>TextField.Pointed</c> marks a primary
+    ///         press <c>Handled</c> where it places the caret, and the canvas subscribes with
+    ///         <c>AddHandler&lt;PointerEvent&gt;</c> — whose <c>handledEventsToo</c> defaults to
+    ///         false — so the press reaches the canvas already handled and <c>Pointed</c> is never
+    ///         called at all. The arm could not run, which is why deleting it changed nothing and
+    ///         why no assertion about focus could ever have seen it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is the <c>Handled</c> flag that is asserted and not the focus.</b> A test
+    ///         asking who has the focus passes whether the field's own handler protected it or the
+    ///         canvas's guard did — which is exactly the predicate that could not fail, measured
+    ///         before this was written. This one is red the moment the field stops marking the press
+    ///         handled, which is the only thing standing between a note and a canvas that focuses
+    ///         itself.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_press_in_a_notes_editor_reaches_the_canvas_already_handled() {
+        var (comment, note) = Noted();
+
+        Assert.True(View.BeginEditingComment(comment));
+        fixture.Update();
+
+        List<bool> presses = [];
+
+        fixture.Canvas.AddHandler<PointerEvent>(
+            (_, args) => {
+                if (args.Action == PointerAction.Pressed) {
+                    presses.Add(args.Handled);
+                }
+            },
+            RoutingStrategy.Bubble,
+            handledEventsToo: true
+        );
+
+        fixture.Click(note.Editor);
+
+        Assert.Equal([true], presses);
+
+        // And the consequence, which is the thing a user would notice: the caret stayed.
+        Assert.Same(note.Editor, fixture.Ui.Focused);
+        Assert.True(note.IsEditing);
+    }
+
+    /// <summary>
     ///     ⚠ A caret that appears, takes a paragraph and then quietly discards it is worse than one
     ///     that never appeared.
     /// </summary>

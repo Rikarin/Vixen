@@ -235,20 +235,75 @@ code to which an absent key is an answer.
 
 The names are `tap`, `click`, `dblclick`, `longpress`, `pointerdown`, `pointerup`, `pointermove`,
 `dragstart`, `drag`, `dragend`, `keydown`, `keyup`, `textinput`, `focus`, `blur` and — where
-`Vixen.Ui.Controls` is referenced — `submit`. `keydown` and `keyup` split one `KeyEvent` on its
-action, the way `focus` and `blur` split one `FocusEvent` and the two pointer names split a
-`PointerEvent`.
+`Vixen.Ui.Controls` is referenced — `submit`.
+
+#### Most of those names are a filtered view over one routed event
+
+| The event | The names over it | What each one is |
+|---|---|---|
+| `PointerEvent` | `pointerdown`, `pointerup`, `pointermove` | its `Action` |
+| `DragEvent` | `dragstart`, `drag`, `dragend` | its `Stage`: `Started`, `Moved`, and `Completed` **or** `Cancelled` |
+| `KeyEvent` | `keydown`, `keyup` | its `Action` |
+| `FocusEvent` | `focus`, `blur` | whether focus was gained |
+| `TapEvent` | `tap`, `click`, `dblclick` | `dblclick` is a tap whose `Count` reached two |
+
+The filter is in the table rather than in your handler, which is the point: a handler that tested
+`args.Action` itself would be a handler that fires twice per keystroke until somebody notices.
+
+⚠ **So a handler that wants a whole gesture subscribes to every name it is split across, and
+`on:drag` on its own is the *middle* of a drag.** `AddHandler<DragEvent>` in C# delivers all four
+stages; one `on:drag` translated from one of those compiles, binds, fires on every pointer move —
+and never sees the grab or the drop. Nothing is grabbed, nothing is dropped, and there is no
+exception and no diagnostic to say so; what it looks like is a drag that reorders nothing. Three
+attributes on one handler is the shape that works:
+
+```xml
+<Expander on:dragstart="@((DragEvent args) => Rearrange(args))"
+          on:drag="@((DragEvent args) => Rearrange(args))"
+          on:dragend="@((DragEvent args) => Rearrange(args))" />
+```
+
+`ComponentsView` is written that way, and `Drag_is_three_names_over_one_event_and_on_drag_is_the_middle_one`
+in `Vixen.Ui.Tests` is what keeps the split honest. ⚠ Note that `dragend` covers `Cancelled` as well
+as `Completed` — a cancelled drag is the one a handler must not miss, because it is the one that has
+to put back whatever the grab took.
 
 ⚠ **`keydown` is a key's *position* and `textinput` is what was typed.** `KeyEvent.Key` is the
 US-QWERTY legend of the physical key, so a handler that reads a letter out of it types `q` where an
 AZERTY keyboard says `a`. Escape, Tab and the arrows are `keydown`; letters are `textinput`.
 
-The modifiers are `.stop`, `.capture`, `.once`, `.self` and `.handled`. **`.capture` is what a panel
+The modifiers are `.stop`, `.capture`, `.once`, `.self`, `.handled` and `.slot-<name>`. **`.capture` is what a panel
 over a text field needs**: it listens on the way *down* the tree, so Down and Enter reach the list
 before the search box inside it treats them as caret movement and submit. **`.handled` is for a
 listener that wants to know an event happened rather than to act on it** — a focus manager, a
 diagnostic overlay, a panel that closes on any press — because an event something downstream has
 marked handled does not otherwise reach a handler at all.
+
+#### `.slot-<name>`, for a handler on a control's part
+
+```xml
+<Expander Label="@row.Name"
+          on:dragstart.slot-header="@((DragEvent args) => Rearrange(row, args))"
+          on:drag.slot-header="@((DragEvent args) => Rearrange(row, args))"
+          on:dragend.slot-header="@((DragEvent args) => Rearrange(row, args))" />
+```
+
+`slot="header"` writes *children* into a control's part. This writes a *handler* onto one, and it is
+the only modifier that is a name rather than a word — because it is the only one that moves the
+subscription instead of qualifying it. The generated call is
+`ctx.On(BuildContext.Into(n1, "header"), "dragstart", …)`, which is exactly what a hand-written panel
+says with `fold.Header.AddHandler<DragEvent>(…)`.
+
+⚠ **The difference is not cosmetic on a foldout.** A drag handler on the whole `Expander` fires for a
+pointer that came down on a slider *inside* the component being dragged; one on the header fires only
+for the strip that is meant to be a grab handle. Standing in for it means walking up from
+`args.Source` looking for a header — eleven lines in `ComponentsView`, and a set of events that is
+equal to what the part would have seen only if the walk is exactly right.
+
+The name is the control's, from `UiElement.NamedHost` — `slot-header` on a control that publishes no
+`header` throws from `Into`, naming the control and the slot, at the moment the panel is built. It
+reaches a **control's part**; a component's own `<slot>` is where its children go, and `on:` on a
+component tag addresses that component's host element.
 
 ### `<self />`, for a handler on the component's own element
 

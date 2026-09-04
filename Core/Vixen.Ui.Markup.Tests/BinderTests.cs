@@ -25,6 +25,29 @@ public class BinderTests {
         Assert.Equal(["Vixen.Ui.Controls"], component.Usings);
     }
 
+    /// <summary>
+    ///     An alias is joined here rather than in the emitter, so that the one place that writes
+    ///     <c>using {text};</c> does not have to know an alias exists.
+    /// </summary>
+    [Fact]
+    public void A_using_alias_reaches_the_component_as_one_string() {
+        var component = BindClean("@component A\n@using Prefab = Game.Assets.Prefab\n<div />");
+        Assert.Equal(["Prefab = Game.Assets.Prefab"], component.Usings);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And an alias with nothing after the <c>=</c> reaches nothing at all.</b> The parser
+    ///     has already reported the missing name; carrying half a directive through would turn one
+    ///     diagnostic on the markup into a second one on generated C#.
+    /// </summary>
+    [Fact]
+    public void A_using_alias_with_no_target_is_dropped_rather_than_half_emitted() {
+        var component = Binder.Bind(Vxml.Parse("@component A\n@using Prefab =\n<div />"), out var diagnostics);
+
+        Assert.NotEmpty(diagnostics.Where(d => d.IsError));
+        Assert.Empty(component!.Usings);
+    }
+
     [Fact]
     public void A_tag_directive_reaches_the_bound_component_and_its_absence_is_null() {
         Assert.Equal("task-center", BindClean("@component A\n@tag task-center\n<div />").Tag);
@@ -276,6 +299,11 @@ public class BinderTests {
     [InlineData("@component A\n<div bind:value=\"x\" />", "VXML2003")]
     [InlineData("@component A\n<div at:click=\"@Go\" />", "VXML2006")]
     [InlineData("@component A\n<div on:click.stopp=\"@Go\" />", "VXML2007")]
+
+    // ⚠ `slot-` with nothing after it is not a slot modifier. A nameless slot reaches
+    // `NamedHost("")`, which every control answers with null, so the run-time "publishes no slot
+    // named ''" would be a worse report than this one — and it would arrive a build later.
+    [InlineData("@component A\n<Foldout on:click.slot-=\"@Go\" />", "VXML2007")]
     [InlineData("@component A\n<Callout data-id=\"1\" />", "VXML2008")]
     [InlineData("@component A\n@code { int a; }", "VXML2009")]
     [InlineData("@component A\n<div><self on:click=\"@Go\" /></div>", "VXML2015")]
@@ -283,6 +311,20 @@ public class BinderTests {
     [InlineData("@component A\n@for (var i in xs) { <self key=\"@i\" on:click=\"@Go\" /> }", "VXML2015")]
     public void The_structural_mistakes_a_C_sharp_compiler_would_never_see(string source, string expected) =>
         Assert.Contains(expected, Ids(source));
+
+    /// <summary>
+    ///     A slot modifier is carried like any other and read by the emitter, which is what keeps
+    ///     the binder out of the business of knowing what a control's parts are.
+    /// </summary>
+    [Fact]
+    public void A_slot_modifier_is_accepted_and_carried() {
+        var attribute = FirstElement("@component A\n<Foldout on:dragstart.slot-header.stop=\"@Go\" />")
+            .Attributes.Single();
+
+        Assert.Equal(BoundAttributeKind.Event, attribute.Kind);
+        Assert.Equal("dragstart", attribute.Name);
+        Assert.Equal(["slot-header", "stop"], attribute.Modifiers);
+    }
 
     /// <summary>
     ///     ⚠ <b><c>&lt;self /&gt;</c> at the top level is the whole of where it is allowed, and the

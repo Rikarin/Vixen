@@ -25,26 +25,27 @@ namespace Vixen.Platform.Ui.Tests;
 ///         argument rather than a measurement.
 ///     </para>
 ///     <para>
-///         <b>It was looked at and deliberately not closed.</b> The route is cheap on paper —
-///         <c>Vixen.Editor.App.Tests</c> already links the <c>Vixen.Editor.Host</c> assembly through
-///         <c>Vixen.Editor.Testing</c> and already has its <c>InternalsVisibleTo</c>, so the fixture
-///         costs one <c>ProjectReference</c> to <c>Vixen.Platform.Headless</c> and one
-///         <c>[Fact]</c>; <c>EditorHost</c> takes only an <c>IPlatform</c> and an <c>IWindow</c> and
-///         runs headless by design. What stopped it is what such a test would <i>mean</i>: the class
-///         exposes no document and no per-frame hook, so the pointer would have to be posted through
-///         <c>HeadlessPlatform.Post</c> and the assertion would ride on whatever the startup Project
-///         Browser happens to render — and reaching that assertion means booting
-///         <c>EditorModules.Standard()</c>, the greeter and the data directory, so the test would go
-///         red for any editor startup regression while wearing the name of a cursor test.
+///         ⚠ <b>The honest statement of the gap was never "one cursor call is untested".</b>
+///         <c>grep -rn "new EditorHost"</c> found exactly one hit, <c>Program.cs</c>: nothing in any
+///         suite built one, so <c>EditorHost.Run</c>'s whole frame loop was uncovered — pump, resize
+///         coalescing, tick, document update, <b>this call</b>, editor update, draw, sync, geometry,
+///         present. Asserting the cursor line alone would have given false comfort about the other
+///         nine, which is why what was owed was a host smoke test rather than a cursor assertion.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the honest statement of the gap is not "one cursor call is untested".</b>
-///         <c>grep -rn "new EditorHost"</c> finds exactly one hit, <c>Program.cs:102</c>. Nothing in
-///         any suite builds one, so <c>EditorHost.Run</c>'s whole frame loop is uncovered — pump,
-///         resize coalescing, tick, document update, <b>this call</b>, editor update, draw, sync,
-///         geometry, present. Testing the cursor line alone would give false comfort about the other
-///         nine. What is owed is an editor-host smoke test, not a cursor assertion, and it is owed by
-///         whoever wants the smoke test rather than by whoever last touched cursors.
+///         ✅ <b>That smoke test exists now — <c>Vixen.Editor.App.Tests.EditorHostTests</c></b>, and
+///         it cost what this remark predicted: one <c>ProjectReference</c> to
+///         <c>Vixen.Platform.Headless</c>, one linked temporary file-system host, and four facts.
+///         The loop is reached, goes round more than once, runs its one-shot command on the first
+///         drawn frame, and writes the layout and the window placement on the way down.
+///     </para>
+///     <para>
+///         ⚠ <b>It still does not assert what <see cref="PlatformCursor.Apply" /> does there</b>, and
+///         the reason is unchanged: <c>EditorHost</c> exposes no document and no per-frame hook, so a
+///         pointer would have to be posted through <c>HeadlessPlatform.Post</c> and the assertion
+///         would ride on whatever the startup Project Browser happens to render. What the smoke test
+///         buys is that the line is <i>reached</i> every frame; what it is handed is still only
+///         checked here, against the other host.
 ///     </para>
 /// </remarks>
 public class PlatformCursorTests {

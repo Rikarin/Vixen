@@ -345,6 +345,7 @@ sealed class VxmlLexer {
             Emit(tokens, VxmlTokenKind.UsingKeyword, 6);
             SkipWhitespace(tokens);
             LexName(tokens);
+            LexUsingAlias(tokens);
             return;
         }
 
@@ -401,6 +402,34 @@ sealed class VxmlLexer {
         }
 
         LexInterpolation(tokens);
+    }
+
+    /// <summary>
+    ///     The <c>= A.B.C</c> half of <c>@using Prefab = A.B.Prefab</c>, if this using has one.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The <c>=</c> is looked for without consuming anything.</b> A directive hands the
+    ///     lexer straight back to content, where a whitespace run that does not span a line break
+    ///     is <i>text</i> — so skipping ahead to find out whether an <c>=</c> follows would turn
+    ///     the space after every plain <c>@using X</c> into trivia. The scan also stops at a line
+    ///     break, because an <c>=</c> on the next line belongs to whatever that line is.
+    /// </remarks>
+    void LexUsingAlias(List<LexedToken> tokens) {
+        var gap = 0;
+        while (IsWhitespace(window.Peek(gap)) && !IsNewLine(window.Peek(gap))) {
+            gap++;
+        }
+
+        // `==` is not an alias, and reading it as one would turn a typo into two tokens the parser
+        // then has to explain.
+        if (window.Peek(gap) != '=' || window.Peek(gap + 1) == '=') {
+            return;
+        }
+
+        SkipWhitespace(tokens);
+        Emit(tokens, VxmlTokenKind.Equals, 1);
+        SkipWhitespace(tokens);
+        LexName(tokens);
     }
 
     bool AtDirective(string name) {

@@ -71,6 +71,35 @@ public class EmitterTests {
         Assert.Empty(Errors(Compile(Emit(Counter))));
 
     /// <summary>
+    ///     ⚠ <b>An aliased <c>@using</c> reaches the generated file whole.</b> Lexed as a name and
+    ///     nothing else, the <c>= A.B.C</c> was dropped and the emitter wrote <c>using Knob;</c> —
+    ///     a namespace nobody declared, so what the author saw was <c>CS0246</c> against a type
+    ///     that is right there, on a generated line they never wrote. The alias is the one shape of
+    ///     import with no workaround, because a name that needs disambiguating cannot be spelled
+    ///     any other way.
+    /// </summary>
+    [Fact]
+    public void A_using_alias_survives_into_the_generated_file() {
+        const string Elsewhere = """
+                                 namespace Far.Away { public class Knob { public int Turns => 3; } }
+                                 """;
+
+        const string Source = """
+                              @component Greeter
+                              @using Knob = Far.Away.Knob
+
+                              @code {
+                                  private readonly Knob _knob = new();
+                                  private int Turns => _knob.Turns;
+                              }
+
+                              <div>@Turns</div>
+                              """;
+
+        Assert.Empty(Errors(Compile(Emit(Source), Elsewhere)));
+    }
+
+    /// <summary>
     ///     The claim the whole design rests on. The binder resolves no types at all; it can afford
     ///     not to because a wrong expression is reported by Roslyn, against the characters in the
     ///     <c>.vxml</c> rather than against generated code the author has never seen.
@@ -179,6 +208,64 @@ public class EmitterTests {
 
         Assert.Contains("'Fastt' is not a DialMode", cause.Message, StringComparison.Ordinal);
         Assert.Contains("Slow, Fast", cause.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ <b><c>slot-header</c> moves the subscription onto the control's part.</b>
+    ///     <c>slot="header"</c> has given markup a spelling for writing <i>children</i> into a
+    ///     part since it landed, and there was none for putting a <i>handler</i> on one — <c>on:</c>
+    ///     is an attribute on a tag and a part is not a tag. `ComponentsView` stood eleven lines of
+    ///     walking up from <c>args.Source</c> in for it. What the emitter writes is the call the
+    ///     hand-written panel made, <c>fold.Header.AddHandler&lt;DragEvent&gt;(…)</c>, and not a
+    ///     filter over the source that agrees with it most of the time.
+    /// </summary>
+    [Fact]
+    public void A_slot_modifier_subscribes_to_the_controls_part_rather_than_to_the_control() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui
+
+                              @code {
+                                  public System.Collections.Generic.List<string> Seen { get; } = [];
+                              }
+
+                              <Foldout on:click.slot-header='@((UiEvent e) => Seen.Add("header"))' />
+                              """;
+
+        var (component, instance, document) = Run(Source);
+
+        using var owned = document;
+        var foldout = component.Root.Children.Single();
+        var header = foldout.Children.Single();
+        var seen = (System.Collections.IEnumerable)Property(instance, "Seen");
+
+        Assert.Equal("foldout-header", header.Tag);
+
+        // The part hears it.
+        header.Raise(new TapEvent { Count = 1 });
+        Assert.Equal(["header"], seen.Cast<string>());
+
+        // ⚠ And the control does not, which is the half a subscription on the control would pass
+        // anyway: an event raised on the foldout itself never reaches a handler on a child of it,
+        // so this is the assertion that fails when the modifier is ignored.
+        foldout.Raise(new TapEvent { Count = 1 });
+        Assert.Equal(["header"], seen.Cast<string>());
+    }
+
+    /// <summary>A control that publishes no such part says so, naming both.</summary>
+    [Fact]
+    public void A_slot_modifier_naming_a_part_the_control_does_not_have_says_which() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui
+
+                              <Foldout on:click.slot-footer="@((UiEvent e) => { })" />
+                              """;
+
+        var thrown = Assert.Throws<TargetInvocationException>(() => Run(Source));
+        var cause = Assert.IsType<InvalidOperationException>(thrown.InnerException);
+
+        Assert.Contains("no slot named 'footer'", cause.Message, StringComparison.Ordinal);
     }
 
     [Fact]

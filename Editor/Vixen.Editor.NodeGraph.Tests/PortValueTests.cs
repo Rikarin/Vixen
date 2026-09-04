@@ -249,9 +249,13 @@ public class PortValueTests : IDisposable {
     // ── The gestures it has to take away from the canvas ─────────────────────
 
     /// <remarks>
-    ///     ⚠ The press lands on a <c>NodePortView</c>, which is the element a wire is dragged from —
-    ///     so without the guard a click into a number box starts a wire from the port it belongs to
-    ///     and the field never sees the press it was aimed at.
+    ///     ⚠ <b>This passes with the canvas's guard deleted, and the remark here used to claim
+    ///     otherwise.</b> A number box is a <c>NumericInput</c>, which is a <c>TextField</c>, which
+    ///     marks a primary press <c>Handled</c> where it places the caret — so the press never
+    ///     reaches <c>NodeCanvas.Pointed</c> and no guard of the canvas's is what protects it. What
+    ///     is asserted below is the behaviour, which is worth having; what it is <i>evidence</i> for
+    ///     is the field's own handler. See #505 and
+    ///     <c>ViewTests.A_press_in_a_notes_editor_reaches_the_canvas_already_handled</c>.
     /// </remarks>
     [Fact]
     public void Pressing_a_number_box_does_not_start_a_wire() {
@@ -264,6 +268,44 @@ public class PortValueTests : IDisposable {
 
         Assert.Null(View.Canvas.PendingPort);
         Assert.Empty(View.Selection);
+        Assert.Same(box, fixture.Ui.Focused);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The lane letter is what the canvas's remaining guard is actually for.</b> The
+    ///     <c>X</c> beside a number is a plain element inside the port's editor — no field, no
+    ///     control, nobody marking the press handled — so unlike a press in the box it does reach
+    ///     <c>NodeCanvas.Pointed</c>, where <c>Begin</c> would focus the canvas and take the caret
+    ///     out of the box the person is typing in. Missing a number box by three pixels is the
+    ///     ordinary way to do that.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Pressed and not clicked, and the difference is the whole of whether the wire half
+    ///     can fail.</b> A release finishes whatever drag the press began, so <c>PendingPort</c>
+    ///     reads null after a full click whether or not a wire was ever pending — which is the
+    ///     predicate that cannot fail #505 was filed about. Both assertions below were measured red
+    ///     with <c>Under&lt;NodePortEditor&gt;</c> deleted: the press starts a wire from the port
+    ///     the row belongs to, and <c>Begin</c> focuses the canvas on its way there. The
+    ///     <c>TextField</c> arm that used to sit beside this one had no reachable case at all and is
+    ///     gone.
+    /// </remarks>
+    [Fact]
+    public void Pressing_a_lane_letter_starts_nothing_and_leaves_the_caret_where_it_was() {
+        var node = graph.Add("Test/Named", new(60f, 60f));
+        fixture.Update();
+
+        var fields = Fields(node.Id, "Base Colour");
+        var box = fields.Boxes[0];
+
+        fixture.Click(box);
+        Assert.Same(box, fixture.Ui.Focused);
+
+        var lane = fields.Children.First(child => child.Tag == "node-port-lane" && child.Bounds.Width > 0f);
+        var bounds = lane.Bounds;
+
+        fixture.Press(bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f));
+
+        Assert.Null(View.Canvas.PendingPort);
         Assert.Same(box, fixture.Ui.Focused);
     }
 

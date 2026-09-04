@@ -325,10 +325,21 @@ sealed class VxmlParser : SyntaxParser {
         return SyntaxFactory.ComponentDirective(keyword, identifier);
     }
 
+    /// <remarks>
+    ///     The first name is the alias only once an <c>=</c> has been seen, so it is parsed as one
+    ///     name and moved. Deciding earlier would need a token of lookahead the parser does not
+    ///     otherwise take.
+    /// </remarks>
     UsingDirectiveSyntax ParseUsingDirective() {
         var keyword = Take(SyntaxKind.UsingKeyword);
-        var name = Expect(VxmlTokenKind.Name, SyntaxKind.NameToken);
-        return SyntaxFactory.UsingDirective(keyword, name);
+        var first = Expect(VxmlTokenKind.Name, SyntaxKind.NameToken);
+
+        if (!At(VxmlTokenKind.Equals)) {
+            return SyntaxFactory.UsingDirective(keyword, null, null, first);
+        }
+
+        var equals = Take(SyntaxKind.EqualsToken);
+        return SyntaxFactory.UsingDirective(keyword, first, equals, Expect(VxmlTokenKind.Name, SyntaxKind.NameToken));
     }
 
     NamespaceDirectiveSyntax ParseNamespaceDirective() {

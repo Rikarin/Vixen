@@ -424,6 +424,28 @@ claiming one name, a loop whose elements have no identity. Every `VXML2xxx` is o
 is deliberately no `VXML3xxx` range, because a second and worse typechecker is exactly what this
 design exists to avoid.
 
+## `@using`, and the one import that had no workaround
+
+```html
+@using Vixen.Ui.Controls
+@using Prefab = Vixen.Editor.AssetEditors.Prefabs.PrefabSource
+```
+
+Either shape is copied verbatim into the generated file, which is the whole of what the directive
+does. The alias is held in `UsingDirectiveSyntax.Alias`, *ahead* of `Name` rather than instead of
+it, so every reader of a using sees the imported thing under one property whichever shape the file
+wrote.
+
+⚠ **The alias half used not to lex at all, and the author was told about a type instead.** `@using`
+took a name and stopped there, so `@using Prefab = A.B.Prefab` emitted `using Prefab;` and what came
+back was `CS0246: the type or namespace name 'Prefab' could not be found` — reported against
+generated line 15, about a type that is right there. Importing the namespace instead is the
+workaround, and it is only a workaround while nothing clashes: a name that needs disambiguating has
+no other spelling. The refusal-with-a-diagnostic that was the alternative would at least have named
+the directive; producing C# that does not compile names nothing.
+
+`@using static` is still not lexed and has the shape of problem the alias had — [#579](https://github.com/Rikarin/Vixen/issues/579).
+
 ## `@tag`, and what a component is called
 
 ```html
@@ -624,6 +646,27 @@ attribute anywhere emits exactly the call it always emitted.
     <section-body>0, 0, 0</section-body>
 </Expander>
 ```
+
+### A handler on a part, which is the other half of the same gap
+
+⚠ **Filling a part and subscribing to one are two questions, and only the first had an answer.**
+`on:` is an attribute on a tag and a part is not a tag, so a panel that wanted a drag on the *header*
+of a foldout — rather than on the whole foldout, which also drags when a slider inside the component
+is dragged — had to subscribe on the control and reconstruct the answer by walking up from
+`args.Source`. That is eleven lines in `ComponentsView`, and equal to what the part would have seen
+only if the walk is exactly right.
+
+`on:dragstart.slot-header="…"` is the spelling. It is the one modifier that is a name rather than a
+word, because it is the one that *moves* the subscription instead of qualifying it — and the
+runtime never sees it: the emitter writes
+
+```csharp
+ctx.On(global::Vixen.Ui.Composition.BuildContext.Into(n1, "header"), "dragstart", …);
+```
+
+which is the call the hand-written panel made. A control that publishes no such part throws from
+`Into`, naming both. `slot-` with nothing after it is `VXML2007`, because a nameless slot would
+otherwise reach `NamedHost("")` and fail a build later with a worse message.
 
 ⚠ **A slot appends, so anything that belongs in *front* of the header's own parts says so with
 `order`.** The header already holds the chevron and the label; slotted children land after them.

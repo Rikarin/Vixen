@@ -450,9 +450,13 @@ Vixen.Ui.Markup.Syntax.TextSyntax.Update(Vixen.Core.Syntax.SyntaxToken textToken
 Vixen.Ui.Markup.Syntax.TextSyntax.WithTextToken(Vixen.Core.Syntax.SyntaxToken textToken) -> Vixen.Ui.Markup.Syntax.TextSyntax
 Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax -> sealed class
 Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax : Vixen.Ui.Markup.Syntax.DirectiveSyntax
+Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.Alias.get -> Vixen.Core.Syntax.SyntaxToken?
+Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.EqualsToken.get -> Vixen.Core.Syntax.SyntaxToken?
 Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.Name.get -> Vixen.Core.Syntax.SyntaxToken
-Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.Update(Vixen.Core.Syntax.SyntaxToken usingKeyword, Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax
+Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.Update(Vixen.Core.Syntax.SyntaxToken usingKeyword, Vixen.Core.Syntax.SyntaxToken? alias, Vixen.Core.Syntax.SyntaxToken? equalsToken, Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax
 Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.UsingKeyword.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.WithAlias(Vixen.Core.Syntax.SyntaxToken alias) -> Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax
+Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.WithEqualsToken(Vixen.Core.Syntax.SyntaxToken equalsToken) -> Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax
 Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.WithName(Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax
 Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.WithUsingKeyword(Vixen.Core.Syntax.SyntaxToken usingKeyword) -> Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax
 Vixen.Ui.Markup.Syntax.VxmlSyntaxExtensions -> static class
@@ -574,7 +578,7 @@ static Vixen.Ui.Markup.Syntax.SyntaxFactory.Switch(Vixen.Core.Syntax.SyntaxToken
 static Vixen.Ui.Markup.Syntax.SyntaxFactory.SwitchSection(Vixen.Core.Syntax.SyntaxToken keyword, Vixen.Core.Syntax.SyntaxToken? pattern, Vixen.Core.Syntax.SyntaxToken colonToken, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content) -> Vixen.Ui.Markup.Syntax.SwitchSectionSyntax
 static Vixen.Ui.Markup.Syntax.SyntaxFactory.TagDirective(Vixen.Core.Syntax.SyntaxToken tagKeyword, Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.TagDirectiveSyntax
 static Vixen.Ui.Markup.Syntax.SyntaxFactory.Text(Vixen.Core.Syntax.SyntaxToken textToken) -> Vixen.Ui.Markup.Syntax.TextSyntax
-static Vixen.Ui.Markup.Syntax.SyntaxFactory.UsingDirective(Vixen.Core.Syntax.SyntaxToken usingKeyword, Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.UsingDirective(Vixen.Core.Syntax.SyntaxToken usingKeyword, Vixen.Core.Syntax.SyntaxToken? alias, Vixen.Core.Syntax.SyntaxToken? equalsToken, Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax
 static Vixen.Ui.Markup.Syntax.SyntaxFacts.GetText(Vixen.Ui.Markup.Syntax.SyntaxKind kind) -> string
 static Vixen.Ui.Markup.Syntax.SyntaxFacts.IsComponentName(string name) -> bool
 static Vixen.Ui.Markup.Syntax.SyntaxTree.ParseText(string text, string? path = "", System.Text.Encoding? encoding = null) -> Vixen.Ui.Markup.Syntax.SyntaxTree

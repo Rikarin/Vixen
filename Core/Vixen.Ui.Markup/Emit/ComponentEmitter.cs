@@ -596,8 +596,23 @@ public sealed class ComponentEmitter {
                 break;
 
             case BoundAttributeKind.Event when attribute.Expression is { } handler: {
-                var modifiers = string.Concat(attribute.Modifiers.Select(m => $", {Quote(m)}"));
-                Mapped(handler, $"{context}.On({Target(element, name)}, {Quote(attribute.Name)}, ", $"{modifiers});");
+                // ⚠ `slot-header` moves the subscription rather than qualifying it, so it is the one
+                // modifier the runtime never sees: what comes out is
+                // `ctx.On(BuildContext.Into(n1, "header"), …)`, which is the call a hand-written
+                // panel makes — `fold.Header.AddHandler<DragEvent>(…)` — and not a filter over
+                // `args.Source` that agrees with it most of the time. A control that publishes no
+                // such part says so from `Into`, naming the control and the slot.
+                var slot = attribute.Modifiers.Select(Binder.SlotOf).FirstOrDefault(one => one is not null);
+
+                var modifiers = string.Concat(
+                    attribute.Modifiers.Where(m => Binder.SlotOf(m) is null).Select(m => $", {Quote(m)}")
+                );
+
+                var target = slot is null
+                    ? Target(element, name)
+                    : $"{RuntimeNamespace}.BuildContext.Into({Target(element, name)}, {Quote(slot)})";
+
+                Mapped(handler, $"{context}.On({target}, {Quote(attribute.Name)}, ", $"{modifiers});");
                 break;
             }
 
