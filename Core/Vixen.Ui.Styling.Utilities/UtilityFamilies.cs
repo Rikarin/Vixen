@@ -1003,6 +1003,28 @@ public static class UtilityFamilies {
         // paragraph in one place, drawn it in another, and put the caret a stop out.
         Number("tab", "tab-size");
 
+        // ── Hyphens ─────────────────────────────────────────────────────────────────────────
+        // ⚠ <b>Two of Tailwind's three, and the third is left unregistered on purpose.</b>
+        // `hyphens-auto` needs a per-language Liang pattern set AND a language to pick one with, and
+        // `TextShaper` leaves HarfBuzz's language unset so that shaping does not depend on the
+        // machine's locale — so the input is missing as well as the algorithm. Registering it would
+        // put a class in the table that resolves, computes a value and hyphenates nothing, which is
+        // the exact state `UtilityConsumptionGateTests` exists to keep out. The root stays `partial`
+        // with the reason named, which is the honest state rather than the flattering one.
+        //
+        // ⚠ <b>`hyphens-manual` is the initial value, and it is registered anyway.</b> Normally a
+        // class whose only effect is "write nothing" earns no place — `normal-case` is the exception
+        // above and argues its own case. This one is different: `hyphens` inherits, so `manual` is
+        // the only way to opt a child back in under an ancestor's `hyphens-none`, and there is no
+        // other spelling for it.
+        //
+        // ⚠ <b>And `manual` was already half-implemented, which made this a defect and not a
+        // gap.</b> `LineBreaker` has always broken at U+00AD; the hyphen was never drawn, because
+        // the character is `Default_Ignorable` and the shaper deletes it. `UiElement.Hyphenated`
+        // supplies the visible half.
+        Static("hyphens-none", "hyphens", "none");
+        Static("hyphens-manual", "hyphens", "manual");
+
         // ── Text decoration ─────────────────────────────────────────────────────────────────
         // ⚠ <b>Four families for one line, and it is `text-decoration-line` that gets its own class
         // names rather than a value.</b> v4 spells the lines as bare words — `underline`, not

@@ -45,6 +45,40 @@ public enum WordBreakMode : byte {
     KeepAll
 }
 
+/// <summary>Whether a soft hyphen may end a line. CSS Text 4 § 6.1's <c>hyphens</c>.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>A third enum beside <see cref="WordBreakMode" /> and <c>TextWrapMode</c> for the
+///         reason those two are separate from each other</b>: it is a different stage and it
+///         composes. <c>word-break</c> decides whether two letters may be parted; this decides
+///         whether one <i>character the author put there to say so</i> is honoured, and the two are
+///         asked at the same moment about different things.
+///     </para>
+///     <para>
+///         ⚠ <b>There are only two members and CSS has three, which is the gap stated rather than
+///         hidden.</b> <c>hyphens: auto</c> needs a per-language Liang pattern set and a language to
+///         choose it with, and <see cref="TextShaper" /> leaves HarfBuzz's language unset on purpose
+///         so that shaping does not depend on the machine's locale — so the *input* is missing as
+///         well as the algorithm. No utility class emits it, so it cannot arrive here.
+///     </para>
+/// </remarks>
+public enum HyphenMode : byte {
+    /// <summary>A soft hyphen offers a break and is drawn when one is taken. CSS's <c>manual</c>.</summary>
+    /// <remarks>
+    ///     The initial value, and what a paragraph nobody styled does. U+00AD is invisible where the
+    ///     line does not end and a hyphen where it does, which is the whole point of the character.
+    /// </remarks>
+    Manual,
+
+    /// <summary>A soft hyphen is inert. CSS's <c>hyphens: none</c>.</summary>
+    /// <remarks>
+    ///     ⚠ Suppresses the opportunity, not the character. U+00AD is default-ignorable and draws
+    ///     nothing wherever it sits, so <c>none</c> has nothing to hide — what it does is refuse to
+    ///     *end a line* there, which is what a word that must not be split needs.
+    /// </remarks>
+    None
+}
+
 /// <summary>Where a line may be broken, and where it must be.</summary>
 /// <remarks>
 ///     <para>

@@ -603,6 +603,7 @@ public partial class UiElement : Composition.IComposable {
         // multiplied by (the family, the weight, the slant, the size, the font revision) is already
         // compared here, so keying on it keys on the stop.
         var tabSize = Document.TabSizeOf(Style);
+        var hyphens = Document.HyphensOf(Style);
 
         if (!Document.WrapsOf(Style)) {
             width = float.PositiveInfinity;
@@ -637,6 +638,12 @@ public partial class UiElement : Composition.IComposable {
             // tab on the line. A block built at the old spacing rewraps at the old columns and goes
             // on doing so until something else invalidates it.
             && lineTabSize.Equals(tabSize)
+
+            // ⚠ In the key because it changes where the paragraph breaks *and* what the broken line
+            // draws — the mode decides both whether a soft hyphen is an opportunity and whether the
+            // line that took one ends in a visible hyphen. A stale mode is a paragraph split at a
+            // word the author asked to keep whole.
+            && lineHyphens == hyphens
             && lineWidth.Equals(width)
             && lineSize.Equals(FontSize)
             && lineTracking.Equals(LetterSpacing)
@@ -689,7 +696,7 @@ public partial class UiElement : Composition.IComposable {
             // whatever glyph the font has for it — however wide the box is.
             lines.Add(whole);
         } else {
-            Wrap(text, whole, width, mode, breaking, indent, chain, drawn, tabStop, lines);
+            Wrap(text, whole, width, mode, breaking, indent, chain, drawn, tabStop, hyphens, lines);
         }
 
         // ⚠ <b>The clamp drops the lines here, in the measure path, and this is where it differs from
@@ -713,6 +720,7 @@ public partial class UiElement : Composition.IComposable {
         lineTransform = transform;
         lineClamp = clamp;
         lineTabSize = tabSize;
+        lineHyphens = hyphens;
         lineTabStop = tabStop;
         lineTransformed = drawn;
         lineFamily = family;
@@ -1063,6 +1071,63 @@ public partial class UiElement : Composition.IComposable {
         return new TextLine(runs.ToImmutable(), width, offset, transformed, tabStop);
     }
 
+    /// <summary>A line, with a soft hyphen it ends on replaced by one that draws.</summary>
+    /// <param name="line">The line's own text, cut out of the paragraph.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The visible half of <c>hyphens: manual</c>, and its absence was a defect rather
+    ///         than a gap.</b> <see cref="LineBreaker" /> has always offered a break after U+00AD —
+    ///         <c>"sup­ply"</c> and <c>"sup-ply"</c> return the identical opportunity list — so
+    ///         Vixen already broke <c>sup|ply</c>. It then drew no hyphen at all, because U+00AD is
+    ///         <c>Default_Ignorable</c> and <c>TextShaper</c> sets
+    ///         <c>BufferFlags.RemoveDefaultIgnorables</c>: seven characters shaped to six glyphs
+    ///         <i>even though the face has the glyph</i>. A word split with nothing to show for it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>U+002D and not U+2010, which is what the sizing for this said and is measurably
+    ///         wrong.</b> <c>FontFace.GlyphFor(0x2010)</c> is <b>0</b> — <c>.notdef</c> — in Open
+    ///         Sans and in <c>TestShapeLana</c> alike, so the prescribed substitution would have
+    ///         replaced an invisible break with a tofu box at every hyphenation point: a worse defect
+    ///         than the one it was fixing, and one that would have passed any test counting glyphs
+    ///         rather than asking which. U+002D is glyph 16 in both, and is what a browser draws here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One character for one, which is the property that makes this safe.</b> Every
+    ///         index the block hands out — <c>TextLine.Start</c>, the caret, the selection — is an
+    ///         index into the element's own string, and a substitution of equal length moves none of
+    ///         them. Appending a hyphen instead would move all of them by one from here to the end of
+    ///         the paragraph.
+    ///     </para>
+    ///     <para>
+    ///         Only the <i>last</i> character, because that is the only soft hyphen a line ending
+    ///         proves anything about. One in the middle of a line was not used as a break and must go
+    ///         on drawing nothing, which is what the shaper already does with it.
+    ///     </para>
+    /// </remarks>
+    static string Hyphenated(string line) =>
+        line.Length > 0 && line[^1] == '­' ? string.Concat(line.AsSpan(0, line.Length - 1), "-") : line;
+
+    /// <summary>What the hyphen a broken line draws costs, in pixels.</summary>
+    /// <param name="chain">The resolved font chain, whose first face draws it.</param>
+    /// <remarks>
+    ///     ⚠ <b>U+002D and not U+00AD, because U+00AD measures zero — the shaper deletes it.</b>
+    ///     Measuring the character the author wrote would tell the wrapper the hyphen is free, which
+    ///     is precisely the wrong answer and the one this code had before the measurement existed:
+    ///     the paragraph broke as though the hyphen cost nothing and then drew it, so a hyphenated
+    ///     line overflowed its box by exactly one hyphen. What has to be measured is the character
+    ///     <see cref="Hyphenated" /> substitutes.
+    /// </remarks>
+    float HyphenWidth(List<FontFace> chain) {
+        if (chain.Count == 0) {
+            return 0f;
+        }
+
+        var font = chain[0];
+        var shaped = Document.Shaping.Shape(font, "-", ParagraphDirection.LeftToRight, features: FontFeatures);
+
+        return shaped.Advance * (FontSize / font.UnitsPerEm);
+    }
+
     /// <summary>How far apart this element's tab stops are, in pixels, or zero for no tab.</summary>
     /// <param name="text">The text as it will be drawn, after any case mapping.</param>
     /// <param name="tabSize">How many spaces wide a stop is. <c>UiDocument.TabSizeOf</c>.</param>
@@ -1191,6 +1256,7 @@ public partial class UiElement : Composition.IComposable {
         List<FontFace> chain,
         TransformedText transformed,
         float tabStop,
+        HyphenMode hyphens,
         ImmutableArray<TextLine>.Builder into
     ) {
         var advances = new float[text.Length + 1];
@@ -1205,7 +1271,14 @@ public partial class UiElement : Composition.IComposable {
         }
 
         var wrapped = new List<WrappedLine>();
-        LineWrapper.Wrap(text, advances, width, wrapped, mode, breaking, indent, tabStop);
+        // ⚠ What the hyphen this paragraph might draw would cost, so the wrapper can break with it
+        // in hand. Measured only when there is a soft hyphen to pay for, in the chain's first face
+        // for `TabStop`'s reason — a fallback is a face the element never asked for, and the hyphen
+        // that gets drawn comes from the run the substitution lands in, which is the same face the
+        // letters before it are in.
+        var hyphen = hyphens == HyphenMode.Manual && text.Contains('­') ? HyphenWidth(chain) : 0f;
+
+        LineWrapper.Wrap(text, advances, width, wrapped, mode, breaking, indent, tabStop, hyphens, hyphen);
 
         foreach (var line in wrapped) {
             // ⚠ Each line is shaped as its own string rather than sliced out of the paragraph's
@@ -1220,7 +1293,15 @@ public partial class UiElement : Composition.IComposable {
             // first line that was measured against the narrower width.
             into.Add(
                 Runs(
-                    text.Substring(line.Start, line.Length),
+                    // ⚠ <b>Only a line the wrapper actually broke, which `line.End < text.Length`
+                    // is exactly.</b> A soft hyphen the paragraph merely *ends* on was not used as
+                    // a break and must go on drawing nothing — `"sup­"` in a wide box is one line
+                    // reading `sup`, not `sup-`. The test is on the paragraph rather than on the
+                    // mode because it is also what makes the last line right under `hyphens: none`,
+                    // where the opportunity was suppressed but the character is still sitting there.
+                    line.End < text.Length
+                        ? Hyphenated(text.Substring(line.Start, line.Length))
+                        : text.Substring(line.Start, line.Length),
                     line.Start,
                     chain,
                     transformed,
@@ -1259,6 +1340,7 @@ public partial class UiElement : Composition.IComposable {
     TextTransform lineTransform;
     int lineClamp;
     float lineTabSize;
+    HyphenMode lineHyphens;
 
     // ⚠ The stop the current `block` was measured with, in pixels, kept for the same reason
     // `lineTransformed` is: `Ellipsized` measures the line it is cutting, and measuring it with a

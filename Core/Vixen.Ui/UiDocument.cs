@@ -48,6 +48,7 @@ public sealed partial class UiDocument : IDisposable {
     readonly int textOverflow;
     readonly int lineClamp;
     readonly int tabSize;
+    readonly int hyphens;
     readonly int ellipsis;
     readonly int nowrap;
     readonly int anywhere;
@@ -150,6 +151,7 @@ public sealed partial class UiDocument : IDisposable {
         textOverflow = Styles.Properties.Intern("text-overflow");
         lineClamp = Styles.Properties.Intern("-webkit-line-clamp");
         tabSize = Styles.Properties.Intern("tab-size");
+        hyphens = Styles.Properties.Intern("hyphens");
         ellipsis = Styles.Values.Intern("ellipsis");
         nowrap = Styles.Values.Intern("nowrap");
         anywhere = Styles.Values.Intern("anywhere");
@@ -2004,6 +2006,25 @@ public sealed partial class UiDocument : IDisposable {
             value == lowercase ? TextTransform.Lowercase :
             value == capitalize ? TextTransform.Capitalize : TextTransform.None;
     }
+
+    /// <summary>Whether a soft hyphen may end a line. CSS Text 4 § 6.1's <c>hyphens</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two values where CSS has three, and <c>auto</c> is refused rather than
+    ///         approximated.</b> It needs a per-language Liang pattern set — tens of kilobytes a
+    ///         language — <i>and</i> a language to choose one with, and <c>TextShaper</c> leaves
+    ///         HarfBuzz's language unset on purpose so that shaping does not depend on the machine's
+    ///         locale. So the input is missing as well as the algorithm. No utility emits it, and a
+    ///         declaration carrying it lands on <see cref="HyphenMode.Manual" /> — which is what a
+    ///         browser with hyphenation patterns it does not have would also do.
+    ///     </para>
+    ///     <para>
+    ///         <c>manual</c> is the initial value and needs no test: anything that is not
+    ///         <c>none</c> is it.
+    ///     </para>
+    /// </remarks>
+    internal HyphenMode HyphensOf(ComputedStyle style) =>
+        style.TryGet(hyphens, out var value) && value == none ? HyphenMode.None : HyphenMode.Manual;
 
     /// <summary>How many spaces wide a tab stop is. CSS Text 3 § 6.1's <c>tab-size</c>.</summary>
     /// <remarks>

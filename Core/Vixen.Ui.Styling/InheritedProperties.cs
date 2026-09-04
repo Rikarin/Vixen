@@ -102,6 +102,13 @@ public sealed class InheritedProperties {
         // whatever font size it lands on. A `<length>` form is refused rather than resolved, for the
         // reason those four are not in this list — see `UiDocument.TabSizeOf`.
         "tab-size",
+
+        // ⚠ CSS-inherited, and it belongs here for `tab-size`'s reason rather than `line-height`'s:
+        // the value is a keyword, so it means the same thing wherever it lands and needs no
+        // computation against the element it was written on. What it is *for* needs the inheritance
+        // — `hyphens: none` is written on a card or a column to say that the words inside it are not
+        // to be split, and the words are in its children.
+        "hyphens",
         "white-space",
 
         // CSS Text 4 § 4 splits `white-space` into a collapsing half and a wrapping half, and both
