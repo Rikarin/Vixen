@@ -28,17 +28,22 @@
 #                         for ever — a member that is absent because the type is absent is the
 #                         failure mode this file would otherwise have.
 #
-# ⚠ Three rows share one anchor, which is the pattern worth looking for. `rotate-x-*`, `rotate-z-*`
-# and `scale-z-*` are all waiting on the same missing thing, and a refusal that is one of several
-# resting on one premise is the refusal most likely to be read as settled.
+# ⚠ Rows share an anchor, which is the pattern worth looking for: a refusal that is one of several
+# resting on one premise is the refusal most likely to be read as settled — and when that premise
+# closes, they all rot at once and the suite reports only the first. Four did, on 2026-09-04:
+# `perspective-*`, `rotate-x-*`, `scale-z-*` and `translate-z-*` all named
+# `UiTransform.M33`, and #547 landed it. Three of them are `expires-with perspective-*` now, which
+# is the stronger kind and collapses four tripwires to one. ⚠ This paragraph itself named the wrong
+# three — it listed `rotate-z-*`, which has measured `works` for as long as the census has existed
+# and never carried a clause at all. Prose beside a derived list is not derived.
 border-spacing-x-*	expires-with	border-spacing-*
 border-spacing-y-*	expires-with	border-spacing-*
 inset-ring-*	expires-with	inset-shadow-*
 isolation	expires-with	mix-blend
 mix-blend	expires-on	Vixen.Ui.DrawCommand.Blend
-perspective-*	expires-on	Vixen.Ui.Rendering.UiTransform.M33
+perspective-*	expires-on	Vixen.Ui.Rendering.UiVertex.W
 perspective-origin-*	expires-with	perspective-*
-rotate-x-*	expires-on	Vixen.Ui.Rendering.UiTransform.M33
+rotate-x-*	expires-with	perspective-*
 rotate-y-*	expires-with	rotate-x-*
-scale-z-*	expires-on	Vixen.Ui.Rendering.UiTransform.M33
-translate-z-*	expires-on	Vixen.Ui.Rendering.UiTransform.M33
+scale-z-*	expires-with	perspective-*
+translate-z-*	expires-with	perspective-*
