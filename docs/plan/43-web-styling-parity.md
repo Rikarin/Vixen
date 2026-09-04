@@ -1150,12 +1150,25 @@ is exactly why they were worth writing and exactly why the gate alone could not 
 whether the selector matched. `ChildScopedFamilyTests` is what asserts that half, in a real cascade
 and a real frame.
 
-⛔ **Owed, and named rather than left**: exit criterion 3 wants a row per root in
-`Editor/Vixen.Editor.Ui.Tests/UtilityFamilySupportTests`, and the five new roots have none. Its
+✅ **Closed.** Exit criterion 3 wants a row per root in
+`Editor/Vixen.Editor.Ui.Tests/UtilityFamilySupportTests`, and the five new roots had none. Its
 `Supported` theory puts the class on the element it then reads, which is the one arrangement a scoped
-family is invisible in, so they need a `Fact` of their own there rather than five table rows. The
-equivalent assertion exists — `ChildScopedFamilyTests`, against a `UiDocument` and a laid-out
-frame — so this is a hole in one inventory and not in the coverage.
+family is invisible in, so they got a pair of `Fact`s there rather than five table rows:
+`The_five_child_scoped_roots_reach_every_child_but_the_last_and_never_their_own_element` carries the
+five rows against the editor's own tokens, and `A_divider_paints_a_band_beside_every_child_but_the_last`
+is the frame. The hole was in the inventory rather than in the coverage —
+`ChildScopedFamilyTests` already asserted the mechanism — which is why the two new `Fact`s are written
+against `EditorTheme`'s tokens rather than `UtilityFixture`'s: `divide-accent` has no meaning without a
+theme to resolve `var(--accent)` out of, and that is the one claim the older file cannot make.
+
+⚠ **And the obvious oracle for it was uninformative, which is worth more than the row.** The colour
+assertion was first written as "the band is blue-dominant", copied from
+`A_per_edge_border_colour_paints_only_the_edge_it_names` next door and from that test's comment "the
+accent is blue-dominant; the surface and border tokens are not". The second clause is false and always
+was: this palette's greys are *cool* greys — `--border` is `#a9adb4` light and `#1e1e20` dark, and B
+exceeds R in both, as it does for `--surface` and `--text`. Swapping `divide-accent` for
+`divide-border` left the new test green. Both tests now hold the painted colour against a separately
+resolved value, and both fail on that swap.
 
 ### F10 · Nothing ever builds an `Animator`, so no CSS transition has ever run ✅ *closed by A20*
 
