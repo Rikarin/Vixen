@@ -44,6 +44,14 @@ sealed class BridgeFixture {
     ///     <c>width: 4furlongs</c> to the cascade at all — which means a test written against a
     ///     stylesheet cannot reach the code that handles one. Inline declarations are interned
     ///     directly and get no such vetting, and neither will a <c>var()</c> substitution.
+    ///     <para>
+    ///         ⚠ <b>"Drops what it does not recognise" was not true of the four alignment properties,
+    ///         which threw instead.</b> A bare <c>align-items: safe</c> raised a
+    ///         <see cref="NullReferenceException" /> out of ExCSS's own converter and took the rest of
+    ///         the stylesheet with it; <c>StyleSheetLoader.TryReadValue</c> now turns that into the
+    ///         drop this remark always claimed. The sentence above holds again, but it holds because
+    ///         Vixen makes it hold, not because ExCSS does.
+    ///     </para>
     /// </remarks>
     public LayoutStyle BuildInline(params (string Property, string Value)[] declarations) {
         var interned = new Declaration[declarations.Length];

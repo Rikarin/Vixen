@@ -221,4 +221,128 @@ public class StyleSheetLoadingTests {
         // the reader would be told nothing about where it came from.
         Assert.True(refusal.NamesAnEnclosingRule);
     }
+
+    /// <summary>
+    ///     ⚠ <b>A malformed alignment value is a dropped declaration, not an exception out of
+    ///     <c>StyleEngine.Load</c>.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The four properties ExCSS 4.3.2 models with a <c>ConditionalStartsWithValueConverter</c>
+    ///         are the four here. The converter matches the conditional start token and then fails to
+    ///         match a position after it, and the <c>ConditionalStartValue</c> it keeps holds a null
+    ///         its <c>CssText</c> dereferences — so reading <c>Property.Value</c> threw, out of the
+    ///         loader, out of the engine, into whoever asked for the sheet.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>All four, because the crash is invisible from any one of them.</b>
+    ///         <c>justify-items</c>, <c>justify-self</c> and <c>place-items</c> have no such converter
+    ///         and never threw, which is the control below: a suite that happened to pick one of those
+    ///         would have called the whole family safe.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("align-items: safe")]
+    [InlineData("align-items: unsafe")]
+    [InlineData("align-items: first")]
+    [InlineData("align-items: last")]
+    [InlineData("align-items: safe center extra")]
+    [InlineData("align-self: safe")]
+    [InlineData("align-content: safe")]
+    [InlineData("justify-content: safe")]
+    public void A_value_ExCSS_starts_reading_and_cannot_finish_drops_one_declaration(string declaration) {
+        var fixture = new CascadeFixture();
+
+        // The good rules bracket the bad one: the rule before it proves the load reached this far,
+        // and the rule *after* it is the one the throw used to take with it.
+        fixture.Load($".before {{ color: red }}\n.x {{ {declaration} }}\n.after {{ color: blue }}");
+
+        var element = fixture.Tree.CreateElement("div", classNames: ["after"]);
+
+        Assert.Equal(3, fixture.Engine.Rules.Count);
+        Assert.Equal("rgb(0, 0, 255)", fixture.Value(element));
+
+        var refusal = Assert.Single(fixture.Engine.Loader.Diagnostics);
+
+        // The property, and the rule it was written in — there are no line numbers to give.
+        Assert.Equal(declaration[..declaration.IndexOf(':', StringComparison.Ordinal)], refusal.Text);
+        Assert.Equal(".x", refusal.Where);
+        Assert.Contains("could not read it back", refusal.Reason, StringComparison.Ordinal);
+    }
+
+    /// <summary>The other side of the same table: the spellings that were never the problem.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>align-items: sideways center</c> is nonsense and still loads, verbatim.</b> That is
+    ///     not the guard failing — it is ExCSS's ordinary "unknown value survives" path, the same one
+    ///     <c>spring()</c> and every custom property depend on. The guard is about the values ExCSS
+    ///     half-parses, not the ones it does not recognise at all.
+    /// </remarks>
+    [Theory]
+    [InlineData("justify-items: safe")]
+    [InlineData("justify-self: safe")]
+    [InlineData("place-items: safe")]
+    [InlineData("align-items: sideways center")]
+    [InlineData("width: 4furlongs")]
+    public void A_value_with_no_conditional_start_converter_still_loads_whole(string declaration) {
+        var fixture = new CascadeFixture();
+
+        fixture.Load($".before {{ color: red }}\n.x {{ {declaration} }}\n.after {{ color: blue }}");
+
+        Assert.Equal(3, fixture.Engine.Rules.Count);
+        Assert.Empty(fixture.Engine.Loader.Diagnostics);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The same read is made from two other places, and both threw too.</b>
+    /// </summary>
+    /// <remarks>
+    ///     A <c>@keyframes</c> stop and a <c>style="…"</c> attribute reach ExCSS's declarations through
+    ///     their own loops, so a guard written only into <c>AddRule</c> would have left two thirds of
+    ///     the crash standing. Neither is reachable from the rule test above.
+    /// </remarks>
+    [Fact]
+    public void A_keyframe_stop_and_an_inline_attribute_drop_the_declaration_as_a_rule_does() {
+        var stop = new CascadeFixture();
+        stop.Load("@keyframes k { from { align-items: safe; color: red } }");
+
+        Assert.Contains(
+            "@keyframes k",
+            Assert.Single(stop.Engine.Loader.Diagnostics).Where,
+            StringComparison.Ordinal
+        );
+
+        // The rest of the stop survives the one declaration that did not.
+        Assert.True(stop.Engine.Keyframes.TryGet("k", out var stops));
+        Assert.Single(stop.Engine.Keyframes.DeclarationsOf(Assert.Single(stops).Declarations).ToArray());
+
+        var inline = new CascadeFixture();
+        var into = new List<InlineDeclaration>();
+        inline.Engine.Loader.ReadDeclarations("align-items: safe; color: red", into);
+
+        Assert.Contains("style=", Assert.Single(inline.Engine.Loader.Diagnostics).Where, StringComparison.Ordinal);
+        Assert.Equal("color", Assert.Single(into).Property);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The sheet's text is registered before it is parsed, so the crash outlived the load.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <c>StyleEngine.Load</c> adds the text to <c>sheets</c> and then hands it to the loader, and
+    ///     <c>Reload</c> replays that list. A sheet that threw on the way in therefore threw again on
+    ///     every later <c>Replace</c> and <c>Reload</c> of the same engine — one mistyped
+    ///     <c>align-items</c> did not lose a stylesheet, it poisoned the document for the rest of the
+    ///     session. This is the assertion that would have caught that, and it is separate from the
+    ///     rows above because a guard that dropped the declaration on the first load and not on the
+    ///     replay would pass those and fail this.
+    /// </remarks>
+    [Fact]
+    public void A_sheet_that_held_one_survives_being_reloaded() {
+        var fixture = new CascadeFixture();
+        fixture.Load(".x { align-items: safe }\n.after { color: blue }");
+
+        fixture.Engine.Reload();
+
+        var element = fixture.Tree.CreateElement("div", classNames: ["after"]);
+        Assert.Equal("rgb(0, 0, 255)", fixture.Value(element));
+    }
 }

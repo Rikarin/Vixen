@@ -52,6 +52,9 @@ namespace Vixen.Ui.Styling;
 ///     </para>
 /// </remarks>
 public sealed class StyleSheetLoader {
+    /// <summary>What a refusal from an inline <c>style="…"</c> names instead of a selector.</summary>
+    const string InlineStyleAttribute = "a style=\"…\" attribute";
+
     static readonly StylesheetParser Parser = new(true, true, true, true, true);
 
     readonly StyleRuleSet rules;
@@ -190,12 +193,13 @@ public sealed class StyleSheetLoader {
             foreach (var declaration in stop.Style) {
                 // The stop rather than the animation: `@keyframes fade` may have six of them, and
                 // the one to go and fix is the offset the declaration is written under.
-                Collect(
-                    declaration.Name,
-                    declaration.Value,
-                    declaration.IsImportant,
-                    $"@keyframes {rule.Name} {{ {stop.KeyText} }}"
-                );
+                var where = $"@keyframes {rule.Name} {{ {stop.KeyText} }}";
+
+                if (!TryReadValue(declaration, where, out var value)) {
+                    continue;
+                }
+
+                Collect(declaration.Name, value, declaration.IsImportant, where);
             }
 
             keyframes.Add(rule.Name, offset, CollectionsMarshal.AsSpan(declarationScratch));
@@ -357,7 +361,11 @@ public sealed class StyleSheetLoader {
             // ⚠ The selector, so that a shorthand this could not take apart names the rule it was
             // written in. `border: var(--x) solid` is the same six words in every rule that has it,
             // and the refusal is otherwise indistinguishable between two of them.
-            Collect(declaration.Name, declaration.Value, declaration.IsImportant, style.SelectorText);
+            if (!TryReadValue(declaration, style.SelectorText, out var value)) {
+                continue;
+            }
+
+            Collect(declaration.Name, value, declaration.IsImportant, style.SelectorText);
         }
 
         // A comma-separated selector is several rules that happen to share a declaration block, and
@@ -425,7 +433,11 @@ public sealed class StyleSheetLoader {
 
         if (Parser.Parse("*{" + css + "}").Children.FirstOrDefault() is IStyleRule rule) {
             foreach (var declaration in rule.Style) {
-                ReadDeclaration(declaration.Name, declaration.Value, declaration.IsImportant, into);
+                if (!TryReadValue(declaration, InlineStyleAttribute, out var value)) {
+                    continue;
+                }
+
+                ReadDeclaration(declaration.Name, value, declaration.IsImportant, into);
             }
         }
 
@@ -455,7 +467,7 @@ public sealed class StyleSheetLoader {
                     // There is no rule to name — a `style="…"` attribute belongs to one element and
                     // has no selector — but saying so is still worth more than saying nothing, because
                     // it tells a reader not to go looking through the stylesheets for it.
-                    "a style=\"…\" attribute"
+                    InlineStyleAttribute
                 )
             );
         }
@@ -498,6 +510,66 @@ public sealed class StyleSheetLoader {
         }
 
         Intern(name, value, important);
+    }
+
+    /// <summary>Reads a declaration's value, dropping the declaration when ExCSS cannot say what it is.</summary>
+    /// <param name="declaration">The property ExCSS parsed.</param>
+    /// <param name="rule">The rule to name in a refusal.</param>
+    /// <param name="value">Its value, when there is one.</param>
+    /// <returns>Whether the value could be read.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>ExCSS.Property.Value</c> can throw, and the four alignment properties are where
+    ///         it does.</b> <c>align-items</c>, <c>align-self</c>, <c>align-content</c> and
+    ///         <c>justify-content</c> are the ones ExCSS 4.3.2 models with a
+    ///         <c>ConditionalStartsWithValueConverter</c>: it matches the conditional start token —
+    ///         <c>safe</c>, <c>unsafe</c>, <c>first</c>, <c>last</c> — then fails to match a position
+    ///         after it, and keeps a <c>ConditionalStartValue</c> whose inner value is null.
+    ///         <c>CssText</c> dereferences it. A bare prefix is enough, and so is a prefix with
+    ///         trailing junk. ⚠ <c>justify-items</c>, <c>justify-self</c> and <c>place-items</c> have
+    ///         no such converter and pass through whole, so the crash is invisible from any one
+    ///         property — which is why the tests cover all four.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is a crash on author input</b>, and it was not a dropped declaration: the
+    ///         throw came out of <c>StyleEngine.Load</c> uncaught, so a single mistyped
+    ///         <c>align-items</c> in any <c>.vcss</c> took the rules after it with it — and, because
+    ///         the sheet's text is registered before it is loaded, every later <c>Replace</c> and
+    ///         <c>Reload</c> on that engine threw again. One typo permanently poisoned the document.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <c>catch</c> is around the property read and nothing else, on purpose.</b> No
+    ///         Vixen code runs inside it — the only frames are ExCSS's own getter — so a
+    ///         <see cref="NullReferenceException" /> raised there cannot be this assembly's bug being
+    ///         swallowed. A guard one level out, around the rule or the declaration loop, would cover
+    ///         <see cref="Collect" /> and <see cref="Intern" /> as well, and would turn a real defect
+    ///         in either of those into a silently dropped stylesheet.
+    ///     </para>
+    ///     <para>
+    ///         The refusal goes into <see cref="Diagnostics" /> with every other one, so the pass that
+    ///         already drains that list reports it. ⚠ It cannot quote the value: <c>ToCss()</c> on the
+    ///         declaration, and on the whole rule, dereferences the same null.
+    ///     </para>
+    /// </remarks>
+    bool TryReadValue(IProperty declaration, string? rule, out string value) {
+        try {
+            value = declaration.Value;
+            return true;
+        } catch (NullReferenceException) {
+            value = string.Empty;
+
+            diagnostics.Add(
+                new SelectorDiagnostic(
+                    declaration.Name,
+                    "ExCSS matched the start of this value and then could not read it back, so the "
+                    + "declaration is dropped — which is what a bare 'safe', 'unsafe', 'first' or "
+                    + "'last' does to an alignment property",
+                    rule
+                )
+            );
+
+            return false;
+        }
     }
 
     void Intern(string name, string value, bool important) =>
