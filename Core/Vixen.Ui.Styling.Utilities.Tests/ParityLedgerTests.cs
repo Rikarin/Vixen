@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 using Xunit;
 
 namespace Vixen.Ui.Styling.Utilities.Tests;
@@ -202,33 +204,55 @@ public class ParityLedgerTests {
 
     /// <summary>The rendered counts in the plan document match the table beside it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The prose was staler than the table, and by more.</b> When this was written the TSV said
-    ///     <c>55 works / 29 partial / 9 inert</c> and the document's own summary two sections above it
-    ///     said <c>51 / 29 / 13</c> — two copies of one measurement, disagreeing with each other and
-    ///     both wrong. A number quoted in prose beside a table it is supposed to summarise is a third
-    ///     copy of the registry, and it rots the same way the other two did.
+    ///     <para>
+    ///         ⚠ <b>The prose was staler than the table, and by more.</b> When this was written the TSV
+    ///         said <c>55 works / 29 partial / 9 inert</c> and the document's own summary two sections
+    ///         above it said <c>51 / 29 / 13</c> — two copies of one measurement, disagreeing with each
+    ///         other and both wrong. A number quoted in prose beside a table it is supposed to summarise
+    ///         is a third copy of the registry, and it rots the same way the other two did.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read as a whole table rather than a search per state, because the first version was
+    ///         satisfied by a malformed one.</b> It asked <c>Regex.Match</c> for each state's row and
+    ///         checked the number it found. <c>Match</c> returns the <i>first</i> hit, so a document
+    ///         carrying two <c>absent</c> rows — which master did, at <c>ce585d78</c>, saying 91 and 90
+    ///         — passed on the first and left the second to be read by a human. That is the "what does
+    ///         it print on the day the document is malformed" question answered with "success", and it
+    ///         is the same shape as a floor: a guard that only has to find one row is satisfied by
+    ///         exactly the defect it exists to catch.
+    ///     </para>
+    ///     <para>
+    ///         So the run of rows is lifted whole and its state names are compared to
+    ///         <see cref="ParityLedger.States" /> <i>as a sequence</i>. That is an equality in both
+    ///         directions and in order: a duplicated row is a longer sequence, a dropped one is a
+    ///         shorter one, and a reordered table is neither of those and still fails. ⚠ The rows are
+    ///         taken as a contiguous block rather than by matching six patterns anywhere in the file,
+    ///         because the document has a second table of the same shape — the <c>| **Total** |</c> row
+    ///         under "By category" — and a sweep of the whole file reaches into it.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void The_plan_document_quotes_the_tables_own_counts() {
         var (_, rows) = ParityLedger.Read(ParityLedger.Locate());
-        var plan = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "43-web-styling-parity.md"));
+        var plan = File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "43-web-styling-parity.md"));
+        var table = StateTable(plan);
+
+        Assert.True(
+            table.Count != 0,
+            "docs/plan/43-web-styling-parity.md has no `| **works** | … | **n** |` row at all, so Part 0's "
+            + "six-state table has been renamed, reformatted or lost. Nothing below this can be trusted "
+            + "until it is found again — a sweep that matches nothing reports nothing."
+        );
+
+        Assert.Equal(ParityLedger.States, table.Select(row => row.State).ToArray());
+
         var missing = new List<string>();
 
-        foreach (var state in ParityLedger.States) {
+        foreach (var (state, quoted) in table) {
             var count = rows.Count(r => string.Equals(r.State, state, StringComparison.Ordinal));
 
-            // The document's own five-state table row: `| **works** | …meaning… | **77** |`. Matched
-            // whole rather than by looking for the number anywhere, or `**4**` occurring in an
-            // unrelated sentence would pass the row that happens to hold 4.
-            var row = System.Text.RegularExpressions.Regex.Match(
-                plan,
-                $@"\|\s*\*\*{state}\*\*\s*\|[^|\n]*\|\s*\*\*(\d+)\*\*\s*\|"
-            );
-
-            if (!row.Success) {
-                missing.Add($"{state}: the document has no `| **{state}** | … | **n** |` row");
-            } else if (row.Groups[1].Value != count.ToString()) {
-                missing.Add($"{state}: the document says {row.Groups[1].Value}, the table holds {count}");
+            if (quoted != count) {
+                missing.Add($"{state}: the document says {quoted}, the table holds {count}");
             }
         }
 
@@ -239,7 +263,154 @@ public class ParityLedgerTests {
 
                {string.Join("\n  ", missing)}
 
-             Update Part 0's five-state table and the "By category" totals to the counts above.
+             Update Part 0's six-state table and the "By category" totals to the counts above.
+             """
+        );
+    }
+
+    /// <summary>How many of those rows are in that state.</summary>
+    /// <param name="rows">The rows to count over — the whole ledger, or one category's slice of it.</param>
+    /// <param name="state">The state.</param>
+    /// <returns>The count.</returns>
+    static int Held(IEnumerable<ParityRow> rows, string state) =>
+        rows.Count(row => string.Equals(row.State, state, StringComparison.Ordinal));
+
+    /// <summary>Part 0's six-state table, as the contiguous block of rows it is.</summary>
+    /// <remarks>
+    ///     Anchored on the <c>works</c> row and grown in both directions over lines of the same shape,
+    ///     so an extra row is inside the block and a stray row elsewhere in the document is not.
+    /// </remarks>
+    /// <param name="plan">The document's lines.</param>
+    /// <returns>The rows, in the order the document writes them.</returns>
+    static List<(string State, int Count)> StateTable(string[] plan) {
+        var shape = new Regex(@"^\|\s*\*\*(?<state>[A-Za-z]+)\*\*\s*\|[^|\n]*\|\s*\*\*(?<count>\d+)\*\*\s*\|\s*$");
+        var anchor = Array.FindIndex(plan, line => shape.Match(line) is { Success: true } m
+            && m.Groups["state"].Value == "works");
+
+        if (anchor < 0) {
+            return [];
+        }
+
+        var first = anchor;
+        var last = anchor;
+
+        while (first > 0 && shape.IsMatch(plan[first - 1])) {
+            first--;
+        }
+
+        while (last + 1 < plan.Length && shape.IsMatch(plan[last + 1])) {
+            last++;
+        }
+
+        return [
+            .. plan[first..(last + 1)]
+                .Select(line => shape.Match(line))
+                .Select(m => (
+                    m.Groups["state"].Value,
+                    int.Parse(m.Groups["count"].Value, CultureInfo.InvariantCulture)
+                ))
+        ];
+    }
+
+    /// <summary>The "By category" table has one row per category and adds up to its own total.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Nothing read this table at all until now, and the issue that asked for it believed
+    ///         something did.</b> #537 reasoned that a duplicated category row "would double-count into
+    ///         a <c>Total</c> the test does check" — the test checked the six-state table and only that,
+    ///         so the whole fifteen-row cross-tabulation of the ledger was prose. It is the larger of
+    ///         the two tables and the one a reader uses to decide what to work on next.
+    ///     </para>
+    ///     <para>
+    ///         Held in three ways, because the failures are different shapes. The category <i>set</i> is
+    ///         an equality against the ledger's own categories, so a category that appears twice, or a
+    ///         category of roots nobody tabulated, is red. Each row's seven numbers are re-derived. And
+    ///         the <c>**Total**</c> row is checked against the ledger rather than against the column
+    ///         sums — summing the columns of a table to check that table is the tautology this file's
+    ///         remark on re-syncing warns about, and it would pass a document in which every row was
+    ///         internally consistent and collectively wrong.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_by_category_table_is_one_row_per_category_and_adds_up() {
+        var (_, rows) = ParityLedger.Read(ParityLedger.Locate());
+        var plan = File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "43-web-styling-parity.md"));
+        var shape = new Regex(@"^\|\s*(?<category>[^|*]+?)\s*\|(?<counts>(\s*\d+\s*\|){7})\s*$");
+        var header = Array.FindIndex(
+            plan, line => line.StartsWith("| Category | roots | works |", StringComparison.Ordinal)
+        );
+
+        Assert.True(
+            header >= 0,
+            "docs/plan/43-web-styling-parity.md has no `| Category | roots | works | …` header, so the "
+            + "\"By category\" table has been renamed or reformatted. A sweep that matches nothing "
+            + "reports nothing, which is why this is asserted rather than looped over."
+        );
+
+        var body = new List<(string Category, int[] Counts)>();
+
+        for (var line = header + 2; line < plan.Length && shape.Match(plan[line]) is { Success: true } m; line++) {
+            body.Add((
+                m.Groups["category"].Value,
+                [
+                    .. m.Groups["counts"].Value.Split('|', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(cell => int.Parse(cell.Trim(), CultureInfo.InvariantCulture))
+                ]
+            ));
+        }
+
+        Assert.Equal(
+            rows.Select(row => row.Category).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal),
+            body.Select(row => row.Category).Order(StringComparer.Ordinal)
+        );
+
+        var wrong = new List<string>();
+
+        foreach (var (category, counts) in body) {
+            var mine = rows.Where(row => string.Equals(row.Category, category, StringComparison.Ordinal)).ToList();
+            var expected = new[] { mine.Count }
+                .Concat(ParityLedger.States.Select(state => Held(mine, state)))
+                .ToArray();
+
+            if (!counts.SequenceEqual(expected)) {
+                wrong.Add(
+                    $"{category}: the document says {string.Join(' ', counts)}, "
+                    + $"the ledger holds {string.Join(' ', expected)}"
+                );
+            }
+        }
+
+        // Against the ledger, not against the column sums: a table every row of which agrees with
+        // the row above it can still be a table of the wrong measurement.
+        var total = Array.FindIndex(plan, header, line => line.StartsWith("| **Total** |", StringComparison.Ordinal));
+
+        Assert.True(total > header, "the \"By category\" table has no `| **Total** |` row.");
+
+        var quoted = plan[total]
+            .Split('|', StringSplitOptions.RemoveEmptyEntries)
+            .Skip(1)
+            .Select(cell => int.Parse(cell.Trim().Trim('*'), CultureInfo.InvariantCulture))
+            .ToArray();
+
+        var ledger = new[] { rows.Count }
+            .Concat(ParityLedger.States.Select(state => Held(rows, state)))
+            .ToArray();
+
+        if (!quoted.SequenceEqual(ledger)) {
+            wrong.Add(
+                $"Total: the document says {string.Join(' ', quoted)}, "
+                + $"the ledger holds {string.Join(' ', ledger)}"
+            );
+        }
+
+        Assert.True(
+            wrong.Count == 0,
+            $"""
+             docs/plan/43-web-styling-parity.md's "By category" table disagrees with the ledger:
+
+               {string.Join("\n  ", wrong)}
+
+             The columns are roots, then works/partial/inert/absent/composed/unknown in that order.
              """
         );
     }
