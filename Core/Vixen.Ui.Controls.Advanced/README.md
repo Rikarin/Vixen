@@ -459,9 +459,14 @@ Said out loud rather than left to be discovered:
   lines each rather than through a shared base. The phase is measured from the last time the caret
   moved, so typing holds it solid; `CaretBlink` is the half period and `TimeSpan.Zero` is a solid
   caret, which is what a reduced-motion setting wants.
-- **`OkLch.ToSrgb` clamps per channel**, which shifts the hue rather than reducing the chroma. Real
-  gamut mapping walks the chroma down until the colour fits; `IsInGamut` is how a picker can say so
-  meanwhile.
+- ~~**`OkLch.ToSrgb` clamps per channel**, which shifts the hue rather than reducing the chroma.~~
+  **It maps.** ⚠ **The mapper had been written, tested and in production use the whole time** —
+  `Vixen.Core.Mathematics/GamutMap.cs`, CSS Color 4's binary search with local MINDE, already called
+  from `UiGeometryBuilder` and `StyleValueParser` — and this file clamped beside it with a comment
+  saying one was owed. The commonest defect in this tree, in miniature: not a missing algorithm, a
+  missing call. `IsInGamut` still says whether a colour needed the repair. The clamp that survives
+  bounds a channel at `1 + 1e-5`, which is where the search settles, and is arithmetic rather than a
+  colour decision.
 - ~~**`StyleTree.AppendChild` is O(children) per append**, so an element with tens of thousands of
   children is quadratic.~~ **Fixed, and this bullet outlived the fix.** A child run reserves capacity
   beyond its count and doubles on overflow — a run that is last in the arena grows where it stands

@@ -62,6 +62,55 @@ public class ColorModelTests {
         Assert.False(new OkLch(0.6f, 0.35f, 200f).IsInGamut);
     }
 
+    /// <summary>The colour the old per-channel clamp would have produced, for comparison.</summary>
+    /// <remarks>
+    ///     ⚠ Written out here rather than described, because the test below is only worth running if
+    ///     the two answers differ — and on any colour already inside the gamut they do not. This is
+    ///     what turns "the mapping is right" into a claim that could have been false.
+    /// </remarks>
+    static OkLch Clamped(OkLch colour) {
+        var radians = colour.H * MathF.PI / 180f;
+        var linear = new Oklab(colour.L, colour.C * MathF.Cos(radians), colour.C * MathF.Sin(radians)).ToLinear();
+
+        return OkLch.FromSrgb(
+            new Color4(
+                ColorSpace.LinearToSrgb(Math.Clamp(linear.X, 0f, 1f)),
+                ColorSpace.LinearToSrgb(Math.Clamp(linear.Y, 0f, 1f)),
+                ColorSpace.LinearToSrgb(Math.Clamp(linear.Z, 0f, 1f)),
+                1f
+            )
+        );
+    }
+
+    [Fact]
+    public void An_unshowable_colour_gives_up_its_chroma_and_keeps_its_hue() {
+        var wanted = new OkLch(0.6f, 0.35f, 200f);
+
+        // Vacuous on anything showable: clipping and mapping agree everywhere inside the gamut, so a
+        // plausible-looking colour would pass against the clamp this replaced.
+        Assert.False(wanted.IsInGamut);
+
+        // ⚠ **And the instrument is checked before the claim.** The clamp does not merely give a
+        // different number here, it gives a different *hue* — which is the defect, and is what makes
+        // the assertions below able to fail.
+        Assert.True(
+            MathF.Abs(Clamped(wanted).H - wanted.H) > 2f,
+            "the fixture has to be a colour the clamp visibly moves, or it proves nothing"
+        );
+
+        var shown = OkLch.FromSrgb(wanted.ToSrgb());
+
+        Assert.True(shown.IsInGamut);
+
+        // The hue and the lightness survive; the chroma is what was spent. The tolerance is not zero
+        // because CSS Color 4 finishes with a clip inside one just-noticeable difference of the
+        // boundary — the local MINDE — which recovers chroma at the price of a hue shift nobody can
+        // see. Two degrees is far below that and far above what the clamp does.
+        Assert.Equal(wanted.H, shown.H, 2f);
+        Assert.Equal(wanted.L, shown.L, 0.02f);
+        Assert.True(shown.C < wanted.C - 0.05f, "the chroma is what comes down");
+    }
+
     [Theory]
     [InlineData("#f00", 1f, 0f, 0f, 1f)]
     [InlineData("f00", 1f, 0f, 0f, 1f)]
