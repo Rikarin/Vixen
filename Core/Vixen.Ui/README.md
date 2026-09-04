@@ -1261,6 +1261,13 @@ and get no such vetting, it still passed: the value has to be one that *parses* 
 because an unparseable one is already filtered a step earlier. A bare `5` is the case that reaches
 the code being tested.
 
+⚠ **"Drops what it does not recognise" turned out to hold for every property but four.**
+`align-items`, `align-self`, `align-content` and `justify-content` are the ones ExCSS 4.3.2 models
+with a `ConditionalStartsWithValueConverter`, and on a value it half-parses — a bare `safe`,
+`unsafe`, `first` or `last`, with or without trailing junk — reading the property's value threw a
+`NullReferenceException` out of the library rather than dropping anything. `StyleSheetLoader` now
+guards that one read, so the sentence above is true again, but it is true because Vixen makes it so.
+
 ## The geometry a renderer submits
 
 `UiGeometryBuilder` is the last step that is still the interface's own: a draw list in, vertices
