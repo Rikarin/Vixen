@@ -337,7 +337,11 @@ public static class UtilityFamilies {
         // refuses by name. `items-baseline-last`, `self-baseline-last`, `justify-baseline` and
         // `justify-stretch` are Tailwind roots deliberately still absent: `Align` has no
         // last-baseline member and `Justify` has no `Stretch`, so each would be a class that
-        // resolves onto a keyword the bridge drops. See `43-web-styling-parity.tsv`'s `value_gap`.
+        // resolves onto a keyword the bridge drops. Recorded in `43-web-styling-parity.tsv`'s `note`
+        // column on the `items`, `justify` and `self` rows — ⚠ not `value_gap`, which is an *input*
+        // to the generated state and would drag two `works` rows to `partial` over classes the
+        // ledger never listed. `content-*` is the row that does carry its refusal in `value_gap`,
+        // and is `partial` because of it.
         Keywords("items", "align-items", new() {
             ["start"] = "flex-start", ["end"] = "flex-end", ["center"] = "center",
             ["baseline"] = "baseline", ["stretch"] = "stretch",
