@@ -77,16 +77,24 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **329** | 128 families |
+| Utility **roots** (the unit of this table) | **329** | 274 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
 | Variant keys | **88** | **25** |
 
-⚠ **128 families, and the figure moves every week — which is why nothing below is typed by hand any
-more.** The count has been quoted as 43 (the helper calls in one region of `UtilityFamilies`' static
-constructor), then as 98 (the registry that region builds, parsed properly), and it is 128 today.
-Every one of those was right when it was written. The number is a denominator, so it has to be right
-*now*, and the only way that holds is for it to be read off the registry on the run that prints it.
+⚠ **The family figure moves every week, which is why it is no longer typed here.** It has been quoted
+as 43 (the helper calls in one region of `UtilityFamilies`' static constructor), then as 98 (the
+registry that region builds, parsed properly), then as 128. Every one of those was right when it was
+written. The number is a denominator, so it has to be right *now*, and the only way that holds is for
+it to be read off the registry on the run that prints it.
+
+⚠ **And for months it was not, in this paragraph, which is the one that says it must be.** The row
+above said 128 while `ParityLedger.Measure` answered more than twice that — the argument was written,
+agreed with, and then not applied to the sentence making it.
+`ParityLedgerTests.The_rendered_summary_counts_are_read_off_the_registry` holds both cells of that row
+against the registry and the ledger now, so a family that lands fails the run until the row moves. No
+current number is named in this paragraph on purpose: a figure repeated in prose one line under a
+checked table is a copy nothing checks, and it is exactly how 128 outlived the two counts it replaced.
 
 ### The six states, and why the four in the brief were not enough
 

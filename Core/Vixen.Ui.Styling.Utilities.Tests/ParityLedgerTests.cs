@@ -202,6 +202,60 @@ public class ParityLedgerTests {
         );
     }
 
+    /// <summary>The rendered summary's root and family counts are the registry's, not a transcript.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The family count was typed by hand in the paragraph that says nothing is typed by
+    ///         hand any more, and it was wrong by roughly a factor of two.</b> The row read
+    ///         <c>128 families</c> and the prose under it argued, correctly, that the figure moves every
+    ///         week and so has to be read off the registry on the run that prints it. It was not being
+    ///         read off anything. <see cref="ParityLedger.Measure" /> answers a number in the
+    ///         two-hundreds. A paragraph explaining why a number must be derived is the single most
+    ///         convincing place to leave one that is not.
+    ///     </para>
+    ///     <para>
+    ///         Both cells are held, because they fail differently. The <b>roots</b> count is the ledger's
+    ///         own row count and moves when a row is added; the <b>families</b> count is the registry's
+    ///         and moves when a family lands, which is the event that has repeatedly happened without
+    ///         the document noticing. ⚠ Neither is a floor. <c>Registered</c> is the same set
+    ///         <see cref="Every_registered_family_is_claimed_by_a_row" /> already holds the ledger to, so
+    ///         a family that lands now fails two tests rather than none.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The prose beside the row names no current number at all now, only the history.</b>
+    ///         Leaving "and it is N today" in would recreate the defect one line below the fix, on a
+    ///         copy this test does not read — which is precisely how <c>128</c> outlived the two figures
+    ///         it was written to replace.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_rendered_summary_counts_are_read_off_the_registry() {
+        var (_, rows) = ParityLedger.Read(ParityLedger.Locate());
+        var plan = File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "43-web-styling-parity.md"));
+        var shape = new Regex(
+            @"^\|\s*Utility \*\*roots\*\*[^|]*\|\s*\*\*(?<roots>\d+)\*\*\s*\|\s*(?<families>\d+) families\s*\|\s*$"
+        );
+
+        var row = plan.Select(line => shape.Match(line)).FirstOrDefault(m => m.Success);
+
+        Assert.True(
+            row is not null,
+            "docs/plan/43-web-styling-parity.md's rendered summary has no "
+            + "`| Utility **roots** … | **n** | m families |` row. It carried a hand-typed family count "
+            + "for months; if the row has been reshaped, reshape this with it rather than deleting it — "
+            + "a sweep that matches nothing is the failure this whole suite is about."
+        );
+
+        var measured = ParityLedger.Measure([]);
+
+        Assert.Equal(rows.Count.ToString(CultureInfo.InvariantCulture), row.Groups["roots"].Value);
+
+        Assert.Equal(
+            measured.Registered.Count.ToString(CultureInfo.InvariantCulture),
+            row.Groups["families"].Value
+        );
+    }
+
     /// <summary>The rendered counts in the plan document match the table beside it.</summary>
     /// <remarks>
     ///     <para>
