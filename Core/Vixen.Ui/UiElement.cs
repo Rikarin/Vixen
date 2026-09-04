@@ -598,6 +598,12 @@ public partial class UiElement : Composition.IComposable {
         var transform = Document.TextTransformOf(Style);
         var clamp = Document.LineClampOf(Style);
 
+        // ⚠ The count and not the pixels, because the pixels need a font and the font chain is
+        // resolved below — but the count is what has to be in the key. Everything the count is
+        // multiplied by (the family, the weight, the slant, the size, the font revision) is already
+        // compared here, so keying on it keys on the stop.
+        var tabSize = Document.TabSizeOf(Style);
+
         if (!Document.WrapsOf(Style)) {
             width = float.PositiveInfinity;
         }
@@ -625,6 +631,12 @@ public partial class UiElement : Composition.IComposable {
             // rather than its width. A stale clamp is a paragraph that measured five lines and draws
             // three, so the box is two lines too tall and the gap looks like a margin nobody wrote.
             && lineClamp == clamp
+
+            // ⚠ In the key for `word-spacing`'s reason and one of its own: a tab's advance is the
+            // distance to the next stop, so moving the stops moves every wrap point after the first
+            // tab on the line. A block built at the old spacing rewraps at the old columns and goes
+            // on doing so until something else invalidates it.
+            && lineTabSize.Equals(tabSize)
             && lineWidth.Equals(width)
             && lineSize.Equals(FontSize)
             && lineTracking.Equals(LetterSpacing)
@@ -659,7 +671,8 @@ public partial class UiElement : Composition.IComposable {
 
         var lines = ImmutableArray.CreateBuilder<TextLine>();
         var indent = TextIndent;
-        var whole = Runs(text, 0, chain, drawn, offset: indent);
+        var tabStop = TabStop(text, tabSize, chain);
+        var whole = Runs(text, 0, chain, drawn, offset: indent, tabStop: tabStop);
 
         // ⚠ The indent narrows the fast path's test as well as the wrapper's, and leaving it out is
         // the shape of bug that only shows on the one paragraph where it matters: a line that fits
@@ -676,7 +689,7 @@ public partial class UiElement : Composition.IComposable {
             // whatever glyph the font has for it — however wide the box is.
             lines.Add(whole);
         } else {
-            Wrap(text, whole, width, mode, breaking, indent, chain, drawn, lines);
+            Wrap(text, whole, width, mode, breaking, indent, chain, drawn, tabStop, lines);
         }
 
         // ⚠ <b>The clamp drops the lines here, in the measure path, and this is where it differs from
@@ -699,6 +712,8 @@ public partial class UiElement : Composition.IComposable {
         lineText = Text;
         lineTransform = transform;
         lineClamp = clamp;
+        lineTabSize = tabSize;
+        lineTabStop = tabStop;
         lineTransformed = drawn;
         lineFamily = family;
         lineWeight = weight;
@@ -856,10 +871,17 @@ public partial class UiElement : Composition.IComposable {
         var boundaries = new List<int>();
         GraphemeBreaker.Collect(text.AsSpan(start, end - start), boundaries);
 
+        // ⚠ <b>The stop `Block` measured with, and the pen it is measured from is the line's own
+        // offset.</b> The tab stops are laid out from the line box's start edge, so a cut that summed
+        // advances from zero would snap this line's tabs to columns half a stop away from the ones
+        // the layout chose, and the ellipsis would land inside a column instead of after it.
+        var stop = lineTabStop;
+        var pen = line.Offset;
+
         var kept = start;
 
         if (room > 0f) {
-            var width = 0f;
+            var width = pen;
             var at = start;
 
             foreach (var boundary in boundaries) {
@@ -870,10 +892,14 @@ public partial class UiElement : Composition.IComposable {
                 }
 
                 for (var i = at; i < here; i++) {
-                    width += advances[i];
+                    // The snap rule of `TextLine.NextStop` and `LineWrapper.Width`: strictly the next
+                    // stop, so two tabs in a row are two columns.
+                    width = stop > 0f && text[i] == '\t'
+                        ? (MathF.Floor(width / stop) + 1f) * stop
+                        : width + advances[i];
                 }
 
-                if (width > room) {
+                if (width - pen > room) {
                     break;
                 }
 
@@ -889,7 +915,7 @@ public partial class UiElement : Composition.IComposable {
         if (kept <= start) {
             return marker.Runs.Length == 0
                 ? line
-                : Runs(Ellipsis, start, chain, transformed, offset: line.Offset);
+                : Runs(Ellipsis, start, chain, transformed, offset: line.Offset, tabStop: stop);
         }
 
         // ⚠ Trailing space is trimmed before the ellipsis, the way a browser does it: `"ab  "` cut at
@@ -907,7 +933,7 @@ public partial class UiElement : Composition.IComposable {
         // shaper is a *prefix plus a marker*, so an index inside the marker maps to nothing the
         // author wrote. That is sound because a truncated line is a fact about the picture and
         // nothing puts a caret on one: see `Ellipsized`'s remarks on why `Block()` is left alone.
-        return Runs(body + Ellipsis, start, chain, transformed, offset: line.Offset);
+        return Runs(body + Ellipsis, start, chain, transformed, offset: line.Offset, tabStop: stop);
     }
 
     /// <summary>The width this element wraps its text to, from the layout it was last given.</summary>
@@ -1037,6 +1063,42 @@ public partial class UiElement : Composition.IComposable {
         return new TextLine(runs.ToImmutable(), width, offset, transformed, tabStop);
     }
 
+    /// <summary>How far apart this element's tab stops are, in pixels, or zero for no tab.</summary>
+    /// <param name="text">The text as it will be drawn, after any case mapping.</param>
+    /// <param name="tabSize">How many spaces wide a stop is. <c>UiDocument.TabSizeOf</c>.</param>
+    /// <param name="chain">The resolved font chain, whose first face owns the space that is counted.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Zero whenever the text has no tab in it, and that is not an optimisation — it is
+    ///         what keeps the property from changing a picture it has no business in.</b> Zero is the
+    ///         "measure a tab as a glyph" path in <see cref="TextLine" /> and <c>LineWrapper</c>, and
+    ///         a string with no tab measures identically either way; taking it costs the wrapper one
+    ///         comparison per character across every paragraph in the interface, which is the hottest
+    ///         loop in text layout.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The space of the chain's <i>first</i> face, not of whichever face covers the tab.</b>
+    ///         CSS Text 3 § 6.1 counts advances of "the element's font", and a fallback is not that —
+    ///         it is a face the element never asked for. Counting per-run would also make a tab stop
+    ///         depend on the script beside it, so the columns of a paragraph that fell back once would
+    ///         stop lining up with the columns of one that did not.
+    ///     </para>
+    ///     <para>
+    ///         The shaping goes through the same cache every other string does, so the one-space
+    ///         measurement is a dictionary hit after the first paragraph in a given face and size.
+    ///     </para>
+    /// </remarks>
+    float TabStop(string text, float tabSize, List<FontFace> chain) {
+        if (tabSize <= 0f || chain.Count == 0 || !text.Contains('\t')) {
+            return 0f;
+        }
+
+        var font = chain[0];
+        var space = Document.Shaping.Shape(font, " ", ParagraphDirection.LeftToRight, features: FontFeatures);
+
+        return tabSize * space.Advance * (FontSize / font.UnitsPerEm);
+    }
+
     /// <summary>A range, cut so that every tab in it is a piece of its own.</summary>
     /// <remarks>
     ///     ⚠ <b>One entry — the range itself — whenever there is no tab stop or no tab</b>, which is
@@ -1112,6 +1174,7 @@ public partial class UiElement : Composition.IComposable {
         float indent,
         List<FontFace> chain,
         TransformedText transformed,
+        float tabStop,
         ImmutableArray<TextLine>.Builder into
     ) {
         var advances = new float[text.Length + 1];
@@ -1126,7 +1189,7 @@ public partial class UiElement : Composition.IComposable {
         }
 
         var wrapped = new List<WrappedLine>();
-        LineWrapper.Wrap(text, advances, width, wrapped, mode, breaking, indent);
+        LineWrapper.Wrap(text, advances, width, wrapped, mode, breaking, indent, tabStop);
 
         foreach (var line in wrapped) {
             // ⚠ Each line is shaped as its own string rather than sliced out of the paragraph's
@@ -1146,7 +1209,8 @@ public partial class UiElement : Composition.IComposable {
                     chain,
                     transformed,
                     line.Advance,
-                    line.Start == 0 ? indent : 0f
+                    line.Start == 0 ? indent : 0f,
+                    tabStop
                 )
             );
         }
@@ -1178,6 +1242,12 @@ public partial class UiElement : Composition.IComposable {
     float lineIndent;
     TextTransform lineTransform;
     int lineClamp;
+    float lineTabSize;
+
+    // ⚠ The stop the current `block` was measured with, in pixels, kept for the same reason
+    // `lineTransformed` is: `Ellipsized` measures the line it is cutting, and measuring it with a
+    // different stop than `Block` used would put the ellipsis at a column the layout never chose.
+    float lineTabStop;
 
     // Whether `Block` dropped lines to honour `-webkit-line-clamp`, which is what tells `Ellipsized`
     // to mark the last one even though it fits. Belongs to the current `block` and is rewritten

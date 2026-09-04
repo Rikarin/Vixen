@@ -979,12 +979,29 @@ public static class UtilityFamilies {
         // back to what the author wrote, because a full Unicode uppercase changes the string's
         // *length* — `straße` becomes `STRASSE` — and every caret index in the tree is an index into
         // the element's own text. The four classes were held back until that map existed, for
-        // exactly the reason `tab-*` still is: a text feature that misplaces a caret is worse than
+        // exactly the reason `tab-*` was: a text feature that misplaces a caret is worse than
         // an absent one.
         Static("uppercase", "text-transform", "uppercase");
         Static("lowercase", "text-transform", "lowercase");
         Static("capitalize", "text-transform", "capitalize");
         Static("normal-case", "text-transform", "none");
+
+        // ── Tab size ────────────────────────────────────────────────────────────────────────
+        // ⚠ <b>A bare count, which is why this is a `Number` family and not a length one.</b> v4
+        // spells `tab-1`, `tab-2`, `tab-4`, `tab-8` and an arbitrary count. CSS Text 3 § 6.1 also
+        // allows a `<length>`, and `UiDocument.TabSizeOf` refuses that form rather than resolving
+        // it — a length here takes relative units, so it would have to be computed and inherited
+        // beside `line-height` instead of living in `InheritedProperties`, for a form no class in
+        // this table can even spell.
+        //
+        // ⚠ <b>The reader is a layout seam rather than a property lookup, which is why this row sat
+        // `absent` while its four siblings above shipped.</b> A tab's advance is the distance to the
+        // next stop, so it is a fact about where the run *sits* — while `TextLine.Place`,
+        // `CaretOffset` and `Width`, and every width in `LineWrapper`, are prefix sums over advances
+        // that are facts about the character. `TextRun.IsTab` and `TextLine.WidthOf` are what
+        // separate the two; before they existed a `tab-*` that resolved would have broken the
+        // paragraph in one place, drawn it in another, and put the caret a stop out.
+        Number("tab", "tab-size");
 
         // ── Text decoration ─────────────────────────────────────────────────────────────────
         // ⚠ <b>Four families for one line, and it is `text-decoration-line` that gets its own class
