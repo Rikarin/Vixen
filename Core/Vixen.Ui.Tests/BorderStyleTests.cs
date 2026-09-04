@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
 using Xunit;
 
 namespace Vixen.Ui.Tests;
@@ -181,6 +182,97 @@ public class BorderStyleTests {
             Assert.Equal(whole.Y, mark.Y, 0.001f);
             Assert.Equal(whole.Height, mark.Height, 0.001f);
         }
+    }
+
+    [Fact]
+    public void A_dashed_band_carries_the_corner_radii_the_solid_band_carries() {
+        using var solid = Drawn(
+            ".probe { border-bottom-width: 2px; border-color: #ff0000; border-radius: 8px; }"
+        );
+
+        using var dashed = Drawn(
+            """
+            .probe {
+                border-bottom-width: 2px;
+                border-color: #ff0000;
+                border-radius: 8px;
+                border-style: dashed;
+            }
+            """
+        );
+
+        // ⚠ The defect, asserted as geometry rather than as a picture. A band's two radii live in the
+        // draw list's side buffer, so "the dashed band rounds where the solid one does" is the
+        // statement that the first and last mark carry the same two corners the whole band carried —
+        // and the marks between them carry none, because the shape they are pieces of is square
+        // there. Before this, every mark was square and the side buffer held nothing at all.
+        var whole = Assert.Single(Bands(solid));
+
+        Assert.True(whole.HasStyle, "a solid band on a rounded box carries its corners");
+
+        var band = solid.Drawing.Boxes[whole.Offset].Corners;
+
+        Assert.Equal(new Vector2(8f, 8f), band.BottomLeft);
+        Assert.Equal(new Vector2(8f, 8f), band.BottomRight);
+
+        var marks = Bands(dashed);
+
+        Assert.True(marks.Count > 2, "the run is long enough to have a mark that touches neither end");
+
+        var first = Corners(dashed, marks[0]);
+        var last = Corners(dashed, marks[^1]);
+
+        Assert.Equal(band.BottomLeft, first.BottomLeft);
+        Assert.Equal(Vector2.Zero, first.BottomRight);
+        Assert.Equal(band.BottomRight, last.BottomRight);
+        Assert.Equal(Vector2.Zero, last.BottomLeft);
+
+        // The band's only curve is at its two ends, so a mark in the middle is square — and pays
+        // nothing for saying so, because `Styled` leaves a square box out of the side buffer.
+        for (var index = 1; index < marks.Count - 1; index++) {
+            Assert.False(marks[index].HasStyle, "a mark that touches neither end of the band is square");
+        }
+
+        static CornerRadii Corners(UiDocument document, DrawCommand mark) {
+            Assert.True(mark.HasStyle, "a mark at the end of a rounded band carries that end's corner");
+            return document.Drawing.Boxes[mark.Offset].Corners;
+        }
+    }
+
+    [Fact]
+    public void A_dashed_band_on_a_square_box_still_costs_nothing() {
+        using var document = Drawn(
+            ".probe { border-bottom-width: 2px; border-color: #ff0000; border-style: dashed; }"
+        );
+
+        // The cheap path the marks came from, kept. A divider is the overwhelmingly common band and
+        // it never rounds, so no mark of it may reach the side buffer the frame diff walks entry by
+        // entry — rounding the ends must cost only the boxes that are actually round.
+        Assert.True(Bands(document).Count > 1);
+        Assert.All(Bands(document), mark => Assert.False(mark.HasStyle));
+        Assert.Empty(document.Drawing.Boxes);
+    }
+
+    [Fact]
+    public void A_band_cannot_be_walked_because_its_thickness_is_its_own_cross_axis_extent() {
+        var outline = new List<Vector2>();
+
+        // ⚠ Why the marks are cut out of the band rather than walked along it, which is the obvious
+        // reading of "make the band agree with the ring". A ring's centre line sits half a thickness
+        // inside the *border box*, which is thicker than the border; a band's cross-axis extent *is*
+        // its thickness, so the same inset closes it completely and `Rings.Outline` returns nothing.
+        // A dashed divider walked on this would draw no ink at all.
+        Ui.Rings.Outline(
+            0f,
+            20f,
+            40f,
+            2f,
+            new CornerRadii(default, default, new(8f, 8f), new(8f, 8f)),
+            1f,
+            outline
+        );
+
+        Assert.Empty(outline);
     }
 
     [Fact]

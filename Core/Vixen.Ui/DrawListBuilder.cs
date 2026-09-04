@@ -1084,26 +1084,57 @@ public sealed class DrawListBuilder {
             // the path stroke. Along the band's long axis, as rectangles, for the reason a decoration
             // bar is rectangles: this is breaking up a length.
             //
-            // ⚠ <b>And a broken band drops the corner radii, which the solid one keeps.</b> A mark is
-            // a straight segment and an arc is not, so a dashed edge on a rounded box would need the
-            // ring's machinery — which the non-uniform case cannot use, because there is no single
-            // ring. Divider rules do not round their edges, so this is a divergence with no caller in
-            // the tree; it is written down rather than hidden, alongside the mitre one above.
+            // ⚠ <b>The end marks carry the two corners at their end of the run, so a broken band is
+            // the solid band cut up rather than a squared-off copy of it.</b> Only the first and the
+            // last mark touch the band's ends, so only those two can carry a curve; everything
+            // between them is square because the shape it is a piece of is square there.
+            //
+            // ⚠ <b>And the marks are cut out of the band, not walked along it — `Rings` cannot serve
+            // this path and the ring above at once.</b> A band's thickness *is* its cross-axis
+            // extent, so `Rings.Outline` at the half-thickness inset it would need collapses to
+            // nothing at all — `bottom <= top`, and it returns an empty polyline. And a
+            // centre line drawn anyway would be the wrong curve twice over: shortened by the radii it
+            // loses the ink in the tapered ends, and taking the *ring's* corner arc instead would
+            // send a dashed divider's marks climbing the sides of a box that has no border there.
             if (Dashes.Broken(style)) {
                 var horizontal = bandWidth >= bandHeight;
                 Dashes.Along(horizontal ? bandWidth : bandHeight, thickness, style, marks);
 
-                foreach (var mark in marks) {
+                for (var index = 0; index < marks.Count; index++) {
+                    var mark = marks[index];
+                    var first = index == 0;
+                    var last = index == marks.Count - 1;
+
+                    // A run short enough to be one mark is both ends at once, which is the case that
+                    // has to keep all four corners — it is the solid band.
+                    var ends = horizontal
+                        ? new CornerRadii(
+                            first ? topLeft : default,
+                            last ? topRight : default,
+                            last ? bottomRight : default,
+                            first ? bottomLeft : default
+                        )
+                        : new CornerRadii(
+                            first ? topLeft : default,
+                            first ? topRight : default,
+                            last ? bottomRight : default,
+                            last ? bottomLeft : default
+                        );
+
                     into.Add(
-                        new DrawCommand(
-                            DrawCommandKind.Rectangle,
-                            horizontal ? bandX + mark.Start : bandX,
-                            horizontal ? bandY : bandY + mark.Start,
-                            horizontal ? mark.Length : bandWidth,
-                            horizontal ? bandHeight : mark.Length,
-                            Fade(fill, alpha),
-                            0f,
-                            0f
+                        Styled(
+                            new DrawCommand(
+                                DrawCommandKind.Rectangle,
+                                horizontal ? bandX + mark.Start : bandX,
+                                horizontal ? bandY : bandY + mark.Start,
+                                horizontal ? mark.Length : bandWidth,
+                                horizontal ? bandHeight : mark.Length,
+                                Fade(fill, alpha),
+                                0f,
+                                0f
+                            ),
+                            into,
+                            ends
                         )
                     );
                 }
@@ -1150,10 +1181,11 @@ public sealed class DrawListBuilder {
                 )
             );
 
-            // ⚠ Square, because a doubled band's two strips are a third of the band each and a corner
-            // radius on a strip a third of a hairline thick is a curve nothing can see. The solid
-            // band above keeps its radii; this is the same divergence the broken styles are written
-            // down under, one step milder.
+            // ⚠ Square, and since a broken band now carries its end radii on its end marks this is
+            // the only band left that squares a corner the solid one would have rounded. A strip is
+            // not a piece of the band the way a mark is: the split runs *across*, so each strip is a
+            // third as thick as the shape whose corners these are, and what a third of a corner is
+            // is a decision rather than a lookup. Left square until that decision is taken.
             void Strip(float stripX, float stripY, float stripWidth, float stripHeight) =>
                 into.Add(
                     new DrawCommand(
