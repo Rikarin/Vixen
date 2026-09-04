@@ -319,6 +319,78 @@ public class CompositionTests {
         }
     }
 
+    /// <summary>The numeric form of the two assemblers that take a direction.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Zero is the value this needed a new kind for, and it is not a corner case — it is
+    ///         the one an author writes first.</b> <c>bg-conic-0</c> is a sweep starting at twelve
+    ///         o'clock and <c>bg-linear-0</c> is a ramp running upwards; both are real Tailwind
+    ///         classes and both were reported as unrecognised typos while these families shared
+    ///         <c>TryCount</c>, which floors at one because <c>grid-cols-0</c> is not a track list.
+    ///         Asserting the zero row alone would have passed against the old code as an unresolved
+    ///         class only if the assertion were `Null` — so the row that proves the kind is this one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The angle rides the axis lane the parser and the shader already had.</b>
+    ///         <c>GradientReader.ReadPrelude</c> has read <c>from &lt;angle&gt;</c> since conic
+    ///         gradients landed and the box shader recovers it with <c>atan2(x, -y)</c>, so nothing
+    ///         under this table moved for these four rows — which is exactly what the issue said and
+    ///         is worth having pinned, because the next reader will assume a shader change.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("bg-linear-0", "linear-gradient(0deg in oklab, ")]
+    [InlineData("bg-linear-45", "linear-gradient(45deg in oklab, ")]
+    [InlineData("bg-linear-180", "linear-gradient(180deg in oklab, ")]
+    [InlineData("bg-conic-0", "conic-gradient(from 0deg in oklab, ")]
+    [InlineData("bg-conic-45", "conic-gradient(from 45deg in oklab, ")]
+    // ⚠ The hatch goes *through* the template rather than around it: an angle family's declaration is
+    // a whole gradient function and the value is one word inside it, so the ordinary arbitrary path —
+    // emit the value as the declaration — would produce `background-image: 3rad` and the cascade
+    // would drop the element's whole stop list with it.
+    [InlineData("bg-conic-[3rad]", "conic-gradient(from 3rad in oklab, ")]
+    [InlineData("bg-linear-[0.25turn]", "linear-gradient(0.25turn in oklab, ")]
+    public void An_angle_assembler_writes_the_angle_into_the_gradient(string utility, string expected) {
+        var fixture = new UtilityFixture();
+
+        Assert.StartsWith(expected, fixture.Computed([utility], "background-image"), StringComparison.Ordinal);
+    }
+
+    /// <summary>The bare <c>bg</c> root's two other readings: v3's assembler spelling, and the opt-out.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both hang off <c>bg</c> and not off <c>bg-linear</c>, which is Tailwind's own
+    ///     arrangement</b> — v4 keeps <c>bg-gradient-to-*</c> in <c>compat/legacy-utilities.ts</c>,
+    ///     aliased to what <c>bg-linear-to-*</c> emits. Registering them as a second keyword table on
+    ///     an existing <see cref="ValueKind.Color" /> family is what <c>Register</c>'s merge is for,
+    ///     and <c>bg-accent</c> still resolves as a colour because the keyword table is consulted
+    ///     first and holds no colour name.
+    /// </remarks>
+    [Fact]
+    public void The_bare_bg_root_carries_the_legacy_assemblers_and_the_opt_out() {
+        var fixture = new UtilityFixture();
+
+        Assert.Equal(["background-image: none"], fixture.Emits("bg-none"));
+
+        foreach (var (suffix, expected) in new[] {
+                     ("t", "to top"), ("tr", "to top right"), ("r", "to right"), ("br", "to bottom right"),
+                     ("b", "to bottom"), ("bl", "to bottom left"), ("l", "to left"), ("tl", "to top left")
+                 }) {
+            Assert.Equal(
+                fixture.Computed([$"bg-linear-to-{suffix}"], "background-image"),
+                fixture.Computed([$"bg-gradient-to-{suffix}"], "background-image")
+            );
+
+            Assert.StartsWith(
+                $"linear-gradient({expected} in oklab, ",
+                fixture.Computed([$"bg-gradient-to-{suffix}"], "background-image"),
+                StringComparison.Ordinal
+            );
+        }
+
+        // The colour reading of the same prefix is untouched by the keyword table beside it.
+        Assert.Equal(["background-color: #4f7cff"], fixture.Emits("bg-accent"));
+    }
+
     /// <summary>Every gradient this generator emits names its interpolation space.</summary>
     /// <remarks>
     ///     <para>

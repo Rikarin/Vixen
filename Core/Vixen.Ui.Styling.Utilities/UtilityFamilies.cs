@@ -35,6 +35,30 @@ enum ValueKind : byte {
     /// </remarks>
     CountTemplate,
 
+    /// <summary>An angle in whole degrees substituted into a template: <c>bg-conic-180</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="CountTemplate" /> with one difference, and the difference is zero.</b>
+    ///         <c>TryCount</c> refuses a count of zero, which is right for every family that has
+    ///         one — <c>grid-cols-0</c> is <c>repeat(0, …)</c>, which is not a track list, and
+    ///         <c>col-span-0</c> is not a span. An <i>angle</i> of zero is a real value that means
+    ///         something specific: <c>bg-linear-0</c> is a ramp running upwards and
+    ///         <c>bg-conic-0</c> is a sweep starting at twelve o'clock. Sharing the count's parser
+    ///         would have left both of those reported as unrecognised typos, which is what they were
+    ///         before this kind existed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Non-negative, and the reason is <c>TryNegate</c> rather than CSS.</b>
+    ///         Negation is applied to the resolved declaration and refuses any value that does not
+    ///         begin with a digit — and this kind's value is a whole <c>linear-gradient(…)</c>, so
+    ///         <c>-bg-linear-45</c> cannot be flipped after the fact. Every negative angle has a
+    ///         positive spelling (<c>bg-linear-315</c>), so the gap is a spelling and not a
+    ///         capability; it is recorded on the row rather than papered over by inventing a second
+    ///         negation path.
+    ///     </para>
+    /// </remarks>
+    Angle,
+
     /// <summary>One of a fixed set of keywords: <c>items-center</c>.</summary>
     Keyword,
 
@@ -1066,6 +1090,14 @@ public static class UtilityFamilies {
         // ⚠ `bg-linear` is registered *after* `bg`, and it still wins for `bg-linear-to-r`, because
         // `SplitName` sorts longest-first at the bottom of this method rather than trusting the order
         // things appear in here. `bg-accent` is unaffected, and so are `bg-radial` and `bg-conic`.
+        //
+        // ⚠ <b>The angle form is registered <i>first</i> and the keyword table second, and that order
+        // is the whole reason both spellings work.</b> `Register` keeps the first family under a name
+        // and merges nothing but a later keyword table into it — so a `Keywords` call first would
+        // make the family's `ValueKind` `Keyword`, and `bg-linear-45` would fall out of the table and
+        // be reported as an unrecognised typo. The same shape as `StaticOrSize`, one section up.
+        Register(new Family("bg-linear", ValueKind.Angle, ["background-image"], Template: Gradient("linear", "{0}")));
+
         Keywords("bg-linear", "background-image", new() {
             ["to-t"] = Gradient("linear", "to top"), ["to-tr"] = Gradient("linear", "to top right"),
             ["to-r"] = Gradient("linear", "to right"), ["to-br"] = Gradient("linear", "to bottom right"),
@@ -1073,15 +1105,44 @@ public static class UtilityFamilies {
             ["to-l"] = Gradient("linear", "to left"), ["to-tl"] = Gradient("linear", "to top left")
         });
 
-        // ⚠ <b>The two round shapes take no geometry at all, and that is Tailwind's own default
-        // rather than a simplification.</b> `bg-radial` is `radial-gradient(in oklab, …)` — no
-        // `at`, no ending shape — because CSS's defaults are a centred farthest-corner ellipse, and
-        // `bg-conic` is the same story with a sweep from twelve o'clock. Tailwind reaches the
-        // positioned forms only through its arbitrary-value syntax, and those are what
-        // `GradientRefusal.Extent` refuses: they need a centre in `UiShape`, which is a whole further
-        // `Vector4` for a form no theme in this repository writes.
+        // ⚠ <b>The two round shapes take no geometry when they are written bare, and that is
+        // Tailwind's own default rather than a simplification.</b> `bg-radial` is
+        // `radial-gradient(in oklab, …)` — no `at`, no ending shape — because CSS's defaults are a
+        // centred farthest-corner ellipse, and bare `bg-conic` is the same story with a sweep from
+        // twelve o'clock.
         Static("bg-radial", "background-image", Gradient("radial", string.Empty));
+
+        // ⚠ <b>`bg-conic-<angle>` was owed by the *utility* table and by nothing below it.</b>
+        // `GradientReader.ReadPrelude` has read `from <angle>` since conic gradients landed, and the
+        // box shader recovers it from the axis lane with `atan2(x, -y)` — so this line is the whole
+        // of the feature, and writing it earlier was blocked only on a value kind that admits zero.
+        // The bare `bg-conic` keeps its own registration below, which is what `Register` merges in.
+        Register(new Family("bg-conic", ValueKind.Angle, ["background-image"], Template: Gradient("conic", "from {0}")));
         Static("bg-conic", "background-image", Gradient("conic", string.Empty));
+
+        // ⚠ <b>`bg-none` is the opt-out and the eight `bg-gradient-to-*` are v3's spelling, and both
+        // hang off the bare `bg` root rather than off `bg-linear`.</b> That is Tailwind's own
+        // arrangement — v4 keeps `bg-gradient-to-*` in `compat/legacy-utilities.ts`, aliased to
+        // exactly what `bg-linear-to-*` emits — and it is the same argument `start-*` beside
+        // `inset-s-*` and `break-words` beside `wrap-break-word` are kept under: the declaration
+        // people already have in their fingers, under the name they have it in.
+        //
+        // ⚠ <b>`bg-none` earns its place the way `text-clip` and `filter-none` do.</b> It is CSS's
+        // initial value, so it says nothing on an element that has no gradient — but
+        // `background-image` is a property a `@apply`-ed component or a theme rule can have set, and
+        // `GradientReader` reads `none` as `GradientRefusal.NotAGradient` and paints no layer. There
+        // is no other way to write "whatever gradient you gave me, not here".
+        Keywords("bg", "background-image", new() {
+            ["none"] = "none",
+            ["gradient-to-t"] = Gradient("linear", "to top"),
+            ["gradient-to-tr"] = Gradient("linear", "to top right"),
+            ["gradient-to-r"] = Gradient("linear", "to right"),
+            ["gradient-to-br"] = Gradient("linear", "to bottom right"),
+            ["gradient-to-b"] = Gradient("linear", "to bottom"),
+            ["gradient-to-bl"] = Gradient("linear", "to bottom left"),
+            ["gradient-to-l"] = Gradient("linear", "to left"),
+            ["gradient-to-tl"] = Gradient("linear", "to top left")
+        });
 
         // ── Borders ─────────────────────────────────────────────────────────────────────────
         // ⚠ `border-2` is two *pixels* where `p-2` is two spacing steps, which is Tailwind's choice
@@ -1909,6 +1970,14 @@ public static class UtilityFamilies {
                 yield return "2";
                 break;
 
+            // ⚠ Forty-five and not two, and not zero either. Zero is the one value of an angle family
+            // that is often the *default* — `bg-conic-0` is the sweep `bg-conic` already draws — so a
+            // probe written with it would measure the family inert on any engine that reads the
+            // property, which is the shape of vacuity this list has been wrong about nine times.
+            case ValueKind.Angle:
+                yield return "45";
+                break;
+
             case ValueKind.Duration:
                 yield return "300";
                 break;
@@ -2118,6 +2187,16 @@ public static class UtilityFamilies {
                     && EmitInto(family.ColorProperties, arbitrary, declarations);
             }
 
+            // ⚠ <b>An angle family is the one kind whose declaration is not its value, so the hatch
+            // has to go through the template rather than around it.</b> <c>bg-conic-[3rad]</c> means
+            // a sweep of three radians; emitting <c>background-image: 3rad</c> is a declaration
+            // `StyleValueParser` drops whole, which would take the element's stop list with it. This
+            // is `hue-rotate`'s argument one level up: there the template appends a unit, here it
+            // wraps the value in the function it belongs to.
+            if (family.Kind == ValueKind.Angle) {
+                return Emit(family, string.Format(CultureInfo.InvariantCulture, family.Template!, arbitrary), declarations);
+            }
+
             return Emit(family, arbitrary, declarations);
         }
 
@@ -2145,6 +2224,8 @@ public static class UtilityFamilies {
             ValueKind.Number => TryNumber(candidate.Value, out var number) && Emit(family, number, declarations),
             ValueKind.CountTemplate => TryCount(candidate.Value, out var count)
                 && Emit(family, string.Format(CultureInfo.InvariantCulture, family.Template!, count), declarations),
+            ValueKind.Angle => TryAngle(candidate.Value, out var degrees)
+                && Emit(family, string.Format(CultureInfo.InvariantCulture, family.Template!, degrees + "deg"), declarations),
             ValueKind.Duration => TryNumber(candidate.Value, out var ms) && Emit(family, ms + "ms", declarations),
             ValueKind.Fraction => TryFraction(candidate.Value, out var fraction) && Emit(family, fraction, declarations),
             ValueKind.Radius => TryRadius(candidate.Value, tokens, out var radius) && Emit(family, radius, declarations),
@@ -2710,6 +2791,10 @@ public static class UtilityFamilies {
     /// </remarks>
     static bool TryCount(string value, out int count) =>
         int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out count) && count > 0;
+
+    /// <summary>A whole number of degrees. Zero is a value, which is the whole of why this is not <see cref="TryCount" />.</summary>
+    static bool TryAngle(string value, out int degrees) =>
+        int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out degrees) && degrees >= 0;
 
     static bool Emit(Family family, string value, List<UtilityDeclaration> declarations) =>
         EmitInto(family.Properties, value, declarations);
