@@ -445,6 +445,34 @@ public class CompositionTests {
         Assert.Equal(["down:Escape", "up:Escape", "text:é"], component.Seen);
     }
 
+    /// <summary>
+    ///     ⚠ <b>A drag is three names over one event, and <c>on:drag</c> is the middle one.</b>
+    ///     <c>AddHandler&lt;DragEvent&gt;</c> delivers every stage, so a panel that translates one
+    ///     handler into one <c>on:drag</c> compiles, binds, fires on every pointer move — and never
+    ///     sees the grab or the drop, with no exception and no diagnostic. What that looks like is a
+    ///     drag that reorders nothing. A handler that wants the whole gesture subscribes to all
+    ///     three, which is what <c>ComponentsView</c> now does.
+    /// </summary>
+    [Fact]
+    public void Drag_is_three_names_over_one_event_and_on_drag_is_the_middle_one() {
+        using var document = new UiDocument(200f, 200f);
+        var component = BuildContext.Build<Dragged>(document, document.Root);
+        var handle = component.Root.Children[0];
+
+        handle.Raise(new DragEvent { Stage = DragStage.Started });
+        handle.Raise(new DragEvent { Stage = DragStage.Moved });
+        handle.Raise(new DragEvent { Stage = DragStage.Completed });
+
+        // Every stage reached exactly one name, and `drag` heard only the move.
+        Assert.Equal(["start:Started", "drag:Moved", "end:Completed"], component.Seen);
+
+        // ⚠ And the fourth stage is `dragend` as well: a cancelled drag is the one a handler must
+        // not miss, because it is the one that has to put back what the grab took.
+        component.Seen.Clear();
+        handle.Raise(new DragEvent { Stage = DragStage.Cancelled });
+        Assert.Equal(["end:Cancelled"], component.Seen);
+    }
+
     [Fact]
     public void Children_are_projected_into_the_slot_the_component_declared() {
         using var document = new UiDocument(200f, 200f);
@@ -938,6 +966,18 @@ public class CompositionTests {
             ctx.On<KeyEvent>(field, "keydown", args => Seen.Add("down:" + args.Key), "capture");
             ctx.On<KeyEvent>(field, "keyup", args => Seen.Add("up:" + args.Key));
             ctx.On<TextInputEvent>(field, "textinput", args => Seen.Add("text:" + args.Text));
+        }
+    }
+
+    sealed class Dragged : Component {
+        public List<string> Seen { get; } = [];
+
+        protected override void Build(BuildContext ctx) {
+            var handle = ctx.Element(null, "handle");
+
+            ctx.On<DragEvent>(handle, "dragstart", args => Seen.Add("start:" + args.Stage));
+            ctx.On<DragEvent>(handle, "drag", args => Seen.Add("drag:" + args.Stage));
+            ctx.On<DragEvent>(handle, "dragend", args => Seen.Add("end:" + args.Stage));
         }
     }
 

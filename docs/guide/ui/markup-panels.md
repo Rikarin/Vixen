@@ -235,9 +235,38 @@ code to which an absent key is an answer.
 
 The names are `tap`, `click`, `dblclick`, `longpress`, `pointerdown`, `pointerup`, `pointermove`,
 `dragstart`, `drag`, `dragend`, `keydown`, `keyup`, `textinput`, `focus`, `blur` and — where
-`Vixen.Ui.Controls` is referenced — `submit`. `keydown` and `keyup` split one `KeyEvent` on its
-action, the way `focus` and `blur` split one `FocusEvent` and the two pointer names split a
-`PointerEvent`.
+`Vixen.Ui.Controls` is referenced — `submit`.
+
+#### Most of those names are a filtered view over one routed event
+
+| The event | The names over it | What each one is |
+|---|---|---|
+| `PointerEvent` | `pointerdown`, `pointerup`, `pointermove` | its `Action` |
+| `DragEvent` | `dragstart`, `drag`, `dragend` | its `Stage`: `Started`, `Moved`, and `Completed` **or** `Cancelled` |
+| `KeyEvent` | `keydown`, `keyup` | its `Action` |
+| `FocusEvent` | `focus`, `blur` | whether focus was gained |
+| `TapEvent` | `tap`, `click`, `dblclick` | `dblclick` is a tap whose `Count` reached two |
+
+The filter is in the table rather than in your handler, which is the point: a handler that tested
+`args.Action` itself would be a handler that fires twice per keystroke until somebody notices.
+
+⚠ **So a handler that wants a whole gesture subscribes to every name it is split across, and
+`on:drag` on its own is the *middle* of a drag.** `AddHandler<DragEvent>` in C# delivers all four
+stages; one `on:drag` translated from one of those compiles, binds, fires on every pointer move —
+and never sees the grab or the drop. Nothing is grabbed, nothing is dropped, and there is no
+exception and no diagnostic to say so; what it looks like is a drag that reorders nothing. Three
+attributes on one handler is the shape that works:
+
+```xml
+<Expander on:dragstart="@((DragEvent args) => Rearrange(args))"
+          on:drag="@((DragEvent args) => Rearrange(args))"
+          on:dragend="@((DragEvent args) => Rearrange(args))" />
+```
+
+`ComponentsView` is written that way, and `Drag_is_three_names_over_one_event_and_on_drag_is_the_middle_one`
+in `Vixen.Ui.Tests` is what keeps the split honest. ⚠ Note that `dragend` covers `Cancelled` as well
+as `Completed` — a cancelled drag is the one a handler must not miss, because it is the one that has
+to put back whatever the grab took.
 
 ⚠ **`keydown` is a key's *position* and `textinput` is what was typed.** `KeyEvent.Key` is the
 US-QWERTY legend of the physical key, so a handler that reads a letter out of it types `q` where an
