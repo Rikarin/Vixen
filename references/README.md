@@ -41,9 +41,22 @@ for f in auxiliary/GraphemeBreakTest.txt auxiliary/GraphemeBreakProperty.txt \
          auxiliary/WordBreakTest.txt auxiliary/WordBreakProperty.txt \
          auxiliary/LineBreakTest.txt LineBreak.txt \
          DerivedCoreProperties.txt extracted/DerivedBidiClass.txt BidiBrackets.txt BidiCharacterTest.txt \
-         EastAsianWidth.txt Scripts.txt PropertyValueAliases.txt \
+         EastAsianWidth.txt Scripts.txt PropertyValueAliases.txt SpecialCasing.txt \
          emoji/emoji-data.txt ReadMe.txt; do curl -sSO "$base/$f"; done
 ```
+
+⚠ **`SpecialCasing.txt` is the one file whose table can be regenerated on its own**, because it is
+also the one that arrived after the rest and the committed table therefore names an older Unicode
+version than its siblings do:
+
+```bash
+dotnet run --project Tools/Vixen.UnicodeTableGen -- \
+    references/unicode Core/Vixen.Ui.Text/Generated /tmp/unused SpecialCasing
+```
+
+The generator takes the version from that file's own header rather than from GraphemeBreakTest.txt,
+so the mismatch is visible in a diff instead of being asserted away. Re-run the whole generator to
+close it.
 
 ## What each one is for
 

@@ -941,6 +941,26 @@ public static class UtilityFamilies {
             ["top"] = "top", ["middle"] = "middle", ["bottom"] = "bottom", ["baseline"] = "baseline"
         });
 
+        // ── Text transform ──────────────────────────────────────────────────────────────────
+        // ⚠ <b>Four bare words for one property, and the fourth is spelled `normal-case` rather than
+        // `case-normal`.</b> That is v4's name and it is also the only one that does not collide:
+        // `case` is not a prefix any other family uses, and inventing one for a single opt-out would
+        // put a family in the table whose only member is a value already reachable by writing
+        // nothing.
+        //
+        // ⚠ <b>These are read at *shaping* time, which is where the property's cost lives.</b>
+        // `UiDocument.TextTransformOf` is consulted by `UiElement.Block` before a glyph is chosen,
+        // because a case mapping changes how wide the text is; and `TransformedText` carries the map
+        // back to what the author wrote, because a full Unicode uppercase changes the string's
+        // *length* — `straße` becomes `STRASSE` — and every caret index in the tree is an index into
+        // the element's own text. The four classes were held back until that map existed, for
+        // exactly the reason `tab-*` still is: a text feature that misplaces a caret is worse than
+        // an absent one.
+        Static("uppercase", "text-transform", "uppercase");
+        Static("lowercase", "text-transform", "lowercase");
+        Static("capitalize", "text-transform", "capitalize");
+        Static("normal-case", "text-transform", "none");
+
         // ── Text decoration ─────────────────────────────────────────────────────────────────
         // ⚠ <b>Four families for one line, and it is `text-decoration-line` that gets its own class
         // names rather than a value.</b> v4 spells the lines as bare words — `underline`, not

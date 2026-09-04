@@ -642,10 +642,22 @@ Vixen.Ui.Text.TextItem.TextItem() -> void
 Vixen.Ui.Text.TextItem.TextItem(int Start, int Length, int Level, Vixen.Ui.Text.Script Script) -> void
 Vixen.Ui.Text.TextItemizer -> static class
 Vixen.Ui.Text.TextShaper -> static class
+Vixen.Ui.Text.TextTransform -> enum : byte
+Vixen.Ui.Text.TextTransform.Capitalize = 3 -> Vixen.Ui.Text.TextTransform
+Vixen.Ui.Text.TextTransform.Lowercase = 2 -> Vixen.Ui.Text.TextTransform
+Vixen.Ui.Text.TextTransform.None = 0 -> Vixen.Ui.Text.TextTransform
+Vixen.Ui.Text.TextTransform.TextTransform() -> void
+Vixen.Ui.Text.TextTransform.Uppercase = 1 -> Vixen.Ui.Text.TextTransform
 Vixen.Ui.Text.TextWrapMode -> enum : byte
 Vixen.Ui.Text.TextWrapMode.Anywhere = 1 -> Vixen.Ui.Text.TextWrapMode
 Vixen.Ui.Text.TextWrapMode.TextWrapMode() -> void
 Vixen.Ui.Text.TextWrapMode.Word = 0 -> Vixen.Ui.Text.TextWrapMode
+Vixen.Ui.Text.TransformedText -> sealed class
+Vixen.Ui.Text.TransformedText.IsIdentity.get -> bool
+Vixen.Ui.Text.TransformedText.Source.get -> string
+Vixen.Ui.Text.TransformedText.Text.get -> string
+Vixen.Ui.Text.TransformedText.ToDrawn(int index) -> int
+Vixen.Ui.Text.TransformedText.ToSource(int index) -> int
 Vixen.Ui.Text.WordBreakClass -> enum : byte
 Vixen.Ui.Text.WordBreakClass.ALetter = 1 -> Vixen.Ui.Text.WordBreakClass
 Vixen.Ui.Text.WordBreakClass.CR = 2 -> Vixen.Ui.Text.WordBreakClass
@@ -725,6 +737,7 @@ static Vixen.Ui.Text.TextItemizer.Itemize(string text, Vixen.Ui.Text.ParagraphDi
 static Vixen.Ui.Text.TextItemizer.VisualOrder(System.Collections.Generic.IReadOnlyList<Vixen.Ui.Text.TextItem> items) -> int[]
 static Vixen.Ui.Text.TextItemizer.VisualOrder(System.ReadOnlySpan<int> levels) -> int[]
 static Vixen.Ui.Text.TextShaper.Shape(Vixen.Ui.Text.FontFace font, string text, Vixen.Ui.Text.ParagraphDirection direction = Vixen.Ui.Text.ParagraphDirection.Auto, Vixen.Ui.Text.FontVariation? variation = null, Vixen.Ui.Text.FontFeatureSet? features = null) -> Vixen.Ui.Text.ShapedText
+static Vixen.Ui.Text.TransformedText.Of(string? source, Vixen.Ui.Text.TextTransform transform) -> Vixen.Ui.Text.TransformedText
 static Vixen.Ui.Text.WordBreaker.Boundaries(string text) -> System.Collections.Generic.List<int>
 static Vixen.Ui.Text.WordBreaker.Collect(System.ReadOnlySpan<char> text, System.Collections.Generic.List<int> boundaries) -> void
 static Vixen.Ui.Text.WordBreaker.WordAt(System.ReadOnlySpan<char> text, int index) -> (int Start, int End)

@@ -52,6 +52,10 @@ public sealed partial class UiDocument : IDisposable {
     readonly int breakWord;
     readonly int breakAll;
     readonly int keepAll;
+    readonly int textTransform;
+    readonly int uppercase;
+    readonly int lowercase;
+    readonly int capitalize;
     readonly int letterSpacing;
     readonly int wordSpacing;
     readonly int textIndent;
@@ -148,6 +152,10 @@ public sealed partial class UiDocument : IDisposable {
         breakWord = Styles.Values.Intern("break-word");
         breakAll = Styles.Values.Intern("break-all");
         keepAll = Styles.Values.Intern("keep-all");
+        textTransform = Styles.Properties.Intern("text-transform");
+        uppercase = Styles.Values.Intern("uppercase");
+        lowercase = Styles.Values.Intern("lowercase");
+        capitalize = Styles.Values.Intern("capitalize");
         letterSpacing = Styles.Properties.Intern("letter-spacing");
         wordSpacing = Styles.Properties.Intern("word-spacing");
         textIndent = Styles.Properties.Intern("text-indent");
@@ -1932,6 +1940,30 @@ public sealed partial class UiDocument : IDisposable {
 
         return value == breakAll ? WordBreakMode.BreakAll :
             value == keepAll ? WordBreakMode.KeepAll : WordBreakMode.Normal;
+    }
+
+    /// <summary>What to do to the characters before they are shaped. CSS Text 3 § 2.1.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Read here and applied in <c>UiElement.Block</c>, which is <i>before</i> the
+    ///         shaping and the wrapping and the measuring</b> — a case mapping changes how wide the
+    ///         text is, so a transform applied at paint would draw a paragraph the layout had
+    ///         measured at the other width.
+    ///     </para>
+    ///     <para>
+    ///         <c>none</c> is the initial value and needs no test: anything that is not one of the
+    ///         three keywords is it. <c>full-width</c> and <c>full-size-kana</c> are not registered
+    ///         and therefore cannot arrive here.
+    ///     </para>
+    /// </remarks>
+    internal TextTransform TextTransformOf(ComputedStyle style) {
+        if (!style.TryGet(textTransform, out var value)) {
+            return TextTransform.None;
+        }
+
+        return value == uppercase ? TextTransform.Uppercase :
+            value == lowercase ? TextTransform.Lowercase :
+            value == capitalize ? TextTransform.Capitalize : TextTransform.None;
     }
 
     internal string? FontFamilyOf(ComputedStyle style) =>

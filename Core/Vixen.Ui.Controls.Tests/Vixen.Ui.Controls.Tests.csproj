@@ -39,6 +39,16 @@
         -->
         <EmbeddedResource Include="..\Vixen.Ui.Text.Tests\Fonts\NotoSerifKannada-Regular.ttf"
                           LogicalName="Vixen.Ui.Controls.Tests.Fonts.NotoSerifKannada-Regular.ttf" />
+
+        <!--
+            And a real text face, for `text-transform`. The Consortium fixtures cover no `ß`, so an
+            uppercase asserted against one of them compares two rows of .notdef and would pass with
+            the case mapping removed — the same shape of green a whole `font-variant-numeric` sweep
+            reported before anybody checked whether the font could witness the property. Linked from
+            the editor's own fonts, as Vixen.Ui.Testing.Tests does.
+        -->
+        <EmbeddedResource Include="..\..\Editor\Vixen.Editor.App\Fonts\OpenSans-Regular.ttf"
+                          LogicalName="Vixen.Ui.Controls.Tests.Fonts.OpenSans-Regular.ttf" />
     </ItemGroup>
 
     <ItemGroup>

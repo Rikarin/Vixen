@@ -1003,9 +1003,9 @@ Vixen.Ui.TextDecorationLine.Overline = 2 -> Vixen.Ui.TextDecorationLine
 Vixen.Ui.TextDecorationLine.TextDecorationLine() -> void
 Vixen.Ui.TextDecorationLine.Underline = 1 -> Vixen.Ui.TextDecorationLine
 Vixen.Ui.TextDecorationStyle -> enum : byte
-Vixen.Ui.TextDecorationStyle.Double = 1 -> Vixen.Ui.TextDecorationStyle
 Vixen.Ui.TextDecorationStyle.Dashed = 2 -> Vixen.Ui.TextDecorationStyle
 Vixen.Ui.TextDecorationStyle.Dotted = 3 -> Vixen.Ui.TextDecorationStyle
+Vixen.Ui.TextDecorationStyle.Double = 1 -> Vixen.Ui.TextDecorationStyle
 Vixen.Ui.TextDecorationStyle.Solid = 0 -> Vixen.Ui.TextDecorationStyle
 Vixen.Ui.TextDecorationStyle.TextDecorationStyle() -> void
 Vixen.Ui.TextInputEvent -> sealed class
@@ -1040,7 +1040,7 @@ Vixen.Ui.TextLine.PenOf(int run) -> float
 Vixen.Ui.TextLine.Place(System.Collections.Generic.List<Vixen.Ui.PositionedGlyph> into) -> void
 Vixen.Ui.TextLine.Runs.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.TextRun>
 Vixen.Ui.TextLine.Start.get -> int
-Vixen.Ui.TextLine.TextLine(System.Collections.Immutable.ImmutableArray<Vixen.Ui.TextRun> runs, float width = NaN, float offset = 0) -> void
+Vixen.Ui.TextLine.TextLine(System.Collections.Immutable.ImmutableArray<Vixen.Ui.TextRun> runs, float width = NaN, float offset = 0, Vixen.Ui.Text.TransformedText? transformed = null) -> void
 Vixen.Ui.TextLine.Width.get -> float
 Vixen.Ui.TextRun -> sealed record
 Vixen.Ui.TextRun : System.IEquatable<Vixen.Ui.TextRun>

@@ -70,8 +70,17 @@ public readonly record struct PositionedGlyph(ushort GlyphId, float X, float Y);
 ///     </para>
 /// </param>
 /// <param name="Start">
-///     Where this run's text begins in the element's, as a UTF-16 index. Zero for a line that is one
-///     run, and what lets a caret index reach the run it belongs to.
+///     <para>
+///         Where this run's text begins in the text it was shaped from, as a UTF-16 index. Zero for
+///         a line that is one run, and what lets a caret index reach the run it belongs to.
+///     </para>
+///     <para>
+///         ⚠ <b>The shaped text and the element's own text are the same string unless a
+///         <c>text-transform</c> expanded something</b> — <c>straße</c> uppercases to
+///         <c>STRASSE</c>, seven characters where the author wrote six. <see cref="TextLine" />
+///         carries the map between the two and does the translation, so a caller reaching past it
+///         into a run is the one place the distinction has to be held in mind.
+///     </para>
 /// </param>
 /// <param name="Level">
 ///     <para>

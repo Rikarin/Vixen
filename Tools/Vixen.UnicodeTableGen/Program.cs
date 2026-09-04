@@ -24,9 +24,9 @@ namespace Vixen.UnicodeTableGen;
 /// </remarks>
 static class Program {
     static int Main(string[] args) {
-        if (args.Length != 3) {
+        if (args.Length is < 3 or > 4) {
             Console.Error.WriteLine(
-                "usage: Vixen.UnicodeTableGen <ucd-directory> <table-output-directory> <test-output-directory>"
+                "usage: Vixen.UnicodeTableGen <ucd-directory> <table-output-directory> <test-output-directory> [only]"
             );
 
             return 1;
@@ -36,6 +36,14 @@ static class Program {
         var tables = args[1];
         var tests = args[2];
 
+        // ⚠ <b>An opt-in name, and it writes that one artefact and says so — it never falls back to
+        // writing the rest.</b> The UCD is fetched file by file (see references/README.md) and one
+        // file arriving before the others is ordinary; what is not acceptable is a generator that
+        // skips what it cannot read and exits 0, which is the shape of every instrument in this
+        // repository that reported success on the day it did not run. So a partial database is
+        // named explicitly on the command line or the run fails on the missing file.
+        var only = args.Length == 4 ? args[3] : null;
+
         if (!Directory.Exists(ucd)) {
             Console.Error.WriteLine($"the UCD directory '{ucd}' does not exist — see references/README.md");
             return 1;
@@ -43,6 +51,20 @@ static class Program {
 
         Directory.CreateDirectory(tables);
         Directory.CreateDirectory(tests);
+
+        if (only is not null) {
+            if (!string.Equals(only, "SpecialCasing", StringComparison.Ordinal)) {
+                Console.Error.WriteLine($"'{only}' is not an artefact this generator knows — the only name is SpecialCasing");
+                return 1;
+            }
+
+            WriteSpecialCasingTable(
+                Path.Combine(tables, "SpecialCasingTable.g.cs"),
+                Path.Combine(ucd, "SpecialCasing.txt")
+            );
+
+            return 0;
+        }
 
         var version = ReadVersion(Path.Combine(ucd, "GraphemeBreakTest.txt"));
         Console.WriteLine($"Unicode {version}");
@@ -83,6 +105,15 @@ static class Program {
         );
 
         WriteBracketTable(Path.Combine(tables, "BidiBracketTable.g.cs"), Path.Combine(ucd, "BidiBrackets.txt"), version);
+
+        // ⚠ The one table whose version is read from its <i>own</i> file rather than from
+        // GraphemeBreakTest.txt, because it is also the one that can be regenerated alone — see the
+        // `only` argument above. Two headers disagreeing about the Unicode version is the point:
+        // it is visible in a diff, where a silently stale table is not.
+        WriteSpecialCasingTable(
+            Path.Combine(tables, "SpecialCasingTable.g.cs"),
+            Path.Combine(ucd, "SpecialCasing.txt")
+        );
 
         // UAX#24. Shaping is per script, so itemisation needs this before a shaper can be handed
         // anything at all.
@@ -634,6 +665,169 @@ static class Program {
 
         File.WriteAllText(path, builder.ToString());
         Console.WriteLine($"{Path.GetFileName(path)}: {merged.Count} ranges, {names.Count} classes");
+    }
+
+    /// <summary>Writes the full case mappings that are not one code point to one code point.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is the table .NET does not have.</b> <c>string.ToUpperInvariant</c> — and
+    ///         <c>ToUpper</c> in every culture, and <c>Rune.ToUpperInvariant</c> over all 1 112 064
+    ///         scalars — implements the <i>simple</i> case mappings of UnicodeData.txt, which are
+    ///         one code point to one code point by definition. So <c>straße</c> uppercases to
+    ///         <c>STRAßE</c> there and to <c>STRASSE</c> in every browser, because CSS Text 3 § 2.1
+    ///         specifies the <i>full</i> mappings, and the difference between the two is exactly
+    ///         this file.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only the unconditional entries.</b> SpecialCasing.txt's remaining rows carry a
+    ///         condition list — <c>Final_Sigma</c>, <c>After_Soft_Dotted</c>, <c>tr</c>, <c>az</c>,
+    ///         <c>lt</c> — and every one of them needs either surrounding context or a language.
+    ///         <c>TextShaper</c> leaves HarfBuzz's language unset on purpose so that shaping does
+    ///         not depend on the machine's locale, and the same reasoning applies here: a case
+    ///         mapping that changed with the operating system's region would make a golden image
+    ///         machine-dependent. The conditional rows are counted and reported so that dropping
+    ///         them is a number somebody can see rather than a silence.
+    ///     </para>
+    ///     <para>
+    ///         The version is read from this file's own header rather than from GraphemeBreakTest.txt,
+    ///         because this is the one artefact that can be regenerated on its own.
+    ///     </para>
+    /// </remarks>
+    static void WriteSpecialCasingTable(string path, string source) {
+        var version = "unknown";
+        var upper = new List<(int Code, string Mapping)>();
+        var lower = new List<(int Code, string Mapping)>();
+        var title = new List<(int Code, string Mapping)>();
+        var conditional = 0;
+
+        foreach (var raw in File.ReadLines(source)) {
+            if (version == "unknown" && raw.StartsWith("# SpecialCasing-", StringComparison.Ordinal)) {
+                version = raw["# SpecialCasing-".Length..].Replace(".txt", string.Empty, StringComparison.Ordinal).Trim();
+            }
+
+            var line = raw;
+            var hash = line.IndexOf('#', StringComparison.Ordinal);
+            if (hash >= 0) {
+                line = line[..hash];
+            }
+
+            // `<code>; <lower>; <title>; <upper>; (<condition_list>;)?` — the trailing semicolon
+            // makes an unconditional row four fields and a conditional one five.
+            var fields = line.Split(';', StringSplitOptions.TrimEntries);
+            if (fields.Length < 4 || fields[0].Length == 0) {
+                continue;
+            }
+
+            if (fields.Length > 4 && fields[4].Length > 0) {
+                conditional++;
+                continue;
+            }
+
+            var code = int.Parse(fields[0], NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+
+            Collect(lower, code, fields[1], 'l');
+            Collect(title, code, fields[2], 't');
+            Collect(upper, code, fields[3], 'u');
+        }
+
+        upper.Sort(static (left, right) => left.Code.CompareTo(right.Code));
+        lower.Sort(static (left, right) => left.Code.CompareTo(right.Code));
+        title.Sort(static (left, right) => left.Code.CompareTo(right.Code));
+
+        var builder = new StringBuilder();
+        builder.Append("// SPDX-FileCopyrightText: Copyright (c) Rikarin\n");
+        builder.Append("// SPDX-License-Identifier: Apache-2.0\n//\n// <auto-generated>\n");
+        builder.Append("//     Generated by Tools/Vixen.UnicodeTableGen from the Unicode Character Database,\n");
+        builder.Append(CultureInfo.InvariantCulture, $"//     version {version}. Do not edit — re-run the generator.\n");
+        builder.Append("//\n");
+        builder.Append("//     Derived from Unicode data files, which carry the Unicode terms of use:\n");
+        builder.Append("//     https://www.unicode.org/terms_of_use.html\n");
+        builder.Append("// </auto-generated>\n\nnamespace Vixen.Ui.Text;\n\n");
+        builder.Append("/// <summary>The full case mappings that are not one code point to one.</summary>\n");
+        builder.Append("/// <remarks>\n");
+        builder.Append("///     SpecialCasing.txt's unconditional rows, and only those. A code point absent from a\n");
+        builder.Append("///     table here has a full mapping equal to its simple one, which is what\n");
+        builder.Append("///     <c>Rune.ToUpperInvariant</c> and its siblings already answer.\n");
+        builder.Append(CultureInfo.InvariantCulture, $"///     The {conditional} conditional rows are deliberately not here — see the generator.\n");
+        builder.Append("/// </remarks>\n");
+        builder.Append("static class SpecialCasingTable {\n");
+
+        AppendCasing(builder, "Upper", upper);
+        builder.Append('\n');
+        AppendCasing(builder, "Lower", lower);
+        builder.Append('\n');
+        AppendCasing(builder, "Title", title);
+        builder.Append("}\n");
+
+        File.WriteAllText(path, builder.ToString());
+
+        Console.WriteLine(
+            $"{Path.GetFileName(path)}: Unicode {version}, {upper.Count} upper, {lower.Count} lower, "
+            + $"{title.Count} title, {conditional} conditional rows dropped"
+        );
+
+        static void Collect(List<(int Code, string Mapping)> into, int code, string field, char kind) {
+            var scalars = field.Split(' ', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            var text = new StringBuilder();
+
+            foreach (var scalar in scalars) {
+                text.Append(
+                    char.ConvertFromUtf32(int.Parse(scalar, NumberStyles.HexNumber, CultureInfo.InvariantCulture))
+                );
+            }
+
+            var rune = new System.Text.Rune(code);
+
+            // ⚠ Only the rows where the full mapping differs from the simple one reach the table.
+            // Every other row would cost a binary search to answer what `Rune.ToUpperInvariant` was
+            // going to answer anyway — and, worse, would stop the table's own count being the
+            // number of places the two disagree, which is the number worth reading.
+            //
+            // ⚠ Titlecase is compared against the *simple titlecase* mapping, which .NET does not
+            // expose at all; `Rune`'s uppercase is the nearest thing and is wrong for the two dozen
+            // digraphs whose titlecase is a third form (`ǅ` is neither `ǄDŽ` nor `ǆdž`). So the title column
+            // keeps the row whenever it differs from the code point itself, which over-collects by
+            // the handful of rows where title equals simple-title and costs nothing but entries.
+            var simple = kind switch {
+                'u' => System.Text.Rune.ToUpperInvariant(rune).ToString(),
+                'l' => System.Text.Rune.ToLowerInvariant(rune).ToString(),
+                _ => rune.ToString()
+            };
+
+            var mapped = text.ToString();
+
+            if (mapped == simple) {
+                return;
+            }
+
+            into.Add((code, mapped));
+        }
+    }
+
+    static void AppendCasing(StringBuilder builder, string name, List<(int Code, string Mapping)> entries) {
+        builder.Append(CultureInfo.InvariantCulture, $"    static readonly int[] {name}Codes = [\n");
+        AppendNumbers(builder, entries.Select(entry => entry.Code));
+        builder.Append(CultureInfo.InvariantCulture, $"    ];\n\n    static readonly string[] {name}Mappings = [\n");
+
+        foreach (var (_, mapping) in entries) {
+            builder.Append("        \"");
+
+            foreach (var unit in mapping) {
+                builder.Append(CultureInfo.InvariantCulture, $"\\u{(int) unit:X4}");
+            }
+
+            builder.Append("\",\n");
+        }
+
+        builder.Append("    ];\n\n");
+        builder.Append(CultureInfo.InvariantCulture, $"    /// <summary>The full {name.ToLowerInvariant()}case mapping, when it is not the simple one.</summary>\n");
+        builder.Append("    /// <param name=\"codePoint\">The code point.</param>\n");
+        builder.Append("    /// <param name=\"mapping\">Receives the replacement, which may be several code units.</param>\n");
+        builder.Append("    /// <returns>Whether this code point has one at all.</returns>\n");
+        builder.Append(CultureInfo.InvariantCulture, $"    public static bool Try{name}(int codePoint, out string mapping) {{\n");
+        builder.Append(CultureInfo.InvariantCulture, $"        var index = Array.BinarySearch({name}Codes, codePoint);\n\n");
+        builder.Append("        if (index < 0) {\n            mapping = string.Empty;\n            return false;\n        }\n\n");
+        builder.Append(CultureInfo.InvariantCulture, $"        mapping = {name}Mappings[index];\n        return true;\n    }}\n");
     }
 
     static void AppendNumbers(StringBuilder builder, IEnumerable<int> values) {

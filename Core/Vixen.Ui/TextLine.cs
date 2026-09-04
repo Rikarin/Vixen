@@ -37,6 +37,13 @@ namespace Vixen.Ui;
 public sealed class TextLine {
     readonly float[] pens;
 
+    /// <summary>The map between the element's own text and the text the runs were shaped from.</summary>
+    /// <remarks>
+    ///     Null for the identity, which is every line of text no <c>text-transform</c> touched and
+    ///     every line of transformed text whose characters all kept their length.
+    /// </remarks>
+    readonly TransformedText? transformed;
+
     /// <summary>Builds a line from its runs.</summary>
     /// <param name="runs">The runs, in text order. At least one.</param>
     /// <param name="width">
@@ -45,6 +52,21 @@ public sealed class TextLine {
     /// <param name="offset">
     ///     How far in from the start of the line box the first glyph sits, in pixels.
     ///     <c>text-indent</c>, and zero for every line but a first one.
+    /// </param>
+    /// <param name="transformed">
+    ///     <para>
+    ///         What <c>text-transform</c> did to the element's text, or null when it did nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is what keeps every public index on this type in the element's own
+    ///         string.</b> The runs are shaped from the <i>transformed</i> text and
+    ///         <see cref="TextRun.Start" /> indexes that; <see cref="Start" />,
+    ///         <see cref="CaretOffset(int)" /> and <see cref="CaretPositionAt" /> index what the
+    ///         author wrote, because that is what <c>TextField</c>'s selection and every caret in
+    ///         the tree are expressed in. Where a case mapping expands — <c>straße</c> to
+    ///         <c>STRASSE</c> — the two disagree by a character per expansion, and a consumer
+    ///         handed the wrong one puts the caret in the wrong place with nothing to see.
+    ///     </para>
     /// </param>
     /// <remarks>
     ///     <para>
@@ -64,13 +86,22 @@ public sealed class TextLine {
     ///         centred first line would sit half an indent to the left of where it belongs.
     ///     </para>
     /// </remarks>
-    public TextLine(ImmutableArray<TextRun> runs, float width = float.NaN, float offset = 0f) {
+    public TextLine(
+        ImmutableArray<TextRun> runs,
+        float width = float.NaN,
+        float offset = 0f,
+        TransformedText? transformed = null
+    ) {
         if (runs.IsDefaultOrEmpty) {
             throw new ArgumentException("a line has at least one run", nameof(runs));
         }
 
         Runs = runs;
         Offset = offset;
+
+        // An identity map is stored as no map, so that every line in the tree that never met a
+        // transform costs the same null test rather than two array lookups per caret question.
+        this.transformed = transformed is { IsIdentity: false } ? transformed : null;
         pens = new float[runs.Length];
 
         var above = 0f;
@@ -109,9 +140,15 @@ public sealed class TextLine {
         Baseline = above;
         Height = above + below;
 
-        Start = runs[0].Start;
-        Length = runs[^1].Start + runs[^1].Shaped.Text.Length - Start;
+        Start = ToSource(runs[0].Start);
+        Length = ToSource(runs[^1].Start + runs[^1].Shaped.Text.Length) - Start;
     }
+
+    /// <summary>Turns an index into the shaped text into one into the element's own.</summary>
+    int ToSource(int index) => transformed?.ToSource(index) ?? index;
+
+    /// <summary>Turns an index into the element's own text into one into the shaped text.</summary>
+    int ToDrawn(int index) => transformed?.ToDrawn(index) ?? index;
 
     /// <summary>The runs' indices in the order they are drawn, left to right.</summary>
     /// <remarks>
@@ -132,6 +169,11 @@ public sealed class TextLine {
     }
 
     /// <summary>Where this line's text begins in the element's, as a UTF-16 index.</summary>
+    /// <remarks>
+    ///     ⚠ <b>In the element's own text and not in the text the runs were shaped from</b>, which
+    ///     are the same string unless a <c>text-transform</c> expanded something. See the
+    ///     <c>transformed</c> parameter of the constructor.
+    /// </remarks>
     public int Start { get; }
 
     /// <summary>How many UTF-16 units it covers.</summary>
@@ -222,6 +264,12 @@ public sealed class TextLine {
     ///     </para>
     /// </remarks>
     public float CaretOffset(int index, CaretAffinity affinity) {
+        // ⚠ Translated once, at the top, and everything below is in the shaped text's indices. The
+        // runs were shaped from the transformed string and know nothing else; converting inside the
+        // loop instead would compare an untransformed index against a transformed run boundary and
+        // pick the wrong run on any line holding an expansion.
+        index = ToDrawn(index);
+
         for (var i = 0; i < Runs.Length; i++) {
             var run = Runs[i];
             var end = run.Start + run.Shaped.Text.Length;
@@ -263,7 +311,8 @@ public sealed class TextLine {
     public (int Index, CaretAffinity Affinity) CaretPositionAt(float x) {
         for (var i = 0; i < Runs.Length; i++) {
             if (x < PenOf(i) + Runs[i].Width || i == Runs.Length - 1) {
-                return Runs[i].CaretPositionAt(x - PenOf(i));
+                var found = Runs[i].CaretPositionAt(x - PenOf(i));
+                return (ToSource(found.Index), found.Affinity);
             }
         }
 

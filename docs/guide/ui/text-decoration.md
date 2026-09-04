@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.TextDecoration, T:Vixen.Ui.TextDecorationLine, T:Vixen.Ui.TextD
 tags: [ui, text, typography, vcss, utilities, underline, fonts]
 since: 0.2
 status: preview
-related: [editor/utility-styles, ui/cascade-layers, ui/inline-layout]
+related: [editor/utility-styles, ui/cascade-layers, ui/inline-layout, ui/text-transform]
 ---
 
 ## What it is
@@ -124,10 +124,12 @@ cleanly, compute a value, and paint a **straight** line, which is worse than not
 ### What is not here at all
 
 `text-shadow` — the draw list has no glyph-shadow path. `line-clamp` — it changes how many lines there
-are, which belongs to the measure pass. `text-transform` — a shaping-time change, and the blocker is
-sharper than the shaping: `straße` uppercases to `STRASSE` and `ﬁne` to `FINE`, so a case mapping
-changes the UTF-16 length, and every caret index in `TextRun`, `TextLine` and `TextField` is an index
-into the element's own string.
+are, which belongs to the measure pass.
+
+`text-transform` **is** here now, on its own page: it was refused under exactly the blocker described
+above — `straße` uppercases to `STRASSE`, so a case mapping changes the UTF-16 length and every caret
+index in `TextRun`, `TextLine` and `TextField` is an index into the element's own string — and what
+closed it was the index map rather than the four keywords. See [Text transform](text-transform.md).
 
 ## Examples
 

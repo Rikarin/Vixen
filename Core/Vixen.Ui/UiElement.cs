@@ -595,6 +595,7 @@ public partial class UiElement : Composition.IComposable {
         var revision = Document.Fonts.Revision;
         var mode = Document.WrapModeOf(Style);
         var breaking = Document.WordBreakOf(Style);
+        var transform = Document.TextTransformOf(Style);
 
         if (!Document.WrapsOf(Style)) {
             width = float.PositiveInfinity;
@@ -612,6 +613,12 @@ public partial class UiElement : Composition.IComposable {
             && lineRevision == revision
             && lineMode == mode
             && lineBreaking == breaking
+
+            // ⚠ In the key for the same reason `word-spacing` is: a case mapping changes how wide
+            // the text is, so a block built before the transform arrived is a paragraph measured at
+            // the wrong width and wrapped at the wrong characters. It is *not* covered by the
+            // reference test on `Text` above — the element's own string did not change.
+            && lineTransform == transform
             && lineWidth.Equals(width)
             && lineSize.Equals(FontSize)
             && lineTracking.Equals(LetterSpacing)
@@ -636,15 +643,23 @@ public partial class UiElement : Composition.IComposable {
             return null;
         }
 
+        // ⚠ <b>The transform happens here, before anything is shaped or measured.</b> `drawn.Text`
+        // is what the runs, the wrapper and the ellipsis all work in; `drawn` itself is the map back
+        // to what the author wrote, and every index this block hands out goes through it. When
+        // nothing moved it *is* the element's own string, instance and all, so the shaping cache's
+        // fast path and every reference test below carry on meaning what they meant.
+        var drawn = TransformedText.Of(Text, transform);
+        var text = drawn.Text;
+
         var lines = ImmutableArray.CreateBuilder<TextLine>();
         var indent = TextIndent;
-        var whole = Runs(Text, 0, chain, offset: indent);
+        var whole = Runs(text, 0, chain, drawn, offset: indent);
 
         // ⚠ The indent narrows the fast path's test as well as the wrapper's, and leaving it out is
         // the shape of bug that only shows on the one paragraph where it matters: a line that fits
         // in the box but not in the box *minus the indent* would take the unwrapped path, be shifted
         // right by the indent, and hang over the edge.
-        if ((float.IsPositiveInfinity(width) || whole.Width <= width - indent) && !HasHardBreak(Text)) {
+        if ((float.IsPositiveInfinity(width) || whole.Width <= width - indent) && !HasHardBreak(text)) {
             // ⚠ The unwrapped path is not an optimisation, it is the answer. A paragraph that fits
             // needs no break opportunities computed and no line re-shaped, and this is every label in
             // an interface.
@@ -655,11 +670,13 @@ public partial class UiElement : Composition.IComposable {
             // whatever glyph the font has for it — however wide the box is.
             lines.Add(whole);
         } else {
-            Wrap(Text, whole, width, mode, breaking, indent, chain, lines);
+            Wrap(text, whole, width, mode, breaking, indent, chain, drawn, lines);
         }
 
         block = new TextLayout(lines.ToImmutable());
         lineText = Text;
+        lineTransform = transform;
+        lineTransformed = drawn;
         lineFamily = family;
         lineWeight = weight;
         lineStyle = slant;
@@ -737,6 +754,11 @@ public partial class UiElement : Composition.IComposable {
         var lines = ImmutableArray.CreateBuilder<TextLine>(source.Lines.Length);
         var cut = false;
 
+        // The block that is being truncated was built from this, so it is the string the line's
+        // runs index — and the one the kept prefix has to be cut out of. `Block()` above is what
+        // guarantees it is not stale.
+        var drawn = lineTransformed ?? TransformedText.Of(Text, TextTransform.None);
+
         foreach (var line in source.Lines) {
             // The indent is part of what has to fit: an indented line whose glyphs are narrower than
             // the box can still run past its right-hand edge, and that is exactly the line an
@@ -746,7 +768,7 @@ public partial class UiElement : Composition.IComposable {
                 continue;
             }
 
-            lines.Add(Truncate(line, marker, contentWidth, chain));
+            lines.Add(Truncate(line, marker, contentWidth, chain, drawn));
             cut = true;
         }
 
@@ -767,10 +789,20 @@ public partial class UiElement : Composition.IComposable {
     ///     cut a cursive script mid-word without unjoining it — the same reason
     ///     <c>UiElement.Wrap</c> re-shapes each line instead of slicing the paragraph's shaping.
     /// </remarks>
-    TextLine Truncate(TextLine line, TextLine marker, float contentWidth, List<FontFace> chain) {
-        var text = Text!;
-        var start = line.Start;
-        var end = start + line.Length;
+    TextLine Truncate(
+        TextLine line,
+        TextLine marker,
+        float contentWidth,
+        List<FontFace> chain,
+        TransformedText transformed
+    ) {
+        // ⚠ <b>The transformed text and transformed indices throughout.</b> `TextLine.Start` speaks
+        // the element's own string, which is a different number the moment a case mapping expanded
+        // anything — so the prefix would be cut a character short of where the glyphs actually end
+        // and the ellipsis would eat a letter that fitted.
+        var text = transformed.Text;
+        var start = transformed.ToDrawn(line.Start);
+        var end = transformed.ToDrawn(line.Start + line.Length);
 
         var advances = new float[text.Length + 1];
 
@@ -818,7 +850,9 @@ public partial class UiElement : Composition.IComposable {
         // indistinguishable from an element with no text, and the clip will trim the glyph if even it
         // does not fit.
         if (kept <= start) {
-            return marker.Runs.Length == 0 ? line : Runs(Ellipsis, start, chain, offset: line.Offset);
+            return marker.Runs.Length == 0
+                ? line
+                : Runs(Ellipsis, start, chain, transformed, offset: line.Offset);
         }
 
         // ⚠ Trailing space is trimmed before the ellipsis, the way a browser does it: `"ab  "` cut at
@@ -831,7 +865,12 @@ public partial class UiElement : Composition.IComposable {
 
         var body = last > start ? text[start..last] : text[start..kept];
 
-        return Runs(body + Ellipsis, start, chain, offset: line.Offset);
+        // ⚠ The map is carried so that this line's `Start` still speaks the element's own string
+        // like every other line's — but only its start is meaningful. The string handed to the
+        // shaper is a *prefix plus a marker*, so an index inside the marker maps to nothing the
+        // author wrote. That is sound because a truncated line is a fact about the picture and
+        // nothing puts a caret on one: see `Ellipsized`'s remarks on why `Block()` is left alone.
+        return Runs(body + Ellipsis, start, chain, transformed, offset: line.Offset);
     }
 
     /// <summary>The width this element wraps its text to, from the layout it was last given.</summary>
@@ -893,7 +932,14 @@ public partial class UiElement : Composition.IComposable {
     ///         because a level change is a change of strong direction, and no script joins across one.
     ///     </para>
     /// </remarks>
-    TextLine Runs(string text, int start, List<FontFace> chain, float width = float.NaN, float offset = 0f) {
+    TextLine Runs(
+        string text,
+        int start,
+        List<FontFace> chain,
+        TransformedText? transformed = null,
+        float width = float.NaN,
+        float offset = 0f
+    ) {
         var spans = new List<FontSpan>();
         FontRegistry.Cover(text, chain, spans);
 
@@ -939,7 +985,7 @@ public partial class UiElement : Composition.IComposable {
             }
         }
 
-        return new TextLine(runs.ToImmutable(), width, offset);
+        return new TextLine(runs.ToImmutable(), width, offset, transformed);
     }
 
     /// <summary>The text's bidi levels, as the longest stretches over which one level holds.</summary>
@@ -984,6 +1030,7 @@ public partial class UiElement : Composition.IComposable {
         WordBreakMode breaking,
         float indent,
         List<FontFace> chain,
+        TransformedText transformed,
         ImmutableArray<TextLine>.Builder into
     ) {
         var advances = new float[text.Length + 1];
@@ -1016,6 +1063,7 @@ public partial class UiElement : Composition.IComposable {
                     text.Substring(line.Start, line.Length),
                     line.Start,
                     chain,
+                    transformed,
                     line.Advance,
                     line.Start == 0 ? indent : 0f
                 )
@@ -1047,6 +1095,12 @@ public partial class UiElement : Composition.IComposable {
     float lineTracking;
     float lineWords;
     float lineIndent;
+    TextTransform lineTransform;
+
+    // ⚠ The transformed text the current `block` was built from, kept so that `Ellipsized` cuts the
+    // string the runs were actually shaped from. Rebuilding it there instead would be a second
+    // place the transform is applied, and the two would agree until one of them was changed.
+    TransformedText? lineTransformed;
 
     // ⚠ Reference equality, not `Equals`, and it is sound because `ResolveText` produces one
     // instance per style pass and hands the same one to every element that resolved alike. Two
