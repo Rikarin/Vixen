@@ -147,7 +147,8 @@ sealed record ProbeScene(
     bool Unbroken = false,
     bool Edited = false,
     bool Figured = false,
-    bool Floated = false
+    bool Floated = false,
+    bool Tabbed = false
 );
 
 /// <summary>Runs a declaration past the engine and reports what moved.</summary>
@@ -753,6 +754,40 @@ static class UtilityConsumptionProbe {
             #after   { width: 30px; height: 20px; background-color: #a0a040; }
             """,
             Figured: true
+        ),
+
+        // ⚠ <b>Tabbed: the fifth time a finished reader measured inert because no scene's text held
+        // the one character the property is about.</b> `font-style`, `overflow-wrap`, `caret-color`
+        // and `font-variant-numeric` were the first four, and the shape is identical every time —
+        // `UiDocument.TabSizeOf` reads `tab-size`, `UiElement.TabStop` resolves it against a space
+        // and `TextLine` lays the columns out, and all three do nothing observable to a string with
+        // no U+0009 in it. Which is every string in every other scene, and every string in an
+        // interface, which is exactly why the property needed its own one.
+        //
+        // ⚠ <b>Open Sans rather than TestShapeLana, and the reason is the ingredient again one level
+        // down.</b> A tab stop is a *count of space advances*, so the measurement is only as real as
+        // the face's space is wide — a face whose U+0020 advanced nothing would put every stop at
+        // zero and leave the property inert with all three of its readers running. Open Sans' space
+        // is 4.15625px at 16px, which is measured rather than assumed; it is already loaded for
+        // `figured` and is asked for here by name for the same reason that one does.
+        //
+        // ⚠ The declaration lands on `#probe` and the tab is in a child, so this measures the
+        // inheritance at the same time — `tab-size` is in `InheritedProperties`, and a count written
+        // on a container whose text is in its rows is the way anybody writes it.
+        new(
+            "tabbed",
+            """
+            #host    { display: flex; flex-direction: row; width: 240px; height: 90px; align-items: flex-start; }
+            #probe   { display: flex; flex-direction: row; flex-wrap: wrap; width: 200px;
+                       background-color: #204080; color: #e0e0e0; }
+            .kid     { width: 8px; height: 8px; }
+            #wide    { width: 8px; height: 8px; }
+            #label   { width: 40px; }
+            #short   { width: 40px; }
+            #tabbed  { font-family: Figured; font-size: 16px; }
+            #after   { width: 30px; height: 20px; background-color: #a0a040; }
+            """,
+            Tabbed: true
         ),
 
         // ⚠ <b>Decorated: the probe already carries an underline, and without that the four
@@ -1411,6 +1446,16 @@ static class UtilityConsumptionProbe {
         if (scene.Figured) {
             var figures = document.Create("span", body, "figures");
             figures.Text = "0123456789";
+        }
+
+        // A tab, in the one face here whose space is known to advance. Two letters on each side of it
+        // so the column it opens has something to be measured between, and a second tab so that the
+        // scene can tell "the stops moved" from "the tab was dropped" — a single tab at a stop of
+        // zero and a single tab measured as a glyph both shorten the line, and only a pair
+        // distinguishes the grid from a fixed width.
+        if (scene.Tabbed) {
+            var tabbed = document.Create("span", body, "tabbed");
+            tabbed.Text = "Ag\tjq\tWm";
         }
 
         // The focused field. `Focus` is called after the value is set rather than before, because a
