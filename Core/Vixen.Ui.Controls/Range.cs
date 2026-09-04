@@ -588,11 +588,28 @@ public sealed partial class ProgressBar : RangeBase {
 
     /// <summary>How far round the indeterminate sweep has gone, from zero to one.</summary>
     /// <remarks>
-    ///     ⚠ <b>Advanced by the application, because nothing here has a clock.</b> The framework has
-    ///     no per-frame animation driver — <c>Vixen.Ui.Styling</c>'s <c>Animator</c> is not wired to
-    ///     the document yet — and a control that read <c>DateTime.Now</c> to animate itself would be
-    ///     a control whose golden-image test depends on what time it is. A host advances this from
-    ///     its frame loop; when transitions arrive, the theme will do it instead.
+    ///     ⚠ <b>Advanced by the application — and no longer because nothing here has a clock, which
+    ///     is what this remark said for as long as it was false.</b> The framework has a per-frame
+    ///     animation driver: <c>UiDocument.Tick</c> advances <c>Vixen.Ui.Styling</c>'s
+    ///     <c>Animator</c>, <c>StyleUpdater.Announce</c> starts transitions from the cascade,
+    ///     <c>UiDocument.Apply</c> overlays what is in flight, and both hosts drive it —
+    ///     <c>UiApplication</c> and <c>EditorShell</c>. <c>TransitionTests</c> reads a value
+    ///     mid-flight. All four legs landed together and nothing came back to this sentence.
+    ///     <para>
+    ///         What survives is the other half, which was always the real reason: a control that read
+    ///         <c>DateTime.Now</c> to animate itself is a control whose golden image depends on what
+    ///         time it is. So the phase stays a property a host writes from its frame loop, and time
+    ///         still arrives from outside.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The theme cannot take it over yet, and the blocker is not the animator.</b> An
+    ///         <c>animate-spin</c> would name a <c>@keyframes</c> block that does not exist — there
+    ///         is not one <c>@keyframes</c> in any <c>.vcss</c> in the tree,
+    ///         <c>Theme/vixen.default.vcss</c> included — and <c>Animator.Apply</c> walks the
+    ///         properties an element has already cascaded, so a keyframe cannot introduce one the
+    ///         element never declared. This is still the place the theme takes it over; it is waiting
+    ///         on those two and not on a clock.
+    ///     </para>
     /// </remarks>
     [UiProperty]
     public partial float Phase { get; set; }

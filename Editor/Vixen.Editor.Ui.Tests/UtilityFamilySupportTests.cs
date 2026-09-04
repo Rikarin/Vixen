@@ -652,12 +652,28 @@ public class UtilityFamilySupportTests {
         // what a bare `var()` with no fallback would have done. See
         // <see cref="The_two_translate_families_compose_and_move_the_box_and_its_hit_test" />.
         //
-        // ⚠ <b>`scale-*` and `rotate-*` are the same family group and stay in `Inert`</b>, which is
-        // the sharpest three-way split this file has recorded: one third of a group real, two thirds
-        // refused, and all three emitting valid CSS. See the `Inert` rows for why neither is a
-        // missing reader.
+        // ⚠ <b>`scale-*` and `rotate-*` were in `Inert` under a paragraph saying they would leave it
+        // "the day a compositor lands", and the compositor landed without them moving.</b> Their
+        // refusal was the sharpest argument in this file — a rotated `DrawCommand` is not an
+        // axis-aligned rectangle, a scaled subtree needs re-shaping and a transform must not touch
+        // layout — and every clause of it survived being closed, because the answer was to composite
+        // the subtree into a surface and transform the *quad*. Nothing here had to learn about
+        // rotation.
+        //
+        // ⚠ <b>What that means for the table is the finding, not the feature.</b> The expiry the
+        // paragraph named was `InertProperties.txt`'s, which governs that file and not this one, so
+        // the rows sat here reading "nothing looks at this" while
+        // `docs/plan/43-web-styling-parity.tsv` measured both roots `partial` with `engine_reads` set
+        // — and those columns are recomputed on every run. `An_inert_family_still_computes_a_value`
+        // could never have said so: it asserts the value is not null, which is as true of a family
+        // with a reader as of one without. See #532 and #582.
+        //
+        // The values are Tailwind's own and are ratios rather than multipliers — `scale-2` is
+        // `scale: 2%`, not twice — which is the half of these two rows that was always right.
         { "translate-x-2", "translate", "8px 0px" },
         { "translate-y-2", "translate", "0px 8px" },
+        { "scale-2", "scale", "2%" },
+        { "rotate-45", "rotate", "45deg" },
 
         // ⚠ <b><c>rotate-z-*</c>, whose family emits the shorthand rather than a longhand — the first
         // row here to name <c>transform</c>.</b> Composed the way the translations are: the class
@@ -791,36 +807,22 @@ public class UtilityFamilySupportTests {
         // reader either.
 
 
-        // ⚠ <b>Transforms, and this group moved in two directions at once.</b> Four rows were here,
-        // all four naming a `--`-prefixed property of the family's own invention. Every one of those
-        // names was wrong twice over: `--scale` is not a CSS property, so no engine anywhere — this
-        // one or a browser — would ever have read it, and it was not a composition fragment either,
-        // because nothing assembled it. The debt was filed against a name that could not come due.
-        // That is `grid-cols-3`'s failure exactly: an emission no engine could consume, sitting under
-        // a row that correctly said "nothing reads this" and was therefore never going to be the
-        // thing that told anybody.
+        // ⚠ <b>Transforms are gone from this table, and they left later than they should have.</b>
+        // Four rows were here, all four naming a `--`-prefixed property of the family's own
+        // invention — `--scale` is not a CSS property, so no engine anywhere would ever have read
+        // it, and it was not a composition fragment either, because nothing assembled it. The debt
+        // was filed against a name that could not come due, which is `grid-cols-3`'s failure exactly.
+        // The two translations moved to `Supported` when the emissions were corrected; `scale-*` and
+        // `rotate-*` stayed behind a paragraph that ended "the day a compositor lands, the gate's
+        // expiry check on `InertProperties.txt` is what says so".
         //
-        // The two translations are in `Supported` now. These two are not, and the reason is not a
-        // missing reader — it is that a `DrawCommand` is an axis-aligned rectangle:
-        //
-        //   `rotate` cannot be drawn or clipped. A rotated box is not a rectangle, and the clip stack
-        //   intersects rectangles; the per-axis `overflow` trick of pushing one pair of edges past
-        //   the viewport works *because* what comes out is still axis-aligned. Approximating with the
-        //   bounding box would make `rotate-45` draw a 45-point square where a 32-point one was
-        //   asked for — a rendering bug wearing a feature's name, which is what `GradientRefusal`
-        //   exists not to do.
-        //
-        //   `scale` can scale the box and not the picture. Glyph advances are shaped at `run.Size`
-        //   during layout, so a scaled subtree needs re-shaping — which would make a transform affect
-        //   layout, the one thing CSS Transforms 1 §3 says it must never do. Border widths, radii and
-        //   shadow offsets are the same story a field at a time. The half that is cheap is the half
-        //   nobody would notice; the half that is visible is a compositor.
-        //
-        // What they emit is now the CSS those two things are actually called, at Tailwind's own
-        // values — `scale-150` is `scale: 150%`, a ratio, not a hundred and fifty times — so the day
-        // a compositor lands, the gate's expiry check on `InertProperties.txt` is what says so.
-        { "scale-2", "scale" },
-        { "rotate-45", "rotate" },
+        // ⚠ <b>The compositor landed and nothing said so, because that expiry governs a different
+        // file.</b> `InertProperties.txt` closed its Transforms block, the parity ledger measured
+        // both roots `partial` with `engine_reads` set — a recomputed column, so measurement rather
+        // than claim — and these two rows went on reading "nothing looks at this" for as long as
+        // anybody left them alone. `An_inert_family_still_computes_a_value` cannot notice: it asserts
+        // the value is not null, which is as true of a family with a reader as of one without. That
+        // is #532, and the table's missing mechanism is #582.
 
         // ⚠ <b>`align-middle` stays, and its three siblings left.</b> `vertical-align` is read now,
         // so this row is no longer "a property with no consumer" — it is a *value* the consumer
