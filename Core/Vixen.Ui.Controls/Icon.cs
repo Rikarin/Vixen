@@ -139,6 +139,13 @@ public sealed partial class Icon : Control {
         // ⚠ The single-path property takes `fill` too, and it has to: `Geometry` is the whole of the
         // editor's chrome, so a `fill-*` that worked on `Art` and not on this one would look like the
         // family working on some icons and not others rather than like two code paths.
+        // ⚠ And `fill: none` has to be honoured on this path too, or `fill-none` would work on an
+        // `Art` and paint on a `Geometry` — the split this comment's own paragraph above exists to
+        // prevent, wearing a keyword instead of a colour.
+        if (IsNone(fillProperty)) {
+            return;
+        }
+
         Fit(geometry, ViewBox, bounds, out _);
 
         context.FillField(
@@ -228,7 +235,15 @@ public sealed partial class Icon : Control {
     Color4? Resolve(DrawContext context, in IconPaint paint, int slot) {
         switch (paint.Kind) {
             case IconPaintKind.Foreground:
-                return Document.ColorOf(Style, slot) ?? context.Foreground;
+                // ⚠ <b>`none` is a paint and not a colour, and asking `ColorOf` cannot tell it from a
+                // property nobody set.</b> SVG 2 § 13.2's `<paint>` is `none | <color> | <url> | …`,
+                // so `fill: none` is an instruction to draw nothing — and `ColorOf` answers `null` to
+                // it for exactly the same reason it answers `null` to an absent declaration, after
+                // which the fallback below paints the glyph in the inherited colour. That fallback is
+                // right for the absent case and is the opposite of what was asked for here, which is
+                // why `fill-none` and `stroke-none` could not be registered until this line existed:
+                // both would have resolved cleanly, cascaded, and painted.
+                return IsNone(slot) ? null : Document.ColorOf(Style, slot) ?? context.Foreground;
 
             case IconPaintKind.Literal:
                 return paint.Color;
@@ -246,6 +261,17 @@ public sealed partial class Icon : Control {
                 return null;
         }
     }
+
+    /// <summary>Whether the cascade set this paint slot to <c>none</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The keyword only, and it does not extend to the two kinds CSS already leaves
+    ///     alone.</b> A <see cref="IconPaintKind.Literal" /> or <see cref="IconPaintKind.Token" />
+    ///     path is not overridden by <c>fill</c>, so it is not overridden by <c>fill: none</c>
+    ///     either — the property reaches the paths that said <c>currentColor</c> and no others,
+    ///     which is the rule <see cref="Resolve" /> already states and the one SVG gives.
+    /// </remarks>
+    bool IsNone(int slot) =>
+        string.Equals(Document.KeywordOf(Style, slot), "none", StringComparison.Ordinal);
 
     /// <summary>Scales one path from a view box into the element's bounds, into <see cref="scaled" />.</summary>
     /// <param name="geometry">The path.</param>

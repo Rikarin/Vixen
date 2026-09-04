@@ -143,6 +143,129 @@ public class IconArtTests {
         );
     }
 
+    /// <summary><c>none</c> is a paint, and it is the one a colour reading cannot see.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Three states and not two, and the middle one is the whole defect.</b> SVG 2 §
+    ///         13.2's <c>&lt;paint&gt;</c> is <c>none | &lt;color&gt; | …</c>, so a slot can be set to
+    ///         a colour, set to nothing, or not set at all — and <c>UiDocument.ColorOf</c> answers
+    ///         <c>null</c> to the last two alike. <c>Icon.Resolve</c> read that <c>null</c> as "the
+    ///         author said nothing" and painted the inherited colour, so <c>fill: none</c> drew the
+    ///         glyph it was written to hide.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Invisible to the consumption gate, which is why the ledger refused
+    ///         <c>fill-none</c> and <c>stroke-none</c> for weeks rather than registering them.</b>
+    ///         <c>fill</c> <i>is</i> read — the first state below proves it — so a family scored
+    ///         green off the half that worked while the keyword painted. Only a per-value assertion
+    ///         can tell the three apart, and only in pixels.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_fill_of_none_paints_nothing_where_an_unset_fill_paints_the_foreground() {
+        using var ui = Opened("icon { color: #ff0000; }");
+
+        var icon = ui.Add<Icon>("art");
+        icon.Art = new IconArt(new IconPath(Square(0f, 0f, 24f), IconPaint.Foreground));
+        ui.Frame();
+
+        var unset = At(ui, 24, 24);
+        Assert.True(unset.R > 200, $"an unset `fill` should draw in `color`, and drew {unset}");
+
+        ui.Load("icon { color: #ff0000; fill: #0000ff; }");
+        ui.Frame();
+
+        var coloured = At(ui, 24, 24);
+        Assert.True(coloured.B > 200 && coloured.R < 60, $"`fill` should override the foreground, and drew {coloured}");
+
+        ui.Load("icon { color: #ff0000; fill: none; }");
+        ui.Frame();
+
+        // The empty document, so the assertion is "the background" rather than a colour written here.
+        var absent = At(ui, 24, 24);
+        Assert.True(
+            absent.R < 60 && absent.B < 60,
+            $"`fill: none` should paint nothing, and drew {absent} — the foreground fallback is the defect"
+        );
+    }
+
+    [Fact]
+    public void A_stroke_of_none_removes_the_outline_and_leaves_the_fill_alone() {
+        using var ui = Opened("icon { color: #ff0000; }");
+
+        var icon = ui.Add<Icon>("art");
+
+        icon.Art = new IconArt(
+            new IconPath(Square(4f, 4f, 16f), IconPaint.Of(new Color4(0f, 0f, 1f, 1f)), IconPaint.Foreground, 4f)
+        );
+
+        ui.Frame();
+
+        // The stroke straddles the square's edge, so a point on the outline is the stroke's colour
+        // and the middle is the fill's. 4 view-box units at 48/24 is 8 device pixels wide.
+        Assert.True(At(ui, 8, 24).R > 200, "the outline should have taken the inherited colour");
+
+        ui.Load("icon { color: #ff0000; stroke: none; }");
+        ui.Frame();
+
+        var outline = At(ui, 8, 24);
+        var middle = At(ui, 24, 24);
+
+        Assert.True(outline.R < 60, $"`stroke: none` should leave the outline unpainted, and drew {outline}");
+        Assert.True(middle.B > 200, $"and must not touch the literal fill, which drew {middle}");
+    }
+
+    /// <summary><c>fill: none</c> reaches the single-path form as well as the art one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two draw paths, and a fix to one of them is a family that works on some icons and not
+    ///     others.</b> <c>Geometry</c> is the whole of the editor's chrome and never goes through
+    ///     <c>Resolve</c> — the same split the <c>fill-*</c> colour family had to be careful of, one
+    ///     keyword later.
+    /// </remarks>
+    [Fact]
+    public void A_fill_of_none_reaches_the_single_path_form_too() {
+        using var ui = Opened("icon { color: #ff0000; }");
+
+        var icon = ui.Add<Icon>("art");
+        icon.Geometry = Square(0f, 0f, 24f);
+        ui.Frame();
+
+        Assert.True(At(ui, 24, 24).R > 200, "a `Geometry` icon fills in the inherited colour");
+
+        ui.Load("icon { color: #ff0000; fill: none; }");
+        ui.Frame();
+
+        var absent = At(ui, 24, 24);
+        Assert.True(absent.R < 60, $"`fill: none` should reach this path too, and drew {absent}");
+    }
+
+    /// <summary>The boundary: <c>none</c> reaches what a colour reaches, and nothing else.</summary>
+    /// <remarks>
+    ///     A path that chose its own colour is not overridden by <c>fill</c>, so it is not erased by
+    ///     <c>fill: none</c> either — the file-type glyphs in <c>StandardIcons</c> are brand-coloured
+    ///     on purpose, and a document-wide <c>fill-none</c> blanking them would be the same
+    ///     regression <c>fill-accent</c> repainting them would be.
+    /// </remarks>
+    [Fact]
+    public void A_fill_of_none_leaves_a_literal_path_alone() {
+        using var ui = Opened("icon { color: #ff0000; fill: none; }");
+
+        var icon = ui.Add<Icon>("art");
+
+        icon.Art = new IconArt(
+            new IconPath(Square(0f, 0f, 12f), IconPaint.Foreground),
+            new IconPath(Square(12f, 12f, 12f), IconPaint.Of(new Color4(0f, 0f, 1f, 1f)))
+        );
+
+        ui.Frame();
+
+        var erased = At(ui, 12, 12);
+        var literal = At(ui, 36, 36);
+
+        Assert.True(erased.R < 60, $"the `currentColor` path should be gone, and drew {erased}");
+        Assert.True(literal.B > 200, $"the literal path should still be there, and drew {literal}");
+    }
+
     [Fact]
     public void A_single_path_icon_is_unchanged() {
         using var ui = Opened("icon { color: #ff0000; }");

@@ -396,20 +396,30 @@ public sealed class LayoutStyleBuilder {
             result.FlexDirection = flexDirection;
         }
 
-        if (TryKeyword(style, names.JustifyContent, keywords.Justifications, out Justify justify)) {
+        // ⚠ <b>Six properties whose value is a pair, and the second half had no wire until doc 43's
+        // `-safe` families needed one.</b> `LayoutStyle` has carried a `*Overflow` field beside each
+        // of these since safe alignment landed in the layout, and `LayoutTree.SafeFallback` reads all
+        // six — but nothing crossing this bridge ever set one, so `align-items: safe end` was a
+        // declaration ExCSS kept, the cascade computed, and `TryKeyword` then dropped whole for
+        // arriving as a token list. The property stayed at its initial value with nothing said.
+        if (TryAlignment(style, names.JustifyContent, keywords.Justifications, out Justify justify, out var justifyOverflow)) {
             result.JustifyContent = justify;
+            result.JustifyContentOverflow = justifyOverflow;
         }
 
-        if (TryKeyword(style, names.AlignContent, keywords.Alignments, out Align alignContent)) {
+        if (TryAlignment(style, names.AlignContent, keywords.Alignments, out Align alignContent, out var alignContentOverflow)) {
             result.AlignContent = alignContent;
+            result.AlignContentOverflow = alignContentOverflow;
         }
 
-        if (TryKeyword(style, names.AlignItems, keywords.Alignments, out Align alignItems)) {
+        if (TryAlignment(style, names.AlignItems, keywords.Alignments, out Align alignItems, out var alignItemsOverflow)) {
             result.AlignItems = alignItems;
+            result.AlignItemsOverflow = alignItemsOverflow;
         }
 
-        if (TryKeyword(style, names.AlignSelf, keywords.Alignments, out Align alignSelf)) {
+        if (TryAlignment(style, names.AlignSelf, keywords.Alignments, out Align alignSelf, out var alignSelfOverflow)) {
             result.AlignSelf = alignSelf;
+            result.AlignSelfOverflow = alignSelfOverflow;
         }
 
         if (TryKeyword(style, names.Position, keywords.Positions, out PositionType position)) {
@@ -459,7 +469,7 @@ public sealed class LayoutStyleBuilder {
             result.BoxSizing = boxSizing;
         }
 
-        if (TryKeyword(style, names.GridAutoFlow, keywords.GridAutoFlows, out GridAutoFlow autoFlow)) {
+        if (TryCompoundKeyword(style, names.GridAutoFlow, keywords.GridAutoFlows, out GridAutoFlow autoFlow)) {
             result.GridAutoFlow = autoFlow;
         }
 
@@ -467,12 +477,14 @@ public sealed class LayoutStyleBuilder {
         // member names lie about the axis rather than about the value.</b> `Align.FlexStart` is the
         // inline start here, which is what `LayoutStyle.JustifyItems` documents; sharing the table is
         // what makes `justify-items: center` and `align-items: center` mean the same word.
-        if (TryKeyword(style, names.JustifyItems, keywords.Alignments, out Align justifyItems)) {
+        if (TryAlignment(style, names.JustifyItems, keywords.Alignments, out Align justifyItems, out var justifyItemsOverflow)) {
             result.JustifyItems = justifyItems;
+            result.JustifyItemsOverflow = justifyItemsOverflow;
         }
 
-        if (TryKeyword(style, names.JustifySelf, keywords.Alignments, out Align justifySelf)) {
+        if (TryAlignment(style, names.JustifySelf, keywords.Alignments, out Align justifySelf, out var justifySelfOverflow)) {
             result.JustifySelf = justifySelf;
+            result.JustifySelfOverflow = justifySelfOverflow;
         }
     }
 
@@ -885,6 +897,107 @@ public sealed class LayoutStyleBuilder {
         return false;
     }
 
+    /// <summary>Reads a keyword written as one word or as two, against a table keyed on the pair.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A two-word CSS value never reaches <see cref="TryKeyword" /> as a keyword, and
+    ///     believing it did cost `grid-auto-flow` four of its seven spellings.</b>
+    ///     <see cref="StyleValueParser.Parse(int)" /> splits on top-level whitespace before it decides
+    ///     anything, so `row dense` is a <see cref="StyleValueKind.List" /> of two keywords and the
+    ///     interned string `"row dense"` is a key nothing can ever produce. Splitting is the parser's
+    ///     job and rejoining is not: a table that wants a compound keyword has to be keyed on what the
+    ///     parser hands over, which is the pair.
+    /// </remarks>
+    bool TryCompoundKeyword<T>(
+        ComputedStyle style,
+        int property,
+        Dictionary<(int First, int Second), T> table,
+        out T result
+    ) where T : struct {
+        if (TryValue(style, property, out var value)) {
+            switch (value.Kind) {
+                case StyleValueKind.Keyword
+                    when table.TryGetValue((value.Keyword, NameTable.None), out result):
+                    return true;
+
+                case StyleValueKind.List
+                    when value.Items.Length == 2
+                         && value.Items[0].Kind == StyleValueKind.Keyword
+                         && value.Items[1].Kind == StyleValueKind.Keyword
+                         && table.TryGetValue((value.Items[0].Keyword, value.Items[1].Keyword), out result):
+                    return true;
+            }
+        }
+
+        result = default;
+        return false;
+    }
+
+    /// <summary>Reads CSS Box Alignment §4.1's <c>[ safe | unsafe ]? &lt;position&gt;</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Both halves or neither, which is why this is one method and not a second
+    ///         <see cref="TryKeyword" /> call against a table of prefixes.</b> An alignment value is a
+    ///         position and a modifier on it, and a reader that took them from two declarations could
+    ///         put the modifier of one on the position of another — the failure
+    ///         <see cref="Vixen.Ui.Layout.LayoutTree" />'s own <c>ResolveChildAlignmentOverflow</c>
+    ///         guards against one level down, where `align-items: safe end` has to be inherited whole
+    ///         by a child whose `align-self` is `auto`.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An unprefixed keyword yields <see cref="OverflowAlignment.Unsafe" /> and the caller
+    ///         writes it, rather than leaving the field alone.</b> Both halves of the declaration are
+    ///         replaced together, so `align-items: end` after `align-items: safe end` in the cascade
+    ///         means what it says. Leaving the prefix behind would make the second declaration a
+    ///         partial overwrite of the first, which is not how a single property works.
+    ///     </para>
+    ///     <para>
+    ///         The prefix is refused on anything but a <c>&lt;position&gt;</c> — see
+    ///         <see cref="Keywords.OverflowPositions" /> — and a refused value drops the whole
+    ///         declaration, which is what CSS does with one it cannot parse.
+    ///     </para>
+    /// </remarks>
+    bool TryAlignment<T>(
+        ComputedStyle style,
+        int property,
+        Dictionary<int, T> table,
+        out T result,
+        out OverflowAlignment overflow
+    ) where T : struct {
+        overflow = OverflowAlignment.Unsafe;
+        result = default;
+
+        if (!TryValue(style, property, out var value)) {
+            return false;
+        }
+
+        if (value.Kind == StyleValueKind.List) {
+            var items = value.Items;
+
+            if (items.Length != 2
+                || items[0].Kind != StyleValueKind.Keyword
+                || items[1].Kind != StyleValueKind.Keyword
+                || !keywords.OverflowPositions.Contains(items[1].Keyword)) {
+                return false;
+            }
+
+            if (items[0].Keyword == keywords.Safe) {
+                overflow = OverflowAlignment.Safe;
+            } else if (items[0].Keyword != keywords.Unsafe) {
+                return false;
+            }
+
+            value = items[1];
+        }
+
+        if (value.Kind == StyleValueKind.Keyword && table.TryGetValue(value.Keyword, out result)) {
+            return true;
+        }
+
+        overflow = OverflowAlignment.Unsafe;
+        result = default;
+        return false;
+    }
+
     /// <summary>The four properties of one edge family, interned.</summary>
     readonly record struct EdgeNames(int Shorthand, int Left, int Top, int Right, int Bottom, int Start, int End) {
         public static EdgeNames For(NameTable properties, string shorthand, string prefix, string suffix = "") =>
@@ -1254,6 +1367,16 @@ public sealed class LayoutStyleBuilder {
         public Keywords(NameTable table) {
             Auto = table.Intern("auto");
             None = table.Intern("none");
+            Safe = table.Intern("safe");
+            Unsafe = table.Intern("unsafe");
+
+            OverflowPositions = [
+                table.Intern("center"),
+                table.Intern("start"),
+                table.Intern("end"),
+                table.Intern("flex-start"),
+                table.Intern("flex-end")
+            ];
 
             ContentSizes = new Dictionary<int, LayoutUnit> {
                 [table.Intern("min-content")] = LayoutUnit.MinContent,
@@ -1282,7 +1405,17 @@ public sealed class LayoutStyleBuilder {
                 [table.Intern("space-around")] = Justify.SpaceAround,
                 [table.Intern("space-evenly")] = Justify.SpaceEvenly,
                 [table.Intern("start")] = Justify.FlexStart,
-                [table.Intern("end")] = Justify.FlexEnd
+                [table.Intern("end")] = Justify.FlexEnd,
+
+                // ⚠ <b>`normal` is not the absence of a value and mapping it to the initial one is
+                // not a no-op.</b> It is `justify-content`'s initial keyword, and CSS Box Alignment
+                // §8.1 says it behaves as `flex-start` for a flex container — which is exactly what
+                // this bridge already does with the property unset, so the row below states the
+                // engine's own default rather than inventing a behaviour. What it buys is the thing
+                // an initial value can only be written for: overriding a `justify-content: center`
+                // that a theme sheet already set, which nothing else in this vocabulary can say.
+                // Same argument as `visibility: visible`, one property family over.
+                [table.Intern("normal")] = Justify.FlexStart
             };
 
             Alignments = new Dictionary<int, Align> {
@@ -1296,7 +1429,17 @@ public sealed class LayoutStyleBuilder {
                 [table.Intern("space-around")] = Align.SpaceAround,
                 [table.Intern("space-evenly")] = Align.SpaceEvenly,
                 [table.Intern("start")] = Align.FlexStart,
-                [table.Intern("end")] = Align.FlexEnd
+                [table.Intern("end")] = Align.FlexEnd,
+
+                // ⚠ <b>`normal` behaves as `stretch` on every property this table serves, and the
+                // engine already believed that before the keyword could be spelt.</b>
+                // `LayoutStyle.CreateDefault` sets `AlignItems`, `JustifyItems` and — through
+                // `CreateCssInitial` — `AlignContent` to `Stretch` and says why in its own remark:
+                // §6.2's `normal` fills a definite area with an item that has no size of its own.
+                // So this row is the initial value written down rather than a new behaviour, and it
+                // exists for the reason the `justify-content` one does — to override a stretch-less
+                // alignment an earlier rule set.
+                [table.Intern("normal")] = Align.Stretch
             };
 
             Positions = new Dictionary<int, PositionType> {
@@ -1418,22 +1561,53 @@ public sealed class LayoutStyleBuilder {
 
             // ⚠ <b>All four written-out spellings, because `dense` is a second word rather than a
             // second declaration.</b> CSS Grid §8.5's grammar is `[ row | column ] || dense`, so
-            // `row dense` and `dense row` are the same value and both occur; the cascade hands this
-            // bridge one interned string, not a token list, so the pairs are enumerated rather than
-            // parsed. `dense` alone means `row dense`, per the grammar's omitted-first-term rule.
-            GridAutoFlows = new Dictionary<int, GridAutoFlow> {
-                [table.Intern("row")] = GridAutoFlow.Row,
-                [table.Intern("column")] = GridAutoFlow.Column,
-                [table.Intern("dense")] = GridAutoFlow.RowDense,
-                [table.Intern("row dense")] = GridAutoFlow.RowDense,
-                [table.Intern("dense row")] = GridAutoFlow.RowDense,
-                [table.Intern("column dense")] = GridAutoFlow.ColumnDense,
-                [table.Intern("dense column")] = GridAutoFlow.ColumnDense
+            // `row dense` and `dense row` are the same value and both occur. `dense` alone means
+            // `row dense`, per the grammar's omitted-first-term rule.
+            //
+            // ⚠ <b>Keyed on a token <i>pair</i>, and the single-token spelling is a pair whose second
+            // half is <see cref="NameTable.None" />.</b> This table used to intern `"row dense"` whole
+            // on the stated grounds that "the cascade hands this bridge one interned string, not a
+            // token list" — which is false, and had been for as long as the entries existed.
+            // <see cref="StyleValueParser" /> splits a value on top-level whitespace before anything
+            // else, so `row dense` reaches <c>TryKeyword</c> as a <see cref="StyleValueKind.List" />
+            // of two keywords and could never match an entry keyed on the joined text. All four
+            // compound spellings fell out of the table and left the property at `row`, so
+            // `grid-flow-row-dense` and `grid-flow-col-dense` resolved, cascaded, and packed exactly
+            // as the default does. Filed as `Rikarin/Vixen#528`.
+            GridAutoFlows = new Dictionary<(int First, int Second), GridAutoFlow> {
+                [(table.Intern("row"), NameTable.None)] = GridAutoFlow.Row,
+                [(table.Intern("column"), NameTable.None)] = GridAutoFlow.Column,
+                [(table.Intern("dense"), NameTable.None)] = GridAutoFlow.RowDense,
+                [(table.Intern("row"), table.Intern("dense"))] = GridAutoFlow.RowDense,
+                [(table.Intern("dense"), table.Intern("row"))] = GridAutoFlow.RowDense,
+                [(table.Intern("column"), table.Intern("dense"))] = GridAutoFlow.ColumnDense,
+                [(table.Intern("dense"), table.Intern("column"))] = GridAutoFlow.ColumnDense
             };
         }
 
         public int Auto { get; }
         public int None { get; }
+
+        /// <summary>CSS Box Alignment §4.1's <c>&lt;overflow-position&gt;</c>, the two of them.</summary>
+        public int Safe { get; }
+
+        /// <inheritdoc cref="Safe" />
+        public int Unsafe { get; }
+
+        /// <summary>
+        ///     The keywords an <c>&lt;overflow-position&gt;</c> may be written in front of: §4.1's
+        ///     <c>&lt;content-position&gt;</c> and <c>&lt;self-position&gt;</c>, which are the same
+        ///     five words here.
+        /// </summary>
+        /// <remarks>
+        ///     ⚠ <b>A separate set rather than "whatever <see cref="Alignments" /> holds", because the
+        ///     alignment tables hold the distribution and baseline keywords too and the prefix is
+        ///     invalid on every one of them.</b> `safe space-between` and `safe stretch` are not
+        ///     values CSS Box Alignment gives any of the six properties, so accepting them would make
+        ///     this bridge read a declaration a browser drops — and the `safe` would go on to change
+        ///     the layout, which is worse than ignoring it.
+        /// </remarks>
+        public HashSet<int> OverflowPositions { get; }
         public Dictionary<int, LayoutUnit> ContentSizes { get; }
         public Dictionary<int, VerticalAlign> VerticalAligns { get; }
         public Dictionary<int, Direction> Directions { get; }
@@ -1447,6 +1621,6 @@ public sealed class LayoutStyleBuilder {
         public Dictionary<int, FloatSide> Floats { get; }
         public Dictionary<int, Clear> Clears { get; }
         public Dictionary<int, BoxSizing> BoxSizings { get; }
-        public Dictionary<int, GridAutoFlow> GridAutoFlows { get; }
+        public Dictionary<(int First, int Second), GridAutoFlow> GridAutoFlows { get; }
     }
 }

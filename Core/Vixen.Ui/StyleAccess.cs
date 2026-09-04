@@ -85,6 +85,40 @@ public sealed partial class UiDocument {
         return value.Kind == StyleValueKind.Number ? value.Number : null;
     }
 
+    /// <summary>The keyword a computed style gives a property, if it gives a single one.</summary>
+    /// <param name="style">The style, from <see cref="UiElement.Style" />.</param>
+    /// <param name="property">The property, from <see cref="PropertyId" />.</param>
+    /// <returns>The keyword, or <c>null</c> if the property is absent or is not one bare identifier.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The fourth reading beside <see cref="ColorOf" />, <see cref="LengthOf" /> and
+    ///         <see cref="NumberOf" />, and the one the other three cannot stand in for: a keyword is
+    ///         what they all answer <c>null</c> to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is the whole defect it was added for.</b> SVG's <c>fill</c> and
+    ///         <c>stroke</c> take a <i>paint</i>, and <c>none</c> is a paint — so
+    ///         <c>fill: none</c> and a <c>fill</c> nobody set are two different instructions that
+    ///         <see cref="ColorOf" /> reports identically. <c>Icon.Resolve</c> read the first as the
+    ///         second and painted the icon in the inherited colour, which is the opposite of what was
+    ///         asked for and is invisible to any gate that only knows whether a property is read.
+    ///     </para>
+    ///     <para>
+    ///         The string comes out of the name table rather than being built, so a caller comparing
+    ///         it per frame allocates nothing. A two-word value — <c>safe center</c> — answers
+    ///         <c>null</c>, because it is not one keyword and a caller asking this question wants to
+    ///         know that.
+    ///     </para>
+    /// </remarks>
+    public string? KeywordOf(ComputedStyle style, int property) {
+        if (!style.TryGet(property, out var id)) {
+            return null;
+        }
+
+        var value = reader.Parse(id);
+        return value.Kind == StyleValueKind.Keyword ? Styles.Names.NameOf(value.Keyword) : null;
+    }
+
     /// <summary>An element's <c>color</c>, which is what a control draws itself in.</summary>
     /// <param name="element">The element.</param>
     /// <returns>Its colour, or black if it has none.</returns>

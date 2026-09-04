@@ -29,6 +29,14 @@ public sealed class StyleGenTests : IDisposable {
         }
         """;
 
+    // ⚠ <b>Every markup fixture below is written on `<panel>`, and the tag has to be one no utility
+    // family is registered under.</b> `CandidateScanner` is deliberately over-inclusive — it does
+    // not parse markup, it pulls out every run of characters a class name could be — so a fixture's
+    // *tag* is a candidate exactly like the words in its `class` attribute. These fixtures used
+    // `<row>`, which was prose while nothing registered `row` and became a `UtilityRefusal` the day
+    // doc 43's `row-*` family landed: the two tests below that assert the refusal list *exactly*
+    // went red, and neither of them is about the scanner. Written down because it is easy to walk
+    // back into and invisible from the fixture.
     readonly string root = Directory.CreateTempSubdirectory("vixen-stylegen").FullName;
 
     public void Dispose() => Directory.Delete(root, recursive: true);
@@ -55,7 +63,7 @@ public sealed class StyleGenTests : IDisposable {
     public void A_class_name_written_in_markup_reaches_the_sheet() {
         var result = Run(new StyleGenRequest {
             Themes = [Write("vixen.ui.vcss", Tokens)],
-            Scan = [Write("Panel.vxml", """<row class="flex bg-surface-raised">""")]
+            Scan = [Write("Panel.vxml", """<panel class="flex bg-surface-raised">""")]
         });
 
         Assert.Contains(".flex { display: flex; }", result.Css, StringComparison.Ordinal);
@@ -76,7 +84,7 @@ public sealed class StyleGenTests : IDisposable {
         var result = Run(new StyleGenRequest {
             Themes = [Write("vixen.ui.vcss", Tokens)],
             Base = [Write("theme.vcss", ".card { @apply gap-2; color: red; }")],
-            Scan = [Write("Panel.vxml", """<row class="flex">""")]
+            Scan = [Write("Panel.vxml", """<panel class="flex">""")]
         });
 
         Assert.StartsWith(".card { gap: 4px;  color: red; }", result.Css, StringComparison.Ordinal);
@@ -95,7 +103,7 @@ public sealed class StyleGenTests : IDisposable {
     public void A_safelisted_name_is_emitted_with_nothing_using_it() {
         var result = Run(new StyleGenRequest {
             Themes = [Write("vixen.ui.vcss", Tokens)],
-            Scan = [Write("Panel.vxml", "<row>")],
+            Scan = [Write("Panel.vxml", "<panel>")],
             Safelist = ["bg-surface"]
         });
 
@@ -114,7 +122,7 @@ public sealed class StyleGenTests : IDisposable {
     public void A_misspelt_utility_is_reported_and_the_prose_with_it() {
         var result = Run(new StyleGenRequest {
             Themes = [Write("vixen.ui.vcss", Tokens)],
-            Scan = [Write("Panel.vxml", """<row class="flexx">""")]
+            Scan = [Write("Panel.vxml", """<panel class="flexx">""")]
         });
 
         Assert.Contains("flexx", result.Unrecognised);
@@ -134,7 +142,7 @@ public sealed class StyleGenTests : IDisposable {
     public void The_report_puts_a_half_registered_root_above_the_prose() {
         var result = Run(new StyleGenRequest {
             Themes = [Write("vixen.ui.vcss", Tokens)],
-            Scan = [Write("Panel.vxml", """<row class="bg-clip-text however p-4">""")]
+            Scan = [Write("Panel.vxml", """<panel class="bg-clip-text however p-4">""")]
         });
 
         var report = StyleGenRunner.Report(result);
@@ -230,7 +238,7 @@ public sealed class StyleGenTests : IDisposable {
     [Fact]
     public void A_project_with_no_theme_file_still_has_the_shipped_palette() {
         var result = Run(new StyleGenRequest {
-            Scan = [Write("Panel.vxml", """<row class="bg-blue-500 rounded-lg p-4">""")]
+            Scan = [Write("Panel.vxml", """<panel class="bg-blue-500 rounded-lg p-4">""")]
         });
 
         Assert.Empty(result.Errors);
@@ -251,7 +259,7 @@ public sealed class StyleGenTests : IDisposable {
     public void A_projects_token_beats_the_shipped_one_and_leaves_the_rest() {
         var result = Run(new StyleGenRequest {
             Themes = [Write("vixen.ui.vcss", "@theme { --color-blue-500: #ff0000; }")],
-            Scan = [Write("Panel.vxml", """<row class="bg-blue-500 bg-blue-600">""")]
+            Scan = [Write("Panel.vxml", """<panel class="bg-blue-500 bg-blue-600">""")]
         });
 
         Assert.Contains(".bg-blue-500 { background-color: #ff0000; }", result.Css, StringComparison.Ordinal);
@@ -268,7 +276,7 @@ public sealed class StyleGenTests : IDisposable {
     public void Clearing_a_namespace_removes_the_shipped_tokens_and_keeps_the_projects() {
         var result = Run(new StyleGenRequest {
             Themes = [Write("vixen.ui.vcss", "@theme { --color-*: initial; --color-brand: #123456; }")],
-            Scan = [Write("Panel.vxml", """<row class="bg-blue-500 bg-brand">""")]
+            Scan = [Write("Panel.vxml", """<panel class="bg-blue-500 bg-brand">""")]
         });
 
         // ⚠ A refusal and not an unrecognised candidate, and this is the case that makes the split
@@ -298,7 +306,7 @@ public sealed class StyleGenTests : IDisposable {
     public void A_base_sheets_theme_becomes_a_root_rule_holding_only_what_is_referenced() {
         var result = Run(new StyleGenRequest {
             Base = [Write("hud.vcss", "@theme { --color-brand: #123456; }\n.card { color: var(--color-brand); }")],
-            Scan = [Write("Panel.vxml", "<row>")]
+            Scan = [Write("Panel.vxml", "<panel>")]
         });
 
         Assert.DoesNotContain("@theme", result.Css, StringComparison.Ordinal);
@@ -322,7 +330,7 @@ public sealed class StyleGenTests : IDisposable {
         var result = Run(new StyleGenRequest {
             Themes = [Write("vixen.ui.vcss", "@theme { --radius-row: var(--radius-row); }")],
             Base = [Write("hud.vcss", "root { --radius-row: 4px; }")],
-            Scan = [Write("Panel.vxml", """<row class="rounded-row">""")]
+            Scan = [Write("Panel.vxml", """<panel class="rounded-row">""")]
         });
 
         Assert.Contains(".rounded-row { border-radius: var(--radius-row); }", result.Css, StringComparison.Ordinal);
@@ -339,7 +347,7 @@ public sealed class StyleGenTests : IDisposable {
     public void An_unchanged_output_is_not_rewritten() {
         var request = new StyleGenRequest {
             Themes = [Write("vixen.ui.vcss", Tokens)],
-            Scan = [Write("Panel.vxml", """<row class="flex">""")],
+            Scan = [Write("Panel.vxml", """<panel class="flex">""")],
             Output = Path.Combine(root, "out", "sheet.g.vcss"),
             Accessor = Path.Combine(root, "out", "Styles.g.cs")
         };
@@ -369,7 +377,7 @@ public sealed class StyleGenTests : IDisposable {
     public void The_accessor_carries_the_sheet_unchanged() {
         var request = new StyleGenRequest {
             Themes = [Write("vixen.ui.vcss", Tokens)],
-            Scan = [Write("Panel.vxml", """<row class="flex content-[&quot;a\b&quot;]">""")],
+            Scan = [Write("Panel.vxml", """<panel class="flex content-[&quot;a\b&quot;]">""")],
             Namespace = "Some.Where",
             Class = "Styles"
         };
