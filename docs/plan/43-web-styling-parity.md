@@ -766,7 +766,7 @@ and `StyleGen`, whose entire stated reason had evaporated.
 mattered** — a reason no test can see is a reason that expires unobserved.
 
 **The mechanism, which is a clause in the note rather than a fifteenth column.** A refusal may end its
-note with one of two bracketed clauses, and `Core/Vixen.Ui.Styling.Utilities.Tests/RefusalExpiryTests`
+note with one of three bracketed clauses, and `Core/Vixen.Ui.Styling.Utilities.Tests/RefusalExpiryTests`
 holds it to them:
 
 - `[expires-with <root>]` — this refusal stands only while that ledger root is itself refused
@@ -779,6 +779,16 @@ holds it to them:
   different name leaves the clause green for ever. It is here because some refusals have no root to
   hang on — `mix-blend`'s surviving half is a fact about a struct — and where both are available the
   root is the one to name.
+- `[expires-when-read <css-property>]` — this refusal stands only while **nothing in the engine reads
+  that property**. Exact, like the first, and for the same reason: its condition is the *same
+  measurement* `InertProperties.txt` expires on, taken by `UtilityConsumptionProbe` from a real frame.
+  ⚠ **This is the second file #288 names, and it is the half the mechanism was missing.** A note
+  saying *"the width is read; the logical colour is not — InertProperties.txt #21"* is a refusal
+  resting on an allow-list line, and nothing carried that line's verdict one dependency edge out — so
+  the run that deleted the exemption would leave the ledger's sentence standing, which is exactly how
+  `will-change-*` came to cite an `InertProperties.txt` block that closed with A7. ⚠ A row carrying
+  this clause may be `partial`, unlike the two above: a half-read longhand *is* what a `partial` row
+  usually is, and there are 29 of them.
 
 **Why a clause in the prose and not another column.** The failure being prevented is that nobody
 writes the condition down *as* a condition. Anything that makes recording one a separate act loses to
@@ -808,7 +818,9 @@ misspelt-key bug three times this year in a navmesh, a security policy and a sha
 
 **Seeded with nine clauses over eight refusals**, two of which — `mix-blend` and `isolation`, the two
 this finding leads with — had an **entirely empty `note` column** until now, which is why neither was
-ever re-read. Three of the nine share one anchor: `rotate-x-*`, `rotate-z-*` and `scale-z-*` are all
+ever re-read. ⚠ **Three more followed on 2026-09-05 with the `expires-when-read` kind**, and they are
+the citations that were already written in English: `border-s-*` and `border-e-*` name the two logical
+colours `InertProperties.txt` exempts under #21, and `select` names `user-select` under #24. Three of the nine share one anchor: `rotate-x-*`, `rotate-z-*` and `scale-z-*` are all
 waiting on a representation for transform functions, and a refusal that is one of several resting on a
 single premise is the one most likely to be read as settled.
 

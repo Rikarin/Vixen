@@ -16,7 +16,7 @@
 # than one distinct reason" are the two guards this suite's neighbours have already had eaten by
 # success.
 #
-# The two kinds, and they are not equally strong:
+# The three kinds, and they are not equally strong:
 #
 #   expires-with <root>   The refusal stands only while that ledger root is itself refused
 #                         (`absent` or `inert`). The cited root's state is a computed column, so
@@ -28,6 +28,15 @@
 #                         for ever — a member that is absent because the type is absent is the
 #                         failure mode this file would otherwise have.
 #
+#   expires-when-read <p> The refusal stands only while nothing in the engine reads that CSS
+#                         property. As exact as `expires-with`, because its condition is the same
+#                         measurement `InertProperties.txt` expires on — `UtilityConsumptionProbe`
+#                         runs the frame. ⚠ It is the half that carries an allow-list line's verdict
+#                         ONE DEPENDENCY EDGE OUT, to the ledger note that cites it in words; the
+#                         anchor must be a property some family emits, or the condition could never
+#                         come due. A row carrying it may be `partial` — that is what a half-read
+#                         longhand is.
+#
 # ⚠ Rows share an anchor, which is the pattern worth looking for: a refusal that is one of several
 # resting on one premise is the refusal most likely to be read as settled — and when that premise
 # closes, they all rot at once and the suite reports only the first. Four did, on 2026-09-04:
@@ -36,6 +45,8 @@
 # is the stronger kind and collapses four tripwires to one. ⚠ This paragraph itself named the wrong
 # three — it listed `rotate-z-*`, which has measured `works` for as long as the census has existed
 # and never carried a clause at all. Prose beside a derived list is not derived.
+border-e-*	expires-when-read	border-inline-end-color
+border-s-*	expires-when-read	border-inline-start-color
 border-spacing-x-*	expires-with	border-spacing-*
 border-spacing-y-*	expires-with	border-spacing-*
 inset-ring-*	expires-with	inset-shadow-*
@@ -46,4 +57,5 @@ perspective-origin-*	expires-with	perspective-*
 rotate-x-*	expires-with	perspective-*
 rotate-y-*	expires-with	rotate-x-*
 scale-z-*	expires-with	perspective-*
+select	expires-when-read	user-select
 translate-z-*	expires-with	perspective-*

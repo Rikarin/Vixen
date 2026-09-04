@@ -23,7 +23,26 @@ enum ExpiryKind {
     ///     <see cref="With" /> — see <see cref="RefusalExpiryTests" /> for why, and for why it is here
     ///     anyway.
     /// </remarks>
-    On
+    On,
+
+    /// <summary>A CSS property nothing reads, whose exemption this refusal rests on.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Written <c>[expires-when-read &lt;css-property&gt;]</c>, and it is the other file's half
+    ///         of #288: a note that says <i>"the width is read; the logical colour is not —
+    ///         InertProperties.txt #21"</i> is a refusal resting on an allow-list line, one dependency
+    ///         edge out from that file's own expiry. Nothing carried the verdict across, so the run
+    ///         that deleted the exemption left the ledger's sentence standing.
+    ///     </para>
+    ///     <para>
+    ///         As exact as <see cref="With" /> and for the same reason: the condition is
+    ///         <i>measured</i> — <c>UtilityConsumptionProbe</c> runs the frame and reports which
+    ///         properties moved a channel — so nobody predicts anything and nobody can spell around
+    ///         it. It differs from <see cref="With" /> only in what it names: a property rather than a
+    ///         ledger root, which is what a <c>partial</c> row's gap is usually about.
+    ///     </para>
+    /// </remarks>
+    WhenRead
 }
 
 /// <summary>One refusal's expiry condition, as the ledger's note column declares it.</summary>
@@ -32,7 +51,17 @@ enum ExpiryKind {
 /// <param name="Anchor">The root or symbol named, verbatim.</param>
 sealed record ExpiryClause(string Root, ExpiryKind Kind, string Anchor) : IComparable<ExpiryClause> {
     /// <summary>The census line for this clause.</summary>
-    public string Line => $"{Root}\t{(Kind == ExpiryKind.With ? "expires-with" : "expires-on")}\t{Anchor}";
+    public string Line => $"{Root}\t{Spelling(Kind)}\t{Anchor}";
+
+    /// <summary>How a kind is written in a note and in the census.</summary>
+    /// <param name="kind">The kind.</param>
+    /// <returns>The clause word.</returns>
+    public static string Spelling(ExpiryKind kind) =>
+        kind switch {
+            ExpiryKind.With => "expires-with",
+            ExpiryKind.On => "expires-on",
+            _ => "expires-when-read"
+        };
 
     public int CompareTo(ExpiryClause? other) =>
         other is null ? 1 : string.CompareOrdinal(Line, other.Line);
@@ -74,6 +103,19 @@ static partial class RefusalExpiry {
     /// </remarks>
     public static readonly string[] Refusing = ["absent", "inert"];
 
+    /// <summary>The states in which a root may still rest a gap on an unread property.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>partial</c> <i>is</i> on this list, and the difference from <see cref="Refusing" />
+    ///     is the point rather than an inconsistency.</b> An <c>expires-with</c> says "this root is
+    ///     refused because that one is", which is prose about a state a root that half works has
+    ///     already left. An <c>expires-when-read</c> says "this longhand of mine is emitted and read by
+    ///     nothing" — <c>border-s-*</c>'s width is read and its colour is not — and that is the
+    ///     commonest shape a <c>partial</c> takes. Refusing the clause there would leave the 29 most
+    ///     expensive rows in the ledger with no way to record a condition at all. <c>works</c> is what
+    ///     it excludes: a root with no gap left has nothing to rest on anything.
+    /// </remarks>
+    public static readonly string[] Gapped = ["absent", "inert", "partial"];
+
     /// <summary>Every clause the ledger's notes declare, sorted.</summary>
     /// <param name="rows">The ledger.</param>
     /// <returns>The clauses.</returns>
@@ -82,7 +124,11 @@ static partial class RefusalExpiry {
 
         foreach (var row in rows) {
             foreach (Match match in Clause().Matches(row.Note)) {
-                var kind = match.Groups["kind"].Value == "with" ? ExpiryKind.With : ExpiryKind.On;
+                var kind = match.Groups["kind"].Value switch {
+                    "with" => ExpiryKind.With,
+                    "on" => ExpiryKind.On,
+                    _ => ExpiryKind.WhenRead
+                };
 
                 clauses.Add(new ExpiryClause(row.Root, kind, match.Groups["anchor"].Value.Trim()));
             }
@@ -198,7 +244,7 @@ static partial class RefusalExpiry {
             | BindingFlags.FlattenHierarchy
         ).Length != 0;
 
-    [GeneratedRegex(@"\[expires-(?<kind>with|on)\s+(?<anchor>[^\]]+)\]")]
+    [GeneratedRegex(@"\[expires-(?<kind>with|on|when-read)\s+(?<anchor>[^\]]+)\]")]
     private static partial Regex Clause();
 
     [GeneratedRegex(@"\[expires-")]
