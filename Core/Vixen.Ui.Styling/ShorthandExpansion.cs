@@ -56,17 +56,20 @@ namespace Vixen.Ui.Styling;
 ///         is not known yet.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>place-self</c>, <c>place-items</c> and <c>place-content</c> have the same hole
-///         and are deliberately still in it.</b> ExCSS leaves all three whole, and every longhand
-///         they cover <i>is</i> read — <c>LayoutStyleBuilder</c> reads all six of
-///         <c>align-</c>/<c>justify-items</c>, <c>-self</c> and <c>-content</c> — so each of the
-///         three is a declaration that parses, cascades, resolves, and then does nothing whatever.
-///         That is the border-colour silence one more time. It is <i>not</i> a precedence bug:
-///         nothing overwrites them, because the bridge has no branch for any of the three, so there
-///         is no precedence to get wrong. No utility family and no sheet in the repository emits one
-///         either. Adding them is a feature with a test surface of its own — three grammars,
-///         <c>place-*</c>'s one-value form meaning both axes. Recorded here so the next reader finds
-///         the list rather than the gap.
+///         ⚠ <b><c>place-self</c>, <c>place-items</c> and <c>place-content</c> were the last three
+///         names on that list, and the reason they stayed on it was the grammar rather than the
+///         plumbing.</b> ExCSS leaves all three whole, and every longhand they cover <i>is</i> read —
+///         <c>LayoutStyleBuilder</c> reads all six of <c>align-</c>/<c>justify-items</c>,
+///         <c>-self</c> and <c>-content</c> — so each of the three parsed, cascaded, resolved and
+///         then did nothing whatever, which is the border-colour silence one more time. ⚠ The naive
+///         fix is a whitespace split, and it is <i>worse than the gap</i>: each half of a
+///         <c>place-*</c> value is itself CSS Box Alignment §4's
+///         <c>[ safe | unsafe ]? &lt;position&gt;</c>, so <c>place-content: safe center</c> is
+///         <b>one</b> component meaning both axes and splitting it on the space emits
+///         <c>align-content: safe</c> and <c>justify-content: center</c> — two refused declarations
+///         where there should be two honoured ones. <see cref="Alignment" /> groups the tokens into
+///         components first, and it is the component count and not the token count that decides
+///         whether the value names one axis or two.
 ///     </para>
 ///     <para>
 ///         ⚠ <b><c>grid-area</c> was the fourth name on that list until named areas landed, and it
@@ -93,6 +96,15 @@ public static class ShorthandExpansion {
         "thin", "medium", "thick"
     };
 
+    /// <summary>
+    ///     The words that begin a two-token alignment component rather than being one: CSS Box
+    ///     Alignment §4.1's <c>&lt;overflow-position&gt;</c> and §4.2's
+    ///     <c>&lt;baseline-position&gt;</c> prefixes.
+    /// </summary>
+    static readonly HashSet<string> AlignmentPrefixes = new(StringComparer.OrdinalIgnoreCase) {
+        "safe", "unsafe", "first", "last"
+    };
+
     /// <summary>Whether this is a shorthand this can take apart.</summary>
     /// <param name="property">The property name, as a stylesheet writes it.</param>
     /// <returns>Whether <see cref="TryExpand" /> has anything to say about it.</returns>
@@ -106,6 +118,7 @@ public static class ShorthandExpansion {
             "gap" => true,
             "border" or "border-top" or "border-right" or "border-bottom" or "border-left" => true,
             "grid-column" or "grid-row" or "grid-area" => true,
+            "place-content" or "place-items" or "place-self" => true,
             _ => false
         };
     }
@@ -131,11 +144,26 @@ public static class ShorthandExpansion {
             return false;
         }
 
-        return IsPlacement(property) || VarSubstitution.NeedsSubstitution(value);
+        return IsUnknownToExCss(property) || VarSubstitution.NeedsSubstitution(value);
     }
 
-    /// <summary>The two shorthands ExCSS hands back whole however they are written.</summary>
+    /// <summary>The shorthands ExCSS hands back whole however they are written.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Membership here is a fact about the parser, not about the grammar.</b> ExCSS has
+    ///     never heard of the three grid placements nor of the three <c>place-*</c> pairs, so for
+    ///     these six the <c>var()</c> condition in <see cref="NeedsExpanding" /> would never fire and
+    ///     the shorthand would reach a computed style intact — which is the silence this file exists
+    ///     to remove. <c>ExCSS_leaves_a_place_shorthand_whole</c> asserts the premise rather than
+    ///     assuming it, so a later ExCSS that learns one of them says so instead of being expanded
+    ///     twice.
+    /// </remarks>
+    static bool IsUnknownToExCss(string property) => IsPlacement(property) || IsAlignmentPair(property);
+
+    /// <summary>The three grid shorthands, which divide on a slash.</summary>
     static bool IsPlacement(string property) => property is "grid-column" or "grid-row" or "grid-area";
+
+    /// <summary>The three <c>place-*</c> shorthands, which divide on a component boundary.</summary>
+    static bool IsAlignmentPair(string property) => property is "place-content" or "place-items" or "place-self";
 
     /// <summary>Takes a shorthand apart into the longhands its consumers read.</summary>
     /// <param name="property">The property name. <see cref="IsShorthand" /> must hold.</param>
@@ -158,6 +186,12 @@ public static class ShorthandExpansion {
 
         if (IsPlacement(property)) {
             return Placement(property, value, into);
+        }
+
+        // Also before the split, because `safe center` is one component of two tokens and the split
+        // cannot tell that from two components of one token each.
+        if (IsAlignmentPair(property)) {
+            return Alignment(property, value, into);
         }
 
         var parts = Split(value);
@@ -449,6 +483,94 @@ public static class ShorthandExpansion {
 
         return edge;
     }
+
+    /// <summary>
+    ///     CSS Box Alignment §7's three <c>place-*</c> pairs: the block axis first, then the inline
+    ///     one.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The tokens are grouped into components before anything is counted, and that
+    ///         grouping <i>is</i> the feature.</b> Each half of a <c>place-*</c> value is §4.1's
+    ///         <c>[ safe | unsafe ]? &lt;position&gt;</c> or §4.2's
+    ///         <c>[ first | last ]? baseline</c>, so a two-token value may be one component or two:
+    ///         <c>place-content: safe center</c> names <i>both</i> axes and
+    ///         <c>place-content: center start</c> names one each. A whitespace split cannot tell them
+    ///         apart, and the answer it gives the first is <c>align-content: safe</c> plus
+    ///         <c>justify-content: center</c> — two values the bridge refuses, where one honoured
+    ///         declaration was written. That is why this is not <see cref="Split" /> into
+    ///         <see cref="Sides" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An omitted second component is copied, except that a
+    ///         <c>&lt;baseline-position&gt;</c> on <c>place-content</c> becomes <c>start</c>.</b>
+    ///         §7.1 says so, and it is not a nicety here: <c>justify-content</c> has no
+    ///         <c>baseline</c> — the keyword is absent from <c>LayoutStyleBuilder</c>'s
+    ///         <c>Justifications</c> table because CSS does not give the property that value — so
+    ///         copying <c>place-content: baseline</c> across would emit a second declaration refused
+    ///         on arrival. <c>place-items</c> and <c>place-self</c> copy unconditionally, because
+    ///         <c>justify-items</c> and <c>justify-self</c> do take a baseline.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both longhands are always written, for <see cref="Placement" />'s reason:</b> a
+    ///         shorthand resets everything it covers, so an omitted <c>justify-content</c> would let
+    ///         one from a weaker rule survive a later <c>place-content</c> that meant to replace it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A <c>var()</c> anywhere in the value is refused</b>, because substitution is
+    ///         textual and happens before this grammar is read: <c>place-items: var(--p) center</c>
+    ///         is one component when <c>--p</c> is <c>safe</c> and two when it is <c>end</c>, and
+    ///         <c>place-content: var(--both)</c> may be either. Guessing turns a declaration a
+    ///         browser honours into two the bridge refuses, over a value nobody can see. Refused, and
+    ///         <see cref="StyleSheetLoader" /> names it.
+    ///     </para>
+    /// </remarks>
+    static bool Alignment(string property, string value, List<KeyValuePair<string, string>> into) {
+        var parts = Split(value);
+
+        // A slash is not in this grammar at all, and `Split` surfaces one as its own part.
+        if (parts.Count == 0 || parts.Exists(static part => part == "/" || VarSubstitution.NeedsSubstitution(part))) {
+            return false;
+        }
+
+        List<string> components = [];
+
+        for (var index = 0; index < parts.Count; index++) {
+            if (!AlignmentPrefixes.Contains(parts[index])) {
+                components.Add(parts[index]);
+                continue;
+            }
+
+            // A prefix with nothing behind it is not a component, and calling it one would put
+            // `safe` where a position belongs.
+            if (index + 1 == parts.Count) {
+                return false;
+            }
+
+            components.Add($"{parts[index]} {parts[index + 1]}");
+            index++;
+        }
+
+        if (components.Count is not (1 or 2)) {
+            return false;
+        }
+
+        var axis = property["place-".Length..];
+
+        into.Add(new($"align-{axis}", components[0]));
+        into.Add(new($"justify-{axis}", components.Count == 2 ? components[1] : Copied(property, components[0])));
+
+        return true;
+    }
+
+    /// <summary>§7.1's exception to "copy the first value", and the only one of the three to have it.</summary>
+    static string Copied(string property, string component) =>
+        property == "place-content" && IsBaselinePosition(component) ? "start" : component;
+
+    static bool IsBaselinePosition(string component) =>
+        component.Equals("baseline", StringComparison.OrdinalIgnoreCase)
+        || component.Equals("first baseline", StringComparison.OrdinalIgnoreCase)
+        || component.Equals("last baseline", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The first slash that is not inside a function, or −1.</summary>
     static int TopLevelSlash(string value) {
