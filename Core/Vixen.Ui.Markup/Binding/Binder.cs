@@ -163,6 +163,11 @@ public sealed class Binder {
             }
         }
 
+        // ⚠ The top level is not a capitalised tag's children either, and it was the third place a
+        // `slot` was accepted and dropped. A component's own markup builds into its root; there is
+        // no parent above it to publish a name, so the emitter never looks for one.
+        RefuseSlotAttributes(markup, "a component's top level");
+
         atTopLevel = true;
         var content = BindContent(markup);
         atTopLevel = false;
@@ -385,26 +390,46 @@ public sealed class Binder {
     /// </remarks>
     void RefuseSlotAttributes(SyntaxList<MarkupSyntax> content, string parent) {
         foreach (var child in content) {
-            if (child is not ElementSyntax element) {
+            RefuseSlotAttribute(child, parent);
+        }
+    }
+
+    /// <inheritdoc cref="RefuseSlotAttributes(SyntaxList{MarkupSyntax}, string)" />
+    /// <param name="content">The children written directly there.</param>
+    /// <param name="parent">What to call the thing they were written in, quoted for the message.</param>
+    /// <remarks>
+    ///     <c>SyntaxList&lt;T&gt;</c> is a struct enumerator and not an <c>IEnumerable&lt;T&gt;</c>,
+    ///     so the top level — which is collected into a builder before it is bound — needs this one.
+    /// </remarks>
+    void RefuseSlotAttributes(IEnumerable<MarkupSyntax> content, string parent) {
+        foreach (var child in content) {
+            RefuseSlotAttribute(child, parent);
+        }
+    }
+
+    /// <inheritdoc cref="RefuseSlotAttributes(SyntaxList{MarkupSyntax}, string)" />
+    /// <param name="child">One child written directly there.</param>
+    /// <param name="parent">What to call the thing it was written in, quoted for the message.</param>
+    void RefuseSlotAttribute(MarkupSyntax child, string parent) {
+        if (child is not ElementSyntax element) {
+            return;
+        }
+
+        foreach (var attribute in element.StartTag.Attributes) {
+            if (!string.Equals(attribute.Name.Text, "slot", StringComparison.Ordinal)) {
                 continue;
             }
 
-            foreach (var attribute in element.StartTag.Attributes) {
-                if (!string.Equals(attribute.Name.Text, "slot", StringComparison.Ordinal)) {
-                    continue;
-                }
-
-                // ⚠ Reported against the *syntax* and not the bound attribute, which is what buys the
-                // squiggle its position. A `BoundAttribute` carries a `LinePositionSpan` for the
-                // emitter's benefit and `Report` wants a `TextSpan`; the only place both the tag and
-                // its children's real spans are in scope at once is here.
-                Report(
-                    MarkupDiagnostics.MisplacedSlotAttribute,
-                    attribute.Name.Span,
-                    Literal(attribute) ?? DefaultSlotName,
-                    parent
-                );
-            }
+            // ⚠ Reported against the *syntax* and not the bound attribute, which is what buys the
+            // squiggle its position. A `BoundAttribute` carries a `LinePositionSpan` for the
+            // emitter's benefit and `Report` wants a `TextSpan`; the only place both the tag and its
+            // children's real spans are in scope at once is here.
+            Report(
+                MarkupDiagnostics.MisplacedSlotAttribute,
+                attribute.Name.Span,
+                Literal(attribute) ?? DefaultSlotName,
+                parent
+            );
         }
     }
 

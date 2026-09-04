@@ -229,6 +229,10 @@ public class BinderTests {
         // ⚠ Once, not twice. A region inside a plain tag is swept by the region, and the tag's own
         // sweep sees an `IfSyntax` rather than an element — so neither reports the other's children.
         Assert.Equal(["VXML2016"], Ids("@component A\n<div>@if (x) { <p slot=\"footer\" /> }</div>"));
+
+        // ⚠ And the top level, which was the third place it was accepted and dropped. A component's
+        // own markup builds into its root; there is no parent above it to publish a name.
+        Assert.Equal(["VXML2016"], Ids("@component A\n<p slot=\"footer\" />"));
     }
 
     /// <summary>The name is read once, so it has to be one that cannot change.</summary>
