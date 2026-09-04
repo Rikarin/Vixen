@@ -400,7 +400,7 @@ refusal block, which already says so for the same reason.
 | Transforms | 23 | 5 | 2 | 0 | 16 | 0 | 0 |
 | Filters | 20 | 10 | 10 | 0 | 0 | 0 | 0 |
 | Sizing | 15 | 12 | 1 | 0 | 2 | 0 | 0 |
-| Backgrounds | 11 | 3 | 1 | 0 | 7 | 0 | 0 |
+| Backgrounds | 11 | 6 | 1 | 0 | 4 | 0 | 0 |
 | Transitions and Animation | 6 | 2 | 1 | 0 | 3 | 0 | 0 |
 | SVG | 3 | 2 | 0 | 0 | 1 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |

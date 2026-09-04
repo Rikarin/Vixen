@@ -602,6 +602,34 @@ static class UtilityConsumptionProbe {
             """
         ),
 
+        // ⚠ <b>A probe that already carries a gradient AND a tile smaller than its box — the seventh
+        // instance of this list's lesson, and the first where TWO ingredients were needed at once.</b>
+        // `background-position` moves a tile and `background-repeat` says what happens outside one, so
+        // both are declarations about nothing until a `background-size` has made the tile smaller than
+        // the border box — and `background-size` itself says nothing without a `background-image` to
+        // size. No scene above has either, so all three measured inert with `DrawListBuilder.PaintArea`
+        // reading them.
+        //
+        // ⚠ <b>The scene's own size is `50% 50%` rather than the default, and the injected one is
+        // `25% 75%`.</b> A scene that left the size at its initial value would be a scene where
+        // `background-position` and `background-repeat` are still invisible; a scene that declared the
+        // *same* size the family's probe injects would be `primed`'s lesson again, where the injected
+        // declaration changes nothing because the scene had already said it.
+        //
+        // ⚠ It is on `#probe` rather than on a child because that is where `Run` injects, and the
+        // three properties have to meet on one element.
+        new(
+            "tiled",
+            """
+            #host  { display: flex; flex-direction: row; width: 120px; height: 46px; align-items: stretch; }
+            #probe { display: flex; flex-direction: row; flex-wrap: wrap; width: 44px;
+                     background-color: #204080; color: #e0e0e0;
+                     background-image: radial-gradient(#ffffff, #101820);
+                     background-size: 50% 50%; }
+            #after { width: 96px; height: 20px; background-color: #a0a040; }
+            """
+        ),
+
         new(
             "translated",
             """

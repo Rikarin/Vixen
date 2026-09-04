@@ -246,18 +246,16 @@ public class ShadowedFamilyTests {
         Assert.NotEmpty(UtilityConsumptionProbe.Channels(property, value));
     }
 
-    /// <summary>The three the ledger calls shadowed that are not: the bracket comes before the split.</summary>
+    /// <summary>The one the ledger calls shadowed that is not: the bracket comes before the split.</summary>
     /// <remarks>
     ///     ⚠ <b>An arbitrary value is decided in <c>UtilityParser</c> before
     ///     <see cref="UtilityFamilies.SplitName" /> is consulted at all</b> — see the parser's remark
-    ///     on the three escape hatches — so <c>bg-size-[auto]</c> parses to the name
-    ///     <c>bg-size</c> and not to <c>bg</c> with a value of <c>size-[auto]</c>. It is an unknown
-    ///     family rather than a shadowed one, which is the opposite diagnostic and therefore the
-    ///     opposite fix. The ledger's note said "swallowed by the family <c>bg</c>" for all three.
+    ///     on the three escape hatches — so <c>font-features-[normal]</c> parses to the name
+    ///     <c>font-features</c> and not to <c>font</c> with a value of <c>features-[normal]</c>. It is
+    ///     an unknown family rather than a shadowed one, which is the opposite diagnostic and
+    ///     therefore the opposite fix. The ledger's note said "swallowed by the family <c>font</c>".
     /// </remarks>
     [Theory]
-    [InlineData("bg-size-[auto]", "bg-size")]
-    [InlineData("bg-position-[center]", "bg-position")]
     [InlineData("font-features-[normal]", "font-features")]
     public void An_arbitrary_value_is_not_shadowed_it_is_unknown(string whole, string name) {
         Assert.True(UtilityParser.TryParse(whole, out var parsed));
@@ -266,6 +264,41 @@ public class ShadowedFamilyTests {
 
         // And the shorter name it is *not* split to is registered, which is why it looked shadowed.
         Assert.True(UtilityFamilies.IsRegistered(UtilityFamilies.SplitName(whole).Name));
+    }
+
+    /// <summary>The two that were unknown and are now registered still parse to the longer name.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The parse order is the claim, and registering the family is what makes it
+    ///         testable rather than what makes it true.</b> <c>bg-size-[50%_50%]</c> has to reach the
+    ///         family <c>bg-size</c> and not the family <c>bg</c> with a value of
+    ///         <c>size-[50%_50%]</c> — and <c>bg</c> is a colour family, so
+    ///         the wrong split does not fail loudly: it fails as an unrecognised colour, which reads
+    ///         as a typo in the class name.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The emitted declaration is asserted too, because these two are
+    ///         <c>Placement</c> families and that kind answers <i>nothing but</i> an arbitrary
+    ///         value.</b> A bare <c>bg-size-4</c> is not a class v4 has, so the kind returns false for
+    ///         it — which means the arbitrary path is the family's whole surface and an error there
+    ///         would leave the root silently unreachable.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("bg-size-[50%_50%]", "bg-size", "background-size", "50% 50%")]
+    [InlineData("bg-position-[center]", "bg-position", "background-position", "center")]
+    public void An_arbitrary_placement_reaches_its_own_family(string whole, string name, string property, string value) {
+        var declarations = new List<UtilityDeclaration>();
+
+        Assert.True(UtilityParser.TryParse(whole, out var parsed));
+        Assert.Equal(name, parsed.Name);
+        Assert.True(UtilityFamilies.IsRegistered(name));
+        Assert.True(UtilityFamilies.TryResolve(parsed, Probe, declarations));
+        Assert.Equal([new UtilityDeclaration(property, value)], declarations);
+
+        // And the bare form is refused rather than emitted as a length the root does not have.
+        Assert.True(UtilityParser.TryParse($"{name}-4", out var bare));
+        Assert.False(UtilityFamilies.TryResolve(bare, Probe, []));
     }
 
     /// <summary>A registered family given a value it has not got is not reported as a typo.</summary>

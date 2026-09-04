@@ -59,6 +59,28 @@ enum ValueKind : byte {
     /// </remarks>
     Angle,
 
+    /// <summary>A CSS <c>&lt;position&gt;</c> or a pair of lengths, written as an arbitrary value.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Arbitrary-valued because Tailwind gives these two roots no named scale at all, and
+    ///         inventing one is the failure <c>bg-conic-&lt;angle&gt;</c> is recorded under.</b> v4
+    ///         spells <c>background-size</c> and <c>background-position</c> as
+    ///         <c>bg-size-[&lt;value&gt;]</c> and <c>bg-position-[&lt;value&gt;]</c> — the keyword
+    ///         forms it does ship (<c>bg-cover</c>, <c>bg-center</c>) hang off the bare <c>bg</c>
+    ///         root, which is a different family.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Its own kind rather than <see cref="Static" />, because a family whose only
+    ///         surface is an arbitrary value is one <c>UtilityConsumptionGateTests</c> would never
+    ///         meet.</b> <c>ValuesFor</c> yields an arbitrary probe for this kind and for no
+    ///         other — which is what makes these two families measurable rather than vacuously green,
+    ///         and is exactly the objection that keeps <c>font-features-*</c> unregistered one section
+    ///         up. The difference is the class name: a length and a percentage escape into a
+    ///         selector, and the quotes <c>font-feature-settings</c> requires do not.
+    ///     </para>
+    /// </remarks>
+    Placement,
+
     /// <summary>One of a fixed set of keywords: <c>items-center</c>.</summary>
     Keyword,
 
@@ -1132,6 +1154,36 @@ public static class UtilityFamilies {
         // `background-image` is a property a `@apply`-ed component or a theme rule can have set, and
         // `GradientReader` reads `none` as `GradientRefusal.NotAGradient` and paints no layer. There
         // is no other way to write "whatever gradient you gave me, not here".
+        // ⚠ <b>The two placement roots, and they are only observable together — which is why they
+        // land in one commit with the engine that reads them.</b> `background-position` moves the tile
+        // a `background-size` made smaller than the box, and `background-repeat` decides what happens
+        // outside it; with the tile equal to the border box all three are the same picture, which is
+        // the measurement the ledger carried as `refused, measured` for the repeat root.
+        //
+        // ⚠ <b>`bg-auto`, `bg-cover` and `bg-contain` are deliberately NOT registered, and the reason
+        // is CSS rather than a missing reader.</b> Backgrounds 3 § 3.9 resolves all three against the
+        // image's intrinsic dimensions and ratio — a gradient has neither, so `auto` is 100%,
+        // `contain` is the positioning area and `cover` is the positioning area. For the only kind of
+        // `background-image` this engine paints the three are one picture *and the same picture as the
+        // default*, which is three classes that differ from each other and from nothing else in name
+        // only. That is the inert family `UtilityConsumptionGateTests` exists to keep out, and it
+        // would be invisible to that gate: `background-size` is read. Recorded on the row instead.
+        Register(new Family("bg-size", ValueKind.Placement, ["background-size"]));
+        Register(new Family("bg-position", ValueKind.Placement, ["background-position"]));
+
+        // ⚠ <b>Four of v4's six, and the two that are absent are absent for `divide-solid`'s reason
+        // rather than for a lane.</b> `round` rescales the tile so a whole number of them fits and
+        // `space` distributes the remainder as gaps — both are a *second* size computed from the box,
+        // not a flag, and `space`'s gaps are not a period a `mod` can express. `DrawListBuilder.Repeat`
+        // drops a declaration naming either, which leaves CSS's initial `repeat`; registering them
+        // would be two classes that resolve, compute and tile exactly like `bg-repeat`.
+        Keywords("bg", "background-repeat", new() {
+            ["repeat"] = "repeat",
+            ["no-repeat"] = "no-repeat",
+            ["repeat-x"] = "repeat-x",
+            ["repeat-y"] = "repeat-y"
+        });
+
         Keywords("bg", "background-image", new() {
             ["none"] = "none",
             ["gradient-to-t"] = Gradient("linear", "to top"),
@@ -1978,6 +2030,15 @@ public static class UtilityFamilies {
                 yield return "45";
                 break;
 
+            // ⚠ An arbitrary probe, and the only one in this method. A `Placement` family has no named
+            // scale to enumerate, so without this line it would contribute nothing to `Surface`, the
+            // consumption gate would never meet it, and it would pass vacuously for ever — see the
+            // kind's own remark. A quarter rather than the whole, because a layer sized to the whole
+            // positioning area is the arrangement the record already has and moves nothing.
+            case ValueKind.Placement:
+                yield return "[25%_75%]";
+                break;
+
             case ValueKind.Duration:
                 yield return "300";
                 break;
@@ -2226,6 +2287,10 @@ public static class UtilityFamilies {
                 && Emit(family, string.Format(CultureInfo.InvariantCulture, family.Template!, count), declarations),
             ValueKind.Angle => TryAngle(candidate.Value, out var degrees)
                 && Emit(family, string.Format(CultureInfo.InvariantCulture, family.Template!, degrees + "deg"), declarations),
+
+            // The arbitrary branch above has already answered every value this kind takes; a bare one
+            // is a class v4 does not have, and inventing it here is what this kind's remark refuses.
+            ValueKind.Placement => false,
             ValueKind.Duration => TryNumber(candidate.Value, out var ms) && Emit(family, ms + "ms", declarations),
             ValueKind.Fraction => TryFraction(candidate.Value, out var fraction) && Emit(family, fraction, declarations),
             ValueKind.Radius => TryRadius(candidate.Value, tokens, out var radius) && Emit(family, radius, declarations),
