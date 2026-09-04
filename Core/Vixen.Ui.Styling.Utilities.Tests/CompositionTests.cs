@@ -199,6 +199,100 @@ public class CompositionTests {
         }
     }
 
+    /// <summary>The leak <c>@property</c>'s <c>inherits: false</c> would stop, pinned as a divergence.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A fragment set on a box is visible to every descendant, so an assembler with no
+    ///         fragments of its own silently paints its ancestor's.</b> That is <i>correct CSS</i> for
+    ///         an unregistered custom property and it is a divergence from Tailwind, which registers
+    ///         every <c>--tw-*</c> with <c>inherits: false</c> precisely to stop it. Vixen has no
+    ///         <c>@property</c> and every custom property inherits — see
+    ///         <see cref="Vixen.Ui.Styling.InheritedProperties.IsCustomProperty" />, which is the one
+    ///         line that decides it.
+    ///     </para>
+    ///     <para>
+    ///         <b>The divergence stands (2026-09-05), and this test is the reason it will not be
+    ///         rediscovered as a bug.</b> It is not a defect to fix by hand at the assembler: an
+    ///         assembler cannot tell an inherited fragment from a set one, because the cascade hands
+    ///         it a computed value either way. Closing it means registration, which is
+    ///         <c>docs/plan/43</c> § <i>The composition mechanism</i> and #291 — and the day
+    ///         registration lands, this test goes red, which is what makes it the note's expiry
+    ///         rather than a restatement of it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_fragment_set_on_a_box_is_visible_to_its_descendants() {
+        var fixture = new UtilityFixture();
+
+        // The child carries the assembler and its own `to-*`, and no `from-*` at all. The parent
+        // carries `from-accent` and no assembler — so on the web, where the fragment is registered,
+        // the child's first stop is the initial value and the parent's colour is unreachable.
+        var leaked = fixture.Computed(
+            ["bg-linear-to-r", "to-surface-3"],
+            "background-image",
+            extraCss: fixture.Generate("from-accent"),
+            ancestor: new Probe(["from-accent"])
+        );
+
+        // Here it reaches, and nothing on the child asked for it.
+        Assert.Equal("linear-gradient(to right in oklab, #4f7cff 0%, #1f1f26 100%)", leaked);
+
+        // The control, which is also what the registered form would produce in both cases: the same
+        // child under a parent setting nothing falls back to the fragment's initial value. Without
+        // this half the assertion above would pass just as well against an engine that had never
+        // inherited anything and simply resolved `from-accent` on the child.
+        var contained = fixture.Computed(
+            ["bg-linear-to-r", "to-surface-3"],
+            "background-image",
+            ancestor: new Probe([])
+        );
+
+        Assert.Equal("linear-gradient(to right in oklab, transparent 0%, #1f1f26 100%)", contained);
+        Assert.NotEqual(leaked, contained);
+    }
+
+    /// <summary>The second thing registration would buy: a type, without which a gradient cannot animate.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A transitioned gradient does not fail — it <i>snaps</i>, at the halfway mark, and
+    ///         that is the shape a reader has to expect.</b> A registered custom property carries a
+    ///         syntax, which is what lets a browser interpolate one; Vixen has none, so an assembled
+    ///         <c>background-image</c> reaches <see cref="StyleValue.Lerp" /> as a value with no
+    ///         magnitude and takes CSS's discrete path. It is the same shape as the three transition
+    ///         residuals, one layer down.
+    ///     </para>
+    ///     <para>
+    ///         <b>This divergence stands too (2026-09-05).</b> Interpolating the assembled text would
+    ///         be the wrong fix at the wrong layer: what wants interpolating is the <i>stop colour</i>
+    ///         a fragment holds, and only a registered type can say that a fragment is a colour.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_gradient_is_a_discrete_swap_rather_than_an_interpolation() {
+        var values = new NameTable();
+        var parser = new StyleValueParser(values, new NameTable());
+
+        var from = parser.Parse("linear-gradient(to right in oklab, #4f7cff 0%, #1f1f26 100%)");
+        var to = parser.Parse("linear-gradient(to right in oklab, #6a91ff 0%, #1f1f26 100%)");
+
+        // Neither end has a magnitude to interpolate, so no midpoint exists…
+        Assert.False(StyleValue.CanInterpolate(from, to));
+
+        // …and the value jumps at 0.5 rather than passing through anything between the two.
+        Assert.Equal(from, StyleValue.Lerp(from, to, 0.49f));
+        Assert.Equal(to, StyleValue.Lerp(from, to, 0.51f));
+
+        // The contrast that makes the point: the *colour* either gradient is built from does
+        // interpolate, and lands between the two. What is missing is a type saying the fragment
+        // holding it is a colour — not any ability to blend one.
+        var start = parser.Parse("#4f7cff");
+        var end = parser.Parse("#6a91ff");
+
+        Assert.True(StyleValue.CanInterpolate(start, end));
+        Assert.NotEqual(start, StyleValue.Lerp(start, end, 0.5f));
+        Assert.NotEqual(end, StyleValue.Lerp(start, end, 0.5f));
+    }
+
     /// <summary>Every registered fragment says what it is worth unset, and is only reachable with it.</summary>
     /// <remarks>
     ///     The invariant that makes the trap above unreachable by construction rather than by

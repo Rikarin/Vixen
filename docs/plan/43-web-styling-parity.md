@@ -178,6 +178,19 @@ for an unregistered custom property, and a divergence from Tailwind, which regis
 stop the leak; and a *type*, which is what would let a gradient be transitioned. Both are refinements
 to a mechanism that works without them, so neither is a prerequisite task.
 
+⚠ **Both divergences stand as of 2026-09-05, and both are now measured rather than asserted (#291).**
+A paragraph saying a thing is a known quantity is the shape a stale note takes, so each half is a test:
+`CompositionTests.A_fragment_set_on_a_box_is_visible_to_its_descendants` puts `from-accent` on a parent
+and `bg-linear-to-r` on a child that carries no `from-*`, and the child paints the parent's colour —
+with the unparented control beside it, because without that half the assertion would pass against an
+engine that inherited nothing. `A_gradient_is_a_discrete_swap_rather_than_an_interpolation` pins the
+second: a transitioned gradient does not fail, it **snaps at the halfway mark**, which is CSS's
+discrete path for a value with no magnitude — and the colour either gradient is built from
+interpolates perfectly well, so what is missing is a *type* saying a fragment holds one, not any
+ability to blend. Both go red the day registration lands, which is what makes them this note's expiry
+rather than a restatement of it. `InheritedProperties.IsCustomProperty` is the single line either
+would change.
+
 **What it gates, and the first thing it gated.** v4 uses the identical pattern for transforms (A7 /
 #23), `box-shadow` and filters (A8 / #28). The five `--` placeholders the table counted — `--blur`,
 `--rotate`, `--scale`, `--translate-x`, `--translate-y` — were this shape built without the second
