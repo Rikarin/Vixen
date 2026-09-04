@@ -647,6 +647,27 @@ attribute anywhere emits exactly the call it always emitted.
 </Expander>
 ```
 
+### A handler on a part, which is the other half of the same gap
+
+⚠ **Filling a part and subscribing to one are two questions, and only the first had an answer.**
+`on:` is an attribute on a tag and a part is not a tag, so a panel that wanted a drag on the *header*
+of a foldout — rather than on the whole foldout, which also drags when a slider inside the component
+is dragged — had to subscribe on the control and reconstruct the answer by walking up from
+`args.Source`. That is eleven lines in `ComponentsView`, and equal to what the part would have seen
+only if the walk is exactly right.
+
+`on:dragstart.slot-header="…"` is the spelling. It is the one modifier that is a name rather than a
+word, because it is the one that *moves* the subscription instead of qualifying it — and the
+runtime never sees it: the emitter writes
+
+```csharp
+ctx.On(global::Vixen.Ui.Composition.BuildContext.Into(n1, "header"), "dragstart", …);
+```
+
+which is the call the hand-written panel made. A control that publishes no such part throws from
+`Into`, naming both. `slot-` with nothing after it is `VXML2007`, because a nameless slot would
+otherwise reach `NamedHost("")` and fail a build later with a worse message.
+
 ⚠ **A slot appends, so anything that belongs in *front* of the header's own parts says so with
 `order`.** The header already holds the chevron and the label; slotted children land after them.
 `LayoutStyle.Order` has been implemented all along — two CSS rules put a glyph between the chevron

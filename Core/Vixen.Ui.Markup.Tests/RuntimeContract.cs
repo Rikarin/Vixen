@@ -162,6 +162,25 @@ static class RuntimeContract {
                                          }
                                      }
 
+                                     // What a control with a *part* is, in the one respect
+                                     // `slot="header"` and `on:….slot-header` care about: it
+                                     // publishes a child of its own under a name. `Expander` is the
+                                     // real one; this is that shape with nothing else on it, so a
+                                     // failure here is about the slot and not about a foldout.
+                                     public class Foldout : UiElement {
+                                         protected override string TagName => "foldout";
+
+                                         public UiElement Header { get; private set; } = null!;
+
+                                         protected override void OnCreated() {
+                                             base.OnCreated();
+                                             Header = Add("foldout-header", null, []);
+                                         }
+
+                                         protected override UiElement? NamedHost(string name) =>
+                                             name == "header" ? Header : base.NamedHost(name);
+                                     }
+
                                      public class Label : Component {
                                          public string Title { get; set; } = "";
                                          public int Step { get; set; }

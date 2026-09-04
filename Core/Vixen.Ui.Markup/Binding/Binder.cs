@@ -58,6 +58,33 @@ public sealed class Binder {
     /// </remarks>
     static readonly string[] EventModifiers = ["stop", "prevent", "capture", "once", "self", "handled"];
 
+    /// <summary>The prefix of the one modifier that is a name rather than a word.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The only open-ended modifier, and the only one that moves the subscription instead
+    ///     of qualifying it.</b> <c>slot="header"</c> gives markup a spelling for writing children
+    ///     into a control's part; until this there was none for putting a <i>handler</i> on one,
+    ///     because <c>on:</c> is an attribute on a tag and a part is not a tag. What stood in for it
+    ///     was eleven lines walking up from <c>args.Source</c> to find out which header a drag began
+    ///     in — see <c>ComponentsView</c> — and the next panel that wanted one would have written
+    ///     them again.
+    /// </remarks>
+    internal const string SlotModifierPrefix = "slot-";
+
+    /// <summary>Whether a modifier names a slot, and which.</summary>
+    /// <param name="modifier">The characters after the dot.</param>
+    /// <returns>The slot's name, or null when this is not a slot modifier.</returns>
+    /// <remarks>
+    ///     <c>slot-</c> with nothing after it is not one: a slot with no name reaches
+    ///     <c>NamedHost("")</c>, which every control answers with null, and a run-time
+    ///     "publishes no slot named ''" is a worse report than the modifier diagnostic.
+    /// </remarks>
+    internal static string? SlotOf(string modifier) =>
+        IsSlotModifier(modifier) ? modifier[SlotModifierPrefix.Length..] : null;
+
+    static bool IsSlotModifier(string modifier) =>
+        modifier.StartsWith(SlotModifierPrefix, StringComparison.Ordinal)
+        && modifier.Length > SlotModifierPrefix.Length;
+
     readonly SourceText text;
     readonly string filePath;
     readonly DiagnosticBag diagnostics;
@@ -835,7 +862,7 @@ public sealed class Binder {
         var modifiers = ImmutableArray.CreateBuilder<string>(parts.Length - 1);
 
         for (var i = 1; i < parts.Length; i++) {
-            if (!EventModifiers.Contains(parts[i], StringComparer.Ordinal)) {
+            if (!EventModifiers.Contains(parts[i], StringComparer.Ordinal) && !IsSlotModifier(parts[i])) {
                 Report(MarkupDiagnostics.UnknownEventModifier, span, parts[i]);
                 continue;
             }

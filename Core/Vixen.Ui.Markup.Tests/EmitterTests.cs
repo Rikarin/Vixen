@@ -210,6 +210,64 @@ public class EmitterTests {
         Assert.Contains("Slow, Fast", cause.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     ⚠ <b><c>slot-header</c> moves the subscription onto the control's part.</b>
+    ///     <c>slot="header"</c> has given markup a spelling for writing <i>children</i> into a
+    ///     part since it landed, and there was none for putting a <i>handler</i> on one — <c>on:</c>
+    ///     is an attribute on a tag and a part is not a tag. `ComponentsView` stood eleven lines of
+    ///     walking up from <c>args.Source</c> in for it. What the emitter writes is the call the
+    ///     hand-written panel made, <c>fold.Header.AddHandler&lt;DragEvent&gt;(…)</c>, and not a
+    ///     filter over the source that agrees with it most of the time.
+    /// </summary>
+    [Fact]
+    public void A_slot_modifier_subscribes_to_the_controls_part_rather_than_to_the_control() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui
+
+                              @code {
+                                  public System.Collections.Generic.List<string> Seen { get; } = [];
+                              }
+
+                              <Foldout on:click.slot-header='@((UiEvent e) => Seen.Add("header"))' />
+                              """;
+
+        var (component, instance, document) = Run(Source);
+
+        using var owned = document;
+        var foldout = component.Root.Children.Single();
+        var header = foldout.Children.Single();
+        var seen = (System.Collections.IEnumerable)Property(instance, "Seen");
+
+        Assert.Equal("foldout-header", header.Tag);
+
+        // The part hears it.
+        header.Raise(new TapEvent { Count = 1 });
+        Assert.Equal(["header"], seen.Cast<string>());
+
+        // ⚠ And the control does not, which is the half a subscription on the control would pass
+        // anyway: an event raised on the foldout itself never reaches a handler on a child of it,
+        // so this is the assertion that fails when the modifier is ignored.
+        foldout.Raise(new TapEvent { Count = 1 });
+        Assert.Equal(["header"], seen.Cast<string>());
+    }
+
+    /// <summary>A control that publishes no such part says so, naming both.</summary>
+    [Fact]
+    public void A_slot_modifier_naming_a_part_the_control_does_not_have_says_which() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui
+
+                              <Foldout on:click.slot-footer="@((UiEvent e) => { })" />
+                              """;
+
+        var thrown = Assert.Throws<TargetInvocationException>(() => Run(Source));
+        var cause = Assert.IsType<InvalidOperationException>(thrown.InnerException);
+
+        Assert.Contains("no slot named 'footer'", cause.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void A_tag_directive_names_the_components_host_element() {
         const string Source = """
