@@ -92,10 +92,10 @@ Every one of those was right when it was written. The number is a denominator, s
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **206** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **207** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **40** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **78** |
+| **absent** | not emitted at all | **77** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -407,10 +407,10 @@ refusal block, which already says so for the same reason.
 | Sizing | 15 | 12 | 1 | 0 | 2 | 0 | 0 |
 | Backgrounds | 11 | 6 | 1 | 0 | 4 | 0 | 0 |
 | Transitions and Animation | 6 | 4 | 0 | 0 | 2 | 0 | 0 |
-| SVG | 3 | 2 | 0 | 0 | 1 | 0 | 0 |
+| SVG | 3 | 3 | 0 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **329** | **206** | **40** | **1** | **78** | **3** | **1** |
+| **Total** | **329** | **207** | **40** | **1** | **77** | **3** | **1** |
 
 Flexbox and Grid leads at 29 of 34, with only two absent roots left and both of those refused on
 policy rather than owed; then Effects at 27 of 34, Interactivity at 27 of 39, Borders at 26 of 34,

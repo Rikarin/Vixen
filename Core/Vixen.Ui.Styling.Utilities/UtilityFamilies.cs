@@ -2003,12 +2003,16 @@ public static class UtilityFamilies {
             ["auto"] = "aspect-ratio:auto"
         }));
 
-        // ── The twenty-nine roots that are deliberately NOT here ────────────────────────────
+        // ── The eighteen roots that are deliberately NOT here ───────────────────────────────
         //
-        // ⚠ <b>`docs/plan/43`'s `shadowed_by` column is 35 rows and six of them are registered
-        // above. The other twenty-nine are refusals with a measurement behind each, and this comment
-        // exists because the obvious reading of that column — "thirty-five `Register` calls" — is
-        // the one that produces thirty-five inert classes.</b> Each refusal is written out in the
+        // ⚠ <b>`docs/plan/43`'s `shadowed_by` column names nineteen rows today, eighteen of them
+        // refusals with a measurement behind each, and this comment exists because the obvious
+        // reading of that column — "one `Register` call per row" — is the one that produces a row
+        // of inert classes.</b> ⚠ The count moves: the column held twenty-nine refusals at
+        // `cf701146` and shrinks as they close, a closing root having its `shadowed_by` cell cleared
+        // and its family filled in. `stroke-none` is the nineteenth and keeps both cells, because it
+        // closed on a *keyword* of the very family that shadows it rather than on a family of its
+        // own. Each refusal is written out in the
         // `note` cell of its own row; the shapes are worth having in one place, because they are the
         // four ways a registration can be wrong and only the first is visible to the gate:
         //
@@ -2045,9 +2049,13 @@ public static class UtilityFamilies {
         //   in any scene while `box-shadow: 0 2px 4px #000` moves paint. `ring-offset-*` is worse
         //   than inert: an offset ring is a two-shadow *list*, `EmitShadow` refuses lists for the
         //   same stated reason, and a `ring-offset-2` beside a `ring-2` would stop the ring painting
-        //   at all. `stroke-none` is the same shape one file over — `stroke: <colour>` moves paint
-        //   and `stroke: none` moves nothing, because `Icon.Resolve` reads the slot with `ColorOf`
-        //   and falls back to the foreground when it is not a colour.
+        //   at all. ⚠ <b>`stroke-none` was the third example here and is now closed, which is worth
+        //   keeping because of *how*: not by a registration but by a reading.</b> `Icon.Resolve`
+        //   asked `ColorOf` for the slot and fell back to the foreground for anything that was not
+        //   a colour, so `stroke: none` stroked. `UiDocument.KeywordOf` — the fourth reading beside
+        //   `ColorOf`, `LengthOf` and `NumberOf` — and `Icon.IsNone` at both draw paths tell a paint
+        //   from a colour, and `IconArtTests` pins all three states in pixels. Registering the
+        //   keyword before the reader existed would have scored green and painted the glyph.
         //
         //   <b>4. The class is v4 compatibility surface, and `docs/plan/43` § D5 already says not to
         //   implement it.</b> `flex-shrink-*`, `flex-grow-*` and `max-w-screen-*` live in v4's

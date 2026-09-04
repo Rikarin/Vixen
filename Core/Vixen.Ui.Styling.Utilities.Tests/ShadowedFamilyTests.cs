@@ -40,9 +40,11 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         <b>What this file does not do is register anything.</b> Closing the shadowed column was
 ///         never one fallback, and it was not thirty-five registrations either: six of the
 ///         thirty-five are registered — <see cref="A_registered_logical_root_resolves_to_what_the_engine_reads" />
-///         — and twenty-nine are refusals with a measurement, written into the `note` cell of their
-///         own row and summarised at the foot of <see cref="UtilityFamilies" />' constructor. None of
-///         it was blocked or unblocked by the split above.
+///         — and the rest were refusals with a measurement, written into the `note` cell of their
+///         own row and summarised at the foot of <see cref="UtilityFamilies" />' constructor. ⚠ That
+///         count is not a constant: it was twenty-nine and is eighteen, because a refusal closes when
+///         whatever it was measured against arrives. None of it was blocked or unblocked by the split
+///         above.
 ///     </para>
 /// </remarks>
 public class ShadowedFamilyTests {
@@ -170,6 +172,14 @@ public class ShadowedFamilyTests {
     ///         They are removed rather than left as passing rows because the theory asserts a class
     ///         is <i>still</i> shadowed, so a closed root here would be a failure and not a
     ///         no-op.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>stroke-none</c> is closed and stays in the rows below, which is what pins
+    ///         down what "shadowed" means here.</b> It resolves — the <c>stroke</c> family answers
+    ///         it through a <c>none</c> keyword, and <c>Icon.IsNone</c> reads it — but it never
+    ///         became a family of its own, so <c>stroke</c> is still its only registered prefix and
+    ///         there is still nothing shorter to retry. A root leaves this theory when it acquires
+    ///         its own name, not when it starts resolving.
     ///     </para>
     /// </remarks>
     [Theory]
