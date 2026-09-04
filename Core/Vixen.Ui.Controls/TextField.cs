@@ -63,6 +63,14 @@ public abstract partial class TextField : Control {
     int caretDrawn = -1;
     CaretAffinity caretDrawnAffinity;
 
+    /// <summary>Scratch for the visual ranges a highlight covers on one line.</summary>
+    /// <remarks>
+    ///     A field rather than a local because the two things it paints — the selection and an input
+    ///     method's underline — ask once per line per frame, and a caret blinking on a focused field
+    ///     is the one thing in a still interface that redraws on its own.
+    /// </remarks>
+    readonly List<(float X, float Width)> ranges = [];
+
     /// <inheritdoc />
     protected override string TagName => "textbox";
 
@@ -576,21 +584,36 @@ public abstract partial class TextField : Control {
                 var start = Math.Max(SelectionStart, line.Start);
                 var end = Math.Min(SelectionEnd, line.Start + line.Length);
 
-                var from = origin + line.CaretOffset(start);
-                var to = origin + line.CaretOffset(end);
+                // ⚠ **Several rectangles per line, not one.** A selection is contiguous in the text
+                // and need not be contiguous on the screen: crossing into a run that faces the other
+                // way puts the covered glyphs at opposite ends of that run with unselected text
+                // between them, and one band from the lower offset to the higher paints over it. See
+                // `TextLine.VisualRanges`, which is where the span meets the itemiser's boundaries.
+                ranges.Clear();
+                line.VisualRanges(start, end, ranges);
 
-                // ⚠ A minimum width, so a line whose whole content is inside the selection but which
-                // ends in the break still reads as selected. Zero-width is what a blank line in the
-                // middle of a selected paragraph would otherwise be, and it looks like a gap.
-                context.FillRectangle(
-                    new Rectangle(
-                        MathF.Min(from, to),
-                        top + block.TopOf(index),
-                        MathF.Max(MathF.Abs(to - from), index < last ? 3f : 0f),
-                        line.Height
-                    ),
-                    colour
-                );
+                // A line with nothing of its own inside the selection — a blank one in the middle of
+                // a selected paragraph — still has to read as selected, so it gets the marker the
+                // minimum width below is for.
+                if (ranges.Count == 0) {
+                    ranges.Add((line.CaretOffset(start), 0f));
+                }
+
+                foreach (var range in ranges) {
+                    // ⚠ A minimum width, so a line whose whole content is inside the selection but
+                    // which ends in the break still reads as selected. Zero-width is what a blank
+                    // line in the middle of a selected paragraph would otherwise be, and it looks
+                    // like a gap.
+                    context.FillRectangle(
+                        new Rectangle(
+                            origin + range.X,
+                            top + block.TopOf(index),
+                            MathF.Max(range.Width, index < last ? 3f : 0f),
+                            line.Height
+                        ),
+                        colour
+                    );
+                }
             }
         }
 
@@ -629,18 +652,25 @@ public abstract partial class TextField : Control {
 
         for (var index = first; index <= last; index++) {
             var line = block.Lines[index];
-            var from = origin + line.CaretOffset(Math.Max(start, line.Start));
-            var to = origin + line.CaretOffset(Math.Min(end, line.Start + line.Length));
 
-            context.FillRectangle(
-                new Rectangle(
-                    MathF.Min(from, to),
-                    top + block.TopOf(index) + line.Height - 1f,
-                    MathF.Abs(to - from),
-                    1f
-                ),
-                colour
-            );
+            // ⚠ Underlined in visual ranges for the same reason the selection is filled in them: a
+            // pre-edit whose script faces the other way from the text around it is exactly the case
+            // an input method is used for, so a single rule under it is wrong in the one place this
+            // is most likely to be seen.
+            ranges.Clear();
+            line.VisualRanges(Math.Max(start, line.Start), Math.Min(end, line.Start + line.Length), ranges);
+
+            foreach (var range in ranges) {
+                context.FillRectangle(
+                    new Rectangle(
+                        origin + range.X,
+                        top + block.TopOf(index) + line.Height - 1f,
+                        range.Width,
+                        1f
+                    ),
+                    colour
+                );
+            }
         }
     }
 
