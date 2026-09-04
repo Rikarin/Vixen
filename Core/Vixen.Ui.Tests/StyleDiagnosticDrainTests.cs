@@ -457,4 +457,199 @@ public class StyleDiagnosticDrainTests {
             Assert.Contains("@keyframes fade", warning.Message, StringComparison.Ordinal);
         }
     }
+
+    // ── The two producers that are not the cascade ──────────────────────────────────────────────
+
+    /// <summary>
+    ///     ⚠ <b>A length in a unit that measures no distance is refused correctly and, until now,
+    ///     invisibly.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><c>letter-spacing</c> is the worst of the five and the reason this is asserted on
+    ///         the log rather than on a box.</b> The refusal leaves the tracking inherited, an
+    ///         element under a root inherits zero, and zero tracking <i>is</i>
+    ///         <c>letter-spacing: normal</c> — the initial value. There is no frame, no metric and no
+    ///         computed style that differs between "this declaration was thrown away" and "there was
+    ///         no declaration", so the log is the only place the difference can exist. Same for
+    ///         <c>text-indent</c> and <c>word-spacing</c>; <c>line-height</c> at least stacks the
+    ///         baselines, which reads as a layout bug rather than as a refusal.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Drained at the end of <c>Update</c> and not at <c>Load</c>.</b> These are
+    ///         produced per element in the style pass, so a sheet that is loaded and never updated
+    ///         says nothing — which is correct: nothing has resolved the declaration yet.
+    ///         `Rikarin/Vixen#521`.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("letter-spacing: 2deg")]
+    [InlineData("word-spacing: 200ms")]
+    [InlineData("text-indent: 3s")]
+    [InlineData("line-height: 200ms")]
+    public void A_text_length_in_a_unit_that_measures_nothing_reaches_the_log(string declaration) {
+        var (document, sink) = Watched();
+        using var owned = document;
+
+        document.Load($".card {{ {declaration} }}");
+        document.Root.Add("div", classNames: "card");
+
+        // Nothing yet: the value has not been resolved against an element, so nothing has refused it.
+        Assert.Empty(Warnings(sink));
+
+        document.Update();
+
+        var warning = Assert.Single(Warnings(sink));
+
+        Assert.Equal(7004, warning.EventId.Id);
+        Assert.Contains("The text resolver", warning.Message, StringComparison.Ordinal);
+        Assert.Contains(declaration, warning.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>A text property in a unit that <i>is</i> a distance says nothing at all.</summary>
+    /// <remarks>
+    ///     The other half, and without it the theory above would pass against a resolver that
+    ///     reported every declaration it saw — which would fill the Console panel from any real
+    ///     stylesheet and be worse than the silence it replaced.
+    /// </remarks>
+    [Theory]
+    [InlineData("letter-spacing: 2px")]
+    [InlineData("letter-spacing: normal")]
+    [InlineData("word-spacing: 0.1em")]
+    [InlineData("text-indent: 50%")]
+    [InlineData("line-height: 1.5")]
+    [InlineData("line-height: 150%")]
+    public void A_text_length_this_engine_can_read_says_nothing(string declaration) {
+        var (document, sink) = Watched();
+        using var owned = document;
+
+        document.Load($".card {{ {declaration} }}");
+        document.Root.Add("div", classNames: "card");
+        document.Update();
+
+        Assert.Empty(Warnings(sink));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The draw list is a fourth producer with a drain point of its own, because it runs in
+    ///     the draw pass.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>box-shadow: 90deg 2px #000000</c> is well-formed CSS in a unit that measures no
+    ///         distance. Read through <c>LengthContext.PixelsPer</c> it was a shadow at no x-offset;
+    ///         read through <c>ToLength</c> it is a refusal, which is right — and leaves a frame with
+    ///         no shadow in it, which is what an element that never asked for one looks like.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing is said until the frame is <i>drawn</i>.</b> A layout pass does not read
+    ///         <c>box-shadow</c> at all, so <c>Update</c> alone is silent and the assertion below
+    ///         checks that before it checks the warning. A drain in <c>Update</c> would have looked
+    ///         like it worked in any test that happened to draw afterwards.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("box-shadow: 90deg 2px #000000")]
+    [InlineData("box-shadow: 0px 4px 12px #000000, 0px 8px 24px #ff0000")]
+    [InlineData("box-shadow: inset 0px 4px 12px #000000")]
+    public void A_shadow_the_draw_list_cannot_paint_reaches_the_log(string declaration) {
+        var (document, sink) = Watched();
+        using var owned = document;
+
+        document.Load($"root {{ width: 200px; height: 200px }} .card {{ width: 50px; height: 20px; {declaration} }}");
+        document.Root.Add("div", classNames: "card");
+        document.Update();
+
+        Assert.Empty(Warnings(sink));
+
+        document.Draw();
+
+        var warning = Assert.Single(Warnings(sink));
+
+        Assert.Equal(7004, warning.EventId.Id);
+        Assert.Contains("The draw list", warning.Message, StringComparison.Ordinal);
+        Assert.Contains("box-shadow", warning.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     A filter list holding one function this cannot execute drops the whole declaration, and
+    ///     names it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b><c>blur(200ms)</c> is the case that could not be seen at all.</b> A σ of zero
+    ///     survives the finiteness test and composes by quadrature into no change, so the whole
+    ///     <c>filter</c> was the identity — a declaration that parsed, cascaded, reached the draw
+    ///     list and did nothing. The <c>invert(1)</c> beside it is what makes the refusal a refusal
+    ///     of the <i>list</i>: a reader who saw the inversion applied would conclude the blur was
+    ///     merely small.
+    /// </remarks>
+    [Theory]
+    [InlineData("filter: blur(200ms)")]
+    [InlineData("filter: blur(200ms) invert(1)")]
+    [InlineData("filter: drop-shadow(90deg 2px #000000)")]
+    [InlineData("backdrop-filter: blur(50%)")]
+    public void A_filter_this_cannot_execute_reaches_the_log(string declaration) {
+        var (document, sink) = Watched();
+        using var owned = document;
+
+        document.Load($"root {{ width: 200px; height: 200px }} .card {{ width: 50px; height: 20px; {declaration} }}");
+        document.Root.Add("div", classNames: "card");
+        document.Update();
+        document.Draw();
+
+        var warning = Assert.Single(Warnings(sink));
+
+        Assert.Equal(7004, warning.EventId.Id);
+        Assert.Contains("The draw list", warning.Message, StringComparison.Ordinal);
+        Assert.Contains("none of it is applied", warning.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A refused declaration is reported once, not once per frame.</b>
+    /// </summary>
+    /// <remarks>
+    ///     The draw list is the only producer that runs every frame, so the watermark is doing work
+    ///     here that it never has to do for the loader. Without the list's own deduplication by text
+    ///     this would be a line per frame per element — a leak wearing a diagnostic's clothes, and
+    ///     the reason a per-frame drain point was recorded as a design change rather than made
+    ///     quietly.
+    /// </remarks>
+    [Fact]
+    public void A_shadow_refused_every_frame_is_reported_on_the_first_one_only() {
+        var (document, sink) = Watched();
+        using var owned = document;
+
+        document.Load(
+            "root { width: 200px; height: 200px } .card { width: 50px; height: 20px; box-shadow: 90deg 2px #000 }"
+        );
+
+        document.Root.Add("div", classNames: "card");
+        document.Root.Add("div", classNames: "card");
+        document.Update();
+
+        for (var frame = 0; frame < 8; frame++) {
+            document.Draw();
+        }
+
+        Assert.Single(Warnings(sink));
+    }
+
+    /// <summary>A shadow and a filter this <i>can</i> draw say nothing.</summary>
+    [Theory]
+    [InlineData("box-shadow: 0px 4px 12px #000000")]
+    [InlineData("box-shadow: none")]
+    [InlineData("filter: blur(4px)")]
+    [InlineData("filter: blur(0)")]
+    [InlineData("filter: invert(1) grayscale(0.5)")]
+    public void A_shadow_or_filter_the_draw_list_can_paint_says_nothing(string declaration) {
+        var (document, sink) = Watched();
+        using var owned = document;
+
+        document.Load($"root {{ width: 200px; height: 200px }} .card {{ width: 50px; height: 20px; {declaration} }}");
+        document.Root.Add("div", classNames: "card");
+        document.Update();
+        document.Draw();
+
+        Assert.Empty(Warnings(sink));
+    }
 }

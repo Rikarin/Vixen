@@ -213,82 +213,17 @@ public sealed class LayoutStyleBuilder {
         };
     }
 
-    /// <summary>The id of <c>letter-spacing</c>, for the computed-value stage.</summary>
-    public int LetterSpacingId => names.LetterSpacing;
-
-    /// <summary>The id of <c>word-spacing</c>.</summary>
-    public int WordSpacingId => names.WordSpacing;
-
-    /// <summary>The id of <c>text-indent</c>.</summary>
-    public int TextIndentId => names.TextIndent;
-
-    /// <summary>Resolves one absolute text length against this element's own font size.</summary>
-    /// <param name="style">The computed style.</param>
-    /// <param name="property">Which of the three.</param>
-    /// <param name="context">The context, with this element's resolved font size already in it.</param>
-    /// <param name="points">Receives the length.</param>
-    /// <returns>Whether the element declared it at all.</returns>
-    /// <remarks>
-    ///     ⚠ A percentage is refused rather than resolved. <c>letter-spacing</c> takes no percentage
-    ///     in CSS, and <c>text-indent</c>'s resolves against the containing block's width — which is a
-    ///     layout result and is not known here. Answering with a wrong number would be worse than
-    ///     answering with the initial value, and it is recorded rather than silently approximated.
-    /// </remarks>
-    public bool TryTextLength(ComputedStyle style, int property, in LengthContext context, out float points) {
-        points = 0f;
-
-        if (!TryValue(style, property, out var value)) {
-            return false;
-        }
-
-        var length = context.ToLength(value);
-
-        if (length.Unit != LayoutUnit.Point) {
-            return false;
-        }
-
-        points = length.Value;
-        return true;
-    }
-
-    /// <summary>Resolves <c>line-height</c>, keeping a bare number as a number.</summary>
-    /// <param name="style">The computed style.</param>
-    /// <param name="context">The context, with this element's resolved font size in it.</param>
-    /// <param name="factor">The multiplier, when the declaration was a bare number.</param>
-    /// <param name="points">The length, when it was a length.</param>
-    /// <returns>Whether the element declared it.</returns>
-    /// <remarks>
-    ///     ⚠ <b>The bare number is not a shorthand for <c>1.5em</c> and the difference only shows up
-    ///     under inheritance.</b> On the element that declares it the two are identical; on a
-    ///     descendant with a different font size the number re-resolves and the length does not,
-    ///     which is exactly what CSS intends and why <c>ComputedText</c> carries both.
-    /// </remarks>
-    public bool TryLineHeight(ComputedStyle style, in LengthContext context, out float? factor, out float points) {
-        factor = null;
-        points = 0f;
-
-        if (!TryValue(style, names.LineHeight, out var value)) {
-            return false;
-        }
-
-        // A bare number, which is the form that stays a number. Zero is excluded because
-        // `LengthContext.ToLength` already reads a zero number as the length zero, and
-        // `line-height: 0` means a zero-height line box rather than a zero multiplier — the same
-        // answer either way, and taking the length path keeps it that way.
-        if (value is { Kind: StyleValueKind.Number, Number: not 0f }) {
-            factor = value.Number;
-            return true;
-        }
-
-        var length = context.ToLength(value);
-
-        if (length.Unit != LayoutUnit.Point) {
-            return false;
-        }
-
-        points = length.Value;
-        return true;
-    }
+    // ⚠ <b>Five public members lived here and nothing anywhere called any of them.</b>
+    // `LetterSpacingId`, `WordSpacingId` and `TextIndentId` handed out interned ids for a
+    // "computed-value stage" that was built somewhere else, and `TryTextLength` and `TryLineHeight`
+    // were a second implementation of rules `UiDocument.ResolveText` already executes — including
+    // the unitless-versus-length distinction, written out twice and run once. That is this repo's
+    // commonest defect wearing a public-API baseline, and the second copy was the dangerous half:
+    // `TryTextLength`'s own remark claimed a refused percentage "is recorded rather than silently
+    // approximated" and it recorded nothing, so a reader had a documented behaviour, an entry in
+    // `PublicAPI.Unshipped.txt`, and no code. Removed with their baseline lines; the live reading of
+    // all four text properties is `ResolveText`, and the refusals it makes now do reach the log.
+    // See `Rikarin/Vixen#457`.
 
     /// <summary>Builds the layout style for one element.</summary>
     /// <param name="style">Its computed style.</param>

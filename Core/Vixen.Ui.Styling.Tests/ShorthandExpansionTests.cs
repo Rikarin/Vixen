@@ -122,9 +122,6 @@ public class ShorthandExpansionTests {
     [InlineData("color")]
     [InlineData("background-color")]
     [InlineData("transition")]
-    [InlineData("place-self")]
-    [InlineData("place-items")]
-    [InlineData("place-content")]
     public void What_this_deliberately_leaves_alone(string property) => Assert.False(ShorthandExpansion.IsShorthand(property));
 
     // ── The two ExCSS has never heard of ────────────────────────────────────────────────────────
@@ -275,6 +272,115 @@ public class ShorthandExpansionTests {
     public void An_undividable_area_is_refused_rather_than_guessed(string value) {
         List<KeyValuePair<string, string>> expanded = [];
         Assert.False(ShorthandExpansion.TryExpand("grid-area", value, expanded));
+    }
+
+    // ── The three `place-*` pairs, whose halves are values rather than tokens ────────────────────
+
+    /// <summary>ExCSS hands all three back whole, which is the premise of everything below.</summary>
+    [Theory]
+    [InlineData("place-content", "center")]
+    [InlineData("place-items", "safe end stretch")]
+    [InlineData("place-self", "start end")]
+    public void ExCSS_leaves_a_place_shorthand_whole(string property, string literal) =>
+        Assert.Equal([property], ExpandedBy(Parser, property, literal));
+
+    /// <summary>
+    ///     CSS Box Alignment §7: the block axis, then the inline one — divided on components rather
+    ///     than on spaces.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>place-content: safe center</c> is the row a plausible implementation gets
+    ///         wrong, and it is why this expansion was not done when the <c>place-*</c> utility
+    ///         families were.</b> Two tokens, one component: each half of the shorthand is itself
+    ///         §4.1's <c>[ safe | unsafe ]? &lt;position&gt;</c>, so the naive split emits
+    ///         <c>align-content: safe</c> and <c>justify-content: center</c> — two declarations the
+    ///         bridge refuses where the author wrote one it honours. The <c>center start</c> row
+    ///         beside it has the same token count and means one axis each, so nothing but the
+    ///         grammar separates them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <c>baseline</c> row is <i>not</i> a copy.</b> §7.1 defaults an omitted
+    ///         <c>justify-content</c> to <c>start</c> when the first value is a
+    ///         <c>&lt;baseline-position&gt;</c>, and here that is load-bearing rather than pedantic:
+    ///         <c>justify-content</c> has no <c>baseline</c> keyword in CSS or in
+    ///         <c>LayoutStyleBuilder</c>'s table, so copying would emit a refused declaration.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("place-content", "center", "center", "center")]
+    [InlineData("place-content", "center start", "center", "start")]
+    [InlineData("place-content", "safe center", "safe center", "safe center")]
+    [InlineData("place-content", "safe center unsafe end", "safe center", "unsafe end")]
+    [InlineData("place-content", "baseline", "baseline", "start")]
+    [InlineData("place-content", "first baseline", "first baseline", "start")]
+    [InlineData("place-content", "last baseline end", "last baseline", "end")]
+    [InlineData("place-items", "safe end stretch", "safe end", "stretch")]
+    [InlineData("place-items", "baseline", "baseline", "baseline")]
+    [InlineData("place-items", "  end   safe start  ", "end", "safe start")]
+    [InlineData("place-self", "auto", "auto", "auto")]
+    [InlineData("place-self", "unsafe end", "unsafe end", "unsafe end")]
+    [InlineData("place-self", "first baseline last baseline", "first baseline", "last baseline")]
+    public void A_place_pair_divides_into_a_block_axis_and_an_inline_one(
+        string property,
+        string value,
+        string align,
+        string justify
+    ) {
+        List<KeyValuePair<string, string>> expanded = [];
+        Assert.True(ShorthandExpansion.TryExpand(property, value, expanded));
+
+        var axis = property["place-".Length..];
+        Assert.Equal([$"align-{axis}", $"justify-{axis}"], expanded.Select(pair => pair.Key).ToArray());
+        Assert.Equal([align, justify], expanded.Select(pair => pair.Value).ToArray());
+    }
+
+    /// <summary>What a <c>place-*</c> will not divide, and why each is none rather than a guess.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A <c>var()</c> is refused wherever it appears</b>, because substitution is textual
+    ///     and runs before the grammar: <c>var(--p)</c> in front of <c>center</c> is a prefix when it
+    ///     holds <c>safe</c> and a whole axis when it holds <c>end</c>, and a bare one may be either
+    ///     one component or two. Three components is not a shape §7 has, and a trailing <c>safe</c>
+    ///     is a modifier with nothing to modify.
+    /// </remarks>
+    [Theory]
+    [InlineData("place-content", "var(--both)")]
+    [InlineData("place-items", "var(--p) center")]
+    [InlineData("place-self", "center var(--j)")]
+    [InlineData("place-content", "start center end")]
+    [InlineData("place-items", "center safe")]
+    [InlineData("place-self", "safe")]
+    [InlineData("place-content", "center / start")]
+    [InlineData("place-content", "   ")]
+    public void An_undividable_place_pair_is_refused_rather_than_guessed(string property, string value) {
+        List<KeyValuePair<string, string>> expanded = [];
+        Assert.False(ShorthandExpansion.TryExpand(property, value, expanded));
+    }
+
+    /// <summary>
+    ///     End to end: a hand-written <c>place-content</c> reaches the two properties the bridge
+    ///     reads, and the later declaration still wins.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the assertion the issue was filed on.</b> Before the expansion the
+    ///     declaration parsed, cascaded and resolved under the name <c>place-content</c>, which no
+    ///     consumer interns — the border-colour silence, one property family over.
+    /// </remarks>
+    [Theory]
+    [InlineData("panel { place-content: safe center; }", "align-content", "safe center")]
+    [InlineData("panel { place-content: safe center; }", "justify-content", "safe center")]
+    [InlineData("panel { place-items: end stretch; }", "justify-items", "stretch")]
+    [InlineData("panel { justify-content: end; place-content: center; }", "justify-content", "center")]
+    [InlineData("panel { place-content: center; justify-content: end; }", "justify-content", "end")]
+    public void A_hand_written_place_shorthand_reaches_its_longhands(
+        string declarations,
+        string property,
+        string expected
+    ) {
+        var fixture = new CascadeFixture();
+        fixture.Load(declarations);
+
+        Assert.Equal(expected, fixture.Value(fixture.Tree.CreateElement("panel"), property));
     }
 
     /// <summary>End to end: the later declaration wins, and it wins in both directions.</summary>

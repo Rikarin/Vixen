@@ -280,7 +280,6 @@ public class StyleSheetLoadingTests {
     [Theory]
     [InlineData("justify-items: safe")]
     [InlineData("justify-self: safe")]
-    [InlineData("place-items: safe")]
     [InlineData("align-items: sideways center")]
     [InlineData("width: 4furlongs")]
     public void A_value_with_no_conditional_start_converter_still_loads_whole(string declaration) {
@@ -290,6 +289,32 @@ public class StyleSheetLoadingTests {
 
         Assert.Equal(3, fixture.Engine.Rules.Count);
         Assert.Empty(fixture.Engine.Loader.Diagnostics);
+    }
+
+    /// <summary>
+    ///     ⚠ <c>place-items: safe</c> was a row of the theory above until the <c>place-*</c>
+    ///     shorthands were expanded, and it moved for a reason worth writing down.
+    /// </summary>
+    /// <remarks>
+    ///     It is still not a value ExCSS starts reading and cannot finish — the load survives it and
+    ///     the rules after it, which is what that theory is for. What changed is that
+    ///     <c>ShorthandExpansion</c> now has an opinion about the property:
+    ///     <c>&lt;overflow-position&gt;</c> is a modifier and <c>safe</c> alone has nothing to
+    ///     modify, so the shorthand cannot be divided and the loader says so rather than interning a
+    ///     declaration no consumer reads. Two different silences, one after the other.
+    /// </remarks>
+    [Fact]
+    public void A_place_shorthand_that_is_only_a_modifier_loads_but_is_reported() {
+        var fixture = new CascadeFixture();
+
+        fixture.Load(".before { color: red }\n.x { place-items: safe }\n.after { color: blue }");
+
+        Assert.Equal(3, fixture.Engine.Rules.Count);
+        Assert.Equal("rgb(0, 0, 255)", fixture.Value(fixture.Tree.CreateElement("div", classNames: ["after"])));
+
+        var refusal = Assert.Single(fixture.Engine.Loader.Diagnostics);
+        Assert.Equal(".x", refusal.Where);
+        Assert.Contains("could not be taken apart", refusal.Reason, StringComparison.Ordinal);
     }
 
     /// <summary>

@@ -1274,16 +1274,30 @@ public sealed partial class UiDocument : IDisposable {
     ///         changes instead, and what travels is the finished set.
     ///     </para>
     /// </param>
+    /// <param name="TextIndentPercent">
+    ///     The percentage a <c>text-indent</c> named, or NaN when it named a length.
+    ///     <para>
+    ///         ⚠ <b>Beside <see cref="TextIndent" /> rather than folded into it, and it is the same
+    ///         arrangement <see cref="LineHeightFactor" /> has for the same reason.</b> A percentage
+    ///         resolves against the containing block's <i>width</i>, which is a layout result: this
+    ///         pass cannot turn it into pixels and must not turn it into zero. It inherits as the
+    ///         percentage — CSS inherits the computed value, and a percentage's computed value is
+    ///         itself — so a paragraph half as wide as the panel above it is indented by half as
+    ///         much. <c>UiElement.UsedTextIndent</c> is where the two halves meet a width.
+    ///     </para>
+    /// </param>
     readonly record struct ComputedText(
         float LineHeight,
         float LineHeightFactor,
         float LetterSpacing,
         float TextIndent,
         FontFeatureSet Features,
-        float WordSpacing
+        float WordSpacing,
+        float TextIndentPercent
     ) {
         /// <summary>What the root starts with: the font's own line height, no tracking, no indent.</summary>
-        public static ComputedText Initial => new(float.NaN, float.NaN, 0f, 0f, FontFeatureSet.None, 0f);
+        public static ComputedText Initial =>
+            new(float.NaN, float.NaN, 0f, 0f, FontFeatureSet.None, 0f, float.NaN);
     }
 
     void Apply(UiElement element, float parentFontSize, ComputedText parentText, LengthContext metrics) {
@@ -1321,6 +1335,7 @@ public sealed partial class UiDocument : IDisposable {
         element.LetterSpacing = text.LetterSpacing;
         element.WordSpacing = text.WordSpacing;
         element.TextIndent = text.TextIndent;
+        element.TextIndentPercent = text.TextIndentPercent;
         element.FontFeatures = text.Features;
 
         // ⚠ Read straight from the style rather than carried down through `ComputedText`, because
@@ -1378,11 +1393,13 @@ public sealed partial class UiDocument : IDisposable {
         if (!element.AppliedLineHeight.Equals(element.LineHeight)
             || !element.AppliedLetterSpacing.Equals(element.LetterSpacing)
             || !element.AppliedTextIndent.Equals(element.TextIndent)
+            || !element.AppliedTextIndentPercent.Equals(element.TextIndentPercent)
             || !ReferenceEquals(element.AppliedFontFeatures, element.FontFeatures)
             || element.AppliedParagraphDirection != element.ParagraphDirection) {
             element.AppliedLineHeight = element.LineHeight;
             element.AppliedLetterSpacing = element.LetterSpacing;
             element.AppliedTextIndent = element.TextIndent;
+            element.AppliedTextIndentPercent = element.TextIndentPercent;
             element.AppliedFontFeatures = element.FontFeatures;
             element.AppliedParagraphDirection = element.ParagraphDirection;
 
@@ -1419,6 +1436,7 @@ public sealed partial class UiDocument : IDisposable {
         var factor = parent.LineHeightFactor;
         var tracking = parent.LetterSpacing;
         var indent = parent.TextIndent;
+        var indentPercent = parent.TextIndentPercent;
         var features = parent.Features;
         var words = parent.WordSpacing;
 
@@ -1461,6 +1479,13 @@ public sealed partial class UiDocument : IDisposable {
                 // drops the declaration at parse time, and what an element with no `line-height` of
                 // its own gets is its parent's — which is what `lineHeight` and `factor` still hold.
                 case StyleValueKind.Length:
+                    RefuseText(
+                        this.lineHeight,
+                        declared,
+                        "a line height must be a number, a percentage or a distance, and this unit "
+                        + "measures no distance"
+                    );
+
                     break;
 
                 // `normal`, and anything else with no reading — the font's own recommendation.
@@ -1487,6 +1512,8 @@ public sealed partial class UiDocument : IDisposable {
                 tracking = resolved.Value;
             } else if (value.Kind != StyleValueKind.Length) {
                 tracking = 0f;
+            } else {
+                RefuseText(letterSpacing, spacing, NotADistance);
             }
         }
 
@@ -1505,30 +1532,44 @@ public sealed partial class UiDocument : IDisposable {
                 words = resolved.Value;
             } else if (value.Kind != StyleValueKind.Length) {
                 words = 0f;
+            } else {
+                RefuseText(wordSpacing, between, NotADistance);
             }
         }
 
-        // ⚠ <b>A percentage is refused rather than resolved, and it is the one value of this
-        // property Vixen cannot answer.</b> CSS resolves a `text-indent` percentage against the
-        // *containing block's* width, which is a layout result and is not known in the style pass —
-        // and this pass is where the value has to be computed, because `em` on it has to measure
-        // against the element that wrote it. `LayoutStyleBuilder.TryTextLength` made the same
-        // refusal for the same reason before anything read the property. No utility can emit one:
-        // `indent-*` is the spacing scale and `indent-px` is a pixel.
+        // ⚠ <b>A percentage is carried rather than resolved, and it used to be neither.</b> CSS
+        // resolves a `text-indent` percentage against the *containing block's* width, which is a
+        // layout result and is not known in the style pass — and this pass is where the value has to
+        // be computed, because `em` on it has to measure against the element that wrote it. Both are
+        // true, so the answer is not to pick one: the percentage travels to the one place that has a
+        // width, `UiElement.UsedTextIndent`, called from `Block(float)`. Until then it landed on
+        // zero, which is the initial value, so `text-indent: 25%` was a declaration thrown away with
+        // nothing whatever in the frame to say so. See `Rikarin/Vixen#457`.
+        //
+        // ⚠ <b>And the two halves are set together, always.</b> A percentage clears the pixels and a
+        // length clears the percentage, because either one alone is the whole declaration — leaving
+        // the other behind would let a `text-indent: 2em` inherited from a panel survive a
+        // `text-indent: 25%` on the paragraph and be added to it.
         //
         // ⚠ <b>A unit that is not a distance is a third case, and it is not the percentage's.</b> A
-        // percentage is a value this engine understands and cannot resolve here, so it lands on the
-        // initial value deliberately; `text-indent: 200ms` is not a value at all, and used to reach
-        // the same zero through `PixelsPer` — the declaration thrown away and the element indented by
-        // nothing, which is exactly what an element with no `text-indent` looks like. Left inherited
-        // instead, which is what a dropped declaration means.
+        // percentage is a value this engine now answers; `text-indent: 200ms` is not a value at all,
+        // and used to reach the same zero through `PixelsPer` — the declaration thrown away and the
+        // element indented by nothing, which is exactly what an element with no `text-indent` looks
+        // like. Left inherited instead, which is what a dropped declaration means.
         if (style.TryGet(textIndent, out var declared_indent)) {
             var value = reader.Parse(declared_indent);
 
-            if (metrics.WithFontSize(fontSize).ToLength(value) is { Unit: LayoutUnit.Point } resolved) {
-                indent = resolved.Value;
-            } else if (value.Kind != StyleValueKind.Length || value.Unit == StyleUnit.Percent) {
+            if (value is { Kind: StyleValueKind.Length, Unit: StyleUnit.Percent }) {
                 indent = 0f;
+                indentPercent = value.Number;
+            } else if (metrics.WithFontSize(fontSize).ToLength(value) is { Unit: LayoutUnit.Point } resolved) {
+                indent = resolved.Value;
+                indentPercent = float.NaN;
+            } else if (value.Kind != StyleValueKind.Length) {
+                indent = 0f;
+                indentPercent = float.NaN;
+            } else {
+                RefuseText(textIndent, declared_indent, NotADistance);
             }
         }
 
@@ -1563,7 +1604,7 @@ public sealed partial class UiDocument : IDisposable {
             features = FontFeatureSet.None;
         }
 
-        return new ComputedText(lineHeight, factor, tracking, indent, features, words);
+        return new ComputedText(lineHeight, factor, tracking, indent, features, words, indentPercent);
     }
 
     /// <summary>The OpenType features CSS Fonts 4 § 6.6 gives each <c>font-variant-numeric</c> keyword.</summary>
@@ -1642,7 +1683,14 @@ public sealed partial class UiDocument : IDisposable {
         // the same order as one per frame and it catches the caller that names its own surface.
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(surface);
-        return drawings.Build(this, surface.Root, surface.Drawing);
+
+        var changed = drawings.Build(this, surface.Root, surface.Drawing);
+
+        // ⚠ After the build, which makes this the one drain point outside the style pass. See
+        // `DrainDrawingDiagnostics` for why a per-frame drain costs nothing after the first frame.
+        DrainDrawingDiagnostics();
+
+        return changed;
     }
 
     /// <summary>The element a pointer would land on.</summary>

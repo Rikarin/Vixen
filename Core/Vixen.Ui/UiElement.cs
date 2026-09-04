@@ -218,12 +218,62 @@ public partial class UiElement : Composition.IComposable {
     ///         which is CSS's hanging indent and needs nothing extra.
     ///     </para>
     ///     <para>
-    ///         ⚠ A <i>percentage</i> resolves to zero. CSS measures one against the containing block's
-    ///         width, which is a layout result the style pass does not have — see
-    ///         <c>UiDocument.ResolveText</c>, which refuses it rather than guessing.
+    ///         ⚠ <b>This is the <i>computed</i> value and a percentage is not in it.</b> CSS measures
+    ///         a percentage against the containing block's width, which is a layout result the style
+    ///         pass does not have, so it travels separately in <see cref="TextIndentPercent" /> and
+    ///         the two are joined by <see cref="UsedTextIndent" /> at the moment a width exists. This
+    ///         property used to be the whole story and a percentage resolved to zero, which is the
+    ///         initial value — a declaration thrown away with nothing in the frame to say so.
     ///     </para>
     /// </remarks>
     public float TextIndent { get; internal set; }
+
+    /// <summary>The percentage a <c>text-indent</c> named, or NaN when it named a length.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A second field rather than a percent-capable <see cref="TextIndent" />, which is
+    ///         the same shape <c>line-height</c> already has one property over.</b> A unitless
+    ///         <c>line-height</c> travels as <c>ComputedText.LineHeightFactor</c> beside the pixels
+    ///         for exactly this reason: the two are different kinds of answer and a struct that held
+    ///         one slot would have to encode "which kind" in a sentinel. Here the sentinel is NaN and
+    ///         it is on the half that is absent, so the common case — no percentage anywhere — costs
+    ///         one float per element and no branch a caller can get wrong.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It inherits as a percentage, not as the ancestor's resolved pixels.</b> That is
+    ///         CSS: <c>text-indent</c> inherits its computed value, and a percentage's computed value
+    ///         <i>is</i> the percentage. A panel at 25% and a paragraph inside it half as wide are
+    ///         indented by different numbers of pixels, which is the whole reason the resolution
+    ///         cannot happen in the style pass.
+    ///     </para>
+    /// </remarks>
+    internal float TextIndentPercent { get; set; } = float.NaN;
+
+    /// <summary>The indent this element actually gets in a box of a given width.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The used-value stage this property had no equivalent of, and the reason
+    ///         `Rikarin/Vixen#457` could not be a one-line fix.</b> Box lengths carry a percentage
+    ///         into <c>Vixen.Ui.Layout</c> through <c>StyleLength.Percent</c> and are resolved there
+    ///         against a real containing block; the text properties had no such hand-off, so a
+    ///         <c>text-indent: 25%</c> was resolved to zero in the style pass and never mentioned
+    ///         again. <see cref="Block(float)" /> is where the hand-off belongs because it is the one
+    ///         place that has both the declaration and the laid-out width.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An unbounded width gives zero, which is CSS's own answer and not a fallback.</b>
+    ///         An intrinsic measurement has no containing block to be a percentage of — CSS Sizing
+    ///         resolves percentages against an indefinite size as <c>auto</c>, and for this property
+    ///         that is no indent. Returning <see cref="TextIndent" /> there is right for the same
+    ///         reason: when a percentage was declared, <see cref="TextIndent" /> is zero.
+    ///     </para>
+    /// </remarks>
+    /// <param name="width">The width the text is being wrapped to, or infinity.</param>
+    /// <returns>The indent in pixels.</returns>
+    internal float UsedTextIndent(float width) =>
+        float.IsNaN(TextIndentPercent) || !float.IsFinite(width)
+            ? TextIndent
+            : TextIndentPercent / 100f * width;
 
     /// <summary>The OpenType features its text is shaped with.</summary>
     /// <remarks>
@@ -637,6 +687,13 @@ public partial class UiElement : Composition.IComposable {
             width = float.PositiveInfinity;
         }
 
+        // ⚠ Before the cache key rather than after it, because a percentage indent is a function of
+        // the width and the key already compares the width — but the key compares the *indent* too,
+        // and comparing the computed one there would let a paragraph keep a block wrapped at the old
+        // percentage of a width that has since changed. The used value is the thing the block was
+        // built with, so the used value is what the key has to hold.
+        var indent = UsedTextIndent(width);
+
         // Floats compared with Equals rather than ==, because `LineHeight` is NaN for "the font's own
         // recommendation" and NaN is not equal to itself — a line height nobody set would rebuild the
         // block every single call. It is also why the width compares that way: infinity is ordinary
@@ -682,7 +739,7 @@ public partial class UiElement : Composition.IComposable {
             // something else happens to invalidate it — a picture that is wrong only until it is
             // touched, which is the hardest kind to see reported.
             && lineWords.Equals(WordSpacing)
-            && lineIndent.Equals(TextIndent)
+            && lineIndent.Equals(indent)
             && ReferenceEquals(lineFeatures, FontFeatures)
             && lineDirection == ParagraphDirection
             && lineLeading.Equals(LineHeight)) {
@@ -705,7 +762,6 @@ public partial class UiElement : Composition.IComposable {
         var text = drawn.Text;
 
         var lines = ImmutableArray.CreateBuilder<TextLine>();
-        var indent = TextIndent;
         var tabStop = TabStop(text, tabSize, chain);
         var whole = Runs(text, 0, chain, drawn, offset: indent, tabStop: tabStop);
 
@@ -761,7 +817,7 @@ public partial class UiElement : Composition.IComposable {
         lineSize = FontSize;
         lineTracking = LetterSpacing;
         lineWords = WordSpacing;
-        lineIndent = TextIndent;
+        lineIndent = indent;
         lineFeatures = FontFeatures;
         lineDirection = ParagraphDirection;
         lineLeading = LineHeight;
@@ -1812,6 +1868,19 @@ public partial class UiElement : Composition.IComposable {
 
     /// <summary>And the indent, which changes what the element measures just as the other two do.</summary>
     internal float AppliedTextIndent { get; set; } = float.NaN;
+
+    /// <summary>
+    ///     And the percentage, which is the half of the indent that <see cref="AppliedTextIndent" />
+    ///     cannot see.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Two fields because the computed value stays at zero across the change that matters.</b>
+    ///     Going from no <c>text-indent</c> to <c>text-indent: 25%</c> leaves
+    ///     <see cref="TextIndent" /> at zero both times, so a key holding only that would never mark
+    ///     the node dirty and the paragraph would go on measuring itself unindented until something
+    ///     else happened to invalidate it.
+    /// </remarks>
+    internal float AppliedTextIndentPercent { get; set; } = float.NaN;
 
     /// <summary>And the features, which change the glyphs and therefore the width.</summary>
     internal FontFeatureSet? AppliedFontFeatures { get; set; }

@@ -373,4 +373,60 @@ public class SafeAlignmentFromCssTests {
     [InlineData("row dense column")]
     public void A_grid_auto_flow_the_grammar_does_not_allow_leaves_the_initial_value(string value) =>
         Assert.Equal(GridAutoFlow.Row, new BridgeFixture().Build($"grid-auto-flow: {value}").GridAutoFlow);
+
+    // ── The `place-*` shorthands, whose one value can be two words ──────────────────────────────
+
+    /// <summary>
+    ///     <c>place-content: safe center</c> is one component naming both axes, and the whole of it
+    ///     reaches both.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The bridge has no branch for <c>place-content</c> and never will</b> — the value is
+    ///     divided at load, by <c>ShorthandExpansion</c>, because that is what keeps the cascade in
+    ///     charge of which declaration wins. So this asserts the two halves together: that the
+    ///     modifier survived <i>and</i> that it landed on both properties rather than being split
+    ///     across them, which is what a whitespace split would have done. Filed as
+    ///     `Rikarin/Vixen#529`.
+    /// </remarks>
+    [Fact]
+    public void A_place_content_carries_its_overflow_modifier_onto_both_axes() {
+        var style = new BridgeFixture().Build("place-content: safe center");
+
+        Assert.Equal(Align.Center, style.AlignContent);
+        Assert.Equal(OverflowAlignment.Safe, style.AlignContentOverflow);
+        Assert.Equal(Justify.Center, style.JustifyContent);
+        Assert.Equal(OverflowAlignment.Safe, style.JustifyContentOverflow);
+    }
+
+    /// <summary>The two-component form, where each half is an axis of its own.</summary>
+    [Fact]
+    public void A_two_component_place_items_gives_each_axis_its_own_value() {
+        var style = new BridgeFixture().Build("place-items: safe end stretch");
+
+        Assert.Equal(Align.FlexEnd, style.AlignItems);
+        Assert.Equal(OverflowAlignment.Safe, style.AlignItemsOverflow);
+        Assert.Equal(Align.Stretch, style.JustifyItems);
+        Assert.Equal(OverflowAlignment.Unsafe, style.JustifyItemsOverflow);
+    }
+
+    /// <summary>
+    ///     ⚠ <c>place-content: baseline</c> does <i>not</i> copy, because <c>justify-content</c> has
+    ///     no baseline.
+    /// </summary>
+    [Fact]
+    public void A_baseline_place_content_defaults_the_inline_axis_to_start() {
+        var style = new BridgeFixture().Build("place-content: baseline");
+
+        Assert.Equal(Align.Baseline, style.AlignContent);
+        Assert.Equal(Justify.FlexStart, style.JustifyContent);
+    }
+
+    /// <summary><c>place-self</c>, the third of the three, on the property a child reads.</summary>
+    [Fact]
+    public void A_place_self_reaches_both_self_properties() {
+        var style = new BridgeFixture().Build("place-self: center end");
+
+        Assert.Equal(Align.Center, style.AlignSelf);
+        Assert.Equal(Align.FlexEnd, style.JustifySelf);
+    }
 }
