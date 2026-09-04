@@ -4,11 +4,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Xml.Linq;
 using Nuke.Common;
 using Nuke.Common.IO;
 using Nuke.Common.ProjectModel;
+using Nuke.Common.Tools.DotNet;
 using Nuke.Common.Tools.Git;
 using Serilog;
+using static Nuke.Common.Tools.DotNet.DotNetTasks;
 
 /// <summary>
 ///     What a working copy changed, and which projects own it.
@@ -94,7 +97,7 @@ partial class Build {
     ///     <see cref="Pack" /> never evaluate — which is a difference from the unscoped run and is
     ///     recorded rather than hidden.
     /// </remarks>
-    AbsolutePath OwningProject(AbsolutePath file) {
+    AbsolutePath? OwningProject(AbsolutePath file) {
         for (var directory = file.Parent; directory is not null && directory != RootDirectory.Parent; directory = directory.Parent) {
             var project = directory.GlobFiles("*.csproj").FirstOrDefault();
 
@@ -210,7 +213,7 @@ partial class Build {
     }
 
     Target AffectedProjects => definition => definition
-        .Description("Prints the projects a --since run would act on, and runs nothing else")
+        .Description("Prints the projects and test projects a --since run would act on, and runs nothing else")
         .Requires(() => Since)
         .Executes(() => {
                 var changed = ChangedFiles(Since);
@@ -218,7 +221,158 @@ partial class Build {
                 Log.Information("{Count} file(s) changed since {Since}.", changed.Count, Since);
 
                 foreach (var project in AffectedProjectsSince(Since)) {
-                    Log.Information("  {Project}", RootDirectory.GetRelativePathTo(project).ToUnixRelativePath());
+                    Log.Information("  changed: {Project}", RootDirectory.GetRelativePathTo(project).ToUnixRelativePath());
+                }
+
+                foreach (var project in AffectedTestProjectsSince(Since)) {
+                    Log.Information("  test:    {Project}", RootDirectory.GetRelativePathTo(project).ToUnixRelativePath());
+                }
+            }
+        );
+
+    /// <summary>
+    ///     Who references whom, inverted: for each project in the solution, the projects that name
+    ///     it in a <c>ProjectReference</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Read out of the XML rather than out of Nuke's <see cref="Solution" />, for the reason
+    ///         <see cref="CheckArchitecture" /> already gives: the reference list is an item group,
+    ///         reading it is one file per project, and evaluating 395 projects through MSBuild to
+    ///         learn the same thing costs minutes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nearly every reference in this tree is authored with Windows separators
+    ///         (<c>..\Vixen.Core\Vixen.Core.csproj</c>) and normalising them here would be dead
+    ///         code</b> — that was the first thing sabotaged, and removing the normalisation left
+    ///         the closure at 96 test projects for <c>Vixen.Ecs</c>, unchanged, because Nuke's
+    ///         <c>AbsolutePath</c> combination already handles the separator on macOS. The edge
+    ///         count below is the guard that would actually notice: a graph with no edges is a
+    ///         selector that reports success by selecting nothing.
+    ///     </para>
+    /// </remarks>
+    Dictionary<AbsolutePath, List<AbsolutePath>> ReverseReferenceGraph() {
+        var graph = new Dictionary<AbsolutePath, List<AbsolutePath>>();
+        var edges = 0;
+
+        foreach (var project in SolutionProjects()) {
+            if (!project.FileExists()) {
+                continue;
+            }
+
+            var references = XDocument.Load(project)
+                .Descendants("ProjectReference")
+                .Select(element => element.Attribute("Include")?.Value)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => AbsolutePath.Create(project.Parent / value!));
+
+            foreach (var reference in references) {
+                if (!graph.TryGetValue(reference, out var dependents)) {
+                    graph[reference] = dependents = [];
+                }
+
+                dependents.Add(project);
+                edges++;
+            }
+        }
+
+        Assert.True(edges > 0, "The reverse ProjectReference graph came out with no edges at all.");
+
+        return graph;
+    }
+
+    /// <summary>
+    ///     Every project reachable from <paramref name="roots" /> by following
+    ///     <c>ProjectReference</c> backwards — the set a change in those roots can break.
+    /// </summary>
+    IReadOnlyCollection<AbsolutePath> DependentClosure(IEnumerable<AbsolutePath> roots) {
+        var graph = ReverseReferenceGraph();
+        var reached = new HashSet<AbsolutePath>(roots);
+        var pending = new Stack<AbsolutePath>(reached);
+
+        while (pending.Count > 0) {
+            if (!graph.TryGetValue(pending.Pop(), out var dependents)) {
+                continue;
+            }
+
+            foreach (var dependent in dependents.Where(reached.Add)) {
+                pending.Push(dependent);
+            }
+        }
+
+        return reached;
+    }
+
+    /// <summary>
+    ///     Whether a project is one <see cref="Test" /> would run.
+    /// </summary>
+    /// <remarks>
+    ///     By name, because that is the repository's actual rule and not a guess about it:
+    ///     <c>Directory.Build.props</c> sets <c>IsTestProject</c> from
+    ///     <c>MSBuildProjectName.EndsWith('.Tests')</c>, so the name is what makes a project a test
+    ///     project here, and asking MSBuild would be asking it to re-derive this same condition.
+    /// </remarks>
+    static bool IsTestProject(AbsolutePath project) =>
+        project.NameWithoutExtension.EndsWith(".Tests", StringComparison.Ordinal)
+        || project.NameWithoutExtension == "Tests";
+
+    /// <summary>The test projects a change since <paramref name="since" /> can reach.</summary>
+    IReadOnlyList<AbsolutePath> AffectedTestProjectsSince(string since) {
+        var affected = AffectedProjectsSince(since);
+
+        return affected.Count == 0
+            ? []
+            : [.. DependentClosure(affected).Where(IsTestProject).OrderBy(project => project.ToString(), StringComparer.Ordinal)];
+    }
+
+    /// <summary>
+    ///     Runs only the test projects a change can reach.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Measured on this tree: a change in <c>Editor/Vixen.Editor.Water</c> reaches 2 of the
+    ///         178 test projects, <c>Raven/Vixen.Raven</c> reaches 20, <c>Core/Vixen.Ui</c> 37, and
+    ///         even <c>Core/Vixen.Ecs</c> — which nearly everything depends on — reaches 96. The
+    ///         leaf case is the common one and the hub case is still barely half.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is an inner-loop convenience and must never be the gate</b>, and the reason
+    ///         is not policy but arithmetic: a closure over <c>ProjectReference</c> cannot see a
+    ///         dependency that is not one. A golden image, a content bundle, an <c>.rvn</c> import
+    ///         closure and a test that walks the repository from the root are all invisible to it,
+    ///         and every one of those exists here. <see cref="Test" /> keeps running everything, and
+    ///         CI keeps running <see cref="Test" />.
+    ///     </para>
+    ///     <para>
+    ///         One project at a time, deliberately. CLAUDE.md § Build and test says to run test
+    ///         projects one at a time on a developer machine, and the whole point of a narrowed run
+    ///         is to leave the machine usable — a parallel fan-out over 96 assemblies would put back
+    ///         exactly what <see cref="Workers" /> was added to take away.
+    ///     </para>
+    /// </remarks>
+    Target AffectedTests => definition => definition
+        .Description("Runs the test projects reachable from what changed since --since, one at a time")
+        .Requires(() => Since)
+        .Executes(() => {
+                var projects = AffectedTestProjectsSince(Since);
+
+                Log.Information(
+                    "{Count} test project(s) can be reached from what changed since {Since}. ⚠ A "
+                    + "ProjectReference closure cannot see a golden image, a content bundle, an .rvn "
+                    + "import closure or a test that walks the repository — run Test for those.",
+                    projects.Count,
+                    Since
+                );
+
+                foreach (var project in projects) {
+                    Log.Information("Testing {Project}", RootDirectory.GetRelativePathTo(project).ToUnixRelativePath());
+
+                    DotNetTest(settings => settings
+                        .SetProjectFile(project)
+                        .SetConfiguration(Configuration)
+                        .SetSettingsFile(RootDirectory / ".runsettings")
+                        .SetResultsDirectory(TestResultsDirectory)
+                    );
                 }
             }
         );
