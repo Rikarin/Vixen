@@ -33,6 +33,104 @@ public class GradientPaintTests {
         return ui;
     }
 
+    /// <summary>A tiled layer paints the same ramp twice across the box, and one that is not tiled does not.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The repeating and the non-repeating case are one test, because either alone is
+    ///         satisfied by the wrong implementation.</b> A shader that ignored <c>background-size</c>
+    ///         entirely draws one ramp across the box, which passes any assertion phrased as "the left
+    ///         half ramps" — and a shader that clipped every layer passes the <c>no-repeat</c> half
+    ///         while breaking every gradient in the interface. What separates them is a comparison
+    ///         between two points a whole period apart.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The period is the assertion, not the endpoints.</b> On a 40-pixel box a 50% tile is
+    ///         twenty wide, so x=8 and x=28 sit at the same place in their respective tiles and must
+    ///         be the same colour — while x=8 and x=18 must not, because that is the ramp running.
+    ///         A layer that simply stretched to the box would fail the first and pass the second.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_sized_layer_repeats_across_the_box_unless_it_is_told_not_to() {
+        using var tiled = Painted(
+            ".probe { background-image: linear-gradient(to right, #ff0000, #0000ff); background-size: 50% 100%; }"
+        );
+
+        var repeated = tiled.Capture();
+
+        static int Red(Vixen.Core.Imaging.Bitmap bitmap, int x) => bitmap.Pixels[bitmap.Offset(x, 20)];
+
+        // One period apart, and therefore the same place in two different tiles.
+        Assert.InRange(Red(repeated, 28) - Red(repeated, 8), -3, 3);
+
+        // Half a period apart, and therefore visibly along the ramp. Without this the row above is
+        // satisfied by a flat fill.
+        Assert.True(
+            Red(repeated, 8) - Red(repeated, 18) > 60,
+            $"the tile does not ramp: {Red(repeated, 8)} at x=8 and {Red(repeated, 18)} at x=18"
+        );
+
+        // ⚠ A green fill *under* the layer, because "not painted" has to be read as a colour rather
+        // than as an alpha: the captured frame is composited over an opaque surface, so the alpha
+        // channel is 255 wherever the element is, painted layer or not.
+        using var once = Painted(
+            ".probe { background-color: #00ff00; background-image: linear-gradient(to right, #ff0000, #0000ff);"
+            + " background-size: 50% 100%; background-repeat: no-repeat; }"
+        );
+
+        var single = once.Capture();
+
+        // The first tile is still the ramp.
+        Assert.True(Red(single, 8) - Red(single, 18) > 60, "the first tile does not ramp");
+
+        // ⚠ And the second half is *not painted at all* rather than clamped to the ramp's end colour,
+        // which is what CSS means by a layer that does not repeat — the colour underneath shows
+        // through. Clamping is the reading a shader gets for free by doing nothing, and it leaves blue
+        // here; tiling anyway leaves the ramp. Only "no layer" leaves green.
+        var outside = single.Offset(30, 20);
+
+        Assert.True(
+            single.Pixels[outside + 1] > 200 && single.Pixels[outside + 2] < 60,
+            "outside the tile is not the colour underneath: "
+            + $"({single.Pixels[outside]}, {single.Pixels[outside + 1]}, {single.Pixels[outside + 2]})"
+        );
+
+        // And inside it the layer is on top of that colour rather than beside it.
+        var inside = single.Offset(2, 20);
+
+        Assert.True(
+            single.Pixels[inside + 1] < 100,
+            $"inside the tile still shows the colour underneath: green {single.Pixels[inside + 1]}"
+        );
+    }
+
+    /// <summary>An explicit centre moves the round gradient's bright spot off the middle of the box.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asserted as a comparison between two points rather than as an absolute, because the
+    ///     failure this is aimed at is the centre being <i>ignored</i>.</b> A radial gradient that
+    ///     dropped its <c>at</c> is still a perfectly good radial gradient — red in the middle, blue at
+    ///     the corners — and every endpoint assertion about it passes. What cannot survive is the
+    ///     near corner being redder than the far one.
+    /// </remarks>
+    [Fact]
+    public void An_explicit_centre_moves_the_bright_spot() {
+        using var ui = Painted(".probe { background-image: radial-gradient(at 0% 0%, #ff0000, #0000ff); }");
+
+        var bitmap = ui.Capture();
+        int near = bitmap.Pixels[bitmap.Offset(4, 4)];
+        int far = bitmap.Pixels[bitmap.Offset(35, 35)];
+        int middle = bitmap.Pixels[bitmap.Offset(20, 20)];
+
+        // ⚠ The gap between the two corners is the assertion, and an absolute threshold would not
+        // be. A radial gradient that dropped its `at` is centred, and a centred one is very nearly the
+        // *same* colour at both corners — so this number is a hundred and something with the centre
+        // honoured and near zero without it, where "is the top left red" is a threshold somebody tunes.
+        Assert.True(near - far > 100, $"the corners barely differ: red {near} then {far}");
+
+        // And the middle sits between them, which is what says the ramp moved rather than inverted.
+        Assert.InRange(middle, far + 10, near - 10);
+    }
+
     /// <summary>Red at the top, blue at the bottom, and every step in between in order.</summary>
     /// <remarks>
     ///     ⚠ Monotonicity is the assertion that distinguishes a gradient from the two flat fills that

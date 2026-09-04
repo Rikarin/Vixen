@@ -532,14 +532,22 @@ public class GradientTests {
     [InlineData("linear-gradient(in oklch, #ff0000, #0000ff)")]
     [InlineData("linear-gradient(in hsl longer hue, #ff0000, #0000ff)")]
     [InlineData("linear-gradient(to right in lab, #ff0000, #0000ff)")]
-    // An explicit centre or extent on a round gradient. The record has no lanes for either, which is
-    // the trade that let all four of A11's owed pieces fit inside two more `Vector4`s.
-    [InlineData("radial-gradient(at 20% 80%, #ff0000, #0000ff)")]
+    // An explicit ending *shape* or size on a round gradient. ⚠ The centre is no longer here — see
+    // `An_explicit_centre_moves_the_ramp_and_not_the_box` — and these four are refused for a reason
+    // the centre never had: each names a different ellipse from the `farthest-corner` one this engine
+    // computes, so drawing them as farthest-corner is a ramp that finishes in the wrong place.
     [InlineData("radial-gradient(circle, #ff0000, #0000ff)")]
     [InlineData("radial-gradient(closest-side, #ff0000, #0000ff)")]
     [InlineData("radial-gradient(80px, #ff0000, #0000ff)")]
     [InlineData("radial-gradient(50% 30%, #ff0000, #0000ff)")]
-    [InlineData("conic-gradient(from 45deg at top left, #ff0000, #0000ff)")]
+    // `at` is a round gradient's word; on a linear one it is a typo rather than a form declined.
+    [InlineData("linear-gradient(at 20% 80%, #ff0000, #0000ff)")]
+    // A position with one axis named twice, and one with three components — the three-value syntax
+    // leaves out the value that says which axis the offset belongs to.
+    [InlineData("radial-gradient(at 25% left, #ff0000, #0000ff)")]
+    [InlineData("radial-gradient(at left 10px top, #ff0000, #0000ff)")]
+    // A unit this parser cannot resolve without a font.
+    [InlineData("radial-gradient(at 2rem 50%, #ff0000, #0000ff)")]
     // A conic's angle has to be spelled `from <angle>`; a bare one is not CSS.
     [InlineData("conic-gradient(45deg, #ff0000, #0000ff)")]
     // A position this file cannot resolve. A length needs the gradient line, which is a function of
@@ -564,6 +572,142 @@ public class GradientTests {
         using var document = Drawn($".probe {{ background-image: {image}; }}");
 
         Assert.Empty(Gradients(document));
+    }
+
+    /// <summary>An <c>at &lt;position&gt;</c> moves the ramp's centre, and the box stays where it is.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The reach is asserted beside the centre, and it is the half that is easy to get
+    ///         wrong.</b> CSS's default ending shape is <c>farthest-corner</c>, so moving the centre
+    ///         moves the corner it has to reach — a version that stored the centre and left the
+    ///         extent at the box's half size draws a ramp that finishes early on one side and late on
+    ///         the other, which reads as a gradient somebody positioned oddly rather than as a bug.
+    ///         The probe is 40 by 20, so <c>at 25% 75%</c> is (10, 15) from the top left, which is
+    ///         (-10, 5) from the centre, and the farthest-side distances are (30, 15).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The conic row asserts the <i>opposite</i> of the radial one, and that is the point
+    ///         of having both.</b> A conic sweep has no extent, so its reach must stay the tile — a
+    ///         single implementation that wrote the radial pair for every round shape would pass a
+    ///         radial-only test and paint every positioned conic identically to an unpositioned one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_explicit_centre_moves_the_ramp_and_not_the_box() {
+        using var radial = Drawn(".probe { background-image: radial-gradient(at 25% 75%, #ff0000, #0000ff); }");
+
+        var round = Assert.Single(Gradients(radial));
+
+        Assert.Equal(GradientShape.Radial, round.Shape);
+        Assert.Equal(new Vector2(-10f, 5f), round.PaintCentre);
+        Assert.Equal(new Vector2(30f, 15f), round.PaintExtent);
+
+        // The tile is untouched: an `at` is inside the layer, not a placement of it.
+        Assert.Equal(Vector2.Zero, round.AreaHalf);
+
+        using var conic = Drawn(".probe { background-image: conic-gradient(from 45deg at top left, #ff0000, #0000ff); }");
+
+        var swept = Assert.Single(Gradients(conic));
+
+        Assert.Equal(GradientShape.Conic, swept.Shape);
+        Assert.Equal(new Vector2(-20f, -10f), swept.PaintCentre);
+        Assert.Equal(new Vector2(20f, 10f), swept.PaintExtent);
+    }
+
+    /// <summary>A centred <c>at</c> writes no lane at all, which is what the shader's fast path needs.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Writing <c>at center</c> explicitly has to serialise to the same record as writing
+    ///     nothing.</b> <c>UiShape.Paint</c>'s zero is "the ramp is the box", and a record that spelled
+    ///     the default out would take the tiling branch in three shader copies to arrive exactly where
+    ///     it started — which is not wrong on screen and is a divergence between two frames that ought
+    ///     to be byte-identical.
+    /// </remarks>
+    [Fact]
+    public void Saying_the_default_centre_is_the_same_record_as_saying_nothing() {
+        using var stated = Drawn(".probe { background-image: radial-gradient(at center, #ff0000, #0000ff); }");
+        using var silent = Drawn(".probe { background-image: radial-gradient(#ff0000, #0000ff); }");
+
+        Assert.Equal(Gradients(silent), Gradients(stated));
+        Assert.Equal(Vector2.Zero, Assert.Single(Gradients(stated)).PaintExtent);
+    }
+
+    /// <summary>
+    ///     <c>background-size</c> and <c>-position</c> place the layer, and <c>-repeat</c> decides what
+    ///     happens outside it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The sign of the tile half is <c>background-repeat</c>, per axis.</b> Positive tiles
+    ///         with a period of twice the component; negative paints one tile and clips. A half-extent
+    ///         has no natural sign, so the lane is free — and asserting the sign here is the only place
+    ///         the encoding is stated in a test rather than in a comment.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>CSS's initial <c>background-position</c> is the top left and not the middle</b>, so
+    ///         a size written alone tucks the tile into the corner: on a 40 by 20 probe a half-sized
+    ///         tile is 20 by 10 and its centre lands at (-10, -5) from the box's.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_size_and_a_position_place_the_layer_and_repeat_decides_the_outside() {
+        using var sized = Drawn(
+            ".probe { background-image: linear-gradient(to right, #ff0000, #0000ff); background-size: 50% 50%; }"
+        );
+
+        var tiled = Assert.Single(Gradients(sized));
+
+        Assert.Equal(new Vector2(-10f, -5f), tiled.AreaCentre);
+        Assert.Equal(new Vector2(10f, 5f), tiled.AreaHalf);
+
+        // The ramp fills the tile rather than the box, which is what makes the tiles line up.
+        Assert.Equal(new Vector2(10f, 5f), tiled.PaintExtent);
+
+        using var placed = Drawn(
+            ".probe { background-image: linear-gradient(to right, #ff0000, #0000ff);"
+            + " background-size: 50% 50%; background-position: 100% 100%; background-repeat: no-repeat; }"
+        );
+
+        var one = Assert.Single(Gradients(placed));
+
+        Assert.Equal(new Vector2(10f, 5f), one.AreaCentre);
+        Assert.Equal(new Vector2(-10f, -5f), one.AreaHalf);
+
+        using var horizontal = Drawn(
+            ".probe { background-image: linear-gradient(to right, #ff0000, #0000ff);"
+            + " background-size: 50% 50%; background-repeat: repeat-x; }"
+        );
+
+        Assert.Equal(new Vector2(10f, -5f), Assert.Single(Gradients(horizontal)).AreaHalf);
+    }
+
+    /// <summary>
+    ///     The three placement properties write nothing while the tile is the box, which is why
+    ///     <c>background-repeat</c> measured inert for a year.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the assertion that says every gradient in the interface still takes the fast
+    ///     path.</b> With the tile equal to the border box the clip would run along the box's own
+    ///     antialiased edge, and multiplying two half-covered edges gives a quarter — a one-pixel
+    ///     darkening around every gradient, on frames that asked for nothing.
+    ///     <c>UiBoxAgreementTests</c> measures the worst channel of its gradient fixture at one.
+    /// </remarks>
+    [Theory]
+    [InlineData("background-repeat: no-repeat")]
+    [InlineData("background-repeat: repeat")]
+    [InlineData("background-size: auto")]
+    [InlineData("background-size: cover")]
+    [InlineData("background-size: contain")]
+    [InlineData("background-size: 100% 100%")]
+    public void A_layer_that_fills_the_box_writes_no_placement_lane(string declaration) {
+        using var document = Drawn(
+            $".probe {{ background-image: linear-gradient(to right, #ff0000, #0000ff); {declaration}; }}"
+        );
+
+        var style = Assert.Single(Gradients(document));
+
+        Assert.Equal(Vector2.Zero, style.AreaHalf);
+        Assert.Equal(Vector2.Zero, style.AreaCentre);
+        Assert.Equal(Vector2.Zero, style.PaintExtent);
     }
 
     /// <summary>A refusal does not take the background colour down with it.</summary>

@@ -77,7 +77,7 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **328** | 128 families |
+| Utility **roots** (the unit of this table) | **329** | 128 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
 | Variant keys | **88** | **25** |
@@ -92,12 +92,10 @@ Every one of those was right when it was written. The number is a denominator, s
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **193** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **202** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **39** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **91** |
-| **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **90** |
+| **absent** | not emitted at all | **83** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -111,9 +109,16 @@ starts lying, and the row instead says what it would take to fix (split it, or d
 Five (`space-x/y-*`, `divide-*`, `divide-x/y-*`) were never composition at all: they are child-scoped
 families that emit real declarations onto `> :not(:last-child)`, and they now measure `works`. Three
 (`mask-radial-*`, `mask-radial-at-*`, `ring-offset-*`) are composition *in Tailwind* and Vixen
-registers no family for them, which is `absent` — calling them `composed` read as "handled" for three
+registered no family for them, which is `absent` — calling them `composed` read as "handled" for three
 roots with nothing behind them. What is left is the three gradient-stop families, which are genuinely
 fragments with a working assembler.
+
+⚠ **`mask-radial-at-*` has since left that group and reads `works`**, which is the point of having
+moved it out of `composed`: it was buildable all along and the flattering state was what hid it. A
+`--tw-mask-radial-position` fragment defaulting to `center` — CSS's own default — feeds an
+`at <position>` that `DrawListBuilder.MaskFrame` resolves, so an unmoved radial mask reaches the
+shader as the record it always had. Its sibling `mask-radial-*` stays `absent` and is now a refusal
+with a named blocker rather than an unregistered family; see its row.
 
 ### The composition mechanism
 
@@ -390,27 +395,32 @@ refusal block, which already says so for the same reason.
 
 | Category | roots | works | partial | inert | absent | composed | unknown |
 |---|--:|--:|--:|--:|--:|--:|--:|
-| Layout | 49 | 25 | 7 | 0 | 13 | 3 | 1 |
+| Layout | 49 | 26 | 7 | 0 | 12 | 3 | 1 |
 | Interactivity | 39 | 27 | 0 | 1 | 11 | 0 | 0 |
+| Borders | 34 | 26 | 4 | 0 | 4 | 0 | 0 |
+| Effects | 34 | 27 | 1 | 0 | 6 | 0 | 0 |
 | Flexbox and Grid | 34 | 29 | 3 | 0 | 2 | 0 | 0 |
 | Typography | 34 | 14 | 6 | 0 | 14 | 0 | 0 |
-| Borders | 34 | 26 | 4 | 0 | 4 | 0 | 0 |
-| Effects | 33 | 24 | 0 | 0 | 9 | 0 | 0 |
 | Spacing | 24 | 14 | 4 | 0 | 6 | 0 | 0 |
 | Transforms | 23 | 5 | 2 | 0 | 16 | 0 | 0 |
 | Filters | 20 | 10 | 10 | 0 | 0 | 0 | 0 |
 | Sizing | 15 | 12 | 1 | 0 | 2 | 0 | 0 |
-| Backgrounds | 11 | 3 | 1 | 0 | 7 | 0 | 0 |
-| Transitions and Animation | 6 | 2 | 1 | 0 | 3 | 0 | 0 |
+| Backgrounds | 11 | 6 | 1 | 0 | 4 | 0 | 0 |
+| Transitions and Animation | 6 | 4 | 0 | 0 | 2 | 0 | 0 |
 | SVG | 3 | 2 | 0 | 0 | 1 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **328** | **193** | **39** | **1** | **91** | **3** | **1** |
+| **Total** | **329** | **202** | **39** | **1** | **83** | **3** | **1** |
 
-SVG is the first category to be **complete** — all three roots, no `partial` — followed by Flexbox
-and Grid at 27 of 34 with only two absent roots left, Effects at 24 of 33 with no `partial` in it,
-Interactivity at 27 of 39, then Spacing, Borders and Layout. Tables and Accessibility still have
-**no working root at all**.
+Flexbox and Grid leads at 29 of 34, with only two absent roots left and both of those refused on
+policy rather than owed; then Effects at 27 of 34, Interactivity at 27 of 39, Borders at 26 of 34,
+and Layout at 26 of 49. Tables and Accessibility still have **no working root at all**.
+
+⚠ **No category is `complete`, and SVG — which this section called the first one to be — is 2 of 3.**
+`stroke-none` is `absent`, refused on the same policy `inset-shadow-*` is: `stroke` is read, but only
+as a colour. A refusal is still an absence in this table, which is the point of counting it here
+rather than in the prose; the paragraph below records what SVG *did* close, which is the keyword
+half of `fill`.
 
 ⚠ **SVG closed on a keyword rather than a property, which is the shape this table is least able to
 show.** `fill` and `stroke` have measured `read` since A6, off the colour half — so a registration of
@@ -2536,7 +2546,7 @@ of each other.
 **B · Layout modes.** `display` is `{ Flex, None }`. Block, grid and inline formatting are three
 algorithms over the existing store.
 
-**C · Families.** The 328 roots.
+**C · Families.** The 329 roots.
 
 ⚠ **C depends on A and B, and inverting that is how the present state came about.** `grid-cols-3`
 exists as a family and emits `grid-template-columns` because a family is a line of a table and the
@@ -2806,8 +2816,12 @@ inventory with an unexplained hole in it is how a subset gets rationalised the n
 ## Part 9 — The sixteen absent `Layout` roots, triaged
 
 ⚠ **They are not one feature, and the useful finding is that they are not even one *kind* of
-absence.** Sixteen roots in the `Layout` category read `absent`. Four of them belong to work in
-flight elsewhere — `mask-radial-*`, `mask-radial-at-*`, `ring-offset-*` and `@container-*`. The
+absence.** Sixteen roots in the `Layout` category read `absent` *when this was written*; the count is
+twelve now, and the four below are why the headline is left at sixteen — it is the triage's own
+denominator and rewriting it would falsify what was triaged. Four of them belong to work in
+flight elsewhere — `mask-radial-*`, `mask-radial-at-*`, `ring-offset-*` and `@container-*`; ⚠ of
+those, **`mask-radial-at-*` has since landed and reads `works`**, and `mask-radial-*` is now a
+refusal with a named blocker (`GradientRefusal.Extent`) rather than an unregistered family. The
 other twelve were triaged together, and they fall into four buckets that want four different
 answers. **Only one bucket was buildable, and the other three are refusals with a measurement
 behind each.** The costs below are the deliverable; the one implementation is the small part.
@@ -3272,7 +3286,7 @@ ask is not "where is this read" but "what else reads the number it changes".**
 
 ## Exit criteria (measured)
 
-1. **Every one of the 328 roots is `works`, or carries an open task number, or is one of the four
+1. **Every one of the 329 roots is `works`, or carries an open task number, or is one of the four
    exclusions in Part 8.** Checked by regenerating the TSV; the states are computed, not asserted.
 2. ✅ **No family emits a property no consumer *acts on***, except entries on the allow-list, each of
    which names a task this document contains. `UtilityConsumptionGateTests` fails otherwise — a test
@@ -3304,7 +3318,7 @@ ask is not "where is this read" but "what else reads the number it changes".**
 being matched is Tailwind's utility index, which is a much smaller and better-defined thing than CSS.
 
 **A second styling language.** Every gap here closes by making the *existing* property bridge wider.
-There is no case in the 328 rows for a Vixen-specific styling concept, and adding one would be the
+There is no case in the 329 rows for a Vixen-specific styling concept, and adding one would be the
 third version of the mistake in the README.
 
 **A promise that a Tailwind stylesheet drops in.** Class names and semantics match; the generator is

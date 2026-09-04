@@ -428,6 +428,17 @@ public sealed class UiCompositingTests {
             Outer,
             filter: OuterFilter,
             mask: [
+                // ⚠ <b>A tiled entry, and it is first because the fold is bottom-up.</b> The
+                // placement lanes are guarded on `area.zw` in both executors, so a list of untiled
+                // entries compares two fast paths and says nothing about the branch — and a branch
+                // taken on one executor and not the other is exactly what this file exists to catch.
+                // Tiled across and clipped down, so both readings of the sign appear in one entry,
+                // and the tile's origin is off-centre so a mirroring wrap is distinguishable from a
+                // repeating one.
+                Ramp(8, 24, 112, 96, 1f, 0.2f, MaskComposite.Intersect) with {
+                    AreaCentre = new Vector2(8f + 21f, 24f + 30f),
+                    AreaHalf = new Vector2(21f, -30f)
+                },
                 Ramp(8, 24, 112, 96, 1f, 0.35f, MaskComposite.Intersect),
                 Ramp(8, 24, 112, 96, 1f, 0.45f, MaskComposite.Subtract) with { Axis = new Vector2(0f, 1f) },
                 Round(8, 24, 112, 96, 0.3f, 0f)

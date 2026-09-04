@@ -66,7 +66,7 @@ public sealed class UiBoxAgreementTests {
     ///         this file opens a group, so every pixel is stored once on both sides.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two rather than one, and one is what this device measures.</b> All five fixtures
+    ///         ⚠ <b>Two rather than one, and one is what this device measures.</b> All six fixtures
     ///         below come out with a worst channel of exactly <b>1</b> on MoltenVK — on 0.45 % to
     ///         47.5 % of their pixels, which are the software rasterizer's own barycentric weights
     ///         rounding a constant vertex colour a level low, not anything either shader decided. One
@@ -85,6 +85,7 @@ public sealed class UiBoxAgreementTests {
     [InlineData("bordered")]
     [InlineData("blurred")]
     [InlineData("gradient")]
+    [InlineData("tiled")]
     public void TheDeviceAndTheSoftwareRendererDrawTheSameBox(string fixture) {
         if (!TryOpen(out var opened, out _)) {
             return;
@@ -298,6 +299,62 @@ public sealed class UiBoxAgreementTests {
                     new BoxStyle(CornerRadii.Uniform(24f), new Color4(0.9f, 0.2f, 0.7f, 1f), new Vector2(1f, 0f)) {
                         Shape = GradientShape.Conic,
                         Space = GradientSpace.Linear
+                    }
+                );
+
+                break;
+
+            case "tiled":
+                // ⚠ <b>The placement lanes, and all three readings of them in one frame — because the
+                // failure they invite is a branch taken on one executor and not the other.</b> Both
+                // sides guard the whole tiling block on `area.zw`, so a fixture that only exercised
+                // the default would compare two fast paths and say nothing about the branch.
+                //
+                // Repeating on both axes: `wrap_tile` runs twice per fragment, and a `fract`-based
+                // wrap mirrors instead of repeating — which is invisible on a tile centred in its box
+                // and obvious on this one, whose tile sits in the corner.
+                Styled(
+                    list,
+                    new(DrawCommandKind.Rectangle, 6, 6, 52, 40, new Color4(0.2f, 0.6f, 0.95f, 1f), 0, 0),
+                    new BoxStyle(CornerRadii.Uniform(8f), new Color4(0.95f, 0.3f, 0.4f, 1f), new Vector2(1f, 0f)) {
+                        Shape = GradientShape.Linear,
+                        Space = GradientSpace.Srgb,
+                        AreaCentre = new Vector2(-13f, -10f),
+                        AreaHalf = new Vector2(13f, 10f),
+                        PaintExtent = new Vector2(13f, 10f)
+                    }
+                );
+
+                // ⚠ Clipped on one axis and tiled on the other, which is `background-repeat: repeat-y`
+                // and the case a per-axis sign encoding can get exactly half right. The clip runs
+                // through the same `coverage_of` the box's edge uses, so its antialiased boundary is
+                // where the two executors' emulated derivatives have to agree.
+                Styled(
+                    list,
+                    new(DrawCommandKind.Rectangle, 66, 6, 52, 40, new Color4(0.9f, 0.8f, 0.2f, 1f), 0, 0),
+                    new BoxStyle(CornerRadii.Uniform(8f), new Color4(0.1f, 0.2f, 0.8f, 1f), Vector2.Zero) {
+                        Shape = GradientShape.Radial,
+                        Space = GradientSpace.Oklab,
+                        AreaCentre = new Vector2(-13f, 0f),
+                        AreaHalf = new Vector2(-13f, 10f),
+                        PaintExtent = new Vector2(13f, 10f)
+                    }
+                );
+
+                // ⚠ An off-centre ramp inside a tile that is not the box: `paint.xy` and `area.xy` are
+                // two different origins, and a shader that subtracted one of them twice — or the wrong
+                // one — still draws a plausible radial gradient. The reach is the farthest-side pair
+                // from that centre, which is `tile + abs(centre)`.
+                Styled(
+                    list,
+                    new(DrawCommandKind.Rectangle, 6, 60, 112, 56, new Color4(0.4f, 0.9f, 0.3f, 1f), 0, 0),
+                    new BoxStyle(CornerRadii.Uniform(16f), new Color4(0.9f, 0.2f, 0.7f, 1f), Vector2.Zero) {
+                        Shape = GradientShape.Radial,
+                        Space = GradientSpace.Linear,
+                        AreaCentre = new Vector2(-28f, 0f),
+                        AreaHalf = new Vector2(-28f, -28f),
+                        PaintCentre = new Vector2(-14f, 12f),
+                        PaintExtent = new Vector2(42f, 40f)
                     }
                 );
 

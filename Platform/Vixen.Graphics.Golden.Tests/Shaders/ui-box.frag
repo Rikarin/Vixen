@@ -15,7 +15,7 @@ layout(location = 0) out vec4 target;
 // and a three-stop gradient would take the vertex from forty-eight bytes to well past a hundred, and
 // every glyph in the frame would carry fields no shader reads on them.
 //
-// ⚠ **`Shape` is 112 bytes and there are five places that have to agree about that**, which is more
+// ⚠ **`Shape` is 144 bytes and there are five places that have to agree about that**, which is more
 // than any one of them says on its own: `Vixen.Ui.Rendering.UiShape`, `UiRenderer`'s buffer stride,
 // `SoftwareUiRasterizer`, the editor's `Ui.rvn`, and this file — of which there are three copies.
 // `UiShapeLayoutTests` pins the first against the editor's reflection; the rest are pinned only by
@@ -28,6 +28,8 @@ struct Shape {
     vec4 endColour;  // the last stop
     vec4 midColour;  // the middle stop, read only when stops.w is set
     vec4 stops;      // where the three stops sit, then whether the middle one exists
+    vec4 paint;      // the ramp's centre from the tile's centre, then its reach. Zero reach = the box
+    vec4 area;       // the first tile's centre, then half the tile — signed by `background-repeat`
 };
 
 layout(std430, set = 0, binding = 2) readonly buffer Shapes {
@@ -113,9 +115,10 @@ const float INV_TWO_PI = 0.15915494309189535;
 
 // Where this pixel sits along the gradient's ramp, before the stop positions are applied.
 //
-// ⚠ All three shapes take the same offset-from-centre and none needs a centre or a radius in the
-// record. CSS's defaults for the two round shapes are both *at center* with an extent that is a
-// function of the box, which is what let them cost no lanes at all.
+// ⚠ All three shapes take one point and one reach, and `main` is what decides whose. CSS's defaults
+// for the two round shapes are both *at center* with an extent that is a function of the box, so the
+// common case passes the box's own; a `background-position`, a `background-size` or an explicit
+// `at <position>` moves the frame before this is called rather than branching inside it.
 float gradient_parameter(Shape shape, vec2 point, vec2 half_size) {
     int kind = int(shape.size.w + 0.5);
 
@@ -143,6 +146,17 @@ float gradient_parameter(Shape shape, vec2 point, vec2 half_size) {
     float reach = abs(axis.x * half_size.x) + abs(axis.y * half_size.y);
 
     return (dot(point, axis) / max(reach, 1e-4) * 0.5) + 0.5;
+}
+
+// Where a point sits inside the tile it lands in, as an offset from that tile's centre.
+//
+// ⚠ `floor` rather than a `fract`-based wrap, so that a negative offset lands in the tile below
+// rather than mirroring into the one above.
+float wrap_tile(float value, float half_tile) {
+    float period = half_tile * 2.0;
+    float shifted = value + half_tile;
+
+    return shifted - (period * floor(shifted / period)) - half_tile;
 }
 
 // Where `t` sits between two stops, flat outside them.
@@ -271,8 +285,37 @@ void main() {
     vec4 fill = varying_colour;
 
     if (shape.size.w > 0.0) {
-        float t = gradient_parameter(shape, varying_texcoord, half_size);
-        fill = gradient_colour(shape, varying_colour, t);
+        // Where this pixel sits inside the tile the layer is painted in, and how far the ramp reaches
+        // from its own centre. Both are the box unless a `background-position`, a `background-size`
+        // or an `at <position>` said otherwise — the guards are what keep every gradient written
+        // before these two lanes existed on the arrangement it had.
+        vec2 local = varying_texcoord;
+        vec2 reach = half_size;
+
+        if (shape.area.z != 0.0 || shape.area.w != 0.0) {
+            vec2 tile = abs(shape.area.zw);
+            vec2 inside = varying_texcoord - shape.area.xy;
+
+            local = vec2(
+                shape.area.z > 0.0 ? wrap_tile(inside.x, tile.x) : inside.x,
+                shape.area.w > 0.0 ? wrap_tile(inside.y, tile.y) : inside.y
+            );
+
+            // ⚠ An axis that does not tile is clipped, because CSS paints nothing outside a
+            // `no-repeat` layer — clamping alone would spill the ramp's end colours over the rest of
+            // the box. Antialiased through the same `coverage_of` the box's own edge uses.
+            coverage *= (shape.area.z > 0.0 ? 1.0 : coverage_of(abs(local.x) - tile.x, width))
+                      * (shape.area.w > 0.0 ? 1.0 : coverage_of(abs(local.y) - tile.y, width));
+
+            reach = tile;
+        }
+
+        if (shape.paint.z > 0.0 && shape.paint.w > 0.0) {
+            local -= shape.paint.xy;
+            reach = shape.paint.zw;
+        }
+
+        fill = gradient_colour(shape, varying_colour, gradient_parameter(shape, local, reach));
     }
 
     // Premultiplied, which is what the UI blend state expects. Straight alpha here would show as a

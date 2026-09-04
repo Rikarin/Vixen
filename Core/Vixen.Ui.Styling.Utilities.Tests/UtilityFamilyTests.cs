@@ -161,7 +161,11 @@ public class UtilityFamilyTests {
     )]
     [InlineData("mask-intersect", "mask-composite: intersect")]
     // Transitions.
-    [InlineData("duration-200", "transition-duration: 200ms")]
+    // ⚠ The longhand AND the fragment, and the fragment is not decoration: `transition` reads its own
+    // default through `var(--tw-duration, 150ms)` because the generated sheet is ordered by class name
+    // and `duration-*` sorts before it. Emitting only the longhand would leave `transition duration-200`
+    // running for 150 ms — see `TransitionUtilityTests`.
+    [InlineData("duration-200", "transition-duration: 200ms|--tw-duration: 200ms")]
     [InlineData("ease-in-out", "transition-timing-function: ease-in-out")]
     // Interactivity.
     [InlineData("cursor-pointer", "cursor: pointer")]

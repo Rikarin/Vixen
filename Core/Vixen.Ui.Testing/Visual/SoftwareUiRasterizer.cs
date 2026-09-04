@@ -315,19 +315,66 @@ public static class SoftwareUiRasterizer {
         var fill = colour;
 
         if (shape.Size.W > 0f) {
-            fill = GradientColour(shape, colour, Parameter(shape, texture, half));
+            // Where this pixel sits inside the tile the layer is painted in, and how far the ramp
+            // reaches from its own centre. Both are the box unless a `background-position`, a
+            // `background-size` or an `at <position>` said otherwise — `ui-box.frag`'s guards, kept
+            // to the branch, because a fast path taken in one executor and not the other is exactly
+            // the divergence `UiBoxAgreementTests` exists to catch.
+            var local = texture;
+            var reach = half;
+
+            if (shape.Area.Z != 0f || shape.Area.W != 0f) {
+                var tile = new Vector2(MathF.Abs(shape.Area.Z), MathF.Abs(shape.Area.W));
+                var inside = texture - new Vector2(shape.Area.X, shape.Area.Y);
+
+                local = new Vector2(
+                    shape.Area.Z > 0f ? Wrap(inside.X, tile.X) : inside.X,
+                    shape.Area.W > 0f ? Wrap(inside.Y, tile.Y) : inside.Y
+                );
+
+                // ⚠ An axis that does not tile is clipped, because CSS paints nothing outside a
+                // `no-repeat` layer — clamping alone would spill the ramp's end colours over the
+                // rest of the box. Through the same `Coverage` the box's own edge uses, so both
+                // executors take the same number from the same emulated derivative.
+                coverage *= (shape.Area.Z > 0f ? 1f : Coverage(MathF.Abs(local.X) - tile.X, width))
+                    * (shape.Area.W > 0f ? 1f : Coverage(MathF.Abs(local.Y) - tile.Y, width));
+
+                reach = tile;
+            }
+
+            if (shape.Paint.Z > 0f && shape.Paint.W > 0f) {
+                local -= new Vector2(shape.Paint.X, shape.Paint.Y);
+                reach = new Vector2(shape.Paint.Z, shape.Paint.W);
+            }
+
+            fill = GradientColour(shape, colour, Parameter(shape, local, reach));
         }
 
         var alpha = fill.A * coverage;
         return new(fill.R * alpha, fill.G * alpha, fill.B * alpha, alpha);
     }
 
+    /// <summary>Where a point sits inside the tile it lands in, as an offset from that tile's centre.</summary>
+    /// <remarks>
+    ///     ⚠ <c>Floor</c> rather than a fractional-part wrap, so that a negative offset lands in the
+    ///     tile below rather than mirroring into the one above — the mirrored version looks right
+    ///     until the tile is not centred, which is precisely the case a <c>background-position</c>
+    ///     produces.
+    /// </remarks>
+    static float Wrap(float value, float half) {
+        var period = half * 2f;
+        var shifted = value + half;
+
+        return shifted - (period * MathF.Floor(shifted / period)) - half;
+    }
+
     /// <summary>Where this pixel sits along the ramp, as <c>UiBox.Parameter</c> evaluates it.</summary>
     /// <remarks>
-    ///     ⚠ <b>No centre and no radius are read, because the record carries neither.</b> CSS's
+    ///     ⚠ <b>One point and one reach, and the caller is what decides whose.</b> CSS's
     ///     defaults for both round shapes are <i>at center</i> with an extent that is a function of the
-    ///     box, so the half size is all either of them needs — which is what let all four of A11's
-    ///     owed pieces fit inside two more <c>Vector4</c>s.
+    ///     box, so the common case passes the box's own offset and half size; a
+    ///     <c>background-position</c>, a <c>background-size</c> or an explicit <c>at</c> moves the
+    ///     frame in <see cref="Box" /> before this is called rather than branching inside it.
     /// </remarks>
     static float Parameter(UiShape shape, Vector2 point, Vector2 half) {
         var kind = (int) (shape.Size.W + 0.5f);

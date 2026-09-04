@@ -149,6 +149,57 @@ public readonly record struct BoxStyle(CornerRadii Corners, Color4 GradientEnd, 
         init => stops = value == GradientStops.Default ? default : value;
     }
 
+    /// <summary>Where the ramp's own centre sits, in pixels from the centre of the tile it fills.</summary>
+    /// <remarks>
+    ///     ⚠ Read only when <see cref="PaintExtent" /> is set, which is what makes a zero here mean
+    ///     "the middle of the tile" rather than "nobody said".
+    /// </remarks>
+    public Vector2 PaintCentre { get; init; }
+
+    /// <summary>How far the ramp reaches from <see cref="PaintCentre" />, in pixels.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Zero means "the box", and that is the lane's whole zero-safety argument.</b> Every
+    ///         gradient written before this member existed reaches the border box and is centred on
+    ///         it, so a record that says nothing has to keep meaning exactly that — which is what
+    ///         <c>UiShape</c>'s remark calls the appended-lane discipline. A zero <i>extent</i> is not
+    ///         a gradient anybody can have asked for, so nothing real collides with the sentinel.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An extent and not a radius, even for a radial gradient, because the shader's
+    ///         parameterisation is the extent.</b> A radial ramp reads
+    ///         <c>length(offset / extent) / √2</c>, so the ellipse it actually finishes on has radii
+    ///         <c>√2 · extent</c> — which for a centred gradient is exactly the farthest corner of the
+    ///         tile. <c>DrawListBuilder.RadialExtent</c> divides CSS's radii by root two on the way in
+    ///         rather than making three shader copies learn a second convention.
+    ///     </para>
+    /// </remarks>
+    public Vector2 PaintExtent { get; init; }
+
+    /// <summary>Where the first tile's centre sits, in pixels from the box's centre.</summary>
+    /// <remarks>This is <c>background-position</c>. Read only when <see cref="AreaHalf" /> is set.</remarks>
+    public Vector2 AreaCentre { get; init; }
+
+    /// <summary>Half the tile, signed: <c>background-size</c>, with <c>background-repeat</c> in the sign.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The sign of each component is that axis's <c>background-repeat</c>, and the lane is
+    ///         free because a half-extent has no natural sign.</b> Positive tiles the ramp along that
+    ///         axis with a period of twice the component; negative paints one tile and clips outside
+    ///         it. Two flags in two lanes would have been a ninth <c>Vector4</c> whose other half was
+    ///         padding, and the two readings are exclusive by construction: an axis that tiles has no
+    ///         outside to clip, and an axis that clips has no period.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Zero means the tile is the border box and there is neither tiling nor clipping —
+    ///         not "a zero-sized tile".</b> CSS says a layer whose size resolves to zero in either
+    ///         axis is not painted at all, so the degenerate reading is one nothing needs, and the
+    ///         sentinel is what keeps every gradient predating <c>background-size</c> byte-identical
+    ///         through the shader's fast path.
+    ///     </para>
+    /// </remarks>
+    public Vector2 AreaHalf { get; init; }
+
     /// <summary>Corners and nothing else.</summary>
     /// <param name="corners">The radii.</param>
     /// <returns>The style.</returns>

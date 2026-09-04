@@ -264,12 +264,12 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>How many floats one entry of <see cref="maskEntries" /> is.</summary>
     /// <remarks>
-    ///     Four <c>vec4</c>s, exactly as <c>ui-mask.frag</c>'s <c>MaskEntry</c> declares them. ⚠ The
+    ///     Five <c>vec4</c>s, exactly as <c>ui-mask.frag</c>'s <c>MaskEntry</c> declares them. ⚠ The
     ///     packing is written out by hand in <see cref="SubmitDraw" />'s neighbour
     ///     <see cref="MaskBlock" /> rather than blitted from <see cref="UiMask" />, because that
     ///     struct's field order is C#'s business and std430's is the wire's.
     /// </remarks>
-    const int MaskFloats = 16;
+    const int MaskFloats = 20;
 
     /// <summary>How many bytes one frame's region of each buffer is.</summary>
     /// <remarks>Per region, not per buffer: each buffer is this many bytes times <see cref="slots" />.</remarks>
@@ -2815,7 +2815,7 @@ public sealed class UiRenderer : IDisposable {
         device.Write(indices, (long) slot * indexCapacity, MemoryMarshal.AsBytes<uint>(indexBytes));
     }
 
-    /// <summary>Writes one mask into the sixteen floats <c>ui-mask.frag</c>'s <c>MaskEntry</c> is.</summary>
+    /// <summary>Writes one mask into the twenty floats <c>ui-mask.frag</c>'s <c>MaskEntry</c> is.</summary>
     /// <param name="mask">The mask.</param>
     /// <param name="into">Exactly <see cref="MaskFloats" /> floats.</param>
     /// <remarks>
@@ -2855,6 +2855,15 @@ public sealed class UiRenderer : IDisposable {
         into[13] = mask.Stops.To;
         into[14] = (float) mask.Composite;
         into[15] = 0f;
+
+        // ⚠ Appended, and its zero is what the entry meant before the lane existed: no tile, so no
+        // tiling and no clipping. The sign of the half is `mask-repeat` — see `UiMask.AreaHalf`, which
+        // carries the whole argument, and note that taking an absolute value on the way out here
+        // would tile a layer that asked not to be while every other field stayed right.
+        into[16] = mask.AreaCentre.X;
+        into[17] = mask.AreaCentre.Y;
+        into[18] = mask.AreaHalf.X;
+        into[19] = mask.AreaHalf.Y;
     }
 
     /// <summary>Points one frame's descriptor set at that frame's region of the box buffer.</summary>

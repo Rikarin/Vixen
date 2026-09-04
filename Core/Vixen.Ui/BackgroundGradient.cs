@@ -69,13 +69,27 @@ enum GradientRefusal : byte {
     /// <summary>A direction this engine cannot resolve to an axis.</summary>
     Direction,
 
-    /// <summary>An explicit <c>at &lt;position&gt;</c>, ending shape or size on a round gradient.</summary>
+    /// <summary>An ending shape or size on a round gradient that is not <c>farthest-corner</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>The record has no centre and no radius, and that is what made all of A11 fit.</b> CSS's
-    ///     defaults — <c>ellipse farthest-corner at center</c>, and <c>at center</c> for a conic — are
-    ///     functions of the box the shader already has, so the common case costs no lanes at all. An
-    ///     <i>explicit</i> centre or extent would cost three, which is a whole further <c>Vector4</c>
-    ///     for a form Tailwind only reaches through its arbitrary-value syntax.
+    ///     <para>
+    ///         ⚠ <b>Narrower than it was, and the half that closed is the half anybody writes.</b> This
+    ///         used to cover <c>at &lt;position&gt;</c> as well, on the argument that the record had no
+    ///         centre and CSS's defaults are functions of the box. The centre is a lane now — see
+    ///         <see cref="BackgroundGradient.Centre" /> and <c>UiShape.Paint</c> — so
+    ///         <c>radial-gradient(at 25% 75%, …)</c> and <c>conic-gradient(from 45deg at top left, …)</c>
+    ///         paint, which is what <c>bg-radial-[at_*]</c> and <c>mask-radial-at-*</c> are spelled in.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What is still refused is the ending <i>shape</i>, and it is refused rather than
+    ///         approximated for the reason the whole enum exists.</b> <c>circle</c> forces the two radii
+    ///         equal, <c>closest-side</c> and its three siblings pick a different pair of radii
+    ///         entirely, and an explicit <c>80px 40px</c> states them outright — four different
+    ///         ellipses, none of which is the <c>farthest-corner</c> one this engine computes. Drawing
+    ///         any of them as farthest-corner is a ramp that finishes in the wrong place, which is the
+    ///         failure that looks like a design choice. <b>The centre could land without them because
+    ///         moving a farthest-corner ellipse's centre is still a farthest-corner ellipse</b> — the
+    ///         radii change, and <c>DrawListBuilder.RampFrame</c> is the closed form for how.
+    ///     </para>
     /// </remarks>
     Extent,
 
@@ -112,6 +126,37 @@ enum GradientCorner : byte {
     BottomLeft
 }
 
+/// <summary>One component of a CSS <c>&lt;position&gt;</c>: a fraction of the box, plus a pixel offset.</summary>
+/// <param name="Fraction">How far across the box, from zero at the near edge to one at the far one.</param>
+/// <param name="Pixels">A length added to it.</param>
+/// <remarks>
+///     ⚠ <b>Both halves, because CSS's <c>&lt;position&gt;</c> is a sum and not a choice.</b>
+///     <c>at 25%</c> is a fraction, <c>at 10px</c> is a length, and <c>calc(50% + 10px)</c> is both —
+///     but so is the two-value form <c>at right 10px top 20px</c>, which is a keyword edge plus an
+///     inset. Carrying only whichever one the author wrote would make the pair unrepresentable, and a
+///     percentage resolved at parse time would need a box the parser does not have.
+/// </remarks>
+readonly record struct GradientOffset(float Fraction, float Pixels) {
+    /// <summary>Where this sits along an extent, in pixels from its near edge.</summary>
+    /// <param name="extent">The extent, in pixels.</param>
+    /// <returns>The position.</returns>
+    public float Resolve(float extent) => (Fraction * extent) + Pixels;
+}
+
+/// <summary>Where a round gradient's <c>at</c> puts its centre.</summary>
+/// <param name="X">Across.</param>
+/// <param name="Y">Down.</param>
+readonly record struct GradientPoint(GradientOffset X, GradientOffset Y) {
+    /// <summary>The middle of the box, which is CSS's default for both round shapes.</summary>
+    public static GradientPoint Middle => new(new GradientOffset(0.5f, 0f), new GradientOffset(0.5f, 0f));
+
+    /// <summary>Where this sits in a box, in pixels from its top left corner.</summary>
+    /// <param name="width">The box's width.</param>
+    /// <param name="height">Its height.</param>
+    /// <returns>The point.</returns>
+    public Vector2 Resolve(float width, float height) => new(X.Resolve(width), Y.Resolve(height));
+}
+
 /// <summary>A gradient, as much of one as this engine paints.</summary>
 /// <param name="Start">The colour at the first stop. Becomes the draw command's own colour.</param>
 /// <param name="Via">The colour at the middle stop, when <paramref name="HasVia" />.</param>
@@ -127,6 +172,21 @@ enum GradientCorner : byte {
 ///     <see cref="Axis" /> gives.
 /// </param>
 /// <param name="Corner">The corner the far end sits on, or <see cref="GradientCorner.None" />.</param>
+/// <param name="Centre">
+///     Where an <c>at &lt;position&gt;</c> puts a round gradient's centre, or null for CSS's default.
+///     <para>
+///         ⚠ <b>Null rather than <see cref="GradientPoint.Middle" />, and the difference is a lane in
+///         <c>UiShape</c> rather than a nicety.</b> An unstated centre is the one case the record can
+///         say nothing about and let the shader keep the arrangement it had — see <c>UiShape.Paint</c>,
+///         whose zero means "the ramp is the box". Defaulting to the middle here would make every
+///         gradient in the interface write two more lanes to describe the arrangement they already
+///         had, and a stale shader reading them would be the one that noticed.
+///     </para>
+///     <para>
+///         ⚠ Meaningless on a linear gradient, which has no <c>at</c> in CSS's grammar at all;
+///         <c>ReadPrelude</c> refuses one rather than storing it.
+///     </para>
+/// </param>
 /// <param name="Refusal">Why this is not paintable, or <see cref="GradientRefusal.None" />.</param>
 readonly record struct BackgroundGradient(
     Color4 Start,
@@ -138,6 +198,7 @@ readonly record struct BackgroundGradient(
     GradientSpace Space,
     float Angle,
     GradientCorner Corner,
+    GradientPoint? Centre,
     GradientRefusal Refusal
 ) {
     /// <summary>Whether this is a gradient the draw list can carry.</summary>
@@ -156,6 +217,7 @@ readonly record struct BackgroundGradient(
         GradientSpace.Srgb,
         0f,
         GradientCorner.None,
+        null,
         reason
     );
 
@@ -421,6 +483,7 @@ sealed class GradientReader {
         // so the two defaults are genuinely different numbers rather than one shared constant.
         var angle = shape == GradientShape.Linear ? MathF.PI : 0f;
         var corner = GradientCorner.None;
+        GradientPoint? centre = null;
 
         // ⚠ <b>sRGB, because that is what CSS says an unhinted gradient means</b> — not linear RGB,
         // which is what this engine paints in and what the shader lerped in before there was a
@@ -435,7 +498,7 @@ sealed class GradientReader {
         if (!LooksLikeStop(first)) {
             stopsFrom = 1;
 
-            var prelude = ReadPrelude(first, shape, ref angle, ref corner, ref space);
+            var prelude = ReadPrelude(first, shape, ref angle, ref corner, ref space, ref centre);
             if (prelude != GradientRefusal.None) {
                 return BackgroundGradient.Refused(prelude);
             }
@@ -475,6 +538,7 @@ sealed class GradientReader {
             space,
             angle,
             corner,
+            centre,
             GradientRefusal.None
         );
     }
@@ -551,6 +615,7 @@ sealed class GradientReader {
     /// <param name="angle">The direction, or a conic's <c>from</c>.</param>
     /// <param name="corner">The corner a <c>to bottom right</c> names.</param>
     /// <param name="space">Which space to interpolate in.</param>
+    /// <param name="centre">Where an <c>at &lt;position&gt;</c> puts a round gradient's centre.</param>
     /// <returns>Why it was refused, or <see cref="GradientRefusal.None" />.</returns>
     /// <remarks>
     ///     <para>
@@ -574,7 +639,8 @@ sealed class GradientReader {
         GradientShape shape,
         ref float angle,
         ref GradientCorner corner,
-        ref GradientSpace space
+        ref GradientSpace space,
+        ref GradientPoint? centre
     ) {
         Span<Range> words = stackalloc Range[12];
         var count = SplitWords(text, words);
@@ -652,8 +718,37 @@ sealed class GradientReader {
                 continue;
             }
 
-            if (word.Equals("at", StringComparison.OrdinalIgnoreCase)
-                || word.Equals("circle", StringComparison.OrdinalIgnoreCase)
+            // ⚠ <b>`at` runs to the end of the prelude or to the next `in`, and stopping at `in` is
+            // the whole reason this is a scan rather than a suffix.</b> CSS's grammar is a `||`, so
+            // `radial-gradient(at 25% 75% in oklab, …)` and `radial-gradient(in oklab at 25% 75%, …)`
+            // are the same declaration — and a position parser that swallowed `in oklab` as two more
+            // components would refuse the first and honour the second.
+            if (word.Equals("at", StringComparison.OrdinalIgnoreCase)) {
+                if (shape == GradientShape.Linear) {
+                    // A linear gradient has no `at` in CSS's grammar at all, so this is a typo rather
+                    // than a form this engine declines to draw.
+                    return GradientRefusal.Direction;
+                }
+
+                var start = i + 1;
+                var stop = start;
+
+                while (stop < count && !text[words[stop]].Equals("in", StringComparison.OrdinalIgnoreCase)) {
+                    stop++;
+                }
+
+                var placed = ReadPosition(text, words[start..stop], out var at);
+                if (placed != GradientRefusal.None) {
+                    return placed;
+                }
+
+                centre = at;
+                i = stop - 1;
+
+                continue;
+            }
+
+            if (word.Equals("circle", StringComparison.OrdinalIgnoreCase)
                 || word.StartsWith("closest-", StringComparison.OrdinalIgnoreCase)
                 || word.StartsWith("farthest-", StringComparison.OrdinalIgnoreCase)) {
                 return GradientRefusal.Extent;
@@ -680,6 +775,273 @@ sealed class GradientReader {
         }
 
         return GradientRefusal.None;
+    }
+
+    /// <summary>Reads a <c>background-position</c>, which is the same production an <c>at</c> takes.</summary>
+    /// <param name="text">The computed value.</param>
+    /// <returns>The position, or null where it is not one this engine resolves.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The same parser as <c>at &lt;position&gt;</c>, deliberately and for the reason the mask
+    ///     reader shares this whole class.</b> <c>background-position: 25% 75%</c> and
+    ///     <c>radial-gradient(at 25% 75%, …)</c> are the same grammar in CSS's own specification, and
+    ///     two readers of it would be two sets of keyword handling to keep in step — where the failure
+    ///     is a centre that lands in a different place depending on which of the two an author reached
+    ///     for.
+    /// </remarks>
+    public static GradientPoint? ReadPlacement(string text) {
+        var span = text.AsSpan().Trim();
+        Span<Range> words = stackalloc Range[6];
+        var count = SplitWords(span, words);
+
+        return ReadPosition(span, words[..count], out var point) == GradientRefusal.None ? point : null;
+    }
+
+    /// <summary>Reads a <c>background-size</c>, as a fraction of the positioning area plus pixels.</summary>
+    /// <param name="text">The computed value.</param>
+    /// <returns>The tile's size, or null where it is the whole positioning area.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>auto</c>, <c>cover</c> and <c>contain</c> all return null, and that is CSS
+    ///         rather than a gap.</b> Backgrounds 3 § 3.9 resolves all three against the image's
+    ///         intrinsic dimensions and ratio; a gradient has neither, so <c>auto</c> is 100%,
+    ///         <c>contain</c> is the area and <c>cover</c> is the area. For the only kind of
+    ///         <c>background-image</c> this engine paints the three are one picture — which is also
+    ///         why <c>bg-auto</c>, <c>bg-cover</c> and <c>bg-contain</c> are not registered.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ A one-value form leaves the second axis <c>auto</c>, which for the same reason is the
+    ///         whole area and not the first value repeated.
+    ///     </para>
+    /// </remarks>
+    public static GradientPoint? ReadSize(string text) {
+        var span = text.AsSpan().Trim();
+        Span<Range> words = stackalloc Range[4];
+        var count = SplitWords(span, words);
+
+        if (count is 0 or > 2) {
+            return null;
+        }
+
+        var whole = new GradientOffset(1f, 0f);
+        var y = whole;
+
+        if (!ReadAxis(span[words[0]], out var x) || (count == 2 && !ReadAxis(span[words[1]], out y))) {
+            return null;
+        }
+
+        // The whole area in both axes is what the record's zero already says, so saying it again would
+        // write two lanes to describe the arrangement the shader has without them.
+        return x == whole && y == whole ? null : new GradientPoint(x, y);
+
+        static bool ReadAxis(ReadOnlySpan<char> word, out GradientOffset offset) {
+            if (word.Equals("auto", StringComparison.OrdinalIgnoreCase)
+                || word.Equals("cover", StringComparison.OrdinalIgnoreCase)
+                || word.Equals("contain", StringComparison.OrdinalIgnoreCase)) {
+                offset = new GradientOffset(1f, 0f);
+
+                return true;
+            }
+
+            return ReadLength(word, out offset);
+        }
+    }
+
+    /// <summary>Reads a CSS <c>&lt;position&gt;</c>: the words after an <c>at</c>.</summary>
+    /// <param name="text">The prelude the words index into.</param>
+    /// <param name="words">The components, already split.</param>
+    /// <param name="point">Receives the position.</param>
+    /// <returns>Why it was refused, or <see cref="GradientRefusal.None" />.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One and two components are the forms anybody writes and four is the edge-offset
+    ///         form; three is refused rather than guessed.</b> CSS Values 4 § 8.2 keeps a three-value
+    ///         syntax only for <c>background-position</c>'s legacy grammar, where it means an edge, an
+    ///         offset and a second edge — and the value it leaves out is the one whose absence changes
+    ///         which axis the offset belongs to. Guessing that is how a centre lands on the wrong side.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two keywords may be written in either order and two <i>values</i> may not.</b>
+    ///         <c>at top left</c> and <c>at left top</c> are the same point because each keyword names
+    ///         its own axis; <c>at 25% 75%</c> is across-then-down by position and nothing else. So the
+    ///         two-component case is decided by whether both halves are keywords, which is CSS's own
+    ///         rule and not a convenience.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Percentages and pixels, and every other unit is a refusal.</b> A <c>rem</c> or an
+    ///         <c>em</c> here would need the element's font size, which is resolved a long way from
+    ///         this parser — the same argument <see cref="GradientRefusal.Position" /> already makes
+    ///         about a stop written as a length. Refusing is what keeps the gradient visibly absent
+    ///         instead of centred on a number nobody meant.
+    ///     </para>
+    /// </remarks>
+    static GradientRefusal ReadPosition(ReadOnlySpan<char> text, ReadOnlySpan<Range> words, out GradientPoint point) {
+        point = GradientPoint.Middle;
+
+        switch (words.Length) {
+            case 0:
+                return GradientRefusal.Extent;
+
+            case 1: {
+                if (!ReadComponent(text[words[0]], out var only, out var axis)) {
+                    return GradientRefusal.Extent;
+                }
+
+                // A lone `top` or `bottom` is a vertical keyword and leaves the horizontal centred,
+                // which is the one place a single component is not the horizontal one.
+                point = axis == PositionAxis.Vertical
+                    ? new GradientPoint(GradientPoint.Middle.X, only)
+                    : new GradientPoint(only, GradientPoint.Middle.Y);
+
+                return GradientRefusal.None;
+            }
+
+            case 2: {
+                if (!ReadComponent(text[words[0]], out var first, out var firstAxis)
+                    || !ReadComponent(text[words[1]], out var second, out var secondAxis)) {
+                    return GradientRefusal.Extent;
+                }
+
+                if (firstAxis == PositionAxis.Vertical && secondAxis == PositionAxis.Horizontal) {
+                    point = new GradientPoint(second, first);
+
+                    return GradientRefusal.None;
+                }
+
+                if (firstAxis == PositionAxis.Vertical || secondAxis == PositionAxis.Horizontal) {
+                    // `at 25% left` and `at top bottom` name one axis twice, which is not a position.
+                    return GradientRefusal.Extent;
+                }
+
+                point = new GradientPoint(first, second);
+
+                return GradientRefusal.None;
+            }
+
+            case 4: {
+                if (!ReadEdgePair(text, words[0], words[1], PositionAxis.Horizontal, out var x)
+                    || !ReadEdgePair(text, words[2], words[3], PositionAxis.Vertical, out var y)) {
+                    return GradientRefusal.Extent;
+                }
+
+                point = new GradientPoint(x, y);
+
+                return GradientRefusal.None;
+            }
+
+            default:
+                return GradientRefusal.Extent;
+        }
+    }
+
+    /// <summary>Which axis a position keyword commits to.</summary>
+    enum PositionAxis : byte {
+        /// <summary>A number, or <c>center</c>: whichever axis it is written in.</summary>
+        Either,
+
+        /// <summary><c>left</c> or <c>right</c>.</summary>
+        Horizontal,
+
+        /// <summary><c>top</c> or <c>bottom</c>.</summary>
+        Vertical
+    }
+
+    /// <summary>One component of a position: a keyword, a percentage, or a length in pixels.</summary>
+    static bool ReadComponent(ReadOnlySpan<char> word, out GradientOffset offset, out PositionAxis axis) {
+        axis = PositionAxis.Either;
+
+        if (word.Equals("center", StringComparison.OrdinalIgnoreCase)) {
+            offset = new GradientOffset(0.5f, 0f);
+
+            return true;
+        }
+
+        if (word.Equals("left", StringComparison.OrdinalIgnoreCase)) {
+            (offset, axis) = (new GradientOffset(0f, 0f), PositionAxis.Horizontal);
+
+            return true;
+        }
+
+        if (word.Equals("right", StringComparison.OrdinalIgnoreCase)) {
+            (offset, axis) = (new GradientOffset(1f, 0f), PositionAxis.Horizontal);
+
+            return true;
+        }
+
+        if (word.Equals("top", StringComparison.OrdinalIgnoreCase)) {
+            (offset, axis) = (new GradientOffset(0f, 0f), PositionAxis.Vertical);
+
+            return true;
+        }
+
+        if (word.Equals("bottom", StringComparison.OrdinalIgnoreCase)) {
+            (offset, axis) = (new GradientOffset(1f, 0f), PositionAxis.Vertical);
+
+            return true;
+        }
+
+        return ReadLength(word, out offset);
+    }
+
+    /// <summary>An edge keyword followed by an inset from it: <c>right 10px</c>.</summary>
+    /// <remarks>
+    ///     ⚠ The inset runs <i>inwards</i> from the named edge, so <c>right 10px</c> is ten pixels from
+    ///     the right and not ten past the left — which is why the far edge negates rather than adds.
+    /// </remarks>
+    static bool ReadEdgePair(
+        ReadOnlySpan<char> text,
+        Range edge,
+        Range inset,
+        PositionAxis expected,
+        out GradientOffset offset
+    ) {
+        offset = default;
+
+        if (!ReadComponent(text[edge], out var anchor, out var axis)
+            || axis != expected
+            || !ReadLength(text[inset], out var away)) {
+            return false;
+        }
+
+        offset = anchor.Fraction > 0.5f
+            ? new GradientOffset(1f - away.Fraction, -away.Pixels)
+            : new GradientOffset(away.Fraction, away.Pixels);
+
+        return true;
+    }
+
+    /// <summary>A percentage or a length this parser can resolve without a font.</summary>
+    static bool ReadLength(ReadOnlySpan<char> word, out GradientOffset offset) {
+        offset = default;
+
+        if (word.EndsWith("%", StringComparison.Ordinal)) {
+            if (!float.TryParse(word[..^1], NumberStyles.Float, CultureInfo.InvariantCulture, out var percent)) {
+                return false;
+            }
+
+            offset = new GradientOffset(percent / 100f, 0f);
+
+            return true;
+        }
+
+        // ⚠ `px` or a bare zero, and nothing else. A unitless non-zero length is not CSS at all, and
+        // `rem` and `em` need a font size resolved a long way from here — see this method's remark.
+        if (word.EndsWith("px", StringComparison.OrdinalIgnoreCase)) {
+            if (!float.TryParse(word[..^2], NumberStyles.Float, CultureInfo.InvariantCulture, out var pixels)) {
+                return false;
+            }
+
+            offset = new GradientOffset(0f, pixels);
+
+            return true;
+        }
+
+        if (word.Equals("0", StringComparison.Ordinal)) {
+            offset = new GradientOffset(0f, 0f);
+
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>Maps a CSS colour space name onto one this shader mixes in.</summary>

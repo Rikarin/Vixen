@@ -34,7 +34,7 @@ A gradient has to survive three different authors without any of them being surp
 - **Code.** `BoxStyle.Vertical(colour)` builds one directly, with no CSS text anywhere.
 
 The reason there are three separate types rather than a bag of floats is `UiShape`: the record the
-box shader reads is seven `Vector4`s and every lane has one meaning. A shape, a stop list and a space
+box shader reads is nine `Vector4`s and every lane has one meaning. A shape, a stop list and a space
 are the three things that could not be inferred from the colours.
 
 ## Using it
@@ -86,11 +86,46 @@ is chosen for.
 Painted: all three shapes, two or three stops, stop positions inside or outside the box, and
 `in srgb` / `in srgb-linear` / `in oklab`.
 
+Also painted: an explicit `at <position>` on a radial or conic gradient, and the three properties
+that place the layer — `background-position`, `background-size` and `background-repeat`
+(`repeat`, `no-repeat`, `repeat-x`, `repeat-y`).
+
 Refused, and the box painted flat: a fourth stop, `repeating-*-gradient()`, a polar interpolation
 space (`in oklch`, `longer hue`), a stop position that is a length or a `calc()`, and an explicit
-centre or ending shape on a radial or conic gradient. The last of those is the trade that let the
-whole feature fit: CSS's defaults are *at center* with an extent that is a function of the box, so
-the common case needs no centre in the record at all.
+ending *shape* on a radial gradient — `circle`, `closest-side` and its three siblings, or a stated
+radius. Each of those names a different ellipse from the `farthest-corner` one this engine computes,
+so drawing them as farthest-corner is a ramp that ends in the wrong place. The centre is not among
+them any more, because moving a farthest-corner ellipse's centre leaves it a farthest-corner
+ellipse — see below.
+
+⚠ **`background-size: auto`, `cover` and `contain` are one picture here, and that is CSS.**
+Backgrounds 3 § 3.9 resolves all three against the image's intrinsic dimensions and ratio, and a
+gradient has neither: `auto` is 100%, and both keywords are the positioning area. So `bg-auto`,
+`bg-cover` and `bg-contain` are deliberately not registered as utilities — three classes that differ
+from each other and from the default in name only. `bg-size-[<length>]` is the spelling that does
+something. `background-repeat: round` and `space` are refused for a different reason: each is a
+second size computed from the box rather than a flag, and `space`'s gaps are not a period the
+shader's `mod` can express.
+
+### Two frames, and why a moved centre changes the reach
+
+`background-position` and `background-size` place a **tile** inside the border box; `at <position>`
+moves the **ramp** inside that tile. They are separate lanes — `UiShape.Area` and `UiShape.Paint` —
+because they are separate frames, and neither is written at all unless something said so.
+
+⚠ **A radial gradient's reach is the farthest-*side* distance from its centre, and that is exact.**
+CSS's default ending shape is `farthest-corner`: the `farthest-side` ellipse scaled to pass through
+the farthest corner. Both farthest-side distances are `max(c, extent − c)` per axis, and the farthest
+corner maximises each axis independently — so the corner always sits at `(fs.x, fs.y)` and the scale
+is always √2, wherever the centre is. The shader already reads `length(offset / reach) / √2`, so the
+reach it wants *is* the farthest-side pair, `tile + abs(centre)`, and the centred case reduces to the
+half size it used before the lane existed.
+
+⚠ **`background-repeat` is only observable beside a `background-size`.** With the tile equal to the
+border box every one of its keywords draws the same picture, which is why the parity ledger carried
+it as *refused, measured* until the placement lanes landed — a true measurement of a scene that could
+not tell the keywords apart. The sign of `UiShape.Area.zw` is the per-axis answer: positive tiles with
+a period of twice the component, negative paints one tile and clips outside it.
 
 ## Examples
 
@@ -102,6 +137,18 @@ the common case needs no centre in the record at all.
 
 /* A ramp that is flat for the first 40% and the last 40%. */
 .band   { background-image: linear-gradient(to bottom, #ff0000 40%, #0000ff 60%); }
+
+/* An off-centre glow, and a stripe tiled across the box. */
+.spot   { background-image: radial-gradient(at 25% 75% in oklab, #4f7cff, transparent); }
+.stripe { background-image: linear-gradient(to right, #4f7cff, transparent);
+          background-size: 12px 100%; }
+
+/* One tile, in the bottom right, with the background colour showing everywhere else. */
+.badge  { background-color: #1f1f26;
+          background-image: radial-gradient(#4f7cff, transparent);
+          background-size: 24px 24px;
+          background-position: 100% 100%;
+          background-repeat: no-repeat; }
 ```
 
 ```html

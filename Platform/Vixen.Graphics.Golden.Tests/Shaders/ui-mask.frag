@@ -62,6 +62,15 @@ struct MaskEntry {
     // value rather than merely the first name in the enum — so an entry nobody set an operator on
     // unions. The enum has no `None` on purpose; see the type, which records why.
     vec4 stops;
+
+    // The first tile's centre in document pixels, then half the tile — signed.
+    //
+    // ⚠ All zero means the tile is the mask box: no tiling, no clipping, and the arrangement every
+    // entry written before this lane existed had. The sign of `zw` is that axis's `mask-repeat` —
+    // positive tiles with a period of twice the component, negative paints one tile and gives *zero*
+    // coverage outside it. A half-extent has no natural sign, and the two readings are exclusive by
+    // construction. `Shape.area` in `ui-box.frag` uses the identical encoding.
+    vec4 area;
 };
 
 // ⚠ In the same set and at the same binding the box shader reads its shapes from, which is what lets
@@ -135,9 +144,41 @@ float mask_progress(vec2 offset, vec2 half_size, vec2 axis, int kind) {
     return ((dot(offset, direction) / max(reach, 1e-4)) * 0.5) + 0.5;
 }
 
+// Where a point sits inside the tile it lands in, as an offset from that tile's centre.
+//
+// ⚠ `floor` rather than a `fract`-based wrap, so a negative offset lands in the tile below rather than
+// mirroring into the one above.
+float mask_wrap(float value, float half_tile) {
+    float period = half_tile * 2.0;
+    float shifted = value + half_tile;
+
+    return shifted - (period * floor(shifted / period)) - half_tile;
+}
+
 // One entry's coverage at a point, in document pixels. `UiMask.Coverage` is the transcription.
 float mask_coverage(MaskEntry entry, vec2 point) {
-    float progress = mask_progress(point - entry.box.xy, entry.box.zw, entry.ramp.xy, int(entry.ramp.z + 0.5));
+    vec2 local = point;
+
+    if (entry.area.z != 0.0 || entry.area.w != 0.0) {
+        vec2 tile = abs(entry.area.zw);
+        vec2 inside = point - entry.area.xy;
+
+        // Outside a tile that does not repeat there is no layer, and no layer is zero coverage — not
+        // the ramp's end value clamped, which is what doing nothing here would give.
+        if ((entry.area.z <= 0.0 && abs(inside.x) > tile.x)
+            || (entry.area.w <= 0.0 && abs(inside.y) > tile.y)) {
+            return 0.0;
+        }
+
+        // ⚠ Back into document pixels rather than staying tile-relative: `box.xy` is the ramp's own
+        // centre *in the first tile* and is absolute.
+        local = entry.area.xy + vec2(
+            entry.area.z > 0.0 ? mask_wrap(inside.x, tile.x) : inside.x,
+            entry.area.w > 0.0 ? mask_wrap(inside.y, tile.y) : inside.y
+        );
+    }
+
+    float progress = mask_progress(local - entry.box.xy, entry.box.zw, entry.ramp.xy, int(entry.ramp.z + 0.5));
 
     return entry.ramp.w > 0.5
         ? (progress < entry.stops.x

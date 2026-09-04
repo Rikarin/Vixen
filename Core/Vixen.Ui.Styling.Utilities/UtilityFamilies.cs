@@ -35,6 +35,52 @@ enum ValueKind : byte {
     /// </remarks>
     CountTemplate,
 
+    /// <summary>An angle in whole degrees substituted into a template: <c>bg-conic-180</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="CountTemplate" /> with one difference, and the difference is zero.</b>
+    ///         <c>TryCount</c> refuses a count of zero, which is right for every family that has
+    ///         one — <c>grid-cols-0</c> is <c>repeat(0, …)</c>, which is not a track list, and
+    ///         <c>col-span-0</c> is not a span. An <i>angle</i> of zero is a real value that means
+    ///         something specific: <c>bg-linear-0</c> is a ramp running upwards and
+    ///         <c>bg-conic-0</c> is a sweep starting at twelve o'clock. Sharing the count's parser
+    ///         would have left both of those reported as unrecognised typos, which is what they were
+    ///         before this kind existed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Non-negative, and the reason is <c>TryNegate</c> rather than CSS.</b>
+    ///         Negation is applied to the resolved declaration and refuses any value that does not
+    ///         begin with a digit — and this kind's value is a whole <c>linear-gradient(…)</c>, so
+    ///         <c>-bg-linear-45</c> cannot be flipped after the fact. Every negative angle has a
+    ///         positive spelling (<c>bg-linear-315</c>), so the gap is a spelling and not a
+    ///         capability; it is recorded on the row rather than papered over by inventing a second
+    ///         negation path.
+    ///     </para>
+    /// </remarks>
+    Angle,
+
+    /// <summary>A CSS <c>&lt;position&gt;</c> or a pair of lengths, written as an arbitrary value.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Arbitrary-valued because Tailwind gives these two roots no named scale at all, and
+    ///         inventing one is the failure <c>bg-conic-&lt;angle&gt;</c> is recorded under.</b> v4
+    ///         spells <c>background-size</c> and <c>background-position</c> as
+    ///         <c>bg-size-[&lt;value&gt;]</c> and <c>bg-position-[&lt;value&gt;]</c> — the keyword
+    ///         forms it does ship (<c>bg-cover</c>, <c>bg-center</c>) hang off the bare <c>bg</c>
+    ///         root, which is a different family.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Its own kind rather than <see cref="Static" />, because a family whose only
+    ///         surface is an arbitrary value is one <c>UtilityConsumptionGateTests</c> would never
+    ///         meet.</b> <c>ValuesFor</c> yields an arbitrary probe for this kind and for no
+    ///         other — which is what makes these two families measurable rather than vacuously green,
+    ///         and is exactly the objection that keeps <c>font-features-*</c> unregistered one section
+    ///         up. The difference is the class name: a length and a percentage escape into a
+    ///         selector, and the quotes <c>font-feature-settings</c> requires do not.
+    ///     </para>
+    /// </remarks>
+    Placement,
+
     /// <summary>One of a fixed set of keywords: <c>items-center</c>.</summary>
     Keyword,
 
@@ -1066,6 +1112,14 @@ public static class UtilityFamilies {
         // ⚠ `bg-linear` is registered *after* `bg`, and it still wins for `bg-linear-to-r`, because
         // `SplitName` sorts longest-first at the bottom of this method rather than trusting the order
         // things appear in here. `bg-accent` is unaffected, and so are `bg-radial` and `bg-conic`.
+        //
+        // ⚠ <b>The angle form is registered <i>first</i> and the keyword table second, and that order
+        // is the whole reason both spellings work.</b> `Register` keeps the first family under a name
+        // and merges nothing but a later keyword table into it — so a `Keywords` call first would
+        // make the family's `ValueKind` `Keyword`, and `bg-linear-45` would fall out of the table and
+        // be reported as an unrecognised typo. The same shape as `StaticOrSize`, one section up.
+        Register(new Family("bg-linear", ValueKind.Angle, ["background-image"], Template: Gradient("linear", "{0}")));
+
         Keywords("bg-linear", "background-image", new() {
             ["to-t"] = Gradient("linear", "to top"), ["to-tr"] = Gradient("linear", "to top right"),
             ["to-r"] = Gradient("linear", "to right"), ["to-br"] = Gradient("linear", "to bottom right"),
@@ -1073,15 +1127,74 @@ public static class UtilityFamilies {
             ["to-l"] = Gradient("linear", "to left"), ["to-tl"] = Gradient("linear", "to top left")
         });
 
-        // ⚠ <b>The two round shapes take no geometry at all, and that is Tailwind's own default
-        // rather than a simplification.</b> `bg-radial` is `radial-gradient(in oklab, …)` — no
-        // `at`, no ending shape — because CSS's defaults are a centred farthest-corner ellipse, and
-        // `bg-conic` is the same story with a sweep from twelve o'clock. Tailwind reaches the
-        // positioned forms only through its arbitrary-value syntax, and those are what
-        // `GradientRefusal.Extent` refuses: they need a centre in `UiShape`, which is a whole further
-        // `Vector4` for a form no theme in this repository writes.
+        // ⚠ <b>The two round shapes take no geometry when they are written bare, and that is
+        // Tailwind's own default rather than a simplification.</b> `bg-radial` is
+        // `radial-gradient(in oklab, …)` — no `at`, no ending shape — because CSS's defaults are a
+        // centred farthest-corner ellipse, and bare `bg-conic` is the same story with a sweep from
+        // twelve o'clock.
         Static("bg-radial", "background-image", Gradient("radial", string.Empty));
+
+        // ⚠ <b>`bg-conic-<angle>` was owed by the *utility* table and by nothing below it.</b>
+        // `GradientReader.ReadPrelude` has read `from <angle>` since conic gradients landed, and the
+        // box shader recovers it from the axis lane with `atan2(x, -y)` — so this line is the whole
+        // of the feature, and writing it earlier was blocked only on a value kind that admits zero.
+        // The bare `bg-conic` keeps its own registration below, which is what `Register` merges in.
+        Register(new Family("bg-conic", ValueKind.Angle, ["background-image"], Template: Gradient("conic", "from {0}")));
         Static("bg-conic", "background-image", Gradient("conic", string.Empty));
+
+        // ⚠ <b>`bg-none` is the opt-out and the eight `bg-gradient-to-*` are v3's spelling, and both
+        // hang off the bare `bg` root rather than off `bg-linear`.</b> That is Tailwind's own
+        // arrangement — v4 keeps `bg-gradient-to-*` in `compat/legacy-utilities.ts`, aliased to
+        // exactly what `bg-linear-to-*` emits — and it is the same argument `start-*` beside
+        // `inset-s-*` and `break-words` beside `wrap-break-word` are kept under: the declaration
+        // people already have in their fingers, under the name they have it in.
+        //
+        // ⚠ <b>`bg-none` earns its place the way `text-clip` and `filter-none` do.</b> It is CSS's
+        // initial value, so it says nothing on an element that has no gradient — but
+        // `background-image` is a property a `@apply`-ed component or a theme rule can have set, and
+        // `GradientReader` reads `none` as `GradientRefusal.NotAGradient` and paints no layer. There
+        // is no other way to write "whatever gradient you gave me, not here".
+        // ⚠ <b>The two placement roots, and they are only observable together — which is why they
+        // land in one commit with the engine that reads them.</b> `background-position` moves the tile
+        // a `background-size` made smaller than the box, and `background-repeat` decides what happens
+        // outside it; with the tile equal to the border box all three are the same picture, which is
+        // the measurement the ledger carried as `refused, measured` for the repeat root.
+        //
+        // ⚠ <b>`bg-auto`, `bg-cover` and `bg-contain` are deliberately NOT registered, and the reason
+        // is CSS rather than a missing reader.</b> Backgrounds 3 § 3.9 resolves all three against the
+        // image's intrinsic dimensions and ratio — a gradient has neither, so `auto` is 100%,
+        // `contain` is the positioning area and `cover` is the positioning area. For the only kind of
+        // `background-image` this engine paints the three are one picture *and the same picture as the
+        // default*, which is three classes that differ from each other and from nothing else in name
+        // only. That is the inert family `UtilityConsumptionGateTests` exists to keep out, and it
+        // would be invisible to that gate: `background-size` is read. Recorded on the row instead.
+        Register(new Family("bg-size", ValueKind.Placement, ["background-size"]));
+        Register(new Family("bg-position", ValueKind.Placement, ["background-position"]));
+
+        // ⚠ <b>Four of v4's six, and the two that are absent are absent for `divide-solid`'s reason
+        // rather than for a lane.</b> `round` rescales the tile so a whole number of them fits and
+        // `space` distributes the remainder as gaps — both are a *second* size computed from the box,
+        // not a flag, and `space`'s gaps are not a period a `mod` can express. `DrawListBuilder.Repeat`
+        // drops a declaration naming either, which leaves CSS's initial `repeat`; registering them
+        // would be two classes that resolve, compute and tile exactly like `bg-repeat`.
+        Keywords("bg", "background-repeat", new() {
+            ["repeat"] = "repeat",
+            ["no-repeat"] = "no-repeat",
+            ["repeat-x"] = "repeat-x",
+            ["repeat-y"] = "repeat-y"
+        });
+
+        Keywords("bg", "background-image", new() {
+            ["none"] = "none",
+            ["gradient-to-t"] = Gradient("linear", "to top"),
+            ["gradient-to-tr"] = Gradient("linear", "to top right"),
+            ["gradient-to-r"] = Gradient("linear", "to right"),
+            ["gradient-to-br"] = Gradient("linear", "to bottom right"),
+            ["gradient-to-b"] = Gradient("linear", "to bottom"),
+            ["gradient-to-bl"] = Gradient("linear", "to bottom left"),
+            ["gradient-to-l"] = Gradient("linear", "to left"),
+            ["gradient-to-tl"] = Gradient("linear", "to top left")
+        });
 
         // ── Borders ─────────────────────────────────────────────────────────────────────────
         // ⚠ `border-2` is two *pixels* where `p-2` is two spacing steps, which is Tailwind's choice
@@ -1490,6 +1603,36 @@ public static class UtilityFamilies {
         // already writes one.</b> `intersect` is what the families emit because it is what makes an
         // unfilled layer harmless; an author combining a radial and a conic deliberately may well
         // want `subtract` or `exclude` instead, and there is no other way to say so from a class.
+        // ⚠ <b>The nine positions, and they set a fragment rather than writing the whole layer</b> —
+        // `mask-radial-at-top mask-radial-from-40%` is two classes that have to agree about one
+        // `mask-image`, which is what the fragments exist for. Tailwind's own spelling: `at` is part
+        // of the class name, not of the value.
+        //
+        // ⚠ <b>`mask-radial-*`'s other half — the ending shapes, `mask-circle`, `mask-ellipse`,
+        // `mask-radial-closest-side` and its three siblings — is deliberately NOT registered, and
+        // that is a refusal with a named blocker rather than an omission.</b> Each of those names a
+        // different ellipse from the `farthest-corner` one this engine computes, so
+        // `GradientReader` refuses them as `GradientRefusal.Extent` — and a refused layer is not a
+        // slightly wrong mask, it is *no mask at all*, so registering them would make the class
+        // delete the masking it was written to shape. They land when `UiMask` carries a stated pair
+        // of radii; the centre could land without them because moving a farthest-corner ellipse
+        // leaves it one.
+        Keywords("mask-radial-at", UtilityComposition.MaskRadialPosition, new() {
+            ["top"] = "top", ["top-left"] = "top left", ["top-right"] = "top right",
+            ["left"] = "left", ["center"] = "center", ["right"] = "right",
+            ["bottom"] = "bottom", ["bottom-left"] = "bottom left", ["bottom-right"] = "bottom right"
+        }, [.. MaskAlongside(UtilityComposition.MaskRadial, Radial)]);
+
+        // ⚠ <b>`mask-mode`, and it is the one property of the six that costs no lane and no branch.</b>
+        // CSS Masking 1 § 7.2 makes a luminance mask `luminance(rgb) × a` — a scalar per stop — so
+        // `DrawListBuilder.MaskAlphas` computes it from colours it already has and writes it into the
+        // same three floats the alpha reading fills. `match-source` is `alpha` for every image that is
+        // not an SVG `<mask>`, which is every image here; it earns its place as the opt-out from a
+        // `mask-luminance` a component set, the same argument `text-clip` and `filter-none` make.
+        Static("mask-alpha", "mask-mode", "alpha");
+        Static("mask-luminance", "mask-mode", "luminance");
+        Static("mask-match", "mask-mode", "match-source");
+
         Static("mask-add", "mask-composite", "add");
         Static("mask-subtract", "mask-composite", "subtract");
         Static("mask-intersect", "mask-composite", "intersect");
@@ -1520,6 +1663,28 @@ public static class UtilityFamilies {
         // ⚠ Its own family rather than a keyword on one of the above, because `mask-none` has to work
         // where nothing else set a mask — a keyword hanging off `mask-linear` would need the author to
         // have written a `mask-linear-*` first.
+        // ⚠ <b>The mask's placement trio, and the same three shapes the background's has — because CSS
+        // gives them one grammar apiece.</b> Masking 1 § 4 defers to Backgrounds 3 for
+        // `mask-position`, `mask-size` and `mask-repeat`, so these are `ValueKind.Placement` and a
+        // keyword table for exactly the reasons written up beside `bg-size-*` two hundred lines up:
+        // v4 gives the first two no named scale, and `round`/`space` are a second size computed from
+        // the box rather than a flag.
+        //
+        // ⚠ <b>`mask-repeat-*` is not one of the nine roots doc 43 lists as owed, and it is here
+        // anyway, because `mask-size-*` is wrong without it.</b> CSS's initial `mask-repeat` is
+        // `repeat`; a mask tile smaller than the box that did not tile would be `no-repeat` under
+        // another name, and every `mask-size-*` in the world would draw one tile with its last stop
+        // smeared across the rest of the element.
+        Register(new Family("mask-size", ValueKind.Placement, ["mask-size"]));
+        Register(new Family("mask-position", ValueKind.Placement, ["mask-position"]));
+
+        Keywords("mask", "mask-repeat", new() {
+            ["repeat"] = "repeat",
+            ["no-repeat"] = "no-repeat",
+            ["repeat-x"] = "repeat-x",
+            ["repeat-y"] = "repeat-y"
+        });
+
         Static("mask-none", "mask-image", "none");
 
         // A token names a whole declaration rather than a number, because a shadow is a designed
@@ -1596,11 +1761,54 @@ public static class UtilityFamilies {
         });
 
         // ── Transitions ─────────────────────────────────────────────────────────────────────
+        //
+        // ⚠ <b>The duration rides alongside, and without it the class was half of one.</b>
+        // `transition-duration` defaults to <i>zero</i>, so a `transition` that named a property and
+        // set no duration was a declaration that could not move a pixel — `class="transition"` did
+        // nothing at all unless a `duration-*` happened to sit beside it. That is not a smaller family
+        // than Tailwind's, it is a family whose single value is inert on its own, which is the shape
+        // the consumption gate exists to refuse and could not see here: `transition-property` measures
+        // as read off the `primed` scene, where the duration comes from the scene and not the class.
+        //
+        // ⚠ <b>The duration is the ONLY half that was missing, and the timing function is deliberately
+        // not written — v4 emits `ease` and so does this, by saying nothing.</b> Tailwind's `transition`
+        // sets `150ms` and `ease`; CSS's initial `transition-duration` is `0s`, which is why the first
+        // is load-bearing, but its initial `transition-timing-function` is *already* `ease`, and
+        // `Animator.ReadSpecs` falls back to `TimingFunction.Ease` for exactly that reason. Emitting it
+        // anyway would buy nothing and cost `ease-*`, which sorts before `transition` and would be
+        // overwritten by it — see the ordering note below.
+        //
+        // ⚠ <b>150 ms is v4's own number, not a choice made here.</b> A different default would make
+        // the same class name mean a different animation in the two systems — the failure
+        // `bg-conic-<angle>` is recorded under, arriving where it would be much harder to see.
+        //
+        // ⚠ <b>Through the composition fragments and NOT as two plain declarations, and the test that
+        // says why is `TransitionUtilityTests.A_duration_beside_it_overrides_the_families_own_default`
+        // — it was written against the plain version and it failed.</b> `UtilityGenerator` writes its
+        // rules in ordinal class-name order for byte-determinism, which makes class-name order the
+        // cascade order between two utilities of equal specificity; `duration-1000` sorts before
+        // `transition`, so a `transition` writing `transition-duration: 150ms` directly lands after it
+        // and wins. `class="transition duration-1000"` — the way the class is actually written —
+        // would have become a 150 ms transition, which is a regression wearing a fix's clothes.
+        // A `var(--tw-duration, 150ms)` takes the fragment whichever rule comes second.
         Register(new Family("transition", ValueKind.Static, ["transition-property"], new Dictionary<string, string>(StringComparer.Ordinal) {
             [string.Empty] = "all"
-        }));
+        }, Alongside: [
+            new UtilityDeclaration("transition-duration", UtilityComposition.Reference(UtilityComposition.TransitionDuration))
+        ]));
 
-        Register(new Family("duration", ValueKind.Duration, ["transition-duration"]));
+        // ⚠ Both the fragment and the longhand, which is v4's shape too. The longhand alone would be
+        // invisible to the `transition` above; the fragment alone would make the family `composed`,
+        // and `duration-*` has to keep working beside a hand-written `transition-property` that knows
+        // nothing about any `--tw-*`.
+        Register(new Family("duration", ValueKind.Duration, ["transition-duration", UtilityComposition.TransitionDuration]));
+
+        // ⚠ <b>`transition-delay` had a reader before it had a class</b> — `Animator.ReadSpecs` reads
+        // it into `RunningTransition.Delay`, which `Progress` and `IsFinished` both consult — so this
+        // is a family gap and not an engine one, and the `Duration` kind it shares with `duration-*`
+        // is the whole of what it needed. That asymmetry is why `delay-*` lands here while `animate-*`
+        // does not: one was missing a spelling, the other is missing three mechanisms.
+        Register(new Family("delay", ValueKind.Duration, ["transition-delay"]));
 
         Keywords("ease", "transition-timing-function", new() {
             ["linear"] = "linear", ["in"] = "ease-in", ["out"] = "ease-out", ["in-out"] = "ease-in-out"
@@ -1909,6 +2117,23 @@ public static class UtilityFamilies {
                 yield return "2";
                 break;
 
+            // ⚠ Forty-five and not two, and not zero either. Zero is the one value of an angle family
+            // that is often the *default* — `bg-conic-0` is the sweep `bg-conic` already draws — so a
+            // probe written with it would measure the family inert on any engine that reads the
+            // property, which is the shape of vacuity this list has been wrong about nine times.
+            case ValueKind.Angle:
+                yield return "45";
+                break;
+
+            // ⚠ An arbitrary probe, and the only one in this method. A `Placement` family has no named
+            // scale to enumerate, so without this line it would contribute nothing to `Surface`, the
+            // consumption gate would never meet it, and it would pass vacuously for ever — see the
+            // kind's own remark. A quarter rather than the whole, because a layer sized to the whole
+            // positioning area is the arrangement the record already has and moves nothing.
+            case ValueKind.Placement:
+                yield return "[25%_75%]";
+                break;
+
             case ValueKind.Duration:
                 yield return "300";
                 break;
@@ -2118,6 +2343,16 @@ public static class UtilityFamilies {
                     && EmitInto(family.ColorProperties, arbitrary, declarations);
             }
 
+            // ⚠ <b>An angle family is the one kind whose declaration is not its value, so the hatch
+            // has to go through the template rather than around it.</b> <c>bg-conic-[3rad]</c> means
+            // a sweep of three radians; emitting <c>background-image: 3rad</c> is a declaration
+            // `StyleValueParser` drops whole, which would take the element's stop list with it. This
+            // is `hue-rotate`'s argument one level up: there the template appends a unit, here it
+            // wraps the value in the function it belongs to.
+            if (family.Kind == ValueKind.Angle) {
+                return Emit(family, string.Format(CultureInfo.InvariantCulture, family.Template!, arbitrary), declarations);
+            }
+
             return Emit(family, arbitrary, declarations);
         }
 
@@ -2145,6 +2380,12 @@ public static class UtilityFamilies {
             ValueKind.Number => TryNumber(candidate.Value, out var number) && Emit(family, number, declarations),
             ValueKind.CountTemplate => TryCount(candidate.Value, out var count)
                 && Emit(family, string.Format(CultureInfo.InvariantCulture, family.Template!, count), declarations),
+            ValueKind.Angle => TryAngle(candidate.Value, out var degrees)
+                && Emit(family, string.Format(CultureInfo.InvariantCulture, family.Template!, degrees + "deg"), declarations),
+
+            // The arbitrary branch above has already answered every value this kind takes; a bare one
+            // is a class v4 does not have, and inventing it here is what this kind's remark refuses.
+            ValueKind.Placement => false,
             ValueKind.Duration => TryNumber(candidate.Value, out var ms) && Emit(family, ms + "ms", declarations),
             ValueKind.Fraction => TryFraction(candidate.Value, out var fraction) && Emit(family, fraction, declarations),
             ValueKind.Radius => TryRadius(candidate.Value, tokens, out var radius) && Emit(family, radius, declarations),
@@ -2711,6 +2952,10 @@ public static class UtilityFamilies {
     static bool TryCount(string value, out int count) =>
         int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out count) && count > 0;
 
+    /// <summary>A whole number of degrees. Zero is a value, which is the whole of why this is not <see cref="TryCount" />.</summary>
+    static bool TryAngle(string value, out int degrees) =>
+        int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out degrees) && degrees >= 0;
+
     static bool Emit(Family family, string value, List<UtilityDeclaration> declarations) =>
         EmitInto(family.Properties, value, declarations);
 
@@ -2986,8 +3231,17 @@ public static class UtilityFamilies {
     /// <summary>A linear mask, swept by <c>--tw-mask-linear-angle</c>.</summary>
     static string Linear => UtilityComposition.MaskImage("linear", UtilityComposition.Reference(UtilityComposition.MaskLinearAngle));
 
-    /// <summary>A round mask. CSS's default is a centred farthest-corner ellipse, which is what Tailwind means.</summary>
-    static string Radial => UtilityComposition.MaskImage("radial", string.Empty);
+    /// <summary>A round mask, centred where <c>mask-radial-at-*</c> put it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The <c>at</c> is written unconditionally and its fragment defaults to <c>center</c>,
+    ///     which is CSS's own default — so this says what "no geometry at all" said before it.</b>
+    ///     <c>DrawListBuilder.MaskFrame</c> resolves a centred position to a zero offset and the box's
+    ///     half size, which is the record a radial mask already had; the alternative, emitting the
+    ///     <c>at</c> only from <c>mask-radial-at-*</c>, would need that class to win the cascade
+    ///     against every other <c>mask-radial-*</c> on the element, and it does not.
+    /// </remarks>
+    static string Radial =>
+        UtilityComposition.MaskImage("radial", $"at {UtilityComposition.Reference(UtilityComposition.MaskRadialPosition)}");
 
     /// <summary>A swept mask, started by <c>--tw-mask-conic-angle</c>.</summary>
     static string Conic => UtilityComposition.MaskImage("conic", $"from {UtilityComposition.Reference(UtilityComposition.MaskConicAngle)}");

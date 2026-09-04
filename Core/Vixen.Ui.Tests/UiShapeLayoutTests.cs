@@ -63,7 +63,9 @@ public class UiShapeLayoutTests {
         ("Axis", "axis"),
         ("End", "endColour"),
         ("Mid", "midColour"),
-        ("Stops", "stops")
+        ("Stops", "stops"),
+        ("Paint", "paint"),
+        ("Area", "area")
     ];
 
     [Fact]
@@ -132,7 +134,11 @@ public class UiShapeLayoutTests {
             new Color4(0.21f, 0.22f, 0.23f, 0.24f),
             hasVia: true,
             new GradientStops(0.1f, 0.4f, 0.9f),
-            blur: 7f
+            blur: 7f,
+            paintCentre: new Vector2(31f, 32f),
+            paintExtent: new Vector2(33f, 34f),
+            areaCentre: new Vector2(41f, 42f),
+            areaHalf: new Vector2(43f, -44f)
         );
 
         var floats = MemoryMarshal.Cast<UiShape, float>(MemoryMarshal.CreateReadOnlySpan(ref shape, 1));
@@ -148,6 +154,13 @@ public class UiShapeLayoutTests {
         AssertLane(floats, members["endColour"], [0.11f, 0.12f, 0.13f, 0.14f]);
         AssertLane(floats, members["midColour"], [0.21f, 0.22f, 0.23f, 0.24f]);
         AssertLane(floats, members["stops"], [0.1f, 0.4f, 0.9f, 1f]);
+
+        // ⚠ The negative is not a typo and is the one lane on this record whose sign carries meaning:
+        // `area.w` below zero is `background-repeat: no-repeat` down the vertical axis. A constructor
+        // that took the absolute value on the way in would tile a layer that asked not to be, and
+        // every other assertion in this file would stay green.
+        AssertLane(floats, members["paint"], [31f, 32f, 33f, 34f]);
+        AssertLane(floats, members["area"], [41f, 42f, 43f, -44f]);
     }
 
     /// <summary>The two lanes whose zero the growth relied on meaning what it used to mean.</summary>
@@ -174,6 +187,16 @@ public class UiShapeLayoutTests {
         var flat = new UiShape(new Vector2(4f, 4f), 0f, default, default, Vector2.Zero);
 
         Assert.Equal(0f, flat.Size.W);
+
+        // ⚠ And the two lanes added after it are zero, which is what the second growth relied on:
+        // `paint.zw` of zero is "the ramp is the box" and `area.zw` of zero is "the tile is the box,
+        // do not tile and do not clip". A record that defaulted either to the box's own half size
+        // would say the same thing in a way the shader's fast-path guard could not recognise, and
+        // every gradient in the interface would take the tiling branch to arrive where it started.
+        Assert.Equal(Vector4.Zero, shape.Paint);
+        Assert.Equal(Vector4.Zero, shape.Area);
+        Assert.Equal(Vector4.Zero, flat.Paint);
+        Assert.Equal(Vector4.Zero, flat.Area);
     }
 
     static void AssertLane(ReadOnlySpan<float> floats, Member member, float[] expected) {
