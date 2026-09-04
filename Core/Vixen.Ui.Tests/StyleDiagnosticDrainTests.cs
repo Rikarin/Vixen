@@ -376,4 +376,85 @@ public class StyleDiagnosticDrainTests {
         Assert.Single(warnings, record => !record.Message.Contains(".badge", StringComparison.Ordinal));
         Assert.Single(warnings, record => !record.Message.Contains(".card", StringComparison.Ordinal));
     }
+
+    /// <summary>
+    ///     ⚠ <b>The <i>loader</i> threads a rule too, and the four tests above only exercise the
+    ///     compiler's.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>SelectorDiagnostic.Rule</c> is supplied at twelve construction sites. Six are the
+    ///         compiler's one <c>Refuse</c> helper, which the tests above cover between them; five
+    ///         are at-rules whose fragment is their own rule, covered by
+    ///         <see cref="A_refusal_whose_fragment_is_its_own_rule_stays_on_the_shorter_message" />.
+    ///         The twelfth is <c>StyleSheetLoader.Collect</c>, which takes the rule as a
+    ///         <i>parameter</i> from two callers, and neither leg had a test. Deleting either
+    ///         argument left the whole suite green — which is the same "one site checked, a second
+    ///         supplies the same value" trap that has made a sabotage prove nothing here before.
+    ///     </para>
+    ///     <para>
+    ///         This is the ordinary-rule leg. A shorthand the expander cannot take apart is refused
+    ///         with the declaration as its fragment, and <c>border: var(--x) solid</c> is the same
+    ///         six words in every rule that carries it — so two rules with the same unexpandable
+    ///         shorthand are the exact pair issue #520 is about, one level away from the selectors
+    ///         above.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_shorthand_the_loader_cannot_split_names_the_rule_it_was_written_in() {
+        var (document, sink) = Watched();
+        using var owned = document;
+
+        document.Load(".panel { border: var(--x) solid } .tray { border: var(--x) solid }");
+
+        var warnings = Warnings(sink);
+        Assert.Equal(2, warnings.Count);
+
+        var panel = Assert.Single(warnings, record => record.Message.Contains(".panel", StringComparison.Ordinal));
+        var tray = Assert.Single(warnings, record => record.Message.Contains(".tray", StringComparison.Ordinal));
+
+        Assert.DoesNotContain(".tray", panel.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(".panel", tray.Message, StringComparison.Ordinal);
+
+        foreach (var warning in warnings) {
+            Assert.Equal(7006, warning.EventId.Id);
+            Assert.Contains("could not be taken apart", warning.Message, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Inside <c>@keyframes</c> the rule is the <i>offset</i>, not the animation.</b>
+    /// </summary>
+    /// <remarks>
+    ///     The loader's second <c>Collect</c> caller, and the distinction is the whole reason it is
+    ///     written the way it is: <c>@keyframes fade</c> may have six stops, and naming the animation
+    ///     would leave a reader to find which of them carries the declaration. Two stops with the same
+    ///     unexpandable shorthand is the arrangement that tells the two spellings apart — naming the
+    ///     animation gives two identical messages, which is precisely the state before #520.
+    /// </remarks>
+    [Fact]
+    public void A_shorthand_refused_inside_keyframes_names_the_offset_rather_than_the_animation() {
+        var (document, sink) = Watched();
+        using var owned = document;
+
+        document.Load(
+            """
+            @keyframes fade {
+                0%   { border: var(--x) solid }
+                100% { border: var(--x) solid }
+            }
+            """
+        );
+
+        var warnings = Warnings(sink);
+        Assert.Equal(2, warnings.Count);
+
+        Assert.Single(warnings, record => record.Message.Contains("{ 0% }", StringComparison.Ordinal));
+        Assert.Single(warnings, record => record.Message.Contains("{ 100% }", StringComparison.Ordinal));
+
+        foreach (var warning in warnings) {
+            Assert.Equal(7006, warning.EventId.Id);
+            Assert.Contains("@keyframes fade", warning.Message, StringComparison.Ordinal);
+        }
+    }
 }

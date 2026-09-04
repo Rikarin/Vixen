@@ -945,19 +945,59 @@ section set has now been met and answered: still no.
 
 ### ⚠ "Byte-identical in N dumped states" is a wave note, not a test
 
-Nine rows below and half the prose above claim a port was byte-identical in three, six, seven, eight,
-nine, fifteen or sixteen dumped states. **Three test files in the whole editor dump a tree**, and all
-three belong to the shared parts: `FactRowTests`, `FactBlockTests`, `WaterFactsTests`. Every other
-dump was a throwaway harness, run once, compared by eye or by `diff`, and deleted — which is exactly
-what wave 5's note about `CompiledSceneView` asked for and is *not* what a reader of this table would
-assume. Nothing in the tree re-checks any of them, so a later change that moves those pixels is a
-change no gate will notice.
+Nine rows below and five paragraphs of prose claim a port was byte-identical in three, six, seven,
+eight, nine, fifteen, sixteen or twenty-seven dumped states — **ninety-seven states in total**. Every
+one of those dumps was a throwaway harness, run once, compared by eye or by `diff`, and deleted, which
+is exactly what wave 5's note about `CompiledSceneView` asked for and is *not* what a reader of this
+table would assume. The claims are believed — each was made by somebody who ran the comparison — and
+they are **evidence about a commit, not coverage**.
 
-Found while converting `RemoteInspectorClient` (build item 8), whose row claims eight of nine states:
-its committed guard is `PortedPanelTests`, which asserts behaviour and not geometry. The claims are
-believed — each was made by somebody who ran the comparison — and they are **evidence about a
-commit**, not coverage. Whoever next wants one of these to hold should promote the harness rather
-than trust the sentence, and the three that exist are the pattern to copy.
+⚠ **And the risk is not hypothetical.** Wave 7 shipped `StandardFrameView` with `@if (QualityRows == 0)`
+over a plain `int` — no signal dependency at all, evaluated once and never again — and the dumps
+matched byte-for-byte across six states, because every state had rows.
+
+⚠ **This paragraph said "three test files in the whole editor dump a tree" and that has been wrong
+since wave 8.** It is a claim about the tree written in a document, which is the same failure the
+sentence above it describes. There are **eight**, and the correction is the point: the number was
+right when written and nobody re-derived it.
+
+| File | What it gates |
+|---|---|
+| `Vixen.Editor.Ui.Tests/FactRowTests` | the shared `FactRow` part |
+| `Vixen.Editor.Terrain.Tests/FactBlockTests` | the shared `FactBlock` part |
+| `Vixen.Editor.Water.Tests/WaterFactsTests` | the shared water facts part |
+| `Vixen.Editor.Terrain.Tests/PaletteBlockTests` | the layer/palette blocks — the three hand-written-versus-part comparisons row 8 cites |
+| `Vixen.Editor.AssetEditors.Tests/ChromeDumpTests` | `CodeEditorView`, `ShaderGraphView`, `VfxGraphView`, `CompositorView` (wave 8) |
+| `Vixen.Editor.NodeGraph.Tests/NodeInspectorDumpTests` | `NodeInspector` (wave 8) |
+| `Vixen.Editor.App.Tests/AddComponentMenuDumpTests` | `AddComponentMenu` (wave 8) |
+| `Vixen.Editor.AssetEditors.Tests/InputActionsViewDumpTests` | `InputActionsView` (wave 9) |
+
+⚠ **There is no overlap between those eight and the nine claims.** Every panel with a committed dump
+is one whose row makes *no* byte-identical claim, and every panel that makes one has no dump. So the
+count going from three to eight closed none of this, and reading the two facts together as progress is
+the mistake this section exists to prevent.
+
+**Adjudicated, because "promote or strike" needs a verdict per row rather than a paragraph.**
+
+| Claim | States | Verdict |
+|---|---|---|
+| `CompiledSceneView` | 6 | **struck.** `CompiledSceneTests` never dumps |
+| `VariationHarnessView` | 6 | **struck.** `HarnessViewTests` is behaviour |
+| `SettingsView` | 8 | **struck.** `SettingsWindowTests` is behaviour |
+| `TextureImportView` | 7 | **struck.** `ViewTests` only |
+| `QueryView` · `GoapDomainView` · `AgentDebuggerView` | 16 | **struck.** Three behaviour suites |
+| `NodeSearchPopup` · `CommandPalette` | 15 | **struck.** Wave 9's additions are key-route tests |
+| `RemoteInspectorView` | 9 | **struck.** `PortedPanelTests` asserts behaviour, as this section already said |
+| Terrain ×2 · `MaterialView` · `FontView` · `StandardFrameView` · `ShapeVocabularyView` · `UtilitySetView` | 27 + 3 | **the 3 stand** — `PaletteBlockTests`, committed. **The 27 are struck** |
+| `AudioMixerView` | 3 | **struck.** `ViewTests` only |
+
+Struck means the sentence stays where it is as provenance and stops being read as a guarantee: nothing
+re-checks it, and a change that moves those pixels is a change no gate notices. Promoting one is the
+work, and the eight files above are the pattern — ⚠ with the three blind spots wave 7 paid for. A dump
+covers only the branches it walks into; adopting a shared part can move a **flags** line without moving
+a tree line, which is why `UiTest.Flags` is asserted beside `UiTest.Tree`; and a dump driven only from
+the model exercises the leg that cannot fail, which is why the four wave-8/9 files each drive a
+`change:` through its control.
 
 ⚠ **Asked a third time by wave 7 and answered the same, with one number that sharpens it.** The
 Terrain panel has seven verbs across two `verb-row`s and Foliage has two, so `Verbs(panel, …)` now

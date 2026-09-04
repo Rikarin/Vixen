@@ -183,4 +183,42 @@ public class StyleSheetLoadingTests {
         Assert.Equal("rgb(255, 0, 0)", fixture.Value(literal));
         Assert.Equal("red", fixture.Value(substituted));
     }
+
+    /// <summary>
+    ///     ⚠ <b>A refusal from an inline <c>style="…"</c> says so, because there is no rule to name.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The third of <c>SelectorDiagnostic.Rule</c>'s loader-side spellings and the odd one:
+    ///         the other two thread a real selector, and this one threads a literal, because a
+    ///         <c>style</c> attribute belongs to one element and has no selector at all. Saying so is
+    ///         worth more than saying nothing — it tells a reader not to go looking through the
+    ///         stylesheets — and until this test it was the one leg that could be deleted with the
+    ///         suite staying green.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Driven through <c>ReadDeclarations</c> rather than through
+    ///         <c>UiElement.SetStyle</c>, and the two are not the same path.</b> <c>SetStyle</c>
+    ///         interns one property and one value directly and never expands a shorthand, so it
+    ///         cannot reach this refusal; the attribute path goes through ExCSS. Reaching for the
+    ///         friendlier API here would have produced a test that passed while covering nothing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_shorthand_refused_in_an_inline_style_attribute_says_it_came_from_one() {
+        var fixture = new CascadeFixture();
+        var into = new List<InlineDeclaration>();
+
+        fixture.Engine.Loader.ReadDeclarations("border: var(--x) solid", into);
+
+        var refusal = Assert.Single(fixture.Engine.Loader.Diagnostics);
+
+        Assert.Contains("could not be taken apart", refusal.Reason, StringComparison.Ordinal);
+        Assert.Contains("style=", refusal.Where, StringComparison.Ordinal);
+
+        // ⚠ And it reads as an enclosing rule, so the drain picks the message that carries it. A
+        // literal that happened to equal the fragment would be dropped by `NamesAnEnclosingRule` and
+        // the reader would be told nothing about where it came from.
+        Assert.True(refusal.NamesAnEnclosingRule);
+    }
 }

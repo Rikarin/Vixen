@@ -1,0 +1,42 @@
+# The expiry conditions the parity ledger's refusals declare.
+#
+#     <ledger root>  <kind>  <what it waits on>
+#
+# ⚠ DERIVED. Do not hand-edit: the clauses live in the `note` column of
+# `docs/plan/43-web-styling-parity.tsv`, next to the prose they formalise, and this file is the
+# committed census of them. Add or change a clause in the ledger and re-run
+# `RefusalExpiryTests` with VIXEN_REGENERATE=1 to write this back, then read the diff.
+#
+# Why the census exists at all, given that the clauses are already in the ledger: it is the answer
+# to "what does this print on the day it does not run". A sweep that derives a set and checks each
+# member of it reports nothing when the set is empty — a ledger whose notes lost their clauses, to a
+# rewritten column or a forgotten convention, would go green. Holding the derived set against a
+# committed one fails in both directions, so a clause cannot appear without review and cannot
+# vanish without a red test. A count with a floor under it would not do: "at least one" and "more
+# than one distinct reason" are the two guards this suite's neighbours have already had eaten by
+# success.
+#
+# The two kinds, and they are not equally strong:
+#
+#   expires-with <root>   The refusal stands only while that ledger root is itself refused
+#                         (`absent` or `inert`). The cited root's state is a computed column, so
+#                         this needs no foresight and cannot be spelt around. Prefer it.
+#
+#   expires-on <Type>.<M> The refusal stands only while that member does not exist. A tripwire: it
+#                         is walked around by anyone who names the arriving thing differently. The
+#                         type must resolve, which is what keeps a misspelt anchor from being green
+#                         for ever — a member that is absent because the type is absent is the
+#                         failure mode this file would otherwise have.
+#
+# ⚠ Three rows share one anchor, which is the pattern worth looking for. `rotate-x-*`, `rotate-z-*`
+# and `scale-z-*` are all waiting on the same missing thing, and a refusal that is one of several
+# resting on one premise is the refusal most likely to be read as settled.
+border-spacing-x-*	expires-with	border-spacing-*
+border-spacing-y-*	expires-with	border-spacing-*
+inset-ring-*	expires-with	inset-shadow-*
+isolation	expires-with	mix-blend
+mix-blend	expires-on	Vixen.Ui.DrawCommand.Blend
+rotate-x-*	expires-on	Vixen.Ui.Styling.StyleValueKind.Function
+rotate-y-*	expires-with	rotate-x-*
+rotate-z-*	expires-on	Vixen.Ui.Styling.StyleValueKind.Function
+scale-z-*	expires-on	Vixen.Ui.Styling.StyleValueKind.Function

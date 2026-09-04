@@ -27,6 +27,16 @@ sealed class ParityRow {
     public string Reads { get => Cells[7]; set => Cells[7] = value; }
     public string State { get => Cells[9]; set => Cells[9] = value; }
     public string ValueGap => Cells[11];
+
+    /// <summary>The reason column, which is prose plus whatever expiry clauses it declares.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read by <see cref="RefusalExpiry" /> and by nothing else, and until that landed it was
+    ///     read by nothing at all.</b> Four of the fourteen columns had no accessor here; this is the
+    ///     one that mattered, because a refusal's whole content is in it. A reason no test can see is
+    ///     a reason that expires unobserved, which is the finding <c>#288</c> is.
+    /// </remarks>
+    public string Note => Cells[12];
+
     public string Classes => Cells[13];
 }
 

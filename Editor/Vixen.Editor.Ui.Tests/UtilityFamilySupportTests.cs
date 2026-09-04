@@ -1079,8 +1079,15 @@ public class UtilityFamilySupportTests {
         Assert.Equal(2f, band.Height);
         Assert.Equal(element.Width, band.Width);
 
-        // The accent is blue-dominant; the surface and border tokens are not.
-        Assert.True(band.Color.B > band.Color.R, "the band carries the accent colour");
+        // ⚠ <b>Held against the cascaded value, and it used to say "the accent is blue-dominant; the
+        // surface and border tokens are not".</b> That second clause is false and always was: this
+        // palette's greys are *cool* greys — `--border` is `#a9adb4` light and `#1e1e20` dark, and B
+        // exceeds R in both, as it does for `--surface` and `--text`. The predicate was therefore true
+        // of every colour the sheet can produce, so it distinguished nothing and would have passed on
+        // a band painted in the hairline. Refuted by swapping the token under a test next door that
+        // had copied the same oracle. What the draw list is actually held to is the value the cascade
+        // computed for the edge — a band painted from anything else, a fallback included, fails.
+        Assert.Equal(ui.ColorOf(element, "border-bottom-color"), band.Color);
     }
 
     /// <summary>
@@ -1566,6 +1573,158 @@ public class UtilityFamilySupportTests {
         var painted = Painted(ui, [moved, middle, last]);
 
         Assert.Equal([middle, last, moved], painted);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The five child-scoped roots, which are the one shape <see cref="Supported" /> cannot
+    ///     hold a row for.</b> That theory puts the class on the element it then reads, and
+    ///     <c>space-x-*</c>, <c>space-y-*</c>, <c>divide-x-*</c>, <c>divide-y-*</c> and
+    ///     <c>divide-&lt;color&gt;</c> are the only families in the index that deliberately set nothing
+    ///     there — they emit onto <c>&amp; &gt; :not(:last-child)</c>. A table row for any of them would
+    ///     read <c>null</c> and be struck as unsupported, so the inventory exit criterion 3 is checked
+    ///     against gets its row here instead, one per root, resolved against real elements.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This asserts the cascade, and the file's own opening paragraph says that is not
+    ///         enough — so here is why it is enough for exactly these five.</b> The reader question is
+    ///         already settled for every property they emit, by another family in the
+    ///         <see cref="Supported" /> table above: <c>margin-inline-end</c> by <c>me-*</c>,
+    ///         <c>margin-bottom</c> by <c>mb-*</c>, the border widths by <c>border-e-*</c> and
+    ///         <c>border-b-*</c>, the colour by <c>border-*</c>. What is unproved for a scoped family
+    ///         is never the reader — it is the <i>scope</i>, and the scope is a selector, which is a
+    ///         thing the cascade can be asked about directly. The consumption gate is blind here for
+    ///         the same reason and from the other side: it cannot fail on a property some other
+    ///         family already moved, so a scoped family whose selector never matched would be
+    ///         silently perfect by its measure.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Three children, not two, and the container asserted as well as the last child.</b>
+    ///         Those are the two ways this goes wrong and they fail differently. A family written as
+    ///         an ordinary property family puts the value on the container and nothing on any child;
+    ///         a scope written <c>&amp; &gt; *</c> puts it on all three. With two children the middle
+    ///         case does not exist and "every child but the last" is indistinguishable from "the
+    ///         first child".
+    ///     </para>
+    ///     <para>
+    ///         The editor's own tokens are what make this different from
+    ///         <c>Vixen.Ui.Styling.Utilities.Tests.ChildScopedFamilyTests</c>, which asserts the same
+    ///         mechanism against <c>UtilityFixture</c>'s. <c>divide-accent</c> in particular has no
+    ///         meaning at all without a theme to resolve <c>var(--accent)</c> out of, and it is the
+    ///         only one of the five whose value is a colour.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_five_child_scoped_roots_reach_every_child_but_the_last_and_never_their_own_element() {
+        string[] utilities = ["space-x-4", "space-y-4", "divide-x-2", "divide-y-2", "divide-accent"];
+
+        using var ui = Sheet([.. utilities, "bg-accent", "bg-border"]);
+
+        var container = ui.Create("probe", ui.Document.Root, null, utilities);
+        var first = ui.Create("probe", container);
+        var middle = ui.Create("probe", container);
+        var last = ui.Create("probe", container);
+
+        // ⚠ Before the frame, with everything else. `ColorOf` reads a resolved style, so a reference
+        // element created after `Frame` has none and reads `null` — which the first draft of this did,
+        // and `NotEqual(null, null)` is how it announced it.
+        var accentSource = ui.Create("probe", ui.Document.Root, null, "bg-accent");
+        var hairlineSource = ui.Create("probe", ui.Document.Root, null, "bg-border");
+
+        ui.Frame();
+
+        // One row per root, which is what exit criterion 3 asks for. The value is the editor's
+        // spacing step of four rather than a number written here.
+        (string Root, string Property, string Expected)[] rows = [
+            ("space-x-4", "margin-inline-end", "16px"),
+            ("space-y-4", "margin-bottom", "16px"),
+            ("divide-x-2", "border-inline-end-width", "2px"),
+            ("divide-y-2", "border-bottom-width", "2px"),
+        ];
+
+        foreach (var (root, property, expected) in rows) {
+            // ⚠ Compared as one tuple carrying the root's name, because four bare `Assert.Equal`s in
+            // a loop report `"16px" != null` and leave the reader guessing which of the five failed.
+            Assert.Equal(
+                (root, expected, expected, null, null),
+                (root, ui.StyleOf(first, property), ui.StyleOf(middle, property), ui.StyleOf(container, property),
+                    ui.StyleOf(last, property))
+            );
+        }
+
+        // The fifth root. A colour, so it is read as one.
+        var painted = ui.ColorOf(first, "border-bottom-color");
+
+        Assert.NotNull(painted);
+        Assert.Null(ui.ColorOf(last, "border-bottom-color"));
+        Assert.Null(ui.ColorOf(container, "border-bottom-color"));
+
+        // ⚠ <b>And it is *the accent*, held against the token itself rather than against a property
+        // of the colour.</b> The obvious oracle here is "blue-dominant", which is what
+        // `A_per_edge_border_colour_paints_only_the_edge_it_names` used to use — and it does not
+        // discriminate: this assertion was written that way first and stayed green when
+        // `divide-accent` was swapped for `divide-border`, because the editor's greys are *cool*
+        // greys. `--border` is `#a9adb4` light and `#1e1e20` dark, and B exceeds R in both, as it
+        // does for `--surface` and `--text`. So the accent is resolved a second way, through a family
+        // whose own row is in `Supported`, and the divider is required to equal that and to differ
+        // from the hairline it would most plausibly have fallen back to. That test was corrected in
+        // the same change and now holds its band against the cascaded value.
+        var accent = ui.ColorOf(accentSource, "background-color");
+        var hairline = ui.ColorOf(hairlineSource, "background-color");
+
+        Assert.NotNull(accent);
+        Assert.NotEqual(accent, hairline);
+        Assert.Equal(accent, painted);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And the divider is painted, which is the only claim worth making about a border.</b>
+    ///     The cascade half above says the selector matched; this says the frame did something with
+    ///     it, in the file whose job is <i>what</i> happened.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two bands and not three is the whole assertion.</b> A count alone would pass on a
+    ///         scope of <c>&amp; &gt; *</c> if the last child were left out of the frame for some
+    ///         other reason, so each band is also placed against the child it belongs to — the bottom
+    ///         edge of its border box, two pixels tall, the child's full width, at the child's own
+    ///         left.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The children lay out in a <i>row</i>, which is what makes the last child's
+    ///         absence checkable at all.</b> The first draft of this test asserted that no band sat
+    ///         at or below <c>last.AbsoluteTop</c>, and that was green for the wrong reason and then
+    ///         red for the wrong reason: every child shares a top edge here, so the vertical
+    ///         coordinate says nothing about which child a band belongs to. The horizontal one does.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_divider_paints_a_band_beside_every_child_but_the_last() {
+        using var ui = Sheet("divide-y-2", "divide-accent", "w-8", "h-8");
+
+        var container = ui.Create("probe", ui.Document.Root, null, "divide-y-2", "divide-accent");
+        var first = ui.Create("probe", container, null, "w-8", "h-8");
+        var middle = ui.Create("probe", container, null, "w-8", "h-8");
+        var last = ui.Create("probe", container, null, "w-8", "h-8");
+
+        ui.Frame();
+
+        var bands = ui.Document.Drawing.Commands
+            .Where(command => command.Kind == DrawCommandKind.Rectangle)
+            .ToList();
+
+        Assert.Equal(2, bands.Count);
+
+        foreach (var (child, band) in new[] { first, middle }.Zip(bands)) {
+            Assert.Equal(child.AbsoluteLeft, band.X);
+            Assert.Equal(child.AbsoluteTop + child.Height - band.Height, band.Y);
+            Assert.Equal(2f, band.Height);
+            Assert.Equal(child.Width, band.Width);
+        }
+
+        // Nothing beside the last child. Redundant against the count above by arithmetic, and kept
+        // because it is the claim the family is *about* and the one a reader comes here to find.
+        Assert.DoesNotContain(bands, band => band.X == last.AbsoluteLeft);
     }
 
     /// <summary>Which of <paramref name="candidates" /> the frame filled, in the order it filled them.</summary>

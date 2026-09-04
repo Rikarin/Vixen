@@ -45,7 +45,9 @@
 # condition — this is the second time on this page (see `--scale`) that a line survived the thing
 # that retired it. ⚠ **A standing refusal whose premise names another feature has an expiry date, and
 # this file cannot check that one.** The property-level expiry above only fires once someone has
-# already written the reader.
+# already written the reader. ⚠ `RefusalExpiry.txt` is the half that fires earlier, and it exists
+# because of this paragraph: a refusal in the parity ledger can now name the root it waits on or the
+# symbol whose arrival reverses it, and `RefusalExpiryTests` fails the run in which either comes due.
 #
 # What it took, and every clause survives inside it. A transform opens a composited group — the fifth
 # thing that does, after opacity, filter, mask and backdrop, and CSS agrees that this is the seam:
