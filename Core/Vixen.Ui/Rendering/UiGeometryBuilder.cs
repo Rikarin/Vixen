@@ -38,13 +38,21 @@ namespace Vixen.Ui.Rendering;
 ///     </para>
 /// </remarks>
 public sealed class UiGeometryBuilder {
-    // ⚠ Direct-mapped and fixed-size on purpose. The failure mode of a collision here is that a
-    // colour is searched for again — a slower frame, never a different picture — and that is the
-    // property that lets the cache have no eviction policy, no allocation and no growth. A
-    // dictionary would be exact and would put a hash and a probe on the path of *every* colour,
-    // including the in-gamut ones that must not pay for this at all; those never reach the cache
-    // because `Show` answers them with comparisons before it gets here.
-    readonly ShownColour[] shown = new ShownColour[256];
+    /// <summary>How many repairs the colour cache can hold.</summary>
+    /// <remarks>
+    ///     Internal so a test can say which slot a colour lands in and therefore construct a pair
+    ///     that shares one. A cache whose only colliding pairs are the ones a hash happens to produce
+    ///     today is a cache whose collision behaviour is never actually exercised.
+    /// </remarks>
+    internal const int Slots = 256;
+
+    // ⚠ Fixed-size and two-way on purpose. The failure mode of a collision here is that a colour is
+    // searched for again — a slower frame, never a different picture — and that is the property that
+    // lets the cache have no eviction policy, no allocation and no growth. A dictionary would be
+    // exact and would put a hash and a probe on the path of *every* colour, including the in-gamut
+    // ones that must not pay for this at all; those never reach the cache because `Show` answers
+    // them with comparisons before it gets here.
+    readonly ShownColour[] shown = new ShownColour[Slots];
     readonly List<UiVertex> vertices = [];
     readonly List<uint> indices = [];
     readonly List<UiDraw> draws = [];
@@ -1508,6 +1516,16 @@ public sealed class UiGeometryBuilder {
     ///         which, for a palette used through opacity modifiers, is most of what would otherwise
     ///         be distinct keys.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One step of linear probing, and it is what makes "two colours are two searches" a
+    ///         property rather than a hope.</b> With a bare direct-mapped table any two tokens that
+    ///         happened to share a slot evicted each other on every lookup, so a palette of two
+    ///         colours could cost a <c>GamutMap.Map</c> per quad for the life of the process —
+    ///         invisible except as time. Checking the next slot as well costs one comparison on a
+    ///         path that is already about to spend a thousand nanoseconds, and it makes any
+    ///         <em>pair</em> of colours resident whatever they hash to, because the second one lands
+    ///         beside the first instead of on top of it.
+    ///     </para>
     /// </remarks>
     Color4 Show(Color4 colour) {
         var linear = new Vector3(colour.R, colour.G, colour.B);
@@ -1518,25 +1536,68 @@ public sealed class UiGeometryBuilder {
 
         MappedColours++;
 
-        // Hash the three channels' bit patterns rather than their values: two colours that differ
-        // below what a float can express are the same entry, and that is exactly what should happen.
-        var bits = HashCode.Combine(
-            BitConverter.SingleToUInt32Bits(colour.R),
-            BitConverter.SingleToUInt32Bits(colour.G),
-            BitConverter.SingleToUInt32Bits(colour.B)
-        );
+        var home = HomeSlot(colour);
+        ref var first = ref shown[home];
 
-        ref var slot = ref shown[(uint) bits % (uint) shown.Length];
+        if (first.Occupied && first.Source == linear) {
+            return new Color4(first.Shown.X, first.Shown.Y, first.Shown.Z, colour.A);
+        }
 
-        if (slot.Occupied && slot.Source == linear) {
-            return new Color4(slot.Shown.X, slot.Shown.Y, slot.Shown.Z, colour.A);
+        ref var second = ref shown[home + 1 == Slots ? 0 : home + 1];
+
+        if (second.Occupied && second.Source == linear) {
+            return new Color4(second.Shown.X, second.Shown.Y, second.Shown.Z, colour.A);
         }
 
         ColourSearches++;
         var mapped = GamutMap.Map(linear, Gamut);
+
+        // The free one of the pair if there is one, and the home slot otherwise. Evicting only when
+        // three colours want the same pair is what keeps this a fixed table with no policy: nothing
+        // is ranked, nothing is aged, and the worst a wrong choice costs is another search.
+        ref var slot = ref first;
+
+        if (first.Occupied && !second.Occupied) {
+            slot = ref second;
+        }
+
         slot = new ShownColour { Source = linear, Shown = mapped, Occupied = true };
 
         return new Color4(mapped.X, mapped.Y, mapped.Z, colour.A);
+    }
+
+    /// <summary>The first of the two slots a colour may be remembered in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Hashes the three channels' bit patterns rather than their values: two colours that
+    ///         differ below what a float can express are the same entry, and that is exactly what
+    ///         should happen. Alpha is absent for the reason <see cref="Show" /> gives.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A fixed mix rather than <see cref="HashCode.Combine{T1,T2,T3}" />, which folds in
+    ///         a seed drawn once per process.</b> Under that, which two colours shared a slot was
+    ///         decided afresh at every start — so the table's collision behaviour could not be
+    ///         reproduced on the run where it misbehaved, and a test that counted searches for two
+    ///         particular colours was an instrument whose verdict was a coin toss at roughly 1 in
+    ///         <see cref="Slots" />. Nothing here is exposed to untrusted input; a seeded hash buys
+    ///         this table no defence and costs it reproducibility.
+    ///     </para>
+    /// </remarks>
+    internal static int HomeSlot(Color4 colour) {
+        var hash = 2166136261u;
+        hash = (hash ^ BitConverter.SingleToUInt32Bits(colour.R)) * 16777619u;
+        hash = (hash ^ BitConverter.SingleToUInt32Bits(colour.G)) * 16777619u;
+        hash = (hash ^ BitConverter.SingleToUInt32Bits(colour.B)) * 16777619u;
+
+        // ⚠ Then avalanched, because FNV-1a ends in a multiply and a product's *low* bits carry
+        // almost none of the operand's — and the low bits are the whole of the index below. Without
+        // this, three channels that differ only in their mantissas' last bits land in a handful of
+        // slots.
+        hash ^= hash >> 15;
+        hash *= 2246822519u;
+        hash ^= hash >> 13;
+
+        return (int) (hash % Slots);
     }
 
     /// <summary>One box's record, with every colour the shader will read brought into gamut.</summary>

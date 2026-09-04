@@ -95,6 +95,17 @@ public class UiGamutTests {
     }
 
     /// <summary>Two colours are two searches — the cache remembers, it does not merge.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This used to be a coin toss, and reading it as an assertion about these two colours
+    ///     is what hid that.</b> The table was direct-mapped, so a pair that shared a slot evicted
+    ///     each other on every lookup and cost a hundred searches instead of two — and whether these
+    ///     two shared one was decided by <c>HashCode</c>'s per-process seed, at about 1 in 256. It
+    ///     failed once in five runs and then passed four re-runs, which reads as proof it was
+    ///     nothing. The claim is now one the structure guarantees for <em>any</em> pair;
+    ///     <see cref="Two_colours_that_share_a_slot_are_still_two_searches" /> is the same claim
+    ///     asked of a pair that does collide, which is the half a palette of two nice colours cannot
+    ///     reach.
+    /// </remarks>
     [Fact]
     public void Two_colours_are_two_searches() {
         var builder = Paint(ColorGamut.Srgb, list => {
@@ -106,6 +117,60 @@ public class UiGamutTests {
 
         Assert.Equal(100, builder.MappedColours);
         Assert.Equal(2, builder.ColourSearches);
+    }
+
+    /// <summary>
+    ///     And two colours that land in the <em>same</em> slot are still two searches, because the
+    ///     table probes one step rather than evicting.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The pair is constructed, not hoped for.</b> Two colours picked out of a palette sit
+    ///     in distinct slots 255 times in 256, so every other count in this file is satisfied by a
+    ///     table that throws its neighbour away — that is precisely how the direct-mapped version
+    ///     survived here. Sweeping until two swept colours agree on a slot is what makes the
+    ///     collision path something this suite actually executes, on every run rather than on the
+    ///     unlucky one.
+    /// </remarks>
+    [Fact]
+    public void Two_colours_that_share_a_slot_are_still_two_searches() {
+        var (first, second) = ColoursThatShareASlot();
+
+        Assert.Equal(UiGeometryBuilder.HomeSlot(first), UiGeometryBuilder.HomeSlot(second));
+
+        var builder = Paint(ColorGamut.Srgb, list => {
+            for (var i = 0; i < 50; i++) {
+                list.Add(Rect(i, 0, 10, 10, first));
+                list.Add(Rect(i, 20, 10, 10, second));
+            }
+        });
+
+        Assert.Equal(100, builder.MappedColours);
+        Assert.Equal(2, builder.ColourSearches);
+    }
+
+    /// <summary>
+    ///     Which slot a colour lands in is decided by the colour, and by nothing about the process
+    ///     that is drawing it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The number is not the point; that it is the same number tomorrow is.</b> The index
+    ///     came from <see cref="HashCode" />, which mixes in a seed generated once per process by
+    ///     design — so a table's collisions, and any count of searches that depended on them, were
+    ///     re-rolled at every start and could not be reproduced on the run that went wrong. Nothing
+    ///     here is reachable by untrusted input, so the seed bought this table no defence at all. If
+    ///     a change to the mix makes this fail, update the constant; if no constant can be written
+    ///     down, the index is seeded again and that is the defect.
+    /// </remarks>
+    [Fact]
+    public void Which_slot_a_colour_lands_in_does_not_depend_on_the_process() {
+        Assert.Equal(122, UiGeometryBuilder.HomeSlot(Blue500));
+        Assert.Equal(117, UiGeometryBuilder.HomeSlot(new Color4(1f, 1f, 1f, 1f)));
+
+        // And alpha is not in the key, so it cannot be in the index either.
+        Assert.Equal(
+            UiGeometryBuilder.HomeSlot(Blue500),
+            UiGeometryBuilder.HomeSlot(new Color4(Blue500.R, Blue500.G, Blue500.B, 0.25f))
+        );
     }
 
     /// <summary>
@@ -326,12 +391,12 @@ public class UiGamutTests {
     /// </summary>
     /// <remarks>
     ///     ⚠ <b>The test that says the cache compares its key, and it has to force collisions to do
-    ///     it.</b> A fixed-size direct-mapped table only ever returns the wrong colour when two
-    ///     colours share a slot, so a handful of test colours will sit in distinct slots and a cache
-    ///     that skipped the key comparison entirely would pass every other test in this file — it
-    ///     did, when that sabotage was tried. A thousand colours over 256 slots makes collisions a
-    ///     certainty rather than a hope, and each one is then checked against what the mapper says
-    ///     about <em>its own</em> source rather than merely being showable.
+    ///     it.</b> A fixed-size table only ever returns the wrong colour when colours share a slot,
+    ///     so a handful of test colours will sit in distinct slots and a cache that skipped the key
+    ///     comparison entirely would pass every other test in this file — it did, when that sabotage
+    ///     was tried. A thousand colours over 256 slots makes collisions a certainty rather than a
+    ///     hope, and each one is then checked against what the mapper says about <em>its own</em>
+    ///     source rather than merely being showable.
     /// </remarks>
     [Fact]
     public void Every_colour_gets_its_own_answer_when_the_table_overflows() {
@@ -395,6 +460,36 @@ public class UiGamutTests {
     }
 
     static Vector3 Rgb(Color4 colour) => new(colour.R, colour.G, colour.B);
+
+    /// <summary>
+    ///     Two out-of-gamut colours that the cache indexes to the same slot, found by sweeping rather
+    ///     than named — the mix may change, and what the test needs is a collision, not a constant.
+    /// </summary>
+    static (Color4 First, Color4 Second) ColoursThatShareASlot() {
+        var seen = new Dictionary<int, Color4>();
+
+        for (var lightness = 0.3f; lightness < 0.9f; lightness += 0.01f) {
+            for (var hue = 0f; hue < 360f; hue += 0.25f) {
+                var colour = Linear(lightness, 0.35f, hue);
+
+                if (GamutMap.InGamut(Rgb(colour), ColorGamut.Srgb)) {
+                    continue;
+                }
+
+                var slot = UiGeometryBuilder.HomeSlot(colour);
+
+                if (seen.TryGetValue(slot, out var other) && Rgb(other) != Rgb(colour)) {
+                    return (other, colour);
+                }
+
+                seen[slot] = colour;
+            }
+        }
+
+        // A sweep this wide produces thousands of out-of-gamut colours over 256 slots, so failing to
+        // find a pair does not mean the hash is good — it means this helper stopped looking.
+        throw new InvalidOperationException("no two of the swept colours share a slot");
+    }
 
     static float HueDifference(Vector3 left, Vector3 right) {
         var one = Oklab.FromLinear(left);
