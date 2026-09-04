@@ -57,6 +57,11 @@
       tree — five in `Core/` and nine under `Editor/` — counted by grepping every committed
       `.csproj` for a literal import of `Core/Vixen.Ui/build/Vixen.Ui.targets`. Recount rather than
       trust it.
+
+      ⚠ **The command is described here rather than quoted, and that is not fussiness.** An XML
+      comment may not contain two hyphens in a row, so a long-form grep flag written inside one
+      makes this file unloadable and every project in the tree fails to evaluate — with an error
+      about the XML rather than about the count.
       ==============================================================================================
     -->
     <_VixenUiWiredByProject>$(VixenUiBuildImported)</_VixenUiWiredByProject>
