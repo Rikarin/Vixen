@@ -148,7 +148,8 @@ sealed record ProbeScene(
     bool Edited = false,
     bool Figured = false,
     bool Floated = false,
-    bool Tabbed = false
+    bool Tabbed = false,
+    bool Hyphenated = false
 );
 
 /// <summary>Runs a declaration past the engine and reports what moved.</summary>
@@ -788,6 +789,32 @@ static class UtilityConsumptionProbe {
             #after   { width: 30px; height: 20px; background-color: #a0a040; }
             """,
             Tabbed: true
+        ),
+
+        // ⚠ <b>Hyphenated: the sixth, and the ingredient is a character *and* a box narrow enough
+        // for it to matter.</b> `hyphens` decides whether a soft hyphen may end a line, so a scene
+        // proves nothing about it unless some line actually wants to end there — a wide box holds
+        // `supply` whole and both values of the property produce the identical picture. `#hyphens`
+        // is 36px, which fits `sup-` and not `supply`.
+        //
+        // ⚠ Open Sans again, and this time for a second reason on top of coverage: what the property
+        // does when it fires is *substitute* U+002D for U+00AD, so the face has to have both. It has
+        // glyphs 111 and 16; `TestShapeLana` has 13 and 16. Either would serve, and the one already
+        // loaded is the one that does not re-baseline thirteen signatures.
+        new(
+            "hyphenated",
+            """
+            #host    { display: flex; flex-direction: row; width: 240px; height: 90px; align-items: flex-start; }
+            #probe   { display: flex; flex-direction: row; flex-wrap: wrap; width: 200px;
+                       background-color: #204080; color: #e0e0e0; }
+            .kid     { width: 8px; height: 8px; }
+            #wide    { width: 8px; height: 8px; }
+            #label   { width: 40px; }
+            #short   { width: 40px; }
+            #hyphens { font-family: Figured; font-size: 16px; width: 36px; }
+            #after   { width: 30px; height: 20px; background-color: #a0a040; }
+            """,
+            Hyphenated: true
         ),
 
         // ⚠ <b>Decorated: the probe already carries an underline, and without that the four
@@ -1456,6 +1483,14 @@ static class UtilityConsumptionProbe {
         if (scene.Tabbed) {
             var tabbed = document.Create("span", body, "tabbed");
             tabbed.Text = "Ag\tjq\tWm";
+        }
+
+        // A word with a soft hyphen in it, in a box that fits the first half and not the whole. Both
+        // halves are the ingredient: `hyphens` moves nothing in a word that had nowhere it needed to
+        // break, and nothing in a word with no U+00AD to break at.
+        if (scene.Hyphenated) {
+            var hyphenated = document.Create("span", body, "hyphens");
+            hyphenated.Text = "sup­ply";
         }
 
         // The focused field. `Focus` is called after the value is set rather than before, because a

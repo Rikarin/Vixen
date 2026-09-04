@@ -156,6 +156,23 @@ The `<length>` form is dropped rather than resolved — it takes relative units,
 computed and inherited beside `line-height`, and no utility can spell it. An element that writes one
 keeps the initial eight, which is what a browser does with a declaration it cannot use.
 
+`hyphens` **is** here now, as `hyphens-none` and `hyphens-manual`. ⚠ This one closed a *defect*: the
+break already worked and the hyphen was never drawn. `LineBreaker` has always offered a break after a
+soft hyphen — `"sup­ply"` and `"sup-ply"` return the identical opportunity list — so Vixen split
+`sup|ply` where the author asked, and then showed nothing for it, because U+00AD is `Default_Ignorable`
+and the shaper deletes it. `UiElement.Hyphenated` substitutes a drawn hyphen on a line that ends on
+one, which is one character for one and so moves no caret index.
+
+⚠ **The substituted character is U+002D and not U+2010**, which is worth knowing if you are reading an
+older plan document that says otherwise: U+2010 HYPHEN is `.notdef` in Open Sans and in this repo's
+test face alike, so substituting it draws a tofu box rather than a hyphen.
+
+`hyphens-auto` is **not registered**, and that is a refusal rather than an omission: it needs a
+per-language hyphenation pattern set *and* a language to choose one with, and `TextShaper` leaves
+HarfBuzz's language unset on purpose so that shaping never depends on the machine's locale. A
+hand-written `hyphens: auto` lands on `manual` — `auto` also honours the author's own soft hyphens, and
+that half Vixen can do.
+
 ## Examples
 
 A link that underlines only on hover, clear of the descenders:

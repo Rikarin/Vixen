@@ -155,9 +155,24 @@ public class HyphensTests {
 
     /// <summary>The broken line is as wide as the same letters written with a real hyphen.</summary>
     /// <remarks>
-    ///     The closed-form half: whatever the engine substituted, the line has to measure like
-    ///     `"sup-"`. A tofu box passes the glyph-count test and fails this one, because `.notdef` in
-    ///     Open Sans is 1229 design units against the hyphen's 659.
+    ///     <para>
+    ///         The closed-form half: whatever the engine substituted, the line has to measure like
+    ///         `"sup-"`.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This does NOT catch the tofu box, and a first draft of this comment claimed it
+    ///         did.</b> The reasoning was that `.notdef` is 1229 design units in Open Sans against
+    ///         the hyphen's 659, so a wrong glyph would measure wrong — and it is measurably false:
+    ///         a wrapped line reports the *wrapper's* width, and the wrapper charges
+    ///         `UiElement.HyphenWidth`, which measures U+002D whatever the substitution then draws.
+    ///         Sabotaged to U+2010, this test stays green and the three that ask about the glyph go
+    ///         red. Recorded because a width oracle that looks like it covers the picture and does
+    ///         not is exactly the instrument this repo keeps being caught by.
+    ///     </para>
+    ///     <para>
+    ///         What it does catch is the wrapper failing to charge for the hyphen at all, which is
+    ///         the defect it found when it was written.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void The_broken_line_measures_like_a_real_hyphen() {
