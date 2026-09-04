@@ -4,7 +4,7 @@ slug: ui/text-decoration
 kind: guide
 area: Core
 summary: Underline, overline and line-through — where the lines come from (the font's own tables, never a constant), what the classes are, and the four places Vixen's behaviour is deliberately not CSS's.
-api: [T:Vixen.Ui.TextDecoration, T:Vixen.Ui.TextDecorationLine, T:Vixen.Ui.TextDecorationStyle, T:Vixen.Ui.DecorationBar, T:Vixen.Ui.Text.DecorationMetrics]
+api: [T:Vixen.Ui.TextDecoration, T:Vixen.Ui.TextDecorationLine, T:Vixen.Ui.TextDecorationStyle, T:Vixen.Ui.DecorationBar, T:Vixen.Ui.Text.DecorationMetrics, T:Vixen.Ui.Text.HyphenMode]
 tags: [ui, text, typography, vcss, utilities, underline, fonts]
 since: 0.2
 status: preview
