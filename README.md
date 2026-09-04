@@ -19,6 +19,11 @@ solution. `./build.sh` is the entry point CI and developers share — `Clean Res
 CheckFormat CheckArchitecture CheckApi Benchmark GoldenImages CheckAot CheckAotIos CompileMobile
 CompileWeb PublishWeb RestoreNativeDeps` are the targets.
 
+`--workers <n>` bounds how many projects compile and how many test assemblies run at once. It
+defaults to 4 locally and to unbounded in CI, which has the machine to itself; `--workers 0` asks for
+unbounded anywhere. The cap costs about five minutes on a whole-solution `Test` and is what keeps the
+run from taking the machine away from everything else on it.
+
 Some backends need a native binary that no package ships. `./build.sh RestoreNativeDeps` fetches each
 one pinned and SHA-256-verified from [`build/native-dependencies.json`](build/native-dependencies.json),
 and commits nothing.

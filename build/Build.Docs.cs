@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using Nuke.Common;
 using Nuke.Common.Git;
 using Nuke.Common.IO;
+using Nuke.Common.Tooling;
 using Nuke.Common.Tools.DotNet;
 using Serilog;
 using static Nuke.Common.Tools.DotNet.DotNetTasks;
@@ -64,6 +65,7 @@ partial class Build {
                     .SetProjectFile(Solution)
                     .SetConfiguration(Configuration.Release)
                     .EnableNoRestore()
+                    .AddProcessAdditionalArguments(WorkerArguments)
                 );
 
                 var arguments = new List<string> {

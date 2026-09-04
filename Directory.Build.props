@@ -185,6 +185,40 @@
 
   <!--
     ============================================================================
+    The second concurrency multiplier, which the build's `workers` parameter
+    cannot reach. (⚠ Its switch is spelled with two hyphens and so cannot be
+    written here at all: XML forbids them inside a comment. `Directory.Build.targets`
+    records the same trap, and it makes every project in the tree fail to
+    evaluate with an error about the XML rather than about the build.)
+
+    `workers` bounds how many test *assemblies* run at once (build/Build.cs).
+    Inside each one xunit runs its collections on a thread pool sized to the
+    processor count unless a config file says otherwise, and until this file
+    existed nothing did — so a solution-wide run was 178 hosts multiplied by ten
+    threads each, and even a capped run is the cap multiplied by ten.
+
+    ⚠ **The link is the whole point, and an unlinked config file is worse than
+    none** — xunit reads `xunit.runner.json` (or `<assembly>.xunit.runner.json`)
+    from the directory the test assembly is in, and nowhere else. A file sitting
+    at the repository root that is not copied beside each assembly is read by
+    nobody, changes nothing, and reports success by looking present. `Link` is
+    required because the file is outside every project's own directory: without
+    it the item keeps a relative identity that climbs out of the output folder.
+
+    Here rather than in each test project for the same reason `VSTestLogger` is:
+    178 projects cannot be relied on to remember, and the one that forgets is
+    invisible.
+    ============================================================================
+  -->
+  <ItemGroup Condition="'$(IsTestProject)' == 'true'">
+    <None Include="$(MSBuildThisFileDirectory)xunit.runner.json"
+          Link="xunit.runner.json"
+          CopyToOutputDirectory="PreserveNewest"
+          Visible="false" />
+  </ItemGroup>
+
+  <!--
+    ============================================================================
     The virtual-path rule, enforced.
     docs/plan/10-platforms.md § "Cross-platform discipline": only virtual paths in
     engine code; System.IO.Path is for Vixen.Platform.*, the editor and the tools.
