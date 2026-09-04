@@ -5,8 +5,8 @@ using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Graphics.Vulkan;
 using Vixen.Rendering;
-using Vixen.Shaders.Generated;
 using Vixen.Ui;
+using Vixen.Ui.Desktop;
 using Vixen.Ui.Renderer;
 using Vixen.Ui.Rendering;
 using Vixen.Ui.Text.Rasterizing;
@@ -56,36 +56,22 @@ public sealed class ThumbnailSurfaceDeviceTests {
         throw new InvalidOperationException("unreachable");
     }
 
-    /// <summary>The interface's own shader set, read from beside the test binary.</summary>
+    /// <summary>The interface's own shader set, the way the editor's host builds it.</summary>
     /// <remarks>
-    ///     A <see cref="ThumbnailSurface" /> needs a <see cref="UiRenderer" /> because an image number
-    ///     is only meaningful against one, and a renderer on a real device needs real SPIR-V — the
-    ///     four bytes the recording device accepts are what <c>vkCreateShaderModule</c> refuses.
+    ///     <para>
+    ///         A <see cref="ThumbnailSurface" /> needs a <see cref="UiRenderer" /> because an image
+    ///         number is only meaningful against one, and a renderer on a real device needs real
+    ///         SPIR-V — the four bytes the recording device accepts are what
+    ///         <c>vkCreateShaderModule</c> refuses.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The library rather than files beside the binary, because that is what
+    ///         <c>EditorHost</c> now loads.</b> This read <c>ToolShaders/Ui*.spv</c> — the editor's
+    ///         own second copy of the interface shaders — until that copy was deleted, and a test
+    ///         holding the modules the host stopped using is a test of nothing the editor draws.
+    ///     </para>
     /// </remarks>
-    static UiShaders Shaders(IGraphicsDevice device) =>
-        new(
-            Load(device, ShaderStage.Vertex, "UiVertex.vert.spv"),
-            Load(device, ShaderStage.Fragment, "UiBox.frag.spv"),
-            Load(device, ShaderStage.Fragment, "UiText.frag.spv"),
-            Load(device, ShaderStage.Fragment, "UiSolid.frag.spv")
-        ) {
-            Image = Load(device, ShaderStage.Fragment, "UiImage.frag.spv"),
-
-            Locations = new(
-                UiVertexKeys.PositionLocation,
-                UiVertexKeys.TexcoordLocation,
-                UiVertexKeys.VertexColourLocation,
-                UiVertexKeys.VertexShapeLocation
-            )
-        };
-
-    static ShaderHandle Load(IGraphicsDevice device, ShaderStage stage, string name) {
-        var path = Path.Combine(AppContext.BaseDirectory, "ToolShaders", name);
-
-        Assert.True(File.Exists(path), $"the upload test needs {name} beside the test binary");
-
-        return device.CreateShader(stage, File.ReadAllBytes(path), name);
-    }
+    static UiShaders Shaders(IGraphicsDevice device) => UiShaderLibrary.Load(device);
 
     /// <summary>The picture that goes in: red ramps left to right, green top to bottom, blue is full.</summary>
     /// <param name="flip">

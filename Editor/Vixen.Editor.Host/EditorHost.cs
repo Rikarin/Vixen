@@ -1141,29 +1141,20 @@ sealed class EditorHost : IDisposable {
             gpu = new GpuProfiler(device);
         }
 
-        // Compiled once and handed to every window's renderer. Turning source into modules is
-        // Raven's job and this host hands over what it has — which is the argument `UiShaders` makes
-        // for taking them rather than making them, and it applies once per process rather than once
-        // per window.
-        shaders = new UiShaders(
-            device.CreateShader(ShaderStage.Vertex, Module("UiVertex.vert.spv"), "ui vertex"),
-            device.CreateShader(ShaderStage.Fragment, Module("UiBox.frag.spv"), "ui box"),
-            device.CreateShader(ShaderStage.Fragment, Module("UiText.frag.spv"), "ui text"),
-            device.CreateShader(ShaderStage.Fragment, Module("UiSolid.frag.spv"), "ui solid")
-        ) {
-            // The stage a viewport's render target is drawn through.
-            Image = device.CreateShader(ShaderStage.Fragment, Module("UiImage.frag.spv"), "ui image"),
-
-            // ⚠ Read out of Raven's reflection rather than written down. Shaders/Ui.rvn declares
-            // three streams, so its attributes are at 3..6 — and a stream added to it moves them
-            // without anything here having to notice.
-            Locations = new(
-                UiVertexKeys.PositionLocation,
-                UiVertexKeys.TexcoordLocation,
-                UiVertexKeys.VertexColourLocation,
-                UiVertexKeys.VertexShapeLocation
-            )
-        };
+        // Compiled once and handed to every window's renderer — once per process rather than once
+        // per window, because a module is not a pipeline and the two panes each build their own
+        // `UiRenderer` from this one table.
+        //
+        // ⚠ **The library's eight, not a table written out here, and the difference is three
+        // stages the editor used to be missing outright.** This host hand-rolled five modules from
+        // its own copy of `Ui.rvn` until 2026-09-04, and the copy did not declare `UiBlur`,
+        // `UiColour` or `UiMask` — so `filter: blur()` drew sharp, `filter: grayscale(1)` drew in
+        // full colour and `mask-image` did nothing, in the one application whose stylesheets are
+        // this repository's own. None of the three is a failure: `UiRenderer` composites the group
+        // through `Image` and returns a correct-looking picture, which is why it survived. See
+        // `UiShaderLibrary`, whose own remark is that a host naming eight modules is a host where
+        // somebody names four.
+        shaders = UiShaderLibrary.Load(device);
 
         // The presenters themselves are made on demand, one per pane — see `Ensure`, which is also
         // where they go when the panel is split the other way.

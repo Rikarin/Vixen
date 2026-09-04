@@ -57,10 +57,18 @@
             repository carried three frame loops and this was the best of them; it moved out rather
             than being copied out, so the sample and the template inherit multi-window presenting,
             per-surface gamut publishing and the tessellation cache instead of the editor inheriting
-            anything. What this host does *not* take from that assembly is `UiApplication` — the loop
-            below drives a compositor, a scene presenter per pane and a GPU profiler — or
-            `UiShaderLibrary`, because the editor's UI stages are Raven's and their vertex attributes
-            are at different locations. See `Shaders/Ui.rvn`.
+            anything.
+
+            ⚠ **And `UiShaderLibrary`, which this comment used to say the editor could not use.** The
+            claim was that the editor's UI stages put their vertex attributes at different locations
+            from the desktop assembly's — and they did not: the two `Ui.rvn` declared the same three
+            streams, and `UiVertex.reflect.json` was byte-identical in both directories. What the
+            editor's copy actually lacked was `UiBlur`, `UiColour` and `UiMask`, so the editor
+            composited groups and never blurred, filtered or masked one. The copy is deleted and
+            `EditorHost` calls `UiShaderLibrary.Load`.
+
+            What this host still does *not* take from that assembly is `UiApplication`: the loop in
+            `EditorHost` drives a compositor, a scene presenter per pane and a GPU profiler.
         -->
         <ProjectReference Include="..\..\Platform\Vixen.Ui.Desktop\Vixen.Ui.Desktop.csproj" />
 
@@ -125,8 +133,12 @@
             against: where each descriptor goes, and — the reason it is wired up here — which vertex
             attribute location each stage reads. That number is Raven's decision, not this
             application's: `StreamPlan` locates a stage's own parameters after the shader's streams,
-            so Ui.rvn's four attributes are at 3..6 rather than 0..3, and adding a stream to the
-            vertex shader moves them again.
+            so Line.rvn's attributes are not at 0..1, and adding a stream to a vertex shader moves
+            them again.
+
+            ⚠ The interface's own stages are no longer among these — `UiShaderLibrary` reads their
+            locations out of its own assembly's reflection. What is left here is the three tool
+            shaders: Line, Mesh and MeshInstanced.
 
             ⚠ A wrong location is not a validation error. The pipeline binds nothing to that
             attribute and the stage reads whatever the driver left there — an interface drawn from

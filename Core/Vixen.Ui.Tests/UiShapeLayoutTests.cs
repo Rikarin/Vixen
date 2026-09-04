@@ -19,7 +19,7 @@ namespace Tests;
 ///         <b>The gap this closes: nothing checked, and the failure does not look like a failure.</b>
 ///         The record is copied into a storage buffer with <c>MemoryMarshal</c> and read back by
 ///         <c>UiBox</c>, whose alignment rules are not C#'s. Four files have to agree —
-///         <see cref="UiShape" />, <c>Editor/Vixen.Editor.Host/Shaders/Ui.rvn</c>,
+///         <see cref="UiShape" />, <c>Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn</c>,
 ///         <c>SoftwareUiRasterizer</c>, and the committed <c>UiBox.frag.spv</c> and
 ///         <c>UiBox.reflect.json</c> beside the shader source. A disagreement between the first and
 ///         the last is not a compile error and not an exception: it is a box drawn with another box's
@@ -248,13 +248,18 @@ public class UiShapeLayoutTests {
         return (shapes.GetProperty("Size").GetInt32(), members);
     }
 
-    /// <summary>The editor's shader directory, found the way the golden suite finds it.</summary>
+    /// <summary>The interface's shader directory, found the way the golden suite finds it.</summary>
+    /// <remarks>
+    ///     ⚠ This read the editor's own copy under <c>Editor/Vixen.Editor.Host/Shaders</c> until that
+    ///     copy was deleted. There is one <c>Ui.rvn</c> now, and it is the one every application
+    ///     including the editor draws with.
+    /// </remarks>
     static string ReflectionPath() {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
              directory is not null;
              directory = directory.Parent) {
             var candidate = Path.Combine(
-                directory.FullName, "Editor", "Vixen.Editor.Host", "Shaders", "UiBox.reflect.json"
+                directory.FullName, "Platform", "Vixen.Ui.Desktop", "Shaders", "UiBox.reflect.json"
             );
 
             if (File.Exists(candidate)) {
@@ -263,7 +268,7 @@ public class UiShapeLayoutTests {
         }
 
         throw new FileNotFoundException(
-            $"Editor/Vixen.Editor.Host/Shaders/UiBox.reflect.json was not found above "
+            $"Platform/Vixen.Ui.Desktop/Shaders/UiBox.reflect.json was not found above "
             + $"'{AppContext.BaseDirectory}'."
         );
     }

@@ -65,16 +65,16 @@ about two pixels is what a mip chain does for a texture — four instructions, a
 
 ## Regenerating
 
-The gate does it: `./build.sh CheckShaders --update-shaders` recompiles all four sources here — plus
+The gate does it: `./build.sh CheckShaders --update-shaders` recompiles all three sources here — plus
 the library modules the editor loads — and rewrites what differs. Read the diff.
 
 To do one by hand, from the repository root:
 
 ```bash
-dotnet run --project Raven/Vixen.Raven.Cli -- compile --target spirv Editor/Vixen.Editor.Host/Shaders/Ui.rvn Editor/Vixen.Editor.Host/Shaders/ --emit-reflection
+dotnet run --project Raven/Vixen.Raven.Cli -- compile --target spirv Editor/Vixen.Editor.Host/Shaders/Line.rvn Editor/Vixen.Editor.Host/Shaders/ --emit-reflection
 ```
 
-…and the same for `Line.rvn`, `Mesh.rvn` and `MeshInstanced.rvn`. The `.spv` and the `.reflect.json`
+…and the same for `Mesh.rvn` and `MeshInstanced.rvn`. The `.spv` and the `.reflect.json`
 beside each source are committed, for the reason `Samples/01` and `Samples/02` give: `UiRenderer`'s
 modules are *supplied* rather than compiled, so a caller hands over what it has.
 
@@ -86,11 +86,15 @@ somebody reaches for when they need to run it.
 reads, and what it tells `EditorHost` is where each vertex attribute lives. Regenerating a module
 without it leaves the host binding against the previous source's numbering — which is not a
 validation error but a stage reading whatever the driver left in an attribute nothing was bound to.
-It is also what `UiShapeLayoutTests` compares `Vixen.Ui.Rendering.UiShape` against field by field, so
-a `UiBox.reflect.json` left behind by a regeneration is a host being told the wrong struct offsets by
-the only artefact that knows them.
 
-⚠ **These four were committed and unchecked until `UiShape` grew.** `CheckShaders` covered the
+⚠ **There used to be a fourth source here, `Ui.rvn`, and deleting it is what fixed the editor's
+missing compositing stages.** It was a copy of `Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn` carrying
+five of that file's eight shaders — every line of the five identical, and `UiBlur`, `UiColour` and
+`UiMask` simply absent — so the editor composited groups and never blurred, filtered or masked them.
+`EditorHost` calls `UiShaderLibrary.Load` now, and the interface's shaders live in exactly one place.
+`UiShapeLayoutTests` reads the reflection beside that one.
+
+⚠ **These were committed and unchecked until `UiShape` grew.** `CheckShaders` covered the
 library modules and described itself as covering these; it did not, so a `.rvn` edited without
 recompiling and a stale `.spv` could sit in one commit. `Build.Shaders.cs`'s `EditorSources` is that
 half now, and unlike the library entries it compares *every* module a source emits — so a shader

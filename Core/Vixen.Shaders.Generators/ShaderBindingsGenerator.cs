@@ -51,11 +51,12 @@ public class ShaderBindingsGenerator : IIncrementalGenerator {
     /// <remarks>
     ///     ⚠ <b>Because two assemblies can reflect two different shaders with one name, and one of
     ///     them can reference the other.</b> The class is named after the shader — <c>UiVertex</c>
-    ///     becomes <c>UiVertexKeys</c> in <c>Vixen.Shaders.Generated</c> — and both
-    ///     <c>Vixen.Editor.Host</c> and <c>Platform/Vixen.Ui.Desktop</c> have a <c>Ui.rvn</c> with a
-    ///     <c>UiVertex</c> in it. They are genuinely different shaders with genuinely different
-    ///     reflection, and the editor references the host, so the two public classes collide: CS0436,
-    ///     which this repository builds as an error.
+    ///     becomes <c>UiVertexKeys</c> in <c>Vixen.Shaders.Generated</c> — so two assemblies that
+    ///     each reflect a <c>UiVertex</c>, one referencing the other, emit two public classes with
+    ///     one name: CS0436, which this repository builds as an error. That is the state
+    ///     <c>Vixen.Editor.Host</c> and <c>Platform/Vixen.Ui.Desktop</c> were in until the editor's
+    ///     duplicate <c>Ui.rvn</c> was deleted; the property stays because the argument below is the
+    ///     one that was right all along, and the collision is a thing a second project can recreate.
     ///     <para>
     ///         Internal is the right answer rather than a workaround. These constants exist so that
     ///         the assembly holding the <c>.reflect.json</c> can bind against its own modules; nobody

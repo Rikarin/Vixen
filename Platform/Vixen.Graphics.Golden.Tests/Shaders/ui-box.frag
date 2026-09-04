@@ -104,11 +104,12 @@ float shadow_coverage(float distance, float blur) {
 
 // ── Gradients ────────────────────────────────────────────────────────────────────────────────────
 //
-// ⚠ This is a transcription of `Editor/Vixen.Editor.Host/Shaders/Ui.rvn`'s `UiBox`, which is the
-// version the editor draws with, and of `SoftwareUiRasterizer`, which is the version the UI test
-// suite compares against. Three implementations of one shader is not a design anybody chose — see
-// `Core/Vixen.Ui.Renderer/README.md` — but while they exist they have to agree, because a gradient
-// that fades differently in a sample from the way it fades in the editor reads as a driver bug.
+// ⚠ This is a transcription of `Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn`'s `UiBox`, which is the
+// version every application including the editor draws with, and of `SoftwareUiRasterizer`, which is
+// the version the UI test suite compares against. Three implementations of one shader is not a design
+// anybody chose — see `Core/Vixen.Ui.Renderer/README.md` — but while they exist they have to agree,
+// because a gradient that fades differently in a sample from the way it fades in the editor reads as
+// a driver bug.
 
 const float INV_ROOT_TWO = 0.7071067811865476;
 const float INV_TWO_PI = 0.15915494309189535;

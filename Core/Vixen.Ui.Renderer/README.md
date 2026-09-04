@@ -182,11 +182,19 @@ is no longer an obstacle — `Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn` declares
 `reserved: float4` in each of `UiBlur`, `UiColour` and `UiMask`, which *is* the projection's sixteen
 bytes, and all three work. `UiShaderLibrary.Load` hands over the complete set of eight.
 
-⚠ So what is left is that `Vixen.Editor.Host` keeps its **own copy** of `Ui.rvn` — 488 lines against
-the desktop copy's 886, identical for the five shaders both have and simply missing the other three —
-and hand-rolls a five-module table beside a `UiShaderLibrary` it already references. That is the
-census `SharedUiShaderTests` was written to keep, recurred in the new language: its own remark says
-"there is one copy because the other two stopped being GLSL", and there are two.
+⚠ **And the wiring gap is closed too: there is one `Ui.rvn` again.** `Vixen.Editor.Host` kept its
+own copy — 558 lines against the desktop copy's 1006, identical in every line of the five shaders both
+carried and simply missing the other three — and hand-rolled a five-module table beside a
+`UiShaderLibrary` it already referenced. The copy is deleted and `EditorHost` calls
+`UiShaderLibrary.Load`, so the editor blurs, filters and masks like every other host.
+
+⚠ **What that cost while it stood is worth stating, because none of it was a failure.** All three
+stages degrade to a picture rather than to an error, so the editor drew a correct picture of the wrong
+stylesheet for as long as the copy existed: no validation error, no log line, no counter out of range.
+`EditorUiCompositingDeviceTests` is what says so now — it renders one blurred, one filtered and one
+masked group through `UiShaderLibrary.Load`'s table and through that table with the three optional
+stages cleared, which reconstructs the old editor exactly, and asserts the opposite of each oracle on
+the second arm.
 
 ### And where the numbers in a vertex layout come from
 

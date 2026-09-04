@@ -110,15 +110,16 @@
         <AdditionalFiles Include="Shaders\*.reflect.json" />
 
         <!--
-            ⚠ **Internal, because `Vixen.Editor.Host` has a `Ui.rvn` with a `UiVertex` in it too and
-            it references this assembly.** The generator names its class after the shader, so both
-            would emit a public `Vixen.Shaders.Generated.UiVertexKeys` and the editor would not
-            compile: CS0436, which this repository builds as an error.
+            ⚠ **Internal, because the generator names its class after the shader.** Two assemblies
+            that each reflect a `UiVertex`, one referencing the other, both emit a public
+            `Vixen.Shaders.Generated.UiVertexKeys` and the referencing one does not compile: CS0436,
+            which this repository builds as an error. `Vixen.Editor.Host` was in exactly that state
+            until its duplicate `Ui.rvn` was deleted.
 
-            The two shaders are genuinely different — the editor's declares five stages and this one
-            eight — so the right answer is not to share a file but to stop publishing constants nobody
-            outside this assembly can use. These say where *these* modules put their attributes; an
-            assembly that cannot load them has no use for the numbers.
+            ⚠ **And it stays internal now that the collision is gone**, because avoiding CS0436 was
+            never the argument — it was the symptom. These constants say where *these* modules put
+            their attributes, and an assembly that cannot load them has no use for the numbers. What
+            a consumer wants is `UiShaderLibrary.Load`, which is what the editor now calls.
         -->
         <CompilerVisibleProperty Include="VixenShaderBindingsInternal" />
     </ItemGroup>

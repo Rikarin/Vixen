@@ -15,7 +15,7 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
 /// <remarks>
 ///     <para>
 ///         <b>The gap this closes: the editor could not draw anything the shader library defines.</b>
-///         <c>Editor/Vixen.Editor.Host/Shaders</c> holds four <c>.rvn</c> and their <c>.spv</c>, and
+///         <c>Editor/Vixen.Editor.Host/Shaders</c> holds three <c>.rvn</c> and their <c>.spv</c>, and
 ///         every one of those sources is standalone — no <c>import</c>, and the block-out BRDF
 ///         written out by hand rather than taken from <c>Raven/Library/Shading/Brdf.rvn</c> for
 ///         exactly that reason. A shader that <em>does</em> import, like <c>Terrain.rvn</c>, cannot be
@@ -82,22 +82,22 @@ partial class Build {
     ///     <para>
     ///         <b>The gap this closes: nothing recompiled these, so a source edit and a stale binary
     ///         could sit in one commit.</b> The list above is the shaders the editor loads out of
-    ///         <c>Raven/Library</c>; these four are written beside the editor and are what the check
-    ///         half of this target was always described as covering. <c>Ui.rvn</c> is the one that
-    ///         made it matter: <c>UiShape</c> grew to a hundred and twelve bytes, and a source that
-    ///         said so beside a module that did not would have been read by the host as the new layout
-    ///         and by the GPU as the old one.
+    ///         <c>Raven/Library</c>; these are written beside a project and are what the check half
+    ///         of this target was always described as covering. <c>Ui.rvn</c> is the one that made it
+    ///         matter: <c>UiShape</c> grew to a hundred and twelve bytes, and a source that said so
+    ///         beside a module that did not would have been read by the host as the new layout and by
+    ///         the GPU as the old one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Standalone, which is why they can be one file each.</b> None of the four
+    ///         ⚠ <b>Standalone, which is why they can be one file each.</b> None of them
     ///         <c>import</c>s anything — <c>Shaders/README.md</c> spells out why the block-out BRDF is
     ///         written by hand rather than taken from the library — so they need no
     ///         <see cref="SourcesFor" /> closure, and passing one would parse the same declarations
     ///         twice.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every module a source emits, not a named one.</b> <c>Ui.rvn</c> declares five
-    ///         shaders and produces five modules with five names of its own, so unlike the entries
+    ///         ⚠ <b>Every module a source emits, not a named one.</b> <c>Ui.rvn</c> declares eight
+    ///         shaders and produces eight modules with eight names of its own, so unlike the entries
     ///         above there is no output to rename and no <c>--shader</c> to pass. That also means this
     ///         half catches a shader *added* to one of these files and never committed.
     ///     </para>
@@ -110,14 +110,16 @@ partial class Build {
     ///     without recompiling, which is exactly the state this whole target exists to make
     ///     impossible.
     ///     <para>
-    ///         The two <c>Ui</c> entries are deliberately not one file. The editor's declares five
-    ///         shaders and the host's eight — the three compositing stages are the difference — and
-    ///         they are compiled against different packages. Sharing them means emitting a
-    ///         <c>.rvnlib</c>, which is a build step neither of them has.
+    ///         ⚠ <b>There used to be two <c>Ui</c> entries and now there is one.</b> The editor kept
+    ///         its own copy of <c>Ui.rvn</c> declaring five shaders against the host's eight, and the
+    ///         three it did not declare are the three compositing stages — so the editor composited
+    ///         and never blurred, filtered or masked. This gate could not see that: it proves each
+    ///         committed module matches the source beside it, which was true of both copies
+    ///         independently and said nothing about the pair. The copy is gone and
+    ///         <c>EditorHost</c> calls <c>UiShaderLibrary.Load</c>.
     ///     </para>
     /// </remarks>
     static readonly (string Project, string Source)[] EditorSources = [
-        ("Editor/Vixen.Editor.Host", "Ui"),
         ("Editor/Vixen.Editor.Host", "Line"),
         ("Editor/Vixen.Editor.Host", "Mesh"),
         ("Editor/Vixen.Editor.Host", "MeshInstanced"),

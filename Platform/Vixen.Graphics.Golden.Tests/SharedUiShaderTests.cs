@@ -26,15 +26,15 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         equal by hand: it recompiles the source and fails if the committed module differs.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This paragraph used to say "everything that is not this suite", and that is no longer
-///         true — the census it exists to keep has to be kept in Raven too.</b>
-///         <c>Editor/Vixen.Editor.Host/Shaders/Ui.rvn</c> is a second copy, 488 lines against the
-///         desktop copy's 886. The five shaders both files carry are identical today, so nothing has
-///         drifted the way <c>ui-box.frag</c> did; what the editor's copy is missing is
-///         <c>UiBlur</c>, <c>UiColour</c> and <c>UiMask</c> outright, so the editor composites and
-///         does not blur, filter or mask. <c>CheckShaders</c> cannot see this: it proves each
-///         committed module matches the source beside it, which both copies do. Nothing compares the
-///         two sources.
+///         ⚠ <b>There was a second Raven copy and it is gone, which is what
+///         <see cref="EveryRavenCopyAgreesAboutTheShadersItShares" /> was written to make safe to
+///         delete.</b> <c>Editor/Vixen.Editor.Host/Shaders/Ui.rvn</c> carried five of the desktop
+///         copy's eight shaders — every line of the five identical, so nothing had drifted the way
+///         <c>ui-box.frag</c> did, and <c>UiBlur</c>, <c>UiColour</c> and <c>UiMask</c> simply
+///         absent, so the editor composited and never blurred, filtered or masked. <c>CheckShaders</c>
+///         could not see that: it proves each committed module matches the source beside it, which
+///         both copies did. The test below is what compared the sources, and it now guards a census
+///         of one against the next copy somebody adds.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>What is left uncovered is worth naming rather than papering over.</b> The reference
@@ -106,18 +106,24 @@ public class SharedUiShaderTests {
     ///         ⚠ <b><c>Copies</c>, restored — the invariant did not stop mattering when the shaders
     ///         stopped being GLSL, it stopped being checked.</b> The original compared three
     ///         hand-maintained <c>.frag</c> files and caught two of them missing the whole shadow
-    ///         path. Two of those three are gone; a second Raven copy has since appeared under
-    ///         <c>Editor/Vixen.Editor.Host/Shaders</c>, and nothing compares it with the desktop one.
-    ///         <c>CheckShaders</c> cannot: it proves each committed module matches the source beside
-    ///         it, which is true of both copies independently and says nothing about the pair.
+    ///         path. Two of those three are gone, and so is the second Raven copy this test was
+    ///         written against — <c>Editor/Vixen.Editor.Host/Shaders/Ui.rvn</c>, which
+    ///         <c>CheckShaders</c> could not compare with the desktop one because it proves each
+    ///         committed module matches the source beside it, which was true of both copies
+    ///         independently and said nothing about the pair.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Per shader rather than per file, because the files are legitimately different
-    ///         sizes.</b> The editor's copy carries five of the eight shaders and the desktop's
-    ///         carries all eight, so a whole-file comparison would be red today for a reason nobody
-    ///         should silence by copying three shaders into a host that does not wire them. What is
-    ///         wrong is not that one is shorter — it is a shader whose *body* differs between two
-    ///         files that both claim to be the interface.
+    ///         ⚠ <b>It keeps running over a census of one, and that is the point rather than a
+    ///         leftover.</b> A walk that finds one file compares nothing, so what holds this up is the
+    ///         count assertion and the three names below: the day somebody adds a second
+    ///         <c>Ui.rvn</c>, this is what says the two agree, and it costs nothing until then.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Per shader rather than per file, because two copies can legitimately be different
+    ///         sizes.</b> The editor's carried five of the eight shaders, so a whole-file comparison
+    ///         would have been red for a reason nobody should silence by copying three shaders into a
+    ///         host that does not wire them. What is wrong is not that one is shorter — it is a
+    ///         shader whose *body* differs between two files that both claim to be the interface.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And it asserts it found the files.</b> A walk that matched nothing agrees with
@@ -132,6 +138,17 @@ public class SharedUiShaderTests {
         var sources = Directory.EnumerateFiles(root, "Ui.rvn", SearchOption.AllDirectories)
             .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
             .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+
+            // ⚠ <b>And not another checkout of this repository, which is what a dot directory under
+            // the root is.</b> `.claude/worktrees` holds a git worktree per parallel agent, each a
+            // full tree with its own `Ui.rvn` at whatever commit that branch is on — so this walk
+            // was comparing *old versions of this file with each other* and reporting drift that is
+            // not in the tree under test. It failed exactly that way, naming two agent worktrees,
+            // and it would have gone on doing so however correct the working tree was. The reverse
+            // is the worse half: a walk whose first disagreement is between two other checkouts
+            // stops before it reaches this one.
+            .Where(path => !Relative(root, path).Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Any(segment => segment.StartsWith('.')))
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToList();
 

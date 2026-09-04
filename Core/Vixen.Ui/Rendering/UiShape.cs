@@ -26,26 +26,27 @@ namespace Vixen.Ui.Rendering;
 ///         another box's radii, which looks like a bug in the geometry.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Eight files have to agree about this layout, and half of them are invisible to a
-///         search for this type's name.</b> The four that name it: this record,
-///         <c>Editor/Vixen.Editor.Host/Shaders/Ui.rvn</c>, the committed <c>UiBox.frag.spv</c> and
-///         <c>UiBox.reflect.json</c> beside it, and <c>SoftwareUiRasterizer</c>. The four that do not:
+///         ⚠ <b>Several files have to agree about this layout, and half of them are invisible to a
+///         search for this type's name.</b> The ones that name it: this record,
+///         <c>Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn</c>, the committed <c>UiBox.frag.spv</c> and
+///         <c>UiBox.reflect.json</c> beside it, and <c>SoftwareUiRasterizer</c>. The ones that do not:
 ///         <c>UiRenderer</c>, which needs only the <i>size</i> and once spelled it <c>80</c> in three
 ///         places; and one hand-maintained GLSL copy of the box shader, under
 ///         <c>Vixen.Graphics.Golden.Tests</c>, which calls the struct <c>Shape</c>. There were three
-///         until the sample and the <c>vixen-app</c> template stopped carrying their own frame loops,
-///         and two until <c>Platform/Vixen.Ui.Desktop</c>'s became Raven's — where it is the
-///         <c>UiShape</c> in <c>Shaders/Ui.rvn</c>, named and checked rather than transcribed.
+///         GLSL copies until the sample and the <c>vixen-app</c> template stopped carrying their own
+///         frame loops, and two Raven ones until <c>Vixen.Editor.Host</c>'s duplicate of
+///         <c>Ui.rvn</c> was deleted — so what is left is one source, named and checked rather than
+///         transcribed.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Which test covers which half is worth knowing before changing this.</b>
-///         <c>UiShapeLayoutTests</c> pins the record's <i>shape</i> against the editor's committed
-///         reflection and has nothing to say about how a host sizes a buffer around it;
-///         <c>./build.sh CheckShaders</c> pins the Raven sources against their modules and does not
-///         see GLSL. The stride and the three GLSL copies are caught only by
-///         <c>Vixen.Graphics.Golden.Tests</c>, on a real device — which is exactly what caught them
-///         when this record grew. <c>UiRenderer</c> now derives its stride from
-///         <c>Marshal.SizeOf</c>, so that one cannot drift again; the other three still can.
+///         <c>UiShapeLayoutTests</c> pins the record's <i>shape</i> against the committed
+///         reflection beside <c>Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn</c> and has nothing to say
+///         about how a host sizes a buffer around it; <c>./build.sh CheckShaders</c> pins the Raven
+///         source against its modules and does not see GLSL. The stride and the GLSL copy are caught
+///         only by <c>Vixen.Graphics.Golden.Tests</c>, on a real device — which is exactly what
+///         caught them when this record grew. <c>UiRenderer</c> now derives its stride from
+///         <c>Marshal.SizeOf</c>, so that one cannot drift again; the GLSL still can.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Every lane this record has ever grown was <i>appended</i>, and the two repurposed ones

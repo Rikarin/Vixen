@@ -14,6 +14,7 @@ using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Ecs;
 using Vixen.Shaders.Generated;
+using Vixen.Ui.Desktop;
 using Vixen.Ui.Renderer;
 using Xunit;
 
@@ -700,25 +701,17 @@ public sealed class ComposedPaneCaptureTests {
                 Locations = new(MeshKeys.PositionLocation, MeshKeys.NormalLocation, MeshKeys.VertexColourLocation)
             };
 
-            Ui = new(
-                Load(device, ShaderStage.Vertex, "UiVertex.vert.spv"),
-                Load(device, ShaderStage.Fragment, "UiBox.frag.spv"),
-                Load(device, ShaderStage.Fragment, "UiText.frag.spv"),
-                Load(device, ShaderStage.Fragment, "UiSolid.frag.spv")
-            ) {
-                Image = Load(device, ShaderStage.Fragment, "UiImage.frag.spv"),
+            // ⚠ **The library, exactly as `EditorHost` does — including its `Locations`.** Left at
+            // the default every attribute is at location zero, which a recording device accepts and
+            // a driver refuses: `vkCreateGraphicsPipelines` with `ErrorInitializationFailed`, which
+            // is how that was found. The numbers come out of Raven's reflection inside
+            // `UiShaderLibrary` rather than being written down here.
+            //
+            // These eight handles are the library's to make and this class's to destroy, so they go
+            // on the same list the tool modules do.
+            Ui = UiShaderLibrary.Load(device);
 
-                // ⚠ Read out of Raven's reflection, exactly as `EditorHost` does. Left at the
-                // default every attribute is at location zero, which a recording device accepts and
-                // a driver refuses — `vkCreateGraphicsPipelines` with `ErrorInitializationFailed`,
-                // which is how this was found.
-                Locations = new(
-                    UiVertexKeys.PositionLocation,
-                    UiVertexKeys.TexcoordLocation,
-                    UiVertexKeys.VertexColourLocation,
-                    UiVertexKeys.VertexShapeLocation
-                )
-            };
+            made.AddRange([Ui.Vertex, Ui.Box, Ui.Text, Ui.Solid, Ui.Image, Ui.Blur, Ui.Colour, Ui.Mask]);
         }
 
         public LineShaders Lines { get; }
