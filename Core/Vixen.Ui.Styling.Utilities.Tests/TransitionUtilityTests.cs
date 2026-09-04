@@ -19,13 +19,14 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         <c>value_gap</c> in prose because no test could hold it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The whole instrument is that no <c>duration-*</c> is written anywhere here.</b>
-///         <c>transition-duration</c> initially computes to <b>zero</b>, and a transition of zero
-///         duration is indistinguishable from no transition at all — both put the property at its
-///         destination on the very next frame. So the reading that matters is a value strictly
+///         ⚠ <b>The whole instrument of the first test is that no <c>duration-*</c> is written in
+///         it.</b> <c>transition-duration</c> initially computes to <b>zero</b>, and a transition of
+///         zero duration is indistinguishable from no transition at all — both put the property at
+///         its destination on the very next frame. So the reading that matters is a value strictly
 ///         <i>between</i> the two endpoints, for <c>Vixen.Ui.Tests.TransitionTests</c>' reason: an
 ///         assertion about where the property ends up passes against an engine with no transition
-///         machinery at all.
+///         machinery at all. The other two tests <i>do</i> write a neighbour, and they exist because
+///         the fix for the first one can break them.
 ///     </para>
 ///     <para>
 ///         The clock is an argument and nothing sleeps, so the numbers are the same on every machine.
