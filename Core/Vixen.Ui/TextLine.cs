@@ -78,8 +78,10 @@ public sealed class TextLine {
     /// </param>
     /// <param name="tabStop">
     ///     <para>
-    ///         How far apart the tab stops are, in pixels, or zero for a line with no tab in it —
-    ///         which is every line in an interface, and costs one comparison.
+    ///         How far apart the tab stops are, in pixels. Zero is a real distance and not a
+    ///         sentinel: a tab at it occupies nothing, which is what <c>tab-size: 0</c> asks for and
+    ///         is also the right answer for a line with no tab in it, since it has none to occupy
+    ///         anything. See <see cref="NextStop" /> for why the two had to be made to coincide.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Measured from the start of the line <i>box</i> and not from the first glyph</b>,

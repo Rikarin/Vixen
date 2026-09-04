@@ -114,8 +114,9 @@ public static class LineWrapper {
     /// </remarks>
     /// <param name="tabStop">
     ///     <para>
-    ///         How far apart the tab stops are, in the same unit as the advances, or zero to measure
-    ///         a tab as whatever glyph the font gave it. CSS Text 3 § 6.1.
+    ///         How far apart the tab stops are, in the same unit as the advances. CSS Text 3 § 6.1.
+    ///         Zero is a distance rather than a sentinel — a tab at it occupies nothing, which is
+    ///         <c>tab-size: 0</c> and is equally the right answer for a paragraph with no tab in it.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The one advance here that is not a property of the character.</b> Every width in
