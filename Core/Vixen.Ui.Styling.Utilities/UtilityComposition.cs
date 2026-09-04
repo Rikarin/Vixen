@@ -257,6 +257,47 @@ public static class UtilityComposition {
     /// <summary>And along y.</summary>
     public const string ScaleY = Prefix + "scale-y";
 
+    // ── The transform list ──────────────────────────────────────────────────────────────────
+    //
+    // ⚠ <b>A fragment for a family that is currently alone, and the reason is the <i>next</i> two
+    // functions rather than this one</b> — the argument <see cref="Blur" /> makes one property over.
+    // CSS's `transform` is an ordered list, so `rotate-z-45 skew-x-6` has to come out as one
+    // declaration holding both functions; two families each writing a whole `transform` would let
+    // the cascade pick one and drop the other, silently, which is the failure `translate-x`/
+    // `translate-y` had.
+    //
+    // ⚠ <b>And it is a list this engine can only partly spell, which is why the assembler names one
+    // slot rather than v4's five.</b> `TransformReader.Functions` refuses a list outright if any one
+    // function in it is unreadable — deliberately, because a card flip read as the two flat halves
+    // of a `rotateX rotateY` pair is a picture, and a wrong one. So writing v4's whole
+    // `rotateX(…) rotateY(…) rotateZ(…) skewX(…) skewY(…)` today would make `rotate-z-45` emit a
+    // declaration the engine drops *whole*: the family would resolve, cascade and do nothing. A slot
+    // joins this assembler when its function parses, and not before.
+
+    /// <summary>How far a <c>transform</c> spins the box about the axis normal to the screen.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The angle, not the whole <c>rotateZ(…)</c>, which is where this diverges from v4's
+    ///         own fragment — and the divergence buys negation.</b> Tailwind writes
+    ///         <c>--tw-rotate-z: rotateZ(45deg)</c> and assembles the bare references.
+    ///         <c>UtilityFamilies.TryNegate</c> flips a resolved declaration by prefixing a minus and
+    ///         refuses any value that does not begin with a digit, so a fragment holding a function
+    ///         call could never spell <c>-rotate-z-45</c> — the gap <see cref="Vixen.Ui.Styling.Utilities.ValueKind.Angle" />
+    ///         records for <c>bg-linear-*</c>, where it is unavoidable because the value is a whole
+    ///         gradient. Here it is avoidable: the function lives in the assembler and the angle lives
+    ///         in the fragment, so the sign is on a number. Fragment names never appear in markup —
+    ///         see <see cref="Prefix" /> — so the shape is this layer's to choose.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>0deg</c> and not <c>0</c>, for <see cref="Blur" />'s reason and with its
+    ///         consequence.</b> The initial is substituted <i>inside</i> a function, and
+    ///         <c>rotateZ(0)</c> is not a value CSS has: <c>TransformReader</c>'s angle parser refuses
+    ///         a bare number, and a refused function refuses the whole list — so the unit here is what
+    ///         keeps an element that carries no rotation at all from dropping its <c>transform</c>.
+    ///     </para>
+    /// </remarks>
+    public const string RotateZ = Prefix + "rotate-z";
+
     // ── The ring ────────────────────────────────────────────────────────────────────────────
     //
     // ⚠ <b>A ring is a <c>box-shadow</c>, not an outline, and Vixen emitted <c>outline-color</c> for
@@ -465,6 +506,10 @@ public static class UtilityComposition {
         // load-bearing has the answer here instead of the argument.
         [TranslateX] = "0px",
         [TranslateY] = "0px",
+
+        // See `RotateZ`: the unit is load-bearing here rather than merely legible, because the
+        // initial is substituted inside `rotateZ(…)` and a bare zero makes the whole list invalid.
+        [RotateZ] = "0deg",
 
         // ⚠ <b>One, and this is the pair where the identity is not zero — which is the whole reason
         // these are separate fragments rather than a second use of the translations'.</b> A missing
@@ -727,6 +772,25 @@ public static class UtilityComposition {
     ///     <c>scale-x-150</c> would stretch both axes and be exactly the bug the fragment is for.
     /// </remarks>
     public static string Scaling() => $"{Reference(ScaleX)} {Reference(ScaleY)}";
+
+    /// <summary>The function list a <c>transform</c> declaration takes.</summary>
+    /// <returns>The assembled value.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="Translation" />'s arrangement: the family that sets the fragment emits this
+    ///         beside it, so one class works alone and several compose.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One function, where v4 writes five — and the missing four are missing on purpose,
+    ///         not pending.</b> See the block above <see cref="RotateZ" />: a <c>transform</c> naming
+    ///         a function <c>TransformReader</c> cannot read is refused whole, so a slot added before
+    ///         its parser would take the working rotation down with it. <c>rotateX</c>,
+    ///         <c>rotateY</c>, <c>skewX</c> and <c>skewY</c> each join this string on the day the
+    ///         reader accepts them; <c>skew</c> already parses, so its two are a family away rather
+    ///         than a parser away.
+    ///     </para>
+    /// </remarks>
+    public static string Transform() => $"rotateZ({Reference(RotateZ)})";
 
     /// <summary>The <c>box-shadow</c> a ring is.</summary>
     /// <returns>The assembled value.</returns>

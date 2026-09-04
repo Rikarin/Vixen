@@ -1824,6 +1824,41 @@ public static class UtilityFamilies {
         // is the whole difference between a declaration a browser honours and one it drops.
         CountTemplate("rotate", "{0}deg", "rotate");
 
+        // ⚠ <b>And the third axis's spelling, which was refused for a blocker that had already
+        // shipped.</b> The ledger's note said `rotate-z-*` waits on a `<transform-function>` parser —
+        // "no `matrix()`, no `rotate()`, no list of functions in `StyleValue`" — and
+        // `TransformReader.Functions` reads exactly that list: `matrix`, `translate`, `translateX/Y`,
+        // `scale`, `scaleX/Y`, `rotate`, `rotateZ`, `skew` and `skewX/Y`, asserted against pixels in
+        // `Vixen.Ui.Tests.TransformTests`. The refusal even declared its own expiry condition —
+        // `[expires-on Vixen.Ui.Styling.StyleValueKind.Function]` — and that condition is *still* not
+        // met, because the parser was built in `TransformReader` over the declaration's text rather
+        // than as a value kind. ⚠ <b>A refusal can be satisfied without its named symbol arriving,
+        // and `RefusalExpiryTests` cannot see that</b>; this is the first row it happened to.
+        //
+        // ⚠ <b>Registered as its own root rather than folded into `rotate`, and `SplitName` is why
+        // that is safe:</b> the longest registered prefix wins, so `rotate-z-45` reaches here and
+        // `rotate-45` still reaches `rotate` above. `ShadowedFamilyTests` holds that rule.
+        //
+        // ⚠ <b><see cref="ValueKind.Angle" /> and not <see cref="ValueKind.CountTemplate" />, because
+        // zero is a value.</b> `TryCount` refuses it — rightly, for `grid-cols-0` — and `rotate-z-0`
+        // is a real class that means the identity. ⚠ It also means `rotate-0` is *unresolved* today
+        // while `rotate-z-0` resolves, which is a divergence in the family one line up rather than
+        // in this one.
+        //
+        // ⚠ <b>The three-dimensional siblings are NOT registered here, and the reason is no longer
+        // the parser.</b> `rotate-x-*`, `rotate-y-*`, `translate-z-*` and `scale-z-*` need a third
+        // axis and a projective composite `UiTransform` deliberately cannot express — see its own
+        // remark, and `Apply`'s: the composite quad's texture coordinates are interpolated linearly,
+        // which is exact for an affine map and an approximation for a projective one. That is a
+        // renderer decision and it is recorded on issue #228, not worked around here.
+        Register(new Family(
+            "rotate-z",
+            ValueKind.Angle,
+            [UtilityComposition.RotateZ],
+            Template: "{0}",
+            Alongside: [new UtilityDeclaration("transform", UtilityComposition.Transform())]
+        ));
+
         // ⚠ <b>The third refusal this section retired, and the only one that was refused as
         // <i>unobservable</i> rather than merely unread.</b> Doc 43 § C6 struck `origin-*` because
         // "`transform-origin` moves no channel, and cannot: it needs a transform whose fixed point

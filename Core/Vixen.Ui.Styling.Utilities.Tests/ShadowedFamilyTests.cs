@@ -22,7 +22,7 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         <see cref="A_shorter_prefix_would_rescue_nothing" /> sweeps every nesting pair the
 ///         registry contains against every token key both shipped themes contain, and asserts that no
 ///         class exists which the longest-first rule refuses and a shorter prefix would answer. The
-///         shadowed roots — <c>rotate-z-*</c>, <c>border-spacing-*</c>, <c>inset-ring-*</c> and the
+///         shadowed roots — <c>border-spacing-*</c>, <c>inset-ring-*</c>, <c>ring-offset-*</c> and the
 ///         rest — are shadowed by a family that is the <i>only</i> registered prefix they have, so
 ///         there is nothing shorter to retry: whatever closes them, it is not the retry, and the
 ///         retry is a separate question with the answer "no".
@@ -148,20 +148,25 @@ public class ShadowedFamilyTests {
     /// <summary>Every shadowed root the ledger names has exactly one registered prefix.</summary>
     /// <remarks>
     ///     ⚠ <b>The reason the retry is not the fix, stated as the shape of the data rather than as
-    ///     an opinion.</b> <c>rotate-z-0</c> is taken by <c>rotate</c> because <c>rotate</c> is the
+    ///     an opinion.</b> <c>inset-ring-0</c> is taken by <c>inset</c> because <c>inset</c> is the
     ///     only registered prefix it has; there is no second candidate for a retry to fall back to.
-    ///     Whatever closes these rows, it is a <c>rotate-z</c> registration.
+    ///     Whatever closes these rows, it is a registration of the longer name.
     ///     <para>
-    ///         ⚠ <b><c>rounded-ss-2xl</c>, <c>rounded-es-2xl</c> and <c>scale-x-0</c> were here and
-    ///         are gone, which is what closing a shadowed root looks like.</b> The registrations this
-    ///         remark predicted are the ones that landed: six <c>rounded-s/e/ss/se/ee/es</c> families
-    ///         over the four logical corner longhands, resolved against <c>direction</c> in
-    ///         <c>DrawListBuilder.Corners</c>; and then <c>scale-x</c>/<c>scale-y</c>, composed onto
-    ///         one <c>scale</c> the way the two translations are, once <c>scale</c> itself stopped
-    ///         being refused. ⚠ The second is worth noticing separately: that root was not waiting on
-    ///         a registration at all, it was waiting on <c>scale</c> acquiring a reader, and the note
-    ///         in the ledger said "refused" rather than "blocked on #23" — which is how it sat through
-    ///         the week the blocker cleared.
+    ///         ⚠ <b><c>rounded-ss-2xl</c>, <c>rounded-es-2xl</c>, <c>scale-x-0</c> and
+    ///         <c>rotate-z-0</c> were here and are gone, which is what closing a shadowed root looks
+    ///         like.</b> The registrations this remark predicted are the ones that landed: six
+    ///         <c>rounded-s/e/ss/se/ee/es</c> families over the four logical corner longhands,
+    ///         resolved against <c>direction</c> in <c>DrawListBuilder.Corners</c>; then
+    ///         <c>scale-x</c>/<c>scale-y</c>, composed onto one <c>scale</c> the way the two
+    ///         translations are, once <c>scale</c> itself stopped being refused; then
+    ///         <c>rotate-z</c>, composed onto one <c>transform</c>. ⚠ The last two are worth noticing
+    ///         separately, because neither was waiting on a registration. <c>scale-x-*</c> was
+    ///         waiting on <c>scale</c> acquiring a reader; <c>rotate-z-*</c> was waiting on a
+    ///         <c>&lt;transform-function&gt;</c> parser that had <i>already been written</i>, in
+    ///         <c>TransformReader.Functions</c>. Both ledger notes said "refused" while their premise
+    ///         was expired, and <c>rotate-z-*</c>'s even carried a declared expiry clause naming
+    ///         <c>StyleValueKind.Function</c> — a symbol that still does not exist, because the
+    ///         parser was built somewhere else. See <see cref="RefusalExpiryTests" />.
     ///         They are removed rather than left as passing rows because the theory asserts a class
     ///         is <i>still</i> shadowed, so a closed root here would be a failure and not a
     ///         no-op.
@@ -171,7 +176,6 @@ public class ShadowedFamilyTests {
     [InlineData("inset-ring-0", "inset")]
     [InlineData("inset-shadow-2xs", "inset")]
     [InlineData("border-spacing-0", "border")]
-    [InlineData("rotate-z-0", "rotate")]
     [InlineData("flex-shrink-0", "flex")]
     [InlineData("flex-grow-0", "flex")]
     [InlineData("max-w-screen-md", "max-w")]
@@ -312,21 +316,23 @@ public class ShadowedFamilyTests {
     [Fact]
     public void A_shadowed_class_is_refused_distinctly_from_an_unknown_one() {
         var generator = new UtilityGenerator(Probe);
-        // ⚠ <c>rounded-ss-lg</c> used to be the second of these, then <c>scale-x-0</c> was, and
-        // both are rules now — the six logical radii landed, and then the per-axis scales did once
-        // <c>scale</c> acquired a reader. <c>rotate-z-0</c> replaces it rather than the list shrinking
-        // to one: the claim is that *two* shadowed classes are separated from *two* English words, and
-        // a single-element list would still pass if the partition collapsed the wrong way. That this
-        // line has now been rewritten twice by a root closing is the healthy version of the failure
-        // <c>UtilityFamilies</c>' category 2 records — here the test says so.
-        generator.Generate(["bg-clip-text", "rotate-z-0", "flexx-4", "however", "p-4"]);
+        // ⚠ <c>rounded-ss-lg</c> was the second of these, then <c>scale-x-0</c>, then
+        // <c>rotate-z-0</c>, and all three are rules now — the six logical radii landed, then the
+        // per-axis scales once <c>scale</c> acquired a reader, then <c>rotate-z</c> once somebody
+        // noticed the parser it was waiting on had already shipped. <c>ring-offset-0</c> replaces it
+        // rather than the list shrinking to one: the claim is that *two* shadowed classes are
+        // separated from *two* English words, and a single-element list would still pass if the
+        // partition collapsed the wrong way. That this line has now been rewritten three times by a
+        // root closing is the healthy version of the failure <c>UtilityFamilies</c>' category 2
+        // records — here the test says so.
+        generator.Generate(["bg-clip-text", "ring-offset-0", "flexx-4", "however", "p-4"]);
 
         Assert.Equal(1, generator.RuleCount);
 
         Assert.Equal(
             [
                 new UtilityRefusal("bg-clip-text", "bg", "clip-text", UtilityRefusalKind.Value),
-                new UtilityRefusal("rotate-z-0", "rotate", "z-0", UtilityRefusalKind.Value)
+                new UtilityRefusal("ring-offset-0", "ring", "offset-0", UtilityRefusalKind.Value)
             ],
             generator.Unresolved
         );

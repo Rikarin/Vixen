@@ -659,6 +659,22 @@ public class UtilityFamilySupportTests {
         { "translate-x-2", "translate", "8px 0px" },
         { "translate-y-2", "translate", "0px 8px" },
 
+        // ⚠ <b><c>rotate-z-*</c>, whose family emits the shorthand rather than a longhand — the first
+        // row here to name <c>transform</c>.</b> Composed the way the translations are: the class
+        // writes <c>--tw-rotate-z</c> and emits a <c>transform</c> assembled out of it, so what the
+        // cascade holds is the assembly. Written out, the expectation is also the proof that the
+        // <i>function</i> lives in the assembler and the angle in the fragment — which is what makes
+        // <c>-rotate-z-45</c> spellable, since `TryNegate` refuses a value that does not start with a
+        // digit and would have refused <c>rotateZ(45deg)</c>.
+        //
+        // ⚠ <b>And it is the row that says the ledger's refusal was stale.</b> `rotate-z-*` was
+        // recorded as waiting on a `<transform-function>` parser and declared its own expiry on
+        // `StyleValueKind.Function`. The parser was written months ago in `TransformReader.Functions`
+        // — over the declaration's text, not as a value kind — so the clause could never fire and the
+        // row stayed `absent` over a capability the engine already had. See
+        // <see cref="The_rotate_z_family_turns_the_box_the_way_the_rotate_property_does" />.
+        { "rotate-z-45", "transform", "rotateZ(45deg)" },
+
         // ⚠ <b>`ring-*` moved without anything in the engine learning a thing, which no other row in
         // this file has done.</b> Every previous move was a reader arriving or an algorithm landing.
         // This one was an <i>emission</i> that was simply wrong: the family emitted `outline-color`,
@@ -1473,6 +1489,70 @@ public class UtilityFamilySupportTests {
         // Three: the sibling did not budge. `w-8` is 32 points, and the row is a flex row, so an
         // implementation that translated in the layout would have put it at 48.
         Assert.Equal(32f, beside.AbsoluteLeft);
+    }
+
+    /// <summary>
+    ///     <c>rotate-z-45</c> turns the box exactly as <c>rotate: 45deg</c> does, and the hit test
+    ///     follows it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Against the <c>rotate</c> property rather than against numbers, because the claim
+    ///         is a <i>sameness</i> and a number would only restate the arithmetic.</b>
+    ///         <c>rotate-z-*</c> exists to spell in Tailwind's vocabulary the rotation the engine
+    ///         already performs; the thing that could go wrong is the shorthand composing to a
+    ///         different matrix from the longhand — a sign, an origin, a factor order — and every one
+    ///         of those shows as a difference between these two elements and as nothing else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Ninety degrees, and the two probes are not square.</b> At forty-five the rotated
+    ///         quad is symmetric about both diagonals, so a transposed matrix — <c>M12</c> and
+    ///         <c>M21</c> swapped, which is the commonest way to write a rotation backwards — draws
+    ///         the identical picture. A quarter turn of an oblong is the case that separates them:
+    ///         the corner that was bottom-left is where a reversed rotation puts the top-right.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the hit test, for
+    ///         <see cref="The_two_translate_families_compose_and_move_the_box_and_its_hit_test" />'s
+    ///         reason with a sharper edge.</b> A rotation maps the pointer through the matrix
+    ///         inverted, which is separate code from the geometry builder's forward map — so a
+    ///         transform that painted correctly and inverted wrongly leaves a control drawn in one
+    ///         place and clickable in another, and the vacated corner is the only probe that sees it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_rotate_z_family_turns_the_box_the_way_the_rotate_property_does() {
+        using var ui = Sheet("rotate-z-90", "w-16", "h-8", "bg-accent");
+
+        var spun = ui.Create("probe", ui.Document.Root, null, "rotate-z-90", "w-16", "h-8", "bg-accent");
+
+        ui.Frame();
+
+        // One: the shorthand assembled, fragment and all.
+        Assert.Equal("rotateZ(90deg)", ui.StyleOf(spun, "transform"));
+
+        // Two: a group was opened for it. A transform that reached the draw list as no layer at all
+        // is a box drawn unrotated, and every geometric assertion below would then be about the
+        // untransformed rectangle — which is where it started.
+        var layer = Assert.Single(ui.Document.Drawing.Commands, command => command.Kind == DrawCommandKind.LayerPush);
+
+        Assert.NotNull(layer.Transform);
+
+        // Three: it is a quarter turn about the box's centre, which is `transform-origin`'s initial
+        // value. The element is 64 by 32 at the origin, so its centre is (32, 16) and the corner at
+        // (0, 0) lands at (48, -16). ⚠ A transposed matrix puts it at (16, 48) instead, which is the
+        // sabotage this oblong exists to catch.
+        var corner = layer.Transform!.Value.Apply(new Vector2(spun.AbsoluteLeft, spun.AbsoluteTop));
+
+        Assert.Equal(48f, corner.X, 3);
+        Assert.Equal(-16f, corner.Y, 3);
+
+        // Four: the pointer went through the same matrix inverted. The rotated box covers (16, -16)
+        // to (48, 48) about that centre, so a point just inside its new left edge is a hit and the
+        // box's own old top-left corner is not — the latter being the half an implementation that
+        // inverted nothing would still pass.
+        Assert.Same(spun, ui.Document.HitTest(20f, 24f));
+        Assert.NotSame(spun, ui.Document.HitTest(2f, 2f));
     }
 
     /// <summary>
