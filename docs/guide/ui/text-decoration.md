@@ -139,6 +139,23 @@ above — `straße` uppercases to `STRASSE`, so a case mapping changes the UTF-1
 index in `TextRun`, `TextLine` and `TextField` is an index into the element's own string — and what
 closed it was the index map rather than the four keywords. See [Text transform](text-transform.md).
 
+`tab-size` **is** here now, as `tab-1` through `tab-8` and any count. A tab is the one character whose
+advance is not a property of the character: CSS makes it the distance to the next stop, so it depends
+on where the run *sits*, while `TextRun.Width`, `TextLine.Place`, the caret and every width in
+`LineWrapper` are prefix sums over advances that do not. `TextRun.IsTab` and `TextLine.WidthOf` are
+the seam — the line is the first thing that knows where a run begins — and `TextRun.Place` suppresses
+U+0009's glyph, because a face that has no glyph for it shapes a tab to `.notdef` and draws a box.
+
+⚠ **Two things about it that a browser would not lead you to expect.** The stops are measured from the
+start of the line *box*, so a `text-indent` sits inside the first column rather than shifting the grid
+— which is what makes a tabbed table under a hanging indent line up. And `tab-size` is visible on
+ordinary text here, where in a browser it shows only under `white-space: pre`: Vixen's `white-space`
+answers the wrapping question and no other, so a literal tab is never collapsed to a space.
+
+The `<length>` form is dropped rather than resolved — it takes relative units, so it would have to be
+computed and inherited beside `line-height`, and no utility can spell it. An element that writes one
+keeps the initial eight, which is what a browser does with a declaration it cannot use.
+
 ## Examples
 
 A link that underlines only on hover, clear of the descenders:
