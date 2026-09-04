@@ -630,6 +630,35 @@ static class UtilityConsumptionProbe {
             """
         ),
 
+        // ⚠ <b>The mask's tile, and it is a separate scene from `masked` next door for the reason
+        // `tiled` is separate from every scene above it: two ingredients, and `masked` supplies only
+        // one.</b> `mask-repeat` says what happens *outside* one tile, so it is a declaration about
+        // nothing until a `mask-size` has made the tile smaller than the mask box — and with the tile
+        // equal to the box, which is what `masked` has, all four of `repeat`, `no-repeat`, `repeat-x`
+        // and `repeat-y` are the same picture. `mask-repeat` measured inert with
+        // `DrawListBuilder.MaskArea` reading it, which is the false gap that costs the most.
+        //
+        // ⚠ <b>`mask-size` is `50% 50%` here and the family injects `25% 75%`-shaped values, so this
+        // is not `primed`'s trap.</b> A scene that declared the size the injected declaration also
+        // declares would measure that declaration as changing nothing, because the scene had already
+        // said it.
+        //
+        // ⚠ <b>One layer rather than `masked`'s two, deliberately.</b> The tile is a property of the
+        // whole list here — `MaskArea` computes it once per element — so a second layer would add a
+        // second ramp without adding a second reading, and the scene is easier to reason about with
+        // the ramp that is actually being tiled visible on its own.
+        new(
+            "mask-tiled",
+            """
+            #host  { display: flex; flex-direction: row; width: 120px; height: 46px; align-items: stretch; }
+            #probe { display: flex; flex-direction: row; flex-wrap: wrap; width: 44px;
+                     background-color: #204080; color: #e0e0e0;
+                     mask-image: linear-gradient(to right, #000000, transparent);
+                     mask-size: 50% 50%; }
+            #after { width: 96px; height: 20px; background-color: #a0a040; }
+            """
+        ),
+
         new(
             "translated",
             """

@@ -92,12 +92,10 @@ Every one of those was right when it was written. The number is a denominator, s
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **193** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **39** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **200** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **40** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **91** |
-| **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **90** |
+| **absent** | not emitted at all | **84** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -390,12 +388,12 @@ refusal block, which already says so for the same reason.
 
 | Category | roots | works | partial | inert | absent | composed | unknown |
 |---|--:|--:|--:|--:|--:|--:|--:|
-| Layout | 49 | 25 | 7 | 0 | 13 | 3 | 1 |
+| Layout | 49 | 26 | 7 | 0 | 12 | 3 | 1 |
 | Interactivity | 39 | 27 | 0 | 1 | 11 | 0 | 0 |
+| Borders | 34 | 26 | 4 | 0 | 4 | 0 | 0 |
+| Effects | 34 | 27 | 1 | 0 | 6 | 0 | 0 |
 | Flexbox and Grid | 34 | 29 | 3 | 0 | 2 | 0 | 0 |
 | Typography | 34 | 14 | 6 | 0 | 14 | 0 | 0 |
-| Borders | 34 | 26 | 4 | 0 | 4 | 0 | 0 |
-| Effects | 33 | 24 | 0 | 0 | 9 | 0 | 0 |
 | Spacing | 24 | 14 | 4 | 0 | 6 | 0 | 0 |
 | Transforms | 23 | 5 | 2 | 0 | 16 | 0 | 0 |
 | Filters | 20 | 10 | 10 | 0 | 0 | 0 | 0 |
@@ -405,12 +403,17 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 2 | 0 | 0 | 1 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **328** | **193** | **39** | **1** | **91** | **3** | **1** |
+| **Total** | **329** | **200** | **40** | **1** | **84** | **3** | **1** |
 
-SVG is the first category to be **complete** — all three roots, no `partial` — followed by Flexbox
-and Grid at 27 of 34 with only two absent roots left, Effects at 24 of 33 with no `partial` in it,
-Interactivity at 27 of 39, then Spacing, Borders and Layout. Tables and Accessibility still have
-**no working root at all**.
+Flexbox and Grid leads at 29 of 34, with only two absent roots left and both of those refused on
+policy rather than owed; then Effects at 27 of 34, Interactivity at 27 of 39, Borders at 26 of 34,
+and Layout at 26 of 49. Tables and Accessibility still have **no working root at all**.
+
+⚠ **No category is `complete`, and SVG — which this section called the first one to be — is 2 of 3.**
+`stroke-none` is `absent`, refused on the same policy `inset-shadow-*` is: `stroke` is read, but only
+as a colour. A refusal is still an absence in this table, which is the point of counting it here
+rather than in the prose; the paragraph below records what SVG *did* close, which is the keyword
+half of `fill`.
 
 ⚠ **SVG closed on a keyword rather than a property, which is the shape this table is least able to
 show.** `fill` and `stroke` have measured `read` since A6, off the colour half — so a registration of
