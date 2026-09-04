@@ -48,20 +48,35 @@
 
       A property *assignment* is different: those do happen in document order. Reading the flags into
       two names before the imports run is therefore the only way to ask "did the project wire itself
-      up, or am I about to?" — and the answer is what keeps this file out of the way of the fourteen
-      projects that still name everything by hand.
+      up, or am I about to?" — and the answer is what keeps this file out of the way of the projects
+      that still name everything by hand: the ones that write their own `Import` of
+      `Core/Vixen.Ui/build/Vixen.Ui.targets` at the bottom of their body.
 
-      ⚠ **The count in this file said fifteen for three revisions; recounting it gave twelve, and by
-      the time that reached this file it was fourteen.** That is the whole lesson rather than a
-      correction: a number written in a comment is a number nothing measures. It is fourteen on this
-      tree — five in `Core/` and nine under `Editor/` — counted by grepping every committed
-      `.csproj` for a literal import of `Core/Vixen.Ui/build/Vixen.Ui.targets`. Recount rather than
-      trust it.
+      ⚠ **A count used to be written here and it was wrong every single time it was looked at.** It
+      said fifteen for three revisions; a recount gave twelve; a later one said fourteen; and
+      fourteen was wrong too. So there is no number here any more, deliberately — the two ways the
+      recounts went wrong are worth more than the answer they were reaching for.
 
-      ⚠ **The command is described here rather than quoted, and that is not fussiness.** An XML
-      comment may not contain two hyphens in a row, so a long-form grep flag written inside one
-      makes this file unloadable and every project in the tree fails to evaluate — with an error
-      about the XML rather than about the count.
+      The first is that the set is defined by an `Import` *element* while a grep finds any
+      *mention*, and in `Core/` the mentions outnumber the imports: `Vixen.Ui` packs the file,
+      `Vixen.Ui.Styling.Utilities` has a comment explaining that it cannot import it, and
+      `Vixen.Ui.Markup.Generators.Tests` names the path in an assembly attribute. None of the three
+      is a project this file has to stay out of the way of, and the last count was over by two.
+
+      ⚠ The second is that the recipe left behind for recounting could not have worked: the imports
+      are written relative (`..\Vixen.Ui\build\Vixen.Ui.targets`), so grepping every committed
+      `.csproj` for the repository-rooted path that recipe named matches one project, and that
+      project is not one of them.
+
+      None of the three sentences that carried the number needed it. They are explaining *why* this
+      file reads two flags before its imports run, and the cardinality of the set it is getting out
+      of the way of was decoration on that explanation — decoration that four people in a row got
+      wrong, because nothing measures it and nothing can fail when it drifts.
+
+      ⚠ **Whatever you write in here, do not write two hyphens in a row**, and that is not fussiness:
+      an XML comment may not contain them, so a long-form command flag spelled inside one makes this
+      file unloadable and every project in the tree fails to evaluate — with an error about the XML
+      rather than about anything you were trying to say.
       ==============================================================================================
     -->
     <_VixenUiWiredByProject>$(VixenUiBuildImported)</_VixenUiWiredByProject>
@@ -70,8 +85,8 @@
 
   <!--
     The item types, from the same file the package imports. Guarded by the flag that file sets, so a
-    project that still names it by hand — there are fourteen, and converting them is a separate change
-    — keeps its own import and gets no second copy of either glob.
+    project that still names it by hand — converting those is a separate change — keeps its own
+    import and gets no second copy of either glob.
   -->
   <Import Project="$(VixenRepositoryRoot)Core/Vixen.Ui/build/Vixen.Ui.targets"
           Condition="'$(VixenUi)' == 'true' AND '$(_VixenUiWiredByProject)' != 'true'" />
@@ -159,8 +174,8 @@
     per-directory cache — as the `**/*.cs` glob that has already walked this tree, instead of paying
     for a second recursive walk of every project on every build. Comparing inside a target is what
     makes the answer trustworthy: `AdditionalFiles` is final by `CoreCompile` and is not final at
-    the end of evaluation, and this file is imported after the fourteen projects that still write
-    their own `Import` at the bottom of their body.
+    the end of evaluation, and this file is imported after the projects that still write their own
+    `Import` at the bottom of their body.
 
     ⚠ `DefaultItemExcludes` and `DefaultExcludesInProjectFolder`, spelled out, for the reason the
     panel ledger names: `Vixen.Editor.Ui.Tests` copies another project's markup into its output as
