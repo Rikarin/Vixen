@@ -135,6 +135,16 @@ valuable phase is a rendering gap that predates it. This is [23](23-bindless-mat
 applied four more times — small, mechanical, and genuinely owed by [06](06-rendering-pipeline.md)
 rather than by this document. It is scheduled here because nothing else here is worth building first.
 
+⚠️ **Amended by [48 — Material authoring](48-material-authoring.md), twice.** The second and third
+sampling features have since been written — `TexturedNormalMapFeature` and `TexturedOrmFeature`, both
+paired into the bindless table by `WorldRenderer` — so this row's count is out of date and doc 48 § B1
+carries the gap that actually remains: no textured emissive, height or opacity, an unchecked pairing
+list ([#371](https://github.com/Rikarin/Vixen/issues/371)), and a layered material whose layer weights
+are **constants**, which is what stops a painted layer stack ever shipping as a live material. And
+⚠ **[D2](#d2-the-deterministic-half-is-not-a-provider-and-it-ships-first)'s kernel is doc 48's
+product rather than this document's first phase** — it turns out to be Substance Designer, and it
+wants a GPU evaluator, a graph, a layer stack and a brush around it.
+
 ### B2. The model licences are the author's to accept, and the editor's to state 🟡
 
 ⚠ **This row was written as a blocker in the first revision of this document and that was wrong.**
