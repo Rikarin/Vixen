@@ -308,24 +308,26 @@ public readonly struct DrawContext {
     /// <param name="style">The corners and the gradient.</param>
     /// <remarks>
     ///     A separate overload rather than an optional parameter on the common one, because this is
-    ///     the path that costs a side-buffer entry and the other is not. A caller that wants one
-    ///     radius should not be paying for a record it filled with zeroes.
+    ///     the path that <i>can</i> cost a side-buffer entry and the other never does. A caller that
+    ///     wants one radius should not be paying for a record it filled with zeroes — ⚠ and for a
+    ///     long time it did anyway: the body wrote an entry unconditionally while this sentence said
+    ///     it did not. See <see cref="Styled" />, which is where the intent is now honoured.
     /// </remarks>
     public void FillRectangle(Rectangle rectangle, Color4 color, BoxStyle style) =>
         List.Add(
-            new DrawCommand(
-                DrawCommandKind.Rectangle,
-                rectangle.X,
-                rectangle.Y,
-                rectangle.Width,
-                rectangle.Height,
-                DrawListBuilder.Fade(color, alpha),
-                0f,
-                0f
-            ) {
-                Offset = List.AddBox(style),
-                Length = 1
-            }
+            Styled(
+                new DrawCommand(
+                    DrawCommandKind.Rectangle,
+                    rectangle.X,
+                    rectangle.Y,
+                    rectangle.Width,
+                    rectangle.Height,
+                    DrawListBuilder.Fade(color, alpha),
+                    0f,
+                    0f
+                ),
+                style
+            )
         );
 
     /// <summary>Draws a border inside a rectangle's edges, with per-corner radii.</summary>
@@ -335,18 +337,56 @@ public readonly struct DrawContext {
     /// <param name="style">The corners. A gradient on a border runs along the same axis as a fill's.</param>
     public void StrokeRectangle(Rectangle rectangle, Color4 color, float thickness, BoxStyle style = default) =>
         List.Add(
-            new DrawCommand(
-                DrawCommandKind.Border,
-                rectangle.X,
-                rectangle.Y,
-                rectangle.Width,
-                rectangle.Height,
-                DrawListBuilder.Fade(color, alpha),
-                0f,
-                thickness
-            ) {
-                Offset = List.AddBox(style),
-                Length = 1
-            }
+            Styled(
+                new DrawCommand(
+                    DrawCommandKind.Border,
+                    rectangle.X,
+                    rectangle.Y,
+                    rectangle.Width,
+                    rectangle.Height,
+                    DrawListBuilder.Fade(color, alpha),
+                    0f,
+                    thickness
+                ),
+                style
+            )
         );
+
+    /// <summary>Attaches a box style to a command, unless the cheap uniform path covers it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The same test <see cref="DrawListBuilder" /> applies to the declarative path, and
+    ///         until it was applied here the imperative one paid for a record full of zeroes on every
+    ///         box it drew.</b> <see cref="StrokeRectangle" />'s style parameter <i>defaults</i>, so
+    ///         every <c>StrokeRectangle(rect, colour, thickness)</c> in the tree — the surfaces, the
+    ///         node canvas, the colour picker, the curve and gradient editors — wrote an entry saying
+    ///         nothing. <see cref="DrawList.Boxes" /> is compared entry by entry every frame beside
+    ///         the commands, so those entries were not merely memory: they were frame-diff work.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The test is "nothing but uniform circular corners", not "no gradient".</b> Four
+    ///         equal <i>elliptical</i> corners are not one <c>float</c> — see
+    ///         <see cref="CornerRadii.IsUniformCircular" /> — and every other member of
+    ///         <see cref="BoxStyle" /> is a lane the scalar cannot carry, so the comparison is
+    ///         against <see cref="BoxStyle.Rounded" /> of the box's own corners rather than a list of
+    ///         fields somebody has to remember to extend.
+    ///     </para>
+    /// </remarks>
+    DrawCommand Styled(DrawCommand command, BoxStyle style) =>
+        Plain(style, out var radius)
+            ? command with { Radius = radius }
+            : command with { Offset = List.AddBox(style), Length = 1 };
+
+    /// <summary>Whether one <c>float</c> says everything this style says.</summary>
+    /// <param name="style">The style.</param>
+    /// <param name="radius">The radius that says it, or zero.</param>
+    static bool Plain(BoxStyle style, out float radius) {
+        if (style.Corners.IsUniformCircular(out radius) && style == BoxStyle.Rounded(style.Corners)) {
+            return true;
+        }
+
+        radius = 0f;
+
+        return false;
+    }
 }

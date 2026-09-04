@@ -133,6 +133,81 @@ public class CaretAffinityTests {
         }
     }
 
+    /// <summary>The middle of the character between two indices, whichever way its run faces.</summary>
+    /// <remarks>
+    ///     ⚠ A midpoint rather than an edge, and taken from the two caret readings that bracket the
+    ///     character rather than from a cluster: in a right-to-left run the leading edge is the
+    ///     larger number, so anything that assumed an order would sample the neighbour instead.
+    /// </remarks>
+    static float Middle(TextLine line, int index) =>
+        (line.CaretOffset(index, CaretAffinity.Downstream) + line.CaretOffset(index + 1, CaretAffinity.Upstream)) / 2f;
+
+    static bool Covers(List<(float X, float Width)> ranges, float x) =>
+        ranges.Any(range => x >= range.X - Tolerance && x <= range.X + range.Width + Tolerance);
+
+    [Fact]
+    public void A_span_inside_one_run_is_one_range_over_exactly_that_character() {
+        using var document = Documented();
+        var line = Lined(document, Latin + Arabic);
+
+        var ranges = new List<(float X, float Width)>();
+        line.VisualRanges(0, 1, ranges);
+
+        var range = Assert.Single(ranges);
+
+        Assert.Equal(line.CaretOffset(0, CaretAffinity.Downstream), range.X, Tolerance);
+        Assert.Equal(line.CaretOffset(1, CaretAffinity.Upstream) - range.X, range.Width, Tolerance);
+    }
+
+    [Fact]
+    public void A_span_crossing_the_direction_change_is_two_ranges_with_the_unselected_letter_between() {
+        using var document = Documented();
+        var line = Lined(document, Latin + Arabic);
+
+        // The second Latin letter and the first Arabic one: adjacent in the text, and with the
+        // second Arabic letter drawn between them.
+        var ranges = new List<(float X, float Width)>();
+        line.VisualRanges(1, 3, ranges);
+
+        // ⚠ **The count is the claim, and the covered points are what make it a claim about the
+        // right two ranges.** A bounding box over this span has the same extent as the correct
+        // answer — it reaches from the second Latin letter to the far end of the Arabic run — so
+        // anything measuring extent passes against the defect. What separates them is the letter in
+        // the middle, which is inside that box and is not selected.
+        Assert.Equal(2, ranges.Count);
+
+        Assert.False(Covers(ranges, Middle(line, 0)), "the first Latin letter is outside the span");
+        Assert.True(Covers(ranges, Middle(line, 1)), "the second Latin letter is inside it");
+        Assert.True(Covers(ranges, Middle(line, 2)), "the first Arabic letter is inside it");
+        Assert.False(Covers(ranges, Middle(line, 3)), "the second Arabic letter is not, and is drawn between the two");
+
+        // And the two together cover only the two letters, which is the area oracle: one rectangle
+        // over the same span would be wider by the whole of the letter it should not be painting.
+        var covered = ranges.Sum(range => range.Width);
+        var letters = MathF.Abs(line.CaretOffset(2, CaretAffinity.Upstream) - line.CaretOffset(1, CaretAffinity.Downstream))
+            + MathF.Abs(line.CaretOffset(3, CaretAffinity.Upstream) - line.CaretOffset(2, CaretAffinity.Downstream));
+
+        Assert.Equal(letters, covered, Tolerance);
+        Assert.True(line.Runs[0].Width + line.Runs[1].Width - covered > 1f, "the fixture would be vacuous if it did");
+    }
+
+    [Fact]
+    public void The_whole_line_is_one_range_because_touching_ranges_are_merged() {
+        using var document = Documented();
+        var line = Lined(document, Latin + Arabic);
+
+        var ranges = new List<(float X, float Width)>();
+        line.VisualRanges(0, Latin.Length + Arabic.Length, ranges);
+
+        // ⚠ Two runs and one rectangle. Without the merge every font fallback would paint a seam,
+        // and the count above would stop being an oracle — a caller could no longer tell "two runs"
+        // from "two visually disjoint pieces", which is the only distinction that matters here.
+        var range = Assert.Single(ranges);
+
+        Assert.Equal(0f, range.X, Tolerance);
+        Assert.Equal(line.Runs[0].Width + line.Runs[1].Width, range.Width, Tolerance);
+    }
+
     [Fact]
     public void The_one_argument_overload_still_answers_the_run_that_ends_there() {
         using var document = Documented();

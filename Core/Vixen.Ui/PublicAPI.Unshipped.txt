@@ -1061,6 +1061,7 @@ Vixen.Ui.TextLine.Place(System.Collections.Generic.List<Vixen.Ui.PositionedGlyph
 Vixen.Ui.TextLine.Runs.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.TextRun>
 Vixen.Ui.TextLine.Start.get -> int
 Vixen.Ui.TextLine.TextLine(System.Collections.Immutable.ImmutableArray<Vixen.Ui.TextRun> runs, float width = NaN, float offset = 0, Vixen.Ui.Text.TransformedText? transformed = null, float tabStop = 0) -> void
+Vixen.Ui.TextLine.VisualRanges(int from, int to, System.Collections.Generic.List<(float X, float Width)> into) -> void
 Vixen.Ui.TextLine.Width.get -> float
 Vixen.Ui.TextLine.WidthOf(int run) -> float
 Vixen.Ui.TextRun -> sealed record

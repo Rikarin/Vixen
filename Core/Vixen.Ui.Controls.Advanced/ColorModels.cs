@@ -111,23 +111,48 @@ public readonly record struct OkLch(float L, float C, float H) {
         return new OkLch(lab.L, MathF.Sqrt((lab.A * lab.A) + (lab.B * lab.B)), hue < 0f ? hue + 360f : hue);
     }
 
-    /// <summary>Converts back, clamping into the sRGB gamut.</summary>
+    /// <summary>Converts back, mapping into the sRGB gamut rather than clamping into it.</summary>
     /// <param name="alpha">The alpha to carry through.</param>
     /// <returns>The colour.</returns>
     /// <remarks>
-    ///     ⚠ <b>Clamped, and the clamp is a real loss.</b> Much of OkLCh's space is outside sRGB —
-    ///     a lightness of 0.7 at a chroma of 0.3 is not a colour a monitor can make — and per-channel
-    ///     clamping shifts the hue rather than reducing the chroma, which is the wrong answer done
-    ///     cheaply. A gamut-mapping pass that walks the chroma down until the colour fits is the
-    ///     right one and is owed. <see cref="IsInGamut" /> is how a picker can say so meanwhile.
+    ///     <para>
+    ///         ⚠ <b>Much of OkLCh's space is outside sRGB</b> — a lightness of 0.7 at a chroma of
+    ///         0.3 is not a colour a monitor can make — so an unshowable colour has to become a
+    ///         showable one somehow, and <i>which</i> showable one is the whole question. Clamping
+    ///         each channel to <c>[0, 1]</c> shifts the <b>hue</b>: a vivid colour runs out of one
+    ///         primary first and keeps whatever the other two had, so it slides along the gamut
+    ///         surface to a different colour that happens to fit. Reducing chroma at constant
+    ///         lightness and hue desaturates instead, which is the error a viewer forgives and is
+    ///         what a picker's readout has to agree with.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="GamutMap.Map(Vector3, ColorGamut)" /> is CSS Color 4's answer and it
+    ///         lives one assembly down</b>, in <c>Vixen.Core.Mathematics</c>, where
+    ///         <c>UiGeometryBuilder</c> and the style parser already call it. This used to clamp
+    ///         beside it with a comment saying a mapper was owed — the mapper was already written
+    ///         and tested; nothing here called it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The remaining clamp is arithmetic and not a colour decision.</b>
+    ///         <see cref="GamutMap.Map(Vector3, ColorGamut)" /> settles onto the gamut boundary and
+    ///         answers within a float's noise of it, so this bounds a channel that reads
+    ///         <c>1 + 1e-5</c>. A hue
+    ///         cannot move by that much; the clamp it replaced moved colours by a visible amount.
+    ///     </para>
+    ///     <para>
+    ///         The gamut is sRGB because that is what this returns — see <see cref="IsInGamut" />,
+    ///         which asks the same question. A picker on a Display P3 surface can show more than
+    ///         this, and reaching it is a matter of handing the surface's gamut down rather than of
+    ///         a different algorithm.
+    ///     </para>
     /// </remarks>
     public Color4 ToSrgb(float alpha = 1f) {
-        var linear = Linear();
+        var mapped = GamutMap.Map(Linear(), ColorGamut.Srgb);
 
         return new Color4(
-            ColorSpace.LinearToSrgb(Math.Clamp(linear.X, 0f, 1f)),
-            ColorSpace.LinearToSrgb(Math.Clamp(linear.Y, 0f, 1f)),
-            ColorSpace.LinearToSrgb(Math.Clamp(linear.Z, 0f, 1f)),
+            ColorSpace.LinearToSrgb(Math.Clamp(mapped.X, 0f, 1f)),
+            ColorSpace.LinearToSrgb(Math.Clamp(mapped.Y, 0f, 1f)),
+            ColorSpace.LinearToSrgb(Math.Clamp(mapped.Z, 0f, 1f)),
             alpha
         );
     }

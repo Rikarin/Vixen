@@ -41,6 +41,17 @@
                           LogicalName="Vixen.Ui.Controls.Tests.Fonts.NotoSerifKannada-Regular.ttf" />
 
         <!--
+            ⚠ And an Arabic face, which is here for its *direction* rather than for its letters. A
+            caret step is only ambiguous where two runs face opposite ways, and no pair of faces
+            already linked here can make such a line — every one of them is left to right, so a
+            fixture built from them answers both affinities with the same pixel and would pass with
+            the whole rule deleted. Linked, like the others; `Vixen.Ui.Tests` links the same file for
+            the same reason.
+        -->
+        <EmbeddedResource Include="..\Vixen.Ui.Text.Tests\Fonts\TestShapeAran.ttf"
+                          LogicalName="Vixen.Ui.Controls.Tests.Fonts.TestShapeAran.ttf" />
+
+        <!--
             And a real text face, for `text-transform`. The Consortium fixtures cover no `ß`, so an
             uppercase asserted against one of them compares two rows of .notdef and would pass with
             the case mapping removed — the same shape of green a whole `font-variant-numeric` sweep

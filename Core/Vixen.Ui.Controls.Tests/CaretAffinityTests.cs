@@ -23,6 +23,11 @@ namespace Vixen.Ui.Controls.Tests;
 ///     </para>
 /// </remarks>
 public class CaretAffinityTests {
+    const string Latin = "AB";
+
+    /// <summary>ALEF then TEH. Two letters, two glyphs, and no joining between them.</summary>
+    const string Arabic = "ات";
+
     /// <summary>A wrapped area, and a break in it at or below <paramref name="notBefore" />.</summary>
     /// <param name="notBefore">
     ///     ⚠ The lowest row the returned break may head. It exists because the <c>Up</c> test needs a
@@ -38,7 +43,7 @@ public class CaretAffinityTests {
         field.Value = "aa bb cc dd ee ff gg hh ii jj kk ll";
         fixture.Update();
 
-        var block = Block(field);
+        var block = FieldProbe.Block(field);
 
         Assert.True(block.Lines.Length > notBefore + 1, "the fixture has to wrap far enough or it tests nothing");
 
@@ -54,37 +59,12 @@ public class CaretAffinityTests {
         return (fixture, field, found[0].Row, found[0].Boundary);
     }
 
-    /// <summary>The laid-out text of the field's own text part.</summary>
-    /// <remarks>
-    ///     Walked rather than reached for: <c>TextField.text</c> is private, and the block is on the
-    ///     part rather than on the field, which is a control's normal shape.
-    /// </remarks>
-    static TextLayout Block(TextField field) {
-        foreach (var child in Walk(field)) {
-            if (child.Block() is { } block) {
-                return block;
-            }
-        }
-
-        throw new InvalidOperationException("the field laid out no text");
-    }
-
-    static IEnumerable<UiElement> Walk(UiElement from) {
-        foreach (var child in from.Children) {
-            yield return child;
-
-            foreach (var deeper in Walk(child)) {
-                yield return deeper;
-            }
-        }
-    }
-
     [Fact]
     public void A_click_at_the_start_of_a_wrapped_row_leaves_the_caret_on_that_row() {
         var (fixture, field, row, boundary) = Wrapped();
         using var owned = fixture;
 
-        var block = Block(field);
+        var block = FieldProbe.Block(field);
 
         // ⚠ **The caret must be drawn on the row that was clicked.** The index at the start of a
         // continuation row also ends the row above, so a field that kept only the index draws the
@@ -105,7 +85,7 @@ public class CaretAffinityTests {
         var (fixture, field, row, boundary) = Wrapped();
         using var owned = fixture;
 
-        var block = Block(field);
+        var block = FieldProbe.Block(field);
 
         Assert.True(row + 1 < block.Lines.Length, "the fixture needs a row below the one clicked");
 
@@ -126,7 +106,7 @@ public class CaretAffinityTests {
         // Down goes to the row below the one the caret was on. Read from the index instead, the row
         // it is "on" is the one above, so Down lands on the row it already occupied — a Down key that
         // visibly does nothing, which is the defect this is written against.
-        Assert.Equal(block.TopOf(row + 1), Block(field).CaretAt(field.CaretIndex, field.CaretAffinity).Y, 0.01f);
+        Assert.Equal(block.TopOf(row + 1), FieldProbe.Block(field).CaretAt(field.CaretIndex, field.CaretAffinity).Y, 0.01f);
     }
 
     [Fact]
@@ -134,7 +114,7 @@ public class CaretAffinityTests {
         var (fixture, field, row, boundary) = Wrapped(notBefore: 2);
         using var owned = fixture;
 
-        var block = Block(field);
+        var block = FieldProbe.Block(field);
 
         field.MoveCaret(boundary, CaretAffinity.Downstream);
         fixture.Document.Focus(field);
@@ -143,7 +123,164 @@ public class CaretAffinityTests {
 
         // The other half of the same mistake, and the more visible one: reading the row from the
         // index puts the caret's origin a row too high, so Up skips a line.
-        Assert.Equal(block.TopOf(row - 1), Block(field).CaretAt(field.CaretIndex, field.CaretAffinity).Y, 0.01f);
+        Assert.Equal(block.TopOf(row - 1), FieldProbe.Block(field).CaretAt(field.CaretIndex, field.CaretAffinity).Y, 0.01f);
+    }
+
+    [Fact]
+    public void Right_off_the_end_of_a_wrapped_row_arrives_on_the_row_below() {
+        var (fixture, field, row, boundary) = Wrapped();
+        using var owned = fixture;
+
+        var block = FieldProbe.Block(field);
+
+        // Starting one grapheme back, strictly inside the row above, where the two readings of the
+        // index are the same pixel and the fixture cannot be accused of pre-loading the answer.
+        field.MoveCaret(boundary - 1, CaretAffinity.Upstream);
+        fixture.Document.Focus(field);
+
+        Assert.Equal(block.TopOf(row - 1), block.CaretAt(field.CaretIndex, field.CaretAffinity).Y, 0.01f);
+
+        fixture.Type(InputKey.Right);
+
+        // ⚠ **The row is the assertion and the index cannot be.** Right lands on the one number that
+        // ends the row above and begins the row below; a step that only said *where* left the caret
+        // on the row it came from, so the reader saw it stall at the right margin for a keypress and
+        // then reappear a character into the next row.
+        Assert.Equal(boundary, field.CaretIndex);
+        Assert.Equal(block.TopOf(row), FieldProbe.Block(field).CaretAt(field.CaretIndex, field.CaretAffinity).Y, 0.01f);
+    }
+
+    [Fact]
+    public void Left_back_onto_a_wrap_stays_on_the_row_it_walked_back_across() {
+        var (fixture, field, row, boundary) = Wrapped();
+        using var owned = fixture;
+
+        var block = FieldProbe.Block(field);
+
+        field.MoveCaret(boundary + 1, CaretAffinity.Upstream);
+        fixture.Document.Focus(field);
+
+        fixture.Type(InputKey.Left);
+
+        // The mirror of the one above: the character Left crossed is on the lower row, so that is
+        // where the caret belongs. Both directions used to answer with the row above.
+        Assert.Equal(boundary, field.CaretIndex);
+        Assert.Equal(block.TopOf(row), FieldProbe.Block(field).CaretAt(field.CaretIndex, field.CaretAffinity).Y, 0.01f);
+    }
+
+    [Fact]
+    public void Home_on_a_wrapped_row_goes_to_the_head_of_that_row_and_not_the_tail_of_the_one_above() {
+        var (fixture, field, row, boundary) = Wrapped();
+        using var owned = fixture;
+
+        var block = FieldProbe.Block(field);
+
+        field.MoveCaret(boundary + 1, CaretAffinity.Upstream);
+        fixture.Document.Focus(field);
+
+        fixture.Type(InputKey.Home);
+
+        // ⚠ Home lands on the same index either way, and the two readings are a whole row apart —
+        // which is why an index-only Home appeared to move the caret *up* a line.
+        Assert.Equal(boundary, field.CaretIndex);
+        Assert.Equal(block.TopOf(row), FieldProbe.Block(field).CaretAt(field.CaretIndex, field.CaretAffinity).Y, 0.01f);
+        Assert.Equal(block.TopOf(row - 1), block.CaretAt(boundary, CaretAffinity.Upstream).Y, 0.01f);
+    }
+
+    [Fact]
+    public void End_on_the_row_above_a_wrap_stays_on_that_row() {
+        var (fixture, field, row, boundary) = Wrapped();
+        using var owned = fixture;
+
+        var block = FieldProbe.Block(field);
+
+        field.MoveCaret(boundary - 1, CaretAffinity.Upstream);
+        fixture.Document.Focus(field);
+
+        fixture.Type(InputKey.End);
+
+        // The half that was already right, pinned so that giving Home its answer cannot quietly
+        // take End's away: the tail of a wrapped row is the upstream reading of the same number.
+        Assert.Equal(boundary, field.CaretIndex);
+        Assert.Equal(block.TopOf(row - 1), FieldProbe.Block(field).CaretAt(field.CaretIndex, field.CaretAffinity).Y, 0.01f);
+    }
+
+    /// <summary>A one-line field holding a Latin run and an Arabic one, which face opposite ways.</summary>
+    /// <remarks>
+    ///     ⚠ The fallback face is registered on the fixture's own document rather than in
+    ///     <see cref="ControlFixture" />, because every other test in this project wants a line with
+    ///     one direction in it and a second face registered globally would change what they measure.
+    /// </remarks>
+    static (ControlFixture Fixture, TextBox Field) Bidi() {
+        var fixture = new ControlFixture(css: "textbox { width: 400px; }");
+        fixture.Document.Fonts.AddFallback(FieldProbe.Aran);
+
+        var field = fixture.Add<TextBox>();
+        field.Value = Latin + Arabic;
+        fixture.Update();
+
+        var line = FieldProbe.Block(field).Lines[0];
+
+        // ⚠ Asserted before anything is measured, for the reason `Vixen.Ui.Tests` gives: a fixture
+        // that produced one run, or two runs at the same level, would pass every assertion below by
+        // making the two affinities the same number.
+        Assert.Equal(2, line.Runs.Length);
+        Assert.NotEqual(line.Runs[0].Level % 2, line.Runs[1].Level % 2);
+
+        return (fixture, field);
+    }
+
+    [Fact]
+    public void Left_across_a_direction_boundary_lands_beside_the_letter_it_just_crossed() {
+        var (fixture, field) = Bidi();
+        using var owned = fixture;
+
+        var line = FieldProbe.Block(field).Lines[0];
+
+        // Between the two Arabic letters, which is inside one run and therefore unambiguous.
+        field.MoveCaret(Latin.Length + 1, CaretAffinity.Downstream);
+        fixture.Document.Focus(field);
+
+        fixture.Type(InputKey.Left);
+
+        Assert.Equal(Latin.Length, field.CaretIndex);
+
+        // ⚠ **The two readings of this one index are a whole run apart, so the assertion has to name
+        // a place.** Left crossed the first Arabic letter, so the caret leads it — at the far end of
+        // the Arabic run. Read upstream instead and the caret is drawn back where the Latin ends,
+        // which is the jump this rule is written against.
+        var landed = FieldProbe.Block(field).Lines[0].CaretOffset(field.CaretIndex, field.CaretAffinity);
+
+        Assert.Equal(line.CaretOffset(Latin.Length, CaretAffinity.Downstream), landed, 0.01f);
+
+        Assert.True(
+            landed - line.CaretOffset(Latin.Length, CaretAffinity.Upstream) > 1f,
+            "the two readings are a whole run apart, so this is a claim about the side and not a rounding"
+        );
+    }
+
+    [Fact]
+    public void Right_across_a_direction_boundary_stays_beside_the_letter_it_just_crossed() {
+        var (fixture, field) = Bidi();
+        using var owned = fixture;
+
+        var line = FieldProbe.Block(field).Lines[0];
+
+        field.MoveCaret(Latin.Length - 1, CaretAffinity.Upstream);
+        fixture.Document.Focus(field);
+
+        fixture.Type(InputKey.Right);
+
+        Assert.Equal(Latin.Length, field.CaretIndex);
+
+        // The half the old code got right by accident, pinned: Right crossed the last Latin letter,
+        // so the caret trails it and stays at the end of the Latin run. Giving Left its answer must
+        // not be done by giving both directions the same one.
+        Assert.Equal(
+            line.CaretOffset(Latin.Length, CaretAffinity.Upstream),
+            FieldProbe.Block(field).Lines[0].CaretOffset(field.CaretIndex, field.CaretAffinity),
+            0.01f
+        );
     }
 
     [Fact]
@@ -160,7 +297,7 @@ public class CaretAffinityTests {
         field.MoveCaret(boundary);
         Assert.Equal(CaretAffinity.Upstream, field.CaretAffinity);
 
-        var block = Block(field);
+        var block = FieldProbe.Block(field);
 
         Assert.Equal(block.CaretAt(boundary).Y, block.CaretAt(field.CaretIndex, field.CaretAffinity).Y, 0.01f);
     }

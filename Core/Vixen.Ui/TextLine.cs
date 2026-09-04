@@ -363,6 +363,90 @@ public sealed class TextLine {
         return Offset + Width;
     }
 
+    /// <summary>The stretches of the line a logical span covers, left to right.</summary>
+    /// <param name="from">Where the span begins, as a UTF-16 index into the element's text.</param>
+    /// <param name="to">Where it ends. Either order; the two are sorted.</param>
+    /// <param name="into">Where to put them, as (left edge, width) pairs in pixels.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A logically contiguous span is not a visually contiguous one, and painting it as
+    ///         one rectangle from the lower offset to the higher is wrong by whole runs.</b> Select
+    ///         <c>bc</c> and the first Arabic letter of <c>abcلسان</c> and the covered glyphs are the
+    ///         end of the Latin run and the <i>far</i> end of the Arabic one — with the rest of the
+    ///         Arabic, which is not selected, sitting between them. One rectangle over that span
+    ///         highlights text the user did not select and, since the two ends can arrive in either
+    ///         order, can just as easily paint a band that covers none of it.
+    ///     </para>
+    ///     <para>
+    ///         This is the same rule <c>Vixen.Ui.Text</c>'s README states for cutting runs, applied
+    ///         to a highlight: intersect the span with the itemiser's boundaries <i>before</i>
+    ///         reordering. Each run carries one level throughout — see <see cref="TextRun.Level" /> —
+    ///         so the intersection with a run is one interval of x, and the ends only have to be
+    ///         sorted because an interval in a right-to-left run is measured backwards.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Touching ranges are merged, so a line of one direction yields exactly one.</b>
+    ///         That is what makes the count an oracle: a caller can assert that a selection crossing
+    ///         a direction boundary is <i>two</i> ranges and that one inside a single run is one,
+    ///         and neither claim could be made if a run split produced a range apiece. It also keeps
+    ///         a font fallback — a second run facing the same way — from painting a seam.
+    ///     </para>
+    /// </remarks>
+    public void VisualRanges(int from, int to, List<(float X, float Width)> into) {
+        ArgumentNullException.ThrowIfNull(into);
+
+        // ⚠ Translated here for the reason `CaretOffset` translates at its top: the runs index the
+        // transformed string, and comparing an author's index against a run boundary on a line
+        // holding a case expansion selects the wrong characters.
+        var start = ToDrawn(Math.Min(from, to));
+        var end = ToDrawn(Math.Max(from, to));
+
+        if (end <= start) {
+            return;
+        }
+
+        var found = into.Count;
+
+        for (var i = 0; i < Runs.Length; i++) {
+            var run = Runs[i];
+            var first = Math.Max(start, run.Start);
+            var last = Math.Min(end, run.Start + run.Shaped.Text.Length);
+
+            if (last <= first) {
+                continue;
+            }
+
+            // ⚠ A tab is covered whole or not at all. It has no interior for an offset to land in,
+            // and asking the run would measure whatever glyph the face mapped U+0009 to rather than
+            // this tab's distance to its stop — see `WidthOf`.
+            var left = run.IsTab ? PenOf(i) : PenOf(i) + run.CaretOffset(first, CaretAffinity.Downstream);
+            var right = run.IsTab ? PenOf(i) + widths[i] : PenOf(i) + run.CaretOffset(last, CaretAffinity.Upstream);
+
+            into.Add((MathF.Min(left, right), MathF.Abs(right - left)));
+        }
+
+        into.Sort(found, into.Count - found, XOrder.Instance);
+
+        for (var i = into.Count - 1; i > found; i--) {
+            var previous = into[i - 1];
+            var current = into[i];
+
+            // Touching, to within a rounding of the pen arithmetic. Overlapping is impossible —
+            // runs tile the line — so this is only ever closing a seam.
+            if (current.X <= previous.X + previous.Width + 0.01f) {
+                into[i - 1] = (previous.X, MathF.Max(previous.Width, current.X + current.Width - previous.X));
+                into.RemoveAt(i);
+            }
+        }
+    }
+
+    sealed class XOrder : IComparer<(float X, float Width)> {
+        public static readonly XOrder Instance = new();
+
+        public int Compare((float X, float Width) left, (float X, float Width) right) =>
+            left.X.CompareTo(right.X);
+    }
+
     /// <summary>Which caret index a distance along the line lands on.</summary>
     /// <param name="x">The distance from the start of the line, in pixels.</param>
     /// <returns>A UTF-16 index into the element's text.</returns>

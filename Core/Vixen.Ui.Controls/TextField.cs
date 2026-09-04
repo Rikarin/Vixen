@@ -63,6 +63,14 @@ public abstract partial class TextField : Control {
     int caretDrawn = -1;
     CaretAffinity caretDrawnAffinity;
 
+    /// <summary>Scratch for the visual ranges a highlight covers on one line.</summary>
+    /// <remarks>
+    ///     A field rather than a local because the two things it paints — the selection and an input
+    ///     method's underline — ask once per line per frame, and a caret blinking on a focused field
+    ///     is the one thing in a still interface that redraws on its own.
+    /// </remarks>
+    readonly List<(float X, float Width)> ranges = [];
+
     /// <inheritdoc />
     protected override string TagName => "textbox";
 
@@ -576,21 +584,36 @@ public abstract partial class TextField : Control {
                 var start = Math.Max(SelectionStart, line.Start);
                 var end = Math.Min(SelectionEnd, line.Start + line.Length);
 
-                var from = origin + line.CaretOffset(start);
-                var to = origin + line.CaretOffset(end);
+                // ⚠ **Several rectangles per line, not one.** A selection is contiguous in the text
+                // and need not be contiguous on the screen: crossing into a run that faces the other
+                // way puts the covered glyphs at opposite ends of that run with unselected text
+                // between them, and one band from the lower offset to the higher paints over it. See
+                // `TextLine.VisualRanges`, which is where the span meets the itemiser's boundaries.
+                ranges.Clear();
+                line.VisualRanges(start, end, ranges);
 
-                // ⚠ A minimum width, so a line whose whole content is inside the selection but which
-                // ends in the break still reads as selected. Zero-width is what a blank line in the
-                // middle of a selected paragraph would otherwise be, and it looks like a gap.
-                context.FillRectangle(
-                    new Rectangle(
-                        MathF.Min(from, to),
-                        top + block.TopOf(index),
-                        MathF.Max(MathF.Abs(to - from), index < last ? 3f : 0f),
-                        line.Height
-                    ),
-                    colour
-                );
+                // A line with nothing of its own inside the selection — a blank one in the middle of
+                // a selected paragraph — still has to read as selected, so it gets the marker the
+                // minimum width below is for.
+                if (ranges.Count == 0) {
+                    ranges.Add((line.CaretOffset(start), 0f));
+                }
+
+                foreach (var range in ranges) {
+                    // ⚠ A minimum width, so a line whose whole content is inside the selection but
+                    // which ends in the break still reads as selected. Zero-width is what a blank
+                    // line in the middle of a selected paragraph would otherwise be, and it looks
+                    // like a gap.
+                    context.FillRectangle(
+                        new Rectangle(
+                            origin + range.X,
+                            top + block.TopOf(index),
+                            MathF.Max(range.Width, index < last ? 3f : 0f),
+                            line.Height
+                        ),
+                        colour
+                    );
+                }
             }
         }
 
@@ -629,18 +652,25 @@ public abstract partial class TextField : Control {
 
         for (var index = first; index <= last; index++) {
             var line = block.Lines[index];
-            var from = origin + line.CaretOffset(Math.Max(start, line.Start));
-            var to = origin + line.CaretOffset(Math.Min(end, line.Start + line.Length));
 
-            context.FillRectangle(
-                new Rectangle(
-                    MathF.Min(from, to),
-                    top + block.TopOf(index) + line.Height - 1f,
-                    MathF.Abs(to - from),
-                    1f
-                ),
-                colour
-            );
+            // ⚠ Underlined in visual ranges for the same reason the selection is filled in them: a
+            // pre-edit whose script faces the other way from the text around it is exactly the case
+            // an input method is used for, so a single rule under it is wrong in the one place this
+            // is most likely to be seen.
+            ranges.Clear();
+            line.VisualRanges(Math.Max(start, line.Start), Math.Min(end, line.Start + line.Length), ranges);
+
+            foreach (var range in ranges) {
+                context.FillRectangle(
+                    new Rectangle(
+                        origin + range.X,
+                        top + block.TopOf(index) + line.Height - 1f,
+                        range.Width,
+                        1f
+                    ),
+                    colour
+                );
+            }
         }
     }
 
@@ -828,8 +858,14 @@ public abstract partial class TextField : Control {
     int IndexAt(float x, float y) => PositionAt(x, y).Index;
 
     /// <summary>Where the line holding an index begins.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The row is the one the caret's own affinity says it is on</b>, for the reason
+    ///     <see cref="Vertically" /> gives: at a soft wrap one index names two rows, and reading it
+    ///     from the number alone would send Home to the head of the row above the one the caret is
+    ///     visibly sitting on.
+    /// </remarks>
     int LineStart(int index) =>
-        text.Block() is { } block ? block.Lines[block.LineOf(index)].Start : 0;
+        text.Block() is { } block ? block.Lines[block.LineOf(index, CaretAffinity)].Start : 0;
 
     /// <summary>And where it ends, before the break that ended it.</summary>
     int LineEnd(int index) {
@@ -837,7 +873,7 @@ public abstract partial class TextField : Control {
             return Value?.Length ?? 0;
         }
 
-        var line = block.Lines[block.LineOf(index)];
+        var line = block.Lines[block.LineOf(index, CaretAffinity)];
 
         return line.Start + line.Length;
     }
@@ -983,22 +1019,28 @@ public abstract partial class TextField : Control {
 
         switch (args.Key) {
             case InputKey.Left:
-                MoveCaret(word ? WordBefore(CaretIndex) : Step(CaretIndex, -1), shift);
+                var back = word ? WordBefore(CaretIndex) : Step(CaretIndex, -1);
+                MoveCaret(back.Index, back.Affinity, shift);
                 break;
 
             case InputKey.Right:
-                MoveCaret(word ? WordAfter(CaretIndex) : Step(CaretIndex, 1), shift);
+                var forward = word ? WordAfter(CaretIndex) : Step(CaretIndex, 1);
+                MoveCaret(forward.Index, forward.Affinity, shift);
                 break;
 
             // ⚠ To the end of the *line* in a field that has more than one, and to the end of the
             // value in one that does not. Both are what Home and End mean where they came from, and
             // a text area whose Home jumped to the top of the document would be the odd one out.
+            // ⚠ And each of them says which *end* it meant, because on a wrapped row the two ends
+            // are the same two indices. Home downstream is the head of the row the caret is on;
+            // upstream would be the tail of the row above, so Home would appear to jump up a line.
+            // End upstream is that row's own tail rather than the head of the next.
             case InputKey.Home:
-                MoveCaret(AcceptsNewlines ? LineStart(CaretIndex) : 0, shift);
+                MoveCaret(AcceptsNewlines ? LineStart(CaretIndex) : 0, CaretAffinity.Downstream, shift);
                 break;
 
             case InputKey.End:
-                MoveCaret(AcceptsNewlines ? LineEnd(CaretIndex) : Value?.Length ?? 0, shift);
+                MoveCaret(AcceptsNewlines ? LineEnd(CaretIndex) : Value?.Length ?? 0, CaretAffinity.Upstream, shift);
                 break;
 
             case InputKey.Up when AcceptsNewlines:
@@ -1070,7 +1112,7 @@ public abstract partial class TextField : Control {
 
     void Backspace() {
         if (!HasSelection) {
-            var previous = Step(CaretIndex, -1);
+            var previous = Step(CaretIndex, -1).Index;
             if (previous == CaretIndex) {
                 return;
             }
@@ -1083,7 +1125,7 @@ public abstract partial class TextField : Control {
 
     void Forward() {
         if (!HasSelection) {
-            var next = Step(CaretIndex, 1);
+            var next = Step(CaretIndex, 1).Index;
             if (next == CaretIndex) {
                 return;
             }
@@ -1101,9 +1143,9 @@ public abstract partial class TextField : Control {
     ///     combining accent. <c>GraphemeBreaker</c> is the UAX#29 implementation the text assembly
     ///     already ships and tests, and this is what it is for.
     /// </remarks>
-    int Step(int index, int direction) {
+    (int Index, CaretAffinity Affinity) Step(int index, int direction) {
         if (Value is not { Length: > 0 } value) {
-            return 0;
+            return (0, Landing(0, direction));
         }
 
         var boundaries = new List<int>();
@@ -1117,22 +1159,64 @@ public abstract partial class TextField : Control {
                 }
             }
 
-            return index <= 0 ? 0 : best;
+            var back = index <= 0 ? 0 : best;
+
+            return (back, Landing(back, direction));
         }
 
         foreach (var boundary in boundaries) {
             if (boundary > index) {
-                return boundary;
+                return (boundary, Landing(boundary, direction));
             }
         }
 
-        return value.Length;
+        return (value.Length, Landing(value.Length, direction));
+    }
+
+    /// <summary>Which side of the index it landed on a horizontal step leaves the caret.</summary>
+    /// <param name="index">Where the step landed.</param>
+    /// <param name="direction">Which way it went, in logical order.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The caret ends up beside the character the step just crossed</b>, which is the one
+    ///         rule the three cases below are all consequences of. A backward step crossed the
+    ///         character <i>after</i> where it landed, so the caret leads it —
+    ///         <see cref="CaretAffinity.Downstream" />. A forward step crossed the character
+    ///         <i>before</i>, so the caret trails it — <see cref="CaretAffinity.Upstream" />. Inside
+    ///         a run and away from a wrap the two are the same pixel and nothing can tell them
+    ///         apart; where the direction changes they are a whole run apart.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A soft wrap is the one place the rule is overruled, and it is overruled on
+    ///         purpose.</b> A break that consumed nothing leaves one index ending the row above and
+    ///         beginning the row below, and the character a forward step crossed is the last one on
+    ///         the row it is leaving — so the rule above would keep the caret up there, and the next
+    ///         Right would appear to move it two characters at once from a row it was never seen on.
+    ///         Rows are what a reader sees; a run boundary they cannot see is what the rule is for.
+    ///         So the row wins, and the test for "is this a row boundary" is the only honest one
+    ///         there is: the index answers with two different rows.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Backward needs no such exception. A backward step onto the same boundary crossed a
+    ///         character on the row <i>below</i>, and <see cref="CaretAffinity.Downstream" /> is
+    ///         already the reading that puts the caret there.
+    ///     </para>
+    /// </remarks>
+    CaretAffinity Landing(int index, int direction) {
+        if (direction < 0) {
+            return CaretAffinity.Downstream;
+        }
+
+        return text.Block() is { } block
+            && block.LineOf(index, CaretAffinity.Downstream) != block.LineOf(index, CaretAffinity.Upstream)
+                ? CaretAffinity.Downstream
+                : CaretAffinity.Upstream;
     }
 
     /// <summary>The start of the word before an index.</summary>
-    int WordBefore(int index) {
+    (int Index, CaretAffinity Affinity) WordBefore(int index) {
         if (Value is not { Length: > 0 } value || index <= 0) {
-            return 0;
+            return (0, CaretAffinity.Downstream);
         }
 
         var boundaries = new List<int>();
@@ -1145,13 +1229,13 @@ public abstract partial class TextField : Control {
             }
         }
 
-        return best;
+        return (best, Landing(best, -1));
     }
 
     /// <summary>The start of the word after an index.</summary>
-    int WordAfter(int index) {
+    (int Index, CaretAffinity Affinity) WordAfter(int index) {
         if (Value is not { Length: > 0 } value) {
-            return 0;
+            return (0, Landing(0, 1));
         }
 
         var boundaries = new List<int>();
@@ -1159,10 +1243,10 @@ public abstract partial class TextField : Control {
 
         foreach (var boundary in boundaries) {
             if (boundary > index) {
-                return boundary;
+                return (boundary, Landing(boundary, 1));
             }
         }
 
-        return value.Length;
+        return (value.Length, Landing(value.Length, 1));
     }
 }

@@ -45,9 +45,8 @@ for f in auxiliary/GraphemeBreakTest.txt auxiliary/GraphemeBreakProperty.txt \
          emoji/emoji-data.txt ReadMe.txt; do curl -sSO "$base/$f"; done
 ```
 
-⚠ **`SpecialCasing.txt` is the one file whose table can be regenerated on its own**, because it is
-also the one that arrived after the rest and the committed table therefore names an older Unicode
-version than its siblings do:
+**`SpecialCasing.txt` is the one file whose table can be regenerated on its own**, because it is also
+the one that arrived after the rest:
 
 ```bash
 dotnet run --project Tools/Vixen.UnicodeTableGen -- \
@@ -55,8 +54,11 @@ dotnet run --project Tools/Vixen.UnicodeTableGen -- \
 ```
 
 The generator takes the version from that file's own header rather than from GraphemeBreakTest.txt,
-so the mismatch is visible in a diff instead of being asserted away. Re-run the whole generator to
-close it.
+which is what made it visible that the committed table had come from 13.0.0 while its nine siblings
+came from 17.0.0. ⚠ **All ten now say 17.0.0, and regenerating changed the header and nothing else** —
+the unconditional rows of `SpecialCasing.txt` had not moved across four major versions. That is worth
+knowing before anyone spends a run chasing a suspected casing difference: the table has been right the
+whole time, and it was the header that lied.
 
 ## What each one is for
 
