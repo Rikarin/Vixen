@@ -839,7 +839,7 @@ partial class Build : NukeBuild {
         Log.Information(
             "{Probe} still declares all {Count} ahead-of-time properties.",
             probe.Name,
-            AotProbeContract.AheadOfTime.Count
+            required.Length
         );
     }
 
