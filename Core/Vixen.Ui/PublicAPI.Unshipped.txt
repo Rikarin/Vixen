@@ -824,6 +824,8 @@ Vixen.Ui.Rendering.UiGeometryBuilder.TessellatedPaths.get -> int
 Vixen.Ui.Rendering.UiGeometryBuilder.Tolerance.get -> float
 Vixen.Ui.Rendering.UiGeometryBuilder.Tolerance.set -> float
 Vixen.Ui.Rendering.UiGeometryBuilder.UiGeometryBuilder() -> void
+Vixen.Ui.Rendering.UiGeometryBuilder.WhiteLevel.get -> float
+Vixen.Ui.Rendering.UiGeometryBuilder.WhiteLevel.set -> float
 Vixen.Ui.Rendering.UiLayer -> readonly struct
 Vixen.Ui.Rendering.UiLayer : System.IEquatable<Vixen.Ui.Rendering.UiLayer>
 Vixen.Ui.Rendering.UiLayer.Alpha.get -> float
