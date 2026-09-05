@@ -445,6 +445,7 @@ Vixen.Ui.Layout.PositionType.Absolute = 2 -> Vixen.Ui.Layout.PositionType
 Vixen.Ui.Layout.PositionType.PositionType() -> void
 Vixen.Ui.Layout.PositionType.Relative = 1 -> Vixen.Ui.Layout.PositionType
 Vixen.Ui.Layout.PositionType.Static = 0 -> Vixen.Ui.Layout.PositionType
+Vixen.Ui.Layout.PositionType.Sticky = 3 -> Vixen.Ui.Layout.PositionType
 Vixen.Ui.Layout.StyleLength -> readonly struct
 Vixen.Ui.Layout.StyleLength : System.IEquatable<Vixen.Ui.Layout.StyleLength>
 Vixen.Ui.Layout.StyleLength.Equals(Vixen.Ui.Layout.StyleLength other) -> bool

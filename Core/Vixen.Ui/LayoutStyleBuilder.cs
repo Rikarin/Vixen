@@ -1422,10 +1422,18 @@ public sealed class LayoutStyleBuilder {
                 [table.Intern("normal")] = Align.Stretch
             };
 
+            // ⚠ <b><c>sticky</c> is here now and for most of its life was not</b>, so it fell through
+            // to `static` and a sticky box was not the containing block of its absolutely positioned
+            // descendants — `top: 0; bottom: 0` on such a child resolved against whatever ancestor
+            // happened to be positioned, several levels up, which is a plausible-looking box of the
+            // wrong height rather than an error. See `PositionType.Sticky` for why it could not be
+            // spelled `relative` instead. `fixed` is still absent, and is a different gap: nothing
+            // here has a viewport-fixed containing block to offer it.
             Positions = new Dictionary<int, PositionType> {
                 [table.Intern("static")] = PositionType.Static,
                 [table.Intern("relative")] = PositionType.Relative,
-                [table.Intern("absolute")] = PositionType.Absolute
+                [table.Intern("absolute")] = PositionType.Absolute,
+                [table.Intern("sticky")] = PositionType.Sticky
             };
 
             Wraps = new Dictionary<int, Wrap> {

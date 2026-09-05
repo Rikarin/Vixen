@@ -31,9 +31,17 @@ readonly record struct Scrollport(float Left, float Top, float Right, float Bott
 ///         handling", which reads naturally and is not available: a sticky box's offset is a function
 ///         of a <i>scroll offset</i>, and <c>LayoutTree</c> has no scroll offsets at all.
 ///         <c>ScrollView</c> scrolls by writing <see cref="UiElement.OffsetY" /> on its content —
-///         explicitly "an offset, not a layout" — and that value never reaches the layout tree. A
-///         <c>PositionType.Sticky</c> would therefore be a keyword the layout could store and could
-///         not act on.
+///         explicitly "an offset, not a layout" — and that value never reaches the layout tree.
+///     </para>
+///     <para>
+///         ⚠ <b>This paragraph used to end "a <c>PositionType.Sticky</c> would be a keyword the
+///         layout could store and could not act on", and that was true of the offset and false of
+///         the box.</b> CSS Position 3 § 2 lists <c>sticky</c> among the positioned values, so a
+///         sticky box is the containing block of its absolutely positioned descendants — a fact that
+///         needs no scroll offset to act on, and one the store was getting wrong until
+///         <see cref="PositionType.Sticky" /> existed. The member is deliberately half a keyword: a
+///         containing block that ignores its own inset. Everything below still runs here, because
+///         everything below is the offset.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Where it does belong is the one walk that already assembles a position from more than

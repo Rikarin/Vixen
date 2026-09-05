@@ -1090,7 +1090,13 @@ public sealed partial class LayoutTree {
 
     float RelativePosition(int index, FlexDirection axis, Direction direction, float axisSize) {
         // position: static ignores inset entirely — https://www.w3.org/TR/css-position-3/#valdef-position-static
-        if (styles[index].PositionType == PositionType.Static) {
+        //
+        // ⚠ And `sticky` ignores it here too, for the opposite reason: its inset is not a layout
+        // offset at all but a floor against a scroll position, applied in `UiDocument.Accumulate`
+        // where the scroll offsets are. Reading it as a relative offset would apply it twice, which
+        // is the trap that kept `sticky` out of `PositionType` until there was a member that could
+        // be a containing block without being one. See `PositionType.Sticky`.
+        if (styles[index].PositionType is PositionType.Static or PositionType.Sticky) {
             return 0f;
         }
 
