@@ -283,6 +283,17 @@ public abstract partial class TextField : Control {
         caretColor = Document.PropertyId("--caret-color");
         caretColorStandard = Document.PropertyId("caret-color");
 
+        // ⚠ The four verbs as *ids*, not as a private key switch. A menu item spelling `edit.copy`
+        // and a keymap bound to it both reach the focused field through `CommandRoute` without
+        // either of them knowing a text field exists — which is the whole of what the command route
+        // is for, and is why ⌘C in a dialog's text box is not a thing an application has to wire.
+        // The chords below still call the same methods, because a field must answer them with no
+        // keymap installed at all.
+        AddCommandHandler("edit.cut", () => Cut(), () => CanCopy && !ReadOnly && !Disabled);
+        AddCommandHandler("edit.copy", () => Copy(), () => CanCopy);
+        AddCommandHandler("edit.paste", () => Paste(), () => CanPaste);
+        AddCommandHandler("edit.select-all", SelectAll, () => (Value?.Length ?? 0) > 0);
+
         AddHandler<KeyEvent>(static (element, args) => ((TextField) element).Keyed(args));
         AddHandler<TextInputEvent>(static (element, args) => ((TextField) element).Typed(args));
         AddHandler<TextCompositionEvent>(static (element, args) => ((TextField) element).Composing(args));
@@ -398,6 +409,71 @@ public abstract partial class TextField : Control {
         SelectionAnchor = CaretIndex;
 
         Value = updated;
+    }
+
+    /// <summary>Whether there is something to put on the clipboard, and somewhere to put it.</summary>
+    public bool CanCopy => HasSelection && Document.Clipboard is not null;
+
+    /// <summary>Whether there is text on the clipboard and this field would take it.</summary>
+    /// <remarks>
+    ///     ⚠ Asks the clipboard rather than caching, because the answer is another application's to
+    ///     change and nothing tells us when it does. That is what <c>validateMenuItem:</c> does on
+    ///     the platform this shape comes from.
+    /// </remarks>
+    public bool CanPaste => !ReadOnly && !Disabled && Document.Clipboard is { HasText: true };
+
+    /// <summary>Puts the selection on the clipboard.</summary>
+    /// <returns>Whether anything was written.</returns>
+    public bool Copy() => CanCopy && Document.Clipboard!.SetText(SelectedText);
+
+    /// <summary>Puts the selection on the clipboard and deletes it.</summary>
+    /// <returns>Whether anything was written.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A read-only field cuts nothing and copies nothing.</b> Not "copies without
+    ///     deleting": the text is still on screen, so a user who reached for Cut and got Copy has no
+    ///     way to tell which happened, and the next paste is a silent duplication. The verb is
+    ///     disabled instead, which is what the menu shows.
+    /// </remarks>
+    public bool Cut() {
+        if (ReadOnly || Disabled || !Copy()) {
+            return false;
+        }
+
+        Replace(string.Empty);
+
+        return true;
+    }
+
+    /// <summary>Replaces the selection with the clipboard's text.</summary>
+    /// <returns>Whether anything was inserted.</returns>
+    public bool Paste() {
+        if (!CanPaste || !Document.Clipboard!.TryGetText(out var text) || text.Length == 0) {
+            return false;
+        }
+
+        Replace(Flatten(text));
+
+        return true;
+    }
+
+    /// <summary>What a paste actually inserts, once the field has had its say about line breaks.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A single-line field turns every break into a space rather than dropping it.</b>
+    ///     Dropping it welds the last word of one line to the first of the next — "Ada\nLovelace"
+    ///     pastes as "AdaLovelace" — which looks like a truncation bug in whatever reads the field
+    ///     back. Truncating at the first break, which the Win32 edit control does, loses data the
+    ///     user watched themselves copy. A space is the only one of the three that is visibly what
+    ///     was asked for.
+    ///     <para>
+    ///         CRLF and a lone CR are normalised first, so a paste from a Windows application does
+    ///         not arrive with a stray carriage return inside a value that is then compared,
+    ///         serialised and diffed against one without.
+    ///     </para>
+    /// </remarks>
+    string Flatten(string text) {
+        var normalised = text.Contains('\r') ? text.Replace("\r\n", "\n").Replace('\r', '\n') : text;
+
+        return AcceptsNewlines ? normalised : normalised.Replace('\n', ' ');
     }
 
     /// <summary>What the field does with a value on its way in.</summary>
@@ -1115,6 +1191,31 @@ public abstract partial class TextField : Control {
 
             case InputKey.A when word:
                 SelectAll();
+                break;
+
+            // ⚠ These return rather than break when there is nothing to do, so that an unhandled
+            // ⌘C climbs to whatever else was listening — a list that wanted to copy its selection,
+            // a document that wanted to copy the whole thing. Marking the chord handled on a field
+            // with no selection is how a text box silently eats the application's Copy.
+            case InputKey.C when word:
+                if (!Copy()) {
+                    return;
+                }
+
+                break;
+
+            case InputKey.X when word:
+                if (!Cut()) {
+                    return;
+                }
+
+                break;
+
+            case InputKey.V when word:
+                if (!Paste()) {
+                    return;
+                }
+
                 break;
 
             // ⚠ Two consumers want Enter in a text area and only one of them can have it, so this is

@@ -581,6 +581,13 @@ public sealed partial class CodeEditor : Control {
         // would pay for that on every frame of every pass. See Control.WhenResized.
         WhenResized(Refresh);
 
+        // The same four ids `TextField` registers, answered the same way. A menu or a keymap that
+        // spells `edit.copy` reaches whichever of the two has the focus without naming either.
+        AddCommandHandler("edit.cut", () => Cut(), () => CanCopy && !ReadOnly);
+        AddCommandHandler("edit.copy", () => Copy(), () => CanCopy);
+        AddCommandHandler("edit.paste", () => Paste(), () => CanPaste);
+        AddCommandHandler("edit.select-all", SelectAll, () => buffer.End != default);
+
         AddHandler<KeyEvent>(static (element, args) => ((CodeEditor) element).Keyed(args));
         AddHandler<TextInputEvent>(static (element, args) => ((CodeEditor) element).Typed(args));
         AddHandler<PointerEvent>(static (element, args) => ((CodeEditor) element).Pointed(args));
@@ -1264,6 +1271,47 @@ public sealed partial class CodeEditor : Control {
         CaretMoved?.Invoke(this);
     }
 
+    /// <summary>Whether there is something to put on the clipboard, and somewhere to put it.</summary>
+    public bool CanCopy => HasSelection && Document.Clipboard is not null;
+
+    /// <summary>Whether there is text on the clipboard and this editor would take it.</summary>
+    public bool CanPaste => !ReadOnly && Document.Clipboard is { HasText: true };
+
+    /// <summary>Puts the selection on the clipboard.</summary>
+    /// <returns>Whether anything was written.</returns>
+    public bool Copy() => CanCopy && Document.Clipboard!.SetText(SelectedText);
+
+    /// <summary>Puts the selection on the clipboard and deletes it.</summary>
+    /// <returns>Whether anything was written.</returns>
+    /// <remarks>A read-only editor cuts nothing, for the reason <c>TextField.Cut</c> states.</remarks>
+    public bool Cut() {
+        if (ReadOnly || !Copy()) {
+            return false;
+        }
+
+        Erase(false);
+
+        return true;
+    }
+
+    /// <summary>Replaces the selection with the clipboard's text.</summary>
+    /// <returns>Whether anything was inserted.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Line breaks are kept and only normalised</b>, which is the one place this differs
+    ///     from a single-line field: a code editor is the control multi-line text is <i>for</i>, and
+    ///     a paste from a Windows editor that left its carriage returns in would put a stray \r at
+    ///     the end of every line of the file it was saved back to.
+    /// </remarks>
+    public bool Paste() {
+        if (!CanPaste || !Document.Clipboard!.TryGetText(out var text) || text.Length == 0) {
+            return false;
+        }
+
+        Insert(text.Contains('\r') ? text.Replace("\r\n", "\n").Replace('\r', '\n') : text);
+
+        return true;
+    }
+
     /// <summary>Removes the selection, or one character either side of the caret.</summary>
     /// <param name="forward">Whether Delete rather than Backspace.</param>
     public void Erase(bool forward) {
@@ -1431,6 +1479,30 @@ public sealed partial class CodeEditor : Control {
 
             case InputKey.A when word:
                 SelectAll();
+                break;
+
+            // Returning rather than breaking when there is nothing to do, for the reason
+            // `TextField.Keyed` states: an editor with no selection must not eat the application's
+            // Copy.
+            case InputKey.C when word:
+                if (!Copy()) {
+                    return;
+                }
+
+                break;
+
+            case InputKey.X when word:
+                if (!Cut()) {
+                    return;
+                }
+
+                break;
+
+            case InputKey.V when word:
+                if (!Paste()) {
+                    return;
+                }
+
                 break;
 
             case InputKey.Space when word:

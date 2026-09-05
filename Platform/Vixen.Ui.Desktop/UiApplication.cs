@@ -178,6 +178,13 @@ public sealed class UiApplication : IDisposable {
         // assembly is the only one in the chain allowed to know what a window is.
         windows = new PlatformWindowHost(platform, Document, window);
 
+        // ⚠ **The same shape as the line above, and its absence was why ⌘C did nothing.**
+        // `IClipboard` has had real backends on three desktops since Phase 1 and nothing above
+        // `Vixen.Platform` ever called one, so a text field in any application but the editor had
+        // cut, copy and paste that silently were not there. A platform without the capability
+        // leaves `Document.Clipboard` null and the three verbs grey out, which is the truth.
+        PlatformClipboard.Install(Document, platform);
+
         // ⚠ `Mount` first and `Content` second, because a development build supplies the first to
         // put its components under a `HotReloadHost` — see `UiApplicationOptions.Mount`, which is
         // the whole of what a `.vxml` reload needs from this assembly.
