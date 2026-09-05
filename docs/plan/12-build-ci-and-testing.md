@@ -267,13 +267,25 @@ files.
   a type you own and can construct** — a mocked `Signal<T>` or mocked `LayoutStore` tests the mock.
 - ⚠️ **Proposed, and implemented by nothing** — traits for filtering:
   `[Trait("Category","Unit|Integration|Golden|Perf|Platform")]`. `Trait(` appears in **zero** of the
-  4 992 tracked `.cs` files (searched with `git grep -a`, so a NUL byte in a literal cannot be hiding
+  5 201 tracked `.cs` files (searched with `git grep -a`, so a NUL byte in a literal cannot be hiding
   one); no test in this repository has ever carried a trait of any kind. It is listed among the
   conventions above, which read as *in force*, and it is not one — which is why it is marked here
   rather than left to be discovered by somebody writing `--filter Category=Unit` and getting an empty
   run. Whether it arrives at all is [#558](https://github.com/Rikarin/Vixen/issues/558)'s open
   question: a speed lane wants a way to name the slow tests, and a tag every author has to remember
   is a gate nothing enforces unless something enforces it per assembly.
+  ⚠️ **What the threshold would be is arithmetic rather than taste, which nobody had checked.** Model
+  a `Speed!=Slow` lane by scaling each assembly's wall by the fraction of its test CPU that survives,
+  over the 178 TRX of the 2026-09-05 23:04 run: at a **10 s** per-method threshold the lane is
+  **316 s** against the full run's 498.3 s — 62 methods tagged, 1 542 s of the 2 982 s of test CPU
+  removed — and at 5 s it is still 316 s. Below 10 s the lane buys nothing further because
+  `Vixen.Editor.App.Tests` bounds it: that assembly holds **13.3 s** of slow methods, 4.1% of its own
+  CPU, so it survives the lane almost whole at 316 s while the next assembly finishes at 72 s. ⚠️ So
+  the old floor argument is wrong about the full run and exactly right about the lane, and the answer
+  it gives is "yes, and 10 s". Raising the threshold is what costs: 20 s gives 342 s and 30 s gives
+  411 s. ⚠️ Also worth knowing before anyone budgets on it: 'summed wall removed converts to elapsed
+  at about a quarter' over-promises here by about 2× (1 542 / 4 = 385 s against a measured 182 s),
+  because the makespan stops falling once it reaches the longest surviving assembly.
   ⚠️ It does **not** contradict the refusal 160 lines above. What that paragraph refuses is the *Nuke
   switch* `--filter <test-trait>` ([#340](https://github.com/Rikarin/Vixen/issues/340)), and the
   replacement it names — a direct `dotnet test --filter` — is exactly what would consume a trait.
