@@ -749,12 +749,20 @@ Vixen.Ui.PointerEvent.Modifiers.init -> Vixen.Ui.ModifierKeys
 Vixen.Ui.PointerEvent.PointerEvent() -> void
 Vixen.Ui.PointerEvent.PointerId.get -> int
 Vixen.Ui.PointerEvent.PointerId.init -> int
+Vixen.Ui.PointerEvent.PointerType.get -> Vixen.Ui.PointerType
+Vixen.Ui.PointerEvent.PointerType.init -> Vixen.Ui.PointerType
 Vixen.Ui.PointerEvent.Timestamp.get -> System.TimeSpan
 Vixen.Ui.PointerEvent.Timestamp.init -> System.TimeSpan
 Vixen.Ui.PointerEvent.X.get -> float
 Vixen.Ui.PointerEvent.X.init -> float
 Vixen.Ui.PointerEvent.Y.get -> float
 Vixen.Ui.PointerEvent.Y.init -> float
+Vixen.Ui.PointerType -> enum : byte
+Vixen.Ui.PointerType.Mouse = 1 -> Vixen.Ui.PointerType
+Vixen.Ui.PointerType.Pen = 3 -> Vixen.Ui.PointerType
+Vixen.Ui.PointerType.PointerType() -> void
+Vixen.Ui.PointerType.Touch = 2 -> Vixen.Ui.PointerType
+Vixen.Ui.PointerType.Unknown = 0 -> Vixen.Ui.PointerType
 Vixen.Ui.PositionedGlyph -> readonly struct
 Vixen.Ui.PositionedGlyph : System.IEquatable<Vixen.Ui.PositionedGlyph>
 Vixen.Ui.PositionedGlyph.GlyphId.get -> ushort

@@ -72,6 +72,43 @@ public enum PointerButton : byte {
     Middle
 }
 
+/// <summary>What kind of device a pointer event came from.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>A fact on the event rather than a convention about its id range.</b> Before this
+///         existed, a finger and a mouse arrived as the same shape and were told apart only by
+///         which range <c>PlatformInput</c> had allocated their <see cref="PointerEvent.PointerId" />
+///         from — a rule written down in one file's comments and knowable nowhere else.
+///     </para>
+///     <para>
+///         ⚠ <b><see cref="Unknown" /> is zero, and that is deliberate rather than tidy.</b> The
+///         value exists to be trusted at an arbitration point: <c>touch-action</c> governs touch and
+///         nothing else, so a reader that applied it to a mouse would stop a map responding to a
+///         mouse drag, which no browser does. A default of <see cref="Mouse" /> would make every
+///         producer that has not been updated <i>claim</i> to be a mouse, which is exactly the
+///         failure a default cannot be allowed to have — an unset field must read as "nobody said",
+///         not as an answer.
+///     </para>
+/// </remarks>
+public enum PointerType : byte {
+    /// <summary>Nobody said — an event from a producer that does not know or does not care.</summary>
+    Unknown,
+
+    /// <summary>A mouse, a trackpad, or anything else that moves a cursor.</summary>
+    Mouse,
+
+    /// <summary>A finger.</summary>
+    Touch,
+
+    /// <summary>A stylus.</summary>
+    /// <remarks>
+    ///     Distinct from <see cref="Touch" /> because the two differ where it matters: a pen is
+    ///     precise, so it does not want a finger's enlarged hit target, and it can hover, so it does
+    ///     produce the crossings a finger does not.
+    /// </remarks>
+    Pen
+}
+
 /// <summary>A pointer doing something somewhere.</summary>
 /// <remarks>
 ///     The position is in <b>document</b> space, not the element's, and stays that way through the
@@ -81,6 +118,16 @@ public enum PointerButton : byte {
 public sealed class PointerEvent : UiEvent {
     /// <summary>Which pointer. A mouse is one; touches are several at once.</summary>
     public int PointerId { get; init; }
+
+    /// <summary>What kind of device produced it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not derivable from <see cref="PointerId" />, and that is why it is here.</b> The id
+    ///     ranges <c>PlatformInput</c> keeps apart are a collision-avoidance measure, not a device
+    ///     taxonomy — a second mouse, or a host that numbers its pens, would break any reader that
+    ///     inferred the device from the number. See <see cref="Vixen.Ui.PointerType" /> for why the
+    ///     default is <see cref="PointerType.Unknown" /> rather than <see cref="PointerType.Mouse" />.
+    /// </remarks>
+    public PointerType PointerType { get; init; }
 
     /// <summary>Its x, in document space.</summary>
     public float X { get; init; }

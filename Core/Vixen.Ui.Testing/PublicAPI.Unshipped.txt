@@ -95,6 +95,8 @@ Vixen.Ui.Testing.UiTest.NumberOf(Vixen.Ui.UiElement element, string property) ->
 Vixen.Ui.Testing.UiTest.Options.get -> Vixen.Ui.Testing.UiTestOptions
 Vixen.Ui.Testing.UiTest.Pointer.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Testing.UiTest.PointerAt(int pointer) -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Testing.UiTest.PointerType.get -> Vixen.Ui.PointerType
+Vixen.Ui.Testing.UiTest.PointerType.set -> Vixen.Ui.PointerType
 Vixen.Ui.Testing.UiTest.PressKey(Vixen.Input.InputKey key) -> Vixen.Ui.UiElement?
 Vixen.Ui.Testing.UiTest.PressPointer(Vixen.Ui.PointerButton button = Vixen.Ui.PointerButton.Primary, int pointer = 1) -> Vixen.Ui.UiElement?
 Vixen.Ui.Testing.UiTest.Redraws.get -> int

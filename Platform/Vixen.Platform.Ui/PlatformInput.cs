@@ -124,7 +124,15 @@ public static class PlatformInput {
             case PlatformEventKind.MouseMoved:
                 document.Dispatch(
                     surface,
-                    Pointer(platformEvent, PointerAction.Moved, PointerButton.None, modifiers, when, Mouse)
+                    Pointer(
+                        platformEvent,
+                        PointerAction.Moved,
+                        PointerButton.None,
+                        modifiers,
+                        when,
+                        Mouse,
+                        PointerType.Mouse
+                    )
                 );
 
                 return true;
@@ -141,7 +149,8 @@ public static class PlatformInput {
                         Button(platformEvent.MouseButton),
                         modifiers,
                         when,
-                        Mouse
+                        Mouse,
+                        PointerType.Mouse
                     )
                 );
 
@@ -193,7 +202,8 @@ public static class PlatformInput {
                         PointerButton.Primary,
                         modifiers,
                         when,
-                        Finger(platformEvent.DeviceId)
+                        Finger(platformEvent.DeviceId),
+                        PointerType.Touch
                     )
                 );
 
@@ -208,7 +218,8 @@ public static class PlatformInput {
                         PointerButton.None,
                         modifiers,
                         when,
-                        Finger(platformEvent.DeviceId)
+                        Finger(platformEvent.DeviceId),
+                        PointerType.Touch
                     )
                 );
 
@@ -323,10 +334,12 @@ public static class PlatformInput {
         PointerButton button,
         ModifierKeys modifiers,
         TimeSpan when,
-        int pointer
+        int pointer,
+        PointerType type
     ) =>
         new() {
             PointerId = pointer,
+            PointerType = type,
             X = platformEvent.Position.X,
             Y = platformEvent.Position.Y,
             Action = action,
