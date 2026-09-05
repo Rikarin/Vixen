@@ -174,22 +174,24 @@ flick is still running.
 the rubber-band and pull-to-refresh at the boundary, and this engine has neither, so there is nothing
 for `none` to additionally suppress. Both stop the chain, which is the half the class is written for.
 
-**A view keeps the reader where they were reading when the content above them grows or shrinks.** CSS
-Scroll Anchoring: the first child the viewport can see is remembered with its position in *content*
-space — `Top` is relative to `Content` and the scroll is an `OffsetY` applied after layout, so the two
-are independent by construction — and the difference between one frame's position and the next's is
-exactly what appeared above it. A row prepended to a log, an image that finished decoding, a
-paragraph that rewrapped when the window narrowed: each of them used to push what was on screen down
-by its own height while the offset, which nobody touched, stayed put. It runs from `Refresh` on
-`LayoutFinished`, so the correction and the re-layout happen inside the same frame's settle loop and
-nothing is drawn in the wrong place.
+⚠ **There is no scroll anchoring, and the attempt at it is worth recording because the obstacle is not
+where it looks.** CSS Scroll Anchoring keeps the reader still when content above them grows: remember
+the first child the viewport can see and its position in *content* space — `Top` is relative to
+`Content` and the scroll is an `OffsetY` applied after layout, so the two are independent — and the
+difference between one frame's position and the next's is exactly what appeared above it. Hung on
+`Refresh` from `LayoutFinished` that correction lands inside the same frame's settle loop, it is four
+lines, and a closed-form test over forty-pixel rows passes both directions and both instrument checks.
 
-⚠ **Nothing is corrected at offset zero, and that is the rule rather than an edge case.** A reader
-parked at the top is watching the top; content arriving above them is what they are there to see, and
-pinning them to the old first row would make a live feed look frozen while it filled up out of sight.
-⚠ **Vertical only, deliberately** — the horizontal anchor is a *different* element, the one nearest
-the left edge, so reusing this one and applying its delta sideways would correct by a number measured
-on the wrong box.
+⚠ **It is not here because it fights a row recycler, which no browser has to deal with.** The rule
+assumes an element's position in content space changes only when content is inserted or removed above
+it. A virtualising panel breaks that assumption on every scroll: it *reuses* one element for a
+different row, so the anchor moves for a reason that is not growth, and the correction cancels the
+scroll that caused it. `EditorShellBudgetTests.Scrolling_one_row_restyles_the_rows_it_rebound_and_not_the_shell`
+catches it exactly — the scroll ends up dirtying nothing at all — and no cheap discriminator separates
+the two cases: keying off the child count would miss an image that finished decoding, and keying off
+the content height would fire on a virtualiser realising a row. Anchoring here needs a recycler that
+says which of its children are the *same content* as last frame, and that is the work rather than the
+four lines.
 
 ⚠ **Momentum and rubber-band are still absent, and the reason is one level down from where it is
 usually looked for.** There is no drag-to-scroll on the content at all: a `ScrollView` scrolls from
