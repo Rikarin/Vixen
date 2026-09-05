@@ -2142,6 +2142,13 @@ public sealed partial class UiDocument : IDisposable {
 
             language = value;
 
+            // ⚠ Mirrored into the style tree because `:lang()` climbs to it, and the climb has to
+            // end where `UiElement.ResolvedLanguage`'s does or a rule would select on one answer
+            // while the shaper was given another. It is a field on the tree rather than the root
+            // element's `lang` attribute, because `lang` on the root must beat this and cannot if
+            // the two share a slot.
+            Styles.Tree.Language = value;
+
             Remeasure(Root);
             Invalidate();
         }

@@ -56,10 +56,19 @@ public enum WordBreakMode : byte {
 ///     </para>
 ///     <para>
 ///         ⚠ <b>There are only two members and CSS has three, which is the gap stated rather than
-///         hidden.</b> <c>hyphens: auto</c> needs a per-language Liang pattern set and a language to
-///         choose it with, and <see cref="TextShaper" /> leaves HarfBuzz's language unset on purpose
-///         so that shaping does not depend on the machine's locale — so the *input* is missing as
-///         well as the algorithm. No utility class emits it, so it cannot arrive here.
+///         hidden.</b> <c>hyphens: auto</c> needs a per-language Liang pattern set to choose a
+///         hyphenation from. No utility class emits it, so it cannot arrive here.
+///     </para>
+///     <para>
+///         ⚠ <b>Half of that refusal's stated reason has expired, and it is written here rather than
+///         left standing.</b> This paragraph used to say that a language to choose the pattern set
+///         with was missing too — that <see cref="TextShaper" /> left HarfBuzz's language unset on
+///         purpose, so the <i>input</i> was missing as well as the algorithm. It is not any more:
+///         <c>UiElement.Language</c> and <c>UiElement.ResolvedLanguage</c> carry a BCP-47 tag that
+///         inherits by tree, and <c>TextShaper.ShapeRun</c> takes it. The shaper still
+///         refuses to read the process locale, which is the property being protected and was never
+///         the blocker. What is left is the pattern data alone — 30-100 kB per language, a licensing
+///         and a shipping-shape decision, not a missing model.
 ///     </para>
 /// </remarks>
 public enum HyphenMode : byte {

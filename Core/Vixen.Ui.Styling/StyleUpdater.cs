@@ -202,7 +202,7 @@ public sealed class StyleUpdater {
     ///         reached, because a class appears in selectors and a selector reaches sideways and
     ///         downwards. An inline declaration appears in no selector — see
     ///         <see cref="SimpleSelectorKind" />, which tests a tag, an id, a class, an attribute, a
-    ///         state, a position and emptiness, and nothing else — so the only elements whose answer
+    ///         state, a position, emptiness and a content language, and nothing else — so the only elements whose answer
     ///         can have moved are the one written on and whatever inherits from it. That is the walk
     ///         below, unseeded by any collection step.
     ///     </para>

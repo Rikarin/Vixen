@@ -130,6 +130,29 @@ public sealed class StyleTree {
     /// <summary>The table this store's names live in.</summary>
     public NameTable Names => names;
 
+    /// <summary>The language in force where no element declares one, as a BCP-47 tag.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The bottom of <c>:lang()</c>'s climb</b>, and the only fact about the whole
+    ///         document this store carries. <c>UiDocument.Language</c> mirrors into it, so a host
+    ///         that declares the interface's language once has said it to the selector engine too.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not on the root element, which is where it would be tempting to put it.</b>
+    ///         Writing the document's tag into the root's <c>lang</c> attribute would make
+    ///         <c>UiElement.Language</c> report it as a declaration, and the two are ordered:
+    ///         <c>lang</c> on the root must beat the document's default, which it cannot do if they
+    ///         share one slot.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Empty means undetermined, and is never the process locale.</b> Same rule as
+    ///         <c>UiDocument.Language</c> and for the same reason: a document must select and shape
+    ///         identically on a German laptop and on CI. An element in an undetermined language
+    ///         matches no <c>:lang()</c> at all.
+    ///     </para>
+    /// </remarks>
+    public string Language { get; set; } = string.Empty;
+
     /// <summary>How many slots have ever been used, live and removed alike.</summary>
     /// <remarks>
     ///     The bound for anything walking the store by index, which is why it counts removed slots
