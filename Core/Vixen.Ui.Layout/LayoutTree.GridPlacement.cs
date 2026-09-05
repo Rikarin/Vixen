@@ -368,6 +368,17 @@ public sealed partial class LayoutTree {
     }
 
     /// <summary>Keeps one axis of one item inside the grid the store is willing to allocate.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the FIRST of two saturating clamps and the one that binds.</b> The other is
+    ///     at the end of <see cref="PlaceGridItems" />, where an item is pulled inside the final
+    ///     extent; that one is the one <c>GridKnownGaps.txt</c> names, and it is not reached with
+    ///     anything to fix. Two items whose authored lines are BOTH past
+    ///     <see cref="LayoutLimits.MaximumGridTracks" /> are saturated onto the same start here,
+    ///     before any extent exists, and merge into one cell — measured as a max-content grid of two
+    ///     50-point items coming out 50 wide with both at x=0 for lines 70 000 and 80 000, and 100
+    ///     wide for lines 65 534 and 65 536. Collapsing the empty runs has to replace both clamps to
+    ///     change anything; replacing either alone leaves the merge where it was.
+    /// </remarks>
     static AxisPlacement ClampPlacement(AxisPlacement placement) {
         var span = int.Clamp(placement.Span, 1, LayoutLimits.MaximumGridTracks);
 

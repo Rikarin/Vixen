@@ -84,6 +84,24 @@ byte-for-byte Yoga's — including the width-propagation rule in step 2, which s
 axis rather than on `overflow-x` precisely so that plain `overflow: scroll` on a column keeps
 answering what the fixtures expect.
 
+### The same argument, for grid and for inline
+
+`AutomaticMinimumSizeTests` closes the hole for flex. `GridBlindSpotTests` and
+`InlineBlindSpotTests` are its equivalents, and the three gaps they name were **measured on the
+tree** rather than assumed:
+
+| Blind spot | The measurement |
+|---|---|
+| **Direction inheritance** | Every one of Taffy's 22 776 nodes states its own `direction` — the count of ` direction="` across the eight corpus files is 22 776 exactly. So `Direction.Inherit` is never stored, and `StyleResolution.ResolveDirection`'s owner argument is never read. Rewriting it to ignore its owner leaves **every Taffy fixture green** and turns **374 of Yoga's 534** red, plus two in `ScrollbarGutterTests` and three across the two inline files — and ⚠ **not one grid test anywhere**. |
+| **Every fixture is a cold layout** | Nothing in either corpus lays a changed tree out twice, so dirty propagation, the measure cache and line-box reuse are asserted by nothing. Breaking `MarkDirtyAndPropagate` so that it marks its node and never reaches an ancestor leaves **all eight Taffy corpora and all 534 Yoga fixtures green**, and takes down eight hand-written tests. |
+| **Every fixture rounds at scale 1 or not at all** | A fractional `PointScaleFactor` — a retina editor — is untested by them. `PixelRoundingTests` had the only coverage of it, on flex. |
+
+The oracle for the last two is `PixelRoundingTests`': a second tree built from scratch with the same
+styles and laid out cold, which by construction takes no shortcut. ⚠ **A line box is the case that
+oracle matters most for**, because its advance is a running sum — rounding each box's width on its
+own and then laying them end to end accumulates, so an error in the first box moves every box after
+it.
+
 ### A second corpus, and what it found
 
 **[Taffy's 5 524 fixtures](../Vixen.Ui.Layout.Tests/Taffy/README.md) now run beside Yoga's 534**, per

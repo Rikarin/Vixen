@@ -392,6 +392,27 @@ grid_available_space_smaller_than_min_content
 # owed by any fixture in this corpus — is to make the clamp COLLAPSE the empty runs between occupied
 # tracks instead of saturating positions onto the last one, after which the ceiling stops deciding
 # whether two items share a cell and becomes a pure allocation bound.
+#
+# ⚠ <b>THERE ARE TWO SATURATING CLAMPS AND THE ONE NAMED ABOVE IS NOT THE ONE THAT BINDS.</b>
+# `int.Clamp(item.ColumnStart, 0, columns - 1)` runs at the END of `PlaceGridItems`, after the
+# extents are known. `ClampPlacement` runs at the START, before any extent exists, and it saturates
+# `placement.Start` at `MaximumGridTracks` on its own — so two items whose authored lines are BOTH
+# past the ceiling have already been merged into one cell before the later clamp is reached. Either
+# one alone is enough to merge them, which means a change to only the clamp this note names cannot
+# separate anything: both have to become the same collapse.
+#
+# ⚠ The threshold is "both past the ceiling", not "far apart", and that is worth writing down
+# because it is what a first attempt at a witness gets wrong. Measured on a hand-built max-content
+# grid holding two 50-point items on two named lines, nothing else:
+#
+#     lines     3 and     5 → grid 100 wide, items at x=0 and x=50
+#     lines 65534 and 65536 → grid 100 wide, items at x=0 and x=50   ← one is inside the ceiling
+#     lines 70000 and 80000 → grid  50 wide, BOTH items at x=0       ← one cell, silently
+#
+# The middle row is the instrument check: a witness that puts one item at line 1 can never fail,
+# because the near item survives the clamp and the two never collide. And the symptom needs items
+# with a SIZE — a probe built from empty boxes reports x=300 for both whether they share a track or
+# occupy two zero-width ones, so it cannot tell the defect from the fix.
 
 # ── SINGLETONS, EACH ITS OWN STORY ── three of four closed ──
 #

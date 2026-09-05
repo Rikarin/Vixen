@@ -432,6 +432,13 @@ public static class UtilityFamilies {
         Number("grow", "flex-grow");
         Number("shrink", "flex-shrink");
         Number("order", "order");
+
+        // ⚠ <b>`order-none` is `order: 0` and not a keyword CSS has</b>, which is why it belongs in a
+        // table rather than in `Number`'s scale: v4 emits the initial value under a name that reads
+        // as an absence. The property is already read — `LayoutTree.Order` sorts a container's
+        // children by it — so this is the smallest shape a registration can have, an existing reader
+        // and one more spelling that reaches it.
+        Keywords("order", "order", new() { ["none"] = "0" });
         Size("basis", "flex-basis");
         // ⚠ <b>Both of these used to emit the bare count, and both were wrong rather than merely
         // unread.</b> `grid-template-columns: 3` is not a track list in any engine, so the family
@@ -852,8 +859,17 @@ public static class UtilityFamilies {
         // hanging indent and `LineWrapper` gets for nothing from the sign.
         Spacing("indent", "text-indent");
 
+        // ⚠ <b>The two that were missing are the two the reader is RIGHT about</b>, which inverts the
+        // usual argument for leaving a keyword out. `UiDocument.WrapsOf` answers one of
+        // `white-space`'s three questions — whether the text may break across lines — and its own
+        // remark records that `pre` is registered while being answered wrongly, because `pre` does
+        // not wrap and this reader says it does. `pre-line` and `break-spaces` both DO wrap, so the
+        // one third of the property that is read gives the specified answer for them; what they
+        // share with `pre` and `pre-wrap` is the two thirds nobody reads yet — collapsing runs of
+        // space and keeping newlines. Registering them adds no new gap and closes a spelling gap.
         Keywords("whitespace", "white-space", new() {
-            ["normal"] = "normal", ["nowrap"] = "nowrap", ["pre"] = "pre", ["pre-wrap"] = "pre-wrap"
+            ["normal"] = "normal", ["nowrap"] = "nowrap", ["pre"] = "pre", ["pre-wrap"] = "pre-wrap",
+            ["pre-line"] = "pre-line", ["break-spaces"] = "break-spaces"
         });
 
         // ⚠ <b>The slant, and it is registered here rather than being another value of `font`
@@ -1852,6 +1868,20 @@ public static class UtilityFamilies {
         // would make `scale-150` mean a hundred and fifty times the size.
         CountTemplate("scale", "{0}%", "scale");
 
+        // ⚠ <b>`none` on both of these is read, and it is read by name rather than by falling out of
+        // a parse.</b> `TransformReader.Of` opens with three `TryGet`s each of which compares the
+        // written value against the interned `none` — so `scale: none` and `rotate: none` are the
+        // documented way to turn one of the two properties off while its neighbour stands, and the
+        // class that spells it is the one thing that could not reach it. That is refusal shape 3's
+        // opposite: a reader that already distinguishes the value, and no family emitting it.
+        //
+        // ⚠ `scale-3d` is NOT here and the reason is not the reader. v4 emits
+        // `scale: var(--tw-scale-x) var(--tw-scale-y) var(--tw-scale-z)` — a third axis, which
+        // `UiTransform` deliberately cannot express for the reason `rotate-x-*` is refused two
+        // blocks down. It stays a value gap on this root rather than becoming a declaration nothing
+        // can act on.
+        Keywords("scale", "scale", new() { ["none"] = "none" });
+
         // ⚠ <b>Per-axis, on the translations' mechanism exactly, and it needed the reader before it
         // could be honest.</b> These two were refused as "shadowed by `scale`, which is itself
         // inert" — a per-axis family over a refused property being inert by construction. That is
@@ -1866,6 +1896,9 @@ public static class UtilityFamilies {
         // ⚠ And an angle, for the same class of reason: `rotate: 45` is not a value CSS has. The unit
         // is the whole difference between a declaration a browser honours and one it drops.
         CountTemplate("rotate", "{0}deg", "rotate");
+
+        // The other half of the pair above; see its remark for why `none` is a read value here.
+        Keywords("rotate", "rotate", new() { ["none"] = "none" });
 
         // ⚠ <b>And the third axis's spelling, which was refused for a blocker that had already
         // shipped.</b> The ledger's note said `rotate-z-*` waits on a `<transform-function>` parser —
