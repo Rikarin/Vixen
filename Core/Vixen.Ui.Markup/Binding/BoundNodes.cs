@@ -132,7 +132,25 @@ public enum BoundAttributeKind {
     ///         same route <c>on:click</c> already takes.
     ///     </para>
     /// </remarks>
-    Help
+    Help,
+
+    /// <summary>The menu a secondary click on this element opens, from <c>context-menu="@Menu"</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="Help" />'s layering exactly — a control in <c>Vixen.Ui.Controls</c>
+    ///         attached to an element by a directive whose runtime is in <c>Vixen.Ui</c> — so it
+    ///         rides the same seam and decides nothing new about where the call lands.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An expression naming a menu, and not a nested <c>&lt;ContextMenu&gt;</c> the tag
+    ///         adopts.</b> The nested spelling is unavailable to <i>this</i> design rather than
+    ///         merely unattractive: an overlay has to be a child of the document root, and knowing
+    ///         that a tag needs re-parenting means knowing that the tag names an overlay — the type
+    ///         resolution the binder deliberately does not do. Written in place it would compile,
+    ///         build, and open inside the panel that declared it.
+    ///     </para>
+    /// </remarks>
+    ContextMenu
 }
 
 /// <summary>One piece of an attribute's value.</summary>

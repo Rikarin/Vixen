@@ -886,6 +886,14 @@ public sealed class BuildContext {
     /// </remarks>
     static Func<UiElement, UiElement>? describes;
 
+    /// <summary>How a <c>context-menu="…"</c> is realised: attach that menu to that element.</summary>
+    /// <remarks>
+    ///     <see cref="describes" />'s seam for <see cref="describes" />'s reason. The menu arrives as
+    ///     a <see cref="UiElement" /> because that is the widest type this assembly has a name for;
+    ///     what is registered is what knows whether it is a menu, and says so if it is not.
+    /// </remarks>
+    static Action<UiElement, UiElement>? contextualises;
+
     /// <summary>Says what describes an element, for markup's <c>help</c>.</summary>
     /// <param name="attach">
     ///     Makes something that describes the element it is given, attaches it, and returns it. The
@@ -899,6 +907,16 @@ public sealed class BuildContext {
     public static void Describes(Func<UiElement, UiElement> attach) {
         ArgumentNullException.ThrowIfNull(attach);
         describes = attach;
+    }
+
+    /// <summary>Says how a menu is attached to an element, for markup's <c>context-menu</c>.</summary>
+    /// <param name="attach">
+    ///     Given the element and the menu, makes a secondary click anywhere in the first open the
+    ///     second at the pointer.
+    /// </param>
+    public static void Contextualises(Action<UiElement, UiElement> attach) {
+        ArgumentNullException.ThrowIfNull(attach);
+        contextualises = attach;
     }
 
     /// <summary>Describes an element with fixed text, which is markup's <c>help="Save the scene"</c>.</summary>
@@ -929,6 +947,54 @@ public sealed class BuildContext {
 
         var description = Described(target);
         Bind(() => description.Text = Format(text()));
+    }
+
+    /// <summary>Makes a secondary click on an element open a menu, which is markup's <c>context-menu</c>.</summary>
+    /// <param name="target">The subtree a secondary click anywhere in opens the menu.</param>
+    /// <param name="menu">
+    ///     The menu — a <c>Vixen.Ui.Controls.ContextMenu</c>, which this assembly has no name for.
+    /// </param>
+    /// <exception cref="InvalidOperationException">Nothing has registered an attachment.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The menu is not made here and is not removed with the region, which is the whole
+    ///         asymmetry with <see cref="Help(UiElement, string)" />.</b> A description is a sentence
+    ///         written at the tag, so the tooltip that carries it is the directive's to make and to
+    ///         take away. A menu is a model — every one of the nine callers in this repository builds
+    ///         it from commands, keeps it in a field and re-opens it — so the directive attaches and
+    ///         nothing else, and a menu shared by four rows is attached four times rather than made
+    ///         four times.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An expression and not a nested tag, and the reason is the binder's rather than
+    ///         the menu's.</b> An overlay must be a child of the document root — the draw list is
+    ///         document order, so one nested where it was written is clipped by every
+    ///         <c>overflow: hidden</c> above it — and deciding that a tag needs re-parenting means
+    ///         knowing that the tag names an overlay, which is exactly the type resolution the
+    ///         markup binder refuses to do. A <c>&lt;ContextMenu&gt;</c> written in place would
+    ///         compile, build, and open inside the panel that declared it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Static, and that is the same fact said in the signature.</b> It registers nothing
+    ///         against the region being built, because there is nothing of its own to take away: the
+    ///         handler it adds is on the target, which the region removes, and the menu belongs to
+    ///         whoever made it. <see cref="Help(UiElement, string)" /> is an instance method for the
+    ///         opposite reason.
+    ///     </para>
+    /// </remarks>
+    public static void Menu(UiElement target, UiElement menu) {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(menu);
+
+        if (contextualises is not { } attach) {
+            throw new InvalidOperationException(
+                "'context-menu' needs a menu implementation, and none is registered. Vixen.Ui.Controls "
+                + "registers one when it is loaded; a project referencing only Vixen.Ui has no menus "
+                + "for it to open."
+            );
+        }
+
+        attach(target, menu);
     }
 
     /// <summary>The element that describes a target, made by whatever registered an attachment.</summary>

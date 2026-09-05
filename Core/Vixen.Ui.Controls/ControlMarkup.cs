@@ -117,6 +117,22 @@ static class ControlMarkup {
 
             return tip;
         });
+
+        // ⚠ The menu arrives as a `UiElement` because `Vixen.Ui` has no name for a menu, so this is
+        // where the type is checked — and it throws rather than doing nothing, because an attribute
+        // that silently attached nothing is a right-click that reads as a broken panel.
+        BuildContext.Contextualises((target, menu) => {
+            if (menu is not ContextMenu context) {
+                throw new ArgumentException(
+                    $"'context-menu' wants a {nameof(ContextMenu)} and was given a "
+                    + $"{menu.GetType().Name}. A menu opened at the pointer is a distinct type from a "
+                    + $"{nameof(Menu)} dropped beside an anchor, because the placement rule differs.",
+                    nameof(menu)
+                );
+            }
+
+            context.Attach(target);
+        });
     }
 
     /// <summary>Whether the activation this tap produced has already been reported to the handler.</summary>

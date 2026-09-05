@@ -1783,6 +1783,36 @@ public class EmitterTests {
         Assert.True(note.IsRemoved);
     }
 
+    /// <summary>
+    ///     <c>context-menu</c> rides <c>help</c>'s seam and names no control library either, so it
+    ///     compiles in this project — which has none.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A static call, and that is the runtime saying it owns nothing.</b> A menu is made by
+    ///     whoever holds it and the handler goes on the target, so there is nothing to register
+    ///     against the region — unlike a description, whose tooltip is a root child the directive
+    ///     made and therefore has to take away.
+    /// </remarks>
+    [Fact]
+    public void A_context_menu_attribute_compiles_in_a_project_that_has_no_control_library() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui
+
+                              @code {
+                                  public UiElement Rows { get; } = new();
+                              }
+
+                              <sheet-row context-menu="@Rows" />
+                              """;
+
+        var generated = Emit(Source);
+
+        Assert.Contains("BuildContext.Menu(", generated, StringComparison.Ordinal);
+        Assert.DoesNotContain("Vixen.Ui.Controls", generated, StringComparison.Ordinal);
+        Assert.Empty(Errors(Compile(generated)));
+    }
+
     // ================================================================== change: and refs
 
     /// <summary>

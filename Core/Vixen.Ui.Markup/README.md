@@ -593,6 +593,30 @@ removal with the region, which is the same bookkeeping `refs` does for its entry
 Re-running the attachment per flush would add a second pointer handler and a second
 `DescribedBy` relation each time — a leak that reads as a tooltip that opens twice.
 
+### `context-menu`, which follows and adds one refusal of its own
+
+```html
+<sheet-row context-menu="@Rows" />
+```
+
+The layering is `help`'s and is not re-decided: `BuildContext.Contextualises` is a second entry on
+the same seam, filled beside the first. What is new is the *spelling*, and the choice was between a
+`ref` to a menu built elsewhere and a nested `<ContextMenu>` the tag adopts.
+
+⚠ **The nested tag is not merely the worse option, it is unavailable to this design.** An overlay
+has to be a child of the document root — the draw list is document order, so one nested where it was
+written is clipped by every `overflow: hidden` above it — and deciding that a tag needs re-parenting
+means knowing that the tag names an overlay. That is the type resolution the binder does not do and
+does not want to do. A `<ContextMenu>` written in place would bind clean, build, and open inside the
+panel that declared it, which is the silent-wrong-answer this side exists to avoid.
+
+⚠ **So it attaches and does not make, which is the asymmetry with `help`.** A description is a
+sentence written at the tag, so the tooltip carrying it is the directive's to build and to take
+away; a menu is a model — all nine callers of `ContextMenu.Attach` in this tree build one from
+commands and keep it — so two elements naming one expression share one menu. `BuildContext.Menu` is
+`static` for exactly that reason: it registers nothing against the region, because the handler it
+adds is on the target and the region already removes that.
+
 ## `@inherits`, and the two things a `.vxml` can be
 
 Without it the generated class is a `Component`, which is what a `.vxml` is for and is still the

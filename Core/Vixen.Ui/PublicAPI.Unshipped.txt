@@ -1772,6 +1772,7 @@ static Vixen.Ui.CommandRoute.ScopeOf(Vixen.Ui.UiDocument document) -> string?
 static Vixen.Ui.Composition.BuildContext.Build<T>(Vixen.Ui.UiDocument document, Vixen.Ui.UiElement mount) -> T
 static Vixen.Ui.Composition.BuildContext.BuildInto(Vixen.Ui.Composition.Component component, Vixen.Ui.UiDocument document, Vixen.Ui.UiElement mount) -> Vixen.Ui.Composition.BuildContext
 static Vixen.Ui.Composition.BuildContext.Compose(Vixen.Ui.UiElement host, System.Action<Vixen.Ui.Composition.BuildContext> build, string? scope = null) -> System.IDisposable
+static Vixen.Ui.Composition.BuildContext.Contextualises(System.Action<Vixen.Ui.UiElement, Vixen.Ui.UiElement> attach) -> void
 static Vixen.Ui.Composition.BuildContext.Describes(System.Func<Vixen.Ui.UiElement, Vixen.Ui.UiElement> attach) -> void
 static Vixen.Ui.Composition.BuildContext.Host(Vixen.Ui.Composition.Component component) -> Vixen.Ui.UiElement
 static Vixen.Ui.Composition.BuildContext.Host(Vixen.Ui.UiElement element) -> Vixen.Ui.UiElement
@@ -1779,6 +1780,7 @@ static Vixen.Ui.Composition.BuildContext.Inner(Vixen.Ui.Composition.Component co
 static Vixen.Ui.Composition.BuildContext.Inner(Vixen.Ui.UiElement element) -> Vixen.Ui.UiElement
 static Vixen.Ui.Composition.BuildContext.Into(Vixen.Ui.Composition.Component component, string name) -> Vixen.Ui.UiElement
 static Vixen.Ui.Composition.BuildContext.Into(Vixen.Ui.UiElement element, string name) -> Vixen.Ui.UiElement
+static Vixen.Ui.Composition.BuildContext.Menu(Vixen.Ui.UiElement target, Vixen.Ui.UiElement menu) -> void
 static Vixen.Ui.Composition.BuildContext.Subscribe(string name, System.Action<Vixen.Ui.UiElement, System.Action<Vixen.Ui.UiEvent>, Vixen.Ui.Composition.EventSubscription> subscribe) -> void
 static Vixen.Ui.Composition.Literals.Of(bool shape, string text) -> bool
 static Vixen.Ui.Composition.Literals.Of(bool? shape, string text) -> bool?

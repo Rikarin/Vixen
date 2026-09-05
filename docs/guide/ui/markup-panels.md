@@ -131,9 +131,10 @@ now throws out of `Build` rather than being caught and logged by the effect.
 assigned as properties. On a capitalised tag they reach the element the control drew.
 
 (The other attributes that are never parameters are [`tag`](#tag-for-a-capitalised-tag-under-another-name),
-[`use`](#use-for-a-control-fed-by-a-method) and [`help`](#help-for-a-sentence-a-screen-reader-can-reach),
-which are below because none of them reaches the style tree: one *is* the element's name, one never
-touches the document at all, and one makes something beside it.)
+[`use`](#use-for-a-control-fed-by-a-method), [`help`](#help-for-a-sentence-a-screen-reader-can-reach)
+and [`context-menu`](#context-menu-for-a-right-click), which are below because none of them reaches
+the style tree: one *is* the element's name, one never touches the document at all, and the last two
+attach something that lives beside it.)
 
 `style` is an *inline style*: a cascade origin that beats every rule, not an attribute a selector can
 match. Use it for the lengths no stylesheet was given.
@@ -536,6 +537,27 @@ leaves a `@for` takes its description with it.
 (`BuildContext.Describes`) from a module initializer, the same route by which `on:click` comes to
 mean a control's activation rather than a tap. A project with no control library gets an exception
 naming the missing registration rather than a generated file that does not compile.
+
+### `context-menu`, for a right-click
+
+```xml
+<sheet-row context-menu="@Rows" />
+```
+
+`context-menu` takes an expression that evaluates to a `ContextMenu` and makes a secondary click
+anywhere in that element open it at the pointer. It rides the same seam `help` does, so it decides
+nothing new about layering.
+
+⚠ **It attaches; it does not make.** A menu is a model — every hand-written caller in this repository
+builds one from commands, keeps it in a field and re-opens it — so two elements naming the same
+expression share one menu, and nothing is removed when a row leaves.
+
+⚠ **And it is an expression rather than a nested `<ContextMenu>` tag, for a reason that belongs to
+the binder.** An overlay has to be a child of the document root, because the draw list is document
+order and one nested where it was written is clipped by every `overflow: hidden` above it. Deciding
+that a tag needs re-parenting means knowing that the tag names an overlay, which is exactly the type
+resolution VXML refuses to do — so a `<ContextMenu>` written in place would compile, build, and open
+inside the panel that declared it. Build the menu where its commands are and name it here.
 
 ### Writing an element's own text
 

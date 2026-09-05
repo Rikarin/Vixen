@@ -654,7 +654,7 @@ public sealed class Binder {
         // Saying so here rather than letting Roslyn say it means the message can name the fix.
         if (kind is BoundAttributeKind.Event or BoundAttributeKind.Bind or BoundAttributeKind.Key
                 or BoundAttributeKind.Ref or BoundAttributeKind.Refs or BoundAttributeKind.Changed
-                or BoundAttributeKind.Use
+                or BoundAttributeKind.Use or BoundAttributeKind.ContextMenu
             && value is not [BoundExpressionPart]) {
             Report(MarkupDiagnostics.ExpectedExpressionValue, attribute.Name.Span, written);
             return null;
@@ -849,6 +849,12 @@ public sealed class Binder {
         // `Vixen.Ui.Controls.Tooltip`.
         if (string.Equals(written, "help", StringComparison.Ordinal)) {
             return (BoundAttributeKind.Help, written, []);
+        }
+
+        // `help`'s shape with a menu where the sentence is. The hyphen is what makes it safe to
+        // claim on every tag: it could never be a property name, which is `binding-path`'s argument.
+        if (string.Equals(written, "context-menu", StringComparison.Ordinal)) {
+            return (BoundAttributeKind.ContextMenu, written, []);
         }
 
         var colon = written.IndexOf(':', StringComparison.Ordinal);

@@ -323,6 +323,10 @@ public class BinderTests {
     [InlineData("@component A\n<div a=\"1\" a=\"2\" />", "VXML2002")]
     [InlineData("@component A\n<div on:click=\"go\" />", "VXML2003")]
     [InlineData("@component A\n<div bind:value=\"x\" />", "VXML2003")]
+
+    // ⚠ A menu is a reference to an object, so a quoted word cannot be one. Left as a parameter it
+    // would have reached the emitter as `n1.context-menu = …`, which does not even parse.
+    [InlineData("@component A\n<div context-menu=\"Rows\" />", "VXML2003")]
     [InlineData("@component A\n<div at:click=\"@Go\" />", "VXML2006")]
     [InlineData("@component A\n<div on:click.stopp=\"@Go\" />", "VXML2007")]
 

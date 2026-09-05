@@ -628,6 +628,23 @@ public sealed class ComponentEmitter {
 
                 break;
 
+            // ⚠ `Target(element, name)` for `help`'s reason: a secondary click lands on an element,
+            // and a `Component` is not one. The menu, though, is whatever the expression evaluates
+            // to — the runtime takes a `UiElement` because `Vixen.Ui` has no name for a menu, and
+            // the registered attachment is what checks the type.
+            //
+            // ⚠ And a static call rather than `{context}.`, which is the runtime saying it registers
+            // nothing against the region: the handler it adds is on the target, and the menu belongs
+            // to whoever made it. `Help` is the instance one because its tooltip is neither.
+            case BoundAttributeKind.ContextMenu when attribute.Expression is { } menu:
+                Mapped(
+                    menu,
+                    $"{RuntimeNamespace}.BuildContext.Menu({Target(element, name)}, ",
+                    ");"
+                );
+
+                break;
+
             case BoundAttributeKind.Ref when attribute.Expression is { } member:
                 // ⚠ The whole element and not `Target(element, name)`. A `ref` hands back the thing
                 // the tag named — a `<Callout ref="@callout" />` gives the component, whose methods

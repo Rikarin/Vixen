@@ -20,6 +20,7 @@ Vixen.Ui.Markup.Binding.BoundAttributeKind -> enum : int
 Vixen.Ui.Markup.Binding.BoundAttributeKind.Bind = 2 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
 Vixen.Ui.Markup.Binding.BoundAttributeKind.BoundAttributeKind() -> void
 Vixen.Ui.Markup.Binding.BoundAttributeKind.Changed = 5 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
+Vixen.Ui.Markup.Binding.BoundAttributeKind.ContextMenu = 11 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
 Vixen.Ui.Markup.Binding.BoundAttributeKind.Event = 1 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
 Vixen.Ui.Markup.Binding.BoundAttributeKind.Help = 10 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
 Vixen.Ui.Markup.Binding.BoundAttributeKind.Key = 3 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
