@@ -56,8 +56,33 @@ public static class Variants {
         ["last"] = ":last-child",
         ["only"] = ":only-child",
         ["odd"] = ":nth-child(2n+1)",
-        ["even"] = ":nth-child(2n)"
+        ["even"] = ":nth-child(2n)",
+        ["empty"] = ":empty",
+
+        // ⚠ The three of-type keywords needed a matcher change, which is the one claim the task they
+        // came from got wrong. A child index is stored on every element; an of-type index is a
+        // position among the siblings sharing a tag and is counted on demand — see
+        // `StyleTree.TypeIndexOf`. Registering these against the old matcher would have refused them
+        // at compile time, which is the honest failure; registering them against a matcher that
+        // folded them into the child tests would have been the quiet one.
+        ["first-of-type"] = ":first-of-type",
+        ["last-of-type"] = ":last-of-type",
+        ["only-of-type"] = ":only-of-type"
     };
+
+    /// <summary>The <c>nth-*</c> families, longest prefix first.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Order is the whole of this table.</b> <c>nth-last-of-type-3</c> begins with
+    ///     <c>nth-last-</c> and with <c>nth-</c>, so a shorter prefix tested first would resolve it
+    ///     to <c>:nth-last-child(of-type-3)</c> — a selector ExCSS refuses, which is at least loud,
+    ///     and <c>nth-of-type-3</c> to <c>:nth-child(of-type-3)</c>, which is the same shape.
+    /// </remarks>
+    static readonly (string Prefix, string Function)[] NthFamilies = [
+        ("nth-last-of-type-", "nth-last-of-type"),
+        ("nth-of-type-", "nth-of-type"),
+        ("nth-last-", "nth-last-child"),
+        ("nth-", "nth-child")
+    ];
 
     /// <summary>The variants that are a pseudo-class on the element itself.</summary>
     /// <remarks>
@@ -100,6 +125,25 @@ public static class Variants {
         }
 
         if (variant.Length > 1 && variant[0] == '@' && TryContainer(variant.AsSpan(1), tokens, out effect)) {
+            return true;
+        }
+
+        if (TryNth(variant, out effect)) {
+            return true;
+        }
+
+        // ⚠ Only over a variant that is a bare suffix, which rules out more than it looks like.
+        // `not-sm:` is `@media not (min-width: …)` in v4 and `not-dark:` under the class strategy is
+        // a selector with an ancestor in it; negating a *prefix* is not negating the rule, and
+        // negating an at-rule is a different production entirely. Refusing them here means
+        // `not-sm:p-4` is not a class rather than being a class that means something else — the
+        // distinction F6 was written about. The arbitrary form is refused for the third reason: its
+        // `&` has to land somewhere, and `:not(&>*)` is not a selector.
+        if (variant.StartsWith("not-", StringComparison.Ordinal)
+            && TryResolve(variant["not-".Length..], tokens, out var negated)
+            && negated is { SelectorPrefix.Length: 0, AtRule: null, SelectorSuffix.Length: > 0 }
+            && !IsArbitrary(negated)) {
+            effect = new VariantEffect($":not({negated.SelectorSuffix})", string.Empty, null);
             return true;
         }
 
@@ -165,6 +209,63 @@ public static class Variants {
         }
 
         return false;
+    }
+
+    /// <summary>Reads <c>nth-3</c>, <c>nth-last-3</c>, their <c>-of-type</c> pairs and the <c>[an+b]</c> form.</summary>
+    /// <param name="variant">The variant, without its colon.</param>
+    /// <param name="effect">Receives the pseudo-class suffix.</param>
+    /// <returns>Whether it is an <c>nth-*</c> variant.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The shorthand argument is a positive integer and nothing else, which is narrower
+    ///         than <c>an+b</c> on purpose.</b> v4 spells <c>nth-3</c> for the third child and puts
+    ///         everything else in the arbitrary form, so accepting <c>nth-2n</c> here would invent a
+    ///         spelling Tailwind does not have — and it would collide with nothing today and with
+    ///         whatever v5 does with it later. Anything unrecognised falls through to "not a
+    ///         variant", so <c>nth-foo:p-4</c> is not a class rather than a class that emits a
+    ///         selector the compiler then refuses.
+    ///     </para>
+    ///     <para>
+    ///         The arbitrary form keeps the underscore-to-space rule the <c>[&amp;>*]</c> escape
+    ///         hatch uses, so <c>nth-[2n+1]</c> and <c>nth-[odd]</c> both reach the compiler as
+    ///         written and <c>an+b</c> is parsed once, by ExCSS, rather than twice.
+    ///     </para>
+    /// </remarks>
+    static bool TryNth(string variant, out VariantEffect effect) {
+        effect = default;
+
+        foreach (var (prefix, function) in NthFamilies) {
+            if (!variant.StartsWith(prefix, StringComparison.Ordinal)) {
+                continue;
+            }
+
+            var argument = variant[prefix.Length..];
+
+            if (argument.Length > 2 && argument[0] == '[' && argument[^1] == ']') {
+                argument = argument[1..^1].Replace('_', ' ');
+            } else if (!IsChildNumber(argument)) {
+                return false;
+            }
+
+            effect = new VariantEffect($":{function}({argument})", string.Empty, null);
+            return true;
+        }
+
+        return false;
+
+        static bool IsChildNumber(string text) {
+            if (text.Length == 0) {
+                return false;
+            }
+
+            foreach (var character in text) {
+                if (character is < '0' or > '9') {
+                    return false;
+                }
+            }
+
+            return true;
+        }
     }
 
     /// <summary>Whether a variant's effect goes where <c>&amp;</c> is rather than after the selector.</summary>

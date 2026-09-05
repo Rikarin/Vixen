@@ -95,7 +95,31 @@ public enum PositionTest : byte {
     Nth,
 
     /// <summary><c>:nth-last-child(an+b)</c>.</summary>
-    NthLast
+    NthLast,
+
+    /// <summary><c>:first-of-type</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The five of-type tests count a different sequence from the five above them, and that
+    ///     is the whole reason they are separate members rather than a flag.</b> A child index is a
+    ///     position in the parent's child list, which <see cref="StyleTree" /> already stores; an
+    ///     of-type index is a position in the subsequence of siblings sharing this element's tag,
+    ///     which nothing stores and which has to be counted. Folding them together would have made
+    ///     <c>:nth-of-type(2)</c> answer <c>:nth-child(2)</c>'s question — the two agree on every
+    ///     document whose children all have one tag, which is most fixtures and no real panel.
+    /// </remarks>
+    FirstOfType,
+
+    /// <summary><c>:last-of-type</c>.</summary>
+    LastOfType,
+
+    /// <summary><c>:only-of-type</c>.</summary>
+    OnlyOfType,
+
+    /// <summary><c>:nth-of-type(an+b)</c>.</summary>
+    NthOfType,
+
+    /// <summary><c>:nth-last-of-type(an+b)</c>.</summary>
+    NthLastOfType
 }
 
 /// <summary>One test inside a compound selector.</summary>

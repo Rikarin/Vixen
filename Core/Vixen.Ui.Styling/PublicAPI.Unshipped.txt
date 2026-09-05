@@ -285,10 +285,15 @@ Vixen.Ui.Styling.NameTable.NameTable() -> void
 Vixen.Ui.Styling.NamedColors -> static class
 Vixen.Ui.Styling.PositionTest -> enum : byte
 Vixen.Ui.Styling.PositionTest.First = 0 -> Vixen.Ui.Styling.PositionTest
+Vixen.Ui.Styling.PositionTest.FirstOfType = 5 -> Vixen.Ui.Styling.PositionTest
 Vixen.Ui.Styling.PositionTest.Last = 1 -> Vixen.Ui.Styling.PositionTest
+Vixen.Ui.Styling.PositionTest.LastOfType = 6 -> Vixen.Ui.Styling.PositionTest
 Vixen.Ui.Styling.PositionTest.Nth = 3 -> Vixen.Ui.Styling.PositionTest
 Vixen.Ui.Styling.PositionTest.NthLast = 4 -> Vixen.Ui.Styling.PositionTest
+Vixen.Ui.Styling.PositionTest.NthLastOfType = 9 -> Vixen.Ui.Styling.PositionTest
+Vixen.Ui.Styling.PositionTest.NthOfType = 8 -> Vixen.Ui.Styling.PositionTest
 Vixen.Ui.Styling.PositionTest.Only = 2 -> Vixen.Ui.Styling.PositionTest
+Vixen.Ui.Styling.PositionTest.OnlyOfType = 7 -> Vixen.Ui.Styling.PositionTest
 Vixen.Ui.Styling.PositionTest.PositionTest() -> void
 Vixen.Ui.Styling.RuleIndex -> sealed class
 Vixen.Ui.Styling.RuleIndex.Add(Vixen.Ui.Styling.Selector selector) -> int

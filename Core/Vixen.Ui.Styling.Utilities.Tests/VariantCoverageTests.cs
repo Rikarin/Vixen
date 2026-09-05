@@ -46,7 +46,27 @@ public class VariantCoverageTests {
     /// <param name="Before">How many siblings precede it.</param>
     /// <param name="After">How many follow it.</param>
     /// <param name="Matches">Whether the utility should apply.</param>
-    public sealed record Scene(string Variant, ElementState State, int Before, int After, bool Matches);
+    /// <param name="Tag">The element's own tag.</param>
+    /// <param name="FillerTag">The tag its filler siblings carry.</param>
+    /// <param name="Children">How many children it has.</param>
+    /// <remarks>
+    ///     ⚠ <b>The last three exist because a scene made of identical siblings cannot fail an
+    ///     of-type test.</b> <c>:nth-of-type(2)</c> and <c>:nth-child(2)</c> pick the same element
+    ///     out of any run of <c>div</c>s, so an of-type row whose fillers were <c>div</c>s like the
+    ///     element would pass whichever of the two the compiler had actually produced — the exact
+    ///     shape of green this file was written to stop. Every of-type row below therefore differs
+    ///     from its child-test twin in the filler tag and in nothing else.
+    /// </remarks>
+    public sealed record Scene(
+        string Variant,
+        ElementState State,
+        int Before,
+        int After,
+        bool Matches,
+        string Tag = "div",
+        string FillerTag = "div",
+        int Children = 0
+    );
 
     /// <summary>The scenes, as data the completeness gate can also read.</summary>
     /// <remarks>
@@ -56,14 +76,23 @@ public class VariantCoverageTests {
     /// </remarks>
     static readonly Scene[] Scenes = BuildScenes();
 
-    public static TheoryData<string, ElementState, int, int, bool> StateScenes {
+    public static TheoryData<string, ElementState, int, int, bool, string, string, int> StateScenes {
         get {
             // Primitives only. xunit serialises theory rows so it can run one of them on its own, and
             // a `Probe[]` in the row would collapse the whole theory into a single opaque case.
-            var data = new TheoryData<string, ElementState, int, int, bool>();
+            var data = new TheoryData<string, ElementState, int, int, bool, string, string, int>();
 
             foreach (var scene in Scenes) {
-                data.Add(scene.Variant, scene.State, scene.Before, scene.After, scene.Matches);
+                data.Add(
+                    scene.Variant,
+                    scene.State,
+                    scene.Before,
+                    scene.After,
+                    scene.Matches,
+                    scene.Tag,
+                    scene.FillerTag,
+                    scene.Children
+                );
             }
 
             return data;
@@ -74,8 +103,17 @@ public class VariantCoverageTests {
         var scenes = new List<Scene>();
 
         // variant, own state, siblings before, siblings after, should match
-        void Row(string variant, ElementState state, int before, int after, bool matches) =>
-            scenes.Add(new Scene(variant, state, before, after, matches));
+        void Row(
+            string variant,
+            ElementState state,
+            int before,
+            int after,
+            bool matches,
+            string tag = "div",
+            string fillerTag = "div",
+            int children = 0
+        ) =>
+            scenes.Add(new Scene(variant, state, before, after, matches, tag, fillerTag, children));
 
         foreach (var (variant, on) in new[] {
                      ("hover", ElementState.Hover),
@@ -109,6 +147,22 @@ public class VariantCoverageTests {
         Row("even", ElementState.None, 1, 0, true);
         Row("even", ElementState.None, 0, 1, false);
 
+        // ⚠ `:empty` counts text as content, so its negative has to be a child rather than a word —
+        // the fixture has no way to hang text on a probe, and a scene that put one there would be
+        // testing `StyleTree.SetHasText` instead. `SelectorMatchingTests` owns the text half.
+        Row("empty", ElementState.None, 0, 0, true);
+        Row("empty", ElementState.None, 0, 0, false, children: 1);
+
+        // The of-type family. Every row is its child-test twin with the filler tags changed, so a
+        // compiler that resolved `:first-of-type` to `:first-child` fails the positive rows here
+        // while passing every row above.
+        Row("first-of-type", ElementState.None, 1, 0, true, tag: "p", fillerTag: "div");
+        Row("first-of-type", ElementState.None, 1, 0, false, tag: "p", fillerTag: "p");
+        Row("last-of-type", ElementState.None, 0, 1, true, tag: "p", fillerTag: "div");
+        Row("last-of-type", ElementState.None, 0, 1, false, tag: "p", fillerTag: "p");
+        Row("only-of-type", ElementState.None, 1, 1, true, tag: "p", fillerTag: "div");
+        Row("only-of-type", ElementState.None, 1, 0, false, tag: "p", fillerTag: "p");
+
         return [.. scenes];
     }
 
@@ -119,7 +173,10 @@ public class VariantCoverageTests {
         ElementState state,
         int before,
         int after,
-        bool matches
+        bool matches,
+        string tag,
+        string fillerTag,
+        int children
     ) {
         var fixture = new UtilityFixture();
 
@@ -130,19 +187,23 @@ public class VariantCoverageTests {
             "padding-left",
             state: state,
             ancestor: new Probe([]),
-            before: Filler(before),
-            after: Filler(after)
+            before: Filler(before, fillerTag),
+            after: Filler(after, fillerTag),
+            tag: tag,
+            children: Filler(children, "div")
         );
 
         Assert.Equal(matches ? "16px" : null, value);
     }
 
-    static Probe[] Filler(int count) => [.. Enumerable.Range(0, count).Select(_ => new Probe([]))];
+    static Probe[] Filler(int count, string tag = "div") =>
+        [.. Enumerable.Range(0, count).Select(_ => new Probe([], Tag: tag))];
 
     [Fact]
     public void The_state_variant_table_has_no_untested_entry() {
-        // The gate. A thirteenth entry added to `Variants.States` without a scene above lands here
-        // rather than in the silent majority — which is where all eleven of them were.
+        // The gate. An entry added to `Variants.States` without a scene above lands here rather than
+        // in the silent majority — which is where eleven of the first thirteen were. No count is
+        // named: the table grows, and a number in this comment would be the copy nothing checks.
         var tested = Scenes.Select(scene => scene.Variant).ToHashSet(StringComparer.Ordinal);
         var untested = Variants.StateVariants.Where(variant => !tested.Contains(variant)).ToArray();
 
@@ -156,6 +217,86 @@ public class VariantCoverageTests {
         var stale = tested.Where(variant => !Variants.StateVariants.Contains(variant)).ToArray();
 
         Assert.True(stale.Length == 0, $"these scenes name a variant that no longer exists: {string.Join(", ", stale)}");
+    }
+
+    [Fact]
+    public void The_nth_variants_count_children_and_their_of_type_pair_counts_a_tag() {
+        // ⚠ Four families that differ only in which sequence they index, so every row here is
+        // matched by a row that must NOT apply — and the pairs are chosen so that resolving any one
+        // family to any other fails at least one of them. `nth-2` and `nth-of-type-2` pick different
+        // elements only once the siblings carry different tags, which is why the of-type rows mix
+        // `p` and `div` and the child rows do not.
+        var fixture = new UtilityFixture();
+
+        string? Padding(string variant, string tag, string[] before, string[] after) =>
+            fixture.Computed(
+                [$"{variant}:p-4"],
+                "padding-left",
+                ancestor: new Probe([]),
+                before: [.. before.Select(t => new Probe([], Tag: t))],
+                after: [.. after.Select(t => new Probe([], Tag: t))],
+                tag: tag
+            );
+
+        // Third child of five.
+        Assert.Equal("16px", Padding("nth-3", "div", ["div", "div"], ["div", "div"]));
+        Assert.Null(Padding("nth-4", "div", ["div", "div"], ["div", "div"]));
+
+        // ⚠ Counted from the end, which is the whole of `nth-last-*`. The same element is child 3
+        // and last-child 3 here on purpose — five siblings — so the pair below is what tells the two
+        // families apart rather than the pair above.
+        Assert.Equal("16px", Padding("nth-last-2", "div", ["div", "div", "div"], ["div"]));
+        Assert.Null(Padding("nth-2", "div", ["div", "div", "div"], ["div"]));
+
+        // Second `p` among `div p div p div`: child 4, of-type 2.
+        Assert.Equal("16px", Padding("nth-of-type-2", "p", ["div", "p", "div"], ["div"]));
+        Assert.Null(Padding("nth-2", "p", ["div", "p", "div"], ["div"]));
+        Assert.Equal("16px", Padding("nth-4", "p", ["div", "p", "div"], ["div"]));
+
+        // The same element counted from the end: of-type 1, child 2.
+        Assert.Equal("16px", Padding("nth-last-of-type-1", "p", ["div", "p", "div"], ["div"]));
+        Assert.Null(Padding("nth-last-of-type-2", "p", ["div", "p", "div"], ["div"]));
+        Assert.Equal("16px", Padding("nth-last-2", "p", ["div", "p", "div"], ["div"]));
+
+        // The arbitrary form carries a whole `an+b`, and the underscore is a space as it is
+        // everywhere else a variant takes one.
+        Assert.Equal("16px", Padding("nth-[2n+1]", "div", ["div", "div"], ["div"]));
+        Assert.Null(Padding("nth-[2n]", "div", ["div", "div"], ["div"]));
+
+        // ⚠ An argument that is not a positive integer is not a variant at all, so the class is
+        // never generated — rather than being generated into a selector the compiler then refuses.
+        Assert.Null(Padding("nth-two", "div", [], []));
+        Assert.Null(Padding("nth-2n", "div", ["div"], []));
+    }
+
+    [Fact]
+    public void The_not_variant_negates_the_variant_it_wraps_and_refuses_the_ones_it_cannot() {
+        var fixture = new UtilityFixture();
+
+        // The state table read through a negation. Both halves, because a `not-*` that dropped the
+        // `:not()` and emitted the bare state would pass neither — and one that emitted nothing at
+        // all would pass the first and fail the second.
+        Assert.Equal("16px", fixture.Computed(["not-hover:p-4"], "padding-left"));
+        Assert.Null(fixture.Computed(["not-hover:p-4"], "padding-left", state: ElementState.Hover));
+
+        // Over a structural entry too, since `not-*` reads the same table `group-*` and `peer-*` do.
+        Assert.Equal(
+            "16px",
+            fixture.Computed(["not-first:p-4"], "padding-left", ancestor: new Probe([]), before: Filler(1))
+        );
+
+        Assert.Null(
+            fixture.Computed(["not-first:p-4"], "padding-left", ancestor: new Probe([]), after: Filler(1))
+        );
+
+        // ⚠ And the refusals, which are the half that says `not-*` is not a blanket prefix.
+        // `not-sm:` is an at-rule in v4, `not-group-hover:` an ancestor, `not-[&>*]:` an arbitrary
+        // selector with a `&` that has nowhere to land — all three are *not variants*, so the class
+        // never reaches the stylesheet. A `not-` that wrapped them anyway would emit
+        // `:not(@media …)`, and CSS has no way to say that is wrong.
+        foreach (var candidate in new[] { "not-sm:p-4", "not-group-hover:p-4", "not-[&>*]:p-4", "not-nothing:p-4" }) {
+            Assert.DoesNotContain("padding", fixture.Generate(candidate), StringComparison.Ordinal);
+        }
     }
 
     [Fact]

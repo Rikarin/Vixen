@@ -139,6 +139,65 @@ public class SelectorMatchingTests {
     }
 
     [Fact]
+    public void The_of_type_pseudo_classes_index_the_siblings_that_share_a_tag() {
+        // ⚠ Mixed tags, and that is the whole design of this fixture. Every element in the test
+        // above is an `li`, and in a run of one tag `:nth-of-type(n)` and `:nth-child(n)` select the
+        // same element for every n — so an of-type test compiled into a child test, or answered by a
+        // matcher that ignored the tag, passes an all-`li` scene completely. The sequence here is
+        // `div p div p div`, chosen so that each `p`'s of-type index and child index differ.
+        var fixture = new StyleFixture();
+        var list = fixture.Tree.CreateElement("section");
+        var first = fixture.Tree.CreateElement("div", list);
+        var one = fixture.Tree.CreateElement("p", list);
+        var second = fixture.Tree.CreateElement("div", list);
+        var two = fixture.Tree.CreateElement("p", list);
+        var third = fixture.Tree.CreateElement("div", list);
+
+        Assert.True(fixture.Matches(":first-of-type", one));
+        Assert.False(fixture.Matches(":first-of-type", two));
+        Assert.True(fixture.Matches(":last-of-type", two));
+        Assert.False(fixture.Matches(":last-of-type", one));
+
+        // ⚠ The first `div` is first-of-type *and* first-child, and the first `p` is first-of-type
+        // and is not — so the pair below is what separates the two tests rather than the pair above.
+        Assert.True(fixture.Matches(":first-of-type", first));
+        Assert.True(fixture.Matches(":first-child", first));
+        Assert.False(fixture.Matches(":first-child", one));
+
+        // `two` is the second `p` and the fourth child; `third` is the third `div` and the fifth.
+        Assert.True(fixture.Matches(":nth-of-type(1)", one));
+        Assert.True(fixture.Matches(":nth-of-type(2)", two));
+        Assert.False(fixture.Matches(":nth-child(2)", two));
+        Assert.True(fixture.Matches(":nth-of-type(2)", second));
+        Assert.True(fixture.Matches(":nth-of-type(3)", third));
+        Assert.False(fixture.Matches(":nth-child(3)", third));
+
+        // Counted from the end of the tag's own run: the last `div` is `third` and the last `p` is
+        // `two`, so one selector answers about two different sequences in the same parent.
+        Assert.True(fixture.Matches(":nth-last-of-type(1)", third));
+        Assert.True(fixture.Matches(":nth-last-of-type(1)", two));
+        Assert.True(fixture.Matches(":nth-last-of-type(2)", second));
+        Assert.True(fixture.Matches(":nth-last-of-type(2)", one));
+        Assert.False(fixture.Matches(":nth-last-of-type(2)", two));
+
+        // `2n+1` over the of-type sequence: the first and third `div`, and the first `p`.
+        Assert.True(fixture.Matches(":nth-of-type(2n+1)", first));
+        Assert.False(fixture.Matches(":nth-of-type(2n+1)", second));
+        Assert.True(fixture.Matches(":nth-of-type(2n+1)", third));
+        Assert.True(fixture.Matches(":nth-of-type(2n+1)", one));
+
+        // `:only-of-type` is `:only-child` restricted to a tag, so the one `span` in a box that also
+        // holds a `div` is only-of-type and is not only-child.
+        var box = fixture.Tree.CreateElement("aside");
+        var lone = fixture.Tree.CreateElement("span", box);
+        fixture.Tree.CreateElement("div", box);
+
+        Assert.True(fixture.Matches(":only-of-type", lone));
+        Assert.False(fixture.Matches(":only-child", lone));
+        Assert.False(fixture.Matches(":only-of-type", one));
+    }
+
+    [Fact]
     public void The_state_pseudo_classes_read_the_element_state() {
         var fixture = new StyleFixture();
         var button = fixture.Tree.CreateElement("button");

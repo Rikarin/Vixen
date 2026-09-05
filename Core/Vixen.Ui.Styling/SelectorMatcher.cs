@@ -243,6 +243,18 @@ public sealed class SelectorMatcher(SelectorTable table) {
             PositionTest.Only => siblings == 1,
             PositionTest.Nth => MatchesNth(index + 1, simple.Step, simple.Offset),
             PositionTest.NthLast => MatchesNth(siblings - index, simple.Step, simple.Offset),
+
+            // ⚠ The of-type tests count the same way the four above do, over a different sequence:
+            // the siblings sharing this element's tag. Nothing is stored for that, so it is walked.
+            PositionTest.FirstOfType => tree.TypeIndexOf(element) == 1,
+            PositionTest.LastOfType => tree.TypeIndexOf(element) == tree.TypeCountOf(element),
+            PositionTest.OnlyOfType => tree.TypeCountOf(element) == 1,
+            PositionTest.NthOfType => MatchesNth(tree.TypeIndexOf(element), simple.Step, simple.Offset),
+            PositionTest.NthLastOfType => MatchesNth(
+                tree.TypeCountOf(element) - tree.TypeIndexOf(element) + 1,
+                simple.Step,
+                simple.Offset
+            ),
             _ => false
         };
 

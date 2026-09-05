@@ -294,6 +294,34 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
                 compiled = Attribute(contains.Attribute, contains.Value, AttributeOperator.Substring);
                 return true;
 
+            // ⚠ Before the two child cases, and deliberately so. ExCSS spells `:nth-of-type` with a
+            // type of its own, but a pattern match is a runtime test and an of-type node that ever
+            // derived from a child node would be silently answered by the case below — which is the
+            // failure this pair is hardest to see: `:nth-of-type(2)` and `:nth-child(2)` agree on
+            // every document whose children all carry one tag, so a fixture would have to mix tags
+            // before the difference showed. `SelectorMatchingTests` mixes them for that reason.
+            case FirstTypeSelector nthType:
+                specificity = specificity with { Classes = specificity.Classes + 1 };
+                compiled = new SimpleSelector(
+                    SimpleSelectorKind.Position,
+                    Position: PositionTest.NthOfType,
+                    Step: nthType.Step,
+                    Offset: nthType.Offset
+                );
+
+                return true;
+
+            case LastTypeSelector nthLastType:
+                specificity = specificity with { Classes = specificity.Classes + 1 };
+                compiled = new SimpleSelector(
+                    SimpleSelectorKind.Position,
+                    Position: PositionTest.NthLastOfType,
+                    Step: nthLastType.Step,
+                    Offset: nthLastType.Offset
+                );
+
+                return true;
+
             case FirstChildSelector nth:
                 specificity = specificity with { Classes = specificity.Classes + 1 };
                 compiled = new SimpleSelector(
@@ -381,6 +409,15 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             "first-child" => PositionTest.First,
             "last-child" => PositionTest.Last,
             "only-child" => PositionTest.Only,
+
+            // ⚠ These three arrive as a plain pseudo-class and their `:nth-of-type(…)` siblings do
+            // not — ExCSS gives the functional forms nodes of their own and leaves the keyword forms
+            // here, exactly as it does for `:first-child` against `:nth-child(…)`. Verified against
+            // the parser rather than assumed, because a name this switch does not know is refused
+            // and a refused variant is one nobody notices is missing.
+            "first-of-type" => PositionTest.FirstOfType,
+            "last-of-type" => PositionTest.LastOfType,
+            "only-of-type" => PositionTest.OnlyOfType,
             _ => (PositionTest?) null
         };
 
