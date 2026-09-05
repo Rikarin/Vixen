@@ -81,9 +81,20 @@ public class TextureGraphParameterTests {
         Assert.Equal("0.5", definition.Settings[0].Default);
         Assert.Equal("3", definition.Settings[1].Default);
 
-        // ⚠ The group and the range ride in the summary because SettingDefinition has nowhere else
-        // to put them — #730. When it does, this assertion is what changes.
-        Assert.Equal("How much rust. · Wear · 0…1", definition.Settings[0].Summary);
+        // ⚠ The group and the range used to ride in the summary, because a SettingDefinition had
+        // nowhere else to put them — #730, closed. This is the assertion that line said would
+        // change: all five of doc 48 § D9's fields cross now, so the summary is a summary and an
+        // inspector can draw a slider between two numbers rather than a text box with a tooltip.
+        Assert.Equal("How much rust.", definition.Settings[0].Summary);
+        Assert.Equal("Wear", definition.Settings[0].Group);
+        Assert.Equal(SettingKind.Float, definition.Settings[0].Kind);
+        Assert.Equal(0f, definition.Settings[0].Minimum);
+        Assert.Equal(1f, definition.Settings[0].Maximum);
+        Assert.True(definition.Settings[0].IsBounded);
+
+        // And an integer parameter is an integer setting, which is what stops the second one being
+        // a box in which 3.5 octaves is a value somebody can type.
+        Assert.Equal(SettingKind.Int, definition.Settings[1].Kind);
     }
 
     /// <summary>A parameter list that disagrees with itself is refused, one message per fault.</summary>

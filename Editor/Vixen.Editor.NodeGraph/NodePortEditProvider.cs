@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
@@ -233,7 +234,15 @@ public sealed class NodeSettingMember : InspectorMember {
     public SettingDefinition Setting { get; }
 
     /// <inheritdoc />
-    public override Type MemberType => typeof(string);
+    /// <remarks>
+    ///     ⚠ <b>What the row edits, which is no longer always a string —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/730">#730</a>.</b> The
+    ///     <em>storage</em> is still text, because that is what a saved graph holds and what survives
+    ///     a node type renaming a member; this is the type a drawer is chosen by, so a declared
+    ///     <c>bool</c> gets a checkbox and a declared range gets a slider instead of a box in which
+    ///     <c>ture</c> is a value.
+    /// </remarks>
+    public override Type MemberType { get; }
 
     /// <inheritdoc />
     public override Type OwnerType => typeof(GraphNode);
@@ -251,13 +260,31 @@ public sealed class NodeSettingMember : InspectorMember {
 
         this.graph = graph;
         Setting = setting;
+        MemberType = TypeOf(setting.Kind);
 
         if (setting.Summary.Length > 0) {
             Tooltip = setting.Summary;
         }
+
+        if (setting.IsBounded) {
+            // A step of one for a count and a hundredth for a knob — the same division
+            // `ReflectedMember` makes, and the reason a slider over 0…1 is usable at all.
+            Range = new(
+                setting.Minimum,
+                setting.Maximum,
+                setting.Kind == SettingKind.Int ? 1d : (setting.Maximum - setting.Minimum) / 100d,
+                false
+            );
+        }
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The text is parsed rather than handed over, and a value that does not parse reads as
+    ///     the declared default.</b> Answering with zero would be the failure this whole change is
+    ///     about: zero is a plausible number for nearly every setting there is, so a graph whose
+    ///     amount had been typed as <c>0.5.</c> would silently show — and then save — nothing.
+    /// </remarks>
     public override object? GetBoxed(object owner) {
         ArgumentNullException.ThrowIfNull(owner);
 
@@ -266,7 +293,14 @@ public sealed class NodeSettingMember : InspectorMember {
         // ⚠ The declared default when the node has never been given one, which is what makes the
         // descriptor's detached node read back as the default and so what makes the reset button
         // appear exactly when the author has changed something.
-        return node.Texts.TryGetValue(Setting.Name, out var written) ? written : Setting.Default;
+        var text = node.Texts.TryGetValue(Setting.Name, out var written) ? written : Setting.Default;
+
+        return Setting.Kind switch {
+            SettingKind.Bool => Parsed(text, Setting.Default) != 0d,
+            SettingKind.Int => (int) Math.Round(Parsed(text, Setting.Default)),
+            SettingKind.Float => (float) Parsed(text, Setting.Default),
+            _ => text
+        };
     }
 
     /// <inheritdoc />
@@ -277,7 +311,7 @@ public sealed class NodeSettingMember : InspectorMember {
     public override void SetBoxed(object owner, object? value) {
         ArgumentNullException.ThrowIfNull(owner);
 
-        ((GraphNode) owner).SetText(Setting.Name, value as string ?? "");
+        ((GraphNode) owner).SetText(Setting.Name, Encode(value));
         graph.Touch();
     }
 
@@ -295,7 +329,58 @@ public sealed class NodeSettingMember : InspectorMember {
             nodes[index] = ((GraphNode) targets[index]).Id;
         }
 
-        return new SetPortTextCommand(graph, nodes, Setting.Name, value as string ?? "", document);
+        return new SetPortTextCommand(graph, nodes, Setting.Name, Encode(value), document);
+    }
+
+    /// <summary>What one setting's value is worth as a member.</summary>
+    /// <param name="kind">How its text is read.</param>
+    /// <returns>The type a row edits.</returns>
+    public static Type TypeOf(SettingKind kind) =>
+        kind switch {
+            SettingKind.Bool => typeof(bool),
+            SettingKind.Int => typeof(int),
+            SettingKind.Float => typeof(float),
+            _ => typeof(string)
+        };
+
+    /// <summary>The text a value is stored as.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <c>value as string</c>, which is what this was.</b> A typed row hands back a
+    ///     <see cref="bool" /> or a <see cref="double" />, and <c>as string</c> makes both of those
+    ///     <see langword="null" /> — so the first edit of a newly typed setting would have written an
+    ///     empty string over it, and the node would have gone back to its default while the row
+    ///     showed what the author had just chosen.
+    /// </remarks>
+    string Encode(object? value) =>
+        (Setting.Kind, value) switch {
+            (SettingKind.Text, _) => value as string ?? "",
+            (_, null) => "",
+            (SettingKind.Bool, bool flag) => flag ? "true" : "false",
+            (SettingKind.Bool, IConvertible number) =>
+                number.ToDouble(CultureInfo.InvariantCulture) != 0d ? "true" : "false",
+            (SettingKind.Int, IConvertible number) =>
+                ((int) Math.Round(number.ToDouble(CultureInfo.InvariantCulture)))
+                .ToString(CultureInfo.InvariantCulture),
+            (SettingKind.Float, IConvertible number) =>
+                number.ToDouble(CultureInfo.InvariantCulture).ToString("R", CultureInfo.InvariantCulture),
+            _ => value as string ?? ""
+        };
+
+    /// <summary>One setting's text as a number, falling back to its declared default.</summary>
+    static double Parsed(string text, string fallback) {
+        if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)) {
+            return value;
+        }
+
+        if (bool.TryParse(text, out var flag)) {
+            return flag ? 1d : 0d;
+        }
+
+        if (!string.Equals(text, fallback, StringComparison.Ordinal)) {
+            return Parsed(fallback, fallback);
+        }
+
+        return 0d;
     }
 
     static string Named(SettingDefinition setting) {
@@ -406,8 +491,19 @@ public sealed class NodePortEditProvider : IEditProvider {
         // After the ports, and always: a setting has no socket, so there is no wiring that could take
         // its row away. Declaration order within each group, which is what the generator ordered them
         // by and what a create menu draws.
+        var section = "";
+
         foreach (var setting in definition.Settings) {
-            members.Add(new NodeSettingMember(graph, setting) { IsReadOnly = readOnly });
+            // ⚠ A header on the *first* setting of each group and not on all of them, because
+            // `InspectorMember.Header` is "the section this member starts" — one per member would be
+            // the group's name repeated above every row in it.
+            var header = setting.Group.Length > 0 && !string.Equals(setting.Group, section, StringComparison.Ordinal)
+                ? setting.Group
+                : null;
+
+            section = setting.Group;
+
+            members.Add(new NodeSettingMember(graph, setting) { IsReadOnly = readOnly, Header = header });
         }
 
         var descriptor = new InspectorDescriptor(

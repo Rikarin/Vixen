@@ -47,13 +47,14 @@ public enum TextureGraphParameterKind {
 ///         whose author has been lied to about what it does.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The range is carried here and not on <see cref="SettingDefinition" />, which has
-///         nowhere to put one.</b> A framework setting is a name, a default and a summary; a texture
-///         graph's parameter is all of that plus two numbers and a group. So
-///         <see cref="TextureGraphParameters.Definition" /> writes the range into the setting's
-///         <em>summary</em> for the framework's inspector to show, and anything that wants to
-///         <em>enforce</em> it reads this record instead —
-///         <a href="https://github.com/Rikarin/Vixen/issues/730">#730</a>.
+///         ⚠ <b>The range crosses to the framework now rather than being described to it —
+///         <a href="https://github.com/Rikarin/Vixen/issues/730">#730</a>, closed.</b> A
+///         <see cref="SettingDefinition" /> was a name, a default and a summary, so
+///         <see cref="TextureGraphParameters.Settings" /> folded the group and the two numbers into
+///         the <em>summary</em> and an inspector drew a parameter declared <c>0…1</c> as a text box
+///         with a helpful tooltip. It carries a kind, a range and a group of its own now. This record
+///         is still what <em>enforces</em> the range, because refusing a value is a compiler's job
+///         and a slider's bounds are a courtesy.
 ///     </para>
 /// </remarks>
 public sealed record TextureGraphParameter(
@@ -124,17 +125,18 @@ public sealed record TextureGraphParameter(
 ///         other graph in this repository has asked for one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Where the values live, and what that costs.</b> A parameter <em>list</em> belongs to
-///         the graph and <c>NodeGraphModel</c> has nowhere to put one — it carries a name, a node
-///         list and an interface — so the list is a property of the compiler, exactly as
-///         <c>BaseWidth</c> and <c>Seed</c> are, and a <c>.vxtexgraph</c> cannot round-trip it until
-///         the model can hold it (<a href="https://github.com/Rikarin/Vixen/issues/719">#719</a>).
-///         The <em>overrides</em> have a home already: a sub-graph node's
-///         <see cref="GraphNode.Texts" />, under the parameter's own name, which is what
+///         ⚠ <b>Where the declarations live, and what that used to cost.</b> A parameter
+///         <em>list</em> belongs to the graph and <c>NodeGraphModel</c> had nowhere to put one, so it
+///         was a property of the compiler — exactly as <c>BaseWidth</c> and <c>Seed</c> were — and a
+///         <c>.vxtexgraph</c> reopened with whatever knobs its host invented
+///         (<a href="https://github.com/Rikarin/Vixen/issues/719">#719</a>).
+///         <see cref="NodeGraphModel.Parameters" /> is the home, <see cref="Declared" /> reads it and
+///         <see cref="Settings" /> writes it. The <em>overrides</em> always had one: a sub-graph
+///         node's <see cref="GraphNode.Texts" />, under the parameter's own name, which is what
 ///         <see cref="Read" /> reads.
 ///     </para>
 /// </remarks>
-static class TextureGraphParameters {
+public static class TextureGraphParameters {
     /// <summary>Checks a parameter list, and says what is wrong with it.</summary>
     /// <param name="parameters">The list.</param>
     /// <returns>One message per problem, in the order the list holds them, or empty.</returns>
@@ -233,33 +235,111 @@ static class TextureGraphParameters {
     /// <param name="parameters">The parameters.</param>
     /// <returns>One setting each, in the order given.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="parameters" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>All five of doc 48 § D9's fields now, which
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/730">#730</a> is the finding that they
+    ///     were not.</b> A <see cref="SettingDefinition" /> was a name, a default and a sentence, so a
+    ///     parameter declared <c>0…1</c> reached the inspector as a text box and its range reached it
+    ///     as prose in a tooltip. The kind and the range are carried rather than described now, and
+    ///     <see cref="Describe" /> is back to being a summary.
+    /// </remarks>
     public static ImmutableArray<SettingDefinition> Settings(IReadOnlyList<TextureGraphParameter> parameters) {
         ArgumentNullException.ThrowIfNull(parameters);
 
         var settings = ImmutableArray.CreateBuilder<SettingDefinition>(parameters.Count);
 
         foreach (var parameter in parameters) {
-            settings.Add(new(parameter.Name, parameter.Text(parameter.Default), Describe(parameter)));
+            settings.Add(
+                new(
+                    parameter.Name,
+                    parameter.Text(parameter.Default),
+                    parameter.Summary,
+                    Kind(parameter.Kind),
+                    parameter.Minimum,
+                    parameter.Maximum,
+                    parameter.Group
+                )
+            );
         }
 
         return settings.ToImmutable();
     }
 
-    /// <summary>What one parameter's summary says, with its group and range folded in.</summary>
-    /// <param name="parameter">The parameter.</param>
-    /// <returns>The line.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="parameter" /> is null.</exception>
-    public static string Describe(TextureGraphParameter parameter) {
-        ArgumentNullException.ThrowIfNull(parameter);
+    /// <summary>The parameters a graph declared, read back off its own settings.</summary>
+    /// <param name="settings">What <see cref="NodeGraphModel.Parameters" /> holds.</param>
+    /// <returns>One parameter each, in the order given.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="settings" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b><see cref="Settings" /> backwards, and the pair is what makes a published graph's
+    ///         knobs survive a save — <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a>.</b>
+    ///         A parameter list was a property of the compiler, so a <c>.vxtexgraph</c> reopened with
+    ///         whatever knobs its host invented.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A default that does not parse becomes zero, and that is not this method's
+    ///         decision to make loudly.</b> The declaration is checked as a whole by
+    ///         <see cref="Check" /> — which is what the compiler runs, and which reports a default
+    ///         that is not a number against the graph. Refusing here would mean a file with one bad
+    ///         line could not be opened at all, which is the editor a person cannot use to fix it.
+    ///     </para>
+    /// </remarks>
+    public static List<TextureGraphParameter> Declared(IReadOnlyList<SettingDefinition> settings) {
+        ArgumentNullException.ThrowIfNull(settings);
 
-        var range = float.IsInfinity(parameter.Minimum) && float.IsInfinity(parameter.Maximum)
-            ? ""
-            : $"{parameter.Minimum}…{parameter.Maximum}";
+        List<TextureGraphParameter> parameters = [];
 
-        var parts = new[] { parameter.Summary, parameter.Group, range }.Where(part => part.Length > 0);
+        foreach (var setting in settings) {
+            var kind = setting.Kind switch {
+                SettingKind.Int => TextureGraphParameterKind.Integer,
+                SettingKind.Bool => TextureGraphParameterKind.Boolean,
+                _ => TextureGraphParameterKind.Scalar
+            };
 
-        return string.Join(" · ", parts);
+            parameters.Add(
+                new(
+                    setting.Name,
+                    kind,
+                    Number(setting.Default),
+                    setting.Minimum,
+                    setting.Maximum,
+                    setting.Group,
+                    setting.Summary
+                )
+            );
+        }
+
+        return parameters;
     }
+
+    /// <summary>One default as a number: a literal, or a flag as one and zero.</summary>
+    static float Number(string text) {
+        if (float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)) {
+            return value;
+        }
+
+        return bool.TryParse(text, out var flag) && flag ? 1f : 0f;
+    }
+
+    /// <summary>One parameter's type, as the framework spells it.</summary>
+    /// <remarks>
+    ///     Two enums rather than one, because they answer different questions: this one says how a
+    ///     <em>row</em> edits the text, and <see cref="TextureGraphParameterKind" /> says which of
+    ///     Raven's three <c>const val</c> spellings the parameter is folded as. The mapping is total
+    ///     and the default arm is the safe one — a text box refuses nothing.
+    /// </remarks>
+    public static SettingKind Kind(TextureGraphParameterKind kind) =>
+        kind switch {
+            TextureGraphParameterKind.Integer => SettingKind.Int,
+            TextureGraphParameterKind.Boolean => SettingKind.Bool,
+            _ => SettingKind.Float
+        };
+
+    // ⚠ `Describe` is deleted rather than left behind. It folded a parameter's group and range into
+    // its summary because a `SettingDefinition` had nowhere else to put them — a workaround that read
+    // as one, said so in its own remarks, and had exactly one caller. Now that both have a home
+    // (#730), keeping it would mean a second, prose copy of two numbers a row already draws, and the
+    // day the two disagreed the tooltip would be the convincing one.
 
     /// <summary>What each parameter is worth, given a set of overrides.</summary>
     /// <param name="parameters">The declared parameters.</param>

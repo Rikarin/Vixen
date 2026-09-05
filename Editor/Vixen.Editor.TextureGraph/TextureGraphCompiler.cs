@@ -297,7 +297,54 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
 
         emitter = new(this);
 
+        Adopt(graph);
         Bind(graph);
+    }
+
+    /// <summary>Takes what the graph declares about itself over what the host guessed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 48 § D8's "the graph declares a base resolution" and § D5's "the seed is part
+    ///         of the graph", which until <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a>
+    ///         were properties of whoever constructed this class.</b> A saved <c>.vxtexgraph</c>
+    ///         therefore came back at the host's default — and the seed is the sharper half, because a
+    ///         resolution that reopened wrong is visible and a seed that reopened different is simply
+    ///         a different picture, on another machine, of a material somebody signed off.
+    ///     </para>
+    ///     <para>
+    ///         <b>A graph that declares nothing keeps the host's values</b>, which is every graph
+    ///         built in code and every one written before the field existed. So this is additive: the
+    ///         properties are still the way a preview asks for 256×256, and the file wins where the
+    ///         file has an opinion.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The bake level offset is deliberately <em>not</em> read.</b> It says how big this
+    ///         run is making the material, which is a decision of the run and not a property of the
+    ///         graph — a saved one would be somebody's preview resolution baked into the asset.
+    ///     </para>
+    /// </remarks>
+    void Adopt(NodeGraphModel graph) {
+        BaseWidth = TextureGraphSettings.Extent(graph, TextureGraphSettings.BaseWidth, BaseWidth, out var width);
+        BaseHeight = TextureGraphSettings.Extent(graph, TextureGraphSettings.BaseHeight, BaseHeight, out var height);
+        Seed = TextureGraphSettings.SeedOf(graph, Seed, out var seed);
+
+        foreach (var problem in new[] { width, height, seed }) {
+            if (problem is not null) {
+                // Against no node, because it is the graph's own declaration — the same choice
+                // `Bind` makes for a parameter list that does not hold together.
+                Report(new("TG0019", problem, NodeId.None, "", NodeSeverity.Warning));
+            }
+        }
+
+        if (graph.Parameters.Count == 0) {
+            return;
+        }
+
+        // ⚠ Replaced rather than merged. Two lists of knobs under one name is a graph whose
+        // parameter means whichever the walk reached first, and a host that set some of its own is
+        // a host that has not been updated — the file is the declaration.
+        Parameters.Clear();
+        Parameters.AddRange(TextureGraphParameters.Declared(graph.Parameters));
     }
 
     /// <summary>Resolves the graph's parameters, and every expression written over them.</summary>

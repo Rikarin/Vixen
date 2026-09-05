@@ -1,0 +1,172 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Editor.NodeGraph;
+using Vixen.Editor.TextureGraph;
+using Xunit;
+
+namespace Tests;
+
+/// <summary>
+///     A graph declaring its own base resolution, seed and knobs — doc 48 § D8 and § D9, #719.
+/// </summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The seed is the half worth staring at.</b> A base resolution that reopened at the
+///         host's default is visible — every length in the material is wrong by a power of two — and
+///         a seed that reopened different is simply a different picture, of a material somebody
+///         signed off, on another machine. Doc 48 § D5 says a procedural texture whose output changes
+///         between runs is not a source asset; a seed the host chose is exactly that.
+///     </para>
+///     <para>
+///         <b>The properties are still there and still win where the file is silent</b>, which is
+///         what makes this additive rather than a migration: every graph built in code declares
+///         nothing.
+///     </para>
+/// </remarks>
+public class TextureGraphDeclarationTests {
+    /// <summary>What the graph declares is what the plan is compiled at.</summary>
+    [Fact]
+    public void A_graphs_declared_resolution_and_seed_reach_the_plan() {
+        var graph = Noise();
+
+        TextureGraphSettings.Declare(graph, 512, 128, 90210);
+
+        var compiler = Compiler();
+        var compilation = compiler.Compile(graph);
+
+        Assert.Empty(compilation.Diagnostics);
+        Assert.Equal(512, compilation.Value.BaseWidth);
+        Assert.Equal(128, compilation.Value.BaseHeight);
+        Assert.Equal(90210u, compilation.Value.Seed);
+
+        // The instrument: the compiler was built with entirely different numbers, so each equality
+        // above is about the graph rather than about a default that happened to match.
+        Assert.NotEqual(512, Compiler().BaseWidth);
+        Assert.NotEqual(90210u, Compiler().Seed);
+    }
+
+    /// <summary>A graph that declares nothing is compiled at the host's numbers.</summary>
+    /// <remarks>
+    ///     Every graph written in code, and every <c>.vxtexgraph</c> saved before the field existed.
+    /// </remarks>
+    [Fact]
+    public void A_graph_that_declares_nothing_keeps_the_hosts_numbers() {
+        var compiler = Compiler();
+        var plan = compiler.Compile(Noise()).Value;
+
+        Assert.Equal(256, plan.BaseWidth);
+        Assert.Equal(41823u, plan.Seed);
+    }
+
+    /// <summary>A declared number that is nonsense is a warning, and the host's number is used.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Rather than zero, which is what a parse into an <c>out</c> variable gives.</b> A base
+    ///     width of zero makes every image in the plan one texel: it validates, it evaluates, and the
+    ///     material it produces is not one anybody would connect with a hand edit to a file.
+    /// </remarks>
+    [Theory]
+    [InlineData(TextureGraphSettings.BaseWidth, "wide")]
+    [InlineData(TextureGraphSettings.BaseWidth, "0")]
+    [InlineData(TextureGraphSettings.BaseWidth, "-256")]
+    [InlineData(TextureGraphSettings.Seed, "later")]
+    public void A_declaration_that_is_not_a_number_is_a_warning_and_is_not_used(string key, string text) {
+        var graph = Noise();
+
+        graph.Settings[key] = text;
+
+        var compilation = Compiler().Compile(graph);
+        var caution = Assert.Single(compilation.Diagnostics, diagnostic => diagnostic.Id == "TG0019");
+
+        Assert.Equal(NodeSeverity.Warning, caution.Severity);
+        Assert.NotNull(compilation.Artefact);
+        Assert.Equal(256, compilation.Value.BaseWidth);
+        Assert.Equal(41823u, compilation.Value.Seed);
+    }
+
+    /// <summary>A graph's declared parameters are the ones its expressions are folded against.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The assertion is a <em>number in the plan</em> and not the parameter list.</b> A
+    ///     compiler that adopted the list and folded against its own would produce the same
+    ///     <c>Parameters</c> collection and a different picture, which is the failure that reads as
+    ///     "the file did not save my knob" and is really "the file saved it and nothing read it".
+    /// </remarks>
+    [Fact]
+    public void A_graphs_declared_parameters_are_what_its_expressions_fold_against() {
+        var graph = Noise();
+        var blur = graph.Add("Filters/Blur");
+
+        graph.Parameters.Add(new("amount", "0.25", "How much", SettingKind.Float, 0f, 1f, "Wear"));
+
+        foreach (var node in graph.Nodes) {
+            if (string.Equals(node.Type, "Output/Output", StringComparison.Ordinal)) {
+                graph.Disconnect(new(node.Id, "Input"));
+                graph.Connect(new(blur.Id, "Out"), new(node.Id, "Input"));
+            } else if (string.Equals(node.Type, "Source/Noise", StringComparison.Ordinal)) {
+                graph.Connect(new(node.Id, "Out"), new(blur.Id, "Input"));
+            }
+        }
+
+        blur.SetText(TextureGraphExpressions.KeyOf("Radius"), "amount * 32f");
+
+        var compiler = Compiler();
+        var compilation = compiler.Compile(graph);
+
+        Assert.Empty(compilation.Diagnostics);
+
+        // 0.25 × 32, folded by Raven against the parameter the *graph* declared — the compiler was
+        // handed none.
+        var radius = Assert.Single(
+            compilation.Value.Ops.Where(op => op.Kernel == "Blur").Select(op => op.Find("radius")!.Value).Distinct()
+        );
+
+        Assert.Equal(8f, radius.Value);
+
+        // And the list the compiler now holds is the graph's, with every field of it.
+        var parameter = Assert.Single(compiler.Parameters);
+
+        Assert.Equal("amount", parameter.Name);
+        Assert.Equal(TextureGraphParameterKind.Scalar, parameter.Kind);
+        Assert.Equal(0.25f, parameter.Default);
+        Assert.Equal(1f, parameter.Maximum);
+        Assert.Equal("Wear", parameter.Group);
+    }
+
+    /// <summary>A parameter list is the same list after a trip through the framework's settings.</summary>
+    /// <remarks>
+    ///     The two halves of the round-trip #719 needs: a texture graph's parameters are written into
+    ///     a model as <see cref="SettingDefinition" />s and read back out. ⚠ Every field, because a
+    ///     conversion that dropped the range would leave a knob that no longer refuses a value
+    ///     outside it — and <see cref="TextureGraphParameters.Read" /> is what enforces that.
+    /// </remarks>
+    [Fact]
+    public void A_parameter_list_survives_the_trip_through_the_frameworks_settings() {
+        List<TextureGraphParameter> parameters = [
+            new("amount", TextureGraphParameterKind.Scalar, 0.25f, 0f, 1f, "Wear", "How much"),
+            new("tiles", TextureGraphParameterKind.Integer, 4f, 1f, 16f, "Layout"),
+            new("tiling", TextureGraphParameterKind.Boolean, 1f)
+        ];
+
+        Assert.Equal(parameters, TextureGraphParameters.Declared(TextureGraphParameters.Settings(parameters)));
+    }
+
+    /// <summary>A graph of one noise node, kept as a base colour.</summary>
+    static NodeGraphModel Noise() {
+        NodeGraphModel graph = new();
+        var noise = graph.Add("Source/Noise");
+        var output = graph.Add("Output/Output");
+
+        output.SetText("Usage", "baseColor");
+        graph.Connect(new(noise.Id, "Out"), new(output.Id, "Input"));
+
+        return graph;
+    }
+
+    static TextureGraphCompiler Compiler() {
+        NodeTypeRegistry registry = new();
+
+        NodeTypes.Register(registry);
+
+        return new(registry) { BaseWidth = 256, BaseHeight = 256, Seed = 41823 };
+    }
+}

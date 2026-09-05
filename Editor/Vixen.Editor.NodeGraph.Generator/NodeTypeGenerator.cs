@@ -144,7 +144,12 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
                     field.Name,
                     Named(setting, "Name") as string is { Length: > 0 } called ? called : field.Name,
                     Text(setting, field, syntax.SemanticModel),
-                    Named(setting, "Summary") as string ?? ""
+                    Named(setting, "Summary") as string ?? "",
+
+                    Kind(setting),
+                    Named(setting, "Minimum") is float low ? low : float.NegativeInfinity,
+                    Named(setting, "Maximum") is float high ? high : float.PositiveInfinity,
+                    Named(setting, "Group") as string ?? ""
                 ));
 
                 continue;
@@ -257,7 +262,9 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
             var comma = index == model.Settings.Length - 1 ? "" : ",";
 
             text.AppendLine(
-                $"            new({Quote(setting.Name)}, {Quote(setting.Default)}, {Quote(setting.Summary)}){comma}"
+                $"            new({Quote(setting.Name)}, {Quote(setting.Default)}, {Quote(setting.Summary)}, "
+                + $"SettingKind.{setting.Kind}, {Number(setting.Minimum)}, {Number(setting.Maximum)}, "
+                + $"{Quote(setting.Group)}){comma}"
             );
         }
 
@@ -400,6 +407,32 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
         return null;
     }
 
+    /// <summary>A <c>[Setting]</c>'s kind, as the enum member's own name.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read off the enum <em>symbol</em> rather than off a copy of the member list kept
+    ///     here.</b> A generator cannot reference the assembly it generates into, so the obvious
+    ///     spelling is a mirror of <c>SettingKind</c> in this project — which is a second list to keep
+    ///     in step with the first, and the day they disagree every node's settings quietly acquire the
+    ///     wrong kind. The member whose constant matches is the one the author wrote, whatever the
+    ///     numbers are.
+    /// </remarks>
+    static string Kind(AttributeData setting) {
+        foreach (var argument in setting.NamedArguments) {
+            if (argument.Key != "Kind" || argument.Value.Type is not INamedTypeSymbol type) {
+                continue;
+            }
+
+            foreach (var member in type.GetMembers()) {
+                if (member is IFieldSymbol { HasConstantValue: true } field
+                    && Equals(field.ConstantValue, argument.Value.Value)) {
+                    return field.Name;
+                }
+            }
+        }
+
+        return "Text";
+    }
+
     static object? Named(AttributeData attribute, string name) {
         foreach (var argument in attribute.NamedArguments) {
             if (argument.Key == name) {
@@ -494,5 +527,18 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
 
     static string Quote(string value) => "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
 
-    static string Float(float value) => value.ToString("R", CultureInfo.InvariantCulture) + "f";
+    static string Float(float value) => Number(value);
+
+    /// <summary>One float as C# source.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The infinities are named rather than formatted.</b> <c>"R"</c> writes an infinity as
+    ///     the word <c>Infinity</c>, and a generated file containing <c>Infinityf</c> does not
+    ///     compile — which is what an unbounded range's two open ends are, on every setting that does
+    ///     not declare one.
+    /// </remarks>
+    static string Number(float value) =>
+        float.IsNegativeInfinity(value) ? "float.NegativeInfinity"
+        : float.IsPositiveInfinity(value) ? "float.PositiveInfinity"
+        : float.IsNaN(value) ? "float.NaN"
+        : value.ToString("R", CultureInfo.InvariantCulture) + "f";
 }
