@@ -114,8 +114,29 @@ public sealed partial class CheckBox : ToggleBase {
     [UiProperty(Changed = nameof(OnIndeterminateChanged))]
     public partial bool IsIndeterminate { get; set; }
 
+    /// <summary>Whether it has to be ticked before the form is acceptable.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The consent box, which is the case this exists for: a box that has to be ticked rather
+    ///         than a box whose two answers are both allowed. <c>:optional</c> is the negation, as it
+    ///         is on <see cref="TextField.Required" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A half-ticked box is <i>not</i> ticked, so a required one showing a dash is
+    ///         invalid.</b> That falls out of <see cref="IsIndeterminate" /> being a third appearance
+    ///         rather than a third value — but it is worth stating, because the alternative reading
+    ///         ("it has been touched, so let it through") is the one a form would silently take if the
+    ///         verdict were computed from the class instead.
+    ///     </para>
+    /// </remarks>
+    [UiProperty(Changed = nameof(OnRequiredChanged))]
+    public partial bool Required { get; set; }
+
     /// <summary>The box the tick is drawn in.</summary>
     public UiElement Box { get; private set; } = null!;
+
+    /// <summary>Whether what it holds is acceptable.</summary>
+    public bool IsValid => !Required || (IsChecked && !IsIndeterminate);
 
     /// <inheritdoc />
     protected override AccessibleRole NativeRole => AccessibleRole.CheckBox;
@@ -131,7 +152,9 @@ public sealed partial class CheckBox : ToggleBase {
     ///     somebody who cannot see the dash.
     /// </remarks>
     protected override AccessibleStates NativeAccessibleState =>
-        IsIndeterminate ? AccessibleStates.Mixed : base.NativeAccessibleState;
+        (IsIndeterminate ? AccessibleStates.Mixed : base.NativeAccessibleState)
+        | (Required ? AccessibleStates.Required : AccessibleStates.None)
+        | (IsValid ? AccessibleStates.None : AccessibleStates.Invalid);
 
     /// <inheritdoc />
     protected override void OnCreated() {
@@ -145,6 +168,30 @@ public sealed partial class CheckBox : ToggleBase {
         // it. Moving rather than reordering the base's work keeps the one rule — a derived control's
         // parts come after the ones it inherited — true everywhere except where a control says so.
         Document.Move(Box, 0);
+
+        // ⚠ Here rather than only on a change, which is the trap `TextField` hit first. A box that is
+        // not required is valid from birth and never goes through a change, so without this call it
+        // would carry neither `:valid` nor `:invalid` for its whole life — indistinguishable to a
+        // selector from a container that does not validate at all.
+        Revalidate();
+    }
+
+    /// <summary>Republishes the verdict.</summary>
+    /// <remarks>
+    ///     Public for <see cref="TextField.Revalidate" />'s reason: what makes a box acceptable can
+    ///     be something other than the box — one of a set of which at least two must be ticked — and
+    ///     nothing about that changes when this one is clicked.
+    /// </remarks>
+    public void Revalidate() {
+        if (FieldValidity.Publish(this, Required, IsValid)) {
+            InvalidateAccessibility();
+        }
+    }
+
+    /// <inheritdoc />
+    protected override void OnChecked(bool current) {
+        base.OnChecked(current);
+        Revalidate();
     }
 
     /// <inheritdoc />
@@ -175,6 +222,19 @@ public sealed partial class CheckBox : ToggleBase {
         // for `Mixed` from this flag alone, and a class change is a cascade invalidation that
         // touches nothing a bridge reads — so without this line a screen reader kept announcing a
         // half-ticked box as ticked, or as unticked, for the rest of the session.
+        InvalidateAccessibility();
+
+        // A required box showing a dash is not ticked and therefore not acceptable, so the verdict
+        // follows this flag as well as `IsChecked`.
+        Revalidate();
+    }
+
+    void OnRequiredChanged(bool previous, bool current) {
+        Revalidate();
+
+        // ⚠ Unconditionally, unlike the call inside `Revalidate`. `Required` is its own reported
+        // flag, so a box that goes from optional to required while ticked moves nothing about the
+        // verdict and still has something new to announce.
         InvalidateAccessibility();
     }
 }
@@ -294,9 +354,42 @@ public sealed partial class RadioGroup : Control {
     /// </remarks>
     protected override bool AcceptsFocus => false;
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The group reports it, not the radios, and that is a stated divergence from HTML.</b>
+    ///     A browser puts <c>required</c> on each <c>&lt;input type=radio&gt;</c> and then has to
+    ///     re-derive the group from the shared <c>name</c> in order to decide whether the requirement
+    ///     is met. Here the group is an element and <see cref="Value" /> is the one fact, so the
+    ///     declaration and the verdict belong on the same object as the answer — a member cannot be
+    ///     required on its own, because "this one in particular must be chosen" is not something a
+    ///     set of mutually exclusive choices can mean.
+    /// </remarks>
+    protected override AccessibleStates NativeAccessibleState =>
+        (Required ? AccessibleStates.Required : AccessibleStates.None)
+        | (IsValid ? AccessibleStates.None : AccessibleStates.Invalid);
+
     /// <summary>Which choice is made, or <c>null</c> if none is.</summary>
     [UiProperty(Changed = nameof(OnValueChanged))]
     public partial string? Value { get; set; }
+
+    /// <summary>Whether one of the choices has to be made.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A group question rather than a control one</b> — see
+    ///     <see cref="NativeAccessibleState" />. A group with no choice made is invalid the moment it
+    ///     is marked, on <see cref="TextField.Required" />'s terms: the state is what the group is
+    ///     <i>in</i>, and deferring it until a submit is what makes a form report four mistakes at
+    ///     once at the end.
+    /// </remarks>
+    [UiProperty(Changed = nameof(OnRequiredChanged))]
+    public partial bool Required { get; set; }
+
+    /// <summary>Whether the choice made is acceptable.</summary>
+    /// <remarks>
+    ///     ⚠ Reads <see cref="Value" /> rather than counting checked radios. A group whose value
+    ///     names a choice that has not been added yet — the ordinary case for one built from saved
+    ///     settings — has a choice made; it just has nothing to show it on until the options arrive.
+    /// </remarks>
+    public bool IsValid => !Required || Value is not null;
 
     /// <summary>The radios, in order.</summary>
     /// <remarks>
@@ -321,6 +414,21 @@ public sealed partial class RadioGroup : Control {
         // the bookkeeping routed events exist to avoid.
         AddHandler<ClickEvent>(static (element, args) => ((RadioGroup) element).Chosen(args));
         AddHandler<KeyEvent>(static (element, args) => ((RadioGroup) element).Keyed(args));
+
+        // ⚠ Here, not only on a change: an optional group is valid from birth and never goes through
+        // one, so without this call it would carry neither `:valid` nor `:invalid` for its whole life.
+        Revalidate();
+    }
+
+    /// <summary>Republishes the verdict.</summary>
+    /// <remarks>
+    ///     Public on <see cref="TextField.Revalidate" />'s terms — what makes a choice acceptable can
+    ///     depend on something that is not this group.
+    /// </remarks>
+    public void Revalidate() {
+        if (FieldValidity.Publish(this, Required, IsValid)) {
+            InvalidateAccessibility();
+        }
     }
 
     /// <summary>Adds a choice.</summary>
@@ -421,8 +529,21 @@ public sealed partial class RadioGroup : Control {
     void OnValueChanged(string? previous, string? current) {
         Restate();
 
+        // Before the notifications rather than after, so a handler that reads `IsValid` — which is
+        // what a submit button's enablement is — sees the verdict on the choice it was just handed.
+        Revalidate();
+
         Raise(new ValueChangedEvent<string> { Previous = previous, Value = current });
         ValueChanged?.Invoke(this, current);
+    }
+
+    void OnRequiredChanged(bool previous, bool current) {
+        Revalidate();
+
+        // Unconditionally, because `Required` is reported in its own right: a group that goes from
+        // optional to required with a choice already made moves nothing about the verdict and still
+        // has something new to announce.
+        InvalidateAccessibility();
     }
 
     /// <summary>Makes the chosen radio the group's one tab stop.</summary>
