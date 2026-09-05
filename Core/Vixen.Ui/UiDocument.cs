@@ -1743,6 +1743,11 @@ public sealed partial class UiDocument : IDisposable {
 
         var changed = drawings.Build(this, surface.Root, surface.Drawing);
 
+        // ⚠ Here rather than in `Draw()`, so the two numbers are per *window* per frame — which is
+        // the unit the work is actually done in. A document with a torn-off panel rebuilds two lists
+        // a frame and a count per frame would report one.
+        CountDrawing(changed);
+
         // ⚠ After the build, which makes this the one drain point outside the style pass. See
         // `DrainDrawingDiagnostics` for why a per-frame drain costs nothing after the first frame.
         DrainDrawingDiagnostics();

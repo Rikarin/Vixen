@@ -1733,6 +1733,27 @@ it does not run. ⚠ **And a frame that finds nothing to do empties the regions*
 the last real pass's boxes up — the same lie `Update`'s own counters told for a year, and the reason
 the ring is turned on *both* of `Update`'s exits.
 
+**`DrawListsBuilt` and `DrawListsChanged` are the instrument for the damage-tracking work, and they
+exist before it.** There is no retained per-element surface and no dirty-rect path — `DrawListBuilder`
+reconstructs the whole list on every frame of every window — and the only economy is a content diff
+*afterwards*, `DrawList.Version`, which lets a still window skip the tessellation and the GPU
+recording and does not skip the rebuild that produced the identical list again. A still document
+reports thirty rebuilds and one change over thirty frames, and that gap is the waste.
+
+⚠ **Neither number means anything alone, and the pair is stated as work rather than as watts.** A
+rebuild count is the same on an idle laptop and a loaded one; the differential doc 49 asks for — idle
+frame work, before against after, on the same machine — needs a figure that exists on both sides of
+the change, and a wall-clock budget could not express the property anyway. An interface that redraws
+a hundred times to produce one picture is wasteful at every frame rate.
+
+⚠ **These two are compiled in every configuration**, unlike the region ring beside them: a counter
+behind `DEBUG` is a counter a Release gate cannot assert on, and two runs of a differential in
+different builds are not a differential. The cost is one increment per window per frame.
+
+⚠ **`IdleFrameWorkTests` is written to go red the day the retained surface lands**, at the line that
+says a still window rebuilds once per frame. That is deliberate: a gate that could not tell the two
+worlds apart would be a predicate that cannot be false.
+
 ### Still owed: the overlay, and the reason it is not written here
 
 ⚠ **There is no host today that holds a `UiDocument` *and* a `DiagnosticOverlays`**, which is a
