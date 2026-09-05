@@ -3,9 +3,9 @@ title: Map baking
 slug: engine/map-baking
 kind: guide
 area: Engine
-summary: Casting the output's normal at the source to fill an atlas with a normal map and a displacement map, on the CPU, with no device anywhere.
-api: [T:Vixen.Geometry.Remeshing.MapBaker, T:Vixen.Geometry.Remeshing.BakeSettings, T:Vixen.Geometry.Remeshing.BakedMaps, T:Vixen.Geometry.Remeshing.BakeSpace]
-tags: [geometry, retopology, remesh, bake, normal-map, displacement, atlas]
+summary: Casting the output's normal at the source to fill an atlas with a normal map, a displacement map and seven more mesh maps, on the CPU, with no device anywhere.
+api: [T:Vixen.Geometry.Remeshing.MapBaker, T:Vixen.Geometry.Remeshing.BakeSettings, T:Vixen.Geometry.Remeshing.BakedMaps, T:Vixen.Geometry.Remeshing.BakeSpace, T:Vixen.Geometry.Remeshing.MeshMaps]
+tags: [geometry, retopology, remesh, bake, normal-map, displacement, atlas, ambient-occlusion, curvature, mesh-maps]
 since: 0.1
 status: preview
 related: [engine/retopology, engine/attribute-transfer, engine/uv-packing, core/triangle-tree]
@@ -14,9 +14,10 @@ related: [engine/retopology, engine/attribute-transfer, engine/uv-packing, core/
 ## What it is
 
 `MapBaker.Bake` takes a high-resolution source, a remeshed output that already has texture
-coordinates, and fills that output's atlas with two maps: a normal map and a signed displacement map.
-`BakedMaps` is the pixels and what was measured about them; `BakeSettings` is the size, the gutter and
-how far a ray looks.
+coordinates, and fills that output's atlas with a normal map and a signed displacement map — and, on
+request, seven more measurements at the same texels: ambient occlusion, a bent normal, curvature,
+thickness, position, world normal and an id. `BakedMaps` is the pixels and what was measured about
+them; `BakeSettings` is the size, the gutter, how far a ray looks and which maps to fill.
 
 There is no device, no shader and no file. A bake returns arrays.
 
@@ -113,6 +114,63 @@ written by different code. `DisplacementRange` is the largest absolute value the
 and it is what a caller quantizes with. Positive is outward along the output's normal — the source
 stands proud of the cage.
 
+## The seven mesh maps
+
+`Maps` asks for them and it is empty by default, because three of them cast rays. Each is a different
+measurement at a texel whose surface point, normal and tangent frame the raster already handed over —
+a map that was not asked for comes back `null` rather than as an array of zeroes, so "not requested"
+and "fully occluded" are not the same answer.
+
+| `MeshMaps` | What it holds |
+|---|---|
+| `AmbientOcclusion` | The unoccluded fraction of a cosine-weighted hemisphere. One is open sky, zero is sealed |
+| `BentNormal` | The average unoccluded direction, in `Space` alongside `Normals` |
+| `Curvature` | Mean curvature, in reciprocal model units, with `CurvatureRange` beside it |
+| `Thickness` | The occluded fraction of the same hemisphere, turned through the surface |
+| `Position` | The surface point, each axis `[0, 1]` across the source's bounding box |
+| `WorldNormal` | The source's normal, unrotated and independent of `Space` |
+| `Ids` | The source's face group as an `int`, `-1` where there is none |
+
+⚠ **Every one of them is measured at the *source*'s point and about the source's normal, never the
+cage's.** The cage is a few thousand quads that deliberately do not carry the geometry doing the
+occluding; an occlusion measured on it is a picture of the cage, which looks like a smoothed version
+of the right answer and is not one.
+
+⚠ **The occlusion, the bent normal and the thickness are one hemisphere and not three.** The bent
+normal is the average of the directions the occlusion found unblocked, and the thickness is those same
+directions reflected through the tangent plane — so the three cost what one costs, and a bent normal
+always agrees with the occlusion beside it. `OcclusionSamples` is the ray count per texel and the
+estimator's error falls as its square root; `OcclusionRadius` is how far an occluder still counts, as a
+fraction of the diagonal.
+
+⚠ **`Thickness` is a fraction, not a distance**, and it saturates at `OcclusionRadius` — a part thicker
+than the rays reach reads as fully enclosed. Measuring the inside of a closed shape wants a radius of
+one or more.
+
+⚠ **`Curvature` is one over a length, so it moves with the model's scale, deliberately.** A sphere of
+radius *r* reads `1/r`; the same sphere modelled a hundred times larger reads a hundredth of it. Every
+other curvature in this library multiplies by the diagonal to give a dimensionless number for a
+threshold to compare against — a map is quantized rather than compared, and `CurvatureRange` is the
+scale that goes beside the pixels for the same reason `DisplacementRange` does. ⚠ An **open rim reads
+zero**: the operator wants a closed one-ring and the missing half of one is not a measurement, so
+without the refusal every sheet and cut-out in a project bakes a bright border that no generator can
+tell from a crease.
+
+### The id map is nearest, everywhere, including through the gutter
+
+⚠ **An id is a label and not a quantity.** The dilation *copies* a neighbour's id instead of averaging
+four of them, because the average of ids 0 and 2 is id 1 — a material that exists nowhere in the source
+— and every generator keyed off the map then grows a hairline of it along every chart border, in a
+colour belonging to nothing. That is also why the channel is an `int`: `MapBaker.IdColour` turns one
+into a distinct colour at the point the pixels are written, where no filter can reach it.
+
+### Nothing samples randomly
+
+The hemisphere is a fixed Hammersley set, and the only thing that varies between texels is an azimuthal
+rotation that is a hash of the texel index. ⚠ **A content hash rests on this**: a sampler seeded from a
+clock, a thread or an accumulation order would make two builds of one asset differ, which is not a
+visible defect but a cache that never hits.
+
 ## Examples
 
 Baking after a remesh, and refusing the result if the cage was too far from the source:
@@ -171,6 +229,45 @@ public static class Comparing {
             quads,
             new BakeSettings { Resolution = 1024, Space = BakeSpace.Object }
         );
+}
+```
+
+Baking the mesh maps a texturing stack reads, and writing the id one as pixels:
+
+```csharp compile
+using Vixen.Core.Mathematics;
+using Vixen.Geometry;
+using Vixen.Geometry.Remeshing;
+
+public static class MeshMapping {
+    public static Vector3[] Run(EditMesh source, EditMesh quads) {
+        var maps = MapBaker.Bake(
+            source,
+            quads,
+            new BakeSettings {
+                Resolution = 2048,
+                Maps = MeshMaps.AmbientOcclusion | MeshMaps.BentNormal | MeshMaps.Curvature | MeshMaps.Id,
+                OcclusionSamples = 256,
+                OcclusionRadius = 0.5f
+            }
+        );
+
+        var ids = maps.Ids;
+
+        if (ids is null) {
+            return [];
+        }
+
+        var pixels = new Vector3[ids.Count];
+
+        // ⚠ The colour is applied to each texel's own id and never to a blend of two — the map that
+        // gets filtered is the one that grows a fourth material along every border.
+        for (var index = 0; index < pixels.Length; index++) {
+            pixels[index] = MapBaker.IdColour(ids[index]);
+        }
+
+        return pixels;
+    }
 }
 ```
 
