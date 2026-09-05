@@ -239,6 +239,25 @@
         </Card>
 
         <!--
+            ⚠ **`slot="second"` and nothing at all for the first**, which is `SplitView`'s whole
+            authoring surface. A split is two things and `ContentHost` can only be one of them, so
+            unmarked children go into the near pane — a sidebar's own markup — and the far one is
+            named. This is the only file in the repository that writes the far slot, which is what
+            makes it the check that `NamedHost` is wired at all.
+
+            The height is the sample's rather than the control's: a split has no size of its own and
+            a scroll column would give it none.
+        -->
+        <Card>
+            <card-heading class="text-lg font-semibold">Split</card-heading>
+
+            <SplitView Ratio="0.3" MinimumRatio="0.2" class="h-24">
+                <split-note class="text-xs text-slate-400 p-2">Sidebar</split-note>
+                <split-note slot="second" class="text-xs text-slate-400 p-2">Detail</split-note>
+            </SplitView>
+        </Card>
+
+        <!--
             ⚠ **A drawer is opened, not assigned.** `IsOpen` is deliberately not a `[UiProperty]` —
             opening measures, places, moves the focus and may take a modal scope, so `Open` and
             `Close` are the whole interface and a settable property would be an invitation to do

@@ -657,6 +657,23 @@ Vixen.Ui.Controls.Spinner.Sweep.get -> float
 Vixen.Ui.Controls.Spinner.Sweep.set -> float
 Vixen.Ui.Controls.Spinner.Thickness.get -> float
 Vixen.Ui.Controls.Spinner.Thickness.set -> float
+Vixen.Ui.Controls.SplitView -> sealed class
+Vixen.Ui.Controls.SplitView : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.SplitView.Apply() -> void
+Vixen.Ui.Controls.SplitView.Bar.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.SplitView.ClearMinimumRatio() -> void
+Vixen.Ui.Controls.SplitView.ClearOrientation() -> void
+Vixen.Ui.Controls.SplitView.ClearRatio() -> void
+Vixen.Ui.Controls.SplitView.First.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.SplitView.MinimumRatio.get -> float
+Vixen.Ui.Controls.SplitView.MinimumRatio.set -> float
+Vixen.Ui.Controls.SplitView.Orientation.get -> Vixen.Ui.Controls.Orientation
+Vixen.Ui.Controls.SplitView.Orientation.set -> Vixen.Ui.Controls.Orientation
+Vixen.Ui.Controls.SplitView.Ratio.get -> float
+Vixen.Ui.Controls.SplitView.Ratio.set -> float
+Vixen.Ui.Controls.SplitView.RatioChanged -> System.Action<Vixen.Ui.Controls.SplitView, float>?
+Vixen.Ui.Controls.SplitView.Second.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.SplitView.SplitView() -> void
 Vixen.Ui.Controls.SubmitEvent -> sealed class
 Vixen.Ui.Controls.SubmitEvent : Vixen.Ui.UiEvent
 Vixen.Ui.Controls.SubmitEvent.SubmitEvent() -> void
@@ -822,6 +839,7 @@ const Vixen.Ui.Controls.Expander.HeaderSlot = "header" -> string
 const Vixen.Ui.Controls.ScrollView.SmoothingConstant = 0.075 -> float
 const Vixen.Ui.Controls.ScrollView.SnapIdleSeconds = 0.125 -> float
 const Vixen.Ui.Controls.ScrollView.SnapProximity = 0.25 -> float
+const Vixen.Ui.Controls.SplitView.SecondSlot = "second" -> string
 const Vixen.Ui.Controls.VirtualizingGrid.Overscan = 2 -> int
 const Vixen.Ui.Controls.VirtualizingPanel.Overscan = 2 -> int
 override Vixen.Ui.Controls.Accordion.AcceptsFocus.get -> bool
@@ -1034,6 +1052,12 @@ override Vixen.Ui.Controls.Spinner.NativeAccessibleState.get -> Vixen.Ui.Accessi
 override Vixen.Ui.Controls.Spinner.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Spinner.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.Spinner.TagName.get -> string
+override Vixen.Ui.Controls.SplitView.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.SplitView.ContentHost.get -> Vixen.Ui.UiElement
+override Vixen.Ui.Controls.SplitView.NamedHost(string name) -> Vixen.Ui.UiElement?
+override Vixen.Ui.Controls.SplitView.NativeRole.get -> Vixen.Ui.AccessibleRole
+override Vixen.Ui.Controls.SplitView.OnCreated() -> void
+override Vixen.Ui.Controls.SplitView.TagName.get -> string
 override Vixen.Ui.Controls.Switch.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Switch.OnCreated() -> void
 override Vixen.Ui.Controls.Switch.TagName.get -> string
@@ -1197,6 +1221,9 @@ static readonly Vixen.Ui.Controls.Slider.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Spinner.PhaseProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Spinner.SweepProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Spinner.ThicknessProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.SplitView.MinimumRatioProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.SplitView.OrientationProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.SplitView.RatioProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Tabs.SelectedIndexProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.TextField.MaxLengthProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.TextField.PlaceholderProperty -> Vixen.Ui.UiPropertyKey
