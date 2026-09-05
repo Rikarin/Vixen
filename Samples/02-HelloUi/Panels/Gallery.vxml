@@ -157,6 +157,15 @@
                 -->
                 <Avatar Name="Ada Lovelace" />
 
+                <!--
+                    ⚠ And the other way round, which is the case the derivation cannot serve: a
+                    contributor known by two letters and not by a name. `Initials` is `Text` under
+                    another name, so setting it writes the circle directly — and the accessible name
+                    falls back to it, which is the "nobody said who it is" branch of
+                    `Avatar.NativeAccessibleName` and the only honest answer available.
+                -->
+                <Avatar Initials="JS" />
+
                 <identity-text class="flex flex-col">
                     <!--
                         ⚠ A `Href` that nothing here follows, deliberately: a link raises a click and
