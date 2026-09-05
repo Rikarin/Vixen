@@ -223,3 +223,110 @@ sealed partial class CropNode : TextureNode {
         );
     }
 }
+
+/// <summary>How far a <c>Resample</c> moves its output from the image it reads, in mip levels.</summary>
+/// <remarks>
+///     ⚠ <b>The member's value <em>is</em> the level offset, sign and all</b> — a positive level is a
+///     halving, because that is <see cref="TextureImage.LevelOffset" />'s currency and there is
+///     nothing to convert. A second spelling of "smaller" would be one more place to get the sign
+///     wrong, and the picture under a wrong guess is a plausible one.
+/// </remarks>
+enum TextureResampleSize {
+    /// <summary>Four times as wide and four times as tall.</summary>
+    Quadruple = -2,
+
+    /// <summary>Twice as wide and twice as tall.</summary>
+    Double = -1,
+
+    /// <summary>⚠ The same size, which is a copy and not a resample.</summary>
+    Same = 0,
+
+    /// <summary>Half as wide and half as tall.</summary>
+    Half = 1,
+
+    /// <summary>A quarter.</summary>
+    Quarter = 2
+}
+
+/// <summary>The same picture at another resolution.</summary>
+/// <remarks>
+///     <para>
+///         <b>The target's size is the scale, so there is no scale parameter</b> — <c>Resample.rvn</c>
+///         says so, and it is the same argument <see cref="TextureOp" /> makes for carrying no
+///         resolution: a ratio on the op as well as on the image is a second place for a resolution
+///         to be wrong.
+///     </para>
+///     <para>
+///         ⚠ <b>Which is exactly why this node could not exist until
+///         <a href="https://github.com/Rikarin/Vixen/issues/733">#733</a>.</b> Every image a node
+///         allocated was at the plan's base level, so a Resample writing its output at its input's
+///         size was an <em>identity copy</em> — a node that draws a perfectly plausible picture and
+///         does nothing. <see cref="TextureEmitter.Write(string,TextureChannels,int)" /> is the level
+///         it needed, and <see cref="Size" /> at <see cref="TextureResampleSize.Same" /> is still
+///         that copy, so it says so.
+///     </para>
+///     <para>
+///         <b><c>Box</c> going down and <c>Bilinear</c> going up.</b> Halving with <c>Point</c> keeps
+///         one texel in four and drops the rest; the closed form is worth stating because it is as
+///         far apart as two pictures get — a column checkerboard boxed down by any integer factor is
+///         0.5 everywhere and point-sampled down is 0 or 1 everywhere.
+///     </para>
+/// </remarks>
+[Node("Space/Resample", Preview = true, Summary = "The same picture at half, a quarter, twice or four times the size.")]
+sealed partial class ResampleNode : TextureNode {
+    /// <summary>
+    ///     How far to move: <c>Quarter</c>, <c>Half</c>, <c>Same</c>, <c>Double</c> or
+    ///     <c>Quadruple</c>, relative to the image arriving.
+    /// </summary>
+    [Setting]
+    public string Size = "Half";
+
+    /// <summary>How a sample reads: <c>Point</c>, <c>Bilinear</c> or <c>Box</c>.</summary>
+    [Setting]
+    public string Filter = "Box";
+
+    /// <summary>What to resample.</summary>
+    [Input(Name = "Input")]
+    public Image Input;
+
+    /// <summary>The resampled image.</summary>
+    [Output(Name = "Out")]
+    public Image Out;
+
+    /// <inheritdoc />
+    protected internal override void Compile(TextureEmitter emitter) {
+        ArgumentNullException.ThrowIfNull(emitter);
+
+        var size = TextureSettings.Enum(emitter, nameof(Size), TextureResampleSize.Half);
+        var filter = TextureSettings.Enum(emitter, nameof(Filter), TextureFilter.Box);
+        var source = emitter.Read("Input");
+
+        if (source < 0) {
+            return;
+        }
+
+        if (size == TextureResampleSize.Same) {
+            // ⚠ A warning rather than a refusal, because the plan it produces is sound — it is a copy
+            // — and because the *reason* it is a copy is the thing an author cannot see. This is the
+            // failure #733 describes, said at the one moment somebody can act on it.
+            emitter.Report(
+                "TG0018",
+                $"'{nameof(Size)}' is 'Same', so this resamples an image onto one of its own size — which is a "
+                + "copy, at the cost of a dispatch and a texture. The target's size is the scale; pick another.",
+                nameof(Size),
+                NodeSeverity.Warning
+            );
+        }
+
+        // Relative to the image arriving rather than to the graph's base, so that two Resamples in a
+        // row each halve. A bare offset would make the second one a no-op.
+        emitter.Dispatch(
+            new TextureOp {
+                Kernel = TextureColourKernels.Resample,
+                Output = emitter.Write("Out", emitter.Resolved, emitter.LevelOf(source) + (int)size),
+                Inputs = [source],
+                Parameters = [new("filter", (float)filter)]
+            }
+        );
+    }
+}

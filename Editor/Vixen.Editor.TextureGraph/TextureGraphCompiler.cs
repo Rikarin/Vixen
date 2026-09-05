@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
+using Vixen.Core.Mathematics;
 using Vixen.Editor.NodeGraph;
 
 namespace Vixen.Editor.TextureGraph;
@@ -22,7 +23,7 @@ namespace Vixen.Editor.TextureGraph;
 ///     the second list doc 48 § D1 exists to prevent —
 ///     <a href="https://github.com/Rikarin/Vixen/issues/718">#718</a>.
 /// </remarks>
-readonly record struct TextureGraphOutput(string Usage, int Image, NodeId Node);
+public readonly record struct TextureGraphOutput(string Usage, int Image, NodeId Node);
 
 /// <summary>Which image one node's output port wrote.</summary>
 /// <param name="Node">
@@ -38,7 +39,7 @@ readonly record struct TextureGraphOutput(string Usage, int Image, NodeId Node);
 ///     cheap — so reading one back after the bake gives whatever was written into it afterwards,
 ///     which is a picture, of the wrong node, with nothing anywhere saying so.
 /// </remarks>
-readonly record struct TextureGraphNodeImage(NodeId Node, string Port, int Image);
+public readonly record struct TextureGraphNodeImage(NodeId Node, string Port, int Image);
 
 /// <summary>One kernel a graph authored, rather than one this assembly ships.</summary>
 /// <param name="Kernel">The shader's name, which is what the op that runs it names.</param>
@@ -53,7 +54,49 @@ readonly record struct TextureGraphNodeImage(NodeId Node, string Port, int Image
 ///     real Raven compiler, and diagnostics mapped back to the node — and the last wire is
 ///     <a href="https://github.com/Rikarin/Vixen/issues/729">#729</a>.
 /// </remarks>
-readonly record struct TextureGraphKernel(string Kernel, string Source, NodeId Node);
+public readonly record struct TextureGraphKernel(string Kernel, string Source, NodeId Node);
+
+/// <summary>One external image a compiled graph needs, and what fills it.</summary>
+/// <param name="Image">Its index in <see cref="TexturePlan.Images" />. The entry is marked external.</param>
+/// <param name="Node">The node that asked for it, so an author can be sent to it.</param>
+/// <param name="Asset">
+///     What the graph references, when the picture is somebody else's — an imported bitmap. Empty when
+///     the node baked <see cref="Texels" /> itself.
+/// </param>
+/// <param name="Width">The picture's width in texels, or <c>0</c> when only the host knows it.</param>
+/// <param name="Height">Its height.</param>
+/// <param name="Texels">
+///     The bytes, tightly packed, top row first, in the image's own <see cref="TextureImage.Format" />
+///     — exactly what <c>TextureUploads.Add</c> takes. Empty when <paramref name="Asset" /> names the
+///     picture instead.
+/// </param>
+/// <remarks>
+///     <para>
+///         ⚠ <b>Carried by the compiler rather than by the plan, for
+///         <see cref="TextureGraphOutput" />'s reason and not a new one.</b> A plan's external image
+///         says "the caller supplies this one" and deliberately says nothing about <em>what</em> — that
+///         is what lets the same plan be re-evaluated over a different bitmap without recompiling. So
+///         the join between "image 3 is external" and "it is the gradient this node baked" lives here,
+///         and a bake reads it off the compiler to build the dictionary
+///         <c>TexturePlanEvaluator.Evaluate</c> already takes.
+///     </para>
+///     <para>
+///         <b>Two shapes because there are two kinds of caller-supplied picture, and only one of them
+///         can be produced by a pure compilation.</b> A ramp and a curve table are baked on the CPU
+///         from the control an artist dragged — <see cref="TextureRamp" /> — so the compiler carries
+///         the bytes and a host needs no knowledge at all. An imported image is an asset: resolving it
+///         means an <c>AssetDatabase</c>, which a compiler that runs on every edit must not touch, so
+///         what crosses is the reference and the host does the reading.
+///     </para>
+/// </remarks>
+public readonly record struct TextureGraphExternal(
+    int Image,
+    NodeId Node,
+    string Asset,
+    int Width,
+    int Height,
+    ImmutableArray<byte> Texels
+);
 
 /// <summary>
 ///     A texture graph, as a <see cref="TexturePlan" />.
@@ -86,11 +129,12 @@ readonly record struct TextureGraphKernel(string Kernel, string Source, NodeId N
 ///         <see cref="PortKind.Dynamic" />'s widening rule reused rather than a second type system.
 ///     </para>
 /// </remarks>
-sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
+public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     readonly ImmutableArray<TextureImage>.Builder images = ImmutableArray.CreateBuilder<TextureImage>();
     readonly ImmutableArray<TextureOp>.Builder ops = ImmutableArray.CreateBuilder<TextureOp>();
     readonly List<TextureChannels> channels = [];
     readonly List<TextureGraphOutput> outputs = [];
+    readonly List<TextureGraphExternal> externals = [];
 
     /// <summary>Which image an output port's variable names.</summary>
     readonly Dictionary<string, int> imageOf = new(StringComparer.Ordinal);
@@ -215,6 +259,24 @@ sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     /// </remarks>
     public ImmutableArray<TextureGraphKernel> Kernels { get; private set; } = [];
 
+    /// <summary>What fills each external image the last compilation asked for.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a bake turns into <c>TexturePlanEvaluator.Evaluate</c>'s externals.</b> Every
+    ///         entry whose <see cref="TextureGraphExternal.Texels" /> is filled can be uploaded with no
+    ///         further knowledge — <c>TextureGraphExternals.Upload</c> is that walk — and an entry that
+    ///         names an <see cref="TextureGraphExternal.Asset" /> is one only a host with an asset
+    ///         database can resolve.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A plan with an entry here cannot be evaluated without it.</b>
+    ///         <c>ExternalViews</c> refuses an external image no texture was supplied for, which is
+    ///         the right refusal and is thrown at bake time — so a host that ignores this list gets an
+    ///         exception rather than a picture.
+    ///     </para>
+    /// </remarks>
+    public ImmutableArray<TextureGraphExternal> Externals { get; private set; } = [];
+
     /// <inheritdoc />
     protected override void Begin(NodeGraphModel graph) {
         this.graph = graph;
@@ -222,6 +284,7 @@ sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         ops.Clear();
         channels.Clear();
         outputs.Clear();
+        externals.Clear();
         imageOf.Clear();
         promotions.Clear();
         folded.Clear();
@@ -230,6 +293,7 @@ sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         Outputs = [];
         NodeImages = [];
         Kernels = [];
+        Externals = [];
 
         emitter = new(this);
 
@@ -461,6 +525,7 @@ sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         Outputs = [.. outputs];
         NodeImages = [.. nodeImages];
         Kernels = [.. kernels];
+        Externals = [.. externals];
 
         return plan;
     }
@@ -503,13 +568,37 @@ sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     ///     before there is a plan to ask. <c>The_size_a_node_was_told_is_the_size_the_plan_reports</c>
     ///     is what keeps the two honest.
     /// </remarks>
-    internal int Extent(int baseExtent) {
-        var level = BakeLevelOffset;
+    internal int Extent(int baseExtent) => Extent(baseExtent, 0);
+
+    /// <summary>One axis at a level offset from the base, at this bake.</summary>
+    /// <remarks>
+    ///     The image's own offset and the bake's added, which is <see cref="TexturePlan.LevelOf" />'s
+    ///     sum — so a node asking for the size of the scratch it is about to allocate gets the number
+    ///     the plan will report for it.
+    /// </remarks>
+    internal int Extent(int baseExtent, int levelOffset) {
+        var level = BakeLevelOffset + levelOffset;
 
         return level >= 0
             ? Math.Max(1, baseExtent >> Math.Min(level, 31))
             : (int)Math.Min(TexturePlan.MaxExtent, (long)baseExtent << Math.Min(-level, 31));
     }
+
+    /// <summary>Where one already-allocated image sits, counted in levels from the authoring base.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The image's own offset, without this bake's</b> — so that a node building a ladder
+    ///     <em>relative</em> to its input adds to it rather than to a number the bake has already moved.
+    ///     It is <see cref="TextureImage.LevelOffset" /> and not <see cref="TexturePlan.LevelOf" />.
+    /// </remarks>
+    internal int LevelOf(int image) => image >= 0 && image < images.Count ? images[image].LevelOffset : 0;
+
+    /// <summary>How big one already-allocated image is at this bake, in texels.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Nominal for an external image</b>, whose size is the caller's picture's and is not
+    ///     known here at all — <c>TextureUploads.SizeOf</c> is what remembers that one.
+    /// </remarks>
+    internal Int2 SizeOf(int image) =>
+        new(Extent(BaseWidth, LevelOf(image)), Extent(BaseHeight, LevelOf(image)));
 
     /// <summary>What one image carries.</summary>
     internal TextureChannels ChannelsOf(int image) =>
@@ -570,8 +659,8 @@ sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     }
 
     /// <summary>Allocates the image one output port carries.</summary>
-    internal int Write(GraphNode node, string port, TextureChannels wanted) {
-        var image = Allocate(TextureEmitter.FormatOf(wanted), wanted);
+    internal int Write(GraphNode node, string port, TextureChannels wanted, int levelOffset = 0) {
+        var image = Allocate(TextureEmitter.FormatOf(wanted), wanted, levelOffset);
 
         imageOf[Variable(node, port)] = image;
 
@@ -618,8 +707,62 @@ sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     }
 
     /// <summary>Allocates an image no port names.</summary>
-    internal int Scratch(TextureFormat format) =>
-        Allocate(format, format == TextureFormat.R16Float ? TextureChannels.Grey : TextureChannels.Colour);
+    internal int Scratch(TextureFormat format, int levelOffset = 0) =>
+        Allocate(
+            format,
+            format == TextureFormat.R16Float ? TextureChannels.Grey : TextureChannels.Colour,
+            levelOffset
+        );
+
+    /// <summary>Allocates an image the caller supplies, and records what fills it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one entry in a plan's table nothing writes, and the only place an absolute
+    ///         size enters a graph</b> — doc 48 § D8. Its <see cref="TextureImage.LevelOffset" /> is
+    ///         therefore nominal and left at the base: every kernel clamps its taps to the
+    ///         <em>source's</em> own dimensions, so a ramp 256 texels wide is read correctly by an op
+    ///         writing a 4K image, and a level on it would be a number nothing reads pretending
+    ///         otherwise.
+    ///     </para>
+    ///     <para>
+    ///         <b>The byte count is checked here rather than at the upload</b>, because here there is
+    ///         a node to blame. <c>TextureUploads.Add</c> makes the same check and throws; a
+    ///         diagnostic naming the node is what an author can act on.
+    ///     </para>
+    /// </remarks>
+    internal int External(
+        GraphNode node,
+        TextureFormat format,
+        TextureChannels carried,
+        string asset,
+        int width,
+        int height,
+        ReadOnlySpan<byte> texels
+    ) {
+        ArgumentNullException.ThrowIfNull(node);
+
+        if (asset.Length == 0) {
+            var expected = (long)width * height * TextureFormats.BytesPerTexel(format);
+
+            if (width <= 0 || height <= 0 || texels.Length != expected) {
+                Report(new(
+                    "TG0017",
+                    $"This node bakes its own {width}×{height} {format} picture and handed over {texels.Length} "
+                    + $"byte(s) where {expected} are needed. An external image is uploaded exactly as it is "
+                    + "written down — there is nothing that could resample it.",
+                    node.Id
+                ));
+
+                return -1;
+            }
+        }
+
+        var image = Allocate(format, carried, 0, external: true);
+
+        externals.Add(new(image, Inlining.Resolve(node.Id), asset, width, height, [.. texels]));
+
+        return image;
+    }
 
     /// <summary>The image arriving at one input, under doc 48 § Part 4's promotion rule.</summary>
     internal int Read(GraphNode node, string port, NodeBinding binding, TextureChannels wanted, bool strict) {
@@ -737,8 +880,8 @@ sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             ? image
             : null;
 
-    int Allocate(TextureFormat format, TextureChannels carried) {
-        images.Add(new(format));
+    int Allocate(TextureFormat format, TextureChannels carried, int levelOffset = 0, bool external = false) {
+        images.Add(new(format, levelOffset, external));
         channels.Add(carried);
 
         return images.Count - 1;

@@ -16,7 +16,7 @@ namespace Vixen.Editor.TextureGraph;
 ///     <see cref="TextureGraphExpressions" /> could fold, so it is left out rather than declared and
 ///     refused at the point of use.
 /// </remarks>
-enum TextureGraphParameterKind {
+public enum TextureGraphParameterKind {
     /// <summary>A <c>float</c>.</summary>
     Scalar,
 
@@ -56,7 +56,7 @@ enum TextureGraphParameterKind {
 ///         <a href="https://github.com/Rikarin/Vixen/issues/730">#730</a>.
 ///     </para>
 /// </remarks>
-sealed record TextureGraphParameter(
+public sealed record TextureGraphParameter(
     string Name,
     TextureGraphParameterKind Kind = TextureGraphParameterKind.Scalar,
     float Default = 0f,

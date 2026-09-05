@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Immutable;
 using Vixen.Editor.NodeGraph;
 
 namespace Vixen.Editor.TextureGraph.Nodes;
@@ -282,5 +283,181 @@ sealed partial class ChannelShuffleNode : TextureNode {
                 ]
             }
         );
+    }
+}
+
+/// <summary>A spline per channel, through a baked table.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The kernel evaluates no spline, and that is the node's whole design.</b>
+///         <c>Core/Vixen.Core/Curves</c>'s <c>CurveEvaluation</c> is the one Hermite implementation in
+///         this repository and <c>CurveEditor</c> is the control that edits it; transcribing it into
+///         Raven would be the bug its own remark names — "a curve that reads one way in the editor and
+///         another in the build". So the curve is baked into a 256-entry table by
+///         <see cref="TextureRamp.FromCurves" /> and this kernel interpolates between the entries.
+///     </para>
+///     <para>
+///         <b>With no curve named, the table is the identity</b> — baked through the same evaluator,
+///         so the node is a no-op by construction rather than by a branch nobody exercises.
+///     </para>
+/// </remarks>
+[Node("Colour/Curve", Preview = true, Summary = "A spline per channel, through a table baked from the curve editor.")]
+sealed partial class CurveNode : TextureNode {
+    /// <summary>The curve asset the table is baked from, or empty for the identity.</summary>
+    [Setting(Name = "Curve", Summary = "The curve asset a host resolves. Empty is the identity.")]
+    public string CurveAsset = "";
+
+    /// <summary>What to shape.</summary>
+    [Input(Name = "Input")]
+    public Image Input;
+
+    /// <summary>How much of the curved result to keep. 0 is the input, 1 is the curve.</summary>
+    [Input]
+    public Scalar Amount = 1f;
+
+    /// <summary>The shaped image.</summary>
+    [Output(Name = "Out")]
+    public Image Out;
+
+    /// <inheritdoc />
+    protected internal override void Compile(TextureEmitter emitter) {
+        ArgumentNullException.ThrowIfNull(emitter);
+
+        var source = emitter.Read("Input");
+        var table = TextureTables.Curve(emitter, "Curve");
+        var target = emitter.Write("Out");
+
+        if (source < 0 || table < 0) {
+            return;
+        }
+
+        emitter.Dispatch(
+            new TextureOp {
+                Kernel = TextureColourKernels.Curve,
+                Output = target,
+                Inputs = [source, table],
+                Parameters = [new("amount", emitter.Number(nameof(Amount)))]
+            }
+        );
+    }
+}
+
+/// <summary>Grey through a colour ramp.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>Its input is grey and grey here is the <em>red channel</em>, not a luminance.</b>
+///         <c>GradientMap.rvn</c> says why at length: doc 48 § 4.2 gives <c>Grayscale</c> its own node
+///         precisely so that "which weights" is answered once, by an artist — so a colour arriving
+///         here is refused rather than averaged, which is <see cref="TextureEmitter.ReadGrey" />'s
+///         rule and § Part 4's second half.
+///     </para>
+///     <para>
+///         <b>The ramp is a baked strip, as <c>Source/Gradient</c>'s is</b>, and for the same reason:
+///         a kernel that re-mixed stops would be a fourth opinion about a gradient's interpolation
+///         space.
+///     </para>
+/// </remarks>
+[Node("Colour/Gradient Map", Preview = true, Summary = "A grey image through a colour ramp.")]
+sealed partial class GradientMapNode : TextureNode {
+    /// <summary>The gradient asset the ramp is baked from, or empty for black to white.</summary>
+    [Setting(Name = "Ramp", Summary = "The gradient asset a host resolves. Empty is black to white.")]
+    public string RampAsset = "";
+
+    /// <summary>What to map. A single channel — put a Grayscale in front of a colour.</summary>
+    [Input(Name = "Input")]
+    public Image Input;
+
+    /// <summary>Whether the input's alpha survives, rather than the ramp's.</summary>
+    [Input(Name = "Keep Alpha")]
+    public Bool KeepAlpha = true;
+
+    /// <summary>The mapped image.</summary>
+    [Output(Name = "Out")]
+    public Image Out;
+
+    /// <inheritdoc />
+    protected internal override void Compile(TextureEmitter emitter) {
+        ArgumentNullException.ThrowIfNull(emitter);
+
+        var source = emitter.ReadGrey("Input");
+        var ramp = TextureTables.Ramp(emitter, "Ramp");
+
+        // Colour whatever arrived, because that is the point of the node: a mask goes in and a
+        // ramp's colours come out, so writing this at the input's channels would throw the map away.
+        var target = emitter.Write("Out", TextureChannels.Colour);
+
+        if (source < 0 || ramp < 0) {
+            return;
+        }
+
+        emitter.Dispatch(
+            new TextureOp {
+                Kernel = TextureColourKernels.GradientMap,
+                Output = target,
+                Inputs = [source, ramp],
+                Parameters = [new("keepAlpha", emitter.Flag("Keep Alpha") ? 1f : 0f)]
+            }
+        );
+    }
+}
+
+/// <summary>The image stretched onto the full range by its own extremes.</summary>
+/// <remarks>
+///     <para>
+///         <b>The one node in the catalogue that is a <em>chain</em> whose length depends on the bake
+///         resolution and the size of the image it reads.</b> Finding the extremes of every texel is
+///         a reduction — one <c>MinMaxReduce</c> dispatch per rung down to a 1×1 image, because a
+///         4K image does not reduce to one texel in one dispatch without a loop no invocation leaves
+///         — and <see cref="TextureAdjust.AutoLevels" /> is what emits the ladder so that a call site
+///         cannot be two dispatches short at 4K.
+///     </para>
+///     <para>
+///         ⚠ <b>It could not be a node until <a href="https://github.com/Rikarin/Vixen/issues/733">
+///         #733</a>, and the reason is one number.</b> Every rung is an image at a level offset —
+///         3, 6, 9 down from its source — and a node had no way to ask for one: every image any node
+///         allocated was at the plan's base level, and a reduction whose target is the same size as
+///         its source has a block of one texel and never converges.
+///     </para>
+///     <para>
+///         ⚠ <b>The ladder is measured from the image this node <em>reads</em>, not from the graph's
+///         base.</b> Auto Levels after a half-resolution Resample reduces a half-resolution image, and
+///         a ladder counted from the base would start three levels below where its source is — the
+///         reduction would then read an 8×8 block of an image that is not there and settle on the
+///         extremes of a corner. <see cref="TextureEmitter.LevelOf" /> is what makes it relative.
+///     </para>
+/// </remarks>
+[Node("Colour/Auto Levels", Preview = true, Summary = "Stretches the image onto the full range by its own extremes.")]
+sealed partial class AutoLevelsNode : TextureNode {
+    /// <summary>What to stretch.</summary>
+    [Input(Name = "Input")]
+    public Image Input;
+
+    /// <summary>The stretched image.</summary>
+    [Output(Name = "Out")]
+    public Image Out;
+
+    /// <inheritdoc />
+    protected internal override void Compile(TextureEmitter emitter) {
+        ArgumentNullException.ThrowIfNull(emitter);
+
+        var source = emitter.Read("Input");
+        var target = emitter.Write("Out");
+
+        if (source < 0) {
+            return;
+        }
+
+        var size = emitter.SizeOf(source);
+        var level = emitter.LevelOf(source);
+        var levels = TextureAdjust.ReductionLevels(size.X, size.Y);
+        var scratch = ImmutableArray.CreateBuilder<int>(levels.Length);
+
+        foreach (var rung in levels) {
+            // Rgba16Float, because a rung carries a `(min, max)` pair rather than a colour and both
+            // lanes are reduced independently. R16Float would keep the minimum and lose the maximum.
+            scratch.Add(emitter.Scratch(TextureFormat.Rgba16Float, level + rung));
+        }
+
+        emitter.Dispatch(TextureAdjust.AutoLevels(target, source, scratch.ToImmutable(), size.X, size.Y));
     }
 }

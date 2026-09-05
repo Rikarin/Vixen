@@ -67,33 +67,12 @@ public class TextureNodeLibraryTests {
     ///     </para>
     /// </remarks>
     static readonly (string Kernel, string Reason)[] Unnoded = [
-        ("Bitmap",
-            "Its source is an image the caller supplies. TextureImage.External says a plan can hold one and "
-            + "TextureUploads supplies it, but TextureGraphCompiler.Allocate only ever builds a pooled image — "
-            + "there is no emitter call that produces an external, and no way for a node to carry the bytes. #732."),
-        ("Gradient",
-            "Its ramp is an external strip baked from the gradient control, so it is blocked on the same missing "
-            + "external allocation as Bitmap. #732."),
-        ("Curve",
-            "Its table is an external 256×1 strip baked by TextureRamp.FromCurves. Same gap; the baking half "
-            + "already exists and is tested. #732."),
-        ("GradientMap",
-            "Its ramp is an external strip too, so it is blocked on the same missing external allocation — and it "
-            + "is the one of the four whose other input is an ordinary intermediate. #732."),
-        ("MinMaxReduce",
-            "A reduction is one dispatch per level down to 1×1, so it needs scratch images at descending level "
-            + "offsets. TextureEmitter.Scratch allocates at the plan's base level and takes no offset, and a "
-            + "reduction over same-sized images has a block of one texel and never converges. #733."),
-        ("AutoLevels",
-            "It reads the 1×1 image the MinMaxReduce chain settles to, so it is blocked on exactly that. #733."),
-        ("Resample",
-            "The target's size *is* the scale — the kernel takes no ratio — so a Resample writing an image at the "
-            + "same level as its input is an identity copy. It becomes a node the moment an output image can be "
-            + "allocated at a level offset, and not before. #733."),
         ("FloodResidual",
-            "The truncation report: whether the last propagation iteration changed anything. Reading it needs a "
-            + "MinMaxReduce chain down to one texel, so it is blocked on the same missing level-offset scratch "
-            + "as AutoLevels — see FloodFillNode's remarks. #733.")
+            "The truncation report: whether the last propagation iteration changed anything. ⚠ The gap it was "
+            + "blocked on is gone — #733 landed, and Colour/Auto Levels emits exactly the MinMaxReduce ladder the "
+            + "residual would reduce over — so what is missing now is the other half: an author has nowhere to "
+            + "*read* one texel of a bake. Analysis/Flood Fill would need a second output whose whole content is "
+            + "a number, and a plan output is a picture. See FloodFillNode's remarks.")
     ];
 
     /// <summary>
@@ -131,7 +110,11 @@ public class TextureNodeLibraryTests {
             + "colour promotion writes the first input's red on all three colour lanes.",
         [("ChannelShuffle", "sourceB")] = "As sourceG.",
         [("ChannelShuffle", "sourceA")] = "As sourceG — a constant one, because a splatted zero would make every "
-            + "promoted image invisible to the Blend the promotion exists for."
+            + "promoted image invisible to the Blend the promotion exists for.",
+        [("MinMaxReduce", "first")] = "As JumpFlood's: set per rung by Colour/Auto Levels' ladder, so that the "
+            + "first dispatch reads grey values and every one after it reads an already-reduced (min, max) pair. "
+            + "Leaving it 1 on a later rung reduces the minimum against itself and loses the maximum, which is a "
+            + "picture stretched from (min, min) — black."
     };
 
     /// <summary>The nine usages, one per <c>Output</c> node the fixture places.</summary>
@@ -612,6 +595,34 @@ public class TextureNodeLibraryTests {
 
         graph.Connect(shape, "Out", sampler, "Pattern");
         graph.Connect(shape, "Out", splatter, "Pattern");
+
+        // The four images no op writes: a picture the caller supplies and three tables baked on the
+        // CPU from the editor's own evaluators. Plus the two nodes that need an image at a level of
+        // its own — a reduction ladder and a halving.
+        var bitmap = graph.Add("Source/Bitmap");
+        var gradient = graph.Add("Source/Gradient");
+        var curve = graph.Add("Colour/Curve");
+        var gradientMap = graph.Add("Colour/Gradient Map");
+        var autoLevels = graph.Add("Colour/Auto Levels");
+        var resample = graph.Add("Space/Resample");
+
+        // ⚠ The one thing this fixture authors that is not an output usage, and it is not a number:
+        // a Bitmap with no asset is the single node in the library whose *default* cannot compile,
+        // because there is no picture a reference-less bitmap could draw and inventing a black one
+        // would be the silent failure the node refuses. Every number below is still a declared
+        // default, which is what keeps the defaults roll call an assertion about the library.
+        bitmap.SetText("Source", "Assets/Textures/fixture.png");
+
+        // ⚠ These three chains end in no Output node, which is legal and is what half an author's
+        // canvas looks like: an image nothing reads is freed by the pool the moment its last reader
+        // has run, and its *op* is still in the plan — which is what this file reads.
+        graph.Connect(bitmap, "Out", resample, "Input");
+        graph.Connect(gradient, "Out", curve, "Input");
+
+        // Grey into the ladder and out through the ramp, because Gradient Map measures rather than
+        // composites: a colour arriving at it is a TG0004 by design.
+        graph.Connect(grayscale, "Out", autoLevels, "Input");
+        graph.Connect(autoLevels, "Out", gradientMap, "Input");
 
         graph.Keep(vectorWarp, "baseColor");
         graph.Keep(normalTransform, "normal");

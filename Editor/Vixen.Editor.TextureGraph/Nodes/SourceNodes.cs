@@ -242,3 +242,191 @@ sealed partial class CheckerNode : TextureNode {
         );
     }
 }
+
+/// <summary>Which colour space an imported picture's values are in.</summary>
+/// <remarks>
+///     ⚠ <b>Doc 48 § 4.1: "an sRGB texture decoded as linear and then blended is the commonest
+///     wrong-looking graph there is."</b> The decode happens once, in <c>Bitmap.rvn</c>, at the only
+///     node that touches an asset — so every image <em>inside</em> a graph is linear by construction
+///     and no other kernel has to ask.
+/// </remarks>
+enum TextureColourSpace {
+    /// <summary>Already linear: a mask, a height, a normal map, a roughness.</summary>
+    Linear = 0,
+
+    /// <summary>Encoded, and decoded on the way in. What a colour map from a paint tool is.</summary>
+    Srgb = 1
+}
+
+/// <summary>An imported image.</summary>
+/// <remarks>
+///     <para>
+///         <b>Doc 48 § D8's one absolute size.</b> Every other image in a plan is a level offset from
+///         the graph's base resolution; this one is whatever the picture is, and <c>Bitmap.rvn</c>
+///         resamples it into the resolution of the image the op writes. That is why it is the first
+///         node that allocates an <em>external</em> image — one the plan does not allocate, does not
+///         pool and never writes.
+///     </para>
+///     <para>
+///         ⚠ <b>The asset's name crosses and its pixels do not.</b> A compilation runs on every edit
+///         and must not read an asset database, so what the compiler carries is the reference —
+///         <c>TextureGraphCompiler.Externals</c> — and a host that has a database resolves it and
+///         uploads it. <a href="https://github.com/Rikarin/Vixen/issues/732">#732</a> is the gap this
+///         closes; ⚠ what it does <em>not</em> close is that no host in this tree walks that list for
+///         an asset yet, so a graph containing a Bitmap compiles and does not bake.
+///     </para>
+///     <para>
+///         ⚠ <b>No minification filter, which is the kernel's property and worth knowing before
+///         importing a 4K stamp.</b> A bitmap larger than the image it is resampled into is
+///         undersampled and will alias; <c>Space/Resample</c> is where that is answered, because only
+///         there is the target's size the whole of the answer.
+///     </para>
+/// </remarks>
+[Node("Source/Bitmap", Preview = true, Summary = "An imported image, resampled into the graph's resolution.")]
+sealed partial class BitmapNode : TextureNode {
+    /// <summary>The imported image this graph reads, as a host resolves it.</summary>
+    [Setting(Name = "Source", Summary = "The imported image, by the reference a host resolves.")]
+    public string Asset = "";
+
+    /// <summary>Whether the asset's values need decoding: <c>Linear</c> or <c>Srgb</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>Linear</c> by default, which is the kernel's own default and is deliberately the
+    ///     one that does nothing.</b> <c>Bitmap.rvn</c> calls this "the asset's declared space
+    ///     arriving as a number" — it is a fact about the picture, and the node cannot see the
+    ///     picture. Defaulting to <c>Srgb</c> would darken every imported mask by a curve nobody
+    ///     asked for, which is as silent as the over-bright colour map it would fix; a host that has
+    ///     resolved the asset is what can answer honestly.
+    /// </remarks>
+    [Setting]
+    public string Space = "Linear";
+
+    /// <summary>How it is resampled: <c>Point</c> or <c>Bilinear</c>. ⚠ Not <c>Box</c>.</summary>
+    [Setting]
+    public string Filter = "Bilinear";
+
+    /// <summary>The picture.</summary>
+    [Output(Name = "Out")]
+    public Image Out;
+
+    /// <inheritdoc />
+    protected internal override void Compile(TextureEmitter emitter) {
+        ArgumentNullException.ThrowIfNull(emitter);
+
+        var space = TextureSettings.Enum(emitter, nameof(Space), TextureColourSpace.Linear);
+        var filter = TextureSettings.Enum(emitter, nameof(Filter), TextureFilter.Bilinear);
+        var asset = emitter.Text("Source").Trim();
+
+        if (asset.Length == 0) {
+            // ⚠ Refused rather than filled with black. An external image nothing supplies is an
+            // exception at bake time — `ExternalViews` refuses it — and an empty reference is the one
+            // case where a compiler can name the node instead.
+            emitter.Report(
+                "TG0002",
+                "This node has no image. A bitmap's pixels come from an imported asset, so a reference is what "
+                + "fills it — there is nothing it could draw instead.",
+                "Source"
+            );
+
+            return;
+        }
+
+        if (filter == TextureFilter.Box) {
+            // `Bitmap.rvn` compares `filter` against 0 and interpolates for everything else, so a
+            // `Box` here would be a bilinear read under the name of a box filter — `CropNode`'s
+            // refusal, for the same reason.
+            emitter.Report(
+                "TG0010",
+                $"'{nameof(Filter)}' is 'Box', and 'Bitmap' takes Point or Bilinear. A box needs a minification "
+                + "ratio, which is Space/Resample's question rather than this node's.",
+                nameof(Filter)
+            );
+
+            return;
+        }
+
+        // Rgba8 because that is what an imported colour map is, and because a plan may *read* a
+        // format no kernel can write — see `TextureFormats.IsStorable`. Colour, because a picture
+        // with an alpha is not a mask.
+        var source = emitter.External(TextureFormat.Rgba8, TextureChannels.Colour, asset);
+        var target = emitter.Write("Out", TextureChannels.Colour);
+
+        emitter.Dispatch(
+            TextureSources.Bitmap(target, source, space == TextureColourSpace.Srgb, filter == TextureFilter.Bilinear)
+        );
+    }
+}
+
+/// <summary>A sweep along a ramp: linear, radial, angular or reflected.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The ramp is an image and not a list of uniforms, which is what keeps this from being
+///         a second opinion about what a gradient means.</b>
+///         <c>Vixen.Ui.Controls.Advanced</c>'s <c>Gradient</c> already decides that, including which
+///         of three spaces the stops are mixed in — sRGB, linear and Oklab disagree visibly — so the
+///         strip is baked from <em>that</em> evaluator by <see cref="TextureRamp.FromRamp" /> and the
+///         kernel only decides where along it a texel falls.
+///     </para>
+///     <para>
+///         <b>With no ramp named the strip is black to white</b>, and that is a real ramp through the
+///         real path rather than a placeholder: a linear sweep over it at rotation zero is exactly
+///         <c>(x + 0.5) / width</c>, which is the closed form <c>Gradient.rvn</c>'s remarks name.
+///     </para>
+/// </remarks>
+[Node("Source/Gradient", Preview = true, Summary = "A linear, radial, angular or reflected sweep along a ramp.")]
+sealed partial class GradientNode : TextureNode {
+    /// <summary>Which sweep: <c>Linear</c>, <c>Radial</c>, <c>Angular</c> or <c>Reflected</c>.</summary>
+    [Setting]
+    public string Kind = "Linear";
+
+    /// <summary>The gradient asset the strip is baked from, or empty for black to white.</summary>
+    [Setting(Name = "Ramp", Summary = "The gradient asset a host resolves. Empty is black to white.")]
+    public string RampAsset = "";
+
+    /// <summary>The direction of a linear or reflected sweep, in radians, clockwise on screen.</summary>
+    [Input]
+    public Scalar Angle = 0f;
+
+    /// <summary>Where it is centred along x, in 0..1 of the image.</summary>
+    [Input(Name = "Centre X")]
+    public Scalar CentreX = 0.5f;
+
+    /// <summary>Where it is centred along y.</summary>
+    [Input(Name = "Centre Y")]
+    public Scalar CentreY = 0.5f;
+
+    /// <summary>How much of the image the sweep spans. 1 spans it; 0.5 spans the middle half.</summary>
+    [Input]
+    public Scalar Scale = 1f;
+
+    /// <summary>The sweep.</summary>
+    [Output(Name = "Out")]
+    public Image Out;
+
+    /// <inheritdoc />
+    protected internal override void Compile(TextureEmitter emitter) {
+        ArgumentNullException.ThrowIfNull(emitter);
+
+        var kind = TextureSettings.Enum(emitter, nameof(Kind), TextureGradientKind.Linear);
+        var ramp = TextureTables.Ramp(emitter, "Ramp");
+
+        if (ramp < 0) {
+            return;
+        }
+
+        // Colour, because a ramp is RGBA whatever the sweep. A graph wanting a grey sweep puts a
+        // Grayscale after it and pays one dispatch, which is `UniformNode`'s bargain.
+        var target = emitter.Write("Out", TextureChannels.Colour);
+
+        emitter.Dispatch(
+            TextureSources.Gradient(
+                target,
+                ramp,
+                kind,
+                emitter.Number(nameof(Angle)),
+                emitter.Number("Centre X"),
+                emitter.Number("Centre Y"),
+                emitter.Number(nameof(Scale))
+            )
+        );
+    }
+}

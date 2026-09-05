@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
+using Vixen.Core.Mathematics;
 using Vixen.Editor.NodeGraph;
 
 namespace Vixen.Editor.TextureGraph;
@@ -161,16 +162,38 @@ sealed class TextureEmitter {
     /// <summary>Allocates the image one output port carries, at a stated number of channels.</summary>
     /// <param name="port">The output port's name.</param>
     /// <param name="channels">What it carries, for a node whose output is not its input's shape.</param>
+    /// <param name="levelOffset">
+    ///     How its size relates to the plan's base: <c>0</c> is the base, <c>1</c> is half,
+    ///     <c>-1</c> is double.
+    /// </param>
     /// <returns>Its index in the plan's image table.</returns>
     /// <remarks>
-    ///     For the nodes whose answer has a shape of its own whatever went in — a distance field is
-    ///     grey however colourful its mask was, and a normal map is three channels however grey its
-    ///     height was.
+    ///     <para>
+    ///         For the nodes whose answer has a shape of its own whatever went in — a distance field
+    ///         is grey however colourful its mask was, and a normal map is three channels however
+    ///         grey its height was.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The level is what makes a <c>Resample</c> node possible at all</b>, and until
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/733">#733</a> there was no way to
+    ///         spell it: every image a node allocated was at the plan's base, so a resample writing
+    ///         its output at its input's size was an identity copy — the kernel takes no ratio,
+    ///         because the target's size <em>is</em> the scale.
+    ///     </para>
+    ///     <para>
+    ///         <b>Absolute, not relative to the input.</b> A node that means "half of what arrived"
+    ///         reads <see cref="LevelOf" /> and adds to it, which is what
+    ///         <c>Space/Resample</c> does; passing a bare <c>1</c> would be half of the
+    ///         <em>graph's</em> base, and the two differ the moment anything upstream is already
+    ///         scaled.
+    ///     </para>
     /// </remarks>
-    public int Write(string port, TextureChannels channels) => compiler.Write(node, port, channels);
+    public int Write(string port, TextureChannels channels, int levelOffset = 0) =>
+        compiler.Write(node, port, channels, levelOffset);
 
     /// <summary>An image nothing outside this node reads: the middle of a separable filter.</summary>
     /// <param name="format">What it stores.</param>
+    /// <param name="levelOffset">Its size relative to the plan's base, as <see cref="Write(string,TextureChannels,int)" />.</param>
     /// <returns>Its index in the plan's image table.</returns>
     /// <remarks>
     ///     ⚠ <b>Named rather than reused, because an image in a plan is written exactly once</b> —
@@ -178,7 +201,64 @@ sealed class TextureEmitter {
     ///     of these rather than writing its output twice. The pool is what stops the count from
     ///     mattering: a scratch is freed the moment its last reader has run.
     /// </remarks>
-    public int Scratch(TextureFormat format) => compiler.Scratch(format);
+    public int Scratch(TextureFormat format, int levelOffset = 0) => compiler.Scratch(format, levelOffset);
+
+    /// <summary>Where one image this node can see sits, in levels from the authoring base.</summary>
+    /// <param name="image">Its index in the plan's image table.</param>
+    /// <returns>Its own level offset, without this bake's.</returns>
+    /// <remarks>
+    ///     What a node adds to when it wants an image <em>relative</em> to the one arriving at a
+    ///     port. Zero for an image nobody has allocated and for every external one.
+    /// </remarks>
+    public int LevelOf(int image) => compiler.LevelOf(image);
+
+    /// <summary>How big one image this node can see is at this bake, in texels.</summary>
+    /// <param name="image">Its index in the plan's image table.</param>
+    /// <returns>Its width and height.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Nominal for an external image.</b> An imported bitmap's size is the caller's and is
+    ///     not known during a compilation at all — every kernel clamps its taps to the source's own
+    ///     dimensions precisely so that it need not be.
+    /// </remarks>
+    public Int2 SizeOf(int image) => compiler.SizeOf(image);
+
+    /// <summary>Allocates an image the caller supplies, filled with texels this node baked.</summary>
+    /// <param name="format">What it stores. ⚠ Need not be storable — nothing writes it.</param>
+    /// <param name="channels">What it carries, for the promotion rule.</param>
+    /// <param name="width">The picture's width in texels.</param>
+    /// <param name="height">Its height.</param>
+    /// <param name="texels">The bytes, tightly packed, top row first, in <paramref name="format" />.</param>
+    /// <returns>Its index in the plan's image table, or −1 when the byte count does not fit.</returns>
+    /// <remarks>
+    ///     <b>Doc 48 § 4.1's ramps and tables.</b> A gradient and a curve are baked on the CPU by
+    ///     <c>TextureRamp</c>, out of the one evaluator the editor already has for each, so that the
+    ///     kernel reading the strip can never disagree with the control an artist dragged. The
+    ///     compiler carries the bytes — see <c>TextureGraphExternal</c> — and
+    ///     <c>TextureGraphExternals.Upload</c> is what puts them on a device.
+    /// </remarks>
+    public int External(
+        TextureFormat format,
+        TextureChannels channels,
+        int width,
+        int height,
+        ReadOnlySpan<byte> texels
+    ) =>
+        compiler.External(node, format, channels, "", width, height, texels);
+
+    /// <summary>Allocates an image the caller supplies, naming the asset that fills it.</summary>
+    /// <param name="format">What the picture is expected to be stored as.</param>
+    /// <param name="channels">What it carries, for the promotion rule.</param>
+    /// <param name="asset">What the graph references — an imported image.</param>
+    /// <returns>Its index in the plan's image table.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The reference crosses and the pixels do not, because a compilation must not read an
+    ///     asset database.</b> Compiling is what runs on every edit and what a preview is; opening a
+    ///     file in it would make an edit cost an import. So a host walks
+    ///     <c>TextureGraphCompiler.Externals</c>, reads what each entry names, and uploads it —
+    ///     which is also what makes the same plan re-usable over a different picture.
+    /// </remarks>
+    public int External(TextureFormat format, TextureChannels channels, string asset) =>
+        compiler.External(node, format, channels, asset, 0, 0, []);
 
     /// <summary>The storage one number of channels is kept in.</summary>
     /// <param name="channels">Grey or colour.</param>
