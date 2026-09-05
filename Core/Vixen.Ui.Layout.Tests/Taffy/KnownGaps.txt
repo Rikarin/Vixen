@@ -458,10 +458,28 @@
 # sits WITHIN its line. This store puts it at the RTL flex-start — the line's right edge, 70 and 10 —
 # and Chrome puts it at the line's left edge, 50 and 0, while mirroring the same items' own children
 # correctly one level down. Neither `start` nor `flex-start` is left in RTL, so the fallback story
-# does not explain Chrome and something else is deciding it. Four fixtures, no rule, and it should
-# not be guessed at: baseline alignment in a column container is under-specified and Chrome and
-# Firefox are known to disagree about it, so a fixture-level guess here is likely to be a fifth entry
-# in this file's list of headings that were believed because they were plausible.
+# does not explain Chrome and something else is deciding it.
+#
+# ⚠ <b>WHAT CHROME'S EIGHT NUMBERS ARE, IN CLOSED FORM: every item in a line shares its line's
+# PHYSICAL LEFT EDGE, in both directions.</b> That is worth writing down because it is a measurement
+# rather than a theory, and it survives being stated without naming a rule. LTR line one is 0..50 and
+# holds items 50 and 30 wide, both at x=0; line two is 50..100 and holds 40 and 50, both at x=50. RTL
+# mirrors the LINES — line one 50..100, line two 0..50 — and then puts 50 and 30 both at x=50, and 40
+# and 50 both at x=0. Same fixture, same edge, either direction. Equivalently: the line rectangle is
+# mirrored and the item's offset inside it is not, which is what an implementation that mirrors at
+# line granularity does, and is the shape of an artefact rather than of a keyword. Three alignments
+# were checked against those numbers and all three are refuted: a synthesised baseline at the item's
+# inline-START edge gives offset 0 from the cross-start, which is Chrome in LTR and this store in RTL;
+# one at the inline-END edge gives B an offset of 20 in LTR where Chrome gives 0; and mirroring the
+# whole content box at the end gives B x=70 where Chrome gives 50. So no ascent, participating or
+# synthesised, produces this — only "do not mirror the offset" does.
+#
+# Four fixtures, no rule, and it should still not be guessed at: baseline alignment in a column
+# container is under-specified and Chrome and Firefox are known to disagree about it, so a
+# fixture-level guess here is likely to be a fifth entry in this file's list of headings that were
+# believed because they were plausible. ⚠ And the closed form above makes that MORE true rather than
+# less: an engine change that reproduced it would be a decision to stop mirroring one offset in one
+# alignment, justified by two fixtures and nothing else in four corpora.
 align_baseline_multiline_column
 align_baseline_multiline_column2
 
