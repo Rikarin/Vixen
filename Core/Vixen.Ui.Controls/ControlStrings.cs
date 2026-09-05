@@ -50,6 +50,19 @@ public static class ControlStrings {
     /// </remarks>
     public static StringId FieldRequired { get; } = new("ui.control.field.required", "Required");
 
+    /// <summary>A stepper's upward arrow.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What the arrow does, not which way it points.</b> "Up" is a fact about the glyph and
+    ///     is the one thing a screen-reader user can already work out from nothing; what they cannot
+    ///     see is that the control is a number and that this makes it larger. It is also the word
+    ///     that stays true in a right-to-left window, where the pair may not be where "up" suggests.
+    /// </remarks>
+    public static StringId StepperIncrease { get; } = new("ui.control.stepper.increase", "Increase");
+
+    /// <summary>A stepper's downward arrow.</summary>
+    /// <inheritdoc cref="StepperIncrease" select="remarks" />
+    public static StringId StepperDecrease { get; } = new("ui.control.stepper.decrease", "Decrease");
+
     /// <summary>The button that dismisses a dialog.</summary>
     public static StringId DialogClose { get; } = new("ui.control.dialog.close", "Close");
 
@@ -195,6 +208,8 @@ public static class ControlStrings {
     public static IReadOnlyList<StringId> All { get; } = [
         TextInputClear,
         FieldRequired,
+        StepperIncrease,
+        StepperDecrease,
         DialogClose,
         DialogConfirm,
         DialogCancel,

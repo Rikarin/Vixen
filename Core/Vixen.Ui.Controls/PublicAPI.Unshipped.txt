@@ -360,7 +360,7 @@ Vixen.Ui.Controls.MultiSelect.Placeholder.set -> string?
 Vixen.Ui.Controls.MultiSelect.Select(string value, bool isSelected) -> bool
 Vixen.Ui.Controls.MultiSelect.SelectionChanged -> System.Action<Vixen.Ui.Controls.MultiSelect>?
 Vixen.Ui.Controls.MultiSelect.Values.get -> System.Collections.Generic.IReadOnlyCollection<string>
-Vixen.Ui.Controls.NumericInput -> sealed class
+Vixen.Ui.Controls.NumericInput -> class
 Vixen.Ui.Controls.NumericInput : Vixen.Ui.Controls.TextField
 Vixen.Ui.Controls.NumericInput.ClearDecimals() -> void
 Vixen.Ui.Controls.NumericInput.ClearMaximum() -> void
@@ -706,6 +706,11 @@ Vixen.Ui.Controls.StatusBar.Message.get -> string?
 Vixen.Ui.Controls.StatusBar.Message.set -> string?
 Vixen.Ui.Controls.StatusBar.StatusBar() -> void
 Vixen.Ui.Controls.StatusBar.Trailing.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Stepper -> sealed class
+Vixen.Ui.Controls.Stepper : Vixen.Ui.Controls.NumericInput
+Vixen.Ui.Controls.Stepper.DecrementButton.get -> Vixen.Ui.Controls.IconButton
+Vixen.Ui.Controls.Stepper.IncrementButton.get -> Vixen.Ui.Controls.IconButton
+Vixen.Ui.Controls.Stepper.Stepper() -> void
 Vixen.Ui.Controls.SubmitEvent -> sealed class
 Vixen.Ui.Controls.SubmitEvent : Vixen.Ui.UiEvent
 Vixen.Ui.Controls.SubmitEvent.SubmitEvent() -> void
@@ -1140,6 +1145,9 @@ override Vixen.Ui.Controls.StatusBar.ContentHost.get -> Vixen.Ui.UiElement
 override Vixen.Ui.Controls.StatusBar.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.StatusBar.OnCreated() -> void
 override Vixen.Ui.Controls.StatusBar.TagName.get -> string
+override Vixen.Ui.Controls.Stepper.OnCreated() -> void
+override Vixen.Ui.Controls.Stepper.OnPropertyChanged(Vixen.Ui.UiPropertyKey key) -> void
+override Vixen.Ui.Controls.Stepper.TagName.get -> string
 override Vixen.Ui.Controls.Switch.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Switch.OnCreated() -> void
 override Vixen.Ui.Controls.Switch.TagName.get -> string
@@ -1237,6 +1245,8 @@ static Vixen.Ui.Controls.ControlStrings.PropertyGridSearch.get -> Vixen.Ui.Strin
 static Vixen.Ui.Controls.ControlStrings.ScrollBarHorizontal.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.ScrollBarVertical.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.SelectSuggestions.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.StepperDecrease.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.StepperIncrease.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.TextInputClear.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.ToastDismiss.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlTheme.Css.get -> string

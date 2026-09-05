@@ -159,7 +159,7 @@ public sealed partial class SearchBox : TextField {
     }
 }
 
-/// <summary>A field that holds a number, with arrows, spinners and a drag to scrub it.</summary>
+/// <summary>A field that holds a number, with arrows and a drag to scrub it.</summary>
 /// <remarks>
 ///     <para>
 ///         <b>The number is the value and the text is a rendering of it.</b> <c>Value</c> is still a
@@ -183,8 +183,21 @@ public sealed partial class SearchBox : TextField {
 ///         in bytes and a distance in metres all have the same shape — so the cure is in the
 ///         arithmetic rather than in a number chosen per member. See <see cref="RelativeStep" />.
 ///     </para>
+///     <para>
+///         ⚠ <b>The spinners this summary used to claim are <see cref="Stepper" />'s, and until it
+///         existed they were nobody's.</b> The line above said "arrows, spinners and a drag" and the
+///         control had two of the three; the theme's read-only rule named "<c>numeric-input</c>'s
+///         spinners" as well. What was true is that <see cref="Nudge" /> — the mechanism a pair of
+///         buttons needs — was finished and had nothing pressing it.
+///     </para>
+///     <para>
+///         ⚠ <b>Not sealed, and <see cref="Stepper" /> is the only reason.</b> A stepper is this
+///         field with two buttons in it: the number, the range, the step, the arrow keys and the
+///         scrub are all here already, and a separate control beside a field would have had to
+///         mirror every one of them and keep the mirror in step.
+///     </para>
 /// </remarks>
-public sealed partial class NumericInput : TextField {
+public partial class NumericInput : TextField {
     bool scrubbing;
     float scrubbed;
     double offset;
@@ -299,7 +312,7 @@ public sealed partial class NumericInput : TextField {
     ///     is a mode this has to remember — they are read off the event that arrived, so a scrub and
     ///     an arrow key cannot drift apart about what Shift means.
     /// </remarks>
-    static double Scale(ModifierKeys modifiers) =>
+    private protected static double Scale(ModifierKeys modifiers) =>
         modifiers.HasFlag(ModifierKeys.Shift) ? 10d
         : modifiers.HasFlag(ModifierKeys.Alt) ? 0.1d
         : 1d;
@@ -459,7 +472,11 @@ public sealed partial class NumericInput : TextField {
     /// </remarks>
     void Scrub(PointerEvent args) {
         switch (args.Action) {
-            case PointerAction.Pressed when args.Button == PointerButton.Primary && !IsFocused && !ReadOnly:
+            // ⚠ `Presses(args)` and not just the three conditions, because this runs on the capture
+            // leg and marks the event handled: a press on a control *inside* the field would never
+            // reach it. See the method, and `Stepper`, which is the field that has one.
+            case PointerAction.Pressed
+                when args.Button == PointerButton.Primary && !IsFocused && !ReadOnly && Presses(args):
                 scrubbing = true;
                 scrubbed = 0f;
                 offset = 0d;
@@ -505,6 +522,44 @@ public sealed partial class NumericInput : TextField {
         LastX = args.X;
     }
 
+    /// <summary>Whether a press belongs to the field itself rather than to a control inside it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A scrub starts on the capture leg and marks the press handled, so without this the
+    ///     field takes a gesture that was aimed at a button inside it.</b> The button is still
+    ///     <i>clicked</i> — activation comes off the tap the gesture recogniser makes, which does not
+    ///     care that the press was marked handled — so the symptom is not a dead button: it is a
+    ///     press that captures the pointer for the field, selects the field's text on release, and
+    ///     scrubs the value if the hand moves at all. The parts a plain field is made of —
+    ///     <c>field-text</c>, <c>field-placeholder</c> — are bare elements and answer <c>true</c>
+    ///     here, so nothing about an ordinary numeric field changes; a <see cref="Stepper" />'s
+    ///     arrows are <see cref="Control" />s and are the case this exists for. Asked of any control
+    ///     between the source and this field rather than of a list of known parts, because the next
+    ///     control put inside a field would otherwise arrive at the same dead press.
+    ///     <para>
+    ///         ⚠ <b>The walk is the whole of it, and a source test alone is a guard that never
+    ///         fires.</b> What a pointer hits is the deepest element under it, which for a button is
+    ///         the <see cref="Icon" /> inside it — a bare element. Written as
+    ///         <c>args.Source is not Control</c> this read <c>true</c> for every press on an arrow,
+    ///         and the arrows behaved because the tap that activates a button comes out of the
+    ///         gesture recogniser rather than out of the press this handler marked handled. The
+    ///         symptom that remained was the focus: the field selected itself as though it had been
+    ///         clicked to type in.
+    ///     </para>
+    /// </remarks>
+    bool Presses(PointerEvent args) {
+        for (var element = args.Source; element is not null; element = element.Parent) {
+            if (ReferenceEquals(element, this)) {
+                return true;
+            }
+
+            if (element is Control) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /// <summary>Where the pointer was last seen, so a move can be turned into a delta.</summary>
     /// <remarks>
     ///     ⚠ <b>Kept here rather than read from <see cref="DragEvent" />, which already carries one.</b>
@@ -513,4 +568,128 @@ public sealed partial class NumericInput : TextField {
     ///     suddenly jumps.
     /// </remarks>
     float LastX { get; set; }
+}
+
+/// <summary>A number with the two arrows that step it.</summary>
+/// <remarks>
+///     <para>
+///         <b>The arithmetic was finished and had nothing to press it.</b>
+///         <see cref="NumericInput.Nudge" /> has driven the arrow keys and the scrub since the field
+///         was written, and every toolkit's answer to "adjust this by one" is two small arrows next
+///         to the box — so an application that wanted a stepper had to draw one and wire it up. ⚠ The
+///         field's own summary and the theme's read-only rule both described spinners that did not
+///         exist.
+///     </para>
+///     <para>
+///         ⚠ <b>A field with arrows in it rather than arrows beside a field, which is the opposite
+///         of AppKit's split.</b> <c>NSStepper</c> is the pair on its own, and the binding between it
+///         and whatever text field it sits next to is the application's to keep — a seam that exists
+///         because the two are separate views. Here the number, the range, the step, the keys and the
+///         scrub are one control already, so the arrows join it and <c>bind:Number</c> goes on
+///         working; a second control beside the field would have had to mirror five properties and
+///         stay in step with all of them.
+///     </para>
+///     <para>
+///         <b>The arrows are not tab stops.</b> They do what Up and Down already do in the field they
+///         are in, so putting them in the tab order would mean tabbing past a form's number landing
+///         on two buttons before reaching the next question. Same argument, and the same
+///         <c>TabIndex</c>, as <see cref="SearchBox" />'s clear button.
+///     </para>
+///     <para>
+///         ⚠ <b>They disable at the ends of the range, which is a picture of something a click cannot
+///         show.</b> <c>Number</c> is clamped to <c>[Minimum, Maximum]</c>, so an arrow at the end has
+///         always done nothing; what is being fixed is that it did nothing <i>silently</i>. A greyed
+///         arrow is what tells a person — and, through <c>AccessibleStates.Disabled</c>, an assistive
+///         technology — which way there is left to go.
+///     </para>
+/// </remarks>
+public sealed partial class Stepper : NumericInput {
+    /// <inheritdoc />
+    protected override string TagName => "stepper";
+
+    /// <summary>The arrow that takes one step off.</summary>
+    public IconButton DecrementButton { get; private set; } = null!;
+
+    /// <summary>The arrow that adds one.</summary>
+    public IconButton IncrementButton { get; private set; } = null!;
+
+    /// <inheritdoc />
+    protected override void OnCreated() {
+        base.OnCreated();
+
+        // Down first, so the pair reads in the order the numbers do. The classes are what the theme
+        // pushes the pair to the right-hand end of the box by — a position rather than a `:nth`,
+        // because the arrows are the only two children a stylesheet has any business moving and an
+        // ordinal would silently mean the placeholder the day one is added before them.
+        DecrementButton = Arrow(ControlIcons.ChevronDown, ControlStrings.StepperDecrease.Text, "step-down");
+        IncrementButton = Arrow(ControlIcons.ChevronUp, ControlStrings.StepperIncrease.Text, "step-up");
+
+        AddHandler<ClickEvent>(static (element, args) => ((Stepper) element).Arrowed(args));
+
+        Ends();
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Every property rather than the four that matter, and the cost of that is two
+    ///     comparisons.</b> What decides an arrow's state is <c>Number</c>, <c>Minimum</c>,
+    ///     <c>Maximum</c> and <c>ReadOnly</c> today; a filter naming those four is a list somebody
+    ///     has to remember to edit when a fifth arrives, and a stale one fails as an arrow that
+    ///     stays grey after the range it was measured against has moved. This is the seam the base
+    ///     class documents for exactly this case: reacting to a property the type did not declare.
+    /// </remarks>
+    protected override void OnPropertyChanged(UiPropertyKey key) {
+        base.OnPropertyChanged(key);
+
+        // A property assigned before the parts exist has nothing to say to them yet, and `OnCreated`
+        // ends by asking anyway.
+        if (IncrementButton is not null) {
+            Ends();
+        }
+    }
+
+    IconButton Arrow(PathBuilder geometry, string label, string className) {
+        var arrow = Part<IconButton>(null, className);
+
+        arrow.LeadingIcon.Geometry = geometry;
+        arrow.Variant = ControlVariant.Subtle;
+
+        // The label is the announced name and nothing else: `icon-button label` is `display: none`,
+        // which is what lets an icon-only button say a word to a screen reader without showing one.
+        arrow.Label = label;
+
+        // See the type's remarks.
+        arrow.TabIndex = -1;
+
+        return arrow;
+    }
+
+    void Ends() {
+        DecrementButton.Disabled = ReadOnly || Number <= Minimum;
+        IncrementButton.Disabled = ReadOnly || Number >= Maximum;
+    }
+
+    void Arrowed(ClickEvent args) {
+        var steps = ReferenceEquals(args.Source, IncrementButton) ? 1d
+            : ReferenceEquals(args.Source, DecrementButton) ? -1d
+            : 0d;
+
+        if (steps == 0d) {
+            return;
+        }
+
+        args.Handled = true;
+
+        // ⚠ Belt as well as braces: `Ends` has already disabled both arrows while the field is
+        // read-only, and a disabled control raises no click at all. It is written out because the
+        // arrow *keys* have no such check — a read-only numeric field can still be stepped with Up,
+        // which is #826 — and a new gesture should not quietly join a hole in an older one.
+        if (ReadOnly) {
+            return;
+        }
+
+        // The same Shift-multiplies, Alt-divides scaling the arrow keys read off their own event, so
+        // that a click and a keystroke cannot disagree about what a step is worth.
+        Nudge(steps * Scale(args.Modifiers));
+    }
 }

@@ -229,7 +229,7 @@ button:focus-visible, icon-button:focus-visible, toggle-button:focus-visible,
 checkbox:focus-visible, switch:focus-visible, radio:focus-visible,
 textbox:focus-visible, textarea:focus-visible, search-box:focus-visible,
 secure-textbox:focus-visible,
-numeric-input:focus-visible, select:focus-visible, multi-select:focus-visible,
+numeric-input:focus-visible, stepper:focus-visible, select:focus-visible, multi-select:focus-visible,
 slider:focus-visible, range-slider:focus-visible, tab:focus-visible,
 menu-item:focus-visible, option:focus-visible, link:focus-visible,
 page-button:focus-visible, breadcrumb-item:focus-visible, expander-header:focus-visible,
@@ -268,7 +268,9 @@ segment:focus-visible {
    states share and is the half somebody is about to discover by typing.
 
    On the parts as well as the field: `field-text` inherits its colour from here, and
-   `numeric-input`'s spinners and a combo box's editable half are children that do not. */
+   a `stepper`'s arrows and a combo box's editable half are children that do not. ⚠ This
+   said "`numeric-input`'s spinners" for as long as there were none: the buttons are
+   `stepper`'s, and the field that summary described did not have any. */
 .read-only, .read-only field-text, .read-only icon {
     color: var(--text-muted);
 }
@@ -364,7 +366,7 @@ switch:checked track { background-color: var(--accent); }
 switch:checked track knob { margin-left: 16px; }
 
 /* ── Fields ─────────────────────────────────────────────────────────── */
-textbox, textarea, search-box, secure-textbox, numeric-input {
+textbox, textarea, search-box, secure-textbox, numeric-input, stepper {
     flex-direction: row;
     align-items: center;
     gap: 6px;
@@ -422,6 +424,18 @@ search-box field-placeholder { left: 28px; }
    in the editor's outliner, whose filter row is 161 px holding a 132 px sort dropdown. */
 search-box icon { width: 14px; height: 14px; flex-shrink: 0; color: var(--text-muted); }
 search-box.empty icon-button { display: none; }
+
+/* ⚠ `margin-left: auto` rather than a `flex-grow` on the text, because `field-text` is
+   `flex-shrink: 0` and wider than its box on purpose — a number long enough to scroll would
+   otherwise push the arrows out of the field. The margin puts them at the right-hand end of
+   whatever is left over and takes nothing from the text when there is none.
+
+   The `flex-shrink: 0` is the one the magnifying glass above needed and for the same reason:
+   the arrows are what say the box is a stepper, and a narrow inspector row squeezes anything
+   that will let it be squeezed to nothing. */
+stepper icon-button { padding: 2px; flex-shrink: 0; }
+stepper .step-down { margin-left: auto; }
+stepper icon { width: 12px; height: 12px; }
 
 /* ── Virtualisation ─────────────────────────────────────────────────── */
 virtualizing-panel { flex: 1; min-height: 0; }
@@ -699,7 +713,7 @@ key-value-row.heading key-value-key, key-value-row.heading key-value-value { col
    `> *`: a checkbox, a switch and a badge are all the size they are, and
    stretching one across a settings panel is how a tick box ends up eight
    inches from its label. Same list and same argument as `property-editor`. */
-key-value-value textbox, key-value-value textarea, key-value-value numeric-input,
+key-value-value textbox, key-value-value textarea, key-value-value numeric-input, key-value-value stepper,
 key-value-value secure-textbox, key-value-value search-box, key-value-value select, key-value-value multi-select,
 key-value-value combo-box, key-value-value slider, key-value-value progress-bar {
     flex-grow: 1;
