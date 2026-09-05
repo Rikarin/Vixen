@@ -4,7 +4,7 @@ slug: ui/shortcut-formatting
 kind: guide
 area: Core
 summary: The modifier order, the key-name table and the one process-wide hook that changes how every shortcut in an application reads — none of which needs an element, a document or a font, and all of which used to live on a control.
-api: [T:Vixen.Ui.Shortcuts]
+api: [T:Vixen.Ui.ShortcutFormat]
 tags: [ui, input, shortcuts, keyboard, commands, macos]
 since: 0.2
 status: preview
@@ -13,11 +13,11 @@ related: [ui/commands, ui/application-bars, ui/accessibility]
 
 ## What it is
 
-`Shortcuts` turns a key and its modifiers into the text a menu shows:
+`ShortcutFormat` turns a key and its modifiers into the text a menu shows:
 
-```csharp
-Shortcuts.Describe(InputKey.S, ModifierKeys.Control | ModifierKeys.Shift);   // "Ctrl+Shift+S"
-Shortcuts.Name(InputKey.Number1);                                            // "1"
+```csharp no-compile="a fragment"
+ShortcutFormat.Describe(InputKey.S, ModifierKeys.Control | ModifierKeys.Shift);   // "Ctrl+Shift+S"
+ShortcutFormat.Name(InputKey.Number1);                                            // "1"
 ```
 
 Three members and no state but one:
@@ -55,9 +55,9 @@ disagree about how the same chord is written.
 tooltips and by the command palette, and an application that adapted each call site would have to
 find all three and would still miss whichever one was added next.
 
-```csharp
+```csharp no-compile="a fragment; `MyOwnFormat` is the application’s"
 // Called once, by the shell, during start-up.
-Shortcuts.Formatter = (key, modifiers) => MyOwnFormat(key, modifiers);
+ShortcutFormat.Formatter = (key, modifiers) => MyOwnFormat(key, modifiers);
 ```
 
 ⚠ **The default is deliberately not platform-adapted.** `Vixen.Ui` sits below `Vixen.Platform` and
@@ -84,18 +84,18 @@ static string MacFormat(InputKey key, ModifierKeys modifiers) {
     if (modifiers.HasFlag(ModifierKeys.Shift)) { text.Append('⇧'); }
     if (modifiers.HasFlag(ModifierKeys.Meta)) { text.Append('⌘'); }
 
-    return text.Append(Shortcuts.Name(key)).ToString();
+    return text.Append(ShortcutFormat.Name(key)).ToString();
 }
 ```
 
 The keys whose member name is a description rather than a legend — the reason the table exists at
 all:
 
-```csharp
-Shortcuts.Name(InputKey.Number1);   // "1", not "Number1"
-Shortcuts.Name(InputKey.Grave);     // "`"
-Shortcuts.Name(InputKey.Slash);     // "/"
-Shortcuts.Name(InputKey.F5);        // "F5" — everything else is the enum's own name
+```csharp no-compile="a fragment"
+ShortcutFormat.Name(InputKey.Number1);   // "1", not "Number1"
+ShortcutFormat.Name(InputKey.Grave);     // "`"
+ShortcutFormat.Name(InputKey.Slash);     // "/"
+ShortcutFormat.Name(InputKey.F5);        // "F5" — everything else is the enum's own name
 ```
 
 ## See also

@@ -17,7 +17,7 @@ related: [ui/markup-panels, ui/reactive-collections]
 it, and what marks it while it does. It is the fifth argument to `BuildContext.For`, which is what a
 keyed loop compiles to:
 
-```csharp
+```csharp no-compile="a fragment; `Rows` is the panel below and `ctx` the build context"
 ctx.For(
     null,
     () => Rows.Value,
@@ -123,7 +123,7 @@ Two more refusals, both of which would otherwise be silence:
 A list whose deletions collapse, asserted the way this repository asserts anything time-shaped — on
 frames given to the document's own clock, never on elapsed wall time:
 
-```csharp
+```csharp no-compile="a fragment; the test body, against the `Rows` panel above"
 using var document = new UiDocument(200f, 200f);
 var panel = BuildContext.Build<Rows>(document, document.Root);
 
@@ -146,7 +146,7 @@ Assert.Equal(["a", "c"], Texts(panel.Root));
 
 Naming a different class, for a panel with two lists that leave differently:
 
-```csharp
+```csharp no-compile="a fragment"
 new ExitSpec(TimeSpan.FromMilliseconds(320), "closing")
 ```
 
