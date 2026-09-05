@@ -31,6 +31,18 @@ it, and it costs less than it reads: measured from the 178 TRX of the 2026-09-05
 packing of the same assemblies. ⚠ Raising the cap **cannot** buy more than two and a half minutes and
 buys nothing at all above six, because the floor is one 412-second assembly and not the fan-out.
 
+The second multiplier is `xunit.runner.json`'s `maxParallelThreads`, which sizes each assembly's own
+collection pool and which `--workers` cannot reach. It is `0.5x` — five threads on a ten-core box —
+and that number is now measured by the same interval arithmetic over the same 178 TRX. ⚠ **No
+assembly in that sweep ever ran more than five collections at once**, which is the instrument check
+rather than a curiosity: a run where the file failed to be copied beside the assembly would look
+identical in every other respect and would report ten. Doubling the pool to `1.0x` is worth **36
+seconds spread over six assemblies** and nothing at all to the other 172, because every large one is
+floored by its longest *collection* rather than by the pool. ⚠ And the long pole is not on that list
+whatever the arithmetic says: `Vixen.Editor.App.Tests` disables collection parallelism outright over
+a real data race on the process-wide `Strings` signal, so neither multiplier can touch the 382
+seconds it contributes.
+
 Agent worktrees under `.claude/worktrees` are never cleaned up by anything, and each carries its own
 `bin`/`obj` — about 25 GB apiece once the solution has been built in both configurations.
 `./build.sh PruneWorktrees` lists which of them are merged into master, clean and unlocked, and

@@ -208,6 +208,24 @@
     Here rather than in each test project for the same reason `VSTestLogger` is:
     178 projects cannot be relied on to remember, and the one that forgets is
     invisible.
+
+    ⚠ `0.5x` is measured rather than reasoned, from the per-test start and finish
+    times in the 178 TRX of the 2026-09-05 sweep. Two readings out of that:
+
+    * No assembly ran more than **five** collections at once, in any of the 178.
+      That is the instrument check for the paragraph above — a file that failed
+      to be copied beside its assembly reports ten, and reports it silently.
+    * Doubling the pool to `1.0x` is worth **36 seconds across six assemblies**
+      and nothing to the other 172, because a large assembly's floor is its
+      longest *collection* and not its pool. ⚠ `Vixen.Editor.App.Tests` looks
+      like the biggest winner and cannot win at all: it disables collection
+      parallelism outright over a data race on the process-wide `Strings`
+      signal, so it runs one collection at a time whatever this file says.
+
+    So the halved pool costs almost nothing and is what keeps a capped run from
+    being the cap multiplied by ten. Re-runnable by anyone holding that results
+    directory, which is the point of stating it this way rather than in seconds
+    off a stopwatch on a machine whose other load nobody recorded.
     ============================================================================
   -->
   <ItemGroup Condition="'$(IsTestProject)' == 'true'">
