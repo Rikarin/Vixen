@@ -2168,14 +2168,41 @@ public sealed partial class UiDocument : IDisposable {
         // `UiTransform.Invert` returns null and the walk stops here. Falling through to the
         // untransformed box instead would leave a control that cannot be seen still taking the
         // pointer, which is the invisible-hit-target bug from the other direction.
+        //
+        // ⚠ <b>A projective transform has a second failure mode that is not degeneracy, and reading
+        // it as one would be the opposite mistake.</b> Under a perspective, part of the element's
+        // plane lies behind the eye. Those points have `w <= 0`, and the danger is that the inverse
+        // does *not* misbehave on them: it hands back a finite, plausible-looking point, which is the
+        // real one reflected through the vanishing point. So a card rotated past ninety degrees is
+        // clickable in a band where nothing is drawn, at coordinates nothing in the picture disputes,
+        // and every probe that stays on the front half passes. The sign is the only thing that says
+        // so and the divide is what throws it away — hence `Project` and a check, rather than `Apply`.
+        //
+        // ⚠ <b>`undo`'s `w` is the forward `w`'s reciprocal, which is why one sign test here answers
+        // a question about the element's plane.</b> `Invert` returns the true inverse, so `undo`
+        // applied to the homogeneous screen point `(x, y, 1)` — itself the forward image scaled by
+        // `1/w` — comes back as `(1/w)(u, v, 1)`. The sign survives the scaling; the magnitude is
+        // divided out on the next two lines exactly as `Apply` would have.
+        //
+        // ⚠ <b>This has to be the same plane the rasterizers clip against</b>, or there is a strip
+        // that paints and does not click, or clicks and does not paint. `UiTransform.TryBounds`
+        // refuses on `Z <= 0` for the same reason and with the same strictness — a point *on* the eye
+        // plane has no image at all, so zero belongs on this side of the test rather than the other.
         if (element.Transform is { } placed) {
             if (placed.Invert() is not { } undo) {
                 return null;
             }
 
-            var local = undo.Apply(new Vector2(x, y));
-            x = local.X;
-            y = local.Y;
+            var local = undo.Project(new Vector2(x, y));
+
+            if (local.Z <= 0f) {
+                return null;
+            }
+
+            // ⚠ On an affine `Z` is exactly `1f` and this is `Apply` inlined, float for float — the
+            // same two divisions by the same one. Nothing that existed before the third column moves.
+            x = local.X / local.Z;
+            y = local.Y / local.Z;
         }
 
         var inside = Contains(element, x, y);

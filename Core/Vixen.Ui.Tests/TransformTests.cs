@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
+using Vixen.Ui.Rendering;
 using Xunit;
 
 namespace Vixen.Ui.Tests;
@@ -834,5 +836,108 @@ public class TransformTests {
         );
 
         Assert.Null(document.Root.Children[0].Transform);
+    }
+
+    /// <summary>
+    ///     A card rotated past ninety degrees under a perspective is not clickable where its far half
+    ///     is reflected to, although the inverse answers there perfectly happily.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The interesting failure of a projective inverse is not that it blows up.</b> An
+    ///         affine inverse has one failure mode — a vanishing determinant — and the hit test reads
+    ///         it as "nothing here", which is right: a <c>scale-0</c> element paints nothing. A
+    ///         homography has a second, and it does not announce itself. Part of the element's plane
+    ///         lies behind the eye once the flip passes ninety degrees; those points have a
+    ///         non-positive <c>w</c>, they invert to <i>finite</i> coordinates inside the border box,
+    ///         and the pointer lands on an element in a band of the screen where nothing is drawn.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the assertion that carries this test is the middle one, not the last.</b>
+    ///         <c>Assert.Same(Root, …)</c> alone would pass against a hit test that had simply stopped
+    ///         working — and against one that never mapped the point at all, since the reflected point
+    ///         is well outside the untransformed box. The probe first shows that the naive inverse
+    ///         <i>does</i> answer there, with a point this element contains: that is the defect stated
+    ///         as a fact about the screen rather than as a claim about the code.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the front half has to go on hitting</b>, or "reject a non-positive <c>w</c>"
+    ///         and "reject everything" are the same test. The two probes are the same element, the
+    ///         same matrix, and opposite signs of one number.
+    ///     </para>
+    ///     <para>
+    ///         The matrix is written here rather than parsed because <c>TransformReader</c> reads no
+    ///         <c>perspective()</c> yet — #550 — and this property is the hit test's rather than the
+    ///         parser's. <c>rotateX(120deg)</c> under <c>perspective(100px)</c> about the card's centre
+    ///         folds the plane at <c>y = 315.5</c>, which is 34.5 points above the card's bottom edge.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_point_behind_the_eye_is_not_a_hit_although_the_inverse_answers_there() {
+        using var document = new UiDocument(800f, 600f);
+
+        document.Load(
+            """
+            root { width: 800px; height: 600px; }
+            .card { position: absolute; left: 200px; top: 50px; width: 400px; height: 300px;
+                    background-color: #111; }
+            """
+        );
+
+        document.Root.Add("div", classNames: "card");
+        document.Update();
+        document.Draw();
+
+        var card = document.Root.Children[0];
+        var centre = new Vector2(card.AbsoluteLeft + (card.Width / 2f), card.AbsoluteTop + (card.Height / 2f));
+
+        Assert.Equal(400f, centre.X, Tolerance);
+        Assert.Equal(200f, centre.Y, Tolerance);
+
+        // `perspective(100px) rotateX(120deg)` reduced to the element's plane and re-centred. The
+        // rotation puts `y · sin` on the z axis and the perspective turns that into `w`, so the whole
+        // of the third column is one cell — which is what makes a card flip a homography.
+        var radians = 120f * (MathF.PI / 180f);
+
+        var flip = new UiTransform(1f, 0f, 0f, MathF.Cos(radians), 0f, 0f) {
+            M13 = 0f,
+            M23 = -MathF.Sin(radians) / 100f,
+            M33 = 1f
+        }.About(centre);
+
+        card.Transform = flip;
+
+        // The instrument first: the fixture has to straddle the eye plane, or every assertion below is
+        // about the front half and passes against the defect it is written for.
+        var behind = new Vector2(400f, 345f);
+        var front = new Vector2(400f, 100f);
+
+        Assert.True(flip.Project(behind).Z < 0f, "the far probe is meant to be behind the eye");
+        Assert.True(flip.Project(front).Z > 0f, "the near probe is meant to be in front of it");
+
+        var reflected = flip.Apply(behind);
+        var shown = flip.Apply(front);
+
+        Assert.Equal(483.49f, reflected.Y, 0.01f);
+        Assert.Equal(226.79f, shown.Y, 0.01f);
+
+        // ⚠ The trap, stated: the inverse hands back a point this element contains, so a hit test that
+        // divided and asked no question returns the card for a pixel 133 points below the card.
+        var undo = flip.Invert();
+
+        Assert.NotNull(undo);
+
+        var naive = undo.Value.Apply(reflected);
+
+        Assert.Equal(behind.X, naive.X, 0.01f);
+        Assert.Equal(behind.Y, naive.Y, 0.01f);
+        Assert.InRange(naive.X, card.AbsoluteLeft, card.AbsoluteLeft + card.Width);
+        Assert.InRange(naive.Y, card.AbsoluteTop, card.AbsoluteTop + card.Height);
+
+        // And the answer: nothing is drawn there, so nothing is clicked there.
+        Assert.Same(document.Root, document.HitTest(reflected.X, reflected.Y));
+
+        // The front half is untouched, which is what keeps this from being satisfied by a refusal.
+        Assert.Same(card, document.HitTest(shown.X, shown.Y));
     }
 }
