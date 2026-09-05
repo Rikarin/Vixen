@@ -237,6 +237,98 @@ public class TexturePlanCheckTests {
         // test exercises: an upload that went to the wrong slot would be read as the answer.
         Assert.Equal(schedule.SlotOf[1], schedule.SlotOf[3]);
     }
+
+    /// <summary>
+    ///     ⚠ A pointwise op reading an image half the size of the one it writes is accepted in
+    ///     silence — <a href="https://github.com/Rikarin/Vixen/issues/801">#801</a>'s trap, as a
+    ///     tripwire.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What the plan does not ask.</b> <c>Check</c> compares an op's
+    ///         <c>EmittedForExtent</c> against the size of the image it <em>writes</em> and says
+    ///         nothing whatever about the size of the images it <em>reads</em>. Every pointwise
+    ///         kernel in <c>Shaders/</c> — <c>Invert</c> among about forty — loads its source at the
+    ///         coordinate it is writing and clamps to the source's own dimensions, so the plan below
+    ///         draws the top-left quarter of its input with the right and bottom edge rows smeared
+    ///         over the rest. A plausible picture, and no word from anything.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two of the issue's premises are false and both make it less urgent than it
+    ///         reads.</b> Doc 48 § D1's layer stack does <em>not</em> emit ops with no node library
+    ///         in between: <c>LayerStackGraph</c> builds a <c>NodeGraphModel</c> out of the same
+    ///         <c>[Node]</c> classes an artist wires and <c>TextureGraphCompiler</c> compiles it, so
+    ///         #779's <c>Rescale</c> insertion covers M7 exactly as it covers a hand-wired graph.
+    ///         And there are no "six builders that mean it" to hang a flag on — <c>Resample</c>,
+    ///         <c>Crop</c> and <c>Transform2D</c> ops are constructed inline in <c>SpaceNodes.cs</c>,
+    ///         <c>FilterNodes.cs</c> and <c>TextureGraphCompiler.cs</c>, and only <c>Bitmap</c> and
+    ///         <c>TileSampler</c> have one. A flag on the <em>op</em> would therefore have to be
+    ///         remembered at every construction site including a test's, which makes it a false
+    ///         positive generator on precisely the hand-built plans the guard exists for.
+    ///     </para>
+    ///     <para>
+    ///         <b>So what is left unguarded is hand-built plans in this repository's own code</b> —
+    ///         <c>TextureGraphPreview.Base</c>, <c>BakedMaterialImageTests</c> and most of this
+    ///         project — and whatever declares "this kernel rescales" has to be a property of the
+    ///         <em>kernel</em> rather than of the op, because every construction of a
+    ///         <c>Resample</c> rescales wherever it is built. <c>TextureKernels.Source</c> reads any
+    ///         embedded kernel's Raven by name without a plan carrying it — <c>TexturePlan.Kernels</c>
+    ///         is a plan's <em>own</em> sources and a hand-built one, which is the case at risk here,
+    ///         supplies none — so a declaration in the <c>.rvn</c> needs no new plumbing at all.
+    ///         Whether the declaration is a marked line in a shader comment is a convention this
+    ///         slice does not own, and it is the one open question left: everything else about the
+    ///         fix is settled by the two paragraphs above.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the cost was measured rather than argued.</b> A caution added here for every
+    ///         non-external input whose size differs from the output's turns <em>one</em> of this
+    ///         project's 1165 cases red — <c>TextureAdjustTests.The_chain_passes_the_plans_own_check</c>,
+    ///         which is <c>Auto Levels</c>' <c>MinMaxReduce</c> ladder. So the written list of
+    ///         kernels allowed to disagree would be short, and <c>Bitmap</c> excuses itself without
+    ///         an entry because its source is an external image and the check skips those.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What actually blocks it is that a caution has nowhere to be read.</b>
+    ///         <c>TextureGraphCompiler</c> surfaces <c>plan.Validate()</c> — errors only — as
+    ///         <c>TG0009</c>; a caution reaches <c>TextureBake.Warnings</c> through the evaluator, and
+    ///         nothing in production reads that or <c>TexturePlan.Warnings()</c>. Landing the guard
+    ///         before a host reads plan warnings would be a finished thing nothing calls, which is
+    ///         this repository's commonest defect and not an improvement on the silence above.
+    ///     </para>
+    ///     <para>
+    ///         <b>When this goes red</b>: because the guard landed. That is #801 closed, and the test
+    ///         to write in its place is the one that asserts the warning names the op and both sizes.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_pointwise_op_reading_a_smaller_image_than_it_writes_is_not_reported() {
+        TexturePlan plan = new() {
+            BaseWidth = 256,
+            BaseHeight = 256,
+
+            // Level 1 is half the base on each axis, so the source is 128² and the target 256².
+            Images = [new(TextureFormat.Rgba8, LevelOffset: 1), new(TextureFormat.Rgba8)],
+            Ops = [
+                new() { Kernel = "Uniform", Output = 0 },
+                new() { Kernel = "Invert", Output = 1, Inputs = [0] }
+            ],
+            Outputs = [1]
+        };
+
+        // The instrument: the mismatch this is about is really in the plan, rather than the two
+        // images having quietly come out the same size and the silence below meaning nothing.
+        Assert.Equal(128, plan.SizeOf(0).X);
+        Assert.Equal(256, plan.SizeOf(1).X);
+
+        Assert.True(
+            plan.Check().IsEmpty,
+            "A plan whose pointwise op reads a 128² image and writes a 256² one is now reported, which is "
+            + "https://github.com/Rikarin/Vixen/issues/801 closed. Replace this tripwire with the case that "
+            + "asserts what the report says — the op index, the kernel, and both sizes — and check that the "
+            + "kernels that read one size and write another on purpose (Resample, Crop, Bitmap, Transform2D, "
+            + "TileSampler, MinMaxReduce) are still silent."
+        );
+    }
 }
 
 /// <summary>An RGBA8 transpose, as a <see cref="ITextureCpuOperation" />.</summary>
