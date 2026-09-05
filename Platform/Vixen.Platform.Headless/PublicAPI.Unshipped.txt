@@ -58,7 +58,7 @@ Vixen.Platform.Headless.HeadlessPlatform : Vixen.Platform.IPlatform
 Vixen.Platform.Headless.HeadlessPlatform.Capabilities.get -> Vixen.Platform.PlatformCapabilities
 Vixen.Platform.Headless.HeadlessPlatform.Clipboard.get -> Vixen.Platform.IClipboard
 Vixen.Platform.Headless.HeadlessPlatform.ColorScheme.get -> Vixen.Platform.SystemColorScheme
-Vixen.Platform.Headless.HeadlessPlatform.ColorScheme.set -> void
+Vixen.Platform.Headless.HeadlessPlatform.ColorScheme.set -> Vixen.Platform.SystemColorScheme
 Vixen.Platform.Headless.HeadlessPlatform.CreateWindow(in Vixen.Platform.WindowOptions options) -> Vixen.Platform.IWindow
 Vixen.Platform.Headless.HeadlessPlatform.Dialogs.get -> Vixen.Platform.INativeDialogs
 Vixen.Platform.Headless.HeadlessPlatform.Displays.get -> Vixen.Platform.IDisplayInfo
