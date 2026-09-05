@@ -178,10 +178,12 @@ zero is a valid-looking value.
 - After editing a published `.rvn`, regenerate with `VIXEN_REGENERATE=1` on `LibraryReflectionTests`;
   generated binding keys come from the `reflect.json`.
 - `./build.sh CheckShaders` recompiles the shaders whose `.spv` is **committed** — the three the editor
-  loads out of `Raven/Library/Terrain` (from their import closure), plus the four `.rvn` written beside
-  `Vixen.Editor.Host` and `Vixen.Ui.Desktop` — and reports whether any committed `.spv` drifted. ⚠ It
-  is **not** every library shader: the library has over a hundred and `LibraryReflectionTests` is what
-  binds it whole. `ci.yml`'s `checks` leg runs the target, so drift no longer depends on remembering.
+  loads out of `Raven/Library/Terrain` (from their import closure), plus every standalone `.rvn` with a
+  module committed beside it, which today is the four under `Vixen.Editor.Host` and `Vixen.Ui.Desktop`
+  — and reports whether any committed `.spv` drifted. ⚠ It is **not** every library shader: the library
+  has over a hundred and `LibraryReflectionTests` is what binds it whole. ⚠ That second half is
+  **derived, not listed**: drop a `.rvn` and its `.spv` beside a project and the next run gates it, no
+  build edit. `ci.yml`'s `checks` leg runs the target, so drift no longer depends on remembering.
 - Diagnostics: a new rule needs a positive test **and** an id-named negative, and the negative is proved
   by widening the rule in the compiler until the fixture goes red, then reverting. `Raven/README.md`
   carries the ranking heuristic and the traps.

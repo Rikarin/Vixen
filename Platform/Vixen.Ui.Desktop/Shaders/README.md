@@ -81,9 +81,14 @@ The gate does it:
 
 `CheckShaders` recompiles every Raven source whose modules are *committed* — this one included, since
 2026-08-23 — and fails when a committed module differs from what the compiler produces. It fails the
-other way too: a `.spv` or `.reflect.json` in this directory that no entry in the target produces is a
+other way too: a `.spv` or `.reflect.json` in this directory the target produces nothing for is a
 module nothing recompiles, and is reported rather than skipped. So a `.rvn` edited without recompiling
 cannot sit in a commit, and `ci.yml`'s `checks` leg is what says so on a pull request.
+
+⚠ **"Every source" is now literal.** The target used to name four sources in a hand-written list, so
+"every" meant "every one somebody remembered". It walks the tree instead: a `.rvn` with a `.spv` for
+one of its shaders beside it *is* an entry, discovered on the next run, and a source added here needs
+no edit to `build/Build.Shaders.cs` to be gated.
 
 To do one by hand, from the repository root:
 
