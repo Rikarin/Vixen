@@ -158,6 +158,7 @@ Vixen.Ui.Controls.DialogService.DialogService(Vixen.Ui.UiDocument document) -> v
 Vixen.Ui.Controls.DialogService.Dispose() -> void
 Vixen.Ui.Controls.DialogService.IsOpen.get -> bool
 Vixen.Ui.Controls.DialogService.Pending.get -> int
+Vixen.Ui.Controls.DialogService.Present(Vixen.Ui.Controls.Dialog dialog, bool asking) -> void
 Vixen.Ui.Controls.DialogService.PromptAsync(string title, string? message = null, string? initial = null, string? confirm = null, string? cancel = null) -> System.Threading.Tasks.Task<string?>
 Vixen.Ui.Controls.DialogService.Pump() -> void
 Vixen.Ui.Controls.DialogService.ShowAsync<TResult>(string title, System.Action<Vixen.Ui.Controls.DialogSession<TResult>> build, System.Func<TResult?>? dismissed = null) -> System.Threading.Tasks.Task<TResult?>
