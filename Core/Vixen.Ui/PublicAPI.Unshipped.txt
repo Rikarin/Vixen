@@ -425,6 +425,19 @@ Vixen.Ui.DrawListBuilder.Compositing.get -> bool
 Vixen.Ui.DrawListBuilder.Compositing.set -> bool
 Vixen.Ui.DrawListBuilder.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Styling.SelectorDiagnostic>
 Vixen.Ui.DrawListBuilder.DrawListBuilder(Vixen.Ui.Styling.NameTable properties, Vixen.Ui.Styling.NameTable values, Vixen.Ui.Styling.NameTable keywords) -> void
+Vixen.Ui.DropEvent -> sealed class
+Vixen.Ui.DropEvent : Vixen.Ui.UiEvent
+Vixen.Ui.DropEvent.DropEvent() -> void
+Vixen.Ui.DropEvent.Files.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Ui.DropEvent.Files.init -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Ui.DropEvent.Text.get -> string?
+Vixen.Ui.DropEvent.Text.init -> string?
+Vixen.Ui.DropEvent.Timestamp.get -> System.TimeSpan
+Vixen.Ui.DropEvent.Timestamp.init -> System.TimeSpan
+Vixen.Ui.DropEvent.X.get -> float
+Vixen.Ui.DropEvent.X.init -> float
+Vixen.Ui.DropEvent.Y.get -> float
+Vixen.Ui.DropEvent.Y.init -> float
 Vixen.Ui.EventRouter -> static class
 Vixen.Ui.FocusDirection -> enum : byte
 Vixen.Ui.FocusDirection.FocusDirection() -> void
@@ -1178,10 +1191,12 @@ Vixen.Ui.UiDocument.Create<T>(string? tag, Vixen.Ui.UiElement? parent, string? i
 Vixen.Ui.UiDocument.CreateSurface(float width, float height, float dpiScale = 1, Vixen.Ui.UiElement? owner = null) -> Vixen.Ui.UiSurface
 Vixen.Ui.UiDocument.Cursor.get -> Vixen.Ui.UiCursor
 Vixen.Ui.UiDocument.CursorOf(Vixen.Ui.Styling.ComputedStyle style) -> Vixen.Ui.UiCursor
+Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.DropEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.KeyEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.PointerEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.TextCompositionEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.TextInputEvent args) -> Vixen.Ui.UiElement?
+Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.DropEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.PointerEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.WheelEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.WheelEvent args) -> Vixen.Ui.UiElement?
