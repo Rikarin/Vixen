@@ -135,7 +135,13 @@ public enum EditingCommand : byte {
     ShowCompletion,
 
     /// <summary>Dismiss whatever is open.</summary>
-    Cancel
+    Cancel,
+
+    /// <summary>Take back the last edit, if the control can find somewhere that recorded it.</summary>
+    Undo,
+
+    /// <summary>Put it back.</summary>
+    Redo
 }
 
 /// <summary>The chord tables, one per platform, and the lookup both text controls go through.</summary>
@@ -156,9 +162,12 @@ public enum EditingCommand : byte {
 ///         other directly.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Shift is stripped before the lookup and every other modifier must match exactly.</b>
-///         The switches this replaces used <c>HasFlag</c>, so ⌃⌥← was word motion — and ⌃⌥← is a
-///         window-management chord on two of the three desktops. Exact matching is what lets the
+///         ⚠ <b>The exact chord is tried first and then the same one with Shift dropped, and every
+///         other modifier must match exactly.</b> Shift says <i>how</i> for every motion — extend the
+///         selection — so a table that named it everywhere would double to say one bit; ⌘⇧Z is the
+///         one place it means something else, and it is macOS's only spelling of Redo. The switches
+///         this replaces used <c>HasFlag</c>, so ⌃⌥← was word motion — and ⌃⌥← is a
+///         window-management chord on two of the three desktops. Exactness is also what lets the
 ///         macOS table give ⌥← and ⌘← two different meanings at all.
 ///     </para>
 /// </remarks>
@@ -178,7 +187,18 @@ public static class EditingCommands {
     /// <param name="keymap">Which table to read.</param>
     /// <returns>The verb, or <see cref="EditingCommand.None" /> if this keymap gives it none.</returns>
     public static EditingCommand Resolve(InputKey key, ModifierKeys modifiers, EditingKeymap keymap) {
-        // Shift says how, not what. Everything else is matched exactly.
+        // ⚠ **The exact chord first, then the same one with Shift dropped**, and the order is the
+        // whole of how Shift stays orthogonal without making Redo unspellable. Shift says *how* for
+        // every motion — extend the selection — so dropping it is right almost everywhere; ⌘⇧Z is
+        // the exception, and it is macOS's only spelling of Redo. Trying the exact chord first lets
+        // a table name Shift where it means something and ignore it everywhere else, rather than
+        // splitting the whole vocabulary in two to say one bit.
+        var exact = keymap == EditingKeymap.MacOs ? MacOs(key, modifiers) : Windows(key, modifiers);
+
+        if (exact != EditingCommand.None) {
+            return exact;
+        }
+
         var held = modifiers & ~ModifierKeys.Shift;
 
         return keymap == EditingKeymap.MacOs ? MacOs(key, held) : Windows(key, held);
@@ -223,6 +243,8 @@ public static class EditingCommands {
             EditingCommand.Submit => "text.submit",
             EditingCommand.ShowCompletion => "text.show-completion",
             EditingCommand.Cancel => "text.cancel",
+            EditingCommand.Undo => "edit.undo",
+            EditingCommand.Redo => "edit.redo",
             _ => null
         };
 
@@ -257,6 +279,12 @@ public static class EditingCommands {
             (InputKey.V, ModifierKeys.Control) => EditingCommand.Paste,
             (InputKey.Space, ModifierKeys.Control) => EditingCommand.ShowCompletion,
             (InputKey.Escape, ModifierKeys.None) => EditingCommand.Cancel,
+
+            // ⚠ Ctrl-Y as well as Ctrl-Shift-Z. Windows' own Redo is Ctrl-Y and every editor on it
+            // also answers Ctrl-Shift-Z; leaving one out is a chord that silently undoes instead.
+            (InputKey.Z, ModifierKeys.Control) => EditingCommand.Undo,
+            (InputKey.Z, ModifierKeys.Control | ModifierKeys.Shift) => EditingCommand.Redo,
+            (InputKey.Y, ModifierKeys.Control) => EditingCommand.Redo,
 
             _ => EditingCommand.None
         };
@@ -305,6 +333,9 @@ public static class EditingCommands {
             (InputKey.V, ModifierKeys.Meta) => EditingCommand.Paste,
             (InputKey.Space, ModifierKeys.Meta) => EditingCommand.ShowCompletion,
             (InputKey.Escape, ModifierKeys.None) => EditingCommand.Cancel,
+
+            (InputKey.Z, ModifierKeys.Meta) => EditingCommand.Undo,
+            (InputKey.Z, ModifierKeys.Meta | ModifierKeys.Shift) => EditingCommand.Redo,
 
             // The emacs half, which is not a nicety: ⌃A, ⌃E, ⌃B, ⌃F, ⌃N, ⌃P, ⌃D and ⌃K work in every
             // AppKit text view including Safari's, so a Mac user reaches for them without deciding

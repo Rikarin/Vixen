@@ -320,6 +320,11 @@ public abstract partial class TextField : Control {
     public void MoveCaret(int index, CaretAffinity affinity, bool extend = false) {
         var length = Value?.Length ?? 0;
 
+        // ⚠ A caret move ends the run of typing, so the next keystroke is a new undo entry. Without
+        // it, typing a word, clicking somewhere else and typing another would be one ⌘Z that took
+        // back two edits in two places.
+        BreakUndoRun();
+
         CaretIndex = Math.Clamp(index, 0, length);
         CaretAffinity = affinity;
 
@@ -403,12 +408,130 @@ public abstract partial class TextField : Control {
 
         var updated = string.Concat(value.AsSpan(0, start), replacement, value.AsSpan(end));
 
+        var caretBefore = CaretIndex;
+        var anchorBefore = SelectionAnchor;
+
         // The caret before the value, because assigning the value raises the change and a handler
         // that reads the caret should see where it ended up rather than where it was.
         CaretIndex = start + replacement.Length;
         SelectionAnchor = CaretIndex;
 
         Value = updated;
+
+        Record(value, caretBefore, anchorBefore, start, end, replacement);
+    }
+
+    // The open run of typing, if one is running. `edit` is the entry already on the manager's stack;
+    // extending the run mutates it in place rather than pushing a second one, which is what makes
+    // one ⌘Z take back a word rather than a letter.
+    FieldEdit? run;
+    int runEnd;
+
+    /// <summary>One entry on an undo stack: what the field held either side of an edit.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Mutable, and that is what coalescing is.</b> A run of typing is one entry whose
+    ///     "after" grows with every keystroke; pushing an entry per character gives a ⌘Z that takes
+    ///     back one letter, which every field on every desktop refuses to do.
+    /// </remarks>
+    sealed class FieldEdit {
+        public required string Before { get; init; }
+
+        public required int CaretBefore { get; init; }
+
+        public required int AnchorBefore { get; init; }
+
+        public required string After { get; set; }
+
+        public required int CaretAfter { get; set; }
+    }
+
+    /// <summary>Records an edit with the nearest undo manager, if the field is anywhere near one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Nothing happens when there is no manager, and that is the design.</b> A throwaway
+    ///     field in a dialog with nothing behind it registers nothing and leaves ⌘Z to whatever else
+    ///     was listening — which is what stops a text box in the editor from shadowing the editor's
+    ///     own Undo with a stack that knows about typing and nothing else.
+    /// </remarks>
+    void Record(string before, int caretBefore, int anchorBefore, int start, int end, string replacement) {
+        if (FindUndoManager() is not { IsPerforming: false } manager) {
+            run = null;
+            return;
+        }
+
+        var after = Value ?? string.Empty;
+
+        // ⚠ Coalesced by *shape*, not by a clock. A wall-clock typing window calibrated on an idle
+        // machine is this repository's largest flake source; what makes two keystrokes one edit is
+        // that the second inserted at the end of the first with nothing selected and no line broken.
+        // Anything else — a delete, a paste, a caret move, a newline — starts a fresh entry.
+        var isTyping = end == start && replacement.Length > 0 && !replacement.Contains('\n');
+
+        if (isTyping && run is { } open && start == runEnd) {
+            open.After = after;
+            open.CaretAfter = CaretIndex;
+            runEnd = CaretIndex;
+
+            return;
+        }
+
+        var edit = new FieldEdit {
+            Before = before,
+            CaretBefore = caretBefore,
+            AnchorBefore = anchorBefore,
+            After = after,
+            CaretAfter = CaretIndex
+        };
+
+        manager.Register(
+            isTyping ? "Typing" : "Editing",
+            () => Restore(edit.Before, edit.CaretBefore, edit.AnchorBefore),
+            () => Restore(edit.After, edit.CaretAfter, edit.CaretAfter)
+        );
+
+        run = isTyping ? edit : null;
+        runEnd = CaretIndex;
+    }
+
+    /// <summary>Puts the field back to a recorded state, selection and all.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The selection too, not only the value and the caret.</b> Undoing a cut that has to be
+    ///     followed by re-selecting what came back is an undo that only half happened, and it is what
+    ///     a field that restored the string alone gives.
+    /// </remarks>
+    void Restore(string value, int caret, int anchor) {
+        run = null;
+
+        Value = value;
+
+        var length = Value?.Length ?? 0;
+
+        CaretIndex = Math.Clamp(caret, 0, length);
+        SelectionAnchor = Math.Clamp(anchor, 0, length);
+
+        Reveal();
+    }
+
+    /// <summary>Ends the open run of typing, so the next keystroke starts a new undo entry.</summary>
+    /// <remarks>
+    ///     Called wherever the user has said the run is over without editing: moving the caret,
+    ///     clicking elsewhere, leaving the field.
+    /// </remarks>
+    void BreakUndoRun() => run = null;
+
+    /// <summary>Takes back the last edit, if this field is under an undo manager.</summary>
+    /// <returns>Whether anything was undone.</returns>
+    public bool Undo() {
+        BreakUndoRun();
+
+        return FindUndoManager() is { CanUndo: true } manager && manager.Undo();
+    }
+
+    /// <summary>Puts back the last undone edit.</summary>
+    /// <returns>Whether anything was redone.</returns>
+    public bool Redo() {
+        BreakUndoRun();
+
+        return FindUndoManager() is { CanRedo: true } manager && manager.Redo();
     }
 
     /// <summary>Whether there is something to put on the clipboard, and somewhere to put it.</summary>
@@ -1230,6 +1353,23 @@ public abstract partial class TextField : Control {
 
             case EditingCommand.SelectAll:
                 SelectAll();
+                break;
+
+            // ⚠ Unhandled when there is no manager or nothing to take back, so ⌘Z climbs to the
+            // application's own `edit.undo`. A field that consumed it regardless would make the
+            // editor's Undo stop working for as long as any text box had the focus.
+            case EditingCommand.Undo:
+                if (!Undo()) {
+                    return;
+                }
+
+                break;
+
+            case EditingCommand.Redo:
+                if (!Redo()) {
+                    return;
+                }
+
                 break;
 
             // ⚠ These return rather than break when there is nothing to do, so that an unhandled

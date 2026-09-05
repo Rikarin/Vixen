@@ -166,6 +166,16 @@ public sealed class UiApplication : IDisposable {
             SystemFonts.Install(Document);
         }
 
+        // ⚠ **Installed rather than offered, because "no manager" is what a text field checks and a
+        // default of none is a ⌘Z that does nothing.** `CodeBuffer` is right that undo belongs to the
+        // application and not to the control — but AppKit's window supplies one anyway, and that is
+        // what makes a dialog's text box undoable in a program that has no documents at all.
+        //
+        // ⚠ Before `Configure`, so an application with its own stack replaces this rather than being
+        // replaced by it. The clipboard and the window host below are the head's own wiring and go
+        // after; this one is a default.
+        Document.UndoManager = new UndoManager();
+
         // ⚠ After the sheets and the font, before the content. A component's `Build` reads class
         // names against the cascade as it goes and measures text against whatever face is registered,
         // so mounting first would resolve the first frame against an empty stylesheet and a

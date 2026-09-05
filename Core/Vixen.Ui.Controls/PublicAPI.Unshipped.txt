@@ -719,6 +719,7 @@ Vixen.Ui.Controls.TextField.Placeholder.get -> string?
 Vixen.Ui.Controls.TextField.Placeholder.set -> string?
 Vixen.Ui.Controls.TextField.ReadOnly.get -> bool
 Vixen.Ui.Controls.TextField.ReadOnly.set -> bool
+Vixen.Ui.Controls.TextField.Redo() -> bool
 Vixen.Ui.Controls.TextField.Replace(string insertion) -> void
 Vixen.Ui.Controls.TextField.SelectAll() -> void
 Vixen.Ui.Controls.TextField.SelectWord(int index) -> void
@@ -730,6 +731,7 @@ Vixen.Ui.Controls.TextField.ShowsCaret.get -> bool
 Vixen.Ui.Controls.TextField.Submitted -> System.Action<Vixen.Ui.Controls.TextField>?
 Vixen.Ui.Controls.TextField.TextField() -> void
 Vixen.Ui.Controls.TextField.TextPart.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.TextField.Undo() -> bool
 Vixen.Ui.Controls.TextField.Value.get -> string?
 Vixen.Ui.Controls.TextField.Value.set -> string?
 Vixen.Ui.Controls.TextField.ValueChanged -> System.Action<Vixen.Ui.Controls.TextField, string?>?

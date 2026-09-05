@@ -98,6 +98,34 @@ public class EditingCommandsTests {
         }
     }
 
+    /// <summary>Shift is dropped only when the table does not name it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one exception, and it is macOS's only spelling of Redo.</b> Shift says <i>how</i>
+    ///     for every motion, so dropping it is right almost everywhere — but ⌘⇧Z has to be reachable,
+    ///     and splitting the whole vocabulary into extending and non-extending halves to say one bit
+    ///     would be a table twice the size for one chord. The exact chord is tried first and the
+    ///     Shift-stripped one after, so a table names Shift where it means something and ignores it
+    ///     elsewhere.
+    /// </remarks>
+    [Fact]
+    public void Redo_is_the_chord_that_needs_Shift_kept() {
+        Assert.Equal(EditingCommand.Undo, MacOs(InputKey.Z, ModifierKeys.Meta));
+        Assert.Equal(EditingCommand.Redo, MacOs(InputKey.Z, ModifierKeys.Meta | ModifierKeys.Shift));
+
+        Assert.Equal(EditingCommand.Undo, Windows(InputKey.Z, ModifierKeys.Control));
+        Assert.Equal(EditingCommand.Redo, Windows(InputKey.Z, ModifierKeys.Control | ModifierKeys.Shift));
+
+        // Windows' own Redo as well, because every editor on it answers both and leaving one out is
+        // a chord that silently undoes instead.
+        Assert.Equal(EditingCommand.Redo, Windows(InputKey.Y, ModifierKeys.Control));
+
+        // And the rule still holds for everything the table does not name with Shift.
+        Assert.Equal(
+            EditingCommand.MoveWordLeft,
+            Windows(InputKey.Left, ModifierKeys.Control | ModifierKeys.Shift)
+        );
+    }
+
     /// <summary>Every other modifier has to match exactly.</summary>
     /// <remarks>
     ///     ⚠ <b>The switches this replaces used <c>HasFlag</c></b>, so ⌃⌥← was word motion — and it
