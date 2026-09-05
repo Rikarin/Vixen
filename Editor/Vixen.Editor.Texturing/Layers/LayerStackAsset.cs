@@ -9,9 +9,9 @@ enum LayerKind {
     Fill = 0,
 
     /// <summary>
-    ///     Painted pixels, held in a <c>.vxpaint</c> beside the stack. ⚠ A placeholder in this
-    ///     build — <see cref="LayerStackGraph" /> refuses one and names
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/574">#574</a>, which is M9.
+    ///     Painted pixels, held in a <c>.vxpaint</c> beside the stack. <see cref="LayerStackGraph" />
+    ///     compiles one to a bitmap source per channel, over a <c>vxpaint:</c> reference the host
+    ///     resolves — <a href="https://github.com/Rikarin/Vixen/issues/852">#852</a>.
     /// </summary>
     Paint = 1,
 
@@ -128,9 +128,10 @@ enum LayerMaskSource {
     Bake = 5,
 
     /// <summary>
-    ///     Painted pixels, from the <c>.vxpaint</c> named beside it. ⚠ A placeholder in this build —
-    ///     the brush is M9, <a href="https://github.com/Rikarin/Vixen/issues/574">#574</a>, and
-    ///     <see cref="LayerStackGraph" /> refuses one and names it.
+    ///     Painted pixels, from the <c>.vxpaint</c> named beside it. ⚠ Read for its <b>red</b>, like
+    ///     every other mask source — so a mask canvas is painted in white and its coverage is the
+    ///     channel's value rather than an alpha.
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/852">#852</a>.
     /// </summary>
     Paint = 6
 }

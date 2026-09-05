@@ -336,14 +336,16 @@ public class LayerStackCompileTests {
         Assert.Contains(compilation.Problems, problem => problem.Layer == "self");
     }
 
-    /// <summary>A paint layer is held, and refused, and the message names M9.</summary>
+    /// <summary>A paint layer compiles, and its canvas crosses as an external.</summary>
     /// <remarks>
-    ///     ⚠ <b>A tripwire whose message names the issue that removes it</b> — #574. When the brush
-    ///     lands, this test is what says so, and the layer it is written against keeps its blend
-    ///     mode, its opacity and its channel enables through the refusal.
+    ///     ⚠ <b>This test was the tripwire that said a paint layer was refused, and it fired.</b> It
+    ///     asserted a null plan and a message naming #574, and #852 is the change that made both
+    ///     false: a paint layer is a <c>Source/Bitmap</c> over a <c>vxpaint:</c> reference and its
+    ///     blend, opacity and channel enables now reach the picture rather than being kept for a
+    ///     build that could not draw them.
     /// </remarks>
     [Fact]
-    public void A_paint_layer_is_refused_and_says_which_issue_builds_it() {
+    public void A_paint_layer_compiles_into_an_external_naming_its_canvas_and_its_channel() {
         var stack = One(new() {
             Id = "paint",
             Kind = LayerKind.Paint,
@@ -354,13 +356,15 @@ public class LayerStackCompileTests {
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
-        Assert.Null(compilation.Plan);
+        Assert.Empty(compilation.Problems);
+        Assert.NotNull(compilation.Plan);
 
-        var problem = Assert.Single(compilation.Problems);
+        var external = Assert.Single(compilation.Externals);
 
-        Assert.Contains("#574", problem.Message, StringComparison.Ordinal);
+        // The channel first and the path last, so the split is unambiguous — `PaintReference` says why.
+        Assert.Equal("vxpaint:baseColor|Body.paint.vxpaint", external.Asset);
 
-        // The refusal is a compile-time one and the document keeps everything it was given.
+        // The document keeps everything it was given, which was the old test's other half.
         var layer = stack.Sets[0].Layers[0];
 
         Assert.Equal(LayerBlendMode.Overlay, layer.Blend);

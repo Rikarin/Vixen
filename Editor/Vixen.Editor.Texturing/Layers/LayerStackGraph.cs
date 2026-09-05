@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Numerics;
 using Vixen.Core;
 using Vixen.Editor.NodeGraph;
+using Vixen.Editor.Texturing.Painting;
 
 namespace Vixen.Editor.Texturing.Layers;
 
@@ -352,7 +353,7 @@ static class LayerStackGraph {
                 LayerKind.Fill => Fill(layer, channel),
                 LayerKind.Filter => Adjustment(layer, cursor),
                 LayerKind.Group => Group(layer, channel, cursor, depth),
-                LayerKind.Paint => Paint(layer),
+                LayerKind.Paint => Paint(layer, channel),
                 _ => throw new ArgumentOutOfRangeException(nameof(layer), layer.Kind, "Not a layer kind this build knows.")
             };
 
@@ -429,23 +430,60 @@ static class LayerStackGraph {
             return null;
         }
 
-        /// <summary>M9's layer, refused with the issue that will build it.</summary>
+        /// <summary>M9's layer: a bitmap source reading one channel of the layer's canvas.</summary>
         /// <remarks>
-        ///     ⚠ <b>A tripwire, and the message names the issue that removes it.</b> Doc 48 § M9
-        ///     (<a href="https://github.com/Rikarin/Vixen/issues/574">#574</a>) is the brush; what M7
-        ///     owes is a document shaped for it, which is <see cref="LayerAsset.Paint" /> holding a
-        ///     path and never pixels. Compiling a paint layer needs the <c>.vxpaint</c> uploaded as
-        ///     an external image, and there is nothing yet that writes one.
+        ///     <para>
+        ///         <b>Exactly <see cref="LayerFillSource.Texture" />'s node, with a reference a host
+        ///         resolves differently</b> —
+        ///         <a href="https://github.com/Rikarin/Vixen/issues/852">#852</a>. A paint layer is a
+        ///         picture; the only thing that distinguishes it from an imported one is where the
+        ///         bytes come from, and that is a question for whoever fills the plan's externals.
+        ///         So there is no paint node, no paint op and no second path through the compiler —
+        ///         which is what keeps doc 48 § D1's "the stack goes through the same compiler"
+        ///         true of the layer kind that could most easily have broken it.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>One reference per channel, because a <c>.vxpaint</c> is one image per
+        ///         channel.</b> <c>PaintCanvas</c>' own remarks say why the file is shaped that way:
+        ///         a layer that paints roughness alone must not also carry a base-colour buffer it
+        ///         never writes. <see cref="Content" /> is called once per channel the set writes, so
+        ///         this emits the bitmap for <em>that</em> channel and the unwritten ones never
+        ///         appear.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>A layer nobody has painted on is a warning and not a refusal, and the
+        ///         difference is what an artist sees.</b> A refusal takes the whole stack's plan with
+        ///         it — <c>LayerStackCompiler.Compile</c> stops on <c>HasErrors</c> — so the moment a
+        ///         panel created a paint layer, every other layer in the stack would stop previewing
+        ///         until the first stroke landed. An empty canvas contributes nothing, which is
+        ///         exactly what an unpainted layer means.
+        ///     </para>
         /// </remarks>
-        PortRef? Paint(LayerAsset layer) {
-            problems.Add(LayerStackProblem.Refusal(
-                layer.Id,
-                "A Paint layer's pixels come from a .vxpaint beside the stack, and nothing writes one yet: the "
-                + "brush is doc 48 § M9 (#574). The layer is held in the document, keeps its blend mode, its "
-                + "opacity and its channel enables, and does not compile."
-            ));
+        PortRef? Paint(LayerAsset layer, ChannelAsset channel) {
+            var path = layer.Paint.Trim();
 
-            return null;
+            if (path.Length == 0) {
+                problems.Add(LayerStackProblem.Warning(
+                    layer.Id,
+                    "This paint layer names no .vxpaint, so it has nothing to composite. A canvas is written "
+                    + "the first time the layer is painted on; until then the layer keeps its blend mode, its "
+                    + "opacity and its channel enables and contributes nothing."
+                ));
+
+                return null;
+            }
+
+            var node = Add("Source/Bitmap");
+
+            node.SetText("Source", PaintReference.Reference(path, channel.Usage));
+
+            // The texture fill's two settings, for its reasons: linear because the colour space is a
+            // fact about the picture, and bilinear because a canvas authored at one resolution is
+            // read at whatever the bake asked for.
+            node.SetText("Space", "Linear");
+            node.SetText("Filter", "Bilinear");
+
+            return new(node.Id, "Out");
         }
 
         /// <summary>A fill layer's source node.</summary>
@@ -940,14 +978,33 @@ static class LayerStackGraph {
                     return new(new PortRef(node.Id, output.Name), "");
                 }
 
-                case LayerMaskSource.Paint:
-                    problems.Add(LayerStackProblem.Refusal(
-                        layerId,
-                        "A painted mask's pixels come from a .vxpaint beside the stack, and nothing writes one "
-                        + "yet: the brush is doc 48 § M9 (#574)."
-                    ));
+                case LayerMaskSource.Paint: {
+                    // ⚠ The same node the texture mask emits, and the same reading of it: a mask is
+                    // read for its *red*, which the `Colour/Channel Shuffle` above this does. So a
+                    // mask canvas is painted in white and its coverage is the value of the channel,
+                    // never an alpha — a painted mask whose alpha carried the coverage would mask
+                    // nothing, for the exact reason `Into` gives for replacing a bitmap's alpha.
+                    var painted = entry.Paint.Trim();
 
-                    return null;
+                    if (painted.Length == 0) {
+                        problems.Add(LayerStackProblem.Warning(
+                            layerId,
+                            "This layer's mask is painted and names no .vxpaint, so it has nothing to read. A "
+                            + "canvas is written the first time the mask is painted on; until then the entry "
+                            + "contributes nothing."
+                        ));
+
+                        return null;
+                    }
+
+                    var node = Add("Source/Bitmap");
+
+                    node.SetText("Source", PaintReference.Reference(painted, PaintReference.Mask));
+                    node.SetText("Space", "Linear");
+                    node.SetText("Filter", "Bilinear");
+
+                    return new(new PortRef(node.Id, "Out"), "");
+                }
 
                 default:
                     throw new ArgumentOutOfRangeException(
