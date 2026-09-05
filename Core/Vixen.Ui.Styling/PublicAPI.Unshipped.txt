@@ -546,6 +546,7 @@ Vixen.Ui.Styling.StyleTree.StyleTree(Vixen.Ui.Styling.NameTable names) -> void
 Vixen.Ui.Styling.StyleUnit -> enum : byte
 Vixen.Ui.Styling.StyleUnit.Degrees = 4 -> Vixen.Ui.Styling.StyleUnit
 Vixen.Ui.Styling.StyleUnit.Em = 5 -> Vixen.Ui.Styling.StyleUnit
+Vixen.Ui.Styling.StyleUnit.LineHeight = 11 -> Vixen.Ui.Styling.StyleUnit
 Vixen.Ui.Styling.StyleUnit.None = 0 -> Vixen.Ui.Styling.StyleUnit
 Vixen.Ui.Styling.StyleUnit.Percent = 2 -> Vixen.Ui.Styling.StyleUnit
 Vixen.Ui.Styling.StyleUnit.Pixels = 1 -> Vixen.Ui.Styling.StyleUnit

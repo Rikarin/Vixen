@@ -569,6 +569,8 @@ Vixen.Ui.LengthContext.FontSize.get -> float
 Vixen.Ui.LengthContext.FontSize.init -> float
 Vixen.Ui.LengthContext.LengthContext() -> void
 Vixen.Ui.LengthContext.LengthContext(float FontSize, float RootFontSize, float ViewportWidth, float ViewportHeight) -> void
+Vixen.Ui.LengthContext.LineHeight.get -> float
+Vixen.Ui.LengthContext.LineHeight.init -> float
 Vixen.Ui.LengthContext.PixelsPer(Vixen.Ui.Styling.StyleUnit unit) -> float
 Vixen.Ui.LengthContext.RootFontSize.get -> float
 Vixen.Ui.LengthContext.RootFontSize.init -> float
@@ -578,6 +580,7 @@ Vixen.Ui.LengthContext.ViewportHeight.init -> float
 Vixen.Ui.LengthContext.ViewportWidth.get -> float
 Vixen.Ui.LengthContext.ViewportWidth.init -> float
 Vixen.Ui.LengthContext.WithFontSize(float fontSize) -> Vixen.Ui.LengthContext
+Vixen.Ui.LengthContext.WithLineHeight(float lineHeight) -> Vixen.Ui.LengthContext
 Vixen.Ui.LineCap -> enum : byte
 Vixen.Ui.LineCap.Butt = 0 -> Vixen.Ui.LineCap
 Vixen.Ui.LineCap.LineCap() -> void

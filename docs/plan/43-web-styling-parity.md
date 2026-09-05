@@ -107,8 +107,8 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **228** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **29** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **229** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **28** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
 | **absent** | not emitted at all | **71** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
@@ -475,13 +475,13 @@ refusal block, which already says so for the same reason.
 | Spacing | 24 | 22 | 0 | 0 | 2 | 0 |
 | Transforms | 23 | 7 | 2 | 0 | 14 | 0 |
 | Filters | 20 | 10 | 10 | 0 | 0 | 0 |
-| Sizing | 15 | 12 | 1 | 0 | 2 | 0 |
+| Sizing | 15 | 13 | 0 | 0 | 2 | 0 |
 | Backgrounds | 11 | 6 | 1 | 0 | 4 | 0 |
 | Transitions and Animation | 6 | 4 | 0 | 0 | 2 | 0 |
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 |
-| **Total** | **332** | **228** | **29** | **1** | **71** | **3** |
+| **Total** | **332** | **229** | **28** | **1** | **71** | **3** |
 
 Flexbox and Grid leads at 29 of 34, with only two absent roots left and both of those refused on
 policy rather than owed; then Effects at 27 of 34, Interactivity at 27 of 39, Borders at 26 of 34,
@@ -603,9 +603,10 @@ generated sheet that nothing could ever read, which is the exact shape of debt `
 exists to record — and one nobody could ever close. The ledger's `css` column still lists both,
 because that column is about what Tailwind emits.
 
-⚠ **Sizing was `0 works, 7 partial, 8 absent`, then `0 works, 13 partial, 2 absent`; it is now
-`12 works, 1 partial, 2 absent`.** Three separate things happened to it, in three revisions, and the
-headline number was the least informative thing on the row for two of them.
+⚠ **Sizing was `0 works, 7 partial, 8 absent`, then `0 works, 13 partial, 2 absent`, then
+`12 works, 1 partial, 2 absent`; it is now `13 works, 0 partial, 2 absent`.** Four separate things
+happened to it, in four revisions, and the headline number was the least informative thing on the row
+for three of them.
 
 **The seven partials were one rule, and the rule is closed.** The previous revision of this paragraph
 said Sizing read worse than it was because the mechanism, not the roots, had moved: `w-*`, `h-*`,
@@ -713,11 +714,25 @@ same prefix, and `UtilityFamilies.Register` keeps the first family registered un
 registration that holds both: the empty keyword answers the bare class and the value kind answers the
 rest, which is the shape `flex` has had all along for the same reason.
 
-**`max-block-*` is the one row in the category still `partial`, and it is `partial` on something of
-its own.** `max-block-lh` is one line box, and `lh` is a unit `StyleValueParser` does not read and
-`LengthContext` could not resolve if it did — the context carries a font size and no line height.
-Nothing in its `value_gap` says so: the demotion comes from the measurement, because the `classes`
-column lists a class that does not resolve.
+**`max-block-*` was the one row in the category still `partial`, and it was `partial` on something
+of its own.** `max-block-lh` is one line box, and `lh` was a unit `StyleValueParser` did not read and
+`LengthContext` could not have resolved if it did — the context carried a font size and no line
+height. ⚠ **Nothing in its `value_gap` said so**: the demotion came from the *measurement*, because
+the `classes` column lists a class that does not resolve. That is the arrangement worth keeping in
+mind when a row's prose and its state disagree — the state is the half that was measured.
+
+✅ **Closed 2026-09-05, and it was three stages rather than a unit.** `StyleUnit.LineHeight` is
+parsed, `LengthContext` carries the element's own line height, and `UiDocument.Apply` hands it in
+beside the font size — a parser that read `lh` and stopped would have left every box the wrong size
+with the class resolving perfectly, which is this row's own failure shape one level down.
+⚠ **`line-height: normal` is the one approximation.** CSS settles it from the font's ascender,
+descender and line gap — `TextRun.Height` does exactly that — and nothing that resolves a length has a
+font, so `LengthContext` answers 1.2 times the font size and says so. It is never zero: a length unit
+whose scale is zero would make `max-h-lh` a box of no height, which is `PixelsPer`'s own documented
+trap. ⚠ **And `lh` had to be named in `NotNegatable` in the same change**, because `1lh` begins with a
+digit exactly as `100%` and `100vh` do, so `-max-block-lh` would otherwise have emitted minus one line
+box on the strength of that character — the third time that trap has been laid by a value becoming
+resolvable.
 
 ⚠ **`basis-min`, `basis-max` and `basis-fit` are refused rather than swept in, and the `basis-*` row
 now says why.** `TrySize` answers all three, but a flex basis is a size on the *container's* main

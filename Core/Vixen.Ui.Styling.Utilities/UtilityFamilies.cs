@@ -2849,10 +2849,16 @@ public static class UtilityFamilies {
     ///         "minus one viewport tall" any more than <c>-w-full</c> is minus one hundred per
     ///         cent wide.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>lh</c> joined them the day it resolved, and it is the same trap a third
+    ///         time.</b> It comes out as <c>1lh</c> — a digit again — so <c>-max-block-lh</c> would
+    ///         have been "minus one line box tall" rather than a refusal. A value that stops being
+    ///         unresolvable has to be looked at here as well as in <see cref="TrySize" />.
+    ///     </para>
     /// </remarks>
     static readonly HashSet<string> NotNegatable = new(StringComparer.Ordinal) {
         "auto", "full", "screen", "min", "max", "fit",
-        "svw", "lvw", "dvw", "svh", "lvh", "dvh"
+        "svw", "lvw", "dvw", "svh", "lvh", "dvh", "lh"
     };
 
     /// <summary>Flips the sign of everything a utility resolved to.</summary>
@@ -3285,6 +3291,15 @@ public static class UtilityFamilies {
             case "lvh":
             case "dvh":
                 result = "100vh";
+                return true;
+
+            // ⚠ <b>One line box, and the only sizing value whose unit the engine had to learn.</b>
+            // Every other keyword above resolves to a unit the parser already read; `lh` did not
+            // exist, so `max-block-lh` emitted text `StyleValueParser` refused and the class was the
+            // ledger's one Sizing `partial`. It is answered by every family for the reason the
+            // viewport trios are — Tailwind names it after what is measured, not after the property.
+            case "lh":
+                result = "1lh";
                 return true;
             default:
                 break;
