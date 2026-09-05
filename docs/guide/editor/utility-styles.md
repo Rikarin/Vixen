@@ -151,10 +151,12 @@ nobody here and there is no writing mode for the two to differ in. `@apply space
 the same reason `@apply hover:bg-accent` is: it is a rule with a selector of its own.
 
 ⚠ **`mix-blend-*` and `origin-*` are deliberately not families**, and each is a measured verdict
-rather than an omission. Nothing in the engine reads `mix-blend-mode` (there is no blend channel on a
-`DrawCommand` and no offscreen target to blend into) or `transform-origin` (which needs a transform
-whose fixed point matters, and `translate` — the only one implemented — is origin-independent). See
-`docs/plan/43-web-styling-parity.md` § F9.
+rather than an omission. Nothing in the engine reads `mix-blend-mode` (no layer carries a blend mode,
+and the composite that would apply one never reads what is under it) or `transform-origin` (which
+needs a transform whose fixed point matters, and `translate` — the only one implemented — is
+origin-independent). ⚠ The offscreen target this refusal used to cite is no longer missing: the
+compositor makes real groups for `opacity`, a `filter`, a `mask-image`, a `backdrop-filter` and a
+transform. See `docs/plan/43-web-styling-parity.md` § F9.
 
 ⚠ **The `scroll-*` set is written now, and every one of them only means something inside a
 `<ScrollView>`.** `scroll-mt-4` on a `div` that nothing ever scrolls to resolves, computes a value and

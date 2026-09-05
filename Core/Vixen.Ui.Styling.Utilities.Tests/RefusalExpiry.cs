@@ -390,8 +390,18 @@ static partial class RefusalExpiry {
         // suite reads as "the anchor is misspelt". An instrument whose verdict depends on the test
         // filter is the same defect as one that reports success on the day it does not run, and it was
         // the anti-typo guard that caught it. Reaching through a type forces the load.
+        //
+        // ⚠ <b>`Vixen.Ui.Controls` is the fourth and it was load-order-dependent until it was named
+        // here.</b> `object`'s anchor is a member of `Image`, and the run that resolved it was
+        // resolving it by accident: the `expires-when-read` clauses two branches up call
+        // `UtilityConsumptionProbe.Take()`, whose scenes build an `Icon`, so the assembly happened to
+        // be loaded by the time this clause was reached. Delete the last `expires-when-read` clause
+        // from the ledger and the anchor silently stops resolving — which this suite reads as a typo,
+        // on a clause nobody touched. That is the same defect this paragraph describes, one
+        // assembly further out.
         var assemblies = new[] {
-                typeof(UiDocument).Assembly, typeof(StyleEngine).Assembly, typeof(UtilityFamilies).Assembly
+                typeof(UiDocument).Assembly, typeof(StyleEngine).Assembly, typeof(UtilityFamilies).Assembly,
+                typeof(Vixen.Ui.Controls.Image).Assembly
             }
             .Concat(AppDomain.CurrentDomain.GetAssemblies())
             .Distinct();

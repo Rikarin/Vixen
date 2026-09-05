@@ -475,12 +475,12 @@ refusal block, which already says so for the same reason.
 
 | Category | roots | works | partial | inert | absent | composed |
 |---|--:|--:|--:|--:|--:|--:|
-| Layout | 51 | 29 | 5 | 0 | 14 | 3 |
+| Layout | 51 | 30 | 4 | 0 | 14 | 3 |
 | Interactivity | 40 | 30 | 0 | 1 | 9 | 0 |
 | Borders | 34 | 28 | 2 | 0 | 4 | 0 |
 | Effects | 34 | 27 | 1 | 0 | 6 | 0 |
 | Flexbox and Grid | 34 | 30 | 2 | 0 | 2 | 0 |
-| Typography | 34 | 20 | 5 | 0 | 9 | 0 |
+| Typography | 34 | 21 | 4 | 0 | 9 | 0 |
 | Spacing | 24 | 22 | 0 | 0 | 2 | 0 |
 | Transforms | 23 | 10 | 3 | 0 | 10 | 0 |
 | Filters | 20 | 10 | 10 | 0 | 0 | 0 |
@@ -493,7 +493,7 @@ refusal block, which already says so for the same reason.
 | **Total** | **332** | **229** | **28** | **1** | **71** | **3** |
 
 Flexbox and Grid leads at 30 of 34, with only two absent roots left and both of those refused on
-policy rather than owed; then Interactivity at 30 of 40, Layout at 29 of 51, Borders at 28 of 34,
+policy rather than owed; then Interactivity at 30 of 40, Layout at 30 of 51, Borders at 28 of 34,
 and Effects at 27 of 34. Tables and Accessibility still have **no working root at all**.
 
 ⚠ **No category is `complete`, and SVG — which this section called the first one to be — is 2 of 3.**
@@ -1387,7 +1387,7 @@ all twelve scenes and at every value the family could emit, rather than argued f
 | --- | --- | --- |
 | `space-x/y-*` | **written** | `margin-inline-end` and `margin-bottom` are read; the family needed a compound selector, not a reader |
 | `divide-x/y-*`, `divide-<color>` | **written** | `border-inline-end-width`, `border-bottom-width` and the four `border-color` longhands are read |
-| `mix-blend-*` | **refused** | `mix-blend-mode` moves no channel. `DrawCommand` has no blend channel and there is no offscreen target to blend into — the same compositor `rotate`/`scale` wait on under **#23** |
+| `mix-blend-*` | **refused** | `mix-blend-mode` moves no channel. ⚠ Half of the reason as written here has expired and the other half named the wrong seam: the offscreen target arrived with the compositor, and the channel a blend mode needs is on `UiLayer` beside `Alpha`, not on `DrawCommand`. See Part 9, Bucket 2 |
 | `origin-*` | **written** ✅ | ⚠ Refused here as *unobservable*, and the last clause of that refusal — "`scale` and `rotate` are refused under **#23**" — was its expiry condition. Both are implemented now, `TransformReader` reads `transform-origin` into the point they turn about, and the family is registered. The refusal also needed a *scene*: the property is invisible without a transform whose fixed point matters, so `translated` could never have seen it and the new `turned` scene is what does — the seventh entry on `UtilityConsumptionProbe`'s list of arrangements that were missing |
 | `scroll-*` | **22 of 32 written** ✅ | Part 8 § 3, discharged by **A18**. `ScrollView` reads `scroll-margin-*`, `scroll-padding-*`, `scroll-behavior` and `overscroll-behavior*` now, so the roots are registered against real readers rather than as properties on a box. The four block roots stay absent (`space-y`'s reason); `snap-*` is registered now against the snapping behaviour A18 could not have used, and of `scrollbar-*` only `scrollbar` is written — see Part 8 § 3 |
 
@@ -3211,14 +3211,32 @@ computes a value and moves no channel in any scene — the defect this document 
 `ElementFilter.Any` remark justifies departing from CSS for an identity filter with "the engine has
 no other observable that depends on the isolation", which is the same argument reached
 independently. But the *older* refusal of `mix-blend-mode` is justified partly with "there is no
-offscreen target to blend into", and that half is no longer true — the compositor has them. The
-surviving half ("no blend channel on a `DrawCommand`") is the whole reason, and it is worth
-correcting the record: the blocker moved from the compositor to the command.
+offscreen target to blend into", and that half is no longer true — the compositor has them.
 
-**Cost to close:** not `isolation` — `mix-blend-mode` first, and it is a channel through four
-layers (a field on `DrawCommand` and `UiLayer`, a batching key, a shader variant in the composite,
-matching arithmetic in `SoftwareUiRasterizer.Composite`) plus the separable/non-separable blend
-formulae. `isolation` is then perhaps twenty lines on top and cannot sensibly precede it.
+⚠ **And the surviving half names the wrong seam, which matters because it is what the expiry clause
+watches.** "No blend channel on a `DrawCommand`" reads as though the fix were a field on the command,
+and a per-command blend would be a *defect* of exactly the shape `LayerPush`'s own remark already
+warns about for opacity: CSS Compositing 1 § 5.1 blends an element's **rendered result** with its
+backdrop, so an element's background, its border and its text must first composite source-over with
+each other and with its children, and only the finished group blends. Blending each command
+separately gives a different picture the moment two of them overlap — and every bordered element has
+two. So `mix-blend-mode` is a sixth reason to open a group, and the channel belongs on `UiLayer`
+beside `Alpha`, `Blur`, `Filter` and `MaskCount`, which is the seam every other group-wide effect
+already occupies. The clause moved with it.
+
+⚠ **The sizing also missed the half that is not like `Alpha`: the composite has to READ its
+destination.** Fading a surface in is a source-over draw that never looks at what is under it, which
+is why `Alpha` cost one field and no new capability. A blend mode is a function of both operands, so
+the composite needs the backdrop under its own quad — free in `SoftwareUiRasterizer`, which already
+has the destination buffer in hand, and on the GPU a subpass input, a framebuffer fetch or a copy of
+the target, none of which the UI pass has today. `isolation` then bounds *which* backdrop, so a
+faithful pair is nested surfaces rather than one.
+
+**Cost to close:** not `isolation` — `mix-blend-mode` first, and it is a channel through four layers
+(a field on `UiLayer`, a batching key, a shader variant in the composite that can sample its
+destination, matching arithmetic in `SoftwareUiRasterizer.Composite`) plus the separable and
+non-separable blend formulae. `isolation` is then perhaps twenty lines on top and cannot sensibly
+precede it.
 
 ### Bucket 3 — the code exists and an *input* does not. `object-fit`, `object-position`, `contain`.
 
@@ -3240,16 +3258,33 @@ it in, not a property registration. **Sized: small once the intrinsic size exist
 size is the actual work.** Note a video is an `Image` here, so this covers the classic
 non-matching-aspect case.
 
+⚠ **`object-position` is behind `object-fit` and carries one half of its own**, which is worth
+knowing before the pair is sized as one item. It is refused for `object-fit`'s reason first — a
+position says where the sampled rectangle sits in the box, and with no intrinsic size there is never
+anything left over to place — but four of Tailwind's nine position classes are *two-word* values
+(`object-left-top`), and `UiDocument.KeywordOf` answers `null` to a two-word value by construction.
+So that root also wants a `<position>` reading beside the four `StyleAccess` has, where `object-fit`
+wants none. Both rows now carry the measurement in the ledger, and the pair is tripwired:
+`object` expires on `Image.IntrinsicSize` and `object-*` expires with `object`.
+
 `contain` is refused for a related reason and a worse one: **there is no containment concept in the
-layout store at all**, and no vocabulary to express the interesting half. Size containment means a
-box sizes as if it had no contents — which needs intrinsic-size keywords the store does not
-implement. ⚠ **Correcting a claim made in passing during the container-query work:**
-`LayoutUnit.Stretch` is *not* an enum member nothing references — it is referenced by two generated
-Yoga fixtures and by `Vixen.YogaTestGen`. It is, however, unimplemented, and so are
-`LayoutUnit.MaxContent` and `LayoutUnit.FitContent`: `StyleLength.IsResolvable` admits only `Point`
-and `Percent`, and `Resolve` returns `NaN` for the other four. So those two fixtures pass with the
-keyword behaving as "undefined", which is a thing worth knowing before anybody builds on it. Three
-unimplemented sizing keywords is the prerequisite, and `contain` is behind them.
+layout store at all** — no property, no style slot, no branch — and no vocabulary to express the
+interesting half. Size containment means a box sizes as if it had no contents. ⚠ **Correcting a claim
+made in passing during the container-query work:** `LayoutUnit.Stretch` is *not* an enum member
+nothing references — `Tools/Vixen.YogaTestGen` emits it and two generated fixtures set it. It is one
+nothing *resolves*: `StyleLength.IsResolvable` admits only `Point` and `Percent`, so both fixtures
+pass with the keyword behaving as "undefined", and the two disagree about what it should mean
+(`Stretch_width` wants the containing block's width, `Stretch_flex_basis_column` wants its own
+content's height) — so resolving it closes one by opening the other.
+
+⚠ **And the paragraph that used to sit here said three keywords were unimplemented, which stopped
+being true when the intrinsic pre-pass landed.** `MinContent`, `MaxContent` and `FitContent` *are*
+resolved — `IsResolvable` is not the predicate that settles them, `StyleLength.IsContentBased` is,
+and `LayoutTree.Intrinsic.cs`'s whole-tree bottom-up pre-pass measures the node and substitutes a
+`Point` before the algorithm reads the slot. Reading a `NaN` out of `Resolve` as "unimplemented" is
+the mistake, and it is one this file made about its own store. **`Stretch` is the one left**, and
+`contain` is not behind it: containment is a concept the store does not have at all, which is a
+larger and separate item. This is also the layout half of the container-query coercion.
 
 ### Bucket 4 — the algorithm was never written. `columns`, the three `break-*`, `box-decoration-break`, `float`, `clear`.
 
