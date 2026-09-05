@@ -379,6 +379,55 @@ public static class UtilityFamilies {
         Static("invisible", "visibility", "hidden");
         Static("collapse", "visibility", "collapse");
 
+        // ⚠ <b>`sr-only` is eight declarations where v4 writes nine, and the missing one is `clip`.</b>
+        // The class hides an element from sight while leaving it in the accessibility tree, and the
+        // eight that land are what does the hiding: a one-point absolutely-positioned box with no
+        // edges, pulled a point out of flow, clipping whatever is inside it. `clip: rect(0,0,0,0)`
+        // adds nothing to that — it is 2009's spelling of the same intent, kept in the v4 recipe for
+        // browsers that shipped before `overflow: hidden` on a 1×1 box was reliable — and nothing in
+        // this engine reads a clip rectangle, so emitting it would put a property on
+        // `InertProperties.txt` for no behaviour. That is the documented substitute #268 asks for
+        // rather than a reader.
+        //
+        // ⚠ <b>The class only means anything because the accessibility tree is built from
+        // <c>Role</c> and not from geometry.</b> `UiElement.IsInAccessibilityTree` asks the role
+        // alone; nothing subtracts an element for being one point wide, clipped or off-screen. Were
+        // it otherwise this family would not hide an element from sight, it would delete it — which
+        // is the opposite of what the author wrote, and would have been the reason to refuse.
+        Register(new Family(
+            "sr-only",
+            ValueKind.Static,
+            ["position"],
+            new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = "position:absolute" },
+            Alongside: [
+                new UtilityDeclaration("width", "1px"),
+                new UtilityDeclaration("height", "1px"),
+                new UtilityDeclaration("padding", "0"),
+                new UtilityDeclaration("margin", "-1px"),
+                new UtilityDeclaration("overflow", "hidden"),
+                new UtilityDeclaration("white-space", "nowrap"),
+                new UtilityDeclaration("border-width", "0")
+            ]
+        ));
+
+        // The undo, and it is not the same list backwards: v4's `not-sr-only` restores seven
+        // properties and leaves `border-width` alone, because a border the element declared for
+        // itself is not `sr-only`'s to give back.
+        Register(new Family(
+            "not-sr-only",
+            ValueKind.Static,
+            ["position"],
+            new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = "position:static" },
+            Alongside: [
+                new UtilityDeclaration("width", "auto"),
+                new UtilityDeclaration("height", "auto"),
+                new UtilityDeclaration("padding", "0"),
+                new UtilityDeclaration("margin", "0"),
+                new UtilityDeclaration("overflow", "visible"),
+                new UtilityDeclaration("white-space", "normal")
+            ]
+        ));
+
         // ⚠ <b>Three declarations, because `truncate` <i>is</i> three declarations.</b> It was one
         // here — `overflow: hidden` alone — and doc 43's F5 is the finding that the other two were
         // missing: the class named the ellipsis it could not draw, and the wrapping the third
