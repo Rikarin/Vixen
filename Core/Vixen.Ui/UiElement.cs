@@ -496,6 +496,8 @@ public partial class UiElement : Composition.IComposable {
         }
 
         Document.InvalidateClass(StyleNode, className);
+        Document.RecordDirty(this, UiInvalidationKind.Class);
+
         return true;
     }
 
@@ -508,6 +510,8 @@ public partial class UiElement : Composition.IComposable {
         }
 
         Document.InvalidateClass(StyleNode, className);
+        Document.RecordDirty(this, UiInvalidationKind.Class);
+
         return true;
     }
 
@@ -644,6 +648,7 @@ public partial class UiElement : Composition.IComposable {
 
             Document.Styles.Tree.SetState(StyleNode, value);
             Document.InvalidateState(StyleNode);
+            Document.RecordDirty(this, UiInvalidationKind.State);
 
             // ⚠ The one thing a restyle does *not* already tell a bridge. The claim that a computed
             // state reaches one "through the restyle it already causes" was false: a restyle is a
