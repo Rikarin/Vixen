@@ -51,7 +51,7 @@ border-spacing-x-*	expires-with	border-spacing-*
 border-spacing-y-*	expires-with	border-spacing-*
 inset-ring-*	expires-with	inset-shadow-*
 isolation	expires-with	mix-blend
-mix-blend	expires-on	Vixen.Ui.DrawCommand.Blend
+mix-blend	expires-on	Vixen.Ui.Rendering.UiLayer.Blend
 perspective-*	expires-on	Vixen.Ui.Rendering.UiVertex.W
 perspective-origin-*	expires-with	perspective-*
 ring-offset-*	expires-on	Vixen.Ui.Styling.Utilities.UtilityComposition.RingOffsetWidth

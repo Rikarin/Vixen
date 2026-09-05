@@ -1332,7 +1332,7 @@ all twelve scenes and at every value the family could emit, rather than argued f
 | --- | --- | --- |
 | `space-x/y-*` | **written** | `margin-inline-end` and `margin-bottom` are read; the family needed a compound selector, not a reader |
 | `divide-x/y-*`, `divide-<color>` | **written** | `border-inline-end-width`, `border-bottom-width` and the four `border-color` longhands are read |
-| `mix-blend-*` | **refused** | `mix-blend-mode` moves no channel. `DrawCommand` has no blend channel and there is no offscreen target to blend into — the same compositor `rotate`/`scale` wait on under **#23** |
+| `mix-blend-*` | **refused** | `mix-blend-mode` moves no channel. ⚠ Half of the reason as written here has expired and the other half named the wrong seam: the offscreen target arrived with the compositor, and the channel a blend mode needs is on `UiLayer` beside `Alpha`, not on `DrawCommand`. See Part 9, Bucket 2 |
 | `origin-*` | **written** ✅ | ⚠ Refused here as *unobservable*, and the last clause of that refusal — "`scale` and `rotate` are refused under **#23**" — was its expiry condition. Both are implemented now, `TransformReader` reads `transform-origin` into the point they turn about, and the family is registered. The refusal also needed a *scene*: the property is invisible without a transform whose fixed point matters, so `translated` could never have seen it and the new `turned` scene is what does — the seventh entry on `UtilityConsumptionProbe`'s list of arrangements that were missing |
 | `scroll-*` | **22 of 32 written** ✅ | Part 8 § 3, discharged by **A18**. `ScrollView` reads `scroll-margin-*`, `scroll-padding-*`, `scroll-behavior` and `overscroll-behavior*` now, so the roots are registered against real readers rather than as properties on a box. The four block roots stay absent (`space-y`'s reason); `snap-*` is registered now against the snapping behaviour A18 could not have used, and of `scrollbar-*` only `scrollbar` is written — see Part 8 § 3 |
 
@@ -3102,14 +3102,32 @@ computes a value and moves no channel in any scene — the defect this document 
 `ElementFilter.Any` remark justifies departing from CSS for an identity filter with "the engine has
 no other observable that depends on the isolation", which is the same argument reached
 independently. But the *older* refusal of `mix-blend-mode` is justified partly with "there is no
-offscreen target to blend into", and that half is no longer true — the compositor has them. The
-surviving half ("no blend channel on a `DrawCommand`") is the whole reason, and it is worth
-correcting the record: the blocker moved from the compositor to the command.
+offscreen target to blend into", and that half is no longer true — the compositor has them.
 
-**Cost to close:** not `isolation` — `mix-blend-mode` first, and it is a channel through four
-layers (a field on `DrawCommand` and `UiLayer`, a batching key, a shader variant in the composite,
-matching arithmetic in `SoftwareUiRasterizer.Composite`) plus the separable/non-separable blend
-formulae. `isolation` is then perhaps twenty lines on top and cannot sensibly precede it.
+⚠ **And the surviving half names the wrong seam, which matters because it is what the expiry clause
+watches.** "No blend channel on a `DrawCommand`" reads as though the fix were a field on the command,
+and a per-command blend would be a *defect* of exactly the shape `LayerPush`'s own remark already
+warns about for opacity: CSS Compositing 1 § 5.1 blends an element's **rendered result** with its
+backdrop, so an element's background, its border and its text must first composite source-over with
+each other and with its children, and only the finished group blends. Blending each command
+separately gives a different picture the moment two of them overlap — and every bordered element has
+two. So `mix-blend-mode` is a sixth reason to open a group, and the channel belongs on `UiLayer`
+beside `Alpha`, `Blur`, `Filter` and `MaskCount`, which is the seam every other group-wide effect
+already occupies. The clause moved with it.
+
+⚠ **The sizing also missed the half that is not like `Alpha`: the composite has to READ its
+destination.** Fading a surface in is a source-over draw that never looks at what is under it, which
+is why `Alpha` cost one field and no new capability. A blend mode is a function of both operands, so
+the composite needs the backdrop under its own quad — free in `SoftwareUiRasterizer`, which already
+has the destination buffer in hand, and on the GPU a subpass input, a framebuffer fetch or a copy of
+the target, none of which the UI pass has today. `isolation` then bounds *which* backdrop, so a
+faithful pair is nested surfaces rather than one.
+
+**Cost to close:** not `isolation` — `mix-blend-mode` first, and it is a channel through four layers
+(a field on `UiLayer`, a batching key, a shader variant in the composite that can sample its
+destination, matching arithmetic in `SoftwareUiRasterizer.Composite`) plus the separable and
+non-separable blend formulae. `isolation` is then perhaps twenty lines on top and cannot sensibly
+precede it.
 
 ### Bucket 3 — the code exists and an *input* does not. `object-fit`, `object-position`, `contain`.
 
