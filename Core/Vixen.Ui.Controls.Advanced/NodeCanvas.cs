@@ -659,13 +659,19 @@ enum CanvasDrag : byte {
 /// <summary>An infinite canvas of nodes joined by wires.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Zoom is arithmetic, not a transform.</b> Nothing in <c>Vixen.Ui</c> scales a subtree —
-///         there is no <c>transform</c> property and adding one is a change to the layout tree, the
-///         hit test and the draw list at once. So the canvas converts graph coordinates to screen
-///         coordinates itself and writes the answer as a position and a size, and the node's
-///         <c>font-size</c> goes with it so that its insides scale too. Everything in the theme
-///         below a node is therefore written in <c>em</c>, which is what makes one number carry the
-///         whole scale.
+///         <b>Zoom is arithmetic, not a transform — and that is now a choice rather than the only
+///         road.</b> ⚠ This remark used to say there is no <c>transform</c> property; there is.
+///         <c>TransformReader</c> reads <c>transform</c>, <c>rotate</c> and <c>scale</c>, the matrix
+///         reaches a composited group's four vertices and the hit test inverts it. What survives is
+///         the reason that was never about the plumbing: a scaled subtree scales the glyph atlas with
+///         it, and text sampled from a field baked at one size and stretched to another is worse at
+///         every zoom than text reshaped at the size it is actually drawn at. A transform also leaves
+///         layout alone by specification, so the box this canvas culls against would keep its
+///         unzoomed size and the pool would realise the wrong nodes. So the canvas converts graph
+///         coordinates to screen coordinates itself and writes the answer as a position and a size,
+///         and the node's <c>font-size</c> goes with it so that its insides scale too. Everything in
+///         the theme below a node is therefore written in <c>em</c>, which is what makes one number
+///         carry the whole scale.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>A wire's endpoint is arithmetic too</b>, from the node's rectangle and the port's

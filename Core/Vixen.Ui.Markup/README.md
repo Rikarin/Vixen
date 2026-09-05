@@ -41,7 +41,7 @@ SourceText
 @code {
     private readonly Signal<int> _count = new(0);
     private UiElement _body = null!;
-    [Parameter] public required string Title { get; init; }
+    public required string Title { get; init; }
     private void Increment() => _count.Value++;
     partial void OnComposed() => _body.AddClass("ready");
 }
@@ -65,6 +65,12 @@ SourceText
 
 <style scoped>.flex { display: flex; }</style>
 ```
+
+⚠ **A parameter is an ordinary settable property and carries no attribute.** This example used to
+write `[Parameter]` on `Title`, borrowed from Blazor; there is no `ParameterAttribute` in this tree
+and there is deliberately nothing for one to do. The emitter writes the attribute name where a
+property name goes, so `<Counter Title="x" />` is an object initialiser and C# is what rejects a
+misspelt one — see *The binder has no semantic model* below.
 
 A lowercase tag is an intrinsic element and an uppercase one is a component — the React and Blazor
 rule, chosen because it is decidable from the characters. A parser cannot consult a registry of

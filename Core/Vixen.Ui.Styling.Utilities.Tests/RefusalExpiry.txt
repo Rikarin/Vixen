@@ -1,11 +1,17 @@
-# The expiry conditions the parity ledger's refusals declare.
+# The expiry conditions this repository's refusals declare.
 #
-#     <ledger root>  <kind>  <what it waits on>
+#     <ledger root, or the file the prose is in>  <kind>  <what it waits on>
 #
 # ⚠ DERIVED. Do not hand-edit: the clauses live in the `note` column of
-# `docs/plan/43-web-styling-parity.tsv`, next to the prose they formalise, and this file is the
-# committed census of them. Add or change a clause in the ledger and re-run
+# `docs/plan/43-web-styling-parity.tsv`, next to the prose they formalise, and — since #674 — in any
+# `README.md` or doc comment in the tree, where a refusal is the same object with no column to sit
+# in. This file is the committed census of both. Add or change a clause and re-run
 # `RefusalExpiryTests` with VIXEN_REGENERATE=1 to write this back, then read the diff.
+#
+# ⚠ A prose clause is held to its condition and NOT to a row's state, because it has no row. The
+# three files that define the clause grammar are not swept — a file teaching the syntax writes
+# specimens, including a deliberately malformed one — and `.claude` is not descended into, because it
+# holds a whole checkout per agent worktree and their copies of these files are not this tree's.
 #
 # Why the census exists at all, given that the clauses are already in the ledger: it is the answer
 # to "what does this print on the day it does not run". A sweep that derives a set and checks each
@@ -45,6 +51,7 @@
 # is the stronger kind and collapses four tripwires to one. ⚠ This paragraph itself named the wrong
 # three — it listed `rotate-z-*`, which has measured `works` for as long as the census has existed
 # and never carried a clause at all. Prose beside a derived list is not derived.
+Core/Vixen.Ui/README.md	expires-with	inset-shadow-*
 border-e-*	expires-when-read	border-inline-end-color
 border-s-*	expires-when-read	border-inline-start-color
 border-spacing-x-*	expires-with	border-spacing-*

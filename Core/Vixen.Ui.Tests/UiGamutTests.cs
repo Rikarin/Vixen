@@ -502,6 +502,69 @@ public class UiGamutTests {
         return difference > 180f ? 360f - difference : difference;
     }
 
+    /// <summary>
+    ///     The luminance half of the same handover: a colour leaves in the target's units, and its
+    ///     coverage does not, because coverage is a fraction and not a luminance.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>What this prints on the day the scale is dropped.</b> Nothing, if it only asserted
+    ///     that the colour is showable or that the frame drew — a UI at one candela in a cd/m² pass
+    ///     is pixel-identical to a pass that never ran, which is this repository's standing
+    ///     photometric trap and the whole of #670. So the assertion is the product itself, and the
+    ///     default is asserted beside it: one is what every SDR swapchain wants, so a change of
+    ///     default would silently re-light every window in the tree.
+    /// </remarks>
+    [Fact]
+    public void A_white_level_scales_what_the_surface_can_already_show_and_not_its_coverage() {
+        Assert.Equal(1f, new UiGeometryBuilder().WhiteLevel);
+
+        var colour = new Color4(0.25f, 0.5f, 0.75f, 0.5f);
+        var builder = new UiGeometryBuilder { Gamut = ColorGamut.Srgb, WhiteLevel = 203f };
+        var geometry = Build(builder, list => list.Add(Rect(0, 0, 10, 10, colour)));
+
+        Assert.Equal(0, builder.MappedColours);
+
+        var vertex = geometry.Vertices[0].Color;
+
+        Assert.Equal(0.25f * 203f, vertex.R, 3);
+        Assert.Equal(0.5f * 203f, vertex.G, 3);
+        Assert.Equal(0.75f * 203f, vertex.B, 3);
+        Assert.Equal(0.5f, vertex.A);
+    }
+
+    /// <summary>
+    ///     A repaired colour is scaled too, and the answer the cache remembered is scaled on the way
+    ///     out rather than stored scaled.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The second frame is the one that matters.</b> There are three ways out of
+    ///     <c>Show</c> — in gamut, remembered, freshly mapped — and a scale applied to one of them
+    ///     leaves an interface that is right until it stops changing, which is the worst shape a
+    ///     rendering bug can take. This drives the same colour twice through one builder, so the
+    ///     second build is the cached path by construction, and it changes the white level between
+    ///     the two: a table that had stored the scaled value would return the first frame's
+    ///     luminance for ever.
+    /// </remarks>
+    [Fact]
+    public void A_repaired_colour_scales_on_every_path_out_including_the_remembered_one() {
+        var builder = new UiGeometryBuilder { Gamut = ColorGamut.Srgb };
+        var display = Build(builder, list => list.Add(Rect(0, 0, 10, 10, Blue500))).Vertices[0].Color;
+
+        Assert.Equal(1, builder.MappedColours);
+        Assert.Equal(1, builder.ColourSearches);
+
+        builder.WhiteLevel = 203f;
+        var lit = Build(builder, list => list.Add(Rect(0, 0, 10, 10, Blue500))).Vertices[0].Color;
+
+        // The repair itself was not repeated — this is the remembered path — and the answer still
+        // arrives in the new units.
+        Assert.Equal(0, builder.ColourSearches);
+        Assert.Equal(display.R * 203f, lit.R, 3);
+        Assert.Equal(display.G * 203f, lit.G, 3);
+        Assert.Equal(display.B * 203f, lit.B, 3);
+        Assert.Equal(display.A, lit.A);
+    }
+
     static DrawCommand Rect(float x, float y, float width, float height, Color4 colour) =>
         new(DrawCommandKind.Rectangle, x, y, width, height, colour, 0, 0);
 
