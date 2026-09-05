@@ -77,6 +77,25 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="Vixen.Geometry.Uv.Tests" />
+
+        <!--
+            ⚠ **`Solving/` is a general sparse solver behind a UV unwrapper's front door, and doc 48
+            § 4.6 is its second client.** `Normal → Height` is a grid Poisson: the same
+            `SparseMatrix`, the same warm-started fixed-budget `ConjugateGradient`, assembled from
+            texels instead of from triangles. Doc 42 § B1 built this precisely so the engine would
+            own one of them, and writing a second conjugate gradient in the editor to avoid one line
+            of csproj would be the outcome that document argued against.
+
+            ⚠ **Every type under `Solving/` is `internal`, which is why this is an
+            `InternalsVisibleTo` rather than a reference.** That is a wart and it is recorded as
+            [#755](https://github.com/Rikarin/Vixen/issues/755): the honest fix is for the solver to
+            live in an assembly of its own — nothing in `SparseMatrix`, `Preconditioner`,
+            `ConjugateGradient` or `LeastSquaresSolver` mentions a chart, a triangle or a UV — and
+            `Vixen.Geometry.Uv` would then be its first caller rather than its owner. Until then this
+            line is what stops a second copy, and it is deliberately narrow: one named assembly, not
+            a public surface `CheckApi` would then have to hold still.
+        -->
+        <InternalsVisibleTo Include="Vixen.Editor.TextureGraph" />
     </ItemGroup>
 
 </Project>

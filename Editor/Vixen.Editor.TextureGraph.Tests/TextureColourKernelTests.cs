@@ -65,9 +65,54 @@ public class TextureColourKernelTests {
             Assert.Contains(kernel, TextureKernels.Names);
         }
 
-        var registered = Declared().Concat(Existing).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        // ⚠ The declaring surfaces hold a *third* kind of thing, and this equality is where that
+        // first shows. A `TextureOp` carrying an `ITextureCpuOperation` names no `.rvn` — doc 48
+        // § 4.6's `Normal → Height` is a Poisson solve on the CPU — so it appears in `Declared()`
+        // and can never appear in the folder. Subtracting it is safe only because of the assertion
+        // below it: a CPU operation that *did* share a name with a kernel would be the CPU twin
+        // § D3 bans, and it would be excused by this line rather than caught by it.
+        var cpu = CpuOperations();
+
+        Assert.All(cpu, name => Assert.DoesNotContain(name, TextureKernels.Names));
+
+        var registered = Declared()
+            .Concat(Existing)
+            .Except(cpu, StringComparer.Ordinal)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
 
         Assert.Equal(registered, TextureKernels.Names.Order(StringComparer.Ordinal).ToArray());
+    }
+
+    /// <summary>Every declared op that is a CPU operation rather than a compute dispatch.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Derived from the ops themselves and never from a list.</b> An op is a CPU operation
+    ///     exactly when it carries a <see cref="TextureOp.Cpu" />, which is the same fact
+    ///     <c>TexturePlanEvaluator</c> branches on — so a slice that adds a second one is classified
+    ///     correctly by existing, and a slice that removes the last one leaves this empty rather than
+    ///     leaving an exemption behind. The empty case is fine here: it makes the
+    ///     <c>Except</c> above a no-op and the equality exactly what it was before this existed.
+    /// </remarks>
+    static IReadOnlyCollection<string> CpuOperations() {
+        HashSet<string> names = new(StringComparer.Ordinal);
+
+        foreach (var type in typeof(TextureKernels).Assembly.GetTypes()) {
+            if (type.GetProperty("All", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static) is not
+                { } all) {
+                continue;
+            }
+
+            if (all.GetValue(null) is not IEnumerable<TextureOp> ops) {
+                continue;
+            }
+
+            foreach (var op in ops.Where(op => op.Cpu is not null)) {
+                names.Add(op.Kernel);
+            }
+        }
+
+        return names;
     }
 
     /// <summary>Every kernel name any slice of this assembly declares, found rather than listed.</summary>
