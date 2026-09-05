@@ -710,21 +710,27 @@ public class TextureColourDeviceTests(ITestOutputHelper output) {
     }
 
     /// <summary>The two-dispatch shape: 64² → 8² → 1², then the map.</summary>
-    static TexturePlan Stretch() =>
-        new() {
+    /// <remarks>
+    ///     ⚠ <b>The ladder and the ops both come from <c>TextureAdjust</c> rather than being written
+    ///     out here</b>, which is <a href="https://github.com/Rikarin/Vixen/issues/713">#713</a>: a
+    ///     chain whose length is a function of the baked extent, hand-built at a call site, is
+    ///     stamped by nobody and silently two dispatches short at 4K. The three assertions below are
+    ///     the differential that says the builder emits what this file used to spell — the same three
+    ///     dispatches, the same 1×1 stats image, the same stretch.
+    /// </remarks>
+    static TexturePlan Stretch() {
+        var levels = TextureAdjust.ReductionLevels(Side, Side);
+
+        return new() {
             BaseWidth = Side,
             BaseHeight = Side,
             Images = [
                 new(TextureFormat.Rgba8, External: true),
-                new(TextureFormat.Rgba16Float, 3),
-                new(TextureFormat.Rgba16Float, 6),
+                .. levels.Select(level => new TextureImage(TextureFormat.Rgba16Float, level)),
                 new(TextureFormat.Rgba8)
             ],
-            Ops = [
-                Op("MinMaxReduce", 1, [0], new TextureParameter("first", 1f)),
-                Op("MinMaxReduce", 2, [1], new TextureParameter("first", 0f)),
-                Op("AutoLevels", 3, [0, 2])
-            ],
-            Outputs = [2, 3]
+            Ops = TextureAdjust.AutoLevels(levels.Length + 1, 0, [.. Enumerable.Range(1, levels.Length)], Side, Side),
+            Outputs = [levels.Length, levels.Length + 1]
         };
+    }
 }
