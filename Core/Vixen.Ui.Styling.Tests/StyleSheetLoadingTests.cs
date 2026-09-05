@@ -454,4 +454,93 @@ public class StyleSheetLoadingTests {
         var element = fixture.Tree.CreateElement("div", classNames: ["after"]);
         Assert.Equal("rgb(0, 0, 255)", fixture.Value(element));
     }
+
+    /// <summary>⚠ A relative <c>:has()</c> argument, which nothing downstream could refuse.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Probed against ExCSS 4.3.2 before this was written:</b> <c>:has(&gt; .x)</c>,
+    ///         <c>:has(+ .x)</c> and <c>:has(~ .x)</c> all parse into the node <c>:has(.x)</c> parses
+    ///         into — the combinator is gone from the tree <i>and</i> from <c>ISelector.Text</c>. So
+    ///         the compiler's argument restriction could not see it: a leading combinator does not
+    ///         leave a second compound behind, it leaves nothing at all. The rule compiled, matched,
+    ///         and meant "anywhere in the subtree" — and a relative <i>sibling</i> argument was
+    ///         answered as a descendant one, which disagrees more loudly still.
+    ///     </para>
+    ///     <para>
+    ///         The refusal therefore has to happen on the text, before the parser, because that is
+    ///         the only place the combinator still exists.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("> ")]
+    [InlineData("+ ")]
+    [InlineData("~ ")]
+    [InlineData(">")]
+    public void A_relative_has_argument_is_refused_rather_than_read_as_a_descendant(string combinator) {
+        var fixture = new CascadeFixture();
+        fixture.Load(".ok { color: red } .card:has(" + combinator + ".error) { color: blue }");
+
+        var diagnostic = Assert.Single(fixture.Engine.Loader.Diagnostics);
+
+        Assert.Equal(":has(" + combinator + ".error)", diagnostic.Text);
+        Assert.Contains(".card:has(", diagnostic.Where, StringComparison.Ordinal);
+
+        // And the rule is gone rather than merely complained about. The card holds a `.error`
+        // descendant that is not a child, so a `:has()` read as a descendant test would say blue.
+        var card = fixture.Tree.CreateElement("div", classNames: ["card", "ok"]);
+        var body = fixture.Tree.CreateElement("div", card);
+        fixture.Tree.CreateElement("span", body, classNames: ["error"]);
+
+        Assert.Equal("rgb(255, 0, 0)", fixture.Value(card));
+    }
+
+    [Fact]
+    public void An_absolute_has_argument_and_the_rules_around_a_refused_one_still_load() {
+        var fixture = new CascadeFixture();
+
+        fixture.Load(
+            """
+            .before { color: green }
+            @media (min-width: 1px) { .card:has(> .error) { color: blue } }
+            .card:has(.error) { color: red }
+            """,
+            StyleOrigin.Author,
+            new MediaContext(100f, 100f)
+        );
+
+        Assert.Single(fixture.Engine.Loader.Diagnostics);
+
+        // The `@media` block survives losing the one rule inside it, and the descendant form — the
+        // one Vixen does support — is unaffected.
+        var card = fixture.Tree.CreateElement("div", classNames: ["card", "before"]);
+        var body = fixture.Tree.CreateElement("div", card);
+        fixture.Tree.CreateElement("span", body, classNames: ["error"]);
+
+        Assert.Equal("rgb(255, 0, 0)", fixture.Value(card));
+    }
+
+    /// <summary>⚠ And the scan is not a search, because a stylesheet is not only selectors.</summary>
+    /// <remarks>
+    ///     A quoted declaration value, a comment, and an escaped quote in a generated utility
+    ///     selector are the three things that make a naive <c>IndexOf(":has(")</c> read a rule that
+    ///     is not there or cut the sheet in the wrong place — the same three
+    ///     <c>LayerRuleParser</c> already had to learn.
+    /// </remarks>
+    [Fact]
+    public void A_has_written_somewhere_that_is_not_a_selector_is_not_a_rule() {
+        var fixture = new CascadeFixture();
+
+        fixture.Load(
+            """
+            .a { content: ":has(> x)"; color: red }
+            /* .b:has(> .x) { color: blue } */
+            .f-\[\"onum\"_1\] { font-feature-settings: "onum" 1 }
+            .after { color: blue }
+            """
+        );
+
+        Assert.Empty(fixture.Engine.Loader.Diagnostics);
+        Assert.Equal("rgb(255, 0, 0)", fixture.Value(fixture.Tree.CreateElement("div", classNames: ["a"])));
+        Assert.Equal("rgb(0, 0, 255)", fixture.Value(fixture.Tree.CreateElement("div", classNames: ["after"])));
+    }
 }
