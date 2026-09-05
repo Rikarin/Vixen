@@ -151,6 +151,65 @@ public class FlexibleLengthResolutionTests {
         Assert.Equal(40f, tree.GetWidth(free), Tolerance);
     }
 
+    [Theory]
+    [InlineData(100f, 50f, 50f)]
+    [InlineData(60f, 30f, 30f)]
+    [InlineData(40f, 20f, 20f)]
+    [InlineData(30f, 20f, 10f)]
+    [InlineData(25f, 20f, 5f)]
+    [InlineData(20f, 20f, 0f)]
+    [InlineData(10f, 20f, 0f)]
+    public void One_floor_between_two_shrinking_siblings_does_not_stop_the_other_one_shrinking(
+        float containerWidth,
+        float expectedFloored,
+        float expectedFree
+    ) {
+        // Two `flex-basis: 60px; flex-shrink: 1` items, `min-width: 20px` on the first only. Chrome
+        // is the oracle for every row: above 40 nothing violates, at 40 the first lands exactly on
+        // its floor, and below it the first stays at 20 while the second keeps paying the rest.
+        //
+        // ⚠ THE ORACLE IS CLOSED-FORM, not a number chosen to match: the two widths sum to the
+        // container on every row where the 20pt floor leaves that possible (30 = 20 + 10,
+        // 25 = 20 + 5, 20 = 20 + 0), and only the last row overflows, by exactly the floor.
+        //
+        // ⚠ The window is bounded on BOTH sides, which is what makes this arithmetic rather than a
+        // missing clause. §9.7 step 4 distributes every unfrozen item from ONE pool and ONE factor
+        // sum and only then freezes the violators; the first pass took the second item's factor out
+        // of the divisor the moment the first item was frozen, while still handing it the full,
+        // un-repaid pool. The second item's share was computed against a divisor half the size, it
+        // shot past its own zero floor, and it was frozen too — the pool the first pass handed back
+        // then went POSITIVE, the second pass took the grow branch, found `flex-grow: 0`, and gave
+        // both items their unshrunk 60pt bases. 60 / 60 in a 30pt row.
+        using var tree = new LayoutTree();
+        var root = tree.CreateNode();
+        tree.SetFlexDirection(root, FlexDirection.Row);
+        tree.SetDimension(root, Dimension.Width, StyleLength.Points(containerWidth));
+        tree.SetDimension(root, Dimension.Height, StyleLength.Points(50f));
+
+        var floored = tree.CreateNode();
+        tree.SetFlexShrink(floored, 1f);
+        tree.SetFlexBasis(floored, StyleLength.Points(60f));
+        tree.SetMinDimension(floored, Dimension.Width, StyleLength.Points(20f));
+        tree.AddChild(root, floored);
+
+        var free = tree.CreateNode();
+        tree.SetFlexShrink(free, 1f);
+        tree.SetFlexBasis(free, StyleLength.Points(60f));
+        tree.SetMinDimension(free, Dimension.Width, StyleLength.Points(0f));
+        tree.AddChild(root, free);
+
+        tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
+
+        Assert.Equal(expectedFloored, tree.GetWidth(floored), Tolerance);
+        Assert.Equal(expectedFree, tree.GetWidth(free), Tolerance);
+
+        // The same rows again as a property rather than a table: nothing is left on the floor while
+        // an item can still shrink, and nothing overflows while the floor still allows a fit.
+        if (containerWidth >= 20f) {
+            Assert.Equal(containerWidth, tree.GetWidth(floored) + tree.GetWidth(free), Tolerance);
+        }
+    }
+
     [Fact]
     public void Whether_the_main_axis_overflows_is_asked_of_the_hypothetical_sizes_not_the_bases() {
         // Taffy's `gap_column_gap_wrap_align_stretch` and Yoga's Column_gap_wrap_align_stretch. Five

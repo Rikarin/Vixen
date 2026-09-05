@@ -789,6 +789,26 @@ public sealed partial class LayoutTree {
     }
 
     /// <summary>Freezes the items whose min or max triggers, and takes them out of the pool.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every item in this pass is distributed from the SAME pool and the SAME factor sum,
+    ///     and the freezing happens after the loop rather than inside it.</b> §9.7 step 4 hands out
+    ///     step 4b's remaining free space to all the unfrozen items at once (4c), clamps them all
+    ///     (4d), and only then freezes the violators and starts a new iteration (4e) — so an item
+    ///     frozen part-way through cannot change what its later siblings were offered in the
+    ///     iteration that froze it. Taking the factor out of the divisor as each violation was found,
+    ///     while still dividing the full pool the freeze has not yet repaid, inflated every later
+    ///     item's share and pushed items past bounds they do not really violate.
+    ///     <para>
+    ///         ⚠ <b>The window that exposed it is bounded on both sides</b>, which is why no fixture
+    ///         in any of the corpora saw it. Two `flex-basis: 60; flex-shrink: 1` siblings with a
+    ///         `min-width: 20` on the first only, in a 30-point row: the first violates and is
+    ///         frozen, the second is then measured against half the divisor, shoots past its own zero
+    ///         floor and is frozen too — and with BOTH clamps charged to it the pool handed back goes
+    ///         POSITIVE. The second pass reads a positive pool, takes the grow branch, finds
+    ///         `flex-grow: 0` and returns both items their unshrunk 60-point bases. Above 40 nothing
+    ///         violates and below 20 every item is out of the divisor, so only the middle was wrong.
+    ///     </para>
+    /// </remarks>
     void DistributeFreeSpaceFirstPass(
         int index,
         ref FlexLine line,
@@ -801,6 +821,13 @@ public sealed partial class LayoutTree {
     ) {
         var deltaFreeSpace = 0f;
         var children = ChildIds(index);
+
+        // The divisor this iteration distributes by. The reductions the freezes owe it are collected
+        // and applied once the loop is over, so no item is sized against a sum a sibling shrank.
+        var growDivisor = line.TotalFlexGrowFactors;
+        var shrinkDivisor = line.TotalFlexShrinkScaledFactors;
+        var frozenGrowFactors = 0f;
+        var frozenShrinkScaledFactors = 0f;
 
         for (var i = line.StartChild; i < line.EndChild; i++) {
             var child = children[i];
@@ -827,15 +854,14 @@ public sealed partial class LayoutTree {
                     continue;
                 }
 
-                var baseMainSize = childFlexBasis
-                    + (line.RemainingFreeSpace / line.TotalFlexShrinkScaledFactors * shrinkScaled);
+                var baseMainSize = childFlexBasis + (line.RemainingFreeSpace / shrinkDivisor * shrinkScaled);
                 var boundMainSize = BoundAxisWithAutoMin(child, mainAxis, direction, baseMainSize, availableInnerMainDim, availableInnerWidth);
 
                 if (!float.IsNaN(baseMainSize) && !float.IsNaN(boundMainSize) && baseMainSize != boundMainSize) {
                     // Excluding this item from the pool makes its constraint trigger again in the
                     // second pass, so the two passes agree on its size.
                     deltaFreeSpace += boundMainSize - childFlexBasis;
-                    line.TotalFlexShrinkScaledFactors -=
+                    frozenShrinkScaledFactors +=
                         -StyleResolution.ResolveFlexShrink(in styles[child], isRoot) * results[child].ComputedFlexBasis;
                 }
             } else if (line.RemainingFreeSpace > 0f) {
@@ -844,7 +870,7 @@ public sealed partial class LayoutTree {
                     continue;
                 }
 
-                var baseMainSize = childFlexBasis + (line.RemainingFreeSpace / line.TotalFlexGrowFactors * growFactor);
+                var baseMainSize = childFlexBasis + (line.RemainingFreeSpace / growDivisor * growFactor);
 
                 // ⚠ <b>§9.7 step 4b clamps by the USED minimum, and for a flex item `min-width: auto`
                 // resolves to §4.5's automatic one — when GROWING as well as when shrinking.</b> The
@@ -866,11 +892,13 @@ public sealed partial class LayoutTree {
 
                 if (!float.IsNaN(baseMainSize) && !float.IsNaN(boundMainSize) && baseMainSize != boundMainSize) {
                     deltaFreeSpace += boundMainSize - childFlexBasis;
-                    line.TotalFlexGrowFactors -= growFactor;
+                    frozenGrowFactors += growFactor;
                 }
             }
         }
 
+        line.TotalFlexGrowFactors -= frozenGrowFactors;
+        line.TotalFlexShrinkScaledFactors -= frozenShrinkScaledFactors;
         line.RemainingFreeSpace -= deltaFreeSpace;
     }
 
