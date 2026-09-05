@@ -110,7 +110,9 @@ public sealed partial class UiDocument {
     /// <returns>
     ///     Whether the focus is now where it was asked for. ⚠ <b><c>true</c> for
     ///     <c>Focus(null)</c></b>, which used to answer <c>false</c> on success and so could not be
-    ///     told apart from a refusal.
+    ///     told apart from a refusal. <c>false</c> also covers the two things a handler can do
+    ///     instead of refusing — take the focus somewhere else and keep taking it back, or remove
+    ///     the element this was going to give it to.
     /// </returns>
     /// <remarks>
     ///     <para>
@@ -138,33 +140,78 @@ public sealed partial class UiDocument {
             return false;
         }
 
-        // ⚠ True rather than `element is not null`, and the difference is the whole of what a caller
-        // can now conclude. The answer means "the focus is where you asked for it", so clearing an
-        // already-clear focus succeeds — the old `false` was indistinguishable from a refusal, which
-        // was harmless while nothing could refuse and is a real bug the moment something can.
-        if (ReferenceEquals(Focused, element)) {
-            return true;
-        }
+        // The elements this call has already asked to resign, and nothing at all until one of them
+        // answers by moving the focus itself. See the restart below.
+        List<UiElement>? asked = null;
 
-        var previous = Focused;
+        while (true) {
+            // ⚠ True rather than `element is not null`, and the difference is the whole of what a
+            // caller can now conclude. The answer means "the focus is where you asked for it", so
+            // clearing an already-clear focus succeeds — the old `false` was indistinguishable from
+            // a refusal, which was harmless while nothing could refuse and is a real bug the moment
+            // something can.
+            if (ReferenceEquals(Focused, element)) {
+                return true;
+            }
 
-        // ⚠ Raised before anything is written, which is the point of it: an element asked to give the
-        // focus up after it has already gone is being told, not asked. This is the same event the
-        // tree would have heard afterwards and not a second one — a duplicate "lost" would be worse
-        // than no veto at all.
-        if (previous is not null) {
-            var leaving = new FocusEvent { Gained = false, Previous = previous, Next = element };
-            previous.Raise(leaving);
+            var previous = Focused;
 
-            // ⚠ The refusal is read only when the move is one somebody asked for. `force` is how
-            // removal and teardown say they are not asking, and without it a field with an invalid
-            // value could refuse to be deleted — leaving the document holding a focus that points
-            // into a subtree it has just detached.
-            if (leaving.Cancel && !force) {
+            // ⚠ Raised before anything is written, which is the point of it: an element asked to
+            // give the focus up after it has already gone is being told, not asked. This is the same
+            // event the tree would have heard afterwards and not a second one — a duplicate "lost"
+            // would be worse than no veto at all.
+            if (previous is not null) {
+                var leaving = new FocusEvent { Gained = false, Previous = previous, Next = element };
+                previous.Raise(leaving);
+
+                // ⚠ The refusal is read only when the move is one somebody asked for. `force` is how
+                // removal and teardown say they are not asking, and without it a field with an
+                // invalid value could refuse to be deleted — leaving the document holding a focus
+                // that points into a subtree it has just detached.
+                if (leaving.Cancel && !force) {
+                    return false;
+                }
+
+                // ⚠ **The handler runs while the old state is still written, so it can change that
+                // state — and the state this call was about to write is then a photograph of a world
+                // that has gone.** A rename editor committing on its way out is exactly this: it
+                // removes itself and focuses the tree, from inside its own losing event. Carrying
+                // on would restate an element that has left the document — a use-after-removal that
+                // throws — and would overwrite the focus the handler had just moved.
+                //
+                // So the whole decision is taken again against what is now true. The `asked` list is
+                // what stops two handlers that each re-focus the other from spinning here for ever;
+                // it is allocated only when a handler has actually moved the focus, which is close
+                // to never.
+                if (!ReferenceEquals(Focused, previous)) {
+                    asked ??= [];
+
+                    if (asked.Contains(previous)) {
+                        return false;
+                    }
+
+                    asked.Add(previous);
+
+                    continue;
+                }
+            }
+
+            // ⚠ And the other half of the same trap, on the other side: a losing handler is allowed
+            // to tear down the subtree the focus was going to. Writing it would leave `Focused`
+            // pointing at a removed element, which is the state every later read throws on.
+            if (element is { IsRemoved: true }) {
                 return false;
             }
-        }
 
+            return Give(previous, element);
+        }
+    }
+
+    /// <summary>Writes a focus change that has been agreed to.</summary>
+    /// <param name="previous">What had it, read after the last handler ran rather than before.</param>
+    /// <param name="element">What is getting it.</param>
+    /// <returns><c>true</c>, so the one caller reads as a decision followed by its consequence.</returns>
+    bool Give(UiElement? previous, UiElement? element) {
         Focused = element;
 
         // ⚠ The one place the command route's origin is written, and it is deliberately *not* every
