@@ -175,6 +175,29 @@ sealed class TransformReader {
     ///         property follows and the opposite of every percentage in the box model, which resolve
     ///         against the <i>containing block</i>. See <see cref="TranslationReader" />.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And when the three-dimensional functions do arrive, this loop is the wrong shape
+    ///         for them — the reduction to a homography does not commute with the composition.</b>
+    ///         <see cref="UiTransform" /> is a 3×3 now, so <see cref="Function" /> returning one per
+    ///         function and folding them together here <i>looks</i> like all that is left to do. It is
+    ///         not. Reducing a 4×4 to this type keeps rows <c>x</c>, <c>y</c>, <c>w</c> against columns
+    ///         <c>x</c>, <c>y</c>, <c>1</c> and throws the <c>z</c> row and the <c>z</c> column away;
+    ///         a product's cell sums over <c>k ∈ {x, y, z, 1}</c>, so <c>R(A·B) = R(A)·R(B)</c> only
+    ///         where <c>A</c> has no <c>z</c> column or <c>B</c> no <c>z</c> row. A perspective is
+    ///         nothing <i>but</i> a <c>z</c> column and a <c>rotateX</c> is nothing but a <c>z</c> row,
+    ///         which is the one pair every card flip is written from.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the wrong answer is the plausible one</b>, which is why this is written down
+    ///         rather than left to be discovered. <c>perspective(200px) rotateX(60deg)</c> sends a
+    ///         point 100 points below the origin to <c>y = 88.19</c> composed in 4×4 and reduced once;
+    ///         reduced per function and composed here it lands at <c>y = 50</c> with <c>w = 1</c> —
+    ///         exactly <c>rotateX</c> on its own, because <c>R(perspective)</c> <i>is</i> the identity:
+    ///         every point of an element sits at <c>z = 0</c> until something has moved it. So the
+    ///         perspective silently does nothing, the card flip is a vertical squash, and the picture
+    ///         is the one this reader already draws by refusing the list. The list has to compose in
+    ///         four dimensions and reduce at the end. #550.
+    ///     </para>
     /// </remarks>
     bool Functions(string text, UiElement element, LengthContext metrics, out UiTransform result) {
         result = UiTransform.Identity;
