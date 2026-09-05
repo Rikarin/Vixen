@@ -575,6 +575,15 @@ public sealed partial class UiDocument {
     ///     it the keyboard, leaving <see cref="Focused" /> reading the key window's <c>null</c> and
     ///     the next Tab starting from the top again. Identical for a single-window document, where
     ///     the primary's root <i>is</i> <see cref="Root" />.
+    ///     <para>
+    ///         ⚠ <b>Two clauses, and either alone covers the plain case</b> — sabotaging one leaves
+    ///         <c>Tab_in_one_window_does_not_walk_into_another</c> green and only removing both turns
+    ///         it red, which is recorded here rather than left to be rediscovered. They are not
+    ///         redundant: the fallback answers when nothing above the focus declares a scope, and the
+    ///         <c>SurfaceRoot</c> test is what stops the climb reaching a focus scope that lives
+    ///         <i>above</i> the surface root — the element that owns a torn-off panel, which is
+    ///         usually inside the dialog or menu the panel was torn off from.
+    ///     </para>
     /// </remarks>
     UiElement Scope() {
         for (var element = Focused; element is not null; element = element.Parent) {
