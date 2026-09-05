@@ -597,6 +597,17 @@ reader stops trusting the rest of the section, which is why it says so here.
    editor itself does — is answered *no, and here is the list*, which is worth more than a panel that
    worked by reaching around the contract.
 
+   ✅ **And the fourth was predicted, exactly, and it held.** Item 2 above was written before any
+   plugin existed and said a plugin would find no device published and therefore be unable to draw.
+   That is what happened, in those terms, and it is recorded here as a *result* rather than left to
+   read as background: a design record that only ever records its corrections teaches the reader that
+   the design was always wrong, and the reason to write predictions down is that some of them come
+   true. ⚠ **What the prediction did not get right is the remedy** — it imagined one line publishing a
+   device, and the three sub-points above are why no such line could have existed. So the useful form
+   of this result is narrow: § D14 was right about *where* the gap was and wrong about how wide, which
+   is the most a design document should expect of itself and considerably more than the header's
+   "two things" managed.
+
 ### D15. What is deliberately taken from each reference, and what is not
 
 | | Taken | Refused |
@@ -825,19 +836,19 @@ The same catalogue question for the other front end (§ D10), listed here so it 
 | Mask effects | Levels · Blur · Warp · any single-input graph |
 | Per layer | opacity · blend mode · per-channel enable · projection (UV · triplanar · planar) |
 | Blend modes | the sixteen of [4.2](#42-colour-and-channels--9-kernels) |
-| Mesh maps | § D12's ten: normal · displacement · AO · bent normal · curvature · thickness · position · world normal · ID · opacity |
+| Mesh maps | § D12's **nine**: normal · displacement · AO · bent normal · curvature · thickness · position · world normal · ID. ⚠ **This row said ten and listed `opacity` as the tenth, and that is a borrow from the row two above it in § 4.8** — `opacity` is an *output* usage, one of the nine a bake writes, and a mesh has no opacity to measure. D12's heading ("seven more measurements") and M6 were right throughout; this row and [A.4](#a4-baking) were the two that drifted, which is what happens when a vocabulary is written down a second time |
 | Brush | radius · flow · spacing · falloff · rotation · jitter · alpha · symmetry · curve mode |
 
 ### 4.11 The count, and the claim it corrects
 
 | | |
 |---|---|
-| Compute kernels | **41** — 6 sources · 9 colour · 5 space · 11 filters · 3 analysis · 5 surface · 2 placement. ⚠ **Not 44, and the three that came off are the three rows below.** The arithmetic here counted every row of every table as a kernel while the next row said one of them was not, which is a contradiction inside one table: `Text` and `Svg Path` are § 4.1 rows and neither can be a compute shader, and `Normal → Height` is a § 4.6 row that runs on the CPU |
-| Node classes | **46** — those forty-one, plus the five of [4.8](#48-graph-structure--5-node-classes-no-kernel). ⚠ **This row said 49 after the row above came down to 41 and it did not**, which is the correction moving one number and leaving the sum beneath it: 49 was 44 + 5, and 44 was the count this table exists to refute. It is also an *upper* bound rather than a target — three of § 4.8's five turned out not to be classes in this assembly at all, and the row below says which |
+| Compute kernels | **41**, and it is the *sum of the seven headings above* rather than a number kept here: [4.1](#41-sources--6-kernels-and-two-that-cannot-be) 6 · [4.2](#42-colour-and-channels--9-kernels) 9 · [4.3](#43-space--5-kernels) 5 · [4.4](#44-filters--11-kernels) 11 · [4.5](#45-analysis--3-kernels) 3 · [4.6](#46-surface--5-kernels-and-one-cpu-solve) 5 · [4.7](#47-placement--2-kernels) 2. ⚠ **Not 44, and the three that came off are the three rows below.** That arithmetic counted every *row* of every table as a kernel while three of those rows said in their own cells that they are not compute shaders. Change a heading and this changes with it, which is the only reason it is allowed to stay: there is nothing here to keep in step separately |
+| Node classes | ⚠ **Deleted, because this is the number the document could not keep.** It has read **49** (= 44 + 5, both wrong), then **46** (= 41 + § 4.8's five) — and 46 is wrong in a way that is worth stating, because it is wrong *by this table's own prose*: § 4.8 says three of its five are not classes in this assembly, and § D6's `Pixel Processor` is a class Part 4 deliberately never lists. What the catalogue actually implies is a **rule**, not a total: one class per kernel, plus one for each catalogue entry that is not a kernel, plus § D6's. **The number itself lives in the registry** — `NodeTypes`, reconciled against the kernel folder by `TextureNodeLibraryTests.Every_kernel_has_a_node_or_a_written_reason_not_to` — and its reading of the day is reported in [`docs/overview.md`](../overview.md) § 1.11. Three successive batches each corrected this cell into a different wrong number; a number a document cannot keep is worse than no number |
 | Not a kernel | One: `Normal → Height`, on the CPU, by exception — **built**, and declared in `TextureKernels.Cpu.cs` so that the roll calls can name the category rather than reading it as a kernel whose `.rvn` went missing |
 | Not a kernel and not an op | One: `Text`, which is CPU pixels *uploaded* rather than an op of any kind — `TextureText` + `TextureUploads.AddCoverage`. ⚠ It has no node, and no longer for a reason: [#732](https://github.com/Rikarin/Vixen/issues/732) closed and § 4.1's row says what is left |
 | Not a kernel and not built | One: `Svg Path`, refused — the measurement is under [4.1](#41-sources--6-kernels-and-two-that-cannot-be) and [#753](https://github.com/Rikarin/Vixen/issues/753) carries where it should live instead |
-| Shipped compounds | **24 ●** of the ~60 named in [4.9](#49-the-compound-library--content-not-code) |
+| Shipped compounds | ⚠ **Also deleted, and for a sharper version of the same reason.** This cell read **24 ●** while [§ 4.9](#49-the-compound-library--content-not-code) carries **34** ● marks — one of which ("a family of eight ●") stands for eight, and five of which are `.vxsmartmat` smart materials rather than compounds. So the cell and the list it summarised could not both be read the same way by anybody, and no single number was ever right for both. The ● in § 4.9 is the mark, [M10](#m10--the-library-smart-materials-and-export--10-em) is the phase that ships them, and what is in the tree on any given day is `TextureCompoundLibrary`'s and [`docs/overview.md`](../overview.md)'s |
 
 ⚠ **And the numbers above are the plan's, not the tree's — deliberately, and they will not agree.**
 Two structural reasons, neither of which is a shortfall:
@@ -853,8 +864,18 @@ Two structural reasons, neither of which is a shortfall:
 belong in it.** `TextureKernelTests.Every_kernel_the_folder_holds_is_embedded` and
 `TextureNodeLibraryTests` read the folder and the registry and reconcile them against each other; a
 dated measurement written here would be a third list, and this paragraph has already been one — it
-said thirty-six nodes and eight unreachable kernels within a batch of both being wrong. The state of
-what is built belongs in `docs/overview.md` and in
+said thirty-six nodes and eight unreachable kernels within a batch of both being wrong.
+
+⚠ **Two cells of the table above have now been deleted rather than corrected again, and that is the
+paragraph taking its own advice.** The node count and the compound count were each re-derived by three
+successive batches into three different wrong numbers, in a table whose very next sentence argues that
+a second list always drifts. A cell nobody can keep is not a weaker version of a fact; it is a claim
+this document makes and then contradicts, and the reader who checks one and finds it wrong has no way
+to know which of the others to trust. The kernel count survives **only** because it is a sum of the
+seven headings on the same page — one pass re-derives it, and it cannot drift away from them
+independently.
+
+The state of what is built belongs in `docs/overview.md` and in
 [#577](https://github.com/Rikarin/Vixen/issues/577); this table is the vocabulary they are counted
 against.
 
@@ -1066,22 +1087,47 @@ instrument reporting success on the day it did not run is the first thing to fix
 - **4, a sabotage per node.** Sabotage arguments appear across the suites and no mechanism notices a
   missing one — the same shape as 3, and the more serious of the two, because a golden with no
   sabotage may be a golden of a black image.
-- **10, "and it references `Vixen.Editor.App` in no build".** ⚠ **The named instrument is the wrong
-  one.** This says `CheckArchitecture`; what actually asserts it is `ModuleReferenceTests`, reading
-  the loaded assembly's references. That is a *better* instrument for the question — a csproj can name
-  a project and touch nothing in it — but a criterion that names a gate which does not check it is a
-  criterion nobody will notice going quiet.
+- **10, "and it references `Vixen.Editor.App` in no build".** ⚠ **This was recorded here as a
+  criterion naming the wrong instrument, and the criterion turns out to have been right — so the gate
+  was built to match it.** The finding as written said `CheckArchitecture` did not check this and
+  `ModuleReferenceTests` did. Both halves were true and the conclusion was backwards: a test reading
+  `Assembly.GetReferencedAssemblies` sees only what the compiler *emitted* a reference for, so a
+  `ProjectReference` nobody has used yet is invisible to it — and the criterion is about the
+  **reference**, which lives in a project file. `CheckArchitecture` now asserts it, transitively
+  (reaching the application through one intermediate ships it in the plugin's folder just as surely)
+  and **derived** — a plugin is any project naming the plugin contract, so the tenth plugin is covered
+  the day it is added with no edit to the rule. ⚠ **This is the only one of the four that a later
+  batch answered by agreeing with the plan rather than by amending it**, and it is worth leaving
+  visible: a design record whose corrections are all in one direction is not being read carefully.
 - **11, a device confirmed by name in every GPU test.** Every device file does it, through one
   harness, by convention. Nothing enumerates the device files and requires the next one to.
+
+⚠ **And 2 is false as written, which no reading of the criteria predicted.** "Every atomic node,
+baked at 1K and at 4K, agrees within 2/255 after downsampling" cannot hold for a **hard-edged** source
+and the reason is a property of the picture rather than a defect in any kernel: the 4K bake is
+anti-aliased by the downsample and the 1K one is not, so a falloff-zero disc or a checkerboard
+disagrees by a full step all the way round every boundary while agreeing *exactly* everywhere else.
+The comparison is meaningful for a field band-limited at the **lower** resolution — a soft-edged
+shape, a gradient, a noise — and that is where the suites make it. The criterion needs a stated scope
+rather than a wider tolerance ([#640](https://github.com/Rikarin/Vixen/issues/640)); widening it to
+2/255-except-at-edges would delete the D8 bug it exists to catch. ⚠ And "every atomic node" is the
+same unenumerated shape as 3, 4 and 11 — it is checked for the nodes somebody wrote a case for.
 
 ⚠ **And 1 is a threshold nothing gates**: the timing is recorded and printed, and what is asserted is
 a hang check. That is the right call for a wall-clock budget in this repository — a number calibrated
 on an idle machine is its single largest flake source — but then the criterion should say *recorded*,
 because "under 250 ms" reads as a gate and is not one.
 
-**6 and 8 name phases rather than properties**, so they cannot be measured before M7 and M9 exist.
-That is not a failure of the criteria and it is not a result either; it is why the exit criteria are
-counted at the end of the document and not at the end of a batch.
+**6 and 8 name phases rather than properties**, so they could not be measured before M7 and M9
+existed. That is not a failure of the criteria and it is not a result either; it is why the exit
+criteria are counted at the end of the document and not at the end of a batch. ⚠ **M7 has since
+landed and 6 is measured**, which is the shape working as intended — a criterion naming a phase
+becomes measurable exactly once, when the phase arrives, and needs no amendment to do it. 8 still
+waits on M9. What 6's first measurement *did* change is § D1: the stack compiles by **building the
+graph** and handing it to the one public compiler, so there are not two compilers here to disagree,
+and the differential is left measuring the round trip and the decoration rather than two independent
+emitters. The criterion is met and it is a weaker statement than its wording implies — which belongs
+here, because that is a fact about the criterion.
 
 ⚠ **The pattern under all of this is one rule, applied to a plan instead of to a test.** Every
 criterion above that says "per node" or "every" is an exact-equality claim over a surface later
@@ -1200,7 +1246,7 @@ forgotten.
 |---|---|---|---|---|
 | High→low bake with a cage | ✅ | ✅ | ✅ | ● **exists** — `MapBaker` |
 | Normal, height / displacement | ✅ | ✅ | ✅ | ● **exists** |
-| AO · bent normal · curvature · thickness · position · world normal · ID · opacity | ✅ | ✅ | ✅ | ● M6 — § D12 |
+| AO · bent normal · curvature · thickness · position · world normal · ID | ✅ | ✅ | ✅ | ● M6 — § D12's seven. ⚠ This row listed `opacity` as an eighth; it is an output usage, not a measurement of a mesh |
 | Matching by mesh name (`_low` / `_high`) | — | ✅ | ✅ | 🕓 M6 stretch — the importer already knows the names |
 | Ray-traced bakers (irradiance, shadows, caustics) | ✅ | — | ✅ | ✖ |
 | GPU bakers | ◐ | ✅ | ✅ | ✖ CPU and deterministic, which is doc 41 § D17's argument, not an oversight |
