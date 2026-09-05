@@ -3365,6 +3365,19 @@ each. All three were re-measured through the probe on this pass and all three st
 at any value a utility can give them — `font-stretch` at both `50%` and `condensed`, which is the
 pair a keyword table would hide. Their rows are unchanged.
 
+⚠ **`font-stretch` re-confirmed again on 2026-09-05 (#541), and what stands is a *face* rather than a
+matcher.** Every font committed here was re-scanned for an `fvar` width axis and for
+`OS/2.usWidthClass`: 24 files, not one carrying `wdth`, and every single face `usWidthClass = 5` —
+`TestGVARFour`'s `cntr` is contrast and is not it. So the width step CSS Fonts 4 § 5.2 asks for, added
+to `FontRegistry` beside the `Slanted` search, would have nothing to select and nothing to interpolate:
+it would resolve, compute a value, and paint byte-identical pixels. Step 1 is committing a face, and it
+gates the other three. ⚠ **And the obligation the issue attaches to closing it is not real.** #541 says
+`UtilityConsumptionGateTests` keeps `font-stretch` as its interned-but-unread *control* and that a
+replacement must be supplied before the row closes. It does not: that theory's `[InlineData]` was
+`word-spacing`, then `text-indent`, and is `tab-size` today, and `font-stretch` appears nowhere in its
+history. Being *an instance of the kind of case* that gate controls for — which is what the row's note
+says — is not being the control.
+
 ### `text-transform` stays split off, and the reason is unchanged
 
 A19 records it and nothing here weakens it: `straße` uppercases to `STRASSE` and `ﬁne` to `FINE`, so
