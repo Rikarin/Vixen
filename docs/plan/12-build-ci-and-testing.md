@@ -40,7 +40,7 @@ Clean ──► Restore ──► Compile ──┬─► Test ─────�
 | `GoldenImages` | ✅ renders the fixture suite on the local backend — lavapipe on the Linux leg, MoltenVK on macOS — and compares it with the committed references; writes the rendering, the reference and a diff into `artifacts/golden-diff/` on failure, which CI uploads. `--update-golden` rewrites the references. The fixtures also run under `Test`, so a wrong picture fails an ordinary build; the separate target exists for the diffs and the switch. |
 | `AotSmoke` | `PublishAot` + `PublishTrimmed` of `Samples/01` and `Samples/02` per RID; **any IL2xxx/IL3xxx warning fails** |
 | `Benchmark` | BenchmarkDotNet over `Benchmarks/*`; compares against a committed baseline JSON; fails on > 10 % regression or any allocation-count increase |
-| `Pack` | produces every NuGet package; validates package contents against an expected-files manifest (a package that silently stops shipping its native asset is a real failure mode) |
+| `Pack` | produces every NuGet package, then opens some of them. ⚠️ **There is no expected-files manifest and this row used to claim one** — a table of required entries per package is still owed ([#337](https://github.com/Rikarin/Vixen/issues/337)), and a package that silently stops shipping its native asset is still the failure mode it would catch. What exists is three checks, each written from a failure that had already happened or from an obligation that cannot be satisfied by memory: `CheckApacheObligations` opens **every** package and asserts the Apache-2.0 licence expression in its manifest and a non-empty `NOTICE` at its root (ADR-015); `CheckStyleGenIsShippable` names the four files `Vixen.Ui.Styling.Utilities` must carry for its `tools/` to start; `CheckCliIsShippable` extracts `Vixen.Sdk` and **runs** the CLI out of it. All three are reachable alone as `CheckPackages`, over whatever is already in `artifacts/packages` — an instrument nobody can run alone is one nobody has watched fail |
 | `PublishEditor` | per-RID single-file publish of `Vixen.Editor.App`; `.app` bundle + `.dmg` on macOS, AppImage on Linux, MSI/zip on Windows |
 | `Sign` / `Notarize` | codesign + notarytool on macOS, Authenticode on Windows; secrets from CI, skipped locally |
 | `Docs` | ⚠️ **Superseded by [25](25-documentation-generator-and-site.md)**: `Vixen.DocGen` over Roslyn source symbols + `docs/guide`, built into the Angular site in `www/` and shipped as an nginx image of static assets. `CheckDocs` is its gate — coverage, links and compiled examples — and sits beside `CheckApi` |
@@ -81,11 +81,27 @@ One version for all packages (rationale in [02](02-repository-layout.md)).
 | `Vixen.Templates` | `dotnet new` templates |
 | `Vixen.Editor.Plugin` | plugin authoring API |
 
-Every package: SourceLink, symbols (`.snupkg`), deterministic, README, icon, and `PackageValidation`
-against the previous release for baseline compatibility. Plus, per **ADR-015**:
-`PackageLicenseExpression=Apache-2.0`, the `NOTICE` file, and the generated third-party attribution
-manifest. `Pack` fails if any of the three is missing from a package — Apache-2.0 §4 obligations are not
-something to satisfy by memory.
+Every package: SourceLink, symbols (`.snupkg`), deterministic, README, and — per **ADR-015** —
+`PackageLicenseExpression=Apache-2.0` and the `NOTICE` file. Both of the last two are set once, for
+every package at a time, in `Directory.Build.props`, and **`Pack` opens each produced `.nupkg` and
+fails if either is absent**: they are obligations that travel with the distribution, so the only place
+the answer is real is inside the archive.
+
+⚠️ **Three things this paragraph used to claim, that are not true and are owed rather than done**
+([#337](https://github.com/Rikarin/Vixen/issues/337)):
+
+- **No package declares an icon.** There is no `PackageIcon` anywhere in the tree.
+- **`PackageValidation` against the previous release is not switched on.** `EnablePackageValidation`
+  appears nowhere. It is the natural companion to `CheckApi` — which catches a source-level break in
+  the tree, where this catches a binary one against what was shipped — and it needs a published
+  baseline version to compare against, which is why it is waiting on the first release rather than on
+  a decision.
+- **The third-party attribution manifest is in no package.** `docs/manual/third-party.md` is packed by
+  nothing, so "fails if any of the three is missing" could never have held for it. Whether it belongs
+  inside every package, or whether the `NOTICE` discharges §4(d) on its own, is a licence question and
+  is tracked with [#129](https://github.com/Rikarin/Vixen/issues/129) rather than decided here.
+  `CheckAttribution` does a different job: it holds that page against the files that pin what it
+  attributes, and says nothing about any `.nupkg`.
 
 ## GitHub Actions
 
