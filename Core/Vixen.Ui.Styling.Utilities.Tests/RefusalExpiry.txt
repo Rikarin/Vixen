@@ -76,6 +76,7 @@ rotate-x-*	expires-with	perspective-*
 rotate-y-*	expires-with	rotate-x-*
 scale-z-*	expires-with	perspective-*
 scrollbar-gutter	expires-on	Vixen.Ui.Layout.Overflow.Auto
+select	expires-on	Vixen.Ui.UiDocument.Selection
 select	expires-when-read	user-select
 touch	expires-on	Vixen.Ui.PointerEvent.PointerType
 touch	expires-on	Vixen.Ui.UiDocument.TouchActionOf
