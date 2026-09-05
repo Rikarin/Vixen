@@ -20,6 +20,16 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!--
+            ⚠ The `CheckArchitecture` rule that asserts doc 48's exit criterion 10, compiled into this
+            assembly so that its answer can be read without running a Nuke target. It is the same file
+            the gate compiles — a second caller, not a second transcription — and `PluginReferenceRuleTests`
+            runs it over this repository tree and over synthetic fixtures that make it fire.
+        -->
+        <Compile Include="..\..\build\PluginReferenceRule.cs" Link="PluginReferenceRule.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\Vixen.Editor.Texturing\Vixen.Editor.Texturing.csproj" />
 
         <!--
