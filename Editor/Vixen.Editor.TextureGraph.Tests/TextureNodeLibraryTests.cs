@@ -250,7 +250,6 @@ public class TextureNodeLibraryTests {
 
             Assert.Contains(name, shipped, StringComparer.Ordinal);
         }
-        }
 
         var excused = Unnoded.Select(entry => entry.Kernel).Order(StringComparer.Ordinal).ToArray();
         var unreached = shipped.Where(kernel => !reached.Contains(kernel)).Order(StringComparer.Ordinal).ToArray();

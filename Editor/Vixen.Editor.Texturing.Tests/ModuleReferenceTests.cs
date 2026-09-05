@@ -44,17 +44,25 @@ public class ModuleReferenceTests {
         Assert.Contains("Vixen.Editor.TextureGraph", referenced);
     }
 
-    /// <summary>The node library crosses the assembly boundary; nothing else does.</summary>
+    /// <summary>The compiler and the node library both cross the assembly boundary, on their own terms.</summary>
     /// <remarks>
-    ///     ⚠ <b>The finding doc 48 did not predict.</b> <c>TextureGraphCompiler</c> and every
-    ///     <c>[Node]</c> class in <c>Vixen.Editor.TextureGraph</c> are <c>internal</c>, and that
-    ///     assembly's <c>InternalsVisibleTo</c> names only its own tests — so what a plugin can reach
-    ///     is the generated <c>NodeTypes.Register</c> and the evaluator's public surface, and not the
-    ///     thing that turns a graph into a plan. This test is what makes the day that changes visible:
-    ///     it goes red, and the panel can grow a preview.
+    ///     <para>
+    ///         ⚠ <b>This test was written as a tripwire and it fired on the very next merge.</b> It
+    ///         asserted that <c>TextureGraphCompiler</c> was <c>internal</c> — the finding doc 48 did
+    ///         not predict — and said in as many words that the day it went red was the day the panel
+    ///         could grow a preview. <see href="https://github.com/Rikarin/Vixen/issues/738" /> made it
+    ///         public in the same batch, so the assertion is inverted rather than deleted: what a
+    ///         plugin can reach is now the compiler <em>and</em> the generated registration.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The other half still holds and is the one worth keeping.</b> Reachability is
+    ///         through the PUBLIC surface, not through <c>InternalsVisibleTo</c> — an assembly that
+    ///         named this plugin a friend would work for the plugin the editor ships and for no third
+    ///         party, which is the arrangement the whole contract exists to avoid.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void The_texture_graph_compiler_is_not_reachable_from_a_plugin() {
+    public void The_texture_graph_compiler_is_reachable_from_a_plugin_through_its_public_surface() {
         var evaluator = typeof(TextureGraph.TexturePlan).Assembly;
 
         Assert.NotNull(evaluator.GetType("Vixen.Editor.TextureGraph.NodeTypes"));
@@ -62,7 +70,7 @@ public class ModuleReferenceTests {
         var compiler = evaluator.GetType("Vixen.Editor.TextureGraph.TextureGraphCompiler");
 
         Assert.NotNull(compiler);
-        Assert.False(compiler.IsPublic, "TextureGraphCompiler is public now — give this plugin a preview.");
+        Assert.True(compiler!.IsPublic, "TextureGraphCompiler went internal again — the panel's preview depends on it.");
 
         Assert.DoesNotContain(
             evaluator.GetCustomAttributes<InternalsVisibleToAttribute>(),

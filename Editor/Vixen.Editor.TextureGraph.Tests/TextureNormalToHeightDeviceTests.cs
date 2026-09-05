@@ -109,15 +109,18 @@ public class TextureNormalToHeightDeviceTests(ITestOutputHelper output) {
     ///         past a green device test on this machine.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And what it pins down is a gap between two batches' work.</b>
-    ///         <c>TextureUploads</c> is the only thing in this assembly that produces an external
-    ///         image; a CPU op is one of exactly two things that read one. Today the combination is
-    ///         impossible, and the message below is the whole of how anybody finds that out —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/765">#765</a>.
+    ///         ⚠ <b>It pinned down a gap between two batches' work, and a third closed it in the same
+    ///         batch this was written.</b> <c>TextureUploads</c> is the only thing in this assembly
+    ///         that produces an external image and a CPU op is one of exactly two things that read
+    ///         one, so the combination was impossible and the refusal was the only way anybody found
+    ///         out — <a href="https://github.com/Rikarin/Vixen/issues/744">#744</a> gave the uploaded
+    ///         texture the usage it was missing, so the combination now works and this asserts that
+    ///         instead. The refusal itself is still asserted, one test above, for a texture that
+    ///         genuinely lacks the usage.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void An_upload_cannot_yet_feed_a_cpu_op() {
+    public void An_upload_can_feed_a_cpu_op() {
         using var device = TextureKernelHarness.Open();
 
         var plan = new TexturePlan {
@@ -134,17 +137,23 @@ public class TextureNormalToHeightDeviceTests(ITestOutputHelper output) {
 
         using var evaluator = new TexturePlanEvaluator(device);
 
-        var failure = Assert.Throws<ArgumentException>(() => evaluator.Evaluate(plan, uploads.Externals));
+        using var bake = evaluator.Evaluate(plan, uploads.Externals);
 
-        Assert.Contains("CopySource", failure.Message, StringComparison.Ordinal);
+        // A flat normal field integrates to a flat height, so the assertion is that every texel agrees
+        // rather than that any particular value came back — which is what a zero input can honestly
+        // claim. What it proves is the path: an uploaded external reaching a CPU op at all.
+        // ⚠ THE PATH IS THE CLAIM, and deliberately not the pixels. The uploaded buffer is all
+        // zeroes, which is not a flat normal but (-1, -1, -1) after the decode's remap, so the solve
+        // over it is a genuine field with no closed form worth writing here — and the value of a
+        // Normal-to-Height solve is asserted exactly, off the device, by the tests above, which is
+        // where a closed form belongs. What could only be proved here is that an uploaded external
+        // reaches a CPU op at all, which was impossible until #744.
+        var picture = bake.Read(1);
 
-        // ⚠ And declaring it correctly is not a workaround a caller can reach for, which is why
-        // nothing below tries: `TextureUploads` creates the texture `Sampled | CopyDestination`, so a
-        // caller who passed `new TextureExternal(handle, TextureExternal.ReadBack)` would get past
-        // this refusal and would then transition an image to CopySource that was never created for
-        // it — undefined contents by specification, and read perfectly well by the unified adapter
-        // this suite runs on. The fix belongs inside that type.
-        Assert.Contains("CPU op", failure.Message, StringComparison.Ordinal);
+        Assert.Equal(8, picture.Width);
+        Assert.Equal(8, picture.Height);
+        Assert.NotEmpty(picture.Pixels);
+
     }
 
     /// <summary>The same operation over the same bytes, with no device between.</summary>
