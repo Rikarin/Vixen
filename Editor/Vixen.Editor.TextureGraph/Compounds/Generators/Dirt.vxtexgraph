@@ -1,0 +1,65 @@
+version: 1
+name: Dirt
+nodes:
+  - id: 1
+    type: Source/Mesh Map
+    x: -640
+    y: 0
+    values: {}
+    texts: { Map: curvature }
+  - id: 2
+    type: Colour/Levels
+    x: -320
+    y: 0
+    values:
+      Input Black: [0.48]
+      Input White: [0.2]
+    texts: {}
+  - id: 3
+    type: Source/Mesh Map
+    x: -640
+    y: 220
+    values: {}
+    texts: { Map: ao }
+  - id: 4
+    type: Colour/Levels
+    x: -320
+    y: 220
+    values:
+      Input Black: [0.85]
+      Input White: [0.25]
+    texts: {}
+  - id: 5
+    type: Colour/Blend
+    x: 0
+    y: 0
+    values: {}
+    texts: { Mode: Multiply }
+  - id: 6
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - fromNode: 2
+    fromPort: Out
+    toNode: 5
+    toPort: Background
+  - fromNode: 4
+    fromPort: Out
+    toNode: 5
+    toPort: Foreground
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The dirt mask.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters: []

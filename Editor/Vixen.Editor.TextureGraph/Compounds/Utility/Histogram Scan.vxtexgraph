@@ -1,0 +1,60 @@
+version: 1
+name: Histogram Scan
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Colour/Levels
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+  - id: 3
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - fromNode: 1
+    fromPort: Input
+    toNode: 2
+    toPort: Input
+  - fromNode: 1
+    fromPort: Black
+    toNode: 2
+    toPort: Input Black
+  - fromNode: 1
+    fromPort: White
+    toNode: 2
+    toPort: Input White
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Input
+    direction: Input
+    kind: Image
+    default: []
+    summary: The grey to threshold.
+  - name: Black
+    direction: Input
+    kind: Float
+    default: [0.45]
+    summary: Everything at or below this reads as zero. Above White inverts the scan.
+  - name: White
+    direction: Input
+    kind: Float
+    default: [0.55]
+    summary: Everything at or above this reads as one. The pair is the scan's edge and its width.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The thresholded grey.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters: []

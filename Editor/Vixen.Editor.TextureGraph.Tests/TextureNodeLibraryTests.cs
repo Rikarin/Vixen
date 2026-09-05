@@ -750,10 +750,18 @@ public class TextureNodeLibraryTests {
         // default, which is what keeps the defaults roll call an assertion about the library.
         bitmap.SetText("Source", "Assets/Textures/fixture.png");
 
+        // ⚠ The fifth image no op writes, and the only one whose reference names no file: a mesh map
+        // is bound by what it measures, so what crosses is `meshmap:curvature` and the *bake* decides
+        // which mesh's curvature that is. Its default is a usage, so nothing is authored here — which
+        // is what keeps it inside the defaults roll call, unlike the Bitmap above.
+        var meshMap = graph.Add("Source/Mesh Map");
+        var wear = graph.Add("Colour/Levels");
+
         // ⚠ These three chains end in no Output node, which is legal and is what half an author's
         // canvas looks like: an image nothing reads is freed by the pool the moment its last reader
         // has run, and its *op* is still in the plan — which is what this file reads.
         graph.Connect(bitmap, "Out", resample, "Input");
+        graph.Connect(meshMap, "Out", wear, "Input");
         graph.Connect(gradient, "Out", curve, "Input");
 
         // Grey into the ladder and out through the ramp, because Gradient Map measures rather than

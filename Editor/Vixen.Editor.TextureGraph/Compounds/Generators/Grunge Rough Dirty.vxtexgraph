@@ -1,0 +1,77 @@
+version: 1
+name: Grunge Rough Dirty
+nodes:
+  - id: 1
+    type: Source/Noise
+    x: -960
+    y: 0
+    values:
+      Scale: [6]
+      Octaves: [5]
+    texts: { Basis: Gradient }
+  - id: 2
+    type: Filters/Slope Blur
+    x: -640
+    y: 0
+    values:
+      Intensity: [6]
+      Samples: [16]
+    texts: { Mode: Max }
+  - id: 3
+    type: Colour/Levels
+    x: -320
+    y: 0
+    values:
+      Input Black: [0.3]
+      Input White: [0.85]
+    texts: {}
+  - id: 4
+    type: Source/Mesh Map
+    x: -640
+    y: 260
+    values: {}
+    texts: { Map: ao }
+  - id: 5
+    type: Colour/Levels
+    x: -320
+    y: 260
+    values:
+      Input Black: [0.95]
+      Input White: [0.3]
+    texts: {}
+  - id: 6
+    type: Colour/Blend
+    x: 0
+    y: 0
+    values: {}
+    texts: { Mode: Multiply }
+  - id: 7
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Slope }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Input }
+  - fromNode: 3
+    fromPort: Out
+    toNode: 6
+    toPort: Background
+  - fromNode: 5
+    fromPort: Out
+    toNode: 6
+    toPort: Foreground
+  - { fromNode: 6, fromPort: Out, toNode: 7, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The grunge.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters: []
