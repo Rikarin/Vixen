@@ -2908,10 +2908,20 @@ dependency.
   `space-y-*`'s reason (§ F9): nothing interns a `-block-start`/`-block-end` longhand, and
   `Vixen.Ui.Layout` has no writing mode for one to differ from `-top`/`-bottom` in. The *inline* pair
   is in, because `ScrollView.InsetOf` folds it against `direction` itself.
-- **`snap-*`** — `scroll-snap-type`, `scroll-snap-align` and `scroll-snap-stop` need a snapping
+- **`snap-*`** — `scroll-snap-type`, `scroll-snap-align` and `scroll-snap-stop` needed a snapping
   algorithm, which is a feature rather than a read: a scroll that comes to rest has to choose a
-  snap position among the candidates in its subtree, and nothing computes candidates. ⚠ This one
-  really is "the behaviour comes first", and it is the only one of the four that is.
+  snap position among the candidates in its subtree, and nothing computed candidates. ⚠ This one
+  really was "the behaviour comes first", and it is the only one of the four that was.
+  ✅ **The behaviour has landed** — `ScrollView` walks its subtree for `scroll-snap-align`, aligns
+  against the snapport `scroll-padding` leaves, and honours mandatory/proximity, `scroll-snap-stop:
+  always` and a re-snap after layout. ⚠ **And the algorithm was the easy half.** A snap is defined at
+  the moment a scroll *comes to rest*, and neither gesture had an end: `ScrollBar` raised nothing when
+  a thumb was released (`ScrollEnded` now does) and a wheel is a stream of deltas with no terminator
+  in it at all (`ScrollView.SnapIdleSeconds`, on the tick clock — not the event's, which a platform
+  head is free to stamp from a source the frame loop never reads). **The four roots are still
+  unregistered**, and deliberately in that order: they need `UtilityConsumptionProbe`'s `scrolled`
+  scene to grow candidates and a driven gesture end, or they measure inert and the gate is right to
+  say so.
 - **`scrollbar-color` / `scrollbar-gutter`** — `ScrollBar` is a child element this control creates
   and themes through `scrollbar { … }`, `--track-color` and `--thumb-color`. A CSS property that
   restyled it would be a second way to say what the theme already says, so `scrollbar-thumb-*` and
