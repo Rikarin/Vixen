@@ -287,7 +287,7 @@ sealed partial class Transform2DNode : TextureNode {
             // defect. A box belongs to `Resample`, whose ratio is known because the target's size is
             // the whole of its answer — and which has no node yet, for that same reason (#733).
             emitter.Report(
-                "TG0010",
+                TextureDiagnostics.SettingNotAccepted,
                 $"'{nameof(Filter)}' is 'Box', and a transform has no ratio to box over — its minification "
                 + "is already mip-correct per texel, which is what it computes instead of asking for a mip. "
                 + "Use Point or Bilinear.",
@@ -399,7 +399,7 @@ sealed partial class DistanceNode : TextureNode {
             // the integers only to 2048 — and repeating that arithmetic here to raise the diagnostic
             // earlier would be two ceilings that have to agree. What this adds is the node: an
             // exception in a background bake names nothing an author can select.
-            emitter.Report("TG0011", refusal.Message, "Max Distance");
+            emitter.Report(TextureDiagnostics.BuilderRefusedTheNumbers, refusal.Message, "Max Distance");
         }
     }
 }

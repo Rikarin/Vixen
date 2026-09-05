@@ -133,6 +133,12 @@ public class TextureColourKernelTests {
     ///     </para>
     /// </remarks>
     static IEnumerable<string> Declared() {
+        // ⚠ The detector is a *member name*, so any static `All` of strings anywhere in this
+        // assembly joins the kernel inventory — measured: a diagnostics registry called its id list
+        // `All` and this roll call went red naming `Tile`. There is no honest discriminator to add
+        // here, because "these strings are kernel names" is the very thing the case below asserts.
+        // #814 is where a marked surface belongs; until then a new non-kernel surface is named
+        // something else.
         foreach (var type in typeof(TextureKernels).Assembly.GetTypes()) {
             if (type.GetProperty("All", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static) is not
                 { } all) {

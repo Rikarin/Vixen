@@ -165,7 +165,7 @@ sealed partial class TileSamplerNode : TextureNode {
             // names the numbers and the cell count they work out to, and repeating that arithmetic
             // here would be two ceilings that have to agree. The port named is the one an artist
             // turns to cause it.
-            emitter.Report("TG0011", refusal.Message, nameof(Scale));
+            emitter.Report(TextureDiagnostics.BuilderRefusedTheNumbers, refusal.Message, nameof(Scale));
         }
     }
 }
@@ -313,7 +313,7 @@ sealed partial class SplatterNode : TextureNode {
                 )
             );
         } catch (ArgumentException refusal) {
-            emitter.Report("TG0011", refusal.Message, nameof(Count));
+            emitter.Report(TextureDiagnostics.BuilderRefusedTheNumbers, refusal.Message, nameof(Count));
         }
     }
 }

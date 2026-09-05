@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.CompilerServices;
 using Vixen.Core.Yaml;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.TextureGraph;
@@ -41,6 +42,9 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
             // A file the test wrote and the OS has not let go of. Not what is under test.
         }
     }
+
+    /// <summary>Where this file was compiled from, which is what the folder walk is anchored to.</summary>
+    static string Here([CallerFilePath] string path = "") => path;
 
     static NodeTypeRegistry Registry() {
         NodeTypeRegistry registry = new();
@@ -83,19 +87,75 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
 
     /// <summary>The library is what the folder holds, and the folder holds these.</summary>
     /// <remarks>
-    ///     ⚠ <b>The count is here so that the walks below cannot go vacuous</b>, and the names are
-    ///     here because a compound that silently stopped shipping — a file moved out of
-    ///     <c>Compounds/</c>, an <c>EmbeddedResource</c> glob narrowed — is a node type that
-    ///     disappears from every graph containing it. Doc 48 § A.9's honest number is measured
-    ///     against this: four of the twenty-four § 4.9 marks and of the several hundred the
-    ///     references ship.
+    ///     <para>
+    ///         ⚠ <b>The names used to be spelled out here and that was the wrong shape.</b> The
+    ///         defect this catches is a compound that silently stopped shipping — a file moved out of
+    ///         <c>Compounds/</c>, an <c>EmbeddedResource</c> glob narrowed — and an equality against
+    ///         four literals catches that <em>and</em> goes red on the merge that adds a fifth
+    ///         compound, which is the exact-equality-over-a-shared-surface failure this workstream
+    ///         has now had six times. So the expectation is the folder: the files on disk, read at
+    ///         the path this file was compiled from, against the manifest
+    ///         <see cref="TextureCompoundLibrary.Shipped" /> is built out of. A slice that ships a
+    ///         fifth compound is covered by this without editing it; a file that stops being
+    ///         embedded still fails.
+    ///     </para>
+    ///     <para>
+    ///         <b>The two sides really are independent.</b> <c>Shipped</c> comes from
+    ///         <c>GetManifestResourceNames</c> — what the build put <em>into the assembly</em> — and
+    ///         the expectation is the directory listing. That is what makes narrowing the glob
+    ///         visible; a test that derived both from the same place would agree with itself.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Anchored at this file's compiled path, never walked up to the repository
+    ///         root.</b> <c>.claude/worktrees</c> holds a whole checkout per agent, so a walk from
+    ///         the root would be comparing other people's copies of these compounds with this
+    ///         assembly's.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void The_shipped_library_is_the_folder_and_not_a_list() {
-        Assert.Equal(
+        var folder = Path.Combine(
+            Path.GetDirectoryName(Path.GetDirectoryName(Here())!)!,
+            "Vixen.Editor.TextureGraph",
+            "Compounds"
+        );
+
+        Assert.True(
+            Directory.Exists(folder),
+            $"'{folder}' does not exist, so the expectation below is empty and this compares nothing with "
+            + "nothing. It is anchored at this file's compiled path; a run whose sources are not on the "
+            + "machine cannot take this case."
+        );
+
+        var onDisk = Directory
+            .GetFiles(folder, "*" + TextureCompoundLibrary.Extension, SearchOption.AllDirectories)
+            .Select(path => Path.ChangeExtension(Path.GetRelativePath(folder, path), null)
+                .Replace(Path.DirectorySeparatorChar, '/'))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        // The instrument: an empty folder listing would make the equality below a claim that the
+        // assembly ships nothing, which is what a vacuous pass looks like here. Four when this was
+        // written — a floor, because a fifth compound is somebody's work rather than this file's bug.
+        Assert.True(
+            onDisk.Length >= 4,
+            $"Only {onDisk.Length} compound(s) were found under '{folder}', and there were four when this was "
+            + "written. Doc 48 § A.9's honest number is measured against this folder, so a walk that found "
+            + "almost nothing is a pass over no content rather than a clean library."
+        );
+
+        Assert.Equal(onDisk, TextureCompoundLibrary.Shipped);
+
+        // ⚠ And membership rather than equality for the four § 4.9 shipped, which is the half the
+        // folder comparison above genuinely cannot make: a compound *moved out of* `Compounds/`
+        // leaves the disk and the manifest at once, so the two sides agree and say nothing. Renaming
+        // or retiring one of these is a breaking change to every graph containing it — a node type
+        // that vanishes from a menu — so it should be a deliberate edit here rather than a silence.
+        // `Contains` and not `Equal`: a fifth compound is a sibling's work, not this file's failure.
+        Assert.All(
             ["Generators/Curvature Edge Wear", "Generators/Dirt", "Generators/Grunge Rough Dirty",
                 "Utility/Histogram Scan"],
-            TextureCompoundLibrary.Shipped
+            path => Assert.Contains(path, TextureCompoundLibrary.Shipped)
         );
 
         // ⚠ A manifest resource name has no way to tell a folder separator from a dot somebody put

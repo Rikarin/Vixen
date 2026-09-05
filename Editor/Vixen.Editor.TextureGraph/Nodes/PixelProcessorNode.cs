@@ -80,7 +80,11 @@ sealed partial class PixelProcessorNode : TextureNode {
             // which two other sites in this assembly already used for entirely different things, one
             // of them a warning about a resample onto its own size. An id is what a host filters and
             // suppresses on, so two meanings under one id is a filter that hides the wrong half.
-            emitter.Report("TG0020", $"'{nameof(Expression)}' {reason}", nameof(Expression));
+            emitter.Report(
+                TextureDiagnostics.PixelProcessorExpressionRefused,
+                $"'{nameof(Expression)}' {reason}",
+                nameof(Expression)
+            );
 
             return;
         }
@@ -103,7 +107,13 @@ sealed partial class PixelProcessorNode : TextureNode {
 
         if (problems.Length > 0) {
             foreach (var problem in problems) {
-                emitter.Report("TG0021", problem.Message, nameof(Expression), NodeSeverity.Error, problem.Span);
+                emitter.Report(
+                    TextureDiagnostics.PixelProcessorDoesNotCompile,
+                    problem.Message,
+                    nameof(Expression),
+                    NodeSeverity.Error,
+                    problem.Span
+                );
             }
 
             return;

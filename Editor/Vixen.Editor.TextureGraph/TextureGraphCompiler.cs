@@ -378,7 +378,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             if (problem is not null) {
                 // Against no node, because it is the graph's own declaration — the same choice
                 // `Bind` makes for a parameter list that does not hold together.
-                Report(new("TG0019", problem, NodeId.None, "", NodeSeverity.Warning));
+                Report(new(TextureDiagnostics.GraphSettingIgnored, problem, NodeId.None, "", NodeSeverity.Warning));
             }
         }
 
@@ -405,13 +405,17 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         foreach (var problem in TextureGraphParameters.Check(declared)) {
             // Against no node, because a parameter belongs to the graph rather than to any node in
             // it. There is nothing to select and saying so is better than picking one at random.
-            Report(new("TG0011", "This graph's parameters do not hold together: " + problem, NodeId.None));
+            Report(new(
+                TextureDiagnostics.BuilderRefusedTheNumbers,
+                "This graph's parameters do not hold together: " + problem,
+                NodeId.None
+            ));
         }
 
         ParameterValues = TextureGraphParameters.Read(declared, Arguments, out var refused);
 
         foreach (var problem in refused) {
-            Report(new("TG0015", problem, NodeId.None, "", NodeSeverity.Warning));
+            Report(new(TextureDiagnostics.ParameterOverrideIgnored, problem, NodeId.None, "", NodeSeverity.Warning));
         }
 
         foreach (var (scope, expressions) in Collect(graph)) {
@@ -486,7 +490,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
 
                 if (definition.Port(port, PortDirection.Input) is not { } declared) {
                     Report(new(
-                        "TG0016",
+                        TextureDiagnostics.ExpressionOnAPortThatTakesNone,
                         $"An expression is stored for '{port}', which this node has no input called. It was "
                         + "written against a version of the node type that had one.",
                         node.Id,
@@ -501,7 +505,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
                     // there is no number an image port could take — see `Constant`. Accepting it here
                     // would produce a field an author can type into whose value nothing ever reads.
                     Report(new(
-                        "TG0016",
+                        TextureDiagnostics.ExpressionOnAPortThatTakesNone,
                         $"'{port}' carries a {declared.Kind} and an expression is one number. A node's image "
                         + "inputs are wired, not computed.",
                         node.Id,
@@ -541,7 +545,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             // sentence — this is the failure a compiler with no `SubGraphSource` produces for every
             // sub-graph in every graph, all at once.
             Report(new(
-                "TG0001",
+                TextureDiagnostics.NothingToCompile,
                 instance is SubGraphNode
                     ? $"'{definition.Path}' is a published graph, and nothing inlined it. The compiler was "
                       + "given no library to resolve sub-graphs through, so its contents never reached this plan."
@@ -561,7 +565,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     protected override TexturePlan? Finish(NodeGraphModel graph) {
         if (outputs.Count == 0 && !PreviewEveryNode) {
             Report(new(
-                "TG0005",
+                TextureDiagnostics.NoOutputNode,
                 "This graph has no Output node, so everything it computes is freed before anything can "
                 + "read it. Add one from the Output category.",
                 NodeId.None
@@ -619,7 +623,11 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
 
         if (problems.Length > 0) {
             foreach (var problem in problems) {
-                Report(new("TG0009", "The compiler produced a plan that does not hold together: " + problem, NodeId.None));
+                Report(new(
+                    TextureDiagnostics.PlanDoesNotHoldTogether,
+                    "The compiler produced a plan that does not hold together: " + problem,
+                    NodeId.None
+                ));
             }
 
             return null;
@@ -794,7 +802,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             }
 
             Report(new(
-                "TG0006",
+                TextureDiagnostics.TwoOutputsOneUsage,
                 $"Two Output nodes both write '{usage}', and a bake writes one file per usage — so one of "
                 + $"them is the map and the graph does not say which. The other is {existing.Node}.",
                 node.Id,
@@ -919,7 +927,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
 
             if (width <= 0 || height <= 0 || texels.Length != expected) {
                 Report(new(
-                    "TG0017",
+                    TextureDiagnostics.BakedPictureIsTheWrongSize,
                     $"This node bakes its own {width}×{height} {format} picture and handed over {texels.Length} "
                     + $"byte(s) where {expected} are needed. An external image is uploaded exactly as it is "
                     + "written down — there is nothing that could resample it.",
@@ -948,7 +956,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     ) {
         if (!binding.IsConnected(port)) {
             Report(new(
-                "TG0002",
+                TextureDiagnostics.NoImage,
                 $"'{port}' has no image connected. There is no literal image an author could type into a "
                 + "port instead, so a source node is what fills one.",
                 node.Id,
@@ -964,7 +972,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             // node-library bug, and it is the exact shape of failure that would otherwise compile to
             // a plan missing a dispatch and nothing to point at.
             Report(new(
-                "TG0008",
+                TextureDiagnostics.UpstreamProducedNoImage,
                 $"'{port}' is wired, and whatever feeds it produced no image. Either the node upstream "
                 + "failed, or its output is not an image this compiler can carry.",
                 node.Id,
@@ -986,7 +994,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
 
         if (strict) {
             Report(new(
-                "TG0004",
+                TextureDiagnostics.ColourWhereOneChannelIsWanted,
                 $"'{port}' is measured rather than composited, so it takes a single channel and a colour "
                 + "arrived at it. There is no luminance a colour and a mask agree on — put a Grayscale "
                 + "node in between and say which one this graph means.",

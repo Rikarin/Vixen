@@ -321,7 +321,7 @@ sealed partial class BitmapNode : TextureNode {
             // exception at bake time — `ExternalViews` refuses it — and an empty reference is the one
             // case where a compiler can name the node instead.
             emitter.Report(
-                "TG0002",
+                TextureDiagnostics.NoImage,
                 "This node has no image. A bitmap's pixels come from an imported asset, so a reference is what "
                 + "fills it — there is nothing it could draw instead.",
                 "Source"
@@ -335,7 +335,7 @@ sealed partial class BitmapNode : TextureNode {
             // `Box` here would be a bilinear read under the name of a box filter — `CropNode`'s
             // refusal, for the same reason.
             emitter.Report(
-                "TG0010",
+                TextureDiagnostics.SettingNotAccepted,
                 $"'{nameof(Filter)}' is 'Box', and 'Bitmap' takes Point or Bilinear. A box needs a minification "
                 + "ratio, which is Space/Resample's question rather than this node's.",
                 nameof(Filter)

@@ -74,7 +74,7 @@ sealed partial class OutputNode : TextureNode {
 
         if (usage.Length == 0) {
             emitter.Report(
-                "TG0010",
+                TextureDiagnostics.SettingNotAccepted,
                 $"'{nameof(Usage)}' is '{typed}', which is not one of {string.Join(", ", TextureUsages.Known)}.",
                 nameof(Usage)
             );

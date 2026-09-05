@@ -155,7 +155,7 @@ sealed partial class MeshMapInputNode : TextureNode {
             // wrong measurement, and every mesh map is a plausible-looking picture, so nothing
             // downstream and nobody looking at the result would ever say so.
             emitter.Report(
-                "TG0010",
+                TextureDiagnostics.SettingNotAccepted,
                 $"'{nameof(Map)}' is '{emitter.Text(nameof(Map)).Trim()}', which is not one of "
                 + $"{string.Join(", ", TextureMeshMaps.Known)}. A mesh map is bound by what it measures, so a "
                 + "name nothing bakes binds nothing.",
