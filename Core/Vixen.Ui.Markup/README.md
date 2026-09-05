@@ -958,6 +958,37 @@ Two things about its timing are load-bearing and neither is a defect:
   to, so a prop that has to keep following its source is signal-backed for the same reason it always
   was.
 
+### And it can now start something asynchronous, which is what it was missing
+
+`OnComposed` is synchronous, has no cancellation and cannot be `async` — so a panel that had to load
+something on appear either blocked the build or started a fire-and-forget task whose completion had
+nowhere safe to land. What it reaches now is `Component.Context`, and through it
+`BuildContext.Load`:
+
+```html
+@code {
+    IReadOnlySignal<AsyncValue<Manifest>> catalogue = null!;
+
+    partial void OnComposed() => catalogue = Context.Load(token => Assets.ReadCatalogueAsync(token));
+}
+
+@if (catalogue.Value.Status == AsyncStatus.Failure) {
+    <Callout Kind="error">Could not read the catalogue.</Callout>
+}
+```
+
+⚠ **What cancels it is what cancels an effect**, which answers the half that is easy to get wrong.
+The work is tracked on the region being built, so it ends when that region does — *unmount* is the
+obvious case and *rebuild* is the one that is missed, since a `.vxml` save re-enters `Build` and
+`BuildContext.Rebuild` clears the component's region first. ⚠ **And a fault is a value rather than an
+exception**: `Effect.Run` catches, suspends and logs, so a load that threw into an effect would be a
+panel that silently stopped; `AsyncStatus.Failure` on the signal is a thing an `@if` can draw.
+
+⚠ **The substrate under it, `AsyncComputed<TRequest, T>`, had no production caller at all** until this
+— every reference to it was its own tests or a `<see cref>`. It is worth saying because the shape
+recurs: the expensive, carefully-reasoned half existed, and what was missing was the one line that
+made it reachable from the language panels are written in.
+
 ## What `Component` has and an element-flavoured class has
 
 | | `Component` | `@inherits` |

@@ -1,0 +1,23 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component AsyncHost
+@namespace Vixen.Ui.Controls.Tests
+@using Vixen.Ui.Reactive
+
+<async-host>
+    @if (Shown.Value) {
+        <AsyncGuest ref="@guest" />
+    }
+</async-host>
+
+@code {
+    AsyncGuest guest = null!;
+
+    /// <summary>Whether the panel that loads is in the document.</summary>
+    public Signal<bool> Shown { get; } = new(true);
+
+    /// <summary>The panel, while it is there.</summary>
+    public AsyncGuest Guest => guest;
+}

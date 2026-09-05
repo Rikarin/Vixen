@@ -1,0 +1,67 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component AsyncGuest
+@namespace Vixen.Ui.Controls.Tests
+@using Vixen.Ui.Reactive
+
+<async-guest>
+    <!--
+        The three states as one binding, which is the whole reason `AsyncValue<T>` is one value: a
+        panel that bound loading, value and error separately can draw a spinner over a stale value
+        over an error message.
+    -->
+    <async-state use="@(element => element.Text = Describe())" />
+</async-guest>
+
+@code {
+    IReadOnlySignal<AsyncValue<string>> loaded = null!;
+
+    /// <summary>Completed by the test when it wants the load to finish, or to fail.</summary>
+    public static TaskCompletionSource<string> Gate { get; private set; } = new();
+
+    /// <summary>Cancellations observed from the token itself rather than inferred from a missing value.</summary>
+    public static int Cancellations { get; private set; }
+
+    /// <summary>How many loads were started.</summary>
+    public static int Starts { get; private set; }
+
+    /// <summary>Puts the statics back, because a fixture shared by several facts is not per-test.</summary>
+    public static void Reset() {
+        Gate = new();
+        Cancellations = 0;
+        Starts = 0;
+    }
+
+    /// <summary>Where the load has got to, for a test that reads the model rather than the element.</summary>
+    public AsyncValue<string> State => loaded.Value;
+
+    string Describe() =>
+        loaded.Value.Status switch {
+            AsyncStatus.Success => loaded.Value.Value ?? string.Empty,
+            AsyncStatus.Failure => "failed",
+            _ => "loading"
+        };
+
+    // ⚠ The hook the framework gives a `.vxml`, and it is synchronous — which is the point. What
+    // reaches the runtime from it is `Context`, and what the runtime does with the work is own it:
+    // the token below is cancelled when this panel's region goes, whether that is an unmount or a
+    // rebuild.
+    //
+    // ⚠ And not an `async` lambda with `using (token.Register(…))` round the await, which is the
+    // instrument that reported no cancellation for a runtime that was cancelling correctly:
+    // `CancellationTokenSource.Cancel` runs its callbacks last-registered-first, so `WaitAsync`'s
+    // own registration resumes the state machine, the `using` disposes this registration, and a
+    // disposed registration is skipped when the walk reaches it. Registered once and never disposed,
+    // the count is written synchronously inside `Cancel`.
+    partial void OnComposed() =>
+        loaded = Context.Load(
+            token => {
+                Starts++;
+                token.Register(() => Cancellations++);
+
+                return Gate.Task;
+            }
+        );
+}

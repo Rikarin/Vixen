@@ -826,6 +826,68 @@ public sealed class BuildContext {
         building.Track(new Effect(assign, Document.Effects));
     }
 
+    /// <summary>Runs asynchronous work for as long as whatever declared it is in the document.</summary>
+    /// <typeparam name="TRequest">What the work is asked for — the tracked half.</typeparam>
+    /// <typeparam name="T">What it produces.</typeparam>
+    /// <param name="request">What to ask for, as a function of signals. Runs with tracking on.</param>
+    /// <param name="load">The work. Runs untracked, with a token that is cancelled when this leaves.</param>
+    /// <returns>Loading, value or error, as one signal a binding can read.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The arrival hook a panel had no way to write, and the substrate for it was
+    ///         already here with nothing calling it.</b> <c>OnComposed</c> is synchronous and has no
+    ///         token, so a panel that had to load something on appear either blocked the build or
+    ///         started a task whose completion had nowhere safe to land — and whose cancellation on
+    ///         unmount was the author's to remember. <see cref="AsyncComputed{TRequest,T}" /> answers
+    ///         all three (a tracked request, an untracked load, results posted back through the
+    ///         document's scheduler) and had no production caller anywhere in the tree. This is the
+    ///         line that gives it one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What cancels it is what cancels an effect, which answers the harder half of the
+    ///         question.</b> The work is tracked on the region being built, so it is disposed —
+    ///         and its token cancelled — when that region goes. <i>Unmount</i> is the obvious case;
+    ///         <i>rebuild</i> is the one that is easy to miss, and a <c>.vxml</c> save is a rebuild:
+    ///         <see cref="Rebuild" /> clears the component's region before re-entering
+    ///         <c>Build</c>, so the load a reloaded panel started is cancelled by the reload rather
+    ///         than left racing the one that replaces it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A fault is a value here rather than an exception, and that is deliberate.</b>
+    ///         <c>Effect.Run</c> catches, suspends and logs — the arrangement that made a mistyped
+    ///         <c>bind:</c> invisible for months — so a load that threw into an effect would be a
+    ///         panel that silently stopped. Instead the exception arrives as
+    ///         <c>AsyncStatus.Failure</c> on the signal, which is a thing markup can render: a
+    ///         <c>@if</c> over <c>.Status</c> is how a panel says "could not load" at all.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlySignal<AsyncValue<T>> Load<TRequest, T>(
+        Func<TRequest> request,
+        Func<TRequest, CancellationToken, Task<T>> load
+    ) {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(load);
+
+        var computed = new AsyncComputed<TRequest, T>(request, load, Document.Effects);
+
+        building.Track(computed);
+        return computed;
+    }
+
+    /// <summary>The arrival case: work that runs once because it asks for nothing.</summary>
+    /// <typeparam name="T">What it produces.</typeparam>
+    /// <param name="load">The work, with a token that is cancelled when this leaves.</param>
+    /// <returns>Loading, value or error, as one signal a binding can read.</returns>
+    /// <remarks>
+    ///     A request that reads no signal never changes, so the work runs once and is re-run by
+    ///     nothing — which is what "load this when the panel appears" means. Everything else about it
+    ///     is the two-argument form's, including what cancels it.
+    /// </remarks>
+    public IReadOnlySignal<AsyncValue<T>> Load<T>(Func<CancellationToken, Task<T>> load) {
+        ArgumentNullException.ThrowIfNull(load);
+        return Load(static () => 0, (_, token) => load(token));
+    }
+
     /// <summary>Runs an expression against what a tag made, now and again whenever what it read changes.</summary>
     /// <typeparam name="T">What the tag made: a control, an element, or a <see cref="Component" />.</typeparam>
     /// <param name="target">The thing the tag made.</param>

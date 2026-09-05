@@ -37,6 +37,27 @@ public abstract class Component : IComposable {
     /// </remarks>
     public UiElement Content { get; private set; } = null!;
 
+    /// <summary>What built this component.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>For <c>OnComposed</c>, which is the one hook a <c>.vxml</c> has and the one the
+    ///         emitter gives no argument.</b> <see cref="Build" /> is handed the context and an
+    ///         <c>@code</c> block cannot override <c>Build</c> — the generated class owns it — so a
+    ///         panel that wanted to reach the runtime from its arrival hook had nothing to reach it
+    ///         with. <c>BuildContext.Load</c> is the call that made that a gap rather than a
+    ///         curiosity: an asynchronous load has to be registered against the region being built,
+    ///         and only the context knows which that is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Valid from <c>Attach</c> onwards, which is before <see cref="Build" /> and
+    ///         therefore before <c>OnComposed</c>.</b> Held afterwards as well, because a context is
+    ///         a component's for as long as the component is mounted — but the calls on it that
+    ///         register anything write into <i>whatever is being built now</i>, which after the
+    ///         build is not this component. Use it from the hooks.
+    ///     </para>
+    /// </remarks>
+    protected BuildContext Context { get; private set; } = null!;
+
     /// <summary>The element name this component's host answers to.</summary>
     /// <remarks>
     ///     <para>
@@ -153,6 +174,7 @@ public abstract class Component : IComposable {
     ///     <see cref="BuildContext.Create{T}(Vixen.Ui.UiElement,string)" />.
     /// </remarks>
     internal void Attach(BuildContext ctx, UiElement root) {
+        Context = ctx;
         Root = root;
         Content = root;
         Slots = null;

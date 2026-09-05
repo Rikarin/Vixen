@@ -223,6 +223,8 @@ Vixen.Ui.Composition.BuildContext.Create<T>(Vixen.Ui.UiElement? parent, string? 
 Vixen.Ui.Composition.BuildContext.Document.get -> Vixen.Ui.UiDocument
 Vixen.Ui.Composition.BuildContext.Element(Vixen.Ui.UiElement? parent, string tag) -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.BuildContext.For<T>(Vixen.Ui.UiElement? parent, System.Func<System.Collections.Generic.IEnumerable<T>> items, System.Func<T, object> key, System.Action<Vixen.Ui.Composition.BuildContext, Vixen.Ui.UiElement, T> build, Vixen.Ui.Composition.ExitSpec? exit = null) -> void
+Vixen.Ui.Composition.BuildContext.Load<T>(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<T>> load) -> Vixen.Ui.Reactive.IReadOnlySignal<Vixen.Ui.Reactive.AsyncValue<T>>
+Vixen.Ui.Composition.BuildContext.Load<TRequest, T>(System.Func<TRequest> request, System.Func<TRequest, System.Threading.CancellationToken, System.Threading.Tasks.Task<T>> load) -> Vixen.Ui.Reactive.IReadOnlySignal<Vixen.Ui.Reactive.AsyncValue<T>>
 Vixen.Ui.Composition.BuildContext.Mount.get -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.BuildContext.On(Vixen.Ui.UiElement target, string name, System.Action handler, params string[] modifiers) -> void
 Vixen.Ui.Composition.BuildContext.On<TEvent>(Vixen.Ui.UiElement target, string name, System.Action<TEvent> handler, params string[] modifiers) -> void
@@ -237,6 +239,7 @@ Vixen.Ui.Composition.BuildContext.Use<T>(T target, System.Action<T> action) -> v
 Vixen.Ui.Composition.Component -> abstract class
 Vixen.Ui.Composition.Component : Vixen.Ui.Composition.IComposable
 Vixen.Ui.Composition.Component.Component() -> void
+Vixen.Ui.Composition.Component.Context.get -> Vixen.Ui.Composition.BuildContext
 Vixen.Ui.Composition.Component.Content.get -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.Component.Inject<T>() -> T?
 Vixen.Ui.Composition.Component.Provide<T>(T value) -> void
