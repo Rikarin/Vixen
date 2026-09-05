@@ -307,6 +307,21 @@ files.
   whichever finished last. The build still fails on a red test — the exit code does not go through
   the file — but the report a human opens to find out *which* test is the entire point of producing
   one.
+  ⚠️ **Both bullets are what [#560](https://github.com/Rikarin/Vixen/issues/560) — dropping VSTest for
+  Microsoft.Testing.Platform — has to replace, and three things about that were measured on
+  2026-09-06 rather than assumed.** (1) MTP's TRX **does** carry `<ResultSummary outcome>` and
+  `<Times>` in VSTest's shape, so `TestOrder --update-test-cost`, `AffectedTests` and this
+  repository's read-the-outcome-not-the-counters rule all survive — probed with xunit.v3 3.2.2 plus
+  the extension and one deliberately failing test, which wrote `ResultSummary outcome="Failed"`.
+  (2) ⚠️ The TRX writer is a **separate package this tree has never referenced**,
+  `Microsoft.Testing.Extensions.TrxReport`, so the migration owes 178 `PackageReference` *additions*
+  and not only the 178 removals of `xunit.runner.visualstudio`. (3) ⚠️ Its current release **2.0.0 is
+  incompatible with xunit.v3 3.2.2** and NuGet resolves to it by default: the host dies before
+  running anything with `TypeLoadException: Could not load type
+  'Microsoft.Testing.Platform.Extensions.TestHost.IDataConsumer' from assembly
+  'Microsoft.Testing.Platform, Version=2.0.0.0'`, because xunit.v3 binds the 1.x platform. It must be
+  pinned to 1.x. And MTP names the file `_<machine>_<timestamp>.trx`, so the per-project name is
+  `--report-trx-filename` per project rather than one property.
 
 ### Coverage, reported and not gated
 
