@@ -186,9 +186,9 @@ public class ParityLedgerTests {
         );
     }
 
-    /// <summary>The state column only ever holds one of the six states.</summary>
+    /// <summary>The state column only ever holds one of the five states.</summary>
     [Fact]
-    public void Every_state_is_one_of_the_six() {
+    public void Every_state_is_one_of_the_five() {
         var (_, rows) = ParityLedger.Read(ParityLedger.Locate());
         var bad = rows
             .Where(r => !ParityLedger.States.Contains(r.State, StringComparer.Ordinal))
@@ -294,7 +294,7 @@ public class ParityLedgerTests {
         Assert.True(
             table.Count != 0,
             "docs/plan/43-web-styling-parity.md has no `| **works** | … | **n** |` row at all, so Part 0's "
-            + "six-state table has been renamed, reformatted or lost. Nothing below this can be trusted "
+            + "state table has been renamed, reformatted or lost. Nothing below this can be trusted "
             + "until it is found again — a sweep that matches nothing reports nothing."
         );
 
@@ -317,7 +317,7 @@ public class ParityLedgerTests {
 
                {string.Join("\n  ", missing)}
 
-             Update Part 0's six-state table and the "By category" totals to the counts above.
+             Update Part 0's state table and the "By category" totals to the counts above.
              """
         );
     }
@@ -329,7 +329,7 @@ public class ParityLedgerTests {
     static int Held(IEnumerable<ParityRow> rows, string state) =>
         rows.Count(row => string.Equals(row.State, state, StringComparison.Ordinal));
 
-    /// <summary>Part 0's six-state table, as the contiguous block of rows it is.</summary>
+    /// <summary>Part 0's state table, as the contiguous block of rows it is.</summary>
     /// <remarks>
     ///     Anchored on the <c>works</c> row and grown in both directions over lines of the same shape,
     ///     so an extra row is inside the block and a stray row elsewhere in the document is not.
@@ -371,7 +371,7 @@ public class ParityLedgerTests {
     ///     <para>
     ///         ⚠ <b>Nothing read this table at all until now, and the issue that asked for it believed
     ///         something did.</b> #537 reasoned that a duplicated category row "would double-count into
-    ///         a <c>Total</c> the test does check" — the test checked the six-state table and only that,
+    ///         a <c>Total</c> the test does check" — the test checked Part 0's state table and only that,
     ///         so the whole fifteen-row cross-tabulation of the ledger was prose. It is the larger of
     ///         the two tables and the one a reader uses to decide what to work on next.
     ///     </para>
@@ -396,6 +396,8 @@ public class ParityLedgerTests {
         // literal was one: it read 7, the sixth state was retired, and a regex that matches nothing
         // turns this whole table into an empty list — which is the "sweep that matches nothing" this
         // method's own header assertion exists to refuse, arriving through the row pattern instead.
+        // ⚠ The category equality is what caught it, and only because it compares two lists rather
+        // than looping over whatever was found.
         var shape = new Regex(
             @"^\|\s*(?<category>[^|*]+?)\s*\|(?<counts>(\s*\d+\s*\|){"
             + (ParityLedger.States.Length + 1).ToString(CultureInfo.InvariantCulture)

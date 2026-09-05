@@ -48,6 +48,14 @@ namespace Vixen.Ui.Controls.Tests;
 ///         <c>Vixen.Ui.Controls.Advanced.Tests.SyntaxThemeTests</c> — on a contrast oracle, because
 ///         a syntax colour that loses its dark rule is unreadable rather than merely different.
 ///     </para>
+///     <para>
+///         ⚠ <b>All of which is a claim about the stylesheet, and the failure it cannot see is a
+///         claim about a control.</b> A control that paints a colour not drawn from a token looks
+///         identical in both palettes, and nothing above would move — which is #594's slider thumb
+///         exactly. <c>ControlPaletteCoverageTests</c> is where that is asserted, per control, by a
+///         sweep and without committing a single further picture. This file keeps what a sweep
+///         cannot give: a frame a person can look at.
+///     </para>
 /// </remarks>
 public class ControlThemeVisualTests {
     /// <summary>How wide and tall the gallery is. Small, for <c>ControlVisualTests</c>' reason.</summary>

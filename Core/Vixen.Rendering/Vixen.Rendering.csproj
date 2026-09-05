@@ -33,6 +33,13 @@
           Shaders/line.frag beside an unrecompiled .spv shipped the old bytes in this assembly and
           nothing said so. `CommittedGlslModuleTests` records the pair in `hand-compiled.sha256`, so
           the forgotten step is a red test rather than a wrong picture.
+
+          ⚠ "Which keeps a byte-identical copy of its own" was an acknowledgement and nothing held it
+          true. Edit either line.frag, recompile it, and both trees stay internally consistent while
+          the two pictures diverge — which is exactly how ui-box.frag lost the shadow path on two of
+          three copies. SharedUiShaderTests.EveryDuplicateGlslSourceIsADeclaredPair is what says so
+          now, in both directions: a declared pair that has drifted fails, and a new undeclared copy
+          fails too. The copy itself is #637, and it can only be removed on a machine with a device.
         -->
         <EmbeddedResource Include="Shaders\line.vert.spv" LogicalName="Vixen.Rendering.line.vert.spv" />
         <EmbeddedResource Include="Shaders\line.frag.spv" LogicalName="Vixen.Rendering.line.frag.spv" />
