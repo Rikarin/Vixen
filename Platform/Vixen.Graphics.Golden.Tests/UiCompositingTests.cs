@@ -742,6 +742,140 @@ public sealed class UiCompositingTests {
     /// </remarks>
     static UiColorMatrix InnerFilter => UiColorMatrix.Grayscale(1f);
 
+    /// <summary>
+    ///     A declared <c>mix-blend-mode</c>: the software renderer applies it, the device submits the
+    ///     composite source-over, and this is the only thing in the repository that says so.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="UiRenderer.Unblended" /> had no readers at all before this.</b> Its own
+    ///         remarks call it "the one counter on this class that counts something the renderer failed
+    ///         to do" and the only observer the divergence has — and nothing anywhere asked it
+    ///         anything, which is this repository's commonest defect wearing the costume of a
+    ///         diagnostic. A counter nobody reads cannot report a regression, and it cannot notice the
+    ///         day the divergence is closed either.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This asserts the gap rather than hiding it, and the failure is to be read the
+    ///         right way round.</b> If it goes red because the two pictures now agree, somebody has
+    ///         implemented the device path — #783 — and the right response is to rewrite this test
+    ///         into its opposite: <c>Unblended</c> zero, and the two frames compared with
+    ///         <see cref="Agreement" /> like every other case in this file.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Yellow over magenta, and the fixture the issue warns against is green over
+    ///         red.</b> <c>multiply</c> takes <c>(1,1,0)</c> into <c>(1,0,1)</c> and lands on
+    ///         <c>(1,0,0)</c>, so the <i>green</i> channel alone separates a blend that ran from one
+    ///         that did not — 0 on the software frame, 255 on the device's. Green multiplied into red
+    ///         lands on black, which is also what a group that never drew produces, so that fixture
+    ///         would pass against a feature that does nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the comparison of the two executors is exactly what cannot see this</b>, which
+    ///         is why the assertion is on two named pixels and a counter rather than on
+    ///         <c>ImageComparer</c>. Every other case in this file is "the two agree"; here they must
+    ///         not, and a tolerance is no way to say so.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ADeclaredBlendRunsOnTheSoftwarePathAndGoesOutSourceOverOnTheDevice() {
+        if (!TryOpen(out var fixture, out _)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var colour = owned.ColourTarget("ui-blended");
+
+        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var geometry = new UiGeometryBuilder().Build(Blended(), cache, Viewport);
+
+        // The instrument, both halves: a group was opened, and it is the blended one.
+        var layer = Assert.Single(geometry.Layers);
+        Assert.Equal(UiBlendMode.Multiply, layer.Blend);
+
+        var renderer = new UiRenderer(
+            owned.Device,
+            new(
+                owned.Shader("ui.vert.spv", ShaderStage.Vertex),
+                owned.Shader("ui-box.frag.spv", ShaderStage.Fragment),
+                owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
+                owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
+            ) {
+                Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment),
+                Blur = owned.Shader("ui-blur.frag.spv", ShaderStage.Fragment),
+                Colour = owned.Shader("ui-colour.frag.spv", ShaderStage.Fragment),
+                Mask = owned.Shader("ui-mask.frag.spv", ShaderStage.Fragment)
+            },
+            new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
+        );
+
+        owned.Owns(renderer.Dispose);
+
+        owned.Graph.AddPass("ui-blended", pass => {
+            pass.ColourAttachment(colour, LoadAction.Clear, Background);
+            pass.SideEffect();
+            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
+        });
+
+        var rendered = owned.Render(
+            colour,
+            commands => {
+                renderer.Upload(commands, geometry, cache.Atlas);
+                renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Background));
+            }
+        );
+
+        Assert.Equal(1, renderer.Composited);
+
+        // ⚠ The claim, counted rather than inferred: the geometry asked for a blend and the composite
+        // went out without one. Zero here means either that the device path landed — see the remarks —
+        // or that the group stopped being blended, and the layer assertion above separates those.
+        Assert.Equal(1, renderer.Unblended);
+
+        var software = SoftwareUiRasterizer.Render(geometry, cache.Atlas, Side, Side, Background);
+
+        // Yellow, because the composite was source-over: the panel simply covers the field.
+        Assert.Equal((255, 255, 0), Middle(rendered));
+
+        // Red, because the software renderer read the destination and multiplied into it.
+        Assert.Equal((255, 0, 0), Middle(software));
+    }
+
+    /// <summary>A magenta field with a blended yellow group over it, centred on the fixture.</summary>
+    /// <remarks>
+    ///     ⚠ The field is painted by a draw of its own rather than by the clear colour, because what a
+    ///     blend mixes with is whatever is in the buffer its composite lands in — and a fixture whose
+    ///     backdrop was the clear would be asserting about the render pass instead.
+    /// </remarks>
+    static DrawList Blended() {
+        var list = new DrawList();
+        list.BeginFrame();
+
+        list.Add(new(DrawCommandKind.Rectangle, 0, 0, Side, Side, new Color4(1f, 0f, 1f, 1f), 0, 0));
+
+        list.Add(
+            new DrawCommand(DrawCommandKind.LayerPush, 24, 24, 80, 80, Color4.White, 0, 0) {
+                Blend = UiBlendMode.Multiply
+            }
+        );
+
+        list.Add(new(DrawCommandKind.Rectangle, 24, 24, 80, 80, new Color4(1f, 1f, 0f, 1f), 0, 0));
+        list.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
+
+        // ⚠ Without this there are no batches, so `UiGeometryBuilder.Build` walks nothing and the
+        // frame comes back with no layers at all — which reads as a group the builder collapsed.
+        list.EndFrame();
+
+        return list;
+    }
+
+    /// <summary>The three colour channels at the centre of the fixture.</summary>
+    static (int Red, int Green, int Blue) Middle(Bitmap bitmap) {
+        var offset = bitmap.Offset(Side / 2, Side / 2);
+
+        return (bitmap.Pixels[offset], bitmap.Pixels[offset + 1], bitmap.Pixels[offset + 2]);
+    }
+
     /// <summary>Opens a group, or does nothing when the fixture is being flattened.</summary>
     static void Push(
         DrawList list,

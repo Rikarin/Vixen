@@ -899,6 +899,17 @@ public sealed class UiRenderer : IDisposable {
     ///         <see cref="Backdropped" /> already performs is exactly that picture, so the shape is
     ///         there and the shader is not. <c>docs/guide/ui/compositing.md</c> prices it.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read by <c>UiCompositingTests.ADeclaredBlendRunsOnTheSoftwarePathAndGoesOutSourceOverOnTheDevice</c>,
+    ///         and by nothing at all before that.</b> A counter that says what a renderer failed to do
+    ///         is worth exactly what asks it: nobody did, so the divergence was a paragraph rather
+    ///         than a measurement, and neither a regression in it nor the day it is closed would have
+    ///         been noticed. That fixture asserts this is <i>one</i> on a blended frame and reads the
+    ///         two executors' pixels apart — yellow over magenta, where the green channel alone
+    ///         separates a blend that ran from one that did not. ⚠ It is written to be inverted: when
+    ///         #783 lands, this becomes zero and the two frames are compared like every other case in
+    ///         that file.
+    ///     </para>
     /// </remarks>
     public int Unblended => unblended;
 
