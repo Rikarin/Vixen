@@ -2343,11 +2343,13 @@ T:Vixen.Platform.IWindow sweep-pending
 T:Vixen.Platform.Key sweep-pending
 T:Vixen.Platform.KeyModifierExtensions sweep-pending
 T:Vixen.Platform.KeyModifiers sweep-pending
+T:Vixen.Platform.Linux.LinuxAppearance	the three appearance sources are documented together on IPlatform.ColorScheme
 T:Vixen.Platform.Linux.LinuxClipboard sweep-pending
 T:Vixen.Platform.Linux.LinuxDialogs sweep-pending
 T:Vixen.Platform.Linux.LinuxPlatformSupplement sweep-pending
 T:Vixen.Platform.Linux.LinuxPowerInfo sweep-pending
 T:Vixen.Platform.Linux.LinuxProcessorTopology sweep-pending
+T:Vixen.Platform.MacOS.MacOSAppearance	the three appearance sources are documented together on IPlatform.ColorScheme
 T:Vixen.Platform.MacOS.MacOSClipboard sweep-pending
 T:Vixen.Platform.MacOS.MacOSDialogs sweep-pending
 T:Vixen.Platform.MacOS.MacOSPlatformSupplement sweep-pending
@@ -2375,13 +2377,16 @@ T:Vixen.Platform.PlatformServices sweep-pending
 T:Vixen.Platform.PowerSource sweep-pending
 T:Vixen.Platform.ProcessorClass sweep-pending
 T:Vixen.Platform.StandardFileSystemHost sweep-pending
+T:Vixen.Platform.SystemColorScheme	the platform half of prefers-color-scheme; documented on IPlatform.ColorScheme
 T:Vixen.Platform.ThermalState sweep-pending
 T:Vixen.Platform.TouchTracker sweep-pending
 T:Vixen.Platform.Ui.PlatformInput sweep-pending
+T:Vixen.Platform.Ui.PlatformTextInput	the IME wire, documented beside PlatformCursor which it mirrors
 T:Vixen.Platform.Ui.PlatformUiWindow sweep-pending
 T:Vixen.Platform.Ui.PlatformWindowHost sweep-pending
 T:Vixen.Platform.WindowMode sweep-pending
 T:Vixen.Platform.WindowOptions sweep-pending
+T:Vixen.Platform.Windows.WindowsAppearance	the three appearance sources are documented together on IPlatform.ColorScheme
 T:Vixen.Platform.Windows.WindowsClipboard sweep-pending
 T:Vixen.Platform.Windows.WindowsDialogs sweep-pending
 T:Vixen.Platform.Windows.WindowsPlatformSupplement sweep-pending
@@ -3411,6 +3416,7 @@ T:Vixen.Ui.HotReload.HotReloadWatcher sweep-pending
 T:Vixen.Ui.HotReload.MetadataUpdate sweep-pending
 T:Vixen.Ui.HotReload.ReloadChannel sweep-pending
 T:Vixen.Ui.HotReload.ReloadReport sweep-pending
+T:Vixen.Ui.ITextInputTarget	the framework half of ITextInput; documented on PlatformTextInput, which is the only caller
 T:Vixen.Ui.IUiWindow sweep-pending
 T:Vixen.Ui.IUiWindowHost sweep-pending
 T:Vixen.Ui.KeyAction sweep-pending

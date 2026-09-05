@@ -1,6 +1,11 @@
 #nullable enable
 Vixen.Platform.Ui.PlatformCursor -> static class
 Vixen.Platform.Ui.PlatformInput -> static class
+Vixen.Platform.Ui.PlatformTextInput -> sealed class
+Vixen.Platform.Ui.PlatformTextInput.Active.get -> Vixen.Platform.IWindow?
+Vixen.Platform.Ui.PlatformTextInput.Apply(Vixen.Platform.Ui.PlatformWindowHost host) -> Vixen.Platform.IWindow?
+Vixen.Platform.Ui.PlatformTextInput.Deactivate() -> void
+Vixen.Platform.Ui.PlatformTextInput.PlatformTextInput(Vixen.Platform.ITextInput textInput) -> void
 Vixen.Platform.Ui.PlatformUiWindow -> sealed class
 Vixen.Platform.Ui.PlatformUiWindow : System.IDisposable
 Vixen.Platform.Ui.PlatformUiWindow : Vixen.Ui.IUiWindow
@@ -32,6 +37,7 @@ Vixen.Platform.Ui.PlatformWindowHost.Windows.get -> System.Collections.Generic.I
 const Vixen.Platform.Ui.PlatformInput.WheelLineHeight = 48 -> float
 static Vixen.Platform.Ui.PlatformCursor.Apply(Vixen.Platform.Ui.PlatformWindowHost host) -> Vixen.Platform.IWindow?
 static Vixen.Platform.Ui.PlatformCursor.ToShape(Vixen.Ui.UiCursor cursor) -> Vixen.Platform.CursorShape
+static Vixen.Platform.Ui.PlatformInput.ApplyColorScheme(Vixen.Ui.UiDocument document, Vixen.Platform.SystemColorScheme scheme) -> void
 static Vixen.Platform.Ui.PlatformInput.Dispatch(Vixen.Ui.UiDocument document, Vixen.Ui.UiSurface surface, in Vixen.Platform.PlatformEvent platformEvent, float wheelLineHeight = 48) -> bool
 static Vixen.Platform.Ui.PlatformInput.Dispatch(Vixen.Ui.UiDocument document, in Vixen.Platform.PlatformEvent platformEvent) -> bool
 static Vixen.Platform.Ui.PlatformWindowHost.IsReachable(System.Collections.Generic.IReadOnlyList<Vixen.Platform.DisplayInfo> displays, float x, float y, float width, float height) -> bool

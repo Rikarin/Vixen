@@ -112,6 +112,23 @@ with long work to report does not need a timer of its own; see
 application understands before starting, of which the one that matters here is `--frames N` — which
 sets `Frames`, and is what makes a screenshot run or a smoke test terminate.
 
+**`Platform` is how an application reaches the operating system.** The clipboard, the native file
+pickers, the displays and the process lifecycle live on `IPlatform`, which `Vixen.Ui` is not allowed
+to name — so this property is the only route to them from application code, and `Started` is where
+to read it.
+
+⚠ **Ask `Capabilities` before using most of it.** A headless run has no displays; a Linux session
+with no `zenity` or `kdialog` has no file picker; and a picker that is not there answers "nothing
+chosen", which is exactly what the user pressing Cancel answers. `platform.Pickers()` is that
+question spelled once: it hands back `INativeDialogs` when `PlatformCapabilities.NativeDialogs` is
+present and `null` otherwise, which is what an `Open…` menu item's enablement should read.
+`ShowMessageAsync` is the exception and is always safe to call.
+
+⚠ **Everything on it belongs to the loop thread**, so call it from `Started`, `Frame`, `Stopping` or
+an event handler — never from a continuation that resumed on a pool thread. Win32 delivers messages
+to the thread that made the window and AppKit refuses to be touched from anywhere else; that is the
+operating systems' rule, not the framework's.
+
 ⚠ **Hot reload arrives by reference and there is no flag.** A `Debug`-only reference to
 `Vixen.Ui.Desktop.HotReload` is the whole of turning it on: `UiApplication`'s static constructor
 loads that assembly by name and runs its module initializer, so a Release build does not resolve it

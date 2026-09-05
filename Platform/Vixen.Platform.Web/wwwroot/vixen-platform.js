@@ -191,6 +191,26 @@ export function now() {
     return performance.now();
 }
 
+/**
+ * What the browser says the user's colour-scheme preference is: 2 for dark, 1 for light, 0 for no
+ * preference.
+ *
+ * ⚠ Both queries are asked, and "neither matched" is a third answer rather than light. A browser
+ * that does not implement the feature answers false to both, and reporting light there would make a
+ * stylesheet's `(prefers-color-scheme: light)` block apply on a system that never said so.
+ */
+export function colorScheme() {
+    if (!globalThis.matchMedia) {
+        return 0;
+    }
+
+    if (globalThis.matchMedia("(prefers-color-scheme: dark)").matches) {
+        return 2;
+    }
+
+    return globalThis.matchMedia("(prefers-color-scheme: light)").matches ? 1 : 0;
+}
+
 function holdString(text) {
     const handle = state.nextString++;
     state.strings.set(handle, text);

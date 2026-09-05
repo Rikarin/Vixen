@@ -50,6 +50,10 @@ public sealed class IosPlatform : IPlatform {
         MobileLifecycle = new(events);
         FileSystem = new IosFileSystemHost();
         Dialogs = new IosDialogs(this);
+
+        // Seeded rather than left to the first pump: a host reads this to choose a palette before it
+        // draws, and a first frame drawn against `Unknown` is a flash of the wrong theme.
+        ColorScheme = ReadColorScheme();
     }
 
     /// <inheritdoc />
@@ -78,6 +82,28 @@ public sealed class IosPlatform : IPlatform {
 
     /// <inheritdoc />
     public IDisplayInfo Displays { get; } = new IosDisplays();
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         <c>UITraitCollection.CurrentTraitCollection</c>, which is the trait environment of
+    ///         whatever is being laid out — and outside a layout pass, the window's. That is the
+    ///         answer an application wants: a view controller may override the style for its own
+    ///         subtree, and the override is what is on screen.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>Unspecified</c> is reported as <see cref="SystemColorScheme.Unknown" />.</b>
+    ///         It is what iOS 12 and earlier always say and what a trait collection that has not been
+    ///         resolved says; mapping it to light is how an application chooses a palette on a system
+    ///         that has not answered.
+    ///     </para>
+    ///     <para>
+    ///         Polled in <see cref="PumpEvents" />, because the change arrives as
+    ///         <c>traitCollectionDidChange</c> on a view controller and this platform does not own
+    ///         one.
+    ///     </para>
+    /// </remarks>
+    public SystemColorScheme ColorScheme { get; private set; }
 
     /// <inheritdoc />
     public IFileSystemHost FileSystem { get; }
@@ -194,8 +220,28 @@ public sealed class IosPlatform : IPlatform {
             RootController = null;
         }
 
+        var scheme = ReadColorScheme();
+
+        if (scheme != ColorScheme) {
+            ColorScheme = scheme;
+
+            events.Post(
+                PlatformEvent.Application(
+                    PlatformEventKind.SystemColorSchemeChanged,
+                    System.Diagnostics.Stopwatch.GetTimestamp()
+                )
+            );
+        }
+
         return events.Drain();
     }
+
+    static SystemColorScheme ReadColorScheme() =>
+        UITraitCollection.CurrentTraitCollection.UserInterfaceStyle switch {
+            UIUserInterfaceStyle.Dark => SystemColorScheme.Dark,
+            UIUserInterfaceStyle.Light => SystemColorScheme.Light,
+            _ => SystemColorScheme.Unknown
+        };
 
     /// <inheritdoc />
     /// <remarks>

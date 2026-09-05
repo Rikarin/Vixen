@@ -37,6 +37,23 @@ public interface IPlatform : IDisposable {
     /// <summary>The displays.</summary>
     IDisplayInfo Displays { get; }
 
+    /// <summary>Whether the user has asked the operating system for a light or a dark appearance.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A cached answer, refreshed by <see cref="PumpEvents" />, so reading it is a field read
+    ///         and reading it once a frame is free. It moves only across a
+    ///         <see cref="PlatformEventKind.SystemColorSchemeChanged" />, which is the event a host
+    ///         wires to <c>@media (prefers-color-scheme: …)</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="SystemColorScheme.Unknown" /> is a real answer and not a failure.</b>
+    ///         A headless run has no appearance, and neither does a Linux desktop with no settings
+    ///         daemon — reporting light for either is how an application ends up choosing a palette
+    ///         the system never asked for.
+    ///     </para>
+    /// </remarks>
+    SystemColorScheme ColorScheme { get; }
+
     /// <summary>Where this platform keeps files.</summary>
     IFileSystemHost FileSystem { get; }
 

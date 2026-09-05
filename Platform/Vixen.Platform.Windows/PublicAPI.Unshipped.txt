@@ -1,4 +1,5 @@
 #nullable enable
+Vixen.Platform.Windows.WindowsAppearance -> static class
 Vixen.Platform.Windows.WindowsClipboard -> sealed class
 Vixen.Platform.Windows.WindowsClipboard : Vixen.Platform.IClipboard
 Vixen.Platform.Windows.WindowsClipboard.Clear() -> void
@@ -46,3 +47,4 @@ Vixen.Platform.Windows.WindowsProcessorTopology.PhysicalCores.get -> int
 Vixen.Platform.Windows.WindowsProcessorTopology.SupportsAffinity.get -> bool
 Vixen.Platform.Windows.WindowsProcessorTopology.TrySetAffinity(int processor) -> bool
 Vixen.Platform.Windows.WindowsProcessorTopology.WindowsProcessorTopology() -> void
+static Vixen.Platform.Windows.WindowsAppearance.Read() -> Vixen.Platform.SystemColorScheme

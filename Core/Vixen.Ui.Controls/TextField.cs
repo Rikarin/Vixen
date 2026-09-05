@@ -37,7 +37,7 @@ namespace Vixen.Ui.Controls;
 ///         than a loop here that would get the interesting scripts wrong.
 ///     </para>
 /// </remarks>
-public abstract partial class TextField : Control {
+public abstract partial class TextField : Control, ITextInputTarget {
     UiElement text = null!;
     UiElement placeholder = null!;
     int selectionColor;
@@ -572,10 +572,7 @@ public abstract partial class TextField : Control {
         // `field-text` a `min-height` — the same declaration that stops an empty field collapsing.
         if (text.Block() is not { } block) {
             if (CaretIsLit) {
-                context.FillRectangle(
-                    new Rectangle(origin, top, 1f, MathF.Max(text.Height, 1f)),
-                    CaretColour(context)
-                );
+                context.FillRectangle(CaretArea, CaretColour(context));
             }
 
             return;
@@ -646,14 +643,41 @@ public abstract partial class TextField : Control {
         // ⚠ The caret is drawn even when there is a selection. Every editor does — the caret is the
         // end you are extending from, and hiding it during a Shift-Arrow leaves the user unable to
         // tell which way the next keystroke will grow the selection.
-        var caretLine = block.Lines[block.LineOf(DisplayCaret, CaretAffinity)];
-        var (caretX, caretY) = block.CaretAt(DisplayCaret, CaretAffinity);
-
-        context.FillRectangle(
-            new Rectangle(origin + ShiftOf(caretLine) + caretX, top + caretY, 1f, caretLine.Height),
-            CaretColour(context)
-        );
+        context.FillRectangle(CaretArea, CaretColour(context));
     }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Computed here rather than remembered from the last <see cref="OnDraw" />.</b> The
+    ///     caret rectangle used to exist only as three locals inside the paint, which is why nothing
+    ///     outside could place an input method's candidate window with it — and the paint now reads
+    ///     this, so the two cannot drift into disagreeing about where the caret is.
+    /// </remarks>
+    public Rectangle CaretArea {
+        get {
+            var origin = text.AbsoluteLeft;
+            var top = text.AbsoluteTop;
+
+            // An empty field has no block to ask and still has a caret — see `OnDraw`, where the
+            // same fallback is what makes clicking an empty search box look like something happened.
+            if (text.Block() is not { } block) {
+                return new(origin, top, 1f, MathF.Max(text.Height, 1f));
+            }
+
+            var line = block.Lines[block.LineOf(DisplayCaret, CaretAffinity)];
+            var (x, y) = block.CaretAt(DisplayCaret, CaretAffinity);
+
+            return new(origin + ShiftOf(line) + x, top + y, 1f, line.Height);
+        }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <see cref="ShowsCaret" />, and for exactly its reason: a caret is a promise that the next
+    ///     keystroke lands here, and an input method activated over a field that will discard what it
+    ///     commits makes the same false promise one layer up.
+    /// </remarks>
+    public bool AcceptsTextInput => ShowsCaret;
 
     /// <summary>Underlines the input method's pre-edit, which is what says it is not committed yet.</summary>
     /// <remarks>
