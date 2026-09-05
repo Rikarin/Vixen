@@ -107,8 +107,8 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **229** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **28** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **234** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **27** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
 | **absent** | not emitted at all | **67** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
@@ -490,7 +490,7 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 |
-| **Total** | **332** | **229** | **28** | **1** | **71** | **3** |
+| **Total** | **332** | **234** | **27** | **1** | **67** | **3** |
 
 Flexbox and Grid leads at 30 of 34, with only two absent roots left and both of those refused on
 policy rather than owed; then Interactivity at 30 of 40, Layout at 30 of 51, Borders at 28 of 34,
