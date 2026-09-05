@@ -131,9 +131,11 @@ public class StepperTests {
 
     /// <summary>A field that will not take a keystroke does not take a click on its arrows either.</summary>
     /// <remarks>
-    ///     ⚠ The arrow <i>keys</i> still step a read-only numeric field, which is
-    ///     <see href="https://github.com/Rikarin/Vixen/issues/826" /> and is not this control's to
-    ///     fix. This asserts the new gesture does not join the old hole.
+    ///     ⚠ The remark that used to sit here said the arrow <i>keys</i> still stepped a read-only
+    ///     numeric field and that it was not this control's to fix. It was right on both counts and
+    ///     the hole is closed — see
+    ///     <c>TextFieldTests.A_read_only_numeric_field_does_not_step_on_a_key</c>, which is the
+    ///     keyboard half and lives with the control that owns the handler.
     /// </remarks>
     [Fact]
     public void A_read_only_stepper_does_not_step() {
@@ -149,6 +151,13 @@ public class StepperTests {
         Assert.True(stepper.IncrementButton.Disabled);
 
         fixture.Click(stepper.IncrementButton);
+
+        Assert.Equal(4d, stepper.Number);
+
+        // And the keys the arrows are a picture of, on the same control — a stepper is a
+        // `NumericInput`, so the guard it inherits is the one being asserted.
+        fixture.Document.Focus(stepper);
+        fixture.Type(InputKey.Up);
 
         Assert.Equal(4d, stepper.Number);
     }

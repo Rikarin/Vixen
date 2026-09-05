@@ -394,6 +394,57 @@ public class TextFieldTests {
         Assert.False(field.IsInRange);
     }
 
+    /// <summary>A read-only numeric field does not step on a key, and does not eat the key either.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The arrow keys were the one route into the value that did not ask.</b> Typing is
+    ///         refused, the scrub's press case is guarded by <c>!ReadOnly</c>, and <c>Stepper</c>'s
+    ///         arrows disable themselves — so a field offered as "look, do not touch" was one
+    ///         keystroke from being edited. <c>ReadOnly</c> is not <c>Disabled</c>, and that is the
+    ///         point of it: the field still takes the focus and its text can still be selected and
+    ///         copied, which is exactly the state in which somebody's finger is on the arrow keys.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And the second half is the one a value assertion alone would miss: the key comes
+    ///         back <i>unhandled</i>. A read-only field has not consumed Up, and swallowing it would
+    ///         stop it reaching whatever the field sits inside — turning "cannot be edited" into
+    ///         "eats the keyboard".
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_read_only_numeric_field_does_not_step_on_a_key() {
+        using var fixture = new ControlFixture();
+
+        var field = fixture.Add<NumericInput>();
+        field.Step = 1d;
+        field.RelativeStep = 0d;
+        field.Number = 4d;
+        field.ReadOnly = true;
+
+        var escaped = 0;
+        fixture.Document.Root.AddHandler<KeyEvent>((_, args) => {
+            if (args is { Action: KeyAction.Pressed, Key: InputKey.Up, Handled: false }) {
+                escaped++;
+            }
+        });
+
+        fixture.Document.Focus(field);
+
+        fixture.Type(InputKey.Up);
+        fixture.Type(InputKey.PageUp);
+
+        Assert.Equal(4d, field.Number);
+        Assert.Equal(1, escaped);
+
+        // And it steps again the moment it is editable, so the guard is a condition rather than a
+        // removal.
+        field.ReadOnly = false;
+        fixture.Type(InputKey.Up);
+
+        Assert.Equal(5d, field.Number);
+        Assert.Equal(1, escaped);
+    }
+
     /// <summary>And the gestures that stop at the ends still stop at them.</summary>
     /// <remarks>
     ///     ⚠ <b>The half of the clamp that was worth keeping</b>, and the reason the change is a

@@ -510,8 +510,25 @@ public partial class NumericInput : TextField {
         }
     }
 
+    /// <summary>Turns Up, Down, PageUp and PageDown into a step.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="TextField.ReadOnly" /> was the one route into the value that did not
+    ///         ask.</b> Typing is refused, the scrub's press case is guarded, and <c>Stepper</c>'s
+    ///         arrows disable themselves — so a field offered as "look, do not touch" was one
+    ///         keystroke from being edited, and <c>ReadOnly</c> is precisely the state in which a
+    ///         person's finger is on the arrow keys: it still takes the focus, and its text can still
+    ///         be selected and copied. That is what separates it from <c>Disabled</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the key is left unhandled rather than swallowed</b>, which is the half worth
+    ///         saying out loud. A read-only field has not consumed Up; marking it handled would stop
+    ///         it reaching whatever the field is inside — a list that scrolls, a dialog that moves a
+    ///         selection — and turn "cannot be edited" into "eats the keyboard".
+    ///     </para>
+    /// </remarks>
     void Stepped(KeyEvent args) {
-        if (args.Action != KeyAction.Pressed) {
+        if (args.Action != KeyAction.Pressed || ReadOnly) {
             return;
         }
 
@@ -768,9 +785,9 @@ public sealed partial class Stepper : NumericInput {
         args.Handled = true;
 
         // ⚠ Belt as well as braces: `Ends` has already disabled both arrows while the field is
-        // read-only, and a disabled control raises no click at all. It is written out because the
-        // arrow *keys* have no such check — a read-only numeric field can still be stepped with Up,
-        // which is #826 — and a new gesture should not quietly join a hole in an older one.
+        // read-only, and a disabled control raises no click at all. It is written out because this
+        // is the third of three gestures that reach `Nudge` and the other two both say it — the
+        // arrow keys said it last (#826), which is what this comment used to record as a hole.
         if (ReadOnly) {
             return;
         }
