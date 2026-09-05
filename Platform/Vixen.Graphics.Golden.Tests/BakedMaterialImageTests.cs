@@ -139,8 +139,8 @@ public class BakedMaterialImageTests {
 
             Assert.False(
                 control.Matches,
-                "Two materials of different colours produced the same frame, so this scene is not a "
-                + "picture of its material and nothing below it means anything."
+                $"Two materials of different colours produced the same frame on {Adapter(fixture!)}, so this "
+                + "scene is not a picture of its material and nothing below it means anything."
             );
 
             var textured = Render(fixture!, scene => Material(scene, baked));
@@ -148,8 +148,8 @@ public class BakedMaterialImageTests {
 
             Assert.True(
                 comparison.Matches,
-                "A material textured by the tool drew differently from the constant surface its maps "
-                + $"encode: {comparison.DifferingPixels} of {comparison.TotalPixels} pixels differ, "
+                $"A material textured by the tool drew differently from the constant surface its maps encode "
+                + $"on {Adapter(fixture!)}: {comparison.DifferingPixels} of {comparison.TotalPixels} pixels differ, "
                 + $"worst channel {comparison.WorstChannel} at {comparison.WorstAt}, mean "
                 + $"{comparison.MeanChannel:F3}."
             );
@@ -183,8 +183,8 @@ public class BakedMaterialImageTests {
 
             Assert.False(
                 comparison.Matches,
-                "Two base-colour maps carrying different colours drew the same frame, so what reached "
-                + "the pass was not the map."
+                $"Two base-colour maps carrying different colours drew the same frame on {Adapter(fixture!)}, "
+                + "so what reached the pass was not the map."
             );
         }
     }
@@ -218,8 +218,8 @@ public class BakedMaterialImageTests {
 
             Assert.False(
                 comparison.Matches,
-                "An ORM map with roughness and metalness exchanged drew the same frame as the correctly "
-                + "packed one, so the two channels are not reaching two different things."
+                $"An ORM map with roughness and metalness exchanged drew the same frame as the correctly packed "
+                + $"one on {Adapter(fixture!)}, so the two channels are not reaching two different things."
             );
         }
     }
@@ -252,8 +252,8 @@ public class BakedMaterialImageTests {
 
             Assert.False(
                 comparison.Matches,
-                "Two normal maps tilted in opposite directions drew the same frame, so the map is not "
-                + "reaching the shading normal."
+                $"Two normal maps tilted in opposite directions drew the same frame on {Adapter(fixture!)}, so "
+                + "the map is not reaching the shading normal."
             );
         }
     }
@@ -481,16 +481,54 @@ public class BakedMaterialImageTests {
     static float Linear(float encoded) =>
         encoded <= 0.04045f ? encoded / 12.92f : MathF.Pow((encoded + 0.055f) / 1.055f, 2.4f);
 
+    /// <summary>What ran, said in every message here so that no number is anonymous.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Doc 48's exit criterion 11 — a device is confirmed by name in every GPU test in this
+    ///     area.</b> <c>TextureKernelHarness.Adapter</c> is the same line on the evaluator's side of
+    ///     the fence; this suite's <c>Fixture</c> had no equivalent, so a comparison that failed on
+    ///     one driver and passed on another produced two messages nothing could tell apart.
+    /// </remarks>
+    static string Adapter(Fixture fixture) =>
+        $"{fixture.Device.Adapter.Name} ({fixture.Device.Adapter.Kind}, {fixture.Device.Adapter.DriverVersion})";
+
+    /// <summary>
+    ///     A device, or a loud skip — and a second loud skip for the capability this needs.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Bindless is checked and skipped on, not assumed.</b> A textured material is a
+    ///     <c>uint</c> into <c>WorldRenderer</c>'s table, and without
+    ///     <c>GraphicsDeviceFeatures.HasBindless</c> there is no table — that is MoltenVK below
+    ///     argument-buffer tier 2, GL and WebGL2, and ADR-011 calls it a supported configuration
+    ///     rather than a degraded one, in which a project uses the untextured workflow instead.
+    ///     <c>BindlessSamplingDeviceTests</c> makes exactly this call and states the reason: a bare
+    ///     <c>return</c> is a pass, and a test that reports one without ever opening a table proves
+    ///     nothing. <c>VIXEN_REQUIRE_VULKAN</c> does <b>not</b> turn this one into a failure, because
+    ///     the capability is genuinely absent rather than a run that failed to find a device.
+    /// </remarks>
     static bool TryOpen(out Fixture? fixture) {
-        if (Fixture.TryOpen(out fixture, out var reason)) {
+        if (!Fixture.TryOpen(out fixture, out var reason)) {
+            if (Environment.GetEnvironmentVariable("VIXEN_REQUIRE_VULKAN") is "1" or "true" or "TRUE") {
+                Assert.Fail($"VIXEN_REQUIRE_VULKAN is set and no device could be opened: {reason}");
+            }
+
+            Assert.Skip(reason ?? "no Vulkan");
+
+            return false;
+        }
+
+        if (BindlessTable.IsSupportedBy(fixture!.Device)) {
             return true;
         }
 
-        if (Environment.GetEnvironmentVariable("VIXEN_REQUIRE_VULKAN") is "1" or "true" or "TRUE") {
-            Assert.Fail($"VIXEN_REQUIRE_VULKAN is set and no device could be opened: {reason}");
-        }
+        var without = Adapter(fixture);
 
-        Assert.Skip(reason ?? "no Vulkan");
+        fixture.Dispose();
+        fixture = null;
+
+        Assert.Skip(
+            $"{without} offers no bindless descriptor indexing (ADR-011), so no material on it can "
+            + "sample a texture and there is nothing here to photograph."
+        );
 
         return false;
     }
