@@ -680,3 +680,4 @@ static Vixen.Platform.PlatformEvent.WindowMoved(uint windowId, long timestamp, V
 static Vixen.Platform.PlatformEvent.WindowResized(uint windowId, long timestamp, Vixen.Core.Mathematics.Int2 size, Vixen.Core.Mathematics.Int2 pixelSize) -> Vixen.Platform.PlatformEvent
 static Vixen.Platform.PlatformExtensions.FocusedWindow(this Vixen.Platform.IPlatform platform) -> Vixen.Platform.IWindow?
 static Vixen.Platform.PlatformExtensions.Has(this Vixen.Platform.IPlatform platform, Vixen.Platform.PlatformCapabilities required) -> bool
+static Vixen.Platform.PlatformExtensions.Pickers(this Vixen.Platform.IPlatform platform) -> Vixen.Platform.INativeDialogs?
