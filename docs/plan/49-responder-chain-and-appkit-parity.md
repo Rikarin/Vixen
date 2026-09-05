@@ -460,6 +460,26 @@ does nothing. No diagnostic. This is the same defect class the language already 
 For a project whose thesis is *markup is the authoring path*, that ❌ column is the parity claim's
 weakest evidence, and closing it is mostly attribute spellings over APIs that already exist.
 
+⚠ **The `.keyboardShortcut` row is right about the sample and was read as a claim about the
+framework.** A complete chord system exists — `Editor/Vixen.Editor.Ui/Commands/CommandDispatcher.cs`
+attaches to any `UiDocument` (`:55`), builds a platform-adapted `KeyChord` (`:76`), resolves it
+against the focused context with a global fallback (`:85`), falls *through* rather than refusing when
+the chord belongs elsewhere (`:92`), and marks a disabled command's chord handled so a greyed-out ⌘S
+cannot type an `s` (`:98`). What is true is narrower: there is no `.vxml` spelling and no chord table
+below `Vixen.Editor.Ui`, which is #650.
+
+The rest are one issue each, because each needs a spelling decided before it can be built: #762 (the
+tooltip, which also carries the layering decision — `BuildContext` is in `Vixen.Ui` and `Tooltip` is
+in `Vixen.Ui.Controls`, which references it), #763 (the context menu, behind it), #764 (a dialog that
+is a function of state, beside the one a command awaits), #766 (an overlay whose open state is bound,
+where `IsOpen` is deliberately not a `[UiProperty]`), #767 (`.searchable` / `.refreshable`, the two
+with no API behind them), #768 (the async arrival hook).
+
+⚠ And the `.task` row's substrate is a finished thing nothing calls: `AsyncComputed<TRequest, T>` has
+fourteen references in the committed tree, ten of them in `AsyncComputedTests.cs`, two in its own
+file, and two that are cross-references in `EffectScheduler` and `ReactiveGraph`. No production
+caller.
+
 ### 6.5 Lists
 
 `BuildContext.For` (`BuildContext.cs:1359`) builds a region per item over the whole sequence.
