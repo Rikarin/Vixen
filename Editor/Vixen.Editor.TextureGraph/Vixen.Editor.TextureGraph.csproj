@@ -10,6 +10,37 @@
         </Description>
         <PackageTags>editor;texture-graph;material-authoring;compute;raven;game-engine;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <!--
+          ⚠ **A workaround for a name-resolution collision, and it should go the moment two words
+          change in `TexturePlanEvaluator.cs`.** That file writes `Core.Imaging.Bitmap` and
+          `Core.Imaging.PngCodec` — relative names, resolved by walking out from
+          `namespace Vixen.Editor.TextureGraph` until something called `Core` turns up. Until the
+          `Vixen.Editor.NodeGraph` reference below, the first hit was `Vixen.Core`; that reference
+          brings `Vixen.Editor.Core` in transitively, `Vixen.Editor` is a *nearer* enclosing namespace
+          than `Vixen`, and the same two lines then name a namespace with no `Imaging` in it. Nothing
+          in either file changed and the build stopped.
+
+          ⚠ **A `global using Core = Vixen.Core;` does not fix it** — tried, and it does not: a
+          compilation-unit alias is consulted only after the enclosing-namespace walk, so
+          `Vixen.Editor.Core` still wins. Spelling `Vixen.Core.Imaging.Bitmap` in that one file is the
+          real fix, and this slice does not own it — [#717](https://github.com/Rikarin/Vixen/issues/717).
+
+          What this property buys beyond dodging that: the compile-time reference set becomes exactly
+          what is named below, which is why `Vixen.Core` and `Vixen.Core.Mathematics` had to be added
+          — they used to arrive through `Vixen.Graphics`. It does *not* keep the interface framework
+          out of the output directory, which the note on the node-graph reference is about.
+        -->
+        <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
+
+        <!--
+          CA1051 (no visible instance fields) is the one rule a node library cannot keep, for the
+          reason `Vixen.Editor.ShaderGraph` states: a node's ports *are* its fields, which is what
+          lets the generator read the declaration once. The nodes here are internal, so the rule does
+          not fire today; the line is here so that widening one for a panel is not also a build
+          failure nobody predicted.
+        -->
+        <NoWarn>$(NoWarn);CA1051</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
@@ -46,6 +77,46 @@
           not become a new encoder.
         -->
         <ProjectReference Include="..\..\Core\Vixen.Core.Imaging\Vixen.Core.Imaging.csproj" />
+
+        <!--
+          ⚠ Named rather than inherited, and that is what `DisableTransitiveProjectReferences` above
+          costs: `Int2`, `Color4` and `CurveSample` used to arrive through `Vixen.Graphics`.
+          `Vixen.Core` is where `Vixen.Core.Curves` lives, which is not obvious from the namespace.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+
+        <!--
+          And the node-graph framework, which M1 deliberately left out and M4 cannot do without: a
+          `TextureGraphCompiler` is a `NodeGraphCompiler<TexturePlan>`, and there is no way to derive
+          from a type without referencing the assembly that declares it.
+
+          ⚠ **What the omission bought is gone, and it was worth something.** This assembly's README
+          says "does not reference `Vixen.Editor.NodeGraph` at all, which is what makes every test
+          here a test of the evaluator" — after this line no test proves that by construction, and a
+          plan-shaped assertion that quietly went through a node would look identical. What replaces
+          it is a convention rather than a wall: the compiler suites build their own graphs and the
+          evaluator suites still hand-build their plans, and the one differential test that crosses
+          the line compares the two.
+
+          ⚠ **And it makes this a UI assembly at runtime.** `Vixen.Editor.NodeGraph` references
+          `Vixen.Ui.Controls.Advanced`, `Vixen.Editor.Core` and `Vixen.Editor.Inspector` — its own
+          csproj says so at length — so `Vixen.Ui.dll` is now in this assembly's output directory and
+          anything that loads the evaluator loads the interface framework, including the content build
+          that M5 will run headless. `DisableTransitiveProjectReferences` narrows what this project
+          *compiles* against and does nothing about that. Splitting the compiler into an assembly of
+          its own is the fix — [#720](https://github.com/Rikarin/Vixen/issues/720).
+        -->
+        <ProjectReference Include="..\Vixen.Editor.NodeGraph\Vixen.Editor.NodeGraph.csproj" />
+
+        <!--
+          The node generator, over this assembly's own [Node] classes. Analyzers do not flow through
+          a ProjectReference, so every assembly declaring nodes references it directly — which is
+          also what a third-party plugin does.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.NodeGraph.Generator\Vixen.Editor.NodeGraph.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>
