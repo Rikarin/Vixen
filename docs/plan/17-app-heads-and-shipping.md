@@ -143,9 +143,17 @@ plan did not previously account for. Consequences worth stating:
 
 ## Editor-only code: separate assemblies, not two package flavours
 
-The hard part of Q5. Editor builds need reflection, plugin loading, asset importers, undo/redo,
-ImageSharp, and Assimp. Shipped games must have **none** of those — for size, for AOT, and in
-ImageSharp's case for licensing (ADR-015).
+The hard part of Q5. Editor builds need reflection, plugin loading, asset importers, undo/redo, an
+image decoder, and Assimp. Shipped games must have **none** of those — for size and for AOT.
+
+⚠ **That sentence used to name ImageSharp, and rested its strongest leg on ImageSharp's licence**
+(#353). There is no ImageSharp: 4.0.0 fails the build without a purchased licence key — an error out of
+its own targets file — so the editor decodes with `StbImageSharp`, which is public domain and covers
+more of doc 08's importer table than ImageSharp reached. `Directory.Packages.props` § Imaging records
+the swap, and `CheckArchitecture`'s editor-only rule now carries `Silk.NET.Assimp` instead
+([12](12-build-ci-and-testing.md)). The licensing argument left with the package; size and AOT are the
+two that remain, and ADR-015's runtime half is unaffected — a shipped game reads KTX2 with Vixen's own
+code and never decodes an authoring format at all.
 
 Three ways to achieve that, and the choice matters:
 
