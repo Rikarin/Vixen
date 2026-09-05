@@ -332,30 +332,27 @@ public class LayerStackCompileTests {
         Assert.Equal("Body.paint.vxpaint", layer.Paint);
     }
 
-    /// <summary>The three shapes M8 owns are refused by name and by issue.</summary>
-    [Theory]
-    [InlineData("generator")]
-    [InlineData("graph-fill")]
-    [InlineData("triplanar")]
-    public void What_M8_owns_is_refused_and_says_so(string shape) {
-        var layer = shape switch {
-            "generator" => new LayerAsset {
-                Id = "l",
-                Kind = LayerKind.Fill,
-                Values = { ["baseColor"] = Opaque },
-                Mask = new() { Source = LayerMaskSource.Generator }
-            },
-            "graph-fill" => new LayerAsset {
-                Id = "l", Kind = LayerKind.Fill, Fill = LayerFillSource.Graph, Graph = "Dirt.vxtexgraph"
-            },
-            _ => new LayerAsset { Id = "l", Kind = LayerKind.Fill, Projection = LayerProjection.Triplanar }
-        };
-
-        var stack = One(layer);
+    /// <summary>The one shape M8 modelled and did not build is refused, by name and by issue.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A tripwire, and it has already fired twice.</b> It covered three shapes — a generator
+    ///     mask, a graph fill and a projection — all refused with "which is M8 (#573)". M8 built the
+    ///     first two, so the test went red on the change that answered it and the two cases came out.
+    ///     What is left is projection, which needs a node nothing has written; the message names
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/815">#815</a> rather than the issue that
+    ///     is about to close, and when that one lands this test goes red again and should be deleted.
+    /// </remarks>
+    [Fact]
+    public void What_M8_modelled_and_did_not_build_is_refused_and_says_so() {
+        var stack = One(new() {
+            Id = "l",
+            Kind = LayerKind.Fill,
+            Values = { ["baseColor"] = Opaque },
+            Projection = LayerProjection.Triplanar
+        });
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
         Assert.Null(compilation.Plan);
-        Assert.Contains(compilation.Problems, problem => problem.Message.Contains("#573", StringComparison.Ordinal));
+        Assert.Contains(compilation.Problems, problem => problem.Message.Contains("#815", StringComparison.Ordinal));
     }
 
     /// <summary>A texture fill becomes an external the caller supplies.</summary>

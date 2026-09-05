@@ -72,9 +72,40 @@ static class LayerStackCompiler {
         ArgumentNullException.ThrowIfNull(stack);
         ArgumentNullException.ThrowIfNull(set);
 
-        var build = LayerStackGraph.Build(stack, set);
+        ISubGraphSource? subGraphs = null;
 
-        return Compile(stack, build, registry, bakeLevelOffset);
+        // ⚠ Built once and used twice. The build needs the registry to know which port of a generator
+        // carries its image; the compile needs the same registry *and* the sub-graph source that came
+        // with it, or every compound node in the graph is a type the compiler does not know.
+        registry ??= Library(out subGraphs);
+
+        var build = LayerStackGraph.Build(stack, set, registry);
+
+        return Compile(stack, build, registry, bakeLevelOffset, subGraphs);
+    }
+
+    /// <summary>This build's node types, with the shipped compounds published into them.</summary>
+    /// <param name="subGraphs">What a compiler needs to inline those compounds.</param>
+    /// <returns>The registry.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The call to <c>TextureCompoundLibrary.Publish</c> that
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/799">#799</a> says nothing in this tree
+    ///     makes.</b> Without it the three shipped generator compounds are embedded in the assembly,
+    ///     loadable, compilable and unreachable — a mask naming <c>Generators/Dirt</c> resolves to no
+    ///     node type, and a graph containing one reaches a compiler with no <c>SubGraphSource</c> and
+    ///     fails on every node it cannot inline. That is why doc 48 § D10's "a generator authored
+    ///     once works on two meshes" had never been shown: there was no way to author one.
+    ///     <para>
+    ///         A project's own compound folder is not read here. It is a path a project supplies and
+    ///         this overload has no project; a caller with one passes its own registry.
+    ///     </para>
+    /// </remarks>
+    public static NodeTypeRegistry Library(out ISubGraphSource subGraphs) {
+        var registry = TextureNodeLibrary.Create();
+
+        subGraphs = TextureCompoundLibrary.Publish(registry, null, out _);
+
+        return registry;
     }
 
     /// <summary>Compiles a graph a stack already produced, or one read back off a file.</summary>
@@ -90,11 +121,16 @@ static class LayerStackCompiler {
     ///     compiler with the <em>same</em> base resolution, seed and bake level or the comparison
     ///     would be measuring the caller rather than the explosion.
     /// </remarks>
+    /// <param name="subGraphs">
+    ///     What the compiler inlines a compound with, or <see langword="null" /> for a graph that
+    ///     contains none.
+    /// </param>
     public static LayerStackCompilation Compile(
         LayerStackAsset stack,
         LayerStackBuild build,
         NodeTypeRegistry? registry = null,
-        int bakeLevelOffset = 0
+        int bakeLevelOffset = 0,
+        ISubGraphSource? subGraphs = null
     ) {
         ArgumentNullException.ThrowIfNull(stack);
         ArgumentNullException.ThrowIfNull(build);
@@ -107,11 +143,18 @@ static class LayerStackCompiler {
             return new(null, build.Graph, build.Problems, [], [], []);
         }
 
-        TextureGraphCompiler compiler = new(registry ?? TextureNodeLibrary.Create()) {
+        if (registry is null) {
+            registry = Library(out var published);
+
+            subGraphs ??= published;
+        }
+
+        TextureGraphCompiler compiler = new(registry) {
             BaseWidth = stack.BaseWidth,
             BaseHeight = stack.BaseHeight,
             BakeLevelOffset = bakeLevelOffset,
-            Seed = stack.Seed
+            Seed = stack.Seed,
+            SubGraphSource = subGraphs
         };
 
         var compilation = compiler.Compile(build.Graph);

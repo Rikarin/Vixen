@@ -107,10 +107,32 @@ enum LayerMaskSource {
     Anchor = 3,
 
     /// <summary>
-    ///     A generator: a shipped <c>.vxtexgraph</c> reading the mesh maps by usage. M8,
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/573">#573</a>.
+    ///     A generator: a published <c>.vxtexgraph</c> reading the mesh maps by usage, named by
+    ///     <see cref="MaskLayerAsset.Generator" />.
     /// </summary>
-    Generator = 4
+    /// <remarks>
+    ///     ⚠ <b>The reason one generator works on every mesh is that it names no image at all.</b>
+    ///     A compound like <c>Generators/Dirt</c> is a graph of <c>Source/Mesh Map</c> nodes bound by
+    ///     what they <em>measure</em> — curvature, occlusion — so the same compound over a different
+    ///     mesh reads that mesh's own bakes with no rewiring. Doc 48 § D10's claim, and the whole
+    ///     argument for binding by usage rather than by asset.
+    /// </remarks>
+    Generator = 4,
+
+    /// <summary>One baked mesh map on its own, by what it measures.</summary>
+    /// <remarks>
+    ///     Doc 48 § 4.10's fourth mask source. A generator without the graph: curvature, occlusion or
+    ///     thickness used directly as a mask, which is what an artist reaches for before reaching for
+    ///     a compound.
+    /// </remarks>
+    Bake = 5,
+
+    /// <summary>
+    ///     Painted pixels, from the <c>.vxpaint</c> named beside it. ⚠ A placeholder in this build —
+    ///     the brush is M9, <a href="https://github.com/Rikarin/Vixen/issues/574">#574</a>, and
+    ///     <see cref="LayerStackGraph" /> refuses one and names it.
+    /// </summary>
+    Paint = 6
 }
 
 /// <summary>Which of doc 48 § 4.2's sixteen operators a layer composites with.</summary>
@@ -181,13 +203,108 @@ enum LayerBlendMode {
     SignedAdd = 15
 }
 
-/// <summary>One layer's mask: where it comes from, and what it is worth.</summary>
+/// <summary>One entry in a mask's own small stack.</summary>
 /// <remarks>
-///     ⚠ <b>One source and not yet a stack.</b> Doc 48 § D10 says a mask is itself a small stack —
-///     a paint mask, a generator, a filter and an anchor — and M8
-///     (<a href="https://github.com/Rikarin/Vixen/issues/573">#573</a>) is where that stack lands.
-///     What is here is the one shape M7 needs to prove the compile: a single source, multiplied into
-///     the layer's alpha before the blend.
+///     <para>
+///         <b>The same flat-record-with-a-discriminator shape <see cref="LayerAsset" /> uses</b>, one
+///         file over and for the same reason: a <c>.vxlayers</c> is YAML people merge, and a merge
+///         conflict in a flat record is one a person can resolve.
+///     </para>
+///     <para>
+///         ⚠ <b>It carries a blend mode and an opacity, which is the whole of what makes a mask a
+///         stack rather than a source.</b> Curvature multiplied by occlusion is a dirt mask; either
+///         one alone is not. Doc 48 § D10.
+///     </para>
+/// </remarks>
+sealed record MaskLayerAsset {
+    /// <summary>Where this entry's pixels come from.</summary>
+    public LayerMaskSource Source { get; init; } = LayerMaskSource.Constant;
+
+    /// <summary>The number, for <see cref="LayerMaskSource.Constant" />.</summary>
+    public float Value { get; init; } = 1f;
+
+    /// <summary>The imported image, for <see cref="LayerMaskSource.Texture" />.</summary>
+    public string Asset { get; init; } = "";
+
+    /// <summary>The <see cref="LayerAsset.Id" /> read, for <see cref="LayerMaskSource.Anchor" />.</summary>
+    public string Anchor { get; init; } = "";
+
+    /// <summary>
+    ///     The published compound's node-type path, for <see cref="LayerMaskSource.Generator" /> —
+    ///     <c>Generators/Dirt</c>, say.
+    /// </summary>
+    public string Generator { get; init; } = "";
+
+    /// <summary>What the map measures, for <see cref="LayerMaskSource.Bake" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not validated here.</b> <c>Source/Mesh Map</c> refuses a name nothing bakes, with a
+    ///     diagnostic naming the setting, so a list in this file would be a second opinion about
+    ///     <c>TextureMeshMaps.Known</c> — the shape five exact-equality roll calls in this workstream
+    ///     have gone red on.
+    /// </remarks>
+    public string Map { get; init; } = "";
+
+    /// <summary>The <c>.vxpaint</c> this entry's painted pixels live in. M9.</summary>
+    public string Paint { get; init; } = "";
+
+    /// <summary>How this entry composites over the entries beneath it.</summary>
+    public LayerBlendMode Blend { get; init; } = LayerBlendMode.Copy;
+
+    /// <summary>How much of the result is this entry's.</summary>
+    public float Opacity { get; init; } = 1f;
+
+    /// <summary>Whether it contributes at all.</summary>
+    public bool Enabled { get; init; } = true;
+}
+
+/// <summary>One adjustment over a mask's composited result.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>A node type and a bag of numbers, rather than a C# type per effect.</b> Doc 48 § 4.10
+///         names "Levels · Blur · Warp · <em>any single-input graph</em>", and the last of those is
+///         the specification: an effect is anything with one image in and one image out, which
+///         includes every published compound. A <c>MaskEffectKind</c> enum would have to grow a
+///         member per effect and would still not reach the compounds, which is the same
+///         "a compound is content" rule the generators already follow.
+///     </para>
+///     <para>
+///         <b>Which port is the image is asked of the registry rather than assumed.</b>
+///         <c>LayerStackGraph</c> finds the type's single <c>Image</c> input and its single
+///         <c>Image</c> output; <see cref="Values" /> may name any port that is <em>not</em> one of
+///         them. That is what stops a setting called <c>Input</c> from overwriting the wire carrying
+///         the mask with a constant — the defect <c>LayerFilterKind</c>'s hand-written port list
+///         exists to prevent, derived here instead of listed.
+///     </para>
+/// </remarks>
+sealed record MaskEffectAsset {
+    /// <summary>The node type: <c>Colour/Levels</c>, <c>Filters/Blur</c>, a compound's path.</summary>
+    public string Node { get; init; } = "";
+
+    /// <summary>Whether it runs.</summary>
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>Its numbers, by the port name the node declares.</summary>
+    public Dictionary<string, float[]> Values { get; init; } = [];
+
+    /// <summary>Its settings, by the setting name the node declares.</summary>
+    public Dictionary<string, string> Texts { get; init; } = [];
+}
+
+/// <summary>One layer's mask: a base, a small stack over it, and the effects on the result.</summary>
+/// <remarks>
+///     <para>
+///         <b>Doc 48 § D10: a mask is itself a small stack</b> — a paint mask, a generator, a bake,
+///         a filter and an anchor. <see cref="Source" /> and the members beside it are its
+///         <em>base</em>; <see cref="Layers" /> composite over that, bottom first, each with its own
+///         operator; <see cref="Effects" /> then adjust the whole result.
+///     </para>
+///     <para>
+///         ⚠ <b>The base is the legacy single source, kept rather than folded into
+///         <see cref="Layers" />.</b> Every <c>.vxlayers</c> that exists names its mask this way, and
+///         a stack with a plain constant or texture mask must keep compiling to exactly the ops it
+///         compiled to before — which is what makes the explode differential's byte-identity a claim
+///         about this change rather than a re-blessing.
+///     </para>
 /// </remarks>
 sealed record MaskAsset {
     /// <summary>Where the mask comes from.</summary>
@@ -212,6 +329,26 @@ sealed record MaskAsset {
     ///     refuses any member that could hold a buffer.
     /// </remarks>
     public string Paint { get; init; } = "";
+
+    /// <summary>
+    ///     The published compound's node-type path, for a base of
+    ///     <see cref="LayerMaskSource.Generator" />.
+    /// </summary>
+    public string Generator { get; init; } = "";
+
+    /// <summary>What the map measures, for a base of <see cref="LayerMaskSource.Bake" />.</summary>
+    public string Map { get; init; } = "";
+
+    /// <summary>The entries composited over the base, bottom first.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The first entry has nothing beneath it when there is no base, so its own operator
+    ///     does nothing</b> — reported as a warning rather than silently ignored, because an artist
+    ///     who set the bottom of a mask stack to <c>Multiply</c> meant something by it.
+    /// </remarks>
+    public List<MaskLayerAsset> Layers { get; init; } = [];
+
+    /// <summary>The adjustments over the composited result, in order.</summary>
+    public List<MaskEffectAsset> Effects { get; init; } = [];
 }
 
 /// <summary>One layer of a texture set's stack.</summary>

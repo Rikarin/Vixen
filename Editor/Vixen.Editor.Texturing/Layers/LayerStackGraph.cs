@@ -44,6 +44,19 @@ readonly record struct LayerStackProblem(NodeSeverity Severity, string Layer, st
 /// </remarks>
 readonly record struct LayerNote(NodeId Node, string Text);
 
+/// <summary>Where one mask entry's pixels come from: a wire, or an anchor still waiting for one.</summary>
+/// <param name="Port">The port carrying the image, or <see langword="null" /> for an anchor.</param>
+/// <param name="Anchor">The <c>LayerAsset.Id</c> an anchor reads, or empty.</param>
+/// <remarks>
+///     ⚠ <b>An anchor has no port yet <em>on purpose</em>, and this type is what carries that.</b>
+///     Every anchor edge is deferred to the end of the build so that <c>NodeGraphModel.TryConnect</c>
+///     is what refuses a loop — doc 48 § D10's rule that the stack compiles <em>through</em> the graph
+///     model rather than growing a second cycle check. A mask stack multiplies the number of places
+///     an anchor can appear (the base, any entry, either side of any of its blends), so the deferral
+///     became a value rather than one special case in one method.
+/// </remarks>
+readonly record struct MaskSlot(PortRef? Port, string Anchor);
+
 /// <summary>The graph a texture set's stack is, and what building it had to say.</summary>
 /// <param name="Graph">The nodes and wires.</param>
 /// <param name="Problems">What the build reported.</param>
@@ -107,13 +120,28 @@ static class LayerStackGraph {
     /// <summary>The stack of one texture set, as a graph.</summary>
     /// <param name="stack">The document.</param>
     /// <param name="set">Which of its sets.</param>
+    /// <param name="registry">
+    ///     The node types a generator or a mask effect is looked up in, or <see langword="null" />
+    ///     for this build's own library with the shipped compounds published into it.
+    /// </param>
     /// <returns>The graph and what building it had to say.</returns>
-    /// <exception cref="ArgumentNullException">Either argument is null.</exception>
-    public static LayerStackBuild Build(LayerStackAsset stack, TextureSetAsset set) {
+    /// <exception cref="ArgumentNullException">The stack or the set is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>The registry is an input to <em>building</em> and not only to compiling, which it was
+    ///     not before M8.</b> A generator and a mask effect are named by node-type path, and which
+    ///     port of one carries the image is a fact only the registry has — so a builder without one
+    ///     would have to hard-code a port name per effect, which is exactly the second list
+    ///     <c>LayerFilterKind</c>'s hand-written ports already are.
+    /// </remarks>
+    public static LayerStackBuild Build(
+        LayerStackAsset stack,
+        TextureSetAsset set,
+        NodeTypeRegistry? registry = null
+    ) {
         ArgumentNullException.ThrowIfNull(stack);
         ArgumentNullException.ThrowIfNull(set);
 
-        Builder builder = new(stack, set);
+        Builder builder = new(stack, set, registry ?? LayerStackCompiler.Library(out _));
 
         return builder.Run();
     }
@@ -142,7 +170,10 @@ static class LayerStackGraph {
         };
 
     /// <summary>The walk, with the graph it is filling and the problems it is collecting.</summary>
-    sealed class Builder(LayerStackAsset stack, TextureSetAsset set) {
+    sealed class Builder(LayerStackAsset stack, TextureSetAsset set, NodeTypeRegistry library) {
+        /// <summary>The node types a generator or a mask effect is resolved against.</summary>
+        NodeTypeRegistry Library => library;
+
         readonly List<LayerStackProblem> problems = [];
         readonly List<LayerNote> notes = [];
 
@@ -271,8 +302,10 @@ static class LayerStackGraph {
             if (layer.Projection != LayerProjection.Uv) {
                 problems.Add(LayerStackProblem.Refusal(
                     layer.Id,
-                    $"Projection '{layer.Projection}' needs the position and world-normal mesh maps and a node "
-                    + "that reads them, which is M8 (#573). Only Uv compiles in this build."
+                    $"Projection '{layer.Projection}' needs a node that samples an image by a projected world "
+                    + "position, blended by the world normal. ⚠ The two mesh maps it reads — 'position' and "
+                    + "'world' — are bakeable and reachable now, so what is left is the projection node "
+                    + "itself: #815. Only Uv compiles in this build."
                 ));
 
                 return cursor;
@@ -455,14 +488,47 @@ static class LayerStackGraph {
                     return new(node.Id, "Out");
                 }
 
-                case LayerFillSource.Graph:
-                    problems.Add(LayerStackProblem.Refusal(
-                        layer.Id,
-                        $"A graph fill inlines a published .vxtexgraph ('{layer.Graph}') as a sub-graph, which "
-                        + "needs the ISubGraphSource a project supplies. That is M8 (#573)."
-                    ));
+                case LayerFillSource.Graph: {
+                    // The same resolution a generator mask gets, and deliberately the same code: a
+                    // graph fill and a generator are one mechanism — a published compound named by
+                    // its node-type path, inlined by the compiler's SubGraphSource — pointed at the
+                    // colour instead of at the mask.
+                    var path = layer.Graph.Trim();
 
-                    return null;
+                    if (path.Length == 0) {
+                        problems.Add(LayerStackProblem.Refusal(
+                            layer.Id,
+                            "This layer is a graph fill and names no graph. A graph fill is a published "
+                            + ".vxtexgraph, named by its path in the node menu."
+                        ));
+
+                        return null;
+                    }
+
+                    if (!Library.TryGet(path, out var type)) {
+                        problems.Add(LayerStackProblem.Refusal(
+                            layer.Id,
+                            $"This layer is a graph fill naming '{path}', which is not a node type this project "
+                            + "has. A published compound is registered under its path in the library folder."
+                        ));
+
+                        return null;
+                    }
+
+                    if (OnlyImage(type, PortDirection.Output) is not { } output) {
+                        problems.Add(LayerStackProblem.Refusal(
+                            layer.Id,
+                            $"The graph '{path}' does not have exactly one image output, so which of its results "
+                            + "this layer fills with is not something this file can decide."
+                        ));
+
+                        return null;
+                    }
+
+                    var node = Add(path);
+
+                    return new(node.Id, output.Name);
+                }
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(layer), layer.Fill, "Not a fill this build knows.");
@@ -505,10 +571,17 @@ static class LayerStackGraph {
         }
 
         /// <summary>The mask multiplied into the foreground's alpha, or the foreground unchanged.</summary>
+        /// <remarks>
+        ///     ⚠ <b>The mask is composited before it is shuffled, and the shuffle is still one node.</b>
+        ///     A mask stack is a chain of <c>Colour/Blend</c> nodes exactly like the layer stack it
+        ///     masks — the same operators, the same kernel — and only its <em>result</em> becomes the
+        ///     foreground's alpha. Doc 48 § D10's "a mask is itself a small stack" is therefore not a
+        ///     second compositor: it is this one, called on a smaller list.
+        /// </remarks>
         PortRef Mask(LayerAsset layer, ChannelAsset channel, PortRef foreground) {
-            var source = MaskSource(layer);
+            var cursor = MaskImage(layer, channel);
 
-            if (source is null && layer.Mask.Source != LayerMaskSource.Anchor) {
+            if (cursor is not { } mask) {
                 return foreground;
             }
 
@@ -523,50 +596,198 @@ static class LayerStackGraph {
             shuffle.SetText("Alpha From", "SecondRed");
 
             graph.Connect(foreground, new(shuffle.Id, "First"));
-
-            PortRef second = new(shuffle.Id, "Second");
-
-            if (source is { } wire) {
-                graph.Connect(wire, second);
-            } else {
-                anchors.Add((channel.Usage, layer.Mask.Anchor, layer.Id, second));
-            }
+            Into(mask, channel, layer.Id, new(shuffle.Id, "Second"));
 
             return new(shuffle.Id, "Out");
         }
 
-        /// <summary>
-        ///     The node a mask reads, <see langword="null" /> for no mask and for an anchor — which is
-        ///     wired at the end.
-        /// </summary>
-        PortRef? MaskSource(LayerAsset layer) {
+        /// <summary>The mask's own composited image, or <see langword="null" /> for no mask at all.</summary>
+        MaskSlot? MaskImage(LayerAsset layer, ChannelAsset channel) {
             var mask = layer.Mask;
+            List<MaskLayerAsset> entries = [];
 
-            switch (mask.Source) {
-                case LayerMaskSource.None:
-                    if (mask.Paint.Length > 0) {
+            if (mask.Source != LayerMaskSource.None) {
+                // The legacy single source, as the bottom entry. Its blend and opacity are the
+                // neutral ones, so a stack with only a base compiles to exactly the nodes it did
+                // before this file learned about mask stacks.
+                entries.Add(new() {
+                    Source = mask.Source,
+                    Value = mask.Value,
+                    Asset = mask.Asset,
+                    Anchor = mask.Anchor,
+                    Generator = mask.Generator,
+                    Map = mask.Map,
+                    Paint = mask.Paint
+                });
+            } else if (mask.Paint.Length > 0) {
+                problems.Add(LayerStackProblem.Warning(
+                    layer.Id,
+                    $"This layer's mask names a paint file ('{mask.Paint}') and its source is None, so the "
+                    + "painted pixels are not read. A painted mask is M9 (#574)."
+                ));
+            }
+
+            foreach (var entry in mask.Layers) {
+                if (entry.Enabled) {
+                    entries.Add(entry);
+                }
+            }
+
+            MaskSlot? cursor = null;
+
+            foreach (var entry in entries) {
+                var source = MaskSource(entry, layer.Id);
+
+                if (source is not { } wire) {
+                    // Already reported. A refusal stops the compile, so there is no picture to be
+                    // wrong about; the walk continues so that one bad entry does not hide the rest.
+                    continue;
+                }
+
+                if (cursor is not { } beneath) {
+                    if (entry.Blend != LayerBlendMode.Copy) {
                         problems.Add(LayerStackProblem.Warning(
                             layer.Id,
-                            $"This layer's mask names a paint file ('{mask.Paint}') and its source is None, so the "
-                            + "painted pixels are not read. A painted mask is M9 (#574)."
+                            $"The bottom entry of this mask composites with '{entry.Blend}' and there is nothing "
+                            + "beneath it, so the operator does nothing. A mask stack starts from its first "
+                            + "entry rather than from a black constant, which is what keeps a plain one-source "
+                            + "mask a single node."
                         ));
                     }
 
+                    cursor = wire;
+
+                    continue;
+                }
+
+                var blend = Add("Colour/Blend");
+
+                blend.SetText("Mode", entry.Blend.ToString());
+                blend.SetValue("Opacity", entry.Opacity);
+
+                Into(beneath, channel, layer.Id, new(blend.Id, "Background"));
+                Into(wire, channel, layer.Id, new(blend.Id, "Foreground"));
+
+                cursor = new(new PortRef(blend.Id, "Out"), "");
+            }
+
+            if (cursor is not { } composited) {
+                return null;
+            }
+
+            foreach (var effect in mask.Effects) {
+                if (effect.Enabled) {
+                    composited = Effect(composited, effect, layer.Id, channel);
+                }
+            }
+
+            return composited;
+        }
+
+        /// <summary>One adjustment over a mask, as any node with one image in and one image out.</summary>
+        MaskSlot Effect(MaskSlot cursor, MaskEffectAsset effect, string layerId, ChannelAsset channel) {
+            var path = effect.Node.Trim();
+
+            if (path.Length == 0) {
+                problems.Add(LayerStackProblem.Refusal(
+                    layerId,
+                    "A mask effect names no node type. An effect is any single-input graph — Levels, Blur, "
+                    + "Warp, or a published compound — named by its path in the node menu."
+                ));
+
+                return cursor;
+            }
+
+            if (!Library.TryGet(path, out var type)) {
+                problems.Add(LayerStackProblem.Refusal(
+                    layerId,
+                    $"A mask effect names '{path}', which is not a node type this project has. A published "
+                    + "compound is registered under its path in the library folder; a built-in is under its "
+                    + "category, such as 'Colour/Levels'."
+                ));
+
+                return cursor;
+            }
+
+            var input = OnlyImage(type, PortDirection.Input);
+            var output = OnlyImage(type, PortDirection.Output);
+
+            if (input is null || output is null) {
+                problems.Add(LayerStackProblem.Refusal(
+                    layerId,
+                    $"'{path}' is not a single-input graph: doc 48 § 4.10 says a mask effect has one image in "
+                    + "and one image out, and this type has "
+                    + $"{Images(type, PortDirection.Input).ToString(CultureInfo.InvariantCulture)} in and "
+                    + $"{Images(type, PortDirection.Output).ToString(CultureInfo.InvariantCulture)} out. "
+                    + "A two-input node is a composite rather than an effect, and which of its images the mask "
+                    + "would be is not something this file can decide."
+                ));
+
+                return cursor;
+            }
+
+            var node = Add(path);
+
+            Into(cursor, channel, layerId, new(node.Id, input.Name));
+
+            foreach (var (port, value) in effect.Values) {
+                // ⚠ Derived from the type rather than from a list per effect, and what it is
+                // protecting is the image wire. A value named 'Input' written to `Colour/Levels`
+                // would replace the mask this effect is adjusting with a constant, and the picture
+                // would be the effect over nothing at all.
+                if (string.Equals(port, input.Name, StringComparison.Ordinal)
+                    || type.Port(port, PortDirection.Input) is not { } declared
+                    || declared.Kind == PortKind.Image) {
+                    problems.Add(LayerStackProblem.Warning(
+                        layerId,
+                        $"'{port}' is not a number '{path}' takes, so the value is dropped rather than written "
+                        + "to a port that might be the image the effect reads."
+                    ));
+
+                    continue;
+                }
+
+                node.SetValue(port, value);
+            }
+
+            foreach (var (setting, value) in effect.Texts) {
+                if (type.Setting(setting) is null) {
+                    problems.Add(LayerStackProblem.Warning(
+                        layerId,
+                        $"'{setting}' is not a setting '{path}' declares, so it is dropped."
+                    ));
+
+                    continue;
+                }
+
+                node.SetText(setting, value);
+            }
+
+            return new(new PortRef(node.Id, output.Name), "");
+        }
+
+        /// <summary>
+        ///     The node one mask entry reads, or <see langword="null" /> when it was refused. An
+        ///     anchor comes back as a slot with no port, which <see cref="Into" /> defers.
+        /// </summary>
+        MaskSlot? MaskSource(MaskLayerAsset entry, string layerId) {
+            switch (entry.Source) {
+                case LayerMaskSource.None:
                     return null;
 
                 case LayerMaskSource.Constant: {
                     var node = Add("Source/Uniform");
-                    var value = mask.Value;
+                    var value = entry.Value;
 
                     node.SetValue("Colour", value, value, value, 1f);
 
-                    return new(node.Id, "Out");
+                    return new(new PortRef(node.Id, "Out"), "");
                 }
 
                 case LayerMaskSource.Texture: {
-                    if (mask.Asset.Trim().Length == 0) {
+                    if (entry.Asset.Trim().Length == 0) {
                         problems.Add(LayerStackProblem.Refusal(
-                            layer.Id,
+                            layerId,
                             "This layer's mask is a texture and names no image. A bitmap with no reference is "
                             + "refused at compile time rather than filled with black."
                         ));
@@ -576,36 +797,135 @@ static class LayerStackGraph {
 
                     var node = Add("Source/Bitmap");
 
-                    node.SetText("Source", mask.Asset.Trim());
+                    node.SetText("Source", entry.Asset.Trim());
                     node.SetText("Space", "Linear");
                     node.SetText("Filter", "Bilinear");
 
-                    return new(node.Id, "Out");
+                    return new(new PortRef(node.Id, "Out"), "");
                 }
 
                 case LayerMaskSource.Anchor:
-                    if (mask.Anchor.Length == 0) {
+                    if (entry.Anchor.Length == 0) {
                         problems.Add(LayerStackProblem.Refusal(
-                            layer.Id,
+                            layerId,
                             "This layer's mask is an anchor and names no layer. An anchor is a reference to another "
                             + "layer's evaluated result, by its id."
                         ));
+
+                        return null;
                     }
 
-                    return null;
+                    return new(null, entry.Anchor);
 
-                case LayerMaskSource.Generator:
+                case LayerMaskSource.Bake: {
+                    var node = Add("Source/Mesh Map");
+
+                    // ⚠ Written through even when it is empty or misspelt. `Source/Mesh Map` refuses
+                    // a name nothing bakes, naming the setting — so a check here would be a second
+                    // opinion about `TextureMeshMaps.Known` that could disagree with it.
+                    node.SetText("Map", entry.Map.Trim());
+
+                    return new(new PortRef(node.Id, "Out"), "");
+                }
+
+                case LayerMaskSource.Generator: {
+                    var path = entry.Generator.Trim();
+
+                    if (path.Length == 0) {
+                        problems.Add(LayerStackProblem.Refusal(
+                            layerId,
+                            "This layer's mask is a generator and names no compound. A generator is a published "
+                            + ".vxtexgraph reading the mesh maps by usage, named by its path — 'Generators/Dirt'."
+                        ));
+
+                        return null;
+                    }
+
+                    if (!Library.TryGet(path, out var type)) {
+                        problems.Add(LayerStackProblem.Refusal(
+                            layerId,
+                            $"This layer's mask names the generator '{path}', which is not a node type this "
+                            + "project has. The shipped compounds are published from this assembly and a "
+                            + "project's own from its compound folder; a path in neither binds nothing."
+                        ));
+
+                        return null;
+                    }
+
+                    if (OnlyImage(type, PortDirection.Output) is not { } output) {
+                        problems.Add(LayerStackProblem.Refusal(
+                            layerId,
+                            $"The generator '{path}' does not have exactly one image output, so which of its "
+                            + "results is the mask is not something this file can decide."
+                        ));
+
+                        return null;
+                    }
+
+                    var node = Add(path);
+
+                    return new(new PortRef(node.Id, output.Name), "");
+                }
+
+                case LayerMaskSource.Paint:
                     problems.Add(LayerStackProblem.Refusal(
-                        layer.Id,
-                        "A generator mask is a shipped .vxtexgraph reading the mesh maps by usage, which is M8 "
-                        + "(#573)."
+                        layerId,
+                        "A painted mask's pixels come from a .vxpaint beside the stack, and nothing writes one "
+                        + "yet: the brush is doc 48 § M9 (#574)."
                     ));
 
                     return null;
 
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(layer), mask.Source, "Not a mask this build knows.");
+                    throw new ArgumentOutOfRangeException(
+                        nameof(entry),
+                        entry.Source,
+                        "Not a mask this build knows."
+                    );
             }
+        }
+
+        /// <summary>Wires a slot into a port, deferring an anchor to the end of the build.</summary>
+        void Into(MaskSlot slot, ChannelAsset channel, string layerId, PortRef target) {
+            if (slot.Port is { } from) {
+                graph.Connect(from, target);
+
+                return;
+            }
+
+            anchors.Add((channel.Usage, slot.Anchor, layerId, target));
+        }
+
+        /// <summary>The one image port of a type in one direction, or null when it has none or many.</summary>
+        static PortDefinition? OnlyImage(NodeTypeDefinition type, PortDirection direction) {
+            PortDefinition? found = null;
+
+            foreach (var port in type.Ports) {
+                if (port.Direction != direction || port.Kind != PortKind.Image) {
+                    continue;
+                }
+
+                if (found is not null) {
+                    return null;
+                }
+
+                found = port;
+            }
+
+            return found;
+        }
+
+        /// <summary>How many image ports a type has in one direction, for the message that says so.</summary>
+        static int Images(NodeTypeDefinition type, PortDirection direction) {
+            var count = 0;
+
+            foreach (var port in type.Ports) {
+                if (port.Direction == direction && port.Kind == PortKind.Image) {
+                    count++;
+                }
+            }
+
+            return count;
         }
 
         /// <summary>Wires every anchor, and lets the graph model refuse the ones that loop.</summary>
