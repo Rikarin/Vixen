@@ -47,7 +47,17 @@
             </Menu>
 
             <Separator />
-            <MenuItem Label="Save" ref="@saveItem" />
+
+            <!--
+                ⚠ **Bound to an id rather than to a click, and it is the first menu item in any
+                sample that a document answers.** `document.save` and `document.revert` resolve
+                through the same walk `edit.copy` above does — the shell hosts a `MaterialDocument`,
+                so the route finds it — and both items grey themselves out while there is nothing to
+                write. No handler here asks whether anything has changed; `IEditableDocument.IsDirty`
+                is the whole of the enablement rule and nobody wrote it down twice.
+            -->
+            <MenuItem Label="Save" Command="document.save" ref="@saveItem" />
+            <MenuItem Label="Revert" Command="document.revert" />
         </Menu>
 
         <!--
@@ -123,6 +133,8 @@
     MenuItem openItem = null!;
     MenuItem saveItem = null!;
 
+    MaterialDocument? document;
+
     /// <remarks>
     ///     <para>
     ///         <b>Signal-backed, because a prop that has to keep following its source is what a
@@ -184,9 +196,20 @@
             () => Root.Document.HasClipboard
         );
 
-        // ⚠ Shown rather than bound. `ShowShortcut` draws the chord on the right of the row and
-        // registers nothing — there is no command table in this sample, so a menu that claimed ⌘S
-        // did something would be lying about it.
+        // ⚠ **The shell hosts a document, and that one line is what makes ⌘S mean something.**
+        // `DocumentCommands.Install` registers `document.save` and `document.revert` on this element
+        // for the document `HostedDocument` names, so the two File items above are answered by the
+        // route and greyed by `IsDirty` — the same mechanism as `edit.copy`, one verb family over.
+        // An application with two panels holding two documents installs this on each panel and the
+        // focus decides which one ⌘S means; a shell with one document installs it once, here.
+        document = new MaterialDocument(Model, Root.Document.Effects);
+        Root.HostedDocument = document;
+        DocumentCommands.Install(Root);
+
+        // ⚠ Shown rather than bound, for New and Open. `ShowShortcut` draws the chord on the right of
+        // the row and registers nothing — there is no keymap in this sample, so an item claiming ⌘N
+        // opened something would be lying about it. Save is the one that is now bound, and its chord
+        // is still only drawn: a menu item is reachable by clicking it whatever the keyboard does.
         newItem.ShowShortcut(InputKey.N, ModifierKeys.Control);
         openItem.ShowShortcut(InputKey.O, ModifierKeys.Control);
         saveItem.ShowShortcut(InputKey.S, ModifierKeys.Control);
@@ -219,6 +242,12 @@
     /// </remarks>
     protected override void OnUnmounted() {
         Root.Document.Ticked -= Expire;
+
+        // The document watches the model with an effect of its own, made against the document's
+        // scheduler rather than this build region — so it is this component's to stop, for the same
+        // reason and on the same line as the tick above.
+        document?.Dispose();
+        document = null;
 
         base.OnUnmounted();
     }

@@ -164,6 +164,18 @@ var document = field.FindHostedDocument();
 pane.HostedDocument = note;
 ```
 
+### Working out dirty rather than announcing it
+
+`MarkDirty()` is what an edit calls, and no application calls it from six places. A document holds a
+snapshot of what it last wrote and an effect that compares the two, so a field edited back to the
+saved value **cleans the document again** — which every editor does and which a hand-placed
+`MarkDirty` cannot. `Samples/02-HelloUi/MaterialDocument.cs` is that shape in about forty lines.
+
+⚠ **`MarkDirty` inside an effect is writing a signal that `DocumentCommands.Install`'s own effect is
+reading, in the same flush.** That is allowed and tested — there is no cycle, because the watch reads
+the model and not `IsDirty` — but it is the first thing to check if a document ever seems to settle a
+frame late.
+
 ## What is deliberately not here yet
 
 **Closing one document out of several.** `DocumentClosePrompt` asks about the document under the
@@ -172,6 +184,11 @@ that shuts on its own — asking about *its* document while the rest stay open �
 buttons in front of a different action, and nothing offers it yet.
 
 **A proxy icon and a recent-documents list.** Both are platform seams with no interface here.
+
+**A window title bound to a document, from inside a component.** `UiWindowTitle.Bind` takes an
+`IUiWindow`, and a document has no way to reach the window its surface is in — `UiDocument.Windows`
+opens windows and does not name the main one. So the binding is the application head's to make, and
+`Samples/02-HelloUi` does not make it.
 
 **External-modification detection.** `EditorDocument` has it against an asset database; the
 framework has no file watcher and does not want one in `Core/`.
