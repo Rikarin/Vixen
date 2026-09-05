@@ -149,9 +149,48 @@ public class StyleSheetLoadingTests {
     [InlineData("(min-width: 600px) and (max-height: 400px)", 800, 300, true)]
     [InlineData("(min-width: 600px) and (max-height: 400px)", 800, 900, false)]
     [InlineData("all and (min-width: 600px)", 800, 600, true)]
+    // ⚠ **The threshold, and it is the only width at which the prefix and the operator disagree.**
+    // `(max-width: 600px)` is `<=` and `(width < 600px)` is `<`; every probe away from 600 passes
+    // under either reading, so a reader that ignored the operator would pass all the rows above and
+    // only these two would see it. Media Queries 4 § 2.4.
+    [InlineData("(width < 600px)", 600, 400, false)]
+    [InlineData("(max-width: 600px)", 600, 400, true)]
+    [InlineData("(width < 600px)", 599, 400, true)]
+    [InlineData("(width > 600px)", 600, 400, false)]
+    [InlineData("(min-width: 600px)", 600, 400, true)]
+    [InlineData("(width >= 600px)", 600, 400, true)]
+    [InlineData("(width <= 600px)", 600, 400, true)]
+    // Reversed, which flips the operator rather than the sides.
+    [InlineData("(600px > width)", 600, 400, false)]
+    [InlineData("(600px > width)", 599, 400, true)]
+    // The two-sided form, on the height axis so that it cannot be answered from the width by luck.
+    [InlineData("(400px <= height < 600px)", 800, 400, true)]
+    [InlineData("(400px <= height < 600px)", 800, 600, false)]
+    [InlineData("(400px <= height < 600px)", 800, 399, false)]
     public void The_media_features_compare_the_way_CSS_says(string condition, float width, float height, bool expected) {
-        Assert.True(MediaQuery.TryEvaluate(condition, new MediaContext(width, height), out var matches, out _));
+        Assert.True(
+            MediaQuery.TryEvaluate(condition, new MediaContext(width, height), out var matches, out var reason),
+            reason
+        );
+
         Assert.Equal(expected, matches);
+    }
+
+    [Theory]
+    // A side missing, two values compared with each other, opposing operators, and the two spellings
+    // mixed — all of them have an obvious wrong reading, which is why each is a diagnostic instead.
+    [InlineData("(width <)")]
+    [InlineData("(400px < 600px)")]
+    [InlineData("(400px < width > 600px)")]
+    [InlineData("(min-width: 400px < 600px)")]
+    // ⚠ Discrete features have no range type at all, so an operator on one is as wrong as the
+    // `min-` prefix `color-gamut` already refused.
+    [InlineData("(orientation > landscape)")]
+    [InlineData("(prefers-color-scheme < dark)")]
+    [InlineData("(color-gamut > srgb)")]
+    public void A_comparison_that_is_not_a_range_is_a_diagnostic_rather_than_a_guess(string condition) {
+        Assert.False(MediaQuery.TryEvaluate(condition, new MediaContext(800, 600), out _, out var reason));
+        Assert.NotNull(reason);
     }
 
     [Fact]

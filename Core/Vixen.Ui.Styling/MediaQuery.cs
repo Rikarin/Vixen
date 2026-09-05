@@ -52,10 +52,19 @@ public readonly record struct MediaContext(
 /// <summary>Evaluates the <c>@media</c> conditions doc 09 lists as supported.</summary>
 /// <remarks>
 ///     <para>
-///         A condition is <c>and</c>-joined features, each <c>(name)</c> or <c>(name: value)</c>,
-///         with the <c>min-</c> and <c>max-</c> prefixes that carry nearly all real usage. That is
-///         deliberately less than CSS Media Queries 4 — no <c>or</c>, no <c>not</c>, no range syntax
-///         (<c>width &gt;= 600px</c>).
+///         A condition is <c>and</c>-joined features, each <c>(name)</c>, <c>(name: value)</c> or
+///         Media Queries 4 § 2.4's range syntax — <c>(width &lt; 24rem)</c>,
+///         <c>(400px &lt;= width &lt; 600px)</c> — with the <c>min-</c> and <c>max-</c> prefixes that
+///         carry nearly all real usage. That is deliberately less than CSS Media Queries 4: no
+///         <c>or</c> and no <c>not</c>.
+///     </para>
+///     <para>
+///         ⚠ <b>The range operators are not sugar for the prefixes.</b> <c>max-width: 448px</c> is
+///         <c>&lt;=</c> and <c>width &lt; 448px</c> is <c>&lt;</c>, and the two disagree on exactly
+///         one width — the threshold. Tailwind v4's <c>@max-*</c> is the exclusive one, so the
+///         prefix form alone made every <c>max-</c> breakpoint in this engine off by one pixel in a
+///         way that reads as an author mis-picking their breakpoint. See
+///         <see cref="FeatureComparison" />.
 ///     </para>
 ///     <para>
 ///         <b>A condition this cannot evaluate makes the whole block fail to load, with a
@@ -112,20 +121,19 @@ public static class MediaQuery {
         matches = false;
         reason = null;
 
-        var colon = feature.IndexOf(':');
-        var name = (colon < 0 ? feature : feature[..colon]).Trim();
-        var value = colon < 0 ? [] : feature[(colon + 1)..].Trim();
-
-        var comparison = Comparison.Exact;
-        if (name.StartsWith("min-", StringComparison.OrdinalIgnoreCase)) {
-            comparison = Comparison.AtLeast;
-            name = name[4..];
-        } else if (name.StartsWith("max-", StringComparison.OrdinalIgnoreCase)) {
-            comparison = Comparison.AtMost;
-            name = name[4..];
+        if (!FeatureRange.TryRead(feature, out var terms, out reason)) {
+            return false;
         }
 
+        var name = terms.Name;
+        var value = terms.Value;
+
         if (name.Equals("orientation", StringComparison.OrdinalIgnoreCase)) {
+            if (terms.IsRanged) {
+                reason = "'orientation' is discrete, so it has no range or min-/max- form";
+                return false;
+            }
+
             var landscape = context.Width >= context.Height;
             if (value.Equals("landscape", StringComparison.OrdinalIgnoreCase)) {
                 matches = landscape;
@@ -142,6 +150,11 @@ public static class MediaQuery {
         }
 
         if (name.Equals("prefers-color-scheme", StringComparison.OrdinalIgnoreCase)) {
+            if (terms.IsRanged) {
+                reason = "'prefers-color-scheme' is discrete, so it has no range or min-/max- form";
+                return false;
+            }
+
             if (value.Equals("dark", StringComparison.OrdinalIgnoreCase)) {
                 matches = context.ColorScheme == ColorSchemePreference.Dark;
                 return true;
@@ -157,12 +170,12 @@ public static class MediaQuery {
         }
 
         if (name.Equals("color-gamut", StringComparison.OrdinalIgnoreCase)) {
-            // ⚠ Discrete, so `min-` and `max-` are not spelling variants of it — Media Queries 5
-            // gives the feature no range type, and the prefixes were already stripped above. Rejecting
-            // them keeps `@media (min-color-gamut: p3)` a diagnostic instead of a query that quietly
-            // means something the author did not write.
-            if (comparison != Comparison.Exact) {
-                reason = "'color-gamut' is discrete, so it has no min- or max- form";
+            // ⚠ Discrete, so `min-`, `max-` and the range operators are not spelling variants of it
+            // — Media Queries 5 gives the feature no range type, and the prefix was already stripped
+            // above. Rejecting them keeps `@media (min-color-gamut: p3)` a diagnostic instead of a
+            // query that quietly means something the author did not write.
+            if (terms.IsRanged) {
+                reason = "'color-gamut' is discrete, so it has no range or min-/max- form";
 
                 return false;
             }
@@ -217,7 +230,7 @@ public static class MediaQuery {
             return false;
         }
 
-        if (value.IsEmpty) {
+        if (terms.IsBoolean) {
             // `(width)` asks whether the feature is non-zero, which is what CSS means by the
             // boolean form.
             matches = actual != 0f;
@@ -229,11 +242,18 @@ public static class MediaQuery {
             return false;
         }
 
-        matches = comparison switch {
-            Comparison.AtLeast => actual >= wanted,
-            Comparison.AtMost => actual <= wanted,
-            _ => actual == wanted
-        };
+        matches = FeatureRange.Holds(actual, terms.Comparison, wanted);
+
+        if (!terms.HasSecond) {
+            return true;
+        }
+
+        if (!TryLength(terms.SecondValue, out var second)) {
+            reason = $"'{terms.SecondValue}' is not a length Vixen can compare";
+            return false;
+        }
+
+        matches &= FeatureRange.Holds(actual, terms.SecondComparison, second);
 
         return true;
     }
@@ -270,10 +290,4 @@ public static class MediaQuery {
     static readonly (string Unit, float Factor)[] Units = [
         ("dppx", 1f), ("dpcm", 2.54f / 96f), ("dpi", 1f / 96f), ("px", 1f), ("x", 1f)
     ];
-
-    enum Comparison : byte {
-        Exact,
-        AtLeast,
-        AtMost
-    }
 }

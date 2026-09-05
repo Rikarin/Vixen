@@ -135,18 +135,23 @@ fragments with a working assembler.
 moved it out of `composed`: it was buildable all along and the flattering state was what hid it. A
 `--tw-mask-radial-position` fragment defaulting to `center` — CSS's own default — feeds an
 `at <position>` that `DrawListBuilder.MaskFrame` resolves, so an unmoved radial mask reaches the
-shader as the record it always had. ⚠ **Its sibling `mask-radial-*` reads `partial` now, and the two
-halves of that row are blocked on entirely different things.** The four ending *sizes* are registered
-and read: `GradientReader` takes all four keywords, `BackgroundGradient.Reach` is the closed form for
-each, and `GradientPaintTests.A_circle_ending_is_round_on_a_box_that_is_not` is the pixel oracle — on
-an 80×40 box, because on a square one every ending draws the same circle. ⚠ **The blocker the row
-named was wrong twice**, and the second time it was named "they land when `UiMask` carries a stated
-pair of radii": `UiShape.Paint.zw` *is* a stated pair and every rasteriser already honoured an
-arbitrary one, so nothing was ever waiting on a shader. What is still out is the two ending *shapes*,
-`mask-circle` and `mask-ellipse`, and their obstacle is this layer rather than the engine — Tailwind
-spells them with the bare `mask` prefix, which is already the `mask-repeat` family, and
-`Family.Alongside` belongs to a family rather than to a value, so those two values cannot carry the
-mask layer their siblings do.
+shader as the record it always had. ⚠ **Its sibling `mask-radial-*` reads `works` now, and the two
+halves of that row were blocked on entirely different things** — which is the whole reason it spent a
+while at `partial`. The four ending *sizes* wanted a reader: `GradientReader` takes all four
+keywords, `BackgroundGradient.Reach` is the closed form for each, and
+`GradientPaintTests.A_circle_ending_is_round_on_a_box_that_is_not` is the pixel oracle — on an 80×40
+box, because on a square one every ending draws the same circle. ⚠ **The blocker the row named was
+wrong twice**, and the second time it was named "they land when `UiMask` carries a stated pair of
+radii": `UiShape.Paint.zw` *is* a stated pair and every rasteriser already honoured an arbitrary one,
+so nothing was ever waiting on a shader. ⚠ **The two ending *shapes* wanted nothing from gradients at
+all** (#607): Tailwind spells `mask-circle` and `mask-ellipse` with the bare `mask` prefix, which is
+already the `mask-repeat` family, and `Family.Alongside` belonged to a family rather than to a value
+— so those two values could not carry the mask layer their siblings do while the four repeat values
+must not. `Family.ValueAlongside` is exactly that difference and `--tw-mask-radial-shape` is the
+second fragment, defaulting to CSS's own `ellipse` so that a class naming only the size still means
+what it meant. ⚠ One prefix now emits two unrelated properties, which is Tailwind's spelling and not
+a compromise: `Register` keeps the first family under a name and discards a second silently, so a
+second registration was never available.
 
 ### The composition mechanism
 
@@ -461,8 +466,8 @@ refusal block, which already says so for the same reason.
 
 | Category | roots | works | partial | inert | absent | composed | unknown |
 |---|--:|--:|--:|--:|--:|--:|--:|
-| Layout | 49 | 28 | 6 | 0 | 11 | 3 | 1 |
-| Interactivity | 39 | 27 | 0 | 1 | 11 | 0 | 0 |
+| Layout | 49 | 29 | 5 | 0 | 11 | 3 | 1 |
+| Interactivity | 40 | 30 | 0 | 1 | 9 | 0 | 0 |
 | Borders | 34 | 28 | 2 | 0 | 4 | 0 | 0 |
 | Effects | 34 | 27 | 1 | 0 | 6 | 0 | 0 |
 | Flexbox and Grid | 34 | 30 | 2 | 0 | 2 | 0 | 0 |
@@ -518,8 +523,8 @@ written, and asking the standard `caret-color` first is the whole of `caret-*`. 
 blocker in their own row — `accent-*` (the three controls CSS means are drawn from a stylesheet, and
 `var()` cannot read a standard property), `will-change-*` (no element-keyed retained surface),
 `touch` (touch events never reach `UiDocument` at all), `resize`, `appearance` and `field-sizing`.
-Two are sized and not started: `snap` and `snap (keywords)`, which want 250–400 lines in `ScrollView`
-and, harder, an end-of-gesture the wheel and the scrollbar drag do not have. The remaining four are
+✅ `snap` and `snap (keywords)` were the two sized-and-not-started ones, and both read `works` now —
+with a third row, `snap (align)`, that this file had no entry for at all. The remaining four are
 the scrollbar cluster, which is one feature and is owned elsewhere.
 
 ⚠ ~~**The one finding here that is nobody's root and everybody's problem: `UiDocument.Cursor` has no
@@ -1329,7 +1334,7 @@ all twelve scenes and at every value the family could emit, rather than argued f
 | `divide-x/y-*`, `divide-<color>` | **written** | `border-inline-end-width`, `border-bottom-width` and the four `border-color` longhands are read |
 | `mix-blend-*` | **refused** | `mix-blend-mode` moves no channel. `DrawCommand` has no blend channel and there is no offscreen target to blend into — the same compositor `rotate`/`scale` wait on under **#23** |
 | `origin-*` | **written** ✅ | ⚠ Refused here as *unobservable*, and the last clause of that refusal — "`scale` and `rotate` are refused under **#23**" — was its expiry condition. Both are implemented now, `TransformReader` reads `transform-origin` into the point they turn about, and the family is registered. The refusal also needed a *scene*: the property is invisible without a transform whose fixed point matters, so `translated` could never have seen it and the new `turned` scene is what does — the seventh entry on `UtilityConsumptionProbe`'s list of arrangements that were missing |
-| `scroll-*` | **22 of 32 written** ✅ | Part 8 § 3, discharged by **A18**. `ScrollView` reads `scroll-margin-*`, `scroll-padding-*`, `scroll-behavior` and `overscroll-behavior*` now, so the roots are registered against real readers rather than as properties on a box. The four block roots stay absent (`space-y`'s reason); `snap-*` remains deferred, and of `scrollbar-*` only `scrollbar` is written — see Part 8 § 3 |
+| `scroll-*` | **22 of 32 written** ✅ | Part 8 § 3, discharged by **A18**. `ScrollView` reads `scroll-margin-*`, `scroll-padding-*`, `scroll-behavior` and `overscroll-behavior*` now, so the roots are registered against real readers rather than as properties on a box. The four block roots stay absent (`space-y`'s reason); `snap-*` is registered now against the snapping behaviour A18 could not have used, and of `scrollbar-*` only `scrollbar` is written — see Part 8 § 3 |
 
 ⚠ **The `origin-*` refusal was the one worth reading, and it is worth more now that it has been
 retired.** What it said: every other inert verdict here turned out at least *possibly* to be a missing
@@ -2022,10 +2027,19 @@ three reasons this section used to give was actually worth:
   `TryContainer` at `Screens`: it turns every positive row of that enumeration red, which is the
   precise defect the namespace exists to prevent.
 
-⚠ **One divergence, stated rather than left to be found.** `@max-*` emits `max-width`, which is
-`<=`, where v4's `(width < 24rem)` is `<`; the two differ on exactly the threshold width.
-`ContainerQuery` reads the `min-`/`max-` prefix forms and has no range syntax, which is the same
-inclusive reading `Screens` already gives every breakpoint.
+✅ **The divergence this section used to state is closed** (#609). `@max-*` emitted `max-width`,
+which is `<=`, where v4's `(width < 24rem)` is `<` — an off-by-one pixel on every `max-` threshold in
+the engine, silent because it reads as an author mis-picking a breakpoint. Both evaluators read Media
+Queries 4 § 2.4's range syntax now — `(width < 24rem)`, `(width >= 600px)`,
+`(400px <= width < 600px)` and the reversed one-sided form — out of one shared `FeatureRange`, and
+`@max-*` emits the exclusive form. ⚠ **The assertions that prove it are all *at* the threshold**:
+every other width answers identically under both readings, which is why the existing bracketing rows
+could not see it. Sabotage: reading `Below` as `AtMost` takes eight rows red across the two suites,
+and putting `max-width` back under `@max-*` takes only the new variant test red. `@min-*` stays
+inclusive, which is v4's reading too and the one `Screens` gives every breakpoint. ⚠ Discrete
+features — `orientation`, `prefers-color-scheme`, `color-gamut` — refuse an operator the way
+`color-gamut` already refused the `min-` prefix, because Media Queries 5 § 2.4.2 gives them no range
+type and equality is not what the author wrote.
 
 The consumption gate turned out **not** to be the obstacle it was assumed to be: `UtilityFamilies.Surface`
 enumerates the family registry, and a pure variant emits no new property, so `@sm:` is invisible to it.
@@ -2975,10 +2989,27 @@ dependency.
   the moment a scroll *comes to rest*, and neither gesture had an end: `ScrollBar` raised nothing when
   a thumb was released (`ScrollEnded` now does) and a wheel is a stream of deltas with no terminator
   in it at all (`ScrollView.SnapIdleSeconds`, on the tick clock — not the event's, which a platform
-  head is free to stamp from a source the frame loop never reads). **The four roots are still
-  unregistered**, and deliberately in that order: they need `UtilityConsumptionProbe`'s `scrolled`
-  scene to grow candidates and a driven gesture end, or they measure inert and the gate is right to
-  say so.
+  head is free to stamp from a source the frame loop never reads). ✅ **The four roots are registered
+  now**, and the order was the right one: registering them first would have measured all three
+  properties inert. ⚠ **One family answers all four roots**, because Tailwind spells all twelve
+  classes `snap-` and they set three different properties — `Register` keeps the first family under a
+  name, so a family per property was never available, and the keyword table already carries a
+  property per value. The strictness is the one part that could not be a plain declaration:
+  `snap-y snap-mandatory` is two classes writing one `scroll-snap-type`, so the axis names the
+  strictness through `--tw-scroll-snap-strictness` with CSS's own `proximity` as the fallback — which
+  is also why `ScrollView.SnapType` reads that value as *text*, since what arrives there was
+  assembled by the cascade rather than typed. ⚠ **And the probe needed a scene of its own rather than
+  a bigger `scrolled` one**: a snap is defined only where a scroll comes to rest, and nothing in
+  `scrolled` ever ends a gesture. `snapped` is that scene, and its three phases are not
+  interchangeable — one ends ON `#probe` (which is what makes `scroll-snap-align` observable), one
+  ends PAST it and nearer `#trail` (`scroll-snap-stop`, which decides nothing where the nearest
+  candidate is already the one it would block on), and one turns the wheel over the inner view
+  (`scroll-snap-type`, the only one that lands on `#probe` as a container). Deleting any one of the
+  three takes exactly one property back to `inert`, which is how each was verified. ⚠ A fourth thing
+  the scene had to learn: a frame between the wheel and the silence. A candidate's snap position is
+  read off its `Bounds` at the offset the view is at *now*, so a terminator that fired before the
+  layout caught up measured every candidate against the offset the gesture started at, landed on the
+  one the view was already on, and left all three properties looking inert with the reader present.
 - **`scrollbar-color` / `scrollbar-gutter`** — `ScrollBar` is a child element this control creates
   and themes through `scrollbar { … }`, `--track-color` and `--thumb-color`. A CSS property that
   restyled it would be a second way to say what the theme already says, so `scrollbar-thumb-*` and
@@ -3541,6 +3572,15 @@ ask is not "where is this read" but "what else reads the number it changes".**
    `Inert` table is empty or every entry names its task. It is the only artefact in this survey built
    by resolving elements rather than by reading source, and it is where a finding goes to become a
    fact: F1 and F5 were derived from source and are now three `Fact`s in that file.
+   ⚠ **This was checked by eye until #604, and what it printed on the day a root was missing was
+   `Passed!`.** `Every_registered_root_is_claimed_by_a_row_or_named_here` enumerates the registry
+   against the four hand-maintained tables now, and the first run of it found **121 roots with no row
+   anywhere** — against the five that #276 had made anybody look for. They are named one by one in
+   `UtilityFamilySupportTests.Uncovered`, grouped by the reason they have none (#629); only the first
+   group, the `Family.Scope` roots, can never be rows. ⚠ The exemptions are a **list of names and never a
+   predicate**, because a rule of the shape "roots whose family has a `Scope` are exempt" is
+   satisfied by exactly the defect it is meant to catch. And the walk asserts its own **count** as
+   well as its membership: an enumeration that returns nothing agrees with every table ever written.
 4. **The layout conformance suite is green against a second oracle.** Yoga's 534 stay. Taffy's
    translated corpus is added: **868 block, 1 960 grid, 2 268 flex**, every expected number out of
    Chrome, run behind the Ahem measure stub so no text engine is involved. Failures are listed by name

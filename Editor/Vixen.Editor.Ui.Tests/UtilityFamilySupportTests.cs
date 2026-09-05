@@ -271,6 +271,19 @@ public class UtilityFamilySupportTests {
         { "overscroll-contain", "overscroll-behavior", "contain" },
         { "overscroll-y-none", "overscroll-behavior-y", "none" },
 
+        // ⚠ <b>Three rows for one family, because Tailwind spells four roots with the `snap-` prefix
+        // and they set three different properties.</b> `snap-y` is the container's axis, `snap-start`
+        // an item's alignment and `snap-always` an item's stop; a single row would have measured a
+        // third of the family and read as the whole of it.
+        //
+        // ⚠ <b>`y proximity` and not `y`, and the second word came from a different class.</b> The
+        // axis names its strictness through `--tw-scroll-snap-strictness`, whose fallback is CSS's
+        // own `proximity` — so this row is also the assertion that the fragment resolves, and a
+        // reference written without the fallback would drop the declaration whole and compute null.
+        { "snap-y", "scroll-snap-type", "y proximity" },
+        { "snap-start", "scroll-snap-align", "start" },
+        { "snap-always", "scroll-snap-stop", "always" },
+
         // Sizing.
         { "w-full", "width", "100%" },
         { "h-4", "height", "16px" },
@@ -925,6 +938,233 @@ public class UtilityFamilySupportTests {
             nameof(The_refused_middle_moves_nothing_while_the_top_beside_it_moves)
         }
     };
+
+    /// <summary>Roots this file has no row for, each with the reason it has none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Exit criterion 3 of doc 43 says "a row per root", and until this list existed
+    ///         nothing said whether that was true.</b> <see cref="Supported" />,
+    ///         <see cref="Inert" />, <see cref="Refused" /> and <see cref="NumericFigures" /> are
+    ///         hand-maintained and the registry was never enumerated against them — so <b>a root with
+    ///         no row anywhere was not a red test, it was silence.</b> Ask what this file printed on
+    ///         the day a root was missing from it: <c>Passed!</c>. That is how the five child-scoped
+    ///         roots went unnoticed long enough to need #276, and the walk found 121 more of them the
+    ///         first time it ran — #629, which is the work of writing the rows.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A literal list of names and never a predicate, which is the whole design.</b> A
+    ///         rule of the shape "roots whose family has a <c>Scope</c> are exempt" is satisfied by
+    ///         precisely the defect it is meant to catch — a scoped root with no coverage at all
+    ///         passes it — and so is every other rule that decides membership by looking at the
+    ///         family. Membership here is decided by somebody typing the name, so a root added
+    ///         tomorrow is not exempt by accident.
+    ///     </para>
+    ///     <para>
+    ///         <b>The list may only shrink.</b>
+    ///         <see cref="Every_registered_root_is_claimed_by_a_row_or_named_here" /> fails on an
+    ///         entry that has since gained a row, and on an entry naming a root the registry no
+    ///         longer has — so a line cannot outlive its reason the way <c>DocsExempt.txt</c>'s do.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Only the first group is permanent. A <c>Family.Scope</c> root <i>cannot</i> be a row
+    ///         here, because the declaration it emits is never on the element a row would ask about.
+    ///         Every other entry is work nobody has done.
+    ///     </para>
+    /// </remarks>
+    public static IReadOnlyDictionary<string, string> Uncovered { get; } = BuildUncovered();
+
+    static Dictionary<string, string> BuildUncovered() {
+        var uncovered = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        UncoveredGroup[] groups = [
+        // ── Scoped — the entries #276 found, and the only permanent ones ────────────────────────────
+        new UncoveredGroup(
+            "a `Family.Scope` root: the declaration lands on `& > :not(:last-child)` and never on the " +
+            "element under test, so no computed-value row can express it at all. `ChildScopedFamilyTests` " +
+            "is where these are held.",
+            "divide", "divide-x", "divide-y", "space-x", "space-y"
+        ),
+
+        // ── Edges and axes ──────────────────────────────────────────────────────────────────────────
+        new UncoveredGroup(
+            "the other edge or axis of a root this table already holds. One family, one reader, one code " +
+            "path, and nobody wrote the second row.",
+            "bottom", "end", "inset", "inset-be", "inset-e",
+            "inset-y", "left", "mb", "mbe", "mbs",
+            "ml", "mr", "ms", "mt", "mx",
+            "my", "pb", "pbe", "pbs", "pe",
+            "pl", "pr", "py", "right"
+        ),
+
+        // ── Sizing ──────────────────────────────────────────────────────────────────────────────────
+        new UncoveredGroup(
+            "a sizing root whose axis twin is already held; `TrySize` answers every one of them through " +
+            "one rule, so what is untested is the spelling rather than the behaviour.",
+            "box-content", "max-block", "max-h", "max-inline", "min-block",
+            "min-h", "min-inline", "size", "static"
+        ),
+
+        // ── Borders and radii ───────────────────────────────────────────────────────────────────────
+        new UncoveredGroup(
+            "a per-edge or per-corner spelling whose sibling is held. Their behaviour is pinned by the " +
+            "two per-edge facts in this file, which is exactly why nobody noticed the inventory row was " +
+            "missing.",
+            "border-e", "border-r", "border-s", "border-t", "rounded-bl",
+            "rounded-l", "rounded-r", "rounded-tr"
+        ),
+
+        // ── Grid placement ──────────────────────────────────────────────────────────────────────────
+        new UncoveredGroup(
+            "a grid placement root. The grid facts in this file measure tracks and spans rather than " +
+            "computed values, so these have coverage and no row.",
+            "auto-cols", "auto-rows", "col-end", "col-start", "grid-flow",
+            "grid-rows", "row-end", "row-span", "row-start"
+        ),
+
+        // ── Scroll insets ───────────────────────────────────────────────────────────────────────────
+        new UncoveredGroup(
+            "a scroll inset or overscroll axis whose sibling is held; `ScrollView.InsetOf` reads all " +
+            "twelve through one table and the consumption gate measures each longhand separately.",
+            "overscroll-x", "scroll-mb", "scroll-me", "scroll-ml", "scroll-mr",
+            "scroll-my", "scroll-pl", "scroll-pr", "scroll-ps", "scroll-pt",
+            "scroll-px", "scroll-py"
+        ),
+
+        // ── Transforms ──────────────────────────────────────────────────────────────────────────────
+        new UncoveredGroup(
+            "a transform root whose sibling is held; the two transform facts in this file measure a moved " +
+            "box and a turned one rather than a computed value.",
+            "origin", "scale-x", "scale-y"
+        ),
+
+        // ── Typography ──────────────────────────────────────────────────────────────────────────────
+        new UncoveredGroup(
+            "a typography root with no row anywhere in this file. Not a refusal and not an inert family, " +
+            "simply never written down, which is the whole of what this list is for.",
+            "capitalize", "delay", "font-features", "hyphens-manual", "hyphens-none",
+            "line-clamp", "lowercase", "normal-case", "tab", "uppercase"
+        ),
+
+        // ── Masks and gradients ─────────────────────────────────────────────────────────────────────
+        new UncoveredGroup(
+            "the mask and gradient cluster. Its behaviour is pinned against pixels by `MaskGradientTests` " +
+            "and `GradientPaintTests` and its emission by `UtilityFamilyTests`, so it is among the best- " +
+            "covered groups here and has not one inventory row.",
+            "bg-conic", "bg-linear", "bg-position", "bg-radial", "bg-size",
+            "from", "mask", "mask-add", "mask-alpha", "mask-b-from",
+            "mask-b-to", "mask-conic", "mask-conic-from", "mask-conic-to", "mask-exclude",
+            "mask-intersect", "mask-l-from", "mask-l-to", "mask-linear", "mask-linear-from",
+            "mask-linear-to", "mask-luminance", "mask-match", "mask-none", "mask-position",
+            "mask-r-from", "mask-r-to", "mask-radial", "mask-radial-at", "mask-radial-from",
+            "mask-radial-to", "mask-size", "mask-subtract", "mask-t-from", "mask-t-to",
+            "mask-x-from", "mask-x-to", "mask-y-from", "mask-y-to", "to",
+            "via"
+        ),
+        ];
+
+        foreach (var (why, roots) in groups) {
+            foreach (var root in roots) {
+                uncovered[root] = why;
+            }
+        }
+
+        return uncovered;
+    }
+
+    /// <summary>One reason and the roots that share it.</summary>
+    readonly record struct UncoveredGroup(string Why, params string[] Roots);
+
+    /// <summary>Every root the registry answers is in one of the tables, or is named in the list.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The count is asserted as well as the membership, and without it the whole test is
+    ///         vacuous.</b> An enumeration that returned nothing agrees with every table ever
+    ///         written — the same anti-vacuity anchor <c>SharedUiShaderTests</c> and the golden walk
+    ///         both had to be given. The floor moves upward when families land and is never lowered
+    ///         to make a run pass: a walk that suddenly sees fewer roots is a broken walk, which is
+    ///         the failure this number exists to name.
+    ///     </para>
+    ///     <para>
+    ///         The roots come from <see cref="UtilityFamilies.Surface" /> rather than from a list
+    ///         here, for the reason that method's own remark gives: every hand-written inventory of
+    ///         that table has rotted, and a second copy of the registry is a second thing to forget.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_registered_root_is_claimed_by_a_row_or_named_here() {
+        var roots = UtilityFamilies.Surface(Tokens())
+            .Select(utility => UtilityFamilies.SplitName(utility).Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        // ⚠ Anti-vacuity, and it is two claims rather than one: a floor on how many roots the walk
+        // saw, and four roots named outright. A `Surface` that answered an empty list would satisfy
+        // every membership assertion below and report a table in perfect order.
+        Assert.True(roots.Count >= 275, $"the walk saw only {roots.Count} roots, which is not the registry");
+        Assert.Contains("flex", roots);
+        Assert.Contains("select", roots);
+        Assert.Contains("align", roots);
+        Assert.Contains("snap", roots);
+
+        var claimed = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var row in Supported) {
+            claimed.Add(UtilityFamilies.SplitName(row.Data.Item1).Name);
+        }
+
+        foreach (var row in Inert) {
+            claimed.Add(UtilityFamilies.SplitName(row.Data.Item1).Name);
+        }
+
+        foreach (var row in Refused) {
+            claimed.Add(UtilityFamilies.SplitName(row.Data.Item1).Name);
+        }
+
+        foreach (var row in NumericFigures) {
+            claimed.Add(UtilityFamilies.SplitName(row.Data.Item1).Name);
+        }
+
+        var unaccounted = roots
+            .Where(root => !claimed.Contains(root) && !Uncovered.ContainsKey(root))
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(
+            unaccounted.Count == 0,
+            $"""
+             {unaccounted.Count} registered root(s) have no row in Supported, Inert, Refused or
+             NumericFigures and no line in `Uncovered`. Doc 43's exit criterion 3 is a row per root;
+             add the row, or add the name to `Uncovered` with the reason it cannot have one:
+
+               {string.Join("\n  ", unaccounted)}
+             """
+        );
+
+        // ⚠ The expiry, and it is what makes this a list rather than a shrug. A line whose root has
+        // since gained a row is a line that outlived its reason, which is the failure mode
+        // `docs/DocsExempt.txt` has and cannot notice.
+        var landed = Uncovered.Keys.Where(claimed.Contains).Order(StringComparer.Ordinal).ToList();
+
+        Assert.True(
+            landed.Count == 0,
+            $"""
+             {landed.Count} root(s) are named in `Uncovered` and now have a row. Delete the line:
+
+               {string.Join("\n  ", landed)}
+             """
+        );
+
+        // And a line naming a root the registry no longer answers is stale in the other direction.
+        var gone = Uncovered.Keys.Where(root => !roots.Contains(root)).Order(StringComparer.Ordinal).ToList();
+
+        Assert.True(
+            gone.Count == 0,
+            $"""
+             {gone.Count} root(s) named in `Uncovered` are not registered at all. Delete the line:
+
+               {string.Join("\n  ", gone)}
+             """
+        );
+    }
 
     /// <summary>Each supported family computes what the engine's own consumers go looking for.</summary>
     /// <param name="utility">The class name.</param>
