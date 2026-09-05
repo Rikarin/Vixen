@@ -52,6 +52,36 @@ public sealed class EditorSessionOptions {
     /// </remarks>
     public bool InstallFonts { get; set; } = true;
 
+    /// <summary>Whether the editor watches the project's assets for changes made behind its back.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Off, and unlike <see cref="InstallFonts" /> that is the right default.</b> A
+    ///         watcher is the one thing in a session that is a <i>convenience</i> rather than a
+    ///         mechanism: <c>Refresh</c> rescans on demand, and a project on a share the platform
+    ///         cannot watch already opens without one — <c>EditorApplication.Watch</c> returns null
+    ///         and says so in the console. So a harness that omits it is still driving the shipped
+    ///         editor in a state the shipped editor genuinely has, which is not true of a missing
+    ///         font.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it costs is 80–95 ms per session, and the cost is the platform's.</b>
+    ///         <c>FileSystemWatcher.EnableRaisingEvents = true</c> starts an FSEvents stream;
+    ///         measured on this machine over an empty directory it is 80.7–94.5 ms, against a
+    ///         <c>Vixen.Core.IO</c> constructor that does no I/O of its own. Multiplied by the 344
+    ///         <c>EditorSession.Start</c> calls in <c>Vixen.Editor.App.Tests</c> — an assembly that
+    ///         is serialised on purpose — it is about half a minute of a ten-minute run, spent on a
+    ///         path all but a handful of those tests never take (#557).
+    ///     </para>
+    ///     <para>
+    ///         Turn it on for a suite that writes a file underneath a running editor and expects the
+    ///         editor to notice by itself. <c>ExternalEditPumpTests</c> is that suite, and the
+    ///         instrument for "did the harness really open one" is
+    ///         <c>EditorApplication.IsWatchingAssets</c> rather than the absence of a rescan — a
+    ///         watcher that is broken and a watcher that is absent look identical from outside.
+    ///     </para>
+    /// </remarks>
+    public bool WatchAssets { get; set; }
+
     /// <summary>What the document harness underneath is given.</summary>
     /// <remarks>
     ///     Its <c>FrameDelta</c> is what the gesture recogniser reads and its <c>RetryFrames</c> is

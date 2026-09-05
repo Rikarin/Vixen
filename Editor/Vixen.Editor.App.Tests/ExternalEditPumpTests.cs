@@ -74,9 +74,19 @@ public sealed class ExternalEditPumpTests : IDisposable {
 
     /// <summary>An editor with a frame document open, and the path of its file.</summary>
     (EditorSession Session, StandardFrameDocument Document, string Path) Editing() {
-        var session = EditorSession.Start();
+        // ⚠ The one suite in this assembly that asks for the watcher, and it has to ask: the harness
+        // leaves it off because 344 sessions paying 80–95 ms for an FSEvents stream they never read
+        // is the largest single avoidable cost in this assembly (#557). This suite is the reason the
+        // switch is a switch rather than a removal — it drives a real `FileWatcher` over a real
+        // project through `FollowDisk`, which is where the ordering exists.
+        var session = EditorSession.Start(new() { WatchAssets = true });
 
         owned.Add(session);
+
+        // The instrument, before anything is asserted through it: a session that quietly came up
+        // without a watcher would make every wait below time out for a reason that has nothing to
+        // do with what this suite is about.
+        Assert.True(session.Editor.IsWatchingAssets);
 
         var name = "Frame" + StandardFrameDocument.Extension;
         var path = Path.Combine(session.Project.Paths.Assets, name);

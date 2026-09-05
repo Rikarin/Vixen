@@ -502,6 +502,24 @@ public class AssetWatchTests {
     /// </remarks>
     static readonly TimeSpan Ceiling = TimeSpan.FromSeconds(30);
 
+    /// <summary>An editor that is actually watching its project, which is not the harness default.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every test in this class asserts about the watcher, so every one of them has to ask
+    ///     for it.</b> A session opens no <c>FileWatcher</c> unless told to — 80–95 ms of FSEvents
+    ///     per session, 344 times over in a serialised assembly, for a channel almost nothing here
+    ///     reads (#557). ⚠ Without the switch these two tests do not fail quickly: they spend the
+    ///     whole 30 s <see cref="Ceiling" /> waiting for an event that no longer has anything to
+    ///     deliver it, and then report "the editor never noticed", which is the sentence for a
+    ///     broken watcher rather than an absent one. So the switch is asserted rather than trusted.
+    /// </remarks>
+    static EditorSession Watching() {
+        var editor = EditorSession.Start(new() { WatchAssets = true });
+
+        Assert.True(editor.Editor.IsWatchingAssets);
+
+        return editor;
+    }
+
     /// <summary>
     ///     ⚠ <b>The panel used to show the project as it was when the editor started.</b> Saving a
     ///     texture from another program, or a teammate's checkout landing, left the browser and the
@@ -510,7 +528,7 @@ public class AssetWatchTests {
     /// </summary>
     [Fact]
     public void A_file_written_outside_the_editor_appears_without_a_refresh() {
-        using var editor = EditorSession.Start();
+        using var editor = Watching();
 
         editor.Open("project");
 
@@ -530,7 +548,7 @@ public class AssetWatchTests {
     /// <summary>A deletion is a change too, and the one that leaves a row pointing at nothing.</summary>
     [Fact]
     public void A_file_deleted_outside_the_editor_goes_from_the_database() {
-        using var editor = EditorSession.Start();
+        using var editor = Watching();
 
         editor.Open("project");
 
