@@ -38,6 +38,22 @@
         <None Include="..\Vixen.Editor.Ui\**\*.vxml"
               LinkBase="__fixtures__\markup"
               CopyToOutputDirectory="PreserveNewest" />
+
+        <!--
+            ⚠ **The allow-list `UtilityFamilySupportTests.Inert` now expires against.** That table
+            said "nothing reads this" about `scale` and `rotate` for as long as anybody left it
+            alone (#532), because its only assertion was that a value computes — which is as true of
+            a family with a reader as of one without. The mechanism it was missing is this file:
+            a row claiming a property is inert must name a property `InertProperties.txt` still
+            exempts, and that file *does* expire on its condition.
+
+            ⚠ **A fixed relative path and not a search.** `.claude/worktrees` holds a whole checkout
+            per agent, so a walk upwards looking for the file by name can find another tree's copy
+            and compare this table against a stale exemption list.
+        -->
+        <None Include="..\..\Core\Vixen.Ui.Styling.Utilities.Tests\InertProperties.txt"
+              Link="InertProperties.txt"
+              CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
     <ItemGroup>
