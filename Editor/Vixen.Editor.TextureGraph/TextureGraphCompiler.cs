@@ -174,8 +174,12 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
 
     TextureEmitter emitter = null!;
 
-    int authoredWidth = 1024;
-    int authoredHeight = 1024;
+    // ⚠ Zero until `Adopt` has run, rather than a second copy of `BaseWidth`'s default. `Begin`
+    // calls it unconditionally, so the only way to read these unset is a compilation that never
+    // started — and a plan with a base of 0×0 is refused by `TexturePlan.Validate` in those words,
+    // which is a better failure than a plausible 1024 nobody asked for.
+    int authoredWidth;
+    int authoredHeight;
     uint authoredSeed;
 
     /// <summary>The graph being walked — the flattened one, not the author's. See the base class.</summary>
