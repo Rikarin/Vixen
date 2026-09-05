@@ -1,0 +1,70 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § 4.6's `Normal Transform`: flip green, rotate the tangent frame, renormalise.
+//
+// **The three things one does to a normal map that came from somewhere else.** A map authored under
+// the other green convention, a decal applied at an angle, or a map that has been through a filter
+// that left its vectors short — none of them is a change to the surface and all three are one
+// dispatch.
+//
+// ⚠ **`flipGreen` is the escape hatch for `HeightToNormal.rvn`'s derivation**, which fixes this
+// engine's convention as green-below-a-half where a height rises downwards. An imported map from a
+// tool that made the other choice comes through here once and is then in the engine's frame.
+//
+// ⚠ **The rotation turns the *vectors*, which is not the same as rotating the picture.** Rotating a
+// normal map with `Transform2D` moves the texels and leaves every vector pointing the way it did, so
+// a rotated brick pattern would still be lit as though it had not moved. This is the other half, and
+// a decal placed at an angle needs both.
+//
+// **Renormalising is optional and defaults to on**, because it is only free when it is unnecessary:
+// a blurred or resized normal map has vectors well short of unit length and lighting them without
+// fixing that reads as a flattened surface. Turning it off is for a map being carried through a
+// chain where something later will do it.
+
+shader NormalTransform {
+    var source: Texture2D
+
+    /// Non-zero to negate the green channel about a half.
+    var flipGreen: int = 0
+
+    /// How far the frame turns, in radians, clockwise on screen.
+    var rotation: float = 0f
+
+    /// Non-zero to return a unit vector.
+    var renormalise: int = 1
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val texel = source.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+
+        var n = float3(texel.x * 2f - 1f, texel.y * 2f - 1f, texel.z * 2f - 1f)
+
+        if (flipGreen != 0) {
+            n = float3(n.x, -n.y, n.z)
+        }
+
+        val c = cos(rotation)
+        val s = sin(rotation)
+
+        // Green points down the image — see `HeightToNormal.rvn` — so the xy pair lives in a y-down
+        // frame and the ordinary rotation matrix turns it clockwise on screen, which is the
+        // direction every other angle in this folder is measured in.
+        var turned = float3(n.x * c - n.y * s, n.x * s + n.y * c, n.z)
+
+        if (renormalise != 0) {
+            turned = normalize(turned)
+        }
+
+        target.Store(coord, float4(turned.x * 0.5f + 0.5f, turned.y * 0.5f + 0.5f, turned.z * 0.5f + 0.5f, texel.w))
+    }
+}

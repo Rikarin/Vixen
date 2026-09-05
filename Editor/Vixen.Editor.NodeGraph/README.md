@@ -27,7 +27,7 @@ graph.Connect(new(uv.Id, "UV"), new(sample.Id, "UV"));
 | `NodeGraphAsset`, `NodeGraphDocument` | The file shape, and the checked conversion between it and the model. |
 | `NodeAttribute`, `InputAttribute`, `OutputAttribute`, `SettingAttribute` | What a node type declaration looks like. |
 | `PortKind`, `PortKinds` | What a port carries, and the rules — including `DynamicVector`'s. |
-| `Scalar`, `Float2`…`Float4`, `DynamicVector`, `Bool`, `Int`, `Texture`, `Sampler`, `Flow` | Port field types. The declared type *is* the port's kind. |
+| `Scalar`, `Float2`…`Float4`, `DynamicVector`, `Bool`, `Int`, `Texture`, `Sampler`, `Flow`, `Image` | Port field types. The declared type *is* the port's kind. |
 | `NodeTypeRegistry`, `NodeTypeDefinition`, `SettingDefinition` | The node library, filled by generated code. |
 | `Node`, `NodeBinding` | The base a node derives from, and what its ports carry this time round. |
 | `NodeGraphCompiler<T>` | Graph to artefact: ordering, typing, binding, diagnostics. |
@@ -95,6 +95,17 @@ is a chain of `float4`s.
 **A texture is not a width.** It arrives at a dynamic port as a type error reported against the port,
 not as something to widen: there is no width a texture and a float agree on.
 
+**And an image is not a texture.** `PortKind.Image` is a whole raster — what a texture graph's nodes
+hand each other — and it is a separate kind for one reason: `PortKinds.Accepts` only lets a kind
+through to itself, so a wire dropped off a generation node cannot land on a shader graph's sampler and
+search-to-create cannot offer one. Riding `Texture` would have cost nothing at the type level and
+would have made that nonsense connection legal. ⚠ **Grey against colour is a *format* on it and not a
+second kind**, so doc 48's promotion rule — grey splats into a colour port, colour into a grey port is
+an error naming the port — belongs to the texture graph's compiler, which knows the format; a
+`PortKind` does not carry one, and every image-to-image wire is accepted here. It answers **zero to
+both questions**: no lanes, because a dispatch over a storage image is not an expression, and no
+fields, because there is no literal raster to type into a box.
+
 ## The model refuses what it cannot represent
 
 **A cycle is refused as it is made.** A graph that cannot contain one is a graph the compiler can
@@ -137,6 +148,25 @@ list rather than in it, so a consumer that walks `Ports` never has to remember w
 wired. Deliberately not a tenth `PortKind`: a kind that cannot be connected would put a socket on the
 canvas that refuses every wire dropped on it. `NodeSettingMember` gives it a row in the ordinary
 inspector, and `SetPortTextCommand` makes the write undoable across a whole selection.
+
+⚠ **The storage is text and the *kind* is a separate question**
+([#730](https://github.com/Rikarin/Vixen/issues/730)). A setting's field stays a `string` — that is
+what survives a save, a merge and a node type that renamed a member — and `SettingKind`, a range and
+a group say how the string is *read*, so a declared flag draws as a checkbox and a declared `0…1`
+draws as a slider. Before that, every setting in every graph was a text box, including the ones whose
+legal values are two; a published texture graph's parameters lost their type, range and group at this
+boundary and had them written out in a tooltip instead. ⚠ Making a setting typed also exposed a defect
+that had been harmless while everything was a string: `NodeSettingMember` stored `value as string`,
+which is `null` for the `bool` or `double` a typed row hands back — so the first edit of a checkbox
+would have written the empty string over the setting while the row went on showing the new value.
+
+**A graph declares things too, not only its nodes.** `NodeGraphModel.Settings` is a string-keyed bag
+for what belongs to the *document* — a texture graph's base resolution and its seed — and
+`.Parameters` is `Interface`'s twin for the knobs a containing graph draws rather than wires. Both
+round-trip through `NodeGraphAsset`. ⚠ Neither is interpreted here: what a key means belongs to the
+front end that reads it, exactly as `GraphNode.Texts` does one level down, and a reader that refused
+an unrecognised key would refuse a file written by a newer version of the same editor
+([#719](https://github.com/Rikarin/Vixen/issues/719)).
 
 ⚠ **A key no setting claimed still reaches the binding.** The graphics compositor predates
 `[Setting]` and keys its settings by hand off `CompositorField`, so whatever a node carries in

@@ -126,12 +126,29 @@ public readonly record struct MaterialSurface(Color4 BaseColour, float Metalness
                     emissive.EmissiveColor.Z * emissive.Intensity
                 )
             },
+            // The tint, without the map — TexturedMetalRoughnessFeature's arrangement one channel over.
+            // ⚠ Its colour's default is white rather than black, so a material that carries only this
+            // reads as emitting at `Intensity` here where the same material on a device emits the map.
+            // That is the same approximation the base colour above makes and is stated for the same
+            // reason: a viewport shows the material's constants, and a map is not one.
+            TexturedEmissiveFeature emissive => surface with {
+                Emissive = new(
+                    emissive.EmissiveColor.X * emissive.Intensity,
+                    emissive.EmissiveColor.Y * emissive.Intensity,
+                    emissive.EmissiveColor.Z * emissive.Intensity
+                )
+            },
             BlendFeature blend => Blend(surface, blend),
 
             // The weighted average of the layers, which is what a splat map produces where the weights
             // meet. A layered material seen without its splat map is every layer at once, and the mean
             // is the only answer that is not a guess about which one the viewer meant.
             MaterialLayersFeature layers => Layered(surface, layers),
+
+            // And the painted stack, on exactly that argument: this one is *never* seen with its splat
+            // map here, so the mean is not an approximation of the viewport's making — it is the only
+            // thing the constants say.
+            TexturedMaterialLayersFeature layers => Layered(surface, layers.Layers),
 
             // A normal map, an occlusion, a clear coat, a sheen, an anisotropy, a subsurface: each
             // modifies a surface this cannot show, so each leaves it alone rather than being refused.
@@ -153,13 +170,16 @@ public readonly record struct MaterialSurface(Color4 BaseColour, float Metalness
         );
     }
 
-    static MaterialSurface Layered(MaterialSurface surface, MaterialLayersFeature layers) {
+    static MaterialSurface Layered(MaterialSurface surface, MaterialLayersFeature layers) =>
+        Layered(surface, layers.Layers);
+
+    static MaterialSurface Layered(MaterialSurface surface, IReadOnlyList<MaterialLayerValue> layers) {
         var total = 0f;
         var colour = default(Vector3);
         var metalness = 0f;
         var roughness = 0f;
 
-        foreach (var layer in layers.Layers) {
+        foreach (var layer in layers) {
             var weight = MathF.Max(layer.Weight, 0f);
 
             total += weight;

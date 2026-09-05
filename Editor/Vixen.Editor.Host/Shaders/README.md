@@ -1,14 +1,19 @@
 # Shaders
 
-The editor's own shaders, in Raven. Eleven modules from four sources: four interface pipelines over one
-vertex stage, a line pair, and two mesh pairs.
+The editor's own shaders, in Raven. Three sources, six modules: a line pair and two mesh pairs.
 
 | Source | Shaders | Modules |
 |---|---|---|
-| `Ui.rvn` | `UiVertex`, `UiBox`, `UiText`, `UiSolid`, `UiImage` | one `.vert.spv`, four `.frag.spv` |
 | `Line.rvn` | `LineVertex`, `LineFragment` | one of each |
 | `Mesh.rvn` | `Mesh` | one of each |
 | `MeshInstanced.rvn` | `MeshInstanced` | one of each |
+
+⚠ **This table said four sources and eleven modules until 2026-09-04, and both halves were wrong.**
+The fourth was a `Ui.rvn` deleted for the reason [below](#regenerating) — a divergent copy of the
+host's — and the eleven counts the whole directory, which holds five more `.spv` this directory does
+not have a source for: `Terrain`, `Grass` and the three `GrassScatter` permutations are compiled out
+of `Raven/Library/Terrain` by `CheckShaders`' `EditorShaders` and land here because this is where
+`EditorEffects` loads them from.
 
 ## Why there are two mesh shaders
 
@@ -96,9 +101,18 @@ five of that file's eight shaders — every line of the five identical, and `UiB
 
 ⚠ **These were committed and unchecked until `UiShape` grew.** `CheckShaders` covered the
 library modules and described itself as covering these; it did not, so a `.rvn` edited without
-recompiling and a stale `.spv` could sit in one commit. `Build.Shaders.cs`'s `EditorSources` is that
-half now, and unlike the library entries it compares *every* module a source emits — so a shader
-added to one of these files and never committed fails too.
+recompiling and a stale `.spv` could sit in one commit. `Build.Shaders.cs`'s
+`DiscoverEditorSources` is that half now, and unlike the library entries it compares *every* module a
+source emits — so a shader added to one of these files and never committed fails too.
+
+⚠ **Nothing lists these files, which is the point.** That half of the target was four hand-written
+tuples, and a source nobody added to them was a source somebody could edit without recompiling —
+exactly the state the target exists to make impossible. It reads the directory now: a `.rvn` here
+with a `.spv` for one of the shaders it declares beside it is compiled and diffed by the next run.
+Two properties are read out of the file rather than assumed, and both refuse by name rather than
+skipping — a source with an `import` cannot be compiled alone and belongs in `EditorShaders` with its
+closure, and a directory this walk stops reaching fails the floor in `EditorSourceFloor`, because a
+walk that finds nothing would otherwise compile nothing and print success.
 
 `spirv-val --target-env vulkan1.2` over the eleven `.spv` is worth running after: Raven's SPIR-V is
 checked against the validator in its own tests, but these are the modules the editor actually loads.

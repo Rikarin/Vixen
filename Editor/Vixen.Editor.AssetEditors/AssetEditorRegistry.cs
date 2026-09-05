@@ -80,11 +80,39 @@ public sealed class AssetEditorRegistry {
     /// <summary>Everything registered, in no particular order.</summary>
     public IReadOnlyCollection<IAssetEditorFactory> Editors => byName.Values;
 
-    /// <summary>Registers an editor.</summary>
+    /// <summary>Registers an editor, and hands back the removal.</summary>
     /// <param name="editor">The editor.</param>
-    /// <returns>This registry, for chaining.</returns>
+    /// <returns>A scope that takes it out again.</returns>
     /// <exception cref="InvalidOperationException">Something already claims its name or one of its extensions.</exception>
-    public AssetEditorRegistry Add(IAssetEditorFactory editor) {
+    /// <remarks>
+    ///     <para>
+    ///         <b>Adding hands back the removal, the way <c>IEditorRegistry.Add</c> already does.</b>
+    ///         A plugin's registration scope keeps it, a test disposes it, and nothing has to name
+    ///         what it added a second time in order to take it out.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Until this returned something, a plugin could not claim a file extension at
+    ///         all.</b> A registration with no matching <c>PluginContext.OnUnload</c> is rule 2 of
+    ///         the four that make unloading work — it does not leak an entry, it leaks the plugin's
+    ///         whole assembly, permanently and with no error anywhere, because the factory and every
+    ///         document it opened are references from the editor into the plugin. Nothing had hit it
+    ///         because no module registers an editor: this registry is built once by
+    ///         <see cref="StandardEditors.CreateDefault" /> for the life of the process.
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/739">#739</a>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The removal takes the name <i>and</i> every extension back out.</b> Either half
+    ///         alone leaves a reload finding one free and the other taken, which throws from inside
+    ///         somebody's <c>Activate</c> and reads as though the plugin had been loaded twice.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it runs once.</b> A scope disposed twice — a plugin that releases its own
+    ///         registration <i>and</i> hands it to <c>PluginContext.Owns</c>, which is doing the
+    ///         right thing twice — must not take out the replacement that a reload has since
+    ///         registered under the same name. See <c>Removal</c>.
+    ///     </para>
+    /// </remarks>
+    public IDisposable Add(IAssetEditorFactory editor) {
         ArgumentNullException.ThrowIfNull(editor);
 
         if (!byName.TryAdd(editor.Name, editor)) {
@@ -94,16 +122,32 @@ public sealed class AssetEditorRegistry {
             );
         }
 
+        // ⚠ What has actually been claimed, rather than what the factory says it claims. A property
+        // that answered differently on the second read — a plugin building its list lazily — would
+        // otherwise leave an extension registered that the removal never looks at.
+        var claimed = new List<string>();
+
         foreach (var extension in editor.Extensions) {
             if (!byExtension.TryAdd(extension, editor)) {
+                // ⚠ The name and the extensions taken so far, before the throw. A failed registration
+                // that left its name behind would make the *next* attempt fail for the wrong reason,
+                // and the second message names an editor that is not registered.
+                byName.Remove(editor.Name);
+
+                foreach (var taken in claimed) {
+                    byExtension.Remove(taken);
+                }
+
                 throw new InvalidOperationException(
                     $"Both '{byExtension[extension].Name}' and '{editor.Name}' claim '{extension}'. One of them "
                     + "has to give it up; whichever registered first is not a rule anyone can rely on."
                 );
             }
+
+            claimed.Add(extension);
         }
 
-        return this;
+        return new Removal(this, editor, claimed);
     }
 
     /// <summary>Finds the editor for a file.</summary>
@@ -132,16 +176,6 @@ public sealed class AssetEditorRegistry {
         return byName.TryGetValue(name, out editor);
     }
 
-    /// <summary>Opens an asset, or brings the document already editing it forward.</summary>
-    /// <param name="project">The project.</param>
-    /// <param name="asset">Which asset.</param>
-    /// <param name="opened">The document editing it.</param>
-    /// <returns>Whether anything opened it.</returns>
-    /// <remarks>
-    ///     ⚠ <b>An asset already open is returned, not opened again.</b> A second document over one
-    ///     file is two undo histories over one set of bytes, and whichever saved last wins — which is
-    ///     a way to lose an afternoon's work by double-clicking a scene twice.
-    /// </remarks>
     /// <summary>Raised once for each document this registry opens, after it is fully built.</summary>
     /// <remarks>
     ///     <para>
@@ -167,6 +201,24 @@ public sealed class AssetEditorRegistry {
     /// </remarks>
     public event Action<EditorDocument>? Opened;
 
+    /// <summary>Opens an asset, or brings the document already editing it forward.</summary>
+    /// <param name="project">The project.</param>
+    /// <param name="asset">Which asset.</param>
+    /// <param name="opened">The document editing it.</param>
+    /// <returns>Whether anything opened it.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An asset already open is returned, not opened again.</b> A second document over
+    ///         one file is two undo histories over one set of bytes, and whichever saved last wins —
+    ///         which is a way to lose an afternoon's work by double-clicking a scene twice.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>These three sentences used to sit above <see cref="Opened" />, describing it.</b>
+    ///         Two <c>&lt;summary&gt;</c> blocks over one member is not a compiler error — the second
+    ///         wins — so the event carried this method's documentation and this method carried none,
+    ///         in the file every asset editor is read from.
+    ///     </para>
+    /// </remarks>
     public bool TryOpen(EditorProject project, AssetId asset, [NotNullWhen(true)] out EditorDocument? opened) {
         ArgumentNullException.ThrowIfNull(project);
 
@@ -191,5 +243,34 @@ public sealed class AssetEditorRegistry {
         Opened?.Invoke(opened);
 
         return true;
+    }
+
+    /// <summary>What <see cref="Add" /> hands back: the name and the extensions, given up together.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Once, and the once is the whole guard.</b> An identity check — "remove this only if
+    ///     the registry still holds <i>my</i> factory" — was written here first and is unreachable:
+    ///     <see cref="Add" /> refuses a name that is taken, so a live registration and its
+    ///     replacement cannot both exist, and by the time a name can be claimed again this scope has
+    ///     already run. A second dispose is therefore the only way a stale removal can reach a
+    ///     replacement, and <c>done</c> is what stops it. ⚠ It is also the <i>stronger</i> of the
+    ///     two: a plugin that registered the same instance again would pass an identity check.
+    /// </remarks>
+    sealed class Removal(AssetEditorRegistry registry, IAssetEditorFactory editor, List<string> extensions)
+        : IDisposable {
+        bool done;
+
+        /// <inheritdoc />
+        public void Dispose() {
+            if (done) {
+                return;
+            }
+
+            done = true;
+            registry.byName.Remove(editor.Name);
+
+            foreach (var extension in extensions) {
+                registry.byExtension.Remove(extension);
+            }
+        }
     }
 }

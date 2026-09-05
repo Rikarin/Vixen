@@ -1,0 +1,149 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § 4.4's `Sharpen`, as an **unsharp mask**: the image plus a multiple of what a blur of it
+// throws away.
+//
+//     out = src + amount · (src − box(src, radius))
+//
+// **Why the blur inside is a box in one dispatch rather than two ops of `Blur`.** A plan *could*
+// express this as blur-x, blur-y, and a blend with a subtract — three images in the pool and three
+// dispatches. It would also be a different filter, because two separable passes of a box are not the
+// square box this takes; more importantly it would put the artist's `radius` two nodes away from
+// their `amount`, and the two only mean anything together. The radii a sharpen wants are small — the
+// ceiling here is 8, against `Blur`'s 64 — so the square cost is 289 taps at the worst.
+//
+// **Four closed forms, and each pins one thing.**
+//
+// - `amount = 0` is a **copy**, exactly, whatever the radius: the correction term is multiplied out.
+// - A constant image is unchanged at any amount, because the blur of a constant is that constant —
+//   which is the assertion that a sharpen has not acquired a brightness offset.
+// - At a step edge the light side **overshoots above the source**. That is the sign of `amount`, and
+//   nothing else in the file tells you which way it goes.
+// - The overshoot's *reach* is the radius: four texels from the edge, a radius of 1 has left the
+//   picture alone and a radius of 6 has not. That is the assertion `radius` needs — a kernel that
+//   ignored it would pass every other test in this list.
+//
+// ⚠ **Alpha is passed through, not sharpened.** Sharpening a mask's coverage produces a halo in the
+// one channel a compositor multiplies by, so the ringing appears in a picture that is otherwise
+// correct. `Levels` and `Invert` already treat alpha as opt-in for the same reason.
+//
+// ⚠ **`radius` arrives in the texels of the image being written** — `TexturePlan.Resolve` has
+// applied doc 48 § D8's scaling already, and `TextureFilters.Verify` is what reports a plan whose
+// resolved radius is past `MaxRadius` instead of leaving the clamp silent.
+
+shader Sharpen {
+    var source: Texture2D
+
+    /// How much of the difference is added back. 0 is a copy, 1 is the classic unsharp mask.
+    var amount: float = 1f
+
+    /// The half-width of the box that is subtracted, in texels of the image being written.
+    var radius: float = 1f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The widest box this kernel will build. The cost is the square of it, and a sharpen wants a
+    /// small one: past a few texels an unsharp mask is a local-contrast filter and not a sharpen.
+    const val MaxRadius: int = 8
+
+    /// One texel, clamped to the source's edge — never the target's, and never wrapped.
+    func Tap(x: int, y: int): float4 {
+        val size = source.GetDimensions(0)
+
+        return source.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+    }
+
+    /// The weight of one axis offset under a fractional radius — 1 inside, the fraction on the rim.
+    func Weight(offset: int, whole: int, partial: float): float {
+        val d = abs(offset)
+
+        if (d <= whole) {
+            return 1f
+        }
+
+        if (d == whole + 1) {
+            return partial
+        }
+
+        return 0f
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val here = Tap(coord.x, coord.y)
+
+        // ⚠ An amount of zero is a copy taken here rather than arrived at, so that it is a copy
+        // **exactly** — the loop below would reach the same picture through a divide.
+        if (amount == 0f) {
+            target.Store(coord, here)
+
+            return
+        }
+
+        val wide = clamp(radius, 0f, float(MaxRadius))
+        val whole = int(floor(wide))
+        val partial = wide - float(whole)
+
+        if (wide < 0.05f) {
+            target.Store(coord, here)
+
+            return
+        }
+
+        val reach = whole + 1
+
+        var sum = float4(0f, 0f, 0f, 0f)
+        var weight = 0f
+
+        for (jy in 0 .. 2 * MaxRadius + 2) {
+            val dy = jy - MaxRadius - 1
+
+            if (dy < -reach) {
+                continue
+            }
+
+            if (dy > reach) {
+                break
+            }
+
+            val wy = Weight(dy, whole, partial)
+
+            if (wy <= 0f) {
+                continue
+            }
+
+            for (jx in 0 .. 2 * MaxRadius + 2) {
+                val dx = jx - MaxRadius - 1
+
+                if (dx < -reach) {
+                    continue
+                }
+
+                if (dx > reach) {
+                    break
+                }
+
+                val w = wy * Weight(dx, whole, partial)
+
+                if (w <= 0f) {
+                    continue
+                }
+
+                sum = sum + w * Tap(coord.x + dx, coord.y + dy)
+                weight = weight + w
+            }
+        }
+
+        val blurred = sum / max(weight, 0.0001f)
+        val sharp = here + amount * (here - blurred)
+
+        target.Store(coord, float4(sharp.x, sharp.y, sharp.z, here.w))
+    }
+}

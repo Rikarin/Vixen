@@ -94,41 +94,65 @@ partial class Build {
     ];
 
     /// <summary>
-    ///     The editor's own <c>.rvn</c> sources, whose modules were committed and never checked.
+    ///     The directories whose sources this target compiled when it stopped naming them, kept as a
+    ///     floor under the walk that names them now.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A floor, not a list, and the difference is which way it can go stale.</b> A list has
+    ///     to be complete, so it rots the moment somebody adds a source and forgets — which is the
+    ///     defect this whole change is about. A floor only has to be *reached*: a source added under
+    ///     either directory is discovered without touching this, and the only edit it ever needs is a
+    ///     deliberate move, which is a person deciding rather than a person forgetting. What it buys
+    ///     is the instrument's own check — a walk that has gone blind hands back an empty list, and an
+    ///     empty derived list compiles nothing, compares nothing, and prints success.
+    /// </remarks>
+    static readonly string[] EditorSourceFloor = [
+        "Editor/Vixen.Editor.Host/Shaders",
+        "Platform/Vixen.Ui.Desktop/Shaders"
+    ];
+
+    /// <summary>
+    ///     The <c>.rvn</c> sources written beside a project whose modules are committed — read off the
+    ///     tree, not listed.
+    /// </summary>
+    /// <returns>The directory each source sits in, repository-relative, and the source's own name.</returns>
     /// <remarks>
     ///     <para>
     ///         <b>The gap this closes: nothing recompiled these, so a source edit and a stale binary
-    ///         could sit in one commit.</b> The list above is the shaders the editor loads out of
-    ///         <c>Raven/Library</c>; these are written beside a project and are what the check half
-    ///         of this target was always described as covering. <c>Ui.rvn</c> is the one that made it
-    ///         matter: <c>UiShape</c> grew to a hundred and twelve bytes, and a source that said so
-    ///         beside a module that did not would have been read by the host as the new layout and by
-    ///         the GPU as the old one.
+    ///         could sit in one commit.</b> <see cref="EditorShaders" /> is the shaders the editor
+    ///         loads out of <c>Raven/Library</c>; these are written beside a project and are what the
+    ///         check half of this target was always described as covering. <c>Ui.rvn</c> is the one
+    ///         that made it matter: <c>UiShape</c> grew to a hundred and twelve bytes, and a source
+    ///         that said so beside a module that did not would have been read by the host as the new
+    ///         layout and by the GPU as the old one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Standalone, which is why they can be one file each.</b> None of them
-    ///         <c>import</c>s anything — <c>Shaders/README.md</c> spells out why the block-out BRDF is
-    ///         written by hand rather than taken from the library — so they need no
-    ///         <see cref="SourcesFor" /> closure, and passing one would parse the same declarations
-    ///         twice.
+    ///         ⚠ <b>Derived, where this was four hand-written tuples.</b> A source this gate did not
+    ///         know about is a source somebody can edit without recompiling, which is exactly the
+    ///         state this whole target exists to make impossible — and the list was the one part of it
+    ///         nothing checked. It became an assertion first (a source with committed modules and no
+    ///         entry failed the target), and is the walk itself now: doc 48's forty-four editor
+    ///         texture kernels are not forty-four more tuples, and a rule that asks for forty-four
+    ///         hand edits is a rule somebody turns off.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Standalone, which is why they can be compiled one file each — and that is read
+    ///         out of the file.</b> None of these <c>import</c>s anything —
+    ///         <c>Shaders/README.md</c> spells out why the block-out BRDF is written by hand rather
+    ///         than taken from the library — so they need no <see cref="SourcesFor" /> closure, and
+    ///         passing one would parse the same declarations twice. A discovered source that *does*
+    ///         import is refused by name below rather than skipped: a skip is how a module stops being
+    ///         checked without anybody deciding it should.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Every module a source emits, not a named one.</b> <c>Ui.rvn</c> declares eight
-    ///         shaders and produces eight modules with eight names of its own, so unlike the entries
-    ///         above there is no output to rename and no <c>--shader</c> to pass. That also means this
-    ///         half catches a shader *added* to one of these files and never committed.
+    ///         shaders and produces eight modules with eight names of its own, so unlike
+    ///         <see cref="EditorShaders" /> there is no output to rename and no <c>--shader</c> to
+    ///         pass. That also means this half catches a shader *added* to one of these files and
+    ///         never committed.
     ///     </para>
-    /// </remarks>
-    /// <remarks>
-    ///     ⚠ <b>A project as well as a name, because there are two of these directories now.</b> The
-    ///     interface's shaders moved out of hand-written GLSL and into a Raven <c>Ui.rvn</c> under
-    ///     <c>Platform/Vixen.Ui.Desktop</c>, which is what every application that is not the editor
-    ///     draws with — and a source this gate did not know about is a source somebody can edit
-    ///     without recompiling, which is exactly the state this whole target exists to make
-    ///     impossible.
     ///     <para>
-    ///         ⚠ <b>There used to be two <c>Ui</c> entries and now there is one.</b> The editor kept
+    ///         ⚠ <b>There used to be two <c>Ui</c> sources and now there is one.</b> The editor kept
     ///         its own copy of <c>Ui.rvn</c> declaring five shaders against the host's eight, and the
     ///         three it did not declare are the three compositing stages — so the editor composited
     ///         and never blurred, filtered or masked. This gate could not see that: it proves each
@@ -136,77 +160,70 @@ partial class Build {
     ///         independently and said nothing about the pair. The copy is gone and
     ///         <c>EditorHost</c> calls <c>UiShaderLibrary.Load</c>.
     ///     </para>
-    ///     <para>
-    ///         ⚠ <b>And the list no longer has to be remembered.</b> It was four tuples with nothing
-    ///         asserting they were all of them, which is the failure the paragraph above describes
-    ///         waiting to happen a second time — <see cref="CheckSourceInventory" /> walks the tree for
-    ///         every source whose modules are committed and refuses one this list does not name.
-    ///     </para>
     /// </remarks>
-    static readonly (string Project, string Source)[] EditorSources = [
-        ("Editor/Vixen.Editor.Host", "Line"),
-        ("Editor/Vixen.Editor.Host", "Mesh"),
-        ("Editor/Vixen.Editor.Host", "MeshInstanced"),
-        ("Platform/Vixen.Ui.Desktop", "Ui")
-    ];
-
-    /// <summary>
-    ///     That <see cref="EditorSources" /> names every source it has to name, and no others.
-    /// </summary>
-    /// <remarks>
-    ///     <para>
-    ///         <b>The gap this closes: the list was four tuples and nothing said they were all of
-    ///         them.</b> The coverage half at the end of this target walks the directories the entries
-    ///         name, so it catches a committed module an entry stopped producing — and cannot catch a
-    ///         source, or a whole project's <c>Shaders</c> directory, that no entry ever mentioned.
-    ///         Both halves have to hold before a drift is actually caught, and only one of them was
-    ///         here.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>It is asserted in both directions, and the second one is the instrument's own
-    ///         check.</b> A walk that goes blind — the root moved, the skip list swallowed a real
-    ///         directory, the parser stopped recognising a <c>shader</c> declaration — returns nothing,
-    ///         and "nothing uncovered" is what a working gate also prints. So every entry has to be
-    ///         *found* by the same walk, which is false the moment it stops walking.
-    ///     </para>
-    /// </remarks>
-    void CheckSourceInventory() {
+    List<(string Directory, string Source)> DiscoverEditorSources() {
         var found = ShaderSourceInventory.WithCommittedModules(RootDirectory);
-        var named = EditorSources
-            .Select(entry => $"{entry.Project}/Shaders/{entry.Source}.rvn")
-            .ToHashSet(System.StringComparer.Ordinal);
 
-        var blind = named
-            .Where(source => !found.Contains(source, System.StringComparer.Ordinal))
-            .OrderBy(source => source, System.StringComparer.Ordinal)
+        var blind = EditorSourceFloor
+            .Where(directory => !found.Exists(source =>
+                source.StartsWith($"{directory}/", System.StringComparison.Ordinal)
+            ))
             .ToList();
 
         Assert.True(
             blind.Count == 0,
-            "EditorSources names sources this target's own walk of the tree did not find:\n  "
+            "The walk of the tree found no Raven source with committed modules under:\n  "
             + string.Join("\n  ", blind)
-            + "\nEither the source moved and the entry is stale, or the walk is no longer reaching it "
-            + "— and a walk that reaches nothing reports every list complete."
+            + "\nThose hold sources this target has compiled since before it derived its own list, so "
+            + "either they moved — and EditorSourceFloor moves with them, deliberately — or the walk "
+            + "has gone blind. A walk that reaches nothing derives an empty list, and an empty list "
+            + "compiles nothing, compares nothing and prints success."
         );
 
-        var unnamed = found
-            .Where(source => !named.Contains(source))
+        var importing = found
+            .Where(source => ShaderSourceInventory.Imports(RootDirectory / source))
             .ToList();
 
         Assert.True(
-            unnamed.Count == 0,
-            "These Raven sources have compiled modules committed beside them and no entry in "
-            + "EditorSources, so nothing recompiles them and an edit to one can sit in a commit next "
-            + "to a stale binary:\n  "
-            + string.Join("\n  ", unnamed)
-            + "\nAdd an entry, or delete the modules if nothing loads them."
+            importing.Count == 0,
+            "These Raven sources have committed modules and are not standalone — they `import` another "
+            + "package, whose declarations are visible only within one compilation:\n  "
+            + string.Join("\n  ", importing)
+            + "\nCompiling one of these on its own leaves every imported name undeclared. A source with "
+            + "an import closure belongs in EditorShaders, which passes that closure with `--source`. "
+            + "It is refused here rather than skipped, because a skip is how a committed module stops "
+            + "being checked without anybody deciding it should."
         );
 
-        Log.Information(
-            "{Count} Raven sources outside the library have committed modules, and EditorSources names "
-            + "every one of them.",
-            found.Count
+        // A source sitting at the repository root has no directory to stage into or compare against,
+        // and `LastIndexOf` would hand the split below a -1 rather than saying so.
+        var loose = found
+            .Where(source => !source.Contains('/', System.StringComparison.Ordinal))
+            .ToList();
+
+        Assert.True(
+            loose.Count == 0,
+            "These Raven sources sit at the repository root, which is not a place a project's shaders "
+            + "belong:\n  "
+            + string.Join("\n  ", loose)
+            + "\nMove them beside the project that loads them."
         );
+
+        var derived = found
+            .Select(source => (
+                Directory: source[..source.LastIndexOf('/')],
+                Source: System.IO.Path.GetFileNameWithoutExtension(source)
+            ))
+            .ToList();
+
+        Log.Information(
+            "{Count} Raven source(s) outside the library have committed modules, and this target "
+            + "compiles every one of them: {Sources}",
+            derived.Count,
+            string.Join(", ", found)
+        );
+
+        return derived;
     }
 
     /// <summary>
@@ -302,10 +319,11 @@ partial class Build {
         )
         .DependsOn(Restore)
         .Executes(() => {
-                // ⚠ Before the compiler is built, because this one needs no compiler and the answer to
-                // it is never "regenerate": a source with no entry is a source nothing here compiles,
-                // so `--update-shaders` would rewrite every module except that one and report success.
-                CheckSourceInventory();
+                // ⚠ Before the compiler is built, because this one needs no compiler and its two
+                // refusals cannot be answered by regenerating: a walk that has gone blind and a source
+                // that is not standalone are both states where `--update-shaders` would rewrite every
+                // module it can still see and report success over the ones it cannot.
+                var editorSources = DiscoverEditorSources();
 
                 var compiler = RootDirectory / "Raven" / "Vixen.Raven.Cli" / "Vixen.Raven.Cli.csproj";
 
@@ -398,14 +416,18 @@ partial class Build {
                 // and its struct offsets out of — a module regenerated without it leaves the
                 // reflection saying the old layout, which is the exact failure `UiShapeLayoutTests`
                 // is on the other side of.
-                for (var index = 0; index < EditorSources.Length; index++) {
-                    var (project, source) = EditorSources[index];
-                    var directory = RootDirectory / project / "Shaders";
+                // ⚠ A directory per source for the same reason the entries above have one: the
+                // sources are discovered across projects, and two of them can name a module the same
+                // — `Platform/Vixen.Ui.Desktop` and any second interface host would both write a
+                // `UiBox.frag.spv`, and into a shared directory the second silently wins.
+                for (var index = 0; index < editorSources.Count; index++) {
+                    var (directory, source) = editorSources[index];
+                    var beside = RootDirectory / directory;
                     // ⚠ The dots come out as well as the slashes, and that is not tidiness: the
                     // compiler decides "directory or file" by whether the path has an extension, so
                     // `src-00-Editor-Vixen.Editor.Host-Ui` is read as a single file called `Host-Ui`
                     // and refused — with a good message, which is how this was found.
-                    var into = staging / $"src-{index:00}-{project.Replace('/', '-').Replace('.', '-')}-{source}";
+                    var into = staging / $"src-{index:00}-{directory.Replace('/', '-').Replace('.', '-')}-{source}";
 
                     into.CreateOrCleanDirectory();
 
@@ -416,7 +438,7 @@ partial class Build {
                         .EnableNoBuild()
                         .SetApplicationArguments(
                             "compile",
-                            (directory / $"{source}.rvn").ToString(),
+                            (beside / $"{source}.rvn").ToString(),
                             into.ToString(),
                             "--target",
                             "spirv",
@@ -432,29 +454,32 @@ partial class Build {
                         // ⚠ The name carries its directory now, because two projects both produce a
                         // `UiBox.frag.spv` and a flat name would compare the host's module against
                         // the editor's — which differ, and are meant to.
-                        produced.Add((file, $"{project}/Shaders/{file.Name}"));
+                        produced.Add((file, $"{directory}/{file.Name}"));
                     }
 
                     Assert.True(
                         produced.Count > before,
-                        $"{project}/Shaders/{source}.rvn compiled and wrote nothing into {into} — "
+                        $"{directory}/{source}.rvn compiled and wrote nothing into {into} — "
                         + "nothing was compared for this source."
                     );
                 }
 
                 // ⚠ The other direction, and it is the floor this target did not have. Everything
-                // above walks the two lists and compares what they name, so a committed module the
-                // lists stopped naming — an entry deleted, a shader renamed, a source dropped from
-                // `EditorSources` — was never opened, and the check reported green over a binary the
-                // editor still loads. Emptying the lists altogether did the same thing on a larger
-                // scale: nothing to compare is not the same as nothing wrong, which is the shape of
-                // every "three empty manifests are identical" failure this repository has had.
+                // above compiles what it found and compares that, so a committed module nothing
+                // produces — a shader renamed, a permutation entry deleted, a source deleted while
+                // its binaries stayed — was never opened, and the check reported green over a binary
+                // the editor still loads. Nothing to compare is not the same as nothing wrong, which
+                // is the shape of every "three empty manifests are identical" failure here.
+                //
+                // ⚠ `Editor/Vixen.Editor.Host/Shaders` is seeded rather than derived because
+                // `EditorShaders` writes its library modules there and has no `.rvn` beside them for
+                // the walk to find.
                 var directories = new SortedSet<string>(System.StringComparer.Ordinal) {
                     "Editor/Vixen.Editor.Host/Shaders"
                 };
 
-                foreach (var (project, _) in EditorSources) {
-                    directories.Add($"{project}/Shaders");
+                foreach (var (directory, _) in editorSources) {
+                    directories.Add(directory);
                 }
 
                 var names = produced
@@ -533,12 +558,12 @@ partial class Build {
 
                 Assert.True(
                     uncovered.Count == 0,
-                    "These committed files are compared with nothing, because no entry in "
-                    + "EditorShaders or EditorSources produces them:\n  "
+                    "These committed files are compared with nothing, because neither EditorShaders "
+                    + "nor any source this target discovered produces them:\n  "
                     + string.Join("\n  ", uncovered)
-                    + "\nEither the list lost an entry it should still name, or the file is a leftover "
-                    + "and should be deleted — a module nothing recompiles is a module nobody notices "
-                    + "going stale."
+                    + "\nEither EditorShaders lost an entry it should still name, or the source that "
+                    + "produced these is gone and the files are leftovers to delete — a module nothing "
+                    + "recompiles is a module nobody notices going stale."
                 );
 
                 Log.Information(

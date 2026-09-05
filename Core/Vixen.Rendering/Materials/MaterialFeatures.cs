@@ -329,6 +329,133 @@ public sealed record TexturedOrmFeature : IMaterialFeature {
     }
 }
 
+/// <summary>Emitted radiance from a map, unaffected by lighting.</summary>
+/// <remarks>
+///     <para>
+///         What <see cref="EmissiveFeature" /> could not be: that one carries a single colour, so a
+///         sign, a screen or a strip of windows emits over its whole surface rather than where the
+///         glowing part is. Masking that with geometry is what a project does instead, and it is the
+///         reason an emissive map exists at all.
+///     </para>
+///     <para>
+///         ⚠ <b>The colour multiplies the map rather than replacing it, and the default is white</b> —
+///         the opposite of <see cref="EmissiveFeature.EmissiveColor" />, whose own default is one
+///         because it <em>is</em> the emission. A default of black here would be a feature that
+///         samples a map and emits nothing, which reads as a map that never arrived.
+///     </para>
+///     <para>
+///         Same conditions as every other sampling feature: a name rather than a handle, a device with
+///         <c>HasBindless</c>, and a host that paired the name through
+///         <c>MaterialRenderFeature.TextureIndices</c>.
+///     </para>
+/// </remarks>
+[DataContract("TexturedEmissive")]
+public sealed record TexturedEmissiveFeature : IMaterialFeature {
+    /// <summary>What the material calls the emissive map it wants sampled.</summary>
+    /// <remarks>
+    ///     ⚠ Not a name a material may choose freely, for <see cref="TexturedMetalRoughnessFeature" />
+    ///     's reason: a host pairs one name with one name, keyed off this default.
+    /// </remarks>
+    public string EmissiveMap { get; init; } = "emissiveMap";
+
+    /// <summary>Multiplied into the map, so a shared map can be tinted per material.</summary>
+    public Vector3 EmissiveColor { get; init; } = Vector3.One;
+
+    /// <summary>What it is multiplied by, so colour and brightness are authored apart.</summary>
+    /// <remarks>
+    ///     ⚠ The renderer works in cd/m², so an authored 0..1 map at intensity 1 emits about as much
+    ///     as a sheet of paper does and is pixel-identical to a feature that never ran. A sign that
+    ///     reads as emitting wants four orders of magnitude here, which is the same scale
+    ///     <c>docs/plan/06</c> states for every other radiance a material carries.
+    /// </remarks>
+    public float Intensity { get; init; } = 1f;
+
+    /// <inheritdoc />
+    public string ShaderName => "TexturedEmissiveSurface";
+
+    /// <summary>What the shader calls the slot, under a composition path.</summary>
+    /// <param name="path">
+    ///     The qualified prefix the feature was composed under, as
+    ///     <see cref="MaterialCompilationContext" /> builds it.
+    /// </param>
+    public static string EmissiveIndexParameter(string path) {
+        ArgumentNullException.ThrowIfNull(path);
+        return path + "emissiveIndex";
+    }
+
+    /// <inheritdoc />
+    public void Compile(MaterialCompilationContext context) {
+        ArgumentNullException.ThrowIfNull(context);
+
+        context.Set("emissiveColor", EmissiveColor);
+        context.Set("intensity", Intensity);
+
+        // Zero until a host with a table writes a slot over it — see
+        // TexturedMetalRoughnessFeature.Compile for what the zero is and why it is not nothing.
+        context.Set("emissiveIndex", 0u);
+    }
+}
+
+/// <summary>Coverage from a map: a mask, a fade, a dissolve.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>It reads the map's red channel and not its alpha</b>, and that is the whole decision
+///         in this feature. An opacity mask is authored as one channel — BC4, or R8 — and a
+///         one-channel texture samples alpha as 1, so a feature that read <c>.a</c> would make every
+///         mask fully opaque and every cutout material solid. The case where coverage <em>is</em> a
+///         base-colour map's alpha is already covered, by
+///         <see cref="TexturedMetalRoughnessFeature" />: it multiplies the sampled alpha into
+///         <c>alpha</c> itself. This feature is for the mask that is its own texture.
+///     </para>
+///     <para>
+///         Multiplied into whatever coverage is already there rather than replacing it, on
+///         <c>OcclusionFeature</c>'s argument: a base colour's alpha and a separate mask compose
+///         without either knowing about the other.
+///     </para>
+///     <para>
+///         ⚠ <b>Writing coverage is not the same as the material being transparent.</b> Whether
+///         <c>alpha</c> reaches a blend or a cutout is the pass's — the material's blend state and the
+///         stage it sorts into — so a material with this feature and an opaque blend state draws
+///         exactly as it did.
+///     </para>
+/// </remarks>
+[DataContract("TexturedOpacity")]
+public sealed record TexturedOpacityFeature : IMaterialFeature {
+    /// <summary>What the material calls the opacity mask it wants sampled.</summary>
+    /// <remarks>
+    ///     ⚠ Not a name a material may choose freely, for <see cref="TexturedMetalRoughnessFeature" />
+    ///     's reason: a host pairs one name with one name, keyed off this default.
+    /// </remarks>
+    public string OpacityMap { get; init; } = "opacityMap";
+
+    /// <summary>What the map is scaled by, so a whole surface can be faded. One is the map exactly.</summary>
+    public float Opacity { get; init; } = 1f;
+
+    /// <inheritdoc />
+    public string ShaderName => "TexturedOpacitySurface";
+
+    /// <summary>What the shader calls the slot, under a composition path.</summary>
+    /// <param name="path">
+    ///     The qualified prefix the feature was composed under, as
+    ///     <see cref="MaterialCompilationContext" /> builds it.
+    /// </param>
+    public static string OpacityIndexParameter(string path) {
+        ArgumentNullException.ThrowIfNull(path);
+        return path + "opacityIndex";
+    }
+
+    /// <inheritdoc />
+    public void Compile(MaterialCompilationContext context) {
+        ArgumentNullException.ThrowIfNull(context);
+
+        context.Set("opacity", Opacity);
+
+        // Zero until a host with a table writes a slot over it — see
+        // TexturedMetalRoughnessFeature.Compile for what the zero is and why it is not nothing.
+        context.Set("opacityIndex", 0u);
+    }
+}
+
 /// <summary>Adds emitted radiance, unaffected by lighting.</summary>
 [DataContract("Emissive")]
 public sealed record EmissiveFeature : IMaterialFeature {
@@ -536,6 +663,152 @@ public sealed record MaterialLayersFeature : IMaterialFeature {
             context.Set($"layers[{i}].metalness", layer.Metalness);
             context.Set($"layers[{i}].roughness", layer.Roughness);
             context.Set($"layers[{i}].weight", layer.Weight);
+        }
+    }
+}
+
+/// <summary>
+///     N metal-roughness layers whose weights are painted rather than authored: a splat map.
+/// </summary>
+/// <remarks>
+///     <para>
+///         <strong>What makes a painted layer stack shippable as a live material.</strong>
+///         <see cref="MaterialLayersFeature" />'s remarks say where the weights come from is the
+///         caller's business — and no caller supplied one, so a ten-layer stack with painted masks was
+///         expressible only as the images it evaluates to. This is the feature that reads the mask at
+///         the point being shaded instead. See doc 48 § B1, which named the gap.
+///     </para>
+///     <para>
+///         ⚠ <b>Four layers per map, because a splat map has four channels</b> — R, G, B and A are
+///         layers 0 to 3 and a fifth layer's painted weight is zero, which is the same ceiling
+///         <c>TerrainSplat.LayersPerWeightMap</c> works to. A stack deeper than four wants a second
+///         map, and that is a second feature rather than a wider one: this feature holds one name and
+///         a table keyed by one name cannot hold two.
+///     </para>
+///     <para>
+///         ⚠ <b>And the fourth channel has to be declared — see <see cref="PaintedChannels" />.</b> A
+///         one- or three-channel texture samples alpha as 1, so a fourth layer weighted by the alpha of
+///         an RGB splat map is weighted 1 <em>everywhere</em>, and the normalisation then makes that
+///         layer the whole surface. Three is the default and the compiler warns about a layer past it,
+///         which turns the widest wrong picture this feature can draw into a message somebody reads.
+///     </para>
+///     <para>
+///         ⚠ <b><see cref="MaterialLayerValue.Weight" /> survives, and it is a <em>scale</em> on the
+///         painted channel rather than the weight itself.</b> One is the map exactly, which is why the
+///         layers a caller builds should carry one; zero disables a layer wherever it was painted,
+///         which is what an author toggling a layer off wants and is the reason the constant was not
+///         dropped.
+///     </para>
+///     <para>
+///         <c>LayerCount</c> is a permutation, as it is on <see cref="MaterialLayersFeature" /> and for
+///         the same reason: a two-layer material's constant buffer holds two layers rather than the
+///         most anyone might use. ⚠ Raven resolves a permutation by name across the whole compilation,
+///         so this shader and <see cref="MaterialLayersFeature" />'s share one <c>LayerCount</c> —
+///         which is right, they are the same knob, and it is why a material carrying both would have
+///         to agree with itself about the count.
+///     </para>
+///     <para>
+///         Same conditions as every other sampling feature: a name rather than a handle, a device with
+///         <c>HasBindless</c>, and a host that paired the name through
+///         <c>MaterialRenderFeature.TextureIndices</c>. ⚠ And one more that the others do not have —
+///         a host that registered <see cref="MaterialKeys.LayerCount" /> in
+///         <c>MaterialRenderFeature.PermutationKeys</c>, without which the count set here reaches no
+///         compiler and every layered material draws the shader's declared two.
+///     </para>
+/// </remarks>
+[DataContract("TexturedMaterialLayers")]
+public sealed record TexturedMaterialLayersFeature : IMaterialFeature {
+    /// <summary>The layers, innermost first. Layer <c>i</c> is painted by the map's <c>i</c>th channel.</summary>
+    public IReadOnlyList<MaterialLayerValue> Layers { get; init; } = [];
+
+    /// <summary>What the material calls the splat map its weights are painted in.</summary>
+    /// <remarks>
+    ///     ⚠ Not a name a material may choose freely, for <see cref="TexturedMetalRoughnessFeature" />
+    ///     's reason: a host pairs one name with one name, keyed off this default.
+    /// </remarks>
+    public string SplatMap { get; init; } = "splatMap";
+
+    /// <summary>How many of the splat map's channels carry a painted weight.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Three by default, because a one- or three-channel texture samples alpha as 1.</b>
+    ///         That is the hazard <c>TexturedOpacitySurface</c> documents at length and reads <c>.r</c>
+    ///         to avoid, and it is worse here than there: an opacity mask read from the wrong channel
+    ///         makes a surface solid, where a fourth layer weighted 1 over the whole surface <em>wins
+    ///         the normalisation everywhere</em> and the material becomes that one layer. Nothing about
+    ///         the frame says so — it is a lit, plausible surface of the wrong stuff.
+    ///     </para>
+    ///     <para>
+    ///         So the four-channel case is the one that has to be stated. A material whose splat map is
+    ///         RGBA — <c>TerrainSplat</c> writes those — sets this to four and gets its fourth layer; a
+    ///         material that leaves it alone and lists a fourth layer is warned by
+    ///         <see cref="MaterialCompiler" /> and draws the three it can paint.
+    ///     </para>
+    ///     <para>
+    ///         Clamped to <c>[0, 4]</c> when it is compiled, because a splat map has four channels and a
+    ///         number outside that describes no texture.
+    ///     </para>
+    /// </remarks>
+    public int PaintedChannels { get; init; } = 3;
+
+    /// <inheritdoc />
+    public string ShaderName => "TexturedMaterialLayersSurface";
+
+    /// <summary>What the shader calls the slot, under a composition path.</summary>
+    /// <param name="path">
+    ///     The qualified prefix the feature was composed under, as
+    ///     <see cref="MaterialCompilationContext" /> builds it.
+    /// </param>
+    public static string SplatIndexParameter(string path) {
+        ArgumentNullException.ThrowIfNull(path);
+        return path + "splatIndex";
+    }
+
+    /// <inheritdoc />
+    public void Compile(MaterialCompilationContext context) {
+        ArgumentNullException.ThrowIfNull(context);
+
+        // At least one, for MaterialLayersFeature.Compile's reason: `LayerCount` sizes an array and a
+        // zero-length one does not compile, where an empty layer list is an unfinished material.
+        var count = Math.Max(Layers.Count, 1);
+        context.SetPermutation("LayerCount", MaterialKeys.DefaultLayerCount, count);
+
+        for (var i = 0; i < Layers.Count; i++) {
+            var layer = Layers[i];
+
+            // Indexed, for MaterialLayersFeature.Compile's reason: a key holds one value and a key
+            // named after the collapsed form would be one value for every layer.
+            context.Set($"layers[{i}].baseColor", layer.BaseColor);
+            context.Set($"layers[{i}].metalness", layer.Metalness);
+            context.Set($"layers[{i}].roughness", layer.Roughness);
+            context.Set($"layers[{i}].weight", layer.Weight);
+        }
+
+        // Zero until a host with a table writes a slot over it — see
+        // TexturedMetalRoughnessFeature.Compile for what the zero is and why it is not nothing.
+        // ⚠ Worth naming for this feature in particular: slot zero is the magenta checker, whose four
+        // channels are not zero, so an unpaired layered material blends its layers by the checker
+        // rather than drawing nothing. That is visible, which is the whole point of the checker.
+        context.Set("splatIndex", 0u);
+
+        // A splat map has four channels, so anything outside [0, 4] describes no texture.
+        var painted = Math.Clamp(PaintedChannels, 0, 4);
+
+        context.Set("paintedChannels", painted);
+
+        if (Layers.Count > painted) {
+            // ⚠ A warning rather than an error, and the shader paints nothing with the layers past the
+            // count rather than reading a channel that is not there. The message names the fix because
+            // the failure it replaces was a *lit surface of the wrong material* — see PaintedChannels.
+            context.Report(
+                MaterialDiagnosticId.UnpaintedLayer,
+                $"This material has {Layers.Count} layers and says its splat map paints {painted} "
+                + $"channel(s), so layer(s) {painted} and above have no weight anywhere and the rest "
+                + "are normalised without them. Set PaintedChannels to how many channels the map "
+                + "really has — and give it four, because a one- or three-channel texture samples "
+                + "alpha as 1 and a fourth layer read from it would cover the whole surface.",
+                false
+            );
         }
     }
 }

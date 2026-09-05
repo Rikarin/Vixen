@@ -217,16 +217,17 @@ public class AccessibilityTreeTests {
     public void A_direct_manipulation_surface_asks_for_the_keyboard_to_be_passed_through() {
         using var fixture = new AdvancedFixture();
 
-        // ⚠ Four controls and one role, and it is the role rather than the count that is the claim:
+        // ⚠ Six controls and one role, and it is the role rather than the count that is the claim:
         // each of these has a keyboard model no widget vocabulary describes, so a screen reader
         // intercepting keys would make them unusable rather than accessible.
         Assert.Equal(AccessibleRole.Application, fixture.Add<Viewport>().Role);
+        Assert.Equal(AccessibleRole.Application, fixture.Add<ImageView>().Role);
         Assert.Equal(AccessibleRole.Application, fixture.Add<NodeCanvas>().Role);
         Assert.Equal(AccessibleRole.Application, fixture.Add<CurveEditor>().Role);
         Assert.Equal(AccessibleRole.Application, fixture.Add<GradientEditor>().Role);
         Assert.Equal(AccessibleRole.Application, fixture.Add<Timeline>().Role);
 
-        // ⚠ None of the five is a widget role, so none is required to have a name — which is right:
+        // ⚠ None of the six is a widget role, so none is required to have a name — which is right:
         // what a viewport is a view of is the application's sentence and not this assembly's. The
         // controls *inside* them are a different question, and it is the next test.
         Assert.Empty(AccessibilitySnapshot.Unnamed(fixture.Add<Viewport>()));

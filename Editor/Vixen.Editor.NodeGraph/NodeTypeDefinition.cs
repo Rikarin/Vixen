@@ -40,17 +40,83 @@ public sealed record PortDefinition(
     public ImmutableArray<float> Default { get; } = Default.IsDefault ? [] : Default;
 }
 
+/// <summary>What a setting's text means, and therefore what a row edits it with.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>A setting is stored as text whatever this says, and that is not a compromise.</b> The
+///         storage is <see cref="GraphNode.Texts" /> — one string per key, which is what survives a
+///         save, a merge and a node type that later renamed a member. This says how to
+///         <em>read</em> that string, so an inspector can offer a checkbox instead of a box in which
+///         <c>ture</c> is a value.
+///     </para>
+///     <para>
+///         <b>Four rather than one per <see cref="PortKind" />.</b> A setting that held a vector or a
+///         colour would be a port; what settings actually hold across the three graphs in this
+///         repository is a name, a flag, a count or a knob.
+///     </para>
+/// </remarks>
+public enum SettingKind {
+    /// <summary>A name, a path or a Raven expression. The default, and what every setting was.</summary>
+    Text,
+
+    /// <summary>A flag, written <c>true</c> or <c>false</c>.</summary>
+    Bool,
+
+    /// <summary>A whole number.</summary>
+    Int,
+
+    /// <summary>A number, which with a range is a slider.</summary>
+    Float
+}
+
 /// <summary>One of a node type's settings: a name it was given rather than a value it was wired.</summary>
 /// <param name="Name">What it is called, and the key it is stored under in <see cref="GraphNode.Texts" />.</param>
 /// <param name="Default">What it says when the author has not said anything.</param>
 /// <param name="Summary">One line saying what it means.</param>
+/// <param name="Kind">How its text is read.</param>
+/// <param name="Minimum">The bottom of its range, or negative infinity for none.</param>
+/// <param name="Maximum">The top of it, or positive infinity for none.</param>
+/// <param name="Group">Which section of an inspector it belongs to, or empty for the ungrouped ones.</param>
 /// <remarks>
-///     ⚠ <b>Deliberately not a <see cref="PortDefinition" /> with a tenth <see cref="PortKind" />.</b>
-///     A setting has no direction, no socket and no edge — see <see cref="SettingAttribute" /> — and
-///     folding it into the port list would mean every consumer that walks ports had to remember which
-///     of them could not be connected to.
+///     <para>
+///         ⚠ <b>Deliberately not a <see cref="PortDefinition" /> with a tenth
+///         <see cref="PortKind" />.</b> A setting has no direction, no socket and no edge — see
+///         <see cref="SettingAttribute" /> — and folding it into the port list would mean every
+///         consumer that walks ports had to remember which of them could not be connected to.
+///     </para>
+///     <para>
+///         ⚠ <b>The last four exist because a published graph's parameters lost them crossing this
+///         boundary — <a href="https://github.com/Rikarin/Vixen/issues/730">#730</a>.</b> Doc 48 § D9
+///         says an exposed parameter is "a name, a type, a default, a range and a group"; three of
+///         the five fitted here, so a parameter declared <c>0…1</c> drew as a text box and a
+///         <c>bool</c> one drew as a box in which <c>ture</c> is a value. The workaround was folding
+///         the range into the <see cref="Summary" />, which put it in a tooltip and nowhere a row
+///         could act on.
+///     </para>
+///     <para>
+///         <b>Every one of them is optional and the record's old three-argument shape still
+///         compiles</b>, which is what keeps a setting that is genuinely a name — a menu path, an
+///         expression, an asset reference — exactly as cheap to declare as it was.
+///     </para>
 /// </remarks>
-public sealed record SettingDefinition(string Name, string Default = "", string Summary = "");
+public sealed record SettingDefinition(
+    string Name,
+    string Default = "",
+    string Summary = "",
+    SettingKind Kind = SettingKind.Text,
+    float Minimum = float.NegativeInfinity,
+    float Maximum = float.PositiveInfinity,
+    string Group = ""
+) {
+    /// <summary>Whether this setting is edited between two stated numbers.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both ends finite <em>and</em> a numeric kind.</b> A range on a
+    ///     <see cref="SettingKind.Text" /> setting is a declaration that disagrees with itself, and a
+    ///     slider drawn for one would write numbers into a field a compiler reads as a name.
+    /// </remarks>
+    public bool IsBounded =>
+        Kind is SettingKind.Int or SettingKind.Float && float.IsFinite(Minimum) && float.IsFinite(Maximum);
+}
 
 /// <summary>One node type: what a graph can contain an instance of.</summary>
 /// <param name="Path">The menu path, and the key a saved graph stores.</param>

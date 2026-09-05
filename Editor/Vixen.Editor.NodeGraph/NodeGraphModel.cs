@@ -215,6 +215,108 @@ public sealed class NodeGraphModel {
     /// </remarks>
     public List<PortDefinition> Interface { get; } = [];
 
+    /// <summary>What the graph itself is set to, rather than any node in it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The home a per-graph number had nowhere to live in —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a>.</b> Doc 48 § D8 opens
+    ///         with "<b>the graph declares a base resolution</b>", and a model carried a name, nodes,
+    ///         edges, groups, comments and an interface — nothing a pair of numbers fits in. So a
+    ///         texture graph's base resolution and its <em>seed</em> were properties of the compiler,
+    ///         set by whichever host constructed it, and a saved file came back at whatever default
+    ///         that host happened to use. § D5 is explicit that a seed which is not in the graph is a
+    ///         seed that changes between machines, which is the same sentence from the other side.
+    ///     </para>
+    ///     <para>
+    ///         <b>String-keyed and general, which is the shape #719 weighed against a
+    ///         <c>Graph Settings</c> node.</b> A node would put the numbers on the canvas where an
+    ///         artist sees them, at the price of an invariant the model cannot enforce — nothing
+    ///         stops a second one. This is a bag; what a key <em>means</em> belongs to whichever front
+    ///         end reads it, exactly as <see cref="GraphNode.Texts" /> does one level down.
+    ///     </para>
+    ///     <para>
+    ///         Empty for the graphs that declare nothing, which is most of them. Mutating it is not
+    ///         noticed; call <see cref="Touch" /> after.
+    ///     </para>
+    /// </remarks>
+    public Dictionary<string, string> Settings { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>The knobs this graph exposes when another graph, or a bake, contains it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="Interface" />'s twin for the things that are not wired, and the second
+    ///         half of <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a>.</b> A
+    ///         published graph is a node — <see cref="SubGraphs.Definition" /> already turns the
+    ///         interface into that node's <em>ports</em> — and doc 48 § D9 says its exposed parameters
+    ///         are its <em>settings</em>. A parameter list was a property of the compiler for
+    ///         <see cref="Settings" />' reason, so a published graph's knobs did not survive a save.
+    ///     </para>
+    ///     <para>
+    ///         <b>A <see cref="SettingDefinition" /> rather than a type of its own</b>, because § D9's
+    ///         list — a name, a type, a default, a range and a group — is exactly what one carries
+    ///         since <a href="https://github.com/Rikarin/Vixen/issues/730">#730</a>. A parameter and
+    ///         the setting a containing node draws for it being one record is what stops the two
+    ///         drifting.
+    ///     </para>
+    /// </remarks>
+    public List<SettingDefinition> Parameters { get; } = [];
+
+    /// <summary>One of the graph's own settings, or the empty string.</summary>
+    /// <param name="key">Its key.</param>
+    /// <returns>What it says.</returns>
+    public string SettingOf(string key) => Settings.TryGetValue(key, out var value) ? value : "";
+
+    /// <summary>Copies everything this graph is <em>besides</em> its nodes and edges onto another.</summary>
+    /// <param name="target">The graph to copy onto. Its own lists are added to, not replaced.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="target" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Here rather than at the one caller, because
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/780">#780</a> is what the other
+    ///         arrangement costs.</b> <see cref="SubGraphs.Flatten" /> built a fresh model and copied
+    ///         <see cref="Groups" />, <see cref="Comments" /> and <see cref="Interface" /> — the
+    ///         three side tables that existed when it was written — so the two
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a> added on the same day
+    ///         were silently dropped, and a texture graph declaring 512×512 with a seed compiled at
+    ///         its host's numbers the moment it contained one sub-graph node. A list of what to copy
+    ///         that lives away from the fields will always be one behind the fields.
+    ///     </para>
+    ///     <para>
+    ///         <b>So the list is here, next to the declarations</b>, and
+    ///         <c>Tests.GraphDocumentTests</c> walks this type's own properties to say that every one
+    ///         of them is either carried by this method or exempt with a reason. Adding a side table
+    ///         and forgetting this is a red test naming the property rather than a graph that
+    ///         quietly loses it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="Nodes" /> and <see cref="Edges" /> are the deliberate exemptions</b>,
+    ///         and they are what every caller of this is <em>for</em>: an inlining rewrites node
+    ///         identities as it copies, so a method that copied them too would be
+    ///         <see cref="Add(NodeId,string,Vector2)" /> with an opinion. Nothing here raises
+    ///         <see cref="Changed" /> either — the graph being copied onto is one nothing is watching
+    ///         yet.
+    ///     </para>
+    ///     <para>
+    ///         <b>Shallow, exactly as the code it replaces was.</b> A <see cref="GraphGroup" /> and a
+    ///         <see cref="PortDefinition" /> cross as references, so the copy shares the furniture
+    ///         with the graph it came from — which is what a flattened model is, and is why nothing
+    ///         may edit one afterwards.
+    ///     </para>
+    /// </remarks>
+    internal void CopyDocumentTo(NodeGraphModel target) {
+        ArgumentNullException.ThrowIfNull(target);
+
+        target.Name = Name;
+        target.Groups.AddRange(Groups);
+        target.Comments.AddRange(Comments);
+        target.Interface.AddRange(Interface);
+        target.Parameters.AddRange(Parameters);
+
+        foreach (var (key, value) in Settings) {
+            target.Settings[key] = value;
+        }
+    }
+
     /// <summary>Raised after anything structural changes.</summary>
     /// <remarks>
     ///     What a view subscribes to. Every method on this type raises it for itself; the three
