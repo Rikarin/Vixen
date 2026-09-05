@@ -297,8 +297,8 @@ public sealed class NodeSettingMember : InspectorMember {
 
         return Setting.Kind switch {
             SettingKind.Bool => Parsed(text, Setting.Default) != 0d,
-            SettingKind.Int => (int) Math.Round(Parsed(text, Setting.Default)),
-            SettingKind.Float => (float) Parsed(text, Setting.Default),
+            SettingKind.Int => (int)Math.Round(Parsed(text, Setting.Default)),
+            SettingKind.Float => (float)Parsed(text, Setting.Default),
             _ => text
         };
     }
@@ -311,7 +311,7 @@ public sealed class NodeSettingMember : InspectorMember {
     public override void SetBoxed(object owner, object? value) {
         ArgumentNullException.ThrowIfNull(owner);
 
-        ((GraphNode) owner).SetText(Setting.Name, Encode(value));
+        ((GraphNode)owner).SetText(Setting.Name, Encode(value));
         graph.Touch();
     }
 
@@ -359,7 +359,7 @@ public sealed class NodeSettingMember : InspectorMember {
             (SettingKind.Bool, IConvertible number) =>
                 number.ToDouble(CultureInfo.InvariantCulture) != 0d ? "true" : "false",
             (SettingKind.Int, IConvertible number) =>
-                ((int) Math.Round(number.ToDouble(CultureInfo.InvariantCulture)))
+                ((int)Math.Round(number.ToDouble(CultureInfo.InvariantCulture)))
                 .ToString(CultureInfo.InvariantCulture),
             (SettingKind.Float, IConvertible number) =>
                 number.ToDouble(CultureInfo.InvariantCulture).ToString("R", CultureInfo.InvariantCulture),
