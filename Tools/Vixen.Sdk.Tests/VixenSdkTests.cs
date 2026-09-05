@@ -511,16 +511,38 @@ public sealed class VixenSdkTests : IDisposable {
 
         // The build's own output is the thing under test, so it is captured whole rather than
         // sampled: a diagnostic that reached the wrong stream is a diagnostic nobody sees.
+        //
+        // ⚠ Both handlers run on thread-pool threads, and the two streams are read by two different
+        // ones, so the builder they share has to be locked. Unsynchronised, this threw
+        // `ArgumentException: Destination is too short` out of `StringBuilder.AppendLine` — a torn
+        // internal length rather than anything about the process — and xunit reported it as a
+        // CATASTROPHIC FAILURE that took the whole assembly with it. It survived because the
+        // failure is a race: it needs both streams to be producing at once, which is why it waited
+        // for a run under load to appear.
         var output = new StringBuilder();
-        process.OutputDataReceived += (_, line) => output.AppendLine(line.Data);
-        process.ErrorDataReceived += (_, line) => output.AppendLine(line.Data);
+        var guard = new Lock();
+
+        void Append(DataReceivedEventArgs line) {
+            lock (guard) {
+                output.AppendLine(line.Data);
+            }
+        }
+
+        process.OutputDataReceived += (_, line) => Append(line);
+        process.ErrorDataReceived += (_, line) => Append(line);
 
         process.Start();
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
+
+        // Parameterless, so it also waits for both readers to reach end of stream — an overload
+        // taking a timeout returns without that, and the last lines of the build would be missing
+        // from the very output this asserts on.
         process.WaitForExit();
 
-        return (process.ExitCode == 0, output.ToString());
+        lock (guard) {
+            return (process.ExitCode == 0, output.ToString());
+        }
     }
 
     static string Metadata(string key) =>
