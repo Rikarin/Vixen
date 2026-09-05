@@ -553,7 +553,6 @@ build/Build.ArchitectureRules.cs
 build/Build.Benchmark.cs
 build/Build.BrowserSmoke.cs
 build/Build.ContentBytes.cs
-build/Build.Docs.cs
 build/Build.Native.cs
 build/Build.Publish.cs
 build/Build.Release.cs
