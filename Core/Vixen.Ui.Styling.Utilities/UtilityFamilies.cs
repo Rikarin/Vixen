@@ -1911,6 +1911,40 @@ public static class UtilityFamilies {
         Translate("translate-x", UtilityComposition.TranslateX);
         Translate("translate-y", UtilityComposition.TranslateY);
 
+        // ⚠ <b>The root sets BOTH fragments, which is what makes it the root rather than a third
+        // axis.</b> `translate-4` is `translate: 1rem 1rem` in v4 — one class moving a box on the
+        // diagonal — and the only way to say that through this composition is to write both
+        // `--tw-*` names from one rule. Registering it as a single-property family beside the two
+        // axes would have made `translate-4` a `translate-x-4` with a different spelling and left
+        // the y axis at its initial, which reads as the class half-working.
+        //
+        // ⚠ Its own root and not a value on `translate-x`, and `SplitName`'s longest-prefix rule is
+        // what keeps that safe: `translate-x-4` still reaches the axis family above and `translate-4`
+        // reaches this one. `ShadowedFamilyTests` holds the rule; `rotate-z` beside `rotate` is the
+        // same arrangement two sections down.
+        Register(new Family(
+            "translate",
+            ValueKind.Size,
+            [UtilityComposition.TranslateX, UtilityComposition.TranslateY],
+            Alongside: [new UtilityDeclaration("translate", UtilityComposition.Translation())]
+        ));
+
+        // ⚠ <b>`translate-none` is REFUSED, and it is refused for a reason that was measured rather
+        // than assumed.</b> `TransformReader.Of` does read `translate: none` by name — the same
+        // `TryGet`-against-the-interned-`none` that makes `scale-none` and `rotate-none` work — so
+        // the value has a consumer and the obvious registration is `Keywords("translate",
+        // "translate", { none })`. It does not work: `Register` merges a keyword family into the
+        // functional root above, `Family.Alongside` belongs to the FAMILY and not to the value, so
+        // `translate-none` emits `translate: none` and then the assembly on the next line, and the
+        // later declaration wins. The class would resolve, pass every gate, and move nothing — which
+        // is precisely the shape of defect this whole document is about.
+        //
+        // The two ways out are both worse than the refusal. A per-value `Alongside` is a change to
+        // `Family` for one class; and emitting a zeroed fragment instead diverges from what v4 emits
+        // while the ledger's `vixen_emits` column is the thing a reader trusts. `mask-circle` and
+        // `mask-ellipse` carry the identical refusal one section up, in the same words.
+        // See `Rikarin/Vixen#268`.
+
         // ⚠ <b>A percentage, because Tailwind's scale runs in hundredths.</b> `scale-150` is one and
         // a half, not a hundred and fifty — v4 emits `scale: 150%` and CSS reads a percentage on this
         // property as a ratio. Emitting the bare count, which is what `Number` did into `--scale`,

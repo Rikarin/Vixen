@@ -376,6 +376,48 @@ public class CompositionTests {
         Assert.Equal(["--tw-translate-x: 100%", assembly], fixture.Emits("translate-x-full"));
     }
 
+    /// <summary>The bare root is BOTH axes, which is what makes it a root and not a third one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>translate-4</c> is the diagonal.</b> A root registered as a single-property
+    ///         family beside the two axes would have been <c>translate-x-4</c> under a different
+    ///         spelling, leaving y at its initial — which reads as the class half-working rather than
+    ///         as the class being absent, and is the worse of the two failures. So it writes both
+    ///         fragments from one rule and emits the same assembly its two axes do.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And <c>translate-none</c> stays refused, asserted here so the refusal is a test
+    ///         rather than a comment.</b> <c>TransformReader.Of</c> does read <c>translate: none</c>
+    ///         by name, so the value has a consumer and the registration looks obvious — but
+    ///         <c>Family.Alongside</c> belongs to the family and not to the value, so a keyword on
+    ///         this root would emit <c>translate: none</c> and then the assembly, and the later
+    ///         declaration wins. The class would resolve, pass every gate and move nothing.
+    ///         <c>mask-circle</c> carries the identical refusal. See <c>Rikarin/Vixen#268</c>.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_translate_root_moves_both_axes_and_none_stays_refused() {
+        var fixture = new UtilityFixture();
+        var assembly = $"translate: {UtilityComposition.Translation()}";
+
+        Assert.Equal(["--tw-translate-x: 16px", "--tw-translate-y: 16px", assembly], fixture.Emits("translate-4"));
+
+        // The negation reaches both fragments and leaves the assembly alone, for the axis families'
+        // reason: `Alongside` is appended after negation.
+        Assert.Equal(["--tw-translate-x: -16px", "--tw-translate-y: -16px", assembly], fixture.Emits("-translate-4"));
+
+        // A percentage on both axes, which is the whole point of `Size` over `Spacing` here.
+        Assert.Equal(["--tw-translate-x: 100%", "--tw-translate-y: 100%", assembly], fixture.Emits("translate-full"));
+
+        // ⚠ And the root does not shadow its own axes: longest-prefix splitting keeps `translate-x-4`
+        // reaching the axis family, which is the rule `ShadowedFamilyTests` holds for `rotate-z`.
+        Assert.Equal(["--tw-translate-x: 16px", assembly], fixture.Emits("translate-x-4"));
+
+        // ⚠ Refused, not silently assembled. A `translate: none` that the assembly overwrites on the
+        // next line is worse than no class at all, because it looks like a class that works.
+        Assert.Null(fixture.Declarations("translate-none"));
+    }
+
     /// <summary>Composed families still behave like utilities everywhere else.</summary>
     [Fact]
     public void A_composed_family_is_still_an_ordinary_utility() {
