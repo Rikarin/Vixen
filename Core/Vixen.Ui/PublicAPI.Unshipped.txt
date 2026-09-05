@@ -289,6 +289,7 @@ Vixen.Ui.DecorationBar.Thickness.get -> float
 Vixen.Ui.DecorationBar.Thickness.init -> float
 Vixen.Ui.DecorationBar.Top.get -> float
 Vixen.Ui.DecorationBar.Top.init -> float
+Vixen.Ui.DocumentCommands -> static class
 Vixen.Ui.DragEvent -> sealed class
 Vixen.Ui.DragEvent : Vixen.Ui.UiEvent
 Vixen.Ui.DragEvent.DeltaX.get -> float
@@ -499,6 +500,17 @@ Vixen.Ui.DropEvent.X.get -> float
 Vixen.Ui.DropEvent.X.init -> float
 Vixen.Ui.DropEvent.Y.get -> float
 Vixen.Ui.DropEvent.Y.init -> float
+Vixen.Ui.EditableDocument -> abstract class
+Vixen.Ui.EditableDocument : Vixen.Ui.IEditableDocument
+Vixen.Ui.EditableDocument.EditableDocument(string name, string? location = null) -> void
+Vixen.Ui.EditableDocument.IsDirty.get -> Vixen.Ui.Reactive.IReadOnlySignal<bool>
+Vixen.Ui.EditableDocument.Location.get -> Vixen.Ui.Reactive.IReadOnlySignal<string?>
+Vixen.Ui.EditableDocument.MarkClean() -> void
+Vixen.Ui.EditableDocument.MarkDirty() -> void
+Vixen.Ui.EditableDocument.Name.get -> Vixen.Ui.Reactive.IReadOnlySignal<string>
+Vixen.Ui.EditableDocument.Rename(string newName, string? newLocation = null) -> void
+Vixen.Ui.EditableDocument.Revert() -> bool
+Vixen.Ui.EditableDocument.Save() -> bool
 Vixen.Ui.EditingCommand -> enum : byte
 Vixen.Ui.EditingCommand.Cancel = 27 -> Vixen.Ui.EditingCommand
 Vixen.Ui.EditingCommand.Copy = 23 -> Vixen.Ui.EditingCommand
@@ -635,6 +647,12 @@ Vixen.Ui.GradientStops.Via.get -> float
 Vixen.Ui.GradientStops.Via.init -> float
 Vixen.Ui.ICommandResponder -> interface
 Vixen.Ui.ICommandResponder.TryGetCommandHandler(string id, out Vixen.Ui.CommandHandler handler) -> bool
+Vixen.Ui.IEditableDocument -> interface
+Vixen.Ui.IEditableDocument.IsDirty.get -> Vixen.Ui.Reactive.IReadOnlySignal<bool>
+Vixen.Ui.IEditableDocument.Location.get -> Vixen.Ui.Reactive.IReadOnlySignal<string?>
+Vixen.Ui.IEditableDocument.Name.get -> Vixen.Ui.Reactive.IReadOnlySignal<string>
+Vixen.Ui.IEditableDocument.Revert() -> bool
+Vixen.Ui.IEditableDocument.Save() -> bool
 Vixen.Ui.ITextInputTarget -> interface
 Vixen.Ui.ITextInputTarget.AcceptsTextInput.get -> bool
 Vixen.Ui.ITextInputTarget.CaretArea.get -> Vixen.Core.Mathematics.Rectangle
@@ -1369,6 +1387,8 @@ Vixen.Ui.UiDocument.Dispose() -> void
 Vixen.Ui.UiDocument.Draw() -> bool
 Vixen.Ui.UiDocument.Draw(Vixen.Ui.UiSurface surface) -> bool
 Vixen.Ui.UiDocument.Drawing.get -> Vixen.Ui.DrawList
+Vixen.Ui.UiDocument.EditedDocument.get -> Vixen.Ui.IEditableDocument?
+Vixen.Ui.UiDocument.EditedDocument.set -> Vixen.Ui.IEditableDocument?
 Vixen.Ui.UiDocument.EditingKeymap.get -> Vixen.Ui.EditingKeymap
 Vixen.Ui.UiDocument.EditingKeymap.set -> Vixen.Ui.EditingKeymap
 Vixen.Ui.UiDocument.Effects.get -> Vixen.Ui.Reactive.EffectScheduler
@@ -1489,8 +1509,11 @@ Vixen.Ui.UiElement.CommandScope.set -> string?
 Vixen.Ui.UiElement.DeclaredAccessibleState.get -> Vixen.Ui.AccessibleStates
 Vixen.Ui.UiElement.DeclaredAccessibleState.set -> Vixen.Ui.AccessibleStates
 Vixen.Ui.UiElement.Document.get -> Vixen.Ui.UiDocument
+Vixen.Ui.UiElement.EditedDocument.get -> Vixen.Ui.IEditableDocument?
+Vixen.Ui.UiElement.EditedDocument.set -> Vixen.Ui.IEditableDocument?
 Vixen.Ui.UiElement.EffectiveCommandScope.get -> string?
 Vixen.Ui.UiElement.Ellipsized(float contentWidth) -> Vixen.Ui.TextLayout?
+Vixen.Ui.UiElement.FindEditedDocument() -> Vixen.Ui.IEditableDocument?
 Vixen.Ui.UiElement.FindUndoManager() -> Vixen.Ui.IUndoManager?
 Vixen.Ui.UiElement.Focusable.get -> bool
 Vixen.Ui.UiElement.Focusable.set -> bool
@@ -1625,6 +1648,7 @@ Vixen.Ui.UiWindowRequest.X.get -> float
 Vixen.Ui.UiWindowRequest.X.init -> float
 Vixen.Ui.UiWindowRequest.Y.get -> float
 Vixen.Ui.UiWindowRequest.Y.init -> float
+Vixen.Ui.UiWindowTitle -> static class
 Vixen.Ui.UndoManager -> sealed class
 Vixen.Ui.UndoManager : Vixen.Ui.IUndoManager
 Vixen.Ui.UndoManager.CanRedo.get -> bool
@@ -1657,10 +1681,14 @@ Vixen.Ui.WheelEvent.X.init -> float
 Vixen.Ui.WheelEvent.Y.get -> float
 Vixen.Ui.WheelEvent.Y.init -> float
 abstract Vixen.Ui.Composition.Component.Build(Vixen.Ui.Composition.BuildContext ctx) -> void
+abstract Vixen.Ui.EditableDocument.OnRevert() -> bool
+abstract Vixen.Ui.EditableDocument.OnSave() -> bool
 const Vixen.Ui.AccessKey.Marker = '_' -> char
 const Vixen.Ui.Composition.BuildContext.DefaultSlot = "default" -> string
 const Vixen.Ui.DataFormats.FileUrl = "public.file-url" -> string
 const Vixen.Ui.DataFormats.Text = "public.utf8-plain-text" -> string
+const Vixen.Ui.DocumentCommands.Revert = "document.revert" -> string
+const Vixen.Ui.DocumentCommands.Save = "document.save" -> string
 const Vixen.Ui.FontRegistry.BoldWeight = 700 -> int
 const Vixen.Ui.FontRegistry.RegularWeight = 400 -> int
 const Vixen.Ui.LengthContext.InitialFontSize = 16 -> float
@@ -1710,6 +1738,7 @@ static Vixen.Ui.Composition.ScopedStyles.Scope(string css, string scope) -> stri
 static Vixen.Ui.Composition.ScopedStyles.ScopeOf(System.Type component) -> string
 static Vixen.Ui.CornerRadii.Circular(float topLeft, float topRight, float bottomRight, float bottomLeft) -> Vixen.Ui.CornerRadii
 static Vixen.Ui.CornerRadii.Uniform(float radius) -> Vixen.Ui.CornerRadii
+static Vixen.Ui.DocumentCommands.Install(Vixen.Ui.UiElement element) -> void
 static Vixen.Ui.DrawBatcher.Build(System.Collections.Generic.IReadOnlyList<Vixen.Ui.DrawCommand> commands, System.Collections.Generic.List<Vixen.Ui.DrawBatch> into) -> void
 static Vixen.Ui.EditingCommands.Current.get -> Vixen.Ui.EditingKeymap
 static Vixen.Ui.EditingCommands.Id(Vixen.Ui.EditingCommand command) -> string?
@@ -1756,6 +1785,7 @@ static Vixen.Ui.UiPropertyRegistry.Of(System.Type ownerType) -> System.Collectio
 static Vixen.Ui.UiPropertyRegistry.Register(string name, System.Type ownerType, System.Type valueType, bool inherits, System.Func<Vixen.Ui.UiElement, object?> get, System.Action<Vixen.Ui.UiElement, object?> set) -> Vixen.Ui.UiPropertyKey
 static Vixen.Ui.UiPropertyRegistry.TryFind(System.Type ownerType, string name, out Vixen.Ui.UiPropertyKey? key) -> bool
 static Vixen.Ui.UiPropertyRegistry.TryFindFor(Vixen.Ui.UiElement element, string name, out Vixen.Ui.UiPropertyKey? key) -> bool
+static Vixen.Ui.UiWindowTitle.Bind(Vixen.Ui.IUiWindow window, Vixen.Ui.IEditableDocument document, Vixen.Ui.Reactive.EffectScheduler? scheduler = null, string dirtyMarker = "• ") -> System.IDisposable
 static readonly Vixen.Ui.LayoutStyleBuilder.CssInitial -> Vixen.Ui.Layout.LayoutStyle
 static readonly Vixen.Ui.Rendering.UiColorMatrix.Luminance -> Vixen.Core.Mathematics.Vector3
 static readonly Vixen.Ui.UiElement.AccessKeyProperty -> Vixen.Ui.UiPropertyKey

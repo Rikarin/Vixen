@@ -790,6 +790,11 @@ public sealed partial class UiDocument : IDisposable {
         Gestures.Forget(element);
         ForgetHover(element);
         ForgetDropTarget(element);
+
+        // An effect is held by every signal it read, so dropping the last reference to the element
+        // does not stop it — a removed panel would keep invalidating the route on every keystroke in
+        // a document nothing is showing any more.
+        element.ForgetDocumentCommands();
     }
 
     /// <summary>Tells a subtree it is going, deepest last.</summary>
