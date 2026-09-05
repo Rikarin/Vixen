@@ -3,7 +3,6 @@
 
 using System.IO.Compression;
 using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
 using Nuke.Common;
 using Nuke.Common.IO;
 using Nuke.Common.ProjectModel;
@@ -104,7 +103,11 @@ partial class Build : NukeBuild {
     ///     <para>
     ///         The second multiplier is inside each test host and this parameter cannot reach it:
     ///         see <c>xunit.runner.json</c> at the repository root, which caps xunit's own thread
-    ///         pool per assembly.
+    ///         pool per assembly. ⚠ It splits local from CI the same way this parameter does, and
+    ///         for a sharper reason — a multiplier-style value truncates, so the <c>0.5x</c> that is
+    ///         five threads here is <em>one</em> on the three-core <c>macos-14</c> runner.
+    ///         <c>Directory.Build.props</c> therefore links <c>xunit.runner.ci.json</c> instead
+    ///         under <c>GITHUB_ACTIONS</c>.
     ///     </para>
     /// </remarks>
     [Parameter("How many projects compile or test assemblies run at once — 0 is unbounded (the CI default)")]
@@ -651,14 +654,6 @@ partial class Build : NukeBuild {
 
     AbsolutePath AotProbeProject => RootDirectory / "Tools" / "Vixen.AotProbe" / "Vixen.AotProbe.csproj";
 
-    /// <summary>One of the probe's project references, whose last path segment names the assembly.</summary>
-    [GeneratedRegex("""<ProjectReference\s+Include="(?<path>[^"]+)"\s*/>""")]
-    private static partial Regex ProbeReference();
-
-    /// <summary>One of the probe's rooted assemblies, named directly.</summary>
-    [GeneratedRegex("""<TrimmerRootAssembly\s+Include="(?<name>[^"]+)"\s*/>""")]
-    private static partial Regex ProbeRoot();
-
     /// <summary>
     ///     Fails unless what the publish wrote is a native binary with no managed assemblies beside
     ///     it, and unless that binary is large enough to be the rooted probe rather than the
@@ -735,28 +730,27 @@ partial class Build : NukeBuild {
     ///     reach, which the probe's README says proves nothing about the rest of it. The gate would
     ///     stay green and the coverage it claims would be false. Checked before the publish rather
     ///     than after, because it costs milliseconds and the publish costs minutes.
+    ///     <para>
+    ///         ⚠ The lists come from <see cref="AotProbeProjectFile" />, which reads the file as XML.
+    ///         This used to be a regex over the text and therefore counted a commented-out root as a
+    ///         root — the symmetric case (a reference and its root commented out together) stayed
+    ///         green and harmless, and commenting out only the root left an assembly covered by
+    ///         nothing while this said it roots all of them.
+    ///     </para>
     /// </remarks>
     void AssertProbeRootsEveryAssemblyItReferences(AbsolutePath probe, int atLeast) {
-        var project = probe.ReadAllText();
+        var referenced = AotProbeProjectFile.ReferencedAssemblies(probe).ToHashSet(StringComparer.Ordinal);
+        var rooted = AotProbeProjectFile.RootedAssemblies(probe).ToHashSet(StringComparer.Ordinal);
 
-        var referenced = ProbeReference()
-            .Matches(project)
-            .Select(match => match.Groups["path"].Value.Split('\\', '/')[^1].Replace(".csproj", string.Empty))
-            .ToHashSet(StringComparer.Ordinal);
-
-        var rooted = ProbeRoot()
-            .Matches(project)
-            .Select(match => match.Groups["name"].Value)
-            .ToHashSet(StringComparer.Ordinal);
-
-        // The floor is the same instrument-check the licence and attribution gates carry: a regex
+        // The floor is the same instrument-check the licence and attribution gates carry: a reader
         // that stopped matching how the project is written would otherwise compare two empty sets
         // and call them equal, which is the failure mode where a gate reports success on the day it
         // does not run.
         Assert.True(
             referenced.Count >= atLeast,
-            $"found only {referenced.Count} ProjectReference entries in {probe.Name}, which "
-            + "is too few to be the whole file — the regex no longer matches how they are written."
+            $"found only {referenced.Count} unconditional ProjectReference elements in {probe.Name}, "
+            + "which is too few to be the whole file — either they are being written some other way "
+            + "now, or they have been commented out or moved under a Condition."
         );
 
         var problems = referenced
@@ -803,10 +797,15 @@ partial class Build : NukeBuild {
     ///         enforced by the csproj: on iOS it is the <em>only</em> thing enforced, and it is
     ///         three lines somebody can delete while the publish goes on succeeding.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is why this asks <see cref="AotProbeProjectFile" /> rather than the
+    ///         string.</b> It used to be <c>project.Contains("&lt;PublishAot&gt;true&lt;/PublishAot&gt;")</c>,
+    ///         and a commented-out declaration contains that substring — so the one edit somebody
+    ///         makes while debugging a probe was the one edit this could not see, on the target where
+    ///         it is the only check there is.
+    ///     </para>
     /// </remarks>
     void AssertProbePublishesAheadOfTime(AbsolutePath probe) {
-        var project = probe.ReadAllText();
-
         var required = new (string Property, string Value, string Why)[] {
             ("PublishAot", "true", "the publish is a framework-dependent one and ILC never runs"),
             ("TreatWarningsAsErrors", "true", "a C# warning no longer fails the publish"),
@@ -815,7 +814,7 @@ partial class Build : NukeBuild {
         };
 
         var missing = required
-            .Where(entry => !project.Contains($"<{entry.Property}>{entry.Value}</{entry.Property}>", StringComparison.Ordinal))
+            .Where(entry => !AotProbeProjectFile.DeclaresProperty(probe, entry.Property, entry.Value))
             .Select(entry => $"{probe.Name} no longer declares {entry.Property}={entry.Value}, so {entry.Why}.")
             .ToList();
 

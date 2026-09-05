@@ -39,9 +39,12 @@
 #
 # ⚠ And the order the tooling imposes is the dangerous one: `Vixen.ApiCheck --update` writes the
 # baseline beside the project, and Build.Api.cs's glob is a separate edit. A baseline added
-# without the glob is read by CheckDocsCoverage and NOT by CheckApi, while ApiCoverageTests —
-# which decides "covered" by the presence of the file — starts reporting it as covered and
-# demands the line here be deleted. That is #809.
+# without the glob is read by CheckDocsCoverage and NOT by CheckApi — that half is still true
+# and is a reason to make both edits in one commit. What is no longer true is the rest of it:
+# ApiCoverageTests used to decide "covered" by the presence of the file alone, so it reported
+# such a project as covered and demanded the line here be deleted. It now requires the glob to
+# match as well, and EveryBaselineSitsWhereCheckApiLooks names a baseline the glob does not
+# reach instead of hiding it. That was #809.
 #
 # Reason tokens:
 #

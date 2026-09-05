@@ -25,4 +25,15 @@
     <ItemGroup>
         <ProjectReference Include="..\Vixen.ApiCheck\Vixen.ApiCheck.csproj" />
     </ItemGroup>
+
+    <!--
+        ⚠ The build's own AOT-probe reader, compiled in rather than referenced. `build/_build.csproj`
+        is not in Vixen.slnx and nothing in the tree tests it, so its two probe checks — which are
+        the *only* enforcement CheckAotIos has — had no fixture at all until this. The file is
+        dependency-free on purpose so that linking it here costs nothing and cannot drift: this is
+        the same source the gate runs, not a copy of it.
+    -->
+    <ItemGroup>
+        <Compile Include="..\..\build\AotProbeProjectFile.cs" Link="AotProbeProjectFile.cs" />
+    </ItemGroup>
 </Project>

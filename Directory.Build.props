@@ -226,12 +226,51 @@
     being the cap multiplied by ten. Re-runnable by anyone holding that results
     directory, which is the point of stating it this way rather than in seconds
     off a stopwatch on a machine whose other load nobody recorded.
+
+    ⚠ **A multiplier truncates, and on a small machine it truncates to one.**
+    xunit computes a multiplier-style value as `(int)(m * ProcessorCount)` —
+    a decimal-to-int cast, so it rounds toward zero and never up
+    (`ConfigReader_Json`, xunit.v3.runner.common 3.2.2). Ten cores give the five
+    that was measured; four give two; **three give one**, which is not "half the
+    pool" but collection parallelism switched off. And one core gives zero, which
+    `MaxParallelThreadsOrDefault` reads as "unset" and answers with the processor
+    count — so the cap silently stops capping at exactly the size where it would
+    matter most.
+
+    ⚠ That is not hypothetical arithmetic, because `macos-14` is a **three-core**
+    M1 runner (`ubuntu-latest` and `windows-latest` are four). A single committed
+    file applies on CI exactly as it does locally, so `0.5x` everywhere means the
+    macOS leg runs every one of the 178 assemblies with a one-thread collection
+    pool. The number bounding a laptop is the wrong number for a runner that has
+    the machine to itself, and this is the same split `Workers` already makes
+    (four locally, unbounded in CI — build/Build.cs).
+
+    So the file is chosen rather than fixed: `1.0x` in CI, which is what CI ran at
+    for its whole history before the cap landed, and the measured `0.5x`
+    everywhere else. `GITHUB_ACTIONS` rather than `CI` because the latter is
+    exported by enough local tooling that a developer could lose the cap without
+    noticing, and losing it is the failure this whole block exists to prevent.
+    `Tools/Vixen.ApiCheck.Tests/TestParallelismTests.cs` holds both files to the
+    truncation rule so neither can quietly become a one-thread pool again.
     ============================================================================
   -->
+  <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
+    <VixenXunitRunnerConfig Condition="'$(GITHUB_ACTIONS)' == 'true'">xunit.runner.ci.json</VixenXunitRunnerConfig>
+    <VixenXunitRunnerConfig Condition="'$(VixenXunitRunnerConfig)' == ''">xunit.runner.json</VixenXunitRunnerConfig>
+  </PropertyGroup>
+
   <ItemGroup Condition="'$(IsTestProject)' == 'true'">
-    <None Include="$(MSBuildThisFileDirectory)xunit.runner.json"
+    <!--
+      ⚠ `Always` rather than `PreserveNewest`, and the difference is only visible
+      now that there are two candidate sources for one output name. `PreserveNewest`
+      compares timestamps, and the file that loses the comparison is the one that
+      has been sitting in the checkout unmodified — so switching back from the CI
+      configuration leaves the CI configuration in the output directory and nothing
+      says so. One hundred bytes per test project per build buys that away.
+    -->
+    <None Include="$(MSBuildThisFileDirectory)$(VixenXunitRunnerConfig)"
           Link="xunit.runner.json"
-          CopyToOutputDirectory="PreserveNewest"
+          CopyToOutputDirectory="Always"
           Visible="false" />
   </ItemGroup>
 

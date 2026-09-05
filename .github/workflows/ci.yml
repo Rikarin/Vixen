@@ -269,8 +269,15 @@ jobs:
       # bundle. A comparison that can only say "two hashes differ" sends whoever reads it back to CI
       # to get the files; shipping them costs nothing and is the difference between a report and a
       # lead.
+      #
+      # ⚠ No condition, deliberately, and it used to be `always()`. `if-no-files-found: error` is
+      # right and is the point — an upload that silently ships nothing is how the `content-bytes`
+      # job below ends up comparing nothing — but an `always()` upload of a file whose producer is
+      # not `always()` promises a file that cannot exist. A failing `Test` skipped the step above,
+      # left this one running, and turned one red step into three. Both halves are `success()` now,
+      # so a manifest missing after a step that ran is still a hard error and a manifest missing
+      # after a step that did not run is not a failure at all.
       - name: Upload the content manifest
-        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: content-bytes-${{ matrix.os }}
@@ -296,8 +303,9 @@ jobs:
         run: ./build.sh RemeshBytes --configuration Release
         shell: bash
 
+      # Unconditioned for the same reason as the content manifest above: the producer is not
+      # `always()`, so this must not be either.
       - name: Upload the remesh manifest
-        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: remesh-bytes-${{ matrix.os }}

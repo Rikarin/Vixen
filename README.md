@@ -43,6 +43,15 @@ whatever the arithmetic says: `Vixen.Editor.App.Tests` disables collection paral
 a real data race on the process-wide `Strings` signal, so neither multiplier can touch the 382
 seconds it contributes.
 
+⚠ **A multiplier truncates, so `0.5x` is the wrong value for a small machine and CI runs on small
+machines.** xunit computes it as `(int)(m × ProcessorCount)`, a cast that rounds toward zero: ten
+cores give the five that was measured, four give two, and **three give one** — not a halved pool but
+collection parallelism switched off. `macos-14` is a three-core M1 runner. So the file is chosen
+rather than fixed: `xunit.runner.ci.json` (`1.0x`, which is what CI ran at for its whole history
+before the cap existed) under `GITHUB_ACTIONS`, and the measured `xunit.runner.json` everywhere else.
+`Tools/Vixen.ApiCheck.Tests/TestParallelismTests.cs` holds both to that arithmetic, and checks the
+copy beside its own assembly — which is the only evidence anywhere that the link works at all.
+
 Agent worktrees under `.claude/worktrees` are never cleaned up by anything, and each carries its own
 `bin`/`obj` — about 25 GB apiece once the solution has been built in both configurations.
 `./build.sh PruneWorktrees` lists which of them are merged into master, clean, unlocked and unwritten

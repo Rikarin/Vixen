@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.IO.Enumeration;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Xunit;
 
@@ -23,6 +25,15 @@ namespace Vixen.ApiCheck.Tests;
 ///         nobody fails here rather than shipping quietly; a line for a project that has since been
 ///         covered, stopped packing or been deleted fails too, because a list that is allowed to
 ///         rot is one more instrument reporting success.
+///     </para>
+///     <para>
+///         ⚠ <b>"Covered" has two halves and they are not the same question.</b> <c>CheckApi</c>'s
+///         subject is the glob in <c>ApiCheckedProjects()</c>; the <c>PublicAPI.Shipped.txt</c>
+///         beside a project is only what it compares against once the glob has put the assembly on
+///         the list. Reading coverage from the file alone — which this did — reports an assembly
+///         the target has never heard of as covered, and that is not a hypothetical ordering:
+///         <c>Vixen.ApiCheck --update</c> writes the baseline and nothing writes the glob, so
+///         whoever acts on #641 or #749 gets the file first.
 ///     </para>
 ///     <para>
 ///         ⚠ The subject is <c>Vixen.slnx</c> rather than a glob over the directory tree, and that
@@ -71,7 +82,10 @@ public sealed class ApiCoverageTests {
             } else if (!packable.Contains(project)) {
                 stale.Add($"{project}: does not pack, or is not in Vixen.slnx — nothing was skipped, so delete the line.");
             } else if (IsChecked(project)) {
-                stale.Add($"{project}: has a PublicAPI.Shipped.txt, so CheckApi does read it now — delete the line.");
+                stale.Add(
+                    $"{project}: has a PublicAPI.Shipped.txt *and* is matched by Build.Api.cs's glob, "
+                    + "so CheckApi does read it now — delete the line."
+                );
             } else if (!Reasons.Contains(reason, StringComparer.Ordinal)) {
                 stale.Add($"{project}: `{reason}` is not one of the reasons the file's header defines.");
             }
@@ -103,13 +117,117 @@ public sealed class ApiCoverageTests {
             );
 
     /// <summary>
-    ///     Coverage is read from the baseline beside the project rather than from a second copy of
-    ///     <c>Build.Api.cs</c>'s glob — the file is what the gate compares against, and a
-    ///     re-implementation of the glob would be the thing most likely to drift out from under
-    ///     this test.
+    ///     ⚠ A baseline the glob does not reach is read by nobody, so the two definitions of
+    ///     "covered" must both hold — and the disagreement is reported in its own test.
     /// </summary>
+    [Fact]
+    public void EveryBaselineSitsWhereCheckApiLooks() {
+        var patterns = CheckApiGlobs();
+
+        var unreachable = PackableProjects()
+            .Where(HasBaseline)
+            .Where(project => !patterns.Any(pattern => MatchesGlob(pattern, project)))
+            .OrderBy(project => project, StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(
+            unreachable.Count == 0,
+            "These projects have a PublicAPI.Shipped.txt and CheckApi's glob in build/Build.Api.cs "
+            + "does not match them, so nothing compares the baseline with anything and the gate "
+            + "still prints success. `Vixen.ApiCheck --update` writes the baseline; extending "
+            + "ApiCheckedProjects() is the other half of the same commit.\n  "
+            + string.Join("\n  ", unreachable)
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ Both halves, because they are different questions and the tree can answer them
+    ///     differently. <c>CheckApi</c>'s subject is the glob in <c>ApiCheckedProjects()</c>; the
+    ///     file beside the project is only what it compares against once it has decided to look. A
+    ///     baseline written without extending the glob — which is the order the tooling imposes,
+    ///     since <c>--update</c> writes the file and nothing writes the glob — used to read as
+    ///     covered here and made <see cref="AWrittenDownProjectStillPacksAndIsStillUnchecked" />
+    ///     demand the deletion of the only line still recording the truth.
+    /// </summary>
+    /// <remarks>
+    ///     The other direction needs no test: a project the glob matches with no baseline reads as
+    ///     an empty baseline (<c>ApiBaseline.Read</c>), so every public type in it is an unapproved
+    ///     addition and <c>CheckApi</c> itself fails.
+    /// </remarks>
     static bool IsChecked(string project) =>
+        HasBaseline(project) && CheckApiGlobs().Any(pattern => MatchesGlob(pattern, project));
+
+    static bool HasBaseline(string project) =>
         File.Exists(Path.Combine(RepositoryRoot(), Path.GetDirectoryName(project)!, "PublicAPI.Shipped.txt"));
+
+    /// <summary>
+    ///     The glob patterns <c>CheckApi</c> actually passes, read out of <c>build/Build.Api.cs</c>
+    ///     rather than copied into this file.
+    /// </summary>
+    /// <remarks>
+    ///     A copy is the thing most likely to drift, and the alternative the issue that prompted
+    ///     this weighed — having the build emit its subject list as a committed artefact — costs a
+    ///     gate run to regenerate. Reading the source is the cheap middle: it cannot silently
+    ///     disagree with the target, and it fails loudly rather than matching nothing if the call
+    ///     is ever rewritten into a shape this does not recognise.
+    /// </remarks>
+    static IReadOnlyList<string> CheckApiGlobs() {
+        var source = File.ReadAllText(Path.Combine(RepositoryRoot(), "build", "Build.Api.cs"));
+        var call = Regex.Match(source, @"\.GlobFiles\(\s*(?<arguments>[^)]*)\)", RegexOptions.Singleline);
+
+        Assert.True(
+            call.Success,
+            "build/Build.Api.cs has no .GlobFiles( … ) call, so ApiCheckedProjects() no longer says "
+            + "what CheckApi's subject is in a shape this test can read. Teach it the new shape "
+            + "rather than deleting it — a coverage test that matches nothing passes."
+        );
+
+        var patterns = Regex.Matches(call.Groups["arguments"].Value, "\"(?<pattern>[^\"]+)\"")
+            .Select(match => match.Groups["pattern"].Value)
+            .ToList();
+
+        Assert.NotEmpty(patterns);
+
+        return patterns;
+    }
+
+    /// <summary>
+    ///     Segment-wise glob matching for the shapes <c>ApiCheckedProjects()</c> uses:
+    ///     <c>**</c> for any run of directories, <c>*</c> and <c>?</c> inside one segment.
+    /// </summary>
+    /// <remarks>
+    ///     <c>**</c> matches zero segments here. Whether Nuke's own matcher agrees is not something
+    ///     this tree can tell, because no project sits directly in <c>Core/</c> or any other globbed
+    ///     root — so the two can only differ about a path that does not exist.
+    /// </remarks>
+    static bool MatchesGlob(string pattern, string path) =>
+        MatchesFrom(pattern.Split('/'), 0, path.Split('/'), 0);
+
+    static bool MatchesFrom(string[] pattern, int patternIndex, string[] path, int pathIndex) {
+        while (true) {
+            if (patternIndex == pattern.Length) {
+                return pathIndex == path.Length;
+            }
+
+            if (pattern[patternIndex] == "**") {
+                for (var skipped = pathIndex; skipped <= path.Length; skipped++) {
+                    if (MatchesFrom(pattern, patternIndex + 1, path, skipped)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            if (pathIndex == path.Length
+                || !FileSystemName.MatchesSimpleExpression(pattern[patternIndex], path[pathIndex], ignoreCase: false)) {
+                return false;
+            }
+
+            patternIndex++;
+            pathIndex++;
+        }
+    }
 
     static Dictionary<string, string> Ledger() {
         var entries = new Dictionary<string, string>(StringComparer.Ordinal);
