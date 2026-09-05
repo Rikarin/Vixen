@@ -399,7 +399,12 @@ field-placeholder { position: absolute; left: 8px; color: var(--text-muted); dis
    field the project browser gives it. */
 search-box field-placeholder { left: 28px; }
 
-search-box icon { width: 14px; height: 14px; color: var(--text-muted); }
+/* ⚠ `flex-shrink: 0` for the reason the toggle indicators above carry it, and this one is
+   the harder failure to read: the magnifying glass is the only thing that says the box is a
+   search box, the placeholder beside it is absolutely positioned and therefore weightless,
+   so a narrow row squeezed the glass to `0×14` and left an empty rounded rectangle. Measured
+   in the editor's outliner, whose filter row is 161 px holding a 132 px sort dropdown. */
+search-box icon { width: 14px; height: 14px; flex-shrink: 0; color: var(--text-muted); }
 search-box.empty icon-button { display: none; }
 
 /* ── Virtualisation ─────────────────────────────────────────────────── */
@@ -770,7 +775,15 @@ select, multi-select, combo-box {
    control a height at all. */
 select-field { flex-grow: 1; min-height: 1.2em; }
 select.empty select-field, multi-select.empty select-field { color: var(--text-muted); }
-select icon, multi-select icon, combo-box icon { width: 12px; height: 12px; color: var(--text-muted); }
+/* ⚠ `flex-shrink: 0` on the same argument as the toggle indicators: the chevron is square by
+   construction and it shares a row with a field that will take everything. Measured in a 132 px
+   outliner dropdown after #628 — `width: 12px` came back as a 10×12 arrow. */
+select icon, multi-select icon, combo-box icon {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+    color: var(--text-muted);
+}
 
 popover.select-list { flex-direction: column; padding: 4px; min-width: 120px; }
 combo-box .combo-editor { border-width: 0px; padding: 0px; flex-grow: 1; background-color: transparent; }
