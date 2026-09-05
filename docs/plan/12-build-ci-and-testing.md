@@ -370,12 +370,12 @@ afford.
 
 ### Test infrastructure worth building early
 
-⚠️ **Four of the five are still unwritten, and the sequencing this section used to state is refuted by
+⚠️ **Three of the five are still unwritten, and the sequencing this section used to state is refuted by
 the tree.** `TestApp` was specified as a Phase 1 item that *"every later phase depends on"*. Every
 later phase shipped without it: 178 test projects, twenty-three suites of allocation gates and the golden
-suite exist, and nothing anywhere names the type. So the dependency was never real — what these four
-would buy is arrangement code deleted, not tests made possible, and they are worth building on that
-argument rather than on a blocking one. They are tracked as
+suite exist, and nothing anywhere names the type. So the dependency was never real — what the
+remaining three would buy is arrangement code deleted, not tests made possible, and they are worth
+building on that argument rather than on a blocking one. They are tracked as
 [#336](https://github.com/Rikarin/Vixen/issues/336).
 
 - **`TestApp`** — an in-process engine host with the Null backend, an in-memory VFS, a fake clock, and a
@@ -385,11 +385,23 @@ argument rather than on a blocking one. They are tracked as
   the same failure as `--vixen-capture`'s, one layer up. `Vixen.App.Hosting`'s `AppBuilder` is the
   precedent to copy: an `AppBuilder` with no backend installed **refuses to build, by name**, rather
   than falling back to a headless one.
-- **`RecordingBackend`** — the Null backend's structured command log with a fluent assertion API
-  (`log.ShouldContainDrawIndexed(count: 36).AfterBinding(pipeline: "Opaque"))`. ⚠️ The log itself is
-  built and heavily used — `Vixen.Graphics.Null` has `CommandRecorder` and `RecordedCommand`, and
-  sixty-nine test files read them. What is missing is only the assertion vocabulary, so each of those
-  sixty-nine spells out its own LINQ over the command list.
+- **`RecordingBackend`** — ✅ the Null backend's structured command log with a fluent assertion API,
+  in [`Testing/RecordingBackend.cs`](../../Testing/RecordingBackend.cs), linked into a test project
+  the way `Measured` is. ⚠️ The recording half was never missing: `Vixen.Graphics.Null` has
+  `CommandRecorder` and `RecordedCommand` and seventy-odd test files read them, so what landed is the
+  vocabulary — `log.ShouldContainDrawIndexed(36).AfterBinding(pipeline)` — and the name is the
+  document's rather than the thing's.
+
+  **Two of its rules exist because the hand-rolled form gets them wrong, and both are proved red in
+  `RecordingBackendTests`.** ⚠️ `ShouldNotContain` **fails on an empty log** rather than passing: a
+  device built without `Record = true`, or a frame that threw before it drew, satisfies every
+  `Assert.Empty(log.OfKind(…))` in a suite, which is a green report on a frame that never ran — the
+  Null-device trap one layer up. And the ordering assertions hang off a **cursor that exists only
+  because a match was found**, because the tree's usual form is
+  `stream.FindIndex(c => c.Kind == BindDescriptorSet) < stream.FindIndex(c => c.Kind == Draw)`, and
+  `FindIndex` returns −1 for a call that never happened — so "it bound before it drew" is green when
+  nothing bound anything. `AfterBinding` asks which pipeline was *in force*, not whether the one named
+  appears somewhere earlier.
 - **`GoldenFile`** — the snapshot helper: reads/writes under `__golden__/`, honours `--update-golden`,
   produces a readable unified diff on mismatch. ⚠️ Nothing writes `__golden__/`, and the suites that
   need the behaviour each grew their own: `VIXEN_UPDATE_GOLDEN` in
