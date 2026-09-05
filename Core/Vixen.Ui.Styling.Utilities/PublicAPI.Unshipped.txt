@@ -140,6 +140,10 @@ const Vixen.Ui.Styling.Utilities.UtilityComposition.MaskRadial = "--tw-mask-radi
 const Vixen.Ui.Styling.Utilities.UtilityComposition.MaskRadialPosition = "--tw-mask-radial-position" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.MaskTo = "--tw-mask-to" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.MaskToPosition = "--tw-mask-to-position" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.NumericFigure = "--tw-numeric-figure" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.NumericFraction = "--tw-numeric-fraction" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.NumericSpacing = "--tw-numeric-spacing" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.Ordinal = "--tw-ordinal" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Prefix = "--tw-" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.RingColor = "--tw-ring-color" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.RingWidth = "--tw-ring-width" -> string
@@ -148,6 +152,7 @@ const Vixen.Ui.Styling.Utilities.UtilityComposition.Saturate = "--tw-saturate" -
 const Vixen.Ui.Styling.Utilities.UtilityComposition.ScaleX = "--tw-scale-x" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.ScaleY = "--tw-scale-y" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Sepia = "--tw-sepia" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.SlashedZero = "--tw-slashed-zero" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.TransitionDuration = "--tw-duration" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.TranslateX = "--tw-translate-x" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.TranslateY = "--tw-translate-y" -> string
@@ -170,6 +175,7 @@ static Vixen.Ui.Styling.Utilities.UtilityComposition.MaskEdgeTo(string edge) -> 
 static Vixen.Ui.Styling.Utilities.UtilityComposition.MaskEdgeToPosition(string edge) -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.MaskImage(string shape, string geometry) -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.MaskLayers() -> string
+static Vixen.Ui.Styling.Utilities.UtilityComposition.NumericFigures() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Reference(string fragment) -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Ring() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Scaling() -> string
