@@ -1488,7 +1488,7 @@ const Vixen.Ui.FontRegistry.RegularWeight = 400 -> int
 const Vixen.Ui.LengthContext.InitialFontSize = 16 -> float
 const Vixen.Ui.Rendering.PathTessellator.DefaultMiterLimit = 4 -> float
 const Vixen.Ui.Rendering.UiLayer.MaximumKernel = 64 -> int
-const Vixen.Ui.UiDiagnostics.RecordsRegions = true -> bool
+const Vixen.Ui.UiDiagnostics.RecordsRegions = false -> bool
 const Vixen.Ui.UiDocument.ContainerScopeCeiling = 4096 -> int
 const Vixen.Ui.UiDocument.SettlePasses = 3 -> int
 override Vixen.Ui.CommandHandler.Equals(object? obj) -> bool
