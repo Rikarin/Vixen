@@ -230,8 +230,39 @@ public sealed partial class UiDocument {
     ///     redundant test in a second place is worse than none, because it makes the reader believe
     ///     the rule lives in two places and keep them in step.
     /// </remarks>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>It does filter by whether the element can be seen, and for a long time it did
+    ///         not.</b> <see cref="UiElement.Focusable" /> has no relation to <c>display</c> or
+    ///         <c>visibility</c>, so a hidden control was a Tab stop: the ring landed on nothing, and
+    ///         the next keystroke went to a control the user could not find. Both of the other two
+    ///         walks over this same tree already asked — <c>AccessKeys.Collect</c> refuses a
+    ///         zero-boxed subtree and <c>Navigation.FindInDirection</c> refuses an empty
+    ///         <see cref="UiElement.Bounds" /> — so the tab order was the outlier of three rather
+    ///         than a deliberate exception.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two hiding rules are asked differently because they <i>are</i> different.</b>
+    ///         <c>display: none</c> stops the descent, because it is not inherited and takes the
+    ///         subtree with it; <c>visibility</c> is asked per element and does not stop it, because
+    ///         it is inherited and a descendant that declares <c>visible</c> is back — the same
+    ///         asymmetry the draw list and the hit test already have. Collapsing them into one test
+    ///         would make a visible island inside a hidden panel unreachable by Tab while it is
+    ///         painted and clickable.
+    ///     </para>
+    ///     <para>
+    ///         This is the general case of the one <c>ColorSwatch</c> fixed for itself by clearing
+    ///         <c>Selectable</c> on a parked chip, and it is what every other pool on this path —
+    ///         the node canvas's port editors, a parked tree row, a parked code line — needed and did
+    ///         not have.
+    ///     </para>
+    /// </remarks>
     static void Collect(UiElement element, List<UiElement> into) {
-        if (element.Focusable) {
+        if (element.IsUndisplayed) {
+            return;
+        }
+
+        if (element.Focusable && !element.IsStyleHidden) {
             into.Add(element);
         }
 
