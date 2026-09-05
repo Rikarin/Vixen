@@ -370,6 +370,128 @@ public sealed class FloatBlindSpotTests {
         AssertAt(tree, bfc, 170f, 0f);
     }
 
+    // ── avoid-floats-band-is-the-containers ─────────────────────────────────────────────────────
+
+    /// <summary>An inset container holding one float-avoiding box, with a float outside it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The inset is the whole fixture.</b> The float lives in the ROOT and the avoiding box
+    ///     lives 100 points inside it, so the exclusion list's coordinates and the container's differ
+    ///     by exactly that — which is the one thing no fixture in <c>Corpus/float.xml</c> arranges.
+    ///     The container is 200 wide inside a root of 400, so a band read in the wrong coordinates is
+    ///     wrong by 100 and a width taken from the wrong box is wrong by 200: no rounding produces
+    ///     either.
+    /// </remarks>
+    static (LayoutNodeId Root, LayoutNodeId Avoiding) InsetAvoidingFixture(
+        LayoutTree tree,
+        float floatWidth,
+        float statedWidth,
+        Direction direction
+    ) {
+        var root = Block(tree, LayoutNodeId.Invalid, 400f);
+        tree.SetDirection(root, direction);
+
+        Float(tree, root, FloatSide.Left, floatWidth, 50f);
+
+        var inset = Block(tree, root, 200f);
+        tree.SetMargin(inset, direction == Direction.Ltr ? Edge.Left : Edge.Right, StyleLength.Points(100f));
+
+        var avoiding = tree.CreateNode();
+        tree.SetDisplay(avoiding, Display.Block);
+        tree.SetOverflow(avoiding, Overflow.Hidden);
+        tree.SetDimension(avoiding, Dimension.Height, StyleLength.Points(20f));
+
+        if (!float.IsNaN(statedWidth)) {
+            tree.SetDimension(avoiding, Dimension.Width, StyleLength.Points(statedWidth));
+        }
+
+        tree.AddChild(inset, avoiding);
+
+        return (root, avoiding);
+    }
+
+    /// <summary>A box is not slid aside from a float its own container never reaches.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The defect <c>Rikarin/Vixen#781</c> names, and both numbers are wrong at once.</b> The
+    ///     float's margin box ends at context x = 50 and the container's content begins at context
+    ///     x = 100, so the box is already clear: §9.5 has nothing to say about it and §10.3.3 gives it
+    ///     the container's whole width. Reading the root's band as the container's answered x = 50 and
+    ///     a width of 350 — moved aside from a float it was never beside, and 150 points wider than the
+    ///     box that contains it.
+    ///     <para>
+    ///         The width is asserted as well as the position because either alone passes for the other
+    ///         half being broken, and the two are checked against the CONTAINER rather than against a
+    ///         constant: a box clear of every float fills its container exactly.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_float_avoiding_box_ignores_a_float_its_own_container_never_reaches() {
+        using var tree = new LayoutTree();
+        var (root, avoiding) = InsetAvoidingFixture(tree, floatWidth: 50f, statedWidth: float.NaN, Direction.Ltr);
+
+        tree.CalculateLayout(root, 400f, float.NaN, Direction.Ltr);
+
+        AssertAt(tree, avoiding, 0f, 0f);
+        Assert.Equal(200f, tree.GetWidth(avoiding), Tolerance);
+    }
+
+    /// <summary>Where the float does reach in, the box narrows to what is left of its own container.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The other half, and without it the test above is satisfied by an engine that stopped
+    ///     avoiding floats altogether.</b> A 150-point float ends 50 points inside a container whose
+    ///     content starts at 100, so §9.5 really does apply — and the answer is the container's own
+    ///     remainder. The closed form is that the box still ends where its container does:
+    ///     <c>left + width</c> is the container's content width whichever side of the clamp the band
+    ///     came from.
+    /// </remarks>
+    [Fact]
+    public void A_float_avoiding_box_narrows_to_what_is_left_of_its_own_container() {
+        using var tree = new LayoutTree();
+        var (root, avoiding) = InsetAvoidingFixture(tree, floatWidth: 150f, statedWidth: float.NaN, Direction.Ltr);
+
+        tree.CalculateLayout(root, 400f, float.NaN, Direction.Ltr);
+
+        AssertAt(tree, avoiding, 50f, 0f);
+        Assert.Equal(150f, tree.GetWidth(avoiding), Tolerance);
+        Assert.Equal(200f, tree.GetLeft(avoiding) + tree.GetWidth(avoiding), Tolerance);
+    }
+
+    /// <summary>A stated width is offered the container's band, not the root's.</summary>
+    /// <remarks>
+    ///     The stated-width path asks whether the box FITS before it decides where to put it, and it
+    ///     asked against the root's remainder — 250 points where the container has 150. A box of 180
+    ///     fits one and not the other, so this is the fixture where the two readings disagree about
+    ///     which slice the box lands in rather than only about where in the slice it goes: it belongs
+    ///     below the float, at the container's own content edge and its own full width.
+    /// </remarks>
+    [Fact]
+    public void A_stated_width_float_avoiding_box_is_asked_to_fit_its_own_container() {
+        using var tree = new LayoutTree();
+        var (root, avoiding) = InsetAvoidingFixture(tree, floatWidth: 150f, statedWidth: 180f, Direction.Ltr);
+
+        tree.CalculateLayout(root, 400f, float.NaN, Direction.Ltr);
+
+        AssertAt(tree, avoiding, 0f, 50f);
+        Assert.Equal(180f, tree.GetWidth(avoiding), Tolerance);
+    }
+
+    /// <summary>In RTL the anchor is the container's own inline start, not the context root's.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The RTL branch anchors a stated width against the far edge, and that edge was the
+    ///     ROOT's.</b> With the float outside the container's band the box is an ordinary §10.3.3 one
+    ///     again and RTL puts the leftover space on its left: 200 − 80 = 120 inside the container.
+    ///     Anchored against the root instead it came out past the container's right edge entirely.
+    /// </remarks>
+    [Fact]
+    public void In_rtl_a_stated_width_avoiding_box_is_anchored_to_its_own_container() {
+        using var tree = new LayoutTree();
+        var (root, avoiding) = InsetAvoidingFixture(tree, floatWidth: 50f, statedWidth: 80f, Direction.Rtl);
+
+        tree.CalculateLayout(root, 400f, float.NaN, Direction.Rtl);
+
+        AssertAt(tree, avoiding, 120f, 0f);
+        Assert.Equal(80f, tree.GetWidth(avoiding), Tolerance);
+    }
+
     // ── Fixture helpers ─────────────────────────────────────────────────────────────────────────
 
     static LayoutNodeId Block(LayoutTree tree, LayoutNodeId parent, float width) {

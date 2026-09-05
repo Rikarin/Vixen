@@ -764,13 +764,21 @@ public sealed partial class LayoutTree {
                 }
 
                 if (EstablishesBlockFormattingContext(child)) {
+                    // ⚠ The band this box may sit in is its own containing block's content box and
+                    // not the formatting context root's — `PlaceFloatChild`'s clamp one clause over.
+                    // In context coordinates that is where this container's content begins, which is
+                    // the same pair the float branch above hands `PlaceFloatChild`.
+                    var avoidClampLeft = containerOriginX + insetLeft;
+
                     var avoided = AvoidFloats(
                         direction,
                         committed + advance,
                         float.IsNaN(box.Width) ? float.NaN : childWidth,
                         results[child].MeasuredDimensions[(int) Dimension.Height],
                         direction == Direction.Ltr ? marginStart : marginEnd,
-                        direction == Direction.Ltr ? marginEnd : marginStart
+                        direction == Direction.Ltr ? marginEnd : marginStart,
+                        avoidClampLeft,
+                        avoidClampLeft + innerWidth
                     );
 
                     advance = avoided.Top - committed;
