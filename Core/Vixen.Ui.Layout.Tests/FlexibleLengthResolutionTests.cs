@@ -211,6 +211,86 @@ public class FlexibleLengthResolutionTests {
     }
 
     [Fact]
+    public void A_content_sized_item_shrinks_from_its_max_content_size_and_not_from_the_room_it_was_offered() {
+        // Taffy's `measure_child_with_flex_shrink_hidden`, and CSS Flexbox §9.2 step 3E: an item with
+        // no declared basis and no declared main size has its flex base size measured under a
+        // MAX-CONTENT constraint. The offer this store hands the child instead is the container's
+        // available space, and the two agree for everything that fits — which is the entire
+        // population §9.7 never has to shrink.
+        //
+        // 500 points of unbreakable content and a 50-point box in a 100-point row. Bases 500 and 50
+        // shrink in proportion to themselves, so the text pays ten times what the box pays and the
+        // answer is 90.909 and 9.0909. Measured at the 100-point offer the text reports a base of
+        // 100, the two bases become 100 and 50, and they come out 66.7 and 33.3 — the pool is
+        // computed from the room rather than from the content, and BOTH items get the wrong share.
+        //
+        // ⚠ THE ORACLE IS TWO CLOSED-FORM PROPERTIES, not the two numbers: the widths sum to the
+        // container, and §9.7's shrink is scaled BY THE BASE, so the amounts the two items give up
+        // must be in the same ratio as their bases — a tenth, here. Both are asserted, and the
+        // wrong-base answer satisfies the first alone.
+        //
+        // ⚠ The content item CLIPS, which is not decoration: without it §4.5's automatic minimum
+        // floors it at its own 500 points of content and no distribution happens at all.
+        using var tree = new LayoutTree();
+
+        // ⚠ Unrounded, because the property being asserted is an exact ratio and the pixel grid is
+        // not exact: Chrome answers this fixture 9 and 91, and 9 + 91 is 100 while 10 x (50 - 9) is
+        // 410 against the 409 the text really gives up. The rounding is right and it is not what is
+        // under test.
+        tree.PointScaleFactor = 0f;
+
+        var root = tree.CreateNode();
+        tree.SetFlexDirection(root, FlexDirection.Row);
+        tree.SetDimension(root, Dimension.Width, StyleLength.Points(100f));
+        tree.SetDimension(root, Dimension.Height, StyleLength.Points(50f));
+
+        var box = tree.CreateNode();
+        tree.SetFlexShrink(box, 1f);
+        tree.SetDimension(box, Dimension.Width, StyleLength.Points(50f));
+        tree.SetDimension(box, Dimension.Height, StyleLength.Points(50f));
+        tree.AddChild(root, box);
+
+        var text = tree.CreateNode();
+        tree.SetFlexShrink(text, 1f);
+        tree.SetOverflow(text, Overflow.Hidden);
+        tree.SetMeasureFunction(text, MeasureWrappingContent);
+        tree.AddChild(root, text);
+
+        tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
+
+        var boxWidth = tree.GetWidth(box);
+        var textWidth = tree.GetWidth(text);
+
+        Assert.Equal(50f - (450f * 50f / 550f), boxWidth, Tolerance);
+        Assert.Equal(500f - (450f * 500f / 550f), textWidth, Tolerance);
+
+        Assert.Equal(100f, boxWidth + textWidth, Tolerance);
+        Assert.Equal(10f * (50f - boxWidth), 500f - textWidth, Tolerance);
+    }
+
+    /// <summary>500 points of content that fills whatever it is offered and wraps to fit.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A measurer that answers the same width under every mode cannot see this rule</b>, and
+    ///     that is why <see cref="AutomaticMinimumSizeTests" />' fixed-width one is not reused here:
+    ///     the whole difference between a max-content measurement and an offered one is a measurer
+    ///     that reports less when it is given less. This one is a paragraph in the only sense that
+    ///     matters — it fills the offer and grows taller for it.
+    /// </remarks>
+    static LayoutSize MeasureWrappingContent(in MeasureRequest request) {
+        const float content = 500f;
+
+        if (request.WidthMode == MeasureMode.Undefined || float.IsNaN(request.AvailableWidth)) {
+            return new LayoutSize(content, 10f);
+        }
+
+        var width = request.WidthMode == MeasureMode.Exactly
+            ? request.AvailableWidth
+            : MathF.Min(content, request.AvailableWidth);
+
+        return new LayoutSize(width, width <= 0f ? 10f : MathF.Ceiling(content / width) * 10f);
+    }
+
+    [Fact]
     public void Whether_the_main_axis_overflows_is_asked_of_the_hypothetical_sizes_not_the_bases() {
         // Taffy's `gap_column_gap_wrap_align_stretch` and Yoga's Column_gap_wrap_align_stretch. Five
         // `flex-grow: 1; min-width: 60px` items in a 300pt wrapping row with a 5pt column gap: four

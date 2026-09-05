@@ -455,6 +455,62 @@ public sealed partial class LayoutTree {
             ConstrainMinSizeForMode(child, direction, FlexDirection.Row, ownerWidth, ownerWidth, childWidthSizingMode, ref childWidth);
             ConstrainMinSizeForMode(child, direction, FlexDirection.Column, ownerHeight, ownerWidth, childHeightSizingMode, ref childHeight);
 
+            // ⚠ <b>§9.2 step 3E's flex base is the item's MAX-CONTENT size, and the offer above is
+            // not a max-content constraint — it is the container's available space.</b> The two
+            // agree for everything that fits and part company for everything that does not, which is
+            // exactly the population §9.7 then has to shrink: an item measured at the offer reports
+            // a base equal to the room it was given, so the pool it is shrunk out of was computed
+            // from the room rather than from the content, and every item on the line gets the wrong
+            // share. `measure_child_with_flex_shrink_hidden` is 500 points of text and a 50-point box
+            // in a 100-point row — bases 500 and 50 shrink to Chrome's 91 and 9, and a base of 100
+            // for the text shrinks them to 67 and 33.
+            //
+            // ⚠ <b>The offer is kept for the measurement itself, and that is not a compromise.</b>
+            // The clause is what makes text wrap to the width it is about to be given, so the item's
+            // CROSS size is a function of it — dropping it to measure at max-content would report
+            // one line's height for a paragraph and is load-bearing for the whole of Yoga's suite.
+            // So the max-content pass runs FIRST and only its main-axis answer is kept; the real
+            // offer measures second and is what every other consumer reads.
+            //
+            // Only a content-sized item on an offered main axis pays the extra pass: an item with a
+            // declared basis or a declared main size never reaches this branch, and one whose offer
+            // is a stretch or a max-content constraint already answers the question being asked.
+            //
+            // ⚠ <b>AND ONLY AN ITEM THAT CAN SHRINK, WHICH IS A WORKAROUND AND NOT THE RULE.</b>
+            // §9.2 asks this of every item; the reason it cannot be asked of every item HERE is that
+            // `flex-shrink`'s initial value in this store is Yoga's 0 and not CSS's 1 — see
+            // `LayoutStyle.Default` and `TaffyStyleMap.ApplyCssInitialValues`, which resets it per
+            // node precisely because the corpus is Chrome's. An item given its true max-content base
+            // and no way to shrink back simply overflows: `TextWrapTests.
+            // A_label_with_no_width_of_its_own_wraps_at_its_container` came out one line and 28
+            // points tall against three lines and 83.6, because the label's base became the width of
+            // the unwrapped string and nothing brought it back. In a browser that label shrinks to
+            // its container and §4.5 floors it at its longest word.
+            //
+            // So the base is taken where it is used and left alone where it cannot be — and the day
+            // the initial value is CSS's, this clause comes out. It is #628, and the six red tests
+            // above are the measurement in it.
+            var mainSizingMode = isMainAxisRow ? childWidthSizingMode : childHeightSizingMode;
+            var contentBase = float.NaN;
+
+            if (mainSizingMode == SizingMode.FitContent
+                && StyleResolution.ResolveFlexShrink(in styles[child], links[child].Parent < 0) != 0f) {
+                CalculateLayoutInternal(
+                    child,
+                    isMainAxisRow ? float.NaN : childWidth,
+                    isMainAxisRow ? childHeight : float.NaN,
+                    direction,
+                    isMainAxisRow ? SizingMode.MaxContent : childWidthSizingMode,
+                    isMainAxisRow ? childHeightSizingMode : SizingMode.MaxContent,
+                    ownerWidth,
+                    ownerHeight,
+                    performLayout: false,
+                    currentDepth
+                );
+
+                contentBase = results[child].UnclampedMeasuredDimensions[(int) FlexAxis.DimensionOf(mainAxis)];
+            }
+
             CalculateLayoutInternal(
                 child,
                 childWidth,
@@ -477,7 +533,9 @@ public sealed partial class LayoutTree {
             // `min-width: 60px` item in a 100pt row reported a base of 60 and came out 80 wide;
             // Chrome freezes it at 60 and gives the other 40 to its sibling.
             results[child].ComputedFlexBasis = MathF.Max(
-                results[child].UnclampedMeasuredDimensions[(int) FlexAxis.DimensionOf(mainAxis)],
+                float.IsNaN(contentBase)
+                    ? results[child].UnclampedMeasuredDimensions[(int) FlexAxis.DimensionOf(mainAxis)]
+                    : contentBase,
                 StyleResolution.PaddingAndBorderForAxis(in styles[child], mainAxis, direction, ownerWidth)
             );
         }
