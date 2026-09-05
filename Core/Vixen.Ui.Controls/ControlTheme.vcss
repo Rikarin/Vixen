@@ -272,6 +272,21 @@ page-button:focus-visible, breadcrumb-item:focus-visible, expander-header:focus-
     color: var(--text-muted);
 }
 
+/* ⚠ And a field holding something that will be refused, which had no picture
+   either — `AccessibleStates.Invalid` had no producer at all, so a rejected
+   value was announced as an ordinary one and drawn as one.
+
+   The border rather than the text, because the *value* is not wrong to look
+   at: it is what the user has to read in order to correct it, and muting or
+   reddening it fights that. A ring round the box says "this one" without
+   touching what is inside it — and it is not the only signal, since the
+   accessibility tree carries `aria-invalid` and the words belong to a label
+   the form points at with `DescribedBy`. Colour alone would leave a
+   red-green-blind user with an unchanged box. */
+.invalid {
+    border-color: var(--danger);
+}
+
 /* ── Toggles ──────────────────────────────────────────────────────────
    ⚠ Every indicator below carries `flex-shrink: 0`, and it is not
    decoration. A tick box, a radio dot and a switch track are square or

@@ -40,6 +40,16 @@ public static class ControlStrings {
     /// <summary>The button that empties a text field.</summary>
     public static StringId TextInputClear { get; } = new("ui.control.text-input.clear", "Clear");
 
+    /// <summary>Why an empty field with <c>Required</c> set is not acceptable.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The only validation message this assembly writes, and the reason is that it is the
+    ///     only one it can.</b> Every other rule is a fact about what the field is <i>for</i> — an
+    ///     address, a version, a name not already taken — which lives in the application and comes
+    ///     back through <c>TextField.Validator</c> in the application's own words. "Something must go
+    ///     here" is true of a required field without knowing anything about it.
+    /// </remarks>
+    public static StringId FieldRequired { get; } = new("ui.control.field.required", "Required");
+
     /// <summary>The button that dismisses a dialog.</summary>
     public static StringId DialogClose { get; } = new("ui.control.dialog.close", "Close");
 
@@ -184,6 +194,7 @@ public static class ControlStrings {
     /// </remarks>
     public static IReadOnlyList<StringId> All { get; } = [
         TextInputClear,
+        FieldRequired,
         DialogClose,
         DialogConfirm,
         DialogCancel,
