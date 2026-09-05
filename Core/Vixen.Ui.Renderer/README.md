@@ -22,7 +22,33 @@ framework into every renderer.
 | `UiShaders` | The modules a frame is drawn with, supplied rather than compiled — four required, `Image`, `Blur`, `Colour` and `Mask` optional |
 | `UiRenderer` | Pipelines, buffers, the atlas texture, and recording a frame |
 | `UiRenderFeature` | A `RootRenderFeature` so a `RenderSystem` can reach one |
-| `UiSurface` | One interface as the renderer sees it: geometry, atlas, size, order |
+| `UiInterface` | One interface as the renderer sees it: geometry, atlas, size, order |
+
+⚠ The last row said `UiSurface`, which is a different type in a different assembly — see
+`UiInterface`'s own remarks for why the name moved and why the two being confusable is a trap rather
+than a nuisance.
+
+### Who registers the feature
+
+`WorldRenderer` does, in its constructor, as `WorldRenderer.Ui` — and the editor's viewport gets it
+from there, because `EditorWorldRenderer` owns a `WorldRenderer` rather than assembling features of
+its own. A host then supplies three things in order: `Renderer`, because building a `UiRenderer`
+needs the shader modules and the formats of the pass; `Mount`, once, with the stages that draw it;
+and `Set`, every frame, with the geometry the document's builder produced.
+
+⚠ **Until this existed the feature had no caller at all.** It compiled, it was documented, three
+other files' prose referred to it — and nothing in the tree constructed one, so whether the
+composition it was written for worked had never been observed. What made that survivable is that the
+interface still rendered: `Vixen.Ui.Desktop` paints a document through `UiRenderer` directly, which
+is the path the editor's chrome and every UI-only application take. What had no caller was drawing an
+interface *inside a scene's frame*.
+
+⚠ **`Mount` is the half that was missing, not `Set`.** `Set` takes a `RenderObjectId` and no caller
+could obtain one: the object has to be added to the store carrying this feature's index, and a host
+that guessed at the index writes a record some other feature is handed and quietly skips. `Mount`
+also decides the bounds, which are `float.MaxValue` and not a mistake — an interface is in screen
+space and has no place in the world, so anything finite there is a HUD that appears and disappears as
+the player turns around.
 
 ### Three pipelines, one vertex layout
 

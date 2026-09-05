@@ -483,9 +483,9 @@ refusal block, which already says so for the same reason.
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 |
 | **Total** | **332** | **228** | **29** | **1** | **71** | **3** |
 
-Flexbox and Grid leads at 29 of 34, with only two absent roots left and both of those refused on
-policy rather than owed; then Effects at 27 of 34, Interactivity at 27 of 39, Borders at 26 of 34,
-and Layout at 26 of 49. Tables and Accessibility still have **no working root at all**.
+Flexbox and Grid leads at 30 of 34, with only two absent roots left and both of those refused on
+policy rather than owed; then Interactivity at 30 of 40, Layout at 29 of 51, Borders at 28 of 34,
+and Effects at 27 of 34. Tables and Accessibility still have **no working root at all**.
 
 ⚠ **No category is `complete`, and SVG — which this section called the first one to be — is 2 of 3.**
 `stroke-none` is `absent`, refused on the same policy `inset-shadow-*` is: `stroke` is read, but only
@@ -2740,7 +2740,7 @@ of each other.
 **B · Layout modes.** `display` is `{ Flex, None }`. Block, grid and inline formatting are three
 algorithms over the existing store.
 
-**C · Families.** The 329 roots.
+**C · Families.** The 332 roots.
 
 ⚠ **C depends on A and B, and inverting that is how the present state came about.** `grid-cols-3`
 exists as a family and emits `grid-template-columns` because a family is a line of a table and the
@@ -3561,7 +3561,7 @@ ask is not "where is this read" but "what else reads the number it changes".**
 
 ## Exit criteria (measured)
 
-1. **Every one of the 329 roots is `works`, or carries an open task number, or is one of the four
+1. **Every one of the 332 roots is `works`, or carries an open task number, or is one of the four
    exclusions in Part 8.** Checked by regenerating the TSV; the states are computed, not asserted.
 2. ✅ **No family emits a property no consumer *acts on***, except entries on the allow-list, each of
    which names a task this document contains. `UtilityConsumptionGateTests` fails otherwise — a test
@@ -3602,7 +3602,7 @@ ask is not "where is this read" but "what else reads the number it changes".**
 being matched is Tailwind's utility index, which is a much smaller and better-defined thing than CSS.
 
 **A second styling language.** Every gap here closes by making the *existing* property bridge wider.
-There is no case in the 329 rows for a Vixen-specific styling concept, and adding one would be the
+There is no case in the 332 rows for a Vixen-specific styling concept, and adding one would be the
 third version of the mistake in the README.
 
 **A promise that a Tailwind stylesheet drops in.** Class names and semantics match; the generator is

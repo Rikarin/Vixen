@@ -21,11 +21,13 @@ Vixen.Ui.Renderer.UiInterface.UiInterface() -> void
 Vixen.Ui.Renderer.UiInterface.UiInterface(Vixen.Ui.Rendering.UiGeometry Geometry, Vixen.Ui.Text.Rasterizing.GlyphAtlas Atlas, Vixen.Core.Mathematics.Int2 Surface, uint Order) -> void
 Vixen.Ui.Renderer.UiRenderFeature -> sealed class
 Vixen.Ui.Renderer.UiRenderFeature : Vixen.Rendering.RootRenderFeature
+Vixen.Ui.Renderer.UiRenderFeature.Mount(Vixen.Rendering.RenderStageMask stages, uint order = 0) -> Vixen.Rendering.RenderObjectId
 Vixen.Ui.Renderer.UiRenderFeature.Remove(Vixen.Rendering.RenderObjectId id) -> void
 Vixen.Ui.Renderer.UiRenderFeature.Renderer.get -> Vixen.Ui.Renderer.UiRenderer?
 Vixen.Ui.Renderer.UiRenderFeature.Renderer.set -> Vixen.Ui.Renderer.UiRenderer?
 Vixen.Ui.Renderer.UiRenderFeature.Set(Vixen.Rendering.RenderObjectId id, in Vixen.Ui.Renderer.UiInterface surface) -> void
 Vixen.Ui.Renderer.UiRenderFeature.UiRenderFeature() -> void
+Vixen.Ui.Renderer.UiRenderFeature.Unmount(Vixen.Rendering.RenderObjectId id) -> void
 Vixen.Ui.Renderer.UiRenderer -> sealed class
 Vixen.Ui.Renderer.UiRenderer : System.IDisposable
 Vixen.Ui.Renderer.UiRenderer.AtlasUploads.get -> int
