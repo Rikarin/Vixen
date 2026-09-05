@@ -588,6 +588,85 @@ public class AutomaticMinimumSizeTests {
         Assert.Equal(10f, tree.GetHeight(text), Tolerance);
     }
 
+    /// <summary>
+    ///     A <c>width: 100%</c> box is probed at the width its percentage gives it, not at the room
+    ///     left over once its own margins are taken off.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The two are different numbers precisely when the box overflows, which is what a
+    ///         percentage width plus a margin always does.</b> <c>ProbeInlineSize</c> subtracts the
+    ///         box's margins from the offer, and for a box whose width comes FROM the remaining
+    ///         space that is right. A <c>width: 100%</c> box does not take its width from the
+    ///         remaining space: it is as wide as its containing block and the margins push its
+    ///         margin box out past the edge. Measuring the text inside it at the offer less the
+    ///         margins therefore measures it narrower than it will ever be drawn, it wraps to more
+    ///         lines than it takes, and §4.5's floor comes out a whole line too tall.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The oracle is an inconsistency rather than a recorded number: the row is floored
+    ///         at the height of the very content it is drawn around, so the floor must EQUAL the
+    ///         height of the text inside it.</b> The text is laid out at the full container width in
+    ///         every column of the theory — asserted, so the premise cannot rot — and the run is
+    ///         area-preserving, so its height is the ink over that width and nothing else. A probe
+    ///         that measures 50 points narrower reports one more line at every width, and the row
+    ///         comes back taller than what it contains.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Hand-written because the corpus cannot witness it.</b> <c>bevy_issue_9530</c> is
+    ///         the same arithmetic and is GREEN either way: §4.5's floor is capped at the item's own
+    ///         measured basis, and the cap hides the over-report — see
+    ///         <c>ComputeAutoMinMainSize</c>. A declared <c>flex-basis</c> on the row is what keeps
+    ///         the cap out of this one, so the probe has to answer for itself.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(200f, 30f)]
+    [InlineData(300f, 20f)]
+    [InlineData(600f, 10f)]
+    public void A_percentage_width_is_probed_at_its_percentage_and_not_at_what_its_margins_leave(
+        float containerWidth,
+        float expectedHeight
+    ) {
+        using var tree = new LayoutTree();
+
+        var root = tree.CreateNode();
+        tree.SetFlexDirection(root, FlexDirection.Column);
+        tree.SetDimension(root, Dimension.Width, StyleLength.Points(containerWidth));
+        tree.SetDimension(root, Dimension.Height, StyleLength.Points(5f));
+
+        // A DECLARED basis, so `FlexBasisFromContent` is false and §4.5's floor for this box is not
+        // capped by a measurement — the probe's answer is the answer. The margins are the whole
+        // point: they are 50 points the percentage does not give back.
+        var row = tree.CreateNode();
+        tree.SetFlexDirection(row, FlexDirection.Column);
+        tree.SetDimension(row, Dimension.Width, StyleLength.Percent(100f));
+        tree.SetMargin(row, Edge.Left, StyleLength.Points(25f));
+        tree.SetMargin(row, Edge.Right, StyleLength.Points(25f));
+        tree.SetFlexGrow(row, 1f);
+        tree.SetFlexShrink(row, 1f);
+        tree.SetFlexBasis(row, StyleLength.Points(0f));
+        tree.AddChild(root, row);
+
+        // No grow, so the text keeps the height its own content needs and the row's floor is free to
+        // disagree with it.
+        var text = tree.CreateNode();
+        tree.SetMeasureFunction(text, MeasureWrappedRun);
+        tree.AddChild(row, text);
+
+        tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
+
+        // The premise: the percentage wins over the room, margins and all.
+        Assert.Equal(containerWidth, tree.GetWidth(row), Tolerance);
+        Assert.Equal(containerWidth, tree.GetWidth(text), Tolerance);
+
+        // The arithmetic: 600 points of ink over the width it is drawn at.
+        Assert.Equal(expectedHeight, tree.GetHeight(text), Tolerance);
+
+        // The property: a box floored by its own contents is exactly as tall as they are.
+        Assert.Equal(tree.GetHeight(text), tree.GetHeight(row), Tolerance);
+    }
+
     static LayoutSize MeasureFixedContent(in MeasureRequest request) =>
         new((float) (request.Context ?? 0f), 20f);
 

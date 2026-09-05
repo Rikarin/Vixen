@@ -653,6 +653,19 @@ public sealed partial class LayoutTree {
         // not one: `ProbeContentWidth`'s zero is §5.2.1 obeyed and `ProbeInlineSize` is the other
         // number.
         //
+        // ⚠ <b>AND NOW IT STANDS IN FRONT OF NO OVER-REPORT AT ALL, WHICH IS A DIFFERENT THING FROM
+        // BEING REMOVABLE.</b> `bevy_issue_9530` closed with the mirror of the sentence above:
+        // `ProbeInlineSize` takes a box's MARGINS off the room it was offered, which is right for a
+        // box whose width comes from what is left over and wrong for one that declares a percentage
+        // and overflows instead. A full Vixen.Ui.Layout.Tests run with this cap deleted is now 6 417
+        // of 6 417, pinned corpus counts included. What deleting it costs is three
+        // `TextWrappingPixelTests` in Vixen.Ui.Controls.Tests, and that is `Rikarin/Vixen#682`'s
+        // half rather than a probe defect: `break-word`'s intrinsic minimum is specified NOT to
+        // shrink, so with step 3E's max-content base the §4.5 floor really is the whole word and the
+        // word never wraps into its box. ⚠ So the next move on this cap is to NAME it — it is a
+        // ceiling with a rule behind it, not a workaround for a wrong number — and the measurement
+        // that would settle its shape is a browser one nobody has taken.
+        //
         // ⚠ <b>AND THE CAP IS THE SMALLER OF TWO MEASUREMENTS NOW, because §9.2 step 3E made
         // `ComputedFlexBasis` stop being the one this sentence is about.</b> The justification is
         // "a box's min-content size cannot exceed the size its own contents were MEASURED at" —
@@ -855,7 +868,9 @@ public sealed partial class LayoutTree {
     float ProbeInlineSize(int index, Direction direction, float ownerWidth, float probeWidth) {
         var inset = StyleResolution.ContentInsetForAxis(in styles[index], FlexDirection.Row, direction, ownerWidth);
 
-        if (StyleResolution.ProcessedDimension(in styles[index], Dimension.Width).Unit == LayoutUnit.Point) {
+        var declaredUnit = StyleResolution.ProcessedDimension(in styles[index], Dimension.Width).Unit;
+
+        if (declaredUnit == LayoutUnit.Point) {
             var declared = ResolvedDimension(index, Dimension.Width, ownerWidth, ownerWidth, direction);
             if (!float.IsNaN(declared)) {
                 return ClampProbeInlineSize(index, direction, ownerWidth, MathF.Max(0f, declared - inset), inset);
@@ -864,6 +879,25 @@ public sealed partial class LayoutTree {
 
         if (float.IsNaN(probeWidth)) {
             return float.NaN;
+        }
+
+        // ⚠ <b>A PERCENTAGE WIDTH IS A DECLARED WIDTH TO THIS QUESTION, and it is resolved against
+        // `probeWidth` rather than against `ownerWidth`.</b> The two sentences either side of this
+        // one are the same distinction said twice: `ProbeContentWidth` answers "what are a
+        // descendant's percentages a fraction of" and CSS Sizing §5.2.1 makes that ZERO for a box
+        // whose own width is not a length, while this method answers "how much room will the text
+        // have" — and a box that says `width: 100%` inside a definite offer is going to be that
+        // wide, margins or no margins. Subtracting its margins from the offer is right only for a
+        // box whose width comes FROM the remaining space; a percentage box overflows its container
+        // instead, which is what `bevy_issue_9530` draws. `probeWidth` is the containing block's
+        // content width by construction — it is what the level above passed down as room for this
+        // margin box — so it is also the percentage's basis, and `ownerWidth` one box down is the
+        // zero §5.2.1 asks for and would make every percentage width nothing.
+        if (declaredUnit == LayoutUnit.Percent) {
+            var resolved = ResolvedDimension(index, Dimension.Width, probeWidth, probeWidth, direction);
+            if (!float.IsNaN(resolved)) {
+                return ClampProbeInlineSize(index, direction, ownerWidth, MathF.Max(0f, resolved - inset), inset);
+            }
         }
 
         // ⚠ The margins come off as well as the padding and border, because `probeWidth` is what is
@@ -949,6 +983,19 @@ public sealed partial class LayoutTree {
         // their real sizes the hierarchy tree's rows propagated all the way to the shell and the
         // window came out 2 385 points wide inside a 1 100-point root, with the inspector pushed off
         // the side. That is not a control compensating for a bug — it is this rule being missing.
+        //
+        // ⚠ <b>BOTH SENTENCES ABOVE HAVE EXPIRED, AND THE SECOND MAY BE BACKWARDS.</b> Twenty-four
+        // grid fixtures ask for it now — they were refused on `scrollbar-width` when this was
+        // written — and deleting this clause turns exactly those from red to green and moves nothing
+        // else in 6 420 layout tests except `AutomaticMinimumSizeTests.
+        // A_clipping_descendant_contributes_nothing_but_its_own_edges`, which is the editor's chain
+        // in six boxes and whose 50/50 expectation has never been put in front of a browser. A
+        // scroll container's `width: min-content` is not zero in any browser, so this clause is very
+        // likely §5.2.2 applied a second time where §4.5 had already applied it — and there is no
+        // seam to split it on, because `ComputeAutoMinMainSize` returns 0 for an item's own overflow
+        // before it ever reaches here, which makes every firing of this clause a CONTRIBUTION
+        // already. ⚠ The next move is a browser measurement of those six boxes, not a code change:
+        // see `Rikarin/Vixen#259` and the §5.2.2 heading in GridKnownGaps.txt.
         if (OverflowOn(index, FlexAxis.DimensionOf(requestedAxis)) != Overflow.Visible) {
             var clipDirection = StyleResolution.ResolveDirection(in styles[index], ownerDirection);
             return StyleResolution.FlexStartContentInset(in styles[index], requestedAxis, clipDirection, ownerWidth)

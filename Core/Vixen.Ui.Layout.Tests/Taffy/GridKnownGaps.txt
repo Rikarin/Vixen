@@ -544,6 +544,30 @@ chrome_issue_325928327
 # window — is real and must keep working, so the fix is NOT to delete the clause. It is to give the
 # two questions two answers: the automatic minimum keeps the zero, the min-content contribution does
 # not. `MinContentContribution` is already the seam between them.
+#
+# ⚠ <b>THAT LAST SENTENCE IS REFUTED, BY CONSTRUCTION RATHER THAN BY A FIXTURE: THERE IS NO SEAM,
+# BECAUSE THE CLAUSE IS ALREADY ONLY EVER THE CONTRIBUTION'S ANSWER.</b> `ComputeMinContentSize` has
+# exactly two callers. One is `ComputeAutoMinMainSize`, which returns 0 for an item whose OWN
+# overflow is not visible BEFORE it gets there — so a top-level call can never reach the clause. The
+# other is `MinContentContribution`. Every reachable firing of the clause is therefore already on the
+# contribution side, and the two questions have had two answers all along. Splitting them changes
+# nothing; the choice is binary. Either a scroll container contributes its contents or it contributes
+# its edges, and this file cannot decide that — Chrome can.
+#
+# ⚠ <b>AND THE WHOLE COST OF DECIDING IT IS ONE HAND-WRITTEN TEST, MEASURED 2026-09-06.</b> With the
+# clause deleted, a full Vixen.Ui.Layout.Tests run is 6 418 of 6 420: the grid corpus goes 2 080/40
+# to 2 104/16 — exactly these 24 and not one fixture more — the flex corpus does not move a fixture,
+# and the only other failure in the project is
+# AutomaticMinimumSizeTests.A_clipping_descendant_contributes_nothing_but_its_own_edges, which reads
+# 40 where it expects 50. That test IS the editor's docking chain in six boxes: a 100-point row of two
+# shrinking 60-point items, the second wrapping an `overflow: scroll` box around a 500-point one.
+# ⚠ So the editor's requirement does not need an editor session to re-measure after all — it needs a
+# BROWSER, and the thing to put in front of one is that test's own six boxes. If Chrome shrinks them
+# 50/50 the clause stays and these 24 stay red; if Chrome freezes the second at 60 and gives the
+# first 40, the clause goes, the test's expectation was never checked against the oracle it claims,
+# and the editor's 2 385-point shell was a real bug somewhere else that this clause was hiding.
+# Do not land either half on the unit tests alone: they are green both ways bar that one fixture,
+# which is exactly the shape of a test that is the defect.
 grid_span_2_min_content_auto_indefinite_hidden
 grid_span_2_min_content_fit_content_10px_indefinite_hidden
 grid_span_2_min_content_fit_content_30px_indefinite_hidden
