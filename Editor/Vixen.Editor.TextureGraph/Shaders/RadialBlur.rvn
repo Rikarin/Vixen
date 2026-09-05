@@ -16,10 +16,20 @@ package Vixen.Editor.TextureGraph.Shaders
 //   fixed point, **exactly**, and moving `centreX`/`centreY` moves which texel is fixed. A kernel
 //   that ignored the centre would have a fixed point in the middle of the image whatever the plan
 //   said.
-// - An image that is **constant along every ray from that centre** is unchanged — and there is one
-//   to hand: `Gradient`'s angular sweep about the same point. Every sample of a zoom lies on the
-//   ray, so it reads the same value. That is an invariant no straight-line smear satisfies, and it
-//   fails the moment the two centres disagree.
+// - An image that is **constant along every ray from that centre** is unchanged. Every sample of a
+//   zoom lies on the ray, so it reads the same value — an invariant no straight-line smear
+//   satisfies, and one that fails the moment the two centres disagree.
+//
+// ## ⚠ What this filter cannot be tested with, and it is most of the usual patterns
+//
+// The samples are spread **symmetrically about the texel's own radius**, so the answer is the mean
+// of the source over a symmetric interval — and the mean of a *linear* function over a symmetric
+// interval is its value at the middle. **Every image whose channels are linear in x and y is
+// therefore invariant under this filter at any amount**, which includes
+// `TextureKernelHarness.Unique` in all four of its channels and any smooth angular sweep to within
+// a couple of counts. Both were tried here first and both made the assertions unfalsifiable. What
+// the tests use instead is a one-texel checkerboard and a wheel of hard-edged spokes, neither of
+// which can be averaged back into itself.
 //
 // **Nothing here is a length in texels**, so doc 48 § D8's scaling never touches it: `amount` is a
 // fraction of the distance to the centre and the centre is a fraction of the image, both
