@@ -62,6 +62,71 @@ public sealed class UiRenderFeature : RootRenderFeature {
     /// </remarks>
     public UiRenderer? Renderer { get; set; }
 
+    /// <summary>Adds the render object one interface is drawn as, and returns its id.</summary>
+    /// <param name="stages">Which stages draw it — see the remarks on sorting.</param>
+    /// <param name="order">Where it sits among the interfaces, lowest drawn first.</param>
+    /// <returns>The object to hand <see cref="Set" /> every frame the interface is drawn.</returns>
+    /// <exception cref="InvalidOperationException">The feature is not in a render system yet.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The half that was missing, and the reason nothing in the tree drew an interface
+    ///         inside a world.</b> <see cref="Set" /> takes a <see cref="RenderObjectId" /> and no
+    ///         caller could get one: the object has to be added to the store with <em>this</em>
+    ///         feature's index on it, and a host that guessed at that wrote a record the wrong
+    ///         feature would be asked to draw. So it is here, where the index is known, rather than
+    ///         in each host.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The bounds are everything, deliberately, and not because culling is unwanted.</b>
+    ///         An interface is in screen space and has no position in the world, so the frustum test
+    ///         has nothing true to say about it — a sphere at the origin would leave a HUD drawn only
+    ///         while the camera happened to look at the middle of the level.
+    ///         <see cref="float.MaxValue" /> rather than <see cref="float.PositiveInfinity" /> for the
+    ///         reason a radius is arithmetic rather than a flag: <c>VisibilityGroup</c> adds the
+    ///         radius to a view's maximum distance and squares the sum, and an infinity that meets a
+    ///         subtraction anywhere downstream is a NaN, which compares false and culls the thing it
+    ///         was meant to keep.
+    ///     </para>
+    ///     <para>
+    ///         The order is written to <see cref="RenderObject.SortGroup" /> as well as returned to
+    ///         the caller, so a surface mounted and not yet <see cref="Set" /> sorts where it will
+    ///         sort — <see cref="SortGroupOf" /> falls back to the object's own group, and the two
+    ///         disagreeing is a first frame in the wrong order.
+    ///     </para>
+    /// </remarks>
+    public RenderObjectId Mount(RenderStageMask stages, uint order = 0) {
+        if (System is null) {
+            throw new InvalidOperationException(
+                "A UiRenderFeature can only mount a surface once it is in a render system: the object "
+                + "carries this feature's index, and the index is assigned by RenderSystem.AddFeature. "
+                + "Call AddFeature before Mount."
+            );
+        }
+
+        return System.Objects.Add(
+            new() {
+                Bounds = new(Vector3.Zero, float.MaxValue),
+                Stages = stages,
+                FeatureIndex = Index,
+                SortGroup = order,
+                IsAlive = true
+            }
+        );
+    }
+
+    /// <summary>Takes an interface out of the frame, object and surface together.</summary>
+    /// <param name="id">What <see cref="Mount" /> returned.</param>
+    /// <remarks>
+    ///     ⚠ Both halves, which is why this exists beside <see cref="Remove" />. Forgetting the
+    ///     surface and leaving the object alive is an object every view still culls and every stage
+    ///     still collects, drawn by a feature that will not find it — quiet, and one more of them per
+    ///     window closed.
+    /// </remarks>
+    public void Unmount(RenderObjectId id) {
+        Remove(id);
+        System?.Objects.Remove(id);
+    }
+
     /// <summary>Points an object at the surface it draws.</summary>
     /// <param name="id">The object.</param>
     /// <param name="surface">What it draws.</param>

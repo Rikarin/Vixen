@@ -294,6 +294,7 @@ Vixen.Engine.Renderer.WorldRenderer.Terrains.get -> Vixen.Engine.Renderer.AssetT
 Vixen.Engine.Renderer.WorldRenderer.Textures.get -> Vixen.Engine.Renderer.TextureStreamingQuality
 Vixen.Engine.Renderer.WorldRenderer.Textures.set -> Vixen.Engine.Renderer.TextureStreamingQuality
 Vixen.Engine.Renderer.WorldRenderer.Transforms.get -> Vixen.Rendering.Features.TransformRenderFeature
+Vixen.Engine.Renderer.WorldRenderer.Ui.get -> Vixen.Ui.Renderer.UiRenderFeature
 Vixen.Engine.Renderer.WorldRenderer.UploadedBytes.get -> int
 Vixen.Engine.Renderer.WorldRenderer.VfxEffects.get -> Vixen.Rendering.Ecs.IVfxEffectSource?
 Vixen.Engine.Renderer.WorldRenderer.VfxEffects.set -> Vixen.Rendering.Ecs.IVfxEffectSource?

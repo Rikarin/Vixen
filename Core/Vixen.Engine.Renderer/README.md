@@ -115,6 +115,28 @@ nothing — which leaves every texture in the "sampled and not sized wants to be
 rather than asking for the smallest level of everything. See
 [Streaming texture mip tails](../../docs/guide/rendering/texture-streaming.md).
 
+## An interface over the world
+
+`WorldRenderer.Ui` is a `UiRenderFeature`, registered by the constructor whether or not the
+application has an interface — the same arrangement the particle feature and the terrain extraction
+are in, and for the same reason: a feature with nothing mounted is walked over, and a host that
+gains a HUD two scenes in must not have to rebuild the renderer.
+
+⚠ **The feature existed and nothing constructed it.** `Vixen.Ui.Renderer` was written so that a
+`UiDocument` could be drawn inside somebody else's renderer, and the somebody else was never
+written — a grep for the type found three hits and all three were prose. The interface still
+rendered the whole time, through `Vixen.Ui.Desktop` painting a document with `UiRenderer` directly,
+which is what a UI-only application and the editor's chrome take; what did not exist was drawing one
+as part of a *scene's* frame.
+
+⚠ **This is the whole of the two-renderers rule for it, unusually.** `EditorWorldRenderer` does not
+assemble features of its own — it owns a `WorldRenderer` — so registering here reaches the editor's
+viewport as well, rather than needing a second registration that could drift from this one.
+
+The shaders stay the host's. Building a `UiRenderer` needs the modules and the formats of the pass
+the interface is drawn in, and this assembly knows neither; see `Vixen.Ui.Renderer`'s README on why
+that assembly must not grow a compiler. The stage the interface is drawn in has to sort `ByGroup`.
+
 ## Drawing a frame
 
 `SceneRenderHost` is the other join this assembly makes, and it is the same shape as the first: a

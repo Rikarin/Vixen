@@ -59,6 +59,21 @@
             lives.
         -->
         <ProjectReference Include="..\Vixen.Rendering.Water\Vixen.Rendering.Water.csproj" />
+
+        <!--
+            The interface's device half, for WorldRenderer.Ui. ⚠ This is the fourth join and the one
+            that had no seat: `Vixen.Ui.Renderer` exists so that neither `Vixen.Ui` nor
+            `Vixen.Rendering` has to know about the other, and it was written for a host that would
+            put a `UiRenderFeature` in a scene's render system — a host that did not exist, so the
+            feature had no caller at all and whether it worked had never been observed.
+
+            The direction is the allowed one and it is worth saying which. What `CheckArchitecture`
+            refuses is `Vixen.Ui*` → `Vixen.Engine`: a UI framework that needs a world and a game
+            loop is not a UI framework. A renderer that can draw an interface is not that boundary
+            crossed, it is the boundary used — the same shape as the debug-draw join this assembly
+            was created for.
+        -->
+        <ProjectReference Include="..\Vixen.Ui.Renderer\Vixen.Ui.Renderer.csproj" />
     </ItemGroup>
 
     <ItemGroup>
