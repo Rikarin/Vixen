@@ -310,10 +310,16 @@ float's margin box (§9.5), clearance (§9.5.2) and a root's contains-its-floats
 flow root *and* a float, four of which had already changed census buckets once when `flow-root`
 landed.
 
-⚠ **A line box still does not shorten as it passes a float**, which is §9.5's main clause and the
-only thing most people mean by the word. `LayoutTree.Inline` has no exclusion awareness at all. It
-survived being measured because `Corpus/float.xml` has no `<text>` element in it: the corpus named
-after the feature is entirely block-level and cannot see the feature's headline rule. See
+⚠ **This paragraph used to say a line box does not shorten as it passes a float, and that
+`LayoutTree.Inline` has no exclusion awareness at all. Both halves are false and have been since the
+line walk learned §9.5.** `WalkInlineLines` asks `InlineBandForLine` for the band at each line's own
+top and height, shortens the line box to it, applies §9.5's shift-downward clause when the band is
+too narrow for the first item, and places a float declared inside a run at the top of the line it was
+written on. Eighteen tests in `InlineFloatInteractionTests` hold it, and their expectations had to be
+read out of Chrome 148 case by case — because the reason the gap survived measurement is unchanged
+and is the thing worth keeping in this paragraph: `Corpus/float.xml` has no `<text>` element in it,
+so the corpus named after the feature is entirely block-level and cannot see the feature's headline
+rule. What is genuinely still absent is a text leaf breaking around a float's *staircase*; see
 `InlineKnownGaps.txt` and `Taffy/FloatKnownGaps.txt`, and `docs/guide/ui/floats.md` for the shape of
 what is there.
 

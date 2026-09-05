@@ -317,8 +317,12 @@ generated boxes (::before/after)  doc 43's A12. ⚠ ITS PRECONDITION IS NOW MET 
 #     leaf's first line is the fragmentation item three rows down, and it is the same blocker: there
 #     must not be a second text wrapper disagreeing with `TextLayout` about UAX #14. ⚠ THIS IS THE
 #     ONE ITEM OF THE THREE THAT IS STRUCTURAL RATHER THAN UNWRITTEN, and it does not become
-#     available by trying harder here: `Vixen.Ui.Layout` has no font, no font size and no
-#     `FontRegistry`, which is the same wall the strut is behind.
+#     available by trying harder here. ⚠ AND THE COMPARISON THAT USED TO END THIS ROW — "the same
+#     wall the strut is behind" — IS NOW WRONG TWICE. The strut's wall was font METRICS, and metrics
+#     crossed this boundary as five numbers the moment somebody asked whether they had to be a font;
+#     see the strut section below. This wall is text BREAKING, which is a protocol and not a value: a
+#     measure function answers one size for one width, and a staircase is a different width per line.
+#     Whatever closes it will not be a `StrutMetrics`-shaped answer.
 #   · `clear` on a line box, which is NOT owed and was measured rather than argued. §9.5.2 applies
 #     `clear` to floating and block-level elements only, and Chrome 148 agrees: `clear: left` on an
 #     `inline-block` beside a left float leaves it exactly where it was, on the same line. A `clear`
