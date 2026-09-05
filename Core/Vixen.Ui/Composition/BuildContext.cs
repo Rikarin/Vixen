@@ -906,9 +906,29 @@ public sealed class BuildContext {
     ///     commits, which is what a <c>bind:</c> with no modifiers does.
     /// </param>
     /// <exception cref="ArgumentException">
-    ///     The element has no such property, or one of the names is not an event.
+    ///     The element has no such property, the property is of a different type than
+    ///     <typeparamref name="T" />, or one of the names is not an event.
     /// </exception>
     /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The type has to match exactly, and this refuses a mismatch out loud because for a
+    ///         long time it did not refuse one at all.</b> Both legs go through
+    ///         <see cref="UiPropertyKey" />, which boxes: the forward leg unboxes to the property's
+    ///         own type and the write-back casts to <typeparamref name="T" />, and an unbox is
+    ///         exact — <c>float</c> is not <c>double</c> and <c>int?</c> is not <c>int</c>. The cast
+    ///         threw where it always did; what made it invisible is that the forward leg is an
+    ///         <c>Effect</c>, and a throwing effect is suspended and logged rather than propagated —
+    ///         deliberately, so that one bad binding cannot take a window down. The result was the
+    ///         worst failure this framework can produce: a control that never moves, a model that is
+    ///         never written, and nothing said. A <c>bind:</c> that cannot work now says so at
+    ///         compose, where the panel that wrote it is on the stack.
+    ///     </para>
+    ///     <para>
+    ///         <b>It is not a conversion seam and does not pretend to be one.</b> Coercing here would
+    ///         make <c>bind:</c> lossy in a way the author never wrote down; what a mismatched model
+    ///         wants is either a property of its own type or an explicit converter, and neither is
+    ///         something this method can invent.
+    ///     </para>
     ///     <para>
     ///         With no <paramref name="commits" /> the write-back arrives through
     ///         <see cref="UiElement.PropertyChanged" /> rather than through a poll, and is guarded so
@@ -946,6 +966,17 @@ public sealed class BuildContext {
         ArgumentNullException.ThrowIfNull(commits);
 
         var key = KeyOf(target, name);
+
+        if (key.ValueType != typeof(T)) {
+            throw new ArgumentException(
+                $"'{target.Tag}.{name}' is a {key.ValueType.Name} and the bound expression is a "
+                + $"{typeof(T).Name}. A two-way binding goes both ways through the property, and both "
+                + "are exact — bind an expression of the property's own type, or convert either side "
+                + "explicitly.",
+                nameof(name)
+            );
+        }
+
         var writing = false;
 
         Bind(() => {
