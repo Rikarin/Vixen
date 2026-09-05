@@ -1,0 +1,20 @@
+<Project>
+
+  <!--
+    Vixen — the text-snapshot helper of docs/plan/12 § "Test infrastructure worth building early",
+    linked rather than referenced, on the same argument as Vixen.Testing.props beside it.
+
+    ITS OWN FILE rather than a line in Vixen.Testing.props, although it names nothing but xunit and
+    the BCL and so *could* live there. Vixen.Testing.props is imported by some forty test projects
+    that assert on allocation and do not snapshot anything, and a helper compiled into forty
+    assemblies that never call it is the shape this repository keeps having to delete. The split
+    stays "by what the file is for" wherever it cannot be "by what the file needs".
+
+    Consumers need a `using Vixen.Testing;` and xunit.v3.
+  -->
+
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)GoldenFile.cs" Link="Testing\GoldenFile.cs" />
+  </ItemGroup>
+
+</Project>

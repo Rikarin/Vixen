@@ -524,12 +524,35 @@ worth building on that argument rather than on a blocking one. They are tracked 
   `FindIndex` returns −1 for a call that never happened — so "it bound before it drew" is green when
   nothing bound anything. `AfterBinding` asks which pipeline was *in force*, not whether the one named
   appears somewhere earlier.
-- **`GoldenFile`** — the snapshot helper: reads/writes under `__golden__/`, honours `--update-golden`,
-  produces a readable unified diff on mismatch. ⚠️ Nothing writes `__golden__/`, and the suites that
-  need the behaviour each grew their own: `VIXEN_UPDATE_GOLDEN` in
-  [`Vixen.Graphics.Golden.Tests`](../../Platform/Vixen.Graphics.Golden.Tests), `VIXEN_REGENERATE` in
-  `LibraryReflectionTests` and `GeneratedBindingsTests`, `__wire__/` in the two `Vixen.Net` suites.
-  Three switches for one behaviour is the cost being paid.
+- **`GoldenFile`** — ✅ the snapshot helper, in [`Testing/GoldenFile.cs`](../../Testing/GoldenFile.cs),
+  linked the way `Measured` is and adopted by the four `Golden*Tests` in `Vixen.Raven.Tests`, which
+  are what it was taken out of: each had written the same fifteen lines by hand.
+
+  **Two of the three specified parts landed and the third was refused.** The unified diff is here and
+  is the half `Assert.Equal` cannot do — over a few kilobytes of syntax tree or SPIR-V listing its
+  message is a window of characters around an offset, which tells a reviewer that something moved and
+  not what. ⚠️ **`__golden__/` was not imposed**: the corpora predate the helper and live where the
+  input they were rendered from lives (`Fixtures/lambert.ir` beside `Fixtures/lambert.rvn`, reading
+  the pair together being the whole review), so the caller names the path.
+
+  ⚠️ **And the switch was not a decision after all.** The tree was read here as having three
+  conventions for one behaviour; it has two, split by *what is being rewritten*. `UPDATE_GOLDEN`
+  rewrites a **snapshot of output** and is what all six text suites already document and type;
+  `VIXEN_REGENERATE` rewrites a committed **artefact that is not a fixture** — generated binding code,
+  `reflect.json`, the parity census — which is a different thing that happens to be spelled with a
+  file. `GoldenFile` honours `UPDATE_GOLDEN`, and also `VIXEN_UPDATE_GOLDEN` because `build/Build.cs`
+  exports that from this document's own `--update-golden`.
+
+  **What it buys is three refusals, and all three replace a form that is green when it should be
+  red.** A golden that had to be **created** fails rather than passes, because a snapshot nobody has
+  read is not evidence. An **empty rendering** is refused even against an empty committed golden — a
+  printer that returned nothing, a generator that emitted no stages, an enumeration that found no
+  fixtures, and an empty file committed once that agrees with all of them for ever. And
+  ⚠️ `GoldenFile.Batch` refuses a set that **compared nothing**: `GoldenSpirvTests` and
+  `GoldenGlslTests` both looped `foreach (var unit in Compile(name))` and reported a **pass** on a
+  backend that generated no stages at all, which is the one failure a code-generation golden exists
+  to catch. Each rule is pinned in `GoldenFileTests` and each was proved by sabotage, including that
+  last one against the real suite.
 - **`Vixen.Ui.Testing`** — ✅ the interface half of `TestApp`, built ahead of it because it needs
   nothing from the engine: a real `UiDocument`, a clock the test owns, a synthetic pointer and
   keyboard, and a frame pump. Commands retry **in frames rather than in seconds**, which is what
