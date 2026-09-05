@@ -42,13 +42,32 @@ public static class TextShaper {
     /// <param name="features">
     ///     The OpenType features to switch on or off, or null for whatever the face does by default.
     /// </param>
+    /// <param name="language">
+    ///     The BCP-47 tag the text is written in, or <see langword="null" /> or empty for
+    ///     undetermined.
+    ///     <para>
+    ///         ⚠ <b>Undetermined is the default and stays the default, because the alternative is
+    ///         not "the right language" but "this machine's".</b> HarfBuzz takes its own default
+    ///         from the process locale, so a paragraph shaped without one would lay out differently
+    ///         on a German developer's laptop and on CI — a golden image red on one machine only.
+    ///         Nothing in this assembly reads <c>CultureInfo</c>: a language arrives here from
+    ///         whatever declared it, or it does not arrive.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not the same fact as the script, which is what <see cref="TextItemizer" />
+    ///         already cuts on.</b> English, German and French are one script and three different
+    ///         sets of language-specific substitutions — and three different hyphenations, which is
+    ///         the consumer this exists ahead of. See #600.
+    ///     </para>
+    /// </param>
     /// <returns>The glyphs, in the order they are drawn.</returns>
     public static ShapedText Shape(
         FontFace font,
         string text,
         ParagraphDirection direction = ParagraphDirection.Auto,
         FontVariation? variation = null,
-        FontFeatureSet? features = null
+        FontFeatureSet? features = null,
+        string? language = null
     ) {
         ArgumentNullException.ThrowIfNull(font);
         ArgumentNullException.ThrowIfNull(text);
@@ -72,7 +91,7 @@ public static class TextShaper {
 
         var shaped = new ShapedRun[items.Count];
         for (var i = 0; i < items.Count; i++) {
-            shaped[i] = ShapeRun(font, text, items[i], applied);
+            shaped[i] = ShapeRun(font, text, items[i], applied, language);
         }
 
         var order = TextItemizer.VisualOrder(items);
@@ -102,20 +121,35 @@ public static class TextShaper {
     ///         than into a substring, which is what the rest of the system wants to talk in.
     ///     </para>
     ///     <para>
-    ///         The language is left unset on purpose. HarfBuzz's default is taken from the process
-    ///         locale, which would make shaping depend on the machine it runs on — a golden test
-    ///         that passes in one timezone and fails in another is worse than no golden test.
+    ///         ⚠ <b>The language is left unset unless a caller names one, and unset is not a gap.</b>
+    ///         HarfBuzz's default is taken from the process locale, which would make shaping depend
+    ///         on the machine it runs on — a golden test that passes in one timezone and fails in
+    ///         another is worse than no golden test. A declared language overrides that default
+    ///         without ever consulting it; nothing here falls back to <c>CultureInfo</c>.
     ///     </para>
     /// </remarks>
     internal static ShapedRun ShapeRun(FontFace font, string text, TextItem item) =>
         ShapeRun(font, text, item, []);
 
-    internal static ShapedRun ShapeRun(FontFace font, string text, TextItem item, Feature[] features) {
+    internal static ShapedRun ShapeRun(
+        FontFace font,
+        string text,
+        TextItem item,
+        Feature[] features,
+        string? language = null
+    ) {
         using var buffer = new HbBuffer();
 
         buffer.AddUtf16(text, item.Start, item.Length);
         buffer.Direction = item.IsRightToLeft ? Direction.RightToLeft : Direction.LeftToRight;
         buffer.Script = TagFor(item.Script);
+
+        // ⚠ Assigned only when a caller declared one, and the branch is the whole guarantee: an
+        // assignment of "whatever we have" would reach `new Language("")`, which HarfBuzz resolves
+        // through the process locale — exactly the machine dependence being avoided.
+        if (!string.IsNullOrEmpty(language)) {
+            buffer.Language = new Language(language);
+        }
 
         // ⚠ Default-ignorables are deleted rather than hidden. Left alone, HarfBuzz keeps a zero
         // width invisible glyph for every zero-width joiner, variation selector and bidi control —

@@ -540,6 +540,72 @@ public partial class UiElement : Composition.IComposable {
         Document.Invalidate();
     }
 
+    /// <summary>The attribute a language is declared in, and it is HTML's spelling on purpose.</summary>
+    const string LanguageAttribute = "lang";
+
+    /// <summary>What language this element's own text is written in, as a BCP-47 tag.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An attribute rather than a style property, and CSS is the authority for that
+    ///         rather than convenience.</b> There is no <c>lang</c> property in any CSS module —
+    ///         a language is a fact about the <i>document</i> that stylesheets <i>select on</i>, and
+    ///         a property would let a theme assert what language somebody's words are in. That is
+    ///         exactly the assertion the five consumers of this must not let a theme make: font
+    ///         fallback for a Han character, Turkish dotted-i casing, and the hyphenation patterns
+    ///         #546 is about are all wrong answers if a stylesheet can supply the language.
+    ///     </para>
+    ///     <para>
+    ///         So a stylesheet <i>reads</i> it, through the attribute selectors this engine already
+    ///         has: <c>[lang|="de"]</c> is <c>:lang(de)</c>'s own definition — CSS Selectors 4
+    ///         defines the <c>|=</c> operator as the BCP-47 prefix match for exactly this — so
+    ///         <c>de-AT</c> matches it and <c>de</c> does too. Markup writes it as
+    ///         <c>lang="de"</c> with no mapping, because <c>BuildContext.Attribute</c> already
+    ///         writes an attribute of that name.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see langword="null" /> means "declares none", which is not "English" and not
+    ///         the machine's locale.</b> See <see cref="ResolvedLanguage" />. Assigning
+    ///         <see langword="null" /> writes the empty tag rather than removing the attribute,
+    ///         because <c>StyleTree</c> appends attributes and never removes one; an empty tag reads
+    ///         back as <see langword="null" /> and inherits from the ancestor above, which is what
+    ///         taking a declaration off is supposed to mean.
+    ///     </para>
+    /// </remarks>
+    public string? Language {
+        get => Document.Styles.Tree.GetAttribute(StyleNode, LanguageAttribute) is { Length: > 0 } tag ? tag : null;
+        set => SetAttribute(LanguageAttribute, value ?? string.Empty);
+    }
+
+    /// <summary>The language in force here: this element's, or the nearest ancestor's, or the document's.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Inheritance by tree rather than by cascade</b>, which is how <c>lang</c> inherits
+    ///         in HTML and the only way it can inherit here: it is not a style property, so the
+    ///         cascade has nothing to carry down. A German paragraph inside an English shell is
+    ///         <c>lang="de"</c> on the paragraph and nothing on anything inside it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Empty is a working answer and the deliberate default.</b> It means undetermined,
+    ///         and it reaches <c>TextShaper</c> as "leave HarfBuzz's language unset" — which is what
+    ///         keeps a document's shaping identical on every machine. ⚠ Nothing here reads
+    ///         <c>CultureInfo.CurrentCulture</c>: taking the language from the process locale would
+    ///         wrap a paragraph differently on a German developer's laptop than on CI, and the
+    ///         failure would surface as a golden image red on one machine only. A host that wants
+    ///         the user's language says so, on <see cref="UiDocument.Language" />.
+    ///     </para>
+    /// </remarks>
+    public string ResolvedLanguage {
+        get {
+            for (var element = this; element is not null; element = element.Parent) {
+                if (element.Language is { } declared) {
+                    return declared;
+                }
+            }
+
+            return Document.Language;
+        }
+    }
+
     /// <summary>The state bits whose changing is something a screen reader would announce.</summary>
     /// <remarks>
     ///     <para>
@@ -718,6 +784,7 @@ public partial class UiElement : Composition.IComposable {
         // compared here, so keying on it keys on the stop.
         var tabSize = Document.TabSizeOf(Style);
         var hyphens = Document.HyphensOf(Style);
+        var language = ResolvedLanguage;
 
         if (!Document.WrapsOf(Style)) {
             width = float.PositiveInfinity;
@@ -778,6 +845,7 @@ public partial class UiElement : Composition.IComposable {
             && lineIndent.Equals(indent)
             && ReferenceEquals(lineFeatures, FontFeatures)
             && lineDirection == ParagraphDirection
+            && string.Equals(lineLanguage, language, StringComparison.Ordinal)
             && lineLeading.Equals(LineHeight)) {
             return block;
         }
@@ -856,6 +924,7 @@ public partial class UiElement : Composition.IComposable {
         lineIndent = indent;
         lineFeatures = FontFeatures;
         lineDirection = ParagraphDirection;
+        lineLanguage = language;
         lineLeading = LineHeight;
 
         return block;
@@ -1175,7 +1244,13 @@ public partial class UiElement : Composition.IComposable {
                     runs.Add(
                         new TextRun(
                             span.Font,
-                            Document.Shaping.Shape(span.Font, piece, direction, features: FontFeatures),
+                            Document.Shaping.Shape(
+                                span.Font,
+                                piece,
+                                direction,
+                                features: FontFeatures,
+                                language: ResolvedLanguage
+                            ),
                             FontSize,
                             LetterSpacing,
                             LineHeight,
@@ -1493,6 +1568,15 @@ public partial class UiElement : Composition.IComposable {
     ParagraphDirection? lineDirection;
     float lineLeading;
 
+    /// <summary>The language the block was shaped in, so that changing it reshapes.</summary>
+    /// <remarks>
+    ///     ⚠ In the key for the reason `lineWords` states one paragraph up: the language reaches the
+    ///     shaper, so it changes the *width* of a run, so it changes where the paragraph wraps. A
+    ///     property that reaches the shaping and not this test gives a block that redraws at the new
+    ///     language and keeps the old line breaks until something else invalidates it.
+    /// </remarks>
+    string? lineLanguage;
+
     void OnTextChanged(string? previous, string? current) {
         // ⚠ The measure function is attached and detached rather than left in place answering zero.
         // The layout algorithm asks a node with one whether it is a leaf and refuses to lay out its
@@ -1512,12 +1596,23 @@ public partial class UiElement : Composition.IComposable {
         }
 
         // The cascade's half of the same fact, and what makes `:empty` mean what CSS means by it —
-        // an element with words in it is not empty, however few children it has. `Invalidate` below
-        // is what restyles on the back of it: a text change is a cold pass, so nothing narrower is
-        // owed here, and `:empty` needs no entry in the invalidation map.
+        // an element with words in it is not empty, however few children it has.
         Document.Styles.Tree.SetHasText(StyleNode, !string.IsNullOrEmpty(current));
 
-        Document.Invalidate();
+        // ⚠ **Only the emptiness is a cold pass, and the remark this replaced said the whole
+        // assignment was.** `HasTextAt` has exactly one reader — `SelectorMatcher`'s `:empty` — so
+        // one string becoming another string changes nothing any selector in the engine can test,
+        // and the pass it used to buy re-cascaded the document to arrive at the styles it already
+        // had. That is the cost #598 attributed to row realisation: a scrolled `DataGrid` assigns
+        // one cell label per visible cell, seventy-two of them on the editor-shell fixture, and
+        // every one of those came through `Invalidate`. Crossing between text and no text can move
+        // a `:empty` verdict on this element and on anything selecting off it, so that half stays
+        // conservative.
+        if (string.IsNullOrEmpty(previous) != string.IsNullOrEmpty(current)) {
+            Document.Invalidate();
+        } else {
+            Document.InvalidatePositions();
+        }
     }
 
     /// <summary>Builds whatever this element is made of, once, as it joins a document.</summary>

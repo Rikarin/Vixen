@@ -76,6 +76,100 @@ public class HotReloadTests {
         Assert.Equal(10f, component.Root.Children[0].Width);
     }
 
+    /// <summary>And a declaration only the per-element pass can refuse rolls back too.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The loader and the selector compiler are two of four producers, and a snapshot
+    ///         that reads only them reports a broken save as a successful one.</b> A
+    ///         <c>grid-template-rows</c> whose unit does not exist parses and compiles perfectly —
+    ///         it is a well-formed declaration with a value nothing can use — so the sheet loads,
+    ///         <c>Introduced</c> is empty, and the host used to say the reload had worked while the
+    ///         panel it styles laid out as one row.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is why the snapshot has to be taken after a pass rather than after the
+    ///         load.</b> The other two producers run per element and per frame and have nothing in
+    ///         them at the moment the sheet is replaced; a host that read them there would read an
+    ///         empty list twice and conclude the same thing by a different route.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_declaration_only_the_layout_bridge_can_refuse_rolls_the_stylesheet_back() {
+        using var document = new UiDocument(200f, 200f);
+        var sheet = document.Load("box { width: 10px; }");
+
+        var host = new HotReloadHost(document);
+        var component = host.Mount<Boxes>(document.Root);
+
+        document.Update();
+        document.Draw();
+
+        var report = host.ReloadStyles(sheet, "box { width: 40px; grid-template-rows: 4furlongs; }");
+
+        Assert.False(report.Succeeded, "a declaration the bridge refuses was reported as a successful reload");
+        Assert.NotEmpty(report.Errors);
+
+        document.Update();
+        Assert.Equal(10f, component.Root.Children[0].Width);
+    }
+
+    /// <summary>The text resolver is the third producer, and it is refused for a different reason.</summary>
+    /// <remarks>
+    ///     <c>letter-spacing: 2deg</c> is a distance property given a unit that measures an angle.
+    ///     The declaration is dropped and the inherited value stands, which is what CSS asks for and
+    ///     is invisible — the words simply do not move.
+    /// </remarks>
+    [Fact]
+    public void A_declaration_only_the_text_resolver_can_refuse_rolls_the_stylesheet_back() {
+        using var document = new UiDocument(200f, 200f);
+        var sheet = document.Load("box { width: 10px; }");
+
+        var host = new HotReloadHost(document);
+        var component = host.Mount<Boxes>(document.Root);
+
+        document.Update();
+        document.Draw();
+
+        var report = host.ReloadStyles(sheet, "box { width: 40px; letter-spacing: 2deg; }");
+
+        Assert.False(report.Succeeded);
+        Assert.NotEmpty(report.Errors);
+
+        document.Update();
+        Assert.Equal(10f, component.Root.Children[0].Width);
+    }
+
+    /// <summary>And a sheet nothing refuses still goes through, which is the half a ceiling loses.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The floor under the two above.</b> Judging a reload after a pass rather than after a
+    ///     load is a change to <i>when</i> the verdict is taken, and a verdict taken over the wrong
+    ///     baseline refuses everything: the per-element producers hold whatever the document has
+    ///     ever refused, so a host that did not level the two sides would roll back every save for
+    ///     ever on a document with one bad declaration anywhere in it.
+    /// </remarks>
+    [Fact]
+    public void A_sheet_nothing_refuses_reloads_even_beside_a_standing_refusal() {
+        using var document = new UiDocument(200f, 200f);
+
+        // A refusal the bridge is already holding, in a sheet nobody is editing.
+        document.Load("root { grid-template-columns: 3fortnights; }");
+
+        var sheet = document.Load("box { width: 10px; }");
+        var host = new HotReloadHost(document);
+        var component = host.Mount<Boxes>(document.Root);
+
+        document.Update();
+        document.Draw();
+
+        var report = host.ReloadStyles(sheet, "box { width: 40px; }");
+
+        Assert.True(report.Succeeded, "a standing refusal elsewhere in the document rolled back an innocent save");
+        Assert.Empty(report.Errors);
+
+        document.Update();
+        Assert.Equal(40f, component.Root.Children[0].Width);
+    }
+
     // ------------------------------------------------------------ Markup
 
     [Fact]

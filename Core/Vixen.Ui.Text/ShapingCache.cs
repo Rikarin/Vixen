@@ -65,6 +65,7 @@ public sealed class ShapingCache {
     /// <param name="direction">Its base direction.</param>
     /// <param name="variation">Where along its axes a variable font is being read.</param>
     /// <param name="features">The OpenType features it is shaped with, or null for the face's own.</param>
+    /// <param name="language">The BCP-47 tag it is written in, or null for undetermined.</param>
     /// <returns>
     ///     The shaped paragraph. Shared with every other caller that asked for the same thing, so it
     ///     must be treated as immutable.
@@ -74,12 +75,20 @@ public sealed class ShapingCache {
         string text,
         ParagraphDirection direction = ParagraphDirection.Auto,
         FontVariation? variation = null,
-        FontFeatureSet? features = null
+        FontFeatureSet? features = null,
+        string? language = null
     ) {
         ArgumentNullException.ThrowIfNull(font);
         ArgumentNullException.ThrowIfNull(text);
 
-        var key = new Key(font, text, direction, variation ?? FontVariation.None, features ?? FontFeatureSet.None);
+        var key = new Key(
+            font,
+            text,
+            direction,
+            variation ?? FontVariation.None,
+            features ?? FontFeatureSet.None,
+            language ?? string.Empty
+        );
 
         if (entries.TryGetValue(key, out var node)) {
             Hits++;
@@ -89,7 +98,7 @@ public sealed class ShapingCache {
         }
 
         Misses++;
-        var shaped = TextShaper.Shape(font, text, direction, key.Variation, key.Features);
+        var shaped = TextShaper.Shape(font, text, direction, key.Variation, key.Features, key.Language);
 
         // Evict before inserting, so the cache never holds capacity + 1 even momentarily.
         if (entries.Count >= capacity) {
@@ -130,19 +139,29 @@ public sealed class ShapingCache {
     ///     tabular figures beside a paragraph of proportional ones would share whichever the draw
     ///     order happened to reach first, and it would look like the property working intermittently.
     /// </remarks>
+    /// <remarks>
+    ///     ⚠ <b>And the language is here for the same reason again, one step less obvious.</b> Two
+    ///     languages in one script are one script's shaping plan and two sets of language-specific
+    ///     substitutions — <c>locl</c> is an OpenType feature the shaper applies off the buffer's
+    ///     language and off nothing else. Left out of the key, a document with a German subtree and
+    ///     a Turkish one beside it would serve whichever was drawn first to both, which reads as the
+    ///     language being ignored on every element except one.
+    /// </remarks>
     readonly record struct Key(
         FontFace Font,
         string Text,
         ParagraphDirection Direction,
         FontVariation Variation,
-        FontFeatureSet Features
+        FontFeatureSet Features,
+        string Language
     ) {
         public bool Equals(Key other) =>
             ReferenceEquals(Font, other.Font)
             && Direction == other.Direction
             && string.Equals(Text, other.Text, StringComparison.Ordinal)
             && Variation.Equals(other.Variation)
-            && Features.Equals(other.Features);
+            && Features.Equals(other.Features)
+            && string.Equals(Language, other.Language, StringComparison.Ordinal);
 
         public override int GetHashCode() =>
             HashCode.Combine(
@@ -150,7 +169,8 @@ public sealed class ShapingCache {
                 StringComparer.Ordinal.GetHashCode(Text),
                 Direction,
                 Variation,
-                Features
+                Features,
+                StringComparer.Ordinal.GetHashCode(Language)
             );
     }
 

@@ -168,6 +168,7 @@ public sealed class HotReloadHost {
         var errors = Introduced(before, Diagnostics());
         if (!errors.IsEmpty) {
             Document.ReloadStyles(sheet, previous);
+            Diagnostics();
         }
 
         return Report(new(ReloadChannel.Styles, 0, FocusRestored: true, errors));
@@ -204,18 +205,46 @@ public sealed class HotReloadHost {
         return introduced.ToImmutable();
     }
 
-    /// <summary>
-    ///     Everything the last load could not use, from both places that report it.
-    /// </summary>
+    /// <summary>Drives a frame and reads what every producer refused during it.</summary>
     /// <remarks>
-    ///     ⚠ The loader and the selector compiler keep separate lists, and reading only the
-    ///     loader's misses exactly the mistakes a person makes while typing a selector — which is
-    ///     most of them. Found by a test that expected a rollback and did not get one.
+    ///     <para>
+    ///         ⚠ <b>The loader and the selector compiler keep separate lists, and reading only the
+    ///         loader's misses exactly the mistakes a person makes while typing a selector</b> —
+    ///         which is most of them. Found by a test that expected a rollback and did not get one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And those two are half of the four, which is what #583 was: a saved sheet
+    ///         declaring <c>grid-template-rows: 4furlongs</c> or <c>letter-spacing: 2deg</c> parses
+    ///         and compiles perfectly.</b> It is a well-formed declaration with a value nothing can
+    ///         use, so the load reported nothing, <see cref="Introduced" /> was empty, and the host
+    ///         called the reload a success while the panel laid out as one row. The refusal reached
+    ///         the log — that is what #521 landed — and the verdict was blind to it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which changes <i>when</i> a reload is judged, not only what is read.</b> The
+    ///         bridge and the text resolver produce per element in <c>Update</c> and the draw list
+    ///         per frame in <c>Draw</c>, so at the moment a sheet is replaced all three lists say
+    ///         whatever the last frame said and nothing about this save. Forgetting them and then
+    ///         driving a frame is what makes the two readings comparable: each one is then exactly
+    ///         one document-wide pass's worth of refusals, and <see cref="Introduced" /> is a
+    ///         difference between two like things rather than between a load and a frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And forgetting has to reach the applied layout styles, not only the lists.</b>
+    ///         A restyle that interns the same <c>ComputedStyle</c> rebuilds no layout style, so a
+    ///         cleared list plus a plain <c>Invalidate</c> reads back empty on a document that
+    ///         refuses plenty — the instrument reporting success on the day it did not run, which is
+    ///         the shape of the defect this is fixing. <see cref="UiDocument.ForgetPassRefusals" />
+    ///         is what makes the pass reproduce them.
+    ///     </para>
     /// </remarks>
-    ImmutableArray<string> Diagnostics() => [
-        .. Document.Styles.Loader.Diagnostics.Select(diagnostic => diagnostic.ToString()),
-        .. Document.Styles.Compiler.Diagnostics.Select(diagnostic => diagnostic.ToString())
-    ];
+    ImmutableArray<string> Diagnostics() {
+        Document.ForgetPassRefusals();
+        Document.Update();
+        Document.Draw();
+
+        return [.. Document.Refusals()];
+    }
 
     // ================================================================== Markup
 

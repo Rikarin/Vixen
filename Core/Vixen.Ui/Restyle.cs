@@ -1,23 +1,33 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.InteropServices;
 using Vixen.Ui.Styling;
 
 namespace Vixen.Ui;
 
 /// <summary>What a mutation told the document about itself.</summary>
 /// <remarks>
-///     Only the two kinds <see cref="StyleUpdater" /> can narrow. Everything else — a new element, a
-///     removal, a move, an inline style, a stylesheet — arrives as <see cref="UiDocument.Invalidate" />
-///     and costs a cold pass, which is correct for all of them and cheap for none. Widening this enum
-///     is how the remaining ones get their own path.
+///     <para>
+///         Only the kinds <see cref="StyleUpdater" /> can narrow. Everything else — a new element, a
+///         removal, a move, a stylesheet — arrives as <see cref="UiDocument.Invalidate" /> and costs a
+///         cold pass, which is correct for all of them and cheap for none. Widening this enum is how
+///         the remaining ones get their own path.
+///     </para>
+///     <para>
+///         ⚠ <b>An inline style is the third, and it is the one a virtualising list pays sixty times
+///         a second.</b> See <see cref="UiDocument.InvalidateInline" />.
+///     </para>
 /// </remarks>
 enum StyleChangeKind {
     /// <summary>A class was added or removed.</summary>
     Class,
 
     /// <summary>The element's pseudo state changed.</summary>
-    State
+    State,
+
+    /// <summary>A declaration was written on, or taken off, the element itself.</summary>
+    Inline
 }
 
 /// <summary>One recorded change, replayed against the updater on the next pass.</summary>
@@ -28,6 +38,9 @@ readonly record struct StyleChange(StyleChangeKind Kind, StyleNodeId Element, st
 
 public sealed partial class UiDocument {
     readonly List<StyleChange> changes = [];
+
+    /// <summary>The inline changes of one frame, gathered so that they cost one pass between them.</summary>
+    readonly List<StyleNodeId> inlineRoots = [];
 
     /// <summary>Whether the next pass has to resolve every element.</summary>
     /// <remarks>
@@ -83,6 +96,42 @@ public sealed partial class UiDocument {
         }
     }
 
+    /// <summary>Records a declaration written on an element itself, which reaches only its subtree.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A scrolled virtualised list cost a cold cascade of the whole document, and no
+    ///         element was created or removed to explain it.</b> #598 attributed 590 KB of a 591 KB
+    ///         scrolled frame to <c>Restyle</c> and read it as row realisation; the shell's element
+    ///         count is 561 before the scroll and 561 after it, on every frame of a scroll — the rows
+    ///         and cells are pooled and parked, never added and never taken away. What invalidates the
+    ///         document is <see cref="UiElement.SetStyle(string, string?)" />: a virtualiser writes
+    ///         <c>top</c> on two dozen recycled rows, and each write came through
+    ///         <see cref="Invalidate" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Narrowable because no selector in this engine can see an inline declaration.</b>
+    ///         <see cref="Vixen.Ui.Styling.SimpleSelectorKind" /> tests a tag, an id, a class, an
+    ///         attribute, a state, a position and emptiness — an inline block is none of them, and
+    ///         <see cref="UiElement.SetStyle(string, string?)" /> writes no attribute. So an inline
+    ///         change alters exactly one element's computed style and whatever its descendants
+    ///         inherit from it, which is the walk <see cref="StyleUpdater" /> already does. It cannot
+    ///         reach a sibling the way a class can, so unlike <see cref="InvalidateClass" /> there is
+    ///         nothing for the invalidator to collect.
+    ///     </para>
+    ///     <para>
+    ///         The one thing an inline length <i>can</i> reach that a selector cannot is an
+    ///         <c>@container</c> verdict, by resizing a query container — and that is measured after
+    ///         the arrange and invalidates the document itself. See <see cref="Recontain()" />.
+    ///     </para>
+    /// </remarks>
+    internal void InvalidateInline(StyleNodeId element) {
+        dirty = true;
+
+        if (!cold) {
+            changes.Add(new StyleChange(StyleChangeKind.Inline, element, null));
+        }
+    }
+
     /// <summary>Marks the document as needing a pass that changes no computed style.</summary>
     /// <remarks>
     ///     ⚠ <b>A scroll is the case this exists for, and it used to cost a full cascade.</b> An offset
@@ -118,9 +167,30 @@ public sealed partial class UiDocument {
         // resolves against the final state, so the union of what they reach is what a cold pass
         // would have produced. Replaying them against a tree being mutated in step would not be.
         foreach (var change in changes) {
-            resolved += change.Kind == StyleChangeKind.Class
-                ? Restyler.ClassChanged(change.Element, change.Name!)
-                : Restyler.StateChanged(change.Element);
+            switch (change.Kind) {
+                case StyleChangeKind.Class:
+                    resolved += Restyler.ClassChanged(change.Element, change.Name!);
+                    break;
+
+                case StyleChangeKind.State:
+                    resolved += Restyler.StateChanged(change.Element);
+                    break;
+
+                // ⚠ Gathered rather than replayed here, and this is the one kind that has to be.
+                // Every other change is its own pass because the sharing cache cannot be trusted
+                // across one; an inline write mutates a block *before* the pass runs and changes no
+                // key the cache is keyed on, so a scrolled grid's two dozen rows are one pass rather
+                // than two dozen — which is the difference between narrowing the cascade and merely
+                // renaming it.
+                default:
+                    inlineRoots.Add(change.Element);
+                    break;
+            }
+        }
+
+        if (inlineRoots.Count > 0) {
+            resolved += Restyler.InlineChanged(CollectionsMarshal.AsSpan(inlineRoots));
+            inlineRoots.Clear();
         }
 
         changes.Clear();

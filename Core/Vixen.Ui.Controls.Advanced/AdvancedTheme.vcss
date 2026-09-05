@@ -841,8 +841,14 @@ color-picker {
     color: var(--text);
 }
 
-color-field { height: 150px; flex-shrink: 0; border-radius: 4px; }
-color-strip { height: 12px; flex-shrink: 0; border-radius: 6px; }
+/* ⚠ Both bands declare a transparent border rather than growing one on focus, for the reason
+   `gradient-rail` states below: `box-sizing` is `border-box`, so a band that gained its ring only
+   when the focus arrived would reflow its own gradient by a pixel each way, and the marker drawn
+   inside it would twitch as the focus came and went. The band draws over `Bounds` and maps the
+   pointer over `Bounds` too, so the ring paints on the outermost pixel of the gradient and moves
+   nothing. */
+color-field { height: 150px; flex-shrink: 0; border-radius: 4px; border-width: 1px; border-color: transparent; }
+color-strip { height: 12px; flex-shrink: 0; border-radius: 6px; border-width: 1px; border-color: transparent; }
 color-strip.hidden { display: none; }
 
 color-row { flex-direction: row; align-items: center; gap: 6px; }
@@ -862,6 +868,16 @@ color-swatch {
 
 color-swatch.preview { width: 28px; height: 28px; }
 color-swatch.parked { display: none; }
+
+/* ⚠ The keyboard half of #420 was landed on these three and the ring was not, which is WCAG 2.4.7
+   and specifically the sighted-keyboard user's half of it: the arrows work and nothing on screen
+   says which control they are reaching. The palette is the worst of them, because its chips are a
+   roving tab stop — Tab enters the set once and the arrows walk it, so with no ring there is
+   nothing at all to follow. A swatch already carries a border, so its ring is one declaration; the
+   two bands had to be given one above. */
+color-field:focus-visible, color-strip:focus-visible, color-swatch:focus-visible {
+    border-color: var(--accent);
+}
 
 color-palette { flex-direction: row; gap: 4px; }
 

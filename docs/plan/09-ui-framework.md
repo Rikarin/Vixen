@@ -539,12 +539,15 @@ needed the generator to emit a compound selector rather than a bare class. It do
 `margin-block-end`, because the block pair is interned by nobody and this engine has no writing mode
 for them to differ in; and the scope is not wrapped in `:where()`, which v4 uses to keep the rule at
 one class of specificity, because `SelectorCompiler` charges a class for `:where()` as it does for
-`:is()`. The second is v3's behaviour and shipped for four major versions. `space-x-reverse`,
-`divide-*-reverse` and the `divide-<style>` keywords are absent: the first pair needs `calc()` — ⚠
-which `StyleValueParser` **now has**, folding `+ - * /` on compatible units exactly as the supported
-list above claims, so what holds those four back is no longer the arithmetic but whether anything
-reads the `--tw-*-reverse` flag they would multiply by — and the second needs a reader for
-`border-style`, which nothing is.
+`:is()`. The second is v3's behaviour and shipped for four major versions. `space-x-reverse` and
+`divide-*-reverse` are absent — ⚠ **and neither reason originally given for them is the reason any
+more.** `StyleValueParser` folds `+ - * /` on compatible units, and `ReverseFlagTests` measures that
+the `--tw-*-reverse` flag *is* read: written by one class, read by another class's declaration,
+inherited down to the descendants the child-scoped rule matches, at both values of the flag. What
+holds those four back is the one-edge decision in `UtilityFamilies` — a reverse flag flips which of
+two written edges carries the width, and these families write one edge on purpose so as not to
+out-specify a child's own utility. ⚠ The `divide-<style>` keywords were on this list and are not any
+more: they needed a reader for `border-style`, and doc 43 § A3 gave them one.
 
 **Why build this rather than hand-write CSS.** The editor has ~200 distinct visual components. A
 utility system means the design-token change ("accent is now teal") is one file, and the styling of a

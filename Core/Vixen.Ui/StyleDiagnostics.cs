@@ -139,6 +139,81 @@ public sealed partial class UiDocument {
         textDiagnostics.Add(new SelectorDiagnostic(text, reason));
     }
 
+    /// <summary>Everything the document's five diagnostic producers are holding, as text.</summary>
+    /// <returns>One entry per distinct refusal, in producer order.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Five, and a caller that reads two of them is a caller that reports a broken
+    ///         document as a working one.</b> <c>HotReloadHost</c> built its before-and-after
+    ///         snapshot out of <see cref="StyleSheetLoader" /> and <c>SelectorCompiler</c> alone, so
+    ///         a saved sheet declaring <c>grid-template-rows: 4furlongs</c> or
+    ///         <c>letter-spacing: 2deg</c> parsed, compiled, introduced nothing, and was reported as
+    ///         a successful reload while the panel it styled laid out as one row. See #583.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two of the five are empty until a pass has run, which is the whole reason this
+    ///         is not a one-line addition to that caller.</b> The loader's and the compiler's lists
+    ///         are filled at load; the bridge's and the text resolver's are filled per element
+    ///         during <see cref="Update" /> and the draw list's per frame during <see cref="Draw()" />.
+    ///         A snapshot taken at the moment a sheet is replaced reads three empty lists whatever
+    ///         the sheet says — so a caller judging a reload by this has to drive a frame between
+    ///         the two readings, and <see cref="ForgetPassRefusals" /> is how it levels them.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<string> Refusals() => [
+        .. Styles.Loader.Diagnostics.Select(diagnostic => diagnostic.ToString()),
+        .. Styles.Compiler.Diagnostics.Select(diagnostic => diagnostic.ToString()),
+        .. Builder.Diagnostics.Select(diagnostic => diagnostic.ToString()),
+        .. textDiagnostics.Select(diagnostic => diagnostic.ToString()),
+        .. drawings.Diagnostics.Select(diagnostic => diagnostic.ToString())
+    ];
+
+    /// <summary>
+    ///     Forgets what the per-pass and per-frame producers have refused, and arranges for the next
+    ///     pass to refuse it all again.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>For a caller that is about to run a pass and wants the refusals of <i>that</i>
+    ///         pass.</b> <c>LayoutStyleBuilder.ClearDiagnostics</c> and
+    ///         <c>DrawListBuilder.ClearDiagnostics</c> were written for exactly this and had no
+    ///         caller at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Clearing the lists is half of it, and the half on its own is worse than
+    ///         nothing.</b> <see cref="Invalidate" /> re-cascades but does not rebuild a layout
+    ///         style whose interned <c>ComputedStyle</c> came back identical — which is the whole
+    ///         point of that interning — so a caller that cleared and then invalidated would run a
+    ///         full restyle, reach the bridge for nothing, and read an empty list as "this document
+    ///         refuses nothing". <see cref="Forget()" /> is what makes the next pass genuinely
+    ///         reproduce every refusal, and it is why this is one call rather than a caller's
+    ///         recipe.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The log watermarks are reset with the lists and that is not tidiness.</b>
+    ///         <see cref="Drain" /> remembers how many entries of a producer it has already logged;
+    ///         a list cleared behind its back leaves a watermark past the end, and the next several
+    ///         refusals — the very ones the caller cleared in order to see — would be dropped
+    ///         silently rather than logged.
+    ///     </para>
+    ///     <para>
+    ///         The loader's and the compiler's lists are deliberately left alone: they are rebuilt
+    ///         by the next load rather than by the next pass, and a caller comparing two loads needs
+    ///         the baseline they carry.
+    ///     </para>
+    /// </remarks>
+    public void ForgetPassRefusals() {
+        Builder.ClearDiagnostics();
+        textDiagnostics.Clear();
+        drawings.ClearDiagnostics();
+
+        drainedBuilderCount = 0;
+        drainedTextCount = 0;
+        drainedDrawingCount = 0;
+
+        Forget();
+    }
+
     /// <summary>Logs every refusal the cascade has recorded since the last time this ran.</summary>
     /// <remarks>
     ///     Called after anything that can add to either list: a <see cref="Load" />, a

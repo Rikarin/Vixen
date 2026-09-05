@@ -275,10 +275,13 @@ public class IncrementalDocumentTests {
         Assert.True(document.LastPassWasCold);
         Assert.NotSame(ComputedStyle.Empty, fresh.Style);
 
-        // Nor is an inline style, nor a move, nor a stylesheet.
+        // ⚠ An inline style used to be here, and is not any more. Nothing in
+        // `SimpleSelectorKind` can test a declaration written on an element, so an inline write
+        // reaches that element and whatever inherits from it and nothing else — which is exactly
+        // the walk the updater already does. See `Inline_styles_are_narrow` below.
         box.SetStyle("width", "10px");
         document.Update();
-        Assert.True(document.LastPassWasCold);
+        Assert.False(document.LastPassWasCold);
 
         box.AddClass("b");
         document.Update();
@@ -287,6 +290,102 @@ public class IncrementalDocumentTests {
         document.Move(box, 1);
         document.Update();
         Assert.True(document.LastPassWasCold);
+    }
+
+    /// <summary>An inline write costs its own subtree, and gets the answer a cold pass would.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both halves, because the cheap half alone is met by a pass that resolved the wrong
+    ///     thing.</b> The narrowing is sound only because no selector in this engine can see an
+    ///     inline declaration — <see cref="SimpleSelectorKind" /> tests a tag, an id, a class, an
+    ///     attribute, a state, a position and emptiness — so the sibling below must keep the width
+    ///     its own rule gives it, and the child must inherit the colour written on its parent.
+    /// </remarks>
+    [Fact]
+    public void An_inline_write_is_narrow_and_still_right() {
+        using var document = new UiDocument(400f, 300f);
+
+        document.Load("""
+            root { width: 400px; height: 300px; }
+            div { width: 40px; height: 10px; }
+        """);
+
+        var first = document.Root.Add("div");
+        var child = first.Add("div");
+        var second = document.Root.Add("div");
+
+        document.Update();
+        Assert.True(document.LastPassWasCold);
+
+        first.SetStyle("color", "#ff0000");
+        first.SetStyle("width", "137px");
+        second.SetStyle("width", "88px");
+
+        Assert.True(document.Update());
+        Assert.False(document.LastPassWasCold);
+
+        // The two written-on elements, the one child that inherits, and nothing else in the
+        // document — the root and its style are untouched.
+        Assert.Equal(3, document.StylesResolved);
+
+        Assert.Equal(137f, first.Width, 0.001f);
+        Assert.Equal(88f, second.Width, 0.001f);
+        Assert.Equal(40f, child.Width, 0.001f);
+        Assert.Contains("color=#ff0000;", Describe(document, child.Style), StringComparison.Ordinal);
+
+        // And the same document built cold agrees, which is what says the narrow pass did not
+        // merely do less but arrive somewhere else.
+        var narrow = Describe(document, child.Style);
+
+        document.Invalidate();
+        document.Update();
+
+        Assert.True(document.LastPassWasCold);
+        Assert.Equal(narrow, Describe(document, child.Style));
+    }
+
+    /// <summary>One string becoming another is narrow; crossing to or from empty is not.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>StyleTree.HasText</c> has exactly one reader — <c>SelectorMatcher</c>'s
+    ///     <c>:empty</c> — so that crossing is the whole of what a text assignment can tell a
+    ///     selector.</b> Everything else about it is a measurement, which the layout node is
+    ///     dirtied for directly. A grid rebinding a cell label per visible cell is the case that
+    ///     makes the difference visible: those are all non-empty to non-empty.
+    /// </remarks>
+    [Fact]
+    public void A_text_change_is_a_cold_pass_only_when_it_crosses_empty() {
+        using var document = new UiDocument(400f, 300f);
+
+        document.Load("""
+            root { width: 400px; height: 300px; }
+            div { width: 40px; height: 10px; }
+            div:empty { width: 7px; }
+        """);
+
+        var label = document.Root.Add("div");
+        var sibling = document.Root.Add("div");
+
+        document.Update();
+        Assert.Equal(7f, label.Width, 0.001f);
+
+        // Empty to words: `:empty` stops matching, so the conservative pass is owed.
+        label.Text = "Entity 1";
+        Assert.True(document.Update());
+        Assert.True(document.LastPassWasCold);
+        Assert.Equal(40f, label.Width, 0.001f);
+
+        // Words to other words: nothing any selector can test has moved.
+        label.Text = "Entity 2";
+        Assert.True(document.Update());
+        Assert.False(document.LastPassWasCold);
+        Assert.Equal(40f, label.Width, 0.001f);
+
+        // And back the other way, which must restore the `:empty` width rather than keep the one
+        // the element had while it had words in it.
+        label.Text = string.Empty;
+        Assert.True(document.Update());
+        Assert.True(document.LastPassWasCold);
+        Assert.Equal(7f, label.Width, 0.001f);
+        Assert.Equal(7f, sibling.Width, 0.001f);
     }
 
     [Fact]

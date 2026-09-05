@@ -152,11 +152,10 @@ column.** `space-x/y-*` and `divide-*` were counted `composed` because v4 sets a
 them, but the fragment is only how v4 spells the `*-reverse` *variant*; the families themselves are a
 rule over children — `& > :not(:last-child)` — which is a selector problem and not a value one. They
 are emitted now, without any fragment, through `Family.Scope`; the reverse spellings stay absent —
-⚠ **though no longer for the reason written here for months.** `StyleValueParser` folds a `calc()`
-now, so "it needs `calc()` and there is none" has expired; what is unmeasured is whether the
-`--tw-*-reverse` flag those families would multiply by is read by anything once the multiply works.
-Filed rather than lifted, because a refusal lifted without a measurement is how an inert root gets
-registered. See F9.
+⚠ **though for neither of the two reasons written here for months.** `StyleValueParser` folds a
+`calc()` now, and the flag *is* read: `ReverseFlagTests` measures it and both halves come out
+positive. What survives is the one-edge decision in `UtilityFamilies`, which is not about values at
+all. See F9.
 
 **Two designs, and the argument that settled it.** (a) the utilities really set custom properties and
 the cascade resolves the `var()` references at use time; (b) the generator folds the fragments into
@@ -1356,12 +1355,22 @@ behaviour fails the day they land.
 
 **What is absent inside the two families, and why.** `space-x-reverse`, `space-y-reverse`,
 `divide-x-reverse` and `divide-y-reverse` need `calc()` to multiply an edge by a `--tw-*-reverse`
-flag. ⚠ **Half of that reason expired on 2026-09-05**: `StyleValueParser` folds a `calc()` now, and
-`calc(1px * var(--tw-divide-x-reverse))` is substituted before it is parsed, so the multiply resolves.
-What is *not* measured is the other half — whether the flag is a custom property anything reads — and
-that is the half that decides whether registering these four adds four working roots or exactly the
-inert roots Part 8 § 3 declines to add for `scroll-*`. They stay absent until somebody measures it,
-because lifting a refusal without the measurement is the failure this document is about.
+flag. ⚠ **Both halves of that reason have now expired, and the measurement was taken before either
+was lifted.** `StyleValueParser` folds a `calc()`, so the multiply resolves; and
+`ReverseFlagTests` measures the other half end to end — a flag one class writes is read by another
+class's declaration, it inherits down to the descendants the `> :not(:last-child)` rule actually
+matches, and both arms of v4's arithmetic fold at both values of the flag. So these would not be the
+inert roots Part 8 § 3 declines to add for `scroll-*`; the mechanism works.
+
+⚠ **They stay absent anyway, and the surviving reason is one paragraph up rather than anywhere near
+`calc()`.** `divide-x` and `space-x` write *one* edge on purpose, because writing the leading edge as
+well would out-specify a child's own `border-s-2` and silently erase it — and v4's reverse flag works
+by flipping which of *two* written edges carries the width. Writing that leading edge as
+`calc(w * var(--tw-divide-x-reverse, 0))` instead of as a literal `0` changes nothing about the cost:
+it is the declaration that out-specifies, not its value. So registering these four is a decision about
+whether to reverse the one-edge choice and pay for it, not a decision about whether the machinery
+exists. `ReverseFlagTests.The_four_reverse_spellings_are_still_absent` is what fails the day somebody
+registers them without taking it.
 
 ⚠ **The five `divide-<style>` keywords were on that list and are not any more.** They were absent
 because `border-style` had no reader — measured, like the rest — and A3 gave it one. They are merged

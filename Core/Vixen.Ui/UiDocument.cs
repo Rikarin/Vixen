@@ -49,6 +49,9 @@ public sealed partial class UiDocument : IDisposable {
     readonly int lineClamp;
     readonly int tabSize;
     readonly int hyphens;
+
+    /// <summary>The document's default language, empty for undetermined. See <see cref="Language" />.</summary>
+    string language = string.Empty;
     readonly int ellipsis;
     readonly int nowrap;
     readonly int anywhere;
@@ -2069,16 +2072,58 @@ public sealed partial class UiDocument : IDisposable {
             value == capitalize ? TextTransform.Capitalize : TextTransform.None;
     }
 
+    /// <summary>What language this document is written in by default, as a BCP-47 tag.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The bottom of <see cref="UiElement.ResolvedLanguage" />'s walk</b>, and what a
+    ///         host sets when the whole interface is in one language. A subtree overrides it with
+    ///         <c>lang</c> on an element.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Empty by default, and never <c>CultureInfo.CurrentCulture</c>.</b> Undetermined
+    ///         is a working state: it reaches <c>TextShaper</c> as "leave HarfBuzz's language unset",
+    ///         which is the property that makes a document lay out identically on every machine. A
+    ///         default read from the process locale would wrap a paragraph one way on a German
+    ///         developer's laptop and another way on CI, and the failure would arrive as a golden
+    ///         image red on one machine only — a shape this repository has met enough times to
+    ///         refuse the convenience. A host that wants the user's language assigns it here, once,
+    ///         where a person can see that it did.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Assigning it re-measures every element that owns text, for
+    ///         <see cref="Refont" />'s reason: the language reaches the shaper, so it can change
+    ///         advances, so a block built before it moved is stale. Assigning the same tag again
+    ///         costs nothing.
+    ///     </para>
+    /// </remarks>
+    public string Language {
+        get => language;
+        set {
+            ArgumentNullException.ThrowIfNull(value);
+
+            if (string.Equals(language, value, StringComparison.Ordinal)) {
+                return;
+            }
+
+            language = value;
+
+            Remeasure(Root);
+            Invalidate();
+        }
+    }
+
     /// <summary>Whether a soft hyphen may end a line. CSS Text 4 § 6.1's <c>hyphens</c>.</summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Two values where CSS has three, and <c>auto</c> is refused rather than
     ///         approximated.</b> It needs a per-language Liang pattern set — tens of kilobytes a
-    ///         language — <i>and</i> a language to choose one with, and <c>TextShaper</c> leaves
-    ///         HarfBuzz's language unset on purpose so that shaping does not depend on the machine's
-    ///         locale. So the input is missing as well as the algorithm. No utility emits it, and a
-    ///         declaration carrying it lands on <see cref="HyphenMode.Manual" /> — which is what a
-    ///         browser with hyphenation patterns it does not have would also do.
+    ///         language — <i>and</i> a language to choose one with. ⚠ The second half of that has
+    ///         moved: <see cref="Language" /> and <c>UiElement.Language</c> carry one now and it
+    ///         reaches the shaped run, so what is left owed is the pattern sets — which is #546's
+    ///         licensing-and-size question rather than a model change. See #600. The algorithm is
+    ///         still missing, so no utility emits <c>auto</c> and a declaration carrying it lands on
+    ///         <see cref="HyphenMode.Manual" /> — which is what a browser with hyphenation patterns
+    ///         it does not have would also do.
     ///     </para>
     ///     <para>
     ///         <c>manual</c> is the initial value and needs no test: anything that is not

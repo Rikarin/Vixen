@@ -629,7 +629,7 @@ Vixen.Ui.Text.ShapingCache.Clear() -> void
 Vixen.Ui.Text.ShapingCache.Count.get -> int
 Vixen.Ui.Text.ShapingCache.Hits.get -> long
 Vixen.Ui.Text.ShapingCache.Misses.get -> long
-Vixen.Ui.Text.ShapingCache.Shape(Vixen.Ui.Text.FontFace font, string text, Vixen.Ui.Text.ParagraphDirection direction = Vixen.Ui.Text.ParagraphDirection.Auto, Vixen.Ui.Text.FontVariation? variation = null, Vixen.Ui.Text.FontFeatureSet? features = null) -> Vixen.Ui.Text.ShapedText
+Vixen.Ui.Text.ShapingCache.Shape(Vixen.Ui.Text.FontFace font, string text, Vixen.Ui.Text.ParagraphDirection direction = Vixen.Ui.Text.ParagraphDirection.Auto, Vixen.Ui.Text.FontVariation? variation = null, Vixen.Ui.Text.FontFeatureSet? features = null, string? language = null) -> Vixen.Ui.Text.ShapedText
 Vixen.Ui.Text.ShapingCache.ShapingCache(int capacity = 512) -> void
 Vixen.Ui.Text.TextItem -> readonly struct
 Vixen.Ui.Text.TextItem : System.IEquatable<Vixen.Ui.Text.TextItem>
@@ -740,7 +740,7 @@ static Vixen.Ui.Text.Rasterizing.OutlineFlattener.Flatten(Vixen.Ui.Text.Outlines
 static Vixen.Ui.Text.TextItemizer.Itemize(string text, Vixen.Ui.Text.ParagraphDirection direction = Vixen.Ui.Text.ParagraphDirection.Auto) -> System.Collections.Generic.List<Vixen.Ui.Text.TextItem>
 static Vixen.Ui.Text.TextItemizer.VisualOrder(System.Collections.Generic.IReadOnlyList<Vixen.Ui.Text.TextItem> items) -> int[]
 static Vixen.Ui.Text.TextItemizer.VisualOrder(System.ReadOnlySpan<int> levels) -> int[]
-static Vixen.Ui.Text.TextShaper.Shape(Vixen.Ui.Text.FontFace font, string text, Vixen.Ui.Text.ParagraphDirection direction = Vixen.Ui.Text.ParagraphDirection.Auto, Vixen.Ui.Text.FontVariation? variation = null, Vixen.Ui.Text.FontFeatureSet? features = null) -> Vixen.Ui.Text.ShapedText
+static Vixen.Ui.Text.TextShaper.Shape(Vixen.Ui.Text.FontFace font, string text, Vixen.Ui.Text.ParagraphDirection direction = Vixen.Ui.Text.ParagraphDirection.Auto, Vixen.Ui.Text.FontVariation? variation = null, Vixen.Ui.Text.FontFeatureSet? features = null, string? language = null) -> Vixen.Ui.Text.ShapedText
 static Vixen.Ui.Text.TransformedText.Of(string? source, Vixen.Ui.Text.TextTransform transform) -> Vixen.Ui.Text.TransformedText
 static Vixen.Ui.Text.WordBreaker.Boundaries(string text) -> System.Collections.Generic.List<int>
 static Vixen.Ui.Text.WordBreaker.Collect(System.ReadOnlySpan<char> text, System.Collections.Generic.List<int> boundaries) -> void
