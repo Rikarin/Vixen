@@ -107,6 +107,35 @@ public static class ControlStrings {
     /// <summary>The colour picker's hexadecimal field, which has no caption beside it.</summary>
     public static StringId ColorPickerHex { get; } = new("ui.control.color-picker.hex", "Hexadecimal");
 
+    /// <summary>The hue band, which is a rainbow and has no words on it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Four more of the same kind as the hexadecimal field above: their only words are the
+    ///     ones a screen reader says.</b> A band, a square and a row of chips are pictures — nothing
+    ///     in a colour picker is captioned, because a colour explains itself to anyone who can see
+    ///     it. That is exactly why the sub-parts had no names to give when they became reachable.
+    /// </remarks>
+    public static StringId ColorPickerHue { get; } = new("ui.control.color-picker.hue", "Hue");
+
+    /// <summary>The alpha band beneath it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A second id for the word <see cref="GradientEditorOpacity" /> already carries</b>,
+    ///     on the two-Closes rule this class states at the top: a band under a colour picker and a
+    ///     slider in a gradient editor are the same English word and need not be the same string.
+    /// </remarks>
+    public static StringId ColorPickerAlpha { get; } = new("ui.control.color-picker.alpha", "Opacity");
+
+    /// <summary>The two-dimensional square the marker moves in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Named for what it is rather than for its axes, because its axes change.</b> The
+    ///     square is saturation against value in <c>ColorModel.Hsv</c> and chroma against lightness
+    ///     in <c>ColorModel.OkLch</c>; a name that said either would be wrong half the time, and a
+    ///     name that said both would be a sentence.
+    /// </remarks>
+    public static StringId ColorPickerField { get; } = new("ui.control.color-picker.field", "Colour field");
+
+    /// <summary>The row of saved colours under it.</summary>
+    public static StringId ColorPickerPalette { get; } = new("ui.control.color-picker.palette", "Saved colours");
+
     /// <summary>The gradient editor's choice of how two stops are mixed.</summary>
     /// <remarks>
     ///     ⚠ <b>The control's name, not its options.</b> The three colour-space names it offers —
@@ -147,6 +176,10 @@ public static class ControlStrings {
         ScrollBarVertical,
         ScrollBarHorizontal,
         ColorPickerHex,
+        ColorPickerHue,
+        ColorPickerAlpha,
+        ColorPickerField,
+        ColorPickerPalette,
         GradientEditorSpace,
         GradientEditorOpacity
     ];

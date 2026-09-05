@@ -245,6 +245,8 @@ Vixen.Ui.Controls.Advanced.ColorSwatch -> sealed class
 Vixen.Ui.Controls.Advanced.ColorSwatch : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.Advanced.ColorSwatch.Color.get -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.Controls.Advanced.ColorSwatch.ColorSwatch() -> void
+Vixen.Ui.Controls.Advanced.ColorSwatch.Selectable.get -> bool
+Vixen.Ui.Controls.Advanced.ColorSwatch.Selectable.set -> bool
 Vixen.Ui.Controls.Advanced.CompletionItem -> readonly struct
 Vixen.Ui.Controls.Advanced.CompletionItem : System.IEquatable<Vixen.Ui.Controls.Advanced.CompletionItem>
 Vixen.Ui.Controls.Advanced.CompletionItem.CompletionItem() -> void
@@ -1149,6 +1151,7 @@ abstract Vixen.Ui.Controls.Advanced.DockNode.ToYaml() -> Vixen.Core.Yaml.YamlNod
 const Vixen.Ui.Controls.Advanced.CodeEditor.Overscan = 2 -> int
 const Vixen.Ui.Controls.Advanced.ColorField.Samples = 16 -> int
 const Vixen.Ui.Controls.Advanced.ColorPicker.MaximumChroma = 0.37 -> float
+const Vixen.Ui.Controls.Advanced.ColorStrip.KeyStep = 0.01 -> float
 const Vixen.Ui.Controls.Advanced.DataGrid.Overscan = 2 -> int
 const Vixen.Ui.Controls.Advanced.DockGroupView.PageFraction = 0.75 -> float
 const Vixen.Ui.Controls.Advanced.DockSplitNode.MinimumRatio = 0.05 -> float
@@ -1169,6 +1172,9 @@ override Vixen.Ui.Controls.Advanced.CodeLine.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.CodeSpan.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.CodeSpan.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.ColorField.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.ColorField.NativeAccessibleName.get -> string?
+override Vixen.Ui.Controls.Advanced.ColorField.NativeAccessibleValue.get -> string?
+override Vixen.Ui.Controls.Advanced.ColorField.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.ColorField.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.ColorField.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.Advanced.ColorField.TagName.get -> string
@@ -1183,10 +1189,16 @@ override Vixen.Ui.Controls.Advanced.ColorPicker.NativeRole.get -> Vixen.Ui.Acces
 override Vixen.Ui.Controls.Advanced.ColorPicker.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.ColorPicker.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.ColorStrip.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.ColorStrip.NativeAccessibleName.get -> string?
+override Vixen.Ui.Controls.Advanced.ColorStrip.NativeAccessibleValue.get -> string?
+override Vixen.Ui.Controls.Advanced.ColorStrip.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.ColorStrip.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.ColorStrip.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.Advanced.ColorStrip.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.ColorSwatch.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.ColorSwatch.NativeAccessibleName.get -> string?
+override Vixen.Ui.Controls.Advanced.ColorSwatch.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
+override Vixen.Ui.Controls.Advanced.ColorSwatch.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.ColorSwatch.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.ColorSwatch.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.Advanced.ColorSwatch.RaisesActivation.get -> bool

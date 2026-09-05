@@ -25,12 +25,14 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///         coverage stops at a base class is worse than no sweep, because it is quoted as one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Six of the seven pointer-only sub-parts doc 46 owes are exempted here with a pointer
-///         to their issue rather than reported as failures</b>, because giving them a role before
-///         giving them a keyboard would be worse than not: a screen reader would announce a set of
-///         widgets that cannot be operated. The seventh, <c>TimelineTrack</c>, is not in the table —
-///         it is not a <see cref="UiElement" /> at all, so it can never have a role and this sweep
-///         cannot see it.
+///         ⚠ <b>Three of the pointer-only sub-parts doc 46 owes are still exempted here with a
+///         pointer to their issue rather than reported as failures</b>, because giving them a role
+///         before giving them a keyboard would be worse than not: a screen reader would announce a
+///         set of widgets that cannot be operated. <c>ColorField</c>, <c>ColorStrip</c> and
+///         <c>ColorSwatch</c> have left the table, and the order they left it in is the point — the
+///         arrows and the roving tab stop landed in the same change as the roles, never before. The
+///         name doc 46 lists that was never in the table is <c>TimelineTrack</c>: it is not a
+///         <see cref="UiElement" /> at all, so it can never have a role and this sweep cannot see it.
 ///     </para>
 /// </remarks>
 [Collection(SharedCatalogue.Name)]
@@ -39,14 +41,13 @@ public class AccessibilityCoverageTests {
     /// <remarks>
     ///     ⚠ <b>Two categories, and the reasons say which.</b> Most of these are structure — a paint
     ///     layer, a lane, a row, a container whose children carry the roles — and are correct
-    ///     forever. Six are owed: the pointer-only sub-parts of the canvases, which need a keyboard
-    ///     before they can be given a role, and whose reason names the issue that owes it.
+    ///     forever. Three are owed: the pointer-only sub-parts of the canvases, which need a
+    ///     keyboard before they can be given a role, and whose reason names the issue that owes it.
     /// </remarks>
     static readonly Dictionary<string, string> Exempt = new(StringComparer.Ordinal) {
-        // Owed, in the order doc 46 § A2 lists them. Keyboard first, role second — see #420.
-        ["ColorField"] = "pointer-only: a saturation/value square with no keyboard yet — #420",
-        ["ColorStrip"] = "pointer-only: a hue or alpha rail with no keyboard yet — #420",
-        ["ColorSwatch"] = "pointer-only: a recent-colour chip with no keyboard yet — #420",
+        // Owed, in the order doc 46 § A2 lists them. Keyboard first, role second — see #420. The
+        // colour picker's three left this table by being given a keyboard, not by being given a
+        // role; the three below are the ones still waiting for one.
         ["GradientRail"] = "pointer-only: the stop rail is dragged and has no keyboard yet — #420",
         ["NodeItem"] = "pointer-only: a node is dragged and has no keyboard yet — #420",
         ["ViewportGizmo"] = "pointer-only: a manipulator handle with no keyboard yet — #420",
@@ -80,8 +81,8 @@ public class AccessibilityCoverageTests {
     const int Elements = 37;
 
     /// <summary>And how many of them are expected to answer with a role.</summary>
-    /// <remarks>Seventeen today, which is what stops the first floor being met by exempted types.</remarks>
-    const int Roled = 15;
+    /// <remarks>Twenty today, which is what stops the first floor being met by exempted types.</remarks>
+    const int Roled = 18;
 
     [Fact]
     public void Every_element_type_has_a_role_or_a_written_reason_for_not() {
