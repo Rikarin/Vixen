@@ -39,12 +39,13 @@ public readonly record struct TextureCompoundProblem(string Path, string Source,
 ///         how a graph that worked yesterday quietly starts computing something else — an author's
 ///         half-finished copy of <c>Generators/Dirt</c>, saved under its own name, silently
 ///         rebinding every material that reads it. So the collision is a
-///         <see cref="TextureCompoundProblem" /> naming both files, and
-///         <a href="https://github.com/Rikarin/Vixen/issues/702">#702</a>'s follow-on is where a
-///         deliberate override with a visible marker belongs.
+///         <see cref="TextureCompoundProblem" /> naming both files, and a deliberate override with a
+///         visible marker is a decision somebody makes on purpose rather than a behaviour that
+///         arrives by accident.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing in this tree calls <see cref="Publish" /> outside its own tests.</b>
+///         ⚠ <b>Nothing in this tree calls <see cref="Publish" /> outside its own tests —
+///         <a href="https://github.com/Rikarin/Vixen/issues/799">#799</a>.</b>
 ///         <c>TextureNodeLibrary.Create</c> in <c>Vixen.Editor.Texturing</c> registers the generated
 ///         <c>NodeTypes</c> and nothing else, so the shipped compounds are in the assembly, loadable,
 ///         compilable and <em>not in the panel's search</em> — and a <c>TextureGraphDocument</c> has

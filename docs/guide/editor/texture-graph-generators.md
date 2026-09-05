@@ -168,11 +168,13 @@ edge. So every knob on a shipped compound is an interface port.
   `TextureNodeLibrary.Create` registers the generated node types and nothing else, so the shipped
   compounds are in the assembly, loadable and compilable, and **not in the panel's search**; and a
   graph containing a `Source/Mesh Map` compiles and does not bake, exactly as one containing a
-  `Source/Bitmap` does. [#702](https://github.com/Rikarin/Vixen/issues/702) and
-  [#573](https://github.com/Rikarin/Vixen/issues/573) carry the two calls.
+  `Source/Bitmap` does. [#799](https://github.com/Rikarin/Vixen/issues/799) carries the compound
+  half; [#702](https://github.com/Rikarin/Vixen/issues/702) and
+  [#573](https://github.com/Rikarin/Vixen/issues/573) the resolver half.
 - ⚠ **Two `Source/Mesh Map` nodes asking for one usage ask for it twice.** Each allocates its own
   external image, so a host uploads one PNG twice. The pictures are identical, so no bake is wrong;
-  de-duplicating means the compiler keying externals by their reference.
+  de-duplicating means the compiler keying externals by their reference —
+  [#800](https://github.com/Rikarin/Vixen/issues/800).
 
 ## See also
 

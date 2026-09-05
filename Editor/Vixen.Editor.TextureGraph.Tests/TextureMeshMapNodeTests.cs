@@ -202,9 +202,10 @@ public class TextureMeshMapNodeTests {
     ///     <para>
     ///         It is a cost rather than a defect: the pictures are identical, so no bake is wrong. De-
     ///         duplicating means the compiler keying externals by their reference, which is
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/702">#702</a>'s follow-on and a change
-    ///         to <c>TextureGraphCompiler.External</c> rather than to the node. This case goes red
-    ///         when that lands, which is what it is for.
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/800">#800</a> and a change to
+    ///         <c>TextureGraphCompiler.External</c> rather than to the node. ⚠ This case goes red when
+    ///         #800 lands, which is what it is for — a tripwire that names the issue that removes
+    ///         it.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -226,8 +227,8 @@ public class TextureMeshMapNodeTests {
         Assert.Equal(2, compiler.Externals.Length);
         Assert.All(compiler.Externals, external => Assert.Equal("meshmap:curvature", external.Asset));
 
-        // Two entries, two images: a host uploads the same file twice. See the remarks — #702's
-        // follow-on is what makes this one.
+        // Two entries, two images: a host uploads the same file twice. #800 is what makes this
+        // one, and this line is where to start when it does.
         Assert.Equal(2, compiler.Externals.Select(external => external.Image).Distinct().Count());
     }
 }
