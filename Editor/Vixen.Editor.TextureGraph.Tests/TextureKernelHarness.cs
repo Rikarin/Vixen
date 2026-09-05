@@ -137,10 +137,31 @@ static class TextureKernelHarness {
 
     /// <summary>Every texel a different colour, so "this is a copy" is a claim about all of them.</summary>
     /// <remarks>
-    ///     ⚠ <b>A flat fill would let a kernel that writes a constant pass every copy assertion in
-    ///     these suites.</b> Red rises across, green down, blue on the diagonal — 4 096 distinct
-    ///     triples on a 64² image, and alpha is a fourth independent field so that a shuffle cannot
-    ///     confuse it with one of them.
+    ///     <para>
+    ///         ⚠ <b>A flat fill would let a kernel that writes a constant pass every copy assertion in
+    ///         these suites.</b> Red rises across, green down, blue on the diagonal — 4 096 distinct
+    ///         triples on a 64² image, and alpha is a fourth independent field so that a shuffle cannot
+    ///         confuse it with one of them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it must not be used for: any assertion about a filter that averages.</b>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/694">#694</a>. Every channel here is an
+    ///         <em>affine</em> function of x and y, the mean of an affine function over a window
+    ///         symmetric about a point is its value at that point, and so this pattern is a
+    ///         <b>fixed point of every symmetric averaging filter at every strength</b> — a box or
+    ///         gaussian blur away from the clamped edges, a radial blur about any centre, a directional
+    ///         blur along any angle. A test that blurs it and finds a texel unchanged has measured the
+    ///         pattern and not the kernel, and two of § 4.4's own tests were written that way and
+    ///         passed with the parameter they were about hard-coded.
+    ///     </para>
+    ///     <para>
+    ///         <b>Reach for <see cref="Columns(int)" />, <see cref="Rows" /> or a wheel of hard-edged
+    ///         spokes instead</b> — a one-texel checkerboard is the opposite extreme, band-limited
+    ///         nowhere, and separates a filter that ran from one that did not by more than an order of
+    ///         magnitude. <see cref="AssertHeldStill" /> is the guard for whichever pattern is used:
+    ///         it refuses to believe "this texel is untouched" until the same op has visibly moved
+    ///         something.
+    ///     </para>
     /// </remarks>
     public static byte[] Unique(int side) {
         var pixels = new byte[side * side * 4];
@@ -246,6 +267,80 @@ static class TextureKernelHarness {
         }
 
         return pixels;
+    }
+
+    /// <summary>How far the furthest texel moved, in one channel.</summary>
+    /// <param name="before">The picture going in.</param>
+    /// <param name="after">The picture coming out.</param>
+    /// <param name="channel">Which of the four to measure.</param>
+    /// <returns>The largest absolute difference, in eight-bit steps.</returns>
+    /// <remarks>
+    ///     <b>The instrument behind <see cref="AssertHeldStill" />, and useful on its own.</b> An op
+    ///     that did nothing and an op that did exactly the right nothing produce the same picture, so
+    ///     the number that separates them is how much the op moved <em>something else</em>.
+    /// </remarks>
+    public static int LargestMove(Bitmap before, Bitmap after, int channel) {
+        var largest = 0;
+
+        for (var y = 0; y < before.Height; y++) {
+            for (var x = 0; x < before.Width; x++) {
+                largest = Math.Max(largest, Math.Abs(At(after, x, y, channel) - At(before, x, y, channel)));
+            }
+        }
+
+        return largest;
+    }
+
+    /// <summary>Asserts one texel held still under an op that demonstrably moved something.</summary>
+    /// <param name="before">The picture the claim is about, going in.</param>
+    /// <param name="after">The same picture coming out.</param>
+    /// <param name="x">The texel's column.</param>
+    /// <param name="y">Its row.</param>
+    /// <param name="channel">Which channel the claim is about.</param>
+    /// <param name="tolerance">How many eight-bit steps of drift still count as held still.</param>
+    /// <param name="moved">
+    ///     A before/after pair the <em>same op</em> did move. Pass the same pair when the claim is
+    ///     "this texel held still while its neighbours did not"; pass a second pattern's pair when the
+    ///     whole picture is a fixed point of the op and the evidence has to come from elsewhere.
+    /// </param>
+    /// <param name="separation">How far <paramref name="moved" /> has to have moved to count.</param>
+    /// <param name="what">Named into both failures, adapter and all.</param>
+    /// <remarks>
+    ///     ⚠ <b>The cheap guard <a href="https://github.com/Rikarin/Vixen/issues/694">#694</a>
+    ///     names, and the assertion order is the whole point.</b> "This texel is where it was" is
+    ///     true of an op that ran, of an op that did nothing, of a kernel that never dispatched and of
+    ///     a pattern the filter cannot move — four very different days, one green test. So the
+    ///     evidence that the op moves anything at all is checked <em>first</em>, and the standing-still
+    ///     half only means something afterwards.
+    /// </remarks>
+    public static void AssertHeldStill(
+        Bitmap before,
+        Bitmap after,
+        int x,
+        int y,
+        int channel,
+        int tolerance,
+        (Bitmap Before, Bitmap After) moved,
+        int separation,
+        string what
+    ) {
+        var evidence = LargestMove(moved.Before, moved.After, channel);
+
+        if (evidence < separation) {
+            Assert.Fail(
+                $"{what}: the op moved nothing by more than {evidence} of a required {separation}, so "
+                + $"'({x}, {y}) held still' is a claim about a kernel that may not have run at all."
+            );
+        }
+
+        var drift = Math.Abs(At(after, x, y, channel) - At(before, x, y, channel));
+
+        if (drift > tolerance) {
+            Assert.Fail(
+                $"{what}: ({x}, {y}) channel {channel} went from {At(before, x, y, channel)} to "
+                + $"{At(after, x, y, channel)}, which is {drift} against a tolerance of {tolerance}."
+            );
+        }
     }
 
     /// <summary>Asserts two pictures are the same texel for texel, and says where they first differ.</summary>

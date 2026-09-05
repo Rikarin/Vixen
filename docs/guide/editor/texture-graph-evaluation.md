@@ -4,7 +4,7 @@ slug: editor/texture-graph-evaluation
 kind: guide
 area: Editor
 summary: The plan of compute kernels a texture graph and a layer stack both compile to, the image pool that runs it, and the resolution rule that keeps a graph the same material at every size.
-api: [T:Vixen.Editor.TextureGraph.TexturePlan, T:Vixen.Editor.TextureGraph.TextureOp, T:Vixen.Editor.TextureGraph.TextureImage, T:Vixen.Editor.TextureGraph.TextureParameter, T:Vixen.Editor.TextureGraph.TextureParameterUnit, T:Vixen.Editor.TextureGraph.TextureFormat, T:Vixen.Editor.TextureGraph.TextureFormats, T:Vixen.Editor.TextureGraph.TexturePoolSlot, T:Vixen.Editor.TextureGraph.TexturePoolSchedule, T:Vixen.Editor.TextureGraph.TextureKernels, T:Vixen.Editor.TextureGraph.TexturePlanEvaluator, T:Vixen.Editor.TextureGraph.TextureBake]
+api: [T:Vixen.Editor.TextureGraph.TexturePlan, T:Vixen.Editor.TextureGraph.TextureOp, T:Vixen.Editor.TextureGraph.TextureImage, T:Vixen.Editor.TextureGraph.TextureParameter, T:Vixen.Editor.TextureGraph.TextureParameterUnit, T:Vixen.Editor.TextureGraph.TextureFormat, T:Vixen.Editor.TextureGraph.TextureFormats, T:Vixen.Editor.TextureGraph.TexturePoolSlot, T:Vixen.Editor.TextureGraph.TexturePoolSchedule, T:Vixen.Editor.TextureGraph.TextureKernels, T:Vixen.Editor.TextureGraph.TexturePlanEvaluator, T:Vixen.Editor.TextureGraph.TextureBake, T:Vixen.Editor.TextureGraph.TextureUploads]
 tags: [editor, texture-graph, material-authoring, compute, raven, baking]
 since: 0.1
 status: preview
@@ -165,6 +165,34 @@ Assert.Equal(2, schedule.Allocations);
 > and Vulkan requires storage support for neither, so a kernel writing one fails at pipeline creation.
 > `TexturePlan.Validate` refuses it where the plan is built; compute in one of the three storable
 > formats and narrow at the encode.
+
+## Pixels the caller supplies
+
+An image the plan marks `External: true` is not allocated, not pooled and never written by an op — it
+is what a bitmap input is, and the only place an absolute size enters a plan. `TextureUploads` is what
+turns bytes into the texture behind one, and its `Externals` is what `Evaluate` takes:
+
+```csharp no-compile="a fragment against a caller's own device and its own pixels"
+using var uploads = new TextureUploads(device);
+
+uploads.Add(plan, 0, width, height, rgba);                     // the image's own format
+uploads.AddCoverage(plan, 1, width, height, glyph.Coverage);   // one float per texel, into an R8
+
+using var bake = evaluator.Evaluate(plan, uploads.Externals);
+```
+
+It is a separate object from the bake because the two have different lifetimes: a `TextureBake`
+destroys its textures when it is disposed, and an imported bitmap outlives every bake made from it.
+Dispose it when the document closes.
+
+> ⚠ **`R8` and `Rg8` are uploadable although no kernel can write them.** `TextureFormats.IsStorable`
+> answers "may a kernel write this" and is false for both; a mask is *read*, costs a quarter of what
+> RGBA costs, and a sampled read hands the kernel `(r, 0, 0, 1)`.
+
+> ⚠ **Doc 48 § 4.1's `Text` and `Svg Path` arrive this way rather than as kernels.** A compute shader
+> has no rasteriser and each kernel is compiled alone with no reference paths, so neither can reach a
+> font or a path parser. Both are filled on the CPU and uploaded as coverage — see
+> [#687](https://github.com/Rikarin/Vixen/issues/687).
 
 ## The seed
 

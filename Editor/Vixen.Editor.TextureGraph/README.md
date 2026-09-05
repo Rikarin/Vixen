@@ -190,11 +190,13 @@ none; `VIXEN_REQUIRE_VULKAN=1` turns the skip into a failure.
 ⚠ **`TextureQueueTests` is the one exception and it is deliberate.** It opens a Null device on purpose,
 because a unified adapter cannot tell the compute queue from the graphics one and that is the whole
 question it asks. It never reads a texel.
+
 ## The colour, channel and space kernels — doc 48 § 4.2 and § 4.3
 
-Thirteen `.rvn` files and `TextureKernels.Colour.cs`, which is where the integer contracts they read
-live: `Curve` · `GradientMap` · `Hsl` · `Grayscale` · `Invert` · `ChannelShuffle` ·
-`MinMaxReduce` + `AutoLevels` · `Transform2D` · `Mirror` · `Tile` · `Crop` · `Resample`.
+Thirteen `.rvn` files — fifteen in all, counting § M1's `Levels` and `Blend` — and
+`TextureKernels.Colour.cs`, which is where the integer contracts they read live: `Curve` ·
+`GradientMap` · `Hsl` · `Grayscale` · `Invert` · `ChannelShuffle` · `MinMaxReduce` + `AutoLevels` ·
+`Transform2D` · `Mirror` · `Tile` · `Crop` · `Resample`.
 
 **A curve and a gradient reach the GPU as a baked table, not as a spline or a stop list.**
 `Core/Vixen.Core/Curves/CurveEvaluation.cs` is the one Hermite evaluator in this repository and
@@ -239,5 +241,172 @@ See #619, which is reworking that model.
 itself. `Hsl`'s hue rotation is therefore `Raven/Library/Material/ComputeColor.rvn:78`'s, transcribed
 — and the two agreeing matters, because an artist who matches a hue in the shader graph and sees it
 shift here has found a bug.
+
+## The filters — doc 48 § 4.4
+
+Eleven `.rvn` files and `TextureKernels.Filters.cs`: `Blur` · `BlurHq` · `DirectionalBlur` ·
+`RadialBlur` · `NonUniformBlur` · `Sharpen` · `Emboss` · `Warp` · `DirectionalWarp` · `VectorWarp` ·
+`SlopeBlur`.
+
+**⚠ This is the group § D8 is actually about, because it is the only one where every node takes a
+length.** Not one of § 4.2's or § 4.3's thirteen does — a rotation is in turns, a repeat is a count —
+so `TexturePlan.Resolve`'s scaling passes straight through them and does its work here. That also
+means this is where a resolved length can outgrow a kernel's own budget: a radius authored as 20 at 1K
+arrives as 80 at a 4× bake, and a kernel that clamped it would make the 4× bake a *narrower filter*
+than the 1× one with no message anywhere ([#678](https://github.com/Rikarin/Vixen/issues/678)).
+`Blur`'s answer is that the budget bounds the **taps** and never the width — past it the same width is
+covered by the same number of taps spaced further apart, so the box thins rather than narrowing. ⚠ A
+refusal on the plan would be better and there is still no `TexturePlan.Validate` check that a resolved
+length fits the kernel receiving it ([#692](https://github.com/Rikarin/Vixen/issues/692)).
+
+**⚠ Two of the eleven carry a *convention* rather than a number, and a convention is what a picture
+cannot show you.** `VectorWarp` reads a signed displacement out of an unorm map — `(rg · 2 − 1) ·
+intensity`, so 128 is rest — and the one-sided reading, that the channels are already the
+displacement, produces a picture that drifts one way at half the amplitude, which an artist corrects
+by doubling the intensity and never reports. `SlopeBlur` is **iterative**: it re-reads the gradient at
+each of `samples` successive steps, and the single-pass approximation everybody writes instead is
+indistinguishable from it on a blob and wrong on every edge — which is the only place a slope blur is
+ever used. Both are asserted as *pairs*, because either half alone is satisfied by the wrong
+implementation.
+
+**⚠ The harness's `Unique` pattern cannot measure any of them.** Its four channels are affine in x and
+y, and the mean of an affine field over a window symmetric about a texel is its value at that texel —
+so it is a **fixed point of every symmetric averaging filter at every strength**, and two tests written
+over it passed with the parameter they were about hard-coded
+([#694](https://github.com/Rikarin/Vixen/issues/694)). `TextureHarnessPatternTests` is that property
+written down as a test rather than as a remark, and `TextureKernelHarness.AssertHeldStill` is the
+guard: it refuses to believe "this texel is untouched" until the same op has visibly moved something.
+
+## Analysis — doc 48 § 4.5
+
+Six `.rvn` files for three nodes, plus `TextureKernels.Analysis.cs`: `JumpFlood` → `Distance`,
+`FloodBounds` + `FloodResidual` → `FloodFill`, and `EdgeDetect`.
+
+**The chain writes a record and the node writes a picture, which is why each is two kernels.** A jump
+flood settles a nearest-seed record over log₂(n) ping-ponged dispatches; `Distance` is one load and a
+length over the settled record, and its three modes read different fields of the same record rather
+than needing different floods. The same split is `AutoLevels` over `MinMaxReduce`, for the same
+reason: folding them would make the last dispatch of a chain a different kernel from the ones before
+it.
+
+**⚠ The iteration ceiling reports truncation rather than being a `while` on the device.** A label
+propagation's cost depends on the *shape* of its input rather than its size, so the count cannot be
+derived from the resolution — and a loop no invocation leaves is a device loss, not a slow bake.
+`FloodResidual` is what says the fixed point was not reached.
+
+**⚠ Both chains are refused above 2048 texels, and the reason is a format doc 48 ruled out.** They
+carry a *coordinate*, a half-float is exact on the integers only to 2048, and § D5 admits no 32-bit
+float format — so at 4K a seed coordinate would quantise and the flood would settle onto the wrong
+texel. `TextureAnalysis.ExactExtent` refuses rather than quantising
+([#690](https://github.com/Rikarin/Vixen/issues/690)). ⚠ A plan holding one of these chains is also
+built for **one** `BakeLevelOffset` — the dispatch count is in the op list — so it cannot be re-baked
+at another size ([#689](https://github.com/Rikarin/Vixen/issues/689)), which is the one place § D8's
+promise does not hold and the plan does not say so.
+
+## Surface — doc 48 § 4.6
+
+Five `.rvn` files for six nodes, plus `TextureKernels.Surface.cs`: `HeightToNormal` · `NormalCombine`
+· `NormalTransform` · `Curvature` · `AmbientOcclusion`.
+
+**⚠ `Normal → Height` is the sixth and is deliberately not here.** Doc 48 § 4.6 makes it the
+catalogue's one CPU exception — a Poisson solve over `Vixen.Geometry.Uv`'s conjugate gradient — and a
+`TexturePlan` has no op that is not a compute dispatch, so it cannot be expressed at all yet
+([#688](https://github.com/Rikarin/Vixen/issues/688)). `TextureSurfaceKernelTests` asserts its absence
+**by name**, so "nobody has built it" and "somebody built it as a kernel" are different colours rather
+than the same silence.
+
+**⚠ The green convention is derived, not chosen, and it is the defect that survives every review
+because it looks like lighting.** § 4.6 says the convention is whatever `TexturedNormalMapSurface`
+samples; following that through gives one answer and no freedom — `MaterialSurface.rvn` decodes
+`2v − 1` with **no green flip anywhere in the sampling path**, the tangent frame's bitangent is the
+direction `v` increases in, and `v` increases *downwards*. So green is `−∂h/∂v` with v pointing down
+the image, and a height that rises as you move down the picture is green below a half. It is asserted
+against a known ramp rather than claimed by a comment.
+
+**⚠ `NormalCombine` is reoriented normal mapping, and whiteout agrees with it exactly whenever either
+input is flat** — which is the case every lazy test reaches for. The assertion therefore tilts *both*
+inputs 45°, where the two give colours nobody could confuse.
+
+**⚠ Two of the five are the *cheap* measurement and their inspectors say so.** `Curvature` and
+`AmbientOcclusion` read a picture of a surface; § D12's mesh bake reads the surface. A height field
+cannot represent an overhang, so nothing here can occlude under one, and a bevel that was modelled but
+not baked into the normal map is invisible to the curvature. A wear generator driven by the wrong one
+looks merely uninspired rather than broken, which is why the choice is stated at the node as well as
+here.
+
+## Placement — doc 48 § 4.7
+
+Two `.rvn` files and `TextureKernels.Placement.cs`: `TileSampler` and `Splatter` — § D7's replacement
+for FX-Map, and the pair nearly every pattern in § 4.9 is built out of.
+
+**⚠ A scatter written as a gather, and there is no other choice.** An instance is drawn by a texel
+asking which instances could reach it, never by an instance writing into the image: a storage image
+has no blend hardware and no ordering between invocations. That is the same shape the engine's
+virtualized geometry uses for per-instance deformation, for the same reason.
+
+**The loop bounds are the trade, and they are visible on purpose.** Refusing FX-Map's recursion buys a
+kernel whose cost is knowable before it runs, and that promise is only worth something if a reader can
+multiply it out: `MaxSearch` and `MaxSamples` bound the two nested loops and there is no `while`
+anywhere. ⚠ **The CPU side refuses a parameter that would exceed them rather than clamping it**, which
+is #678's lesson applied one node over — a silent clamp is a different picture at a different bake
+size with nothing anywhere saying so. `TileSampler`'s search radius is *exact* rather than a guess
+because every random modulation shrinks an instance and none grows it, so the largest footprint any
+instance can have is known on the CPU.
+
+**Both wrap, and the wrap is what makes them assertable.** A cell index folds into the grid while the
+geometry uses the unfolded one, so an instance overhanging an edge is the same instance found again
+one period over: the image is seamless *and* no instance is ever clipped, which is what makes the mean
+of an accumulated field a closed form with no statistics in it.
+
+## Pixels that did not come from a kernel — § 4.1's `Text` and `Svg Path`
+
+`TextureUploads` turns CPU texels into the texture a plan's **external** image is read from, and its
+`Externals` is what goes into `Evaluate`'s second parameter. `AddCoverage` takes one float per texel —
+which is the shape `Vixen.Ui.Text`'s `CoverageBitmap.Coverage` already has — and uploads it as an
+`R8` mask.
+
+**⚠ Why an upload rather than a kernel.** Doc 48 § 4.1 lists `Text` and `Svg Path` among its eight
+sources and § 4.11 counts them into the forty-four, and neither can be a compute kernel: a compute
+shader has no rasteriser, and `TexturePlanEvaluator` compiles each kernel alone through
+`RavenEffectCompiler.FromSources` with no reference paths, so no kernel can reach a font, a glyph
+outline or a path parser. What a plan *has* always been able to express is a picture the caller
+supplies — `TextureImage(…, External: true)` — and what was missing was any way in this assembly to
+produce one ([#687](https://github.com/Rikarin/Vixen/issues/687)). That is what this is.
+
+**⚠ A type of its own rather than a method on the evaluator, and the reason is a lifetime.** A
+`TextureBake` destroys its textures when it is disposed; an uploaded bitmap outlives any one bake,
+because § M4's interactive preview re-evaluates the same plan over the same picture many times a
+second. An upload owned by a bake would be destroyed by the next evaluation, and re-uploading a 4K
+bitmap per keystroke is the cost that arrangement hides.
+
+**⚠ `R8` is uploadable although no kernel can write it, and the guard that must not be added is
+`IsStorable`.** That predicate answers "may a kernel write this", and neither `R8` nor `Rg8` is a
+storage image on a conformant device — but a mask is *read*, it is a quarter of the bytes, and a
+sampled read hands a kernel `(r, 0, 0, 1)`. Both halves are asserted together so the pairing is
+visible.
+
+**⚠ An upload's size is the caller's, and `TexturePlan.SizeOf` cannot tell you it.** That method reads
+a size off the image's level and the plan's base resolution; nothing allocates an external image, and
+`Validate` skips its level entirely — so for one it returns a number no picture produced.
+`TextureUploads.SizeOf` is what remembers the real one, and a device test asserts the two disagree so
+that the trap is written down rather than discovered.
+
+**Where the two nodes themselves have to live, which is not here.** Neither rasteriser can be in this
+assembly as it stands, and the two costs are very different:
+
+- **`Svg Path`** needs `Core/Vixen.Ui`'s `SvgPath` and `PathTessellator`. `Vixen.Ui`'s project closure
+  is twenty projects against this assembly's seventeen, and eleven of them would be new here — the
+  whole UI framework plus `Vixen.Input`. ⚠ A bake would then have the element tree, the cascade and
+  the input enum behind it, which is a cost no content build should pay for a parser.
+- **`Text`** needs `Core/Vixen.Ui.Text`, whose closure is `Vixen.Core` and nothing else — **already in
+  this assembly's closure**, so the projects added are zero and the only new dependency is
+  HarfBuzzSharp's native assets. ⚠ So "`Text` is blocked by the same wall as `Svg Path`" is false; what
+  makes it not this assembly's work is narrower, and it is *which font*: `FontFace.Load` takes bytes,
+  and resolving an asset to bytes is the project-and-document question this assembly deliberately
+  knows nothing about.
+
+Both belong with the § M4 node classes, whose own closure already contains `Vixen.Ui` through
+`Vixen.Editor.NodeGraph` — so neither reference costs anything *there*, and the evaluator keeps the
+property that makes every test in this project a test of the evaluator.
 
 Licensed under Apache-2.0.
