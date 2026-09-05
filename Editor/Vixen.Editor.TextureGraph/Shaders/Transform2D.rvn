@@ -1,0 +1,185 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § 4.3's `Transform 2D`: rotate, scale, offset and shear, under a tiling mode.
+//
+// **Forward parameters, inverse mapping.** The artist authors a transform of the *image* — a scale
+// of 2 makes it twice as big — and the kernel walks the output and asks where each texel came from,
+// so what it uses is the inverse of the 2×2 the parameters build. Building the forward matrix and
+// inverting it here, rather than asking the artist for the inverse, is what makes "rotate by 30°"
+// mean 30° in the picture.
+//
+// ⚠ **Minification is supersampled, and this is the node's whole trap.** A rotated tile minified
+// point-sampled aliases, and *the aliasing is blamed on the noise upstream* rather than on the
+// transform — doc 48 § 4.3 says so, and it is the reason this kernel is longer than the other four
+// in its section put together. There is no cheaper answer available here: **the evaluator binds no
+// samplers**, so there is no hardware mip chain and no anisotropic tap to ask for. What replaces it
+// is the footprint computed from the inverse matrix — the length of each of its columns, in source
+// texels per output texel — and an N×N box over the output texel, N being that footprint rounded
+// up. That is the mip level a sampler would have chosen, taken by hand.
+//
+// **At the identity the footprint is one and the box is one sample**, so an identity transform with
+// `Point` is a **copy, texel for texel**. That is the closed form, and it is exact rather than
+// within a tolerance precisely because the sample count collapses.
+//
+// **The other closed form is the one that catches a missing supersample**: a one-texel column
+// checkerboard minified by eight is 0.5 everywhere, and point-sampled it is 0 or 1 everywhere.
+
+shader Transform2D {
+    var source: Texture2D
+
+    /// Rotation in **turns**, so an exposed 0…1 parameter covers the circle once.
+    var rotation: float = 0f
+
+    /// How much bigger the image gets along x. Below 1 minifies.
+    var scaleX: float = 1f
+
+    var scaleY: float = 1f
+
+    /// How far the image moves, in fractions of its own size.
+    var offsetX: float = 0f
+
+    var offsetY: float = 0f
+
+    /// x sheared by y, and y by x.
+    var shearX: float = 0f
+
+    var shearY: float = 0f
+
+    /// 0 clamps to the edge · 1 wraps · 2 mirrors.
+    var tiling: int = 1
+
+    /// 0 point · 1 bilinear, within each sub-sample.
+    var filter: int = 1
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    const val Tau: float = 6.28318530718f
+
+    /// The most sub-samples per axis, whatever the footprint says.
+    const val MaxSamples: int = 8
+
+    /// One coordinate brought into the source under the tiling mode.
+    func Address(coordinate: int, extent: int): int {
+        if (tiling == 1) {
+            val wrapped = float(coordinate) - float(extent) * floor(float(coordinate) / float(extent))
+
+            return clamp(int(wrapped), 0, extent - 1)
+        }
+
+        if (tiling == 2) {
+            val period = extent * 2
+            val folded = float(coordinate) - float(period) * floor(float(coordinate) / float(period))
+
+            var m = int(folded)
+
+            if (m >= extent) {
+                m = period - 1 - m
+            }
+
+            return clamp(m, 0, extent - 1)
+        }
+
+        return clamp(coordinate, 0, extent - 1)
+    }
+
+    func Fetch(x: int, y: int): float4 {
+        val extent = source.GetDimensions(0)
+
+        return source.Load(int3(Address(x, extent.x), Address(y, extent.y), 0))
+    }
+
+    /// The source at a normalised position, under the chosen filter.
+    func At(u: float, v: float): float4 {
+        val extent = source.GetDimensions(0)
+        val px = u * float(extent.x) - 0.5f
+        val py = v * float(extent.y) - 0.5f
+
+        if (filter == 0) {
+            return Fetch(int(floor(px + 0.5f)), int(floor(py + 0.5f)))
+        }
+
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Fetch(x0, y0), Fetch(x0 + 1, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Fetch(x0, y0 + 1), Fetch(x0 + 1, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val angle = rotation * Tau
+        val c = cos(angle)
+        val s = sin(angle)
+
+        // Forward: rotate ∘ shear ∘ scale, as a 2×2 written out by hand. Column-major by lane name:
+        // (m00 m01 / m10 m11) sends (x, y) to (m00·x + m01·y, m10·x + m11·y).
+        val sx = scaleX
+        val sy = scaleY
+        val a00 = c * sx - s * (shearY * sx)
+        val a01 = c * (shearX * sy) - s * sy
+        val a10 = s * sx + c * (shearY * sx)
+        val a11 = s * (shearX * sy) + c * sy
+
+        // ⚠ A determinant of zero is a scale of zero on an axis, which is a plan that asked for the
+        // image to be squashed out of existence. Falling back to the identity leaves the picture
+        // alone rather than writing a NaN into a file nothing downstream can recover from.
+        val det = a00 * a11 - a01 * a10
+
+        var i00 = 1f
+        var i01 = 0f
+        var i10 = 0f
+        var i11 = 1f
+
+        if (abs(det) > 0.000001f) {
+            i00 = a11 / det
+            i01 = -a01 / det
+            i10 = -a10 / det
+            i11 = a00 / det
+        }
+
+        val extent = source.GetDimensions(0)
+
+        // How many source texels one output texel covers, along each of the inverse's columns.
+        val footX = length(float2(i00 / float(size.x) * float(extent.x), i10 / float(size.y) * float(extent.y)))
+        val footY = length(float2(i01 / float(size.x) * float(extent.x), i11 / float(size.y) * float(extent.y)))
+        val samples = clamp(int(ceil(max(footX, footY))), 1, MaxSamples)
+        val step = 1f / float(samples)
+
+        var sum = float4(0f, 0f, 0f, 0f)
+
+        for (jy in 0 .. MaxSamples) {
+            if (jy >= samples) {
+                break
+            }
+
+            for (jx in 0 .. MaxSamples) {
+                if (jx >= samples) {
+                    break
+                }
+
+                val ou = (float(coord.x) + (float(jx) + 0.5f) * step) / float(size.x)
+                val ov = (float(coord.y) + (float(jy) + 0.5f) * step) / float(size.y)
+
+                // About the centre, and the offset is undone rather than applied — the artist moves
+                // the image, so the sampler moves the other way.
+                val dx = ou - 0.5f - offsetX
+                val dy = ov - 0.5f - offsetY
+
+                sum = sum + At(i00 * dx + i01 * dy + 0.5f, i10 * dx + i11 * dy + 0.5f)
+            }
+        }
+
+        target.Store(coord, sum / float(samples * samples))
+    }
+}

@@ -190,5 +190,54 @@ none; `VIXEN_REQUIRE_VULKAN=1` turns the skip into a failure.
 ⚠ **`TextureQueueTests` is the one exception and it is deliberate.** It opens a Null device on purpose,
 because a unified adapter cannot tell the compute queue from the graphics one and that is the whole
 question it asks. It never reads a texel.
+## The colour, channel and space kernels — doc 48 § 4.2 and § 4.3
+
+Thirteen `.rvn` files and `TextureKernels.Colour.cs`, which is where the integer contracts they read
+live: `Curve` · `GradientMap` · `Hsl` · `Grayscale` · `Invert` · `ChannelShuffle` ·
+`MinMaxReduce` + `AutoLevels` · `Transform2D` · `Mirror` · `Tile` · `Crop` · `Resample`.
+
+**A curve and a gradient reach the GPU as a baked table, not as a spline or a stop list.**
+`Core/Vixen.Core/Curves/CurveEvaluation.cs` is the one Hermite evaluator in this repository and
+`Vixen.Ui.Controls.Advanced`'s `Gradient` is the one thing that decides which of three spaces a ramp
+is mixed in. `TextureRamp` samples them into a 256×1 row that a kernel interpolates. ⚠ **That is the
+opposite of § D3's ban rather than a dodge of it**: the ban is on a second *transcription* of an
+operation, and this arrangement guarantees there is only ever one. `Gradient.Evaluate` is passed as a
+delegate, which is also what keeps this assembly from referencing a UI control.
+
+**⚠ Not one parameter of the thirteen is a length in texels, so § D8's scaling never touches them.**
+A rotation is in turns, a scale is a ratio, an offset is a fraction of the image, a rect is
+normalised and a repeat is a count — they are resolution-independent *by construction* rather than by
+`TexturePlan.Resolve`'s arithmetic, and [#619](https://github.com/Rikarin/Vixen/issues/619)'s rework
+of the base resolution cannot change what any of them does.
+`TextureColourKernelTests.No_kernel_here_takes_a_length_in_texels` is what keeps that true, and
+`TextureSpaceDeviceTests` asserts § D8's own criterion — a 64² bake and a downsampled 256² one, which
+agree to 1/255 on this machine.
+
+**⚠ Minification is supersampled by hand, in `Transform2D`, `Tile` and `Resample`, because the
+evaluator binds no samplers.** `TexturePlanEvaluator.Bind` handles a uniform block, sampled textures
+and one storage image and throws on anything else, so a `DescriptorKind.Sampler` is not available —
+which means no hardware mip chain and no anisotropic tap. Each of those three derives the footprint
+of an output texel and boxes over it, which is the mip level a sampler would have chosen. The closed
+form is a one-texel column checkerboard: its mean is exactly one half, so a correct minification of
+it is 128 everywhere and a point-sampled one is 0 or 255 everywhere.
+
+**⚠ `Auto Levels` is more than the two dispatches § 4.2 names, and nothing in the plan records what
+makes it different.** It is the first op whose output depends on *every texel of its input*, so it is
+one `MinMaxReduce` dispatch per level down to a 1×1 image and then the map — three at 64², five at
+4K. That much a plan expresses perfectly well. What a plan cannot say is that the op **can never be
+evaluated in tiles**: `TextureOp` has no such field, so a future tiled evaluator would run it per
+tile and produce a plausible picture with a different stretch in each one.
+
+**⚠ `Crop` is the one node whose output resolution is not its input's, and `TextureImage` cannot
+express most of the answers.** The rect is in the source's normalised space and the target's size is
+the plan's, so a 1:1 crop is available exactly where the rect is a power of two — because
+`LevelOffset` is the only way to size an image. A crop to 37% of the width has nothing to write into.
+See #619, which is reworking that model.
+
+**⚠ A kernel here cannot `import` the Raven library.** `TexturePlanEvaluator` compiles through
+`RavenEffectCompiler.FromSources([…])` with no `referencePaths`, so a kernel binds against nothing but
+itself. `Hsl`'s hue rotation is therefore `Raven/Library/Material/ComputeColor.rvn:78`'s, transcribed
+— and the two agreeing matters, because an artist who matches a hue in the shader graph and sees it
+shift here has found a bug.
 
 Licensed under Apache-2.0.
