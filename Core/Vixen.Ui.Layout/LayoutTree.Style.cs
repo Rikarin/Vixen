@@ -306,6 +306,23 @@ public sealed partial class LayoutTree {
         MarkDirtyAndPropagate(index);
     }
 
+    /// <summary>Sets what the node promises about its contents. CSS Containment 2's <c>contain</c>.</summary>
+    /// <param name="node">The node.</param>
+    /// <param name="containment">The flags. <see cref="Containment.None" /> is the initial value.</param>
+    /// <remarks>
+    ///     ⚠ <see cref="Containment.Size" /> does <b>not</b> stop the children being laid out — see
+    ///     the type's own remarks. It stops them deciding this node's box, and nothing else.
+    /// </remarks>
+    public void SetContainment(LayoutNodeId node, Containment containment) {
+        var index = Validate(node);
+        if (styles[index].Containment == containment) {
+            return;
+        }
+
+        styles[index].Containment = containment;
+        MarkDirtyAndPropagate(index);
+    }
+
     /// <summary>Sets whether the node is laid out at all.</summary>
     /// <param name="node">The node.</param>
     /// <param name="display">The display mode.</param>

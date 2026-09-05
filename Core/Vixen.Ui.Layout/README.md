@@ -726,39 +726,47 @@ Auto margins on an absolutely positioned box (CSS 2.1 §10.3.7 and §10.6.4) wer
 that sentence and are now implemented, judged by the 22 `block_absolute_margin_auto_*_with_inset`
 fixtures and, for the cases none of them reaches, by `AbsoluteAutoMarginTests`.
 
-**CSS containment (`contain`)** — *not here at all, and this is the proposal rather than a refusal.*
-There is no property, no `LayoutStyle` field, no `LayoutEnums` member and no branch anywhere in this
-store; the same is true one layer up, so `contain-*` computes and moves nothing. ⚠ It is **five
-independent effects behind one property**, which is why sizing it as a single item is the mistake:
-`contain: content` is `layout paint style` and `contain: strict` adds `size`, so three of five made
-real leaves both aggregate values half working.
+**CSS containment (`contain`)** — *four of the five values are here; the fifth is refused.* The
+property is `LayoutStyle.Containment`, a `[Flags] Containment`, read from a stylesheet by
+`Vixen.Ui.ContainmentReader`. ⚠ It is **five independent effects behind one property**, which is why
+sizing it as a single item was the mistake: `contain: content` is `layout paint style` and
+`contain: strict` adds `size`, and both are whole values here because the only keyword this engine
+cannot honour is the one it can measure as inert.
 
-- **`size`** — the box sizes as if it had no contents. This is the interesting one, and the seam is
-  already written: `MeasureNodeWithoutChildren` in `LayoutTree.Layout.cs` *is* that computation, for
-  a node that happens to have none. ⚠ But it is not "skip the children": a contained box still lays
-  them out, paints them and hit-tests them — it only refuses to let them decide its own box. Since
-  `CalculateLayoutImpl` measures the node and places its children in one pass, the intervention is to
-  settle the dimensions first and then run the children against them as though they were `Exactly`,
-  which is a change in the middle of the flex and block algorithms rather than at either end. The
-  intrinsic pre-pass needs the matching half, so that a content keyword on a contained box measures
-  zero.
-- **`inline-size`** — the same on one axis, and it arrives with `size`.
-- **`layout`** — an independent formatting context and a containing block for out-of-flow
-  descendants. ⚠ Mostly true here already: a flex or grid item is an independent formatting context
-  by construction, and `LayoutTree.Absolute` picks a containing block per node — so the observable
-  part is the one `position: relative` already provides. That makes it cheap **and** makes it the one
-  whose test is most likely to be unable to fail.
-- **`paint`** — descendants clipped to the padding box, which is the clip `overflow: hidden` already
-  pushes through `DrawListBuilder`'s `OverflowReader`.
-- **`style`** — ⛔ **refused in writing.** It scopes counters and quotes, and this engine has neither,
-  so every value of it would resolve, compute and move nothing.
+- **`size`** and **`inline-size`** — *done.* One branch at the top of `CalculateLayoutImpl`, above the
+  dispatch and above the measure-function leaf: `MeasureNodeWithoutChildren` settles the contained
+  axes, and the ordinary algorithm then re-enters with those axes offered as `StretchFit`. ⚠ It is
+  emphatically **not** "skip the children" — they are laid out, painted and hit-tested against a box
+  they cannot move, which is § 3.2's actual sentence. ⚠ **And the intrinsic pre-pass needed no
+  matching half after all**: `ProbeContentSize` asks a content keyword through `CalculateLayoutImpl`
+  itself, so `width: max-content` on a contained box resolves through the same branch and
+  `LayoutTree.Intrinsic` never learns the property exists.
+- **`layout`** and **`paint`** — *done, and the observable half is one sentence each.*
+  `EstablishesAbsoluteContainingBlock` is the containing-block half — it replaced the literal
+  `PositionType != Static` written out at five sites, four that begin the absolute walk and one that
+  decides whether to descend through a child, which had to agree with each other anyway — and
+  `EstablishesBlockFormattingContext` is the independent-formatting-context half. The clip is
+  `OverflowReader`'s: paint containment is a second *reason* to push the clip `overflow` already
+  pushes, so the picture, the hit test and the sticky scrollport keep giving one answer. ⚠ It cuts at
+  the border box where CSS says the padding box, because that is where `overflow` cuts here.
+- **`style`** — ⛔ **refused in writing, and understood rather than rejected.** It scopes counters and
+  quotes, and this engine has neither. The keyword parses and contributes no flag, which is what
+  leaves `contain: layout style` still containing layout; an *unrecognised* word drops the whole
+  declaration, as CSS does with a value it cannot parse.
 
-⚠ **The instrument comes first, because a contained box and an uncontained one draw the same picture
-wherever the children happen to fit.** A fixture with an explicit `width` and `height` proves nothing
-about `contain: size`; it has to be an auto-sized box whose children overflow it, where containment
-collapses the box and its absence does not. `contain: paint` has the mirror-image trap. See
-`docs/plan/43-web-styling-parity.md` § Part 9, Bucket 3, which carries the same table with the
-Tailwind classes beside it.
+⚠ **The instrument came first, because a contained box and an uncontained one draw the same picture
+wherever the children happen to fit.** Every fixture in `ContainmentTests` — the store's in
+`Vixen.Ui.Layout.Tests`, the stylesheet's in `Vixen.Ui.Tests` — is an auto-sized box whose child
+overflows it, and each asserts the child is still where it was in the same test. ⚠ The control arm of
+the containing-block fixture writes `position: static` out by hand: `LayoutStyle.Default` is *Yoga's*
+initial state and Yoga's `position` is `relative`, so every node in a bare `LayoutTree` is already a
+containing block and the test could not otherwise have failed.
+
+⚠ **What is not here is any *pruning*.** Nothing skips a measurement, a layout pass or a draw-list
+walk because of a promise made through this property; containment changes what the answer is, not how
+long it takes to get. And no `contain-*` utility class is registered — the parity ledger's row stays
+`absent` until the family lands. See `docs/guide/ui/containment.md` and
+`docs/plan/43-web-styling-parity.md` § Part 9, Bucket 3.
 
 **Parallel layout.** Independent subtrees with a fixed available size are jobs, and text measurement
 of siblings is where the win is. `Benchmarks/Vixen.Benchmarks.Ui` now gives the serial number to

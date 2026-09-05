@@ -45,6 +45,25 @@ public sealed partial class LayoutTree {
         public float StartOn(FlexDirection axis) => FlexAxis.IsRow(axis) ? Left : Top;
     }
 
+    /// <summary>Whether a node is the containing block of the out-of-flow boxes beneath it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This used to be the literal test <c>PositionType != Static</c> written out at five
+    ///         sites</b> — four that begin the walk and one that decides whether to descend through a
+    ///         child — and the two halves have to agree or an absolute box is positioned against one
+    ///         rectangle and offset from another.
+    ///     </para>
+    ///     <para>
+    ///         CSS Containment § 3.1 and § 3.3 add the second reason: <c>layout</c> and <c>paint</c>
+    ///         both make the box a containing block for absolute <i>and</i> fixed descendants, which
+    ///         is the one observable half of layout containment in this store — everything else § 3.1
+    ///         asks for is already true of a box here.
+    ///     </para>
+    /// </remarks>
+    bool EstablishesAbsoluteContainingBlock(int index) =>
+        styles[index].PositionType != PositionType.Static
+        || (styles[index].Containment & (Containment.Layout | Containment.Paint)) != 0;
+
     bool LayoutAbsoluteDescendants(
         int containingNode,
         int currentNode,
@@ -130,7 +149,7 @@ public sealed partial class LayoutTree {
                     HorizontalInsetsDefined(child) ? childLeft - leftOffsetFromContainingBlock : childLeft;
                 results[child].Position[(int) Edge.Top] =
                     VerticalInsetsDefined(child) ? childTop - topOffsetFromContainingBlock : childTop;
-            } else if (styles[child].PositionType == PositionType.Static) {
+            } else if (!EstablishesAbsoluteContainingBlock(child)) {
                 var childDirection = StyleResolution.ResolveDirection(in styles[child], currentNodeDirection);
                 var childLeft = leftOffsetFromContainingBlock + results[child].Position[(int) Edge.Left];
                 var childTop = topOffsetFromContainingBlock + results[child].Position[(int) Edge.Top];

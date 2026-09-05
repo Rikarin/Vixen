@@ -388,7 +388,7 @@ public sealed partial class LayoutTree {
             originTop
         );
 
-        if (styles[index].PositionType != PositionType.Static || currentDepth == 1) {
+        if (EstablishesAbsoluteContainingBlock(index) || currentDepth == 1) {
             LayoutAbsoluteDescendants(
                 index,
                 index,

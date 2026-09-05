@@ -110,7 +110,12 @@ public sealed partial class LayoutTree {
         || styles[index].OverflowY != Overflow.Visible
         || IsInlineLevel(styles[index].Display)
         || styles[index].Display == Display.FlowRoot
-        || styles[index].Float != FloatSide.None;
+        || styles[index].Float != FloatSide.None
+        // CSS Containment § 3.1 and § 3.3 in one clause: both `layout` and `paint` make the box an
+        // independent formatting context, which here is what stops a child's margin collapsing out
+        // through it and what keeps a float inside it. `size` does not — a box may size itself as
+        // if empty and still be part of its parent's flow.
+        || (styles[index].Containment & (Containment.Layout | Containment.Paint)) != 0;
 
     /// <summary>
     ///     Whether this node's vertical margins are allowed to collapse with its parent's.
@@ -362,7 +367,7 @@ public sealed partial class LayoutTree {
 
         // Absolute descendants last, from the containing block down — the same call and the same
         // condition the flex path ends on.
-        if (styles[index].PositionType != PositionType.Static || currentDepth == 1) {
+        if (EstablishesAbsoluteContainingBlock(index) || currentDepth == 1) {
             LayoutAbsoluteDescendants(
                 index,
                 index,

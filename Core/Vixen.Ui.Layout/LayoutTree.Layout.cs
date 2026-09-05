@@ -390,6 +390,45 @@ public sealed partial class LayoutTree {
             WriteFragments(index, default);
         }
 
+        // ⚠ <b>Size containment, and it is deliberately NOT a branch that skips the subtree.</b> CSS
+        // Containment § 3.2 says the box is sized as if it had no contents; it goes on laying them
+        // out, painting them and hit-testing them. So the intervention is to settle the contained
+        // axes here — `MeasureNodeWithoutChildren` IS "as if it had no contents", padding and border
+        // and whatever the styles fix — and then to re-enter the ordinary algorithm below with those
+        // axes pinned. Every path underneath already answers a `StretchFit` request with the size it
+        // was offered rather than with one its content chose, the measure-function leaf included, so
+        // the children run against a box they cannot move.
+        //
+        // ⚠ And the intrinsic half comes with it rather than needing a second rule.
+        // `ProbeContentSize` asks a `min-content` or `max-content` keyword through this very
+        // function, and `MeasureNodeWithoutChildren` answers a `MaxContent` request with the padding
+        // box — so a content keyword on a contained box resolves to zero content without
+        // `LayoutTree.Intrinsic` knowing the property exists.
+        var containment = styles[index].Containment;
+        if ((containment & (Containment.Size | Containment.InlineSize)) != 0) {
+            MeasureNodeWithoutChildren(
+                index,
+                direction,
+                availableWidth - marginAxisRow,
+                availableHeight - marginAxisColumn,
+                widthSizingMode,
+                heightSizingMode,
+                ownerWidth,
+                ownerHeight
+            );
+
+            availableWidth = results[index].MeasuredDimensions[(int) Dimension.Width] + marginAxisRow;
+            widthSizingMode = SizingMode.StretchFit;
+
+            // ⚠ Only `size` takes the block axis. `inline-size` leaves the height to the contents,
+            // laid out at the width containment just fixed — which is the whole of what makes it a
+            // separate keyword rather than a shorthand.
+            if ((containment & Containment.Size) != 0) {
+                availableHeight = results[index].MeasuredDimensions[(int) Dimension.Height] + marginAxisColumn;
+                heightSizingMode = SizingMode.StretchFit;
+            }
+        }
+
         if ((flags[index] & LayoutNodeState.HasMeasureFunction) != 0) {
             MeasureNodeWithMeasureFunction(
                 index,
@@ -1047,7 +1086,7 @@ public sealed partial class LayoutTree {
         }
 
         // STEP 11: SIZING AND POSITIONING ABSOLUTE CHILDREN
-        if (styles[index].PositionType != PositionType.Static || currentDepth == 1) {
+        if (EstablishesAbsoluteContainingBlock(index) || currentDepth == 1) {
             LayoutAbsoluteDescendants(
                 index,
                 index,

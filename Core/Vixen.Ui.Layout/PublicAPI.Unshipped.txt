@@ -36,6 +36,13 @@ Vixen.Ui.Layout.Clear.InlineStart = 4 -> Vixen.Ui.Layout.Clear
 Vixen.Ui.Layout.Clear.Left = 1 -> Vixen.Ui.Layout.Clear
 Vixen.Ui.Layout.Clear.None = 0 -> Vixen.Ui.Layout.Clear
 Vixen.Ui.Layout.Clear.Right = 2 -> Vixen.Ui.Layout.Clear
+Vixen.Ui.Layout.Containment -> enum : byte
+Vixen.Ui.Layout.Containment.Containment() -> void
+Vixen.Ui.Layout.Containment.InlineSize = 2 -> Vixen.Ui.Layout.Containment
+Vixen.Ui.Layout.Containment.Layout = 4 -> Vixen.Ui.Layout.Containment
+Vixen.Ui.Layout.Containment.None = 0 -> Vixen.Ui.Layout.Containment
+Vixen.Ui.Layout.Containment.Paint = 8 -> Vixen.Ui.Layout.Containment
+Vixen.Ui.Layout.Containment.Size = 1 -> Vixen.Ui.Layout.Containment
 Vixen.Ui.Layout.Dimension -> enum : byte
 Vixen.Ui.Layout.Dimension.Dimension() -> void
 Vixen.Ui.Layout.Dimension.Height = 1 -> Vixen.Ui.Layout.Dimension
@@ -254,6 +261,7 @@ Vixen.Ui.Layout.LayoutStyle.AspectRatio -> float
 Vixen.Ui.Layout.LayoutStyle.Border -> Vixen.Ui.Layout.EdgeLengths
 Vixen.Ui.Layout.LayoutStyle.BoxSizing -> Vixen.Ui.Layout.BoxSizing
 Vixen.Ui.Layout.LayoutStyle.Clear -> Vixen.Ui.Layout.Clear
+Vixen.Ui.Layout.LayoutStyle.Containment -> Vixen.Ui.Layout.Containment
 Vixen.Ui.Layout.LayoutStyle.Dimensions -> Vixen.Ui.Layout.DimensionLengths
 Vixen.Ui.Layout.LayoutStyle.Direction -> Vixen.Ui.Layout.Direction
 Vixen.Ui.Layout.LayoutStyle.Display -> Vixen.Ui.Layout.Display
@@ -342,6 +350,7 @@ Vixen.Ui.Layout.LayoutTree.SetBaselineFunction(Vixen.Ui.Layout.LayoutNodeId node
 Vixen.Ui.Layout.LayoutTree.SetBorder(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge, Vixen.Ui.Layout.StyleLength border) -> void
 Vixen.Ui.Layout.LayoutTree.SetBoxSizing(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.BoxSizing boxSizing) -> void
 Vixen.Ui.Layout.LayoutTree.SetClear(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Clear clear) -> void
+Vixen.Ui.Layout.LayoutTree.SetContainment(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Containment containment) -> void
 Vixen.Ui.Layout.LayoutTree.SetContext(Vixen.Ui.Layout.LayoutNodeId node, object? context) -> void
 Vixen.Ui.Layout.LayoutTree.SetDimension(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Dimension dimension, Vixen.Ui.Layout.StyleLength length) -> void
 Vixen.Ui.Layout.LayoutTree.SetDirection(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Direction direction) -> void
