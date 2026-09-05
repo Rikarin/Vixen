@@ -46,6 +46,15 @@ public class TextureColourKernelTests {
     ///     <c>TextureColourKernels</c> with no <c>.rvn</c> behind it is a plan that fails at
     ///     evaluation with a message about an embedded resource, and an <c>.rvn</c> nobody registered
     ///     is § 4.2's commonest defect — a finished thing nothing calls.
+    ///     <para>
+    ///         ⚠ <b>The registered side is the union of every declaring surface, and it has to be.</b>
+    ///         Written against this slice's own list plus the three that came before it, this
+    ///         assertion was green on its branch and red the moment § 4.1's six source kernels landed
+    ///         in the same tree — the folder is shared and the declarations are not. That is
+    ///         cross-branch drift no per-branch test run can see, which is why the union is spelled
+    ///         out here rather than left as a literal: a slice that adds a seventh surface has to
+    ///         appear in this line, and the failure that follows says exactly which one is missing.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void The_folder_holds_these_kernels_and_no_others() {
@@ -55,7 +64,12 @@ public class TextureColourKernelTests {
             Assert.Contains(kernel, TextureKernels.Names);
         }
 
-        var registered = TextureColourKernels.All.Concat(Existing).Order(StringComparer.Ordinal).ToArray();
+        var registered = TextureColourKernels.All
+            .Concat(TextureSources.All.Select(op => op.Kernel))
+            .Concat(Existing)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
 
         Assert.Equal(registered, TextureKernels.Names.Order(StringComparer.Ordinal).ToArray());
     }
