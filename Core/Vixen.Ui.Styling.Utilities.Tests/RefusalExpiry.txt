@@ -57,6 +57,7 @@
 # three — it listed `rotate-z-*`, which has measured `works` for as long as the census has existed
 # and never carried a clause at all. Prose beside a derived list is not derived.
 Core/Vixen.Ui.Styling.Utilities/UtilityFamilies.cs	expires-on	Vixen.Ui.Text.HyphenMode.Auto
+Core/Vixen.Ui.Styling/SelectorCompiler.cs	expires-on	Vixen.Ui.Styling.Selector.PseudoElement
 Core/Vixen.Ui/README.md	expires-with	inset-shadow-*
 bg-clip	expires-on	Vixen.Ui.Rendering.UiLayer.Coverage
 border-e-*	expires-when-read	border-inline-end-color
@@ -66,11 +67,15 @@ border-spacing-y-*	expires-with	border-spacing-*
 hyphens	expires-on	Vixen.Ui.Text.HyphenMode.Auto
 inset-ring-*	expires-with	inset-shadow-*
 isolation	expires-with	mix-blend
+list-*	expires-on	Vixen.Ui.Styling.Selector.PseudoElement
+list-image-*	expires-with	list-*
+list-style-position	expires-with	list-*
 mix-blend	expires-on	Vixen.Ui.Rendering.UiLayer.Blend
 object	expires-on	Vixen.Ui.Controls.Image.IntrinsicSize
 object-*	expires-with	object
 perspective-*	expires-on	Vixen.Ui.Rendering.UiVertex.W
 perspective-origin-*	expires-with	perspective-*
+placeholder-*	expires-on	Vixen.Ui.Styling.Selector.PseudoElement
 ring-offset-*	expires-on	Vixen.Ui.Styling.Utilities.UtilityComposition.RingOffsetWidth
 rotate-x-*	expires-with	perspective-*
 rotate-y-*	expires-with	rotate-x-*
