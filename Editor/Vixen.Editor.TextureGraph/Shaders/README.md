@@ -1,13 +1,86 @@
 # Shaders
 
-The texture graph's atomic kernels, in Raven. Three of the forty-four
-[doc 48 § D5](../../../docs/plan/48-material-authoring.md) plans, and the shape the rest take.
+The texture graph's atomic kernels, in Raven. **Forty-five `.rvn` files**, which is
+[doc 48 § 4.11](../../../docs/plan/48-material-authoring.md)'s forty-four adjusted three ways — and
+each adjustment is a fact about the catalogue rather than an arithmetic slip:
 
-| Kernel | Reads | Writes | What it is |
-|---|---|---|---|
-| `Blend` | `background`, `foreground` | one image | Eight of the sixteen modes, under an opacity |
-| `Blur` | `source` | one image | One axis of a box blur, with a fractional radius |
-| `Levels` | `source` | one image | Input range, gamma, output range, and a dither |
+| | | |
+|---|---:|---|
+| § 4.11's compute kernels | **44** | |
+| − `Text`, `Svg Path` | −2 | **Not kernels, and cannot be** — [#687](https://github.com/Rikarin/Vixen/issues/687) |
+| − `Normal → Height` | −1 | **A CPU Poisson solve**, by doc 48's own exception — [#688](https://github.com/Rikarin/Vixen/issues/688) |
+| + `MinMaxReduce`, `JumpFlood`, `FloodBounds`, `FloodResidual` | +4 | **Dispatches, not nodes**: three nodes need a chain |
+| = files in this folder | **45** | `TextureKernels.Names` at run time |
+
+**Why the first two cannot be kernels.** A compute shader has no rasteriser, and
+`TexturePlanEvaluator` compiles each kernel alone through `RavenEffectCompiler.FromSources` with no
+reference paths — so no kernel can reach a font, a glyph outline or a path parser. Both shapes are
+filled on the CPU and enter a plan as an **external image**; `TextureUploads` is the seam, and the
+assembly README says where the two nodes themselves have to live. `TextureSurfaceKernelTests` asserts
+`NormalToHeight`'s absence **by name**, so "nobody has built it" and "somebody built it as a kernel"
+are different colours rather than the same silence. And the four extra files are separate for the
+reason `Distance` is separate from `JumpFlood`: a chain writes a *record* and a node writes a
+*picture*, and folding them would make the last dispatch of a chain a different kernel from the ones
+before it.
+
+⚠ **The folder is the list, and no table here is.** `TextureKernels.Names` reads the embedded
+resources at run time, and `TextureKernelTests.Every_kernel_the_folder_holds_is_embedded` compares
+that against the directory — so dropping a `.rvn` in registers it, and a table nobody updated cannot
+make the folder wrong. What follows is a *reading* of the folder rather than a manifest of it: this
+file listed three kernels for as long as the folder held twenty-four and then forty-five
+([#695](https://github.com/Rikarin/Vixen/issues/695)), which is what a second list that has to agree
+with a directory always eventually does.
+
+## The catalogue, by doc 48's own sections
+
+**§ 4.1 sources — six.** `Uniform` · `Bitmap` · `Gradient` · `Shape` · `Noise` · `Checker`. Analytic
+rather than rasterised wherever the shape allows it, which is half of § D8's scale invariance passing
+for free. ⚠ `Noise`'s basis is a **uniform and not a permutation**, because a plan has no way to name
+one ([#638](https://github.com/Rikarin/Vixen/issues/638)); `Gradient` and `GradientMap` read a ramp
+the CPU baked into a 256×1 row, so there is one `Gradient` evaluator in this repository and not two.
+
+**§ 4.2 colour and channels — ten for nine nodes.** `Levels` · `Curve` · `GradientMap` · `Hsl` ·
+`Grayscale` · `Invert` · `ChannelShuffle` · `Blend` · `AutoLevels` + `MinMaxReduce`. ⚠ `Blend`
+carries **all sixteen** of § 4.2's modes, and
+`TexturePlacementKernelTests.Every_blend_mode_named_in_C_sharp_has_a_case_in_the_kernel` counts them
+on both sides — the eight of § M1 are numbered 0–7 and the rest were **appended**, because a plan is
+a file and renumbering to match the prose would silently turn every plan already written into another
+perfectly plausible picture.
+
+**§ 4.3 space — five.** `Transform2D` · `Mirror` · `Tile` · `Crop` · `Resample`. ⚠ **Minification is
+supersampled by hand** in three of them, because the evaluator binds no samplers — there is no
+hardware mip chain here and no anisotropic tap, so each derives the footprint of an output texel and
+boxes over it.
+
+**§ 4.4 filters — eleven.** `Blur` · `BlurHq` · `DirectionalBlur` · `RadialBlur` · `NonUniformBlur` ·
+`Sharpen` · `Emboss` · `Warp` · `DirectionalWarp` · `VectorWarp` · `SlopeBlur`. Every one takes a
+length, so this is the group § D8's scaling rule is *about*. ⚠ Two carry a convention rather than a
+number: `VectorWarp` decodes `(rg · 2 − 1) · intensity`, so **128 is rest** and the one-sided reading
+produces a picture that drifts one way at half the amplitude and looks entirely plausible; and
+`SlopeBlur` is **iterative**, so its sample count changes the answer exactly where the field curves,
+which is the only property a single-pass approximation does not have.
+
+**§ 4.5 analysis — six for three nodes.** `JumpFlood` → `Distance`; `FloodBounds` + `FloodResidual` →
+`FloodFill`; `EdgeDetect`. The floods are log₂(n) ping-ponged dispatches with a **ceiling that reports
+truncation** rather than a `while` on the device. ⚠ **Both chains carry a coordinate in a half-float
+and are therefore refused above 2048 texels** — doc 48 § D5 admits no 32-bit float format, a half is
+exact on the integers only to 2048, and `TextureAnalysis.ExactExtent` refuses a larger image rather
+than quantising one ([#690](https://github.com/Rikarin/Vixen/issues/690)).
+
+**§ 4.6 surface — five for six nodes.** `HeightToNormal` · `NormalCombine` · `NormalTransform` ·
+`Curvature` · `AmbientOcclusion`, and `Normal → Height` is the CPU exception above. ⚠ The **green
+convention is derived and not chosen**: `MaterialSurface.rvn` decodes `2v − 1` with no flip anywhere
+in the sampling path, and `v` increases downwards, so a height that rises as you move *down* the
+picture is green below a half. `NormalCombine` is reoriented normal mapping and not whiteout, and
+⚠ **the two agree exactly whenever either input is flat** — which is the case a lazy test reaches for
+first, so the assertion tilts both.
+
+**§ 4.7 placement — two.** `TileSampler` · `Splatter`, § D7's replacement for FX-Map. ⚠ **A scatter
+written as a gather**: an instance is drawn by a texel asking which instances reach it, never by an
+instance writing into the image, because a storage image has no blend hardware and no ordering
+between invocations. The loop bounds are the trade FX-Map's recursion was refused for, and the CPU
+side **refuses** a parameter that would exceed them rather than clamping it —
+[#678](https://github.com/Rikarin/Vixen/issues/678)'s lesson, applied one node over.
 
 ## No `.spv` is committed here, and that is the one real departure
 
@@ -56,9 +129,20 @@ perfectly plausible picture. `TextureKernelTests` writes the order down.
 **Every tail invocation returns.** The dispatch is rounded up to whole groups, and storing outside a
 storage image is undefined in both targets.
 
-**Every tap is clamped to the source's edge, never wrapped.** A blur that wrapped would pull the
-opposite edge of the image into this one, which is the artefact a tileable graph exists to avoid — and
-tileability is a property of what the *generators* draw, not something a filter can bolt on afterwards.
+**Every tap is clamped to the *source's* dimensions, and a filter never wraps.** A blur that wrapped
+would pull the opposite edge of the image into this one, which is the artefact a tileable graph exists
+to avoid — and tileability is a property of what the *generators* draw, not something a filter can bolt
+on afterwards. ⚠ The clamp is to the **source's** extent and never the target's: an op whose output is
+a different size from its input is ordinary here, and a kernel that clamped to the image it writes
+reads outside a smaller source, where what an implementation returns is not the edge.
+
+⚠ **Two kernels break the no-wrapping half deliberately, and neither is a filter.** `Tile` wraps every
+tap by construction — a tile's edge meets the opposite edge of the source, which is what makes it a
+tile — and `Transform2D` takes a **tiling mode**, where 0 clamps, 1 wraps and 2 mirrors. Both are
+§ 4.3 space nodes whose whole subject is where a coordinate lands, so for them the wrap is the
+operation rather than an artefact. A third group — `Noise`, `TileSampler` and `Splatter` — wraps a
+lattice or a cell index it *generates*, which is a different thing again: no tap into a source image
+is wrapped there, and the seam it removes is the one in the pattern rather than one in an input.
 
 **Every length arrives already scaled.** ⚠ `radius` is in the texels of the image being written, not in
 texels at the base resolution: doc 48 § D8's rule lives on the plan and `TexturePlan.Resolve` is what
