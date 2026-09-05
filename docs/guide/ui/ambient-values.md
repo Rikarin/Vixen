@@ -51,7 +51,7 @@ the application sees the document's, and neither has to know about the other.
 
 ## Using it
 
-## From a component
+### From a component
 
 ```csharp no-compile="a fragment; the code-behind half of a .vxml component"
 partial class Workspace {

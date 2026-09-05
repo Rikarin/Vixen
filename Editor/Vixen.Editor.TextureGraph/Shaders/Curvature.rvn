@@ -1,0 +1,75 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § 4.6's `Curvature from Normal`: the divergence of a tangent-space normal field, centred on
+// a half.
+//
+// ⚠ **This is the cheap one, and a generator should prefer the baked one.** § D12's mesh bake
+// measures the curvature of the *surface* — `Core/Vixen.Geometry.Remeshing`'s `MeshMaps.Curvature`,
+// from the high-poly mesh, where a concave crease between two parts is a real crease. This measures
+// the curvature of a *picture of a surface*, so it sees whatever the normal map contains and nothing
+// else: a bevel that was modelled and not baked into the normal map is invisible here. The node's
+// own inspector says so, because a wear generator driven by the wrong one produces edge wear on the
+// wrong edges and looks merely uninspired rather than broken.
+//
+// **Bright is convex.** Green is `−∂h/∂v` and red is `−∂h/∂u` (`HeightToNormal.rvn`), so the
+// divergence of the xy pair is the negated Laplacian of the height — positive on a ridge and negative
+// in a groove. That is the sign a wear mask wants without an `Invert` in front of it.
+//
+// **Per unit UV, for `HeightToNormal.rvn`'s reason.** A difference per texel shrinks as the image
+// grows, so the raw central difference would make the same graph flatter at 4K. The extent is what
+// turns it back into a rate against the picture rather than against its sampling.
+//
+// ⚠ **The map is read as authored and not renormalised.** A normal map is a field of unit vectors
+// already; one that is not has been through a filter that shortened it, and `NormalTransform` is the
+// node that fixes that. Renormalising here would hide it and would also make the node's closed form
+// — a red ramp across the image has a constant divergence — untestable.
+
+shader Curvature {
+    /// A tangent-space normal map.
+    var source: Texture2D
+
+    /// How far apart the two taps of the central difference are, in texels of the image being written.
+    ///
+    /// A radius rather than a fixed neighbour pair because curvature is scale-dependent: the wear on
+    /// a panel edge and the wear on a rivet are different radii of the same map.
+    var radius: float = 1f
+
+    /// What the divergence is multiplied by before it is centred on a half.
+    var intensity: float = 0.25f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The furthest the difference may reach, whatever the radius says. `Blur.rvn`'s argument.
+    const val MaxRadius: int = 256
+
+    /// One tap's decoded normal, clamped to the source's own edge.
+    func Decoded(x: int, y: int): float2 {
+        val extent = source.GetDimensions(0)
+        val texel = source.Load(int3(clamp(x, 0, extent.x - 1), clamp(y, 0, extent.y - 1), 0))
+
+        return float2(texel.x * 2f - 1f, texel.y * 2f - 1f)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val reach = clamp(int(max(radius, 1f)), 1, MaxRadius)
+        val span = 2f * float(reach)
+
+        val right = Decoded(coord.x + reach, coord.y)
+        val left = Decoded(coord.x - reach, coord.y)
+        val below = Decoded(coord.x, coord.y + reach)
+        val above = Decoded(coord.x, coord.y - reach)
+
+        val divergence = (right.x - left.x) / span * float(size.x) + (below.y - above.y) / span * float(size.y)
+        val value = saturate(0.5f + 0.5f * intensity * divergence)
+
+        target.Store(coord, float4(value, value, value, 1f))
+    }
+}

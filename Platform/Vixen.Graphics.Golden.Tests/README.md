@@ -16,6 +16,20 @@ Six kinds of fixture — the suite `docs/plan/05` § Testing asks for.
 | `UiImageTests` | The user interface's GPU half |
 | `DebugDrawImageTests` | The debug geometry's — the screen projection, and whether the stroke font is letters |
 | `StandardFrameTierImageTests` | A **whole frame per quality tier** — the expansion, not the nodes |
+| `GraphMaterialImageTests` | A **shader-graph material** through the real forward pass, against the library feature it spells |
+| `BakedMaterialImageTests` | A **textured material made by the texture tool** — the evaluator's texels, `MaterialBake`'s packing, the bindless table, and the picture |
+
+⚠ `BakedMaterialImageTests` is the only fixture here in which a material **samples a texture at all**.
+Every other picture is drawn by an untextured feature, so the bindless table, the ORM packing, the
+sRGB view on a base-colour map and the tangent-space unfold on a normal map had never been in a frame
+— which is doc 48 § M5's exit criterion 12 and the reason the file exists.
+
+⚠ **It needs a device with `HasBindless` and does not check for one, which is a gap.** A textured
+material is a `uint` into `WorldRenderer`'s table, and without a table `MaterialRenderFeature` never
+hands one out. What the fixture does on such a device is **not established** — it was written and run
+on MoltenVK, where `BindlessTable.IsSupportedBy` is true — so the honest reading of a failure there is
+"this has not been tried", not "the renderer is wrong". `BindlessSamplingDeviceTests` is the fixture
+that skips loudly on that capability and is the shape to copy the day somebody sees it fail.
 
 `PipelineStateImageTests` is the largest and the most repetitive, deliberately. Every bit it covers is
 one a backend can silently ignore: recording `BindPipeline` proves the call was made and proves

@@ -140,6 +140,35 @@ here, and `MapBaker` casts along the output's interpolated normal both ways and 
 ⚠ **Content is rasterized in one pass and dilated in a second**, and the gutter only ever writes where
 coverage is false — so one chart's dilation cannot overwrite the chart abutting it in the atlas.
 
+## The mesh maps are measurements on that raster, not a second baker
+
+docs/plan/48 § D12's seven — ambient occlusion, bent normal, curvature, thickness, position, world
+normal and id — are `BakedMaps` members filled at a texel whose surface point, normal and frame the
+raster already handed over. `BakeSettings.Maps` asks for them and asks for none by default, because
+three of them cast rays.
+
+⚠ **Occlusion, bent normal and thickness are one hemisphere and not three.** The bent normal is the
+average of the directions the occlusion found unblocked, and the thickness is those same directions
+reflected through the tangent plane — one loop, three accumulators. Casting a second set for either
+would cost twice as much *and* answer about different directions, so the bent normal would not agree
+with the occlusion beside it.
+
+⚠ **Every one of them is measured at the source's point and about the source's normal**, never the
+cage's — the cage deliberately lacks the geometry doing the occluding, and an occlusion measured on it
+is a picture of the cage.
+
+⚠ **The id channel is an `int` and the gutter copies it rather than averaging.** The mean of ids 0 and
+2 is id 1, a material that exists nowhere in the source, and every generator keyed off the map then
+grows a hairline of it along every chart border. ⚠ The test for that is parity-sensitive and was
+briefly worthless: across an *even* number of gutter texels the two dilation fronts pass without ever
+meeting, every gutter texel then has neighbours from one chart only, and averaging is
+indistinguishable from copying. The fixture leaves exactly one column between the charts.
+
+Curvature is the source's cotangent Laplacian, built once for the mesh and interpolated at the hit. ⚠
+It is one over a length and moves with the model's scale on purpose — a sphere of radius *r* reads
+`1/r`, which is the test — and a **boundary vertex reads zero as a refusal**, because the operator
+wants a closed one-ring and every open rim would otherwise bake a bright border.
+
 ## Deterministic, and it is a gate
 
 Same input, same settings, byte-identical output, at any thread count on any platform. Four choices

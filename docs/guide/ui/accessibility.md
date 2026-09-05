@@ -69,8 +69,9 @@ for an application is the part no control can know.
 
 A layout element is deliberately not a node — `Panel`, `Card`, `Expander`, `ScrollView`, `Tabs`,
 `Popover`, `Icon`, `TextBlock` all answer `AccessibleRole.None` — and a bridge reads through them.
-Five direct-manipulation surfaces answer `application`, which asks assistive technology to stop
-intercepting the keyboard: `Viewport`, `NodeCanvas`, `CurveEditor`, `GradientEditor` and `Timeline`.
+Six direct-manipulation surfaces answer `application`, which asks assistive technology to stop
+intercepting the keyboard: `Viewport`, `ImageView`, `NodeCanvas`, `CurveEditor`, `GradientEditor` and
+`Timeline`.
 `CodeEditor` deliberately does not; it is a `textbox`, because announcing a text editor as an
 application turns off the reading and review commands that make text editable at all.
 

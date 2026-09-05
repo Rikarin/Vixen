@@ -1,0 +1,148 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// The reading half of doc 48 § 4.5's `Flood Fill`: the settled `FloodBounds` record turned into one
+// of the five pictures the node offers.
+//
+// § 4.5 lists them as one node's outputs — id · random value · UV within the island · bounding box ·
+// size — and notes that "everything Substance calls *flood fill to X* is this node plus a
+// `Channel Shuffle`". So they are one kernel under a `kind`, and a plan that wants two of them lists
+// two ops over the same settled record. That costs one dispatch each and no second flood.
+//
+// ⚠ **`Size` is the bounding box's, not the island's area, and the difference is not pedantic.** A
+// pixel count is a *sum* over the island and nothing in this chain sums anything — bounds merge by
+// min and max, which is what lets one monotone iteration settle them. An area would need a second
+// quantity with no idempotent merge, and the reference tool's own "flood fill to size" is the box
+// too.
+//
+// ⚠ **`Random` is seeded from the box, so an island keeps its colour when a *different* island
+// changes** — which is the property that makes the node usable in a splatter at all. Seeding from a
+// running index would renumber every island whenever one appeared, and the material would shimmer
+// under an edit that touched none of it.
+//
+// **Background is black in every mode, with an opaque alpha.** Zero is a legitimate value for a
+// random and for a UV, so a consumer that has to tell background from a dark island reads the alpha
+// of `BoundingBox`, whose channels are all zero only for a box at the origin of zero size.
+
+shader FloodFill {
+    /// The settled record from the last `FloodBounds` dispatch.
+    var bounds: Texture2D
+
+    /// 0 id · 1 random · 2 UV within the island · 3 bounding box · 4 size.
+    var kind: int = 1
+
+    /// The op's own seed, already mixed. See `TexturePlan.SeedFor`.
+    var seed: float = 0f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The odd constant from PCG's output stage — `Random.Multiplier`.
+    ///
+    /// ⚠ Copied, like `Noise.rvn`'s, and for the same reported reason: a texture-graph kernel is
+    /// compiled alone, so `Raven/Library/Core/Random.rvn` cannot be imported from here. The constants
+    /// are kept identical so the two can only drift visibly.
+    const val Multiplier: uint = 0x2C9277B5u
+
+    /// The golden ratio's reciprocal, which is what makes `Combine` non-commutative.
+    const val Golden: uint = 0x9E3779B9u
+
+    /// 2^-24 — `Random.InvTwo24`.
+    const val InvTwo24: float = 5.9604645e-8f
+
+    /// `Random.Hash` — one xorshift, one odd multiply, one xorshift.
+    func Hash(value: uint): uint {
+        var state = value
+        state = state ^ (state >> 16)
+        state = state * Multiplier
+        state = state ^ (state >> 16)
+
+        return state
+    }
+
+    /// `Random.Combine`. The odd multiply on the second operand is what stops (3, 7) and (7, 3)
+    /// hashing alike.
+    func Combine(a: uint, b: uint): uint => Hash(a ^ (b * Golden))
+
+    /// `Random.ToFloat01`. The top 24 bits, scaled by 2^-24 — a multiply and never a divide.
+    func ToFloat01(hash: uint): float => float(hash >> 8) * InvTwo24
+
+    /// The **whole** record hashed to one value in 0..1: the island's complete name.
+    ///
+    /// ⚠ **All four channels and not the corner**, which is the distinction
+    /// [#691](https://github.com/Rikarin/Vixen/issues/691) turned out to be about. Two settled boxes
+    /// are never equal for two different islands — a shared box would need each island to cross the
+    /// box both ways, and the 4/8 duality of digital topology forbids the pair — so a name derived
+    /// from all four numbers separates every island from every other. A name derived from `min`
+    /// alone does not: a bar and a hook that starts under its left end share a minimum corner
+    /// routinely, and `TextureAnalysisKernelTests` counts 1 273 such masks in the 65 536 there are at
+    /// four by four.
+    func Name(record: float4, salt: uint): float {
+        val corner = Combine(uint(int(record.x)), uint(int(record.y)))
+        val far = Combine(uint(int(record.z)), uint(int(record.w)))
+
+        return ToFloat01(Combine(Combine(corner, far), salt))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = bounds.GetDimensions(0)
+        val record = bounds.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+
+        if (record.x < 0f) {
+            target.Store(coord, float4(0f, 0f, 0f, 1f))
+
+            return
+        }
+
+        val span = float2(record.z - record.x + 1f, record.w - record.y + 1f)
+        val width = float(max(extent.x, 1))
+        val height = float(max(extent.y, 1))
+
+        if (kind == 0) {
+            // The island's name. Red and green are the minimum corner of its box, normalised —
+            // addressable, and stable under an edit elsewhere in the image.
+            //
+            // ⚠ **Blue is the rest of the record, and without it the id is not a name.** The corner
+            // alone is shared by islands that are genuinely distinct — one bar and one hook starting
+            // under its left end is enough — so "flood fill to index" quietly gave two islands the
+            // same index. [#691](https://github.com/Rikarin/Vixen/issues/691) filed that as the
+            // *box* colliding; the box does not, and this half does.
+            target.Store(coord, float4(record.x / width, record.y / height, Name(record, 0u), 1f))
+
+            return
+        }
+
+        if (kind == 2) {
+            val local = float2((float(coord.x) - record.x) / span.x, (float(coord.y) - record.y) / span.y)
+
+            target.Store(coord, float4(local.x, local.y, 0f, 1f))
+
+            return
+        }
+
+        if (kind == 3) {
+            target.Store(
+                coord,
+                float4(record.x / width, record.y / height, record.z / width, record.w / height)
+            )
+
+            return
+        }
+
+        if (kind == 4) {
+            target.Store(coord, float4(span.x / width, span.y / height, max(span.x / width, span.y / height), 1f))
+
+            return
+        }
+
+        val value = Name(record, uint(int(max(seed, 0f))))
+
+        target.Store(coord, float4(value, value, value, 1f))
+    }
+}

@@ -1,0 +1,62 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Colour to grey under three weights — doc 48 § 4.2's `Grayscale Conversion`.
+//
+// ⚠ **The weights are normalised here, in the kernel, and this is the node's whole trap.** An artist
+// who types 1, 1, 1 wanting "the average" gets three times the brightness of an unnormalised sum,
+// and an artist who drags one weight down darkens the whole image without meaning to. Neither
+// notices at the node: they notice two ops later, at a levels curve that no longer reaches white,
+// and they blame the levels. Dividing by the sum means a weight set is a *ratio* — which is what
+// every one of them was meant to be.
+//
+// **The default is Rec. 709** — 0.2126, 0.7152, 0.0722 — the same luminance
+// `ComputeColor.rvn`'s `Saturation` uses, so a graph and a shader graph agree about what grey is.
+// ⚠ Rec. 601's 0.299/0.587/0.114 is the *other* common answer and differs by up to 6% on saturated
+// green; a node that did not say which it used could not be reproduced.
+//
+// **A sum of zero falls back to the default rather than dividing by it.** Three zeroed weights is
+// what a plan built from a zeroed struct hands over, and doc 48's own note is that zero usually
+// means "off" — a NaN written into a baked file is permanent.
+
+shader Grayscale {
+    var source: Texture2D
+
+    var weightR: float = 0.2126f
+
+    var weightG: float = 0.7152f
+
+    var weightB: float = 0.0722f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val texel = source.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+
+        var weights = float3(weightR, weightG, weightB)
+        val total = weights.x + weights.y + weights.z
+
+        // ⚠ Normalisation, and the reason it is not optional. Without this line a weight set of
+        // (1, 1, 1) is three times as bright as the image it was taken from — a brightness change
+        // nobody asked for, made at a node whose name says nothing about brightness.
+        if (abs(total) < 0.000001f) {
+            weights = float3(0.2126f, 0.7152f, 0.0722f)
+        } else {
+            weights = weights / total
+        }
+
+        val grey = dot(float3(texel.x, texel.y, texel.z), weights)
+
+        // Splatted rather than written to red alone: doc 48 § 4's rule is that grey and colour are
+        // one port kind and grey promotes, so a grey image read as a colour has to already be grey.
+        target.Store(coord, float4(grey, grey, grey, texel.w))
+    }
+}

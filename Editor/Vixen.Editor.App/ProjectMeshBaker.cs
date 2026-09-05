@@ -69,7 +69,13 @@ public sealed class ProjectMeshBaker(EditorProject project, string folder = "Blo
         project.Assets.Scan();
         project.Assets.Save();
 
-        var relative = Path.GetRelativePath(project.Paths.Assets, file).Replace('\\', '/');
+        // ⚠ Relative to the project *root*, which is what the database keys on. `AssetDatabase`
+        // indexes every entry as `Paths.Relative(absolute)` — `Assets/Blockout/Wall.obj` — so
+        // measuring it from `Paths.Assets` asked the index for `Blockout/Wall.obj`, matched nothing,
+        // and returned `AssetReference.Null` for a file that had just been written and sidecarred.
+        // Every block-out bake did that, silently: the file was on disk to prove the bake had
+        // worked, and the entity was pointed at nothing.
+        var relative = project.Paths.Relative(file);
 
         return project.Assets.TryGetByPath(relative, out var entry)
             ? new AssetReference(entry.Guid)

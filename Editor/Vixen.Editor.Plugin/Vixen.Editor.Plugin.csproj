@@ -44,6 +44,23 @@
         <ProjectReference Include="..\Vixen.Editor.Ui\Vixen.Editor.Ui.csproj" />
 
         <!--
+            ⚠ The second editor-shaped reference, and the exception the rule above did not cover.
+            `IEditorGraphics` is a device a plugin borrows, and every other extension point named
+            above is reached through the assembly that *owns* it — a drawer through
+            Vixen.Editor.Inspector, an importer through Vixen.Editor.Assets. The device has no such
+            assembly: it belongs to the host, is created by Vixen.Editor.App before any project is
+            open, and no plugin may reference Vixen.Editor.App. So there is nowhere below this
+            contract for the type to live, and the contract is where a thing owned by the host and by
+            no feature belongs.
+
+            ⚠ And it is not the bargain the paragraph above refuses. Vixen.Graphics is the
+            abstraction, not a backend: three references of its own (Vixen.Core, .Collections,
+            .Mathematics) and no Assimp, no image codecs, no importers. Every editor process has it
+            loaded already, because Vixen.Ui.Renderer draws the chrome on it.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Graphics\Vixen.Graphics.csproj" />
+
+        <!--
             The manifest is a [DataContract] read by the same YAML binder as a .meta file and a
             settings asset. One dialect, one parser, one set of rules about what an unknown key
             means — a plugin manifest in a hand-rolled format would be the fourth thing in the

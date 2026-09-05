@@ -11,22 +11,31 @@ using System.Linq;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The gap this closes: <c>EditorSources</c> was four hand-written tuples and nothing said
-///         they were all of them.</b> <c>CheckShaders</c> already refuses a committed module no entry
-///         produces, but that walk is over the directories the entries themselves name — so it sees a
-///         module dropped out of a list it already knows about, and cannot see a whole source, or a
-///         whole project, the list never mentioned. This is the same shape a third time, after
-///         <c>MaterialCompiler.OptionalSlots</c> and #371: a hand-kept list whose completeness nothing
-///         asserts.
+///         <b>This walk <em>is</em> the list.</b> <c>CheckShaders</c>' editor half used to be four
+///         hand-written tuples with nothing asserting they were all of them — the same shape a third
+///         time, after <c>MaterialCompiler.OptionalSlots</c> and #371. It was then given a
+///         completeness assertion, which turned a missing entry into a red gate rather than a silent
+///         hole; this walk goes one step further and hands <c>Build.DiscoverEditorSources</c> the
+///         entries themselves, so a source added under a project is compiled and diffed by the next
+///         run and there is nothing left to remember.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Committed modules, not a source, are what make an entry owed.</b> A glob for
-///         <c>**/Shaders/*.rvn</c> would demand entries for
+///         ⚠ <b>Committed modules, not a source, are what make a source owed.</b> A glob for
+///         <c>**/Shaders/*.rvn</c> would pull in
 ///         <c>Platform/Vixen.Graphics.Golden.Tests/Shaders</c>, whose four probe sources are compiled
-///         by the test that uses them and commit nothing — and a rule that reports work nobody owes is
-///         a rule somebody turns off. So the question asked of each source is whether a
-///         <c>{shader}.{stage}.spv</c> for one of the shaders it declares is sitting next to it: that,
-///         and only that, is a binary a person can leave stale.
+///         by the test that uses them and commit nothing — and two of those four <c>import</c> the
+///         core package, so compiling them one file at a time would not even succeed. So the question
+///         asked of each source is whether a <c>{shader}.{stage}.spv</c> for one of the shaders it
+///         declares is sitting next to it: that, and only that, is a binary a person can leave stale.
+///     </para>
+///     <para>
+///         ⚠ <b>A <c>.spv</c>, not any generated artefact, and the difference has one name.</b>
+///         <c>Core/Vixen.Shaders.Tests/Fixtures/Lighting.rvn</c> has a committed
+///         <c>Lighting.reflect.json</c> beside it and no module, and that file is checked in
+///         <em>deliberately</em> — its own <c>README.md</c> says the generator's contract is with the
+///         schema rather than with the compiler, so recompiling it here would make a shader-language
+///         change look like a generator failure. Widening this property to reflection files would
+///         quietly conscript that fixture into a gate its README explains why it is outside.
 ///     </para>
 ///     <para>
 ///         ⚠ <b><c>Raven/</c> is excluded because the library is not committed as modules</b> — over a
@@ -108,6 +117,30 @@ static class ShaderSourceInventory {
                 yield return file;
             }
         }
+    }
+
+    /// <summary>
+    ///     Whether a source reaches into another package, which is what decides it cannot be compiled
+    ///     on its own.
+    /// </summary>
+    /// <param name="file">The source to read.</param>
+    /// <returns><c>true</c> if it carries at least one <c>import</c>.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Asked of the file rather than kept as an exclusion list.</b> The sources this walk
+    ///     hands back are compiled one file at a time, with no <c>--source</c> closure, because none
+    ///     of them imports anything. That is a property of the file and it can stop being true — a
+    ///     kernel that starts importing <c>Vixen.Shaders.Core</c> is a real thing to write — so the
+    ///     gate reads it out of the source and refuses loudly, rather than carrying a list of names to
+    ///     skip that nobody updates.
+    /// </remarks>
+    public static bool Imports(string file) {
+        foreach (var line in File.ReadLines(file)) {
+            if (line.Trim().StartsWith("import ", StringComparison.Ordinal)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

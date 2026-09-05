@@ -43,10 +43,21 @@ sealed record PortModel(
 
 /// <summary>One setting, as the generator read it off a <see langword="string" /> field.</summary>
 /// <remarks>
-///     A setting has no kind and no direction — see <c>SettingAttribute</c> — so it is a name, a
-///     default and a sentence, and nothing else.
+///     ⚠ <b>A setting has no direction and its field is always a string, and it does now have a
+///     kind</b> — <c>SettingKind</c>, which says how that string is <em>read</em> rather than how it
+///     is stored. See <c>SettingAttribute</c>; the storage stayed text so that a saved graph and a
+///     node type that renamed a member still understand each other.
 /// </remarks>
-sealed record SettingModel(string Field, string Name, string Default, string Summary);
+sealed record SettingModel(
+    string Field,
+    string Name,
+    string Default,
+    string Summary,
+    string Kind,
+    float Minimum,
+    float Maximum,
+    string Group
+);
 
 /// <summary>One node type, as the generator read it off a class.</summary>
 sealed record NodeModel(

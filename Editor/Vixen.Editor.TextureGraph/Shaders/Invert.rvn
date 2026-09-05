@@ -1,0 +1,61 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Per-channel inversion — doc 48 § 4.2.
+//
+// **Four switches rather than one.** Inverting a mask and inverting a colour are the same
+// arithmetic, but a normal map's green flip and an "invert the roughness" are both this node with
+// three of the four switches off. A single boolean would mean a channel shuffle either side of it.
+//
+// ⚠ **Alpha defaults to off.** Every other node in § 4.2 leaves alpha alone, and an invert that
+// silently turned an opaque image transparent would be a blend node's bug three ops later.
+//
+// The closed form: applied twice, with the same switches, this is the identity. `1 - (1 - v) = v`
+// exactly in floating point for every v, so the assertion is equality rather than a tolerance —
+// which is why this is the kernel whose golden can be exact.
+
+shader Invert {
+    var source: Texture2D
+
+    /// Non-zero inverts the red channel.
+    var invertR: int = 1
+
+    var invertG: int = 1
+
+    var invertB: int = 1
+
+    /// Non-zero inverts alpha. Off by default, and deliberately so.
+    var invertA: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func Flip(value: float, enabled: int): float {
+        if (enabled != 0) {
+            return 1f - value
+        }
+
+        return value
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val texel = source.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+
+        target.Store(
+            coord,
+            float4(
+                Flip(texel.x, invertR),
+                Flip(texel.y, invertG),
+                Flip(texel.z, invertB),
+                Flip(texel.w, invertA)
+            )
+        )
+    }
+}

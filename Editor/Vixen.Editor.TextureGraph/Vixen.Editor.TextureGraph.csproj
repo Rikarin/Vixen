@@ -1,0 +1,210 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.TextureGraph</RootNamespace>
+        <Description>
+            The texture graph's evaluator: a plan of compute kernels over a pool of intermediate
+            images, dispatched on a graphics device and read back as pixels. No graph, no document,
+            no panel — the artefact both front ends compile to, and the thing that runs it.
+        </Description>
+        <PackageTags>editor;texture-graph;material-authoring;compute;raven;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <!--
+          ⚠ **A workaround for a name-resolution collision, and it should go the moment two words
+          change in `TexturePlanEvaluator.cs`.** That file writes `Core.Imaging.Bitmap` and
+          `Core.Imaging.PngCodec` — relative names, resolved by walking out from
+          `namespace Vixen.Editor.TextureGraph` until something called `Core` turns up. Until the
+          `Vixen.Editor.NodeGraph` reference below, the first hit was `Vixen.Core`; that reference
+          brings `Vixen.Editor.Core` in transitively, `Vixen.Editor` is a *nearer* enclosing namespace
+          than `Vixen`, and the same two lines then name a namespace with no `Imaging` in it. Nothing
+          in either file changed and the build stopped.
+
+          ⚠ **A `global using Core = Vixen.Core;` does not fix it** — tried, and it does not: a
+          compilation-unit alias is consulted only after the enclosing-namespace walk, so
+          `Vixen.Editor.Core` still wins. Spelling `Vixen.Core.Imaging.Bitmap` in that one file is the
+          real fix, and this slice does not own it — [#717](https://github.com/Rikarin/Vixen/issues/717).
+
+          What this property buys beyond dodging that: the compile-time reference set becomes exactly
+          what is named below, which is why `Vixen.Core` and `Vixen.Core.Mathematics` had to be added
+          — they used to arrive through `Vixen.Graphics`. It does *not* keep the interface framework
+          out of the output directory, which the note on the node-graph reference is about.
+        -->
+        <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
+
+        <!--
+          CA1051 (no visible instance fields) is the one rule a node library cannot keep, for the
+          reason `Vixen.Editor.ShaderGraph` states: a node's ports *are* its fields, which is what
+          lets the generator read the declaration once. The nodes here are internal, so the rule does
+          not fire today; the line is here so that widening one for a panel is not also a build
+          failure nobody predicted.
+        -->
+        <NoWarn>$(NoWarn);CA1051</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          ⚠ The kernels are embedded rather than compiled to a committed `.spv` beside the source,
+          and that is a deliberate departure from `Editor/Vixen.Editor.Host/Shaders`. A storage
+          image's texel format is part of its *type* in both SPIR-V and GLSL, and Raven's
+          `[Permutation]` values are bool, int and uint — so one kernel that writes `rgba8` in one
+          plan and `rgba16f` in the next cannot be one module. The variants are produced from this
+          text at load, which means there is no committed binary anybody can leave stale, and
+          `CheckShaders`' inventory asks for an entry only where one exists.
+        -->
+        <EmbeddedResource Include="Shaders\*.rvn" />
+
+        <!--
+          And doc 48 § D5's other half: the compounds. § 4.9's catalogue is content rather than code,
+          so a `Histogram Scan` is a `.vxtexgraph` beside the kernels rather than a node class — and
+          it is embedded for the same reason they are, which is that there is then nothing a
+          deployment can leave behind and no folder anybody has to find. `TextureCompoundLibrary`
+          reads them; its `Root` is this folder's name, so a file that moves out of it stops shipping
+          rather than shipping under a wrong path.
+
+          ⚠ A shipped compound's file name may not contain a dot. A manifest resource name has no way
+          to tell a folder separator from one, so `Grunge v2.vxtexgraph` would publish under
+          `Grunge v2` with a phantom folder in it. `TextureCompoundLibraryTests` holds that.
+        -->
+        <EmbeddedResource Include="Compounds\**\*.vxtexgraph" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          A device to allocate images on and dispatch over, the effect model that says what a
+          compiled variant binds, and the in-process Raven compiler the editor already resolves its
+          own variants through — the same three `Vixen.Editor.ShaderGraph` takes, for the same
+          reason: a device is not a UI.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Graphics\Vixen.Graphics.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Shaders\Vixen.Shaders.csproj" />
+        <ProjectReference Include="..\..\Tools\Vixen.ShaderCompiler\Vixen.ShaderCompiler.csproj" />
+
+        <!--
+          ⚠ The Raven *front end*, on top of the effect compiler above, and the two answer different
+          questions. `RavenEffectCompiler` compiles a whole shader to bytecode and throws a string on
+          failure; doc 48 § D6 needs Raven's own `Diagnostic` objects — with a `Location` a line
+          number comes out of — so that a complaint about generated text names the node whose
+          expression is on that line, and it needs `FieldSymbol.ConstantValue` so that a scalar
+          parameter's expression is folded by the real compiler rather than by a second evaluator
+          this repository would then own. `Vixen.Editor.AssetEditors` takes the same reference for the
+          same first reason. It is already here at runtime, transitively through the effect compiler;
+          this only makes it visible to the compilation.
+        -->
+        <ProjectReference Include="..\..\Raven\Vixen.Raven\Vixen.Raven.csproj" />
+
+        <!-- And the syntax layer a `Diagnostic` and its `Location` are declared in, which
+             `DisableTransitiveProjectReferences` above stops arriving through Raven itself. -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Syntax\Vixen.Core.Syntax.csproj" />
+
+        <!--
+          And the image containers, because a bake's last step is a file. `PngCodec` sits under
+          everything that writes a picture in this repository precisely so that a new writer does
+          not become a new encoder.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Imaging\Vixen.Core.Imaging.csproj" />
+
+        <!--
+          ⚠ **And the YAML reader, which this assembly deliberately did not have.**
+          `NodeGraphDocument`'s own remarks say the node-graph framework "does not choose a file
+          format" — its asset records are `[DataContract]`s a caller may write as YAML or bake with
+          the binary serializer — and that argument holds for a *document*, which some host owns.
+          It does not hold for the compounds of § 4.9: those are files this assembly **ships**, so
+          this assembly is the caller, and something here has to read them.
+
+          Measured rather than assumed: `Vixen.Core.Yaml.dll` was already in `bin/` before this line,
+          arriving through `Vixen.Editor.NodeGraph` → `Vixen.Editor.Core`. So it adds **zero** files
+          to the output directory and only widens what this compilation may spell, which is what
+          `DisableTransitiveProjectReferences` above otherwise hides.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+
+        <!--
+          ⚠ Named rather than inherited, and that is what `DisableTransitiveProjectReferences` above
+          costs: `Int2`, `Color4` and `CurveSample` used to arrive through `Vixen.Graphics`.
+          `Vixen.Core` is where `Vixen.Core.Curves` lives, which is not obvious from the namespace.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+
+        <!--
+          And the node-graph framework, which M1 deliberately left out and M4 cannot do without: a
+          `TextureGraphCompiler` is a `NodeGraphCompiler<TexturePlan>`, and there is no way to derive
+          from a type without referencing the assembly that declares it.
+
+          ⚠ **What the omission bought is gone, and it was worth something.** This assembly's README
+          says "does not reference `Vixen.Editor.NodeGraph` at all, which is what makes every test
+          here a test of the evaluator" — after this line no test proves that by construction, and a
+          plan-shaped assertion that quietly went through a node would look identical. What replaces
+          it is a convention rather than a wall: the compiler suites build their own graphs and the
+          evaluator suites still hand-build their plans, and the one differential test that crosses
+          the line compares the two.
+
+          ⚠ **And it makes this a UI assembly at runtime.** `Vixen.Editor.NodeGraph` references
+          `Vixen.Ui.Controls.Advanced`, `Vixen.Editor.Core` and `Vixen.Editor.Inspector` — its own
+          csproj says so at length — so `Vixen.Ui.dll` is now in this assembly's output directory and
+          anything that loads the evaluator loads the interface framework, including the content build
+          that M5 will run headless. `DisableTransitiveProjectReferences` narrows what this project
+          *compiles* against and does nothing about that. Splitting the compiler into an assembly of
+          its own is the fix — [#720](https://github.com/Rikarin/Vixen/issues/720).
+        -->
+        <ProjectReference Include="..\Vixen.Editor.NodeGraph\Vixen.Editor.NodeGraph.csproj" />
+
+        <!--
+          ⚠ **Doc 48 § 4.6's `Normal → Height` is a grid Poisson, and doc 42 § B1's solver is the
+          solver.** `Vixen.Geometry.Uv/Solving` is a general sparse `SparseMatrix` /
+          `ConjugateGradient` pair that happens to live behind an unwrapper's front door — warm
+          started, with a fixed iteration budget rather than a residual test, which is exactly the
+          determinism a bake wants. Its types are `internal`, so that assembly names this one in an
+          `InternalsVisibleTo`; the wart and its fix are recorded there and in
+          [#752](https://github.com/Rikarin/Vixen/issues/752).
+
+          ⚠ **`Vixen.Core.Threading` is not optional even though nothing here starts a thread.**
+          `ConjugateGradient.Solve` takes a `JobScheduler?` with a default of null, and C# cannot
+          bind a call to a method whose parameter type the compilation cannot see — so leaving it out
+          is a build error at the call site rather than a reference nobody uses. It costs two
+          assemblies in the output directory, measured: `Vixen.Geometry` and `Vixen.Core.Threading`
+          were the only names the closure did not already hold.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Geometry.Uv\Vixen.Geometry.Uv.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
+
+        <!--
+          ⚠ **The text stack, for doc 48 § 4.1's `Text`, and it costs nothing in the output
+          directory.** Batch 5 refused `Core/Vixen.Ui` on a closure measurement — 20 projects against
+          this assembly's 17 — and that measurement is now stale in both columns. Re-derived over
+          every `ProjectReference` in the tree on 2026-09-05: this assembly's closure is **29**
+          projects and **`Vixen.Ui` and `Vixen.Ui.Text` are already two of them**, arriving through
+          the `Vixen.Editor.NodeGraph` reference above (→ `Vixen.Ui.Controls.Advanced` → `Vixen.Ui`
+          → `Vixen.Ui.Text`), whose own comment says as much. `Vixen.Ui`'s closure is 14 and a strict
+          subset of those 29. So naming either adds **zero** files to `bin/`; what it changes is only
+          what this compilation may spell, which `DisableTransitiveProjectReferences` above otherwise
+          hides.
+
+          Only the text half is named, because only the text half is used. Glyph outlines and a
+          scanline fill are `Vixen.Ui.Text`; `SvgPath` and `PathFlattener` are `Vixen.Ui` proper, and
+          § 4.1's `Svg Path` stays unwritten for a reason that is about a rasteriser rather than
+          about a reference — [#753](https://github.com/Rikarin/Vixen/issues/753).
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Text\Vixen.Ui.Text.csproj" />
+
+        <!--
+          The node generator, over this assembly's own [Node] classes. Analyzers do not flow through
+          a ProjectReference, so every assembly declaring nodes references it directly — which is
+          also what a third-party plugin does.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.NodeGraph.Generator\Vixen.Editor.NodeGraph.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Editor.TextureGraph.Tests" />
+    </ItemGroup>
+
+</Project>

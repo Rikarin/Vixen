@@ -1171,6 +1171,152 @@ public class LibraryTreeTests {
         Assert.DoesNotContain("Steps", composed.Permutations.Select(permutation => permutation.Name));
     }
 
+    /// <summary>
+    ///     The three sampling features added for doc 48 § B1 lower into a shading pass that samples.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Lowered rather than bound, because binding is not the claim.</b> A feature that binds
+    ///         and does not lower is a material that refuses at load; a feature that lowers without a
+    ///         <c>texture(</c> in the emitted unit is one whose sample was folded away, which is the
+    ///         same picture as a feature nobody composed. Both have happened in this library.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The emissive one is worth the assertion twice over: the renderer works in cd/m², so a
+    ///         feature that sampled and multiplied by an authored 0..1 map is pixel-identical to a
+    ///         feature that never ran, and no counter distinguishes them.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("TexturedEmissiveSurface")]
+    [InlineData("TexturedOpacitySurface")]
+    [InlineData("TexturedMaterialLayersSurface")]
+    public void A_sampling_feature_reaches_the_forward_pass_as_a_sample(string feature) {
+        var source = ForwardPlusSource(LowerTree(composition: [("surface", feature)]));
+
+        Assert.Contains("texture(", source, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     And the layered surface's <c>LayerCount</c> is a permutation the compilation honours.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Asserted on the array the count sizes</b>, which is the half that is this compiler's
+    ///         and not a driver's. ⚠ A permutation whose value reaches no compiler leaves the variant at
+    ///         the shader's declared default with nothing reported, and the material then writes
+    ///         <c>layers[2]</c> and <c>layers[3]</c> into a block that holds two — the unregistered
+    ///         permutation trap, whose whole difficulty is that every counter stays healthy.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it refutes the library's own comment.</b> Both layered shaders say the loop
+    ///         "unrolls at compile time"; it does not — the emitted unit is a <c>while</c> with a
+    ///         constant bound, and unrolling one is the backend compiler's business. What the
+    ///         permutation genuinely buys is the array: a two-layer material's block holds two layers,
+    ///         which is the cost that mattered and the one asserted here. An earlier version of this
+    ///         test compared emitted lengths on the strength of that comment and was green for the
+    ///         wrong reason — the two units differ by one character.
+    ///     </para>
+    ///     <para>
+    ///         Four rather than three because four is the ceiling a splat map's channels impose, so the
+    ///         widest variant anybody composes is the one asserted.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_layered_surfaces_count_is_a_permutation_the_compilation_honours() {
+        var two = ForwardPlusSource(
+            LowerTree(
+                PermutationValues.Parse(["LayerCount=2"]),
+                ("surface", "TexturedMaterialLayersSurface")
+            )
+        );
+
+        var four = ForwardPlusSource(
+            LowerTree(
+                PermutationValues.Parse(["LayerCount=4"]),
+                ("surface", "TexturedMaterialLayersSurface")
+            )
+        );
+
+        Assert.Contains("layers[2]", two, StringComparison.Ordinal);
+        Assert.DoesNotContain("layers[4]", two, StringComparison.Ordinal);
+
+        Assert.Contains("layers[4]", four, StringComparison.Ordinal);
+        Assert.DoesNotContain("layers[2]", four, StringComparison.Ordinal);
+    }
+
+    /// <summary>The painted stack's fourth channel is read through a value the material supplies.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A one- or three-channel texture samples alpha as 1</b>, which
+    ///         <c>TexturedOpacitySurface</c> argues at length about and reads <c>.r</c> to avoid.
+    ///         <c>Painted</c> returned <c>splat.a</c> for layer 3 unconditionally, so a four-layer
+    ///         material over an RGB splat map weighted its fourth layer 1 at every texel and, after the
+    ///         <c>1/total</c> normalisation, was that layer everywhere: a lit and plausible surface of
+    ///         the wrong material, on a map nothing constrained to have four channels.
+    ///     </para>
+    ///     <para>
+    ///         Asserted on the emitted unit rather than on the source, for the reason the sampling test
+    ///         above gives: a guard the lowering folded away is not a guard, and the widest variant —
+    ///         four layers, the only one that can reach the alpha at all — is the one that has to carry
+    ///         it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_painted_stacks_alpha_channel_is_gated_on_a_declared_channel_count() {
+        var four = ForwardPlusSource(
+            LowerTree(
+                PermutationValues.Parse(["LayerCount=4"]),
+                ("surface", "TexturedMaterialLayersSurface")
+            )
+        );
+
+        var painted = Body(four, "TexturedMaterialLayersSurface_Painted");
+
+        // ⚠ Inside the function, not merely in the unit. A uniform is emitted into the material block
+        // whether or not anything reads it, so `Assert.Contains` on the whole unit is green with the
+        // guard deleted — measured, on the way to writing this.
+        Assert.Contains("paintedChannels", painted, StringComparison.Ordinal);
+
+        // And the fourth channel is still reachable, so the guard is a gate rather than a removal:
+        // a material that declares four channels gets its fourth layer.
+        Assert.Contains("splat.w", painted, StringComparison.Ordinal);
+    }
+
+    /// <summary>One emitted function's body, so an assertion can be about what it reads.</summary>
+    /// <param name="source">The generated unit.</param>
+    /// <param name="name">The emitted function's name — the shader's, underscore, the method's.</param>
+    /// <returns>Everything between the declaration and the line that closes it.</returns>
+    /// <remarks>
+    ///     ⚠ The generator writes every function at column zero and closes it with a <c>}</c> at column
+    ///     zero, which is what makes this a substring rather than a parse. A name that is not in the
+    ///     unit fails here rather than returning an empty body that every <c>DoesNotContain</c> would
+    ///     be satisfied by — and it finds the <em>definition</em>, because every function is also
+    ///     forward-declared above and the prototype's "body" would be the next function's.
+    /// </remarks>
+    static string Body(string source, string name) {
+        var start = source.IndexOf(name + "(", StringComparison.Ordinal);
+
+        while (start >= 0) {
+            var brace = source.IndexOf('{', start);
+            var line = source.IndexOf('\n', start);
+
+            if (brace >= 0 && (line < 0 || brace < line)) {
+                break;
+            }
+
+            start = source.IndexOf(name + "(", start + 1, StringComparison.Ordinal);
+        }
+
+        Assert.True(start >= 0, $"The emitted unit has no definition of '{name}'.");
+
+        var end = source.IndexOf("\n}", start, StringComparison.Ordinal);
+
+        Assert.True(end > start, $"'{name}' is not closed in the emitted unit.");
+
+        return source[start..end];
+    }
+
     /// <summary>The resolve's compute unit, as GLSL.</summary>
     static string ResolveSource(IrModule module) {
         var bag = new DiagnosticBag();

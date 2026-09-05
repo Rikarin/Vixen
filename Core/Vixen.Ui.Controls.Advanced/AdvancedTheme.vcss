@@ -859,6 +859,34 @@ viewport-gizmo {
 
 viewport-gizmo.hidden { display: none; }
 
+/* ── Image view ─────────────────────────────────────────────────────── */
+
+/* ⚠ The four declarations that keep it from being a strip down the left, and none of them is
+   decoration. Without `flex-grow` a control that draws everything and lays out nothing has a
+   content size of zero, so the pane it was put in shows a sliver; without `flex-basis: 0px` the
+   grow only shares out what is left after a base size that is already the content's; and
+   `min-width`/`min-height: 0px` are the same trap one axis over, because a flex item's automatic
+   minimum is its content's. `overflow: hidden` is what clips the image, which is drawn whole at
+   whatever zoom rather than sampled per visible texel.
+
+   Every one of these is copied from `viewport`, which is the same shape of control, and the
+   symptom of dropping any of them is "the panel is blank" or "the interface is a strip down the
+   left" rather than an error. */
+image-view {
+    position: relative;
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0px;
+    min-width: 0px;
+    min-height: 0px;
+    overflow: hidden;
+    background-color: var(--surface-sunken);
+
+    --image-checker-light: #52565e;
+    --image-checker-dark: #3d4046;
+    --image-overlay-color: #ff9e30;
+}
+
 /* ── Colour picker ──────────────────────────────────────────────────── */
 color-picker {
     flex-direction: column;

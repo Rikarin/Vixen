@@ -1,0 +1,304 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § 4.1's noise: one kernel with four bases — value · gradient · worley · white — under
+// octaves, lacunarity, gain, tiling and a seed. Worley also answers with F1, F2 and a cell index,
+// "which is what a splatter wants and what saves a flood fill downstream".
+//
+// ## ⚠ The basis is a uniform, and § 4.1 asked for a `[Permutation]`
+//
+// It cannot be one. `TexturePlanEvaluator.VariantFor` compiles `EffectKey.Of(kernel)` with no
+// defines and caches the result on `(kernel, output format)` — there is no plumbing anywhere in the
+// evaluator M1 built through which a plan could name a permutation value, so a `[Permutation]` here
+// would silently take its `.rvn` default in every op for ever. That is the repository's registered
+// trap (`PermutationKeys`) arriving from the other side: not a value missing from the key list, but
+// no key list at all. A uniform is also what `Shaders/README.md` already argues for the blend mode,
+// and the argument is stronger here — four bases times three output formats is twelve modules for a
+// branch that every invocation in a dispatch takes the same way.
+//
+// ## ⚠ The hash is `Raven/Library/Core/Random.rvn`'s, copied, and that is a reported defect
+//
+// `Random.Hash`, `Random.Combine` and `Random.ToFloat01` are exactly the three lines below, and
+// `ComputeColor.ValueNoise` / `ComputeColor.FractalNoise` are very nearly `ValueAt` and `Fractal`.
+// None of them can be reached: a texture-graph kernel is compiled alone —
+// `RavenEffectCompiler.FromSources` is given one tree and no `.rvnlib` — and a package's
+// declarations are visible to another file only within one compilation. So an `import
+// Vixen.Shaders.Core` in this file does not resolve, and the arithmetic is written out with the
+// constants kept identical so that the two cannot drift *silently*: they can only drift, which is
+// worse than sharing and better than a plausible-looking second hash.
+//
+// ## The seed
+//
+// `seed` arrives as a float because `TexturePlanEvaluator` supplies it that way — twenty-four bits of
+// `TexturePlan.SeedFor(op)`, hashed on the CPU where it is the same on every machine. What is needed
+// of it here is only that two noise ops disagree, and twenty-four bits of a mixed seed is that.
+//
+// ## Tiling, and what it needs of the other parameters
+//
+// ⚠ **A tiling noise is a lattice with an integer period, so tiling is exact only when `scale` is a
+// whole number of cells and `lacunarity` is a whole number too.** With `scale = 5.5` there is no
+// integer period the lattice can wrap at and the seam reappears; the kernel rounds rather than
+// refuses, because a bake is not the place to throw. The node in M4 is where a non-integer scale
+// under tiling is worth a diagnostic.
+//
+// ## Resolution
+//
+// Everything here is a function of the normalised position, so a noise field is the same picture at
+// every resolution — which is also why **white noise is per *cell* and not per texel.** A per-texel
+// white noise is a different image at 1K and at 4K by construction, and doc 48 § D8 requires that it
+// not be. An author who wants one texel per sample sets `scale` to the resolution and says so.
+
+shader Noise {
+    /// 0 value · 1 gradient · 2 worley · 3 white.
+    var basis: int = 0
+
+    /// How many cells across the image at the first octave.
+    var scale: float = 8f
+
+    /// How many octaves are summed. Ignored by worley — see `Worley`.
+    var octaves: int = 1
+
+    /// The frequency multiplier between octaves. 2 is the usual choice and the only one that tiles.
+    var lacunarity: float = 2f
+
+    /// The amplitude multiplier between octaves. 0.5 is the usual choice.
+    var gain: float = 0.5f
+
+    /// Non-zero to wrap the lattice, so the image is seamless when repeated.
+    var tiling: int = 0
+
+    /// The op's own seed, already mixed. See `TexturePlan.SeedFor`.
+    var seed: float = 0f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The odd constant from PCG's output stage — `Random.Multiplier`.
+    const val Multiplier: uint = 0x2C9277B5u
+
+    /// The golden ratio's reciprocal, which is what makes `Combine` non-commutative.
+    const val Golden: uint = 0x9E3779B9u
+
+    /// 2^-24 — `Random.InvTwo24`.
+    const val InvTwo24: float = 5.9604645e-8f
+
+    const val TwoPi: float = 6.2831853f
+
+    /// 2D Perlin peaks at √2 / 2, so this is what maps its range onto 0..1.
+    const val PerlinScale: float = 0.70710678f
+
+    /// The most octaves a plan can ask for. A ceiling rather than a runtime bound, for `Blur`'s
+    /// reason: an octave count arriving as a NaN would be a loop no invocation leaves.
+    const val MaxOctaves: int = 8
+
+    /// The furthest a worley feature point can be, in cells, given a 3×3 search.
+    const val WorleyFar: float = 4f
+
+    /// `Random.Hash` — one xorshift, one odd multiply, one xorshift.
+    func Hash(value: uint): uint {
+        var state = value
+        state = state ^ (state >> 16)
+        state = state * Multiplier
+        state = state ^ (state >> 16)
+
+        return state
+    }
+
+    /// `Random.Combine`. The odd multiply on the second operand is what stops (3, 7) and (7, 3)
+    /// hashing alike, which would be a visible diagonal in any lattice.
+    func Combine(a: uint, b: uint): uint => Hash(a ^ (b * Golden))
+
+    /// `Random.ToFloat01`. The top 24 bits, scaled by 2^-24 — a multiply and never a divide, so the
+    /// result is exact on any hardware.
+    func ToFloat01(hash: uint): float => float(hash >> 8) * InvTwo24
+
+    /// The seed as the integer the hash wants.
+    func Seeded(): uint => uint(int(max(seed, 0f)))
+
+    /// One lattice coordinate, wrapped when the noise tiles.
+    func Fold(value: int, period: int): int {
+        if (tiling == 0) {
+            return value
+        }
+
+        if (period <= 0) {
+            return value
+        }
+
+        // Twice, because `%` follows the sign of the dividend in both of Raven's backends and a cell
+        // left of the origin would otherwise fold to a negative index — which hashes perfectly well
+        // and is a different cell from the one on the far side, so the seam comes back.
+        return ((value % period) + period) % period
+    }
+
+    /// The hash of one cell, under the seed and the tiling period.
+    ///
+    /// ⚠ A block body rather than a `=>` broken over two lines. A newline ends a statement in Raven,
+    /// so the continuation would have been a second statement and the first would have had no
+    /// expression at all — which `RVN1001` does catch here, and does not catch when the continuation
+    /// begins with an operator.
+    func CellHash(x: int, y: int, period: int): uint {
+        return Combine(Combine(uint(Fold(x, period)), uint(Fold(y, period))), Seeded())
+    }
+
+    /// Smoothed value noise: a hash per lattice corner, bilinear under a smoothstep.
+    func ValueAt(position: float2, period: int): float {
+        val cell = floor(position)
+        val local = position - cell
+        val weights = local * local * (3f - 2f * local)
+        val x = int(cell.x)
+        val y = int(cell.y)
+
+        val c00 = ToFloat01(CellHash(x, y, period))
+        val c10 = ToFloat01(CellHash(x + 1, y, period))
+        val c01 = ToFloat01(CellHash(x, y + 1, period))
+        val c11 = ToFloat01(CellHash(x + 1, y + 1, period))
+
+        return lerp(lerp(c00, c10, weights.x), lerp(c01, c11, weights.x), weights.y)
+    }
+
+    /// One corner's gradient dotted with the offset to it.
+    func GradientDot(x: int, y: int, period: int, delta: float2): float {
+        val angle = ToFloat01(CellHash(x, y, period)) * TwoPi
+
+        return delta.x * cos(angle) + delta.y * sin(angle)
+    }
+
+    /// Gradient (Perlin) noise, remapped from ±√2/2 onto 0..1.
+    func GradientAt(position: float2, period: int): float {
+        val cell = floor(position)
+        val local = position - cell
+        val fade = local * local * local * (local * (local * 6f - 15f) + 10f)
+        val x = int(cell.x)
+        val y = int(cell.y)
+
+        val g00 = GradientDot(x, y, period, local)
+        val g10 = GradientDot(x + 1, y, period, local - float2(1f, 0f))
+        val g01 = GradientDot(x, y + 1, period, local - float2(0f, 1f))
+        val g11 = GradientDot(x + 1, y + 1, period, local - float2(1f, 1f))
+
+        val under = lerp(g00, g10, fade.x)
+        val over = lerp(g01, g11, fade.x)
+
+        return lerp(under, over, fade.y) * PerlinScale + 0.5f
+    }
+
+    /// One uncorrelated value per cell — value noise without the interpolation.
+    func WhiteAt(position: float2, period: int): float {
+        val cell = floor(position)
+
+        return ToFloat01(CellHash(int(cell.x), int(cell.y), period))
+    }
+
+    /// Whichever basis a fractal octave is made of.
+    func Octave(position: float2, period: int): float {
+        if (basis == 1) {
+            return GradientAt(position, period)
+        }
+
+        if (basis == 3) {
+            return WhiteAt(position, period)
+        }
+
+        return ValueAt(position, period)
+    }
+
+    /// Octaves at multiplying frequency and multiplying amplitude, normalised back to 0..1.
+    ///
+    /// ⚠ **Normalised by the sum of the amplitudes rather than by a constant**, so a gain that is not
+    /// 0.5 still fills the range — an octave stack divided by two per level is a field that never
+    /// reaches white and reads as a washed-out noise nobody can find the cause of.
+    func Fractal(uv: float2): float {
+        var total = 0f
+        var amplitude = 1f
+        var normalisation = 0f
+        var frequency = 1f
+        val wanted = clamp(octaves, 1, MaxOctaves)
+
+        for (octave in 0 .. MaxOctaves - 1) {
+            if (octave >= wanted) {
+                break
+            }
+
+            val period = int(round(max(scale, 1f) * frequency))
+            val stride = tiling == 0 ? max(scale, 0.00001f) * frequency : float(max(period, 1))
+
+            total = total + Octave(uv * stride, period) * amplitude
+            normalisation = normalisation + amplitude
+            frequency = frequency * max(lacunarity, 1f)
+            amplitude = amplitude * max(gain, 0f)
+        }
+
+        return total / max(normalisation, 0.000001f)
+    }
+
+    /// F1, F2 and a cell index, from one lattice.
+    ///
+    /// ⚠ **Worley ignores `octaves`, deliberately.** F1 summed over octaves is a plausible grey field,
+    /// but the F2 and the cell index of a sum of lattices name nothing — and the cell index is the
+    /// whole reason § 4.1 gives this basis its own two extra channels. A graph that wants fractal
+    /// worley sums two ops with a `Blend`, where the thing being summed is visible.
+    func Worley(uv: float2): float3 {
+        val period = int(round(max(scale, 1f)))
+        val stride = tiling == 0 ? max(scale, 0.00001f) : float(max(period, 1))
+        val position = uv * stride
+        val origin = floor(position)
+
+        var f1 = WorleyFar
+        var f2 = WorleyFar
+        var index = 0f
+
+        for (row in -1 .. 1) {
+            for (column in -1 .. 1) {
+                val x = int(origin.x) + column
+                val y = int(origin.y) + row
+                val hash = CellHash(x, y, period)
+                val jitter = float2(ToFloat01(hash), ToFloat01(Hash(hash ^ 0x68BC21EBu)))
+                val point = float2(origin.x + float(column), origin.y + float(row)) + jitter
+                val reach = length(point - position)
+
+                if (reach < f1) {
+                    f2 = f1
+                    f1 = reach
+                    index = ToFloat01(Hash(hash ^ 0x1B873593u))
+                } else {
+                    if (reach < f2) {
+                        f2 = reach
+                    }
+                }
+            }
+        }
+
+        // ⚠ **Reported in units of two cells, so that neither distance clips.** A 3×3 search's
+        // second-nearest point is regularly further than one cell away, and a `saturate` at one cell
+        // would flatten exactly the channel a splatter uses to find a cell's border — F2 would read
+        // as a wide plateau of white and the difference F2 − F1, which is the border, would vanish
+        // along with it. Halving both keeps the pair comparable and leaves headroom.
+        return float3(saturate(f1 * 0.5f), saturate(f2 * 0.5f), index)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val uv = float2((float(coord.x) + 0.5f) / float(size.x), (float(coord.y) + 0.5f) / float(size.y))
+
+        // ⚠ Worley is the one basis whose output is not grey, and the channels are named here rather
+        // than left to a reader: red is F1, green is F2, blue is the cell index. Doc 48 § 4.1 asks for
+        // "grey + cell id" and this is it — a downstream `Channel Shuffle` is what picks one out.
+        if (basis == 2) {
+            val cells = Worley(uv)
+
+            target.Store(coord, float4(cells.x, cells.y, cells.z, 1f))
+
+            return
+        }
+
+        val value = saturate(Fractal(uv))
+
+        target.Store(coord, float4(value, value, value, 1f))
+    }
+}

@@ -1,0 +1,88 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § 4.6's `Normal Combine`, which § 4.6 is emphatic about: **reoriented normal mapping, not
+// whiteout.**
+//
+// ## What the two do, and why the difference is invisible to a lazy test
+//
+// Whiteout adds the two tangents' xy and multiplies their z. It is three instructions and it is
+// wrong the moment the base is steep: the detail is applied in the *flat* frame rather than in the
+// base's, so a detail on a 60° wall leans the way it would on a floor. Reorienting builds the
+// rotation that takes `(0, 0, 1)` to the base normal and applies it to the detail, which is what the
+// artist drew.
+//
+// ⚠ **The two agree exactly whenever either input is flat**, which is every case a test reaches for
+// first: a flat detail returns the base under both, and a flat base returns the detail under both.
+// `TextureSurfaceDeviceTests` therefore tilts *both* — 45° in x and 45° in y — where reorienting
+// gives `(0.5, 0.7071, 0.5)` and whiteout gives `(0.6396, 0.6396, 0.4523)`, two colours nobody could
+// confuse.
+//
+// ## The formula, in decoded terms
+//
+// Barré-Brisebois and Hill's, with the decode folded out so it can be read: with `n` the base and
+// `d` the detail, `t = n + (0, 0, 1)` and `u = (−d.x, −d.y, d.z)`, and the answer is
+// `normalize(t · dot(t, u) − u · t.z)`. `t` is the base normal added to the pole, which is the axis
+// of the half-turn that carries the pole onto the base; the rest is that reflection applied to the
+// detail. There is no division and no branch, and it degenerates gracefully at `n = (0, 0, −1)`,
+// which a tangent-space map cannot contain.
+//
+// ## The opacity
+//
+// A weight on the *detail* rather than on the answer, applied before the reorientation by leaning
+// the detail back towards flat. Blending the two results would take a shortcut across the sphere and
+// shorten the vector; leaning the input keeps every intermediate a unit normal.
+
+shader NormalCombine {
+    /// The map whose orientation is kept.
+    var baseMap: Texture2D
+
+    /// The map that is rotated into the base's frame.
+    var detailMap: Texture2D
+
+    /// How much of the detail is applied, 0 for none.
+    var opacity: float = 1f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// A sampled triple decoded into a unit tangent-space normal.
+    ///
+    /// ⚠ **Two loaders rather than one taking the texture**, because a `Texture2D` parameter is an
+    /// opaque handle in both targets and this folder's kernels stay inside what the evaluator's
+    /// binding walk can describe. The arithmetic is one line and it is shared.
+    func Decode(texel: float4): float3 => normalize(float3(texel.x * 2f - 1f, texel.y * 2f - 1f, texel.z * 2f - 1f))
+
+    func BaseNormal(x: int, y: int): float3 {
+        val extent = baseMap.GetDimensions(0)
+
+        return Decode(baseMap.Load(int3(clamp(x, 0, extent.x - 1), clamp(y, 0, extent.y - 1), 0)))
+    }
+
+    func DetailNormal(x: int, y: int): float3 {
+        val extent = detailMap.GetDimensions(0)
+
+        return Decode(detailMap.Load(int3(clamp(x, 0, extent.x - 1), clamp(y, 0, extent.y - 1), 0)))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val n = BaseNormal(coord.x, coord.y)
+        val raw = DetailNormal(coord.x, coord.y)
+        val d = normalize(lerp(float3(0f, 0f, 1f), raw, saturate(opacity)))
+
+        val t = float3(n.x, n.y, n.z + 1f)
+        val u = float3(-d.x, -d.y, d.z)
+        val combined = normalize(t * dot(t, u) - u * t.z)
+
+        target.Store(
+            coord,
+            float4(combined.x * 0.5f + 0.5f, combined.y * 0.5f + 0.5f, combined.z * 0.5f + 0.5f, 1f)
+        )
+    }
+}

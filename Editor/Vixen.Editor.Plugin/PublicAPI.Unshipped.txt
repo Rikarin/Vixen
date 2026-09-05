@@ -10,6 +10,14 @@ Vixen.Editor.Plugin.EditorMenuAttribute.Priority.get -> int
 Vixen.Editor.Plugin.EditorMenuAttribute.Priority.init -> int
 Vixen.Editor.Plugin.IContributionScanner -> interface
 Vixen.Editor.Plugin.IContributionScanner.Scan(Vixen.Editor.Plugin.PluginContext context, System.Reflection.Assembly assembly) -> void
+Vixen.Editor.Plugin.IEditorGraphics -> interface
+Vixen.Editor.Plugin.IEditorGraphics.Device.get -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Editor.Plugin.IEditorGraphics.Upload(int width, int height, System.ReadOnlySpan<byte> rgba) -> Vixen.Editor.Plugin.IEditorImage?
+Vixen.Editor.Plugin.IEditorImage -> interface
+Vixen.Editor.Plugin.IEditorImage : System.IDisposable
+Vixen.Editor.Plugin.IEditorImage.Height.get -> int
+Vixen.Editor.Plugin.IEditorImage.Image.get -> ulong
+Vixen.Editor.Plugin.IEditorImage.Width.get -> int
 Vixen.Editor.Plugin.IEditorPlugin -> interface
 Vixen.Editor.Plugin.IEditorPlugin.Activate(Vixen.Editor.Plugin.PluginContext context) -> void
 Vixen.Editor.Plugin.IEditorPlugin.Deactivate() -> void

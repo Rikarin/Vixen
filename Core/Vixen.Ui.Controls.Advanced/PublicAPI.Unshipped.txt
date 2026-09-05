@@ -678,6 +678,76 @@ Vixen.Ui.Controls.Advanced.Hsv.V.init -> float
 Vixen.Ui.Controls.Advanced.ICodeTokenizer -> interface
 Vixen.Ui.Controls.Advanced.ICodeTokenizer.InitialState.get -> int
 Vixen.Ui.Controls.Advanced.ICodeTokenizer.Tokenize(string line, int state, System.Collections.Generic.List<Vixen.Ui.Controls.Advanced.CodeToken> into) -> int
+Vixen.Ui.Controls.Advanced.ImageChannels -> enum : int
+Vixen.Ui.Controls.Advanced.ImageChannels.Alpha = 4 -> Vixen.Ui.Controls.Advanced.ImageChannels
+Vixen.Ui.Controls.Advanced.ImageChannels.Blue = 3 -> Vixen.Ui.Controls.Advanced.ImageChannels
+Vixen.Ui.Controls.Advanced.ImageChannels.Green = 2 -> Vixen.Ui.Controls.Advanced.ImageChannels
+Vixen.Ui.Controls.Advanced.ImageChannels.ImageChannels() -> void
+Vixen.Ui.Controls.Advanced.ImageChannels.Red = 1 -> Vixen.Ui.Controls.Advanced.ImageChannels
+Vixen.Ui.Controls.Advanced.ImageChannels.Rgb = 0 -> Vixen.Ui.Controls.Advanced.ImageChannels
+Vixen.Ui.Controls.Advanced.ImageColorSpace -> enum : int
+Vixen.Ui.Controls.Advanced.ImageColorSpace.ImageColorSpace() -> void
+Vixen.Ui.Controls.Advanced.ImageColorSpace.Linear = 1 -> Vixen.Ui.Controls.Advanced.ImageColorSpace
+Vixen.Ui.Controls.Advanced.ImageColorSpace.Srgb = 0 -> Vixen.Ui.Controls.Advanced.ImageColorSpace
+Vixen.Ui.Controls.Advanced.ImageOverlaySegment -> readonly struct
+Vixen.Ui.Controls.Advanced.ImageOverlaySegment : System.IEquatable<Vixen.Ui.Controls.Advanced.ImageOverlaySegment>
+Vixen.Ui.Controls.Advanced.ImageOverlaySegment.From.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.ImageOverlaySegment.From.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.ImageOverlaySegment.ImageOverlaySegment() -> void
+Vixen.Ui.Controls.Advanced.ImageOverlaySegment.ImageOverlaySegment(Vixen.Core.Mathematics.Vector2 From, Vixen.Core.Mathematics.Vector2 To) -> void
+Vixen.Ui.Controls.Advanced.ImageOverlaySegment.To.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.ImageOverlaySegment.To.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.ImageView -> sealed class
+Vixen.Ui.Controls.Advanced.ImageView : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.ImageView.Channels.get -> Vixen.Ui.Controls.Advanced.ImageChannels
+Vixen.Ui.Controls.Advanced.ImageView.Channels.set -> Vixen.Ui.Controls.Advanced.ImageChannels
+Vixen.Ui.Controls.Advanced.ImageView.CheckerSize.get -> float
+Vixen.Ui.Controls.Advanced.ImageView.CheckerSize.set -> float
+Vixen.Ui.Controls.Advanced.ImageView.ClearChannels() -> void
+Vixen.Ui.Controls.Advanced.ImageView.ClearCheckerSize() -> void
+Vixen.Ui.Controls.Advanced.ImageView.ClearColorSpace() -> void
+Vixen.Ui.Controls.Advanced.ImageView.ClearMaximumZoom() -> void
+Vixen.Ui.Controls.Advanced.ImageView.ClearMinimumZoom() -> void
+Vixen.Ui.Controls.Advanced.ImageView.ClearOverlayThickness() -> void
+Vixen.Ui.Controls.Advanced.ImageView.ClearPan() -> void
+Vixen.Ui.Controls.Advanced.ImageView.ClearShowCheckerboard() -> void
+Vixen.Ui.Controls.Advanced.ImageView.ClearZoom() -> void
+Vixen.Ui.Controls.Advanced.ImageView.ColorSpace.get -> Vixen.Ui.Controls.Advanced.ImageColorSpace
+Vixen.Ui.Controls.Advanced.ImageView.ColorSpace.set -> Vixen.Ui.Controls.Advanced.ImageColorSpace
+Vixen.Ui.Controls.Advanced.ImageView.Fit() -> bool
+Vixen.Ui.Controls.Advanced.ImageView.Image.get -> ulong
+Vixen.Ui.Controls.Advanced.ImageView.Image.set -> ulong
+Vixen.Ui.Controls.Advanced.ImageView.ImageBounds.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Controls.Advanced.ImageView.ImageHeight.get -> int
+Vixen.Ui.Controls.Advanced.ImageView.ImageHeight.set -> int
+Vixen.Ui.Controls.Advanced.ImageView.ImageView() -> void
+Vixen.Ui.Controls.Advanced.ImageView.ImageWidth.get -> int
+Vixen.Ui.Controls.Advanced.ImageView.ImageWidth.set -> int
+Vixen.Ui.Controls.Advanced.ImageView.MaximumZoom.get -> float
+Vixen.Ui.Controls.Advanced.ImageView.MaximumZoom.set -> float
+Vixen.Ui.Controls.Advanced.ImageView.MinimumZoom.get -> float
+Vixen.Ui.Controls.Advanced.ImageView.MinimumZoom.set -> float
+Vixen.Ui.Controls.Advanced.ImageView.Overlay.get -> System.Collections.Generic.List<Vixen.Ui.Controls.Advanced.ImageOverlaySegment>
+Vixen.Ui.Controls.Advanced.ImageView.OverlayThickness.get -> float
+Vixen.Ui.Controls.Advanced.ImageView.OverlayThickness.set -> float
+Vixen.Ui.Controls.Advanced.ImageView.Pan.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.ImageView.Pan.set -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.ImageView.Requested.get -> Vixen.Ui.Controls.Advanced.ImageViewRequest
+Vixen.Ui.Controls.Advanced.ImageView.ShowCheckerboard.get -> bool
+Vixen.Ui.Controls.Advanced.ImageView.ShowCheckerboard.set -> bool
+Vixen.Ui.Controls.Advanced.ImageView.ToImage(float x, float y) -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.ImageView.ToScreen(Vixen.Core.Mathematics.Vector2 point) -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.ImageView.ViewChanged -> System.Action<Vixen.Ui.Controls.Advanced.ImageView>?
+Vixen.Ui.Controls.Advanced.ImageView.Zoom.get -> float
+Vixen.Ui.Controls.Advanced.ImageView.Zoom.set -> float
+Vixen.Ui.Controls.Advanced.ImageViewRequest -> readonly struct
+Vixen.Ui.Controls.Advanced.ImageViewRequest : System.IEquatable<Vixen.Ui.Controls.Advanced.ImageViewRequest>
+Vixen.Ui.Controls.Advanced.ImageViewRequest.Channels.get -> Vixen.Ui.Controls.Advanced.ImageChannels
+Vixen.Ui.Controls.Advanced.ImageViewRequest.Channels.init -> Vixen.Ui.Controls.Advanced.ImageChannels
+Vixen.Ui.Controls.Advanced.ImageViewRequest.ColorSpace.get -> Vixen.Ui.Controls.Advanced.ImageColorSpace
+Vixen.Ui.Controls.Advanced.ImageViewRequest.ColorSpace.init -> Vixen.Ui.Controls.Advanced.ImageColorSpace
+Vixen.Ui.Controls.Advanced.ImageViewRequest.ImageViewRequest() -> void
+Vixen.Ui.Controls.Advanced.ImageViewRequest.ImageViewRequest(Vixen.Ui.Controls.Advanced.ImageChannels Channels, Vixen.Ui.Controls.Advanced.ImageColorSpace ColorSpace) -> void
 Vixen.Ui.Controls.Advanced.NodeCanvas -> sealed class
 Vixen.Ui.Controls.Advanced.NodeCanvas : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.Advanced.NodeCanvas.Activated -> System.Action<Vixen.Ui.Controls.Advanced.NodeCanvas, Vixen.Ui.Controls.Advanced.GraphNode>?
@@ -1291,6 +1361,11 @@ override Vixen.Ui.Controls.Advanced.GradientRail.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.GraphNode.ToString() -> string
 override Vixen.Ui.Controls.Advanced.GraphPort.ToString() -> string
 override Vixen.Ui.Controls.Advanced.GraphWire.ToString() -> string
+override Vixen.Ui.Controls.Advanced.ImageView.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.ImageView.NativeRole.get -> Vixen.Ui.AccessibleRole
+override Vixen.Ui.Controls.Advanced.ImageView.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.ImageView.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.Advanced.ImageView.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.NodeCanvas.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Advanced.NodeCanvas.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.NodeCanvas.OnCreated() -> void
@@ -1396,6 +1471,15 @@ static readonly Vixen.Ui.Controls.Advanced.DataGrid.MultiSelectProperty -> Vixen
 static readonly Vixen.Ui.Controls.Advanced.DockPanel.CanCloseProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.DockPanel.ScrollsProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.DockPanel.TitleProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.ImageView.ChannelsProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.ImageView.CheckerSizeProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.ImageView.ColorSpaceProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.ImageView.MaximumZoomProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.ImageView.MinimumZoomProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.ImageView.OverlayThicknessProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.ImageView.PanProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.ImageView.ShowCheckerboardProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.ImageView.ZoomProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.NodeCanvas.GridSizeProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.NodeCanvas.MaximumZoomProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.NodeCanvas.MinimumZoomProperty -> Vixen.Ui.UiPropertyKey

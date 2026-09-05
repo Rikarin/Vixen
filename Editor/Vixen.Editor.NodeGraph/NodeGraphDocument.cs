@@ -108,6 +108,37 @@ public sealed record GraphPortAsset {
     public string Summary { get; init; } = string.Empty;
 }
 
+/// <summary>One knob a graph exposes, as a file holds it.</summary>
+/// <remarks>
+///     ⚠ <b>Written down rather than derived, for <see cref="GraphPortAsset" />'s reason.</b> A
+///     parameter list read off whichever nodes happen to mention a name would change under every
+///     containing graph the moment somebody deleted a node — and a published graph's knobs are its
+///     signature quite as much as its ports are.
+/// </remarks>
+[DataContract("GraphParameter")]
+public sealed record GraphParameterAsset {
+    /// <summary>What the parameter is called. An expression spells it and a containing node stores it.</summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>What it is worth when nobody overrides it, as text.</summary>
+    public string Default { get; init; } = string.Empty;
+
+    /// <summary>One line saying what it means.</summary>
+    public string Summary { get; init; } = string.Empty;
+
+    /// <summary>How its text is read.</summary>
+    public SettingKind Kind { get; init; }
+
+    /// <summary>The bottom of its range, or negative infinity for none.</summary>
+    public float Minimum { get; init; } = float.NegativeInfinity;
+
+    /// <summary>The top of it.</summary>
+    public float Maximum { get; init; } = float.PositiveInfinity;
+
+    /// <summary>Which section of an inspector it belongs to.</summary>
+    public string Group { get; init; } = string.Empty;
+}
+
 /// <summary>
 ///     A whole graph, as a file holds it.
 /// </summary>
@@ -155,6 +186,18 @@ public sealed record NodeGraphAsset {
 
     /// <summary>The ports it has when another graph contains it as a node.</summary>
     public GraphPortAsset[] Interface { get; init; } = [];
+
+    /// <summary>What the graph itself is set to — a texture graph's base resolution and seed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Until <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a> there was no such
+    ///     field, and a <c>.vxtexgraph</c> therefore came back at whatever resolution and seed the
+    ///     host that opened it happened to default to.</b> A seed that is not in the file is a seed
+    ///     that changes between machines, which doc 48 § D5 says plainly is not a source asset.
+    /// </remarks>
+    public Dictionary<string, string> Settings { get; init; } = [];
+
+    /// <summary>The knobs it exposes when another graph, or a bake, contains it.</summary>
+    public GraphParameterAsset[] Parameters { get; init; } = [];
 }
 
 /// <summary>Between the model and the file shape.</summary>
@@ -223,6 +266,20 @@ public static class NodeGraphDocument {
             });
         }
 
+        List<GraphParameterAsset> parameters = [];
+
+        foreach (var parameter in graph.Parameters) {
+            parameters.Add(new() {
+                Name = parameter.Name,
+                Default = parameter.Default,
+                Summary = parameter.Summary,
+                Kind = parameter.Kind,
+                Minimum = parameter.Minimum,
+                Maximum = parameter.Maximum,
+                Group = parameter.Group
+            });
+        }
+
         return new() {
             Version = Version,
             Name = graph.Name,
@@ -230,7 +287,9 @@ public static class NodeGraphDocument {
             Edges = [.. edges],
             Groups = [.. groups],
             Comments = [.. comments],
-            Interface = [.. ports]
+            Interface = [.. ports],
+            Settings = new(graph.Settings, StringComparer.Ordinal),
+            Parameters = [.. parameters]
         };
     }
 
@@ -267,6 +326,37 @@ public static class NodeGraphDocument {
 
         List<NodeDiagnostic> found = [];
         var graph = new NodeGraphModel { Name = asset.Name };
+
+        foreach (var (key, value) in asset.Settings) {
+            // ⚠ Not validated here, deliberately: what a key means belongs to the front end that
+            // reads it, and a reader that refused an unrecognised one would refuse a file written by
+            // a newer version of the very editor that opened it.
+            graph.Settings[key] = value;
+        }
+
+        HashSet<string> knobs = new(StringComparer.Ordinal);
+
+        foreach (var entry in asset.Parameters) {
+            if (string.IsNullOrWhiteSpace(entry.Name)) {
+                found.Add(new("NG0104", "A parameter of the graph has no name, and an override is stored by name.", NodeId.None));
+
+                continue;
+            }
+
+            if (!knobs.Add(entry.Name)) {
+                found.Add(new(
+                    "NG0104",
+                    $"The graph declares two parameters called '{entry.Name}'. The second was dropped.",
+                    NodeId.None
+                ));
+
+                continue;
+            }
+
+            graph.Parameters.Add(
+                new(entry.Name, entry.Default, entry.Summary, entry.Kind, entry.Minimum, entry.Maximum, entry.Group)
+            );
+        }
 
         // Before the nodes, because the boundary nodes a sub-graph's entry and exit are drawn from
         // read it — see SubGraphs. A duplicate is dropped rather than kept: two ports of one name is

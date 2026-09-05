@@ -1390,6 +1390,7 @@ T:Vixen.Editor.NodeGraph.GraphPortAsset sweep-pending
 T:Vixen.Editor.NodeGraph.INodePreviewSource sweep-pending
 T:Vixen.Editor.NodeGraph.IPortValue sweep-pending
 T:Vixen.Editor.NodeGraph.ISubGraphSource sweep-pending
+T:Vixen.Editor.NodeGraph.Image sweep-with-the-port-value-types — one of the port field types, and it means nothing apart from PortKind.Image; what an image port carries and what it refuses is in Vixen.Editor.NodeGraph/README.md § And an image is not a texture
 T:Vixen.Editor.NodeGraph.InputAttribute sweep-pending
 T:Vixen.Editor.NodeGraph.Int sweep-pending
 T:Vixen.Editor.NodeGraph.LayoutCommand sweep-pending
@@ -1600,6 +1601,7 @@ T:Vixen.Editor.Terrain.FactLine sweep-pending
 T:Vixen.Editor.Testing.EditorSession sweep-pending
 T:Vixen.Editor.Testing.EditorSessionException sweep-pending
 T:Vixen.Editor.Testing.EditorSessionOptions sweep-pending
+T:Vixen.Editor.TextureGraph.NodeTypes generated — the assembly's [Node] registration list, emitted by Vixen.Editor.NodeGraph.Generator; the same line Vixen.Editor.ShaderGraph.NodeTypes has
 T:Vixen.Editor.Ui.BindResult sweep-pending
 T:Vixen.Editor.Ui.BindingSource sweep-pending
 T:Vixen.Editor.Ui.CommandDispatcher sweep-pending
@@ -3274,6 +3276,11 @@ T:Vixen.Ui.Controls.Advanced.GraphPort sweep-pending
 T:Vixen.Ui.Controls.Advanced.GraphWire sweep-pending
 T:Vixen.Ui.Controls.Advanced.Hsv sweep-pending
 T:Vixen.Ui.Controls.Advanced.ICodeTokenizer sweep-pending
+T:Vixen.Ui.Controls.Advanced.ImageChannels sweep-with-the-advanced-controls — ImageView's channel choice, exempt on the terms every control in this assembly is; why it is a request rather than a filter is in Vixen.Ui.Controls.Advanced/README.md § ImageView
+T:Vixen.Ui.Controls.Advanced.ImageColorSpace sweep-with-the-advanced-controls — ImageView's linear-against-sRGB toggle, exempt on the same terms; what it settles is in Vixen.Ui.Controls.Advanced/README.md § ImageView
+T:Vixen.Ui.Controls.Advanced.ImageOverlaySegment sweep-with-the-advanced-controls — one line of ImageView's overlay, in texels; the coordinate space and why it is not UVs is in Vixen.Ui.Controls.Advanced/README.md § ImageView
+T:Vixen.Ui.Controls.Advanced.ImageView sweep-with-the-advanced-controls — a control, and every other control in this assembly is exempt on the same terms; the reasoning is in Vixen.Ui.Controls.Advanced/README.md § ImageView
+T:Vixen.Ui.Controls.Advanced.ImageViewRequest sweep-with-the-advanced-controls — the pair a host prepares an ImageView's pixels from; described with the control in Vixen.Ui.Controls.Advanced/README.md § ImageView
 T:Vixen.Ui.Controls.Advanced.NodeCanvas sweep-pending
 T:Vixen.Ui.Controls.Advanced.NodeGraph sweep-pending
 T:Vixen.Ui.Controls.Advanced.NodeGroupView sweep-pending

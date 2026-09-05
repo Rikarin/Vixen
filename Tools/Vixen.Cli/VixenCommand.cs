@@ -7,6 +7,7 @@ using Vixen.ContentServer;
 using Vixen.Core.IO;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.Gameplay;
+using Vixen.Editor.Assets.Materials;
 using Vixen.Editor.Core;
 using Vixen.Live;
 
@@ -47,8 +48,142 @@ public static class VixenCommand {
         root.Subcommands.Add(RemeshCommand(output, error));
         root.Subcommands.Add(UnwrapCommand(output, error));
         root.Subcommands.Add(Uv(output, error));
+        root.Subcommands.Add(Texture(output, error));
+        root.Subcommands.Add(MeshMaps(output, error));
 
         return root;
+    }
+
+    /// <summary>`vixen mesh-maps list` — docs/plan/48 § 4.8's binding, run from a terminal.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A verb because the read side had no caller.</b>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/702">#702</a>: nine files land in
+    ///         <c>Assets/MeshMaps/</c> with a sidecar saying what each measures, and nothing in the
+    ///         repository resolved one by usage. The node that will is § 4.8's Mesh Map Input; this
+    ///         runs the same index, so what the verb prints is what that node would bind.
+    ///     </para>
+    ///     <para>
+    ///         A subcommand rather than a bare verb, for <see cref="Texture" />'s reason: <c>bake</c>
+    ///         belongs beside <c>list</c> the day the mesh-map bake grows a command line, and a
+    ///         promotion later would break every script that typed the shorter name.
+    ///     </para>
+    /// </remarks>
+    static Command MeshMaps(TextWriter? output, TextWriter? error) {
+        var project = ProjectOption();
+
+        var set = new Option<string>("--set") {
+            Description = "Only this set — the stem every file in it is named from.",
+            DefaultValueFactory = _ => string.Empty
+        };
+
+        var usage = new Option<string>("--usage") {
+            Description = "Only this measurement's suffix: normal, height, ao, bent, curvature, thickness, "
+                + "position, world, id.",
+            DefaultValueFactory = _ => string.Empty
+        };
+
+        var list = new Command("list", "Show the baked mesh maps a graph would bind, by usage.") {
+            project,
+            set,
+            usage
+        };
+
+        list.SetAction(parseResult => {
+                if (!Project.TryOpen(parseResult.GetValue(project), out var opened, out var why)) {
+                    (error ?? Console.Error).WriteLine(why);
+                    return (int)ExitCode.UsageError;
+                }
+
+                return (int)MeshMapRunner.List(
+                    opened,
+                    parseResult.GetRequiredValue(set),
+                    parseResult.GetRequiredValue(usage),
+                    output ?? Console.Out,
+                    error ?? Console.Error
+                );
+            }
+        );
+
+        return new Command("mesh-maps", "Work with the maps baked from a mesh's geometry.") { list };
+    }
+
+    /// <summary>`vixen texture bake` — docs/plan/48 § M5's CLI row.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>It bakes a folder of maps and does not evaluate a graph, and the missing half is
+    ///         named rather than stubbed.</b> A <c>.vxtexgraph</c> is M4's document and does not exist
+    ///         yet, so <c>--graph</c> would be the apologising flag this file's header refuses — the
+    ///         same reason <c>remesh</c> has no <c>--bake</c>. What is here is the packing, the mip
+    ///         chain, the compression, the GUID dance and the provenance block, all of it the code a
+    ///         panel will call, and it is independently useful to a build script with a folder of
+    ///         authored maps.
+    ///     </para>
+    ///     <para>
+    ///         A subcommand rather than a verb of its own, because <c>texture</c> is where the graph
+    ///         verbs go when they arrive and a promotion later would break every script that typed
+    ///         the shorter name.
+    ///     </para>
+    /// </remarks>
+    static Command Texture(TextWriter? output, TextWriter? error) {
+        var project = ProjectOption();
+
+        var from = new Option<string>("--from") {
+            Description = "The folder holding the maps, each called <anything>_<usage>.png.",
+            Required = true
+        };
+
+        var name = new Option<string>("--name") {
+            Description = "What the material is called. Its maps are named from it.",
+            Required = true
+        };
+
+        var folder = new Option<string>("--folder") {
+            Description = "Which folder under Assets/ to write into.",
+            DefaultValueFactory = _ => MaterialMapNaming.DefaultFolder
+        };
+
+        // ⚠ Recorded and never asserted, which is § D4's decision rather than an omission: a re-bake
+        // on a different card is not byte-identical and refusing it would make the first artist with
+        // another GPU a bug report.
+        var adapter = new Option<string>("--adapter") {
+            Description = "What to record as the adapter that ran the bake. Recorded, never compared.",
+            DefaultValueFactory = _ => string.Empty
+        };
+
+        var force = new Option<bool>("--force") {
+            Description = "Overwrite outputs whose bytes are not what the last bake wrote."
+        };
+
+        var bake = new Command("bake", "Pack, mip, compress and write a folder of maps as a material.") {
+            project,
+            from,
+            name,
+            folder,
+            adapter,
+            force
+        };
+
+        bake.SetAction(parseResult => {
+                if (!Project.TryOpen(parseResult.GetValue(project), out var opened, out var why)) {
+                    (error ?? Console.Error).WriteLine(why);
+                    return (int)ExitCode.UsageError;
+                }
+
+                return (int)TextureRunner.Bake(
+                    opened,
+                    parseResult.GetRequiredValue(from),
+                    parseResult.GetRequiredValue(name),
+                    parseResult.GetRequiredValue(folder),
+                    parseResult.GetRequiredValue(adapter),
+                    parseResult.GetValue(force),
+                    output ?? Console.Out,
+                    error ?? Console.Error
+                );
+            }
+        );
+
+        return new Command("texture", "Bake texture-graph outputs into material assets.") { bake };
     }
 
     /// <summary>`vixen remesh` — docs/plan/41 § D16's CLI row, batchable over a directory.</summary>

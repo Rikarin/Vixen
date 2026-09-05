@@ -64,7 +64,45 @@ public enum PortKind {
     ///     kind rather than reusing an integer port means the compiler can refuse a wire between a
     ///     value and an ordering, and means an unconnected one has no default to invent.
     /// </remarks>
-    Flow = 10
+    Flow = 10,
+
+    /// <summary>
+    ///     A whole raster: the thing a texture graph's nodes hand each other.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Not <see cref="Texture" />, and the difference is the reason this member exists.</b>
+    ///         A <see cref="Texture" /> is a bound resource a <i>shader</i> samples one texel of;
+    ///         an <see cref="Image" /> is a buffer of texels a compositing kernel reads a
+    ///         neighbourhood of and writes a new one from — doc 48 § D2's row "neighbourhood access:
+    ///         none / the whole point". Riding <see cref="Texture" /> would have cost nothing at the
+    ///         type level and everything at the authoring one: <c>PortFilter</c> would then offer a
+    ///         shader graph's <c>Sample 2D</c> when a wire is dropped off a blur's output, which is a
+    ///         node that cannot run in a texture graph on a connection that cannot mean anything.
+    ///         <see cref="PortKinds.Accepts" /> refuses that wire only because the two kinds differ.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Grey and colour are one kind and the difference is a <i>format</i> on it</b>
+    ///         (doc 48 § Part 4), so grey promoting into a colour port and colour being refused by a
+    ///         grey one are <b>not</b> decided here: a <see cref="PortKind" /> carries no format, and
+    ///         <see cref="PortKinds.Accepts" /> therefore says yes to every image-to-image wire.
+    ///         Naming the port a colour arrived at is the texture graph's compiler's, where the
+    ///         format is known — the same division as <see cref="Dynamic" />, whose width is resolved
+    ///         by a compiler rather than by the enum.
+    ///     </para>
+    ///     <para>
+    ///         <b>It answers zero to both of the port model's questions, and neither is an
+    ///         oversight.</b> <see cref="PortKinds.Lanes" /> is "how wide is this value in the emitted
+    ///         source", and an image is not a float vector of any width — a dispatch over a storage
+    ///         image is not an expression with lanes. <see cref="PortKinds.Fields" /> is "how many
+    ///         boxes does an author type into", and there is no literal image: an unconnected image
+    ///         input is a hole, which is what a source node exists to fill. That puts it with
+    ///         <see cref="Texture" />, <see cref="Sampler" /> and <see cref="Flow" /> rather than with
+    ///         <see cref="Bool" />, <see cref="Int" /> and <see cref="Dynamic" />, which answer zero
+    ///         and <i>one</i>.
+    ///     </para>
+    /// </remarks>
+    Image = 11
 }
 
 /// <summary>The rules a port's type follows.</summary>
@@ -166,6 +204,14 @@ public static class PortKinds {
     ///     <para>
     ///         Everything else has to match exactly. A texture is not a float however many lanes are
     ///         involved, and a bool that silently became a float is a condition that is always true.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>That exact match is the whole of <see cref="PortKind.Image" />'s refusal</b>, and
+    ///         it is why an image is not a texture with a different name: a texture graph's image
+    ///         port takes an image and nothing else, so no wire and no search-to-create result can
+    ///         put a shader graph's sampler on one. It is also the whole of what this method knows
+    ///         about images — grey against colour is a format the enum does not carry, and the
+    ///         compiler that does carry it is what names the port.
     ///     </para>
     /// </remarks>
     public static bool Accepts(PortKind source, PortKind target) =>

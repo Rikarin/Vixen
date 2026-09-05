@@ -174,6 +174,19 @@ sealed class AdvancedFixture : IDisposable {
         Update();
     }
 
+    /// <summary>Turns the wheel at a bare point, which is what a cursor-anchored zoom needs.</summary>
+    /// <remarks>
+    ///     ⚠ The element-centred overload cannot test one: the centre is the fixed point of a
+    ///     zoom about the centre <i>and</i> of a zoom about the pointer, so an assertion made there
+    ///     is true of the bug as well as of the fix.
+    /// </remarks>
+    public void WheelAt(float x, float y, float deltaY) {
+        clock += TimeSpan.FromMilliseconds(16);
+
+        Document.Dispatch(new WheelEvent { X = x, Y = y, DeltaY = deltaY, Timestamp = clock });
+        Update();
+    }
+
     public void Wheel(UiElement over, float deltaY) {
         var bounds = over.Bounds;
         clock += TimeSpan.FromMilliseconds(16);
