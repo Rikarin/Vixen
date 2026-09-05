@@ -16,6 +16,14 @@ public sealed class TapEvent : UiEvent {
     /// <summary>Which pointer.</summary>
     public int PointerId { get; init; }
 
+    /// <summary>What kind of device produced it.</summary>
+    /// <remarks>
+    ///     Read off the <i>press</i> rather than off the release that completed the gesture. A
+    ///     pointer cannot change device mid-gesture, and the press is the one event the recogniser is
+    ///     guaranteed to have seen — a cancelled pointer has no release at all.
+    /// </remarks>
+    public PointerType PointerType { get; init; }
+
     /// <summary>How many taps in a row landed in the same place, this one included.</summary>
     public int Count { get; init; }
 
@@ -43,6 +51,9 @@ public sealed class TapEvent : UiEvent {
 public sealed class LongPressEvent : UiEvent {
     /// <summary>Which pointer.</summary>
     public int PointerId { get; init; }
+
+    /// <summary>What kind of device produced it.</summary>
+    public PointerType PointerType { get; init; }
 
     /// <summary>Where, in document space.</summary>
     public float X { get; init; }
@@ -75,6 +86,17 @@ public enum DragStage : byte {
 public sealed class DragEvent : UiEvent {
     /// <summary>Which pointer.</summary>
     public int PointerId { get; init; }
+
+    /// <summary>What kind of device produced it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Carried through the recogniser rather than left on the pointer event, because a
+    ///     control that handles the gesture never sees the pointer event.</b> <c>ScrollView</c> is
+    ///     the case that proves it: content drag-to-scroll is the right default under a finger and
+    ///     wrong under a mouse, where a drag inside a scroll view is a selection or a marquee — and
+    ///     the control only ever receives a <see cref="DragEvent" />. A device kind that stopped at
+    ///     <c>PointerEvent</c> would be a fact the layer that needs it cannot reach.
+    /// </remarks>
+    public PointerType PointerType { get; init; }
 
     /// <summary>Where it is in its life.</summary>
     public DragStage Stage { get; init; }
@@ -284,7 +306,8 @@ public sealed class GestureRecognizer {
 
         switch (args.Action) {
             case PointerAction.Pressed when target is not null:
-                presses[args.PointerId] = new Press(target, args.PointerId, args.X, args.Y, args.Timestamp);
+                presses[args.PointerId] =
+                    new Press(target, args.PointerId, args.PointerType, args.X, args.Y, args.Timestamp);
                 Pair();
                 break;
 
@@ -331,7 +354,14 @@ public sealed class GestureRecognizer {
             }
 
             press.LongPressed = true;
-            press.Target.Raise(new LongPressEvent { PointerId = press.PointerId, X = press.LastX, Y = press.LastY });
+            press.Target.Raise(
+                new LongPressEvent {
+                    PointerId = press.PointerId,
+                    PointerType = press.PointerType,
+                    X = press.LastX,
+                    Y = press.LastY
+                }
+            );
         }
     }
 
@@ -652,6 +682,7 @@ public sealed class GestureRecognizer {
         press.Target.Raise(
             new TapEvent {
                 PointerId = args.PointerId,
+                PointerType = press.PointerType,
                 Count = count,
                 X = args.X,
                 Y = args.Y,
@@ -663,6 +694,7 @@ public sealed class GestureRecognizer {
     static void Raise(Press press, DragStage stage, float x, float y) {
         press.Target.Raise(new DragEvent {
             PointerId = press.PointerId,
+            PointerType = press.PointerType,
             Stage = stage,
             X = x,
             Y = y,
@@ -689,10 +721,20 @@ public sealed class GestureRecognizer {
     ///     and a struct would be updated on a copy — the kind of bug that looks like the threshold
     ///     being wrong.
     /// </remarks>
-    sealed class Press(UiElement target, int pointerId, float x, float y, TimeSpan started) {
+    sealed class Press(
+        UiElement target,
+        int pointerId,
+        PointerType pointerType,
+        float x,
+        float y,
+        TimeSpan started
+    ) {
         public UiElement Target { get; } = target;
 
         public int PointerId { get; } = pointerId;
+
+        /// <summary>The device that went down, which is the only event the recogniser must have seen.</summary>
+        public PointerType PointerType { get; } = pointerType;
 
         public float StartX { get; } = x;
 

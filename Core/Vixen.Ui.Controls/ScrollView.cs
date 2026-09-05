@@ -352,15 +352,22 @@ public sealed partial class ScrollView : Control {
     [UiProperty(Coerce = nameof(CoerceLeft), Changed = nameof(OnScrolled))]
     public partial float ScrollLeft { get; set; }
 
-    /// <summary>Whether dragging the content itself scrolls the view, with a fling at the end of it.</summary>
+    /// <summary>Whether dragging with a <i>mouse</i> also scrolls the view. A finger always does.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Off, and it is opt-in rather than automatic for one reason: nothing in this engine
-    ///         can tell a finger from a mouse.</b> <c>PointerEvent</c> carries a
-    ///         <c>PointerId</c> and no device kind, so a control cannot ask "was that a touch" — and
-    ///         a mouse drag inside a scroll view is not a scroll on any desktop. It is a text
-    ///         selection, a marquee, or a drag of the row it started on. Turning this on globally
-    ///         would take all three away.
+    ///         ⚠ <b>This used to be the whole switch, and the reason it was is no longer true.</b> It
+    ///         was opt-in and off because nothing in the engine could tell a finger from a mouse, so
+    ///         a view that dragged would have taken text selection, marquees and row drags away from
+    ///         every desktop user. <c>DragEvent</c> now carries a
+    ///         <see cref="Vixen.Ui.PointerType" />, so the two cases are separable and the touch half
+    ///         needs no opt-in at all: a finger scrolls the content, always, and this property is
+    ///         what a kiosk or a map view sets to get the mouse to behave like one too.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="Vixen.Ui.PointerType.Unknown" /> does not drag</b>, and is not
+    ///         flattened to touch for the same reason it is not flattened to mouse. A producer that
+    ///         has not said what it is has not said it is a finger, and guessing here would silently
+    ///         re-introduce exactly the desktop regression the property was invented to avoid.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>It is what momentum is built on, and until it existed there was no gesture to
@@ -652,7 +659,10 @@ public sealed partial class ScrollView : Control {
     ///     where the number the user is moving is not the number being stored.
     /// </remarks>
     void Dragged(DragEvent args) {
-        if (!DragToScroll) {
+        // ⚠ The device, not only the property. A finger — or a pen, which is a finger for this
+        // purpose because neither has a cursor to select with — drags the content whatever the
+        // application asked for; a mouse does it only when asked. See `DragToScroll`.
+        if (!DragToScroll && args.PointerType is not (PointerType.Touch or PointerType.Pen)) {
             return;
         }
 

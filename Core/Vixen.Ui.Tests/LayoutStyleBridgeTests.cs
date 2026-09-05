@@ -455,9 +455,12 @@ public class LayoutStyleBridgeTests {
     ///         font-relative <c>vertical-align</c> values.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the three legacy <c>-webkit-*</c> spellings stay out</b>, because they are
-    ///         <see cref="LegacyTextAlign" /> — one CSS property, two fields, because the legacy values
-    ///         move a container's block-level children and these move the items on its lines.
+    ///         ⚠ <b>And the three legacy <c>-webkit-*</c> spellings stay out of <i>this</i> field</b>,
+    ///         because they are <see cref="LegacyTextAlign" /> — one CSS property, two fields, because
+    ///         the legacy values move a container's block-level children and these move the items on
+    ///         its lines. Where they do land is
+    ///         <see cref="The_legacy_keywords_cross_into_the_other_field" />, and until that test
+    ///         existed the answer was "nowhere".
     ///     </para>
     /// </remarks>
     [Theory]
@@ -471,5 +474,38 @@ public class LayoutStyleBridgeTests {
     [InlineData("color: red", TextAlign.Start)]
     public void Text_align_crosses_the_bridge_except_for_justify(string css, TextAlign expected) {
         Assert.Equal(expected, new BridgeFixture().Build(css).TextAlign);
+    }
+
+    /// <summary>
+    ///     The three legacy keywords cross as <see cref="LegacyTextAlign" />, which for their whole
+    ///     life they did not.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The block half of <c>text-align</c> was implemented, corpus-tested and
+    ///         unreachable, and the corpus is what hid it.</b>
+    ///         <c>LayoutTree.Block.LegacyTextAlignOffset</c> has sixteen Taffy fixtures on it and they
+    ///         were all green — because <c>TaffyStyleMap</c> calls
+    ///         <c>LayoutTree.SetLegacyTextAlign</c> itself, and it was the <i>only</i> caller in the
+    ///         tree. This bridge never wrote the field, so a <c>.vcss</c> author writing
+    ///         <c>text-align: -webkit-center</c> got the initial value and no diagnostic. A harness
+    ///         that is also a caller is the thing that makes a finished feature nothing calls look
+    ///         finished.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The last two rows are the ones that would fail if the two tables were merged.</b>
+    ///         A plain <c>center</c> must leave this field at <see cref="LegacyTextAlign.None" />,
+    ///         because §10.3.3 says a block-level child does not move for it — and a single table of
+    ///         a union type is exactly how that would stop being true.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("text-align: -webkit-left", LegacyTextAlign.Left)]
+    [InlineData("text-align: -webkit-center", LegacyTextAlign.Center)]
+    [InlineData("text-align: -webkit-right", LegacyTextAlign.Right)]
+    [InlineData("text-align: center", LegacyTextAlign.None)]
+    [InlineData("color: red", LegacyTextAlign.None)]
+    public void The_legacy_keywords_cross_into_the_other_field(string css, LegacyTextAlign expected) {
+        Assert.Equal(expected, new BridgeFixture().Build(css).LegacyTextAlign);
     }
 }

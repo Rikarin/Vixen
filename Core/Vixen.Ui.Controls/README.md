@@ -200,10 +200,13 @@ four lines.
 tracker to track. `DragToScroll` is that finger: it takes the `DragEvent` the recogniser already
 produced, moves the content under it, and lets go of it with whatever speed it had.
 
-⚠ **It is opt-in, and the reason is that nothing in this engine can tell a finger from a mouse.**
-`PointerEvent` carries a `PointerId` and no device kind, so a control cannot ask whether a drag came
-from a touchscreen. A mouse drag inside a scroll view is a text selection or a marquee on every
-desktop, and turning content dragging on for everybody would take both away.
+⚠ **It used to be opt-in because nothing in this engine could tell a finger from a mouse, and it is
+not any more.** `DragEvent` now carries a `PointerType`, so the two cases are separable: a finger or
+a pen drags the content with no opt-in at all, and `DragToScroll` is what a kiosk sets to get the
+mouse to behave like one too. The mouse is still off by default because a mouse drag inside a scroll
+view is a text selection or a marquee on every desktop. ⚠ `PointerType.Unknown` takes the mouse
+branch and is *not* guessed into the touch one — a producer that has not said what it is has not said
+it is a finger, which is the same reason the enum's default is not `Mouse`.
 
 ⚠ **The velocity is sampled per tick and not per drag event.** `DragEvent` carries no timestamp and
 several can arrive between two frames, so a per-event velocity would divide by a zero interval or

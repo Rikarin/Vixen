@@ -49,15 +49,15 @@ public class ScrollMomentumTests {
 
     /// <summary>Drags upwards from the middle of the view, one frame per step.</summary>
     /// <returns>Where the pointer ended up.</returns>
-    static float Flick(ControlFixture fixture, ScrollView view, int steps) {
+    static float Flick(ControlFixture fixture, ScrollView view, int steps, PointerType type = PointerType.Unknown) {
         var bounds = view.Bounds;
         var x = bounds.X + (bounds.Width * 0.5f);
         var y = bounds.Y + (bounds.Height * 0.5f);
 
-        fixture.Press(x, y);
+        fixture.Press(x, y, type: type);
 
         for (var step = 1; step <= steps; step++) {
-            fixture.MovePointer(x, y - (Step * step));
+            fixture.MovePointer(x, y - (Step * step), type: type);
             fixture.Advance(Frame);
         }
 
@@ -172,23 +172,57 @@ public class ScrollMomentumTests {
     }
 
     /// <summary>
-    ///     ⚠ Off by default, and the reason is that nothing in this engine can tell a finger from a
-    ///     mouse: <c>PointerEvent</c> carries a <c>PointerId</c> and no device kind. A mouse drag
-    ///     inside a scroll view is a text selection or a marquee on every desktop, so turning this on
-    ///     for everybody would take all of those away.
+    ///     ⚠ <b>Off by default <i>for a device that has not said it is a finger</i></b>, which is
+    ///     what the property now means. A mouse drag inside a scroll view is a text selection or a
+    ///     marquee on every desktop, so a view that dragged for everybody would take all of those
+    ///     away — and <c>PointerType.Unknown</c> is treated as the desktop case rather than guessed
+    ///     into the touch one, for the same reason the enum's default is not <c>Mouse</c>.
     /// </summary>
-    [Fact]
-    public void A_view_that_was_not_asked_to_drag_does_not() {
+    [Theory]
+    [InlineData(PointerType.Unknown)]
+    [InlineData(PointerType.Mouse)]
+    public void A_view_that_was_not_asked_to_drag_does_not(PointerType type) {
         var (fixture, view) = Tall(dragToScroll: false);
         using var _ = fixture;
 
         Assert.False(view.DragToScroll);
 
-        var y = Flick(fixture, view, steps: 4);
-        fixture.Release(view.Bounds.X + (view.Bounds.Width * 0.5f), y);
+        var y = Flick(fixture, view, steps: 4, type: type);
+        fixture.Release(view.Bounds.X + (view.Bounds.Width * 0.5f), y, type: type);
 
         Assert.Equal(0f, view.ScrollTop);
         Assert.False(view.IsFlinging);
+    }
+
+    /// <summary>A finger scrolls the content without anybody having asked for it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The half that was a working feature nothing called.</b> <c>DragToScroll</c> was
+    ///         opt-in and off because no control could tell a finger from a mouse, so a touch head
+    ///         got no content dragging at all until an application thought to turn it on — and an
+    ///         application written on a desktop never would. The device kind on <c>DragEvent</c> is
+    ///         what lets the default be right for both.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ A pen counts as a finger here and that is deliberate: neither has a cursor, so
+    ///         neither is doing the text selection or the marquee the mouse branch is protecting.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(PointerType.Touch)]
+    [InlineData(PointerType.Pen)]
+    public void A_finger_scrolls_a_view_that_was_never_asked(PointerType type) {
+        var (fixture, view) = Tall(dragToScroll: false);
+        using var _ = fixture;
+
+        Assert.False(view.DragToScroll);
+
+        var y = Flick(fixture, view, steps: 4, type: type);
+        fixture.Release(view.Bounds.X + (view.Bounds.Width * 0.5f), y, type: type);
+
+        // Upwards, so the offset goes down the content — the one path where the number the user is
+        // moving is not the number being stored.
+        Assert.True(view.ScrollTop > 0f);
     }
 
     /// <summary>

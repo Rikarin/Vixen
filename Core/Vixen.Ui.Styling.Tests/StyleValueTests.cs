@@ -320,4 +320,33 @@ public class StyleValueTests {
 
         Assert.Equal("rgba(20, 130, 200, 1.2)", overshot.ToCss(keywords));
     }
+
+    /// <summary>A leading minus starts a number only when a number follows it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every vendor-prefixed keyword in CSS was unparseable, and the failure was silent
+    ///         in the one way that is hardest to notice.</b> The first character decided the branch,
+    ///         so <c>-webkit-center</c> went down the numeric path, failed it, and came back
+    ///         <see cref="StyleValueKind.Unknown" /> — a declaration that resolves to nothing with no
+    ///         diagnostic, because an unparseable <i>value</i> is not a refused selector and nothing
+    ///         reports one. CSS Syntax §4.3.11 lets an identifier begin with a hyphen and a great many
+    ///         do.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Both directions in one theory on purpose. The obvious repair — accept a hyphen as an
+    ///         identifier start — turns <c>-4.5px</c> into the keyword <c>-4.5px</c>, which is a
+    ///         length silently becoming a word, and that is worse than the bug being fixed because a
+    ///         zero-valued length still lays out.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("-webkit-center", StyleValueKind.Keyword)]
+    [InlineData("-webkit-left", StyleValueKind.Keyword)]
+    [InlineData("-moz-fit-content", StyleValueKind.Keyword)]
+    [InlineData("-4.5px", StyleValueKind.Length)]
+    [InlineData("-.5", StyleValueKind.Number)]
+    [InlineData("-3", StyleValueKind.Number)]
+    [InlineData("+2px", StyleValueKind.Length)]
+    public void A_hyphen_starts_an_identifier_unless_a_number_follows_it(string text, StyleValueKind expected) =>
+        Assert.Equal(expected, Parser().Parse(text).Kind);
 }
