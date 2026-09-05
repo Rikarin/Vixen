@@ -1,0 +1,12 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component AmbientConsumer
+@namespace Vixen.Ui.Controls.Tests
+
+<!--
+    `Accent` is a code-behind property that injects; the markup reads it as it reads any other
+    expression. That is the whole markup spelling and it needs nothing new in the language.
+-->
+<consumer-label>@Accent</consumer-label>

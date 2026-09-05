@@ -1,0 +1,17 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component AmbientProvider
+@namespace Vixen.Ui.Controls.Tests
+
+<!--
+    ⚠ The consumer is two elements down and one component in, and it is written with no attributes
+    at all. That is the point of the fixture: nothing on this line passes the theme, and a version
+    of the feature that quietly threaded it through a parameter would need one.
+-->
+<provider-root>
+    <provider-body>
+        <AmbientConsumer />
+    </provider-body>
+</provider-root>
