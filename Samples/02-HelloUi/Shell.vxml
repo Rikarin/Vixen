@@ -108,11 +108,20 @@
     MenuItem saveItem = null!;
 
     /// <remarks>
-    ///     ⚠ <b>Signal-backed, and it has to be.</b> <c>BuildContext.Child&lt;T&gt;</c> constructs a
-    ///     component, mounts it — which runs <c>Build</c> — and assigns its parameters
-    ///     <em>afterwards</em>. So every effect this component made has already read the property
-    ///     once, with whatever the default was, and a plain property assigned later notifies nobody:
-    ///     the panel draws the empty model for ever.
+    ///     <para>
+    ///         <b>Signal-backed, because a prop that has to keep following its source is what a
+    ///         signal is for.</b> An effect inside this component subscribes to what it reads, and a
+    ///         plain C# property is not something to subscribe to — so a later assignment would
+    ///         notify nobody and the panel would go on drawing the model it was built with.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It used to be required for a second reason that is gone.</b>
+    ///         <c>BuildContext.Child&lt;T&gt;</c> constructed a component, mounted it — which runs
+    ///         <c>Build</c> — and assigned its parameters <em>afterwards</em>, so every effect the
+    ///         child made had already read the property once at its default and the panel drew the
+    ///         empty model for ever. A tag with a parameter now emits <c>Create</c> … the
+    ///         assignments … <c>Compose</c>, so the child is built with the caller's values.
+    ///     </para>
     /// </remarks>
     public ShellModel Model {
         get => model.Value;

@@ -508,6 +508,50 @@ public sealed class BuildContext {
     ///     </para>
     /// </remarks>
     public T Child<T>(UiElement? parent, string? tag) where T : IComposable, new() {
+        var created = Create<T>(parent, tag);
+        Compose(created);
+
+        return created;
+    }
+
+    /// <summary>Creates a child without building it, so its parameters can be assigned first.</summary>
+    /// <typeparam name="T">The component type or the element type.</typeparam>
+    /// <param name="parent">Its parent, or null for the mount point.</param>
+    /// <returns>What was created, not yet built. <see cref="Compose{T}" /> builds it.</returns>
+    public T Create<T>(UiElement? parent) where T : IComposable, new() => Create<T>(parent, null);
+
+    /// <summary>The same, under a tag of the caller's choosing.</summary>
+    /// <typeparam name="T">The component type or the element type.</typeparam>
+    /// <param name="parent">Its parent, or null for the mount point.</param>
+    /// <param name="tag">
+    ///     The element name to create it under, or null to take the one the type answers to.
+    /// </param>
+    /// <returns>What was created, not yet built. <see cref="Compose{T}" /> builds it.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Because a component's parameters used to be assigned after its
+    ///         <c>Build</c> had already run.</b> <c>&lt;Panel Model="@Model" /&gt;</c> emitted the
+    ///         construction, the mount and then the assignment, so every effect the child made had
+    ///         already read <c>Model</c> once at its default — and a plain C# property assigned later
+    ///         notifies nobody, so the child drew the empty model for ever. Signal-backing the
+    ///         property was the only escape, by convention, with nothing enforcing it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This fixes the first read and not the tracking.</b> A prop that is expected to
+    ///         <i>keep</i> following its source still has to be signal-backed: an effect inside the
+    ///         child subscribes to what it reads, and a plain property is not something to subscribe
+    ///         to. What changes is that the value it reads first is now the caller's rather than the
+    ///         default — which is what SwiftUI gets structurally, by initialising a view with its
+    ///         values.
+    ///     </para>
+    ///     <para>
+    ///         An element has nothing deferred about it: it is adopted here and
+    ///         <see cref="Compose{T}" /> does nothing to it. The split exists for the
+    ///         <see cref="Component" /> half, and the markup emitter writes the same pair for both
+    ///         because it cannot tell which a capitalised tag is.
+    ///     </para>
+    /// </remarks>
+    public T Create<T>(UiElement? parent, string? tag) where T : IComposable, new() {
         var created = new T();
 
         switch (created) {
@@ -538,22 +582,7 @@ public sealed class BuildContext {
                 // `Region.Clear` disposes subscriptions before it removes elements, so a
                 // component's effects stop before anything it built goes.
                 building.Track(Teardown(host));
-
-                var previousOwner = owner;
-                var previousAnchor = Anchor;
-                var previousBuilding = building;
-
-                owner = component;
-                Anchor = host;
-                building = Rooted(host);
-
-                try {
-                    component.Mount(this, host);
-                } finally {
-                    owner = previousOwner;
-                    Anchor = previousAnchor;
-                    building = previousBuilding;
-                }
+                component.Attach(this, host);
 
                 return created;
             }
@@ -562,6 +591,38 @@ public sealed class BuildContext {
                 throw new InvalidOperationException(
                     $"'{typeof(T).Name}' is neither a component nor an element, so it cannot be a tag."
                 );
+        }
+    }
+
+    /// <summary>Runs the <c>Build</c> of what <see cref="Create{T}(Vixen.Ui.UiElement,string)" /> made.</summary>
+    /// <typeparam name="T">The component type or the element type.</typeparam>
+    /// <param name="created">What <see cref="Create{T}(Vixen.Ui.UiElement,string)" /> returned.</param>
+    /// <remarks>
+    ///     ⚠ <b>A no-op for an element, and that is the point.</b> A capitalised tag names a
+    ///     <see cref="Component" /> or a <see cref="UiElement" /> and the markup compiler resolves
+    ///     neither — so the pair it emits has to be writable for both, and which of the two this is
+    ///     settles at the C# call the same way <see cref="Child{T}(UiElement,string)" /> settles it.
+    ///     A control builds its own parts in <c>OnCreated</c>, before any of this.
+    /// </remarks>
+    public void Compose<T>(T created) where T : IComposable {
+        if (created is not Component component) {
+            return;
+        }
+
+        var previousOwner = owner;
+        var previousAnchor = Anchor;
+        var previousBuilding = building;
+
+        owner = component;
+        Anchor = component.Root;
+        building = Rooted(component.Root);
+
+        try {
+            component.Compose(this);
+        } finally {
+            owner = previousOwner;
+            Anchor = previousAnchor;
+            building = previousBuilding;
         }
     }
 

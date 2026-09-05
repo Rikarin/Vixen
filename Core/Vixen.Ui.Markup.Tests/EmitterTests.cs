@@ -216,6 +216,98 @@ public class EmitterTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>A component's parameters are assigned before its <c>Build</c> runs, and for years
+    ///     they were assigned after it.</b> <c>Child&lt;T&gt;</c> constructs, mounts — which runs
+    ///     <c>Build</c> — and returns, so every effect the child had made had already read every
+    ///     parameter once at its default. A plain C# property assigned afterwards notifies nobody, so
+    ///     <c>&lt;Label Title="Hello" /&gt;</c> drew the empty string for ever and nothing said so;
+    ///     signal-backing every prop was the only escape, by convention, with nothing enforcing it.
+    /// </summary>
+    /// <remarks>
+    ///     <c>Label</c> reads <c>Title</c> exactly once, in <c>Build</c>, which is what makes this an
+    ///     oracle rather than an observation: the text it produced <i>is</i> the value the property
+    ///     held at the moment the child was built, and nothing later can change it.
+    /// </remarks>
+    [Fact]
+    public void A_component_is_built_with_its_parameters_rather_than_after_them() {
+        const string Source = """
+                              @component Greeter
+                              <Label Title="Hello" />
+                              """;
+
+        var (component, _, document) = Run(Source);
+
+        using var owned = document;
+        var label = component.Root.Children.Single();
+
+        Assert.Equal("label", label.Tag);
+        Assert.Equal("Hello", label.Children.Single().Text);
+    }
+
+    /// <summary>
+    ///     The same for a dynamic parameter, whose assignment is an effect rather than a statement —
+    ///     so this pins that <c>Bind</c>'s <i>first</i> run also lands before the build, and not
+    ///     merely the literal case.
+    /// </summary>
+    [Fact]
+    public void A_bound_parameter_reaches_the_child_before_it_builds_too() {
+        const string Source = """
+                              @component Greeter
+                              @code { private string _greeting = "Hi"; }
+                              <Label Title="@_greeting" />
+                              """;
+
+        var (component, _, document) = Run(Source);
+
+        using var owned = document;
+        Assert.Equal("Hi", component.Root.Children.Single().Children.Single().Text);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And a capitalised tag that is a <i>control</i> takes the same emitted pair</b>, which
+    ///     is the half that could break silently: the markup compiler cannot tell a
+    ///     <c>Component</c> from a <c>UiElement</c> and deliberately does not try, so
+    ///     <c>Create</c>/<c>Compose</c> has to be legal C# for both and <c>Compose</c> has to do
+    ///     nothing at all to an element.
+    /// </summary>
+    [Fact]
+    public void A_control_tag_survives_the_same_split() {
+        const string Source = """
+                              @component Greeter
+                              <Dial Mode="Fast" Steps="3" class="lead" />
+                              """;
+
+        var (component, _, document) = Run(Source);
+
+        using var owned = document;
+        var dial = component.Root.Children.Single();
+
+        Assert.Equal("dial", dial.Tag);
+        Assert.Equal(3, dial.GetType().GetProperty("Steps")!.GetValue(dial));
+        Assert.True(dial.HasClass("lead"));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And a component tag with no parameter keeps emitting the call it always did.</b> The
+    ///     split costs a statement and a second pass over the attributes, so it is taken only where
+    ///     there is something to assign — which is a minority of the component tags in any file.
+    /// </summary>
+    [Fact]
+    public void A_tag_with_nothing_to_assign_is_not_split() {
+        const string Source = """
+                              @component Greeter
+                              <Label Title="Hello" />
+                              <Callout />
+                              """;
+
+        var generated = Emit(Source);
+
+        Assert.Equal(1, Occurrences(generated, ".Create<"));
+        Assert.Equal(1, Occurrences(generated, ".Compose("));
+        Assert.Equal(1, Occurrences(generated, ".Child<"));
+    }
+
+    /// <summary>
     ///     ⚠ <b>And a misspelt member is a run-time failure rather than a compile-time one</b>,
     ///     which is the price of the shorthand — so the message says what the value could have been.
     /// </summary>

@@ -81,6 +81,30 @@ itself into is removed or the branch that built it closes. Whichever comes first
 Neither is an override, so neither costs anything when nobody implements it. `@code` may not override
 `OnCreated` or `OnRemoved`: the generated scaffold uses both, and these two run in the same places.
 
+### A component is built with its parameters
+
+`<Panel Model="@Model" />` assigns `Model` **before** the panel's `Build` runs — the emitter writes
+`BuildContext.Create`, the assignments, then `BuildContext.Compose`, and only a tag that carries a
+parameter pays for the split.
+
+⚠ **It used not to.** `Child<T>` constructs a component, mounts it — which runs `Build` — and
+returns, so the assignment landed after every effect inside the panel had already read the property
+once at its default. A plain C# property assigned then notifies nobody, so the panel drew the default
+for ever and nothing said so.
+
+⚠ **Signal-backing is still what makes a prop keep up.** The order fixes the value the child is built
+with; it does not make a plain property something an effect inside the child can subscribe to. A prop
+that has to follow its source after the build is signal-backed, exactly as before:
+
+```csharp no-compile="the shape every panel prop takes; Samples/02-HelloUi/Shell.vxml has the real one"
+readonly Signal<ShellModel> model = new(new());
+
+public ShellModel Model {
+    get => model.Value;
+    set => model.Value = value;
+}
+```
+
 ### The three universal attributes
 
 `class`, `style` and `binding-path` mean the same on a component tag as on an element, and are never
