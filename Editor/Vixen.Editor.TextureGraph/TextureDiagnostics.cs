@@ -155,6 +155,19 @@ static class TextureDiagnostics {
     /// </summary>
     internal const string PixelProcessorDoesNotCompile = "TG0021";
 
+    /// <summary>
+    ///     An output was computed at a level below the graph's maps and the compiler resampled it
+    ///     back. A warning, against the Output node's usage.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Neither of the two shapes #805 proposed, and the reason is what each of them cost.</b>
+    ///     Rescaling in silence is what the issue objected to; refusing makes a legal-looking graph
+    ///     illegal. A warning is neither: the bake draws a picture rather than throwing out of a
+    ///     background task, and the author is told which map was resampled and where to say it in the
+    ///     graph instead.
+    /// </remarks>
+    internal const string OutputResampledToTheGraphsMaps = "TG0022";
+
     /// <summary>Every id declared above, read off the declarations rather than listed again.</summary>
     /// <remarks>
     ///     ⚠ <b>This is what makes a collision findable at all.</b> Two members holding the same

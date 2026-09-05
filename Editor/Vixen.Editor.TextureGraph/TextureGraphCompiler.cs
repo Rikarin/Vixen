@@ -822,7 +822,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             var arrived = SizeOf(image);
 
             Report(new(
-                "TG0022",
+                TextureDiagnostics.OutputResampledToTheGraphsMaps,
                 $"'{usage}' is computed at {arrived.X}×{arrived.Y} and this graph's maps are "
                 + $"{Extent(authoredWidth, 0)}×{Extent(authoredHeight, 0)}, so the compiler resampled it back. A "
                 + "texture set is one material's maps over one atlas, so they are one size — a Resample says at "

@@ -46,17 +46,16 @@ public class RealGuideTests {
     ///         branch can invalidate: derive it, or excuse it by name with a reason and an owner.
     ///     </para>
     ///     <para>
-    ///         The list is expected to reach empty and then be deleted along with the test below it.
+    ///         ⚠ <b>It reached empty on the merge after it was written, and the mechanism stays.</b>
+    ///         All six entries named #793 and master fixed every one of those pages while this branch
+    ///         was in flight, so the tripwire fired six times at once — which is the list working
+    ///         rather than the list being wrong. Deleting the machinery along with the entries would
+    ///         mean the next excuse somebody needs has nowhere to be recorded and no test requiring
+    ///         it to expire, so the empty list is the honest state and the theory below simply has no
+    ///         cases while it holds.
     ///     </para>
     /// </remarks>
-    static readonly (string Page, string Issue)[] Excused = [
-        ("docs/guide/ui/clipboard.md", "793"),
-        ("docs/guide/ui/drag-and-drop.md", "793"),
-        ("docs/guide/ui/media-queries.md", "793"),
-        ("docs/guide/ui/secure-text-input.md", "793"),
-        ("docs/guide/ui/split-view.md", "793"),
-        ("docs/guide/ui/undo.md", "793")
-    ];
+    static readonly (string Page, string Issue)[] Excused = [];
 
     /// <summary>
     ///     The checkout this assembly was compiled in.
@@ -133,29 +132,27 @@ public class RealGuideTests {
     ///     Without this the list above is a suppression that survives its own fix, and the next page
     ///     added under one of those names inherits an exemption nobody granted it. Fixing a page
     ///     fails here, with the line to delete.
+    ///     <para>
+    ///         ⚠ <b>With the list empty this asserts nothing, and that is stated rather than hidden.</b>
+    ///         All of its value is on the day somebody adds an entry — which is why it survives the
+    ///         list reaching empty instead of being deleted with it. It was a theory over the entries
+    ///         until the list emptied; xunit refuses a theory with no cases, so the same guard is a
+    ///         fact over the collection.
+    ///     </para>
     /// </remarks>
-    [Theory]
-    [MemberData(nameof(ExcusedPages))]
-    public void Every_excused_page_still_breaks_the_contract(string page, string issue) {
+    [Fact]
+    public void Every_excused_page_still_breaks_the_contract() {
         var errors = Read().Errors;
 
-        Assert.True(
-            errors.Any(error => error.StartsWith(page + ":", StringComparison.Ordinal)),
-            $"{page} is excused from the page contract on #{issue} and now keeps it. Delete its line "
-            + "from RealGuideTests.Excused — an exemption that outlives its defect is how the next "
-            + "page written under that name inherits one nobody granted it."
+        Assert.All(
+            Excused,
+            entry => Assert.True(
+                errors.Any(error => error.StartsWith(entry.Page + ":", StringComparison.Ordinal)),
+                $"{entry.Page} is excused from the page contract on #{entry.Issue} and now keeps it. Delete its "
+                + "line from RealGuideTests.Excused — an exemption that outlives its defect is how the next page "
+                + "written under that name inherits one nobody granted it."
+            )
         );
     }
 
-    public static TheoryData<string, string> ExcusedPages {
-        get {
-            var data = new TheoryData<string, string>();
-
-            foreach (var (page, issue) in Excused) {
-                data.Add(page, issue);
-            }
-
-            return data;
-        }
-    }
 }
