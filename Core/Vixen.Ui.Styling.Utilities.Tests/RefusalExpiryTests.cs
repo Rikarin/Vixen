@@ -87,6 +87,27 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         see <see cref="RefusalExpiry.Gapped" />, where the difference is argued.
 ///     </para>
 ///     <para>
+///         ⚠ <b>The ledger is not where refusals live — it is only where they were checked.</b> #674
+///         found four false ones in prose the same month: <c>Core/Vixen.Ui/README.md</c> said
+///         <c>scale</c> and <c>rotate</c> were refused while <c>TransformReader</c> read both,
+///         <c>NodeCanvas</c> said there is no <c>transform</c> property, the <c>touch-action</c> row
+///         said no touch reaches <c>UiDocument</c> while <c>PlatformInput</c> routed them, and
+///         <c>Vixen.Ui.Markup</c>'s README taught a <c>[Parameter]</c> attribute that has never
+///         existed. So the sweep reads every <c>README.md</c> and every doc comment in the tree as
+///         well — see <see cref="RefusalExpiry.DeclaredInProse" /> — and a prose refusal declares its
+///         condition in exactly the same clause a note does.
+///     </para>
+///     <para>
+///         ⚠ <b>Widening the sweep would not have caught those four and it is worth being exact about
+///         why.</b> None of them declared a clause; a clause-reader catches only conditions somebody
+///         wrote down. What the widening buys is that a prose refusal now <i>can</i> be written down —
+///         <c>Core/Vixen.Ui</c>'s <c>box-shadow</c> paragraph is the first, resting its <c>inset</c>
+///         half on <c>inset-shadow-*</c> — where before there was nowhere to put the condition but a
+///         sentence, and a sentence is what the four were. Detecting an <i>undeclared</i> refusal is
+///         the mechanism <see cref="RefusalExpiry" />'s own remarks measured at 106 false positives
+///         across 42 rows and refused to build.
+///     </para>
+///     <para>
 ///         ⚠ <b>And the typo, which is how a check like this normally dies.</b> An anchor is a string
 ///         in a document, and the failure mode of "assert this symbol is absent" is that a misspelt
 ///         symbol is absent too — green for ever, for the wrong reason. This repository has shipped
@@ -133,9 +154,9 @@ public class RefusalExpiryTests {
     ///     reasons against a committed one for the same reason.
     /// </remarks>
     [Fact]
-    public void The_census_is_exactly_the_clauses_the_ledger_declares() {
+    public void The_census_is_exactly_the_clauses_the_ledger_and_the_prose_declare() {
         var (_, rows) = ParityLedger.Read(ParityLedger.Locate());
-        var declared = RefusalExpiry.Declared(rows);
+        var declared = RefusalExpiry.All(rows, RefusalExpiry.Root());
         var path = RefusalExpiry.Locate();
 
         if (Regenerating) {
@@ -155,8 +176,12 @@ public class RefusalExpiryTests {
     [Fact]
     public void A_clause_that_does_not_parse_is_a_failure_rather_than_a_row_the_sweep_skips() {
         var (_, rows) = ParityLedger.Read(ParityLedger.Locate());
+        var root = RefusalExpiry.Root();
 
-        Assert.Equal(RefusalExpiry.Opened(rows), RefusalExpiry.Declared(rows).Count);
+        Assert.Equal(
+            RefusalExpiry.Opened(rows) + RefusalExpiry.OpenedInProse(root),
+            RefusalExpiry.All(rows, root).Count
+        );
     }
 
     /// <summary>An anchor names a root the ledger has, or a type an assembly has.</summary>
@@ -169,7 +194,7 @@ public class RefusalExpiryTests {
         var (_, rows) = ParityLedger.Read(ParityLedger.Locate());
         var roots = rows.Select(row => row.Root).ToHashSet(StringComparer.Ordinal);
 
-        foreach (var clause in RefusalExpiry.Declared(rows)) {
+        foreach (var clause in RefusalExpiry.All(rows, RefusalExpiry.Root())) {
             if (clause.Kind == ExpiryKind.With) {
                 Assert.True(
                     roots.Contains(clause.Anchor),
@@ -221,13 +246,16 @@ public class RefusalExpiryTests {
         var (_, rows) = ParityLedger.Read(ParityLedger.Locate());
         var state = rows.ToDictionary(row => row.Root, row => row.State, StringComparer.Ordinal);
 
-        foreach (var clause in RefusalExpiry.Declared(rows)) {
+        foreach (var clause in RefusalExpiry.All(rows, RefusalExpiry.Root())) {
             var standing = clause.Kind == ExpiryKind.WhenRead ? RefusalExpiry.Gapped : RefusalExpiry.Refusing;
 
+            // A prose refusal has no row, so there is no state to hold it to — only the condition
+            // below. That is the whole of the difference between the two sources.
             Assert.True(
-                standing.Contains(state[clause.Root]),
-                $"{clause.Root} is '{state[clause.Root]}' and still declares an expiry clause. It is not "
-                + "refused any more, so the clause and the sentence it formalises both want deleting."
+                clause.Prose || standing.Contains(state[clause.Root]),
+                $"{clause.Root} is '{(clause.Prose ? "prose" : state[clause.Root])}' and still declares an "
+                + "expiry clause. It is not refused any more, so the clause and the sentence it "
+                + "formalises both want deleting."
             );
 
             if (clause.Kind == ExpiryKind.WhenRead) {

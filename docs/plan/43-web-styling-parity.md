@@ -514,7 +514,10 @@ written, and asking the standard `caret-color` first is the whole of `caret-*`. 
 ⚠ **And the twelve still absent are not twelve of the same thing.** Six are refusals with a named
 blocker in their own row — `accent-*` (the three controls CSS means are drawn from a stylesheet, and
 `var()` cannot read a standard property), `will-change-*` (no element-keyed retained surface),
-`touch` (touch events never reach `UiDocument` at all), `resize`, `appearance` and `field-sizing`.
+`touch` (⚠ *not* "touch events never reach `UiDocument`", which is what this line said and what the
+row said with it: `PlatformInput` routes them and has since — what is missing is the UA behaviour
+`touch-action` would suppress, a touch pan in `ScrollView` and a pinch anything consumes),
+`resize`, `appearance` and `field-sizing`.
 Two are sized and not started: `snap` and `snap (keywords)`, which want 250–400 lines in `ScrollView`
 and, harder, an end-of-gesture the wheel and the scrollbar drag do not have. The remaining four are
 the scrollbar cluster, which is one feature and is owned elsewhere.

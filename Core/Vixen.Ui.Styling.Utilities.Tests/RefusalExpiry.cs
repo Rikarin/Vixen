@@ -45,11 +45,18 @@ enum ExpiryKind {
     WhenRead
 }
 
-/// <summary>One refusal's expiry condition, as the ledger's note column declares it.</summary>
-/// <param name="Root">The ledger root whose note carries the clause.</param>
+/// <summary>One refusal's expiry condition, as a ledger note or a prose refusal declares it.</summary>
+/// <param name="Root">The ledger root whose note carries the clause, or the file the prose is in.</param>
 /// <param name="Kind">Which sort of condition it is.</param>
 /// <param name="Anchor">The root or symbol named, verbatim.</param>
-sealed record ExpiryClause(string Root, ExpiryKind Kind, string Anchor) : IComparable<ExpiryClause> {
+/// <param name="Prose">
+///     Whether it was found in a <c>README.md</c> or a doc comment rather than in the ledger. The
+///     difference the suite makes of it is one assertion: a ledger clause is also checked against its
+///     own row's state — a refusal that stopped being refused wants deleting — and a prose refusal has
+///     no row to be in a state.
+/// </param>
+sealed record ExpiryClause(string Root, ExpiryKind Kind, string Anchor, bool Prose = false)
+    : IComparable<ExpiryClause> {
     /// <summary>The census line for this clause.</summary>
     public string Line => $"{Root}\t{Spelling(Kind)}\t{Anchor}";
 
@@ -153,18 +160,163 @@ static partial class RefusalExpiry {
     public static int Opened(IEnumerable<ParityRow> rows) =>
         rows.Sum(row => Opening().Count(row.Note));
 
+    /// <summary>The repository root, found through the ledger's own walk.</summary>
+    /// <returns>Its path.</returns>
+    public static string Root() =>
+        Directory.GetParent(Path.GetDirectoryName(ParityLedger.Locate())!)!.Parent!.FullName;
+
     /// <summary>Finds the committed census, beside the tests that own it.</summary>
     /// <returns>Its path.</returns>
-    public static string Locate() {
+    public static string Locate() =>
         // The ledger's own walk finds the repository root; the census sits with the suite rather than
         // with the document, for the reason `InertProperties.txt` does — it is the test's record of
         // what it is holding the document to, and it is regenerated, so it must be the file in the
         // tree and not a copy in `bin`.
-        var root = Directory.GetParent(Path.GetDirectoryName(ParityLedger.Locate())!)!.Parent!.FullName;
+        Path.Combine(Root(), "Core", "Vixen.Ui.Styling.Utilities.Tests", "RefusalExpiry.txt");
 
-        return Path.Combine(
-            root, "Core", "Vixen.Ui.Styling.Utilities.Tests", "RefusalExpiry.txt"
-        );
+    /// <summary>The three files that define the clause grammar, whose clauses are specimens.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A file that teaches the grammar cannot also be read by it.</b> These three spell the
+    ///     three kinds out — <c>[expires-with &lt;root&gt;]</c> — and one of them deliberately writes a
+    ///     <i>malformed</i> clause to explain why the opening bracket is counted separately. Swept as
+    ///     prose they contribute nine specimens and one parse failure, so the instrument's own
+    ///     documentation would be the first thing to turn it red. Nothing else is exempt: the exemption
+    ///     is the definition of the language, not a place refusals are allowed to hide.
+    /// </remarks>
+    public static readonly string[] Grammar = [
+        "Core/Vixen.Ui.Styling.Utilities.Tests/RefusalExpiry.cs",
+        "Core/Vixen.Ui.Styling.Utilities.Tests/RefusalExpiryTests.cs",
+        "docs/plan/43-web-styling-parity.md"
+    ];
+
+    /// <summary>Directories the prose sweep does not descend into.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>.claude</c> is the one that is not obvious and the one that matters.</b> It holds a
+    ///     whole checkout per agent worktree, so a walk from the repository root that did not skip it
+    ///     would sweep every parallel agent's copy of these files and record their clauses in this
+    ///     tree's census — a suite whose verdict depends on who else is working today. The rest are
+    ///     build output, where the same file appears again as a copy.
+    /// </remarks>
+    static readonly string[] Skipped = [
+        ".git", ".claude", ".vs", ".idea", "bin", "obj", "artifacts", "node_modules", "TestResults"
+    ];
+
+    /// <summary>Every <c>.md</c> and <c>.cs</c> file a prose refusal could be written in.</summary>
+    /// <param name="root">The repository root.</param>
+    /// <returns>Their paths, repository-relative and with forward slashes.</returns>
+    public static List<string> ProseFiles(string root) {
+        var files = new List<string>();
+        var stack = new Stack<string>();
+
+        stack.Push(root);
+
+        while (stack.Count != 0) {
+            var directory = stack.Pop();
+
+            foreach (var child in Directory.EnumerateDirectories(directory)) {
+                if (!Skipped.Contains(Path.GetFileName(child), StringComparer.Ordinal)) {
+                    stack.Push(child);
+                }
+            }
+
+            foreach (var file in Directory.EnumerateFiles(directory)) {
+                if (Path.GetExtension(file) is not (".cs" or ".md")) {
+                    continue;
+                }
+
+                var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
+
+                if (!Grammar.Contains(relative, StringComparer.Ordinal)) {
+                    files.Add(relative);
+                }
+            }
+        }
+
+        files.Sort(StringComparer.Ordinal);
+
+        return files;
+    }
+
+    /// <summary>Every clause a README or a doc comment declares, sorted.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The four refusals this was widened for carried no clause at all</b>, so this does not
+    ///     retroactively catch them and nothing here pretends it does — what it removes is the reason
+    ///     they could not have carried one. A refusal in a <c>README.md</c> or a doc comment is the
+    ///     same object as a refusal in the ledger's note column: a verdict plus a condition. Until
+    ///     this sweep existed the condition had nowhere to go except a sentence, and #674's four are
+    ///     what a sentence is worth.
+    ///     <para>
+    ///         ⚠ <b>A quoted clause is indistinguishable from a declared one and is meant to be.</b>
+    ///         A comment narrating an old clause records it here, once, and the census diff is where a
+    ///         reviewer says so — the same review step the ledger's own clauses get. The alternative
+    ///         is a second syntax for quoting, which is a grammar nobody would remember.
+    ///     </para>
+    /// </remarks>
+    /// <param name="root">The repository root.</param>
+    /// <returns>The clauses.</returns>
+    public static List<ExpiryClause> DeclaredInProse(string root) => Sweep(root).Clauses;
+
+    /// <summary>How many clause-shaped things the prose contains, well formed or not.</summary>
+    /// <param name="root">The repository root.</param>
+    /// <returns>The count.</returns>
+    public static int OpenedInProse(string root) => Sweep(root).Opened;
+
+    /// <summary>Reads every prose file once and remembers what it found.</summary>
+    /// <remarks>
+    ///     Four tests ask for this and the sweep is five thousand files, so it is read once per run
+    ///     rather than once per question. Keyed on the root only because there is one repository; a
+    ///     second key would be a cache nothing exercises.
+    /// </remarks>
+    /// <param name="root">The repository root.</param>
+    /// <returns>The clauses and the count of opening brackets.</returns>
+    static (List<ExpiryClause> Clauses, int Opened) Sweep(string root) {
+        lock (swept) {
+            if (swept.TryGetValue(root, out var already)) {
+                return already;
+            }
+
+            var clauses = new List<ExpiryClause>();
+            var opened = 0;
+
+            foreach (var file in ProseFiles(root)) {
+                var text = File.ReadAllText(Path.Combine(root, file));
+
+                if (!text.Contains("[expires-", StringComparison.Ordinal)) {
+                    continue;
+                }
+
+                opened += Opening().Count(text);
+
+                foreach (Match match in Clause().Matches(text)) {
+                    var kind = match.Groups["kind"].Value switch {
+                        "with" => ExpiryKind.With,
+                        "on" => ExpiryKind.On,
+                        _ => ExpiryKind.WhenRead
+                    };
+
+                    clauses.Add(new ExpiryClause(file, kind, match.Groups["anchor"].Value.Trim(), Prose: true));
+                }
+            }
+
+            clauses.Sort();
+            swept[root] = (clauses, opened);
+
+            return (clauses, opened);
+        }
+    }
+
+    static readonly Dictionary<string, (List<ExpiryClause> Clauses, int Opened)> swept = new(StringComparer.Ordinal);
+
+    /// <summary>Every clause in the ledger and in the prose, together and sorted.</summary>
+    /// <param name="rows">The ledger.</param>
+    /// <param name="root">The repository root.</param>
+    /// <returns>The clauses.</returns>
+    public static List<ExpiryClause> All(IEnumerable<ParityRow> rows, string root) {
+        List<ExpiryClause> clauses = [.. Declared(rows), .. DeclaredInProse(root)];
+
+        clauses.Sort();
+
+        return clauses;
     }
 
     /// <summary>Reads the census, ignoring its prose.</summary>
