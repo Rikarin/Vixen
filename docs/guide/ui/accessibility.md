@@ -39,6 +39,12 @@ answers about the same element, and none of them can get any of them from a draw
 what a platform bridge — AT-SPI2 on Linux, UI Automation on Windows, `NSAccessibility` on macOS —
 reads and republishes. Vixen ships the tree; the bridges are the platform's.
 
+⚠ **None of those three bridges exists yet, so nothing you declare here reaches a screen reader
+today.** The tree is complete, tested and correct, and its only consumer is the test suite. What it
+is for is unchanged and what you write against it is unchanged — an application that labels its
+fields now is an application that is readable on the day a bridge lands, and one that does not is a
+rewrite. The shape the missing half has to take is written down in `Core/Vixen.Ui/README.md`.
+
 Two decisions are worth knowing before you use it, because both change what you have to write.
 
 **A control's accessible view is computed, never stored.** `NativeRole`, `NativeAccessibleName`,
