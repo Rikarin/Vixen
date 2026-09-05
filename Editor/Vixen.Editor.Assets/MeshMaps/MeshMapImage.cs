@@ -23,10 +23,14 @@ namespace Vixen.Editor.Assets.MeshMaps;
 /// </remarks>
 public sealed record MeshMapImage {
     /// <summary>What this map measures.</summary>
+    /// <remarks>
+    ///     ⚠ <b>And what it is called, because a writer derives the file name from this.</b> An
+    ///     encoded image carried its own <c>FileName</c> until the name was found to be the one
+    ///     thing here a caller must not be trusted with — see <see cref="MeshMapNaming.FileName" />
+    ///     and <c>ProjectMeshMapBaker.Write</c>. A name baked in at encode time is a name the writer
+    ///     cannot sanitise and cannot make unique, and both of those were defects.
+    /// </remarks>
     public required MeshMapUsage Usage { get; init; }
-
-    /// <summary>What to call it, with its extension and no directory.</summary>
-    public required string FileName { get; init; }
 
     /// <summary>The PNG.</summary>
     public required byte[] Png { get; init; }

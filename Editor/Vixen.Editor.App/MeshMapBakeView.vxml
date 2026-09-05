@@ -1,0 +1,408 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 48 § D12's bake panel. `MeshMapBakeView.cs` carries the argument for it; this file is the
+    shape.
+
+    ⚠ **Nothing is bound, and `BuildSettingsView.vxml`'s header is where that is argued in full.**
+    Its short form: writing a signal only ever queues, `EffectScheduler.Flush` runs the effects once
+    a frame, and this panel's tests read `BakeButton.Disabled` back on the line after `Rebuild()`.
+
+    ⚠ **The seven map checkboxes are written out rather than looped over in `@code`.** They are seven
+    fixed things whose order is the order § D12's table lists them in, and a loop over
+    `MeshMapNaming.Every` would have to skip the two that are not optional — a rule expressed as an
+    exception instead of the file saying what is on the panel.
+
+    ⚠ **Nothing here names `Vixen.Geometry.Remeshing`, and that is not an omission.** Its `MeshMaps`
+    is a type whose name is also the namespace every other type on this panel lives in, so the two
+    cannot be imported together; the panel speaks `MeshMapUsage` and `MeshMapBakeSettings` answers in
+    the bake's flags. See that type's remarks — the seam is worth having for its own reasons.
+-->
+@component MeshMapBakeView
+@namespace Vixen.Editor.App
+@inherits Vixen.Ui.Controls.Control
+@tag mesh-map-bake
+@using System.Globalization
+@using Vixen.Editor.Assets.MeshMaps
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Controls.Advanced
+
+<meshbake-form>
+    <meshbake-row>
+        <TextBlock Text="Model" />
+        <meshbake-subject ref="@Subject" />
+    </meshbake-row>
+
+    <meshbake-row>
+        <TextBlock Text="Resolution" />
+        <Select ref="@ResolutionPicker" />
+    </meshbake-row>
+
+    <meshbake-row>
+        <TextBlock Text="Gutter" />
+        <TextBox ref="@GutterBox" />
+    </meshbake-row>
+
+    <meshbake-row>
+        <TextBlock Text="Search Radius" />
+        <TextBox ref="@RadiusBox" />
+    </meshbake-row>
+
+    <meshbake-row>
+        <TextBlock Text="Rays" />
+        <Select ref="@SamplesPicker" />
+    </meshbake-row>
+</meshbake-form>
+
+<meshbake-note ref="@Note" />
+<meshbake-heading ref="@Heading" />
+
+<meshbake-maps>
+    <CheckBox ref="@Occlusion" Label="Ambient Occlusion" />
+    <CheckBox ref="@Bent" Label="Bent Normal" />
+    <CheckBox ref="@Curvature" Label="Curvature" />
+    <CheckBox ref="@Thickness" Label="Thickness" />
+    <CheckBox ref="@PositionMap" Label="Position" />
+    <CheckBox ref="@WorldNormal" Label="World Normal" />
+    <CheckBox ref="@Identifiers" Label="ID" />
+</meshbake-maps>
+
+<meshbake-actions>
+    <meshbake-spacer />
+
+    <Button ref="@BakeButton" Size="Small" Variant="Primary" Label="Bake" on:click="@(() => BakeRequested?.Invoke(this))" />
+</meshbake-actions>
+
+<meshbake-status ref="@Status" />
+
+<DataGrid ref="@Results" MultiSelect="false" />
+
+@code {
+    readonly List<BakedMapRow> rows = [];
+
+    MeshMapBakeSettings? settings;
+
+    /// <summary>What the last finished bake produced, or null before one has.</summary>
+    MeshMapSet? last;
+
+    /// <summary>Whether the controls are being filled in rather than typed into.</summary>
+    bool loading;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>What would be baked, spelled out.</summary>
+    public UiElement Subject { get; private set; } = null!;
+
+    /// <summary>How big a map, on a side.</summary>
+    public Select ResolutionPicker { get; private set; } = null!;
+
+    /// <summary>How far past a chart's edge the gutter is dilated, in texels.</summary>
+    public TextBox GutterBox { get; private set; } = null!;
+
+    /// <summary>How far a ray looks, as a fraction of the source's bounding-box diagonal.</summary>
+    public TextBox RadiusBox { get; private set; } = null!;
+
+    /// <summary>How many rays a texel's hemisphere is sampled with.</summary>
+    public Select SamplesPicker { get; private set; } = null!;
+
+    /// <summary>What the fields resolve to, or what is wrong with one of them.</summary>
+    public UiElement Note { get; private set; } = null!;
+
+    /// <summary>The line above the map list.</summary>
+    public UiElement Heading { get; private set; } = null!;
+
+    /// <summary>Whether the bake spends rays on the ambient occlusion.</summary>
+    public CheckBox Occlusion { get; private set; } = null!;
+
+    /// <inheritdoc cref="Occlusion" />
+    public CheckBox Bent { get; private set; } = null!;
+
+    /// <inheritdoc cref="Occlusion" />
+    public CheckBox Curvature { get; private set; } = null!;
+
+    /// <inheritdoc cref="Occlusion" />
+    public CheckBox Thickness { get; private set; } = null!;
+
+    /// <inheritdoc cref="Occlusion" />
+    public CheckBox PositionMap { get; private set; } = null!;
+
+    /// <inheritdoc cref="Occlusion" />
+    public CheckBox WorldNormal { get; private set; } = null!;
+
+    /// <inheritdoc cref="Occlusion" />
+    public CheckBox Identifiers { get; private set; } = null!;
+
+    /// <summary>Runs a bake with what is on the panel.</summary>
+    public Button BakeButton { get; private set; } = null!;
+
+    /// <summary>What the last bake did, and what it warned about.</summary>
+    public UiElement Status { get; private set; } = null!;
+
+    /// <summary>What the last bake produced, one row per map.</summary>
+    public DataGrid Results { get; private set; } = null!;
+
+    /// <summary>Raised by the Bake button.</summary>
+    public event Action<MeshMapBakeView>? BakeRequested;
+
+    /// <summary>What would be baked, or null where nothing would be.</summary>
+    /// <remarks>
+    ///     Pulled rather than handed over, for the reason <c>BuildSettingsView.Catalogue</c> is: a
+    ///     panel's factory runs again on every reopen, and the selection changes under an open panel
+    ///     all day.
+    /// </remarks>
+    public Func<string?>? Chosen { get; set; }
+
+    /// <summary>Why a bake cannot be started, or null when it can.</summary>
+    public Func<string?>? Refusal { get; set; }
+
+    /// <summary>Points the panel at the settings a bake will read.</summary>
+    /// <param name="value">The settings. Held, not copied — the verb reads the same object.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="value" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>Filled with <see cref="loading" /> set</b>, because writing to a control raises its
+    ///     own change event, which here means "the user chose this" — and a panel merely being
+    ///     opened would then rewrite the settings it was opened to display.
+    /// </remarks>
+    public void Show(MeshMapBakeSettings value) {
+        ArgumentNullException.ThrowIfNull(value);
+
+        settings = value;
+        loading = true;
+
+        try {
+            ResolutionPicker.Value = value.Resolution.ToString(CultureInfo.InvariantCulture);
+            SamplesPicker.Value = value.OcclusionSamples.ToString(CultureInfo.InvariantCulture);
+            GutterBox.Value = value.Gutter.ToString(CultureInfo.InvariantCulture);
+            RadiusBox.Value = value.SearchRadius.ToString("0.###", CultureInfo.InvariantCulture);
+
+            Occlusion.IsChecked = value.Wants(MeshMapUsage.AmbientOcclusion);
+            Bent.IsChecked = value.Wants(MeshMapUsage.BentNormal);
+            Curvature.IsChecked = value.Wants(MeshMapUsage.Curvature);
+            Thickness.IsChecked = value.Wants(MeshMapUsage.Thickness);
+            PositionMap.IsChecked = value.Wants(MeshMapUsage.Position);
+            WorldNormal.IsChecked = value.Wants(MeshMapUsage.WorldNormal);
+            Identifiers.IsChecked = value.Wants(MeshMapUsage.Id);
+        } finally {
+            loading = false;
+        }
+
+        Rebuild();
+    }
+
+    /// <summary>Shows what a finished bake produced, warnings included.</summary>
+    /// <param name="set">What came back, or null to clear the list.</param>
+    /// <remarks>
+    ///     ⚠ <b>Null is a state and not a no-op.</b> A bake that failed leaves the previous bake's
+    ///     nine rows on screen, and somebody reading them would be reading last hour's answer under
+    ///     this hour's model name.
+    /// </remarks>
+    public void ShowResult(MeshMapSet? set) {
+        last = set;
+        Rebuild();
+    }
+
+    /// <summary>Fills the two pickers and wires every value-change event.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Subscriptions here rather than as <c>on:</c> attributes</b>, because
+    ///     <c>BuildContext.Subscriptions</c> carries the pointer gestures plus <c>click</c> and
+    ///     <c>dblclick</c>, and every value-change event in the control library is an
+    ///     <c>Action&lt;TControl, TValue&gt;</c> rather than a routed event. <c>ref</c> plus a
+    ///     subscription is <c>BuildSettingsView</c>'s idiom, and it explains itself there.
+    /// </remarks>
+    partial void OnComposed() {
+        Heading.Text = "Maps";
+
+        // ⚠ Powers of two from a preview size to a hero one, as a picker rather than a box. A bake
+        // is the atlas's texels times the ray count, so 1500 is a size whose only property is that
+        // somebody typed it — and an atlas is authored at one of these.
+        foreach (var size in Sizes) {
+            var text = size.ToString(CultureInfo.InvariantCulture);
+
+            ResolutionPicker.AddOption(text, text + " × " + text);
+        }
+
+        ResolutionPicker.SelectionChanged += (_, value) => {
+            if (!loading && settings is { } current && int.TryParse(value, CultureInfo.InvariantCulture, out var size)) {
+                current.Resolution = size;
+                Restate();
+            }
+        };
+
+        foreach (var rays in Rays) {
+            SamplesPicker.AddOption(rays.ToString(CultureInfo.InvariantCulture));
+        }
+
+        SamplesPicker.SelectionChanged += (_, value) => {
+            if (!loading && settings is { } current && int.TryParse(value, CultureInfo.InvariantCulture, out var many)) {
+                current.OcclusionSamples = many;
+                Restate();
+            }
+        };
+
+        GutterBox.ValueChanged += (_, _) => Edited();
+        RadiusBox.ValueChanged += (_, _) => Edited();
+
+        Occlusion.CheckedChanged += (_, on) => Toggled(MeshMapUsage.AmbientOcclusion, on);
+        Bent.CheckedChanged += (_, on) => Toggled(MeshMapUsage.BentNormal, on);
+        Curvature.CheckedChanged += (_, on) => Toggled(MeshMapUsage.Curvature, on);
+        Thickness.CheckedChanged += (_, on) => Toggled(MeshMapUsage.Thickness, on);
+        PositionMap.CheckedChanged += (_, on) => Toggled(MeshMapUsage.Position, on);
+        WorldNormal.CheckedChanged += (_, on) => Toggled(MeshMapUsage.WorldNormal, on);
+        Identifiers.CheckedChanged += (_, on) => Toggled(MeshMapUsage.Id, on);
+
+        Results.AddColumn("Map", item => Row(item).Map).Width = 130f;
+        Results.AddColumn("File", item => Row(item).File).Width = 260f;
+
+        Rebuild();
+    }
+
+    /// <summary>Asks the panel to look at the project and the settings again.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asked rather than told, and <c>EditorBuilds</c>'s own remarks say what the difference
+    ///     cost there.</b> Whether a bake can start depends on the selection and on whether a content
+    ///     task is running, and neither of those is an edit to this panel — a panel that only
+    ///     restated itself when somebody typed in it would sit with Bake enabled for the whole of the
+    ///     bake it had just started.
+    /// </remarks>
+    public void Rebuild() {
+        rows.Clear();
+
+        foreach (var file in last?.Files ?? []) {
+            var name = Path.GetFileName(file);
+
+            rows.Add(
+                new BakedMapRow(
+                    MeshMapNaming.TryParseFileName(name, out _, out var usage)
+                        ? MeshMapNaming.Suffix(usage)
+
+                        // ⚠ Not "unknown". A row this reaches is a file the bake wrote and this
+                        // panel's own reader could not name, which is a defect in one of the two and
+                        // is worth reading as one rather than as a gap in the data.
+                        : "?",
+                    name
+                )
+            );
+        }
+
+        Results.SetItems(rows);
+        Restate();
+    }
+
+    /// <summary>Asks the two pulled answers again, without touching the result list.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What <c>EditorApplication.Update</c> calls once a frame while this panel is open, and
+    ///     the reason it is separate from <see cref="Rebuild" />.</b> What can change under an open
+    ///     panel without anything raising an event is the project selection — <c>Selection&lt;T&gt;</c>
+    ///     has no change event — so the two sentences and the button have to be pulled. Rebuilding
+    ///     the grid's rows at sixty hertz to discover that nothing about them moved is the part that
+    ///     must not be in that path.
+    /// </remarks>
+    public void Refresh() => Restate();
+
+    /// <summary>The three sentences: what would be baked, what is wrong, and what the last one did.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every write is compared first, because this runs once a frame.</b> Assigning
+    ///     <c>UiElement.Text</c> replaces a child element — see <c>BuildContext.Text</c> — so an
+    ///     unconditional write is a text node rebuilt sixty times a second for a sentence that has
+    ///     not changed since the panel opened.
+    /// </remarks>
+    void Restate() {
+        var refusal = Refusal?.Invoke() ?? Trouble();
+
+        Say(Subject, Chosen?.Invoke() ?? "Nothing is selected. Choose a model in the project browser.");
+        Say(Note, refusal ?? Resolved());
+
+        Say(
+            Status,
+            last is not { } set
+                ? string.Empty
+                : set.Warnings.Count > 0
+                    ? string.Join(Environment.NewLine, set.Warnings)
+                    : string.Create(CultureInfo.InvariantCulture, $"{set.Files.Count} maps written for {set.Mesh}.")
+        );
+
+        if (BakeButton.Disabled != (refusal is not null)) {
+            BakeButton.Disabled = refusal is not null;
+        }
+    }
+
+    /// <summary>Writes a line, if it is not the line that is already there.</summary>
+    static void Say(UiElement element, string words) {
+        if (!string.Equals(element.Text, words, StringComparison.Ordinal)) {
+            element.Text = words;
+        }
+    }
+
+    /// <summary>What is wrong with a typed field, or null when nothing is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The two typed fields are reported rather than corrected.</b> A box that silently
+    ///     replaced <c>0.5</c> with <c>0.05</c> because it preferred the range would be a box that
+    ///     lies about what a bake is about to do, and a search radius is a fraction whose plausible
+    ///     values span two orders of magnitude — there is no safe guess.
+    /// </remarks>
+    string? Trouble() {
+        if (!int.TryParse(GutterBox.Value, CultureInfo.InvariantCulture, out var gutter) || gutter < 0) {
+            return "The gutter is a whole number of texels, and not fewer than none.";
+        }
+
+        if (!float.TryParse(RadiusBox.Value, CultureInfo.InvariantCulture, out var radius) || radius is <= 0f or > 1f) {
+            return "The search radius is a fraction of the model's bounding-box diagonal, above 0 and at most 1.";
+        }
+
+        return null;
+    }
+
+    /// <summary>What the fields add up to.</summary>
+    string Resolved() =>
+        settings is not { } current
+            ? string.Empty
+            : string.Create(
+                CultureInfo.InvariantCulture,
+                $"{current.Resolution} × {current.Resolution}, {current.Count} maps, "
+                + $"{current.OcclusionSamples} rays a texel."
+            );
+
+    /// <summary>Takes a typed field, if it reads as a number, and restates.</summary>
+    void Edited() {
+        if (loading || settings is not { } current) {
+            return;
+        }
+
+        if (int.TryParse(GutterBox.Value, CultureInfo.InvariantCulture, out var gutter) && gutter >= 0) {
+            current.Gutter = gutter;
+        }
+
+        if (float.TryParse(RadiusBox.Value, CultureInfo.InvariantCulture, out var radius) && radius is > 0f and <= 1f) {
+            current.SearchRadius = radius;
+        }
+
+        Restate();
+    }
+
+    /// <summary>Turns one optional map on or off.</summary>
+    void Toggled(MeshMapUsage usage, bool on) {
+        if (loading || settings is not { } current) {
+            return;
+        }
+
+        current.Want(usage, on);
+        Restate();
+    }
+
+    /// <summary>One row of the result list, which is the only thing the grid holds.</summary>
+    static BakedMapRow Row(object item) => (BakedMapRow) item;
+
+    /// <summary>The sizes an atlas is authored at.</summary>
+    static readonly int[] Sizes = [256, 512, 1024, 2048, 4096];
+
+    /// <summary>And the ray counts a hemisphere is worth sampling with.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Sixty-four is <c>BakeSettings</c>'s own default and the middle of this list</b>, so
+    ///     the panel opens on the number the verb baked with before it existed. The top of the list
+    ///     is minutes at 4K and is meant to be.
+    /// </remarks>
+    static readonly int[] Rays = [16, 32, 64, 128, 256, 512];
+}

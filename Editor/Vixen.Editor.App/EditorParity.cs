@@ -422,12 +422,18 @@ sealed partial class EditorApplication {
         // hidden cache with a re-entrancy bug on top. Baking is therefore a verb over a selected
         // model, taken through the same scan-then-read-back-the-GUID sequence as every other thing
         // the editor puts in a project.
+        //
+        // ⚠ And it opens the panel rather than baking, which § D12's last bullet is what changed.
+        // A verb that baked at a constant 1024 with every map on was a bake nobody chose — the
+        // constant's own comment said "until § D12's bake panel exists" — and a second verb beside
+        // it that opened the panel would be two answers to what Bake means, which is doc 20's A4
+        // complaint. One settings object, one place to press it. `MeshMapBakeView` is the panel and
+        // `BakeSelectedMeshMaps` is still the thing its button calls.
         Verb(
             "assets.bake-mesh-maps",
-            new StringId("editor.command.assets.bake-mesh-maps", "Bake Mesh Maps"),
+            new StringId("editor.command.assets.bake-mesh-maps", "Bake Mesh Maps…"),
             CategoryAssets,
-            BakeSelectedMeshMaps,
-            enabled: () => !content.IsBusy && SelectedIsAModel()
+            () => Shell.Workspace.Open(MeshMapBakePanel)
         );
 
         Verb(
@@ -1737,13 +1743,10 @@ sealed partial class EditorApplication {
             var kernel = ModelGeometry.ToEditMesh(mesh);
             var name = mesh.Name.Length > 0 ? mesh.Name : Path.GetFileNameWithoutExtension(absolute);
 
-            content.BakeMeshMaps(
-                meshMaps,
-                name,
-                kernel,
-                kernel,
-                new() { Resolution = MeshMapResolution, Maps = Vixen.Geometry.Remeshing.MeshMaps.All }
-            );
+            // ⚠ The model's own asset id goes with the name, and it is what keys the set rather
+            // than decorating it. `mesh.Name` is whatever the artist called the object in Blender,
+            // which is `Cube` in every file nobody renamed — see `MeshMapNaming.ModelKey`.
+            content.BakeMeshMaps(meshMaps, entry.Guid, name, kernel, kernel, meshMapBake.ToBake());
         } catch (Exception failure) when (failure
             is IOException
             or UnauthorizedAccessException
@@ -1752,6 +1755,83 @@ sealed partial class EditorApplication {
             Shell.Notifications.Show("Could not bake mesh maps", NotificationSeverity.Error, failure.Message);
         }
     }
+
+    /// <summary>What the Bake Mesh Maps panel is called in an arrangement.</summary>
+    internal const string MeshMapBakePanel = "mesh-map-bake";
+
+    /// <summary>The panel while it is open, or <see langword="null" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Held for <c>buildView</c>'s reason and released the same way.</b> What it displays —
+    ///     which model is selected, whether a content task is running, what the last bake produced —
+    ///     changes for reasons that are not edits to the panel, so something has to be able to ask it
+    ///     again.
+    /// </remarks>
+    MeshMapBakeView? bakeView;
+
+    /// <summary>The one copy of what a bake is set to measure, which the verb and the panel share.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Exposed for a suite to read, and it is the assertion doc 20's A4 rule needs.</b> "The
+    ///     panel and the bake read one object" is not visible from either of them — a panel editing a
+    ///     copy looks identical from the panel's own tests, and the failure is a resolution somebody
+    ///     set being ignored by the button beside it.
+    /// </remarks>
+    internal MeshMapBakeSettings MeshMapBakeOptions => meshMapBake;
+
+    readonly MeshMapBakeSettings meshMapBake = new();
+
+    /// <summary>Doc 48 § D12's bake panel.</summary>
+    void MeshMapPanels() =>
+        Shell.RegisterPanel(
+            new PanelDescriptor(
+                MeshMapBakePanel,
+                new StringId("editor.panel.mesh-map-bake", "Bake Mesh Maps"),
+                panel => {
+                    var view = panel.Add<MeshMapBakeView>();
+
+                    // ⚠ Pulled, both, and `BuildSettingsView` says why: this factory runs again on
+                    // every reopen, so an answer captured once would be from a selection the user
+                    // has since changed.
+                    view.Chosen = MeshMapSubject;
+                    view.Refusal = MeshMapRefusal;
+
+                    view.BakeRequested += _ => BakeSelectedMeshMaps();
+                    view.Show(meshMapBake);
+                    view.ShowResult(content.LastBake);
+
+                    bakeView = view;
+                }
+            ) {
+                Closed = () => bakeView = null
+            }
+        );
+
+    /// <summary>What the panel says would be baked.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The file, not the mesh inside it.</b> Naming the mesh means reading the model through
+    ///     Assimp, which is the bake's own first step and is far too much to do while a panel is
+    ///     restating itself — see <see cref="MeshMapRefusal" /> for what this surface may cost.
+    /// </remarks>
+    string? MeshMapSubject() =>
+        project.Selection.Count == 1 && project.Assets.TryGetByGuid(project.Selection[0], out var entry)
+            ? Path.GetFileName(entry.Path)
+            : null;
+
+    /// <summary>Why the panel's Bake button is greyed, or null when it is not.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Cheap enough to ask once a frame, which <c>BuildRefusal</c> is not.</b> That one
+    ///     enumerates the project root looking for a <c>.csproj</c> and is therefore asked only when
+    ///     something happens; this is a count, a dictionary lookup and a set lookup, and the
+    ///     selection it depends on has no change event to hang off — see
+    ///     <see cref="MeshMapBakeView.Refresh" />, which <c>Update</c> calls while the panel is open.
+    /// </remarks>
+    string? MeshMapRefusal() =>
+        content.IsBusy
+            ? "Something is already importing, building or baking."
+            : SelectedIsAModel()
+                ? null
+                : "Select one model in the project browser — "
+                + string.Join(", ", ModelExtensions.Order(StringComparer.Ordinal))
+                + ".";
 
     /// <summary>Whether exactly one asset is selected and it is a model file.</summary>
     /// <remarks>
@@ -1770,15 +1850,6 @@ sealed partial class EditorApplication {
     /// <summary>What <c>ModelImporter</c> claims, read once from its own attribute.</summary>
     static readonly HashSet<string> ModelExtensions =
         new(new ModelImporter().Extensions, StringComparer.OrdinalIgnoreCase);
-
-    /// <summary>How big a mesh map the verb bakes.</summary>
-    /// <remarks>
-    ///     ⚠ <b>A constant until § D12's bake panel exists, and it is deliberately a preview
-    ///     size.</b> 1K with <c>BakeSettings</c>'s default sixty-four rays is seconds; the same bake
-    ///     at 4K with several hundred is what a hero asset wants and what nobody wants to discover by
-    ///     picking a menu item. The panel is what turns this into a number somebody chose.
-    /// </remarks>
-    const int MeshMapResolution = 1024;
 
     /// <summary>How the model is imported, so the bake reads the geometry the project uses.</summary>
     /// <remarks>

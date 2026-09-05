@@ -89,8 +89,36 @@ public static class MeshMapNaming {
     /// <remarks>The authoritative binding. Its value is the usage's <see cref="Suffix" />.</remarks>
     public const string UsageKey = "meshMap.usage";
 
-    /// <summary>The sidecar extension key naming the mesh the set was baked from.</summary>
+    /// <summary>The sidecar extension key naming the set this map belongs to.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The set's name, which is the mesh's name made safe and made unique</b> — not the
+    ///     string a caller passed. It is always the stem <see cref="TryParseFileName" /> reads back
+    ///     out of the file name, so the sidecar and the file cannot disagree; before that was true,
+    ///     a mesh called <c>Wall/2</c> wrote <c>meshMap.mesh: Wall_2</c> beside a file called
+    ///     <c>2_normal.png</c> in a directory that did not exist.
+    /// </remarks>
     public const string MeshKey = "meshMap.mesh";
+
+    /// <summary>The sidecar extension key naming the model asset the set was baked from.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the set's identity, and the file name is not.</b> Two models whose meshes
+    ///         are both called <c>Cube</c> — Blender's default, and the fallback of every exporter
+    ///         that does not name meshes — produce the same nine file names, and a writer that keyed
+    ///         on those overwrote the first model's maps with the second's, handed back the first
+    ///         model's GUIDs, and rebound every generator reading them without a word. The model's
+    ///         <c>AssetId</c> is what separates a <i>re-bake</i>, which must overwrite and
+    ///         keep its GUIDs, from a <i>collision</i>, which must not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Absent means "nobody said", not "no model".</b> A set written without one is
+    ///         adoptable by the next bake that names a model, which is what migrates a set baked
+    ///         before this key existed. Two <i>un</i>-keyed sets sharing a name are still
+    ///         indistinguishable — that is the defect itself, and the reason the editor always passes
+    ///         the model it read the mesh out of.
+    ///     </para>
+    /// </remarks>
+    public const string ModelKey = "meshMap.model";
 
     /// <summary>The sidecar extension key holding what an encoded value is multiplied by.</summary>
     /// <remarks>

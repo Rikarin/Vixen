@@ -48,6 +48,14 @@ namespace Vixen.Editor.App;
 ///         artist raising the ray count, and a second set each time would leave the project full of
 ///         <c>Barrel_ao_3</c> while every generator went on reading the first one.
 ///     </para>
+///     <para>
+///         ⚠ <b>Which is why the set is keyed on the <i>model</i> and not on the name.</b> "The same
+///         mesh" and "another model's mesh with the same name" produce identical file names, and the
+///         second one is Blender's default object name — so keying on the name made the correct
+///         behaviour above into a silent swap of one model's maps for another's, GUIDs and all. The
+///         model's id goes in the sidecar (<see cref="MeshMapNaming.ModelKey" />) and
+///         <see cref="SetName" /> is what reads it back.
+///     </para>
 /// </remarks>
 /// <param name="project">The project to write into.</param>
 /// <param name="folder">Which folder under <c>Assets/</c> baked maps go in.</param>
@@ -65,7 +73,7 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
     public IReadOnlyList<string> Written { get; private set; } = [];
 
     /// <inheritdoc />
-    public MeshMapSet Bake(string mesh, EditMesh source, EditMesh target, BakeSettings settings) {
+    public MeshMapSet Bake(AssetId model, string mesh, EditMesh source, EditMesh target, BakeSettings settings) {
         ArgumentException.ThrowIfNullOrEmpty(mesh);
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(target);
@@ -73,24 +81,40 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
 
         var maps = MapBaker.Bake(source, target, settings);
 
-        return Write(mesh, MeshMapBake.Encode(Safe(mesh), maps), maps.Warnings);
+        return Write(model, mesh, MeshMapBake.Encode(maps), maps.Warnings);
     }
 
     /// <inheritdoc />
-    public MeshMapSet Write(string mesh, IReadOnlyList<MeshMapImage> images, IReadOnlyList<string> warnings) {
+    public MeshMapSet Write(
+        AssetId model,
+        string mesh,
+        IReadOnlyList<MeshMapImage> images,
+        IReadOnlyList<string> warnings
+    ) {
         ArgumentException.ThrowIfNullOrEmpty(mesh);
         ArgumentNullException.ThrowIfNull(images);
         ArgumentNullException.ThrowIfNull(warnings);
 
-        var name = Safe(mesh);
         var directory = Path.Combine(project.Paths.Assets, Folder);
 
         Directory.CreateDirectory(directory);
 
+        // ⚠ Here rather than at the caller, and this is the whole of the fix. `Bake` sanitised and
+        // `Write` trusted, and the editor only ever calls `Write` — so a mesh Assimp handed back as
+        // `../Wall` wrote nine PNGs outside `Assets/` altogether, which is exactly the traversal
+        // `Safe`'s own remarks say it exists to stop.
+        var wanted = Safe(mesh);
+        var name = SetName(directory, model, wanted, out var taken);
+        var said = taken.IsEmpty ? warnings : [.. warnings, Clashed(wanted, name)];
+
         var files = new List<string>(images.Count);
 
         foreach (var image in images) {
-            var file = Path.Combine(directory, image.FileName);
+            // ⚠ Derived from the set's name and the usage rather than read off the image. An encoded
+            // image used to carry a file name minted at encode time, which is before anything knows
+            // the folder it lands in or whether the name is another model's — the two defects above,
+            // both of which are unreachable now that the writer is the only thing that names a file.
+            var file = Path.Combine(directory, MeshMapNaming.FileName(name, image.Usage));
 
             File.WriteAllBytes(file, image.Png);
             files.Add(file);
@@ -118,14 +142,109 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
                 continue;
             }
 
-            Describe(files[at], entry.Guid, name, images[at]);
+            Describe(files[at], entry.Guid, model, name, images[at]);
             references[images[at].Usage] = new AssetReference(entry.Guid);
         }
 
         project.Assets.Save();
 
-        return new(name, references, files, warnings);
+        return new(name, references, files, said);
     }
+
+    /// <summary>What this set is called in the folder, which is not simply what it was asked to be.</summary>
+    /// <param name="directory">The folder the set lands in.</param>
+    /// <param name="model">The model asset it was baked from, or empty where there is none.</param>
+    /// <param name="mesh">The mesh's name, already safe for a file name.</param>
+    /// <param name="taken">The model already using that name, or empty where nobody was.</param>
+    /// <returns>The stem every file in the set is named from.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A re-bake and a collision produce the same nine file names, and only the model
+    ///         tells them apart.</b> Overwriting is right for the first — an artist raising the ray
+    ///         count has to change the maps their generators already read, which is what
+    ///         <see cref="ProjectMeshBaker" />'s remarks argue — and catastrophic for the second: two
+    ///         models whose meshes are both called <c>Cube</c>, which is Blender's default object
+    ///         name and every exporter's fallback, silently swapped one another's pixels <i>and</i>
+    ///         inherited one another's GUIDs, so every material bound to the first went on resolving
+    ///         and started sampling the second.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A set with no model recorded is adopted rather than avoided.</b> That is what a
+    ///         set baked before <see cref="MeshMapNaming.ModelKey" /> existed looks like, and leaving
+    ///         it alone would strand it under the name while the re-bake landed beside it as
+    ///         <c>Cube_2</c>. Two <i>un</i>-keyed bakes of one name are still one set, which is
+    ///         honest: without a model there is nothing to tell them apart with.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <see cref="MeshMapUsage.Normal" /> map is what is asked</b>, because
+    ///         <c>MeshMapBake.Always</c> guarantees a set has one whatever was measured. Asking about
+    ///         the occlusion map instead would call a name free whenever the set under it was baked
+    ///         with the ray-casting maps turned off.
+    ///     </para>
+    /// </remarks>
+    /// <exception cref="IOException">There are already <see cref="Crowd" /> sets under that name.</exception>
+    static string SetName(string directory, AssetId model, string mesh, out AssetId taken) {
+        taken = AssetId.Empty;
+
+        for (var suffix = 1; suffix <= Crowd; suffix++) {
+            var candidate = suffix == 1 ? mesh : mesh + "_" + suffix.ToString(CultureInfo.InvariantCulture);
+            var owner = OwnerOf(directory, candidate);
+
+            if (owner is not { } already || already.IsEmpty || already == model) {
+                return candidate;
+            }
+
+            if (taken.IsEmpty) {
+                taken = already;
+            }
+        }
+
+        // ⚠ Refused rather than silently overwriting the hundredth, which is the shape a clamp has to
+        // take here: the thing on the other side of it is a project's baked maps.
+        throw new IOException(
+            $"There are already {Crowd.ToString(CultureInfo.InvariantCulture)} baked sets called \"{mesh}\" in "
+            + $"{directory}, from that many different models. Rename the mesh, or bake into another folder."
+        );
+    }
+
+    /// <summary>How many differently-owned sets may share one mesh name before the bake refuses.</summary>
+    /// <remarks>
+    ///     Absurd rather than tuned — a hundred models whose meshes are all called <c>Cube</c> is a
+    ///     project with a naming problem the editor cannot fix — and it is a bound on a loop that
+    ///     opens a file per turn rather than a judgement about what is reasonable.
+    /// </remarks>
+    const int Crowd = 100;
+
+    /// <summary>Which model owns the set under a name, or null where no set is under it.</summary>
+    /// <remarks>
+    ///     <see cref="AssetId.Empty" /> is the third answer and means a set is there and does not say
+    ///     whose it is — see <see cref="SetName" />, which adopts one.
+    /// </remarks>
+    static AssetId? OwnerOf(string directory, string name) {
+        var sidecar = AssetMetaFile.PathFor(
+            Path.Combine(directory, MeshMapNaming.FileName(name, MeshMapUsage.Normal))
+        );
+
+        if (Existing(sidecar) is not { } meta) {
+            return null;
+        }
+
+        return meta.Extensions.TryGetValue(MeshMapNaming.ModelKey, out var written)
+            && AssetId.TryParse(written, out var owner)
+                ? owner
+                : AssetId.Empty;
+    }
+
+    /// <summary>What the artist is told when a name they did not choose was used.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A warning rather than a refusal, and it is carried in the set's own warnings</b> so
+    ///     that it reaches the same notification the bake's own <c>Missed</c> and <c>Covered</c>
+    ///     complaints do. The collision this reports used to produce no message anywhere: the bake
+    ///     said it had written nine maps, and it had — over somebody else's.
+    /// </remarks>
+    static string Clashed(string mesh, string name) =>
+        $"Another model has already baked a set called \"{mesh}\" here, so this one was written as "
+        + $"\"{name}\". Two meshes with one name is what that means — rename one of them to tell them apart.";
 
     /// <summary>Writes what the bytes mean into the sidecar the scan minted, keeping its GUID.</summary>
     /// <remarks>
@@ -143,13 +262,22 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
     ///         the previous import's source hash, and the pixels under it have just changed.
     ///     </para>
     /// </remarks>
-    static void Describe(string file, AssetId guid, string mesh, MeshMapImage image) {
+    static void Describe(string file, AssetId guid, AssetId model, string mesh, MeshMapImage image) {
         var sidecar = AssetMetaFile.PathFor(file);
         var existing = Existing(sidecar);
         var extensions = new Dictionary<string, string>(existing?.Extensions ?? [], StringComparer.Ordinal) {
             [MeshMapNaming.UsageKey] = MeshMapNaming.Suffix(image.Usage),
             [MeshMapNaming.MeshKey] = mesh
         };
+
+        // ⚠ Written even though nothing reads it back except the next bake, which is the point: it is
+        // the set's identity, and a set whose identity lives only in the name it happens to have is a
+        // set the next model called `Cube` overwrites. See `SetName`.
+        if (model.IsEmpty) {
+            extensions.Remove(MeshMapNaming.ModelKey);
+        } else {
+            extensions[MeshMapNaming.ModelKey] = model.ToString();
+        }
 
         if (image.Scale > 0f) {
             extensions[MeshMapNaming.ScaleKey] = image.Scale.ToString("R", CultureInfo.InvariantCulture);

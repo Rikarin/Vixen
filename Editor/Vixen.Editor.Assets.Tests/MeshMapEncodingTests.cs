@@ -76,20 +76,26 @@ public sealed class MeshMapEncodingTests {
     /// <summary>A bake nobody asked for extra maps from produces exactly the two that are not optional.</summary>
     [Fact]
     public void Only_the_maps_that_were_measured_become_files() {
-        var made = MeshMapBake.Encode("Barrel", Measured(2));
+        var made = MeshMapBake.Encode(Measured(2));
 
         Assert.Equal(MeshMapBake.Always, made.Select(image => image.Usage).ToList());
-        Assert.Equal("Barrel_normal.png", made[0].FileName);
-        Assert.Equal("Barrel_height.png", made[1].FileName);
     }
 
-    /// <summary>Everything § D12 lists becomes one file, and one only.</summary>
+    /// <summary>Everything § D12 lists becomes one image, and one only.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The usages rather than the file names, because an encoded image no longer carries
+    ///     one.</b> A name minted here is a name minted before anything knows the folder it lands in
+    ///     or whether another model is already using it, which was two defects — see
+    ///     <c>IMeshMapBaker.Write</c>. What has to be distinct for a set to survive being written is
+    ///     the usage, and <see cref="Every_usage_names_a_file_that_parses_back" /> is what proves the
+    ///     naming those usages go through is injective.
+    /// </remarks>
     [Fact]
     public void Every_measured_map_becomes_one_file() {
-        var made = MeshMapBake.Encode("Barrel", Everything(2));
+        var made = MeshMapBake.Encode(Everything(2));
 
         Assert.Equal(MeshMapNaming.Every, made.Select(image => image.Usage).ToList());
-        Assert.Equal(made.Count, made.Select(image => image.FileName).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(made.Count, made.Select(image => image.Usage).Distinct().Count());
     }
 
     /// <summary>The first row of the file is the top of the atlas, not the bottom.</summary>
@@ -104,7 +110,7 @@ public sealed class MeshMapEncodingTests {
     public void The_first_row_of_the_file_is_the_top_of_the_atlas() {
         var occlusion = new[] { 0f, 0f, 1f, 1f };
         var maps = Measured(2) with { AmbientOcclusion = occlusion };
-        var image = Single(MeshMapBake.Encode("Barrel", maps), MeshMapUsage.AmbientOcclusion);
+        var image = Single(MeshMapBake.Encode(maps), MeshMapUsage.AmbientOcclusion);
         var decoded = PngCodec.Decode(image.Png);
 
         Assert.Equal(byte.MaxValue, decoded.Pixels[decoded.Offset(0, 0)]);
@@ -127,7 +133,7 @@ public sealed class MeshMapEncodingTests {
             DisplacementRange = range
         };
 
-        var image = Single(MeshMapBake.Encode("Barrel", maps), MeshMapUsage.Displacement);
+        var image = Single(MeshMapBake.Encode(maps), MeshMapUsage.Displacement);
         var decoded = PngCodec.Decode(image.Png);
 
         Assert.Equal(range, image.Scale);
@@ -147,7 +153,7 @@ public sealed class MeshMapEncodingTests {
     [Fact]
     public void A_measurement_with_no_range_is_flat_rather_than_infinite() {
         var maps = Measured(2) with { Displacement = [0f, 0f, 0f, 0f], DisplacementRange = 0f };
-        var image = Single(MeshMapBake.Encode("Barrel", maps), MeshMapUsage.Displacement);
+        var image = Single(MeshMapBake.Encode(maps), MeshMapUsage.Displacement);
         var decoded = PngCodec.Decode(image.Png);
 
         Assert.Equal(0f, image.Scale);
@@ -164,7 +170,7 @@ public sealed class MeshMapEncodingTests {
     [Fact]
     public void The_id_map_is_the_bakers_own_colour_per_texel() {
         var maps = Measured(2) with { Ids = [-1, 0, 1, 7] };
-        var image = Single(MeshMapBake.Encode("Barrel", maps), MeshMapUsage.Id);
+        var image = Single(MeshMapBake.Encode(maps), MeshMapUsage.Id);
         var decoded = PngCodec.Decode(image.Png);
 
         // The array runs from the bottom left, so ids 0 and 1 are the picture's second row.
@@ -183,9 +189,9 @@ public sealed class MeshMapEncodingTests {
     /// </remarks>
     [Fact]
     public void No_mesh_map_is_compressed_or_mipped() {
-        foreach (var image in MeshMapBake.Encode("Barrel", Everything(2))) {
+        foreach (var image in MeshMapBake.Encode(Everything(2))) {
             Assert.Equal(TextureCompression.None, image.Settings.Compression);
-            Assert.False(image.Settings.GenerateMips, $"{image.FileName} would be mipped.");
+            Assert.False(image.Settings.GenerateMips, $"{image.Usage} would be mipped.");
         }
     }
 
@@ -198,9 +204,9 @@ public sealed class MeshMapEncodingTests {
     /// </remarks>
     [Fact]
     public void An_object_space_normal_map_is_not_declared_tangent_space() {
-        var tangent = Single(MeshMapBake.Encode("Barrel", Measured(2)), MeshMapUsage.Normal);
+        var tangent = Single(MeshMapBake.Encode(Measured(2)), MeshMapUsage.Normal);
         var objectSpace = Single(
-            MeshMapBake.Encode("Barrel", Measured(2) with { Space = BakeSpace.Object }),
+            MeshMapBake.Encode(Measured(2) with { Space = BakeSpace.Object }),
             MeshMapUsage.Normal
         );
 
@@ -212,7 +218,7 @@ public sealed class MeshMapEncodingTests {
     [Fact]
     public void A_direction_is_stored_about_a_half() {
         var maps = Measured(1) with { Normals = [Vector3.UnitZ] };
-        var decoded = PngCodec.Decode(Single(MeshMapBake.Encode("Barrel", maps), MeshMapUsage.Normal).Png);
+        var decoded = PngCodec.Decode(Single(MeshMapBake.Encode(maps), MeshMapUsage.Normal).Png);
 
         Assert.Equal(128, decoded.Pixels[0]);
         Assert.Equal(128, decoded.Pixels[1]);
@@ -223,7 +229,7 @@ public sealed class MeshMapEncodingTests {
     [Fact]
     public void A_position_is_stored_as_it_was_measured() {
         var maps = Measured(1) with { Position = [Vector3.One] };
-        var decoded = PngCodec.Decode(Single(MeshMapBake.Encode("Barrel", maps), MeshMapUsage.Position).Png);
+        var decoded = PngCodec.Decode(Single(MeshMapBake.Encode(maps), MeshMapUsage.Position).Png);
 
         Assert.Equal(byte.MaxValue, decoded.Pixels[0]);
         Assert.Equal(byte.MaxValue, decoded.Pixels[1]);
