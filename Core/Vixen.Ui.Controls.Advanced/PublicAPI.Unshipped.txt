@@ -685,7 +685,9 @@ Vixen.Ui.Controls.Advanced.NodeCanvas.ClearWireThickness() -> void
 Vixen.Ui.Controls.Advanced.NodeCanvas.ClearZoom() -> void
 Vixen.Ui.Controls.Advanced.NodeCanvas.Connected -> System.Action<Vixen.Ui.Controls.Advanced.NodeCanvas, Vixen.Ui.Controls.Advanced.GraphWire>?
 Vixen.Ui.Controls.Advanced.NodeCanvas.Cursor.get -> Vixen.Ui.Controls.Advanced.GraphNode?
+Vixen.Ui.Controls.Advanced.NodeCanvas.Cursor.set -> Vixen.Ui.Controls.Advanced.GraphNode?
 Vixen.Ui.Controls.Advanced.NodeCanvas.Dropped -> System.Action<Vixen.Ui.Controls.Advanced.NodeCanvas, Vixen.Ui.Controls.Advanced.GraphNode, Vixen.Core.Mathematics.Vector2>?
+Vixen.Ui.Controls.Advanced.NodeCanvas.EnsureVisible(Vixen.Ui.Controls.Advanced.GraphNode node) -> bool
 Vixen.Ui.Controls.Advanced.NodeCanvas.Graph.get -> Vixen.Ui.Controls.Advanced.NodeGraph
 Vixen.Ui.Controls.Advanced.NodeCanvas.Graph.set -> Vixen.Ui.Controls.Advanced.NodeGraph
 Vixen.Ui.Controls.Advanced.NodeCanvas.GridSize.get -> float

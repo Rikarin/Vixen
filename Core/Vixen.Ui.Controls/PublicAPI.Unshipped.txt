@@ -1117,6 +1117,7 @@ static Vixen.Ui.Controls.ControlStrings.GradientEditorAlphaStops.get -> Vixen.Ui
 static Vixen.Ui.Controls.ControlStrings.GradientEditorColorStops.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.GradientEditorOpacity.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.GradientEditorSpace.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.NodeCanvasNodes.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.PaginationNext.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.PaginationPrevious.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.PropertyGridReset.get -> Vixen.Ui.StringId
