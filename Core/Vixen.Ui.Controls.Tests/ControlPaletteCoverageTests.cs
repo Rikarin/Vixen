@@ -237,7 +237,7 @@ public class ControlPaletteCoverageTests {
                 continue;
             }
 
-            var share = changed / (double) painted;
+            var share = changed / (double)painted;
 
             if (share < MinimumRepaint) {
                 offenders.Add(
@@ -294,7 +294,7 @@ public class ControlPaletteCoverageTests {
             ui.Document.Root.AddClass("dark");
         }
 
-        var element = (UiElement) make.MakeGenericMethod(type).Invoke(null, [ui.Document.Root])!;
+        var element = (UiElement)make.MakeGenericMethod(type).Invoke(null, [ui.Document.Root])!;
         element.AddClass("probe");
         Seed(element);
         ui.Frame();
@@ -305,10 +305,10 @@ public class ControlPaletteCoverageTests {
         return (
             image,
             new(
-                Math.Max(0, (int) MathF.Round(bounds.X)),
-                Math.Max(0, (int) MathF.Round(bounds.Y)),
-                Math.Min(image.Width, (int) MathF.Round(bounds.X + bounds.Width)),
-                Math.Min(image.Height, (int) MathF.Round(bounds.Y + bounds.Height))
+                Math.Max(0, (int)MathF.Round(bounds.X)),
+                Math.Max(0, (int)MathF.Round(bounds.Y)),
+                Math.Min(image.Width, (int)MathF.Round(bounds.X + bounds.Width)),
+                Math.Min(image.Height, (int)MathF.Round(bounds.Y + bounds.Height))
             )
         );
     }

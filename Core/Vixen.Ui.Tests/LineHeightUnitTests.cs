@@ -45,8 +45,8 @@ public class LineHeightUnitTests {
             LengthContext.ForViewport(1000f, 500f).WithFontSize(20f).WithLineHeight(30f)
         );
 
-        Assert.Equal(LayoutUnit.Point, style.Dimensions[(int) Dimension.Height].Unit);
-        Assert.Equal(expected, style.Dimensions[(int) Dimension.Height].Value, Tolerance);
+        Assert.Equal(LayoutUnit.Point, style.Dimensions[(int)Dimension.Height].Unit);
+        Assert.Equal(expected, style.Dimensions[(int)Dimension.Height].Value, Tolerance);
     }
 
     /// <summary><c>line-height: normal</c> is a stand-in and never a zero.</summary>
@@ -69,7 +69,7 @@ public class LineHeightUnitTests {
         Assert.Equal(24f, LengthContext.ForViewport(1000f, 500f).WithFontSize(20f).LineHeight, Tolerance);
 
         var style = new BridgeFixture().Build("height: 1lh", normal);
-        Assert.Equal(24f, style.Dimensions[(int) Dimension.Height].Value, Tolerance);
+        Assert.Equal(24f, style.Dimensions[(int)Dimension.Height].Value, Tolerance);
     }
 
     /// <summary>And the box in a real document is one line tall, which is the claim that matters.</summary>

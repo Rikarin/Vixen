@@ -84,9 +84,9 @@ public class EditingCommandsTests {
     /// <summary>Shift says how, not what.</summary>
     [Fact]
     public void Shift_does_not_change_which_command_a_chord_is() {
-        foreach (var keymap in (ReadOnlySpan<EditingKeymap>) [EditingKeymap.Windows, EditingKeymap.MacOs]) {
-            foreach (var key in (ReadOnlySpan<InputKey>) [InputKey.Left, InputKey.Right, InputKey.Home, InputKey.Up]) {
-                foreach (var modifiers in (ReadOnlySpan<ModifierKeys>) [
+        foreach (var keymap in (ReadOnlySpan<EditingKeymap>)[EditingKeymap.Windows, EditingKeymap.MacOs]) {
+            foreach (var key in (ReadOnlySpan<InputKey>)[InputKey.Left, InputKey.Right, InputKey.Home, InputKey.Up]) {
+                foreach (var modifiers in (ReadOnlySpan<ModifierKeys>)[
                     ModifierKeys.None, ModifierKeys.Control, ModifierKeys.Alt, ModifierKeys.Meta
                 ]) {
                     Assert.Equal(
@@ -152,9 +152,9 @@ public class EditingCommandsTests {
     public void Every_command_is_produced_by_some_chord_and_has_an_id() {
         var reached = new HashSet<EditingCommand>();
 
-        foreach (var keymap in (ReadOnlySpan<EditingKeymap>) [EditingKeymap.Windows, EditingKeymap.MacOs]) {
+        foreach (var keymap in (ReadOnlySpan<EditingKeymap>)[EditingKeymap.Windows, EditingKeymap.MacOs]) {
             foreach (var key in Enum.GetValues<InputKey>()) {
-                foreach (var modifiers in (ReadOnlySpan<ModifierKeys>) [
+                foreach (var modifiers in (ReadOnlySpan<ModifierKeys>)[
                     ModifierKeys.None, ModifierKeys.Control, ModifierKeys.Alt, ModifierKeys.Meta
                 ]) {
                     reached.Add(EditingCommands.Resolve(key, modifiers, keymap));

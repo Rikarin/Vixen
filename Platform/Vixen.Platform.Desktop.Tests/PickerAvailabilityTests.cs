@@ -117,7 +117,8 @@ public sealed class PickerAvailabilityTests {
 
         public PlatformServices Augment(in PlatformServices baseline) =>
             baseline with {
-                Dialogs = Dialogs, Capabilities = baseline.Capabilities | PlatformCapabilities.NativeDialogs
+                Dialogs = Dialogs,
+                Capabilities = baseline.Capabilities | PlatformCapabilities.NativeDialogs
             };
 
         public void Dispose() { }

@@ -49,9 +49,9 @@ public class ImageNineSliceTests {
     [Fact]
     public void A_destination_cut_with_no_source_cut_is_still_one_stretched_quad() {
         var command = Drawn(image => {
-                image.Texture = Atlas;
-                image.Border = Border;
-            }
+            image.Texture = Atlas;
+            image.Border = Border;
+        }
         );
 
         Assert.True(command.Slice.IsEmpty);
@@ -60,9 +60,9 @@ public class ImageNineSliceTests {
     [Fact]
     public void A_source_cut_with_no_destination_cut_is_still_one_stretched_quad() {
         var command = Drawn(image => {
-                image.Texture = Atlas;
-                image.SourceBorder = Source;
-            }
+            image.Texture = Atlas;
+            image.SourceBorder = Source;
+        }
         );
 
         Assert.True(command.Slice.IsEmpty);
@@ -72,10 +72,10 @@ public class ImageNineSliceTests {
     [Fact]
     public void Both_cuts_together_reach_the_command_in_their_own_spaces() {
         var command = Drawn(image => {
-                image.Texture = Atlas;
-                image.Border = Border;
-                image.SourceBorder = Source;
-            }
+            image.Texture = Atlas;
+            image.Border = Border;
+            image.SourceBorder = Source;
+        }
         );
 
         // ⚠ Pixels on one side and UVs on the other, and not derivable from each other here: the
@@ -89,11 +89,11 @@ public class ImageNineSliceTests {
     [Fact]
     public void A_hollow_centre_reaches_the_command_only_along_the_nine_slice_branch() {
         var sliced = Drawn(image => {
-                image.Texture = Atlas;
-                image.Border = Border;
-                image.SourceBorder = Source;
-                image.HollowCentre = true;
-            }
+            image.Texture = Atlas;
+            image.Border = Border;
+            image.SourceBorder = Source;
+            image.HollowCentre = true;
+        }
         );
 
         Assert.True(sliced.HollowCentre);
@@ -102,9 +102,9 @@ public class ImageNineSliceTests {
         // asking for one there must not travel. This is what makes `HollowCentre` a property of the
         // nine-slice rather than of the image.
         var stretched = Drawn(image => {
-                image.Texture = Atlas;
-                image.HollowCentre = true;
-            }
+            image.Texture = Atlas;
+            image.HollowCentre = true;
+        }
         );
 
         Assert.False(stretched.HollowCentre);
