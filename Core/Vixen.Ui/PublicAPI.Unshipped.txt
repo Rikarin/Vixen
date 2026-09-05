@@ -522,6 +522,9 @@ Vixen.Ui.GradientStops.Via.get -> float
 Vixen.Ui.GradientStops.Via.init -> float
 Vixen.Ui.ICommandResponder -> interface
 Vixen.Ui.ICommandResponder.TryGetCommandHandler(string id, out Vixen.Ui.CommandHandler handler) -> bool
+Vixen.Ui.ITextInputTarget -> interface
+Vixen.Ui.ITextInputTarget.AcceptsTextInput.get -> bool
+Vixen.Ui.ITextInputTarget.CaretArea.get -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.IUiWindow -> interface
 Vixen.Ui.IUiWindow : System.IDisposable
 Vixen.Ui.IUiWindow.Bounds.get -> (float X, float Y, float Width, float Height)

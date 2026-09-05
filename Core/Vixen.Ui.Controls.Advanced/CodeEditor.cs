@@ -199,7 +199,7 @@ sealed class CodeOverlay : UiElement {
 ///         <see cref="CodeBuffer.Changed" /> is the seam.
 ///     </para>
 /// </remarks>
-public sealed partial class CodeEditor : Control {
+public sealed partial class CodeEditor : Control, ITextInputTarget {
     readonly List<CodeLine> pool = [];
     readonly List<CodeGutterRow> gutterRows = [];
     readonly List<UiElement> completionRows = [];
@@ -1195,20 +1195,49 @@ public sealed partial class CodeEditor : Control {
             return;
         }
 
-        var content = Scroller.Content;
-
         context.FillRectangle(
-            new Rectangle(
-                content.AbsoluteLeft + ((Caret.Column - starts[row]) * CharacterWidth),
-                content.AbsoluteTop + (row * RowHeight),
-                MathF.Max(1f, CharacterWidth * 0.1f),
-                RowHeight
-            ),
+            CaretArea,
             Document.ColorOf(Style, caretColorStandard)
             ?? Document.ColorOf(Style, caretColor)
             ?? Document.ForegroundOf(this)
         );
     }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The rectangle used to exist only as four expressions inside <see cref="DrawCaret" />,
+    ///     which is why an input method's candidate window could not be placed against it.</b> The
+    ///     draw now reads this, so the caret an editor shows and the caret the operating system is
+    ///     told about cannot drift apart.
+    /// </remarks>
+    public Rectangle CaretArea {
+        get {
+            var row = RowAt(Caret);
+            var content = Scroller.Content;
+
+            // A caret in a fold or before the first layout has no row. The content origin is still a
+            // better answer than nothing: it puts the candidate list in the editor rather than at the
+            // corner of the screen, which is what the whole wire is for.
+            return row < 0
+                ? new(content.AbsoluteLeft, content.AbsoluteTop, 1f, MathF.Max(RowHeight, 1f))
+                : new Rectangle(
+                    content.AbsoluteLeft + ((Caret.Column - starts[row]) * CharacterWidth),
+                    content.AbsoluteTop + (row * RowHeight),
+                    MathF.Max(1f, CharacterWidth * 0.1f),
+                    RowHeight
+                );
+        }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>True, and this editor still cannot render a composition.</b> It registers no
+    ///     <c>TextCompositionEvent</c> handler, so a pre-edit is invisible until it commits — see
+    ///     issue #673. Refusing to activate would be worse rather than better: text input is off by
+    ///     default on the web and on mobile, so an editor that never activated would receive no
+    ///     characters at all, and on the desktop it would lose the ones SDL currently leaves it.
+    /// </remarks>
+    public bool AcceptsTextInput => !ReadOnly && !Disabled;
 
     // ── Caret and editing ────────────────────────────────────────────────────
 

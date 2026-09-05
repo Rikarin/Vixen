@@ -110,6 +110,7 @@ public sealed class UiApplication : IDisposable {
     readonly IPlatform platform;
     readonly IWindow window;
     readonly PlatformWindowHost windows;
+    readonly PlatformTextInput textInput;
 
     /// <summary>One shared atlas, because a glyph rasterised for one window is the same glyph in the next.</summary>
     readonly GlyphFieldCache glyphs = new(new GlyphAtlas(1024, 1024));
@@ -177,6 +178,7 @@ public sealed class UiApplication : IDisposable {
         // type: the docking host asks the document, the document asks `IUiWindowHost`, and this
         // assembly is the only one in the chain allowed to know what a window is.
         windows = new PlatformWindowHost(platform, Document, window);
+        textInput = new PlatformTextInput(platform.TextInput);
 
         // ⚠ `Mount` first and `Content` second, because a development build supplies the first to
         // put its components under a `HotReloadHost` — see `UiApplicationOptions.Mount`, which is
@@ -532,6 +534,13 @@ public sealed class UiApplication : IDisposable {
             // `cursor-*` class in every theme resolves correctly and shows nothing.
             PlatformCursor.Apply(windows);
 
+            // ⚠ Beside the cursor and for the same reason: the focus moves between frames and the
+            // caret moves within one, so neither has an event to hang on that is not "the frame".
+            // Until this line existed nothing in the framework ever called `ITextInput.Activate`, so
+            // a focused field on the web or a phone received nothing at all — and desktop only
+            // worked because SDL leaves text input running.
+            textInput.Apply(windows);
+
             Document.Draw();
 
             Sync();
@@ -542,6 +551,11 @@ public sealed class UiApplication : IDisposable {
         }
 
         device?.WaitIdle();
+
+        // ⚠ Text input is process state, not window state: SDL leaves it running after the window
+        // that asked for it has gone, and a second application started in the same process would
+        // find the keyboard already handed to an input method.
+        textInput.Deactivate();
 
         Stopping?.Invoke(this);
 

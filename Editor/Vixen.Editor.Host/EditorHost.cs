@@ -77,6 +77,7 @@ sealed class EditorHost : IDisposable {
     readonly IWindow window;
     readonly EditorApplication editor;
     readonly PlatformWindowHost windows;
+    readonly PlatformTextInput textInput;
 
     readonly GlyphFieldCache glyphs = new(new GlyphAtlas(1024, 1024));
     readonly List<UiWindowSurface> panes = [];
@@ -199,6 +200,7 @@ sealed class EditorHost : IDisposable {
         // names this type — the docking host asks the document, the document asks `IUiWindowHost`,
         // and this is the only assembly in the chain allowed to know what a window is.
         windows = new PlatformWindowHost(platform, editor.Shell.Document, window);
+        textInput = new PlatformTextInput(platform.TextInput);
 
         Fonts.Install(editor.Shell.Document);
 
@@ -326,6 +328,11 @@ sealed class EditorHost : IDisposable {
             // `UiApplicationTests.TheLoopTellsTheWindowWhatThePointerIsOver`, and
             // `PlatformCursorTests`' class remarks say why the assertion is there and not here.
             PlatformCursor.Apply(windows);
+
+            // ⚠ The second host, wired in the same frame position as the first. A wire added to one
+            // of the two and not the other is this repository's standing defect, and here it would
+            // read as the editor's own fields being the ones an input method cannot be used in.
+            textInput.Apply(windows);
 
             // ⚠ Between the two, and it is not arbitrary. A viewport measures itself in render pixels
             // from a box the layout pass is what produces, and the axis cross it draws comes from the

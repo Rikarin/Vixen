@@ -1,6 +1,11 @@
 #nullable enable
 Vixen.Platform.Ui.PlatformCursor -> static class
 Vixen.Platform.Ui.PlatformInput -> static class
+Vixen.Platform.Ui.PlatformTextInput -> sealed class
+Vixen.Platform.Ui.PlatformTextInput.Active.get -> Vixen.Platform.IWindow?
+Vixen.Platform.Ui.PlatformTextInput.Apply(Vixen.Platform.Ui.PlatformWindowHost host) -> Vixen.Platform.IWindow?
+Vixen.Platform.Ui.PlatformTextInput.Deactivate() -> void
+Vixen.Platform.Ui.PlatformTextInput.PlatformTextInput(Vixen.Platform.ITextInput textInput) -> void
 Vixen.Platform.Ui.PlatformUiWindow -> sealed class
 Vixen.Platform.Ui.PlatformUiWindow : System.IDisposable
 Vixen.Platform.Ui.PlatformUiWindow : Vixen.Ui.IUiWindow

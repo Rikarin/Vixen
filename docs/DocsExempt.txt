@@ -2381,6 +2381,7 @@ T:Vixen.Platform.SystemColorScheme	the platform half of prefers-color-scheme; do
 T:Vixen.Platform.ThermalState sweep-pending
 T:Vixen.Platform.TouchTracker sweep-pending
 T:Vixen.Platform.Ui.PlatformInput sweep-pending
+T:Vixen.Platform.Ui.PlatformTextInput	the IME wire, documented beside PlatformCursor which it mirrors
 T:Vixen.Platform.Ui.PlatformUiWindow sweep-pending
 T:Vixen.Platform.Ui.PlatformWindowHost sweep-pending
 T:Vixen.Platform.WindowMode sweep-pending
@@ -3415,6 +3416,7 @@ T:Vixen.Ui.HotReload.HotReloadWatcher sweep-pending
 T:Vixen.Ui.HotReload.MetadataUpdate sweep-pending
 T:Vixen.Ui.HotReload.ReloadChannel sweep-pending
 T:Vixen.Ui.HotReload.ReloadReport sweep-pending
+T:Vixen.Ui.ITextInputTarget	the framework half of ITextInput; documented on PlatformTextInput, which is the only caller
 T:Vixen.Ui.IUiWindow sweep-pending
 T:Vixen.Ui.IUiWindowHost sweep-pending
 T:Vixen.Ui.KeyAction sweep-pending
