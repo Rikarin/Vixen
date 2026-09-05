@@ -27,6 +27,17 @@ exactly as intended. Baselining Debug would write `IsSupported = true` down as t
 every CI run; baselining Release and then checking whatever a developer last built would fail on
 their machine instead. So the gate has one subject, and `nuke CheckApi` builds it.
 
+⚠ **And `--update` now refuses an assembly that was not built in Release**, which is the half of that
+argument the tool itself could not previously make. The gate hard-codes the configuration; the tool
+takes a path, and `bin/Debug` is what is lying around — especially for an agent forbidden to run
+gates, for whom running this tool directly *is* the documented escape. A `const`'s **value** is part
+of the surface, so a regeneration from Debug rewrote `UiDiagnostics.RecordsRegions` from `false` to
+`true` and broke `CheckApi` on master twice in one session; both times it was one changed literal
+inside a fifty-line diff of additions, which is exactly the edit "read the diff before committing"
+does not catch. The configuration is read from the assembly's `AssemblyConfigurationAttribute`, an
+assembly that carries none is refused too — *unknown* is not *Release* — and every rewritten baseline
+now names the build it came from in the log.
+
 ## The two files
 
 Beside every covered `.csproj`:
