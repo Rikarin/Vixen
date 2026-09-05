@@ -137,25 +137,25 @@ public class GridBlindSpotTests {
         // across passes; the oracle is a second tree with the same styles, built from scratch.
         Gen.Select(Gen.Int[1, 3], Gen.Int[1, 3], Gen.Int[0, 999].Array[1, 10])
             .Sample(shape => {
-                    var (columns, rows, mutations) = shape;
+                var (columns, rows, mutations) = shape;
 
-                    var spec = new GridSpec(columns, rows);
-                    using var incremental = new LayoutTree();
-                    var incrementalRoot = spec.Build(incremental);
+                var spec = new GridSpec(columns, rows);
+                using var incremental = new LayoutTree();
+                var incrementalRoot = spec.Build(incremental);
+                incremental.CalculateLayout(incrementalRoot, 220f, 160f, Direction.Ltr);
+
+                foreach (var mutation in mutations) {
+                    spec.Mutate(mutation);
+                    spec.Apply(incremental, incrementalRoot, mutation);
                     incremental.CalculateLayout(incrementalRoot, 220f, 160f, Direction.Ltr);
 
-                    foreach (var mutation in mutations) {
-                        spec.Mutate(mutation);
-                        spec.Apply(incremental, incrementalRoot, mutation);
-                        incremental.CalculateLayout(incrementalRoot, 220f, 160f, Direction.Ltr);
+                    using var cold = new LayoutTree();
+                    var coldRoot = spec.Build(cold);
+                    cold.CalculateLayout(coldRoot, 220f, 160f, Direction.Ltr);
 
-                        using var cold = new LayoutTree();
-                        var coldRoot = spec.Build(cold);
-                        cold.CalculateLayout(coldRoot, 220f, 160f, Direction.Ltr);
-
-                        AssertSameLayout(incremental, incrementalRoot, cold, coldRoot);
-                    }
+                    AssertSameLayout(incremental, incrementalRoot, cold, coldRoot);
                 }
+            }
             );
     }
 
@@ -167,25 +167,25 @@ public class GridBlindSpotTests {
         // available space.
         Gen.Select(Gen.Int[1, 3], Gen.Int[1, 3], Gen.Int[0, 999].Array[1, 10])
             .Sample(shape => {
-                    var (columns, rows, mutations) = shape;
+                var (columns, rows, mutations) = shape;
 
-                    var spec = new GridSpec(columns, rows);
-                    using var incremental = new LayoutTree { PointScaleFactor = 2f };
-                    var incrementalRoot = spec.Build(incremental);
+                var spec = new GridSpec(columns, rows);
+                using var incremental = new LayoutTree { PointScaleFactor = 2f };
+                var incrementalRoot = spec.Build(incremental);
+                incremental.CalculateLayout(incrementalRoot, 220.5f, 160.25f, Direction.Ltr);
+
+                foreach (var mutation in mutations) {
+                    spec.Mutate(mutation);
+                    spec.Apply(incremental, incrementalRoot, mutation);
                     incremental.CalculateLayout(incrementalRoot, 220.5f, 160.25f, Direction.Ltr);
 
-                    foreach (var mutation in mutations) {
-                        spec.Mutate(mutation);
-                        spec.Apply(incremental, incrementalRoot, mutation);
-                        incremental.CalculateLayout(incrementalRoot, 220.5f, 160.25f, Direction.Ltr);
+                    using var cold = new LayoutTree { PointScaleFactor = 2f };
+                    var coldRoot = spec.Build(cold);
+                    cold.CalculateLayout(coldRoot, 220.5f, 160.25f, Direction.Ltr);
 
-                        using var cold = new LayoutTree { PointScaleFactor = 2f };
-                        var coldRoot = spec.Build(cold);
-                        cold.CalculateLayout(coldRoot, 220.5f, 160.25f, Direction.Ltr);
-
-                        AssertSameLayout(incremental, incrementalRoot, cold, coldRoot);
-                    }
+                    AssertSameLayout(incremental, incrementalRoot, cold, coldRoot);
                 }
+            }
             );
     }
 

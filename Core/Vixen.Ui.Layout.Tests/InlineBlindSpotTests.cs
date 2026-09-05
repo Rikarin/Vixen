@@ -47,25 +47,25 @@ public class InlineBlindSpotTests {
         // on the wrong row rather than as a rounding difference.
         Gen.Select(Gen.Int[3, 9], Gen.Int[0, 999].Array[1, 10])
             .Sample(shape => {
-                    var (boxes, mutations) = shape;
+                var (boxes, mutations) = shape;
 
-                    var spec = new RunSpec(boxes);
-                    using var incremental = new LayoutTree();
-                    var incrementalRoot = spec.Build(incremental);
+                var spec = new RunSpec(boxes);
+                using var incremental = new LayoutTree();
+                var incrementalRoot = spec.Build(incremental);
+                incremental.CalculateLayout(incrementalRoot, 200f, float.NaN, Direction.Ltr);
+
+                foreach (var mutation in mutations) {
+                    spec.Mutate(mutation);
+                    spec.Apply(incremental, incrementalRoot, mutation);
                     incremental.CalculateLayout(incrementalRoot, 200f, float.NaN, Direction.Ltr);
 
-                    foreach (var mutation in mutations) {
-                        spec.Mutate(mutation);
-                        spec.Apply(incremental, incrementalRoot, mutation);
-                        incremental.CalculateLayout(incrementalRoot, 200f, float.NaN, Direction.Ltr);
+                    using var cold = new LayoutTree();
+                    var coldRoot = spec.Build(cold);
+                    cold.CalculateLayout(coldRoot, 200f, float.NaN, Direction.Ltr);
 
-                        using var cold = new LayoutTree();
-                        var coldRoot = spec.Build(cold);
-                        cold.CalculateLayout(coldRoot, 200f, float.NaN, Direction.Ltr);
-
-                        AssertSameLayout(incremental, incrementalRoot, cold, coldRoot);
-                    }
+                    AssertSameLayout(incremental, incrementalRoot, cold, coldRoot);
                 }
+            }
             );
     }
 
@@ -75,25 +75,25 @@ public class InlineBlindSpotTests {
         // corpus is written at.
         Gen.Select(Gen.Int[3, 9], Gen.Int[0, 999].Array[1, 10])
             .Sample(shape => {
-                    var (boxes, mutations) = shape;
+                var (boxes, mutations) = shape;
 
-                    var spec = new RunSpec(boxes);
-                    using var incremental = new LayoutTree { PointScaleFactor = 2f };
-                    var incrementalRoot = spec.Build(incremental);
+                var spec = new RunSpec(boxes);
+                using var incremental = new LayoutTree { PointScaleFactor = 2f };
+                var incrementalRoot = spec.Build(incremental);
+                incremental.CalculateLayout(incrementalRoot, 200.5f, float.NaN, Direction.Ltr);
+
+                foreach (var mutation in mutations) {
+                    spec.Mutate(mutation);
+                    spec.Apply(incremental, incrementalRoot, mutation);
                     incremental.CalculateLayout(incrementalRoot, 200.5f, float.NaN, Direction.Ltr);
 
-                    foreach (var mutation in mutations) {
-                        spec.Mutate(mutation);
-                        spec.Apply(incremental, incrementalRoot, mutation);
-                        incremental.CalculateLayout(incrementalRoot, 200.5f, float.NaN, Direction.Ltr);
+                    using var cold = new LayoutTree { PointScaleFactor = 2f };
+                    var coldRoot = spec.Build(cold);
+                    cold.CalculateLayout(coldRoot, 200.5f, float.NaN, Direction.Ltr);
 
-                        using var cold = new LayoutTree { PointScaleFactor = 2f };
-                        var coldRoot = spec.Build(cold);
-                        cold.CalculateLayout(coldRoot, 200.5f, float.NaN, Direction.Ltr);
-
-                        AssertSameLayout(incremental, incrementalRoot, cold, coldRoot);
-                    }
+                    AssertSameLayout(incremental, incrementalRoot, cold, coldRoot);
                 }
+            }
             );
     }
 
