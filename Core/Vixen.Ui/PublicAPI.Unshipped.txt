@@ -222,7 +222,7 @@ Vixen.Ui.Composition.BuildContext.Create<T>(Vixen.Ui.UiElement? parent) -> T
 Vixen.Ui.Composition.BuildContext.Create<T>(Vixen.Ui.UiElement? parent, string? tag) -> T
 Vixen.Ui.Composition.BuildContext.Document.get -> Vixen.Ui.UiDocument
 Vixen.Ui.Composition.BuildContext.Element(Vixen.Ui.UiElement? parent, string tag) -> Vixen.Ui.UiElement
-Vixen.Ui.Composition.BuildContext.For<T>(Vixen.Ui.UiElement? parent, System.Func<System.Collections.Generic.IEnumerable<T>> items, System.Func<T, object> key, System.Action<Vixen.Ui.Composition.BuildContext, Vixen.Ui.UiElement, T> build) -> void
+Vixen.Ui.Composition.BuildContext.For<T>(Vixen.Ui.UiElement? parent, System.Func<System.Collections.Generic.IEnumerable<T>> items, System.Func<T, object> key, System.Action<Vixen.Ui.Composition.BuildContext, Vixen.Ui.UiElement, T> build, Vixen.Ui.Composition.ExitSpec? exit = null) -> void
 Vixen.Ui.Composition.BuildContext.Mount.get -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.BuildContext.On(Vixen.Ui.UiElement target, string name, System.Action handler, params string[] modifiers) -> void
 Vixen.Ui.Composition.BuildContext.On<TEvent>(Vixen.Ui.UiElement target, string name, System.Action<TEvent> handler, params string[] modifiers) -> void
@@ -255,6 +255,13 @@ Vixen.Ui.Composition.EventSubscription.HandledEventsToo.init -> bool
 Vixen.Ui.Composition.EventSubscription.Listen<T>(Vixen.Ui.UiElement element, System.Action<Vixen.Ui.UiElement, T> handler) -> void
 Vixen.Ui.Composition.EventSubscription.Strategy.get -> Vixen.Ui.RoutingStrategy
 Vixen.Ui.Composition.EventSubscription.Strategy.init -> Vixen.Ui.RoutingStrategy
+Vixen.Ui.Composition.ExitSpec -> sealed record
+Vixen.Ui.Composition.ExitSpec : System.IEquatable<Vixen.Ui.Composition.ExitSpec>
+Vixen.Ui.Composition.ExitSpec.Class.get -> string
+Vixen.Ui.Composition.ExitSpec.Class.init -> string
+Vixen.Ui.Composition.ExitSpec.Duration.get -> System.TimeSpan
+Vixen.Ui.Composition.ExitSpec.Duration.init -> System.TimeSpan
+Vixen.Ui.Composition.ExitSpec.ExitSpec(System.TimeSpan Duration, string Class = "leaving") -> void
 Vixen.Ui.Composition.IComposable -> interface
 Vixen.Ui.Composition.Literals -> static class
 Vixen.Ui.Composition.ScopedStyles -> static class

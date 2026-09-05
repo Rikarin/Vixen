@@ -909,6 +909,14 @@ of a string.
   where it raises `Submitted` — the moment a `.vxml` had no way to hear at all.
 - **A generic base.** `@inherits` takes a `NameToken`, which carries dots and not angle brackets, so
   `@inherits Row<T>` does not lex. Same limit `@using` has, and nothing has needed it.
+- **A spelling for a row's exit.** The runtime half landed — `BuildContext.For` takes an `ExitSpec`,
+  a removed row keeps its place and its `leaving` class for an interval the document owns, and a key
+  that comes back mid-flight ends the old row rather than standing beside it. Nothing in this
+  language reaches it: `EmitFor` writes four arguments and there is no syntax for a fifth, so an
+  exit is available to hand-written `Build` bodies and to a component that calls `ctx.For` itself.
+  The open question is where the number goes — an attribute on the `@for` header, a `@transition`
+  directive, or a declaration the stylesheet already carries — and it is a syntax decision rather
+  than a wiring one. See `docs/guide/ui/exit-animations.md`.
 
 ## `OnComposed` is the build-time hook, and it was owed a paragraph rather than a feature
 

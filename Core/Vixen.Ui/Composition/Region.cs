@@ -84,6 +84,9 @@ sealed class Region {
     /// </remarks>
     readonly Action? forget;
 
+    /// <summary>The exit this region is in the middle of, or null when it is not leaving.</summary>
+    RegionExit? exit;
+
     internal Region(UiElement parent, object? after, Region? host = null, Action? forget = null) {
         this.parent = parent;
         this.after = after;
@@ -141,6 +144,16 @@ sealed class Region {
     ///     inside it, and those elements go when this region's slots do.
     /// </remarks>
     internal void Clear() {
+        // ⚠ An exit is cancelled by removal, not completed by it. Whatever reached here — the
+        // interval running out, or the enclosing branch going away underneath a row that was still
+        // fading — the entry in the document's list must stop being due, and `Finished` is the
+        // caller's to raise rather than this method's: `Finish` raises it and a parent clearing its
+        // children does not, because there is nothing left to tell.
+        if (exit is { } pending) {
+            pending.Done = true;
+            exit = null;
+        }
+
         foreach (var subscription in subscriptions) {
             subscription.Dispose();
         }
@@ -168,6 +181,61 @@ sealed class Region {
         }
 
         slots.Clear();
+    }
+
+    /// <summary>Whether this region has been let go of and is still on screen.</summary>
+    internal bool IsLeaving => exit is not null;
+
+    /// <summary>Ends this region's bindings and keeps its elements, for as long as the spec says.</summary>
+    /// <param name="spec">How long it stays, and what marks it while it does.</param>
+    /// <param name="finished">What to tell the owner once it has gone.</param>
+    /// <remarks>
+    ///     ⚠ <b><see cref="Stop" /> and not a delayed <see cref="Clear" />, and this is the half of
+    ///     an exit that is easy to get wrong.</b> A row animating out is a row whose model has
+    ///     already stopped containing it — the item is gone from the sequence — so an effect of its
+    ///     that survived the removal would spend the fade reading a signal about something that no
+    ///     longer exists and assigning the answer to an element on its way off screen. The bindings
+    ///     die at the moment the row is let go of; what is deferred is only the removal, so what is
+    ///     on screen during the fade is the last frame the model ever produced.
+    /// </remarks>
+    internal void Leave(ExitSpec spec, Action finished) {
+        Stop();
+
+        foreach (var slot in slots) {
+            foreach (var element in Elements(slot)) {
+                if (!element.IsRemoved) {
+                    element.AddClass(spec.Class);
+                }
+            }
+        }
+
+        exit = new RegionExit {
+            Region = this,
+            Deadline = parent.Document.Now + spec.Duration,
+            Finished = finished
+        };
+
+        parent.Document.Defer(exit);
+    }
+
+    /// <summary>Ends a leaving region now, whether or not its interval has run out.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The case this exists for is a key that comes back.</b> An item removed and re-added
+    ///     while its old row is still fading would otherwise put two subtrees in the document under
+    ///     one identity, which is the defect an exit is most likely to introduce. The old row cannot
+    ///     be revived instead — <see cref="Leave" /> disposed its bindings, so what would come back
+    ///     is a subtree that never updates again — so the answer is that the arriving row ends the
+    ///     leaving one immediately and is built fresh. It snaps rather than crossfading, and that is
+    ///     the honest statement of what this does.
+    /// </remarks>
+    internal void Finish() {
+        if (exit is not { } pending) {
+            return;
+        }
+
+        var finished = pending.Finished;
+        Clear();
+        finished();
     }
 
     /// <summary>Stops everything this region subscribed, and leaves its elements alone.</summary>

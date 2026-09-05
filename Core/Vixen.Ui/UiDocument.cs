@@ -1224,6 +1224,12 @@ public sealed partial class UiDocument : IDisposable {
         seconds = (float) now.TotalSeconds;
         Gestures.Tick(now);
 
+        // ⚠ Before the animator's advance rather than after it, because a subtree whose interval has
+        // run out is one whose transitions have finished: advancing them first would spend a pass
+        // interpolating properties of elements this call is about to remove, and — worse — would
+        // leave the frame that removes them one frame later than the number the author wrote.
+        AdvanceExits(now);
+
         // ⚠ Asked *before* the advance, because the advance is what makes the last frame of a fade
         // idle. Reading it after would skip the pass that writes the arrival value, leaving every
         // transition permanently one frame short of where it was going — the interruption logic hides
@@ -1276,6 +1282,51 @@ public sealed partial class UiDocument : IDisposable {
     ///     half of a pair rather than a convenience.
     /// </remarks>
     public event Action<UiDocument, TimeSpan>? Ticked;
+
+    /// <summary>The subtrees that have been let go of and are still on screen.</summary>
+    readonly List<Composition.RegionExit> exits = [];
+
+    /// <summary>Holds a leaving subtree in the document until its moment passes.</summary>
+    /// <param name="exit">What is leaving, and when it stops.</param>
+    /// <remarks>
+    ///     ⚠ <b>The document owns the interval rather than the region that is leaving.</b> A region
+    ///     has no clock and cannot be given one — <c>Region</c> is built and abandoned by control
+    ///     flow, and the construct that let it go has already moved on — so an exit that timed
+    ///     itself would need a timer per row and a subscription per row to whatever drives them.
+    ///     Here there is one list and one walk, on the call a host already has to make every frame.
+    /// </remarks>
+    internal void Defer(Composition.RegionExit exit) {
+        ArgumentNullException.ThrowIfNull(exit);
+        exits.Add(exit);
+    }
+
+    /// <summary>Ends every leaving subtree whose interval has run out.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Over a snapshot, because finishing one runs its owner's reconciliation.</b> A
+    ///     <c>@for</c> told that a row has gone repositions what is left, and a repositioning that
+    ///     changed the sequence again could let another row go — into this list, during this walk.
+    /// </remarks>
+    void AdvanceExits(TimeSpan now) {
+        if (exits.Count == 0) {
+            return;
+        }
+
+        Composition.RegionExit[] pending = [.. exits];
+
+        exits.Clear();
+
+        foreach (var exit in pending) {
+            if (exit.Done) {
+                continue;
+            }
+
+            if (now >= exit.Deadline) {
+                exit.Region.Finish();
+            } else {
+                exits.Add(exit);
+            }
+        }
+    }
 
     /// <summary>Writes each element's resolved style through to the layout store.</summary>
     /// <remarks>
@@ -2574,6 +2625,12 @@ public sealed partial class UiDocument : IDisposable {
         // graph was let go.
         ReleaseCommandResponders();
         ReleaseAccessibilitySubscribers();
+
+        // Dropped rather than finished. A leaving region's bindings were disposed the moment it was
+        // let go of — see `Region.Leave` — so there is nothing here to unsubscribe, and running the
+        // removals through a document that has just declared itself disposed would be work whose
+        // only observable effect is on stores this call is about to release.
+        exits.Clear();
 
         Layout.Dispose();
     }

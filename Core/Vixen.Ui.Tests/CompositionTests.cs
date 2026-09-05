@@ -395,6 +395,124 @@ public class CompositionTests {
         Assert.Equal(["mark", "a", "mark", "b"], component.Root.Children.Select(Label));
     }
 
+    // ------------------------------------------------------------ Exits
+
+    /// <summary>
+    ///     ⚠ The assertion this file exists to make: the row is still there on the frame after the
+    ///     one that removed it, which nothing in this runtime could arrange before.
+    /// </summary>
+    [Fact]
+    public void A_removed_row_stays_in_the_document_until_its_exit_has_run() {
+        using var document = new UiDocument(200f, 200f);
+        var component = BuildContext.Build<Fading>(document, document.Root);
+
+        component.Items.Value = ["a", "b", "c"];
+        document.Effects.Flush();
+        Assert.Equal(["a", "b", "c"], Texts(component.Root, "item"));
+
+        component.Items.Value = ["a", "c"];
+        document.Effects.Flush();
+
+        // Still in the document, marked, and — the half a forward-only implementation gets wrong —
+        // still between the rows it was between.
+        Assert.Equal(["a", "b", "c"], Texts(component.Root, "item"));
+        Assert.True(component.Root.Children[1].HasClass("leaving"));
+        Assert.False(component.Root.Children[0].HasClass("leaving"));
+
+        // A frame inside the interval changes nothing. Frames, not elapsed time: the clock is the
+        // test's and the assertion is about what the document held when it was given each instant.
+        document.Tick(TimeSpan.FromMilliseconds(120));
+        Assert.Equal(["a", "b", "c"], Texts(component.Root, "item"));
+
+        document.Tick(TimeSpan.FromMilliseconds(200));
+        Assert.Equal(["a", "c"], Texts(component.Root, "item"));
+    }
+
+    /// <summary>Without a spec, removal is what it always was — synchronous, on the flush.</summary>
+    [Fact]
+    public void A_list_with_no_exit_still_removes_its_rows_on_the_flush() {
+        using var document = new UiDocument(200f, 200f);
+        var component = BuildContext.Build<Listing>(document, document.Root);
+
+        component.Items.Value = ["a", "b"];
+        document.Effects.Flush();
+
+        component.Items.Value = ["a"];
+        document.Effects.Flush();
+
+        Assert.Equal(["head", "item", "tail"], Tags(component.Root));
+    }
+
+    /// <summary>
+    ///     ⚠ The case that produces two elements with one identity if it is not answered, and the
+    ///     reason a leaving row cannot simply be revived: its bindings are already dead.
+    /// </summary>
+    [Fact]
+    public void A_key_that_comes_back_mid_exit_leaves_one_row_and_not_two() {
+        using var document = new UiDocument(200f, 200f);
+        var component = BuildContext.Build<Fading>(document, document.Root);
+
+        component.Items.Value = ["a", "b"];
+        document.Effects.Flush();
+
+        component.Items.Value = ["a"];
+        document.Effects.Flush();
+        Assert.Equal(["a", "b"], Texts(component.Root, "item"));
+
+        component.Items.Value = ["a", "b"];
+        document.Effects.Flush();
+
+        Assert.Equal(["a", "b"], Texts(component.Root, "item"));
+        Assert.False(component.Root.Children[1].HasClass("leaving"));
+
+        // And the row that came back is a live one rather than the corpse: its binding still follows
+        // the signal, which the leaving row's could not.
+        component.Suffix.Value = "!";
+        document.Effects.Flush();
+        Assert.Equal(["a!", "b!"], Texts(component.Root, "item"));
+
+        // The interval the old row was given passes without taking the new one with it.
+        document.Tick(TimeSpan.FromMilliseconds(400));
+        Assert.Equal(["a!", "b!"], Texts(component.Root, "item"));
+    }
+
+    /// <summary>A leaving row's bindings stop at the moment it is let go of, not when it goes.</summary>
+    [Fact]
+    public void A_leaving_row_stops_reading_the_model_it_has_left() {
+        using var document = new UiDocument(200f, 200f);
+        var component = BuildContext.Build<Fading>(document, document.Root);
+
+        component.Items.Value = ["a", "b"];
+        document.Effects.Flush();
+
+        component.Items.Value = ["a"];
+        document.Effects.Flush();
+
+        component.Suffix.Value = "!";
+        document.Effects.Flush();
+
+        // The row on its way out shows the last frame the model ever produced for it.
+        Assert.Equal(["a!", "b"], Texts(component.Root, "item"));
+    }
+
+    /// <summary>An exit that is still running when the list itself goes takes no elements with it.</summary>
+    [Fact]
+    public void A_document_that_is_disposed_mid_exit_does_not_finish_it() {
+        using var document = new UiDocument(200f, 200f);
+        var component = BuildContext.Build<Fading>(document, document.Root);
+
+        component.Items.Value = ["a", "b"];
+        document.Effects.Flush();
+
+        component.Items.Value = ["a"];
+        document.Effects.Flush();
+
+        document.Dispose();
+
+        // Nothing threw, and the disposal did not run a removal through released stores.
+        Assert.Equal(["a", "b"], Texts(component.Root, "item"));
+    }
+
     // ------------------------------------------------------------ Events and slots
 
     [Fact]
@@ -849,6 +967,25 @@ public class CompositionTests {
 
             ctx.Element(null, "tail");
         }
+    }
+
+    /// <summary>A list whose removed rows are kept on screen for a fifth of a second.</summary>
+    sealed class Fading : Component {
+        public Signal<string[]> Items { get; } = new([]);
+
+        public Signal<string> Suffix { get; } = new(string.Empty);
+
+        protected override void Build(BuildContext ctx) =>
+            ctx.For(
+                null,
+                () => Items.Value,
+                static item => item,
+                (inner, parent, item) => {
+                    var element = inner.Element(parent, "item");
+                    inner.Bind(() => element.Text = item + Suffix.Value);
+                },
+                new ExitSpec(TimeSpan.FromMilliseconds(200))
+            );
     }
 
     /// <summary>A list and nothing else, so that <c>:first-child</c> can mean an item.</summary>

@@ -1379,11 +1379,30 @@ public sealed class BuildContext {
     ///         statement is that this is correct and not yet minimal.
     ///     </para>
     /// </remarks>
+    /// <param name="exit">How long a removed row stays on screen, or null to remove it at once.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><paramref name="exit" /> defaults to null, and that is opt-in on purpose.</b>
+    ///         Deferring every removal would change what "the row is gone" means for every caller in
+    ///         the tree, and the ones it would surprise are the tests: a list that removes an item
+    ///         and asserts on its children in the same breath is correct today and would be reading
+    ///         a document still holding a row nobody asked for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And a leaving row keeps its place in the order, which is what makes a fade look
+    ///         like one.</b> It stays in the region's slot list, so the rows below it are positioned
+    ///         after it and it shrinks or fades where it stood rather than jumping to the end of the
+    ///         list to die. Where it lands is decided by walking back through the previous order for
+    ///         the nearest row that is still there; an index remembered from the old order would put
+    ///         it in the wrong place the moment anything else moved.
+    ///     </para>
+    /// </remarks>
     public void For<T>(
         UiElement? parent,
         Func<IEnumerable<T>> items,
         Func<T, object> key,
-        Action<BuildContext, UiElement, T> build
+        Action<BuildContext, UiElement, T> build,
+        ExitSpec? exit = null
     ) {
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(key);
@@ -1392,60 +1411,130 @@ public sealed class BuildContext {
         var target = parent ?? Anchor;
         var region = Open(target);
         var live = new Dictionary<object, Region>();
+        var leaving = new Dictionary<object, Region>();
+
+        // Every row this region holds, live and leaving together and in the order they are drawn in.
+        var order = new List<Region>();
+        var reconciling = false;
+
+        void Settle() {
+            // The chain has to be rewritten before anything is repositioned: a region's index comes
+            // from what it follows, and after a reorder that is a different region than it was.
+            object? predecessor = null;
+            foreach (var item in order) {
+                item.Rebind(predecessor);
+                predecessor = item;
+            }
+
+            region.Reorder(order);
+            region.Reposition();
+        }
+
+        void Ended(object identity, Region ended) {
+            leaving.Remove(identity);
+            order.Remove(ended);
+
+            // Nothing to settle from inside a reconciliation: the walk below rebuilds the whole
+            // order and repositions once, and doing it twice is only slower.
+            if (!reconciling) {
+                Settle();
+            }
+        }
 
         Bind(() => {
             var wanted = new List<Region>();
             var kept = new Dictionary<object, Region>();
 
-            foreach (var item in items()) {
-                var identity = key(item);
+            reconciling = true;
+            try {
+                foreach (var item in items()) {
+                    var identity = key(item);
 
-                if (live.Remove(identity, out var existing)) {
-                    kept[identity] = existing;
-                    wanted.Add(existing);
-                    continue;
+                    if (live.Remove(identity, out var existing)) {
+                        kept[identity] = existing;
+                        wanted.Add(existing);
+                        continue;
+                    }
+
+                    // ⚠ A key that comes back before its old row has finished leaving ends that row
+                    // now. Reviving it is not available — `Region.Leave` disposed its bindings — and
+                    // letting both stand is the one failure an exit can introduce that the rest of
+                    // the runtime has no defence against: two subtrees under one identity, with
+                    // `refs` and the keyed effect table pointing at whichever was written last.
+                    if (leaving.Remove(identity, out var returning)) {
+                        order.Remove(returning);
+                        returning.Finish();
+                    }
+
+                    var created = new Region(target, null, region);
+                    var captured = item;
+                    var outer = iteration;
+
+                    // ⚠ Saved and restored rather than set and cleared: an `@for` inside an `@for`
+                    // body builds while the outer row is still the one a `refs` on an outer element
+                    // belongs to, and a nested loop that cleared this on the way out would give the
+                    // rest of the outer row no iteration at all.
+                    iteration = identity;
+                    try {
+                        In(target, created, () => build(this, target, captured));
+                    } finally {
+                        iteration = outer;
+                    }
+
+                    kept[identity] = created;
+                    wanted.Add(created);
                 }
 
-                var created = new Region(target, null, region);
-                var captured = item;
-                var outer = iteration;
+                // Whatever is left in `live` is what the new sequence does not contain.
+                foreach (var (identity, gone) in live) {
+                    if (exit is null) {
+                        gone.Clear();
+                        continue;
+                    }
 
-                // ⚠ Saved and restored rather than set and cleared: an `@for` inside an `@for` body
-                // builds while the outer row is still the one a `refs` on an outer element belongs
-                // to, and a nested loop that cleared this on the way out would give the rest of the
-                // outer row no iteration at all.
-                iteration = identity;
-                try {
-                    In(target, created, () => build(this, target, captured));
-                } finally {
-                    iteration = outer;
+                    var captured = identity;
+                    var row = gone;
+
+                    leaving[identity] = row;
+                    row.Leave(exit, () => Ended(captured, row));
                 }
 
-                kept[identity] = created;
-                wanted.Add(created);
+                live.Clear();
+                foreach (var (identity, item) in kept) {
+                    live[identity] = item;
+                }
+
+                var previous = new List<Region>(order);
+
+                order.Clear();
+                order.AddRange(wanted);
+
+                foreach (var stale in previous) {
+                    if (!stale.IsLeaving || order.Contains(stale)) {
+                        continue;
+                    }
+
+                    order.Insert(After(previous, order, stale), stale);
+                }
+            } finally {
+                reconciling = false;
             }
 
-            // Whatever is left in `live` is what the new sequence does not contain.
-            foreach (var gone in live.Values) {
-                gone.Clear();
-            }
-
-            live.Clear();
-            foreach (var (identity, item) in kept) {
-                live[identity] = item;
-            }
-
-            // The chain has to be rewritten before anything is repositioned: a region's index comes
-            // from what it follows, and after a reorder that is a different region than it was.
-            object? predecessor = null;
-            foreach (var item in wanted) {
-                item.Rebind(predecessor);
-                predecessor = item;
-            }
-
-            region.Reorder(wanted);
-            region.Reposition();
+            Settle();
         });
+    }
+
+    /// <summary>Where a leaving row goes in the new order: after the nearest row still in it.</summary>
+    static int After(List<Region> previous, List<Region> order, Region stale) {
+        for (var i = previous.IndexOf(stale) - 1; i >= 0; i--) {
+            var index = order.IndexOf(previous[i]);
+
+            if (index >= 0) {
+                return index + 1;
+            }
+        }
+
+        return 0;
     }
 
     // ================================================================== Regions
