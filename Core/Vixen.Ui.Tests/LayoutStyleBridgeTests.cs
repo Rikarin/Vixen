@@ -15,13 +15,20 @@ public class LayoutStyleBridgeTests {
     public void An_element_with_no_declarations_gets_CSS_initial_values_and_not_Yoga_s() {
         var style = new BridgeFixture().Build("color: red");
 
-        // ⚠ All four of these differ between the two specifications, and Vixen.Ui.Layout is right to
+        // ⚠ All five of these differ between the two specifications, and Vixen.Ui.Layout is right to
         // start from Yoga's — it is judged by Yoga's conformance suite. The bridge is where a VCSS
         // author's expectations take over.
         Assert.Equal(FlexDirection.Row, style.FlexDirection);
         Assert.Equal(Align.Stretch, style.AlignContent);
         Assert.Equal(PositionType.Static, style.PositionType);
         Assert.Equal(BoxSizing.ContentBox, style.BoxSizing);
+
+        // ⚠ The fifth arrived last and was the one that changed what documents looked like rather
+        // than only what an author had to type. `StyleResolution.ResolveFlexShrink` reads an unset
+        // shrink as Yoga's 0, so this has to be a written 1 rather than a NaN. See #628, and
+        // `FlexShrinkFromCssTests` for the geometry it buys.
+        Assert.Equal(1f, style.FlexShrink);
+        Assert.True(float.IsNaN(LayoutStyle.Default.FlexShrink));
 
         Assert.NotEqual(LayoutStyle.Default.FlexDirection, style.FlexDirection);
         Assert.NotEqual(LayoutStyle.Default.PositionType, style.PositionType);

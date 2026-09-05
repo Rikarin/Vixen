@@ -49,8 +49,8 @@ public class LanguageTests {
         document.Load(
             """
             root  { width: 600px; height: 300px; align-items: flex-start; }
-            panel { width: 300px; }
-            label { font-family: Test; font-size: 16px; width: 300px; }
+            panel { width: 300px; flex-shrink: 0; }
+            label { font-family: Test; font-size: 16px; width: 300px; flex-shrink: 0; }
             """
         );
 

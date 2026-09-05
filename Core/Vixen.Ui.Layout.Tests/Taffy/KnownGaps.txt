@@ -128,6 +128,14 @@
 #      WIDEST SINGLE CHILD rather than as the 80 the sum would have given. Both are wrong and the
 #      four `gridflex_row_integration` variants go red either way with the cap off; they are green
 #      with the fix and the cap off, which is how the fix was measured, since the cap hides it.
+#      ⚠ The BLOCK axis is answered here too, and that is worth saying because it was written up as
+#      still owed: a grid's min-content height needs each item's used inline size, which needs the
+#      column pass, and ComputeGridMinContentSize runs that pass before it builds the rows. No
+#      fixture in the eight corpora names the block axis either way. See GridBlindSpotTests.
+#      A_grid_item_is_floored_at_its_columns_and_not_at_the_sum_of_its_items, hand-written because
+#      the cap hides the defect on every measured item — and which answers 20 rather than 80 without
+#      the branch, the same defect landing on the other side of the truth because the grid it uses
+#      states no flex-direction of its own.
 #
 # ⚠ Because ONE of those three is still open — the `width: 50%` half of the percentage one — plus a
 # fourth found by the same measurement (below), the §4.5 floor is CAPPED at the item's own flex basis
@@ -153,9 +161,35 @@
 # one of them is a TEXT LEAF in the BLOCK axis: ComputeMinContentSizeUncached measures it at
 # `ownerWidth` — the containing block's inline size — where what it is about to be given is its own
 # used width. blitz_issue_88 is one line of text in a 600-point row that the probe wraps to five:
-# 10 points tall in Chrome and 50 from the probe, and the flex item is then floored at 50. That
-# measurement is the whole of what stands between this cap and its removal, and it is filed on its
-# own rather than folded in here.
+# 10 points tall in Chrome and 50 from the probe, and the flex item is then floored at 50.
+#
+# ⚠ THAT THIRD PROBE DEFECT IS NOW CLOSED, AND THE CAP STILL CANNOT GO. The number the block-axis
+# probe was measuring at is the PERCENTAGE BASIS, which §5.2.1 makes ZERO under a box with no
+# definite width of its own — so a paragraph below such a box was measured in a width of nothing and
+# reported a line per breakable piece, which is the same defect the paragraph above describes as
+# measuring "at the containing block's inline size" and is the sharper statement of it. `probeWidth`
+# is now threaded beside `ownerWidth` as a separate quantity meaning "how much room the text will
+# really have"; see LayoutTree.ProbeInlineSize, and AutomaticMinimumSizeTests.
+# A_leaf_below_a_box_that_declares_no_width_is_measured_at_the_width_it_will_have for the witness —
+# which needs a DECLARED flex-basis on the intervening row, because the cap below hides the defect on
+# every measured one.
+#
+# ⚠ Measured on a full Vixen.Ui.Layout.Tests run, 6 342 tests, before and after, cap on and cap off:
+#     cap on,  probe old:   0 failed        cap off, probe old:  22 failed
+#     cap on,  probe new:   0 failed        cap off, probe new:  14 failed
+#     … and with a grid branch as well:      cap off:              9 failed
+# The eight that the probe fix buys are all four blitz_issue_88 and all four bevy_issue_9530_reduced.
+# ⚠ The 9 was taken against an INLINE-ONLY grid branch, which is not the branch that landed — this
+# tree's ComputeGridMinContentSize answers both axes — so treat that last row as the shape of the
+# result and not as a count anyone has re-measured since.
+# ⚠ So #623's headline — "the last thing standing between the cap and its removal", and "deleting the
+# cap turns exactly these sixteen red and nothing else, now that #265's grid half is closed" — is
+# REFUTED on both halves. #265's grid half was NOT closed when #623 was written, and the four
+# gridflex_row_integration variants were among the 22. With both landed the cap still cannot go: the
+# remainder is four bevy_issue_9530, four measure_child_with_min_size_greater_than_available_space —
+# which this file already files under a DIFFERENT rule, a clamp applied after the measurement it
+# should have preceded — and the flex corpus's pinned count. Two of the three defects the cap's own
+# comment names are now closed; the `width: 50%` percentage half is the one still standing under it.
 #
 # ⚠ percentage_flex_basis_cross_min_height CLOSED with §9.2's unclamped flex base, which is written up
 # under §9.7 below. It sat here rather than there because its symptom is a cross-axis minimum, and it
@@ -577,3 +611,30 @@ align_baseline_multiline_column2
 # and §9.7 scales the shrink BY THE BASE, so the amounts given up must be in the same ratio as the
 # bases. ⚠ It measures with the pixel grid off, because the second property is exact and 9 + 91 is
 # only the first.
+#
+# ⚠ <b>A PARALLEL BRANCH BUILT THE SAME CHANGE, MEASURED IT, AND REFUSED TO LAND IT</b>, and two of
+# its three lessons are about instruments rather than about §9.2 — worth keeping because the next
+# person to touch this clause will meet them again.
+#
+#   · A second `CalculateLayoutInternal` looked like the wrong vehicle because a layout pass WRITES:
+#     an unbounded one leaves a leaf remembering the size it wanted rather than the size it was
+#     given, and `Vixen.Ui.Tests.TextWrapTests.A_label_with_no_width_of_its_own_wraps_at_its_container`
+#     came back one line tall instead of three. ⚠ What landed here is a second pass and is safe for a
+#     reason that reading did not consider: the ORDER. The unbounded pass runs FIRST and the real
+#     offer runs second, so `MeasuredDimensions` is left exactly as the real offer wrote it. A bare
+#     `Measure` would have written nothing but would also have bypassed the measure cache, which
+#     `LayoutPassTests.A_static_subtree_is_not_re_measured` catches at once.
+#   · §9.2 is what a container does once it knows its own main size. While it is being asked how big
+#     it WANTS to be, §9.9 wants each item's contribution, and this store answers that by summing the
+#     same bases — so a max-content base under a min-content request made `width: min-content` report
+#     30 where the answer is 10. Gating on the container's main-axis SizingMode is what keeps the two
+#     apart, and it is a symptom of the base and the contribution being one field where they are two
+#     numbers.
+#   · ⚠ AND THE ONE STILL OWED. `Vixen.Ui.Controls.Tests.TextWrappingPixelTests` puts an unbreakable
+#     word with `overflow-wrap: break-word` in a fixed box. With a true max-content base the item's
+#     §4.5 floor is the whole word, so it never shrinks to the box and never wraps — and that floor
+#     is right only because this engine has no intrinsic-minimum stage that reads `overflow-wrap`,
+#     which `The_two_breaking_keywords_are_one_behaviour_in_this_engine` already documents as absent.
+#     Filed as Rikarin/Vixen#682. ⚠ The shrink gate above is what has kept that out of reach for
+#     `Vixen.Ui.*` documents, and #628 has just made every undeclared element shrinkable — so the
+#     gate no longer excludes them, and #682 is the reason to look before taking the gate out.
