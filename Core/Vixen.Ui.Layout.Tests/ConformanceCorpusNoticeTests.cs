@@ -68,6 +68,7 @@ public class ConformanceCorpusNoticeTests {
     /// </remarks>
     public static readonly Corpus[] Corpora = [
         new("web-platform-tests", "web-platform-tests", "BSD-3-Clause"),
+        new("ICU4X", "ICU4X — segmenter CSS-tailoring tests", "Unicode-3.0"),
     ];
 
     public static TheoryData<string> Declared {
