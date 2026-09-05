@@ -19,6 +19,7 @@ Vixen.Ui.Styling.Utilities.FontSizeToken.Size.init -> float
 Vixen.Ui.Styling.Utilities.ThemeTokens -> sealed class
 Vixen.Ui.Styling.Utilities.ThemeTokens.Apply(string css) -> void
 Vixen.Ui.Styling.Utilities.ThemeTokens.Colors.get -> System.Collections.Generic.Dictionary<string, string>
+Vixen.Ui.Styling.Utilities.ThemeTokens.Containers.get -> System.Collections.Generic.Dictionary<string, float>
 Vixen.Ui.Styling.Utilities.ThemeTokens.DarkMode.get -> Vixen.Ui.Styling.Utilities.DarkModeStrategy
 Vixen.Ui.Styling.Utilities.ThemeTokens.DarkMode.set -> Vixen.Ui.Styling.Utilities.DarkModeStrategy
 Vixen.Ui.Styling.Utilities.ThemeTokens.Diagnostics.get -> System.Collections.Generic.List<string>

@@ -118,6 +118,12 @@ sealed class UtilityFixture {
     /// <param name="extraCss">Stylesheet text to load after the utilities.</param>
     /// <param name="state">The element's pseudo state.</param>
     /// <param name="media">What to evaluate <c>@media</c> against.</param>
+    /// <param name="attributes">Attributes to put on the element.</param>
+    /// <param name="ancestor">A parent to put it under.</param>
+    /// <param name="before">Siblings preceding it.</param>
+    /// <param name="after">Siblings following it.</param>
+    /// <param name="container">A box to make the parent a query container of, as layout would.</param>
+    /// <param name="containerName">That container's <c>container-name</c>, or empty.</param>
     /// <returns>The computed value, or null.</returns>
     /// <remarks>
     ///     The end-to-end path, and the only assertion that is worth much: it checks the generator
@@ -134,7 +140,9 @@ sealed class UtilityFixture {
         (string Name, string Value)[]? attributes = null,
         Probe? ancestor = null,
         Probe[]? before = null,
-        Probe[]? after = null
+        Probe[]? after = null,
+        ContainerBox? container = null,
+        string containerName = ""
     ) {
         var engine = new StyleEngine();
         engine.Load(Generator.Generate(classNames), StyleOrigin.Author, media);
@@ -147,8 +155,19 @@ sealed class UtilityFixture {
         // `:first-child` and `:only-child` answer for every existing caller.
         StyleNodeId? parent = null;
 
-        if (ancestor is not null || before is { Length: > 0 } || after is { Length: > 0 }) {
+        if (ancestor is not null || before is { Length: > 0 } || after is { Length: > 0 } || container is not null) {
             parent = Add(engine, ancestor ?? new Probe([]), null);
+        }
+
+        // ⚠ The scope goes on the *parent* and never on the element under test, which is CSS
+        // Containment 3 § 5.1: a container query is about what is inside the container. Putting it
+        // on the element would make every one of these pass and would make the family's commonest
+        // real defect — a container answering its own query — invisible here.
+        if (container is { } box) {
+            engine.Tree.SetContainerScope(
+                parent!.Value,
+                engine.ContainerScopes.Enter(ContainerScopes.Root, containerName, box)
+            );
         }
 
         foreach (var sibling in before ?? []) {

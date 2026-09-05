@@ -26,6 +26,16 @@ public readonly record struct VariantEffect(string SelectorSuffix, string Select
 ///         <see cref="VariantEffect.SelectorPrefix" /> exists.
 ///     </para>
 ///     <para>
+///         ⚠ <b>A fourth shape is an at-rule that is not a media query</b>: <c>@sm:</c>,
+///         <c>@max-lg:</c>, <c>@min-[30rem]:</c> and their <c>/name</c> forms wrap the rule in a
+///         <c>@container</c> instead. Nothing about the mechanism had to change for it —
+///         <see cref="VariantEffect.AtRule" /> is already a string and
+///         <c>UtilityGenerator</c> already nests a chain of them — which is why the blocker was
+///         never the wiring: it was that the <c>--container-*</c> scale did not exist, so the only
+///         numbers <c>@sm</c> could have been resolved against were the breakpoints, and those are
+///         a window's rather than a box's.
+///     </para>
+///     <para>
 ///         The arbitrary form <c>[&amp;>*]:</c> substitutes the selector for the <c>&amp;</c>, which
 ///         is the escape hatch that stops the variant list from having to be complete. It is also
 ///         why the class-name parser has to be bracket-aware: that variant contains a <c>&gt;</c>
@@ -86,6 +96,10 @@ public static class Variants {
                 string.Create(CultureInfo.InvariantCulture, $"@media (min-width: {width.ToString("0.####", CultureInfo.InvariantCulture)}px)")
             );
 
+            return true;
+        }
+
+        if (variant.Length > 1 && variant[0] == '@' && TryContainer(variant.AsSpan(1), tokens, out effect)) {
             return true;
         }
 
@@ -158,6 +172,92 @@ public static class Variants {
     /// <returns>Whether it contains a placeholder.</returns>
     public static bool IsArbitrary(VariantEffect effect) =>
         effect.SelectorSuffix.Contains('&', StringComparison.Ordinal);
+
+    /// <summary>Reads <c>@sm</c>, <c>@max-lg</c>, <c>@min-[30rem]</c> and their <c>/name</c> forms.</summary>
+    /// <param name="rest">The variant with its <c>@</c> already taken off.</param>
+    /// <param name="tokens">The theme, for the <c>--container-*</c> scale.</param>
+    /// <param name="effect">Receives the <c>@container</c> wrapper.</param>
+    /// <returns>Whether it is a container variant.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Driven off <see cref="ThemeTokens.Containers" /> and never off
+    ///         <see cref="ThemeTokens.Screens" />, which is the decision this whole variant family
+    ///         waited on.</b> The two namespaces spell the same names — <c>sm</c>, <c>lg</c>,
+    ///         <c>2xl</c> — and mean numbers two-thirds apart: a 40 rem window against a 24 rem box.
+    ///         A <c>@sm:</c> resolved against the breakpoints is a threshold no dockable panel in an
+    ///         editor ever reaches, so every rule it wrote would be valid CSS that never matched,
+    ///         and nothing in CSS warns about a query that is merely always false.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>@max-*</c> emits <c>max-width</c>, which is <c>&lt;=</c> where v4's
+    ///         <c>(width &lt; 24rem)</c> is <c>&lt;</c>.</b> The two differ on exactly one width —
+    ///         the threshold itself — because <see cref="ContainerQuery" /> reads the
+    ///         <c>min-</c>/<c>max-</c> prefix forms and has no range syntax to read. It is the same
+    ///         inclusive reading <c>Screens</c> above already gives every breakpoint, so the
+    ///         divergence is the engine's throughout rather than this family's.
+    ///     </para>
+    ///     <para>
+    ///         The name goes after the last <c>/</c>, which is where v4 puts it and is unambiguous
+    ///         here because a length never contains one: <c>@sm/main</c> asks the nearest ancestor
+    ///         <i>called</i> <c>main</c>, and <c>@sm</c> asks the nearest container of any name.
+    ///     </para>
+    /// </remarks>
+    static bool TryContainer(ReadOnlySpan<char> rest, ThemeTokens tokens, out VariantEffect effect) {
+        effect = default;
+
+        var name = string.Empty;
+        var slash = rest.LastIndexOf('/');
+
+        if (slash >= 0) {
+            // `@sm/` names nothing, and a name is an identifier rather than anything at all.
+            if (slash == rest.Length - 1 || !IsIdentifier(rest[(slash + 1)..])) {
+                return false;
+            }
+
+            name = rest[(slash + 1)..].ToString();
+            rest = rest[..slash];
+        }
+
+        var feature = "min-width";
+
+        if (rest.StartsWith("min-", StringComparison.Ordinal)) {
+            rest = rest[4..];
+        } else if (rest.StartsWith("max-", StringComparison.Ordinal)) {
+            feature = "max-width";
+            rest = rest[4..];
+        }
+
+        string width;
+
+        if (rest.Length > 2 && rest[0] == '[' && rest[^1] == ']') {
+            // The arbitrary form. Verbatim, because the author wrote a length and the units this
+            // engine can compare are `MediaQuery.TryLength`'s rather than this table's.
+            width = rest[1..^1].ToString().Replace('_', ' ');
+
+            if (width.Length == 0) {
+                return false;
+            }
+        } else if (tokens.Containers.TryGetValue(rest.ToString(), out var scale)) {
+            width = scale.ToString("0.####", CultureInfo.InvariantCulture) + "px";
+        } else {
+            return false;
+        }
+
+        var subject = name.Length == 0 ? string.Empty : name + " ";
+        effect = new VariantEffect(string.Empty, string.Empty, $"@container {subject}({feature}: {width})");
+
+        return true;
+    }
+
+    static bool IsIdentifier(ReadOnlySpan<char> text) {
+        foreach (var c in text) {
+            if (!char.IsAsciiLetterOrDigit(c) && c is not ('-' or '_')) {
+                return false;
+            }
+        }
+
+        return text.Length > 0;
+    }
 
     static string AttributeSelector(string prefix, string rest, string? shorthand = null) {
         // `data-[state=open]:` — the arbitrary form is verbatim whatever the family, because the

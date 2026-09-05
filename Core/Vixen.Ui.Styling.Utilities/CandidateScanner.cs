@@ -224,6 +224,25 @@ public static class CandidateScanner {
         }
     }
 
+    /// <summary>Files one run, if it is shaped like a class name at all.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The <c>@</c> rule is the only judgement in this file, and it is a structural one.</b>
+    ///     <c>@</c> had to be admitted for the container variants — <c>@sm:p-4</c> — and it is also
+    ///     the character every at-keyword starts with, so <c>@apply</c>, <c>@theme</c>,
+    ///     <c>@layer</c> and <c>@container</c> would all become candidates. What tells them apart is
+    ///     not a list of keywords but the grammar: <b>an at-keyword never contains a colon and a
+    ///     container variant always does</b>, because the colon is what makes it a variant. So a run
+    ///     containing an <c>@</c> and no <c>:</c> is refused, and no name has to be enumerated.
+    ///     <para>
+    ///         ⚠ <b><c>@@</c> is folded to <c>@</c>, which is what makes the family reachable from
+    ///         <c>.vxml</c> at all.</b> <c>@</c> is that dialect's interpolation marker inside an
+    ///         attribute value, so <c>class="@sm:p-4"</c> interpolates an expression called
+    ///         <c>sm</c> and the escape <c>@@</c> is how a literal one is written — the same escape
+    ///         the dialect has always had. The binder decodes it, so the element at runtime carries
+    ///         <c>@sm:p-4</c> and the class name is v4's exactly; it is only this scanner, which
+    ///         reads the file rather than the tree, that sees the doubled sigil and has to undo it.
+    ///     </para>
+    /// </remarks>
     static void Take(ReadOnlySpan<char> run, ISet<string> into) {
         // A bare word is a candidate — `flex`, `truncate` — but a run has to contain something that
         // makes it plausible, or every word of every comment becomes one. A hyphen, a colon or a
@@ -243,11 +262,19 @@ public static class CandidateScanner {
             return;
         }
 
-        into.Add(run.ToString());
+        if (run.Contains('@') && !run.Contains(':')) {
+            return;
+        }
+
+        var text = run.ToString();
+
+        into.Add(text.Contains("@@", StringComparison.Ordinal)
+            ? text.Replace("@@", "@", StringComparison.Ordinal)
+            : text);
     }
 
     static ReadOnlySpan<char> Interesting => "-:[/";
 
     static bool IsCandidateChar(char c) =>
-        char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or ':' or '/' or '.' or '[' or ']' or '&' or '>' or '*' or '=' or '!' or '%' or '#' or '(' or ')' or ',';
+        char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or ':' or '/' or '.' or '[' or ']' or '&' or '>' or '*' or '=' or '!' or '%' or '#' or '(' or ')' or ',' or '@';
 }

@@ -150,6 +150,22 @@ public sealed class ThemeTokens {
     /// <summary>Breakpoint widths in pixels, keyed by variant name.</summary>
     public Dictionary<string, float> Screens { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>Container-query widths in pixels, keyed by variant name.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A different set of numbers under the same names as <see cref="Screens" />, and that
+    ///     is the whole reason the namespace has to exist rather than <c>@sm:</c> reading the
+    ///     breakpoints.</b> <c>sm</c> is a 40 rem <i>window</i> and <c>@sm</c> is a 24 rem
+    ///     <i>box</i>; a dockable panel is a few hundred pixels wide, so every container variant
+    ///     driven off the breakpoint scale would be correct CSS with a threshold nothing in an
+    ///     editor ever reaches — a query that never matches, which nothing warns about.
+    ///     <para>
+    ///         The scale runs the other way round from the breakpoints too: it starts at
+    ///         <c>3xs</c> and there is no <c>2xl</c> window to anchor it, because the sizes a
+    ///         <i>card</i> comes in are not the sizes a screen comes in.
+    ///     </para>
+    /// </remarks>
+    public Dictionary<string, float> Containers { get; } = new(StringComparer.Ordinal);
+
     /// <summary>Every custom property the theme declares, by full name, as it should be emitted.</summary>
     /// <remarks>
     ///     What <see cref="RootRuleFor" /> writes out, and the half of <c>@theme</c> the typed
@@ -433,6 +449,11 @@ public sealed class ThemeTokens {
             return;
         }
 
+        if (Suffix(name, "--container-") is { } container) {
+            Length(name, value, Containers, container);
+            return;
+        }
+
         if (name.Equals("--spacing", StringComparison.Ordinal)) {
             if (Length(value, out var spacing)) {
                 SpacingBase = spacing;
@@ -534,6 +555,7 @@ public sealed class ThemeTokens {
         Drop(FontWeight, "--font-weight-");
         Drop(FontFamily, "--font-");
         Drop(Screens, "--breakpoint-");
+        Drop(Containers, "--container-");
         Drop(FontSize, "--text-");
         Drop(sizes, "--text-");
         Drop(heights, "--text-");

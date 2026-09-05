@@ -62,6 +62,22 @@ public partial class StylesheetTests {
                     foreach (var name in match.Groups[1].Value.Split(' ', StringSplitOptions.RemoveEmptyEntries)) {
                         // `@Mark(entry.Slot)` is a whole class name at run time and nothing at compile
                         // time. Those go through the `VixenStyleSafelist` item instead.
+                        //
+                        // ⚠ <b>But a doubled sigil is not a binding, it is the escape for one</b>, and
+                        // dropping it too would put the whole container-variant family outside this
+                        // gate on the day it became writable. `@@sm:p-4` is what the author writes and
+                        // `@sm:p-4` is what the binder puts on the element, so the name to check is
+                        // the decoded one.
+                        if (name.StartsWith("@@", StringComparison.Ordinal)) {
+                            var decoded = name.Replace("@@", "@", StringComparison.Ordinal);
+
+                            if (seen.Add(decoded)) {
+                                data.Add(decoded);
+                            }
+
+                            continue;
+                        }
+
                         if (!name.StartsWith('@') && seen.Add(name)) {
                             data.Add(name);
                         }
