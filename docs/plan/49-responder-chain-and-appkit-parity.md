@@ -462,12 +462,24 @@ weakest evidence, and closing it is mostly attribute spellings over APIs that al
 
 ### 6.5 Lists
 
-`BuildContext.For` (`BuildContext.cs:1267`) builds a region per item over the whole sequence.
+`BuildContext.For` (`BuildContext.cs:1359`) builds a region per item over the whole sequence.
 `VirtualizingPanel`/`VirtualizingGrid` are C# controls fed by delegates, reachable from markup only
 through `use=`. `BoundFor` is `(Variable, Sequence, Key, Body)` — **no index, no sections, no
 grouping** (`BoundNodes.cs:262`). `Region.Clear()` removes synchronously (`Region.cs:143`), so there
 is **no enter/exit transition** even though the animator is real. SwiftUI gets all four free, and the
 absence of the first is what makes a 10 000-row panel fall back to hand-written C#.
+
+⚠ **"No index" reads as an omission and is a refusal**, which is the correction that changes what
+gets built. `For` matches a key, keeps that item's region and does not re-run the body — so a name
+bound to the item's position would be captured once and be a lie after the first reorder. An index
+that behaves is a per-row **signal** the reconciler writes when it repositions, which is a different
+feature from the one the spelling suggests; `docs/guide/ui/markup-panels.md` and
+`Core/Vixen.Ui.Markup/README.md` both carry the trap.
+
+The four are one issue each, because each is its own design piece and none of them is blocked on the
+others: #758 (a markup spelling for the virtualizing controls), #759 (the index, as a signal),
+#760 (sections, and whether a nested `@for` is already the answer), #761 (deferring `Region.Clear`
+so anything can animate out). The LIS reorder is #178 / #56.
 
 ### 6.6 `bind:` is too narrow to be used, and the repo proves it
 
