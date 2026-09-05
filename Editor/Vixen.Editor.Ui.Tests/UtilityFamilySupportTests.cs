@@ -1263,8 +1263,10 @@ public class UtilityFamilySupportTests {
             "would pin the mechanism rather than the answer, which is `NumericFigures`' finding one " +
             "category over. ⚠ And half the reason this group used to give is refuted: it claimed " +
             "`MaskGradientTests` pins the cluster against pixels, and that file writes hand-authored " +
-            "`mask-image` declarations rather than one utility class — so what actually covers these " +
-            "roots is their emission, which is the mechanism again and not the answer.",
+            "`mask-image` declarations rather than one utility class. What covers the eighteen mask roots " +
+            "instead is `Vixen.Ui.Styling.Utilities.Tests/MaskFamilyTests`, which resolves each class " +
+            "through the cascade and asserts the whole assembled `mask-image` — the answer rather than the " +
+            "fragment — and the gradient six are `CompositionTests`'.",
             "bg-conic", "bg-linear", "bg-radial", "from", "mask-b-from",
             "mask-b-to", "mask-conic", "mask-conic-from", "mask-conic-to", "mask-l-from",
             "mask-l-to", "mask-linear", "mask-linear-from", "mask-linear-to", "mask-r-from",
