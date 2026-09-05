@@ -148,10 +148,22 @@ public class TexturePixelProcessorTests {
 
         Assert.Equal(["sourceA", "sourceB"], textures);
 
-        // And the op's two inputs are in the same order: A's image first.
+        // ⚠ And the op's inputs are in the same order — asserted rather than said. The evaluator
+        // binds them positionally over those two declarations, so an op that listed B's image first
+        // would composite the wrong way round with a kernel that is perfectly correct.
         var op = plan.Ops.Last();
+        var images = compiler.NodeImages.ToDictionary(written => written.Node, written => written.Image);
 
-        Assert.Equal(2, op.Inputs.Length);
+        Assert.Equal(images[second.Id], op.Inputs[1]);
+
+        // ⚠ A's image is *not* the noise node's own. The processor resolved to colour — the Uniform
+        // arrives at B — so the grey noise is splatted by an inserted ChannelShuffle and what reaches
+        // the op is the splat's output. Doc 48 § Part 4's promotion rule, seen from a node that had
+        // no idea it happened.
+        var promotion = Assert.Single(plan.Ops, one => one.Output == op.Inputs[0]);
+
+        Assert.Equal("ChannelShuffle", promotion.Kernel);
+        Assert.Equal(images[first.Id], promotion.Inputs[0]);
     }
 
     /// <summary>An unwired input declares no texture and asks the op for no image.</summary>

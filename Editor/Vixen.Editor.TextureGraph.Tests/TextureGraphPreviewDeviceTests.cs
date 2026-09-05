@@ -23,8 +23,6 @@ public class TextureGraphPreviewDeviceTests {
 
         ulong next = 1;
 
-        public int Released { get; private set; }
-
         public IReadOnlyDictionary<ulong, Vixen.Core.Imaging.Bitmap> Pictures => pictures;
 
         public ulong Register(Vixen.Core.Imaging.Bitmap picture, ulong existing) {
@@ -35,10 +33,7 @@ public class TextureGraphPreviewDeviceTests {
             return image;
         }
 
-        public void Release(ulong image) {
-            pictures.Remove(image);
-            Released++;
-        }
+        public void Release(ulong image) => pictures.Remove(image);
     }
 
     static NodeTypeRegistry Registry() {
