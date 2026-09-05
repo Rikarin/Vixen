@@ -153,6 +153,45 @@ enum ValueKind : byte {
     GradientStop
 }
 
+/// <summary>What a top-level slash means to a family.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>A slash is not one thing, and reading it as one was a silent wrong answer rather
+///         than a missing feature.</b> <see cref="UtilityParser" /> has always kept both readings —
+///         <see cref="UtilityCandidate.Opacity" /> and <see cref="UtilityCandidate.SlashSuffix" /> —
+///         and its own remark says which one a slash means is the utility's to decide. Nothing
+///         decided: a family that did not look at the suffix simply resolved the head and dropped
+///         it, so <c>aspect-16/9</c> emitted <c>aspect-ratio: 16</c> and <c>text-lg/7</c> emitted
+///         the theme's line height. Both are valid CSS with a value nobody asked for, which is worse
+///         than an unrecognised class.
+///     </para>
+///     <para>
+///         <b>So every family says which reading it takes, and <see cref="None" /> is a refusal.</b>
+///         A slash on a family that has no modifier means the class was misspelt, and the honest
+///         answer is no rule at all — the same answer <c>TryArbitraryProperty</c> already gave
+///         <c>[color:red]/50</c> for exactly this reason.
+///     </para>
+/// </remarks>
+enum SlashMeaning : byte {
+    /// <summary>No modifier. A slash is a misspelling and the class is refused.</summary>
+    None,
+
+    /// <summary>An alpha on the colour: <c>bg-accent/50</c>.</summary>
+    Opacity,
+
+    /// <summary>A denominator: <c>w-2/3</c> is two thirds wide.</summary>
+    Fraction,
+
+    /// <summary>The other half of a ratio: <c>aspect-16/9</c>.</summary>
+    Ratio,
+
+    /// <summary>
+    ///     A line height beside a font size — <c>text-lg/7</c> — or an alpha when the value read as
+    ///     a colour instead, which is the one family whose slash means two things.
+    /// </summary>
+    Leading
+}
+
 /// <summary>The utilities a class name can name, and what each one emits.</summary>
 /// <remarks>
 ///     <para>
@@ -266,7 +305,25 @@ public static class UtilityFamilies {
         Dictionary<string, UtilityDeclaration[]>? ValueAlongside = null,
         string? Template = null,
         string? Scope = null
-    );
+    ) {
+        /// <summary>Which reading of a top-level slash this family takes.</summary>
+        /// <remarks>
+        ///     ⚠ <b>Defaulted from <see cref="Kind" /> rather than written on every registration,
+        ///     because a family that forgot to say would then quietly take the permissive reading
+        ///     — and permissive is the bug.</b> Two hundred registrations and one omission is all
+        ///     it takes to put a silently-dropped modifier back. The kinds that take one are the
+        ///     kinds that resolve a colour (an alpha) and the sizing kind (a fraction); everything
+        ///     else refuses, and the two families whose slash the kind cannot predict —
+        ///     <c>aspect</c> and <c>text</c> — say so themselves.
+        /// </remarks>
+        public SlashMeaning Slash { get; init; } = Kind switch {
+            ValueKind.Color or ValueKind.BorderEdge or ValueKind.Shadow or ValueKind.DropShadow
+                or ValueKind.GradientStop => SlashMeaning.Opacity,
+            ValueKind.Size => SlashMeaning.Fraction,
+            ValueKind.FontSize => SlashMeaning.Leading,
+            _ => SlashMeaning.None
+        };
+    }
 
     static readonly Dictionary<string, Family> Registry = new(StringComparer.Ordinal);
     static readonly List<string> Names = [];
@@ -2231,14 +2288,20 @@ public static class UtilityFamilies {
             ["auto"] = "10px", ["thin"] = "6px", ["none"] = "0px"
         });
 
-        // The ratio keywords have to be pairs rather than numbers: the layout reads `16 / 9` with a
-        // parser of its own, and `aspect-16/9` cannot be written as a class because the parser reads
-        // a top-level slash as an opacity long before the family sees it.
+        // The ratio keywords are pairs rather than numbers because the layout reads `16 / 9` with a
+        // parser of its own — `LayoutStyleBuilder.TryRatio`, beside the bare-number form.
+        //
+        // ⚠ <b>`aspect-16/9` was said to be unspellable because the parser read a top-level slash as
+        // an opacity, and that was never true.</b> `UtilityParser` keeps the suffix as written in
+        // `SlashSuffix` as well as reading it as an alpha, and says in its own remark that which one
+        // it means is the family's to decide. What was missing is the deciding: this family did not
+        // look, so `aspect-16/9` resolved its head and emitted `aspect-ratio: 16`. A wrong ratio,
+        // silently, rather than a class that could not be written.
         Register(new Family("aspect", ValueKind.Number, ["aspect-ratio"], new Dictionary<string, string>(StringComparer.Ordinal) {
             ["square"] = "aspect-ratio:1 / 1",
             ["video"] = "aspect-ratio:16 / 9",
             ["auto"] = "aspect-ratio:auto"
-        }));
+        }) { Slash = SlashMeaning.Ratio });
 
         // ── The eighteen roots that are deliberately NOT here ───────────────────────────────
         //
@@ -2649,6 +2712,13 @@ public static class UtilityFamilies {
             return false;
         }
 
+        // ⚠ A modifier a family does not read must be a refusal and not a shrug. `p-4/2` used to
+        // emit `padding: 16px` — the head resolved, the suffix went nowhere, and the author got a
+        // rule that looks like the one they wrote. See `SlashMeaning`.
+        if (candidate.SlashSuffix is not null && family.Slash == SlashMeaning.None) {
+            return false;
+        }
+
         // Negation is applied to the result rather than threaded through every branch below, because
         // `-mt-4` sets exactly what `mt-4` sets and the only difference is the sign of the number.
         if (!Resolve(family, candidate, tokens, declarations)
@@ -2763,8 +2833,25 @@ public static class UtilityFamilies {
             return Emit(family, arbitrary, declarations);
         }
 
+        // ⚠ A ratio before the keywords, because the keyword table is keyed on the whole value and
+        // `16` is not in it — but `aspect-square/9` would otherwise take the keyword branch and
+        // drop the denominator, which is the failure this whole mechanism exists to stop. A ratio
+        // family reaching here with a suffix means the pair is the value.
+        if (family.Slash == SlashMeaning.Ratio && candidate.SlashSuffix is { } denominator) {
+            return TryRatioPart(candidate.Value, out var antecedent)
+                && TryRatioPart(denominator, out var consequent)
+                && Emit(family, antecedent + " / " + consequent, declarations);
+        }
+
         // Keywords first, because `text-center` has to beat any colour or size named `center`.
         if (family.Keywords is not null && family.Keywords.TryGetValue(candidate.Value, out var keyword)) {
+            // ⚠ A keyword takes no modifier even on a family that has one. `text-center/50` is not
+            // a translucent alignment and `bg-cover/50` is not a translucent size; both used to
+            // resolve and quietly lose the suffix.
+            if (candidate.SlashSuffix is not null) {
+                return false;
+            }
+
             return keyword.Contains(':', StringComparison.Ordinal)
                 ? EmitPair(keyword, declarations)
                 : Emit(family, keyword, declarations);
@@ -3134,13 +3221,69 @@ public static class UtilityFamilies {
         }
     }
 
+    /// <summary>Resolves the <c>/7</c> of <c>text-lg/7</c> through the family that owns line heights.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Delegated to <c>leading</c>'s own table rather than reimplemented, because the two
+    ///     spellings have to mean the same thing.</b> <c>text-lg/7</c> and
+    ///     <c>text-lg leading-7</c> are the same declaration written twice in Tailwind v4, and a
+    ///     second copy of the scale here is a pair that agrees until one of them is edited. The
+    ///     keyword half matters as much as the count: <c>leading-none</c> is the ratio <c>1</c> and
+    ///     not a length, so <c>text-lg/none</c> has to be the ratio too.
+    ///     <para>
+    ///         The arbitrary form <c>text-lg/[1.5]</c> goes through verbatim, which is what the
+    ///         brackets are for everywhere else.
+    ///     </para>
+    /// </remarks>
+    static bool TryLeading(string suffix, ThemeTokens tokens, out string result) {
+        result = string.Empty;
+
+        if (suffix.Length == 0) {
+            return false;
+        }
+
+        if (suffix[0] == '[' && suffix[^1] == ']') {
+            var inside = suffix[1..^1].Replace('_', ' ');
+
+            if (!IsPlausibleValue(inside)) {
+                return false;
+            }
+
+            result = inside;
+            return true;
+        }
+
+        if (Registry.TryGetValue("leading", out var leading)
+            && leading.Keywords is { } keywords
+            && keywords.TryGetValue(suffix, out var keyword)) {
+            // The keyword table holds whole pairs — `line-height:1.25` — and only the value half is
+            // wanted here, because the property is already known.
+            result = keyword[(keyword.IndexOf(':', StringComparison.Ordinal) + 1)..];
+            return true;
+        }
+
+        return TrySpacing(suffix, tokens, out result);
+    }
+
     static bool TryFontSizeOrColor(UtilityCandidate candidate, ThemeTokens tokens, List<UtilityDeclaration> declarations) {
         // The documented resolution order for `text-`: keyword (already tried), then font size,
         // then colour. A colour named `lg` would be unreachable, which is the price of one prefix
         // meaning three things and is worth paying — `text-lg` and `text-accent` both read right.
         if (tokens.FontSize.TryGetValue(candidate.Value, out var size)) {
+            var height = Px(size.LineHeight);
+
+            // ⚠ <b>`text-lg/7` is v4's spelling for a size with a line height, and the slash here
+            // is not the alpha it is one line below.</b> The same prefix takes both readings and
+            // the value decides which: a font-size token takes a leading, a colour takes an alpha.
+            // That is why the suffix is kept as written — a leading of `7` read as an opacity is
+            // seven per cent.
+            if (candidate.SlashSuffix is { } leading) {
+                if (!TryLeading(leading, tokens, out height)) {
+                    return false;
+                }
+            }
+
             declarations.Add(new UtilityDeclaration("font-size", Px(size.Size)));
-            declarations.Add(new UtilityDeclaration("line-height", Px(size.LineHeight)));
+            declarations.Add(new UtilityDeclaration("line-height", height));
             return true;
         }
 
@@ -3252,6 +3395,13 @@ public static class UtilityFamilies {
     static bool TrySize(UtilityCandidate candidate, ThemeTokens tokens, out string result) {
         result = string.Empty;
 
+        // ⚠ A denominator is only a denominator to a numerator, so the keyword arm below is not
+        // reachable with one. `w-full/2` used to be `width: 100%` — the suffix went nowhere, and
+        // half of a full width is not something the class can be read as meaning.
+        if (candidate.SlashSuffix is not null) {
+            return TryFractionOf(candidate, out result);
+        }
+
         switch (candidate.Value) {
             case "full":
                 result = "100%";
@@ -3290,8 +3440,14 @@ public static class UtilityFamilies {
                 break;
         }
 
-        // `w-1/2` — the slash is a fraction here and not an opacity, which is why the suffix is kept
-        // as written as well as read as one.
+        return TrySpacing(candidate.Value, tokens, out result);
+    }
+
+    /// <summary>
+    ///     <c>w-1/2</c> — the slash is a fraction here and not an opacity, which is why the suffix is
+    ///     kept as written as well as read as one.
+    /// </summary>
+    static bool TryFractionOf(UtilityCandidate candidate, out string result) {
         if (candidate.SlashSuffix is { } denominator
             && float.TryParse(candidate.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var numerator)
             && float.TryParse(denominator, NumberStyles.Float, CultureInfo.InvariantCulture, out var divisor)
@@ -3300,7 +3456,8 @@ public static class UtilityFamilies {
             return true;
         }
 
-        return TrySpacing(candidate.Value, tokens, out result);
+        result = string.Empty;
+        return false;
     }
 
     /// <summary>Resolves a <c>rounded-*</c> against the theme.</summary>
@@ -3351,6 +3508,25 @@ public static class UtilityFamilies {
     static bool TryFraction(string value, out string result) {
         if (float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var percent)) {
             result = (percent / 100f).ToString("0.####", CultureInfo.InvariantCulture);
+            return true;
+        }
+
+        result = string.Empty;
+        return false;
+    }
+
+    /// <summary>One half of a written ratio.</summary>
+    /// <remarks>
+    ///     ⚠ Strictly positive, which <see cref="TryNumber" /> is not. CSS Sizing 4 § 4.1 makes a
+    ///     <c>&lt;ratio&gt;</c> two positive numbers, and <c>aspect-16/0</c> is a box with no height
+    ///     at any width — a declaration the layout would honour into a zero-area element rather than
+    ///     one it would refuse. A class that cannot mean anything is better reported as unknown.
+    /// </remarks>
+    static bool TryRatioPart(string value, out string result) {
+        if (float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number)
+            && number > 0f
+            && float.IsFinite(number)) {
+            result = number.ToString("0.####", CultureInfo.InvariantCulture);
             return true;
         }
 
