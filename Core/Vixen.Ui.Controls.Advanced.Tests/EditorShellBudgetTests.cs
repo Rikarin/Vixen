@@ -1,0 +1,236 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.EditorShell;
+using Xunit;
+
+namespace Vixen.Ui.Controls.Advanced.Tests;
+
+/// <summary>Doc 09 § Testing's Perf row, as a gate rather than as a number in a table.</summary>
+/// <remarks>
+///     <para>
+///         <b>"Editor-shell benchmark is the gate: 5 panels + viewport + 500-node graph + a 10⁶-row
+///         virtualised grid holds the budget."</b> The benchmark that measures it lives in
+///         <c>Vixen.Benchmarks.Ui</c> and reports milliseconds; a benchmark cannot fail, so it is not
+///         a gate. This is, and it holds the same scene to properties expressed as <i>work</i>.
+///     </para>
+///     <para>
+///         ⚠ <b>Work and not wall-clock, and that is this repository's own rule rather than a
+///         preference.</b> A millisecond budget calibrated on an idle machine is its single largest
+///         flake source, and — worse here — it does not fail for the reason anybody cares about: a
+///         frame that got slower because it realised a million rows and a frame that got slower
+///         because the machine was busy print the same number. Elements realised, styles recomputed
+///         and draw commands emitted are the same on every machine, and each of them names its
+///         defect.
+///     </para>
+///     <para>
+///         ⚠ <b>Every assertion here is two-sided.</b> A ceiling alone is met by a shell that built
+///         nothing — an exception swallowed in a panel, a grid told about no items, a graph whose
+///         refresh never ran — and "realised fewer than a thousand rows" is most convincingly
+///         satisfied by realising none. So each bound has a floor under it, and the floor is what
+///         says the fixture is a shell rather than an empty document.
+///     </para>
+/// </remarks>
+public class EditorShellBudgetTests {
+    /// <summary>The scene, built once for the whole class.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Shared, because building it is a second of work</b> — a million items are copied into
+    ///     the grid's list, which is inherent and is not what any of this measures. The tests below
+    ///     read counters and drive frames; none of them mutates the tree in a way the next would see.
+    /// </remarks>
+    static readonly EditorShellScene.Scene Shell = EditorShellScene.Build();
+
+    /// <summary>The shell is a shell: all four of the row's parts are there and populated.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asserted first, and it is the assertion that makes the other three mean anything.</b>
+    ///     Every bound below is a ceiling on work, and a document that failed to build any of its
+    ///     panels would pass all of them by doing nothing. This is what a benchmark reporting a very
+    ///     fast frame could not tell you.
+    /// </remarks>
+    [Fact]
+    public void The_scene_is_the_composition_the_row_names() {
+        Assert.Equal(EditorShellScene.Panels, Shell.Docking.Panels.Count);
+        Assert.Equal(EditorShellScene.Nodes, Shell.Canvas.Graph.Nodes.Count);
+        Assert.Equal(EditorShellScene.Nodes - 1, Shell.Canvas.Graph.Wires.Count);
+        Assert.Equal(EditorShellScene.Rows, Shell.Grid.Items.Count);
+
+        // The viewport and the hierarchy are elements rather than counts, so the claim is that they
+        // were built and laid out — a zero-sized panel is the shape a broken docking arrangement has.
+        Assert.True(Shell.Viewport.Bounds.Width > 0f, "the viewport has no width, so the shell did not lay out");
+        Assert.True(Shell.Hierarchy.Rows.Count > 0, "the hierarchy realised no rows");
+        Assert.NotNull(Shell.Inspector);
+    }
+
+    /// <summary>A million rows realise a viewport's worth of elements and no more.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The bound is stated against the item count rather than as a constant.</b> "Fewer than
+    ///     four hundred" would be a number somebody has to re-derive when the fixture's height
+    ///     changes; "fewer than a thousandth of the items" is the property — O(viewport), not
+    ///     O(items) — and it stays true at every size the scene could be built at.
+    /// </remarks>
+    [Fact]
+    public void A_million_rows_realise_a_viewport_of_elements() {
+        var realised = Shell.Grid.Rows.Count;
+
+        Assert.True(realised > 0, "the grid realised no rows at all, so nothing below is a bound");
+
+        Assert.True(
+            realised < EditorShellScene.Rows / 1000,
+            $"the grid realised {realised} elements for {EditorShellScene.Rows} items, which is not O(viewport)"
+        );
+    }
+
+    /// <summary>A settled shell does no work at all, and draws the same frame again.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The property is <c>Update</c> returning <c>false</c>, which is not the same claim
+    ///         as <c>StylesResolved == 0</c> and is the one that is true.</b> On a no-op frame
+    ///         <c>UiDocument.Update</c> returns before it touches anything and clears
+    ///         <c>StylesApplied</c> — but leaves <c>StylesResolved</c> holding whatever the last
+    ///         <i>real</i> pass resolved. So a settled shell reads a few hundred there for ever, and a
+    ///         test asserting zero would be red against a document that is doing nothing whatever.
+    ///         Filed as #596; asserted here as it behaves rather than as it reads.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A count of work and not a millisecond, for the reason this whole file exists.</b>
+    ///         "Did the frame do anything" is the same answer on an idle laptop and a loaded CI
+    ///         runner; "was the frame under 2 ms" is not.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_settled_shell_does_nothing_and_draws_the_same_frame() {
+        // Frames until the arrangement stops settling, with a ceiling that is a hang check rather
+        // than a budget: a shell that has not settled in ten frames is not slow, it is oscillating.
+        var settled = 0;
+
+        for (var i = 0; i < 10 && Shell.Document.Update(); i++) {
+            Shell.Document.Draw();
+            settled = i + 1;
+        }
+
+        Assert.True(settled < 10, "the shell never stopped dirtying itself");
+
+        Shell.Document.Draw();
+        var commands = Shell.Document.Drawing.Commands.Count;
+
+        Assert.True(commands > 100, $"the shell emitted {commands} draw commands, which is not a populated shell");
+
+        Assert.False(Shell.Document.Update(), "a settled shell reported work to do");
+        Assert.Equal(0, Shell.Document.StylesApplied);
+
+        Shell.Document.Draw();
+        Assert.Equal(commands, Shell.Document.Drawing.Commands.Count);
+    }
+
+    /// <summary>And one row of the hierarchy changing costs a cascade of tens, not of thousands.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The interaction is the frame an application pays and the settled one is not.</b>
+    ///     <c>Benchmarks/Vixen.Benchmarks.Ui/README.md</c> records what this looked like when nobody
+    ///     was measuring it: one class on one row of 8 001 elements cost a full cascade — 9.5 ms and
+    ///     8.87 MB, 41× the settled frame — because <c>StyleUpdater</c>, whose whole purpose is to
+    ///     narrow exactly this, had no production caller. The bound here is against the shell's own
+    ///     element count rather than a constant, so it stays a statement about <i>incrementality</i>
+    ///     when the fixture grows.
+    /// </remarks>
+    [Fact]
+    public void Selecting_one_row_restyles_a_neighbourhood_and_not_the_shell() {
+        while (Shell.Document.Update()) {
+            Shell.Document.Draw();
+        }
+
+        var elements = Count(Shell.Document.Root);
+        var row = Shell.Hierarchy.Rows[0];
+
+        row.AddClass("marked");
+
+        Assert.True(Shell.Document.Update(), "adding a class dirtied nothing");
+        Shell.Document.Draw();
+
+        var resolved = Shell.Document.StylesResolved;
+
+        Assert.True(resolved > 0, "the class change resolved no styles at all, so nothing was restyled");
+
+        Assert.True(
+            resolved < elements / 4,
+            $"one class on one row cascaded {resolved} of {elements} elements, which is a full pass"
+        );
+
+        row.RemoveClass("marked");
+
+        while (Shell.Document.Update()) {
+            Shell.Document.Draw();
+        }
+    }
+
+    /// <summary>And the composition costs a bounded number of elements, not one per datum.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The number that makes the whole row a claim about a <i>framework</i>.</b> Five panels,
+    ///     a 500-node graph and a million-row table are 1 000 500 pieces of data; what the tree holds
+    ///     has to be proportional to what is on screen instead, or "the editor is the
+    ///     application-platform proof" is a statement about a document that cannot be opened. A
+    ///     ceiling of ten thousand is roughly twenty times what is realised today, which is loose
+    ///     enough to survive a panel being added and tight enough that one element per datum — or one
+    ///     per graph node, which is the near miss — fails it.
+    /// </remarks>
+    [Fact]
+    public void The_whole_shell_holds_a_bounded_number_of_elements() {
+        var elements = Count(Shell.Document.Root);
+
+        Assert.True(elements > 200, $"the shell holds {elements} elements, which is not a populated shell");
+        Assert.True(elements < 10_000, $"the shell holds {elements} elements for {EditorShellScene.Rows} rows");
+    }
+
+    /// <summary>A settled frame's allocation, which is a work measure and not a timing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Bytes are deterministic where microseconds are not</b>, so this is the one part of
+    ///         doc 00's budget a gate can hold directly. <c>GC.GetAllocatedBytesForCurrentThread</c>
+    ///         counts what the frame asked for, identically on an idle laptop and a loaded runner,
+    ///         and it is the number <c>DocumentBenchmarks</c> caught going from zero to 40 bytes per
+    ///         element within an hour of being recorded — a boxed enumerator in the draw walk that no
+    ///         timing would have separated from noise.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The ceiling is per <i>frame</i> and is deliberately not zero.</b> The editor shell
+    ///         settles at about 500 bytes a frame where a document of plain controls settles at none,
+    ///         and that difference is real and is filed as #597. What this gate holds is the property
+    ///         that matters either way: the number does not scale with the million rows, the five
+    ///         hundred nodes or the five panels — it is a constant, and a frame that started
+    ///         allocating per item would clear this ceiling by four orders of magnitude.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_settled_frame_allocates_a_constant_and_not_a_document() {
+        while (Shell.Document.Update()) {
+            Shell.Document.Draw();
+        }
+
+        // Ten frames, so a one-off allocation on the first is divided away rather than measured.
+        const int Frames = 10;
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+
+        for (var i = 0; i < Frames; i++) {
+            Shell.Document.Update();
+            Shell.Document.Draw();
+        }
+
+        var perFrame = (GC.GetAllocatedBytesForCurrentThread() - before) / Frames;
+
+        Assert.True(
+            perFrame < 8192,
+            $"a settled frame of the shell allocated {perFrame} bytes, which is not independent of "
+            + $"{EditorShellScene.Rows} rows and {EditorShellScene.Nodes} nodes"
+        );
+    }
+
+    static int Count(UiElement element) {
+        var total = 1;
+
+        foreach (var child in element.Children) {
+            total += Count(child);
+        }
+
+        return total;
+    }
+}

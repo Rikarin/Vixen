@@ -13,11 +13,20 @@ or, for one of them:
 dotnet run -c Release --project Benchmarks/Vixen.Benchmarks.Ui -- --filter '*OneLeaf*'
 ```
 
-Two suites, and the difference between them is the point. `LayoutBenchmarks` measures the flexbox
+Three suites, and the differences between them are the point. `LayoutBenchmarks` measures the flexbox
 engine alone. `DocumentBenchmarks` measures **a whole frame of a themed document** — the cascade, the
 font sizes, the layout style, flexbox and the draw list — which is what
 [doc 14](../../docs/plan/14-roadmap.md)'s Phase 4 exit criterion is a claim about: three of its four
-passes are above the layout tree.
+passes are above the layout tree. `EditorShellBenchmarks` measures **the composition** doc 09 names as
+the gate: five docked panels, a viewport, a 500-node graph and a million-row grid, all live at once.
+
+⚠ **None of the three is a gate, because a benchmark cannot fail.** The gate for the editor shell is
+`Vixen.Ui.Controls.Advanced.Tests.EditorShellBudgetTests`, which builds the same scene — from the same
+source file, linked into this project rather than copied — and asserts properties expressed as *work*:
+elements realised against items, styles cascaded against elements, bytes allocated per settled frame.
+A millisecond budget calibrated on an idle machine is this repository's largest flake source, and it
+also does not fail for the reason anyone cares about: a frame that is slow because it realised a
+million rows and a frame that is slow because the machine is busy print the same number.
 
 ---
 
@@ -177,5 +186,60 @@ returns `List<UiElement>` now, and `UiDocument`'s `Apply` and `Accumulate` take 
 above was 17:01; `PaintOrder` arrived with `z-index` at 18:06, an hour later. The claim was true when
 it was measured and false within the hour, and nothing re-ran the benchmark — which is the argument
 for this file being a build step rather than a document somebody remembers to update.
+
+
+---
+
+# EditorShellBenchmarks
+
+Doc 09 § Testing's Perf row, composed: **five docked panels + a viewport + a 500-node wired graph + a
+10⁶-row virtualised grid**, in one document, on one thread. The row calls it the gate *and* the
+application-platform proof — *"per the decided audience order, the editor — not a sample"* — and
+before this it did not exist. The parts all pass individually; what nothing could see is the
+interaction.
+
+## What it measured
+
+Apple M-series, .NET 10, `--job short`. The shell is built once in `[GlobalSetup]` and settled before
+anything is timed, so none of these includes the cost of copying a million items into the grid's list.
+
+| Method | Mean | Ratio | Gen0 | Allocated |
+|---|---|---|---|---|
+| SteadyFrame | 217 µs | 1.00 | — | **504 B** |
+| RowSelected | 272 µs | 1.26 | 0.49 | 5 472 B |
+| GridScrolled | 1 164 µs | 5.38 | 93.75 | **591 010 B** |
+| ColdFrame | 900 µs | 4.16 | 87.89 | 557 400 B |
+
+**One row of the hierarchy changing costs 1.26× a settled frame.** That is the number the row is
+really about, and it is the one `DocumentBenchmarks` found at 41× before the incremental cascade was
+wired up. A shell of this size restyles a neighbourhood.
+
+⚠ **The settled frame allocates 504 bytes and `DocumentBenchmarks`' settled frame allocates none.**
+Both early-return out of `UiDocument.Update`, so this is in the draw walk or the frame diff, reached
+by something the advanced set has and the plain one does not. It is a constant rather than per-item —
+the gate holds it under 8 KB and it does not move with the row count — so it is an object or two a
+frame rather than a walk. ⚠ **And 591 KB per scrolled frame is a lot for twenty-four realised rows.**
+Some of that is the fixture's row accessors formatting strings; how much is not known. Both are
+filed as [#597](https://github.com/Rikarin/Vixen/issues/597) rather than chased here, because the
+composition had never been measured at all and the numbers should exist in one place before anybody
+optimises against them.
+
+## What it found
+
+**Twenty-four elements for a million rows.** The grid realises a viewport's worth and no more, which
+is the claim virtualisation exists to make and the one the gate states as a ratio rather than as a
+constant: fewer than a thousandth of the items, at whatever size the scene is built.
+
+⚠ **Five panels added to a docking host are five tabs of one group, and four of them lay out to
+nothing.** The scene docks them into four regions on purpose. A fixture that skipped that step would
+report an *excellent* frame time for a document drawing a tree view and four empty rectangles — which
+is the shape of benchmark that makes a framework look fast and says nothing.
+
+⚠ **`StylesResolved` is not cleared on a no-op frame.** Writing the obvious assertion for "a settled
+shell cascades nothing" — `StylesResolved == 0` — turns out to be red against a document doing
+nothing whatever, because the early return in `UiDocument.Update` clears `StylesApplied` and leaves
+`StylesResolved` holding the last real pass's number. Filed as
+[#596](https://github.com/Rikarin/Vixen/issues/596); the gate asserts `Update()` returning `false`
+instead, which is what is actually true.
 
 Licensed under Apache-2.0.
