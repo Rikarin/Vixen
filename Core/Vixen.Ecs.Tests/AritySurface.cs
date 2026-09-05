@@ -2,10 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Spy = Vixen.Ecs.Tests.AritySpy<
+    Vixen.Ecs.Tests.Slot0, Vixen.Ecs.Tests.Slot1, Vixen.Ecs.Tests.Slot2, Vixen.Ecs.Tests.Slot3,
+    Vixen.Ecs.Tests.Slot4, Vixen.Ecs.Tests.Slot5, Vixen.Ecs.Tests.Slot6, Vixen.Ecs.Tests.Slot7,
+    Vixen.Ecs.Tests.Slot8, Vixen.Ecs.Tests.Slot9, Vixen.Ecs.Tests.Slot10, Vixen.Ecs.Tests.Slot11,
+    Vixen.Ecs.Tests.Slot12, Vixen.Ecs.Tests.Slot13, Vixen.Ecs.Tests.Slot14, Vixen.Ecs.Tests.Slot15>;
 
 namespace Vixen.Ecs.Tests;
 
-using Spy = AritySpy<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14, Slot15>;
 
 /// <summary>A component whose value a body can bump without knowing which component it is.</summary>
 /// <remarks>
