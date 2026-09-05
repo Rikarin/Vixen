@@ -383,6 +383,40 @@ subscription-table entry can pass. So the table's value type went from
 rather than `AddHandler` — an entry that passed the strategy and dropped the flag would compile, work
 for every binding that did not ask, and silently ignore the ones that did.
 
+## `<provide />`, the third tag that names no element
+
+`<slot>` and `<self />` are the two tags the binder recognises by name rather than by case;
+`<provide type="ITheme" value="@theme" />` is the third. It emits one statement against whatever
+element the tag was written in:
+
+```csharp
+n1.Provide<ITheme>(theme);
+```
+
+⚠ **The `type` is written out because it cannot be inferred**, and that is a fact about the runtime
+rather than a limitation here. `UiElement.Provide<T>` keys on the type argument, deliberately, so
+that an interface is the useful key and a subclass cannot shadow its base — an inferred key would be
+the concrete class every time and `Inject<ITheme>` would find nothing. The binder could not infer one
+anyway: it never touches the compilation, which is the rule the whole design rests on.
+
+⚠ **Document order decides what sees it**, because the emitter writes nodes in the order they appear.
+A component tag above the `<provide>` is composed before the statement runs and injects null; one
+below sees the value. `EmitterTests.A_component_above_the_provide_was_built_before_the_value_existed`
+pins both halves — and the first version of that test used `use="@(e => … e.Inject<T>())"`, which
+proved nothing at all, because `BuildContext.Use` goes through `Bind` and an `Effect` queues its
+first run. A component's `Build` runs in place; that is why the fixture is a component.
+
+⚠ **The scoping assertion needs an *uncle*, not a nephew.** Emitting `Root.Provide<T>(…)` instead of
+`n1.Provide<T>(…)` — the component's own host rather than the tag's element — leaves a test that only
+asks a descendant completely green: the descendant is inside both. The element that tells them apart
+is a sibling of the tag's element, which is inside the component's root and outside the tag's.
+
+Three diagnostics, all about the tag's shape: `VXML2021` for a missing half, `VXML2022` for an
+interpolated `type` (it becomes a generic argument, so `Provide<{whatever this says}>` is not C# —
+`slot`'s rule one level up), `VXML2023` for children, which read as a narrower scope that does not
+exist. A tag missing either half emits **nothing**: the binder has already reported it, and writing
+`Provide<>(…)` on top would add a Roslyn error against generated code the author cannot edit.
+
 ## `change:` is a value binding, and `on:change` could not have been one
 
 `on:` maps a name through a table of `Action<UiElement, Action<UiEvent>, EventSubscription>` — a routed

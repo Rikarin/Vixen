@@ -452,4 +452,54 @@ public static class MarkupDiagnostics {
         BindingCategory,
         DiagnosticSeverity.Warning
     );
+
+    /// <summary>A <c>&lt;provide&gt;</c> missing the half that makes it mean anything.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both halves are required and neither has a defensible default.</b> A missing
+    ///     <c>type</c> cannot be inferred — <c>Provide&lt;T&gt;</c> keys on the type argument rather
+    ///     than on the value's runtime type, so inferring would give the concrete class and
+    ///     <c>Inject&lt;ITheme&gt;</c> would find nothing — and a missing <c>value</c> has nothing to
+    ///     provide. Both would otherwise emit a tag that compiles, runs, and provides nothing, which
+    ///     is a defect an author meets as an injection that silently answers null.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor IncompleteProvide = new(
+        "VXML2021",
+        "'<provide>' needs both a type and a value",
+        "'<provide>' has no usable '{0}'. Write '<provide type=\"ITheme\" value=\"@theme\" />': the type is "
+        + "the key 'Inject<T>' looks for and cannot be inferred from the value.",
+        BindingCategory,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>A <c>&lt;provide type&gt;</c> written as an expression rather than as a type name.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The key is a generic argument, so it is decided when the file is compiled and not
+    ///     when it runs.</b> An interpolated <c>type</c> would have to become
+    ///     <c>Provide&lt;{whatever this string says}&gt;</c>, which is not a thing C# can spell — the
+    ///     same reason <c>slot</c> has to be a literal name, one level further up.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor InterpolatedProvideType = new(
+        "VXML2022",
+        "'<provide type>' is not a literal type name",
+        "'type' becomes a generic argument, so it has to be written out. '{0}' interpolates.",
+        BindingCategory,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>A <c>&lt;provide&gt;</c> written with children, which nothing would build.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Refused rather than dropped, on <c>VXML2017</c>'s rule.</b> Children read as a
+    ///     narrower scope — provide this value <i>to these</i> — and there is no such scope: a
+    ///     provide is a declaration on the element it was written in, and it reaches everything after
+    ///     it there. Building the children anyway would put them where the tag is, one level up from
+    ///     where they were written, which is a layout the author did not ask for.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor ProvideContent = new(
+        "VXML2023",
+        "'<provide>' has no content",
+        "'<provide>' declares a value on the element it is written in and reaches everything after "
+        + "it there, so it has nowhere to put children. Write it as '<provide … />'.",
+        BindingCategory,
+        DiagnosticSeverity.Error
+    );
 }

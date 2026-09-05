@@ -128,6 +128,14 @@ Vixen.Ui.Markup.Binding.BoundLiteralPart.Text.init -> string
 Vixen.Ui.Markup.Binding.BoundNode -> abstract record
 Vixen.Ui.Markup.Binding.BoundNode : System.IEquatable<Vixen.Ui.Markup.Binding.BoundNode>
 Vixen.Ui.Markup.Binding.BoundNode.BoundNode() -> void
+Vixen.Ui.Markup.Binding.BoundProvide -> sealed record
+Vixen.Ui.Markup.Binding.BoundProvide : System.IEquatable<Vixen.Ui.Markup.Binding.BoundProvide>
+Vixen.Ui.Markup.Binding.BoundProvide : Vixen.Ui.Markup.Binding.BoundNode
+Vixen.Ui.Markup.Binding.BoundProvide.BoundProvide(string Type, Vixen.Ui.Markup.Binding.BoundExpression Value) -> void
+Vixen.Ui.Markup.Binding.BoundProvide.Type.get -> string
+Vixen.Ui.Markup.Binding.BoundProvide.Type.init -> string
+Vixen.Ui.Markup.Binding.BoundProvide.Value.get -> Vixen.Ui.Markup.Binding.BoundExpression
+Vixen.Ui.Markup.Binding.BoundProvide.Value.init -> Vixen.Ui.Markup.Binding.BoundExpression
 Vixen.Ui.Markup.Binding.BoundSlot -> sealed record
 Vixen.Ui.Markup.Binding.BoundSlot : System.IEquatable<Vixen.Ui.Markup.Binding.BoundSlot>
 Vixen.Ui.Markup.Binding.BoundSlot : Vixen.Ui.Markup.Binding.BoundNode
@@ -593,7 +601,9 @@ static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.DynamicSlotName ->
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.EmptyComponent -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ExpectedExpression -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ExpectedExpressionValue -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.IncompleteProvide -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.InertElementAttribute -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.InterpolatedProvideType -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.InvalidParameterName -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.MismatchedEndTag -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.MisplacedSelf -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
@@ -602,6 +612,7 @@ static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.MissingComponentDi
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.MissingKey -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.NamedSlotOnElement -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ProjectedKey -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ProvideContent -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.RefInLoop -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.RefsOutsideLoop -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.SlotFallbackContent -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor

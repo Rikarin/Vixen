@@ -348,6 +348,17 @@ public sealed class ComponentEmitter {
                 hasDefaultSlot |= component.Inherits is not null && slot.Name == BuildContextDefaultSlot;
                 break;
 
+            case BoundProvide provide:
+                // ⚠ Nothing at all for a broken one. The binder has already reported which half is
+                // missing, and emitting `Provide<>(…)` on top of that adds a Roslyn error pointing
+                // at generated code the author cannot edit — two complaints about one mistake, one
+                // of them unfixable.
+                if (provide.Type.Length > 0 && provide.Value.Text.Length > 0) {
+                    Mapped(provide.Value, $"{parent}.Provide<{provide.Type}>(", ");");
+                }
+
+                break;
+
             case BoundElement element:
                 EmitElement(element, context, parent);
                 break;
