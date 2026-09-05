@@ -652,7 +652,7 @@ public class UtilityFamilySupportTests {
         // ⚠ Two families composing into one declaration is the case this theory cannot state — a row
         // here is one class — so it is
         // <see cref="Two_filter_families_compose_into_one_declaration_and_one_matrix" /> instead.
-        { "shadow-elevation", "box-shadow", "0px 10px 26px rgba(12, 14, 18, 0.22)" },
+        { "shadow-elevation", "box-shadow", "0 0 0 0px currentcolor, 0px 10px 26px rgba(12, 14, 18, 0.22)" },
 
         // ⚠ <b>`fill-*` and `stroke-*` are the first rows here to move because a <i>consumer</i> was
         // found rather than written.</b> Everything the pair needed already existed: `IconPath`
@@ -948,8 +948,14 @@ public class UtilityFamilySupportTests {
         // `ring-accent` alone resolves a zero width and paints a shadow exactly the size of the box,
         // which the background then covers — the same nothing v4 gives it. See
         // <see cref="A_ring_paints_outside_the_box_and_costs_the_layout_nothing" />.
-        { "ring-2", "box-shadow", "0 0 0 2px currentcolor" },
-        { "ring-accent", "box-shadow", "0 0 0 0px #2f6ecd" }
+        //
+        // ⚠ <b>And both rows now carry a second, transparent item, which is the ring sharing the
+        // property with `shadow-*` rather than winning it.</b> The two families wrote one longhand,
+        // so `shadow-lg ring-2` resolved to whichever rule the cascade picked and the other class
+        // did nothing — `filter`'s failure, in the one place the fragment table had not reached.
+        // See <see cref="A_ring_and_an_elevation_shadow_on_one_element_are_both_painted" />.
+        { "ring-2", "box-shadow", "0 0 0 2px currentcolor, 0 0 transparent" },
+        { "ring-accent", "box-shadow", "0 0 0 0px #2f6ecd, 0 0 transparent" }
     };
 
     /// <summary>Utility, property — the families that compute a value nothing in the engine reads.</summary>
@@ -2274,8 +2280,9 @@ public class UtilityFamilySupportTests {
         ui.Frame();
 
         // Both classes wrote the same declaration and neither zeroed the other, which is the whole
-        // point of making both of them assemblers.
-        Assert.Equal("0 0 0 2px #2f6ecd", ui.StyleOf(ringed, "box-shadow"));
+        // point of making both of them assemblers. ⚠ The second item is `shadow-*`'s slot resolving
+        // to its initial, and the `Single` below is what says an unwritten slot costs no command.
+        Assert.Equal("0 0 0 2px #2f6ecd, 0 0 transparent", ui.StyleOf(ringed, "box-shadow"));
 
         var ring = Assert.Single(
             ui.Document.Drawing.Commands,
@@ -2296,6 +2303,80 @@ public class UtilityFamilySupportTests {
         // have put the sibling at 36 — and every other assertion here would still have passed.
         Assert.Equal(32f, beside.AbsoluteLeft);
         Assert.Equal(32f, ringed.Width);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A ring and an elevation shadow on one element are two commands, and until
+    ///     `Rikarin/Vixen#279` item 4 they were one.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>shadow-lg ring-2</c> on a focused card is the way both classes are actually
+    ///         written, and it did not work: two families emitted <c>box-shadow</c>, so the cascade
+    ///         kept one rule and the other class silently did nothing at all. ⚠ <b>Nothing could see
+    ///         it.</b> The consumption gate measures <c>box-shadow</c> read either way;
+    ///         <see cref="Supported" /> holds one row per class and each row passed on its own; and
+    ///         the property computed a perfectly good value. It is only with both classes on one
+    ///         element that the defect exists, which is why this is a <c>Fact</c> and not a row.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two commands and their <i>order</i>, because emitting the list forwards is the
+    ///         wrong half of the fix and passes any count.</b> A draw list paints later commands over
+    ///         earlier ones and CSS Backgrounds 3 § 7.1.1 paints a shadow list front to back in the
+    ///         order written, so <c>EmitShadow</c> emits backwards — and the ring, which is item one,
+    ///         has to come out <i>last</i>. Asserting only that both are present would be green with
+    ///         the elevation shadow painted over the ring, which is the picture anybody writing the
+    ///         pair is trying to avoid.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the third assertion is the one that says the composition is not free by
+    ///         default.</b> Every element carrying either class emits both slots, so the one the
+    ///         author did not write arrives as a transparent shadow; <c>EmitOneShadow</c> drops it.
+    ///         Without that, a sheet with <c>shadow-*</c> anywhere in it doubles its shadow commands
+    ///         for a picture nobody can see, and no assertion about pixels would ever notice.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_ring_and_an_elevation_shadow_on_one_element_are_both_painted() {
+        using var ui = Sheet("ring-2", "ring-accent", "shadow-elevation", "w-8", "h-8");
+
+        var both = ui.Create(
+            "probe", ui.Document.Root, null, "ring-2", "ring-accent", "shadow-elevation", "w-8", "h-8"
+        );
+
+        var ringOnly = ui.Create("probe", ui.Document.Root, null, "ring-2", "ring-accent", "w-8", "h-8");
+
+        ui.Frame();
+
+        var shadows = ui.Document.Drawing.Commands
+            .Where(command => command.Kind == DrawCommandKind.Shadow)
+            .ToArray();
+
+        // Three, not four: two for the element carrying both classes, one for the element carrying
+        // only the ring — whose `--tw-shadow` slot resolved to a transparent shadow and was dropped.
+        Assert.Equal(3, shadows.Length);
+
+        // The ring is the hard-edged one — no blur, so `Thickness` is zero — and the elevation shadow
+        // is the blurred one. Both are present, which is the whole claim. ⚠ Selected by the left edge
+        // and not only by the falloff, because the sibling's ring is the same shape and the same
+        // width: a predicate that matched it too would be a `Single` failure rather than a wrong
+        // answer, but only by luck.
+        var ring = Assert.Single(
+            shadows, command => command.Thickness == 0f && command.X == both.AbsoluteLeft - 2f
+        );
+
+        var elevation = Assert.Single(shadows, command => command.Thickness > 0f);
+
+        // ⚠ Painted after, so it lands on top. Emitting the list forwards puts the elevation shadow
+        // over the ring and passes every assertion above it.
+        Assert.True(
+            Array.IndexOf(shadows, ring) > Array.IndexOf(shadows, elevation),
+            "the ring is the first item of the list, so it must be the last command emitted"
+        );
+
+        // And the ring the composition produced is the same ring it produces alone: sharing the
+        // property cost the family nothing.
+        Assert.Equal(ringOnly.Width + 4f, ring.Width);
     }
 
     /// <summary>

@@ -1269,7 +1269,12 @@ does mirror that one.
    fourth item ends in a comma. Both drew nothing, so which one it was never mattered until it did.
    ⚠ **`calc()` has since gone the same way** — `StyleValueParser` folds one, on the fold-or-refuse
    rule that keeps `calc(100% - 10px)` `Unknown` because a `StyleValue` is one number and one unit —
-   so what still blocks the root is the five-fragment composition alone. `stroke-none` is the same
+   so what still blocks the root is the composition alone — and ⚠ **that is now a narrower thing than
+   "the five-fragment composition"**. `shadow-*` and `ring-*` share one assembled `box-shadow` and
+   `shadow-lg ring-2` on one element paints both, so the collision the five slots were wanted for is
+   closed with two; what `ring-offset-*` is still missing is its own `--tw-ring-offset-width` fragment
+   and the second shadow that reads it, which is why the row's anchor names that and not the count.
+   `stroke-none` is the same
    shape one file over — `stroke` is read only as a colour, and `Icon.Resolve` falls back to the
    foreground for anything that is not one.
 4. *The class is v4 compatibility surface, and § D5 already says not to implement it.*
