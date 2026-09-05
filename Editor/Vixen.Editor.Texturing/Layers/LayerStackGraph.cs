@@ -323,23 +323,65 @@ static class LayerStackGraph {
                 _ => throw new ArgumentOutOfRangeException(nameof(layer), layer.Kind, "Not a layer kind this build knows.")
             };
 
-        /// <summary>A group's children composited over the cursor, or nothing when they add none.</summary>
+        /// <summary>A group's children, passed through or isolated, or nothing when they add none.</summary>
         /// <remarks>
-        ///     ⚠ <b>The children start from what is under the group rather than from transparency,
-        ///     and that is what makes a group's blend modes mean anything.</b> A child set to
-        ///     <c>Multiply</c> inside a group composited in isolation multiplies against an empty
-        ///     backdrop, which is black — so the group's contents darken to nothing and only the
-        ///     group's own mask looks wrong. Compositing the children onto the cursor and then
-        ///     blending the whole result back over the same cursor gives the group's opacity, mode
-        ///     and mask a meaning without taking one away from its children.
+        ///     <para>
+        ///         ⚠ <b>A group passes through under <see cref="LayerBlendMode.Copy" /> and isolates
+        ///         under every other mode, which is the distinction
+        ///         <a href="https://github.com/Rikarin/Vixen/issues/807">#807</a> · 1 was missing.</b>
+        ///         Compositing the children onto the cursor and blending the <em>result</em> back
+        ///         over that same cursor applies the group's mode to the whole canvas rather than to
+        ///         what the group covered: with a canvas of ½ and a group of one fully-masked child,
+        ///         a <c>Multiply</c> group baked ¼ where it had to bake ½. The cursor is both "what
+        ///         this group wrote" and "what was already there", and a non-Copy operator cannot
+        ///         tell them apart.
+        ///     </para>
+        ///     <para>
+        ///         <b>So an isolated group's children start from transparency, and the alpha they
+        ///         accumulate <em>is</em> the group's coverage.</b> <c>Blend.rvn</c> computes
+        ///         <c>amount = saturate(opacity) · saturate(b.w)</c>, so a texel no child covered
+        ///         arrives with alpha 0, blends by 0 and leaves the backdrop exactly as it was —
+        ///         whatever the operator. That is what makes the group's own mode, opacity and mask
+        ///         mean something without a coverage channel of this class's own.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>Pass-through is kept for <c>Copy</c> rather than isolating everything, and
+        ///         the reason is a child's own operator.</b> A child set to <c>Multiply</c> inside an
+        ///         isolated group multiplies against an empty backdrop and darkens to nothing — the
+        ///         standard behaviour of an isolated group in every compositor, and exactly why
+        ///         grouping layers under the default mode must not change the picture. Under
+        ///         <c>Copy</c> the result is the same either way for a covered texel, so the mode
+        ///         that means "do not reinterpret my children" is the one that does not isolate.
+        ///     </para>
         /// </remarks>
         PortRef? Group(LayerAsset layer, ChannelAsset channel, PortRef cursor, int depth) {
-            var inner = Stack(layer.Children, channel, cursor, depth + 1);
+            if (layer.Blend == LayerBlendMode.Copy) {
+                var passed = Stack(layer.Children, channel, cursor, depth + 1);
 
-            // Every child was disabled, restricted to other channels, or refused. Blending the cursor
-            // over itself would be a dispatch that changes nothing — and one whose *op index* moves
-            // every seed downstream of it.
-            return inner == cursor ? null : inner;
+                // Every child was disabled, restricted to other channels, or refused. Blending the
+                // cursor over itself would be a dispatch that changes nothing — and one whose *op
+                // index* moves every seed downstream of it.
+                return passed == cursor ? null : passed;
+            }
+
+            var empty = Add("Source/Uniform");
+
+            empty.SetValue("Colour", 0f, 0f, 0f, 0f);
+
+            PortRef transparent = new(empty.Id, "Out");
+            var inner = Stack(layer.Children, channel, transparent, depth + 1);
+
+            if (inner != transparent) {
+                return inner;
+            }
+
+            // Nothing composited onto it, so the backdrop this group would have blended is a
+            // transparent constant nothing reads. Removed rather than left dangling: an unread
+            // Source/Uniform is still an op in the plan, and an op is an index every seed downstream
+            // of it derives from.
+            graph.Remove(empty.Id, out _);
+
+            return null;
         }
 
         /// <summary>M9's layer, refused with the issue that will build it.</summary>
@@ -365,10 +407,20 @@ static class LayerStackGraph {
         PortRef? Fill(LayerAsset layer, ChannelAsset channel) {
             switch (layer.Fill) {
                 case LayerFillSource.Constant: {
+                    if (!layer.Values.TryGetValue(channel.Usage, out var authored)) {
+                        // ⚠ Nothing, rather than the channel's own Default — #807 · 2. A layer that
+                        // restricts no channels writes all of them, so a fill authoring base colour
+                        // alone reaches roughness too; falling back to the channel's base default
+                        // there composites 0.9 over whatever a layer beneath it had set, as though
+                        // an artist had asked for it. "This layer has nothing to say about that
+                        // channel" is the only thing an absent entry can mean, and the way to say it
+                        // is to cover nothing. `LayerAsset.Values`' own remarks describe the fill
+                        // that sets one channel and leaves the rest; this is that sentence made true.
+                        return null;
+                    }
+
                     var node = Add("Source/Uniform");
-                    var colour = layer.Values.TryGetValue(channel.Usage, out var authored)
-                        ? Colour(authored, channel.Usage, layer.Id)
-                        : Colour(channel.Default, channel.Usage, layer.Id);
+                    var colour = Colour(authored, channel.Usage, layer.Id);
 
                     // ⚠ Alpha 1 here and the authored alpha folded into the opacity by `Opacity`.
                     // `Blend.rvn` computes `amount = saturate(opacity) * saturate(b.w)`, so for values
@@ -589,6 +641,12 @@ static class LayerStackGraph {
         }
 
         /// <summary>The layer's opacity, with a constant fill's own alpha folded in.</summary>
+        /// <remarks>
+        ///     ⚠ <b>Only an <em>authored</em> colour's alpha is folded.</b> A constant fill with no
+        ///     entry for this channel no longer compiles at all (#807 · 2), so reading the channel's
+        ///     base default here would be folding the alpha of a colour that never reaches the
+        ///     graph — a number taken from a layer that is not there.
+        /// </remarks>
         static float Opacity(LayerAsset layer, ChannelAsset channel) {
             var opacity = layer.Opacity;
 
@@ -596,9 +654,9 @@ static class LayerStackGraph {
                 return opacity;
             }
 
-            var colour = layer.Values.TryGetValue(channel.Usage, out var authored)
-                ? authored
-                : channel.Default;
+            if (!layer.Values.TryGetValue(channel.Usage, out var colour)) {
+                return opacity;
+            }
 
             return colour.Length == 4 ? opacity * colour[3] : opacity;
         }

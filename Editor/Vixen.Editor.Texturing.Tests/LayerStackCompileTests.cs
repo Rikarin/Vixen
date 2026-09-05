@@ -77,7 +77,7 @@ public class LayerStackCompileTests {
     [Fact]
     public void Compiling_one_layer_per_mode_reports_nothing() {
         foreach (var mode in Enum.GetValues<LayerBlendMode>()) {
-            var stack = One(new() { Id = "l", Kind = LayerKind.Fill, Blend = mode });
+            var stack = One(new() { Id = "l", Kind = LayerKind.Fill, Blend = mode, Values = { ["baseColor"] = Opaque } });
             var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
             Assert.Empty(compilation.Problems);
@@ -134,8 +134,8 @@ public class LayerStackCompileTests {
     /// <summary>A disabled layer compiles to nothing at all.</summary>
     [Fact]
     public void A_disabled_layer_emits_no_op() {
-        var enabled = One(new() { Id = "l", Kind = LayerKind.Fill });
-        var disabled = One(new() { Id = "l", Kind = LayerKind.Fill, Enabled = false });
+        var enabled = One(new() { Id = "l", Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } });
+        var disabled = One(new() { Id = "l", Kind = LayerKind.Fill, Enabled = false, Values = { ["baseColor"] = Opaque } });
 
         var with = LayerStackCompiler.Compile(enabled, enabled.Sets[0]);
         var without = LayerStackCompiler.Compile(disabled, disabled.Sets[0]);
@@ -154,8 +154,8 @@ public class LayerStackCompileTests {
             Blend = LayerBlendMode.Screen,
             Opacity = 0.5f,
             Children = [
-                new() { Id = "a", Kind = LayerKind.Fill, Blend = LayerBlendMode.Multiply },
-                new() { Id = "b", Kind = LayerKind.Fill, Blend = LayerBlendMode.Add }
+                new() { Id = "a", Kind = LayerKind.Fill, Blend = LayerBlendMode.Multiply, Values = { ["baseColor"] = Opaque } },
+                new() { Id = "b", Kind = LayerKind.Fill, Blend = LayerBlendMode.Add, Values = { ["baseColor"] = Opaque } }
             ]
         });
 
@@ -194,6 +194,7 @@ public class LayerStackCompileTests {
         var stack = One(new() {
             Id = "l",
             Kind = LayerKind.Fill,
+            Values = { ["baseColor"] = Opaque },
             Mask = new() { Source = LayerMaskSource.Constant, Value = 0.25f }
         });
 
@@ -234,10 +235,11 @@ public class LayerStackCompileTests {
     [Fact]
     public void An_anchor_reads_a_layer_beneath_it() {
         var stack = Stack(
-            new() { Id = "under", Kind = LayerKind.Fill },
+            new() { Id = "under", Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } },
             new() {
                 Id = "over",
                 Kind = LayerKind.Fill,
+                Values = { ["baseColor"] = Opaque },
                 Mask = new() { Source = LayerMaskSource.Anchor, Anchor = "under" }
             }
         );
@@ -267,9 +269,10 @@ public class LayerStackCompileTests {
             new() {
                 Id = "under",
                 Kind = LayerKind.Fill,
+                Values = { ["baseColor"] = Opaque },
                 Mask = new() { Source = LayerMaskSource.Anchor, Anchor = "over" }
             },
-            new() { Id = "over", Kind = LayerKind.Fill }
+            new() { Id = "over", Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } }
         );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
@@ -288,6 +291,7 @@ public class LayerStackCompileTests {
         var stack = One(new() {
             Id = "self",
             Kind = LayerKind.Fill,
+            Values = { ["baseColor"] = Opaque },
             Mask = new() { Source = LayerMaskSource.Anchor, Anchor = "self" }
         });
 
@@ -336,7 +340,10 @@ public class LayerStackCompileTests {
     public void What_M8_owns_is_refused_and_says_so(string shape) {
         var layer = shape switch {
             "generator" => new LayerAsset {
-                Id = "l", Kind = LayerKind.Fill, Mask = new() { Source = LayerMaskSource.Generator }
+                Id = "l",
+                Kind = LayerKind.Fill,
+                Values = { ["baseColor"] = Opaque },
+                Mask = new() { Source = LayerMaskSource.Generator }
             },
             "graph-fill" => new LayerAsset {
                 Id = "l", Kind = LayerKind.Fill, Fill = LayerFillSource.Graph, Graph = "Dirt.vxtexgraph"
@@ -486,6 +493,16 @@ public class LayerStackCompileTests {
 
         return modes;
     }
+
+    /// <summary>A colour to author, so that a fill actually covers the channel it writes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Written out rather than left absent, since #807 · 2.</b> A constant fill with no
+    ///     entry for a channel composites nothing there — an absent entry is how a layer says it has
+    ///     nothing to say about that channel. A test that left <c>Values</c> empty was compiling a
+    ///     layer that only ever composited the channel's own base default, so asserting on its blend
+    ///     was asserting on a colour nobody had authored.
+    /// </remarks>
+    static readonly float[] Opaque = [1f, 1f, 1f, 1f];
 
     static LayerStackAsset One(LayerAsset layer) => Stack(layer);
 

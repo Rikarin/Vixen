@@ -271,9 +271,14 @@ sealed record LayerAsset {
 
     /// <summary>The constant per channel, by usage, for a <see cref="LayerFillSource.Constant" />.</summary>
     /// <remarks>
-    ///     Four numbers — red, green, blue, alpha, linear. A channel with no entry takes the
-    ///     channel's own <see cref="ChannelAsset.Default" />, so a fill that only sets roughness is
-    ///     one entry rather than seven.
+    ///     ⚠ <b>Four numbers — red, green, blue, alpha, linear — and a channel with no entry is a
+    ///     channel this layer does not write.</b> It used to take the channel's own
+    ///     <see cref="ChannelAsset.Default" /> instead, which is
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/807">#807</a> · 2: because
+    ///     <see cref="Channels" /> empty means <em>all</em>, a fill that sets roughness alone also
+    ///     reached base colour, height and emissive and stamped each one's base default over
+    ///     whatever was beneath it. So "a fill that only sets roughness is one entry rather than
+    ///     seven" is now true of the picture as well as of the file.
     /// </remarks>
     public Dictionary<string, float[]> Values { get; init; } = [];
 
