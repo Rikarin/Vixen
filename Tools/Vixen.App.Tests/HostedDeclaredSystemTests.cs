@@ -5,7 +5,7 @@ using Vixen.Core;
 using Vixen.Core.Threading;
 using Vixen.Ecs.Systems;
 using Vixen.Engine.Frames;
-using Vixen.Platform.Headless;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.App.Tests;
@@ -21,21 +21,15 @@ namespace Vixen.App.Tests;
 ///     than never having been able to declare one. So the host calls <c>AddDeclaredSystems</c> the
 ///     moment <c>OnInitialise</c> returns, and these assert the frame rather than the call.
 /// </remarks>
-public sealed class HostedDeclaredSystemTests : IDisposable {
-    readonly TemporaryFileSystemHost files = new();
-
-    public void Dispose() => files.Dispose();
-
+public sealed class HostedDeclaredSystemTests {
     [Fact]
     public void ADeclaredSystemRunsWhenTheGameRegisteredItsService() {
         var game = new SuppliesTheDepot();
-        using var application = Build(game);
+        using var app = TestApp.Create(game);
 
         HostedFrame.Ran = 0;
 
-        application.Initialise();
-        application.RunFrame();
-        application.RunFrame();
+        app.RunFrames(2);
 
         Assert.Equal(2, HostedFrame.Ran);
 
@@ -51,21 +45,15 @@ public sealed class HostedDeclaredSystemTests : IDisposable {
     /// </summary>
     [Fact]
     public void ADeclaredSystemWhoseServiceIsAbsentDoesNotStopTheGameStarting() {
-        using var application = Build(new SilentGame());
+        using var app = TestApp.Create(new SilentGame());
 
         HostedFrame.Ran = 0;
 
-        application.Initialise();
-        application.RunFrame();
+        app.RunFrames(1);
 
-        Assert.Equal(1, application.Services.Engine!.Time.FrameCount);
+        Assert.Equal(1, app.Services.Engine!.Time.FrameCount);
         Assert.Equal(0, HostedFrame.Ran);
     }
-
-    VixenApplication Build(Game game) =>
-        VixenApp.Create(["--vixen-workers", "1", "--vixen-frame-limit", "0"])
-            .WithPlatform(new HeadlessPlatform(new HeadlessPlatformOptions { FileSystem = files }))
-            .Build(game);
 
     class SilentGame : Game {
         protected internal override void OnConfigure(AppConfig config) => config.Window = null;

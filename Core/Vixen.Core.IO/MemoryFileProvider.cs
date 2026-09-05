@@ -9,15 +9,14 @@ namespace Vixen.Core.IO;
 /// <summary>A file system that is a dictionary.</summary>
 /// <remarks>
 ///     <para>
-///         The default provider for tests. ⚠ This line used to say it is "the one <c>TestApp</c>
-///         mounts", in the present tense, and there is no <c>TestApp</c> — doc 12 specifies one and
-///         it is still owed (#336), so a reader who took the sentence at its word would grep for a
-///         type that has never existed. What is true, and is the reason the sentence was written, is
-///         that the in-memory VFS a <c>TestApp</c> is specified to mount is already here: of the four
-///         parts it names — a Null-backed host, this, a fake clock and a synthetic input source — this
-///         one is not the work. A test that touches the real filesystem is
-///         a test that can fail because of a virus scanner, a slow disk, or another test running at
-///         the same time, and none of those are the thing under test.
+///         The default provider for tests, and — since <c>Testing/TestApp.cs</c> landed — the one
+///         <c>TestApp</c> mounts at <c>/app</c>, <c>/data</c>, <c>/cache</c> and <c>/temp</c>. ⚠ That
+///         sentence was here before the type was, in the present tense, and for months named a caller
+///         that had never existed; it is true now, and the reason it was written is that of the four
+///         parts doc 12 specifies a <c>TestApp</c> to have — a Null-backed host, this, a fake clock
+///         and a synthetic input source — this one was never the work. A test that touches the real
+///         filesystem is a test that can fail because of a virus scanner, a slow disk, or another
+///         test running at the same time, and none of those are the thing under test.
 ///     </para>
 ///     <para>
 ///         It is also the reference implementation. Every behaviour the interface promises —
