@@ -1,0 +1,86 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// The input range remapped, a gamma applied, and the result put into an output range — Substance's
+// Levels, and the node that turns any grey field into a mask.
+//
+// **Alpha is not touched.** Levels is a tonal operator; a graph that wants to remap an alpha channel
+// shuffles it into a colour lane first, which is what the channel nodes of doc 48 § 4.2 are for.
+// Silently applying the curve to alpha would make every levels node a transparency node as well.
+
+shader Levels {
+    var source: Texture2D
+
+    /// The input value that becomes `outputBlack`.
+    var inputBlack: float = 0f
+
+    /// The input value that becomes `outputWhite`.
+    var inputWhite: float = 1f
+
+    /// The midtone exponent. 1 is linear; below 1 lifts, above 1 crushes.
+    var gamma: float = 1f
+
+    var outputBlack: float = 0f
+
+    var outputWhite: float = 1f
+
+    /// How much ordered noise to add, in units of one 8-bit step.
+    ///
+    /// ⚠ **This is the reason the plan carries a seed at all in M1.** A levels curve that lifts a
+    /// narrow input range fills an 8-bit output with visible bands, and a bake is a file — so the
+    /// banding is permanent and no amount of filtering downstream removes it. One step of noise
+    /// costs nothing and is invisible; the alternative is the map being computed at 16 bits and
+    /// nobody noticing it was quantised on the way to disk.
+    var dither: float = 0f
+
+    /// The op's own seed, so two levels nodes in one graph do not dither identically.
+    ///
+    /// ⚠ **A float, and the hashing already happened.** `TexturePlan.SeedFor` mixes the plan's seed
+    /// with the op's index on the CPU; what reaches here only has to be decorrelated between ops, and
+    /// carrying it as a float keeps this kernel free of the integer-literal and shift-operator
+    /// spellings that differ between Raven's two backends.
+    var seed: float = 0f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// One channel through the curve.
+    func Curve(value: float): float {
+        val span = inputWhite - inputBlack
+
+        // A zero-width input range is a step function rather than a division by zero — which is what
+        // an artist dragging the two handles together is asking for, and what a NaN written into a
+        // baked file is not.
+        if (abs(span) < 0.000001f) {
+            if (value < inputBlack) {
+                return outputBlack
+            }
+
+            return outputWhite
+        }
+
+        val normalised = saturate((value - inputBlack) / span)
+        val shaped = pow(normalised, max(gamma, 0.000001f))
+
+        return lerp(outputBlack, outputWhite, shaped)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val texel = source.Load(int3(clamp(coord.x, 0, size.x - 1), clamp(coord.y, 0, size.y - 1), 0))
+        val shaped = float3(Curve(texel.x), Curve(texel.y), Curve(texel.z))
+
+        // A hash of the texel and the seed, in −0.5…0.5 of one 8-bit step. Zero `dither` removes it
+        // exactly, so a plan that did not ask for noise gets none rather than gets a rounding of it.
+        val angle = dot(float2(float(coord.x), float(coord.y)), float2(12.9898f, 78.233f)) + seed
+        val noise = frac(sin(angle) * 43758.5453f) - 0.5f
+        val offset = noise * dither / 255f
+
+        target.Store(coord, float4(shaped.x + offset, shaped.y + offset, shaped.z + offset, texel.w))
+    }
+}

@@ -1,0 +1,92 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// One axis of a box blur. Two ops make a square one.
+//
+// **Separable, and the plan is what separates it.** A radius-r box over a w×h image is 2r+1 taps per
+// texel per axis rather than (2r+1)² in one pass, which at r = 32 is 65 taps against 4 225. So the
+// kernel does one axis and a plan that wants a blur lists two ops with `stepX`/`stepY` swapped —
+// which also means an artist gets a directional blur out of the same kernel for free.
+//
+// ⚠ **`radius` arrives in the texels of the image being written, not in texels at the base
+// resolution.** Doc 48 § D8's rule lives on the plan and the evaluator is what applies it: a radius
+// authored as 8 texels-at-base is written here as 8 on a full-resolution image and 4 on a half-
+// resolution one. A kernel that scaled it itself would need to know the base, and then two places
+// would have to agree about what a half-resolution image is.
+
+shader Blur {
+    var source: Texture2D
+
+    /// The half-width, in texels of the image being written. Fractional radii are honoured.
+    var radius: float = 1f
+
+    /// Which way the taps run: (1, 0) horizontal, (0, 1) vertical, (1, 1) diagonal.
+    var stepX: int = 1
+
+    var stepY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The furthest a tap may reach, whatever the radius says.
+    ///
+    /// ⚠ **A ceiling rather than a runtime loop bound, and it is a correctness property rather than a
+    /// performance one.** A radius that arrives as a NaN, or as a number an artist typed four zeros
+    /// into, becomes a loop no invocation leaves — which on a GPU is a device loss and a desktop that
+    /// stops repainting, not a slow bake. 64 texels at the base resolution is a very wide box; wider
+    /// than that is a downsample and a blur, which is what a real tool does anyway.
+    const val MaxRadius: int = 64
+
+    /// One texel, clamped to the edge.
+    ///
+    /// Clamping rather than wrapping: a blur that wrapped would pull the opposite edge of the image
+    /// into this one, which is exactly the artefact a tileable graph is trying to avoid — and
+    /// tileability is a property of what the *generators* draw, not something a filter can bolt on.
+    func Tap(x: int, y: int): float4 {
+        val size = source.GetDimensions(0)
+
+        return source.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val wide = clamp(radius, 0f, float(MaxRadius))
+        val whole = int(floor(wide))
+        val partial = wide - float(whole)
+
+        var sum = Tap(coord.x, coord.y)
+        var weight = 1f
+
+        // ⚠ The outermost pair is weighted by the fractional part rather than dropped, and that is
+        // what makes the filter continuous in the radius. Without it a radius sweeping from 3.0 to
+        // 4.0 does nothing at all and then jumps, which reads as a slider with steps in it — and it
+        // is also what would make doc 48 § D8's bake-at-1K-against-4K comparison fail for a reason
+        // that has nothing to do with resolution.
+        for (i in 1 .. MaxRadius) {
+            if (i > whole + 1) {
+                break
+            }
+
+            var w = 1f
+
+            if (i > whole) {
+                w = partial
+            }
+
+            if (w <= 0f) {
+                break
+            }
+
+            sum = sum + w * Tap(coord.x + stepX * i, coord.y + stepY * i)
+            sum = sum + w * Tap(coord.x - stepX * i, coord.y - stepY * i)
+            weight = weight + 2f * w
+        }
+
+        target.Store(coord, sum / weight)
+    }
+}

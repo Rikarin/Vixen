@@ -506,6 +506,8 @@
     <Project Path="Editor/Vixen.Editor.NodeGraph.Tests/Vixen.Editor.NodeGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.ShaderGraph/Vixen.Editor.ShaderGraph.csproj" />
     <Project Path="Editor/Vixen.Editor.ShaderGraph.Tests/Vixen.Editor.ShaderGraph.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.TextureGraph/Vixen.Editor.TextureGraph.csproj" />
+    <Project Path="Editor/Vixen.Editor.TextureGraph.Tests/Vixen.Editor.TextureGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.VfxGraph/Vixen.Editor.VfxGraph.csproj" />
     <Project Path="Editor/Vixen.Editor.VfxGraph.Tests/Vixen.Editor.VfxGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.AnimationGraph/Vixen.Editor.AnimationGraph.csproj" />

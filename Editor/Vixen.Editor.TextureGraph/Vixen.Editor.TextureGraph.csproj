@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.TextureGraph</RootNamespace>
+        <Description>
+            The texture graph's evaluator: a plan of compute kernels over a pool of intermediate
+            images, dispatched on a graphics device and read back as pixels. No graph, no document,
+            no panel — the artefact both front ends compile to, and the thing that runs it.
+        </Description>
+        <PackageTags>editor;texture-graph;material-authoring;compute;raven;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          ⚠ The kernels are embedded rather than compiled to a committed `.spv` beside the source,
+          and that is a deliberate departure from `Editor/Vixen.Editor.Host/Shaders`. A storage
+          image's texel format is part of its *type* in both SPIR-V and GLSL, and Raven's
+          `[Permutation]` values are bool, int and uint — so one kernel that writes `rgba8` in one
+          plan and `rgba16f` in the next cannot be one module. The variants are produced from this
+          text at load, which means there is no committed binary anybody can leave stale, and
+          `CheckShaders`' inventory asks for an entry only where one exists.
+        -->
+        <EmbeddedResource Include="Shaders\*.rvn" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          A device to allocate images on and dispatch over, the effect model that says what a
+          compiled variant binds, and the in-process Raven compiler the editor already resolves its
+          own variants through — the same three `Vixen.Editor.ShaderGraph` takes, for the same
+          reason: a device is not a UI.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Graphics\Vixen.Graphics.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Shaders\Vixen.Shaders.csproj" />
+        <ProjectReference Include="..\..\Tools\Vixen.ShaderCompiler\Vixen.ShaderCompiler.csproj" />
+
+        <!--
+          And the image containers, because a bake's last step is a file. `PngCodec` sits under
+          everything that writes a picture in this repository precisely so that a new writer does
+          not become a new encoder.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Imaging\Vixen.Core.Imaging.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Editor.TextureGraph.Tests" />
+    </ItemGroup>
+
+</Project>

@@ -1,0 +1,117 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Two images composited into one, under a mode and an opacity.
+//
+// ⚠ **The mode is a uniform and not a `[Permutation]`, and that is a measured trade rather than
+// laziness.** A permutation would specialise the branch away and cost one compiled variant per mode
+// per output format — sixteen modes times three formats is forty-eight modules for a kernel whose
+// whole body is eight instructions. A texture bake is bandwidth-bound on the loads and the store, so
+// the branch is free and the compilations are not.
+//
+// **No mask input, deliberately.** A layer's mask is doc 48 § M7's, and a mask is not a third texture
+// bolted onto a blend: it has a stack of its own, generators under it and anchor points into other
+// layers. Adding an input here that a plan has to fill with a white 1×1 image would be a shape M7
+// then has to undo.
+
+shader Blend {
+    /// What is underneath — the layer below, in a stack, or the first wire into the node.
+    var background: Texture2D
+
+    /// What is on top.
+    ///
+    /// ⚠ Its own resolution is whatever image the plan bound; the loop reads by *this* image's
+    /// coordinate clamped into the source, so blending a half-resolution layer over a full one is a
+    /// point sample rather than a filtered one. Doc 48 § D8 says every node is relative to the base,
+    /// and a plan that wants a resampled read puts a resample op in front of this.
+    var foreground: Texture2D
+
+    /// 0 normal · 1 multiply · 2 screen · 3 overlay · 4 add · 5 subtract · 6 darken · 7 lighten.
+    var mode: int = 0
+
+    /// How much of the result is the foreground's, before the foreground's own alpha.
+    var opacity: float = 1f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// One texel of a source, clamped to its edge rather than wrapped.
+    ///
+    /// Clamping is what a compositing operator has to do at a border: a wrap would make the top row
+    /// of a blend read the bottom row of the layer under it, which is a seam nobody authored.
+    func Under(x: int, y: int): float4 {
+        val size = background.GetDimensions(0)
+
+        return background.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+    }
+
+    func Over(x: int, y: int): float4 {
+        val size = foreground.GetDimensions(0)
+
+        return foreground.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+    }
+
+    /// The mode applied to two colours, alpha left alone.
+    func Combine(a: float4, b: float4): float4 {
+        val one = float4(1f, 1f, 1f, 1f)
+
+        if (mode == 1) {
+            return a * b
+        }
+
+        if (mode == 2) {
+            return one - (one - a) * (one - b)
+        }
+
+        if (mode == 3) {
+            // Per channel, and written branchlessly because the four lanes disagree about which half
+            // of the curve they are on. `step` is 0 below the edge and 1 at or above it, so `lerp`
+            // picks the screen form exactly where the backdrop is already light.
+            val low = 2f * a * b
+            val high = one - 2f * (one - a) * (one - b)
+
+            return lerp(low, high, step(float4(0.5f, 0.5f, 0.5f, 0.5f), a))
+        }
+
+        if (mode == 4) {
+            return a + b
+        }
+
+        if (mode == 5) {
+            return a - b
+        }
+
+        if (mode == 6) {
+            return min(a, b)
+        }
+
+        if (mode == 7) {
+            return max(a, b)
+        }
+
+        return b
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        // The dispatch is rounded up to whole groups, so the tail invocations have no texel of their
+        // own. Storing outside a storage image is undefined in both targets.
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val a = Under(coord.x, coord.y)
+        val b = Over(coord.x, coord.y)
+        val blended = Combine(a, b)
+
+        // ⚠ The blend's own alpha is what makes an unwritten region of the foreground leave the
+        // backdrop alone. Multiplying the opacity by it here rather than in `Combine` is what keeps
+        // every mode agreeing about what a transparent foreground texel means.
+        val amount = saturate(opacity) * saturate(b.w)
+        val colour = lerp(a.xyz, blended.xyz, float3(amount, amount, amount))
+        val alpha = a.w + (1f - a.w) * amount
+
+        target.Store(coord, float4(colour.x, colour.y, colour.z, alpha))
+    }
+}
