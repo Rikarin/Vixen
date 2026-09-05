@@ -165,7 +165,7 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
                     NotAPortType.Id,
                     string.Format(
                         CultureInfo.InvariantCulture,
-                        "'{0}' is marked as a port and is a {1}. A port field's type says what the port carries, so it has to be one of the port value types — Scalar, Float2, Float3, Float4, DynamicVector, Bool, Int, Texture or Sampler.",
+                        "'{0}' is marked as a port and is a {1}. A port field's type says what the port carries, so it has to be one of the port value types — Scalar, Float2, Float3, Float4, DynamicVector, Bool, Int, Texture, Sampler or Image.",
                         field.Name,
                         field.Type.Name
                     ),
@@ -487,6 +487,7 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
         "Vixen.Editor.NodeGraph.Int" => "Int",
         "Vixen.Editor.NodeGraph.Texture" => "Texture",
         "Vixen.Editor.NodeGraph.Sampler" => "Sampler",
+        "Vixen.Editor.NodeGraph.Image" => "Image",
         "Vixen.Editor.NodeGraph.Flow" => "Flow",
         _ => null
     };

@@ -27,7 +27,7 @@ graph.Connect(new(uv.Id, "UV"), new(sample.Id, "UV"));
 | `NodeGraphAsset`, `NodeGraphDocument` | The file shape, and the checked conversion between it and the model. |
 | `NodeAttribute`, `InputAttribute`, `OutputAttribute`, `SettingAttribute` | What a node type declaration looks like. |
 | `PortKind`, `PortKinds` | What a port carries, and the rules — including `DynamicVector`'s. |
-| `Scalar`, `Float2`…`Float4`, `DynamicVector`, `Bool`, `Int`, `Texture`, `Sampler`, `Flow` | Port field types. The declared type *is* the port's kind. |
+| `Scalar`, `Float2`…`Float4`, `DynamicVector`, `Bool`, `Int`, `Texture`, `Sampler`, `Flow`, `Image` | Port field types. The declared type *is* the port's kind. |
 | `NodeTypeRegistry`, `NodeTypeDefinition`, `SettingDefinition` | The node library, filled by generated code. |
 | `Node`, `NodeBinding` | The base a node derives from, and what its ports carry this time round. |
 | `NodeGraphCompiler<T>` | Graph to artefact: ordering, typing, binding, diagnostics. |
@@ -94,6 +94,17 @@ is a chain of `float4`s.
 
 **A texture is not a width.** It arrives at a dynamic port as a type error reported against the port,
 not as something to widen: there is no width a texture and a float agree on.
+
+**And an image is not a texture.** `PortKind.Image` is a whole raster — what a texture graph's nodes
+hand each other — and it is a separate kind for one reason: `PortKinds.Accepts` only lets a kind
+through to itself, so a wire dropped off a generation node cannot land on a shader graph's sampler and
+search-to-create cannot offer one. Riding `Texture` would have cost nothing at the type level and
+would have made that nonsense connection legal. ⚠ **Grey against colour is a *format* on it and not a
+second kind**, so doc 48's promotion rule — grey splats into a colour port, colour into a grey port is
+an error naming the port — belongs to the texture graph's compiler, which knows the format; a
+`PortKind` does not carry one, and every image-to-image wire is accepted here. It answers **zero to
+both questions**: no lanes, because a dispatch over a storage image is not an expression, and no
+fields, because there is no literal raster to type into a box.
 
 ## The model refuses what it cannot represent
 
