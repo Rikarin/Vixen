@@ -1,0 +1,34 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component OverlaySheet
+@namespace Vixen.Ui.Controls.Tests
+@using Vixen.Ui.Controls
+
+<overlay-host>
+    <!--
+        Both overlays with a `Body` part, written the way an author would write them. Neither
+        overrode `ContentHost` until #676, so every child below landed on the overlay element itself
+        — beside the backdrop and the surface, and laid out across the whole viewport.
+    -->
+    <Dialog ref="@question" Title="Delete it?">
+        <dialog-note>This cannot be undone.</dialog-note>
+    </Dialog>
+
+    <Drawer ref="@filters" Side="Right">
+        <drawer-note>A secondary surface you can leave open.</drawer-note>
+        <CheckBox class="only-modified" Label="Only modified" />
+    </Drawer>
+</overlay-host>
+
+@code {
+    Dialog question = null!;
+    Drawer filters = null!;
+
+    /// <summary>The modal one.</summary>
+    public Dialog Question => question;
+
+    /// <summary>The one that slides in from an edge.</summary>
+    public Drawer Filters => filters;
+}

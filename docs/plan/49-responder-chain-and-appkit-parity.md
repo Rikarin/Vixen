@@ -460,21 +460,69 @@ does nothing. No diagnostic. This is the same defect class the language already 
 For a project whose thesis is *markup is the authoring path*, that ❌ column is the parity claim's
 weakest evidence, and closing it is mostly attribute spellings over APIs that already exist.
 
+⚠ **The `.keyboardShortcut` row is right about the sample and was read as a claim about the
+framework.** A complete chord system exists — `Editor/Vixen.Editor.Ui/Commands/CommandDispatcher.cs`
+attaches to any `UiDocument` (`:55`), builds a platform-adapted `KeyChord` (`:76`), resolves it
+against the focused context with a global fallback (`:85`), falls *through* rather than refusing when
+the chord belongs elsewhere (`:92`), and marks a disabled command's chord handled so a greyed-out ⌘S
+cannot type an `s` (`:98`). What is true is narrower: there is no `.vxml` spelling and no chord table
+below `Vixen.Editor.Ui`, which is #650.
+
+The rest are one issue each, because each needs a spelling decided before it can be built: #762 (the
+tooltip, which also carries the layering decision — `BuildContext` is in `Vixen.Ui` and `Tooltip` is
+in `Vixen.Ui.Controls`, which references it), #763 (the context menu, behind it), #764 (a dialog that
+is a function of state, beside the one a command awaits), #766 (an overlay whose open state is bound,
+where `IsOpen` is deliberately not a `[UiProperty]`), #767 (`.searchable` / `.refreshable`, the two
+with no API behind them), #768 (the async arrival hook).
+
+⚠ And the `.task` row's substrate is a finished thing nothing calls: `AsyncComputed<TRequest, T>` has
+fourteen references in the committed tree, ten of them in `AsyncComputedTests.cs`, two in its own
+file, and two that are cross-references in `EffectScheduler` and `ReactiveGraph`. No production
+caller.
+
 ### 6.5 Lists
 
-`BuildContext.For` (`BuildContext.cs:1267`) builds a region per item over the whole sequence.
+`BuildContext.For` (`BuildContext.cs:1359`) builds a region per item over the whole sequence.
 `VirtualizingPanel`/`VirtualizingGrid` are C# controls fed by delegates, reachable from markup only
 through `use=`. `BoundFor` is `(Variable, Sequence, Key, Body)` — **no index, no sections, no
 grouping** (`BoundNodes.cs:262`). `Region.Clear()` removes synchronously (`Region.cs:143`), so there
 is **no enter/exit transition** even though the animator is real. SwiftUI gets all four free, and the
 absence of the first is what makes a 10 000-row panel fall back to hand-written C#.
 
+⚠ **"No index" reads as an omission and is a refusal**, which is the correction that changes what
+gets built. `For` matches a key, keeps that item's region and does not re-run the body — so a name
+bound to the item's position would be captured once and be a lie after the first reorder. An index
+that behaves is a per-row **signal** the reconciler writes when it repositions, which is a different
+feature from the one the spelling suggests; `docs/guide/ui/markup-panels.md` and
+`Core/Vixen.Ui.Markup/README.md` both carry the trap.
+
+The four are one issue each, because each is its own design piece and none of them is blocked on the
+others: #758 (a markup spelling for the virtualizing controls), #759 (the index, as a signal),
+#760 (sections, and whether a nested `@for` is already the answer), #761 (deferring `Region.Clear`
+so anything can animate out). The LIS reorder is #178 / #56.
+
 ### 6.6 `bind:` is too narrow to be used, and the repo proves it
 
 `ctx.TwoWay` requires an **lvalue of the property's exact type** with no converter and no coercion
 (`ComponentEmitter.cs:629-630`, `BuildContext.cs:942-974`). Nested properties and settable indexers
-work; expressions, method calls and conversions do not. Across every committed `.vxml`: **7 `bind:`**
-against 29 `change:` and 281 `ref`. Two-way binding is nominally present and practically absent.
+work; expressions, method calls and conversions do not. Across every committed `.vxml`: **8 `bind:`**
+against 26 `change:` and 239 `ref`, and **all eight `bind:` attributes are in one file** —
+`Samples/02-HelloUi/Panels/Gallery.vxml`. Two-way binding is nominally present and practically absent.
+
+Three corrections to the paragraph above, from #663 and `BindReachTests`:
+
+- **`string?` against `string` is not a mismatch.** Nullable annotations on a *reference* type are
+  erased, so `typeof(string?)` is `typeof(string)` and the exact-type check never sees them. `int?`
+  against `int` is two types and that half is real.
+- **A mismatch used to do nothing at all**, which is the best available explanation for the eight.
+  Both legs box through `UiPropertyKey`, the unbox is exact, and the forward leg is an `Effect` —
+  which catches, suspends and logs rather than propagating. `TwoWay` now refuses a mismatch at
+  compose, naming both types.
+- ⚠ **The narrowness the section does not name: a model that is not reactive gets one forward write
+  and never another.** Nested paths and indexers do bind, and every `bind:` in the tree binds
+  `Something.Value` on a `Signal<T>` — so the forward effect has a dependency. Over a plain property
+  it has none, the write-back still works, and the result is a half-live binding that fails in the
+  direction an author tests second.
 
 ### 6.7 Smaller, but each is a real edge
 
