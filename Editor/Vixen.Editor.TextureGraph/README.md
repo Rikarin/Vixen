@@ -409,4 +409,58 @@ Both belong with the § M4 node classes, whose own closure already contains `Vix
 `Vixen.Editor.NodeGraph` — so neither reference costs anything *there*, and the evaluator keeps the
 property that makes every test in this project a test of the evaluator.
 
+## The knobs, the expressions and the escape hatch — doc 48 § D6 and § D9
+
+A published graph is a node, and its **exposed parameters** are that node's settings:
+`TextureGraphParameter` carries a name, a type, a default, a range and a group, and
+`TextureGraphLibrary.Publish` registers the node type. ⚠ `SubGraphLibrary`'s own registration writes a
+definition with the interface as ports and **no settings**, which for a texture graph is a node with
+every knob missing — so the definition is built here instead. ⚠ `SettingDefinition` has nowhere to put
+a range or a group either, so those ride in its summary until [#730](https://github.com/Rikarin/Vixen/issues/730).
+
+**Every scalar port accepts a Raven expression over those parameters** instead of a number, stored in
+`GraphNode.Texts` under the port's name with an `=` in front of it. The whole graph's expressions
+become one generated `.rvn` — a `const val` per parameter, then a `const val` per expression — which
+the real `Compilation` binds, and the value read back is what `ConstantEvaluator` folded.
+
+- ⚠ **Only what Raven folds folds.** Literals, `const` references, unary and binary operators and
+  conversions do; a **call does not**, so `sin(amount)` is a stated refusal rather than a zero. That is
+  the price of § D6's refusal to own a second evaluator, and widening it is a change to Raven's folder
+  that every shader in the repository would also get.
+- ⚠ **`const val amount: float = 0.5` folds to a *double*.** The field is a float and the folder keeps
+  the literal's type, so the next line's `amount * 8f` is an operator over two types and folds to
+  *nothing* — not an error, not a wrong number, **no** number. `Literal.Of` deliberately writes no
+  suffix because a shader graph interpolates it into a typed context; here the literal is the type.
+- ⚠ **An expression is one line**, because a newline ends a statement in Raven — and because every
+  line after it is what a diagnostic's line number is mapped back through.
+- ⚠ **An inlined node's expressions bind against the graph it was *written* in.** After
+  `SubGraphs.Flatten` they sit in a graph whose parameters belong to somebody else, and a container
+  with a knob of the same name would otherwise drive them silently. The scope comes from
+  `NodeGraphInlining.Origins`. What an author types into the sub-graph node's settings still does not
+  reach them — [#742](https://github.com/Rikarin/Vixen/issues/742).
+
+The **Pixel Processor** is the same idea one layer down: its setting is a Raven expression compiled
+into a whole generated kernel of the same shape as the forty-five committed ones, and its complaints
+are Raven's own, carrying Raven's ids, addressed to the node and the setting.
+⚠ **The op it emits does not evaluate** — an op names a kernel and the evaluator resolves that name
+through this assembly's *embedded* sources, so an authored kernel has nowhere to be found. The source
+is on `TextureGraphCompiler.Kernels`, which is `Outputs`' shape and `Outputs`' gap —
+[#729](https://github.com/Rikarin/Vixen/issues/729).
+
+## Per-node previews needed no split of `Evaluate`
+
+⚠ **The claim that they did is refuted, and the reason is worth keeping.** What makes an intermediate
+unreadable after a bake is the *pool* — its texture goes to the next image that needs one — but which
+images the pool may reuse is the **plan's** decision: `TexturePoolSchedule` never reuses a slot holding
+an image in `TexturePlan.Outputs`. So `TextureGraphCompiler.PreviewEveryNode` keeps every node's image,
+and one ordinary `Evaluate` then holds all of them at once. `TextureGraphPreviewDeviceTests` proves
+both halves on a real adapter: three greys read back as three greys with the flag set, and the first
+one reads back as the *third node's* picture without it.
+
+⚠ **A preview hands over a `Bitmap` and not a texture, and that is a Vulkan rule.** The images are
+written on `ComputeQueue` and are `ResourceSharing.Exclusive`, so reading one from the queue family the
+interface draws on — with no ownership transfer — is undefined by specification. It would look perfect
+on this Mac, where MoltenVK reports one family for both. That is [#617](https://github.com/Rikarin/Vixen/issues/617)
+and [#679](https://github.com/Rikarin/Vixen/issues/679) already.
+
 Licensed under Apache-2.0.

@@ -36,6 +36,14 @@ interface ITextureGraphLibrary : ISubGraphSource {
 ///         what <c>TextureGraphCompiler</c> binds an inlined node's expressions against.
 ///     </para>
 ///     <para>
+///         ⚠ <b>What an author types into those settings does not reach the inlined nodes.</b>
+///         <see cref="SubGraphs.Flatten" /> replaces the sub-graph node with the graph's contents and
+///         the node — which is where the overrides are stored — is then gone, so an expression inside
+///         a published graph folds against that graph's <em>declared defaults</em>. The knob is real,
+///         saved and shown, and turning it changes nothing until
+///         <a href="https://github.com/Rikarin/Vixen/issues/742">#742</a>.
+///     </para>
+///     <para>
 ///         ⚠ <b>The node type registered here is not <see cref="SubGraphs.Definition" />'s.</b>
 ///         <see cref="SubGraphLibrary.Add" />'s optional registry argument registers a definition
 ///         with the graph's interface as ports and <em>no settings</em>, which for a texture graph is
