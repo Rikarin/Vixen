@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Immutable;
+using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.TextureGraph;
 using Vixen.Editor.Texturing.Layers;
@@ -14,12 +16,30 @@ namespace Vixen.Editor.Texturing;
 /// <param name="Height">Its height.</param>
 /// <param name="Status">What to say under the pane.</param>
 /// <remarks>
-///     ⚠ <b>The extent is carried even when the image is null, and that is the same decision
-///     <c>TextureGraphView.Show</c> makes.</b> The zoom, the fit and the pointer readout are about
-///     the texels an author is authoring; a pane that lost them when a bake failed would rescale
-///     itself every time somebody typed a bad number into a layer.
+///     <para>
+///         ⚠ <b>The extent is carried even when the image is null, and that is the same decision
+///         <c>TextureGraphView.Show</c> makes.</b> The zoom, the fit and the pointer readout are about
+///         the texels an author is authoring; a pane that lost them when a bake failed would rescale
+///         itself every time somebody typed a bad number into a layer.
+///     </para>
+///     <para>
+///         ⚠ <b>Everything the compile said travels with the picture, and not just the sentence.</b>
+///         <see cref="Status" /> answers "why is there no map", which is a question with one answer;
+///         <see cref="Problems" /> and <see cref="Diagnostics" /> are what the compile <em>had to
+///         say</em>, and a compilation that produced a plan can still say plenty. Until
+///         <a href="https://github.com/Rikarin/Vixen/issues/830">#830</a> a warning reached the panel
+///         through neither: <c>Refused</c> only runs when there is no plan and filters to errors even
+///         then, so <c>TG0022</c> — chosen over a silent rescale on the grounds that "it is said" —
+///         was said to nothing but xunit.
+///     </para>
 /// </remarks>
-sealed record LayerStackPicture(IEditorImage? Image, string Usage, int Width, int Height, string Status);
+sealed record LayerStackPicture(IEditorImage? Image, string Usage, int Width, int Height, string Status) {
+    /// <summary>What building the graph had to say, about layers an artist can select.</summary>
+    public ImmutableArray<LayerStackProblem> Problems { get; init; } = [];
+
+    /// <summary>What compiling it had to say, about nodes.</summary>
+    public ImmutableArray<NodeDiagnostic> Diagnostics { get; init; } = [];
+}
 
 /// <summary>Turns a layer stack into pixels on the editor's device.</summary>
 /// <remarks>
@@ -105,14 +125,30 @@ sealed class LayerStackPreview : IDisposable {
             return new(null, usage, width, height, "No preview: this stack has no texture set, so there is no map to bake.");
         }
 
-        if (graphics.Device is not { } device) {
-            return new(null, usage, width, height, TexturePreview.Describe(TexturePreview.Blocking(graphics)));
-        }
-
+        // ⚠ Compiled before the device is asked for, and the order is the finding.
+        // `LayerStackCompiler.Compile` is pure — it allocates no texture and dispatches nothing — so
+        // everything it has to say about an author's stack costs exactly as much on a host that
+        // cannot draw. Asking for the device first meant an editor between construction and its
+        // window coming up showed a stack in silence, and it is the state the editor starts in.
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
+        // Everything either half said travels with every answer below, because a compilation that
+        // produced a plan still has things to say and the sentence is not where they fit.
+        LayerStackPicture Said(IEditorImage? drawn, int drawnWidth, int drawnHeight, string status) =>
+            new(drawn, usage, drawnWidth, drawnHeight, status) {
+                Problems = compilation.Problems,
+                Diagnostics = compilation.Diagnostics
+            };
+
+        // ⚠ Before the device, because a stack that does not compile does not compile on any host.
+        // Told the other way round, the one message an author could act on was replaced by a message
+        // about the window not being up yet.
         if (compilation.Plan is not { } plan) {
-            return new(null, usage, width, height, Refused(compilation));
+            return Said(null, width, height, Refused(compilation));
+        }
+
+        if (graphics.Device is not { } device) {
+            return Said(null, width, height, TexturePreview.Describe(TexturePreview.Blocking(graphics)));
         }
 
         var image = -1;
@@ -126,9 +162,8 @@ sealed class LayerStackPreview : IDisposable {
         }
 
         if (image < 0) {
-            return new(
+            return Said(
                 null,
-                usage,
                 width,
                 height,
                 $"No preview: this stack writes no '{usage}' map. It writes "
@@ -146,9 +181,8 @@ sealed class LayerStackPreview : IDisposable {
         var owed = TextureGraphExternals.Upload(uploads, plan, compilation.Externals);
 
         if (owed.Length > 0) {
-            return new(
+            return Said(
                 null,
-                usage,
                 width,
                 height,
                 $"No preview: {owed.Length} layer(s) read an imported image — {string.Join(", ", owed.Select(entry => entry.Asset))} "
@@ -168,9 +202,8 @@ sealed class LayerStackPreview : IDisposable {
 
         Evaluations++;
 
-        return new(
+        return Said(
             uploaded,
-            usage,
             picture.Width,
             picture.Height,
             $"Preview: '{usage}', compiled from this stack and evaluated on the editor's device."
@@ -186,6 +219,14 @@ sealed class LayerStackPreview : IDisposable {
     ///     can select; a node diagnostic names a node in a graph nobody has exploded and is a
     ///     compiler's or a builder's fault. A pane that showed only the first would be silent on
     ///     every failure of the second.
+    ///     <para>
+    ///         ⚠ <b>Still errors only, and that is now a division of labour rather than a hole.</b>
+    ///         This sentence answers "why is there no map", so a warning does not belong in it — a
+    ///         warning is precisely a thing that did not stop the map. What
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/830">#830</a> found is that there was
+    ///         nowhere else for one to go; <c>LayerStackPicture.Diagnostics</c> is that somewhere, and
+    ///         <c>LayerStackView</c> lists it whether or not there is a picture.
+    ///     </para>
     /// </remarks>
     static string Refused(LayerStackCompilation compilation) {
         var problems = compilation.Problems.Select(problem => problem.Message)

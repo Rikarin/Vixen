@@ -121,6 +121,68 @@ public class TextureOutputLevelTests {
         Assert.Empty(Compiler().Compile(graph).Diagnostics);
     }
 
+    /// <summary>⚠ And the terminus rescale of a magnified branch is boxed, because it goes down.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/829">#829</a>, and the aliasing was
+    ///         already in the tree.</b> A level offset is signed: <c>Resample(Quadruple)</c> is level
+    ///         −2, so a terminus that brings it back to zero is a <b>4:1 minification</b> — the first
+    ///         one <c>Rescale</c> has ever been asked for, and it passed <c>Bilinear</c>, which reads
+    ///         four texels of sixteen and drops the other twelve. <c>Resample.rvn</c>'s header names
+    ///         the rule this asserts: "<c>Box</c> is the default and the only correct choice going
+    ///         down".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two <c>Resample</c> ops are told apart by the size they write and not by
+    ///         their order</b>, because the node's own resample and the compiler's rescale run the
+    ///         same kernel: the node writes the 1024² image and the terminus writes the 256² one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_terminus_rescale_of_a_magnified_branch_is_boxed() {
+        var graph = Graph("Source/Noise", out var noise);
+        var resample = graph.Add("Space/Resample");
+        var output = Assert.Single(graph.Nodes, node => string.Equals(node.Type, "Output/Output", StringComparison.Ordinal));
+
+        resample.SetText("Size", "Quadruple");
+        graph.Connect(new(noise.Id, "Out"), new(resample.Id, "Input"));
+        graph.Disconnect(new(output.Id, "Input"));
+        graph.Connect(new(resample.Id, "Out"), new(output.Id, "Input"));
+
+        var plan = Compiler().Compile(graph).Artefact!;
+        var terminus = Assert.Single(plan.Ops, op => op.Kernel == "Resample" && plan.SizeOf(op.Output).X == Side);
+
+        // The premise: what it reads really is four times wider than what it writes.
+        Assert.Equal(Side * 4, plan.SizeOf(terminus.Inputs[0]).X);
+        Assert.Equal((float)TextureFilter.Box, terminus.Find("filter")!.Value.Value);
+    }
+
+    /// <summary>⚠ And the ordinary rescale, which goes up, is still bilinear.</summary>
+    /// <remarks>
+    ///     <b>The half that makes the filter derived rather than a second constant.</b> Every
+    ///     assertion above holds of a compiler that boxed unconditionally — and a box going up
+    ///     degenerates to a single sample, which is <c>Point</c> under another name and is what
+    ///     <c>Resample.rvn</c> says to reach for <c>Bilinear</c> instead of. This is the same method
+    ///     and the same op, in the direction the file used to claim was the only one.
+    /// </remarks>
+    [Fact]
+    public void A_rescale_that_goes_up_is_still_bilinear() {
+        var graph = Graph("Source/Noise", out var noise);
+        var resample = graph.Add("Space/Resample");
+        var output = Assert.Single(graph.Nodes, node => string.Equals(node.Type, "Output/Output", StringComparison.Ordinal));
+
+        resample.SetText("Size", "Half");
+        graph.Connect(new(noise.Id, "Out"), new(resample.Id, "Input"));
+        graph.Disconnect(new(output.Id, "Input"));
+        graph.Connect(new(resample.Id, "Out"), new(output.Id, "Input"));
+
+        var plan = Compiler().Compile(graph).Artefact!;
+        var terminus = Assert.Single(plan.Ops, op => op.Kernel == "Resample" && plan.SizeOf(op.Output).X == Side);
+
+        Assert.Equal(Side / 2, plan.SizeOf(terminus.Inputs[0]).X);
+        Assert.Equal((float)TextureFilter.Bilinear, terminus.Find("filter")!.Value.Value);
+    }
+
     /// <summary>An Output already at the base neither resamples nor warns.</summary>
     /// <remarks>
     ///     ⚠ <b>The predicate that could not be false without this.</b> Every other assertion here
