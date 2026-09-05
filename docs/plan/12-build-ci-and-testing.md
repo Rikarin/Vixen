@@ -183,7 +183,21 @@ the answer is real is inside the archive.
   appears nowhere. It is the natural companion to `CheckApi` — which catches a source-level break in
   the tree, where this catches a binary one against what was shipped — and it needs a published
   baseline version to compare against, which is why it is waiting on the first release rather than on
-  a decision.
+  a decision. (`gh release list` is empty and `VersionPrefix` is `0.1.0`.)
+
+  ⚠️ **And the half that does not need a baseline is empty here, which is worth knowing before
+  somebody lands it as "a one-line change available today".** `EnablePackageValidation=true` with no
+  baseline runs two validators, and this repository gives both of them nothing to compare: the
+  *compatible framework* validator compares one target framework's assets against another's, and no
+  project in the tree declares `TargetFrameworks` at all — all 282 are single `net10.0`; the
+  *compatible runtime* validator compares RID-specific `lib` assets against the RID-less ones, and the
+  only RID-shaped path any package writes is `tools/runtimes/` inside `Vixen.Sdk`, which is a tool's
+  own payload rather than a `runtimes/<rid>/lib` the validator inspects. So the property would gate
+  nothing today, and its absence costs nothing. ⚠️ It is also **not** the risk it was believed to be:
+  `Vixen.Core.Mathematics` packs clean with it set, so the fear that switching it on across 167
+  packable projects under warnings-as-errors turns `Pack` red is at least not universal. The day it
+  starts mattering is the day a package multi-targets or ships a RID-specific assembly, which is
+  exactly when nobody will remember this paragraph.
 - **The third-party attribution manifest is in no package.** `docs/manual/third-party.md` is packed by
   nothing, so "fails if any of the three is missing" could never have held for it. Whether it belongs
   inside every package, or whether the `NOTICE` discharges §4(d) on its own, is a licence question and
