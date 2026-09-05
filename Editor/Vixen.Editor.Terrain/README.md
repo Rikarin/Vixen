@@ -115,6 +115,18 @@ to ask for a 20 km range and wonder later why a flatten will not settle.
 requires a power-of-two *sample* count and refuses anything else by returning nothing at all. The two
 differ by one and the form is where the translation happens, once.
 
+⚠ **The stacked panels keep *panel* scrolling, and that had been reasoned about rather than seen.**
+The foliage and grass panels put an `InspectorView` — which owns its own `ScrollView` — in a
+`DockPanel` beside section titles, verbs and fact rows, and deliberately do **not** call
+`DockPanel.Fills`. The argument was `AdvancedTheme.vcss`'s, beside `dock-panel.scrolls > *`: items
+that fill by growing are unaffected, so the inner scrollers stay inert and there is one bar rather
+than two. `StackedPanelScrollTests` now states that as a property instead — `ScrollView.MaximumTop`
+is nought on both inspectors, at a panel tall enough for the stack and at one that is not — with a
+floor beside it saying the short panel really does overflow, because "the inner scroller is inert" is
+otherwise satisfied by a panel nothing had to contend for. It holds, in both directions; ⚠ it is a
+*layout* oracle and not a picture, so a bar that is inert and still painted is outside what it can
+see ([#527](https://github.com/Rikarin/Vixen/issues/527)).
+
 ## One drag, one entry
 
 [§ D11](../../docs/plan/31-terrain-grass-and-trees.md). `TerrainEdit.Begin` starts a
