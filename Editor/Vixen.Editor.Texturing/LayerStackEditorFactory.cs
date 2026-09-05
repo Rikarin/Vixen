@@ -26,11 +26,22 @@ namespace Vixen.Editor.Texturing;
 ///         into the plugin with no way to remove it — not a leaked entry, a leaked assembly.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="CreateView" /> shows the rows and no picture, and that is not the same
-///         gap the graph's factory has.</b> A view built here has no <c>IEditorGraphics</c> — the
-///         evaluator is the module's, because two of them over one device would be two pipeline
-///         caches — so a tab opened by a double-click lists the stack and says so, and the panel the
-///         module opens is where the map appears.
+///         ⚠ <b><see cref="CreateView" /> shows the rows and no picture, and until
+///         <a href="https://github.com/Rikarin/Vixen/issues/831">#831</a> the sentence above was the
+///         opposite of what the code did.</b> It said "lists the stack and says so" and the call was
+///         <c>view.Show(stack)</c> with no picture at all — so <c>LayerStackView</c> set
+///         <c>status.Text</c> to the empty string and <c>Preview.Image</c> to zero, which is a
+///         chequerboard under a blank line: the shape that says nothing about whether this host could
+///         have drawn one. A view built here has no <c>IEditorGraphics</c> — the evaluator is the
+///         module's, because two of them over one device would be two pipeline caches — and the
+///         picture it is handed now says exactly that.
+///     </para>
+///     <para>
+///         ⚠ <b><see cref="TexturePreviewBlocker.AnotherPane" /> and not <c>NoGraphics</c>, which is
+///         the sibling factory's remaining bug.</b> A double-click happens in the editor and the
+///         editor publishes graphics, so "this host publishes no IEditorGraphics" is false in the one
+///         place this sentence is ever read. <c>TextureGraphEditorFactory.CreateView</c> still passes
+///         <c>NoGraphics</c> — <a href="https://github.com/Rikarin/Vixen/issues/841">#841</a>.
 ///     </para>
 /// </remarks>
 sealed class LayerStackEditorFactory : IAssetEditorFactory {
@@ -65,7 +76,21 @@ sealed class LayerStackEditorFactory : IAssetEditorFactory {
 
         var view = new LayerStackView(panel);
 
-        view.Show(stack);
+        // ⚠ A picture and not `Show(stack)`. `LayerStackView` writes `picture?.Status ?? ""` under the
+        // pane and `picture?.Image?.Image ?? 0` into it, so a null one is a chequerboard under a blank
+        // line — the exact shape `TexturingModule.RefreshStack` grew a fallback to avoid. The extent
+        // is the stack's so the zoom and the pointer readout still mean texels; only the picture is
+        // missing, and the line says which pane has it.
+        view.Show(
+            stack,
+            new LayerStackPicture(
+                null,
+                LayerStackPreview.DefaultUsage,
+                stack.Document.BaseWidth,
+                stack.Document.BaseHeight,
+                TexturePreview.Describe(TexturePreviewBlocker.AnotherPane)
+            )
+        );
 
         return view.Root;
     }

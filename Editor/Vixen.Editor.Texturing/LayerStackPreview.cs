@@ -1,9 +1,15 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Immutable;
+using Vixen.Core.Imaging;
+using Vixen.Editor.Assets.Textures;
+using Vixen.Editor.Core;
+using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.TextureGraph;
 using Vixen.Editor.Texturing.Layers;
+using Vixen.Graphics;
 
 namespace Vixen.Editor.Texturing;
 
@@ -14,12 +20,30 @@ namespace Vixen.Editor.Texturing;
 /// <param name="Height">Its height.</param>
 /// <param name="Status">What to say under the pane.</param>
 /// <remarks>
-///     ⚠ <b>The extent is carried even when the image is null, and that is the same decision
-///     <c>TextureGraphView.Show</c> makes.</b> The zoom, the fit and the pointer readout are about
-///     the texels an author is authoring; a pane that lost them when a bake failed would rescale
-///     itself every time somebody typed a bad number into a layer.
+///     <para>
+///         ⚠ <b>The extent is carried even when the image is null, and that is the same decision
+///         <c>TextureGraphView.Show</c> makes.</b> The zoom, the fit and the pointer readout are about
+///         the texels an author is authoring; a pane that lost them when a bake failed would rescale
+///         itself every time somebody typed a bad number into a layer.
+///     </para>
+///     <para>
+///         ⚠ <b>Everything the compile said travels with the picture, and not just the sentence.</b>
+///         <see cref="Status" /> answers "why is there no map", which is a question with one answer;
+///         <see cref="Problems" /> and <see cref="Diagnostics" /> are what the compile <em>had to
+///         say</em>, and a compilation that produced a plan can still say plenty. Until
+///         <a href="https://github.com/Rikarin/Vixen/issues/830">#830</a> a warning reached the panel
+///         through neither: <c>Refused</c> only runs when there is no plan and filters to errors even
+///         then, so <c>TG0022</c> — chosen over a silent rescale on the grounds that "it is said" —
+///         was said to nothing but xunit.
+///     </para>
 /// </remarks>
-sealed record LayerStackPicture(IEditorImage? Image, string Usage, int Width, int Height, string Status);
+sealed record LayerStackPicture(IEditorImage? Image, string Usage, int Width, int Height, string Status) {
+    /// <summary>What building the graph had to say, about layers an artist can select.</summary>
+    public ImmutableArray<LayerStackProblem> Problems { get; init; } = [];
+
+    /// <summary>What compiling it had to say, about nodes.</summary>
+    public ImmutableArray<NodeDiagnostic> Diagnostics { get; init; } = [];
+}
 
 /// <summary>Turns a layer stack into pixels on the editor's device.</summary>
 /// <remarks>
@@ -42,12 +66,22 @@ sealed record LayerStackPicture(IEditorImage? Image, string Usage, int Width, in
 ///         slice's.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An imported image is the one thing this cannot fill, and it is reported rather than
-///         skipped.</b> <c>TextureGraphExternals.Upload</c> hands back the entries naming an asset,
-///         and an evaluation missing exactly one texture throws about an image index rather than
-///         drawing a map with a hole in it. Resolving them wants an <c>AssetDatabase</c> read on the
-///         panel's thread, which is <a href="https://github.com/Rikarin/Vixen/issues/818">#818</a>;
-///         until then the pane says which layer's picture it is short of.
+///         ⚠ <b>An imported image is read here, on the panel's thread, and a picture that will not
+///         read is a sentence rather than an exception —
+///         <a href="https://github.com/Rikarin/Vixen/issues/818">#818</a>.</b>
+///         <c>TextureGraphExternals.Upload</c> fills the externals whose bytes the compilation
+///         carries — a ramp, a curve table — and hands back the ones naming an asset, because a
+///         compiler that ran on every edit must not touch an <c>AssetDatabase</c>. This is the host
+///         half: the database resolves the reference, <c>ImageDecoders</c> reads the file, and the
+///         texels go up through the same <c>TextureUploads</c>. Skipping one was never an option —
+///         <c>TexturePlanEvaluator.Evaluate</c> refuses a plan with an external nothing supplied,
+///         and it refuses it by throwing about an image index out of a panel build.
+///     </para>
+///     <para>
+///         ⚠ <b>A mesh map is not a file and is refused as one.</b> A <c>Source/Mesh Map</c> crosses
+///         as <c>meshmap:curvature</c> rather than as a path, because what it names is a measurement
+///         of a mesh this pane has not been told about; resolving it as a project path would be a
+///         missing-file message about a file nobody named.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Never called from inside the host's own frame</b>, for
@@ -59,6 +93,16 @@ sealed record LayerStackPicture(IEditorImage? Image, string Usage, int Width, in
 sealed class LayerStackPreview : IDisposable {
     /// <summary>Which map the pane shows when nothing else is asked for.</summary>
     public const string DefaultUsage = "baseColor";
+
+    /// <summary>What a mesh map's reference starts with, rather than a path.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Duplicated from <c>TextureMeshMaps.Scheme</c>, which is <c>internal</c> to
+    ///     <c>Vixen.Editor.TextureGraph</c> and visible to its own tests alone.</b> The alternative
+    ///     is resolving <c>meshmap:curvature</c> as a project path and telling an artist that a file
+    ///     of that name is missing. <c>LayerStackPanelDeviceTests</c> asserts a mesh-map layer still
+    ///     gets the sentence, which is the only thing that can catch the two drifting apart.
+    /// </remarks>
+    const string TextureMeshMapScheme = "meshmap:";
 
     readonly IEditorGraphics graphics;
 
@@ -105,14 +149,30 @@ sealed class LayerStackPreview : IDisposable {
             return new(null, usage, width, height, "No preview: this stack has no texture set, so there is no map to bake.");
         }
 
-        if (graphics.Device is not { } device) {
-            return new(null, usage, width, height, TexturePreview.Describe(TexturePreview.Blocking(graphics)));
-        }
-
+        // ⚠ Compiled before the device is asked for, and the order is the finding.
+        // `LayerStackCompiler.Compile` is pure — it allocates no texture and dispatches nothing — so
+        // everything it has to say about an author's stack costs exactly as much on a host that
+        // cannot draw. Asking for the device first meant an editor between construction and its
+        // window coming up showed a stack in silence, and it is the state the editor starts in.
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
+        // Everything either half said travels with every answer below, because a compilation that
+        // produced a plan still has things to say and the sentence is not where they fit.
+        LayerStackPicture Said(IEditorImage? drawn, int drawnWidth, int drawnHeight, string status) =>
+            new(drawn, usage, drawnWidth, drawnHeight, status) {
+                Problems = compilation.Problems,
+                Diagnostics = compilation.Diagnostics
+            };
+
+        // ⚠ Before the device, because a stack that does not compile does not compile on any host.
+        // Told the other way round, the one message an author could act on was replaced by a message
+        // about the window not being up yet.
         if (compilation.Plan is not { } plan) {
-            return new(null, usage, width, height, Refused(compilation));
+            return Said(null, width, height, Refused(compilation));
+        }
+
+        if (graphics.Device is not { } device) {
+            return Said(null, width, height, TexturePreview.Describe(TexturePreview.Blocking(graphics)));
         }
 
         var image = -1;
@@ -126,9 +186,8 @@ sealed class LayerStackPreview : IDisposable {
         }
 
         if (image < 0) {
-            return new(
+            return Said(
                 null,
-                usage,
                 width,
                 height,
                 $"No preview: this stack writes no '{usage}' map. It writes "
@@ -144,15 +203,23 @@ sealed class LayerStackPreview : IDisposable {
         using TextureUploads uploads = new(device);
 
         var owed = TextureGraphExternals.Upload(uploads, plan, compilation.Externals);
+        List<string> unresolved = [];
 
-        if (owed.Length > 0) {
-            return new(
+        foreach (var entry in owed) {
+            if (Resolve(document.Project, uploads, plan, entry) is { } why) {
+                unresolved.Add(why);
+            }
+        }
+
+        // ⚠ Every one of them, and only then the refusal. A pane that returned at the first would
+        // send an artist round the loop once per missing picture, which for a stack that has been
+        // moved between projects is once per layer.
+        if (unresolved.Count > 0) {
+            return Said(
                 null,
-                usage,
                 width,
                 height,
-                $"No preview: {owed.Length} layer(s) read an imported image — {string.Join(", ", owed.Select(entry => entry.Asset))} "
-                + "— and this pane resolves no assets yet (#818). Every other layer compiled."
+                "No preview: " + string.Join(" · ", unresolved) + " Every other layer compiled."
             );
         }
 
@@ -168,13 +235,96 @@ sealed class LayerStackPreview : IDisposable {
 
         Evaluations++;
 
-        return new(
+        // ⚠ The plan's cautions, said here because until now nothing anywhere read one — the reason
+        // #801 was declined twice. A caution is a plan that bakes and does not draw what the stack
+        // describes: an op reading an image of a size it does not write (#801), a radius past its
+        // kernel's loop (#692). `TextureGraphCompiler` surfaces `Validate()` — the refusals — and a
+        // caution reached `TextureBake.Warnings` and stopped there, which made every guard of this
+        // kind a finished thing nothing called.
+        var cautions = bake.Warnings.Length > 0
+            ? " ⚠ " + string.Join(" · ", bake.Warnings)
+            : "";
+
+        return Said(
             uploaded,
-            usage,
             picture.Width,
             picture.Height,
-            $"Preview: '{usage}', compiled from this stack and evaluated on the editor's device."
+            $"Preview: '{usage}', compiled from this stack and evaluated on the editor's device." + cautions
         );
+    }
+
+    /// <summary>Reads one external image out of the project and uploads it.</summary>
+    /// <param name="project">Whose asset database resolves the reference.</param>
+    /// <param name="uploads">Where the texture is made, and what owns it.</param>
+    /// <param name="plan">The plan the image belongs to, which says what format and size it is.</param>
+    /// <param name="entry">The external the compilation could not fill.</param>
+    /// <returns>Null when it was uploaded, or the sentence saying why it was not.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every failure is a returned sentence and none is an exception, including the ones
+    ///         that are this build's fault.</b> A preview runs on every edit and a throw out of one
+    ///         takes the editor's frame with it — so a file that has been deleted, a format nothing
+    ///         decodes, and a decoder that read the file and produced nothing are all the same kind
+    ///         of answer here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Rgba8 only, and it is a real limit rather than an oversight.</b> The plan's
+    ///         external image for a <c>Source/Bitmap</c> is <c>Rgba8</c> —
+    ///         <c>BitmapNode</c> says why — so a KTX2 or DDS asset that decodes to a block-compressed
+    ///         format has the wrong byte count for the image it would fill, and
+    ///         <c>TextureUploads.Add</c> would refuse it with a message about a byte count rather
+    ///         than about a file. Named here instead.
+    ///     </para>
+    /// </remarks>
+    static string? Resolve(
+        EditorProject project,
+        TextureUploads uploads,
+        TexturePlan plan,
+        TextureGraphExternal entry
+    ) {
+        var reference = entry.Asset.Trim();
+
+        // A mesh map names a measurement rather than a file — see the type's remarks.
+        if (reference.StartsWith(TextureMeshMapScheme, StringComparison.Ordinal)) {
+            return $"a layer reads '{reference}', which is a measurement of a mesh this pane has not been "
+                + "told about rather than a file it can open.";
+        }
+
+        if (!project.Assets.TryGetByPath(reference, out var asset)) {
+            return $"'{reference}' is not in this project's assets, so there is nothing to read.";
+        }
+
+        var file = project.Paths.Absolute(asset.Path);
+        var extension = Path.GetExtension(file);
+
+        if (ImageDecoders.For(ImageDecoders.BuiltIn, extension) is not { } decoder) {
+            return $"nothing here decodes '{extension}', so '{reference}' cannot be read.";
+        }
+
+        TextureData decoded;
+
+        try {
+            using var stream = File.OpenRead(file);
+
+            decoded = decoder.Decode(stream, extension);
+        } catch (Exception failure) when (failure is IOException
+            or InvalidDataException or NotSupportedException or ArgumentException
+            or UnauthorizedAccessException) {
+            return $"'{reference}' would not read: {failure.Message}";
+        }
+
+        if (decoded.Format != PixelFormat.Rgba8UNorm) {
+            return $"'{reference}' decoded as {decoded.Format} and a graph's imported image is Rgba8, so this "
+                + "pane cannot upload it. Import it as an uncompressed 8-bit picture.";
+        }
+
+        try {
+            uploads.Add(plan, entry.Image, decoded.Width, decoded.Height, decoded.Level(0));
+        } catch (ArgumentException failure) {
+            return $"'{reference}' could not be uploaded: {failure.Message}";
+        }
+
+        return null;
     }
 
     /// <summary>What to say when the compilation refused.</summary>
@@ -186,6 +336,14 @@ sealed class LayerStackPreview : IDisposable {
     ///     can select; a node diagnostic names a node in a graph nobody has exploded and is a
     ///     compiler's or a builder's fault. A pane that showed only the first would be silent on
     ///     every failure of the second.
+    ///     <para>
+    ///         ⚠ <b>Still errors only, and that is now a division of labour rather than a hole.</b>
+    ///         This sentence answers "why is there no map", so a warning does not belong in it — a
+    ///         warning is precisely a thing that did not stop the map. What
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/830">#830</a> found is that there was
+    ///         nowhere else for one to go; <c>LayerStackPicture.Diagnostics</c> is that somewhere, and
+    ///         <c>LayerStackView</c> lists it whether or not there is a picture.
+    ///     </para>
     /// </remarks>
     static string Refused(LayerStackCompilation compilation) {
         var problems = compilation.Problems.Select(problem => problem.Message)

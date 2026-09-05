@@ -39,8 +39,8 @@ internal enum TexturePlacementAccumulation {
 ///         ⚠ <b>These two are what doc 48 § D7 puts in FX-Map's place, and the refusals below are the
 ///         half of that trade a type can carry.</b> What recursion buys is an instance count that
 ///         depends on the pattern; what it costs is a node whose cost nobody can state. Here the cost
-///         is stated — <see cref="TileSampler" /> searches at most
-///         <c>(2·<see cref="MaxSearch" />+1)²</c> cells per sub-sample and <see cref="Splatter" />
+///         is stated — <c>TileSampler</c> searches at most
+///         <c>(2·<see cref="MaxSearch" />+1)²</c> cells per sub-sample and <c>Splatter</c>
 ///         walks at most <see cref="MaxInstances" /> instances — and the parameters that would need
 ///         more are <b>refused here rather than clamped in the kernel</b>.
 ///     </para>
@@ -80,7 +80,7 @@ internal static class TexturePlacement {
     /// <remarks>
     ///     ⚠ <b>Duplicated from <c>Shaders/TileSampler.rvn</c>'s <c>MaxSearch</c>, exactly as
     ///     <c>TexturePlanEvaluator.GroupSize</c> is duplicated from every kernel's
-    ///     <c>[ComputeShader]</c>, and for the same reason: a Raven <c>const val</c> is not in the
+    ///     <c>[ComputeShader]</c>.</b> And for the same reason: a Raven <c>const val</c> is not in the
     ///     reflection, so a host that has to reason about it has to know it.
     ///     <c>TexturePlacementKernelTests</c> asserts the two agree, which is the only thing that can.
     /// </remarks>

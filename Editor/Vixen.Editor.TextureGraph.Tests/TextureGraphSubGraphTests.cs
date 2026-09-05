@@ -194,6 +194,75 @@ public class TextureGraphSubGraphTests {
         Assert.Contains("no library to resolve sub-graphs through", diagnostic.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>A graph lifted out of another one still folds the expressions it took with it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The gesture that had no test, and it was broken —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/802">#802</a>.</b> "Extract to
+    ///         sub-graph" copied a node's <c>Texts</c>, which is where an expression lives, and left
+    ///         the <c>Parameters</c> those texts are written against behind. So the published graph
+    ///         declared no <c>amount</c>, <c>Bind</c> folded <c>amount * 2f</c> against an empty
+    ///         list, and the author got <c>TG0013</c> about a graph the editor had built for them a
+    ///         moment earlier.
+    ///     </para>
+    ///     <para>
+    ///         <b>Every step here is the editor's own.</b> <c>SubGraphs.Extract</c> is what the
+    ///         canvas calls, an empty <c>exposed</c> list is what <c>TextureCompoundLibrary</c>
+    ///         passes, and the radius is read off the op — so a fix that carried the declarations
+    ///         somewhere they are not read would leave this red.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_graph_extracted_out_of_another_keeps_the_knobs_its_expressions_read() {
+        NodeTypeRegistry registry = new();
+
+        NodeTypes.Register(registry);
+
+        NodeGraphModel authored = new() { Name = "Material" };
+
+        authored.Parameters.Add(new("amount", "3", Kind: SettingKind.Float, Minimum: 0f, Maximum: 10f));
+
+        var noise = authored.Add("Source/Noise");
+        var blur = authored.Add("Filters/Blur");
+        var output = authored.Add("Output/Output");
+
+        authored.Connect(new(noise.Id, "Out"), new(blur.Id, "Input"));
+        authored.Connect(new(blur.Id, "Out"), new(output.Id, "Input"));
+        blur.SetValue("Radius", 2f);
+        blur.SetText(TextureGraphExpressions.KeyOf("Radius"), "amount * 2f");
+
+        var extraction = SubGraphs.Extract(authored, [blur.Id], "Grunge", registry);
+
+        // The empty list is `TextureCompoundLibrary`'s call: publish what the graph itself declares.
+        TextureGraphLibrary library = new();
+
+        library.Publish("Library/Grunge", extraction.Graph, [], registry);
+
+        NodeGraphModel container = new();
+        var source = container.Add("Source/Noise");
+        var used = container.Add("Library/Grunge");
+        var sink = container.Add("Output/Output");
+
+        container.Connect(new(source.Id, "Out"), new(used.Id, extraction.Inputs.Values.Single()));
+        container.Connect(new(used.Id, extraction.Outputs.Values.Single()), new(sink.Id, "Input"));
+
+        var compilation = new TextureGraphCompiler(registry) {
+            BaseWidth = 128,
+            BaseHeight = 128,
+            SubGraphSource = library
+        }.Compile(container);
+
+        Assert.Empty(compilation.Diagnostics);
+
+        // 3 × 2, folded against the declaration that crossed — and not 2, which is the value the port
+        // still carries and what a graph whose expression did not fold would have baked.
+        var inlined = compilation.Value.Ops.First(
+            op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal)
+        );
+
+        Assert.Equal(6f, inlined.Find("radius")!.Value.Value);
+    }
+
     /// <summary>Which image each node wrote is named by a node the author has, not by a copy.</summary>
     [Fact]
     public void An_inlined_nodes_image_is_recorded_against_the_node_the_author_has() {

@@ -8,6 +8,7 @@ using System.Xml.Linq;
 using Nuke.Common;
 using Nuke.Common.IO;
 using Serilog;
+using Vixen.Build;
 
 /// <summary>
 ///     The layer rules from docs/plan/00, checked rather than trusted.
@@ -94,39 +95,6 @@ partial class Build {
     ///     </para>
     /// </remarks>
     static readonly (string From, string To)[] AllowedCoreEdges = [("Vixen.Fuzz", "Vixen.Raven")];
-
-    /// <summary>The contract an editor plugin is written against, and what identifies one.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Derived rather than listed, because a list of plugin names is the exact-equality roll
-    ///     call this repository keeps going red on a merge.</b> A plugin is a project that names the
-    ///     contract; nine do today and a tenth is covered the day it is added, with no edit here.
-    /// </remarks>
-    const string PluginContract = "Vixen.Editor.Plugin";
-
-    /// <summary>
-    ///     The editor application, which a plugin may not link in any build.
-    /// </summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Doc 48's exit criterion 10, in as many words: the plugin "references
-    ///         <c>Vixen.Editor.App</c> in no build", asserted by <c>CheckArchitecture</c>.</b> It was
-    ///         asserted by a test instead — <c>ModuleReferenceTests</c> in
-    ///         <c>Vixen.Editor.Texturing.Tests</c> — and that test says itself why that is not the
-    ///         same claim: <c>Assembly.GetReferencedAssemblies</c> lists what the compiler emitted a
-    ///         reference for, so a <c>ProjectReference</c> nobody has used yet is invisible to it.
-    ///         The reference is what the criterion is about, and a project file is where a reference
-    ///         lives.
-    ///     </para>
-    ///     <para>
-    ///         <b>Transitive, which is what "in no build" means.</b> A plugin that reached the
-    ///         application through one intermediate would ship the application in the plugin's
-    ///         folder just as surely as a direct reference does, and doc 36 § F2's complaint — an
-    ///         extension surface whose own authors never had to use it — is answered only if the
-    ///         whole closure is clean. <c>Vixen.Editor.Host</c> reaches the application and is not a
-    ///         plugin, which is what proves this check can see such an edge at all.
-    ///     </para>
-    /// </remarks>
-    const string EditorApplication = "Vixen.Editor.App";
 
     /// <summary>
     ///     Orleans, which ADR-016 confines to the control plane and ADR-017 keeps out of the client.
@@ -341,42 +309,17 @@ partial class Build {
 
                 // Doc 48 exit criterion 10. A plugin is a project that names the plugin contract, and
                 // no plugin may reach the editor application — directly or through anything else.
-                var edges = Edges(projects);
+                //
+                // ⚠ The rule itself lives in PluginReferenceRule, which this target is one caller of
+                // and Vixen.Editor.Texturing.Tests is the other. It was written inside this
+                // `Executes` and could therefore only ever answer by running a gate that compiles the
+                // solution in Release — so it shipped without anybody having seen it produce an
+                // answer, which is the state this repository's own rule says to fix first.
+                var edges = PluginReferenceRule.Edges(projects.Select(project => project.ToString()));
 
-                var plugins = edges
-                    .Where(entry => entry.Value.Contains(PluginContract, StringComparer.Ordinal))
-                    .Where(entry => !entry.Key.EndsWith(".Tests", StringComparison.Ordinal))
-                    .Select(entry => entry.Key)
-                    .OrderBy(name => name, StringComparer.Ordinal)
-                    .ToList();
+                Assert.True(PluginReferenceRule.Vacuity(edges) is null, PluginReferenceRule.Vacuity(edges) ?? "");
 
-                // The instrument, and it is the whole reason this is not three lines. A rule whose
-                // subject set is empty passes silently, which is how a gate becomes decoration: if
-                // the contract is renamed, nothing here is a plugin any more and every plugin is
-                // clean by vacuity.
-                Assert.True(
-                    plugins.Count > 0,
-                    $"No project references {PluginContract}, so the plugin rule below checked nothing. Either "
-                    + "the contract was renamed — update PluginContract — or the editor no longer has plugins."
-                );
-
-                // And the other half of the instrument: an edge into the application has to be
-                // something this check can see. Vixen.Editor.Host has one, which is what makes a
-                // clean result above a measurement rather than a property of the walk.
-                Assert.True(
-                    edges.Keys.Any(name => Reaches(edges, name, EditorApplication)),
-                    $"Nothing in the repository reaches {EditorApplication}, which cannot be true while the "
-                    + "editor is built — so the reference walk is not finding edges and the plugin rule cannot fire."
-                );
-
-                foreach (var plugin in plugins.Where(name => Reaches(edges, name, EditorApplication))) {
-                    violations.Add(
-                        $"{plugin} references {PluginContract} and reaches {EditorApplication}. A plugin links the "
-                        + "application in no build — doc 48 § D14 and its exit criterion 10 — because everything a "
-                        + "plugin needs from the host comes through PluginServices, and a plugin that reaches "
-                        + "around the contract stops being evidence that the contract is wide enough."
-                    );
-                }
+                violations.AddRange(PluginReferenceRule.Violations(edges));
 
                 foreach (var violation in violations) {
                     Log.Error("{Violation}", violation);
@@ -387,69 +330,17 @@ partial class Build {
                     $"{violations.Count} architecture violation(s). See the errors above."
                 );
 
-                Log.Information("Checked {Count} projects; no violations.", projects.Count);
+                // ⚠ The plugin count is logged because it is the rule's subject set, and a subject set
+                // is the half of a rule nothing checks. It read nine while the editor application —
+                // which references the contract because it hosts plugins — was being counted as one
+                // of them.
+                Log.Information(
+                    "Checked {Count} projects, of which {Plugins} are editor plugins; no violations.",
+                    projects.Count,
+                    PluginReferenceRule.Plugins(edges).Count
+                );
             }
         );
-
-    /// <summary>Every project's direct <c>ProjectReference</c>s, by assembly name.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Names rather than paths, and merged rather than keyed uniquely.</b> Two project files
-    ///     with one name would throw out of a plain <c>ToDictionary</c> — a build failure with a
-    ///     message about a duplicate key, which is a rotten way to learn about a naming collision —
-    ///     so their edges are unioned and the rules read the union. A reference is a name here
-    ///     because that is what the rest of this file compares.
-    /// </remarks>
-    static Dictionary<string, HashSet<string>> Edges(IReadOnlyList<AbsolutePath> projects) {
-        Dictionary<string, HashSet<string>> edges = new(StringComparer.Ordinal);
-
-        foreach (var project in projects) {
-            var references = XDocument.Load(project)
-                .Descendants("ProjectReference")
-                .Select(element => element.Attribute("Include")?.Value)
-                .Where(value => value is not null)
-                .Select(value => AbsolutePath.Create(project.Parent / value!).NameWithoutExtension);
-
-            if (!edges.TryGetValue(project.NameWithoutExtension, out var set)) {
-                set = new(StringComparer.Ordinal);
-                edges[project.NameWithoutExtension] = set;
-            }
-
-            set.UnionWith(references);
-        }
-
-        return edges;
-    }
-
-    /// <summary>Whether one project reaches another through any chain of project references.</summary>
-    /// <remarks>
-    ///     A plain depth-first walk with a visited set, which is also what makes it safe on a graph
-    ///     with a cycle — MSBuild refuses one, but this runs over project files rather than over a
-    ///     restore, so it cannot assume the graph is acyclic.
-    /// </remarks>
-    static bool Reaches(Dictionary<string, HashSet<string>> edges, string from, string target) {
-        HashSet<string> seen = new(StringComparer.Ordinal);
-        Stack<string> pending = new(edges.TryGetValue(from, out var direct) ? direct : []);
-
-        while (pending.Count > 0) {
-            var next = pending.Pop();
-
-            if (string.Equals(next, target, StringComparison.Ordinal)) {
-                return true;
-            }
-
-            if (!seen.Add(next)) {
-                continue;
-            }
-
-            if (edges.TryGetValue(next, out var further)) {
-                foreach (var reference in further) {
-                    pending.Push(reference);
-                }
-            }
-        }
-
-        return false;
-    }
 
     static string LayerOf(AbsolutePath project) {
         var relative = RootDirectory.GetRelativePathTo(project).ToString();

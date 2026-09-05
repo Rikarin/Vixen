@@ -12,6 +12,18 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>The stack doc 48 exit criterion 6 is measured on, and how two plans are compared.</summary>
 /// <remarks>
 ///     <para>
+///         ⚠ <b>What this cannot prove, said here because it is the strongest assertion this area
+///         has and it is weaker than it looks.</b> Both halves of the differential go through
+///         <c>LayerStackGraph.Build</c>, <c>TextureGraphCompiler</c> and the same kernels — that is
+///         doc 48 § D1's whole point — so it compares <em>two identical pipelines</em>. It proves the
+///         stack and its explosion agree; it proves nothing whatever about whether either is right. A
+///         compositing error that is the same on both sides is invisible to it, and
+///         <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a> is two such errors that
+///         lived under a green differential for a batch. The assertions that can be wrong about a
+///         picture are the closed forms in <c>LayerCoverageDeviceTests</c>: a coverage whose correct
+///         value is arithmetic, swept rather than sampled at one point.
+///     </para>
+///     <para>
 ///         <b>One stack, built here rather than in each suite</b>, because the device test and the
 ///         device-free test have to be measuring the same thing for the second to be worth anything
 ///         when the first skips.

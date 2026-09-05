@@ -142,6 +142,10 @@ internal static class TextureSources {
             Kernel = "Bitmap",
             Output = output,
             Inputs = [source],
+
+            // An imported picture is whatever size it was authored at, and this is the op that
+            // brings it into the plan's — #801.
+            ReadsOtherExtents = true,
             Parameters = [new("srgb", srgb ? 1f : 0f), new("filter", bilinear ? 1f : 0f)]
         };
 

@@ -224,7 +224,8 @@ public sealed class TextureBake : IDisposable {
 ///         release half would have to be recorded at the end of the bake's own list, for every image,
 ///         before anybody knows which ones will ever be read, how often, or whether at all. An image
 ///         released to a queue that never acquires it is exactly the corruption that pair exists to
-///         prevent. There is also nothing to buy: a bake is modal, <see cref="Evaluate" /> waits for
+///         prevent. There is also nothing to buy: a bake is modal,
+///         <see cref="Evaluate(TexturePlan,IReadOnlyDictionary{int,TextureExternal})" /> waits for
 ///         the device before it returns, and the read-back has no frame to overlap with. The
 ///         precedent is <c>Platform/Vixen.Raven.Gpu.Tests/ShaderRun.cs</c>, which dispatches and
 ///         copies on one compute list for this same reason.

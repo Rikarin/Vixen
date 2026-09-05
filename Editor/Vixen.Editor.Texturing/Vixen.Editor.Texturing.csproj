@@ -64,6 +64,17 @@
         <ProjectReference Include="..\Vixen.Editor.AssetEditors\Vixen.Editor.AssetEditors.csproj" />
 
         <!--
+            ⚠ And the image decoders, named here rather than taken through the reference above.
+            `LayerStackPreview` resolves a texture-fill layer's imported picture — #818 — which means
+            reading a file the asset database points at and decoding it to Rgba8, and the decoder set
+            an importer already uses is `ImageDecoders.BuiltIn`. It arrives transitively through
+            `Vixen.Editor.AssetEditors` either way; a reference this assembly *uses* is written down,
+            because the day somebody narrows that one is the day this file stops compiling for a
+            reason nothing states.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Assets\Vixen.Editor.Assets.csproj" />
+
+        <!--
             ⚠ Named for one type and one question: `IGraphicsDevice`, so that
             `TexturePreview.Blocking` can ask the host for one and say precisely what is missing when
             there is none. Doc 48 § D14 predicted a plugin would need a device and that the contract
@@ -74,6 +85,28 @@
 
         <!-- The image view the preview pane is, and the canvas the graph view is built on. -->
         <ProjectReference Include="..\..\Core\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
+
+        <!--
+            ⚠ **The brush, and it is a terrain assembly only by its name.** Doc 48 § D13 says
+            painting is doc 31's brush aimed at an atlas instead of a heightfield, and that turned out
+            to be literally true rather than an analogy: `TerrainBrush.WeightAt`, `BrushFalloff` and
+            `BrushStroke` read a `Vector2`, a radius and a spacing fraction, and not one of them reads
+            a metre. `TerrainBrush`'s own remarks say "one service, three consumers … it does not know
+            what the answer will be multiplied into"; `Painting/PaintBrush.cs` is the fourth consumer
+            and passes it texels.
+
+            The alternative was a paint-side falloff, which is a second implementation of one curve —
+            the shape five exact-equality roll calls in this workstream have gone red on, and here it
+            would be worse: the two would be compared by eye, because a soft edge sculpted at 0.3 and
+            a soft edge painted at 0.3 being different shapes is exactly what `TerrainBrush` exists to
+            prevent and exactly what nobody would notice.
+
+            It is a `Core/` assembly with two references of its own, it declares no type this plugin
+            registers, and `PluginLoadContext` sends every `Vixen.*` dependency to the default context
+            — so its `[DataContract]`s register once, in the host, and the collectible-context
+            landmine this file warns about below does not apply to it.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Terrain\Vixen.Terrain.csproj" />
 
         <!-- A graph is YAML on disk, the same as every other node document in the tree. -->
         <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />

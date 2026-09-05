@@ -61,7 +61,7 @@ internal enum TextureTextAlignment : byte {
 ///     <para>
 ///         <b>Every number here is in texels of the picture being written</b>, which is doc 48 § D8's
 ///         rule and is what makes the same authored size mean the same physical letter at every bake
-///         resolution — the caller scales <paramref name="size" /> the way
+///         resolution — the caller scales the em size the way
 ///         <see cref="TexturePlan.Resolve" /> scales a radius, and nothing in this file knows about
 ///         levels.
 ///     </para>

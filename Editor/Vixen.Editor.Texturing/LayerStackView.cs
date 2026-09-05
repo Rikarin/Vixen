@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
@@ -27,6 +28,16 @@ namespace Vixen.Editor.Texturing;
 ///         offer the drag.
 ///     </para>
 ///     <para>
+///         ⚠ <b>The list under the rows is where a diagnostic goes, and it is what
+///         <a href="https://github.com/Rikarin/Vixen/issues/830">#830</a> found this panel had
+///         nowhere for.</b> <c>TG0022</c> — the terminus rescale — was chosen over a silent rescale
+///         because "it is said", and no production type in this tree rendered a
+///         <c>NodeDiagnostic</c> at all: the one consumer read a list of them and kept the errors,
+///         which drops precisely the diagnostics that did not stop the map. Every severity is listed,
+///         whether or not there is a picture, because a warning is by definition the kind that comes
+///         with one.
+///     </para>
+///     <para>
 ///         ⚠ <b>Top of the panel is the <em>last</em> layer, which is the reverse of the file.</b>
 ///         <c>TextureSetAsset.Layers</c> is stored in composite order so that reading the file top to
 ///         bottom is reading the arithmetic in the order it happens; every layers panel ever made
@@ -43,6 +54,7 @@ namespace Vixen.Editor.Texturing;
 ///     </para>
 /// </remarks>
 sealed class LayerStackView {
+    readonly UiElement messages;
     readonly UiElement root;
     readonly UiElement rows;
     readonly UiElement status;
@@ -73,6 +85,16 @@ sealed class LayerStackView {
         rows.SetStyle("display", "flex");
         rows.SetStyle("flex-direction", "column");
         rows.SetStyle("flex-grow", "1");
+
+        // ⚠ Under the rows and not under the preview, and the reason is what a diagnostic names. A
+        // layer problem names a row that is directly above it and a node diagnostic names a node in
+        // the graph those rows explode into; the 280px preview column is where the *picture* is
+        // explained. `flex-grow` is deliberately left off so the list of rows keeps the space and
+        // this grows only as far as it has messages.
+        messages = left.Add("layer-stack-messages");
+
+        messages.SetStyle("display", "none");
+        messages.SetStyle("flex-direction", "column");
 
         var right = root.Add("layer-stack-preview");
 
@@ -113,6 +135,17 @@ sealed class LayerStackView {
     /// <summary>The rows, topmost first — what a test reads instead of walking the tree.</summary>
     public IReadOnlyList<string> Rows { get; private set; } = [];
 
+    /// <summary>Everything the compile had to say, in the order it said it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the surface <a href="https://github.com/Rikarin/Vixen/issues/830">#830</a>
+    ///     found missing, and the argument it was missing from is <c>TG0022</c>'s.</b> The terminus
+    ///     rescale was chosen over a silent one because "it is said" — and nothing said it: no
+    ///     production type rendered a <c>NodeDiagnostic</c>, and the one consumer that read a list of
+    ///     them kept the errors. So a warning reached an author only in the sense that a value
+    ///     existed in a record. A diagnostic an author cannot see is not a diagnostic.
+    /// </remarks>
+    public IReadOnlyList<string> Messages { get; private set; } = [];
+
     /// <summary>Puts a stack in the panel, or takes the last one out.</summary>
     /// <param name="document">The stack, or <see langword="null" /> for none.</param>
     /// <param name="picture">What evaluating it produced, or <see langword="null" /> for nothing.</param>
@@ -133,6 +166,20 @@ sealed class LayerStackView {
         foreach (var child in rows.Children.ToArray()) {
             child.Remove();
         }
+
+        foreach (var child in messages.Children.ToArray()) {
+            child.Remove();
+        }
+
+        Messages = picture is null ? [] : Describe(picture);
+
+        foreach (var message in Messages) {
+            messages.Add("layer-stack-message").Text = message;
+        }
+
+        // Hidden when it is empty rather than left as an empty box, because a heading with nothing
+        // under it reads as "nothing was checked" and the ordinary case is a stack with nothing wrong.
+        messages.SetStyle("display", Messages.Count == 0 ? "none" : "flex");
 
         if (document is null) {
             Rows = [];
@@ -198,6 +245,64 @@ sealed class LayerStackView {
 
         return lines;
     }
+
+    /// <summary>Everything one attempt at the map had to say, as lines.</summary>
+    /// <param name="picture">The attempt.</param>
+    /// <returns>One line per problem and per diagnostic, layers first.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="picture" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Both lists and every severity, which is the whole of
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/830">#830</a>.</b> The pane's status
+    ///         line answers "why is there no map" and therefore reads errors only; a warning is by
+    ///         definition a thing that did not stop the map, so filtering here as well left it with
+    ///         nowhere at all to be shown.
+    ///     </para>
+    ///     <para>
+    ///         <b>Layers first because that is the order an artist can act in.</b> A
+    ///         <c>LayerStackProblem</c> names a row in the list directly above this one; a
+    ///         <c>NodeDiagnostic</c> names a node in the graph those rows explode into, which is a
+    ///         graph nobody has opened.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A line that reads exactly the same as one already listed is dropped, and finding
+    ///         out why is <a href="https://github.com/Rikarin/Vixen/issues/842">#842</a>.</b>
+    ///         <c>LayerStackGraph</c> walks a layer once per channel the texture set writes, so one
+    ///         mistyped filter setting on one layer arrives here <em>seven times</em> — and because
+    ///         the message names neither the channel nor anything else that differs, the seven are
+    ///         character-for-character identical. Two identical sentences tell a reader nothing the
+    ///         first did not. The multiplicity is real and the builder is where it should be said.
+    ///     </para>
+    /// </remarks>
+    public static IReadOnlyList<string> Describe(LayerStackPicture picture) {
+        ArgumentNullException.ThrowIfNull(picture);
+
+        var lines = new List<string>(picture.Problems.Length + picture.Diagnostics.Length);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var problem in picture.Problems) {
+            Add($"{Severity(problem.Severity)} — layer '{problem.Layer}': {problem.Message}");
+        }
+
+        foreach (var diagnostic in picture.Diagnostics) {
+            Add($"{Severity(diagnostic.Severity)} — {diagnostic.Id}: {diagnostic.Message}");
+        }
+
+        return lines;
+
+        void Add(string line) {
+            if (seen.Add(line)) {
+                lines.Add(line);
+            }
+        }
+    }
+
+    /// <summary>How a severity reads at the head of a line.</summary>
+    /// <remarks>
+    ///     Spelled rather than <c>ToString</c>'d, because <c>NodeSeverity.Warning</c>'s name is the
+    ///     word and a rename of the member would silently change what an artist reads.
+    /// </remarks>
+    static string Severity(NodeSeverity severity) => severity == NodeSeverity.Error ? "Error" : "Warning";
 
     /// <summary>The resolution readout, as the pane titles it.</summary>
     /// <param name="document">The stack.</param>

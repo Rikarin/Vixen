@@ -122,6 +122,10 @@ sealed partial class TileNode : TextureNode {
                 Kernel = TextureColourKernels.Tile,
                 Output = target,
                 Inputs = [source],
+
+                // Every tap is a normalised coordinate taken through the source's own extent, so a
+                // source of another size is a legitimate thing to repeat — #801.
+                ReadsOtherExtents = true,
                 Parameters = [
                     new("repeatX", emitter.Integer("Repeat X")),
                     new("repeatY", emitter.Integer("Repeat Y")),
@@ -212,6 +216,9 @@ sealed partial class CropNode : TextureNode {
                 Kernel = TextureColourKernels.Crop,
                 Output = target,
                 Inputs = [source],
+
+                // The rect is a fraction of the source, whatever size it is — #801.
+                ReadsOtherExtents = true,
                 Parameters = [
                     new("rectX", emitter.Number("Rect X")),
                     new("rectY", emitter.Number("Rect Y")),
@@ -261,7 +268,7 @@ enum TextureResampleSize {
 ///         <a href="https://github.com/Rikarin/Vixen/issues/733">#733</a>.</b> Every image a node
 ///         allocated was at the plan's base level, so a Resample writing its output at its input's
 ///         size was an <em>identity copy</em> — a node that draws a perfectly plausible picture and
-///         does nothing. <see cref="TextureEmitter.Write(string,TextureChannels,int)" /> is the level
+///         does nothing. <see cref="TextureEmitter.Write(string,TextureChannels,int?)" /> is the level
 ///         it needed, and <see cref="Size" /> at <see cref="TextureResampleSize.Same" /> is still
 ///         that copy, so it says so.
 ///     </para>
@@ -325,6 +332,9 @@ sealed partial class ResampleNode : TextureNode {
                 Kernel = TextureColourKernels.Resample,
                 Output = emitter.Write("Out", emitter.Resolved, emitter.LevelOf(source) + (int)size),
                 Inputs = [source],
+
+                // The one op whose whole purpose is the difference in size — #801.
+                ReadsOtherExtents = true,
                 Parameters = [new("filter", (float)filter)]
             }
         );

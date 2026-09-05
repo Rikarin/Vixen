@@ -240,8 +240,9 @@ public static class TextureGraphParameters {
     ///     <a href="https://github.com/Rikarin/Vixen/issues/730">#730</a> is the finding that they
     ///     were not.</b> A <see cref="SettingDefinition" /> was a name, a default and a sentence, so a
     ///     parameter declared <c>0…1</c> reached the inspector as a text box and its range reached it
-    ///     as prose in a tooltip. The kind and the range are carried rather than described now, and
-    ///     <see cref="Describe" /> is back to being a summary.
+    ///     as prose in a tooltip. The kind and the range are carried rather than described now, so a
+    ///     summary is a summary again — and <c>Describe</c>, which was the fold, is deleted rather
+    ///     than left behind. See the note beside <see cref="Kind" /> for why.
     /// </remarks>
     public static ImmutableArray<SettingDefinition> Settings(IReadOnlyList<TextureGraphParameter> parameters) {
         ArgumentNullException.ThrowIfNull(parameters);
