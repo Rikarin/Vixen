@@ -558,6 +558,165 @@ public partial class SharedUiShaderTests {
     [GeneratedRegex(@"layout\s*\([^)]*\)")]
     private static partial Regex Qualifier();
 
+    /// <summary>The GLSL sources that are deliberately identical to another, and why each is.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A pair here is a debt, not a design.</b> Each of these is a file somebody has to
+    ///         keep equal by hand, and the entry says what it would take to stop having to — the
+    ///         list is expected to shrink to nothing and is a bad place to add a row.
+    ///     </para>
+    ///     <para>
+    ///         Repository-relative, with <c>/</c> separators, exactly as the walk reports them.
+    ///     </para>
+    /// </remarks>
+    static readonly (string Reason, string[] Files)[] Twins = [
+        (
+            "the debug line stage. `Vixen.Rendering` embeds its two modules as an `EmbeddedResource` "
+            + "so a game can build a `LineRenderer`; this suite carries its own copy of the source and "
+            + "the module and loads them off disk through `Fixture.Shader`. The committed `.spv` are "
+            + "byte-identical as well, so the fixture could read the embedded bytes and these two "
+            + "files could go — which is the fix, and it needs a device run to accept.",
+            ["Core/Vixen.Rendering/Shaders/line.frag", "Platform/Vixen.Graphics.Golden.Tests/Shaders/line.frag"]
+        ),
+        (
+            "the same pair's vertex stage, and the same answer.",
+            ["Core/Vixen.Rendering/Shaders/line.vert", "Platform/Vixen.Graphics.Golden.Tests/Shaders/line.vert"]
+        ),
+        (
+            "01-HelloTriangle's triangle and this suite's fixture for the same picture. The sample "
+            + "may not reference a test project and the direction cannot be reversed either, so this "
+            + "one is a copy until somebody moves the pair somewhere both can read.",
+            ["Platform/Vixen.Graphics.Golden.Tests/Shaders/triangle.frag", "Samples/01-HelloTriangle/Shaders/triangle.frag"]
+        ),
+        (
+            "the same pair's vertex stage, and the same answer.",
+            ["Platform/Vixen.Graphics.Golden.Tests/Shaders/triangle.vert", "Samples/01-HelloTriangle/Shaders/triangle.vert"]
+        )
+    ];
+
+    /// <summary>Two GLSL sources that are the same file are still the same file.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The failure class this file exists for, in the one language where nothing was
+    ///         watching it.</b> <see cref="EveryRavenCopyAgreesAboutTheShadersItShares" /> holds the
+    ///         Raven copies to each other and
+    ///         <see cref="EveryCommittedModuleMatchesTheSourceItWasBuiltFrom" /> holds each source to
+    ///         the module beside it — and neither can say anything about two <i>sources</i> that are
+    ///         supposed to be the same, because each is internally consistent on its own. Edit one
+    ///         <c>line.frag</c>, recompile it, and both halves stay green while the two pictures
+    ///         diverge. That is exactly how <c>ui-box.frag</c> lost the shadow path on two of three
+    ///         copies.
+    ///     </para>
+    ///     <para>
+    ///         <b>Both directions, which is what makes it a check rather than a list.</b> A declared
+    ///         pair that has drifted fails, which is the drift this is for; and a duplicate the walk
+    ///         finds that nobody declared fails too, so a fifth copy cannot be added quietly. The
+    ///         reason is prose because a boolean would let a copy be waved through by somebody who
+    ///         did not have to say what it would take to remove it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It says nothing about whether either copy is right</b>, and that is not a
+    ///         weakness to fix here: whether the GLSL agrees with the Raven every application draws
+    ///         through is #286's, and it needs a golden rendered through each.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Comments are <i>not</i> stripped, unlike
+    ///         <see cref="EveryCommittedModuleMatchesTheSourceItWasBuiltFrom" />'s digest.</b> There
+    ///         the question is whether a module is stale, and a comment cannot make it stale. Here
+    ///         the question is whether two files somebody maintains by hand are the same file, and
+    ///         a warning added to one copy and not the other is precisely the divergence a reader
+    ///         relies on not existing. <c>scene.frag</c> and <c>mesh.frag</c> in this directory are
+    ///         what that looks like — the issue that asked for this recorded them as
+    ///         byte-identical, and they now differ by three lines of comment.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the walk skips any dot directory.</b> <c>.claude/worktrees</c> holds a whole
+    ///         checkout per parallel agent, so a walk from the root compares old versions of these
+    ///         files with each other and reports drift that is not in the tree under test — see
+    ///         <see cref="EveryRavenCopyAgreesAboutTheShadersItShares" />, which failed exactly that
+    ///         way.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void EveryDuplicateGlslSourceIsADeclaredPair() {
+        var root = RepositoryRoot();
+
+        var sources = Directory
+            .EnumerateFiles(root, "*", SearchOption.AllDirectories)
+            .Where(path => Extensions.Contains(Path.GetExtension(path), StringComparer.Ordinal))
+            .Where(path => !Relative(root, path)
+                .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Any(segment => segment.StartsWith('.') || segment is "bin" or "obj" or "artifacts"))
+            .Select(path => Relative(root, path).Replace('\\', '/'))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToList();
+
+        // ⚠ The instrument, before anything is compared. A walk that matched nothing finds no
+        // duplicates and agrees with an empty table perfectly, which is this suite's own recurring
+        // mistake. Forty today; a floor rather than an equality so that adding a shader is not a
+        // failure.
+        Assert.True(
+            sources.Count >= 30,
+            $"only {sources.Count} GLSL sources were found under '{root}', so this compared almost nothing"
+        );
+
+        Assert.Contains("Core/Vixen.Rendering/Shaders/line.frag", sources);
+
+        var declared = Twins
+            .Select(twin => string.Join(", ", twin.Files.Order(StringComparer.Ordinal)))
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        var offenders = new List<string>();
+
+        foreach (var (reason, files) in Twins) {
+            foreach (var file in files) {
+                if (!sources.Contains(file, StringComparer.Ordinal)) {
+                    offenders.Add(
+                        $"'{file}' is declared as one of a deliberate pair and the walk did not find it. "
+                        + "If it went away, so should the entry."
+                    );
+                }
+            }
+
+            Assert.False(string.IsNullOrWhiteSpace(reason), $"'{files[0]}' is declared as a pair with no reason");
+        }
+
+        var found = sources
+            .Where(path => File.Exists(Path.Combine(root, path)))
+            .GroupBy(path => Digest(File.ReadAllBytes(Path.Combine(root, path))), StringComparer.Ordinal)
+            .Where(group => group.Count() > 1)
+            .Select(group => string.Join(", ", group.Order(StringComparer.Ordinal)))
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        foreach (var group in found.Except(declared, StringComparer.Ordinal)) {
+            offenders.Add(
+                $"{group} are byte-identical and nothing declares them a pair. Two files somebody has to "
+                + "keep equal by hand is how `ui-box.frag` lost the shadow path on two of three copies — "
+                + "either delete one, or add it to `Twins` with what it would take to."
+            );
+        }
+
+        foreach (var group in declared.Except(found, StringComparer.Ordinal)) {
+            offenders.Add(
+                $"{group} are declared identical and are not. One of them has been edited and the other "
+                + "has not, which is the drift this exists to catch — and each half is internally "
+                + "consistent, so nothing else in this file would say so."
+            );
+        }
+
+        Assert.Empty(offenders);
+    }
+
+    /// <summary>What counts as a GLSL source for the walk above.</summary>
+    /// <remarks>
+    ///     ⚠ <c>.glsl</c> is in the list for the include headers, which are the copy nobody would
+    ///     think to look for: a shared <c>.h.glsl</c> duplicated beside two shaders is the same
+    ///     debt one level down.
+    /// </remarks>
+    static readonly string[] Extensions = [".frag", ".vert", ".comp", ".glsl"];
+
     /// <summary>Every <c>shader Name { … }</c> block in a Raven source, by name.</summary>
     /// <remarks>
     ///     Brace counting rather than a regular expression over the whole block: a shader body
