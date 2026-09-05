@@ -943,6 +943,22 @@ jobs:
   # nothing agree with each other. Take `continue-on-error` off the compare step once one green run
   # has been read line by line; if the first runs disagree, that disagreement is the finding this
   # job was written to produce and it belongs in an issue rather than in a relaxed threshold.
+  #
+  # ⚠ AND AS OF 2026-09-05 THERE IS NO SUCH RUN TO READ, BECAUSE THIS JOB HAS NEVER COMPARED
+  # ANYTHING. Measured, not inferred: the repository's artifact history holds zero artifacts named
+  # `remesh-bytes-ubuntu-latest` (`gh api "repos/Rikarin/Vixen/actions/artifacts?name=…"` →
+  # `total_count: 0`) against twenty-seven `content-bytes-ubuntu-latest`, the newest of those dated
+  # 2026-09-02T18:54Z and this job's own commit dated 2026-09-02T20:23Z. Not one `test` leg has
+  # reached the manifest step since. #772 filed this as "reports rather than gates"; the truer
+  # statement is that it has never reported, and taking `continue-on-error` off today would change
+  # nothing observable — a step that does not execute cannot fail.
+  #
+  # ⚠ The mechanism is `needs: [test]` and it is the shape this repository keeps rediscovering: when
+  # a leg fails, this job is SKIPPED, and a skipped job is green. So the answer to "what does this
+  # print on the day it does not run" is a silent pass at the job level and a `remesh-bytes` row in
+  # the run summary that no one reads as absence. Before concluding anything about determinism from
+  # this job's colour, check that an artifact exists at all. (The same is true of `content-bytes`,
+  # which has run — so its silence is the exception rather than the rule.)
   remesh-bytes:
     name: remesh-bytes
     runs-on: ubuntu-latest
