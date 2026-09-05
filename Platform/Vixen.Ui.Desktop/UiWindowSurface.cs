@@ -83,21 +83,6 @@ public sealed class UiWindowSurface : IDisposable {
     /// <summary>This frame's vertices.</summary>
     public UiGeometry Frame { get; set; }
 
-    /// <summary>The draw list's version and the extent the last <see cref="Frame" /> was built from.</summary>
-    /// <remarks>
-    ///     ⚠ <b>What lets a still frame skip tessellation entirely.</b> <c>UiGeometryBuilder.Build</c>
-    ///     flattens and tessellates every path in the list from scratch, and an interface's chrome is
-    ///     mostly paths — every icon is a filled outline whose strokes were pre-expanded into quads,
-    ///     so one twenty-pixel glyph is a couple of hundred segments. Rebuilding all of it sixty times
-    ///     a second for a window where nothing moved is pure waste: the cost scales with how many rows
-    ///     are on screen, not with what is happening.
-    ///     <para>
-    ///         <c>DrawList.Version</c> was written for exactly this — its own remark says it changes
-    ///         when the *drawing* changes and not when the drawing is rebuilt.
-    ///     </para>
-    /// </remarks>
-    public (int Version, Rectangle Extent) Built { get; set; } = (-1, default);
-
     /// <summary>The image this frame is being drawn into, while there is one.</summary>
     public TextureViewHandle Acquired { get; set; }
 
@@ -154,32 +139,22 @@ public sealed class UiWindowSurface : IDisposable {
     /// <param name="glyphs">The shared glyph atlas, which every window rasterises into.</param>
     /// <returns>Whether anything was rebuilt.</returns>
     /// <remarks>
-    ///     ⚠ <b>The extent is half of the key and it is not redundant.</b> A window resized without
-    ///     its contents changing keeps the draw list's version — the same commands at the same
-    ///     coordinates — and the vertices still have to be rebuilt, because the builder is what turns
-    ///     a command's clip into a scissor in the new extent.
-    ///     <para>
-    ///         ⚠ <b>And the glyph atlas is a third input, which is why <c>AtlasChanged</c> is asked
-    ///         as well.</b> A label that brought a new glyph in can repack the texture, which moves
-    ///         every region already baked into last frame's vertices — so a frame that skipped after
-    ///         a repack would draw the right letters read out of the wrong places. It is the one part
-    ///         of the key that is not a property of this window, because the atlas is shared.
-    ///     </para>
+    ///     ⚠ <b>The key that decides is <see cref="UiGeometryBuilder.TryBuild" />'s and no longer
+    ///     this method's.</b> It used to be written out here — draw-list version, extent, atlas — and
+    ///     written out a second time, verbatim, in <c>EditorHost.Build</c>, which never called this
+    ///     method at all. Two copies in the two hosts is exactly the arrangement where a fix reaches
+    ///     one renderer and not the other, and it was also what made the saving unmeasurable: neither
+    ///     copy can be reached from a test without a window, while the builder's can.
     /// </remarks>
     public bool Tessellate(GlyphFieldCache glyphs) {
         ArgumentNullException.ThrowIfNull(glyphs);
 
-        var extent = Extent;
-        var version = Surface.Drawing.Version;
+        var frame = Frame;
+        var built = Geometry.TryBuild(Surface.Drawing, glyphs, Extent, ref frame);
 
-        if (Built == (version, extent) && !Geometry.AtlasChanged) {
-            return false;
-        }
+        Frame = frame;
 
-        Frame = Geometry.Build(Surface.Drawing, glyphs, extent);
-        Built = (version, extent);
-
-        return true;
+        return built;
     }
 
     /// <summary>Rebuilds the swapchain for the window's current size.</summary>

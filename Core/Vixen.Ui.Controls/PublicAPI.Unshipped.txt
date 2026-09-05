@@ -933,6 +933,7 @@ Vixen.Ui.Controls.VirtualizingPanel.TotalHeight.get -> float
 Vixen.Ui.Controls.VirtualizingPanel.VirtualizingPanel() -> void
 abstract Vixen.Ui.Controls.SelectBase.OnOptionChosen(Vixen.Ui.Controls.Option option) -> void
 const Vixen.Ui.Controls.Expander.HeaderSlot = "header" -> string
+const Vixen.Ui.Controls.ScrollView.AnchorEpsilon = 0.01 -> float
 const Vixen.Ui.Controls.ScrollView.FlingDecayConstant = 0.325 -> float
 const Vixen.Ui.Controls.ScrollView.FlingStopSpeed = 8 -> float
 const Vixen.Ui.Controls.ScrollView.RubberBandConstant = 0.55 -> float

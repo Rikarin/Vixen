@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
+using Vixen.Ui.Rendering;
+using Vixen.Ui.Text.Rasterizing;
 using Xunit;
 
 namespace Vixen.Ui.Tests;
@@ -178,5 +181,85 @@ public class IdleFrameWorkTests {
 
         Assert.Equal(0, document.Diagnostics.DrawListsBuilt);
         Assert.Equal(0, document.Diagnostics.DrawListsChanged);
+    }
+
+    /// <summary>A builder, an atlas with room in it, and the extent <see cref="Still" /> lays out in.</summary>
+    static (UiGeometryBuilder Builder, GlyphFieldCache Glyphs, Rectangle Extent) Tessellator() =>
+        (new UiGeometryBuilder(), new GlyphFieldCache(new GlyphAtlas(256, 256), resolution: 32), new(0f, 0f, 200f, 200f));
+
+    /// <summary>
+    ///     ⚠ <b>The recording half of an idle frame, and the half a still window does <i>not</i>
+    ///     pay.</b> Thirty frames rebuild thirty draw lists and tessellate one, which is the whole of
+    ///     what <c>DrawList.Version</c> buys and the reason the counter above is not the whole story:
+    ///     flattening and tessellating is the expensive half and it is already skipped. The retained
+    ///     surface doc 49 § 7.3 asks for is what would take the <i>other</i> number down.
+    /// </summary>
+    [Fact]
+    public void A_still_window_tessellates_once_and_answers_every_later_frame_from_what_it_has() {
+        using var document = Still();
+
+        var (builder, glyphs, extent) = Tessellator();
+        var frame = default(UiGeometry);
+
+        for (var pass = 0; pass < Frames; pass++) {
+            document.Update();
+            document.Draw();
+            builder.TryBuild(document.Drawing, glyphs, extent, ref frame);
+        }
+
+        Assert.Equal(Frames, document.Diagnostics.DrawListsBuilt);
+        Assert.Equal(1, builder.Tessellations);
+        Assert.Equal(Frames - 1, builder.TessellationsSkipped);
+    }
+
+    /// <summary>
+    ///     The half that makes the first mean something: a window whose drawing changed really does
+    ///     tessellate again. A key that never invalidated would report a perfect score for an
+    ///     interface showing a frozen picture of itself.
+    /// </summary>
+    [Fact]
+    public void A_window_whose_drawing_changed_tessellates_again() {
+        using var document = Still();
+
+        var (builder, glyphs, extent) = Tessellator();
+        var frame = default(UiGeometry);
+
+        document.Update();
+        document.Draw();
+        builder.TryBuild(document.Drawing, glyphs, extent, ref frame);
+
+        document.Root.Children[0].AddClass("moved");
+        document.Load(".moved { width: 90px; }");
+
+        document.Update();
+        document.Draw();
+
+        Assert.True(builder.TryBuild(document.Drawing, glyphs, extent, ref frame));
+        Assert.Equal(2, builder.Tessellations);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And a resize tessellates again although the drawing did not change</b>, which is the
+    ///     half of the key that reads as redundant and is not: the same commands at the same
+    ///     coordinates keep the draw list's version, and the builder is what turns a command's clip
+    ///     into a scissor in the new extent.
+    /// </summary>
+    [Fact]
+    public void A_resize_tessellates_again_although_the_drawing_did_not_change() {
+        using var document = Still();
+
+        var (builder, glyphs, extent) = Tessellator();
+        var frame = default(UiGeometry);
+
+        document.Update();
+        document.Draw();
+        builder.TryBuild(document.Drawing, glyphs, extent, ref frame);
+
+        var version = document.Drawing.Version;
+
+        Assert.True(builder.TryBuild(document.Drawing, glyphs, new(0f, 0f, 200f, 260f), ref frame));
+        Assert.Equal(version, document.Drawing.Version);
+        Assert.Equal(2, builder.Tessellations);
+        Assert.Equal(0, builder.TessellationsSkipped);
     }
 }

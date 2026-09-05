@@ -233,24 +233,35 @@ identically — that is the half the class is usually written for — and they d
 as long as there was no local effect for `none` to suppress, which the README and the enum both said;
 a reader who remembers that is reading a note that has been overtaken.
 
-⚠ **There is no scroll anchoring, and the attempt at it is worth recording because the obstacle is not
-where it looks.** CSS Scroll Anchoring keeps the reader still when content above them grows: remember
-the first child the viewport can see and its position in *content* space — `Top` is relative to
-`Content` and the scroll is an `OffsetY` applied after layout, so the two are independent — and the
-difference between one frame's position and the next's is exactly what appeared above it. Hung on
-`Refresh` from `LayoutFinished` that correction lands inside the same frame's settle loop, it is four
-lines, and a closed-form test over forty-pixel rows passes both directions and both instrument checks.
+**Scroll anchoring is here, and it is the four lines this file said it was.** CSS Scroll Anchoring
+keeps the reader still when content above them grows: remember the deepest child the port can see and
+its position in *content* space — `Bounds.Top` minus `Content`'s, and the scroll is an `OffsetY` on
+`Content` that both terms carry equally, so the difference is independent of the offset — and one
+frame's position minus the last's is exactly what appeared above it. Hung on `Refresh` from
+`LayoutFinished`, the correction lands inside the same frame's settle loop.
 
-⚠ **It is not here because it fights a row recycler, which no browser has to deal with.** The rule
-assumes an element's position in content space changes only when content is inserted or removed above
-it. A virtualising panel breaks that assumption on every scroll: it *reuses* one element for a
-different row, so the anchor moves for a reason that is not growth, and the correction cancels the
-scroll that caused it. `EditorShellBudgetTests.Scrolling_one_row_restyles_the_rows_it_rebound_and_not_the_shell`
-catches it exactly — the scroll ends up dirtying nothing at all — and no cheap discriminator separates
-the two cases: keying off the child count would miss an image that finished decoding, and keying off
-the content height would fire on a virtualiser realising a row. Anchoring here needs a recycler that
-says which of its children are the *same content* as last frame, and that is the work rather than the
-four lines.
+⚠ **What this file had wrong was not the obstacle but where the discriminator lives.** The note here
+said anchoring fights a row recycler and named the mechanism exactly — a virtualising panel *reuses*
+one element for a different row, so the anchor moves for a reason that is not growth, and the
+correction cancels the scroll that caused it, which
+`EditorShellBudgetTests.Scrolling_one_row_restyles_the_rows_it_rebound_and_not_the_shell` catches. It
+then looked for the discriminator among the children — a child count misses an image that finished
+decoding, a content height fires on a realised row — and concluded a recycler protocol was needed.
+**It is not a property of the children at all.** A recycler re-lays a row *because* the offset moved,
+and anchoring exists for movement the reader did not ask for; so a frame whose offset changed since
+the baseline is re-baselined and never corrected. No child count, no content height, no protocol, and
+the budget test stays green.
+
+⚠ **A pool slot is still never the anchor, and that is true whatever the offset did.**
+`VirtualizingPanel` and `VirtualizingGrid` document their rows as pool order rather than item order,
+so the walk stops at the panel and anchors on the panel's own box. A nested `ScrollView` is excluded
+the same way and for a nearer reason: its children move when *it* scrolls, which says nothing about
+this view's content. `position: sticky`, `fixed` and `absolute` boxes are excluded too — a header
+pinned to the top of the port sits at the scroll offset by definition, so anchoring on it would report
+zero movement for ever, which is a feature that silently does nothing. `overflow-anchor: none` is
+read on the view (refuses the whole correction) and on a candidate (excludes that candidate),
+and at the start edge nothing is anchored, because content arriving above a view already at the top is
+content the reader wants to see.
 
 **Momentum is here, and what unblocked it was not the curve.** A
 `ScrollView` used to scroll from the wheel, the keyboard and its bars and handle no `PointerEvent` or

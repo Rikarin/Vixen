@@ -570,19 +570,13 @@ sealed class EditorHost : IDisposable {
     /// </remarks>
     void Build() {
         foreach (var pane in panes) {
-            var list = pane.Surface.Drawing;
-            var extent = pane.Extent;
-
-            // ⚠ The glyph atlas is the third input and it is why `AtlasChanged` is checked too. A
-            // label that brought a new glyph in can repack the texture, which moves every region
-            // already baked into last frame's vertices — so a frame that skipped after a repack
-            // would draw the right letters read out of the wrong places.
-            if (pane.Built == (list.Version, extent) && !pane.Geometry.AtlasChanged) {
-                continue;
-            }
-
-            pane.Frame = pane.Geometry.Build(list, glyphs, extent);
-            pane.Built = (list.Version, extent);
+            // ⚠ <b>This used to be `UiWindowSurface.Tessellate`'s body, copied.</b> The panes are
+            // `UiWindowSurface`es and that method was right here to be called; instead the
+            // three-part skip key — draw-list version, extent, glyph atlas — was written out a
+            // second time, so the editor and the application host each held their own copy of a
+            // decision that has already been corrected once. The key now lives in
+            // `UiGeometryBuilder.TryBuild`, which both hosts reach through this one call.
+            pane.Tessellate(glyphs);
         }
     }
 
