@@ -114,6 +114,23 @@ the diagnostic.** `TreatWarningsAsErrors` is a stated non-negotiable, so a warni
 the tree is a broken build — and a plain parameter is sometimes right, for a value a caller sets once
 and never changes. Promoting it is a decision to take after the tree has been swept with it.
 
+⚠ **A "full `Compile` will sweep it" is wrong, and the reason is three lines above the reference that
+loads it.** Analyzers do not flow transitively through a `ProjectReference`, so this rule runs only in
+a project that names `Vixen.Ui.Generators` itself or sets `<VixenUi>true</VixenUi>`. Inside the
+repository that is eleven projects; six that own `.vxml` are not among them — `Vixen.Editor.App`,
+`Vixen.Editor.AssetEditors`, `Vixen.Editor.NodeGraph`, `Vixen.Editor.Terrain`, `Vixen.Editor.Water`
+and `Vixen.Ui.Controls.Tests` — because they name only `Vixen.Ui.Markup.Generators`, which is what
+compiles the markup. A consumer outside the repository has no such gap: a `PackageReference` to
+`Vixen.Ui` carries both.
+
+**The sweep so far: nothing to report in `Vixen.Ui`, `Vixen.Ui.Controls`, `Vixen.Ui.Controls.Advanced`,
+`Vixen.Ui.Tests` and `Vixen.Ui.Generators.Tests` — zero hits between them.** ⚠ Verified as an
+instrument first, because a rule reported at `Info` prints nothing at any MSBuild verbosity: a probe
+component with `public string Title { get; set; }` produces no output at all until the severity is
+promoted in `.editorconfig`, at which point `TreatWarningsAsErrors` turns each hit into a build error
+that cannot be missed. That is how to run the rest of it. Still unswept: `Vixen.Editor.Ui`,
+`Vixen.Editor.Debugger`, `Vixen.Editor.Profiler` and the two samples.
+
 ⚠ **It cannot be a `VXML2xxx`.** `VxmlGenerator` never takes a `Compilation` — deliberately, so that
 editing a C# file re-runs no markup — and `Binder` is pure syntax, so "is this property signal-backed"
 is a question the markup compiler cannot ask at all. That is why it is a separate analyzer over the
@@ -130,9 +147,11 @@ now throws out of `Build` rather than being caught and logged by the effect.
 `class`, `style` and `binding-path` mean the same on a component tag as on an element, and are never
 assigned as properties. On a capitalised tag they reach the element the control drew.
 
-(The other two attributes that are never parameters are [`tag`](#tag-for-a-capitalised-tag-under-another-name)
-and [`use`](#use-for-a-control-fed-by-a-method), which are below because neither reaches the style
-tree: one *is* the element's name and the other never touches the document at all.)
+(The other attributes that are never parameters are [`tag`](#tag-for-a-capitalised-tag-under-another-name),
+[`use`](#use-for-a-control-fed-by-a-method), [`help`](#help-for-a-sentence-a-screen-reader-can-reach)
+and [`context-menu`](#context-menu-for-a-right-click), which are below because none of them reaches
+the style tree: one *is* the element's name, one never touches the document at all, and the last two
+attach something that lives beside it.)
 
 `style` is an *inline style*: a cascade origin that beats every rule, not an attribute a selector can
 match. Use it for the lengths no stylesheet was given.
@@ -511,6 +530,52 @@ answer whenever it is available — it is checked at the tag, it reads as a prop
 nothing at run time. `use` is what is left when the control is `sealed`, or when what is needed is a
 call with several arguments rather than one value.
 
+### `help`, for a sentence a screen reader can reach
+
+```xml
+<Button Label="Save" help="Writes the scene to disk" />
+<status-line help="@Hint.Value" />
+```
+
+`help` attaches a `Tooltip` and — this is the half that matters — wires
+`AccessibleRelation.DescribedBy`, so the sentence lands in the element's `AccessibleDescription` and
+is read on demand, whether or not anything is hovering. A tooltip that were only a hover behaviour
+would be a sentence written for one kind of user and withheld from another, since hovering is a
+gesture a screen-reader user does not make.
+
+It means the same on a capitalised tag as on an element, and on a capitalised tag it describes the
+element the control drew. The value may be a bound expression: the attachment happens once and only
+the words follow the signal. The tooltip is removed with the region that asked for it, so a row that
+leaves a `@for` takes its description with it.
+
+⚠ **The call it emits names no control type, and that is deliberate.** `Tooltip` lives in
+`Vixen.Ui.Controls` and the generated file has to compile in a project that references only
+`Vixen.Ui`. So the emitter writes `ctx.Help(…)` and the control library fills the seam
+(`BuildContext.Describes`) from a module initializer, the same route by which `on:click` comes to
+mean a control's activation rather than a tap. A project with no control library gets an exception
+naming the missing registration rather than a generated file that does not compile.
+
+### `context-menu`, for a right-click
+
+```xml
+<sheet-row context-menu="@Rows" />
+```
+
+`context-menu` takes an expression that evaluates to a `ContextMenu` and makes a secondary click
+anywhere in that element open it at the pointer. It rides the same seam `help` does, so it decides
+nothing new about layering.
+
+⚠ **It attaches; it does not make.** A menu is a model — every hand-written caller in this repository
+builds one from commands, keeps it in a field and re-opens it — so two elements naming the same
+expression share one menu, and nothing is removed when a row leaves.
+
+⚠ **And it is an expression rather than a nested `<ContextMenu>` tag, for a reason that belongs to
+the binder.** An overlay has to be a child of the document root, because the draw list is document
+order and one nested where it was written is clipped by every `overflow: hidden` above it. Deciding
+that a tag needs re-parenting means knowing that the tag names an overlay, which is exactly the type
+resolution VXML refuses to do — so a `<ContextMenu>` written in place would compile, build, and open
+inside the panel that declared it. Build the menu where its commands are and name it here.
+
 ### Writing an element's own text
 
 An interpolation is a `text` **child**, not the parent's `Text`:
@@ -575,13 +640,49 @@ So a row of immutable data keyed on a stable field never updates again. `VXML201
 is a member access off the loop variable, which is the shape that mistake always takes; whether the
 item holds signals is a question about its type, and the markup binder deliberately resolves none.
 
-⚠ **And it is why `@for` has no index variable.** The obvious spelling — a second name bound to the
-item's position — would be captured in a body that a surviving key never re-runs, so every row's
-index would be whatever it was when its key first appeared and a reorder would leave all of them
-lying. An index that behaves has to be a signal per row, written by the reconciler when it
-repositions; it is not a name the emitter can simply hand to the body. The rule is the same one this
-section states, one step further along: *a binding may close over a region's identity and never over
-its position.*
+⚠ **And it is why an `@for` index is a signal.** A loop may name the row's position with a comma:
+
+```xml
+@for (var row, i in Rows.Value) {
+    <row-line key="@row">@i.Value — @row.Name</row-line>
+}
+```
+
+`i` is a `Signal<int>`, so it is read as `i.Value`. The obvious spelling — a plain `int` bound to the
+position — would be captured in a body that a surviving key never re-runs, so every row's index
+would be whatever it was when its key first appeared and a reorder would leave all of them lying,
+with nothing on screen looking wrong. The reconciler writes the signal on each pass instead: a row
+that moved is re-read, a row that did not move costs an equality check, and a row that leaves takes
+its signal with it. The rule is the same one this section states, one step further along: *a binding
+may close over a region's identity and never over its position.*
+
+### Grouped lists are a nested `@for`
+
+```xml
+@for (var group in Groups.Value) {
+    <group-block key="@group">
+        <group-header>@group.Name</group-header>
+
+        @for (var row in group.Rows.Value) {
+            <group-row key="@row">@row</group-row>
+        }
+    </group-block>
+}
+```
+
+There is no separate section construct and none is needed. A row moving inside a section leaves the
+section and its header alone, and reordering the outer sequence moves a whole section — header and
+rows — as a unit, because a section *is* a region.
+
+⚠ **What decides whether that works is the key.** The sections have to be as stable as the rows, so
+hold them in a field and key on the object. A grouping recomputed in the sequence expression —
+`items.GroupBy(…)` — makes new group objects every flush, so every section is a new key and every
+section is rebuilt, with the right number of rows showing the right text and every scroll offset and
+focus inside them thrown away. Because the section object is then stable, what makes its rows follow
+is that it holds a signal.
+
+A *sticky* header is a different feature: it is `position: sticky` on the scroller, not something a
+loop can express.
 
 ### ⚠ And the same rule governs `@if`
 

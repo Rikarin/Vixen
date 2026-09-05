@@ -36,6 +36,29 @@ namespace Vixen.Ui.Controls;
 ///     </para>
 /// </remarks>
 public sealed partial class SplitView : Control {
+    /// <summary>How far one arrow press moves the bar, in pixels.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Pixels, in the one control that argues for fractions everywhere else.</b>
+    ///     <see cref="MinimumRatio" /> is a fraction because it has to survive a resize — it is
+    ///     re-applied every time the split changes size and nothing tells this control when that
+    ///     happens. A step is not re-applied: it is consumed at the instant of the press, against
+    ///     the span the split has right then. And a fractional step is the thing that feels wrong at
+    ///     both ends — a hundredth of a 2000-pixel window is a twenty-pixel jump, and a hundredth of
+    ///     a 200-pixel one is two, so the same key does something different in every window.
+    /// </remarks>
+    const float KeyStep = 8f;
+
+    /// <summary>What Page Up and Page Down move instead.</summary>
+    const float KeyPage = KeyStep * 8f;
+
+    /// <summary>What an arrow moves when the split has not been laid out yet.</summary>
+    /// <remarks>
+    ///     A split with no span has no pixels to convert, and refusing the press would make the
+    ///     keyboard silently dead in exactly the case a test constructs. A fiftieth is the same
+    ///     order as <see cref="KeyStep" /> against an ordinary pane.
+    /// </remarks>
+    const float UnlaidStep = 0.02f;
+
     bool dragging;
 
     /// <summary>The name markup writes to reach <see cref="Second" />.</summary>
@@ -127,9 +150,36 @@ public sealed partial class SplitView : Control {
         Second = Part("split-pane");
 
         Bar.Role = AccessibleRole.Separator;
+
+        // ⚠ The bar is a tab stop, and that is the whole of what makes the split reachable without a
+        // pointer. ARIA's window splitter is focusable for a reason a sighted mouse user never
+        // meets: a separator that cannot take the focus can be *announced* — a reader walking the
+        // tree says "separator" — and cannot be *moved*, so the pane widths are a decision the
+        // application made once on behalf of everybody who does not have a mouse.
+        Bar.Focusable = true;
+        Bar.AccessibleName = ControlStrings.SplitViewDivider.Text;
+
         Bar.AddHandler<PointerEvent>((_, args) => Pointed(args));
+        Bar.AddHandler<KeyEvent>((_, args) => Keyed(args));
 
         Apply();
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>A disabled split has to take its bar out of the tab order, and no base class does it
+    ///     for a part.</b> <c>Control</c> answers <c>Disabled</c> by clearing its own
+    ///     <see cref="UiElement.Focusable" />, and the focus this control offers is not its own —
+    ///     <see cref="UiDocument.TabOrder" /> skips a <c>display: none</c> subtree and knows nothing about
+    ///     a disabled ancestor, so the bar would stay a stop that answers no key. The capture-leg
+    ///     refusal already stops the keys; a tab stop that does nothing is the half it cannot reach.
+    /// </remarks>
+    protected override void OnPropertyChanged(UiPropertyKey key) {
+        base.OnPropertyChanged(key);
+
+        if (Bar is not null && string.Equals(key.Name, nameof(Disabled), StringComparison.Ordinal)) {
+            Bar.Focusable = !Disabled;
+        }
     }
 
     /// <summary>Writes the ratio onto the two panes.</summary>
@@ -141,6 +191,12 @@ public sealed partial class SplitView : Control {
     public void Apply() {
         Write(First, Ratio);
         Write(Second, 1f - Ratio);
+
+        // ⚠ `aria-valuenow` on the separator, and it is what a keyboard resize is *for*. A bar that
+        // moves and never says where it is tells a reader nothing but "separator" on every press,
+        // which is indistinguishable from a key that did nothing. Invariant for `Slider`'s reason:
+        // a bridge wants a number it can re-present, not one it has to parse back.
+        Bar.AccessibleValue = Ratio.ToString("0.###", CultureInfo.InvariantCulture);
     }
 
     static void Write(UiElement pane, float share) {
@@ -176,6 +232,11 @@ public sealed partial class SplitView : Control {
         switch (args.Action) {
             case PointerAction.Pressed when args.Button == PointerButton.Primary:
                 dragging = true;
+
+                // The focus follows the drag, which is `Slider`'s arrangement and the reason is the
+                // same: a bar somebody has just pulled is the one the arrow keys should move next.
+                // `:focus-visible` is what keeps a click from lighting the ring.
+                Document.Focus(Bar);
                 Document.CapturePointer(Bar);
 
                 args.Handled = true;
@@ -198,22 +259,73 @@ public sealed partial class SplitView : Control {
         }
     }
 
+    void Drag(PointerEvent args) {
+        var span = Span();
+
+        if (span <= 0f) {
+            return;
+        }
+
+        var along = Orientation == Orientation.Vertical ? args.Y - Bounds.Y : args.X - Bounds.X;
+
+        Ratio = along / span;
+    }
+
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Only the arrow pair along the split's own axis</b>, which is <c>Toolbar</c>'s
+    ///         rule and is here for a sharper reason: a split view has a whole application in its
+    ///         two panes. Answering all four would take Up and Down away from a list in the pane
+    ///         beside the bar the moment the focus was on the bar — and the focus is on the bar
+    ///         after every drag.
+    ///     </para>
+    ///     <para>
+    ///         <b>Home and End go to the minimum and the maximum, not to zero and one.</b>
+    ///         <see cref="CoerceRatio" /> clamps to <see cref="MinimumRatio" /> either way, so
+    ///         asking for zero would land on the minimum and report a key that overshot. ⚠ Which
+    ///         is also why there is no collapse-and-restore on Enter, the fourth thing ARIA's
+    ///         window splitter names: a collapsed pane is ratio zero and this control cannot
+    ///         represent one — <c>MinimumRatio</c> is a floor with no exception in it, and adding
+    ///         the exception is a different decision from adding a keystroke.
+    ///     </para>
+    /// </remarks>
+    void Keyed(KeyEvent args) {
+        if (args.Action != KeyAction.Pressed) {
+            return;
+        }
+
+        var vertical = Orientation == Orientation.Vertical;
+        var span = Span();
+
+        var step = span > 0f ? KeyStep / span : UnlaidStep;
+        var page = span > 0f ? KeyPage / span : UnlaidStep * 8f;
+
+        var moved = args.Key switch {
+            InputKey.Left when !vertical => Ratio - step,
+            InputKey.Right when !vertical => Ratio + step,
+            InputKey.Up when vertical => Ratio - step,
+            InputKey.Down when vertical => Ratio + step,
+            InputKey.PageUp => Ratio - page,
+            InputKey.PageDown => Ratio + page,
+            InputKey.Home => MinimumRatio,
+            InputKey.End => 1f - MinimumRatio,
+            _ => float.NaN
+        };
+
+        if (float.IsNaN(moved)) {
+            return;
+        }
+
+        Ratio = moved;
+        args.Handled = true;
+    }
+
     /// <remarks>
     ///     ⚠ <b>The bar's own thickness is subtracted, because it is not either pane's.</b> Measuring
     ///     the ratio against the whole split makes the bar drift away from the pointer by half its
     ///     width at one end and towards it at the other — which reads as a splitter that does not
     ///     quite follow the mouse and is the same arithmetic <c>DockSplitterView.Drag</c> writes.
     /// </remarks>
-    void Drag(PointerEvent args) {
-        var vertical = Orientation == Orientation.Vertical;
-        var span = (vertical ? Bounds.Height : Bounds.Width) - (vertical ? Bar.Height : Bar.Width);
-
-        if (span <= 0f) {
-            return;
-        }
-
-        var along = vertical ? args.Y - Bounds.Y : args.X - Bounds.X;
-
-        Ratio = along / span;
-    }
+    float Span() =>
+        Orientation == Orientation.Vertical ? Bounds.Height - Bar.Height : Bounds.Width - Bar.Width;
 }

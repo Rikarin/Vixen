@@ -82,6 +82,7 @@ public sealed class LayoutStyleBuilder {
     public static readonly LayoutStyle CssInitial = CreateCssInitial();
 
     readonly StyleValueParser parser;
+    readonly ContainmentReader containment;
     readonly NameTable values;
     readonly Properties names;
     readonly Keywords keywords;
@@ -106,6 +107,7 @@ public sealed class LayoutStyleBuilder {
         ArgumentNullException.ThrowIfNull(keywordNames);
 
         parser = new StyleValueParser(values, keywordNames);
+        containment = new ContainmentReader(properties, values);
         this.values = values;
         propertyNames = properties;
         names = new Properties(properties);
@@ -409,6 +411,12 @@ public sealed class LayoutStyleBuilder {
             result.Display = display;
         }
 
+        // ⚠ Not through `TryKeyword`, because `contain` is the one property here whose value is a
+        // LIST of keywords — `contain: layout paint` is two of them and interns as one string. See
+        // `ContainmentReader`, which is also where the draw list's half of the same declaration
+        // comes from.
+        result.Containment = containment.Of(style);
+
         if (TryKeyword(style, names.Float, keywords.Floats, out FloatSide floatSide)) {
             result.Float = floatSide;
         }
@@ -423,6 +431,13 @@ public sealed class LayoutStyleBuilder {
 
         if (TryKeyword(style, names.TextAlign, keywords.TextAligns, out TextAlign textAlign)) {
             result.TextAlign = textAlign;
+        }
+
+        // ⚠ The same declaration read a second time into a second field. It is not an `else`: the two
+        // tables are disjoint, so at most one of the pair can match, and writing it as an alternative
+        // would say the two fields are exclusive when what is exclusive is the spelling.
+        if (TryKeyword(style, names.TextAlign, keywords.LegacyTextAligns, out LegacyTextAlign legacy)) {
+            result.LegacyTextAlign = legacy;
         }
 
         if (TryKeyword(style, names.BoxSizing, keywords.BoxSizings, out BoxSizing boxSizing)) {
@@ -1538,12 +1553,31 @@ public sealed class LayoutStyleBuilder {
             // ⚠ The three legacy `-webkit-*` spellings are NOT here and belong to a different field:
             // they move a container's BLOCK-level children, which is `LegacyTextAlign`. See its
             // remarks — one property, two enums, because a container can have both kinds of child.
+            // `LegacyTextAligns` below is that other table, read from the same declaration.
             TextAligns = new Dictionary<int, TextAlign> {
                 [table.Intern("start")] = TextAlign.Start,
                 [table.Intern("end")] = TextAlign.End,
                 [table.Intern("left")] = TextAlign.Left,
                 [table.Intern("right")] = TextAlign.Right,
                 [table.Intern("center")] = TextAlign.Center
+            };
+
+            // ⚠ <b>The second table this one property needs, and until it existed the block half of
+            // `text-align` was implemented, corpus-tested and unreachable.</b> `LayoutStyle`,
+            // `LayoutTree.SetLegacyTextAlign` and `LayoutTree.Block.LegacyTextAlignOffset` have all
+            // been here, with sixteen Taffy fixtures on them — and the only caller of the setter in
+            // the whole tree was the corpus harness. So a `.vcss` author writing
+            // `text-align: -webkit-center` got nothing at all, and every test was green, which is
+            // this repository's commonest defect shape exactly.
+            //
+            // ⚠ Two tables and two lookups rather than one table of a union type, because the two
+            // fields are independent and a container can have both kinds of child: a legacy value
+            // leaves `TextAlign` at its default and a plain one leaves `LegacyTextAlign` at `None`,
+            // which is what each store's own initial value already means.
+            LegacyTextAligns = new Dictionary<int, LegacyTextAlign> {
+                [table.Intern("-webkit-left")] = LegacyTextAlign.Left,
+                [table.Intern("-webkit-center")] = LegacyTextAlign.Center,
+                [table.Intern("-webkit-right")] = LegacyTextAlign.Right
             };
 
             BoxSizings = new Dictionary<int, BoxSizing> {
@@ -1603,6 +1637,7 @@ public sealed class LayoutStyleBuilder {
         public Dictionary<int, LayoutUnit> ContentSizes { get; }
         public Dictionary<int, VerticalAlign> VerticalAligns { get; }
         public Dictionary<int, TextAlign> TextAligns { get; }
+        public Dictionary<int, LegacyTextAlign> LegacyTextAligns { get; }
         public Dictionary<int, Direction> Directions { get; }
         public Dictionary<int, FlexDirection> FlexDirections { get; }
         public Dictionary<int, Justify> Justifications { get; }

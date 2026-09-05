@@ -176,6 +176,17 @@ public enum OverflowAlignment : byte {
 ///         the set this store implements.
 ///     </para>
 ///     <para>
+///         ⚠ <b>Reachable from a stylesheet, and for most of its life it was not.</b> This field, its
+///         setter and <c>LayoutTree.Block.LegacyTextAlignOffset</c> all existed with sixteen Taffy
+///         fixtures on them, and the only caller of the setter in the whole repository was the corpus
+///         harness — <c>LayoutStyleBuilder</c> never read <c>text-align</c> into it. So the algorithm
+///         was implemented, conformance-tested, green, and unreachable, which is this repository's
+///         commonest defect shape and is invisible precisely because a harness counts as a caller.
+///         ⚠ Two defects were stacked, each hiding the other's symptom: even once the bridge read the
+///         keyword, <c>StyleValueParser</c> sent anything beginning with <c>-</c> down its numeric
+///         path, so <c>-webkit-center</c> came back as an unparseable value rather than as a word.
+///     </para>
+///     <para>
 ///         ⚠ <b>Physical, and they do not flip with <see cref="Direction" />.</b>
 ///         <see cref="Left" /> is the left in an RTL container too — the keywords predate
 ///         writing-mode-relative alignment and were never respecified in terms of it.
@@ -406,6 +417,73 @@ public enum Overflow : byte {
 
     /// <summary>It is clipped and scrollable, which changes the minimum content size.</summary>
     Scroll
+}
+
+/// <summary>What a node promises about its contents, so that the rest of the tree may ignore them.</summary>
+/// <remarks>
+///     <para>
+///         CSS Containment 2's <c>contain</c>, which is <b>five independent effects behind one
+///         property</b> rather than one switch with five settings — and reading it as one switch is
+///         how it gets built wrong. The eight Tailwind classes are combinations: <c>contain-content</c>
+///         is <c>layout paint style</c> and <c>contain-strict</c> adds <c>size</c>, so a partial
+///         implementation makes both aggregates half true rather than absent.
+///     </para>
+///     <para>
+///         ⚠ <b><see cref="Size" /> is not "skip the children", and that is the whole trap.</b> § 3.2
+///         says the box is sized <i>as if it had no contents</i>. It still lays them out, paints them,
+///         hit-tests them and scrolls them — it only refuses to let them decide its own box. A reading
+///         that skipped the subtree would give the same picture in every fixture where the children
+///         happen to fit, which is most of them.
+///     </para>
+///     <para>
+///         ⚠ <b>There is no <c>style</c> member, and its absence is a measurement rather than an
+///         omission.</b> § 3.4 scopes counters and quotes to the subtree; this engine has neither, so
+///         every value of it would compute and move nothing. <c>LayoutStyleBuilder</c> therefore
+///         accepts the keyword and maps it to no flag, which is the difference between a property
+///         that does nothing here and one that is not understood.
+///     </para>
+/// </remarks>
+[Flags]
+public enum Containment : byte {
+    /// <summary>The initial value: the contents decide everything they normally would.</summary>
+    None = 0,
+
+    /// <summary>
+    ///     § 3.2. The box sizes as if it were empty, on both axes.
+    /// </summary>
+    Size = 1,
+
+    /// <summary>
+    ///     § 3.2's one-axis form. The box sizes as if it were empty across the inline axis only, and
+    ///     its block size still comes from its contents laid out at that width.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The inline axis is the horizontal one here unconditionally, because
+    ///     <c>Vixen.Ui.Layout</c> has no writing mode. The two differ only in a vertical one.
+    /// </remarks>
+    InlineSize = 2,
+
+    /// <summary>
+    ///     § 3.1. An independent formatting context, and a containing block for every out-of-flow
+    ///     descendant.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Half of this was already true of most boxes here</b> — a flex or grid item is an
+    ///     independent formatting context by construction — so the observable half is the containing
+    ///     block, which is the thing <c>position: relative</c> otherwise provides.
+    /// </remarks>
+    Layout = 4,
+
+    /// <summary>
+    ///     § 3.3. Descendants are clipped to the box, and it is a containing block and an independent
+    ///     formatting context for the same reasons <see cref="Layout" /> is.
+    /// </summary>
+    /// <remarks>
+    ///     The clip itself is not this assembly's: it is the one <c>overflow</c> already pushes
+    ///     through the draw list, and paint containment is a second reason to push it rather than a
+    ///     second mechanism.
+    /// </remarks>
+    Paint = 8
 }
 
 /// <summary>Which formatting context a node establishes for its children.</summary>

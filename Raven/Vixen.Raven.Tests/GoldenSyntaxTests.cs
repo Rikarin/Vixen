@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Raven.Syntax;
+using Vixen.Testing;
 using Xunit;
 
 namespace Tests;
@@ -14,9 +15,12 @@ namespace Tests;
 ///     the environment variable <c>UPDATE_GOLDEN=1</c>; the <c>.tree</c> files are
 ///     rewritten from the current output. Review the diff before committing.
 /// </summary>
+/// <remarks>
+///     The comparison, the regeneration and the diff are <see cref="GoldenFile" />'s — the shared
+///     helper of <c>docs/plan/12</c>, which this suite is one of the four that used to write out by
+///     hand.
+/// </remarks>
 public class GoldenSyntaxTests {
-    static bool ShouldUpdate => Environment.GetEnvironmentVariable("UPDATE_GOLDEN") is "1" or "true";
-
     [Theory]
     [InlineData("package_imports")]
     [InlineData("expression_precedence")]
@@ -27,26 +31,9 @@ public class GoldenSyntaxTests {
 
         var text = File.ReadAllText(rvnPath);
         var tree = SyntaxTree.ParseText(text);
-        var actual = Normalize(SyntaxDumper.Dump(tree.GetRoot()));
 
-        if (ShouldUpdate || !File.Exists(goldenPath)) {
-            File.WriteAllText(goldenPath, actual);
-            Assert.Fail($"Golden '{name}.tree' was (re)generated. Review the diff and re-run.");
-        }
-
-        var expected = Normalize(File.ReadAllText(goldenPath));
-
-        if (expected != actual) {
-            // Leave the mismatching output next to the golden for easy diffing.
-            File.WriteAllText(goldenPath + ".actual", actual);
-        }
-
-        Assert.Equal(expected, actual);
+        GoldenFile.Matches(SyntaxDumper.Dump(tree.GetRoot()), goldenPath);
     }
 
-    static string Normalize(string s) => s.Replace("\r\n", "\n").TrimEnd('\n');
-
-    // bin/Debug/net10.0 -> Tests project root -> Fixtures
-    static string FixturePath(string file) =>
-        Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Fixtures", file);
+    static string FixturePath(string file) => GoldenFile.InProjectDirectory("Fixtures", file);
 }

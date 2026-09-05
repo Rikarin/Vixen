@@ -15,7 +15,7 @@ Escape.
 | Text | `TextBlock`, `Link`, `Badge`, `KeyboardShortcut`, `Avatar`, `Skeleton`, `Icon`, `Image` |
 | Buttons | `Button`, `IconButton`, `ToggleButton` |
 | Toggles | `CheckBox` (with indeterminate), `Switch`, `RadioButton`, `RadioGroup` |
-| Fields | `TextBox`, `TextArea`, `SearchBox`, `NumericInput` (with drag-scrub) |
+| Fields | `TextBox`, `TextArea`, `SearchBox`, `SecureTextBox`, `NumericInput` (with drag-scrub), `Stepper` (`NumericInput` with the two arrows) |
 | Range | `Slider`, `RangeSlider`, `ProgressBar`, `Spinner` |
 | Choice | `Select`, `MultiSelect`, `ComboBox` |
 | Grouping | `Panel`, `Card`, `Separator`, `Tabs`, `Expander`, `Accordion`, `ScrollView`, `SplitView` |
@@ -128,6 +128,62 @@ them:
   scrolling, popup placement and drag previews are made of, and it costs a walk rather than a cascade
   and a relayout.
 
+## A dialog that is a function of state, beside the one a command awaits
+
+`ConfirmAsync`, `PromptAsync` and `ChooseAsync` are imperative on purpose: a command that has to have
+an answer before it continues is exactly a call that returns one, and that is what every caller in
+this tree does. ⚠ **This is not a replacement for them.** What had no spelling at all was SwiftUI's
+other arrangement — `.alert(isPresented:)`, where the dialog is a function of state, so the panel
+that shows one owns the flag and the presentation survives a rebuild because the flag does.
+
+`DialogService.Present(dialog, asking)` is that, over a `<Dialog>` the panel wrote itself:
+
+```vxml
+<Dialog use="@(overlay => Dialogs.Present(overlay, Asking.Value))"
+        on:openchanged="@((OpenChangedEvent args) => Dismissed(args))">
+    <Button Label="Delete" on:click="@Confirm" />
+</Dialog>
+```
+
+Three things it does that opening the dialog from an effect would not:
+
+- **It takes its turn.** The ask goes into the same queue an awaited one goes into, so a panel's
+  dialog waits behind a command's rather than appearing over it. Two backdrops over each other is a
+  picture with no answer in it, and the lower one still holds the focus scope.
+- **It does not take the element away.** ⚠ The service removes the dialogs it *made* and leaves the
+  ones a panel owns, because a panel's `<Dialog>` belongs to that panel's region — removing it here
+  would leave the `ref` pointing at a corpse and the next rebuild adding a second one beside it.
+- **A withdrawn ask is dropped rather than flashed.** A panel whose state flips twice before its turn
+  comes never sees the dialog at all.
+
+**The answer is the panel's own business**, which is the other half of what makes this a different
+shape: there is no `Task` to complete, so the buttons write the model with an `on:click` and the
+dialog goes away because that signal is what `Present` reads.
+
+## An overlay whose open state is a panel's own state
+
+`Overlay.IsOpen` is deliberately not a `[UiProperty]` — opening measures, places, moves the focus and
+may take a modal scope, so a settable property would be an invitation to write half of it — and that
+is why `bind:IsOpen` does not exist and is not an oversight. What a panel that owns the flag writes
+instead is two attributes:
+
+```vxml
+<Dialog use="@(overlay => overlay.Show(Wanted.Value))"
+        on:openchanged="@((OpenChangedEvent args) => Wanted.Value = args.IsOpen)">
+```
+
+- **`Show(bool)`** is the forward leg. It is a call rather than an assignment, so `Open`'s
+  measure-place-focus sequence is what actually happens, and it is idempotent — which it has to be,
+  because `use` is an effect and re-runs on every change of every signal the expression read.
+- **`on:openchanged`** is the write-back leg, and it is the half a forward-only implementation
+  fails. ⚠ `OpenChangedEvent` was raised all along, by `Overlay.Restate` and by `Disclosure`, and no
+  `.vxml` in the tree could hear it: the name was absent from the markup event table, so `on:` had
+  no entry to bind. Without it an overlay closed by Escape or by a click outside leaves the model
+  still saying `true`, and the effect puts it straight back up — a control the user cannot dismiss.
+
+The two converge rather than chatter: the write-back writes the value the effect just produced, which
+is a no-op, and a dismissal writes the one the effect then agrees with.
+
 ## What `ScrollView` reads out of the cascade
 
 ⚠ **It reads no `overflow`, and it does read seven scroll families.** The distinction is the whole of
@@ -171,9 +227,11 @@ tick clock. ⚠ **Snapping on every wheel notch instead would pass every arithme
 unusable**, so `ScrollSnapTests` spends half its assertions watching a view stay unsnapped while a
 flick is still running.
 
-⚠ **`overscroll-contain` and `overscroll-none` do the same thing here.** In CSS they differ only over
-the rubber-band and pull-to-refresh at the boundary, and this engine has neither, so there is nothing
-for `none` to additionally suppress. Both stop the chain, which is the half the class is written for.
+⚠ **`overscroll-contain` and `overscroll-none` no longer do the same thing.** They stop the chain
+identically — that is the half the class is usually written for — and they differ over the boundary:
+`contain` keeps the rubber band below and `none` makes the edge hard. They *were* identical here for
+as long as there was no local effect for `none` to suppress, which the README and the enum both said;
+a reader who remembers that is reading a note that has been overtaken.
 
 ⚠ **There is no scroll anchoring, and the attempt at it is worth recording because the obstacle is not
 where it looks.** CSS Scroll Anchoring keeps the reader still when content above them grows: remember
@@ -194,16 +252,19 @@ the content height would fire on a virtualiser realising a row. Anchoring here n
 says which of its children are the *same content* as last frame, and that is the work rather than the
 four lines.
 
-**Momentum is here and rubber-band is not, and what unblocked the first was not the curve.** A
+**Momentum is here, and what unblocked it was not the curve.** A
 `ScrollView` used to scroll from the wheel, the keyboard and its bars and handle no `PointerEvent` or
 `DragEvent` of its own — so there was no finger for a fling to continue and nothing for a velocity
 tracker to track. `DragToScroll` is that finger: it takes the `DragEvent` the recogniser already
 produced, moves the content under it, and lets go of it with whatever speed it had.
 
-⚠ **It is opt-in, and the reason is that nothing in this engine can tell a finger from a mouse.**
-`PointerEvent` carries a `PointerId` and no device kind, so a control cannot ask whether a drag came
-from a touchscreen. A mouse drag inside a scroll view is a text selection or a marquee on every
-desktop, and turning content dragging on for everybody would take both away.
+⚠ **It used to be opt-in because nothing in this engine could tell a finger from a mouse, and it is
+not any more.** `DragEvent` now carries a `PointerType`, so the two cases are separable: a finger or
+a pen drags the content with no opt-in at all, and `DragToScroll` is what a kiosk sets to get the
+mouse to behave like one too. The mouse is still off by default because a mouse drag inside a scroll
+view is a text selection or a marquee on every desktop. ⚠ `PointerType.Unknown` takes the mouse
+branch and is *not* guessed into the touch one — a producer that has not said what it is has not said
+it is a finger, which is the same reason the enum's default is not `Mouse`.
 
 ⚠ **The velocity is sampled per tick and not per drag event.** `DragEvent` carries no timestamp and
 several can arrive between two frames, so a per-event velocity would divide by a zero interval or
@@ -220,11 +281,27 @@ a second deceleration here would compound with it. That is reasoned from the two
 been measured on a device**; a drag is the platform-neutral gesture that carries no momentum of its
 own, which is why the curve lives there and nowhere else.
 
-⚠ **Rubber-band is still absent and needs one thing this does not have: an offset that may leave its
-range.** `ScrollTop` coerces into `[0, MaximumTop]`, so there is nowhere for an elastic overscroll to
-go — an axis that reaches an end simply loses its velocity here. Adding it means a second offset
-outside the clamp, a resistance function on the way out and a spring back, and it is what would
-finally make `overscroll-contain` and `overscroll-none` differ.
+**Rubber-band is here too, and the thing it was blocked on was an offset allowed to leave its range.**
+`ScrollTop` coerces into `[0, MaximumTop]` and has to: it is what the bars show, what `ScrollIntoView`
+computes against and what a snap position is measured in. So `OverscrollTop` is a *second* offset, and
+the two are added in exactly one place — on the way to `Content.OffsetY`. Every other question this
+control answers is still asked of the clamped one, which is what keeps a transient stretch out of all
+of them.
+
+⚠ **The pull accumulated is raw and the resistance is applied on the way out**, which is what makes a
+drag past the edge and back arrive at exactly the offset it left. Damping the accumulation instead
+needs no second number and is the obvious shortcut; it makes a pull-and-return end somewhere else, and
+the content reads as having slipped under the finger. The curve is bounded by the viewport's own
+dimension, so a determined drag cannot pull the content out of its window and hand back a blank box.
+
+⚠ **A view let go of while stretched springs rather than flings.** The velocity tracker samples the
+scroll offset, which is pinned at a stretched boundary — so the speed it holds is the speed of the last
+pixel before the edge. A fling that *arrives* at an end is the other direction of the same seam: it
+hands what is left of its speed to the spring, which is the bounce.
+
+⚠ **`Refresh` clears the stretch only when the ends have actually moved.** It runs on every
+`LayoutFinished`, so clearing whenever there was a pull erased it on the very next layout — the spring
+never ran, the bounce lasted one frame, and the result looked exactly like the hard edge it replaced.
 
 ## The theme
 

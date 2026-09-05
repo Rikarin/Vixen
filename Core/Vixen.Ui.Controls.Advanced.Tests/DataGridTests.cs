@@ -9,6 +9,8 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 
 /// <summary>Virtualisation in both directions, frozen columns, sorting, grouping and inline edits.</summary>
 public class DataGridTests {
+    const float Tolerance = 0.001f;
+
     sealed class Unit {
         public Unit(string name, int level, string faction) {
             Name = name;
@@ -119,6 +121,93 @@ public class DataGridTests {
 
         // And the first scrolling column is realised after the band rather than under it.
         Assert.NotSame(grid.Columns[0], grid.Rows[0].Cells[1].Column);
+    }
+
+    /// <summary>The heading strip is stuck to the top of the scroller, not parked beside it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both halves, because either alone passes for the other being broken.</b> A header
+    ///     that never moves is what a header <i>outside</i> the scroller does too — that is the state
+    ///     issue 787 found — so the row is asserted to have moved by the same scroll in the same
+    ///     frame. Stuck is "did not move while everything beside it did"; parked is "cannot move at
+    ///     all", and only the first has a row travelling under it.
+    /// </remarks>
+    [Fact]
+    public void The_heading_strip_sticks_to_the_top_of_the_scroller_while_the_rows_travel() {
+        using var fixture = new AdvancedFixture();
+
+        var grid = Grid(
+            fixture,
+            Enumerable.Range(0, 500).Select(static i => new Unit($"u{i}", i % 40, i % 2 == 0 ? "Blue" : "Red"))
+        );
+
+        var paneTop = grid.Scroller.Content.AbsoluteTop;
+
+        Assert.Equal(grid.Scroller.AbsoluteTop, grid.Header.AbsoluteTop, Tolerance);
+        Assert.Equal(paneTop, grid.Header.AbsoluteTop, Tolerance);
+
+        grid.Scroller.ScrollTop = 200f;
+        fixture.Update();
+
+        // ⚠ The PANE and not a row, because the rows are a pool: `Rows[0]` holds a different line
+        // after the scroll, so its position moved by the difference between two lines rather than by
+        // the scroll. The pane is the box the header is in and the only one whose displacement is the
+        // scroll exactly.
+        Assert.Equal(paneTop - 200f, grid.Scroller.Content.AbsoluteTop, Tolerance);
+        Assert.Equal(grid.Scroller.AbsoluteTop, grid.Header.AbsoluteTop, Tolerance);
+    }
+
+    /// <summary>A heading and the cells under it move together, by one offset rather than two.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The sign flip, asserted as the thing it produced rather than as the line it was.</b>
+    ///     While the header was outside the scroller a heading SUBTRACTED the scroll offset and a
+    ///     cell added it, and the two agreed only because the two panes had the same origin. They are
+    ///     one pane now, so a heading and its column's cells are at the same document x — which is
+    ///     closed form, and false for any residue of the old arithmetic in either direction.
+    /// </remarks>
+    [Fact]
+    public void A_heading_is_over_the_column_it_names_at_every_scroll_position() {
+        using var fixture = new AdvancedFixture();
+        var grid = Grid(fixture, Sample(), columns: 60);
+
+        foreach (var scroll in (float[]) [0f, 137f, 2_000f]) {
+            grid.Scroller.ScrollLeft = scroll;
+            fixture.Update();
+
+            var cell = grid.Rows[0].Cells.First(static cell => cell.Column is not null);
+            var heading = grid.Headers.First(header => header.Column == cell.Column);
+
+            Assert.Equal(cell.AbsoluteLeft, heading.AbsoluteLeft, Tolerance);
+        }
+    }
+
+    /// <summary>A frozen heading is pinned exactly the way a frozen cell is, and by the same line.</summary>
+    /// <remarks>
+    ///     The mirror of <see cref="A_frozen_column_stays_put_while_the_rest_scrolls" /> one strip up.
+    ///     ⚠ It is a <b>new</b> requirement rather than an unchanged one: a frozen heading used to sit
+    ///     at a bare <c>offsets[i]</c> because the strip it was in did not scroll, and now it adds the
+    ///     offset back for the reason every frozen cell does. The recorded decision on the frozen
+    ///     columns is here: the hand-rolled horizontal pinning stays, because the cells are placed by
+    ///     the grid rather than by flow and a sticky box is offset from a flow position that does not
+    ///     exist — and because the frozen band is what <c>Window</c> excludes from the column search,
+    ///     so the arithmetic decides which columns are realised and not only where they are drawn.
+    /// </remarks>
+    [Fact]
+    public void A_frozen_heading_is_pinned_the_same_way_a_frozen_cell_is() {
+        using var fixture = new AdvancedFixture();
+        var grid = Grid(fixture, Sample(), columns: 60);
+
+        grid.FrozenColumns = 1;
+        fixture.Update();
+
+        Assert.Equal("0px", grid.Headers.First(header => header.Column == grid.Columns[0]).GetStyle("left"));
+
+        grid.Scroller.ScrollLeft = 500f;
+        fixture.Update();
+
+        var pinned = grid.Headers.First(header => header.Column == grid.Columns[0]);
+
+        Assert.Equal("500px", pinned.GetStyle("left"));
+        Assert.Equal(grid.Rows[0].Cells[0].AbsoluteLeft, pinned.AbsoluteLeft, Tolerance);
     }
 
     [Fact]

@@ -728,15 +728,28 @@ data-grid {
     color: var(--text);
 
     --row-height: 24px;
+    --header-height: 26px;
 }
 
-/* Outside the scroller, which is why a header cell subtracts the scroll offset where a
-   row's cell adds it. */
+/* ⚠ INSIDE the scroller and stuck to its top edge, which is what makes a heading cell's
+   offset the same arithmetic a row cell's is. It used to be a sibling of the scroller —
+   a second pane, which cannot scroll vertically at all and has to be moved horizontally
+   by the opposite sign. See `Rikarin/Vixen#787`.
+
+   ⚠ `contain: layout` and not `position: relative`, and the swap is forced rather than
+   stylistic: a box takes one `position`, this one has to be `sticky`, and the layout store
+   reads `sticky` as `static` on purpose — a sticky box's offset is a function of a scroll
+   position the store has never heard of, and mapping it to `relative` would apply the inset
+   twice. The heading cells inside are absolutely positioned and need a containing block, and
+   CSS Containment § 3.1 is the other declaration that provides one. In a browser the `sticky`
+   would provide it as well; here it does not, and that gap is Rikarin/Vixen issue 827. */
 data-header {
-    position: relative;
+    position: sticky;
+    top: 0px;
+    contain: layout;
     flex-shrink: 0;
     min-width: 0px;
-    height: 26px;
+    height: var(--header-height);
     overflow: hidden;
     background-color: var(--surface-sunken);
     border-width: 0px 0px 1px 0px;

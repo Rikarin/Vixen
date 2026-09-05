@@ -22,8 +22,8 @@
     Top level rather than under Core/ because docs/plan/02 § "Core/" states that every folder there
     is one class library plus its sibling test project, and this is neither. It is also where the
     shared test infrastructure of docs/plan/12 § "Test infrastructure worth building early" belongs
-    when it is written — RecordingBackend and TestApp are here now, each beside its own props file;
-    GoldenFile and FixtureProject are still owed, and are tracked as #336.
+    when it is written — RecordingBackend, TestApp and GoldenFile are here now, each beside its own
+    props file; FixtureProject is still owed, and is tracked as #336.
 
     Consumers need a `using Vixen.Testing;` and a PackageReference to xunit.v3, which every test
     project in the tree already has.

@@ -222,7 +222,13 @@ Vixen.Ui.Composition.BuildContext.Create<T>(Vixen.Ui.UiElement? parent) -> T
 Vixen.Ui.Composition.BuildContext.Create<T>(Vixen.Ui.UiElement? parent, string? tag) -> T
 Vixen.Ui.Composition.BuildContext.Document.get -> Vixen.Ui.UiDocument
 Vixen.Ui.Composition.BuildContext.Element(Vixen.Ui.UiElement? parent, string tag) -> Vixen.Ui.UiElement
+Vixen.Ui.Composition.BuildContext.For<T>(Vixen.Ui.UiElement? parent, System.Func<System.Collections.Generic.IEnumerable<T>> items, System.Func<T, object> key, System.Action<Vixen.Ui.Composition.BuildContext, Vixen.Ui.UiElement, T, Vixen.Ui.Reactive.Signal<int>> build) -> void
 Vixen.Ui.Composition.BuildContext.For<T>(Vixen.Ui.UiElement? parent, System.Func<System.Collections.Generic.IEnumerable<T>> items, System.Func<T, object> key, System.Action<Vixen.Ui.Composition.BuildContext, Vixen.Ui.UiElement, T> build) -> void
+Vixen.Ui.Composition.BuildContext.For<T>(Vixen.Ui.UiElement? parent, System.Func<System.Collections.Generic.IEnumerable<T>> items, System.Func<T, object> key, System.Action<Vixen.Ui.Composition.BuildContext, Vixen.Ui.UiElement, T> build, Vixen.Ui.Composition.ExitSpec? exit = null) -> void
+Vixen.Ui.Composition.BuildContext.Help(Vixen.Ui.UiElement target, System.Func<object?> text) -> void
+Vixen.Ui.Composition.BuildContext.Help(Vixen.Ui.UiElement target, string text) -> void
+Vixen.Ui.Composition.BuildContext.Load<T>(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<T>> load) -> Vixen.Ui.Reactive.IReadOnlySignal<Vixen.Ui.Reactive.AsyncValue<T>>
+Vixen.Ui.Composition.BuildContext.Load<TRequest, T>(System.Func<TRequest> request, System.Func<TRequest, System.Threading.CancellationToken, System.Threading.Tasks.Task<T>> load) -> Vixen.Ui.Reactive.IReadOnlySignal<Vixen.Ui.Reactive.AsyncValue<T>>
 Vixen.Ui.Composition.BuildContext.Mount.get -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.BuildContext.On(Vixen.Ui.UiElement target, string name, System.Action handler, params string[] modifiers) -> void
 Vixen.Ui.Composition.BuildContext.On<TEvent>(Vixen.Ui.UiElement target, string name, System.Action<TEvent> handler, params string[] modifiers) -> void
@@ -238,6 +244,7 @@ Vixen.Ui.Composition.Component -> abstract class
 Vixen.Ui.Composition.Component : Vixen.Ui.Composition.IComposable
 Vixen.Ui.Composition.Component.Component() -> void
 Vixen.Ui.Composition.Component.Content.get -> Vixen.Ui.UiElement
+Vixen.Ui.Composition.Component.Context.get -> Vixen.Ui.Composition.BuildContext
 Vixen.Ui.Composition.Component.Inject<T>() -> T?
 Vixen.Ui.Composition.Component.Provide<T>(T value) -> void
 Vixen.Ui.Composition.Component.Root.get -> Vixen.Ui.UiElement
@@ -255,6 +262,13 @@ Vixen.Ui.Composition.EventSubscription.HandledEventsToo.init -> bool
 Vixen.Ui.Composition.EventSubscription.Listen<T>(Vixen.Ui.UiElement element, System.Action<Vixen.Ui.UiElement, T> handler) -> void
 Vixen.Ui.Composition.EventSubscription.Strategy.get -> Vixen.Ui.RoutingStrategy
 Vixen.Ui.Composition.EventSubscription.Strategy.init -> Vixen.Ui.RoutingStrategy
+Vixen.Ui.Composition.ExitSpec -> sealed record
+Vixen.Ui.Composition.ExitSpec : System.IEquatable<Vixen.Ui.Composition.ExitSpec>
+Vixen.Ui.Composition.ExitSpec.Class.get -> string
+Vixen.Ui.Composition.ExitSpec.Class.init -> string
+Vixen.Ui.Composition.ExitSpec.Duration.get -> System.TimeSpan
+Vixen.Ui.Composition.ExitSpec.Duration.init -> System.TimeSpan
+Vixen.Ui.Composition.ExitSpec.ExitSpec(System.TimeSpan Duration, string Class = "leaving") -> void
 Vixen.Ui.Composition.IComposable -> interface
 Vixen.Ui.Composition.Literals -> static class
 Vixen.Ui.Composition.ScopedStyles -> static class
@@ -301,6 +315,8 @@ Vixen.Ui.DragEvent.DeltaY.init -> float
 Vixen.Ui.DragEvent.DragEvent() -> void
 Vixen.Ui.DragEvent.PointerId.get -> int
 Vixen.Ui.DragEvent.PointerId.init -> int
+Vixen.Ui.DragEvent.PointerType.get -> Vixen.Ui.PointerType
+Vixen.Ui.DragEvent.PointerType.init -> Vixen.Ui.PointerType
 Vixen.Ui.DragEvent.Stage.get -> Vixen.Ui.DragStage
 Vixen.Ui.DragEvent.Stage.init -> Vixen.Ui.DragStage
 Vixen.Ui.DragEvent.TotalX.get -> float
@@ -749,6 +765,8 @@ Vixen.Ui.LongPressEvent : Vixen.Ui.UiEvent
 Vixen.Ui.LongPressEvent.LongPressEvent() -> void
 Vixen.Ui.LongPressEvent.PointerId.get -> int
 Vixen.Ui.LongPressEvent.PointerId.init -> int
+Vixen.Ui.LongPressEvent.PointerType.get -> Vixen.Ui.PointerType
+Vixen.Ui.LongPressEvent.PointerType.init -> Vixen.Ui.PointerType
 Vixen.Ui.LongPressEvent.X.get -> float
 Vixen.Ui.LongPressEvent.X.init -> float
 Vixen.Ui.LongPressEvent.Y.get -> float
@@ -1172,6 +1190,8 @@ Vixen.Ui.TapEvent.Modifiers.get -> Vixen.Ui.ModifierKeys
 Vixen.Ui.TapEvent.Modifiers.init -> Vixen.Ui.ModifierKeys
 Vixen.Ui.TapEvent.PointerId.get -> int
 Vixen.Ui.TapEvent.PointerId.init -> int
+Vixen.Ui.TapEvent.PointerType.get -> Vixen.Ui.PointerType
+Vixen.Ui.TapEvent.PointerType.init -> Vixen.Ui.PointerType
 Vixen.Ui.TapEvent.TapEvent() -> void
 Vixen.Ui.TapEvent.X.get -> float
 Vixen.Ui.TapEvent.X.init -> float
@@ -1421,6 +1441,8 @@ Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.TextInputEvent args) -> Vixen.Ui.UiElement
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.DropEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.KeyEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.PointerEvent args) -> Vixen.Ui.UiElement?
+Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.TextCompositionEvent args) -> Vixen.Ui.UiElement?
+Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.TextInputEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.WheelEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.WheelEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispose() -> void
@@ -1667,9 +1689,11 @@ Vixen.Ui.UiPropertyRegistry -> static class
 Vixen.Ui.UiSurface -> sealed class
 Vixen.Ui.UiSurface.ColorScheme.get -> Vixen.Ui.Styling.ColorSchemePreference
 Vixen.Ui.UiSurface.ColorScheme.set -> Vixen.Ui.Styling.ColorSchemePreference
+Vixen.Ui.UiSurface.CommandFocus.get -> Vixen.Ui.UiElement?
 Vixen.Ui.UiSurface.Document.get -> Vixen.Ui.UiDocument
 Vixen.Ui.UiSurface.DpiScale.get -> float
 Vixen.Ui.UiSurface.Drawing.get -> Vixen.Ui.DrawList
+Vixen.Ui.UiSurface.Focused.get -> Vixen.Ui.UiElement?
 Vixen.Ui.UiSurface.Gamut.get -> Vixen.Core.Mathematics.ColorGamut
 Vixen.Ui.UiSurface.Gamut.set -> Vixen.Core.Mathematics.ColorGamut
 Vixen.Ui.UiSurface.Height.get -> float
@@ -1770,12 +1794,15 @@ static Vixen.Ui.CommandRoute.ScopeOf(Vixen.Ui.UiDocument document) -> string?
 static Vixen.Ui.Composition.BuildContext.Build<T>(Vixen.Ui.UiDocument document, Vixen.Ui.UiElement mount) -> T
 static Vixen.Ui.Composition.BuildContext.BuildInto(Vixen.Ui.Composition.Component component, Vixen.Ui.UiDocument document, Vixen.Ui.UiElement mount) -> Vixen.Ui.Composition.BuildContext
 static Vixen.Ui.Composition.BuildContext.Compose(Vixen.Ui.UiElement host, System.Action<Vixen.Ui.Composition.BuildContext> build, string? scope = null) -> System.IDisposable
+static Vixen.Ui.Composition.BuildContext.Contextualises(System.Action<Vixen.Ui.UiElement, Vixen.Ui.UiElement> attach) -> void
+static Vixen.Ui.Composition.BuildContext.Describes(System.Func<Vixen.Ui.UiElement, Vixen.Ui.UiElement> attach) -> void
 static Vixen.Ui.Composition.BuildContext.Host(Vixen.Ui.Composition.Component component) -> Vixen.Ui.UiElement
 static Vixen.Ui.Composition.BuildContext.Host(Vixen.Ui.UiElement element) -> Vixen.Ui.UiElement
 static Vixen.Ui.Composition.BuildContext.Inner(Vixen.Ui.Composition.Component component) -> Vixen.Ui.UiElement
 static Vixen.Ui.Composition.BuildContext.Inner(Vixen.Ui.UiElement element) -> Vixen.Ui.UiElement
 static Vixen.Ui.Composition.BuildContext.Into(Vixen.Ui.Composition.Component component, string name) -> Vixen.Ui.UiElement
 static Vixen.Ui.Composition.BuildContext.Into(Vixen.Ui.UiElement element, string name) -> Vixen.Ui.UiElement
+static Vixen.Ui.Composition.BuildContext.Menu(Vixen.Ui.UiElement target, Vixen.Ui.UiElement menu) -> void
 static Vixen.Ui.Composition.BuildContext.Subscribe(string name, System.Action<Vixen.Ui.UiElement, System.Action<Vixen.Ui.UiEvent>, Vixen.Ui.Composition.EventSubscription> subscribe) -> void
 static Vixen.Ui.Composition.Literals.Of(bool shape, string text) -> bool
 static Vixen.Ui.Composition.Literals.Of(bool? shape, string text) -> bool?

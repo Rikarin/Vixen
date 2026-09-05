@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
+using Vixen.Ui.Rendering;
 using Xunit;
 
 namespace Vixen.Ui.Tests;
@@ -1000,5 +1002,75 @@ public class DrawListTests {
         document.Draw();
 
         Assert.True(document.Drawing.Commands[1].Color.R > 0.5f);
+    }
+
+    /// <summary>Every side buffer holds this frame's contents, on both parities of the frame counter.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>BeginFrame</c> keeps the finished frame for the diff by <i>swapping</i> two
+    ///         references, so the object behind <c>Commands</c> alternates between two instances where
+    ///         it used to be one for the life of the list.</b> A swap written the wrong way round, or a
+    ///         buffer left unswapped, gives a list that is correct on every other frame — and a fixture
+    ///         that draws once cannot tell. This draws five, so every assertion is made at both
+    ///         parities.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An even number of frames would have been the same blind spot in a longer test.</b>
+    ///         Two swaps put every reference back where it started, so a loop whose body begins two
+    ///         frames asserts about one parity however many times it runs.
+    ///     </para>
+    ///     <para>
+    ///         All five pairs, because they are five independent swaps and the failure is silent in
+    ///         each: a stale <c>Glyphs</c> renders the previous frame's text at this frame's offsets,
+    ///         and a stale <c>Boxes</c> paints the previous frame's gradient. The frame number goes
+    ///         into a different field of each buffer, so a buffer that did not move names the frame it
+    ///         came from.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The redraw at the end pins the swap's <i>direction</i>, which the contents cannot.</b>
+    ///         <c>EndFrame</c> diffs against <c>previous</c>, so a <c>BeginFrame</c> that put the wrong
+    ///         list there would call every frame changed — including one that drew exactly what the
+    ///         frame before it drew.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_frame_is_the_frame_on_both_parities_of_the_frame_counter() {
+        var list = new DrawList();
+        var path = new PathBuilder();
+
+        for (var frame = 1; frame <= 5; frame++) {
+            Emit(list, path, frame);
+
+            // Something moved in every buffer, so the frame is a change.
+            Assert.True(list.EndFrame());
+
+            // And every buffer names *this* frame rather than the one before it.
+            Assert.Equal(frame, Assert.Single(list.Commands).X);
+            Assert.Equal(frame, Assert.Single(list.Glyphs).GlyphId);
+            Assert.Equal(frame, Assert.Single(list.Boxes).GradientAxis.X);
+            Assert.Equal(frame, Assert.Single(list.Masks).Centre.X);
+            Assert.Equal(2, list.Segments.Count);
+            Assert.Equal(frame, list.Segments[0].P2.X);
+        }
+
+        // The sixth frame draws the fifth's contents again, and is therefore not a change.
+        Emit(list, path, 5);
+        Assert.False(list.EndFrame());
+    }
+
+    /// <summary>Draws one command and one entry in each of the four side buffers, stamped with a frame.</summary>
+    static void Emit(DrawList list, PathBuilder path, int frame) {
+        list.BeginFrame();
+
+        list.AddGlyphs([new PositionedGlyph((ushort)frame, 0f, 0f)]);
+        list.AddBox(new BoxStyle(default, default, new Vector2(frame, 0f)));
+        list.AddMasks([default(UiMask) with { Centre = new Vector2(frame, 0f) }]);
+
+        path.Clear();
+        path.MoveTo(new Vector2(frame, 0f));
+        path.LineTo(new Vector2(frame, 1f));
+        list.AddPath(path);
+
+        list.Add(new DrawCommand(DrawCommandKind.Rectangle, frame, 0f, 1f, 1f, default, 0f, 0f));
     }
 }

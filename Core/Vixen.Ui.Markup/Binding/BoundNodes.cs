@@ -111,7 +111,46 @@ public enum BoundAttributeKind {
     ///         that is a throw rather than a silent drop.
     ///     </para>
     /// </remarks>
-    Slot
+    Slot,
+
+    /// <summary>A sentence describing this element, from <c>help="Save the scene"</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An accessible description first and a hover box second</b>, which is the whole
+    ///         reason it is a directive rather than a parameter. <c>Tooltip.Attach</c> wires
+    ///         <c>AccessibleRelation.DescribedBy</c>, so the sentence is in
+    ///         <c>AccessibleDescription</c> and is read on demand — a tooltip that was only a hover
+    ///         behaviour is a sentence written for one kind of user and withheld from another.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Universal in <see cref="Tag" />'s sense and emitted through a seam rather than
+    ///         by naming a type.</b> A <c>Tooltip</c> is <c>Vixen.Ui.Controls</c>' and the generated
+    ///         file cannot name it: a project referencing only <c>Vixen.Ui</c> would get generated
+    ///         code that does not compile, which is worse than a refusal and cannot be refused here,
+    ///         since the binder never sees the compilation. So the emitter writes
+    ///         <c>ctx.Help(…)</c> and the controls fill the seam from their module initializer, the
+    ///         same route <c>on:click</c> already takes.
+    ///     </para>
+    /// </remarks>
+    Help,
+
+    /// <summary>The menu a secondary click on this element opens, from <c>context-menu="@Menu"</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="Help" />'s layering exactly — a control in <c>Vixen.Ui.Controls</c>
+    ///         attached to an element by a directive whose runtime is in <c>Vixen.Ui</c> — so it
+    ///         rides the same seam and decides nothing new about where the call lands.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An expression naming a menu, and not a nested <c>&lt;ContextMenu&gt;</c> the tag
+    ///         adopts.</b> The nested spelling is unavailable to <i>this</i> design rather than
+    ///         merely unattractive: an overlay has to be a child of the document root, and knowing
+    ///         that a tag needs re-parenting means knowing that the tag names an overlay — the type
+    ///         resolution the binder deliberately does not do. Written in place it would compile,
+    ///         build, and open inside the panel that declared it.
+    ///     </para>
+    /// </remarks>
+    ContextMenu
 }
 
 /// <summary>One piece of an attribute's value.</summary>
@@ -244,6 +283,27 @@ public sealed record BoundElement(
 /// <param name="Name">The slot's name; the default slot is named <c>default</c>.</param>
 public sealed record BoundSlot(string Name) : BoundNode;
 
+/// <summary>An ambient value put on the element the tag was written in.</summary>
+/// <param name="Type">The key, as the author wrote it. Verbatim C#; the binder does not resolve it.</param>
+/// <param name="Value">What is provided.</param>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The key is written out and cannot be inferred, and that is not a limitation of this
+///         tag.</b> <c>Provide&lt;T&gt;</c> keys on the type argument rather than on the value's
+///         runtime type — deliberately, so an interface is the useful key and a subclass cannot
+///         shadow its base — so an inferred key would be the concrete class every time and
+///         <c>Inject&lt;ITheme&gt;</c> would find nothing. The binder could not infer it in any case:
+///         it never touches the compilation.
+///     </para>
+///     <para>
+///         ⚠ <b>Provided in document order, which is what makes the ordering readable rather than
+///         magic.</b> The emitter writes nodes in the order they are written, so a
+///         <c>&lt;provide&gt;</c> above its siblings is in place before any of them is built and one
+///         written below them is not. That is the same rule an author already reads the file by.
+///     </para>
+/// </remarks>
+public sealed record BoundProvide(string Type, BoundExpression Value) : BoundNode;
+
 /// <summary>One arm of an <c>@if</c> chain.</summary>
 /// <param name="Condition">The C# the arm tests.</param>
 /// <param name="Body">What it builds.</param>
@@ -259,11 +319,21 @@ public sealed record BoundIf(ImmutableArray<BoundBranch> Branches, ImmutableArra
 /// <param name="Sequence">The C# that produces the items.</param>
 /// <param name="Key">The body's key expression, if its root element carries one.</param>
 /// <param name="Body">What each item builds.</param>
+/// <param name="Index">
+///     The name bound to the row's position, or null when the loop declares none.
+///     ⚠ <b>It arrives in the body as a <c>Signal&lt;int&gt;</c> and not as an <c>int</c>, which is
+///     the whole of the feature rather than an implementation note.</b> <c>BuildContext.For</c>
+///     reuses a surviving key's region and never re-runs its body, so a position captured by a
+///     lambda is the position that row had when its key first appeared — right until anything moves,
+///     and silently wrong afterwards. A signal the reconciler writes on each pass is re-read by
+///     whatever in the body read it, and a row that did not move costs an equality check.
+/// </param>
 public sealed record BoundFor(
     string Variable,
     BoundExpression Sequence,
     BoundExpression? Key,
-    ImmutableArray<BoundNode> Body
+    ImmutableArray<BoundNode> Body,
+    string? Index = null
 ) : BoundNode;
 
 /// <summary>One arm of an <c>@switch</c>.</summary>

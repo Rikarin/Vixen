@@ -545,7 +545,7 @@ Measured against `PublicAPI.Unshipped.txt` in both control assemblies (87 and 86
 `UiElement` with a tag name, `ToolbarPresenter.cs:147`); **SegmentedControl**; **SplitView** — a
 draggable two-pane divider exists only welded inside `DockingHost` (`DockingHost.cs:767`), so a
 two-pane application must adopt the whole docking model; **Sidebar/source list**; **StatusBar**
-(`EditorShell.cs:138`); **Stepper** (`NumericInput.Nudge` is the mechanism with no buttons);
+(`EditorShell.cs:138`);
 **DatePicker**; **secure text field** — zero hits for `secure|password` in the controls assembly, so
 any login screen is blocked; **formatted/validated field** — no formatter, no validation seam;
 **GroupBox / Form / Section / LabeledContent** — and note that `PropertyField`, the single
@@ -553,6 +553,17 @@ most-used tag in the repo's `.vxml` (46 occurrences), lives in
 `Editor/Vixen.Editor.Inspector/MarkupBinding.cs:33` and no application can reach it; **Gauge /
 LevelIndicator**; **charts**; **PathControl**; **TokenField**; **refresh control**; **ruler**;
 **media/PDF/web view**.
+
+**Landed since this section was written**: **Stepper** — ⚠ and the interesting part is that it was
+never a control-shaped gap at all. `NumericInput.Nudge` was the whole mechanism and the field's own
+summary already claimed "arrows, spinners and a drag", as did the theme's read-only rule; what was
+missing was two buttons. `Stepper` is `NumericInput` with them (`TextInputs.cs`), which is why one
+press is the field's *proportional* step rather than `Number + Step`. ⚠ The trap it turned up is
+general and worth carrying to the next control put inside a field: **a scrub starts on the capture
+leg and marks the press handled**, so a nested control's press is swallowed — and not visibly, since
+activation comes off the gesture recogniser's tap. `NumericInput.Presses` walks from the source to
+the field and declines a scrub when it meets a control on the way; a version of it that only tested
+`args.Source` never fires, because what a pointer hits inside a button is the `Icon`.
 
 **Present but with a named gap**: `Button` has no default (Return) or cancel (Esc) key equivalent, no
 attached menu (so no pull-down or pop-up button), no repeat-on-hold; `Slider` has no tick marks;

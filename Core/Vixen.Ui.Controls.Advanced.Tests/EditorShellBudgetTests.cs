@@ -337,12 +337,21 @@ public class EditorShellBudgetTests {
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The 479 KB #703 found is not on the draw walk at all, and it is not #597's kind of
-    ///         defect.</b> <c>DrawList.BeginFrame</c> keeps the finished frame for comparison —
-    ///         <c>previous.AddRange(commands)</c> and the same for the glyph, segment, box and mask
-    ///         side tables — which is what lets <c>EndFrame</c> answer "did the drawing change" without
-    ///         re-walking anything. On the <b>second</b> draw of a list those snapshot lists are still
-    ///         empty, so each grows once to its frame's size and never again. Everything after it is
-    ///         a copy into capacity that already exists, and allocates nothing.
+    ///         defect.</b> <c>DrawList.BeginFrame</c> keeps the finished frame for comparison, which is
+    ///         what lets <c>EndFrame</c> answer "did the drawing change" without re-walking anything.
+    ///         The two buffers are a double buffer and it swaps them, so on the <b>second</b> draw of a
+    ///         list the buffer swapped in is the empty one it started with and it grows once to its
+    ///         frame's size. Every draw after that reuses capacity and allocates nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The swap did not remove this allocation, which #750 predicted it would, and left
+    ///         alone it <i>tripled</i> it.</b> The copy it replaced sized its destination in one
+    ///         <c>AddRange</c>; a buffer filled by <c>Add</c> doubles its way up instead and pays the
+    ///         geometric series — 1 471 296 bytes here against the 479 280 that was measured. The
+    ///         <c>EnsureCapacity(previous.Count)</c> in <c>DrawList.Swap</c> is what buys the single
+    ///         allocation back, and this bound is what would notice if it went away. What the swap
+    ///         removed is the per-<i>frame</i> half-megabyte <c>memcpy</c>, which no allocation counter
+    ///         could see at all.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>So the number is closed form rather than a magic constant</b>, and asserting it as

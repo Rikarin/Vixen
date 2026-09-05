@@ -196,10 +196,14 @@ Vixen.Ui.Styling.ElementState.FocusVisible = 8 -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.ElementState.FocusWithin = 64 -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.ElementState.Hover = 1 -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.ElementState.Indeterminate = 512 -> Vixen.Ui.Styling.ElementState
+Vixen.Ui.Styling.ElementState.Invalid = 4096 -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.ElementState.None = 0 -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.ElementState.PlaceholderShown = 256 -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.ElementState.ReadOnly = 128 -> Vixen.Ui.Styling.ElementState
+Vixen.Ui.Styling.ElementState.Required = 1024 -> Vixen.Ui.Styling.ElementState
+Vixen.Ui.Styling.ElementState.Valid = 2048 -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.InheritedProperties -> sealed class
+Vixen.Ui.Styling.InheritedProperties.Descend(Vixen.Ui.Styling.ComputedStyle parentCascaded, Vixen.Ui.Styling.ComputedStyle parentDisplayed, Vixen.Ui.Styling.ComputedStyle cascaded, Vixen.Ui.Styling.ComputedStyle displayed) -> Vixen.Ui.Styling.ComputedStyle
 Vixen.Ui.Styling.InheritedProperties.InheritedPortionDiffers(Vixen.Ui.Styling.ComputedStyle before, Vixen.Ui.Styling.ComputedStyle after) -> bool
 Vixen.Ui.Styling.InheritedProperties.InheritedProperties(Vixen.Ui.Styling.NameTable properties) -> void
 Vixen.Ui.Styling.InheritedProperties.Inherits(int property) -> bool

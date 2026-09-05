@@ -91,7 +91,18 @@ public sealed class StyleValueParser {
                 : StyleValue.Unknown;
         }
 
-        if (text[0] is '-' or '+' or '.' || char.IsAsciiDigit(text[0])) {
+        // ⚠ <b>A sign only starts a number when a digit or a point follows it, and reading it as one
+        // unconditionally made every vendor-prefixed keyword in CSS unparseable.</b>
+        // `-webkit-center` took the numeric path, failed it, and became
+        // <see cref="StyleValueKind.Unknown" /> — so the declaration resolved to nothing and no
+        // diagnostic said so, because an unparseable value is not a refused selector. Nothing caught
+        // it because the only prefixed keywords the engine had were the three legacy `text-align`
+        // spellings, and the bridge did not read those into a field either: two defects, each hiding
+        // the other's symptom. An identifier may begin with `-` in CSS Syntax §4.3.11 and a great
+        // many do.
+        if (text[0] is '.'
+            || char.IsAsciiDigit(text[0])
+            || (text[0] is '-' or '+' && text.Length > 1 && (text[1] == '.' || char.IsAsciiDigit(text[1])))) {
             return ParseNumeric(text);
         }
 

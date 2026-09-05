@@ -23,6 +23,26 @@
 # twenty-nine lines are #641, which is open and asks the opposite question: a package is a
 # promise, so either these are covered the way Core/ is, or they should not be packing.
 #
+# ⚠ Before answering it, know what "cover them" costs, because it is not twenty-one baselines.
+# A PublicAPI baseline is read by TWO gates. CheckDocsCoverage takes every tracked
+# PublicAPI.Shipped.txt and PublicAPI.Unshipped.txt in the repository — a glob over tracked
+# files, not CheckApi's project list (build/Build.DocsCoverage.cs, BaselinedTypes) — and fails
+# any type in one that has neither a guide page nor a line in docs/DocsExempt.txt. So a
+# baseline is an enrolment in the documentation gate as well, and #686 is the same fact from
+# the other side: the types CheckDocsCoverage was written to catch are green precisely because
+# their projects keep no baseline. Covering the twenty-one would move on the order of a
+# thousand types (997 by a grep for public type declarations under the twenty-one, which is a
+# source-level count and so a floor, not a total) from silence into CheckDocs, each owing a
+# page or an exemption line — on top of the twenty-one Release-generated baselines. That is
+# the real price of option 1, and it is why "just generate the baselines" is not a small change
+# an agent lands on the way past.
+#
+# ⚠ And the order the tooling imposes is the dangerous one: `Vixen.ApiCheck --update` writes the
+# baseline beside the project, and Build.Api.cs's glob is a separate edit. A baseline added
+# without the glob is read by CheckDocsCoverage and NOT by CheckApi, while ApiCoverageTests —
+# which decides "covered" by the presence of the file — starts reporting it as covered and
+# demands the line here be deleted. That is #809.
+#
 # Reason tokens:
 #
 #   editor-undecided   Editor/. The TOOLING profile in Directory.Build.props sets no IsPackable,

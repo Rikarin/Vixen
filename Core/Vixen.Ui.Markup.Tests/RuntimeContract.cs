@@ -51,6 +51,21 @@ static class RuntimeContract {
                                          protected override void Build(BuildContext ctx) => ctx.Element(null, "callout-body");
                                      }
 
+                                     // Reads an ambient value at the instant it is built, which is
+                                     // what makes it an instrument for ordering: a component's
+                                     // `Build` runs in place, where `use` becomes an `Effect` and
+                                     // an effect queues its first run.
+                                     public class Ambient : Component {
+                                         public static readonly System.Collections.Generic.Dictionary<string, string?> Seen = new();
+
+                                         public string Which { get; set; } = "";
+
+                                         protected override void Build(BuildContext ctx) {
+                                             Seen[Which] = Inject<string>();
+                                             ctx.Element(null, "ambient-body");
+                                         }
+                                     }
+
                                      // What an `@inherits` file names. An ordinary element with the
                                      // two hooks the generated scaffold overrides, so the test can
                                      // see that both are chained rather than replaced.

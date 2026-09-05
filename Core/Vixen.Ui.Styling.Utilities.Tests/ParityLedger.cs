@@ -97,6 +97,13 @@ static class ParityLedger {
     ///     offers it — a state nothing can produce is a state somebody finds a use for — and
     ///     <c>Bucket</c>, the predicate that recognised the one row, went with it out of
     ///     <see cref="Derive" />.
+    ///     <para>
+    ///         ⚠ <b>The row came back once, through a hand resolution of a merge conflict in the
+    ///         <c>.tsv</c>, and nothing here could tell</b> (#710) — it is a legal row holding a legal
+    ///         state, and the counts are computed from the rows as they are. What gave it away is that
+    ///         six of its eight classes were then on two rows at once, which is what
+    ///         <c>ParityLedgerTests.Every_class_is_listed_by_exactly_one_row</c> asks about.
+    ///     </para>
     /// </remarks>
     public static readonly string[] States = ["works", "partial", "inert", "absent", "composed"];
 

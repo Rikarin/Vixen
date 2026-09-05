@@ -995,6 +995,86 @@ public class EmitterTests {
         return Assembly.Load(image.ToArray()).GetType(name)!;
     }
 
+    // ================================================================== <provide>
+
+    /// <summary>
+    ///     ⚠ <b>Run rather than read, because what the tag has to get right is a walk and not a
+    ///     string.</b> Asserting on <c>.Provide&lt;string&gt;(</c> in the generated text would pass
+    ///     against a version that wrote the call on the wrong element — which is the whole of what
+    ///     an ambient value is — so this builds the tree and asks a descendant.
+    ///     <para>
+    ///         ⚠ <b>The uncle is the assertion that has teeth, and the first version had only the
+    ///         nephew.</b> Emitting the call on the component's own <c>Root</c> instead of on the
+    ///         element the tag was written in left the suite green: the span is inside both, and
+    ///         <c>document.Root</c> is above both, so neither of those two questions could tell them
+    ///         apart. A sibling of the <c>&lt;div&gt;</c> is inside the component's root and outside
+    ///         the tag's element, which is exactly the pair that differs.
+    ///     </para>
+    /// </summary>
+    [Fact]
+    public void A_provided_value_is_found_by_everything_inside_the_element_it_was_written_in() {
+        const string Source = """
+                              @component Greeter
+                              @code {
+                                  public string Theme = "dark";
+                              }
+                              <div>
+                                  <provide type="string" value="@Theme" />
+                                  <span />
+                              </div>
+                              <label />
+                              """;
+
+        var (_, _, document) = Run(Source);
+
+        var span = Descendants(document.Root).Single(child => child.Tag == "span");
+        Assert.Equal("dark", span.Inject<string>());
+
+        var label = Descendants(document.Root).Single(child => child.Tag == "label");
+        Assert.Null(label.Inject<string>());
+
+        Assert.Null(document.Root.Inject<string>());
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Document order is the rule, and a component written above the provide really does
+    ///     not see it.</b> Worth pinning rather than leaving implicit: the emitter writes nodes in
+    ///     the order they appear, so where the tag sits in the file is where the value starts
+    ///     existing — the reading an author already has of every other tag.
+    ///     <para>
+    ///         ⚠ <b>Asked from a component's own <c>Build</c>, and the first attempt used
+    ///         <c>use="@(e =&gt; … e.Inject&lt;string&gt;())"</c> instead — which proved nothing.</b>
+    ///         <c>BuildContext.Use</c> goes through <c>Bind</c>, and an <c>Effect</c> queues its
+    ///         first run, so both callbacks were still unrun when the assertion read them: the test
+    ///         passed on one half and failed on the other for the same reason, and neither half was
+    ///         about ordering. A component's <c>Build</c> runs synchronously, in place.
+    ///     </para>
+    /// </summary>
+    [Fact]
+    public void A_component_above_the_provide_was_built_before_the_value_existed() {
+        const string Source = """
+                              @component Greeter
+                              @code {
+                                  public string Theme = "dark";
+                              }
+                              <div>
+                                  <Ambient Which="early" />
+                                  <provide type="string" value="@Theme" />
+                                  <Ambient Which="late" />
+                              </div>
+                              """;
+
+        var (_, instance, _) = Run(Source);
+
+        var seen = (IDictionary<string, string?>)instance.GetType()
+            .Assembly.GetType("Ambient")!
+            .GetField("Seen")!
+            .GetValue(null)!;
+
+        Assert.Null(seen["early"]);
+        Assert.Equal("dark", seen["late"]);
+    }
+
     /// <summary>Emits, compiles, loads and builds — the whole pipeline, end to end.</summary>
     static (Component Component, object Instance, UiDocument Document) Run(string source) {
         var type = Load(source, "Greeter");
@@ -1694,6 +1774,342 @@ public class EmitterTests {
 
     static Microsoft.CodeAnalysis.SyntaxTree Parse(string text, string path) =>
         CSharpSyntaxTree.ParseText(text, new CSharpParseOptions(LanguageVersion.Latest), path);
+
+    // ================================================================== Sections
+
+    /// <summary>A grouped list written as a nested <c>@for</c>, which is the whole construct.</summary>
+    /// <remarks>
+    ///     ⚠ The section is a class holding a signal, not a record over a list — which is the
+    ///     `@for` key rule and not a preference. A grouping recomputed in the sequence expression
+    ///     (<c>items.GroupBy(…)</c>) allocates new group objects every flush, so every section would
+    ///     be a new key and would be rebuilt: the trap `VXML2011` covers one level up.
+    /// </remarks>
+    const string Sections = """
+                            @component Greeter
+                            @using System.Collections.Generic
+                            @using Vixen.Ui.Reactive
+
+                            @code {
+                                public sealed class Section(string name, IReadOnlyList<string> rows) {
+                                    public string Name { get; } = name;
+                                    public Signal<IReadOnlyList<string>> Rows { get; } = new(rows);
+                                }
+
+                                public Section Shapes { get; } = new("Shapes", ["cube", "cone"]);
+                                public Section Lights { get; } = new("Lights", ["sun"]);
+
+                                public Signal<IReadOnlyList<Section>> Groups { get; }
+
+                                public Greeter() => Groups = new([Shapes, Lights]);
+                            }
+
+                            @for (var group in Groups.Value) {
+                                <group-block key="@group">
+                                    <group-header>@group.Name</group-header>
+
+                                    @for (var row in group.Rows.Value) {
+                                        <group-row key="@row">@row</group-row>
+                                    }
+                                </group-block>
+                            }
+                            """;
+
+    /// <summary>
+    ///     ⚠ <b>A reorder inside a section does not rebuild the section, and a nested <c>@for</c>
+    ///     is all it takes.</b>
+    /// </summary>
+    /// <remarks>
+    ///     The question <c>#760</c> asks is whether grouped lists need a construct of their own.
+    ///     They do not need one for <i>this</i>: the two loops are two regions, the inner one
+    ///     reconciles against its own siblings, and the section's own element and header are
+    ///     untouched. Asserted by element identity rather than by count, because the arrangement
+    ///     that rebuilds every section produces exactly the same counts and the same text.
+    /// </remarks>
+    [Fact]
+    public void A_row_moving_inside_a_section_leaves_the_section_and_its_header_alone() {
+        var (component, instance, document) = Run(Sections);
+
+        using var owned = document;
+        document.Effects.Flush();
+
+        var blocks = component.Root.Children.ToArray();
+        var shapes = blocks[0];
+        var header = shapes.Children[0];
+        var rows = shapes.Children.Skip(1).ToArray();
+
+        Assert.Equal(["group-block", "group-block"], blocks.Select(block => block.Tag));
+        Assert.Equal(["cube", "cone"], rows.Select(Text));
+
+        var section = Property(instance, "Shapes");
+        ((Signal<IReadOnlyList<string>>)Property(section, "Rows")).Value = ["cone", "cube"];
+        document.Effects.Flush();
+
+        // The section survived: same block, same header element, and the sibling section untouched.
+        Assert.Equal<UiElement>(blocks, component.Root.Children);
+        Assert.Same(header, shapes.Children[0]);
+
+        // And the rows moved rather than being remade.
+        Assert.Equal<UiElement>([header, rows[1], rows[0]], shapes.Children);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And a section <i>is</i> a region the reconciler moves as a unit</b>, which is the
+    ///     other half of what a dedicated construct was supposed to buy.
+    /// </summary>
+    /// <remarks>
+    ///     Reordering the outer sequence moves the section's element with everything under it: the
+    ///     header and the rows are the same objects afterwards, so nothing inside was rebuilt to
+    ///     achieve the move. That leaves sticky headers as the one thing on <c>#760</c>'s list that
+    ///     is genuinely missing — and a sticky header is a scrolling feature rather than a loop one.
+    /// </remarks>
+    [Fact]
+    public void Reordering_the_sections_moves_each_one_whole() {
+        var (component, instance, document) = Run(Sections);
+
+        using var owned = document;
+        document.Effects.Flush();
+
+        var blocks = component.Root.Children.ToArray();
+        var inside = blocks[0].Children.ToArray();
+
+        var shapes = Property(instance, "Shapes");
+        var lights = Property(instance, "Lights");
+
+        Reorder(instance, "Groups", [lights, shapes]);
+        document.Effects.Flush();
+
+        Assert.Equal<UiElement>([blocks[1], blocks[0]], component.Root.Children);
+        Assert.Equal<UiElement>(inside, blocks[0].Children);
+    }
+
+    /// <summary>Writes a <c>Signal&lt;IReadOnlyList&lt;T&gt;&gt;</c> whose <c>T</c> is only known at run time.</summary>
+    static void Reorder(object instance, string name, object[] items) {
+        var signal = Property(instance, name);
+        var value = signal.GetType().GetProperty("Value")!;
+        var element = value.PropertyType.GetGenericArguments()[0];
+        var array = Array.CreateInstance(element, items.Length);
+
+        for (var i = 0; i < items.Length; i++) {
+            array.SetValue(items[i], i);
+        }
+
+        value.SetValue(signal, array);
+    }
+
+    // ================================================================== The @for index
+
+    /// <summary>Three keyed rows, each showing where it is.</summary>
+    const string Indexed = """
+                           @component Greeter
+                           @using System.Collections.Generic
+                           @using Vixen.Ui.Reactive
+
+                           @code {
+                               public Signal<IReadOnlyList<string>> Rows { get; } = new(["a", "b", "c"]);
+                           }
+
+                           @for (var row, i in Rows.Value) {
+                               <row-line key="@row">@i.Value</row-line>
+                           }
+                           """;
+
+    /// <summary>
+    ///     ⚠ <b>The index is a per-row signal, and a captured <c>int</c> is the bug this shape
+    ///     exists to avoid.</b> <c>BuildContext.For</c> keeps a surviving key's region and does
+    ///     <i>not</i> re-run its body, so a position handed to the body as a value is the position
+    ///     that row had when its key first appeared — right until anything moves, and silently
+    ///     wrong afterwards. That is <c>VXML2011</c>'s mistake with no key to blame it on.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The instrument is checked before the claim.</b> The three elements are asserted to
+    ///     be the same objects in a new order, because a test whose rows were rebuilt would pass
+    ///     against a captured <c>int</c> as happily as against a signal — the rebuild would hand the
+    ///     new position to the new body either way, and the assertion would say nothing.
+    /// </remarks>
+    [Fact]
+    public void A_for_index_is_a_signal_so_a_row_that_moved_reports_its_new_position() {
+        var (component, instance, document) = Run(Indexed);
+
+        using var owned = document;
+        document.Effects.Flush();
+
+        var rows = component.Root.Children.ToArray();
+        Assert.Equal(["0", "1", "2"], rows.Select(Text));
+
+        var sequence = (Signal<IReadOnlyList<string>>)Property(instance, "Rows");
+
+        sequence.Value = ["c", "a", "b"];
+        document.Effects.Flush();
+
+        // The instrument: the same three elements, moved rather than remade.
+        Assert.Equal<UiElement>([rows[2], rows[0], rows[1]], component.Root.Children);
+
+        // What every row reads is its position now.
+        Assert.Equal(["0", "1", "2"], component.Root.Children.Select(Text));
+
+        // And said the other way round, which is the assertion a captured int fails: `a` was row 0
+        // and is row 1, `b` was 1 and is 2, `c` was 2 and is 0.
+        Assert.Equal(["1", "2", "0"], rows.Select(Text));
+    }
+
+    /// <summary>A row that leaves takes its index with it, and the rows after it close up.</summary>
+    /// <remarks>
+    ///     The half a reorder does not cover: removal shortens the sequence, so a position table
+    ///     that only ever grew would answer for keys that are gone and hold their rows alive.
+    /// </remarks>
+    [Fact]
+    public void Removing_a_row_renumbers_the_ones_after_it() {
+        var (component, instance, document) = Run(Indexed);
+
+        using var owned = document;
+        document.Effects.Flush();
+
+        var rows = component.Root.Children.ToArray();
+        var last = rows[2];
+
+        ((Signal<IReadOnlyList<string>>)Property(instance, "Rows")).Value = ["b", "c"];
+        document.Effects.Flush();
+
+        Assert.Equal<UiElement>([rows[1], last], component.Root.Children);
+        Assert.Equal(["0", "1"], component.Root.Children.Select(Text));
+    }
+
+    /// <summary>A loop that declares no index compiles to exactly the call it always did.</summary>
+    [Fact]
+    public void A_loop_with_no_index_emits_the_three_parameter_body() {
+        const string Source = """
+                              @component Greeter
+                              @using System.Collections.Generic
+
+                              @code {
+                                  public IReadOnlyList<string> Rows { get; } = ["a"];
+                              }
+
+                              @for (var row in Rows) {
+                                  <row-line key="@row">@row</row-line>
+                              }
+                              """;
+
+        Assert.Contains(", row) => {", Emit(Source), StringComparison.Ordinal);
+    }
+
+    // ================================================================== help
+
+    /// <summary>
+    ///     ⚠ <b>The layering decision <c>help</c> had to make, pinned as a property of the generated
+    ///     text.</b> A <c>Tooltip</c> is <c>Vixen.Ui.Controls</c>' and <c>BuildContext</c> is
+    ///     <c>Vixen.Ui</c>'s, so the three candidate answers were: name the type in the generated
+    ///     file, move the mechanism down, or register a seam. Naming the type resolves in a project
+    ///     that references the controls and produces a generated file that <i>does not compile</i>
+    ///     in one that references only <c>Vixen.Ui</c> — and the generator never touches the
+    ///     compilation, so it could not even refuse. This assembly is exactly that project: it
+    ///     references <c>Vixen.Ui</c> and not the controls, and it compiles the output.
+    /// </summary>
+    [Fact]
+    public void A_help_attribute_compiles_in_a_project_that_has_no_control_library() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui.Reactive
+
+                              @code {
+                                  public Signal<string> Caption { get; } = new("live");
+                              }
+
+                              <Dial help="What it counts" />
+                              <div help="@Caption.Value" />
+                              """;
+
+        var generated = Emit(Source);
+
+        Assert.Equal(2, Occurrences(generated, ".Help("));
+
+        // ⚠ The whole of the decision, in one assertion: nothing in the output names the control
+        // library, so the file compiles wherever `Vixen.Ui` does.
+        Assert.DoesNotContain("Vixen.Ui.Controls", generated, StringComparison.Ordinal);
+        Assert.Empty(Errors(Compile(generated)));
+    }
+
+    /// <summary>
+    ///     A description is made by whatever filled the seam, and removed with the region that asked
+    ///     for it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Tracked rather than left to the element tree, because the thing that describes an
+    ///     element is not under it.</b> An overlay is a root child — the draw list is document
+    ///     order — so clearing the branch that built the target takes the target and leaves the
+    ///     description, which in a <c>@for</c> would be one abandoned tooltip per row per reorder,
+    ///     each holding the element it described alive.
+    /// </remarks>
+    [Fact]
+    public void A_description_leaves_with_the_branch_that_declared_it() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui.Reactive
+
+                              @code {
+                                  public Signal<bool> Shown { get; } = new(true);
+                              }
+
+                              @if (Shown.Value) {
+                                  <hinted help="Only while the arm is live" />
+                              }
+                              """;
+
+        List<UiElement> made = [];
+
+        // What `Vixen.Ui.Controls` registers, minus the tooltip: the seam's contract is "make the
+        // thing that describes this element and hand it back", and a bare element satisfies it.
+        BuildContext.Describes(target => {
+            var note = target.Document.Root.Add<UiElement>("description");
+            made.Add(note);
+
+            return note;
+        });
+
+        var (_, instance, document) = Run(Source);
+
+        using var owned = document;
+        document.Effects.Flush();
+
+        var note = Assert.Single(made);
+        Assert.False(note.IsRemoved);
+        Assert.Equal("Only while the arm is live", note.Text);
+
+        ((Signal<bool>)Property(instance, "Shown")).Value = false;
+        document.Effects.Flush();
+
+        Assert.True(note.IsRemoved);
+    }
+
+    /// <summary>
+    ///     <c>context-menu</c> rides <c>help</c>'s seam and names no control library either, so it
+    ///     compiles in this project — which has none.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A static call, and that is the runtime saying it owns nothing.</b> A menu is made by
+    ///     whoever holds it and the handler goes on the target, so there is nothing to register
+    ///     against the region — unlike a description, whose tooltip is a root child the directive
+    ///     made and therefore has to take away.
+    /// </remarks>
+    [Fact]
+    public void A_context_menu_attribute_compiles_in_a_project_that_has_no_control_library() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui
+
+                              @code {
+                                  public UiElement Rows { get; } = new();
+                              }
+
+                              <sheet-row context-menu="@Rows" />
+                              """;
+
+        var generated = Emit(Source);
+
+        Assert.Contains("BuildContext.Menu(", generated, StringComparison.Ordinal);
+        Assert.DoesNotContain("Vixen.Ui.Controls", generated, StringComparison.Ordinal);
+        Assert.Empty(Errors(Compile(generated)));
+    }
 
     // ================================================================== change: and refs
 

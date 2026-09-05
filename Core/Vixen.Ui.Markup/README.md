@@ -383,6 +383,40 @@ subscription-table entry can pass. So the table's value type went from
 rather than `AddHandler` — an entry that passed the strategy and dropped the flag would compile, work
 for every binding that did not ask, and silently ignore the ones that did.
 
+## `<provide />`, the third tag that names no element
+
+`<slot>` and `<self />` are the two tags the binder recognises by name rather than by case;
+`<provide type="ITheme" value="@theme" />` is the third. It emits one statement against whatever
+element the tag was written in:
+
+```csharp
+n1.Provide<ITheme>(theme);
+```
+
+⚠ **The `type` is written out because it cannot be inferred**, and that is a fact about the runtime
+rather than a limitation here. `UiElement.Provide<T>` keys on the type argument, deliberately, so
+that an interface is the useful key and a subclass cannot shadow its base — an inferred key would be
+the concrete class every time and `Inject<ITheme>` would find nothing. The binder could not infer one
+anyway: it never touches the compilation, which is the rule the whole design rests on.
+
+⚠ **Document order decides what sees it**, because the emitter writes nodes in the order they appear.
+A component tag above the `<provide>` is composed before the statement runs and injects null; one
+below sees the value. `EmitterTests.A_component_above_the_provide_was_built_before_the_value_existed`
+pins both halves — and the first version of that test used `use="@(e => … e.Inject<T>())"`, which
+proved nothing at all, because `BuildContext.Use` goes through `Bind` and an `Effect` queues its
+first run. A component's `Build` runs in place; that is why the fixture is a component.
+
+⚠ **The scoping assertion needs an *uncle*, not a nephew.** Emitting `Root.Provide<T>(…)` instead of
+`n1.Provide<T>(…)` — the component's own host rather than the tag's element — leaves a test that only
+asks a descendant completely green: the descendant is inside both. The element that tells them apart
+is a sibling of the tag's element, which is inside the component's root and outside the tag's.
+
+Three diagnostics, all about the tag's shape: `VXML2021` for a missing half, `VXML2022` for an
+interpolated `type` (it becomes a generic argument, so `Provide<{whatever this says}>` is not C# —
+`slot`'s rule one level up), `VXML2023` for children, which read as a narrower scope that does not
+exist. A tag missing either half emits **nothing**: the binder has already reported it, and writing
+`Provide<>(…)` on top would add a Roslyn error against generated code the author cannot edit.
+
 ## `change:` is a value binding, and `on:change` could not have been one
 
 `on:` maps a name through a table of `Action<UiElement, Action<UiEvent>, EventSubscription>` — a routed
@@ -549,6 +583,73 @@ tag and reads as a property — so `use` is the general answer rather than the f
 
 ⚠ **One `use` per tag**, because attribute names are unique on an element. A lambda with a body does
 several things; two `use`s would also have needed an order, which is a rule nobody wants to remember.
+
+## `help`, and where an attach-shaped directive's runtime has to live
+
+```html
+<Button Label="Save" help="Writes the scene to disk" />
+<status-line help="@Hint.Value" />
+```
+
+It attaches a `Tooltip` and wires `AccessibleRelation.DescribedBy`, which is the half that decides
+the shape: the sentence lands in `AccessibleDescription` and is read on demand, so it reaches the
+users who never hover. A directive that drew a box and told nobody would be exactly the accessibility
+bug `Tooltip.Attach` was written not to be — and it is the assertion, rather than the element
+existing, that `HelpMarkupTests` makes.
+
+⚠ **The interesting part is not the attribute, it is where the emitted call lands, and every
+attach-shaped spelling waits on the same answer.** `BuildContext` is in `Vixen.Ui`; `Tooltip` is in
+`Vixen.Ui.Controls`, which references it. Three answers were available and only one is safe:
+
+- **Emit the type name.** `global::Vixen.Ui.Controls.Tooltip.Attach(n1, "…")` resolves in a project
+  that references the controls — and a `.vxml` in a project referencing only `Vixen.Ui` gets a
+  generated file that **does not compile**. That is strictly worse than a directive refused with a
+  diagnostic, and it cannot even be refused: the generator never touches the compilation, so this
+  side cannot know which project it is in.
+- **Move the mechanism down.** Placement, light dismiss and a hover delay would come with it, which
+  is most of what an `Overlay` is. `Vixen.Ui` would gain a control library in all but name.
+- **A registration seam**, which is what this is — and it is not a new idea, it is
+  `BuildContext.Subscribe`'s. `BuildContext.Describes(Func<UiElement, UiElement>)` says *what
+  describes an element*; `ControlMarkup.Register` fills it from the module initializer that already
+  registers what `on:click` means. A project with no controls gets an exception naming the missing
+  registration, at the one call that needed it, rather than a build that fails in generated code.
+
+Two smaller decisions fall out of it:
+
+⚠ **The description is tracked on the region, unlike everything else a tag makes.** An overlay is a
+root child — the draw list is document order, so a tooltip nested inside the button it describes
+would be clipped by every `overflow: hidden` between them — so clearing the branch that built the
+target takes the target and leaves the tooltip. In a `@for` that is one abandoned tooltip per row per
+reorder, each holding the element it described alive. `BuildContext.Help` therefore registers the
+removal with the region, which is the same bookkeeping `refs` does for its entry.
+
+⚠ **Attached once, written many times.** `help="@Hint.Value"` puts only the text inside the effect.
+Re-running the attachment per flush would add a second pointer handler and a second
+`DescribedBy` relation each time — a leak that reads as a tooltip that opens twice.
+
+### `context-menu`, which follows and adds one refusal of its own
+
+```html
+<sheet-row context-menu="@Rows" />
+```
+
+The layering is `help`'s and is not re-decided: `BuildContext.Contextualises` is a second entry on
+the same seam, filled beside the first. What is new is the *spelling*, and the choice was between a
+`ref` to a menu built elsewhere and a nested `<ContextMenu>` the tag adopts.
+
+⚠ **The nested tag is not merely the worse option, it is unavailable to this design.** An overlay
+has to be a child of the document root — the draw list is document order, so one nested where it was
+written is clipped by every `overflow: hidden` above it — and deciding that a tag needs re-parenting
+means knowing that the tag names an overlay. That is the type resolution the binder does not do and
+does not want to do. A `<ContextMenu>` written in place would bind clean, build, and open inside the
+panel that declared it, which is the silent-wrong-answer this side exists to avoid.
+
+⚠ **So it attaches and does not make, which is the asymmetry with `help`.** A description is a
+sentence written at the tag, so the tooltip carrying it is the directive's to build and to take
+away; a menu is a model — all nine callers of `ContextMenu.Attach` in this tree build one from
+commands and keep it — so two elements naming one expression share one menu. `BuildContext.Menu` is
+`static` for exactly that reason: it registers nothing against the region, because the handler it
+adds is on the target and the region already removes that.
 
 ## `@inherits`, and the two things a `.vxml` can be
 
@@ -847,13 +948,65 @@ is a real limitation and the diagnostics are a guard rail over it. The alternati
 body for a surviving key — would throw away the elements and therefore the focus, scroll offset and
 animation state that keys exist to preserve, so it is not a fix, it is the other trade.
 
-⚠ **It is also why `@for` has no index variable, which is a refusal rather than an omission.** A
-second name bound to the item's position would be captured in a body a surviving key never re-runs,
-so after a reorder every row would report the index it had when its key first appeared —
-`VXML2011`'s mistake with no key to blame it on and nothing syntactic to warn about. An index that
-behaves has to be a per-row signal the reconciler writes when it repositions, which is a different
-feature from the one the spelling suggests. See `BuildContext.For`, whose `live`/`kept` pass is where
-such a signal would be set.
+⚠ **It is also why an `@for` index is a `Signal<int>` and not an `int`**, and that sentence is the
+whole feature rather than an implementation note.
+
+```html
+@for (var row, i in Rows.Value) {
+    <row-line key="@row">@i.Value — @row.Name</row-line>
+}
+```
+
+A second name bound to the item's *position* would be captured in a body a surviving key never
+re-runs, so after a reorder every row would report the index it had when its key first appeared —
+`VXML2011`'s mistake with no key to blame it on and nothing syntactic to warn about. Nothing about
+it looks wrong either: the list has the right rows in the right order, showing numbers that stopped
+being true. So the name is bound to a signal that `BuildContext.For` writes on each reconciliation
+pass, after the rows have been matched: a row that moved is re-read by whatever in its body read the
+index, and a row that did not move costs one equality check. The signal is made with the row and
+dropped with it.
+
+⚠ **Nothing in the emitter names the type.** A fourth lambda parameter picks the second `For`
+overload and C# resolves it from the parameter count, so `@for (var row, i in …)` differs from
+`@for (var row in …)` by one comma in the lexer and one name in the emitted lambda. Both overloads
+are the same private pass with the index bookkeeping switched off, because a second copy of the
+keyed reconciliation is how the two come to disagree about what a move is.
+
+### Sections are a nested `@for`, and there is nothing else to build
+
+A grouped list — a settings panel by category, an asset browser by folder, a source list with
+headings — is two loops:
+
+```html
+@for (var group in Groups.Value) {
+    <group-block key="@group">
+        <group-header>@group.Name</group-header>
+
+        @for (var row in group.Rows.Value) {
+            <group-row key="@row">@row</group-row>
+        }
+    </group-block>
+}
+```
+
+⚠ **Both of the things a dedicated construct was supposed to buy are already true of this, and it
+took two tests rather than a feature to find out.** A row moving inside a section leaves the section
+and its header alone — the two loops are two regions and the inner one reconciles against its own
+siblings — and reordering the outer sequence moves a whole section as a unit, header and rows
+included, because a section *is* a region. Both are asserted by element identity in `EmitterTests`,
+not by count: the arrangement that rebuilds every section produces exactly the same counts and the
+same text, so a count would have called the broken one correct.
+
+The third item on the list, a sticky header, is not a loop feature at all — it is
+`position: sticky`, which is [#248](https://github.com/Rikarin/Vixen/issues/248) and belongs to the
+scroller. Nothing about a grouped list is what makes it missing.
+
+⚠ **The keying rule is the whole of the constraint, and it is the one already written down.** A
+section identity has to be as stable as a row identity, so the sections live in a field and the loop
+keys on the object. A grouping recomputed in the sequence expression — `items.GroupBy(…)` — allocates
+new group objects on every flush, so every section is a new key and every section is rebuilt: the
+`VXML2011` trap one level up. And because the section object is stable, what makes its rows update is
+that it holds a `Signal<T>`, which is the rule's other half.
 
 ### ⚠ The same rule governs `@if`, where nothing diagnoses it
 
@@ -909,6 +1062,14 @@ of a string.
   where it raises `Submitted` — the moment a `.vxml` had no way to hear at all.
 - **A generic base.** `@inherits` takes a `NameToken`, which carries dots and not angle brackets, so
   `@inherits Row<T>` does not lex. Same limit `@using` has, and nothing has needed it.
+- **A spelling for a row's exit.** The runtime half landed — `BuildContext.For` takes an `ExitSpec`,
+  a removed row keeps its place and its `leaving` class for an interval the document owns, and a key
+  that comes back mid-flight ends the old row rather than standing beside it. Nothing in this
+  language reaches it: `EmitFor` writes four arguments and there is no syntax for a fifth, so an
+  exit is available to hand-written `Build` bodies and to a component that calls `ctx.For` itself.
+  The open question is where the number goes — an attribute on the `@for` header, a `@transition`
+  directive, or a declaration the stylesheet already carries — and it is a syntax decision rather
+  than a wiring one. See `docs/guide/ui/exit-animations.md`.
 
 ## `OnComposed` is the build-time hook, and it was owed a paragraph rather than a feature
 
@@ -949,6 +1110,37 @@ Two things about its timing are load-bearing and neither is a defect:
   built with; it does not make a plain property something an effect inside the child can subscribe
   to, so a prop that has to keep following its source is signal-backed for the same reason it always
   was.
+
+### And it can now start something asynchronous, which is what it was missing
+
+`OnComposed` is synchronous, has no cancellation and cannot be `async` — so a panel that had to load
+something on appear either blocked the build or started a fire-and-forget task whose completion had
+nowhere safe to land. What it reaches now is `Component.Context`, and through it
+`BuildContext.Load`:
+
+```html
+@code {
+    IReadOnlySignal<AsyncValue<Manifest>> catalogue = null!;
+
+    partial void OnComposed() => catalogue = Context.Load(token => Assets.ReadCatalogueAsync(token));
+}
+
+@if (catalogue.Value.Status == AsyncStatus.Failure) {
+    <Callout Kind="error">Could not read the catalogue.</Callout>
+}
+```
+
+⚠ **What cancels it is what cancels an effect**, which answers the half that is easy to get wrong.
+The work is tracked on the region being built, so it ends when that region does — *unmount* is the
+obvious case and *rebuild* is the one that is missed, since a `.vxml` save re-enters `Build` and
+`BuildContext.Rebuild` clears the component's region first. ⚠ **And a fault is a value rather than an
+exception**: `Effect.Run` catches, suspends and logs, so a load that threw into an effect would be a
+panel that silently stopped; `AsyncStatus.Failure` on the signal is a thing an `@if` can draw.
+
+⚠ **The substrate under it, `AsyncComputed<TRequest, T>`, had no production caller at all** until this
+— every reference to it was its own tests or a `<see cref>`. It is worth saying because the shape
+recurs: the expensive, carefully-reasoned half existed, and what was missing was the one line that
+made it reachable from the language panels are written in.
 
 ## What `Component` has and an element-flavoured class has
 

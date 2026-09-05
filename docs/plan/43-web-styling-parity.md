@@ -84,7 +84,7 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **332** | 307 families |
+| Utility **roots** (the unit of this table) | **331** | 307 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
 | Variant keys | **88** | **54** |
@@ -110,7 +110,7 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 | **works** | Vixen emits it, and a consumer acts on every property it sets | **241** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **26** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **61** |
+| **absent** | not emitted at all | **60** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 
 ⚠ **There was a sixth, `unknown`, and it described a row rather than a state.** Exactly one row held
@@ -122,6 +122,20 @@ splitting it is what makes every state true of something. `snap-mandatory` and `
 families that already emit them; the four `*-reverse` classes are two roots of their own, `absent`,
 carrying the reason. ⚠ The state is gone from `ParityLedger.States` as well as from the file, because
 a state nothing can produce is a state somebody will find a use for.
+
+⚠ **The row came back, and every test in this suite stayed green** ([#710](https://github.com/Rikarin/Vixen/issues/710)).
+A hand resolution of a merge conflict in the `.tsv` took the side that still had it, at `absent`; the
+row is a legal row, `absent` is a legal state, and the counts add up because they are computed from
+the rows as they now are. What was observable is that six of its eight classes were on two rows at
+once, so that is the invariant — `ParityLedgerTests.Every_class_is_listed_by_exactly_one_row`. ⚠ Two
+cheaper rules were considered and are refuted by this file: refusing a root whose `vixen_family` names
+no registered family would fail the 60 refused roots, which have no family by construction, and
+refusing a name containing parentheses or the word `only` would fail `sr-only`, `not-sr-only` and
+every `… (keywords)` row. ⚠ And **regenerating the `.tsv` after a merge would not have caught it
+either** — `VIXEN_REGENERATE=1` rewrites three computed columns of whatever rows it is handed, so it
+can neither delete a row that returned nor restore the two classes the same resolution dropped off
+`snap`. A `union` merge driver would have produced this state automatically rather than preventing it.
+The invariant is the cure.
 
 ⚠ **`composed` fell from twelve to three, and eight of the nine moved for two different reasons.**
 Five (`space-x/y-*`, `divide-*`, `divide-x/y-*`) were never composition at all: they are child-scoped
@@ -475,7 +489,7 @@ refusal block, which already says so for the same reason.
 
 | Category | roots | works | partial | inert | absent | composed |
 |---|--:|--:|--:|--:|--:|--:|
-| Layout | 51 | 35 | 2 | 0 | 11 | 3 |
+| Layout | 50 | 35 | 2 | 0 | 10 | 3 |
 | Interactivity | 40 | 30 | 0 | 1 | 9 | 0 |
 | Borders | 34 | 28 | 2 | 0 | 4 | 0 |
 | Effects | 34 | 27 | 2 | 0 | 5 | 0 |
@@ -490,10 +504,10 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 |
-| **Total** | **332** | **241** | **26** | **1** | **61** | **3** |
+| **Total** | **331** | **241** | **26** | **1** | **60** | **3** |
 
 Flexbox and Grid leads at 30 of 34, with only two absent roots left and both of those refused on
-policy rather than owed; then Layout at 33 of 51, Interactivity at 30 of 40, Borders at 28 of 34,
+policy rather than owed; then Layout at 35 of 50, Interactivity at 30 of 40, Borders at 28 of 34,
 and Effects at 27 of 34. Tables and Accessibility still have **no working root at all**.
 
 ⚠ **No category is `complete`, and SVG — which this section called the first one to be — is 2 of 3.**
@@ -1570,8 +1584,8 @@ property the mutation does not touch — is where injecting `all` finally change
 as `gridded` and `inlined`: a green gate is a claim about the scenes as much as about the engine.
 
 ⚠ **Three limitations found while proving it — the header said two and the list has always had
-three, which is the smaller of the two things wrong with this paragraph.** All three were real; two
-are closed.
+three, which is the smaller of the two things wrong with this paragraph.** All three were real and
+all three are now closed.
 
 - ✅ **A transition only ran where the previous computed style *also held the property* — closed.**
   `Observe` read the displayed value out of `before`, and a cascade with no computed-value stage had
@@ -1601,24 +1615,44 @@ are closed.
   ⚠ **Only the duration was missing**: CSS's initial timing function is already `ease`, so emitting
   one would buy nothing and would overwrite the `ease-*` beside it for the same ordering reason.
   `TransitionUtilityTests` holds all three claims, reading the width between the endpoints.
-- **A fading inherited value does not reach the children** — still open, and the two ways to close
-  it are worth writing down because they are not equivalent. The animator is a tier over the finished
-  cascade: `StyleUpdater.Resolve` inherits from the parent's *cascaded* style (`styles[parent]`) and
-  `UiDocument.Apply` overlays the running values per element afterwards. So a panel fading its
-  `color` hands its descendants the destination on the first frame while the panel itself travels,
-  and a descendant cannot start its own transition because `transition-*` do not inherit.
-  ⚠ **The obvious fix is the expensive one.** Making `StyleUpdater.Resolve` inherit from the parent's
-  *overlaid* style is three lines and changes what a stored `ComputedStyle` is: it would then move
-  every frame for every descendant of anything animating, so the sharing cache stops sharing, and
-  `Announce` — which is a comparison, not an event — sees a change every frame and re-targets the
-  descendant's own transitions continuously.
-  ⚠ **The cheaper one is a heuristic and needs a decision rather than a patch.** `UiDocument.Apply`
-  already walks parent-to-child with the overlaid style in hand, so it could push each property the
-  parent is *currently transitioning* down onto descendants that inherit it. Telling "the child
-  inherited this" from "the child declared the same value" is what it cannot do — a `ComputedStyle`
-  does not record which — so the test would be "the child's value equals the parent's destination",
-  which is right in every case anyone writes and is still a guess about a case nobody has named.
-  Left open on purpose: choosing between them is a decision about what a stored computed style *is*.
+- ✅ **A fading inherited value did not reach the children — closed in the overlay pass.** The
+  animator is a tier over the finished cascade: `StyleUpdater.Resolve` inherits from the parent's
+  *cascaded* style (`styles[parent]`) and `UiDocument.Apply` overlays the running values per element
+  afterwards. So a panel fading its `color` handed its descendants the destination on the first frame
+  while the panel itself travelled, and a descendant could not start its own transition to cover it
+  because `transition-*` do not inherit.
+  ⚠ **The decision, and it went the other way from how this paragraph used to read.** Two closures
+  were on the table — inheriting from the parent's *overlaid* style in `StyleUpdater.Resolve`, or
+  pushing the parent's displayed value down in `UiDocument.Apply` — and this said the first was the
+  obvious, expensive one and the second a heuristic. **The first does not work at all**, which is the
+  half nobody had checked: a cascade is not a per-frame pass. `UiDocument.Tick` calls
+  `InvalidatePositions` while a transition runs and deliberately never `Invalidate`, because a fade
+  changes nothing the cascade decided — so nothing re-resolves between the frame a fade starts on and
+  the frame something else changes. Inheriting the overlaid style would therefore hand each descendant
+  whatever the parent was displaying *at the last cascade*, which is the fade's **start** value, held
+  for the whole fade and kept after it ended. That is worse than the destination, which is at least
+  where the frame is going. The predicted costs — a sharing cache that stops sharing and an `Announce`
+  that re-targets every frame — are real and would have been paid for a broken picture.
+  ⚠ **So the pushed-down version landed, and its heuristic is the only approximation in it.**
+  `InheritedProperties.Descend` is called from `UiDocument.Apply`'s existing parent-to-child walk with
+  the parent's cascaded and displayed styles in hand; it writes the parent's moving value over each
+  inherited property whose value on this element **is** the parent's cascaded one. That test cannot
+  tell "the child inherited this" from "the child declared the same value" — a `ComputedStyle` does
+  not record which — so an element that declared its parent's colour is carried along with the fade.
+  The alternative is a provenance bit per property in every computed style, paid on every element of
+  every document to serve the frames where something is fading.
+  ⚠ **What it cost is one pointer comparison per element per frame.** `Animator.Apply` returns the
+  instance it was given when it overlays nothing, so `ReferenceEquals(parentCascaded, parentDisplayed)`
+  is the whole test on a document with nothing in flight, and `Descend` is not called at all. An
+  element running its own transition on the property keeps it, and hands *its* value on in turn, so a
+  chain needs no state carried across the walk beyond the parent's two styles.
+  ⚠ **The instrument is `Vixen.Ui.Tests.TransitionTests`, and it used to assert the defect.**
+  `An_inherited_value_reaches_the_children_at_its_destination_rather_than_mid_fade` pinned the old
+  behaviour and said in its own remarks that the right response to it going red was to rewrite the
+  test. It is now `A_fading_inherited_value_reaches_the_children_mid_flight`, reading a colour that is
+  neither endpoint on the panel, the child and the grandchild — the endpoints agree under both
+  behaviours, so nothing weaker could see it. A second fixture holds the negative half: a child that
+  declares `color: #ff0000` keeps it, and hands red rather than the fade down to *its* child.
 
 ### F11 · The whole of `@media` was evaluated against a surface that does not exist ✅ *closed*
 
@@ -2915,7 +2949,7 @@ of each other.
 **B · Layout modes.** `display` is `{ Flex, None }`. Block, grid and inline formatting are three
 algorithms over the existing store.
 
-**C · Families.** The 332 roots.
+**C · Families.** Every root in Part 0's table.
 
 ⚠ **C depends on A and B, and inverting that is how the present state came about.** `grid-cols-3`
 exists as a family and emits `grid-template-columns` because a family is a line of a table and the
@@ -3851,7 +3885,7 @@ ask is not "where is this read" but "what else reads the number it changes".**
 
 ## Exit criteria (measured)
 
-1. **Every one of the 332 roots is `works`, or carries an open task number, or is one of the four
+1. **Every one of the table's roots is `works`, or carries an open task number, or is one of the four
    exclusions in Part 8.** Checked by regenerating the TSV; the states are computed, not asserted.
 2. ✅ **No family emits a property no consumer *acts on***, except entries on the allow-list, each of
    which names a task this document contains. `UtilityConsumptionGateTests` fails otherwise — a test
@@ -3892,7 +3926,7 @@ ask is not "where is this read" but "what else reads the number it changes".**
 being matched is Tailwind's utility index, which is a much smaller and better-defined thing than CSS.
 
 **A second styling language.** Every gap here closes by making the *existing* property bridge wider.
-There is no case in the 332 rows for a Vixen-specific styling concept, and adding one would be the
+There is no case in any row of that table for a Vixen-specific styling concept, and adding one would be the
 third version of the mistake in the README.
 
 **A promise that a Tailwind stylesheet drops in.** Class names and semantics match; the generator is

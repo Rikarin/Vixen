@@ -212,26 +212,34 @@ public sealed partial class UiDocument {
     ///         sending it at all. A host that has the surface in hand should pass it.
     ///     </para>
     ///     <para>
-    ///         <see cref="Focused" /> still outranks it, because it is still one document-global
-    ///         element — <c>UiSurface.Focused</c> does not exist, so a keystroke aimed at an
-    ///         unfocused control in a background window still reaches whatever holds the document's
-    ///         focus. That is the larger half of the key-window work and is owed.
+    ///         ⚠ <b>It is <see cref="UiSurface.Focused" /> that outranks it, and it used to be
+    ///         <see cref="Focused" />.</b> While the focus was one document-global element, a
+    ///         keystroke delivered to a background window reached whatever the front one had
+    ///         focused — the surface only decided the fallback for when nothing was focused at all,
+    ///         which is exactly the half of this that was owed. Each window keeps its own first
+    ///         responder now, so a key goes to the caret in the window it was delivered to and to
+    ///         that window's root when there is none.
     ///     </para>
     /// </remarks>
-    public UiElement? Dispatch(UiSurface surface, KeyEvent args) {
-        ArgumentNullException.ThrowIfNull(surface);
-
-        if (!ReferenceEquals(surface.Document, this)) {
-            throw new ArgumentException("that surface belongs to another document.", nameof(surface));
-        }
-
-        return Dispatch(args, Focused ?? surface.Root);
-    }
+    public UiElement? Dispatch(UiSurface surface, KeyEvent args) =>
+        Dispatch(args, Verify(surface).Focused ?? surface.Root);
 
     UiElement? Dispatch(KeyEvent args, UiElement target) {
         ArgumentNullException.ThrowIfNull(args);
 
         KeyboardMode = true;
+
+        // ⚠ <b>Before the route, and it is the only key that is.</b> `CancelDrag`'s own remarks said
+        // "Escape does this" and nothing anywhere called it — the whole in-app drag had no way out
+        // but a release, so a drag begun by accident had to be finished somewhere harmless. A drag
+        // is a modal gesture: while one is running the pointer is captured by its source and the
+        // application is showing feedback for it, so Escape belongs to the drag and not to whatever
+        // holds the focus. Offered after the route instead, a text field or an open menu would eat
+        // it and the drag would still be running underneath.
+        if (args is { Action: KeyAction.Pressed, Key: InputKey.Escape } && CancelDrag()) {
+            args.Handled = true;
+            return target;
+        }
 
         target.Raise(args);
 
@@ -271,12 +279,30 @@ public sealed partial class UiDocument {
     /// <summary>Sends typed text to whatever has the focus.</summary>
     /// <param name="args">The event.</param>
     /// <returns>The element it went to.</returns>
-    public UiElement? Dispatch(TextInputEvent args) {
+    public UiElement? Dispatch(TextInputEvent args) => DispatchText(args, KeyTarget);
+
+    /// <summary>Sends typed text that arrived at a particular window.</summary>
+    /// <param name="surface">The surface the platform delivered it to.</param>
+    /// <param name="args">The event.</param>
+    /// <returns>The element it went to.</returns>
+    /// <exception cref="ArgumentException">The surface belongs to another document.</exception>
+    /// <remarks>
+    ///     ⚠ <b>The same defect <see cref="Dispatch(UiSurface, KeyEvent)" /> was fixed for, and it
+    ///     outlived that fix by sitting next to it.</b> A key and the text it produces arrive from
+    ///     the platform two events apart and were routed by two different rules — the key by the
+    ///     window it was delivered to, the text by <see cref="Primary" /> whenever nothing was
+    ///     focused. So a character typed into a torn-off window landed on the main one, and did so
+    ///     silently: in a one-window application the two rules agree by construction, which is
+    ///     exactly why nothing caught it.
+    /// </remarks>
+    public UiElement? Dispatch(UiSurface surface, TextInputEvent args) =>
+        DispatchText(args, Verify(surface).Focused ?? surface.Root);
+
+    UiElement? DispatchText(TextInputEvent args, UiElement target) {
         ArgumentNullException.ThrowIfNull(args);
 
         KeyboardMode = true;
 
-        var target = KeyTarget;
         target.Raise(args);
         return target;
     }
@@ -291,12 +317,44 @@ public sealed partial class UiDocument {
     ///     light the focus ring on a field somebody is typing into with the mouse still moving,
     ///     which is the case the mode exists to distinguish.
     /// </remarks>
-    public UiElement? Dispatch(TextCompositionEvent args) {
+    public UiElement? Dispatch(TextCompositionEvent args) => DispatchComposition(args, KeyTarget);
+
+    /// <summary>Sends an input method's pre-edit that arrived at a particular window.</summary>
+    /// <param name="surface">The surface the platform delivered it to.</param>
+    /// <param name="args">The event.</param>
+    /// <returns>The element it went to.</returns>
+    /// <exception cref="ArgumentException">The surface belongs to another document.</exception>
+    /// <remarks>
+    ///     See <see cref="Dispatch(UiSurface, TextInputEvent)" />. ⚠ A composition is worse than a
+    ///     character to get wrong rather than better: a pre-edit raised on the wrong root leaves the
+    ///     window the user is actually typing into with no way to end the composition it never
+    ///     started, and <c>TextField.CancelComposition</c> runs on focus loss in a window that never
+    ///     had it.
+    /// </remarks>
+    public UiElement? Dispatch(UiSurface surface, TextCompositionEvent args) =>
+        DispatchComposition(args, Verify(surface).Focused ?? surface.Root);
+
+    static UiElement? DispatchComposition(TextCompositionEvent args, UiElement target) {
         ArgumentNullException.ThrowIfNull(args);
 
-        var target = KeyTarget;
         target.Raise(args);
         return target;
+    }
+
+    /// <summary>Checks that a surface handed to a routing overload is one of this document's.</summary>
+    /// <remarks>
+    ///     ⚠ Throws rather than falling back to <see cref="Primary" />. A surface from another
+    ///     document is a caller mistake and not a state this can be in, and quietly routing to the
+    ///     primary window is precisely the behaviour these overloads exist to stop.
+    /// </remarks>
+    UiSurface Verify(UiSurface surface) {
+        ArgumentNullException.ThrowIfNull(surface);
+
+        if (!ReferenceEquals(surface.Document, this)) {
+            throw new ArgumentException("that surface belongs to another document.", nameof(surface));
+        }
+
+        return surface;
     }
 
     /// <summary>Offers a key to every responder appended along the walk, nearest first.</summary>

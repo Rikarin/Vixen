@@ -268,28 +268,28 @@ public sealed class ComponentsViewDumpTests {
         <color-input .size-md .variant-default> Value=(1, 1, 1, 1)
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="127.324" Number=127.324
+        <numeric-input .size-md .variant-default> State=Valid Value="127.324" Number=127.324
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
         <select .size-md .variant-default> Value="Candela"
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="10.000" Number=10
+        <numeric-input .size-md .variant-default> State=Valid Value="10.000" Number=10
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <button .add-component .size-md .variant-default> Label="Add Component"
         """;
@@ -319,28 +319,28 @@ public sealed class ComponentsViewDumpTests {
         <color-input .size-md .variant-default> Value=(1, 1, 1, 1)
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="127.324" Number=127.324
+        <numeric-input .size-md .variant-default> State=Valid Value="127.324" Number=127.324
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
         <select .size-md .variant-default> Value="Candela"
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="10.000" Number=10
+        <numeric-input .size-md .variant-default> State=Valid Value="10.000" Number=10
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <button .add-component .size-md .variant-default> Label="Add Component"
         """;
@@ -370,28 +370,28 @@ public sealed class ComponentsViewDumpTests {
         <color-input .size-md .variant-default> Value=(1, 1, 1, 1)
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="127.324" Number=127.324
+        <numeric-input .size-md .variant-default> State=Valid Value="127.324" Number=127.324
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
         <select .size-md .variant-default> Value="Candela"
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="10.000" Number=10
+        <numeric-input .size-md .variant-default> State=Valid Value="10.000" Number=10
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <button .add-component .size-md .variant-default> Label="Add Component"
         """;
@@ -411,28 +411,28 @@ public sealed class ComponentsViewDumpTests {
         <color-input .size-md .variant-default> Value=(1, 1, 1, 1)
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="127.324" Number=127.324
+        <numeric-input .size-md .variant-default> State=Valid Value="127.324" Number=127.324
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
         <select .size-md .variant-default> Value="Candela"
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="10.000" Number=10
+        <numeric-input .size-md .variant-default> State=Valid Value="10.000" Number=10
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <expander .component .open .size-md .variant-default> IsExpanded=True Label="Primitive Shape"
         <expander-header .size-md .variant-default> State=Checked Label="Primitive Shape"

@@ -1,0 +1,28 @@
+# The class selectors the sheets declare that no C# and no `.vxml` ever writes.
+#
+#     <name>  <#issue>  <reason>
+#
+# Held against the measured set by `ClassSelectorReachTests.Every_class_selector_names_a_class_the_repository_writes`,
+# EXACTLY and in both directions — the bargain `UnreachedSelectors.txt` makes, for its reason. A name
+# that starts being written must leave this file; a name that stops being written cannot arrive
+# without a row. A floor cannot say that a name came back to life, so a row would outlive the rule it
+# excuses and the next dead class would take the vacated seat.
+#
+# ⚠ A row here is a finding and not a shrug. Every one of these is a rule that fires on nothing.
+#
+# ⚠ The one thing that could legitimately sit here for ever is a class composed at run time from a
+# name this scan cannot see — `AddClass($"axis-{letter}")` rather than `AddClass("axis-" + letter)`.
+# The scan reads a hyphen-terminated literal on a line that also names a class API as a *prefix*, so
+# the second spelling is reached and the first is not; a row for one of those is a request to change
+# the call site rather than an exemption.
+#
+# ⚠ **The file is empty, and an empty census is the finished state rather than a disabled test.** The
+# measured set was exactly one name when this landed — `asset-picker-row`, declared by two rules in
+# `EditorTheme.vcss` and applied by nothing, the sibling of the `asset-picker-list` rules #693
+# removed — and #778 deleted the rules rather than writing the name down. `AssetPicker.Build` makes an
+# `asset-grid` and one `.asset-picker-empty` label and has never made a per-row button.
+#
+# ⚠ So what stops this reading green on the day the scan breaks is not this file. It is
+# `The_class_scan_actually_ran`, which refuses a `Declared` or a `Written` that has collapsed — an
+# empty census compared against an empty measured set is exactly what a broken regular expression
+# also produces, and only that test can tell the difference.

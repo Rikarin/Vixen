@@ -251,14 +251,61 @@ public class TextWrappingPixelTests {
 
         Assert.Equal(normal, breakWord);
 
-        var widest = 0f;
-
-        foreach (var grapheme in Unbroken) {
-            widest = MathF.Max(widest, MinContentWidth(grapheme.ToString(), "overflow-wrap: normal"));
-        }
+        var widest = WidestGrapheme(Unbroken);
 
         Assert.Equal(widest, anywhere);
         Assert.True(anywhere < breakWord, $"one grapheme measured {anywhere} and the whole word {breakWord}");
+    }
+
+    /// <summary><c>word-break: break-all</c> moves the intrinsic minimum too, and by itself.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The half of #682 that was true in practice and asserted nowhere.</b> The intrinsic
+    ///         stage does not read <c>word-break</c> as a separate act — it reads it the only way it
+    ///         reads anything, by asking for the text in no room and letting
+    ///         <c>LineBreaker.Collect</c>'s tailoring decide where a line may end. <c>break-all</c>
+    ///         offers an opportunity between every pair of typographic character units, so the probe
+    ///         comes back one grapheme wide without <c>LineWrapper</c>'s "nothing fits" branch being
+    ///         reached at all. That is a different mechanism from <c>overflow-wrap: anywhere</c>
+    ///         arriving at the same number, and a regression in the tailoring's reach into the
+    ///         intrinsic path would have moved nothing any test looked at.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Measured against the same closed form the keyword pair is</b> — the widest single
+    ///         grapheme of the same text in the same face, not "smaller than the word". <c>break-all</c>
+    ///         breaking one character early, or in the middle of a surrogate pair, is smaller than the
+    ///         word as well.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_intrinsic_minimum_reads_word_break_and_not_only_overflow_wrap() {
+        var normal = MinContentWidth(Unbroken, "word-break: normal");
+        var breakAll = MinContentWidth(Unbroken, "word-break: break-all");
+
+        // Without it, everything below is met by a box that measured nothing at all.
+        Assert.True(normal > 0f, "the unbroken word measured nothing at all");
+
+        // `word-break` alone, with `overflow-wrap` left at its initial value the whole way — so the
+        // difference cannot be the other property's.
+        Assert.Equal(MinContentWidth(Unbroken, string.Empty), normal);
+        Assert.Equal(WidestGrapheme(Unbroken), breakAll);
+        Assert.True(breakAll < normal, $"one grapheme measured {breakAll} and the whole word {normal}");
+    }
+
+    /// <summary>The widest single grapheme of a text, measured in the same face at the same size.</summary>
+    /// <remarks>
+    ///     What CSS Sizing §5.2 names as the min-content contribution of a box that may break inside
+    ///     a word, expressed as a measurement of this engine rather than as a number written down —
+    ///     so it moves with the font, the size and the shaper instead of pinning a threshold.
+    /// </remarks>
+    static float WidestGrapheme(string text) {
+        var widest = 0f;
+
+        foreach (var grapheme in text) {
+            widest = MathF.Max(widest, MinContentWidth(grapheme.ToString(), "overflow-wrap: normal"));
+        }
+
+        return widest;
     }
 
     /// <summary>What the layout's intrinsic probe is handed: the text measured in no room at all.</summary>

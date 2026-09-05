@@ -1240,10 +1240,24 @@ to that window at all. The pointer and wheel overloads always took a surface and
 on the argument that a key goes to the focus and the focus is the document's — true, and it stops
 being an answer the moment nothing is focused.
 
-⚠ **`UiSurface.Focused` does not exist, so only the nothing-focused case is right.** `Focused` is one
-document-global element: a keystroke aimed at an unfocused control in a background window still
-reaches whatever holds the document's focus. That is the larger half of the key-window work and is
-still owed (#644).
+⚠ **The focus lives on the surface, and `UiDocument.Focused` is derived from it.** Each window keeps
+its own first responder — `UiSurface.Focused`, with `UiSurface.CommandFocus` beside it — and the
+document's `Focused` is the key surface's, falling back to the primary's when no window has been
+named key. That is what makes a keystroke delivered to a torn-off inspector reach the inspector's
+caret rather than the main window's, which is the half that used to be owed: while the focus was one
+document-global element, the delivering surface only decided the fallback for when nothing was
+focused at all.
+
+⚠ **So switching windows moves the focus without focusing or blurring anything**, and two elements in
+one document can carry `ElementState.Focus` at once, one per window. Nothing is restored on a switch
+because nothing was lost, which is the whole reason AppKit's first responder is per window. Writing
+`KeySurface` therefore invalidates the commands and the accessibility tree, since both read the focus
+and neither would otherwise be told.
+
+⚠ **A surface root ends the tab-order scope climb**, so Tab is window-local. A surface root's parents
+run on to the document root — deliberately, since that is what keeps one style tree and lets a routed
+event reach the control that opened the window — so without that rule a Tab in a torn-off inspector
+would walk into the main window's controls and hand the keyboard to a window the user is not in.
 
 ## Removal
 

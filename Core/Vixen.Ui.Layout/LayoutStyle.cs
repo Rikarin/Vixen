@@ -170,6 +170,14 @@ public struct LayoutStyle {
     /// </remarks>
     public float ScrollbarWidth;
 
+    /// <summary>What this node promises about its contents. CSS Containment 2's <c>contain</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Flags rather than a mode, because the property is five independent effects and the
+    ///     useful spellings are combinations of them.</b> <see cref="Containment.None" /> is the
+    ///     initial value and also <c>default</c>, so nothing changes until something asks.
+    /// </remarks>
+    public Containment Containment;
+
     /// <summary>Whether the node is laid out at all.</summary>
     public Display Display;
 

@@ -483,6 +483,19 @@ public sealed partial class UiDocument {
             return;
         }
 
+        // ⚠ <b>The source going takes the whole drag with it, and until this ran nothing noticed.</b>
+        // `DragSession.Source` is what a target reads as `DropEvent.DragSource` — the row this came
+        // from, which is most of what a reorder needs — and every path off a removed element throws
+        // rather than answering. So a panel rebuilt mid-drag (an undo, a reload, a virtualised row
+        // scrolled out of its pool) left a session naming a dead element, and the exception landed
+        // in the *target's* drop handler, which had done nothing wrong.
+        for (var source = (UiElement?)session.Source; source is not null; source = source.Parent) {
+            if (ReferenceEquals(source, element)) {
+                CancelDrag();
+                return;
+            }
+        }
+
         // Up from the target rather than a reference test, on `Captured`'s pattern and for its
         // reason: what is removed is a subtree, and the target may be several levels inside the
         // element that went.

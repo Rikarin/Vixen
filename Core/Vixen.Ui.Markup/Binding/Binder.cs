@@ -377,6 +377,10 @@ public sealed class Binder {
             return BindSlot(element, attributes);
         }
 
+        if (string.Equals(tag, "provide", StringComparison.Ordinal)) {
+            return BindProvide(element, attributes);
+        }
+
         if (string.Equals(tag, BoundElement.SelfTag, StringComparison.Ordinal)) {
             // ⚠ Reported and then bound anyway, rather than returning here. The emitter writes it
             // against the host wherever it is, so an author who wrote it in the wrong place gets one
@@ -523,6 +527,81 @@ public sealed class Binder {
         return new BoundSlot(name);
     }
 
+    /// <summary>Binds <c>&lt;provide type="ITheme" value="@theme" /&gt;</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A broken one still becomes a node, on <c>&lt;self&gt;</c>'s rule.</b> Returning
+    ///         nothing here would leave the rest of the file bound and the author holding one error
+    ///         plus every consequence of the tag's absence. The emitter writes nothing for a node
+    ///         missing either half, because this has already said what is wrong and a second
+    ///         complaint from Roslyn about <c>Provide&lt;&gt;(…)</c> is noise pointing at generated
+    ///         code.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A literal value is accepted and quoted.</b> <c>&lt;provide type="string"
+    ///         value="dark" /&gt;</c> is the reading an author expects from every other attribute in
+    ///         the language, and refusing it would mean spelling a constant as
+    ///         <c>value="@(&quot;dark&quot;)"</c>. What is refused is a value made of a literal and
+    ///         an interpolation together, which is a string built at run time and almost certainly a
+    ///         mistake in a slot keyed by type.
+    ///     </para>
+    /// </remarks>
+    BoundProvide BindProvide(ElementSyntax element, ImmutableArray<BoundAttribute> attributes) {
+        var span = element.StartTag.Name.Span;
+
+        BoundAttribute? type = null;
+        BoundAttribute? value = null;
+
+        foreach (var attribute in attributes) {
+            if (string.Equals(attribute.Name, "type", StringComparison.Ordinal)) {
+                type = attribute;
+            } else if (string.Equals(attribute.Name, "value", StringComparison.Ordinal)) {
+                value = attribute;
+            }
+        }
+
+        var key = string.Empty;
+
+        if (type is null) {
+            Report(MarkupDiagnostics.IncompleteProvide, span, "type");
+        } else if (type.Literal is { Length: > 0 } written) {
+            key = written;
+        } else if (type.IsDynamic) {
+            Report(MarkupDiagnostics.InterpolatedProvideType, span, "type");
+        } else {
+            Report(MarkupDiagnostics.IncompleteProvide, span, "type");
+        }
+
+        var provided = new BoundExpression(string.Empty, Position(element.StartTag.Name));
+
+        switch (value) {
+            case null:
+                Report(MarkupDiagnostics.IncompleteProvide, span, "value");
+                break;
+
+            case { Expression: { } expression }:
+                provided = expression;
+                break;
+
+            case { Literal: { Length: > 0 } literal }:
+                provided = new BoundExpression(Quote(literal), Position(element.StartTag.Name));
+                break;
+
+            default:
+                Report(MarkupDiagnostics.IncompleteProvide, span, "value");
+                break;
+        }
+
+        if (element.Content.Count > 0) {
+            Report(MarkupDiagnostics.ProvideContent, span);
+        }
+
+        return new BoundProvide(key, provided);
+    }
+
+    /// <summary>A C# string literal holding exactly those characters.</summary>
+    static string Quote(string text) => "\"" + text.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+
     BoundIf BindIf(IfSyntax @if) {
         var branches = ImmutableArray.CreateBuilder<BoundBranch>();
         var @else = ImmutableArray<BoundNode>.Empty;
@@ -576,7 +655,11 @@ public sealed class Binder {
             }
         }
 
-        return new(variable, Expression(@for.Sequence), key, body);
+        // A comma with no name after it leaves a missing token; there is nothing to bind and the
+        // parser has already reported it, so the loop is bound as if no index were declared.
+        var index = @for.Index is { IsMissing: false } named ? named.Text : null;
+
+        return new(variable, Expression(@for.Sequence), key, body, index);
     }
 
     /// <summary>Whether a key expression reads a member of the loop variable instead of the variable.</summary>
@@ -654,7 +737,7 @@ public sealed class Binder {
         // Saying so here rather than letting Roslyn say it means the message can name the fix.
         if (kind is BoundAttributeKind.Event or BoundAttributeKind.Bind or BoundAttributeKind.Key
                 or BoundAttributeKind.Ref or BoundAttributeKind.Refs or BoundAttributeKind.Changed
-                or BoundAttributeKind.Use
+                or BoundAttributeKind.Use or BoundAttributeKind.ContextMenu
             && value is not [BoundExpressionPart]) {
             Report(MarkupDiagnostics.ExpectedExpressionValue, attribute.Name.Span, written);
             return null;
@@ -840,6 +923,21 @@ public sealed class Binder {
         // pointing at generated code and naming the wrong problem.
         if (string.Equals(written, "slot", StringComparison.Ordinal)) {
             return (BoundAttributeKind.Slot, written, []);
+        }
+
+        // ⚠ Universal in `class`'s sense — it means the same on a component tag as on an element, and
+        // is never a property — but it reaches neither the style tree nor an assignment: it emits a
+        // call, because what describes an element is an object somebody has to make. See
+        // `BoundAttributeKind.Help` for why that call goes through a seam rather than naming
+        // `Vixen.Ui.Controls.Tooltip`.
+        if (string.Equals(written, "help", StringComparison.Ordinal)) {
+            return (BoundAttributeKind.Help, written, []);
+        }
+
+        // `help`'s shape with a menu where the sentence is. The hyphen is what makes it safe to
+        // claim on every tag: it could never be a property name, which is `binding-path`'s argument.
+        if (string.Equals(written, "context-menu", StringComparison.Ordinal)) {
+            return (BoundAttributeKind.ContextMenu, written, []);
         }
 
         var colon = written.IndexOf(':', StringComparison.Ordinal);

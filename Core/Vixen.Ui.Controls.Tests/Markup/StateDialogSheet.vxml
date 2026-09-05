@@ -1,0 +1,58 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component StateDialogSheet
+@namespace Vixen.Ui.Controls.Tests
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<state-dialog-sheet>
+    <!--
+        A dialog that is a function of state, beside the one a command awaits. The flag is the
+        panel's, `use` is the effect that keeps the service agreeing with it, and the buttons write
+        the model rather than completing a task — which is what makes this a different shape from
+        `ConfirmAsync` rather than a re-spelling of it.
+    -->
+    <Dialog ref="@question"
+            Title="Delete it?"
+            use="@(overlay => Dialogs.Present(overlay, Asking.Value))"
+            on:openchanged="@((OpenChangedEvent args) => Reported(args))">
+        <Button class="confirm" Label="Delete" on:click="@Confirm" />
+        <Button class="cancel" Label="Keep" on:click="@Cancel" />
+    </Dialog>
+</state-dialog-sheet>
+
+@code {
+    Dialog question = null!;
+
+    /// <summary>The queue this panel's ask takes its turn in. Assigned before the panel is built.</summary>
+    public DialogService Dialogs { get; set; } = null!;
+
+    /// <summary>Whether the panel is asking. Nothing else opens or closes the dialog.</summary>
+    public Signal<bool> Asking { get; } = new(false);
+
+    /// <summary>What the user said, which is the answer reaching the model.</summary>
+    public string? Answer { get; private set; }
+
+    /// <summary>The dialog itself, for a test that asserts on the control rather than the model.</summary>
+    public Dialog Question => question;
+
+    void Confirm() {
+        Answer = "deleted";
+        Asking.Value = false;
+    }
+
+    void Cancel() {
+        Answer = "kept";
+        Asking.Value = false;
+    }
+
+    // ⚠ Without this, Escape closes the dialog and the model goes on saying it is asking — so the
+    // next flush asks again and the dialog the user dismissed comes back.
+    void Reported(OpenChangedEvent args) {
+        if (!args.IsOpen) {
+            Asking.Value = false;
+        }
+    }
+}

@@ -1,0 +1,45 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    ⚠ **`@inherits`, so that `Document` is reachable while the body runs.** A context menu is a root
+    child — every overlay is, because the draw list is document order — so the panel has to be able
+    to say `Document.Root`, which is what an element-flavoured class has and a plain `Component`
+    reaches only through its own `Root`.
+
+    This is the shape all nine callers of `ContextMenu.Attach` in this repository already have: the
+    menu is built once from a model and kept, and what markup was missing was only the attaching.
+-->
+@component ContextMenuSheet
+@namespace Vixen.Ui.Controls.Tests
+@inherits Vixen.Ui.Controls.Control
+@tag context-menu-sheet
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+
+<!-- Two rows sharing one menu, which is what makes "attached, not made" worth stating. -->
+<sheet-row ref="@first" context-menu="@Rows" />
+<sheet-row ref="@second" context-menu="@Rows" />
+
+@code {
+    ContextMenu? rows;
+    UiElement first = null!;
+    UiElement second = null!;
+
+    /// <summary>The menu both rows open, built the way every hand-written caller builds one.</summary>
+    public ContextMenu Rows => rows ??= Made();
+
+    /// <summary>The first row, so a test can right-click it.</summary>
+    public UiElement First => first;
+
+    /// <summary>And the second, so the test can show one menu serves both.</summary>
+    public UiElement Second => second;
+
+    ContextMenu Made() {
+        var menu = Document.Root.Add<ContextMenu>();
+        menu.AddItem("Rename");
+        menu.AddItem("Delete");
+
+        return menu;
+    }
+}

@@ -130,6 +130,23 @@ ever — the drag that can never be dropped anywhere.
 has to remove the original; `DropEvent.DragSource` is the element the drag started on, and `null` is
 exactly the test for "this came from another application".
 
+### Getting out of one
+
+**Escape cancels the drag**, and it is the only key the document answers before the route. A drag is a
+modal gesture — the pointer is captured by its source and the application is showing feedback for it —
+so while one is running Escape belongs to the drag rather than to whatever holds the focus. Offered
+after the route instead, a text field or an open menu would take it and the drag would still be
+running underneath. Once the drag is over, Escape reaches the focus as it always did.
+
+⚠ **Removing the source cancels the drag too.** `DragSession.Source` is what a target reads as
+`DropEvent.DragSource`, and every path off a removed element throws rather than answering — so a panel
+rebuilt mid-drag (an undo, a reload, a virtualised row leaving its pool) would otherwise leave a
+session naming a dead element, and the exception would land in the *target's* drop handler, which had
+done nothing wrong. Either way the target is told it lost the drag, so a gap that was opened closes.
+
+`UiDocument.CancelDrag()` is the same thing said in code, for a source that decides mid-gesture that
+this is not a drag after all.
+
 ## The markup spelling
 
 | Name | Event | Fires on |

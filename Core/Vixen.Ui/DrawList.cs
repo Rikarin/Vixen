@@ -500,16 +500,19 @@ public readonly record struct DrawCommand(
 ///     </para>
 /// </remarks>
 public sealed class DrawList {
-    readonly List<DrawCommand> commands = [];
-    readonly List<DrawCommand> previous = [];
-    readonly List<PositionedGlyph> glyphs = [];
-    readonly List<PositionedGlyph> previousGlyphs = [];
-    readonly List<PathSegment> segments = [];
-    readonly List<PathSegment> previousSegments = [];
-    readonly List<BoxStyle> boxes = [];
-    readonly List<BoxStyle> previousBoxes = [];
-    readonly List<UiMask> masks = [];
-    readonly List<UiMask> previousMasks = [];
+    // ⚠ <b>Not `readonly`, and the five pairs below are a double buffer rather than a list and a copy
+    // of it.</b> `BeginFrame` swaps the references; see it for why the copy it used to make was a
+    // memcpy of the whole finished frame that no allocation counter could see.
+    List<DrawCommand> commands = [];
+    List<DrawCommand> previous = [];
+    List<PositionedGlyph> glyphs = [];
+    List<PositionedGlyph> previousGlyphs = [];
+    List<PathSegment> segments = [];
+    List<PathSegment> previousSegments = [];
+    List<BoxStyle> boxes = [];
+    List<BoxStyle> previousBoxes = [];
+    List<UiMask> masks = [];
+    List<UiMask> previousMasks = [];
     readonly List<FontFace> fonts = [];
     readonly List<DrawBatch> batches = [];
 
@@ -578,32 +581,62 @@ public sealed class DrawList {
     public bool ChangedLastFrame { get; private set; }
 
     /// <summary>Starts collecting a frame.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A swap and not a copy, and the copy it replaces was the largest piece of work in a
+    ///         frame that does nothing.</b> Keeping the finished frame for <see cref="EndFrame" /> to
+    ///         compare against used to be <c>previous.Clear(); previous.AddRange(commands)</c> five
+    ///         times over — and a <see cref="DrawCommand" /> is 320 bytes, so the editor shell's 1 389
+    ///         commands were a 444 KB <c>memcpy</c> every frame, plus 33 KB for its 1 181
+    ///         <see cref="PathSegment" />s, on a <i>settled</i> frame that changed nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Invisible to the gate that ought to have caught it, which is why it survived.</b>
+    ///         <c>A_settled_frame_allocates_nothing</c> measures bytes allocated, and after the first
+    ///         growth the copy lands in capacity that already exists — so it allocates nothing and
+    ///         costs half a megabyte of memory traffic. This repository's own rule is to state a cost
+    ///         as <i>work</i> rather than as milliseconds, and the work here is now O(1).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What the swap costs is that the object behind <see cref="Commands" /> alternates
+    ///         between two instances, where it used to be stable for the life of the list.</b> That is
+    ///         sound only because nothing outside this class holds one of those properties across a
+    ///         frame boundary — every consumer in the tree indexes it through a <see cref="DrawList" />
+    ///         it was handed, and a stored reference would silently read the previous frame on every
+    ///         other frame. It is asserted rather than assumed: see
+    ///         <c>DrawListTests.The_frame_is_the_frame_on_both_parities_of_the_frame_counter</c>, which
+    ///         is a fixture a single-frame one cannot replace.
+    ///     </para>
+    /// </remarks>
     public void BeginFrame() {
-        previous.Clear();
-        previous.AddRange(commands);
-        commands.Clear();
-
-        previousGlyphs.Clear();
-        previousGlyphs.AddRange(glyphs);
-        glyphs.Clear();
-
-        previousSegments.Clear();
-        previousSegments.AddRange(segments);
-        segments.Clear();
-
-        previousBoxes.Clear();
-        previousBoxes.AddRange(boxes);
-        boxes.Clear();
-
-        previousMasks.Clear();
-        previousMasks.AddRange(masks);
-        masks.Clear();
+        Swap(ref previous, ref commands);
+        Swap(ref previousGlyphs, ref glyphs);
+        Swap(ref previousSegments, ref segments);
+        Swap(ref previousBoxes, ref boxes);
+        Swap(ref previousMasks, ref masks);
 
         // The fonts are not kept for comparison, because a command referring to a different face
         // refers to it by a different index and the commands are compared. Rebuilt each frame so
         // that a face nothing draws with any more is not held alive by the list that stopped using
         // it.
         fonts.Clear();
+    }
+
+    /// <summary>Exchanges a buffer with its previous-frame twin and empties it for this frame.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The <see cref="List{T}.EnsureCapacity" /> is not a micro-optimisation and dropping it
+    ///     triples the one number this change was supposed to reduce.</b> The copy this replaced sized
+    ///     its destination exactly once, because <c>AddRange</c> over a counted source asks for the
+    ///     whole length in one allocation. A list filled by <c>Add</c> instead doubles its way up, so
+    ///     the buffer swapped in on the second frame of a list's life allocates the geometric series
+    ///     rather than the array — measured on the editor shell as 1 471 296 bytes where the copy cost
+    ///     479 280. Sizing it to the frame before it gets the single allocation back, and is a no-op on
+    ///     every frame after the first two.
+    /// </remarks>
+    static void Swap<T>(ref List<T> kept, ref List<T> collecting) {
+        (kept, collecting) = (collecting, kept);
+        collecting.Clear();
+        collecting.EnsureCapacity(kept.Count);
     }
 
     /// <summary>How many commands the frame has so far.</summary>

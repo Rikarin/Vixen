@@ -180,9 +180,32 @@ where row 40 000 is without having measured the 39 999 above it.
 hundred thousand rows is ten million cells; what exists is the twenty-odd columns and thirty-odd
 rows on screen, and neither pool is rebuilt when the other scrolls.
 
-⚠ **A frozen cell is positioned against the scroll offset, not against the content.** The rows are
-inside the scroller and the header is outside it, so the same visual result needs opposite signs —
-and that one line is the entire freezing mechanism. There is no second scroller and no second tree.
+⚠ **The heading strip is inside the scroller and stuck to its top edge, and it used to be a sibling
+of it.** A header outside the scrollport is a second pane: it cannot scroll vertically at all,
+because it is not in the port, and it has to be moved horizontally by *subtracting* the scroll offset
+where everything inside the port adds it. Two arithmetics for one visual result is what
+`Rikarin/Vixen#787` was about. It is now `position: sticky; top: 0` on the scroller's own first
+child, so `RealiseHeader`'s two loops are the two lines `Bind` already used for a row's cells, and
+the content pane is one header taller with every row starting one header further down — one term, in
+the two places that decide a vertical position.
+
+⚠ **`contain: layout` rather than `position: relative` on that strip, and the swap is forced.** A box
+takes one `position`, this one has to be `sticky`, and the layout store deliberately reads `sticky` as
+`static`: a sticky box's offset is a function of a scroll position the store has never heard of, and
+mapping the keyword to `relative` would apply the inset twice. The heading cells inside are absolutely
+positioned and need a containing block, and CSS Containment § 3.1 is the other declaration that
+provides one. ⚠ In a browser `position: sticky` would provide it too, and here it does not
+([#827](https://github.com/Rikarin/Vixen/issues/827)).
+
+⚠ **A frozen cell is positioned against the scroll offset, not against the content**, and a frozen
+*heading* now says the same thing rather than the opposite one. That one line is the entire freezing
+mechanism: there is no second scroller and no second tree. It stays hand-rolled and is **not**
+replaced by `position: sticky; left: <band>`, for two measured reasons — every cell is placed by the
+grid with an explicit `left` inside an absolutely-sized pane, so there is no flow position for a
+sticky clamp to floor against; and the frozen band is what `Window` excludes from the column search,
+so the arithmetic decides which columns are *realised* and not only where they are drawn. Converting
+it means giving a row's cells a flow layout, which costs the horizontal virtualisation the control
+exists for.
 
 ⚠ **Frozen columns are the leading *n*, not a flag on a column.** Freezing an arbitrary subset raises
 a question with no good answer — what happens when a frozen column is dragged to the middle — and

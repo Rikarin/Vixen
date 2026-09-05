@@ -3480,6 +3480,7 @@ T:Vixen.Ui.Markup.Binding.BoundIf sweep-pending
 T:Vixen.Ui.Markup.Binding.BoundInterpolation sweep-pending
 T:Vixen.Ui.Markup.Binding.BoundLiteralPart sweep-pending
 T:Vixen.Ui.Markup.Binding.BoundNode sweep-pending
+T:Vixen.Ui.Markup.Binding.BoundProvide sweep-pending
 T:Vixen.Ui.Markup.Binding.BoundSlot sweep-pending
 T:Vixen.Ui.Markup.Binding.BoundSwitch sweep-pending
 T:Vixen.Ui.Markup.Binding.BoundText sweep-pending

@@ -40,6 +40,23 @@ namespace Vixen.Ui.Generators;
 ///         decision to take after the tree has been swept with it, not before.
 ///     </para>
 ///     <para>
+///         ⚠ <b>A full <c>Compile</c> does not sweep it, and expecting one to is the trap.</b>
+///         Analyzers do not flow transitively through a <c>ProjectReference</c> —
+///         <c>Vixen.Ui.csproj</c> says so three lines above the reference that loads this — so the
+///         rule runs only where a project names <c>Vixen.Ui.Generators</c> itself or sets
+///         <c>&lt;VixenUi&gt;true&lt;/VixenUi&gt;</c>. Six <c>.vxml</c>-owning projects in this
+///         repository name only <c>Vixen.Ui.Markup.Generators</c>, which is what compiles the
+///         markup, and therefore never see this at all. A consumer outside the repository has no
+///         such gap: a <c>PackageReference</c> to <c>Vixen.Ui</c> carries both.
+///     </para>
+///     <para>
+///         ⚠ <b>And while it is <see cref="DiagnosticSeverity.Info" /> it prints nothing at any
+///         MSBuild verbosity</b>, so a sweep that greps a build log for the id reads zero whether or
+///         not there is anything to find. Promote it in <c>.editorconfig</c> for the run —
+///         <c>TreatWarningsAsErrors</c> then turns every hit into a build error that cannot be
+///         missed — and put the severity back afterwards.
+///     </para>
+///     <para>
 ///         <b>What is deliberately not reported.</b> A read-only or computed property is not a
 ///         parameter — a caller cannot assign it — and neither is a delegate: a callback parameter is
 ///         invoked rather than read, so nothing about it needs to be subscribable. A property whose

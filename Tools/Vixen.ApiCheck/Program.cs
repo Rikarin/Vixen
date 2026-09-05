@@ -56,7 +56,10 @@ if (assemblies.Count == 0) {
     return Usage;
 }
 
-var differing = 0;
+// Every input is read before anything is written, and the configuration is read with it. Half a
+// rewritten set of baselines is worse than none: a refusal that arrives on the fourth assembly
+// has already done the damage it names on the first three.
+var configurations = new Dictionary<string, string?>(StringComparer.Ordinal);
 
 foreach (var assemblyPath in assemblies) {
     if (!File.Exists(assemblyPath)) {
@@ -65,6 +68,47 @@ foreach (var assemblyPath in assemblies) {
         return Usage;
     }
 
+    configurations[assemblyPath] = AssemblyConfiguration.Read(assemblyPath);
+}
+
+if (update) {
+    // ⚠ The one input this tool could not previously question. A baseline is a promise about a
+    // Release package and `CheckApi` builds Release to make it; the tool takes a path, and
+    // `bin/Debug` is what a developer — or an agent forbidden to run the gate — has lying around.
+    // A `public const bool` whose value is `#if DEBUG` then rewrites itself in a diff of fifty
+    // additions, and the gate fails on master. Refusing costs a rebuild; not refusing cost two
+    // hand-reverted commits.
+    var wrong = assemblies
+        .Where(assembly => !AssemblyConfiguration.IsBaseline(configurations[assembly]))
+        .ToList();
+
+    if (wrong.Count > 0) {
+        Console.Error.WriteLine(
+            string.Create(
+                CultureInfo.InvariantCulture,
+                $"Refusing to rewrite a baseline from {wrong.Count} of {assemblies.Count} assemblies that "
+                + $"were not built in {AssemblyConfiguration.Baseline}:"
+            )
+        );
+
+        foreach (var assembly in wrong) {
+            Console.Error.WriteLine($"  {assembly} — {AssemblyConfiguration.Describe(configurations[assembly])}");
+        }
+
+        Console.Error.WriteLine(
+            "The baseline records the Release surface, because that is what Pack ships, and the two "
+            + "configurations differ: a `public const bool` feature flag guarded by `#if DEBUG` has a "
+            + "different *value*, and a const's value is part of the surface. Build Release and pass "
+            + "bin/Release, or run `./build.sh CheckApi --update-api`, which does."
+        );
+
+        return Usage;
+    }
+}
+
+var differing = 0;
+
+foreach (var assemblyPath in assemblies) {
     var name = Path.GetFileNameWithoutExtension(assemblyPath);
     var directory = ApiBaseline.DirectoryFor(assemblyPath);
     var shippedPath = Path.Combine(directory, ApiBaseline.ShippedFileName);
@@ -101,11 +145,28 @@ foreach (var assemblyPath in assemblies) {
         var rebased = ApiBaseline.Rebase(surface, shipped);
         ApiBaseline.Write(unshippedPath, rebased);
 
+        // The configuration is in the line because the trap it guards is invisible in the diff:
+        // one const's value among fifty additions reads as noise. A log that says which build every
+        // rewritten baseline came from is the cheap half of the same answer.
         Console.WriteLine(
-            string.Create(CultureInfo.InvariantCulture, $"{name}: {surface.Count} entries, {rebased.Count} unshipped.")
+            string.Create(
+                CultureInfo.InvariantCulture,
+                $"{name}: {surface.Count} entries, {rebased.Count} unshipped, "
+                + $"read from {AssemblyConfiguration.Describe(configurations[assemblyPath])}."
+            )
         );
 
         continue;
+    }
+
+    if (!AssemblyConfiguration.IsBaseline(configurations[assemblyPath])) {
+        // Not a failure — checking a Debug build is a reasonable thing to do while working, and the
+        // gate never does it. But a difference it produces may be the configuration rather than the
+        // API, and a reader who does not know that spends an hour on a `= true -> bool`.
+        Console.Error.WriteLine(
+            $"{name}: read from {AssemblyConfiguration.Describe(configurations[assemblyPath])}; the baseline "
+            + $"records {AssemblyConfiguration.Baseline}. A difference below may be the configuration."
+        );
     }
 
     if (!File.Exists(shippedPath) && !File.Exists(unshippedPath)) {
@@ -207,7 +268,10 @@ void PrintUsage() {
 
           --update, -u   Rewrite PublicAPI.Unshipped.txt from what the assemblies contain
                          instead of failing. Shipped API is never rewritten; a shipped entry
-                         that is gone becomes a *REMOVED* line.
+                         that is gone becomes a *REMOVED* line. Refused unless every
+                         assembly was built in Release: a baseline is a promise about a
+                         packed assembly, and a `const` guarded by `#if DEBUG` has a
+                         different value — which is part of the surface.
           --fold, -f     The release: fold Unshipped into Shipped and empty it. Run by
                          `nuke Release` at the tag, never as part of a check.
           --help, -h     This text.

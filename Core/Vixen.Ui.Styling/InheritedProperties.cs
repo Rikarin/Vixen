@@ -285,6 +285,112 @@ public sealed class InheritedProperties {
         return false;
     }
 
+    /// <summary>Hands a descendant the value its ancestor is <i>displaying</i> for an inherited property.</summary>
+    /// <param name="parentCascaded">The parent's cascaded style.</param>
+    /// <param name="parentDisplayed">What <see cref="Animator.Apply" /> made of it, this frame.</param>
+    /// <param name="cascaded">This element's cascaded style.</param>
+    /// <param name="displayed">What <see cref="Animator.Apply" /> made of <i>that</i>, this frame.</param>
+    /// <returns>
+    ///     <paramref name="displayed" /> with the parent's moving values written over the properties
+    ///     this element inherited, or the same instance where nothing moved.
+    /// </returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The animator is a tier laid <i>over</i> the finished cascade, so without this a
+    ///         fading inherited value reaches every descendant as its destination.</b> A panel with
+    ///         <c>transition: color 300ms</c> going red to blue resolves its children against its
+    ///         <i>cascaded</i> style — <see cref="StyleUpdater" />'s <c>Resolve</c> inherits from the
+    ///         parent's stored style — so a label inside it is blue on the panel's first frame and
+    ///         stays blue while the panel travels. The label cannot start a transition of its own to
+    ///         cover it either, because <c>transition-*</c> do not inherit.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Applied in the per-frame overlay pass rather than by inheriting from the overlaid
+    ///         style in the cascade — and the second is not a more expensive version of this, it is a
+    ///         broken one.</b> A cascade is not a per-frame pass: <c>UiDocument.Tick</c> invalidates
+    ///         <i>positions</i> while a transition runs and never the cascade, so nothing re-resolves
+    ///         between the frame a fade starts on and the frame something else changes. Inheriting the
+    ///         overlaid style would therefore freeze each descendant at whatever the parent was
+    ///         displaying at the last cascade — the fade's <i>start</i> value, held for the whole fade
+    ///         and kept after it ended. That is worse than the destination, which is at least where
+    ///         the frame is going.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>"The element inherited it" is inferred rather than recorded, and that is the one
+    ///         approximation here.</b> A <see cref="ComputedStyle" /> does not say where a value came
+    ///         from, so the test is that this element's cascaded value <i>is</i> its parent's cascaded
+    ///         value. An element that declared the same colour as its parent is therefore carried along
+    ///         with it — the answer CSS would give for an inherited value, and a coincidence for a
+    ///         declared one. The alternative is a provenance bit per property in every computed style,
+    ///         paid on every element of every document to serve the frames where something fades.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An element running its own transition on the property keeps it</b>, because
+    ///         <see cref="Animator.Apply" /> has already moved <paramref name="displayed" /> away from
+    ///         <paramref name="cascaded" /> there and this declines to write over that. Its own value
+    ///         is then what its children inherit in turn, which is what lets a chain work with no state
+    ///         carried across the walk beyond the parent's two styles.
+    ///     </para>
+    /// </remarks>
+    public ComputedStyle Descend(
+        ComputedStyle parentCascaded,
+        ComputedStyle parentDisplayed,
+        ComputedStyle cascaded,
+        ComputedStyle displayed
+    ) {
+        ArgumentNullException.ThrowIfNull(parentCascaded);
+        ArgumentNullException.ThrowIfNull(parentDisplayed);
+        ArgumentNullException.ThrowIfNull(cascaded);
+        ArgumentNullException.ThrowIfNull(displayed);
+
+        // Reference equality, which `Animator.Apply` guarantees means "nothing was overlaid on the
+        // parent" — it returns the instance it was given when it substituted nothing. So a document
+        // with nothing fading pays one pointer comparison per element per frame.
+        if (ReferenceEquals(parentCascaded, parentDisplayed)) {
+            return displayed;
+        }
+
+        List<KeyValuePair<int, int>>? overlaid = null;
+
+        for (var i = 0; i < displayed.Count; i++) {
+            var property = displayed.Properties[i];
+
+            if (!Inherits(property)) {
+                continue;
+            }
+
+            // ⚠ Not `displayed` against `cascaded` by index: `Animator.Apply` may have *introduced* a
+            // property the cascade never held — a `@keyframes` block naming one the rule does not —
+            // and the two tables are then different lengths. A property this element's cascade never
+            // set is also one it cannot have inherited.
+            if (!cascaded.TryGet(property, out var own) || displayed.Values[i] != own) {
+                continue;
+            }
+
+            if (!parentCascaded.TryGet(property, out var destination) || destination != own) {
+                continue;
+            }
+
+            if (!parentDisplayed.TryGet(property, out var moving) || moving == destination) {
+                continue;
+            }
+
+            overlaid ??= Copy(displayed);
+            overlaid[i] = new KeyValuePair<int, int>(property, moving);
+        }
+
+        return overlaid is null ? displayed : ComputedStyle.Create(overlaid, displayed.Parent);
+    }
+
+    static List<KeyValuePair<int, int>> Copy(ComputedStyle style) {
+        var pairs = new List<KeyValuePair<int, int>>(style.Count);
+        for (var i = 0; i < style.Count; i++) {
+            pairs.Add(new KeyValuePair<int, int>(style.Properties[i], style.Values[i]));
+        }
+
+        return pairs;
+    }
+
     /// <summary>Whether a property name is a custom property.</summary>
     /// <param name="name">The property name.</param>
     /// <returns>Whether it begins with <c>--</c>.</returns>

@@ -596,6 +596,16 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
         AddCommandHandler("edit.paste", () => Paste(), () => CanPaste);
         AddCommandHandler("edit.select-all", SelectAll, () => !Disabled && buffer.End != default);
 
+        // ⚠ **No `edit.undo` and no `FindUndoManager`, and that is the difference between this
+        // control and `TextField` rather than an omission in it.** A field's `ValueChanged` seam has
+        // nobody on it, so the field records its own edits with the nearest manager and gets nothing
+        // when there is none. `CodeBuffer.Changed` has a real consumer: the editor's `CodeDocument`
+        // already turns each run of typing into a `TextEditCommand` on the document's
+        // `CommandStack`. Since that stack is an `IUndoManager` now, a registration here would
+        // record every edit TWICE into one history — once as this control's entry and once as the
+        // document's command — and ⌘Z would have to be pressed twice per edit. The seam's owner
+        // records, not the control.
+
         AddHandler<KeyEvent>(static (element, args) => ((CodeEditor) element).Keyed(args));
         AddHandler<TextInputEvent>(static (element, args) => ((CodeEditor) element).Typed(args));
         AddHandler<PointerEvent>(static (element, args) => ((CodeEditor) element).Pointed(args));

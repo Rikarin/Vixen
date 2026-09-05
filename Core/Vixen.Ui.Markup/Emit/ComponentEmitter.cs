@@ -348,6 +348,17 @@ public sealed class ComponentEmitter {
                 hasDefaultSlot |= component.Inherits is not null && slot.Name == BuildContextDefaultSlot;
                 break;
 
+            case BoundProvide provide:
+                // ⚠ Nothing at all for a broken one. The binder has already reported which half is
+                // missing, and emitting `Provide<>(…)` on top of that adds a Roslyn error pointing
+                // at generated code the author cannot edit — two complaints about one mistake, one
+                // of them unfixable.
+                if (provide.Type.Length > 0 && provide.Value.Text.Length > 0) {
+                    Mapped(provide.Value, $"{parent}.Provide<{provide.Type}>(", ");");
+                }
+
+                break;
+
             case BoundElement element:
                 EmitElement(element, context, parent);
                 break;
@@ -612,6 +623,39 @@ public sealed class ComponentEmitter {
                 Mapped(action, $"{context}.Use({name}, ", ");");
                 break;
 
+            // ⚠ `Target(element, name)` and not the tag object, which is `class`'s choice rather than
+            // `use`'s: what is being described is the element a screen reader reaches, and for a
+            // capitalised tag that is the element the component drew. A `Component` is not in the
+            // tree at all, so describing one would be describing nothing.
+            case BoundAttributeKind.Help when attribute.IsDynamic:
+                Mapped2(attribute.Value, $"{context}.Help({Target(element, name)}, () => ", ");");
+                break;
+
+            case BoundAttributeKind.Help:
+                Line(
+                    $"{context}.Help({Target(element, name)}, "
+                    + $"{Quote(attribute.Literal ?? string.Empty)});"
+                );
+
+                break;
+
+            // ⚠ `Target(element, name)` for `help`'s reason: a secondary click lands on an element,
+            // and a `Component` is not one. The menu, though, is whatever the expression evaluates
+            // to — the runtime takes a `UiElement` because `Vixen.Ui` has no name for a menu, and
+            // the registered attachment is what checks the type.
+            //
+            // ⚠ And a static call rather than `{context}.`, which is the runtime saying it registers
+            // nothing against the region: the handler it adds is on the target, and the menu belongs
+            // to whoever made it. `Help` is the instance one because its tooltip is neither.
+            case BoundAttributeKind.ContextMenu when attribute.Expression is { } menu:
+                Mapped(
+                    menu,
+                    $"{RuntimeNamespace}.BuildContext.Menu({Target(element, name)}, ",
+                    ");"
+                );
+
+                break;
+
             case BoundAttributeKind.Ref when attribute.Expression is { } member:
                 // ⚠ The whole element and not `Target(element, name)`. A `ref` hands back the thing
                 // the tag named — a `<Callout ref="@callout" />` gives the component, whose methods
@@ -873,7 +917,14 @@ public sealed class ComponentEmitter {
         var innerContext = $"c{depth.ToString(CultureInfo.InvariantCulture)}";
         var innerParent = $"p{depth.ToString(CultureInfo.InvariantCulture)}";
 
-        Line($"({innerContext}, {innerParent}, {@for.Variable}) => {{");
+        // ⚠ The index is a fourth parameter and picks the *other* `For` overload, which is what makes
+        // it a `Signal<int>` in the body rather than an `int`. C# resolves that from the lambda's
+        // parameter count, so nothing here needs to name the type.
+        var row = @for.Index is { } index
+            ? $"{@for.Variable}, {index}"
+            : @for.Variable;
+
+        Line($"({innerContext}, {innerParent}, {row}) => {{");
         depth++;
         EmitNodes(@for.Body, innerContext, innerParent);
         depth--;

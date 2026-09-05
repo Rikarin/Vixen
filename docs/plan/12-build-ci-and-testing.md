@@ -87,7 +87,7 @@ item, and `CheckAttribution` is ADR-015's enforcement.
 | `TestOrder` | prints the order `Test` starts the 178 assemblies in, which is longest first out of `build/test-cost.txt`; `--update-test-cost` rewrites that list from the last run's TRX `Times`. ⚠️ **What used to decide the order was `Vixen.slnx`**, and a solution build of a custom target walks each project's dependencies first — so the assembly referencing the most of the tree was dispatched last, and that assembly is for the same reason the slowest one. `Test` hands MSBuild a generated flat traversal project instead. Measured on the 2026-09-05 runs either side of the change: elapsed 873.3 s → **677.5 s**, with `Vixen.Editor.App.Tests` moving from a 218.4 s start to 0.2 s. The run is now its longest single assembly and cannot be shortened by scheduling at all ([#592](https://github.com/Rikarin/Vixen/issues/592), then [#557](https://github.com/Rikarin/Vixen/issues/557)) |
 | `Coverage` | reports line coverage of each test project against its own subject assembly and gates on nothing but its own instrument; not in CI. `--coverage-project <substring>` narrows it. § Coverage below says why the floor is refused rather than owed |
 | `CheckDocsCoverage` | the half of `CheckDocs` that builds nothing: fails when a type in a `PublicAPI` baseline has no guide page and no `docs/DocsExempt.txt` line. Reachable alone precisely because `CheckDocs` costs a Release build of the solution first |
-| `PruneWorktrees` | reports the agent worktrees under `.claude/worktrees` that are **merged into master, clean and unlocked**, and with `--remove-merged` removes those and only those. ⚠️ **Nothing else in the repository reclaims that disk**: on 2026-09-04 it was 105 GB of a 132 GB tree, ~25 GB per worktree, three of them merged and clean for days. ⚠️ It enumerates *directory entries* and not `git worktree list`, because one 3.8 GB directory in there was not a registered worktree at all — and git run from inside such a directory answers about the parent repository, so it reported itself clean and on master while being neither. Those are warned about and never removed. Removal is `git worktree remove`, so git's own dirtiness refusal stays behind the filter rather than being replaced by it. Not on the graph and never in CI: it deletes checkouts, so it is a target somebody types on purpose ([#561](https://github.com/Rikarin/Vixen/issues/561)) |
+| `PruneWorktrees` | reports the agent worktrees under `.claude/worktrees` that are **merged into master, clean, unlocked and unwritten for `--idle-minutes`** (30), and with `--remove-merged` removes those and only those. ⚠️ **The fourth condition is the only one about the worker rather than the work** ([#770](https://github.com/Rikarin/Vixen/issues/770)): the lock is what "somebody is still using this" is read off, and two of thirteen live agent worktrees carried none on 2026-09-05 — while merged-and-clean is precisely the state a live agent is in between the orchestrator merging its branch and its own process ending. The signal is the newest write anywhere under the worktree, free because the size report already walks every file; the pid in the lock reason is deliberately not consulted, since a recycled pid is a worse oracle than a missing lock and there is no lock to read one out of in the case this is about. ⚠️ The ordering hazard is that merge-then-prune now reports those worktrees as `keep` for up to the window — which costs a sweep and not the disk, since #561's worktrees had been held for days — and `--idle-minutes 0` restores the three-condition behaviour exactly. ⚠️ **Nothing else in the repository reclaims that disk**: on 2026-09-04 it was 105 GB of a 132 GB tree, ~25 GB per worktree, three of them merged and clean for days. ⚠️ It enumerates *directory entries* and not `git worktree list`, because one 3.8 GB directory in there was not a registered worktree at all — and git run from inside such a directory answers about the parent repository, so it reported itself clean and on master while being neither. Those are warned about and never removed. Removal is `git worktree remove`, so git's own dirtiness refusal stays behind the filter rather than being replaced by it. Not on the graph and never in CI: it deletes checkouts, so it is a target somebody types on purpose ([#561](https://github.com/Rikarin/Vixen/issues/561)) |
 | `GoldenImages` | ✅ renders the fixture suite on the local backend — lavapipe on the Linux leg, MoltenVK on macOS — and compares it with the committed references; writes the rendering, the reference and a diff into `artifacts/golden-diff/` on failure, which CI uploads. `--update-golden` rewrites the references. The fixtures also run under `Test`, so a wrong picture fails an ordinary build; the separate target exists for the diffs and the switch. |
 | `CheckAot` / `CheckAotIos` | `PublishAot` + `PublishTrimmed` of a probe that roots the runtime assemblies; **any IL2xxx/IL3xxx warning fails**. ⚠️ **Two targets and not one `AotSmoke`**, because iOS is the NativeAOT-only platform and `CheckAotIos` `.Requires` macOS — a single target would have been silently half a gate on every other runner. ⚠️ The probe roots 29 of 95 runtime assemblies rather than all of them ([#506](https://github.com/Rikarin/Vixen/issues/506)) |
 | `Benchmark` | BenchmarkDotNet over `Benchmarks/*`, then judged against `Benchmarks/baseline.json`: **any** allocation growth fails, a mean more than 10 % above the baseline fails only under `--gate-timing`, and a benchmark that is in the baseline and did not run fails too. ⚠️ **There is no committed baseline yet, and the target therefore fails rather than passing** — a comparison with nothing to compare against is the shape of a gate that did not run, and this row described one for as long as it had described anything. `--update-baseline` writes the file, stamped with the machine, the runtime, the BenchmarkDotNet version and the commit out of BenchmarkDotNet's own `HostEnvironmentInfo`; `--report-only` asks for numbers without a verdict. The comparison alone, over whatever is already in `artifacts/benchmarks`, is `CheckBenchmarks` |
@@ -265,7 +265,20 @@ files.
   expression source, which is worth the dependency on its own.
 - `NSubstitute` only for genuine boundaries (platform interfaces, file providers, network). **Never mock
   a type you own and can construct** — a mocked `Signal<T>` or mocked `LayoutStore` tests the mock.
-- Traits for filtering: `[Trait("Category","Unit|Integration|Golden|Perf|Platform")]`.
+- ⚠️ **Proposed, and implemented by nothing** — traits for filtering:
+  `[Trait("Category","Unit|Integration|Golden|Perf|Platform")]`. `Trait(` appears in **zero** of the
+  4 992 tracked `.cs` files (searched with `git grep -a`, so a NUL byte in a literal cannot be hiding
+  one); no test in this repository has ever carried a trait of any kind. It is listed among the
+  conventions above, which read as *in force*, and it is not one — which is why it is marked here
+  rather than left to be discovered by somebody writing `--filter Category=Unit` and getting an empty
+  run. Whether it arrives at all is [#558](https://github.com/Rikarin/Vixen/issues/558)'s open
+  question: a speed lane wants a way to name the slow tests, and a tag every author has to remember
+  is a gate nothing enforces unless something enforces it per assembly.
+  ⚠️ It does **not** contradict the refusal 160 lines above. What that paragraph refuses is the *Nuke
+  switch* `--filter <test-trait>` ([#340](https://github.com/Rikarin/Vixen/issues/340)), and the
+  replacement it names — a direct `dotnet test --filter` — is exactly what would consume a trait.
+  Were these categories ever applied, `dotnet test <project> --filter "Category=Unit"` is the command,
+  and `nuke Test --filter` remains a switch that does not exist.
 - Deterministic: no `DateTime.Now`, no unseeded random, no `Thread.Sleep`, no real network, no ambient
   filesystem (an in-memory `IFileProvider` is the default).
 - Every test project runs green with `VIXEN_JOB_WORKERS=0` (single-threaded) as a separate CI leg.
@@ -384,10 +397,36 @@ and an `Entity` read that drops its world id — fail this suite and **nothing e
 84 other tests green in each case, which is the measurement of the gap rather than a claim about it.
 Adding a twenty-sixth serializer without a sweep entry fails the census.
 
-Still owed, and deliberately not attempted here: the same treatment for **the cascade**
-([#338](https://github.com/Rikarin/Vixen/issues/338)). ⚠️ Whatever lands there should almost
-certainly not be a percentage either: the shape that survives this section's own argument is an
-executable claim that a named path is exercised, which is a test, not a threshold.
+✅ **The cascade is the third, and it needed the census far more than it needed the drive.**
+`Vixen.Ui.Styling.Tests/SelectorSurfaceSweepTests` carries one row per member of the four enums the
+selector language is made of — `Combinator`, `SimpleSelectorKind`, `AttributeOperator`, `PositionTest`,
+thirty-four in all — and reads the enums back so a member with no row fails by name.
+⚠️ **That direction is the whole value here, because this is the one subsystem where the gap is
+silent by construction**: a new member with no arm in `SelectorMatcher` *compiles*, and a selector
+using it then matches nothing at all — no exception, no diagnostic, a rule that never fires. It is
+`TypeSelectorReachTests`' drift one layer down, in the language rather than in the sheets.
+
+⚠️ **The rows had to be made unable to lie, and that is not the usual table's problem.**
+`SelectorMatchingTests` already says what each construct *means*, by hand and better than a table
+can; what it cannot say is that its list is complete. So each row's selector is compiled and walked
+— compounds, simples, and the selectors nested inside `:not()`, `:is()` and `:has()` — and the member
+it claims must actually appear, or `":first-child"` filed under `NthLastOfType` would satisfy the
+census while testing something else. ⚠️ `SimpleSelector.Operator` and `.Position` are read **only**
+where the kind says they mean something: both are non-nullable with a real default, so every simple
+selector in the tree otherwise "contains" `AttributeOperator.Present` and `PositionTest.First`, and
+those two rows would pass against anything. Each row also asserts an element it does *not* match;
+`Universal` is the single row that cannot, and a row without a negative has to say why.
+
+Three sabotages, each red and each on its own: `SelectorMatcher`'s `Lang` arm returning `false` — the
+missing-arm failure itself — fails that row and nothing else; a row mis-filed under another member
+fails on what compiling it actually produced; deleting a row fails the census naming the member.
+1860/1860 in `Vixen.Ui.Styling.Tests`, 0 skipped.
+
+⚠️ **None of the three ended up as a percentage, and that is now evidence rather than an argument.**
+Each of the query surface, the serializers and the cascade turned into an executable claim that a
+named surface is exercised whole, and in each the enumeration — not the assertion — is what caught
+something: twenty unswept serializers, six hundred ungated arities, and a selector language nothing
+counted.
 
 ### Coverage of the pyramid
 
@@ -524,12 +563,35 @@ worth building on that argument rather than on a blocking one. They are tracked 
   `FindIndex` returns −1 for a call that never happened — so "it bound before it drew" is green when
   nothing bound anything. `AfterBinding` asks which pipeline was *in force*, not whether the one named
   appears somewhere earlier.
-- **`GoldenFile`** — the snapshot helper: reads/writes under `__golden__/`, honours `--update-golden`,
-  produces a readable unified diff on mismatch. ⚠️ Nothing writes `__golden__/`, and the suites that
-  need the behaviour each grew their own: `VIXEN_UPDATE_GOLDEN` in
-  [`Vixen.Graphics.Golden.Tests`](../../Platform/Vixen.Graphics.Golden.Tests), `VIXEN_REGENERATE` in
-  `LibraryReflectionTests` and `GeneratedBindingsTests`, `__wire__/` in the two `Vixen.Net` suites.
-  Three switches for one behaviour is the cost being paid.
+- **`GoldenFile`** — ✅ the snapshot helper, in [`Testing/GoldenFile.cs`](../../Testing/GoldenFile.cs),
+  linked the way `Measured` is and adopted by the four `Golden*Tests` in `Vixen.Raven.Tests`, which
+  are what it was taken out of: each had written the same fifteen lines by hand.
+
+  **Two of the three specified parts landed and the third was refused.** The unified diff is here and
+  is the half `Assert.Equal` cannot do — over a few kilobytes of syntax tree or SPIR-V listing its
+  message is a window of characters around an offset, which tells a reviewer that something moved and
+  not what. ⚠️ **`__golden__/` was not imposed**: the corpora predate the helper and live where the
+  input they were rendered from lives (`Fixtures/lambert.ir` beside `Fixtures/lambert.rvn`, reading
+  the pair together being the whole review), so the caller names the path.
+
+  ⚠️ **And the switch was not a decision after all.** The tree was read here as having three
+  conventions for one behaviour; it has two, split by *what is being rewritten*. `UPDATE_GOLDEN`
+  rewrites a **snapshot of output** and is what all six text suites already document and type;
+  `VIXEN_REGENERATE` rewrites a committed **artefact that is not a fixture** — generated binding code,
+  `reflect.json`, the parity census — which is a different thing that happens to be spelled with a
+  file. `GoldenFile` honours `UPDATE_GOLDEN`, and also `VIXEN_UPDATE_GOLDEN` because `build/Build.cs`
+  exports that from this document's own `--update-golden`.
+
+  **What it buys is three refusals, and all three replace a form that is green when it should be
+  red.** A golden that had to be **created** fails rather than passes, because a snapshot nobody has
+  read is not evidence. An **empty rendering** is refused even against an empty committed golden — a
+  printer that returned nothing, a generator that emitted no stages, an enumeration that found no
+  fixtures, and an empty file committed once that agrees with all of them for ever. And
+  ⚠️ `GoldenFile.Batch` refuses a set that **compared nothing**: `GoldenSpirvTests` and
+  `GoldenGlslTests` both looped `foreach (var unit in Compile(name))` and reported a **pass** on a
+  backend that generated no stages at all, which is the one failure a code-generation golden exists
+  to catch. Each rule is pinned in `GoldenFileTests` and each was proved by sabotage, including that
+  last one against the real suite.
 - **`Vixen.Ui.Testing`** — ✅ the interface half of `TestApp`, built ahead of it because it needs
   nothing from the engine: a real `UiDocument`, a clock the test owns, a synthetic pointer and
   keyboard, and a frame pump. Commands retry **in frames rather than in seconds**, which is what

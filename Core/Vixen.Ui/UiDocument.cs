@@ -764,15 +764,20 @@ public sealed partial class UiDocument : IDisposable {
 
     /// <summary>Drops anything that was pointing into a subtree about to go.</summary>
     void Release(UiElement element) {
-        for (var focused = Focused; focused is not null; focused = focused.Parent) {
-            if (ReferenceEquals(focused, element)) {
-                // ⚠ Forced, and it is the reason `force` exists. A removal is not a move the user
-                // asked for, so a field refusing to resign while its value is invalid must not be
-                // able to refuse being deleted — the alternative is a document holding a focus that
-                // points into a subtree it has just detached, which every read of `Focused` after
-                // that would throw on.
-                Focus(null, force: true);
-                break;
+        // ⚠ Asked of every surface rather than of `Focused`. The focus is per window now, so a panel
+        // removed from a background one holds a focus this document's `Focused` cannot see — and the
+        // read that would have found it is the one that throws, on the next switch to that window.
+        foreach (var surface in surfaces) {
+            for (var focused = surface.Focused; focused is not null; focused = focused.Parent) {
+                if (ReferenceEquals(focused, element)) {
+                    // ⚠ Forced, and it is the reason `force` exists. A removal is not a move the
+                    // user asked for, so a field refusing to resign while its value is invalid must
+                    // not be able to refuse being deleted — the alternative is a document holding a
+                    // focus that points into a subtree it has just detached, which every read of
+                    // `Focused` after that would throw on.
+                    Focus(surface, null, true);
+                    break;
+                }
             }
         }
 
@@ -1170,7 +1175,7 @@ public sealed partial class UiDocument : IDisposable {
     ///     own display's pixel grid.
     /// </remarks>
     void Arrange() {
-        Apply(Root, Viewport.RootFontSize, ComputedText.Initial, Viewport);
+        Apply(Root, Viewport.RootFontSize, ComputedText.Initial, Viewport, null, null);
 
         foreach (var surface in surfaces) {
             // ⚠ Written before each call rather than once, because two windows on two displays have
@@ -1224,6 +1229,12 @@ public sealed partial class UiDocument : IDisposable {
         seconds = (float) now.TotalSeconds;
         Gestures.Tick(now);
 
+        // ⚠ Before the animator's advance rather than after it, because a subtree whose interval has
+        // run out is one whose transitions have finished: advancing them first would spend a pass
+        // interpolating properties of elements this call is about to remove, and — worse — would
+        // leave the frame that removes them one frame later than the number the author wrote.
+        AdvanceExits(now);
+
         // ⚠ Asked *before* the advance, because the advance is what makes the last frame of a fade
         // idle. Reading it after would skip the pass that writes the arrival value, leaving every
         // transition permanently one frame short of where it was going — the interruption logic hides
@@ -1276,6 +1287,51 @@ public sealed partial class UiDocument : IDisposable {
     ///     half of a pair rather than a convenience.
     /// </remarks>
     public event Action<UiDocument, TimeSpan>? Ticked;
+
+    /// <summary>The subtrees that have been let go of and are still on screen.</summary>
+    readonly List<Composition.RegionExit> exits = [];
+
+    /// <summary>Holds a leaving subtree in the document until its moment passes.</summary>
+    /// <param name="exit">What is leaving, and when it stops.</param>
+    /// <remarks>
+    ///     ⚠ <b>The document owns the interval rather than the region that is leaving.</b> A region
+    ///     has no clock and cannot be given one — <c>Region</c> is built and abandoned by control
+    ///     flow, and the construct that let it go has already moved on — so an exit that timed
+    ///     itself would need a timer per row and a subscription per row to whatever drives them.
+    ///     Here there is one list and one walk, on the call a host already has to make every frame.
+    /// </remarks>
+    internal void Defer(Composition.RegionExit exit) {
+        ArgumentNullException.ThrowIfNull(exit);
+        exits.Add(exit);
+    }
+
+    /// <summary>Ends every leaving subtree whose interval has run out.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Over a snapshot, because finishing one runs its owner's reconciliation.</b> A
+    ///     <c>@for</c> told that a row has gone repositions what is left, and a repositioning that
+    ///     changed the sequence again could let another row go — into this list, during this walk.
+    /// </remarks>
+    void AdvanceExits(TimeSpan now) {
+        if (exits.Count == 0) {
+            return;
+        }
+
+        Composition.RegionExit[] pending = [.. exits];
+
+        exits.Clear();
+
+        foreach (var exit in pending) {
+            if (exit.Done) {
+                continue;
+            }
+
+            if (now >= exit.Deadline) {
+                exit.Region.Finish();
+            } else {
+                exits.Add(exit);
+            }
+        }
+    }
 
     /// <summary>Writes each element's resolved style through to the layout store.</summary>
     /// <remarks>
@@ -1357,7 +1413,14 @@ public sealed partial class UiDocument : IDisposable {
             new(float.NaN, float.NaN, 0f, 0f, FontFeatureSet.None, 0f, float.NaN);
     }
 
-    void Apply(UiElement element, float parentFontSize, ComputedText parentText, LengthContext metrics) {
+    void Apply(
+        UiElement element,
+        float parentFontSize,
+        ComputedText parentText,
+        LengthContext metrics,
+        ComputedStyle? parentCascaded,
+        ComputedStyle? parentDisplayed
+    ) {
         // ⚠ The surface's own lengths from here down. `50vw` inside a torn-off inspector means half
         // of that window, and resolving it against the main one would size a 400-pixel palette
         // against a 3840-pixel display. Everything else — the cascade, inheritance, the font size —
@@ -1376,7 +1439,26 @@ public sealed partial class UiDocument : IDisposable {
         //
         // Free when nothing is running — `Animator.Apply` returns the same instance — which is what
         // lets it sit in the hot walk of every element of every frame.
-        var style = Styles.Animations.Apply(element.StyleNode, Restyler.StyleOf(element.StyleNode), seconds);
+        var cascaded = Restyler.StyleOf(element.StyleNode);
+        var style = Styles.Animations.Apply(element.StyleNode, cascaded, seconds);
+
+        // ⚠ <b>And the second half of that tier, which is inheritance — because the cascade this is
+        // laid over resolved every child against the parent's <i>destination</i>.</b>
+        // `StyleUpdater.Resolve` inherits from `styles[parent]`, so a label inside a panel fading its
+        // `color` gets the panel's arrival value on the panel's first frame and keeps it for the whole
+        // fade. The child cannot start a transition of its own to cover it either: `transition-*` do
+        // not inherit. See `InheritedProperties.Descend`, which also records why doing this in the
+        // cascade instead is not a cheaper version of it but a broken one — nothing re-cascades
+        // between the frame a fade starts and the frame something else changes, so the child would
+        // freeze at the fade's *start* value rather than travel.
+        //
+        // ⚠ Guarded by a reference comparison here as well as inside, so a document with nothing
+        // fading pays one pointer test per element per frame and no call at all.
+        if (parentCascaded is not null
+            && parentDisplayed is not null
+            && !ReferenceEquals(parentCascaded, parentDisplayed)) {
+            style = Styles.Resolver.Inherited.Descend(parentCascaded, parentDisplayed, cascaded, style);
+        }
 
         element.Style = style;
         element.FontSize = Builder.ResolveFontSize(style, parentFontSize, metrics);
@@ -1487,7 +1569,7 @@ public sealed partial class UiDocument : IDisposable {
         // ⚠ `ChildList` rather than `Children`, here and in `Accumulate`, and it is worth forty bytes
         // per element with children per frame. See the remarks on it.
         foreach (var child in element.ChildList) {
-            Apply(child, element.FontSize, text, metrics);
+            Apply(child, element.FontSize, text, metrics, cascaded, style);
         }
     }
 
@@ -1846,7 +1928,10 @@ public sealed partial class UiDocument : IDisposable {
         // ⚠ Read before the route rather than after it. What decides whether a press clicked *away*
         // from the focus is where the focus was when the press landed, and by the time the route has
         // finished a control may have moved it.
-        var focused = Focused;
+        //
+        // ⚠ And read off the surface the press landed in rather than off the document. A click in a
+        // second window is not a click away from the first window's caret.
+        var focused = surface.Focused;
 
         target?.Raise(args);
 
@@ -1854,7 +1939,7 @@ public sealed partial class UiDocument : IDisposable {
         // and this can tell that it did; and only when nothing was already captured, because a
         // pointer in the middle of a gesture is not a click on whatever it is passing over.
         if (args.Action == PointerAction.Pressed && captured is null) {
-            Defocus(target, focused);
+            Defocus(surface, target, focused);
         }
 
         // After the raw event rather than instead of it. A gesture is a reading of the pointer
@@ -2574,6 +2659,12 @@ public sealed partial class UiDocument : IDisposable {
         // graph was let go.
         ReleaseCommandResponders();
         ReleaseAccessibilitySubscribers();
+
+        // Dropped rather than finished. A leaving region's bindings were disposed the moment it was
+        // let go of — see `Region.Leave` — so there is nothing here to unsubscribe, and running the
+        // removals through a document that has just declared itself disposed would be work whose
+        // only observable effect is on stores this call is about to release.
+        exits.Clear();
 
         Layout.Dispose();
     }

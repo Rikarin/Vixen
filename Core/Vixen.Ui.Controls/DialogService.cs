@@ -148,12 +148,36 @@ public sealed class DialogService : IDisposable {
     /// <summary>An ask that has not been shown yet: how to show it, and how to answer it unshown.</summary>
     readonly record struct Ask(Action Present, Action Dismiss);
 
+    /// <summary>A dialog a panel owns, waiting its turn, and whether the panel still wants it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A flag rather than taking the entry back out of the queue, because a
+    ///     <see cref="Queue{T}" /> has no way to.</b> A panel's state can flip twice before the ask
+    ///     it made is reached — the flag is read when it is, and an ask nobody wants any more is
+    ///     dropped there.
+    /// </remarks>
+    sealed class Presentation {
+        internal required Dialog Dialog { get; init; }
+
+        internal bool Wanted { get; set; }
+    }
+
     readonly Queue<Ask> queued = [];
+    readonly Dictionary<Dialog, Presentation> presentations = [];
     readonly UiDocument document;
 
     Action? finish;
     bool closed;
     bool disposed;
+
+    /// <summary>Whether <see cref="Current" /> is a dialog this service made.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What decides whether <see cref="Finish" /> removes the element.</b> A dialog this
+    ///     service presented was created by it and is its to take away; a dialog a panel wrote in its
+    ///     own markup belongs to that panel's region and would come back on the next rebuild having
+    ///     been removed from underneath it — an element removed twice, and a <c>ref</c> pointing at a
+    ///     corpse.
+    /// </remarks>
+    bool owned;
 
     /// <summary>Creates the service over a document, and hangs its pump on that document's tick.</summary>
     /// <param name="document">Where the dialogs go, and whose frame answers them.</param>
@@ -345,6 +369,72 @@ public sealed class DialogService : IDisposable {
         return completion.Task;
     }
 
+    /// <summary>Shows a dialog a panel owns for as long as the panel's own state says to.</summary>
+    /// <param name="dialog">The dialog, written in the panel's markup and owned by it.</param>
+    /// <param name="asking">Whether the panel's state says the question is being asked.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The declarative half, beside the awaited one, and it is not a replacement for
+    ///         it.</b> <see cref="ConfirmAsync" /> and its neighbours are imperative on purpose: a
+    ///         command that must have an answer before it continues is exactly a call that returns
+    ///         one, and every caller in the tree is that shape. What had no spelling at all was
+    ///         SwiftUI's other arrangement — a dialog that is a <i>function of state</i>, so the
+    ///         panel that shows one is the panel that owns the flag, and the presentation survives a
+    ///         rebuild because the flag does.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It goes through the same queue, and that is the whole reason it is here rather
+    ///         than in markup on its own.</b> A panel could already open its own <c>&lt;Dialog&gt;</c>
+    ///         from an effect; what it could not do is take its turn. Two backdrops over each other
+    ///         is a picture with no answer in it, and a state-driven dialog that appeared over an
+    ///         awaited one would be exactly that — with the awaited one still holding the focus
+    ///         scope. So this enqueues, and a panel's ask waits behind a command's.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Idempotent, because what calls it is an effect.</b>
+    ///         <c>use="@(d =&gt; Dialogs.Present(d, Asking.Value))"</c> re-runs on every change of
+    ///         every signal the expression read; saying the same thing twice must not enqueue twice.
+    ///     </para>
+    ///     <para>
+    ///         <b>The answer is the panel's own business</b>, which is the other half of what makes
+    ///         this a different shape from an awaited ask: there is no <see cref="Task{TResult}" />
+    ///         to complete, so what the buttons do is write the model — an <c>on:click</c> that sets
+    ///         a signal — and the dialog goes away because that signal is what this reads. A dialog
+    ///         the user dismisses instead needs <c>on:openchanged</c> to tell the model, or the model
+    ///         asks for it again on the next flush.
+    ///     </para>
+    /// </remarks>
+    public void Present(Dialog dialog, bool asking) {
+        ArgumentNullException.ThrowIfNull(dialog);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (!asking) {
+            if (presentations.TryGetValue(dialog, out var waiting)) {
+                waiting.Wanted = false;
+            }
+
+            if (ReferenceEquals(Current, dialog) && dialog.IsOpen) {
+                dialog.Close();
+            }
+
+            return;
+        }
+
+        if (ReferenceEquals(Current, dialog) || closed) {
+            return;
+        }
+
+        if (presentations.TryGetValue(dialog, out var already)) {
+            already.Wanted = true;
+            return;
+        }
+
+        var presentation = new Presentation { Dialog = dialog, Wanted = true };
+
+        presentations[dialog] = presentation;
+        queued.Enqueue(new Ask(() => Show(presentation), () => presentations.Remove(dialog)));
+    }
+
     /// <summary>Opens whatever is waiting, and completes whatever has been answered.</summary>
     /// <remarks>
     ///     <para>
@@ -394,6 +484,8 @@ public sealed class DialogService : IDisposable {
         while (queued.Count > 0) {
             queued.Dequeue().Dismiss();
         }
+
+        presentations.Clear();
     }
 
     /// <summary>Takes the answered dialog away and runs the caller's continuation.</summary>
@@ -411,9 +503,16 @@ public sealed class DialogService : IDisposable {
 
         var completed = finish;
 
-        answered.Remove();
+        // ⚠ Only what this service made. A dialog a panel wrote in its own markup is that panel's
+        // region's to remove, and taking it out here would leave a `ref` pointing at a removed
+        // element and a rebuild re-adding one beside it.
+        if (owned) {
+            answered.Remove();
+        }
+
         Current = null;
         finish = null;
+        owned = false;
 
         // ⚠ After the fields are cleared, because the continuation runs inline from here and a
         // command that answers one dialog by opening another would otherwise find the service still
@@ -431,6 +530,23 @@ public sealed class DialogService : IDisposable {
     static string DefaultCancel => ControlStrings.DialogCancel.Text;
 
     void OnTicked(UiDocument _, TimeSpan __) => Pump();
+
+    /// <summary>Puts a panel's own dialog up, if the panel still wants it by the time its turn comes.</summary>
+    void Show(Presentation presentation) {
+        presentations.Remove(presentation.Dialog);
+
+        if (!presentation.Wanted) {
+            // The panel changed its mind while this waited. Dropped rather than shown-and-closed,
+            // which is a dialog that flashes.
+            return;
+        }
+
+        Current = presentation.Dialog;
+        owned = false;
+        finish = null;
+
+        presentation.Dialog.Open();
+    }
 
     static void Message<TResult>(DialogSession<TResult> session, string? message) {
         if (!string.IsNullOrEmpty(message)) {
@@ -451,6 +567,7 @@ public sealed class DialogService : IDisposable {
         build(session);
 
         Current = dialog;
+        owned = true;
 
         finish = () => completion.TrySetResult(
             session.IsAnswered

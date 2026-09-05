@@ -199,4 +199,121 @@ public class ElementStateBitTests {
 
         Assert.Null(ui.Document.NumberOf(field.Style, opacity));
     }
+
+    /// <summary>A mandatory field carries <c>:required</c>, and <c>:optional</c> is its absence.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The declaration and not the verdict.</b> <c>:required</c> is true of a field that has
+    ///     been filled in perfectly well, which is what separates it from <c>:invalid</c> — a test
+    ///     that only ever looked at an empty required field would pass with the two folded into one
+    ///     bit. So the value is set before the flag is read back.
+    /// </remarks>
+    [Fact]
+    public void A_required_field_carries_the_state_and_an_optional_one_does_not() {
+        using var ui = Opened();
+
+        var field = ui.Add<TextBox>();
+
+        Assert.False(field.State.HasFlag(ElementState.Required));
+
+        field.Required = true;
+        field.Value = "Ada";
+
+        Assert.True(field.State.HasFlag(ElementState.Required));
+
+        field.Required = false;
+
+        Assert.False(field.State.HasFlag(ElementState.Required));
+    }
+
+    /// <summary>Exactly one of <c>:valid</c> and <c>:invalid</c>, always, from the moment it exists.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The first assertion is the one a two-bit implementation gets wrong.</b> A field
+    ///         nobody has touched has never been through a value change, so nothing but the call in
+    ///         <c>OnCreated</c> writes a verdict — and without it the field carries neither bit, which
+    ///         a selector cannot tell apart from a container that does not validate at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And both bits are asserted at every step, not just the one being claimed. The
+    ///         failure worth catching here is <i>both at once</i>, which no single positive
+    ///         assertion can see.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_field_is_valid_or_invalid_and_never_both_nor_neither() {
+        using var ui = Opened();
+
+        var field = ui.Add<TextBox>();
+
+        Assert.True(field.State.HasFlag(ElementState.Valid));
+        Assert.False(field.State.HasFlag(ElementState.Invalid));
+
+        // An empty required field is invalid from the moment it is marked, which is what `TextField`
+        // documents and what makes the verdict independent of a submit.
+        field.Required = true;
+
+        Assert.True(field.State.HasFlag(ElementState.Invalid));
+        Assert.False(field.State.HasFlag(ElementState.Valid));
+
+        field.Value = "Ada";
+
+        Assert.True(field.State.HasFlag(ElementState.Valid));
+        Assert.False(field.State.HasFlag(ElementState.Invalid));
+
+        // And a rule the application attaches moves it the same way, so the bit follows `Validate`
+        // rather than following `Required`.
+        field.Validator = value => value == "Ada" ? "taken" : null;
+
+        Assert.True(field.State.HasFlag(ElementState.Invalid));
+        Assert.False(field.State.HasFlag(ElementState.Valid));
+    }
+
+    /// <summary>And the cascade answers <c>:invalid</c>, which is what all of it is for.</summary>
+    /// <remarks>
+    ///     ⚠ End to end rather than on the bit, on the same terms as the <c>:read-only</c> test
+    ///     above: a bit nothing selects on is the same as no bit at all. Both directions, so a rule
+    ///     that applied unconditionally would fail.
+    /// </remarks>
+    [Fact]
+    public void A_stylesheet_can_select_on_invalidity() {
+        using var ui = ControlHarness.Open(200f, 120f, "textbox:invalid { opacity: 0.4 }");
+
+        var field = ui.Add<TextBox>();
+        var opacity = ui.Document.PropertyId("opacity");
+
+        Assert.Null(ui.Document.NumberOf(field.Style, opacity));
+
+        field.Required = true;
+        ui.Frame();
+
+        Assert.Equal(0.4f, ui.Document.NumberOf(field.Style, opacity) ?? 0f, 3);
+
+        field.Value = "Ada";
+        ui.Frame();
+
+        Assert.Null(ui.Document.NumberOf(field.Style, opacity));
+    }
+
+    /// <summary><c>:optional</c> is the absence of <c>:required</c>, and matches the other way round.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A negation rather than a bit of its own</b>, on <c>:read-write</c>'s terms — so its
+    ///     rows run backwards from every other test in this file, which is exactly what a compiler
+    ///     that had given it a state of its own would fail. It carries the same stated divergence:
+    ///     everything that never said it was required is optional here, where a browser would only
+    ///     say it of a form control.
+    /// </remarks>
+    [Fact]
+    public void Optional_is_the_absence_of_required() {
+        using var ui = ControlHarness.Open(200f, 120f, "textbox:optional { opacity: 0.6 }");
+
+        var field = ui.Add<TextBox>();
+        var opacity = ui.Document.PropertyId("opacity");
+
+        Assert.Equal(0.6f, ui.Document.NumberOf(field.Style, opacity) ?? 0f, 3);
+
+        field.Required = true;
+        ui.Frame();
+
+        Assert.Null(ui.Document.NumberOf(field.Style, opacity));
+    }
 }

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Input;
 using Xunit;
 
 namespace Vixen.Ui.Tests;
@@ -230,6 +231,104 @@ public class InAppDragTests {
         Assert.Null(document.CurrentDrag?.Target);
         Assert.Equal(DropEffect.None, document.CurrentDrag?.Effect);
         Assert.Equal([DragOverStage.Entered], stages);
+    }
+
+    /// <summary>
+    ///     ⚠ <b><c>CancelDrag</c>'s own remarks said "Escape does this" and nothing anywhere called
+    ///     it.</b> The in-app drag had no way out but a release, so a drag begun by accident had to
+    ///     be finished somewhere harmless — which for a reorder means putting the row down in a place
+    ///     the user then has to undo.
+    /// </summary>
+    [Fact]
+    public void Escape_cancels_the_drag_in_progress() {
+        using var document = Laid();
+        var source = document.Root.Add("div", classNames: "pane");
+        var pane = document.Root.Add("div", classNames: "pane");
+        pane.AllowDrop = true;
+        document.Update();
+
+        var drops = 0;
+        pane.AddHandler<DropEvent>((_, _) => drops++);
+
+        document.BeginDrag(source, Row("track"));
+        document.Dispatch(At(PointerAction.Moved, 150f, 50f));
+
+        document.Dispatch(new KeyEvent { Key = InputKey.Escape, Action = KeyAction.Pressed });
+
+        Assert.Null(document.CurrentDrag);
+
+        // And the release that follows — the user's finger is still down — drops nothing.
+        document.Dispatch(At(PointerAction.Released, 150f, 50f));
+        Assert.Equal(0, drops);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Escape belongs to the drag while one is running, and to the focus otherwise.</b>
+    ///     Offered after the route, a text field or an open menu would take it and the drag would
+    ///     still be running underneath — which is the same press doing nothing, twice.
+    /// </summary>
+    [Fact]
+    public void Escape_reaches_the_focus_again_once_the_drag_is_over() {
+        using var document = Laid();
+        var source = document.Root.Add("div", classNames: "pane");
+        var field = document.Root.Add("div", classNames: "pane");
+        field.Focusable = true;
+        document.Update();
+        document.Focus(field);
+
+        var escapes = 0;
+        field.AddHandler<KeyEvent>((_, args) => {
+            if (args.Key == InputKey.Escape) {
+                escapes++;
+            }
+        });
+
+        document.BeginDrag(source, Row("track"));
+        document.Dispatch(new KeyEvent { Key = InputKey.Escape, Action = KeyAction.Pressed });
+
+        // The drag took it, so the focus did not.
+        Assert.Equal(0, escapes);
+
+        document.Dispatch(new KeyEvent { Key = InputKey.Escape, Action = KeyAction.Pressed });
+        Assert.Equal(1, escapes);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The source going takes the whole drag with it.</b> <c>DragSession.Source</c> is what
+    ///     a target reads as <c>DropEvent.DragSource</c>, and every path off a removed element
+    ///     throws — so a panel rebuilt mid-drag left a session naming a dead element and the
+    ///     exception landed in the target's drop handler, which had done nothing wrong.
+    /// </summary>
+    [Fact]
+    public void A_source_that_leaves_the_tree_mid_drag_cancels_the_drag() {
+        using var document = Laid();
+        var holder = document.Root.Add("div", classNames: "pane");
+        var source = holder.Add("div", classNames: "leaf");
+        var pane = document.Root.Add("div", classNames: "pane");
+        pane.AllowDrop = true;
+        document.Update();
+
+        var stages = new List<DragOverStage>();
+        pane.AddHandler<DragOverEvent>((_, args) => stages.Add(args.Stage));
+
+        var drops = 0;
+        pane.AddHandler<DropEvent>((_, _) => drops++);
+
+        document.BeginDrag(source, Row("track"));
+        document.Dispatch(At(PointerAction.Moved, 150f, 50f));
+
+        // The subtree goes, not the source itself — the case a reference test misses, and the one a
+        // rebuilt panel actually produces.
+        holder.Remove();
+        document.Update();
+
+        Assert.Null(document.CurrentDrag);
+
+        // The target was told it lost the drag rather than being left holding feedback for it.
+        Assert.Equal([DragOverStage.Entered, DragOverStage.Left], stages);
+
+        document.Dispatch(At(PointerAction.Released, 150f, 50f));
+        Assert.Equal(0, drops);
     }
 
     /// <summary>A drag over nothing that allows drops reaches nobody and drops nowhere.</summary>
