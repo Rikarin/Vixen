@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Runtime.InteropServices;
+using System.Text;
 using ExCSS;
 using Selector = Vixen.Ui.Styling.Selector;
 
@@ -122,13 +123,218 @@ public sealed class StyleSheetLoader {
     public void Load(string css, StyleOrigin origin, MediaContext? media) {
         ArgumentNullException.ThrowIfNull(css);
         LoadInto(
-            Parser.Parse(css),
+            Parser.Parse(RefuseRelativeHas(css)),
             origin,
             media,
             CascadeLayers.Unlayered,
             MediaConditions.Unconditional,
             ContainerConditions.Unconditional
         );
+    }
+
+    /// <summary>Drops every rule whose selector uses a relative <c>:has()</c> argument.</summary>
+    /// <param name="css">The stylesheet text.</param>
+    /// <returns>The same text with those rules cut out, or the same instance when there are none.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Before the parser, because the parser is where the evidence is destroyed.</b>
+    ///         ExCSS 4.3.2 parses <c>:has(&gt; .x)</c> into the node it parses <c>:has(.x)</c> into,
+    ///         combinator gone from the tree <i>and</i> from <c>ISelector.Text</c>. So
+    ///         <c>.card:has(&gt; .error)</c> compiled, matched, and meant "a <c>.error</c> anywhere
+    ///         below" — a rule quietly meaning something wider than it says, which is the one thing
+    ///         this loader and <see cref="SelectorCompiler" /> exist to refuse. There was nothing
+    ///         left for the compiler to refuse it <i>with</i>: a leading combinator does not leave a
+    ///         second compound behind, it leaves nothing at all.
+    ///     </para>
+    ///     <para>
+    ///         The same is true of <c>:has(+ .x)</c> and <c>:has(~ .x)</c>, and those disagree more
+    ///         loudly still — a relative <i>sibling</i> selector answered as a descendant one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The whole rule goes, not the one selector in its list.</b> That is CSS's own
+    ///         rule for an invalid selector in a group, and it is also the only one available here:
+    ///         what is being cut is source text, before anything has split the list.
+    ///     </para>
+    ///     <para>
+    ///         A text scan is inelegant and is not a parser. It is bounded to preludes — the span
+    ///         between the last <c>;</c>, <c>{</c> or <c>}</c> and the next <c>{</c> — with comments
+    ///         and quoted strings skipped, so a <c>content: ":has(&gt; x)"</c> is not a rule and is
+    ///         not read as one. It answers "is there a combinator directly inside <c>:has(</c>",
+    ///         which is the whole of what the parser will shortly throw away, and the far more
+    ///         expensive alternative is to stop using ExCSS's selector tree.
+    ///     </para>
+    /// </remarks>
+    string RefuseRelativeHas(string css) {
+        // The scan below is a character walk over the whole sheet, and nearly every sheet in the
+        // tree contains no `:has()` at all.
+        if (css.IndexOf(":has(", StringComparison.OrdinalIgnoreCase) < 0) {
+            return css;
+        }
+
+        StringBuilder? kept = null;
+        var copied = 0;
+        var prelude = 0;
+        var relative = -1;
+
+        for (var i = 0; i < css.Length; i++) {
+            var c = css[i];
+
+            // An escaped character is one character of an identifier and never a delimiter — the
+            // same rule `LayerRuleParser` learned the hard way, and for the same reason: a generated
+            // utility selector is `.f-\[\"onum\"_1\]`, and reading that first `\"` as a quote opens
+            // a string that swallows the next brace.
+            if (c == '\\') {
+                i++;
+                continue;
+            }
+
+            if (c == '/' && i + 1 < css.Length && css[i + 1] == '*') {
+                i = EndOfComment(css, i);
+                continue;
+            }
+
+            if (c is '"' or '\'') {
+                i = EndOfString(css, i);
+                continue;
+            }
+
+            // A declaration ends a prelude just as a block does, which is what keeps a `:has(` seen
+            // in a property value from being attributed to the rule after it.
+            if (c is ';' or '}') {
+                prelude = i + 1;
+                relative = -1;
+                continue;
+            }
+
+            if (c == '{') {
+                if (relative < 0) {
+                    prelude = i + 1;
+                    continue;
+                }
+
+                var end = EndOfBlock(css, i);
+
+                kept ??= new StringBuilder(css.Length);
+                kept.Append(css, copied, prelude - copied);
+                copied = end;
+
+                diagnostics.Add(
+                    new SelectorDiagnostic(
+                        css[relative..EndOfArgument(css, relative)],
+                        "a relative ':has()' argument is not supported — the combinator is lost before Vixen sees "
+                        + "it, so the rule would silently mean 'anywhere in the subtree'",
+                        css[prelude..i].Trim()
+                    )
+                );
+
+                i = end - 1;
+                prelude = end;
+                relative = -1;
+                continue;
+            }
+
+            if (c == ':'
+                && relative < 0
+                && string.Compare(css, i, ":has(", 0, 5, StringComparison.OrdinalIgnoreCase) == 0
+                && IsCombinator(css, i + 5)) {
+                relative = i;
+            }
+        }
+
+        if (kept is null) {
+            return css;
+        }
+
+        kept.Append(css, copied, css.Length - copied);
+
+        return kept.ToString();
+    }
+
+    /// <summary>Whether the first thing after an offset is a combinator rather than a compound.</summary>
+    static bool IsCombinator(string css, int from) {
+        for (var i = from; i < css.Length; i++) {
+            if (!char.IsWhiteSpace(css[i])) {
+                return css[i] is '>' or '+' or '~';
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>The index one past the <c>)</c> closing a <c>:has(</c> that starts at an offset.</summary>
+    static int EndOfArgument(string css, int from) {
+        var depth = 0;
+
+        for (var i = from; i < css.Length; i++) {
+            switch (css[i]) {
+                case '(':
+                    depth++;
+                    break;
+
+                case ')' when --depth == 0:
+                    return i + 1;
+            }
+        }
+
+        return css.Length;
+    }
+
+    /// <summary>The index one past the <c>}</c> closing a block that opens at an offset.</summary>
+    static int EndOfBlock(string css, int from) {
+        var depth = 0;
+
+        for (var i = from; i < css.Length; i++) {
+            var c = css[i];
+
+            if (c == '\\') {
+                i++;
+                continue;
+            }
+
+            if (c == '/' && i + 1 < css.Length && css[i + 1] == '*') {
+                i = EndOfComment(css, i);
+                continue;
+            }
+
+            if (c is '"' or '\'') {
+                i = EndOfString(css, i);
+                continue;
+            }
+
+            switch (c) {
+                case '{':
+                    depth++;
+                    break;
+
+                case '}' when --depth == 0:
+                    return i + 1;
+            }
+        }
+
+        // Unterminated. Everything from here on was going to be part of the refused rule anyway.
+        return css.Length;
+    }
+
+    /// <summary>The index of the <c>/</c> ending a comment that opens at an offset.</summary>
+    static int EndOfComment(string css, int from) {
+        var end = css.IndexOf("*/", from + 2, StringComparison.Ordinal);
+        return end < 0 ? css.Length - 1 : end + 1;
+    }
+
+    /// <summary>The index of the quote ending a string that opens at an offset.</summary>
+    static int EndOfString(string css, int from) {
+        for (var i = from + 1; i < css.Length; i++) {
+            if (css[i] == '\\') {
+                i++;
+                continue;
+            }
+
+            if (css[i] == css[from]) {
+                return i;
+            }
+        }
+
+        return css.Length - 1;
     }
 
     void LoadInto(

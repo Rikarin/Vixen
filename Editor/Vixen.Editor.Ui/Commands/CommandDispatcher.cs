@@ -3,7 +3,6 @@
 
 using Vixen.Input;
 using Vixen.Ui;
-using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.Ui;
 
@@ -20,11 +19,22 @@ namespace Vixen.Editor.Ui;
 ///         single-key binding — <c>F</c> for frame-selection, which every 3D editor has — would fire
 ///         while somebody was naming an object, and the object would end up called
 ///         <c>Cubeaaa</c> with the camera somewhere else. Function keys are exempt, because they are
-///         not text.
+///         not text. <b>"A text field" means <see cref="ITextInputTarget" /></b>, which is the
+///         responder answering for itself rather than this assembly naming a class in
+///         <c>Vixen.Ui.Controls</c> — and it is what leaves nothing controls-shaped in this file.
 ///     </para>
 ///     <para>
 ///         <b>Auto-repeat is ignored.</b> Holding Ctrl+S must save once; the platform reports a
 ///         stream of presses and <see cref="KeyEvent.IsRepeat" /> is what tells them apart.
+///     </para>
+///     <para>
+///         ⚠ <b>The chord goes through <see cref="CommandRoute" /> before the table, and it used not
+///         to.</b> A chord resolved to an id and then went straight to <see cref="CommandRegistry" />
+///         — a flat lookup — so an element that had registered a handler for that id answered the
+///         menu item and not the shortcut printed beside it. The same verb reached two different
+///         handlers depending on how it was invoked, and the difference was invisible because both
+///         did *something*. Now the element walk runs first: a caret in a text box means ⌘C copies
+///         the text, exactly as clicking Edit ▸ Copy already did.
 ///     </para>
 /// </remarks>
 public sealed class CommandDispatcher {
@@ -82,8 +92,15 @@ public sealed class CommandDispatcher {
         // ⚠ Resolved against the context that has the focus, which is what lets the outliner and the
         // content browser both answer Delete. A chord with no binding in that context falls back to
         // the global one — see `KeyMap.CommandFor` — so nothing has to re-declare Ctrl+S per panel.
-        if (keys.CommandFor(chord, commands.FocusedContext?.Invoke()) is not { } id
-            || !commands.TryGet(id, out var command)) {
+        if (keys.CommandFor(chord, commands.FocusedContext?.Invoke()) is not { } id) {
+            return false;
+        }
+
+        if (Focused(document, id) is { } focused) {
+            return Run(focused, id, args);
+        }
+
+        if (!commands.TryGet(id, out var command)) {
             return false;
         }
 
@@ -110,6 +127,46 @@ public sealed class CommandDispatcher {
         return true;
     }
 
+    /// <summary>The element leg of <see cref="CommandRoute" />, or <c>null</c> when nothing in the
+    ///     tree answers.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The whole route and not an element-only walk, filtered on
+    ///         <see cref="CommandHandler.Element" />.</b> The tail of the chain is
+    ///         <see cref="CommandRegistry" /> itself — <see cref="EditorShell" /> installs it as the
+    ///         document's <see cref="UiDocument.ApplicationCommandResponder" /> — so a resolve that
+    ///         reached the end would hand back the very command this method exists to fall through
+    ///         to, and running it here would skip the scope gate below. A non-element answer means
+    ///         "the tree was silent", which is the same thing <c>null</c> means.
+    ///     </para>
+    /// </remarks>
+    static CommandHandler? Focused(UiDocument document, string id) =>
+        CommandRoute.Resolve(document, id) is { Element: not null } handler ? handler : null;
+
+    /// <summary>Runs what the focused element answered with, or reports that it refused.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A refusal here does not fall through to the editor's command of the same id.</b>
+    ///     <c>Commands.cs</c>'s defining rule is that the nearest responder that answers wins and its
+    ///     <see cref="CommandHandler.CanExecute" /> is the only one asked; an empty text box saying
+    ///     no to <c>edit.select-all</c> must not then select every entity in the scene.
+    /// </remarks>
+    bool Run(CommandHandler handler, string id, KeyEvent args) {
+        args.Handled = true;
+
+        if (handler.CanExecute) {
+            handler.Run();
+            return true;
+        }
+
+        // The editor's command is what names the verb on screen, so a refusal reports it when there
+        // is one. A control answering an id the registry never heard of refuses in silence.
+        if (commands.TryGet(id, out var named)) {
+            Refused?.Invoke(named);
+        }
+
+        return false;
+    }
+
     /// <summary>Whether a chord may be taken given where the focus is.</summary>
     static bool Available(UiDocument document, KeyChord chord) {
         if ((chord.Modifiers & (ModifierKeys.Control | ModifierKeys.Meta)) != 0) {
@@ -121,7 +178,22 @@ public sealed class CommandDispatcher {
         }
 
         for (var element = document.Focused; element is not null; element = element.Parent) {
-            if (element is TextField) {
+            // ⚠ The question asked of the responder rather than of a concrete controls type, and it
+            // used to read `element is TextField` — the editor reaching into `Vixen.Ui.Controls` for
+            // a class name in order to ask "is the first responder a field editor", which AppKit
+            // answers on the responder itself. `ITextInputTarget` is that answer: an element that
+            // wants keystrokes routed through the operating system's input method is, by
+            // definition, somewhere a bare letter is text.
+            //
+            // ⚠ It is deliberately broader than what it replaced, and the widening is a fix.
+            // `CodeEditor` is an `ITextInputTarget` and is not a `TextField`, so a single-key
+            // binding — `F` for frame-selection — was taken from the editor while somebody was
+            // typing in it, and only survived because the control usually handled the key first.
+            //
+            // ⚠ And not `{ AcceptsTextInput: true }`, which is the tempting spelling. That is false
+            // on a read-only or disabled field, and a read-only field is still a place with a caret
+            // in it that the user is reading rather than a viewport they are flying through.
+            if (element is ITextInputTarget) {
                 return false;
             }
         }

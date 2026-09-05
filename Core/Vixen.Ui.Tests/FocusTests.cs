@@ -408,6 +408,79 @@ public class FocusTests {
     }
 
     [Fact]
+    public void A_losing_element_that_removes_itself_is_asked_to_resign_once() {
+        using var document = new UiDocument(100f, 100f);
+
+        var panel = document.Root.Add("div");
+        var field = Stop(panel);
+        var other = Stop(document.Root);
+
+        // Written the way a commit-on-blur control is written before anyone discovers it has to
+        // guard: end the edit by removing the element, from inside the losing event. Removal clears
+        // a focus the outer `Focus` call has deliberately not written yet, so the element was asked
+        // the same question a second time from underneath its own answer, and a control written
+        // this way committed its value twice.
+        //
+        // ⚠ The bail is a hang check and not the property. Against the old code this does not stop
+        // at two: each ask removes again, and the recursion is unbounded — the `asked` list cannot
+        // see it because it is only consulted after the raise returns, which it never did.
+        var lost = 0;
+
+        field.AddHandler<FocusEvent>(
+            (_, args) => {
+                if (args.Gained || lost >= 4) {
+                    return;
+                }
+
+                lost++;
+                field.Remove();
+            }
+        );
+
+        document.Focus(field);
+
+        Assert.True(document.Focus(other));
+        Assert.Equal(1, lost);
+        Assert.Same(other, document.Focused);
+        Assert.True(field.IsRemoved);
+    }
+
+    [Fact]
+    public void A_losing_element_that_moves_the_focus_itself_is_asked_to_resign_once() {
+        using var document = new UiDocument(100f, 100f);
+
+        var field = Stop(document.Root);
+        var fallback = Stop(document.Root);
+        var other = Stop(document.Root);
+
+        // The same rule on the other shape: a handler that redirects rather than removes is inside
+        // the answer to "will you resign", and the redirect must not put the question again.
+        //
+        // ⚠ The bail is a hang check and not the property. Unguarded against the old code this
+        // recursed without bound — the redirect asked the same element again from inside its own
+        // answer, and the `asked` list cannot see that because it is only consulted after the raise
+        // returns, which it never did. So the pre-fix symptom of this shape was a stack overflow
+        // that took the whole assembly down, not the duplicate the removal shape shows.
+        var lost = 0;
+
+        field.AddHandler<FocusEvent>(
+            (_, args) => {
+                if (args.Gained || lost >= 4) {
+                    return;
+                }
+
+                lost++;
+                document.Focus(fallback);
+            }
+        );
+
+        document.Focus(field);
+        document.Focus(other);
+
+        Assert.Equal(1, lost);
+    }
+
+    [Fact]
     public void A_focus_the_losing_handler_moved_itself_does_not_survive_the_move_it_was_asked_about() {
         using var document = new UiDocument(100f, 100f);
 

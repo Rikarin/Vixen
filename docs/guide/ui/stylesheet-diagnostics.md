@@ -4,7 +4,7 @@ slug: ui/stylesheet-diagnostics
 kind: guide
 area: Core
 summary: What happens to CSS Vixen cannot read — the at-rules, selectors and @apply names it drops, the build step's two refusal channels, where each refusal is now reported, and why a rule that does nothing used to be indistinguishable from a rule that was never written.
-api: [L:7004, L:7005, L:7006, T:Vixen.Ui.Styling.Utilities.UtilityRefusal, T:Vixen.Ui.Styling.Utilities.UtilityRefusalKind]
+api: [L:7004, L:7005, L:7006, L:7007, T:Vixen.Ui.Styling.Utilities.UtilityRefusal, T:Vixen.Ui.Styling.Utilities.UtilityRefusalKind]
 tags: [ui, styling, vcss, diagnostics, logging, troubleshooting, apply]
 since: 0.2
 status: preview
@@ -98,6 +98,38 @@ discarded — so there is no rule left to name. What it gives you instead is a t
 of its own: `grid-template-columns: 4furlongs` is the declaration as you wrote it, and greppable
 across a project's sheets in a way a bare `::before` is not.
 
+## The one event here that is not a refusal
+
+⚠ **`7007` reports a rule that applied and answered *late*, which is the opposite failure and needs
+saying separately.** A `container-type` makes an element answerable about its own measured box, so
+the cascade depends on the layout and the layout depends on the cascade. That closes cleanly for a
+container whose inline size comes from its parent — `width: auto` on a normal-flow block is sized by
+the containing block and not by its contents — and it does not close for one whose inline size is
+decided by what is *inside* it: a flex item on its content basis, a floated or absolutely positioned
+box, a `width: max-content`. There the query widens the content, the wider content widens the
+container, and the container's next verdict is different.
+
+`UiDocument` bounds that with `SettlePasses` rather than spinning, and `UiDocument.Settled` has
+reported the result since the wiring landed — as a boolean about the whole document. `7007` names the
+container instead, by its `container-name` where it has one, with the box it measured on the last
+pass:
+
+```vcss
+.seesaw { container-type: inline-size; container-name: seesaw; }  /* a flex item with no width */
+.body   { width: 10px; }
+@container seesaw (max-width: 100px) { .body { width: 900px; } }
+```
+
+> `The query container 'seesaw' never settled: it measured 900×100 on the last of 3 layout passes and
+> its box was still moving. Its own @container verdicts are one pass stale, because a container sized
+> by its contents can change the contents that size it. Give it a definite inline size.`
+
+The cure is a definite inline size on the container, or a `width: auto` in normal flow. ⚠ **The
+engine does not yet impose that for you**: CSS's `container-type` carries `contain: inline-size`,
+which makes a container's own inline size independent of its contents by fiat, and that coercion is
+owed under doc 43 § A16. Until it lands the frame is drawn one pass stale and this is the report of
+it.
+
 ## Examples
 
 **A sheet with one bad rule in it still works, and says what it lost.** The rule below installs
@@ -182,7 +214,9 @@ measurement, and `ShadowedFamilyTests` re-takes it on every build.
   can still lose.
 - [Utility styles](../editor/utility-styles.md) — the build step, the palette, and `@apply`'s place
   in it.
-- `docs/manual/log-events.md` — the register these two ids are allocated in, and the rules that keep
-  a number in a bug report meaning something.
+- `docs/manual/log-events.md` — the register these ids are allocated in, and the rules that keep a
+  number in a bug report meaning something.
+- `Core/Vixen.Ui/Containers.cs` — the container-scope walk `7007` is reported from, and why the
+  containers it names are measured rather than predicted.
 - `Core/Vixen.Ui/StyleDiagnostics.cs` — the drain itself, and why its watermark is keyed on the
   producer rather than on a count.

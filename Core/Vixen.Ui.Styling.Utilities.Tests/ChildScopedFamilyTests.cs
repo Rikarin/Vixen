@@ -146,11 +146,16 @@ public class ChildScopedFamilyTests {
     ///     pointer is over", which is a different rule that also parses, also matches, and would have
     ///     shipped. Asserted on the emitted text because it is a claim about the <i>selector</i>, and
     ///     a resolution test would pass under both readings for the hovered child.
+    ///     <para>
+    ///         ⚠ <b>And the <c>:where()</c> is around the whole of it, variants included.</b> That is
+    ///         what takes the rule to (0,0,0) so a child's own utility can win — see
+    ///         <see cref="A_child_utility_beats_the_containers_space_which_is_the_v4_behaviour" />.
+    ///     </para>
     /// </remarks>
     [Theory]
-    [InlineData("space-x-2", ".space-x-2 > :not(:last-child)")]
-    [InlineData("hover:space-x-2", ".hover\\:space-x-2:hover > :not(:last-child)")]
-    [InlineData("divide-y", ".divide-y > :not(:last-child)")]
+    [InlineData("space-x-2", ":where(.space-x-2 > :not(:last-child))")]
+    [InlineData("hover:space-x-2", ":where(.hover\\:space-x-2:hover > :not(:last-child))")]
+    [InlineData("divide-y", ":where(.divide-y > :not(:last-child))")]
     public void The_scope_is_appended_after_the_variants(string utility, string selector) =>
         Assert.Contains(selector, new UtilityFixture().Generate(utility), StringComparison.Ordinal);
 
@@ -160,7 +165,7 @@ public class ChildScopedFamilyTests {
         var css = new UtilityFixture().Generate("md:divide-y-2");
 
         Assert.Contains("@media (min-width: 768px)", css, StringComparison.Ordinal);
-        Assert.Contains(".md\\:divide-y-2 > :not(:last-child)", css, StringComparison.Ordinal);
+        Assert.Contains(":where(.md\\:divide-y-2 > :not(:last-child))", css, StringComparison.Ordinal);
     }
 
     /// <summary><c>@apply</c> refuses a scoped family, for the reason it refuses a variant.</summary>
@@ -283,49 +288,56 @@ public class ChildScopedFamilyTests {
         var fixture = new UtilityFixture();
 
         Assert.Equal([$"border-style: {keyword}"], fixture.Emits(utility));
-        Assert.Contains($".{utility} > :not(:last-child)", fixture.Generate(utility), StringComparison.Ordinal);
+        Assert.Contains(
+            $":where(.{utility} > :not(:last-child))",
+            fixture.Generate(utility),
+            StringComparison.Ordinal
+        );
     }
 
-    /// <summary>The known divergence from v4, pinned so that fixing it fails here rather than silently.</summary>
+    /// <summary>A child's own utility beats the container's spacing, which is v4's behaviour.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>v4 wraps the scope in <c>:where()</c> and this cannot, so a container's
-    ///         <c>space-y-*</c> beats a child's own margin utility.</b> <c>:where()</c> contributes no
-    ///         specificity in CSS, which is precisely why Tailwind adopted it in v4: the rule lands at
-    ///         one class, so <c>&lt;div class="mb-0"&gt;</c> inside <c>space-y-4</c> wins. Here there
-    ///         is no spelling that reaches zero — the emitted rule is <c>(0,2,0)</c> and the child's
-    ///         <c>.mb-0</c> is <c>(0,1,0)</c>.
+    ///         ⚠ <b>This test used to assert the opposite, and the divergence it pinned rested on a
+    ///         claim that was wrong twice over.</b> Doc 43 § F9 and this file both said
+    ///         <c>SelectorCompiler</c> "compiles <c>:where()</c> as <c>:is()</c> and charges a class
+    ///         for it either way", so the emitted rule sat at (0,2,0) and closing the gap was three
+    ///         lines. ExCSS 4.3.2 does not parse <c>:where()</c> at all — the whole selector came
+    ///         back as one unknown and the rule was refused entire — so there was no charge to
+    ///         remove and no three lines to write. <c>Vixen.Ui.Styling.Tests</c>'
+    ///         <c>WhereSelectorTests</c> is the measurement, and the repair is there.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This remark used to say <c>SelectorCompiler</c> "compiles <c>:where()</c> as
-    ///         <c>:is()</c> and charges a class for it either way", and that closing it was three
-    ///         lines there. Both halves are wrong.</b> ExCSS 4.3.2 does not parse <c>:where()</c> at
-    ///         all: the whole selector arrives as one unknown, the compiler refuses the rule entire,
-    ///         and there is no charge anywhere to remove. <c>Vixen.Ui.Styling.Tests</c>'
-    ///         <c>WhereSelectorTests</c> is the measurement.
-    ///     </para>
-    ///     <para>
-    ///         <b>This is v3's behaviour, and it shipped for four major versions.</b> It is written
-    ///         down in the guide and in doc 43 rather than left to be discovered, and the escape is the
-    ///         one v3 users used: put the exception on the container, or do not use <c>space-*</c> on a
-    ///         list whose items set their own margins. The day <c>:where()</c> is understood and the
-    ///         generator wraps the scope in it, this test fails, which is the point of writing it.
+    ///         ⚠ <b>And the second half was wrong too: the fix is not to wrap the <i>scope</i>.</b>
+    ///         <c>.space-y-4 &gt; :where(:not(:last-child))</c> lands at (0,1,0), which merely
+    ///         <i>ties</i> with the child's own <c>.mb-0</c> — and this generator sorts its class
+    ///         names ordinally, so the winner of that tie would be decided by <c>mb-0</c> sorting
+    ///         before <c>space-y-4</c>. v4 wraps the whole selector, the rule lands at (0,0,0), and
+    ///         the child wins whatever it is called. That is what is emitted.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void A_child_margin_utility_loses_to_the_containers_space_and_that_is_the_v3_behaviour() {
+    public void A_child_utility_beats_the_containers_space_which_is_the_v4_behaviour() {
         var fixture = new UtilityFixture();
         var engine = new StyleEngine();
         engine.Load(fixture.Generate("space-y-4", "mb-0"), StyleOrigin.Author);
 
         var container = engine.Tree.CreateElement("div", null, classNames: ["space-y-4"]);
         var child = engine.Tree.CreateElement("div", container, classNames: ["mb-0"]);
+        var plain = engine.Tree.CreateElement("div", container);
         engine.Tree.CreateElement("div", container);
 
         var styles = engine.ResolveAll();
         var id = engine.Properties.Lookup("margin-bottom");
 
-        Assert.True(styles[child.Index].TryGet(id, out var value));
-        Assert.Equal("16px", engine.Values.NameOf(value));
+        // `0` rather than `0px`: the emitted `margin-bottom: 0px` is folded to a bare zero on the
+        // way in. What matters is that it is the child's value and not the container's.
+        Assert.True(styles[child.Index].TryGet(id, out var overridden));
+        Assert.Equal("0", engine.Values.NameOf(overridden));
+
+        // ⚠ And the sibling with no utility of its own still gets the spacing, which is the half a
+        // rule that had simply stopped matching would also pass the line above.
+        Assert.True(styles[plain.Index].TryGet(id, out var spaced));
+        Assert.Equal("16px", engine.Values.NameOf(spaced));
     }
 }

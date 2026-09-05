@@ -66,6 +66,10 @@ public readonly record struct SelectorDiagnostic(string Text, string Reason, str
 ///     </para>
 /// </remarks>
 public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
+    /// <summary>Re-reads one selector that had to be repaired before ExCSS could read it.</summary>
+    /// <remarks>See <see cref="CompileWhere" />. The settings are <c>StyleSheetLoader</c>'s.</remarks>
+    static readonly StylesheetParser Reparser = new(true, true, true, true, true);
+
     readonly NameTable names = names ?? throw new ArgumentNullException(nameof(names));
     readonly SelectorTable table = table ?? throw new ArgumentNullException(nameof(table));
     readonly List<SelectorDiagnostic> diagnostics = [];
@@ -109,6 +113,14 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             return;
         }
 
+        // ⚠ Before anything else looks at the tree, because for this one selector there is no tree.
+        // See `CompileWhere`.
+        if (selector.Text.Contains(":where(", StringComparison.OrdinalIgnoreCase)
+            && TryRewriteWhere(selector.Text, out var parts)) {
+            CompileWhere(parts, compiled);
+            return;
+        }
+
         // ⚠ Not overwritten when already set. `TryCompileNested` re-enters here for the argument of
         // a `:is()` or `:has()`, and that argument is not a rule anybody can go and find; the rule
         // is the selector the argument sits inside.
@@ -126,6 +138,169 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
 
     /// <summary>Records a refusal against the rule currently being compiled.</summary>
     void Refuse(string text, string reason) => diagnostics.Add(new SelectorDiagnostic(text, reason, rule));
+
+    /// <summary>One comma-separated part of a selector that was written with <c>:where()</c>.</summary>
+    /// <param name="Written">What the author wrote, for a diagnostic to quote.</param>
+    /// <param name="Rewritten">The same part with every <c>:where(</c> turned into <c>:is(</c>.</param>
+    /// <param name="Zeroed">How many of those were at the top level, and so must be charged nothing.</param>
+    readonly record struct WherePart(string Written, string Rewritten, int Zeroed);
+
+    /// <summary>Compiles the parts of a selector ExCSS could not read because of a <c>:where()</c>.</summary>
+    /// <param name="parts">The parts, already rewritten.</param>
+    /// <param name="compiled">Receives one entry per part that compiled.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>ExCSS 4.3.2 has no <c>:where()</c>, and it does not fail narrowly.</b> A selector
+    ///         containing one comes back as a single <c>UnknownSelector</c> covering the <i>whole</i>
+    ///         text, commas and all — so there is no node to charge nothing for, and there never was
+    ///         the "three lines in <c>SelectorCompiler</c>" that doc 43 § F9, doc 09 and three
+    ///         READMEs all costed this at. The rule was refused entire.
+    ///     </para>
+    ///     <para>
+    ///         The repair is made where the evidence still is. That unknown node carries the author's
+    ///         text verbatim, so the text is split on its top-level commas, each <c>:where(</c> is
+    ///         rewritten to <c>:is(</c>, and each part is handed back to ExCSS on its own. The two
+    ///         selectors match identically — <c>:where()</c> <i>is</i> <c>:is()</c> with no
+    ///         specificity — so the only thing the rewrite loses is the number, and the number is put
+    ///         back by subtracting one class per top-level occurrence.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Top-level, because a nested one is already free.</b> This compiler never adds a
+    ///         nested selector's specificity to the outer one, so a <c>:where()</c> inside an
+    ///         <c>:is()</c> or a <c>:not()</c> contributes nothing before the rewrite and nothing
+    ///         after it; subtracting for those would take the count below zero and make
+    ///         <c>.a:not(:where(.b))</c> less specific than <c>.a</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is not a general fallback for anything ExCSS cannot read.</b> The rewrite is
+    ///         attempted only when the text actually contains a <c>:where(</c> outside a string, and
+    ///         a part that still does not parse is refused with the author's own spelling quoted —
+    ///         the rewritten form would name a selector nobody wrote.
+    ///     </para>
+    /// </remarks>
+    void CompileWhere(List<WherePart> parts, List<Selector> compiled) {
+        foreach (var part in parts) {
+            var sheet = Reparser.Parse(part.Rewritten + " { color: red }");
+
+            if (sheet.Children.OfType<IStyleRule>().FirstOrDefault() is not { } reparsed) {
+                Refuse(part.Written, $"'{part.Written}' is not a selector Vixen supports");
+                continue;
+            }
+
+            var outer = rule;
+            rule ??= part.Written;
+
+            var start = compiled.Count;
+
+            try {
+                CompileParts(reparsed.Selector, compiled);
+            } finally {
+                rule = outer;
+            }
+
+            if (part.Zeroed == 0) {
+                continue;
+            }
+
+            for (var i = start; i < compiled.Count; i++) {
+                var selector = compiled[i];
+
+                compiled[i] = selector with {
+                    Specificity = selector.Specificity with {
+                        Classes = selector.Specificity.Classes - part.Zeroed
+                    }
+                };
+            }
+        }
+    }
+
+    /// <summary>Splits a selector on its top-level commas, turning every <c>:where(</c> into <c>:is(</c>.</summary>
+    /// <param name="text">The selector as written.</param>
+    /// <param name="parts">Receives the parts.</param>
+    /// <returns>Whether anything was rewritten.</returns>
+    /// <remarks>
+    ///     ⚠ <b>False when nothing changed, and that is not a formality.</b> The word appears inside
+    ///     a quoted attribute value — <c>[data-q=":where(x)"]</c> — in text ExCSS reads perfectly
+    ///     well, and answering true there would send a selector that needs no repair down a path that
+    ///     re-parses it and refuses it.
+    /// </remarks>
+    static bool TryRewriteWhere(string text, out List<WherePart> parts) {
+        parts = [];
+
+        var rewritten = new System.Text.StringBuilder(text.Length);
+        var start = 0;
+        var depth = 0;
+        var zeroed = 0;
+        var found = 0;
+
+        for (var i = 0; i < text.Length; i++) {
+            var c = text[i];
+
+            if (c == '\\' && i + 1 < text.Length) {
+                rewritten.Append(c).Append(text[i + 1]);
+                i++;
+                continue;
+            }
+
+            if (c is '"' or '\'') {
+                var end = i;
+
+                while (++end < text.Length) {
+                    if (text[end] == '\\') {
+                        end++;
+                        continue;
+                    }
+
+                    if (text[end] == c) {
+                        break;
+                    }
+                }
+
+                end = Math.Min(end, text.Length - 1);
+                rewritten.Append(text, i, end - i + 1);
+                i = end;
+                continue;
+            }
+
+            if (c == ':' && string.Compare(text, i, ":where(", 0, 7, StringComparison.OrdinalIgnoreCase) == 0) {
+                if (depth == 0) {
+                    zeroed++;
+                }
+
+                found++;
+                depth++;
+                rewritten.Append(":is(");
+                i += 6;
+                continue;
+            }
+
+            switch (c) {
+                case '(' or '[':
+                    depth++;
+                    break;
+
+                case ')' or ']':
+                    depth--;
+                    break;
+
+                case ',' when depth == 0:
+                    parts.Add(new WherePart(text[start..i].Trim(), rewritten.ToString().Trim(), zeroed));
+                    rewritten.Clear();
+                    start = i + 1;
+                    zeroed = 0;
+                    continue;
+
+                default:
+                    break;
+            }
+
+            rewritten.Append(c);
+        }
+
+        parts.Add(new WherePart(text[start..].Trim(), rewritten.ToString().Trim(), zeroed));
+
+        return found > 0;
+    }
 
     bool TryCompileOne(ISelector selector, out Selector compiled) {
         // Compounds are buffered and written in one run at the end. A `:not()` or `:is()` inside
@@ -395,6 +570,17 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             // actually left, and it is the half that was always this feature's own — a generated box
             // carries a STYLE of its own, so it needs a second style slot rather than a second
             // rectangle. Until doc 43's A12, the author gets a message instead of a surprise.
+            //
+            // ⚠ <b>Four ledger rows rest on this one refusal and until 2026-09-05 not one of them
+            // declared it, which is the exact shape `RefusalExpiry.txt`'s header warns about.</b>
+            // `list-*`, `list-image-*`, `list-style-position` and `placeholder-*` are all `absent`
+            // and all say "blocked on F6" in English; the day a generated box exists they rot
+            // together and nothing would have said so. The condition is written here, where the
+            // refusal is, and on the two rows that do not sit behind another one. The anchor is the
+            // field this compiler deleted: a rule that really generates a box has to carry WHICH
+            // pseudo-element it names, and `Selector` is where that lived. ⚠ It is walked around by
+            // anyone who spells the returning thing differently — move the clause with it.
+            // [expires-on Vixen.Ui.Styling.Selector.PseudoElement]
             case PseudoElementSelector:
                 Refuse(
                     selector.Text,
@@ -427,6 +613,15 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             "focus-within" => ElementState.FocusWithin,
             "disabled" => ElementState.Disabled,
             "checked" => ElementState.Checked,
+
+            // ⚠ The three that need a bit somebody sets rather than a bit the input system sets, which
+            // is what made them the expensive third of doc 43's A13 and not the cheap two-thirds. A
+            // compiler arm here is worth nothing on its own: `:read-only` compiled against a bit no
+            // control ever writes resolves, indexes and matches nothing, which is the failure that
+            // document exists to refuse. See `TextField` and `CheckBox`, which are the writers.
+            "read-only" => ElementState.ReadOnly,
+            "placeholder-shown" => ElementState.PlaceholderShown,
+            "indeterminate" => ElementState.Indeterminate,
             _ => ElementState.None
         };
 
@@ -473,6 +668,22 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             specificity = specificity with { Classes = specificity.Classes + 1 };
             var nested = table.AddNested(NegatedState(ElementState.Disabled));
             compiled = new SimpleSelector(SimpleSelectorKind.Not, NestedStart: nested, NestedCount: 1);
+            return true;
+        }
+
+        if (name == "read-write") {
+            // ⚠ `:enabled`'s arrangement, and the reason is the same sentence in a different
+            // specification: Selectors 4 § 10.2 defines `:read-write` as the elements `:read-only`
+            // does not match, so a bit of its own would be a second thing to keep in step with the
+            // first — and the two would disagree the first time a control set one and forgot the
+            // other. ⚠ It differs from CSS in what it says about a plain `div`: a browser calls a
+            // non-editable element read-only, and here everything that never said otherwise is
+            // read-write. That is stated rather than smuggled, and it is the same divergence
+            // `:enabled` already carries for an element that is not a control.
+            specificity = specificity with { Classes = specificity.Classes + 1 };
+            var nested = table.AddNested(NegatedState(ElementState.ReadOnly));
+            compiled = new SimpleSelector(SimpleSelectorKind.Not, NestedStart: nested, NestedCount: 1);
+
             return true;
         }
 

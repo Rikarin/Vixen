@@ -229,16 +229,21 @@ a rectangle with one pair of edges past the viewport expresses exactly.
 Scrolling is `ScrollView`, a control that owns its bars and offsets its content — so a panel that
 needs to reach what it clipped needs one of those, and the utility alone will hide the rest.
 
-⚠ **`float-*` and `clear-*` are short two classes each, and the two are missing on purpose.**
-Tailwind v4's `float-start` / `float-end` and `clear-start` / `clear-end` emit the *logical*
-`inline-start` and `inline-end`, which CSS resolves against the writing mode. `FloatSide` and
-`Clear` hold CSS 2.1 §9.5's **physical** keywords, which do not flip with `direction` — the layout
-corpus proves it by shipping RTL variants of ten `float_bfc_*` families whose expectations are
-identical to their LTR twins. That leaves three shapes and only one honest one: emit the logical
-keyword and let the bridge drop it, which is a class that resolves and does nothing; alias it onto
-`left`, which is right in LTR and wrong in RTL inside the same declaration; or leave it unspelt and
-record the gap. This is the third, and it is why both roots read `partial` in the parity ledger with
-`value_gap` naming the four class names rather than reading `works`.
+⚠ **`float-*` and `clear-*` are complete, and the four classes that used to be missing were missing
+for a conflation rather than for a limit.** This paragraph said Tailwind v4's `float-start` /
+`float-end` and `clear-start` / `clear-end` emit the *logical* `inline-start` and `inline-end`,
+"which CSS resolves against the writing mode", and concluded that a store with no writing mode had
+three shapes available of which only leaving them unspelt was honest. CSS Logical Properties resolves
+them against the writing mode **and the direction**, and with no vertical writing mode — the decision
+recorded on #282 — the inline axis is horizontal in every configuration this engine can be in. So
+there was a fourth shape: `FloatSide` and `Clear` gained a flow-relative value each and resolve it
+against `direction`, which every algorithm in `Vixen.Ui.Layout` already has in hand.
+
+⚠ **The observation that refusal rested on is true and was about the other keywords.** The layout
+corpus does ship RTL variants of ten `float_bfc_*` families whose expectations are identical to their
+LTR twins, which proves `float: left` does **not** flip — and that is precisely why `inline-start` is
+a separate value rather than a rereading of `left`. Both roots read `works` in the parity ledger now,
+with an empty `value_gap`.
 
 **A shadow token is a whole declaration, not a set of numbers to assemble.** A shadow is a designed
 thing: its offset, blur and alpha are chosen together to read as one height above the surface, and a
@@ -470,20 +475,18 @@ tell and a width is the commoner one. The shape test is `#`, `rgb` or `hsl` and 
 table, so `border-[red]` and `divide-x-[red]` are widths — `IsPlausibleValue`'s remark is the argument
 for keeping the escape hatch a token-shape test rather than a value parser.
 
-⚠ **`space-*` and `divide-*` are two classes of specificity, where Tailwind v4's are one.** They are
-the only families whose rule is about the *children* — `.space-y-4 > :not(:last-child)` — and v4 wraps
-that scope in `:where()` so the rule stays at one class and a child's own `mb-0` still wins.
-No spelling available here reaches zero: the emitted rule is `(0,2,0)` and it beats a child's
-single-class utility. ⚠ **This paragraph used to say `SelectorCompiler` "charges a class for
-`:where()` exactly as it does for `:is()`", and it is not what happens.** ExCSS 4.3.2 does not parse
-`:where()`: the whole selector comes back as one unknown and the rule is refused with a diagnostic, so
-there is no charge to remove and the job is teaching the front end a selector rather than adjusting a
-number. `Vixen.Ui.Styling.Tests`' `WhereSelectorTests` is the measurement.
-**The `(0,2,0)` is v3's behaviour, and it shipped for four major versions** — the escape is v3's too:
-put the exception on the container, or do not reach for `space-*` on a list whose items set their own
-margins. Closing it is a change in `Vixen.Ui.Styling`, and
-`ChildScopedFamilyTests.A_child_margin_utility_loses_to_the_containers_space_and_that_is_the_v3_behaviour`
-fails the day it lands.
+⚠ **`space-*` and `divide-*` carry no specificity at all, which is v4's arrangement and was not
+this one's.** They are the only families whose rule is about the *children*, and the emitted selector
+is `:where(.space-y-4 > :not(:last-child))` — `(0,0,0)`, so a child's own `mb-0` takes its margin
+back. ⚠ **This paragraph used to say the rule was `(0,2,0)` and could not be anything else, because
+`SelectorCompiler` "charges a class for `:where()` exactly as it does for `:is()`". Both halves were
+wrong.** ExCSS 4.3.2 does not parse `:where()` at all: the whole selector came back as one unknown and
+the rule was refused, so there was no charge to remove — the compiler now repairs that text itself
+before re-reading it. And wrapping the *scope* rather than the whole selector, which is what this
+said the fix was, lands at `(0,1,0)` and only ties with the child, leaving the winner to the
+generator's ordinal sort of class names. `Vixen.Ui.Styling.Tests`' `WhereSelectorTests` and
+`ChildScopedFamilyTests.A_child_utility_beats_the_containers_space_which_is_the_v4_behaviour` are the
+measurements.
 
 ⚠ **`space-y-*` emits `margin-bottom` where v4 emits `margin-block-end`, and it is not a shortcut.**
 `LayoutStyleBuilder.EdgeNames` interns `-left`, `-top`, `-right`, `-bottom`, `-inline-start` and

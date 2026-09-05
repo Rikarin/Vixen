@@ -73,6 +73,23 @@ public sealed partial class Dialog : Overlay {
     /// <summary>Where the content goes.</summary>
     public UiElement Body { get; private set; } = null!;
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>So that <c>&lt;Dialog&gt;…&lt;/Dialog&gt;</c> in markup means what it looks
+    ///     like.</b> Without this a nested tag lands on the dialog element itself, which is a sibling
+    ///     of <see cref="Backdrop" /> and <see cref="Surface" /> — and <c>dialog</c> is laid out
+    ///     across the whole viewport by the theme, so the author's content draws at the window's
+    ///     top-left corner, behind the backdrop rather than inside the box. It is
+    ///     <see cref="Body" /> rather than <see cref="Surface" /> because the header and the footer
+    ///     are parts the control owns.
+    ///     <para>
+    ///         ⚠ The null guard is <c>Card</c>'s and is load-bearing for its reason:
+    ///         <c>ContentHost</c> can be read before <see cref="OnCreated" /> has run, and answering
+    ///         with an uninitialised <see cref="Body" /> is a null reference at the first nested tag.
+    ///     </para>
+    /// </remarks>
+    protected override UiElement ContentHost => Body ?? this;
+
     /// <summary>Where the buttons go.</summary>
     public UiElement Footer { get; private set; } = null!;
 
@@ -185,6 +202,15 @@ public sealed partial class Drawer : Overlay {
 
     /// <summary>Where the content goes.</summary>
     public UiElement Body { get; private set; } = null!;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <see cref="Dialog.ContentHost" />'s reason, and the same null guard. A drawer is the
+    ///     worse of the two to get wrong: <c>drawer</c> covers the viewport while
+    ///     <c>drawer-surface</c> is the strip that slides in from the edge, so a misplaced child
+    ///     draws across the whole window rather than in the panel.
+    /// </remarks>
+    protected override UiElement ContentHost => Body ?? this;
 
     /// <summary>Which edge it comes in from.</summary>
     /// <remarks>

@@ -106,8 +106,10 @@ In a `.vcss` the same thing is the CSS you would expect:
 #footer  { clear: both; height: 30px; }
 ```
 
-The utility classes are `float-left`, `float-right`, `float-none`, `clear-left`, `clear-right`,
-`clear-both` and `clear-none`.
+The utility classes are `float-left`, `float-right`, `float-start`, `float-end`, `float-none`,
+`clear-left`, `clear-right`, `clear-start`, `clear-end`, `clear-both` and `clear-none`. The two
+`-start` / `-end` pairs emit the flow-relative `inline-start` / `inline-end`, which are the left and
+the right in LTR and the other way round in RTL.
 
 ## Examples
 
@@ -145,22 +147,24 @@ the clearance is inserted into the middle of it, with the box's border edges at 
 
 ## What is not implemented
 
-⚠ **A line box does not yet shorten as it passes a float.** That is §9.5's main clause and the
-behaviour most people mean by the word, and it is missing: inline layout has no exclusion awareness,
-so a paragraph beside a float is laid out at the container's full inner width and its text runs
-under the float. Everything above — placement, formatting-context avoidance, clearance, containment —
-works and is checked against 92 Chrome-derived fixtures. **None of those 92 has any text in it**,
-which is how the gap survived being measured.
+⚠ **A text leaf does not break around a float's staircase.** §9.5's main clause — a line box is
+shortened to the band the floats crossing it leave — landed, along with the shift-downward clause and
+a float declared inside a run; what is left is the one piece that is structural rather than
+unwritten. A text leaf reaches this store as a measure function and is one atomic item, so a
+paragraph beside a float re-flows as whole leaves and a leaf's own first line is not shortened to the
+room left beside the float. Breaking inside one would mean a second text wrapper below `Vixen.Ui`
+disagreeing with `TextLayout` about UAX #14, which is the same wall §10.8's strut is behind. ⚠ None
+of the 92 Chrome-derived fixtures has any text in it, which is how the whole clause survived being
+measured for as long as it did; the expectations for the part that landed had to be read out of
+Chrome case by case instead.
 
-⚠ **The logical keywords are absent.** `FloatSide` and `Clear` hold CSS 2.1's physical keywords, and
-those do not flip with `Direction` — a `float: left` is on the left in an RTL container too. CSS
-Logical Properties adds `inline-start` and `inline-end`, which do; neither the style bridge nor the
-utility families accept them, because resolving one needs a writing mode the store does not carry,
-and aliasing it onto `Left` would be correct in LTR and wrong in RTL inside the same declaration.
-
-⚠ **A float inside an auto-centred block lands at the uncentred edge.** Resolving an `auto` inline
-margin needs the used width of the layout the float's origin is about to start, so the origin reads
-the stated margin instead.
+⚠ **The logical keywords resolve against `Direction`, and nothing else.** `FloatSide.Left` and
+`Clear.Left` are CSS 2.1's physical keywords and do not flip — a `float: left` is on the left in an
+RTL container too. `FloatSide.InlineStart` / `InlineEnd` and their `Clear` counterparts are CSS
+Logical Properties' flow-relative pair and do flip, and they exist *because* the physical pair does
+not. This used to be refused on the grounds that resolving one needs a writing mode the store does
+not carry; it needs the writing mode **and** the direction, and with no vertical writing mode the
+inline axis is horizontal in every configuration the engine can be in.
 
 ⚠ **A float-bearing tree pays for the measurement cache.** A cache hit returns a node's size without
 re-running its layout, and a block container's layout has the side effect of appending its floats to
@@ -172,8 +176,8 @@ the formatting context around it. So the cache is bypassed whenever the tree con
 - [Inline layout](inline-layout.md) — line boxes, and the half of §9.5 that belongs to them.
 - [Box alignment](box-alignment.md) — the other rule that turns on which box establishes a
   formatting context.
-- [Utility composition](utility-composition.md) — the `float-*` and `clear-*` classes, and why four
-  of Tailwind's are deliberately missing.
+- [Utility composition](utility-composition.md) — the `float-*` and `clear-*` classes, including the
+  flow-relative `-start` / `-end` pairs.
 - `Core/Vixen.Ui.Layout.Tests/Taffy/FloatKnownGaps.txt` — empty of failures, and mostly a page about
   why that is a weak result.
 - `Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt` — the line-box half, with the shape of the fix.

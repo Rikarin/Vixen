@@ -1,0 +1,14 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component AmbientHost
+@namespace Vixen.Ui.Controls.Tests
+
+<!--
+    ⚠ The provider is reached through a *markup* tag carrying a parameter, which is the only path
+    that can witness the hook's window. A provider constructed in C# has its properties set before it
+    is ever mounted, so a runtime that declared ambient values at attach time — before the caller's
+    assignments — would look correct from C# and be wrong from every `.vxml` in the tree.
+-->
+<AmbientProvider Name="dark" />

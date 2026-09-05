@@ -183,7 +183,21 @@ the answer is real is inside the archive.
   appears nowhere. It is the natural companion to `CheckApi` — which catches a source-level break in
   the tree, where this catches a binary one against what was shipped — and it needs a published
   baseline version to compare against, which is why it is waiting on the first release rather than on
-  a decision.
+  a decision. (`gh release list` is empty and `VersionPrefix` is `0.1.0`.)
+
+  ⚠️ **And the half that does not need a baseline is empty here, which is worth knowing before
+  somebody lands it as "a one-line change available today".** `EnablePackageValidation=true` with no
+  baseline runs two validators, and this repository gives both of them nothing to compare: the
+  *compatible framework* validator compares one target framework's assets against another's, and no
+  project in the tree declares `TargetFrameworks` at all — all 282 are single `net10.0`; the
+  *compatible runtime* validator compares RID-specific `lib` assets against the RID-less ones, and the
+  only RID-shaped path any package writes is `tools/runtimes/` inside `Vixen.Sdk`, which is a tool's
+  own payload rather than a `runtimes/<rid>/lib` the validator inspects. So the property would gate
+  nothing today, and its absence costs nothing. ⚠️ It is also **not** the risk it was believed to be:
+  `Vixen.Core.Mathematics` packs clean with it set, so the fear that switching it on across 167
+  packable projects under warnings-as-errors turns `Pack` red is at least not universal. The day it
+  starts mattering is the day a package multi-targets or ships a RID-specific assembly, which is
+  exactly when nobody will remember this paragraph.
 - **The third-party attribution manifest is in no package.** `docs/manual/third-party.md` is packed by
   nothing, so "fails if any of the three is missing" could never have held for it. Whether it belongs
   inside every package, or whether the `NOTICE` discharges §4(d) on its own, is a licence question and
@@ -312,8 +326,8 @@ same document carries `Vixen.Core` at 0.1 % — a figure that describes neither 
 whenever an unrelated dependency grows. A "per-project coverage" table built from a document's own
 `line-rate` would be that second number.
 
-**And where "is this line reached" is a real question, the answer is a test.** ✅ The first of the
-three places ([#338](https://github.com/Rikarin/Vixen/issues/338)) is done, and it is the worked
+**And where "is this line reached" is a real question, the answer is a test.** ✅ Two of the three
+places ([#338](https://github.com/Rikarin/Vixen/issues/338)) are done, and the first is the worked
 example of the shape: the generated ECS query surface, driven rather than counted, by
 `Vixen.Ecs.Tests/QueryAritySurfaceTests` and `Vixen.Ecs.Tests/QueryAritySweepTests`.
 
@@ -351,10 +365,29 @@ first entity's components) and pinning the entity reference (the handle stops ad
 columns) each go red naming the entity they were given — which is why every component in the sweep
 knows which entity it belongs to. Raising `MaxArity` to 17 fails the census.
 
-Still owed, and deliberately not attempted here: the same treatment for **the serializers and the
-cascade** ([#338](https://github.com/Rikarin/Vixen/issues/338)). ⚠️ Whatever lands there should
-almost certainly not be a percentage either: the shape that survives this section's own argument is
-an executable claim that a named path is exercised, which is a test, not a threshold.
+✅ **The serializers are the second, and the same two halves carry it:**
+`Vixen.Core.Serialization.Tests/BuiltInSerializerSweepTests` runs every serializer
+`BuiltInSerializers` declares against the edges of its own type, and reads the nested types back off
+the assembly so the file rather than the table is the enumeration. ⚠️ **Twenty of the twenty-five
+built-ins had never been written by that suite**, for a reason no percentage could have shown: every
+contract in its `Contracts.cs` is made of `int`, `float`, `double`, `string`, an enum and collections
+of those, so `sbyte`, `ushort`, `char`, `Half`, `decimal`, `Guid`, `DateTime`, `DateTimeOffset`,
+`TimeSpan`, `AssetId`, `SubAssetId`, `AssetReference`, `ObjectId`, `Entity` and `ComponentTypeId` did
+not appear in the test project at all.
+
+⚠️ **And the first assertion written for it was itself the defect, which is the part worth keeping.**
+Stamping every `DateTime` `Utc` in the writer left a plain `Assert.Equal(written, read)` **green**:
+`DateTime.Equals` compares ticks and ignores `Kind`, and `DateTimeOffset.Equals` compares the instant
+and ignores the offset. The kind is asserted on its own and the offset through `EqualsExact` because
+of that, and neither would have been without the sabotage. Both code sabotages — the stamped kind,
+and an `Entity` read that drops its world id — fail this suite and **nothing else in the project**:
+84 other tests green in each case, which is the measurement of the gap rather than a claim about it.
+Adding a twenty-sixth serializer without a sweep entry fails the census.
+
+Still owed, and deliberately not attempted here: the same treatment for **the cascade**
+([#338](https://github.com/Rikarin/Vixen/issues/338)). ⚠️ Whatever lands there should almost
+certainly not be a percentage either: the shape that survives this section's own argument is an
+executable claim that a named path is exercised, which is a test, not a threshold.
 
 ### Coverage of the pyramid
 
@@ -367,7 +400,7 @@ an executable claim that a named path is exercised, which is a test, not a thres
 | **Integration** | import→compile→bundle→load round-trips, world save/load, hot-reload scenarios, editor scenario tests | ~50 scenarios |
 | **Golden image** | ✅ five fixtures — clear, triangle, indexed quad with push constants, reversed-Z depth, alpha blending — rendered headless through the render graph and compared perceptually with a per-fixture tolerance. Generated on MoltenVK and **verified against lavapipe**, so the tolerances are what cross-driver agreement actually needs rather than what one machine happens to produce. Grows towards ~40 with the rendering pipeline in Phase 4; editor layouts follow the editor. | GPU-dependent, runs everywhere a driver exists |
 | **Platform smoke** | boot, clear, triangle, UI, input on each of six targets | 6 × a handful |
-| **Performance** | BenchmarkDotNet with committed baselines and allocation gates | ~40 benchmarks |
+| **Performance** | BenchmarkDotNet, judged by `Benchmark` against `Benchmarks/baseline.json` — ⚠️ **which is not committed**, so the target fails rather than judging, and this row said "committed baselines" for as long as it said anything ([#339](https://github.com/Rikarin/Vixen/issues/339)). The allocation gates beside it are real and run inside `Test` | ~40 benchmarks |
 
 ### The gates that enforce [00](00-vision-and-principles.md)
 
@@ -440,21 +473,40 @@ afford.
 
 ### Test infrastructure worth building early
 
-⚠️ **Three of the five are still unwritten, and the sequencing this section used to state is refuted by
+⚠️ **Two of the five are still unwritten, and the sequencing this section used to state is refuted by
 the tree.** `TestApp` was specified as a Phase 1 item that *"every later phase depends on"*. Every
 later phase shipped without it: 178 test projects, twenty-three suites of allocation gates and the golden
-suite exist, and nothing anywhere names the type. So the dependency was never real — what the
-remaining three would buy is arrangement code deleted, not tests made possible, and they are worth
-building on that argument rather than on a blocking one. They are tracked as
+suite exist, and nothing anywhere named the type until it landed. So the dependency was never real —
+what the remaining two would buy is arrangement code deleted, not tests made possible, and they are
+worth building on that argument rather than on a blocking one. They are tracked as
 [#336](https://github.com/Rikarin/Vixen/issues/336).
 
-- **`TestApp`** — an in-process engine host with the Null backend, an in-memory VFS, a fake clock, and a
-  synthetic input source. Would make almost every "integration" test a fast unit test. ⚠️ **Whatever
-  lands has to answer the question the Null device already taught this repository once**: a host that
-  quietly falls back to a backend drawing nothing reports a healthy frame count and proves nothing —
-  the same failure as `--vixen-capture`'s, one layer up. `Vixen.App.Hosting`'s `AppBuilder` is the
-  precedent to copy: an `AppBuilder` with no backend installed **refuses to build, by name**, rather
-  than falling back to a headless one.
+- **`TestApp`** — ✅ an in-process engine host with the Null backend, an in-memory VFS, a fake clock and
+  a synthetic input source, in [`Testing/TestApp.cs`](../../Testing/TestApp.cs), linked into a test
+  project the way `Measured` is. ⚠️ **All four parts already existed and none of them had ever been
+  assembled**: `HeadlessPlatform` is the host, `MemoryFileProvider` is the VFS,
+  `AppConfig.FixedFrameTime` is the clock, and `HeadlessInputSource` with `HeadlessPlatform.Post` is
+  the input. So what landed is arrangement plus **three refusals**, which is the part of the
+  specification that could not be got from the parts:
+
+  ⚠️ **Each refusal replaces a form that is green when it should be red**, which is this section's own
+  standard — *"whatever lands has to answer the question the Null device already taught this repository
+  once"*. (a) A game whose `OnConfigure` sets `Graphics.Enabled = false` builds, initialises and runs
+  frames perfectly happily, and every command-log assertion made against it is an assertion over a
+  device that was never opened — so `Create` refuses to hand one back. (b) `VixenApplication.RunFrame`
+  **returns normally on a stopping application**: it pumps events, drains posted work and returns
+  before `Advance`, so `for (…) app.RunFrame();` over an app that stopped on frame one is a hundred
+  successful calls, an unmoved clock and an empty log. `RunFrames` counts frames off `GameTime.FrameCount`,
+  which only a frame that simulated advances, and names why it stopped. (c) `HeadlessInputSource.SetKey`
+  is the obvious way to press a key and it posts **no event**, while `Services.Input` is fed from the
+  event stream in `PumpEvents` — so a key "pressed" that way reaches nothing, and a test asserting the
+  action did *not* fire passes for the wrong reason for ever. `PressKey` does both halves, and
+  `TestAppTests.SettingTheKeyWithoutTheEventReachesNothing` pins the difference.
+
+  Adopted in `HostedDeclaredSystemTests`, which lost its throwaway temp directory and its own builder
+  in the same change; the other ten fixtures in `Vixen.App.Tests` are the remaining adoption, and
+  ⚠️ one of them cannot move — `--vixen-loose-content` takes a **physical** directory (`Directory.Exists`
+  in `ContentMount.Open`), which an in-memory VFS by definition cannot provide.
 - **`RecordingBackend`** — ✅ the Null backend's structured command log with a fluent assertion API,
   in [`Testing/RecordingBackend.cs`](../../Testing/RecordingBackend.cs), linked into a test project
   the way `Measured` is. ⚠️ The recording half was never missing: `Vixen.Graphics.Null` has
@@ -634,9 +686,9 @@ dotnet tool restore
 
 # everyday
 nuke Compile
-nuke Test --filter Category=Unit
-nuke Test --filter Category=Golden --update-golden     # then review the diff
-nuke Benchmark --filter *Layout*
+nuke Test                                              # or dotnet test <one project> --filter <name>
+nuke GoldenImages --update-golden                      # then review the diff
+nuke Benchmark --benchmark-filter '*Layout*' --report-only
 
 # run things
 dotnet run --project Samples/03-PbrShowcase

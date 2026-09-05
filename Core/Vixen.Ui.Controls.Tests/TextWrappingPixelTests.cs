@@ -35,7 +35,8 @@ namespace Vixen.Ui.Controls.Tests;
 ///         ⚠ <b>The word has no break opportunity in it, and that is what the feature is about.</b>
 ///         UAX#14 offers nothing between a run of Latin letters' first character and its last, so
 ///         <c>LineWrapper</c> reaches its "nothing fits" branch — the one and only place
-///         <c>TextWrapMode.Anywhere</c> is consulted. A word with a hyphen or a space in it would
+///         <c>TextWrapMode.Anywhere</c> and <c>TextWrapMode.BreakWord</c> are consulted, and the one
+///         place they part company. A word with a hyphen or a space in it would
 ///         wrap identically with the property and without it, and every assertion below would hold
 ///         against an engine that had never heard of <c>overflow-wrap</c>.
 ///     </para>
@@ -208,21 +209,82 @@ public class TextWrappingPixelTests {
         );
     }
 
-    /// <summary><c>anywhere</c> and <c>break-word</c> produce the same picture here.</summary>
+    /// <summary><c>anywhere</c> and <c>break-word</c> draw the same picture and size differently.</summary>
     /// <remarks>
-    ///     ⚠ <b>A stated deviation asserted, not a gap left implicit.</b> CSS Sizing § 5.2 separates
-    ///     the two keywords only by their min-content contribution — <c>anywhere</c> lets the
-    ///     intrinsic minimum shrink to one grapheme and <c>break-word</c> does not — and
-    ///     <c>Vixen.Ui.Layout</c> has no intrinsic-minimum stage that consults either. So they are one
-    ///     behaviour, both utilities are registered on purpose, and this is the record of it: if the
-    ///     layout ever grows that stage, this test fails and says where the claim was written down.
+    ///     <para>
+    ///         ⚠ <b>This used to assert that the two keywords were <i>one behaviour</i>, as a stated
+    ///         deviation with a note saying it would fail the day the layout grew an
+    ///         intrinsic-minimum stage. #682 is that day, and the note was accurate.</b> CSS Sizing
+    ///         §5.2 separates them only by their min-content contribution — <c>anywhere</c>'s
+    ///         intrinsic minimum shrinks to one grapheme, <c>break-word</c>'s stays the longest
+    ///         unbreakable run — and CSS Text §5.3 has both break an overflowing word at line-layout
+    ///         time regardless. So the first half of this is unchanged and is the half that says the
+    ///         difference is <em>only</em> in the sizing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The oracle for the second half is closed form rather than a threshold.</b>
+    ///         "Smaller than the word" is satisfied by a box that measured nothing, by a break in the
+    ///         middle of a surrogate pair, and by an off-by-one anywhere in <c>Squeeze</c>. The
+    ///         widest single grapheme of the same text in the same face is the number CSS names, and
+    ///         nothing but the intended break produces it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And <c>break-word</c> is pinned against <c>normal</c> rather than merely against
+    ///         <c>anywhere</c>.</b> Its intrinsic minimum is specified to be <i>unchanged</i> by the
+    ///         keyword, so the assertion that says so is equality with the keyword absent — a bound
+    ///         of "bigger than one grapheme" would be met by any regression that shrank it a little.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void The_two_breaking_keywords_are_one_behaviour_in_this_engine() =>
+    public void The_two_breaking_keywords_differ_in_the_intrinsic_minimum_and_nowhere_else() {
         Assert.Equal(
             Render(Unbroken, "overflow-wrap: break-word", string.Empty),
             Render(Unbroken, "overflow-wrap: anywhere", string.Empty)
         );
+
+        var normal = MinContentWidth(Unbroken, "overflow-wrap: normal");
+        var breakWord = MinContentWidth(Unbroken, "overflow-wrap: break-word");
+        var anywhere = MinContentWidth(Unbroken, "overflow-wrap: anywhere");
+
+        // The floor, and without it every relation below is met by a box that measured nothing.
+        Assert.True(normal > 0f, "the unbroken word measured nothing at all");
+
+        Assert.Equal(normal, breakWord);
+
+        var widest = 0f;
+
+        foreach (var grapheme in Unbroken) {
+            widest = MathF.Max(widest, MinContentWidth(grapheme.ToString(), "overflow-wrap: normal"));
+        }
+
+        Assert.Equal(widest, anywhere);
+        Assert.True(anywhere < breakWord, $"one grapheme measured {anywhere} and the whole word {breakWord}");
+    }
+
+    /// <summary>What the layout's intrinsic probe is handed: the text measured in no room at all.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Width zero and <c>MeasureMode.AtMost</c> is literally how <c>LayoutTree</c> asks for
+    ///     a min-content size</b> — see <c>ComputeMinContentSizeUncached</c>'s leaf branch, which
+    ///     passes <c>0f</c> on the inline axis — and <c>TextLayout.Measure</c> turns that straight
+    ///     into this call. So this is the stage under test rather than a proxy for it.
+    /// </remarks>
+    static float MinContentWidth(string text, string declaration) {
+        using var ui = UiTest.Create(320f, 200f);
+        ui.Document.Fonts.Register("Test", Font);
+
+        ui.Load(
+            $$"""
+            root { width: 320px; height: 200px; }
+            .box { width: {{BoxWidth}}px; font-family: Test; font-size: 28px; {{declaration}} }
+            """
+        );
+
+        var box = ui.Create("div", null, "box", "box");
+        box.Text = text;
+        ui.Frame();
+
+        return box.Block(0f)?.Width ?? -1f;
+    }
 
     /// <summary><c>normal</c> on the text escapes a breaking rule on its container.</summary>
     /// <remarks>

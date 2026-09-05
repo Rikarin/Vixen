@@ -288,6 +288,29 @@ public readonly record struct DrawCommand(
     public float Blur { get; init; }
 
     /// <summary>
+    ///     How a composited group's result is mixed with what is under it. <see cref="UiBlendMode.Normal" />
+    ///     and unread on every kind but <see cref="DrawCommandKind.LayerPush" />.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>On the layer bracket and <i>not</i> on the commands inside it, which is the whole
+    ///         of what <c>mix-blend-mode</c> means and the mistake this field is shaped to refuse.</b>
+    ///         CSS Compositing 1 § 5.1 blends an element's <i>rendered result</i> with its backdrop —
+    ///         so a bordered element's background, its border and its text composite source-over with
+    ///         each other first, and only the finished group blends. A blend carried on each command
+    ///         would multiply the border into the background instead, and every bordered element has
+    ///         two commands, so the two are told apart by the commonest element there is. This is the
+    ///         same argument <see cref="DrawCommandKind.LayerPush" />'s own remark makes for opacity,
+    ///         arriving at the same seam.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which makes a blend the <i>sixth</i> reason to open a group</b>, and the first one
+    ///         that is a function of two pictures rather than one — see <see cref="Rendering.UiBlend" />.
+    ///     </para>
+    /// </remarks>
+    public UiBlendMode Blend { get; init; }
+
+    /// <summary>
     ///     The colour transform a composited group's <c>filter</c> applies to its surface, or null
     ///     where there is none. Unread on every kind but <see cref="DrawCommandKind.LayerPush" />.
     /// </summary>

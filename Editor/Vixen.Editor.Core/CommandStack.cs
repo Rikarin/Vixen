@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Ui;
 using Vixen.Ui.Reactive;
 
 namespace Vixen.Editor.Core;
@@ -28,8 +29,16 @@ namespace Vixen.Editor.Core;
 ///         comes from <see cref="IsDirty" />, with no change notifications to wire up and nothing to
 ///         forget to raise.
 ///     </para>
+///     <para>
+///         ⚠ <b>It is also <see cref="IUndoManager" />, which is how a <c>Vixen.Ui</c> control's
+///         edit lands here.</b> A control does not own an undo stack — <c>CodeBuffer</c> argues that
+///         and is right — it <i>finds</i> one by walking the responder chain, and until this
+///         implemented the interface the answer everywhere in the editor was nothing, so a text box
+///         in any dialog had no ⌘Z at all. One stack rather than an adapter beside it, because two
+///         would mean ⌘Z undid the typing and left the move that came before it.
+///     </para>
 /// </remarks>
-public sealed class CommandStack {
+public sealed class CommandStack : IUndoManager {
     /// <summary>How many entries a stack keeps before the oldest starts falling off.</summary>
     public const int DefaultCapacity = 256;
 
@@ -147,7 +156,7 @@ public sealed class CommandStack {
 
         var command = undoable[^1];
         undoable.RemoveAt(undoable.Count - 1);
-        Run(command, undo: true);
+        Perform(command, undo: true);
         redoable.Add(command);
 
         // Whatever comes next starts a new entry. Merging a fresh edit into an entry the user has
@@ -168,7 +177,7 @@ public sealed class CommandStack {
 
         var command = redoable[^1];
         redoable.RemoveAt(redoable.Count - 1);
-        Run(command, undo: false);
+        Perform(command, undo: false);
         undoable.Add(command);
 
         sealedForMerge = true;
@@ -305,6 +314,25 @@ public sealed class CommandStack {
         Bump();
     }
 
+    /// <summary>Runs a command as an undo or a redo, with <see cref="IsPerforming" /> set.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only around undo and redo, and deliberately not around <see cref="Execute" />.</b>
+    ///     The flag answers "is this edit a consequence of the stack replaying one?", which is the
+    ///     question a control has to ask before recording — a field whose value the undo just put
+    ///     back would otherwise push the undo of the undo and never reach the state before it.
+    ///     Setting it for an ordinary execute would make the stack refuse every edit made by a
+    ///     command, which is most of them.
+    /// </remarks>
+    void Perform(IEditorCommand command, bool undo) {
+        IsPerforming = true;
+
+        try {
+            Run(command, undo);
+        } finally {
+            IsPerforming = false;
+        }
+    }
+
     void Run(IEditorCommand command, bool undo) {
         Context.BeginRecording();
 
@@ -369,4 +397,84 @@ public sealed class CommandStack {
     }
 
     void Bump() => revision.Value = unchecked(revision.Peek() + 1);
+
+    // ── IUndoManager: the same stack, seen from Vixen.Ui ─────────────────────
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The one piece of state a control cannot work out for itself.</b> Undoing an edit
+    ///     re-runs the code that made it, so a control that recorded unconditionally would push the
+    ///     undo of an undo. Every implementation of <see cref="IUndoManager" /> answers this and
+    ///     every registrant checks it — and <see cref="IUndoManager.Register" /> below checks it
+    ///     again, because "the manager is already doing that check" is what makes the correct
+    ///     control's code short.
+    /// </remarks>
+    public bool IsPerforming { get; private set; }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     Explicit, because <see cref="CanUndo" /> on this class is the <i>signal</i> a menu binds
+    ///     to and the interface wants the value. Two names for one fact would be worse than one name
+    ///     reached two ways.
+    /// </remarks>
+    bool IUndoManager.CanUndo => CanUndo.Value;
+
+    /// <inheritdoc cref="IUndoManager.CanUndo" />
+    bool IUndoManager.CanRedo => CanRedo.Value;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Recorded and not run, which is the opposite of <see cref="Execute" />.</b> The
+    ///         edit has already happened — a text field records what the user just typed — so
+    ///         applying it here would apply it twice. It goes through the same
+    ///         <see cref="Record" /> the executed path ends at, so a typed run still merges, still
+    ///         discards the redo future, and still trims at <see cref="Capacity" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Inside a transaction it is refused rather than mis-filed.</b> An open transaction
+    ///         is building one entry out of commands it ran itself; an already-applied edit arriving
+    ///         from a control has no place in it, and adding it to <c>transacted</c> would make the
+    ///         transaction's rollback call <c>Undo</c> on something it never did.
+    ///     </para>
+    /// </remarks>
+    void IUndoManager.Register(string name, Action undo, Action redo) {
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(undo);
+        ArgumentNullException.ThrowIfNull(redo);
+
+        // Silently, on `UndoManager`'s terms: this is the guard the correct control also makes, and
+        // a throw here would make every correct control responsible for a check it already does.
+        if (IsPerforming || transactionDepth > 0) {
+            return;
+        }
+
+        Record(new AppliedEdit(name, undo, redo));
+    }
+
+    /// <summary>An edit somebody else already applied, as something this stack can replay.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It never merges.</b> <see cref="IEditorCommand.TryMergeWith" /> defaults to refusing,
+    ///     and that is right here for a reason the default's own remarks give: merging is a claim
+    ///     that two operations are one edit, and this type knows nothing about the two closures it
+    ///     is holding. A control that wants a run of typing to be one step coalesces before it
+    ///     registers — <c>TextField</c> does, by shape rather than by a clock.
+    /// </remarks>
+    sealed class AppliedEdit : IEditorCommand {
+        readonly Action undo;
+        readonly Action redo;
+
+        public AppliedEdit(string name, Action undo, Action redo) {
+            Name = name;
+
+            this.undo = undo;
+            this.redo = redo;
+        }
+
+        public string Name { get; }
+
+        public void Do(EditorContext context) => redo();
+
+        public void Undo(EditorContext context) => undo();
+    }
 }

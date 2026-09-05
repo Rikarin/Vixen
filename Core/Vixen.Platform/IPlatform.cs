@@ -54,6 +54,22 @@ public interface IPlatform : IDisposable {
     /// </remarks>
     SystemColorScheme ColorScheme { get; }
 
+    /// <summary>Which accessibility settings the user has turned on.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Cached and refreshed by <see cref="PumpEvents" /> on the same terms as
+    ///         <see cref="ColorScheme" />, and it moves across a
+    ///         <see cref="PlatformEventKind.SystemAccessibilityChanged" /> — the event a host wires to
+    ///         <c>@media (prefers-reduced-motion)</c> and <c>@media (forced-colors)</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A platform with no source answers <see cref="SystemAccessibility.Unknown" /> and
+    ///         that is not the same as answering "off".</b> See <see cref="SystemAccessibility" />: a
+    ///         host that flattened the two would animate at a user who had asked it not to.
+    ///     </para>
+    /// </remarks>
+    SystemAccessibility Accessibility { get; }
+
     /// <summary>Where this platform keeps files.</summary>
     IFileSystemHost FileSystem { get; }
 

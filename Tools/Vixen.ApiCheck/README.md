@@ -105,7 +105,29 @@ surface is a promise is the set somebody can install from nuget.org.
 
 The `net10.0-ios`, `-android` and `-browser` projects are not covered. They are outside
 `Vixen.slnx` for the reason `CompileMobile` documents, so `Compile` has not built them and there
-would be nothing to read. `Tools/` is not covered: it is build-time tooling that ships to nobody.
+would be nothing to read.
+
+⚠ `Tools/` is not covered either, and the reason this file used to give — *"build-time tooling that
+ships to nobody"* — is false. Seven projects under `Tools/` declare `IsPackable=true`. Three of them
+raise no question (`Vixen.Sdk` and `Vixen.Templates` set `IncludeBuildOutput=false`, so the package
+has no `lib/` and there is no surface to read; `Vixen.Cli` is a `dotnet tool`, and what a tool
+promises is a command line). **Two are libraries a consumer compiles against** — `Vixen.App`, whose
+`VixenApp.Run<TGame>` is a game's entry point, and `Vixen.ShaderCompiler` — and they are in exactly
+the condition `Vixen.Raven` was in before it was named here. That is #749.
+
+## What is skipped, written down
+
+⚠ A glob says nothing about what it does not match, which is the failure mode this gate is otherwise
+built to prevent: for an assembly `CheckApi` has never heard of it prints *nothing*, the log reads
+`Checking the public surface of 132 assemblies`, and the target succeeds whether the uncovered set
+is one project or fifty.
+
+So the skipped set is committed. [`build/ApiUncovered.txt`](../../build/ApiUncovered.txt) names every
+project in `Vixen.slnx` that packs and has no baseline — twenty-nine of them, twenty-one being the
+`Editor/` assemblies of #641 — each with a reason token, and `ApiCoverageTests` holds the list to the
+tree in **both** directions: a project that starts packing with nobody checking it fails, and so does
+a line for a project that has since been covered, stopped packing, or been deleted. A stale exemption
+list is one more instrument reporting success.
 
 Two projects outside those folders are named explicitly, each because it makes a promise the folder
 rule would miss.

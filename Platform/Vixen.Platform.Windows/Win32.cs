@@ -205,6 +205,39 @@ static unsafe partial class Win32 {
         ref uint size
     );
 
+    /// <summary><c>SPI_GETCLIENTAREAANIMATION</c> — whether animation inside a window is wanted.</summary>
+    public const uint SpiGetClientAreaAnimation = 0x1042;
+
+    /// <summary><c>SPI_GETHIGHCONTRAST</c> — the high-contrast scheme and whether it is on.</summary>
+    public const uint SpiGetHighContrast = 0x0042;
+
+    /// <summary><c>HCF_HIGHCONTRASTON</c>.</summary>
+    public const uint HcfHighContrastOn = 0x00000001;
+
+    /// <remarks>
+    ///     ⚠ <b>The <c>pvParam</c> is <c>void*</c> and what it points at depends entirely on the
+    ///     action</b> — a <c>BOOL</c> for <c>SPI_GETCLIENTAREAANIMATION</c>, a <c>HIGHCONTRAST</c>
+    ///     for <c>SPI_GETHIGHCONTRAST</c> — so this is one import rather than one per setting, and
+    ///     the caller is the party that knows the shape. Passing the wrong one writes past whatever
+    ///     was handed in, which is why every call site here is two lines from its constant.
+    /// </remarks>
+    [LibraryImport("user32.dll", EntryPoint = "SystemParametersInfoW")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool SystemParametersInfo(uint action, uint parameter, void* value, uint update);
+
+    /// <summary>A <c>HIGHCONTRAST</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>cbSize</c> must be set before the call and the scheme pointer must be null.</b>
+    ///     Windows refuses the call outright on a wrong size, and a non-null
+    ///     <c>lpszDefaultScheme</c> asks it to copy a string into memory this never allocated.
+    /// </remarks>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct HighContrast {
+        public uint Size;
+        public uint Flags;
+        public nint DefaultScheme;
+    }
+
     [LibraryImport("ole32.dll")]
     public static partial int CoInitializeEx(void* reserved, uint model);
 

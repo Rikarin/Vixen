@@ -140,23 +140,40 @@ corner would be right only under `direction: ltr`. They keep the logical longhan
 half of each name and leaving the block half alone. `rounded-ss` is therefore the top-left corner
 under `ltr` and the top-right under `rtl`, which is what `ps-2` does one property over.
 
-⚠ **`space-*` and `divide-*` are the only families whose rule is about the children**, and the two
-things worth knowing before reaching for them are both divergences from Tailwind v4. The rule is
-`.space-y-4 > :not(:last-child)`, emitted without v4's `:where()` wrapper because Vixen's stylesheet
-front end does not read `:where()` at all — a rule containing one is refused with a diagnostic rather
-than compiled at some other specificity. So the rule is two classes of specificity and beats a child's
-own `mb-0`, exactly as Tailwind v3 did. And `space-y-*` writes
+⚠ **`space-*` and `divide-*` are the only families whose rule is about the children.** The rule is
+`:where(.space-y-4 > :not(:last-child))` — v4's own selector, wrapper included. `:where()` contributes
+no specificity, so the rule lands at `(0,0,0)` and a child's own `mb-0` takes its margin back; without
+the wrapper it would be `(0,2,0)` and the override would be unwritable, which is what Tailwind v3
+shipped and what this emitted until `:where()` compiled. One divergence from v4 is left:
+`space-y-*` writes
 `margin-bottom` where v4 writes `margin-block-end`, because the block longhands are interned by
 nobody here and there is no writing mode for the two to differ in. `@apply space-x-4` is refused, for
 the same reason `@apply hover:bg-accent` is: it is a rule with a selector of its own.
 
-⚠ **`mix-blend-*` and `origin-*` are deliberately not families**, and each is a measured verdict
-rather than an omission. Nothing in the engine reads `mix-blend-mode` (no layer carries a blend mode,
-and the composite that would apply one never reads what is under it) or `transform-origin` (which
-needs a transform whose fixed point matters, and `translate` — the only one implemented — is
-origin-independent). ⚠ The offscreen target this refusal used to cite is no longer missing: the
-compositor makes real groups for `opacity`, a `filter`, a `mask-image`, a `backdrop-filter` and a
-transform. See `docs/plan/43-web-styling-parity.md` § F9.
+⚠ **`mix-blend-*` and `origin-*` were once refused as measured-inert, and both refusals have since
+expired** — they are registered families now, and the sequence is worth knowing because it is the
+shape most of these take: the family was not missing, the *consumer* was, and writing the consumer is
+what closed it. `transform-origin` needed `rotate` and `scale`; `mix-blend-mode` needed a blend
+channel on `UiLayer` and the arithmetic to go with it. `isolate` and `isolation-auto` came with the
+second, because `isolation` has no observable of its own — its only defined effect is on a
+descendant's blend.
+
+⚠ **`object-*` needs one line of C# per picture and does nothing without it.** The fourteen classes —
+five fits and nine positions — are read by `Image`, and every keyword but `object-fill` is *defined*
+as a relation between the picture's own shape and the box it is in. Nothing on the UI side can ask a
+texture how big it is, so the application says: set `Image.IntrinsicSize` beside `Image.Texture`, in
+the texture's own pixels. Left at zero it means "unknown", and an unknown picture stretches to the
+box whatever the class says — which is CSS's own answer for content with no intrinsic dimensions, and
+also why adding these classes to an existing screen changes nothing until somebody fills the size in.
+
+⚠ And they place the **picture**, not the element. An `Image` with no `width` is still a zero-height
+box: sizing a replaced element from its content is a separate thing this framework does not do.
+
+⚠ **One half of `mix-blend-*` is still owed and the classes say so.** The blend is applied by
+`SoftwareUiRasterizer` and not by `UiRenderer`, so on the device a blended group composites
+source-over and looks as though the declaration were absent. `UiRenderer.Unblended` is what says it
+happened. See `docs/guide/ui/compositing.md` and `docs/plan/43-web-styling-parity.md` § Part 9,
+Bucket 2.
 
 ⚠ **The `scroll-*` set is written now, and every one of them only means something inside a
 `<ScrollView>`.** `scroll-mt-4` on a `div` that nothing ever scrolls to resolves, computes a value and

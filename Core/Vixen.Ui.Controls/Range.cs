@@ -4,6 +4,7 @@
 using System.Globalization;
 using Vixen.Core.Mathematics;
 using Vixen.Input;
+using Vixen.Ui.Styling;
 
 namespace Vixen.Ui.Controls;
 
@@ -706,6 +707,12 @@ public sealed partial class ProgressBar : RangeBase {
         } else {
             RemoveClass("indeterminate");
         }
+
+        // ⚠ <b>The same bit a half-ticked `CheckBox` sets, and deliberately the same one.</b> CSS
+        // Selectors 4 § 10.9 gives `:indeterminate` to both — a checkbox whose value is unknown and a
+        // progress bar whose length is — so a stylesheet writes one rule and gets both. A bit of its
+        // own would be a second thing meaning the same word.
+        State = current ? State | ElementState.Indeterminate : State & ~ElementState.Indeterminate;
 
         // ⚠ This flag moves two announced things at once — `Busy` arrives and `aria-valuenow`
         // *departs* — and neither is a style state. A bar that finished a job of unknown length

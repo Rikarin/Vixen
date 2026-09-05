@@ -37,7 +37,7 @@ public class CommandResponderTests {
     ///     enablement was not consulted, which is the case a plain "did it run" assertion cannot
     ///     tell apart from the first.
     /// </remarks>
-    sealed class CountingResponder : ICommandResponder {
+    sealed class CountingResponder : IResponder {
         readonly string id;
         readonly Action execute;
         readonly bool can;
@@ -321,7 +321,7 @@ public class CommandResponderTests {
 
     [Fact]
     public void A_long_lived_responder_does_not_keep_a_closed_document_alive() {
-        // ⚠ The other direction, and the one a nulled field cannot prove. `ICommandResponder` has no
+        // ⚠ The other direction, and the one a nulled field cannot prove. `IResponder` has no
         // event and no back-reference by design: a responder never learns which documents it was
         // installed on, so there is nothing on it for a closed window to hang from. This asserts
         // that rather than trusting it — the editor keeps one registry across a shell being rebuilt,
@@ -348,7 +348,7 @@ public class CommandResponderTests {
     ///     for a reason that has nothing to do with the responder.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    static WeakReference Closed(ICommandResponder application) {
+    static WeakReference Closed(IResponder application) {
         var document = new UiDocument(100f, 100f);
         document.ApplicationCommandResponder = application;
 

@@ -3,6 +3,7 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Input;
+using Vixen.Ui.Styling;
 using Vixen.Ui.Text;
 
 namespace Vixen.Ui.Controls;
@@ -44,6 +45,7 @@ public abstract partial class TextField : Control, ITextInputTarget {
     int caretColor;
     int caretColorStandard;
     bool dragging;
+    Func<string?, string?>? validator;
 
     // The input method's pre-edit and its own cursor within it. Empty for the whole life of a field
     // nobody types Japanese into, which is why they are two plain fields rather than state anything
@@ -106,6 +108,66 @@ public abstract partial class TextField : Control, ITextInputTarget {
     /// <summary>The longest value it will take, or zero for no limit.</summary>
     [UiProperty]
     public partial int MaxLength { get; set; }
+
+    /// <summary>Whether a value has to be supplied.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The only producer of <see cref="AccessibleStates.Required" /> in the tree.</b> The
+    ///         flag has existed since the accessibility tree did and nothing set it, so a form's
+    ///         mandatory fields sounded exactly like its optional ones — which is the one thing a
+    ///         screen-reader user needs to know <i>before</i> they submit rather than after.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An empty required field is <i>invalid</i>, from the moment it is marked, and that
+    ///         is deliberate.</b> Deferring the verdict until a submit is what makes a form tell you
+    ///         about four mistakes at once at the end; the state is what the field is in, and when to
+    ///         <i>show</i> it is the theme's business — see the <c>invalid</c> class.
+    ///     </para>
+    /// </remarks>
+    [UiProperty(Changed = nameof(OnRequiredChanged))]
+    public partial bool Required { get; set; }
+
+    /// <summary>What decides whether the value is acceptable, for a caller that will not subclass.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The application-reachable half of <see cref="Validate" />.</b> A rule is usually
+    ///         one predicate about one field — an address that has to contain an at-sign, a name
+    ///         already taken — and a control library that could only express it by deriving a type
+    ///         would be asking for a class per field on every form ever written.
+    ///     </para>
+    ///     <para>
+    ///         Returns <c>null</c> when the value is acceptable and the reason when it is not. The
+    ///         reason is the caller's own words: this assembly does not know what the field holds and
+    ///         cannot write a sentence about it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Assigning one revalidates immediately</b>, so a rule attached to a field that has
+    ///         already been filled in does not wait for the next keystroke to notice.
+    ///     </para>
+    /// </remarks>
+    public Func<string?, string?>? Validator {
+        get => validator;
+        set {
+            validator = value;
+            Revalidate();
+        }
+    }
+
+    /// <summary>Why the value is not acceptable, or <c>null</c> when it is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not written into the accessibility tree by this control, and that is not an
+    ///     oversight.</b> ARIA pairs <c>aria-invalid</c> — which
+    ///     <see cref="NativeAccessibleState" /> does produce — with a <i>separate</i> element holding
+    ///     the words, reached by <c>aria-describedby</c>; the error text a form shows is a label
+    ///     somewhere in the layout, and pointing at it is one
+    ///     <c>field.AddAccessibleRelation(AccessibleRelation.DescribedBy, message)</c>. Folding the
+    ///     string into <see cref="UiElement.AccessibleDescription" /> from here would silently
+    ///     overwrite whatever the application had put there.
+    /// </remarks>
+    public string? ValidationMessage { get; private set; }
+
+    /// <summary>Whether the value is acceptable.</summary>
+    public bool IsValid => ValidationMessage is null;
 
     /// <summary>Where the caret is, as a UTF-16 index into <see cref="Value" />.</summary>
     public int CaretIndex { get; private set; }
@@ -264,11 +326,20 @@ public abstract partial class TextField : Control, ITextInputTarget {
     ///         <see cref="Control.Disabled" />, which is the conflation the property's remarks
     ///         already warn about.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="AccessibleStates.Required" /> and <see cref="AccessibleStates.Invalid" />
+    ///         are produced here and nowhere else in the tree.</b> Both flags predate any control
+    ///         that could set them, so until <see cref="Required" /> and <see cref="Validate" />
+    ///         existed a form's mandatory fields and its rejected ones were indistinguishable from
+    ///         its ordinary ones to anything reading the accessibility tree.
+    ///     </para>
     /// </remarks>
     protected override AccessibleStates NativeAccessibleState =>
         AccessibleStates.Editable
         | (ReadOnly ? AccessibleStates.ReadOnly : AccessibleStates.None)
-        | (AcceptsNewlines ? AccessibleStates.MultiLine : AccessibleStates.None);
+        | (AcceptsNewlines ? AccessibleStates.MultiLine : AccessibleStates.None)
+        | (Required ? AccessibleStates.Required : AccessibleStates.None)
+        | (IsValid ? AccessibleStates.None : AccessibleStates.Invalid);
 
     /// <inheritdoc />
     protected override void OnCreated() {
@@ -643,6 +714,64 @@ public abstract partial class TextField : Control, ITextInputTarget {
     /// </remarks>
     protected virtual string? Shown(string? value) => value;
 
+    /// <summary>Whether a value is acceptable, and why not when it is not.</summary>
+    /// <param name="value">What the field holds.</param>
+    /// <returns><c>null</c> when the value is acceptable, otherwise the reason it is not.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The third seam on a value, beside <see cref="Coerce" /> and <see cref="Shown" />,
+    ///         and it is the one that answers a question rather than substituting a string.</b>
+    ///         <see cref="Coerce" /> is what a field will <i>hold</i> — a numeric input refuses
+    ///         letters outright — and that is deliberately not where a rule about acceptability
+    ///         belongs: a field that silently dropped what was typed because it was too short could
+    ///         never be typed into at all. Validity is a state the field is <i>in</i>, with the value
+    ///         still there to be corrected.
+    ///     </para>
+    ///     <para>
+    ///         The default applies <see cref="Required" /> first and then <see cref="Validator" />,
+    ///         so an override that wants both calls <c>base.Validate</c>. Order matters: an empty
+    ///         required field is the only case this assembly can describe in words, and a custom rule
+    ///         asked about an empty string would have to repeat the emptiness check to avoid
+    ///         answering "not a valid address" about a field nobody has reached yet.
+    ///     </para>
+    /// </remarks>
+    protected virtual string? Validate(string? value) =>
+        Required && string.IsNullOrEmpty(value) ? ControlStrings.FieldRequired.Text : Validator?.Invoke(value);
+
+    /// <summary>Asks <see cref="Validate" /> again and republishes the answer.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Public because validity can depend on something that is not the value.</b> A field
+    ///     that must not match another field's contents, a name checked against a list that has just
+    ///     been fetched — nothing about those changes when a keystroke lands here, so a control that
+    ///     only revalidated on its own edits would sit there green until the user touched it. Cheap
+    ///     to call: it is one predicate and it only writes anything when the verdict moved.
+    /// </remarks>
+    public void Revalidate() {
+        var message = Validate(Value);
+
+        if (string.Equals(message, ValidationMessage, StringComparison.Ordinal)) {
+            return;
+        }
+
+        var was = IsValid;
+        ValidationMessage = message;
+
+        if (IsValid == was) {
+            return;
+        }
+
+        // ⚠ Only when the verdict itself moved. Two different reasons for the same field being
+        // invalid are the same picture and the same `aria-invalid`, and a class rewritten on every
+        // keystroke of a rejected value is churn in the selector engine for no change on screen.
+        if (IsValid) {
+            RemoveClass("invalid");
+        } else {
+            AddClass("invalid");
+        }
+
+        InvalidateAccessibility();
+    }
+
     /// <summary>Called when Enter is pressed, before <see cref="Submitted" /> is raised.</summary>
     protected virtual void OnSubmit() {
     }
@@ -949,6 +1078,10 @@ public abstract partial class TextField : Control, ITextInputTarget {
         Restate();
         Reveal();
 
+        // Before the notifications rather than after, so a handler that reads `IsValid` — which is
+        // what a submit button's enablement is — sees the verdict on the value it was just handed.
+        Revalidate();
+
         Raise(new ValueChangedEvent<string> { Previous = previous, Value = current });
         ValueChanged?.Invoke(this, current);
     }
@@ -958,12 +1091,23 @@ public abstract partial class TextField : Control, ITextInputTarget {
         Restate();
     }
 
+    void OnRequiredChanged(bool previous, bool current) {
+        Revalidate();
+        InvalidateAccessibility();
+    }
+
     void OnReadOnlyChanged(bool previous, bool current) {
         if (current) {
             AddClass("read-only");
         } else {
             RemoveClass("read-only");
         }
+
+        // ⚠ <b>The state bit as well as the class, and the class is not redundant.</b> The bit is
+        // what CSS spells `:read-only` and what the `read-only:` variant compiles to; the class is
+        // what the editor's own themes already select on. Dropping the class to tidy up would
+        // restyle every inspector field in the same commit as a variant nobody has used yet.
+        State = current ? State | ElementState.ReadOnly : State & ~ElementState.ReadOnly;
     }
 
     /// <summary>Shows the placeholder only when there is nothing to show instead.</summary>
@@ -973,11 +1117,22 @@ public abstract partial class TextField : Control, ITextInputTarget {
     ///     rather than being cleared and reinstated on every keystroke.
     /// </remarks>
     void Restate() {
-        if (string.IsNullOrEmpty(Value)) {
+        var empty = string.IsNullOrEmpty(Value);
+
+        if (empty) {
             AddClass("empty");
         } else {
             RemoveClass("empty");
         }
+
+        // ⚠ <b>Both halves, which is what separates `:placeholder-shown` from the `empty` class
+        // beside it.</b> Selectors 4 § 10.4 matches a field that is *currently displaying*
+        // placeholder text, so a field with no value and nothing to show in its place is not one —
+        // and a variant compiled against the class alone would have matched every empty field in the
+        // document, including the ones with no placeholder at all.
+        var shown = empty && !string.IsNullOrEmpty(Placeholder);
+
+        State = shown ? State | ElementState.PlaceholderShown : State & ~ElementState.PlaceholderShown;
     }
 
     /// <summary>Scrolls the text sideways so that the caret is inside the box.</summary>

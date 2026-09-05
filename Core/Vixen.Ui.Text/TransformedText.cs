@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using System.Text;
 
 namespace Vixen.Ui.Text;
@@ -117,6 +118,14 @@ public sealed class TransformedText {
     ///         is what every interface here drew until this parameter existed.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>And one conditional mapping depends on no language at all.</b> Greek sigma
+    ///         lowercases to ς at the end of a word and σ everywhere else, in every locale — so
+    ///         <c>ΟΔΟΣ</c> drew as <c>οδοσ</c> here until <see cref="IsFinalSigma" /> existed, which
+    ///         is wrong in a Greek document whatever its language tag says. It is evaluated in this
+    ///         walk rather than looked up, because <c>SpecialCasingTable</c> is the UCD's
+    ///         <i>unconditional</i> rows and a condition is a question about the neighbours.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b>No <c>CultureInfo</c>, deliberately and not merely incidentally.</b> The tag is
     ///         read from the element, so the same document uppercases the same way on a Turkish
     ///         laptop and on CI — the property <c>TextShaper</c> protects for shaping, held here for
@@ -182,6 +191,20 @@ public sealed class TransformedText {
                 continue;
             }
 
+            // ⚠ SpecialCasing.txt's one *language-independent* conditional row, and the reason
+            // Greek lowercased wrongly in every locale rather than in a Greek one. `Rune` answers
+            // U+03A3 with σ always, so `ΟΔΟΣ` drew as `οδοσ` where every browser and word processor
+            // draws `οδος`. Here rather than in `Lower` because the condition is a lookaround over
+            // the *source* string, which a per-rune mapping cannot see — the same reason the Turkic
+            // two-character row is here.
+            if (transform == TextTransform.Lowercase && rune.Value == GreekCapitalSigma
+                                                     && IsFinalSigma(source, at, length)) {
+                Record(sourceOf, drawnOf, at, length, text.Length, 1);
+                text.Append(GreekFinalSigma);
+                at += length;
+                continue;
+            }
+
             var mapped = transform switch {
                 TextTransform.Uppercase => Upper(rune, turkic),
                 TextTransform.Lowercase => Lower(rune, turkic),
@@ -243,6 +266,112 @@ public sealed class TransformedText {
 
     /// <summary>COMBINING DOT ABOVE, U+0307.</summary>
     const char CombiningDotAbove = '\u0307';
+
+    /// <summary>GREEK CAPITAL LETTER SIGMA, U+03A3.</summary>
+    const int GreekCapitalSigma = 0x03A3;
+
+    /// <summary>GREEK SMALL LETTER FINAL SIGMA, U+03C2.</summary>
+    const char GreekFinalSigma = '\u03c2';
+
+    /// <summary>Whether a sigma at an offset is the last letter of its word.</summary>
+    /// <param name="source">The untransformed text.</param>
+    /// <param name="at">Where the sigma starts.</param>
+    /// <param name="length">Its length in UTF-16 code units.</param>
+    /// <returns>Whether it lowercases to \u03c2 rather than to \u03c3.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         UAX #21's <c>Final_Sigma</c>, verbatim: preceded by a cased letter with only
+    ///         case-ignorable characters in between, and <i>not</i> followed by one on the same
+    ///         terms. Both halves are needed and the second is the one an implementation forgets \u2014
+    ///         without it <c>\u039f\u0394\u039f\u03a3 \u039c\u039f\u03a5</c> would end its first word correctly and <c>\u03a3\u039f\u03a6\u039f\u03a3</c> would
+    ///         turn its leading sigma final as well.
+    ///     </para>
+    ///     <para>
+    ///         \u26a0 <b>Read against the source and not against what has been written so far.</b> The
+    ///         text ahead has not been transformed yet, so the two are different strings, and the
+    ///         condition is defined on the input. Casing does not change whether a character is
+    ///         cased or ignorable, so reading backwards from the source is the same answer for less
+    ///         bookkeeping.
+    ///     </para>
+    ///     <para>
+    ///         \u26a0 <b>No <c>CultureInfo</c> here either.</b> <c>Cased</c> and <c>Case_Ignorable</c>
+    ///         come out of the Unicode general categories and this assembly's own word-break table,
+    ///         both of which are the same on every machine \u2014 see the remarks on
+    ///         <see cref="Of" />.
+    ///     </para>
+    /// </remarks>
+    static bool IsFinalSigma(string source, int at, int length) =>
+        PrecededByCased(source, at) && !FollowedByCased(source, at + length);
+
+    /// <summary>Whether the scalar before an offset, ignoring case-ignorables, is cased.</summary>
+    static bool PrecededByCased(string source, int at) {
+        while (at > 0) {
+            var start = at - 1;
+
+            if (char.IsLowSurrogate(source[start]) && start > 0 && char.IsHighSurrogate(source[start - 1])) {
+                start--;
+            }
+
+            // A lone surrogate is neither cased nor ignorable, so it ends the walk with "no".
+            if (!Rune.TryGetRuneAt(source, start, out var rune) || start + rune.Utf16SequenceLength != at) {
+                return false;
+            }
+
+            if (!IsCaseIgnorable(rune)) {
+                return IsCased(rune);
+            }
+
+            at = start;
+        }
+
+        return false;
+    }
+
+    /// <summary>Whether the scalar after an offset, ignoring case-ignorables, is cased.</summary>
+    static bool FollowedByCased(string source, int at) {
+        while (at < source.Length) {
+            if (!Rune.TryGetRuneAt(source, at, out var rune)) {
+                return false;
+            }
+
+            if (!IsCaseIgnorable(rune)) {
+                return IsCased(rune);
+            }
+
+            at += rune.Utf16SequenceLength;
+        }
+
+        return false;
+    }
+
+    /// <summary>The <c>Cased</c> derived property.</summary>
+    /// <remarks>
+    ///     Uppercase, lowercase or titlecase. \u26a0 <b>Titlecase is the third one and is a real
+    ///     category</b> \u2014 <c>\u01c5</c> is neither <c>Lu</c> nor <c>Ll</c>, so a test written as
+    ///     "upper or lower" would read a Latin digraph as uncased and break a sigma's word at it.
+    /// </remarks>
+    static bool IsCased(Rune rune) =>
+        Rune.IsUpper(rune)
+        || Rune.IsLower(rune)
+        || Rune.GetUnicodeCategory(rune) == UnicodeCategory.TitlecaseLetter;
+
+    /// <summary>The <c>Case_Ignorable</c> derived property.</summary>
+    /// <remarks>
+    ///     \u26a0 <b>Five categories <i>and</i> three word-break classes</b>, which is DerivedCoreProperties'
+    ///     own definition and not a simplification of it. The word-break half is what makes
+    ///     <c>\u039c.\u039f.\u03a3.</c> and an apostrophe inside a word behave: a full stop between two letters is
+    ///     <c>MidNumLet</c>, so the sigma before it is still followed by a cased letter and stays
+    ///     non-final. Dropping that half would be invisible in every fixture written out of one word.
+    /// </remarks>
+    static bool IsCaseIgnorable(Rune rune) =>
+        Rune.GetUnicodeCategory(rune) is UnicodeCategory.NonSpacingMark
+            or UnicodeCategory.EnclosingMark
+            or UnicodeCategory.Format
+            or UnicodeCategory.ModifierLetter
+            or UnicodeCategory.ModifierSymbol
+        || WordBreakClassTable.Of(rune.Value) is WordBreakClass.MidLetter
+            or WordBreakClass.MidNumLet
+            or WordBreakClass.SingleQuote;
 
     /// <summary>LATIN CAPITAL LETTER I WITH DOT ABOVE, U+0130.</summary>
     const string DottedCapitalI = "\u0130";

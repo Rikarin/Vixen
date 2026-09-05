@@ -329,8 +329,9 @@ accept both**. Cheap to know before the property system is written; expensive to
 
 Supported: type/class/id/universal selectors, descendant/child/sibling combinators, attribute
 selectors, `:hover`/`:active`/`:focus`/`:focus-visible`/`:disabled`/`:checked`/`:first-child`/
-`:last-child`/`:nth-child()`/`:empty`/`:not()`/`:is()` (⚠ **not** `:where()` — ExCSS 4.3.2 does not
-parse it, so a rule containing one is refused whole; `WhereSelectorTests` measures that),
+`:last-child`/`:nth-child()`/`:empty`/`:not()`/`:is()`/`:where()` (⚠ ExCSS 4.3.2 does not parse
+`:where()` — the whole selector comes back as one unknown — so `SelectorCompiler` repairs the text
+itself before re-reading it, and charges nothing for it; `WhereSelectorTests` measures that),
 custom properties (`--x`) with `var()` and fallbacks, `@media` (width/height/orientation/
 prefers-color-scheme/dpi), `@supports`, `@keyframes`, `@font-face`, `@import`, `@layer` (cascade
 layers — worth having, it is how the utility system and component styles coexist cleanly).
@@ -514,9 +515,15 @@ classes that resolve, compute a value, and change nothing a person can see, whic
 [doc 43](43-web-styling-parity.md) exists to end and is strictly worse than the honest absence:
 
 - **`mix-blend-*`** — eighteen keywords onto `mix-blend-mode`. A blend mode is a compositing operation
-  and `DrawCommand` has no blend channel to carry one; there is no offscreen target to blend *into*
-  either, which is the same missing compositor `rotate` and `scale` are already filed against (`#23`).
+  and `DrawCommand` had no blend channel to carry one; there was no offscreen target to blend *into*
+  either, which is the same missing compositor `rotate` and `scale` were filed against (`#23`).
   Blending would have to land in the renderer first, and the family the day after.
+  ⚠ **Both halves have expired and the family is written.** The compositor landed, `UiLayer.Blend`
+  carries CSS Compositing 1 § 5.1's sixteen modes, and sixteen of the eighteen keywords are
+  registered — `plus-darker` and `plus-lighter` stay refused because they are Compositing 2
+  porter-duff operators rather than blend functions. `isolate` and `isolation-auto` came with it. What
+  is left is the device composite, which is a shader variant and not a channel; doc 43 § Part 9,
+  Bucket 2 prices it.
 - **`origin-*`** — nine keywords onto `transform-origin`, and this one is inert for a reason no scene
   can fix. `transform-origin` moves the fixed point of a transform, so it says something only where
   there *is* one — and the only transform this engine implements is `translate`, which is
@@ -546,11 +553,12 @@ needed the generator to emit a compound selector rather than a bare class. It do
 `:last-child` all along. Two divergences from v4, both deliberate and both recorded in
 `ChildScopedFamilyTests`: `space-y-*` emits the physical `margin-bottom` where v4 emits
 `margin-block-end`, because the block pair is interned by nobody and this engine has no writing mode
-for them to differ in; and the scope is not wrapped in `:where()`, which v4 uses to keep the rule at
-one class of specificity, because ⚠ **`:where()` is not a selector this front end reads** — ExCSS
-4.3.2 hands the whole selector back as one unknown and `SelectorCompiler` refuses the rule, so there
-is no charge to remove and the fix is not a specificity tweak. The second is v3's behaviour and
-shipped for four major versions. `space-x-reverse` and
+for them to differ in. ⚠ **The second divergence — the scope emitted without v4's `:where()` wrapper
+— is gone**, and the reason recorded for it here was wrong: ExCSS 4.3.2 hands a selector containing
+`:where()` back as one unknown, so the rule was refused rather than compiled at the wrong
+specificity, and closing it was a repair of the text rather than a charge to remove. The emitted rule
+is `:where(.space-y-4 > :not(:last-child))` at `(0,0,0)`, so a child's own `mb-0` wins.
+`space-x-reverse` and
 `divide-*-reverse` are absent — ⚠ **and neither reason originally given for them is the reason any
 more.** `StyleValueParser` folds `+ - * /` on compatible units, and `ReverseFlagTests` measures that
 the `--tw-*-reverse` flag *is* read: written by one class, read by another class's declaration,
@@ -593,9 +601,11 @@ a prerequisite that already existed.
 ⚠️ **[Doc 43](43-web-styling-parity.md) reopens the family list above and measures it.** The ✅ on this
 section is true of the *machinery* and not of the *coverage*: ~~five of the families this section names
 for 1.0 — `space`, `divide`, `mix-blend`, `origin`, `scroll` — were never written~~ — **settled, and
-in three different ways.** `space` and `divide` are written, and the list above no longer names the
-other three: `mix-blend` and `origin` emit properties nothing in this engine reads and were refused
-with the measurement written down, `scroll` is re-homed against `ScrollView` under A18. The list is a
+in three different ways.** `space` and `divide` are written; `mix-blend` and `origin` emitted
+properties nothing in this engine read and were refused with the measurement written down; `scroll` is
+re-homed against `ScrollView` under A18. ⚠ **All three refusals have since expired**, each because the
+consumer was built rather than because the verdict was wrong, so all five families are registered
+today. The list is a
 statement about the code again rather than a wish. Against
 Tailwind v4.3.3's own registry only 51 of 328 utility roots work end to end. Doc 43 also corrects the
 first of the two "limits" above: the `text-` overload is Tailwind's own design and costs there exactly

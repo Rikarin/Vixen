@@ -4,7 +4,7 @@ slug: ui/commands
 kind: guide
 area: Core
 summary: A menu declares what, and the focus decides who — a command id resolved by walking outwards from the focused element and on past the root to the document and the application, so two views can answer the same verb without knowing each other exists and an item nothing handles greys itself out.
-api: [T:Vixen.Ui.CommandRoute, T:Vixen.Ui.CommandHandler, T:Vixen.Ui.ICommandResponder, T:Vixen.Ui.CommandResponder]
+api: [T:Vixen.Ui.CommandRoute, T:Vixen.Ui.CommandHandler, T:Vixen.Ui.IResponder, T:Vixen.Ui.CommandResponder]
 tags: [ui, commands, focus, input, menus]
 since: 0.2
 status: preview
@@ -89,7 +89,7 @@ view-model, an open file, an application's shell — is exactly the kind of obje
 to be a view, and before this it had to own a piece of the element tree in order to say it handled
 `edit.save`.
 
-`ICommandResponder` is the seam: one method, from an id to a handler. `CommandResponder` is the
+`IResponder` is the seam: one method, from an id to a handler. `CommandResponder` is the
 implementation almost everything wants — a table with the same five arguments as
 `AddCommandHandler`, and the same rule that declaring one id twice throws:
 
@@ -130,7 +130,7 @@ willing.
 impossible returns `true` with a predicate that says no, rather than `false`. Returning `false` lets
 the id fall out of the chain entirely, and there is nothing after the application to catch it.
 
-Implement `ICommandResponder` directly only when the lookup already exists somewhere else and a
+Implement `IResponder` directly only when the lookup already exists somewhere else and a
 `CommandResponder` beside it would be a second copy to keep in step. The editor's `CommandRegistry`
 is that case, and it is what `EditorShell` installs as its document's application responder — which
 is why a plain `Vixen.Ui` control bound to an editor command id resolves, greys and runs it with
@@ -138,7 +138,7 @@ nothing editor-shaped in the control.
 
 ⚠ **Lifetime: the document holds the responders and never the other way about.** A responder is a
 table of closures and a closure reaches everything it captured, so the reference has to point from
-the short-lived thing at the long-lived one. `ICommandResponder` deliberately has no event and no
+the short-lived thing at the long-lived one. `IResponder` deliberately has no event and no
 back-reference: a responder never learns which documents it was installed on, so a long-lived one
 cannot keep a closed window's element tree alive. `UiDocument.Dispose` drops both slots and the
 `CommandsInvalidated` subscribers regardless.
@@ -146,6 +146,40 @@ cannot keep a closed window's element tree alive. `UiDocument.Dispose` drops bot
 Changing a responder's *table* does not invalidate anything, because a responder does not know a
 document — installing one does. After adding or removing handlers on a responder that is already
 installed, call `UiDocument.InvalidateCommands()`.
+
+### A responder in the middle of the walk
+
+The two slots above are the chain's two **ends**. AppKit puts a view controller, a window controller
+and a document *between* the views and `NSApp`, and those need a position in the middle.
+`UiElement.AddResponder` gives them one: a responder appended to an element is consulted right after
+that element's own handlers and before the walk moves to its parent.
+
+```
+focused element → its responders → its parent → that parent's responders → … → root → its responders
+    → UiDocument.CommandResponder → UiDocument.ApplicationCommandResponder
+```
+
+⚠ **There is no settable `nextResponder`, and that is a decision rather than an omission.** A mutable
+next-link is where AppKit's worst chain bugs come from: anything holding the pointer can splice
+itself in ahead of the window, forget to put it back, and orphan the root — after which the
+application stops answering verbs it has always answered and there is nothing to look at. Appending
+at a position cannot rewrite the walk, so the "nearer wins, all the way out" rule above holds
+whatever anybody appends. Lifetime is the same bargain as the document's slots: the element holds
+the responder and never the reverse.
+
+`IResponder` carries two more members, both defaulted so an existing implementation compiles
+unchanged:
+
+| Member | Default | What it is |
+|---|---|---|
+| `OnKey(KeyEvent)` | `false` | A chance at a keystroke, at the position the responder sits at |
+| `UndoManager` | `null` | The stack `UiElement.FindUndoManager` hands a control that is recording an edit |
+
+⚠ **`OnKey` is the only way a non-element responder sees a key.** `EventRouter` is `UiElement`-typed
+end to end — its route is a list of elements — so this could not have been fixed inside the router.
+`UiDocument.Dispatch(KeyEvent)` offers the key to the responder walk **after** the bubble leg, so a
+focused control still wins, and **before** the access-key and Tab fallbacks, because those are
+defaults and a responder is not. Return `true` to say the key was taken.
 
 ### Binding a control to an id
 

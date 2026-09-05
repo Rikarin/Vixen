@@ -232,7 +232,8 @@ secure-textbox:focus-visible,
 numeric-input:focus-visible, select:focus-visible, multi-select:focus-visible,
 slider:focus-visible, range-slider:focus-visible, tab:focus-visible,
 menu-item:focus-visible, option:focus-visible, link:focus-visible,
-page-button:focus-visible, breadcrumb-item:focus-visible, expander-header:focus-visible {
+page-button:focus-visible, breadcrumb-item:focus-visible, expander-header:focus-visible,
+segment:focus-visible {
     border-color: var(--accent);
 }
 
@@ -270,6 +271,21 @@ page-button:focus-visible, breadcrumb-item:focus-visible, expander-header:focus-
    `numeric-input`'s spinners and a combo box's editable half are children that do not. */
 .read-only, .read-only field-text, .read-only icon {
     color: var(--text-muted);
+}
+
+/* ⚠ And a field holding something that will be refused, which had no picture
+   either — `AccessibleStates.Invalid` had no producer at all, so a rejected
+   value was announced as an ordinary one and drawn as one.
+
+   The border rather than the text, because the *value* is not wrong to look
+   at: it is what the user has to read in order to correct it, and muting or
+   reddening it fights that. A ring round the box says "this one" without
+   touching what is inside it — and it is not the only signal, since the
+   accessibility tree carries `aria-invalid` and the words belong to a label
+   the form points at with `DescribedBy`. Colour alone would leave a
+   red-green-blind user with an unchanged box. */
+.invalid {
+    border-color: var(--danger);
 }
 
 /* ── Toggles ──────────────────────────────────────────────────────────
@@ -499,6 +515,75 @@ split-pane { flex-direction: column; min-width: 0px; min-height: 0px; overflow: 
 split-bar { flex-grow: 0; flex-shrink: 0; width: 6px; background-color: var(--border); }
 split-view.vertical > split-bar { width: auto; height: 6px; }
 split-bar:hover { background-color: var(--accent); }
+
+/* ── Application bars ───────────────────────────────────────────────── */
+
+/* ⚠ `flex-shrink: 0` beside the height, and it is not redundant since flex-shrink's CSS initial
+   became 1: a strip with a declared height in a column that runs out of room now *can* shrink, and
+   a toolbar squeezed to nothing by a document below it is the failure that looks like the toolbar
+   never being built. */
+toolbar {
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    flex-shrink: 0;
+    background-color: var(--surface);
+    border-color: var(--border);
+    border-bottom-width: 1px;
+}
+
+toolbar.vertical { flex-direction: column; align-items: stretch; border-bottom-width: 0px; border-right-width: 1px; }
+
+status-bar {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 2px 8px;
+    flex-shrink: 0;
+    font-size: 0.9em;
+    color: var(--text-muted);
+    background-color: var(--surface);
+    border-color: var(--border);
+    border-top-width: 1px;
+}
+
+/* The message takes the slack so the trailing cells sit against the right edge, which is where every
+   line-and-column indicator ever written lives. */
+status-message { flex-grow: 1; min-width: 0px; overflow: hidden; }
+status-trailing { flex-direction: row; align-items: center; gap: 12px; flex-shrink: 0; }
+
+/* ── Segmented control ──────────────────────────────────────────────── */
+
+segmented-control {
+    flex-direction: row;
+    align-self: flex-start;
+    flex-shrink: 0;
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+/* ⚠ No radius and no left border on a segment: the joins are what make this one control rather than
+   three buttons side by side, and the group's own `overflow: hidden` is what rounds the two ends. A
+   per-segment `:first-child`/`:last-child` radius would round the ends *and* leave the middle
+   segments' corners visible through the group's border. */
+segment {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-left-width: 1px;
+    border-color: var(--border);
+    background-color: var(--surface);
+    color: var(--text);
+}
+
+segment:first-child { border-left-width: 0px; }
+segment:hover:not(:disabled) { background-color: var(--surface-sunken); }
+segment:checked { background-color: var(--accent); color: var(--accent-text); }
 
 separator.horizontal { height: 1px; background-color: var(--border); margin: 6px 0px; }
 separator.vertical { width: 1px; align-self: stretch; background-color: var(--border); margin: 0px 6px; }

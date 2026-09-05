@@ -269,6 +269,8 @@ Vixen.Ui.Controls.Image.Description.set -> string?
 Vixen.Ui.Controls.Image.HollowCentre.get -> bool
 Vixen.Ui.Controls.Image.HollowCentre.set -> bool
 Vixen.Ui.Controls.Image.Image() -> void
+Vixen.Ui.Controls.Image.IntrinsicSize.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Image.IntrinsicSize.set -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Controls.Image.Source.get -> string?
 Vixen.Ui.Controls.Image.Source.set -> string?
 Vixen.Ui.Controls.Image.SourceBorder.get -> Vixen.Core.Mathematics.NineSlice
@@ -582,10 +584,14 @@ Vixen.Ui.Controls.ScrollSnapAxis.X = 1 -> Vixen.Ui.Controls.ScrollSnapAxis
 Vixen.Ui.Controls.ScrollSnapAxis.Y = 2 -> Vixen.Ui.Controls.ScrollSnapAxis
 Vixen.Ui.Controls.ScrollView -> sealed class
 Vixen.Ui.Controls.ScrollView : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.ScrollView.ClearDragToScroll() -> void
 Vixen.Ui.Controls.ScrollView.ClearScrollLeft() -> void
 Vixen.Ui.Controls.ScrollView.ClearScrollTop() -> void
 Vixen.Ui.Controls.ScrollView.Content.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.ScrollView.DragToScroll.get -> bool
+Vixen.Ui.Controls.ScrollView.DragToScroll.set -> bool
 Vixen.Ui.Controls.ScrollView.HorizontalBar.get -> Vixen.Ui.Controls.ScrollBar
+Vixen.Ui.Controls.ScrollView.IsFlinging.get -> bool
 Vixen.Ui.Controls.ScrollView.IsScrolling.get -> bool
 Vixen.Ui.Controls.ScrollView.MaximumLeft.get -> float
 Vixen.Ui.Controls.ScrollView.MaximumTop.get -> float
@@ -599,6 +605,7 @@ Vixen.Ui.Controls.ScrollView.ScrollTop.set -> float
 Vixen.Ui.Controls.ScrollView.ScrollView() -> void
 Vixen.Ui.Controls.ScrollView.Scrolled -> System.Action<Vixen.Ui.Controls.ScrollView>?
 Vixen.Ui.Controls.ScrollView.Settle() -> void
+Vixen.Ui.Controls.ScrollView.StopFling() -> void
 Vixen.Ui.Controls.ScrollView.VerticalBar.get -> Vixen.Ui.Controls.ScrollBar
 Vixen.Ui.Controls.SearchBox -> sealed class
 Vixen.Ui.Controls.SearchBox : Vixen.Ui.Controls.TextField
@@ -608,6 +615,21 @@ Vixen.Ui.Controls.SearchBox.SearchIcon.get -> Vixen.Ui.Controls.Icon
 Vixen.Ui.Controls.SecureTextBox -> sealed class
 Vixen.Ui.Controls.SecureTextBox : Vixen.Ui.Controls.TextField
 Vixen.Ui.Controls.SecureTextBox.SecureTextBox() -> void
+Vixen.Ui.Controls.Segment -> sealed class
+Vixen.Ui.Controls.Segment : Vixen.Ui.Controls.ToggleBase
+Vixen.Ui.Controls.Segment.ClearValue() -> void
+Vixen.Ui.Controls.Segment.Segment() -> void
+Vixen.Ui.Controls.Segment.Value.get -> string?
+Vixen.Ui.Controls.Segment.Value.set -> string?
+Vixen.Ui.Controls.SegmentedControl -> sealed class
+Vixen.Ui.Controls.SegmentedControl : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.SegmentedControl.AddSegment(string value, string? label = null) -> Vixen.Ui.Controls.Segment
+Vixen.Ui.Controls.SegmentedControl.ClearValue() -> void
+Vixen.Ui.Controls.SegmentedControl.SegmentedControl() -> void
+Vixen.Ui.Controls.SegmentedControl.Segments.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Segment>
+Vixen.Ui.Controls.SegmentedControl.Value.get -> string?
+Vixen.Ui.Controls.SegmentedControl.Value.set -> string?
+Vixen.Ui.Controls.SegmentedControl.ValueChanged -> System.Action<Vixen.Ui.Controls.SegmentedControl, string?>?
 Vixen.Ui.Controls.Select -> sealed class
 Vixen.Ui.Controls.Select : Vixen.Ui.Controls.SelectBase
 Vixen.Ui.Controls.Select.ClearPlaceholder() -> void
@@ -677,6 +699,13 @@ Vixen.Ui.Controls.SplitView.Ratio.set -> float
 Vixen.Ui.Controls.SplitView.RatioChanged -> System.Action<Vixen.Ui.Controls.SplitView, float>?
 Vixen.Ui.Controls.SplitView.Second.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.SplitView.SplitView() -> void
+Vixen.Ui.Controls.StatusBar -> sealed class
+Vixen.Ui.Controls.StatusBar : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.StatusBar.Label.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.StatusBar.Message.get -> string?
+Vixen.Ui.Controls.StatusBar.Message.set -> string?
+Vixen.Ui.Controls.StatusBar.StatusBar() -> void
+Vixen.Ui.Controls.StatusBar.Trailing.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.SubmitEvent -> sealed class
 Vixen.Ui.Controls.SubmitEvent : Vixen.Ui.UiEvent
 Vixen.Ui.Controls.SubmitEvent.SubmitEvent() -> void
@@ -726,6 +755,7 @@ Vixen.Ui.Controls.TextField.CaretIndex.get -> int
 Vixen.Ui.Controls.TextField.ClearMaxLength() -> void
 Vixen.Ui.Controls.TextField.ClearPlaceholder() -> void
 Vixen.Ui.Controls.TextField.ClearReadOnly() -> void
+Vixen.Ui.Controls.TextField.ClearRequired() -> void
 Vixen.Ui.Controls.TextField.ClearValue() -> void
 Vixen.Ui.Controls.TextField.Composition.get -> string
 Vixen.Ui.Controls.TextField.Copy() -> bool
@@ -733,6 +763,7 @@ Vixen.Ui.Controls.TextField.Cut() -> bool
 Vixen.Ui.Controls.TextField.DisplayCaret.get -> int
 Vixen.Ui.Controls.TextField.HasSelection.get -> bool
 Vixen.Ui.Controls.TextField.IsComposing.get -> bool
+Vixen.Ui.Controls.TextField.IsValid.get -> bool
 Vixen.Ui.Controls.TextField.MaxLength.get -> int
 Vixen.Ui.Controls.TextField.MaxLength.set -> int
 Vixen.Ui.Controls.TextField.MoveCaret(int index, Vixen.Ui.Text.CaretAffinity affinity, bool extend = false) -> void
@@ -744,6 +775,9 @@ Vixen.Ui.Controls.TextField.ReadOnly.get -> bool
 Vixen.Ui.Controls.TextField.ReadOnly.set -> bool
 Vixen.Ui.Controls.TextField.Redo() -> bool
 Vixen.Ui.Controls.TextField.Replace(string insertion) -> void
+Vixen.Ui.Controls.TextField.Required.get -> bool
+Vixen.Ui.Controls.TextField.Required.set -> bool
+Vixen.Ui.Controls.TextField.Revalidate() -> void
 Vixen.Ui.Controls.TextField.SelectAll() -> void
 Vixen.Ui.Controls.TextField.SelectWord(int index) -> void
 Vixen.Ui.Controls.TextField.SelectedText.get -> string
@@ -755,6 +789,9 @@ Vixen.Ui.Controls.TextField.Submitted -> System.Action<Vixen.Ui.Controls.TextFie
 Vixen.Ui.Controls.TextField.TextField() -> void
 Vixen.Ui.Controls.TextField.TextPart.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.TextField.Undo() -> bool
+Vixen.Ui.Controls.TextField.ValidationMessage.get -> string?
+Vixen.Ui.Controls.TextField.Validator.get -> System.Func<string?, string?>?
+Vixen.Ui.Controls.TextField.Validator.set -> System.Func<string?, string?>?
 Vixen.Ui.Controls.TextField.Value.get -> string?
 Vixen.Ui.Controls.TextField.Value.set -> string?
 Vixen.Ui.Controls.TextField.ValueChanged -> System.Action<Vixen.Ui.Controls.TextField, string?>?
@@ -786,6 +823,15 @@ Vixen.Ui.Controls.ToggleBase.ToggleBase() -> void
 Vixen.Ui.Controls.ToggleButton -> sealed class
 Vixen.Ui.Controls.ToggleButton : Vixen.Ui.Controls.ToggleBase
 Vixen.Ui.Controls.ToggleButton.ToggleButton() -> void
+Vixen.Ui.Controls.Toolbar -> sealed class
+Vixen.Ui.Controls.Toolbar : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Toolbar.Active.get -> Vixen.Ui.UiElement?
+Vixen.Ui.Controls.Toolbar.ClearOrientation() -> void
+Vixen.Ui.Controls.Toolbar.Items.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.UiElement>
+Vixen.Ui.Controls.Toolbar.Orientation.get -> Vixen.Ui.Controls.Orientation
+Vixen.Ui.Controls.Toolbar.Orientation.set -> Vixen.Ui.Controls.Orientation
+Vixen.Ui.Controls.Toolbar.Rove() -> void
+Vixen.Ui.Controls.Toolbar.Toolbar() -> void
 Vixen.Ui.Controls.Tooltip -> sealed class
 Vixen.Ui.Controls.Tooltip : Vixen.Ui.Controls.Overlay
 Vixen.Ui.Controls.Tooltip.Attach(Vixen.Ui.UiElement target) -> void
@@ -849,9 +895,12 @@ Vixen.Ui.Controls.VirtualizingPanel.TotalHeight.get -> float
 Vixen.Ui.Controls.VirtualizingPanel.VirtualizingPanel() -> void
 abstract Vixen.Ui.Controls.SelectBase.OnOptionChosen(Vixen.Ui.Controls.Option option) -> void
 const Vixen.Ui.Controls.Expander.HeaderSlot = "header" -> string
+const Vixen.Ui.Controls.ScrollView.FlingDecayConstant = 0.325 -> float
+const Vixen.Ui.Controls.ScrollView.FlingStopSpeed = 8 -> float
 const Vixen.Ui.Controls.ScrollView.SmoothingConstant = 0.075 -> float
 const Vixen.Ui.Controls.ScrollView.SnapIdleSeconds = 0.125 -> float
 const Vixen.Ui.Controls.ScrollView.SnapProximity = 0.25 -> float
+const Vixen.Ui.Controls.ScrollView.VelocityBlend = 0.35 -> float
 const Vixen.Ui.Controls.SecureTextBox.Bullet = '•' -> char
 const Vixen.Ui.Controls.SplitView.SecondSlot = "second" -> string
 const Vixen.Ui.Controls.VirtualizingGrid.Overscan = 2 -> int
@@ -902,6 +951,7 @@ override Vixen.Ui.Controls.ComboBox.TagName.get -> string
 override Vixen.Ui.Controls.ContextMenu.TagName.get -> string
 override Vixen.Ui.Controls.Control.OnCreated() -> void
 override Vixen.Ui.Controls.Control.OnRemoved() -> void
+override Vixen.Ui.Controls.Dialog.ContentHost.get -> Vixen.Ui.UiElement
 override Vixen.Ui.Controls.Dialog.NativeAccessibleName.get -> string?
 override Vixen.Ui.Controls.Dialog.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
 override Vixen.Ui.Controls.Dialog.NativeRole.get -> Vixen.Ui.AccessibleRole
@@ -909,6 +959,7 @@ override Vixen.Ui.Controls.Dialog.OnClosed(Vixen.Ui.Controls.CloseReason reason)
 override Vixen.Ui.Controls.Dialog.OnCreated() -> void
 override Vixen.Ui.Controls.Dialog.OnOpened() -> void
 override Vixen.Ui.Controls.Dialog.TagName.get -> string
+override Vixen.Ui.Controls.Drawer.ContentHost.get -> Vixen.Ui.UiElement
 override Vixen.Ui.Controls.Drawer.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Drawer.OnCreated() -> void
 override Vixen.Ui.Controls.Drawer.TagName.get -> string
@@ -1043,6 +1094,15 @@ override Vixen.Ui.Controls.SearchBox.TagName.get -> string
 override Vixen.Ui.Controls.SecureTextBox.NativeAccessibleValue.get -> string?
 override Vixen.Ui.Controls.SecureTextBox.Shown(string? value) -> string?
 override Vixen.Ui.Controls.SecureTextBox.TagName.get -> string
+override Vixen.Ui.Controls.Segment.ActivatesOnEnter.get -> bool
+override Vixen.Ui.Controls.Segment.CanUncheck.get -> bool
+override Vixen.Ui.Controls.Segment.NativeRole.get -> Vixen.Ui.AccessibleRole
+override Vixen.Ui.Controls.Segment.TagName.get -> string
+override Vixen.Ui.Controls.SegmentedControl.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.SegmentedControl.NativeRole.get -> Vixen.Ui.AccessibleRole
+override Vixen.Ui.Controls.SegmentedControl.OnChildAdded(Vixen.Ui.UiElement child) -> void
+override Vixen.Ui.Controls.SegmentedControl.OnCreated() -> void
+override Vixen.Ui.Controls.SegmentedControl.TagName.get -> string
 override Vixen.Ui.Controls.Select.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
 override Vixen.Ui.Controls.Select.NativeAccessibleValue.get -> string?
 override Vixen.Ui.Controls.Select.NativeRole.get -> Vixen.Ui.AccessibleRole
@@ -1075,6 +1135,11 @@ override Vixen.Ui.Controls.SplitView.NamedHost(string name) -> Vixen.Ui.UiElemen
 override Vixen.Ui.Controls.SplitView.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.SplitView.OnCreated() -> void
 override Vixen.Ui.Controls.SplitView.TagName.get -> string
+override Vixen.Ui.Controls.StatusBar.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.StatusBar.ContentHost.get -> Vixen.Ui.UiElement
+override Vixen.Ui.Controls.StatusBar.NativeRole.get -> Vixen.Ui.AccessibleRole
+override Vixen.Ui.Controls.StatusBar.OnCreated() -> void
+override Vixen.Ui.Controls.StatusBar.TagName.get -> string
 override Vixen.Ui.Controls.Switch.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Switch.OnCreated() -> void
 override Vixen.Ui.Controls.Switch.TagName.get -> string
@@ -1117,6 +1182,11 @@ override Vixen.Ui.Controls.ToggleBase.NativeAccessibleState.get -> Vixen.Ui.Acce
 override Vixen.Ui.Controls.ToggleButton.ActivatesOnEnter.get -> bool
 override Vixen.Ui.Controls.ToggleButton.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
 override Vixen.Ui.Controls.ToggleButton.TagName.get -> string
+override Vixen.Ui.Controls.Toolbar.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Toolbar.NativeRole.get -> Vixen.Ui.AccessibleRole
+override Vixen.Ui.Controls.Toolbar.OnChildAdded(Vixen.Ui.UiElement child) -> void
+override Vixen.Ui.Controls.Toolbar.OnCreated() -> void
+override Vixen.Ui.Controls.Toolbar.TagName.get -> string
 override Vixen.Ui.Controls.Tooltip.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Tooltip.OnCreated() -> void
 override Vixen.Ui.Controls.Tooltip.OnRemoved() -> void
@@ -1154,6 +1224,7 @@ static Vixen.Ui.Controls.ControlStrings.DialogConfirm.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.DockClose.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.DockNextTab.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.DockPreviousTab.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.FieldRequired.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.GradientEditorAlphaStops.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.GradientEditorColorStops.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.GradientEditorOpacity.get -> Vixen.Ui.StringId
@@ -1230,8 +1301,11 @@ static readonly Vixen.Ui.Controls.ScrollBar.ContentSizeProperty -> Vixen.Ui.UiPr
 static readonly Vixen.Ui.Controls.ScrollBar.OrientationProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.ScrollBar.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.ScrollBar.ViewportSizeProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.ScrollView.DragToScrollProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.ScrollView.ScrollLeftProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.ScrollView.ScrollTopProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Segment.ValueProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.SegmentedControl.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Select.PlaceholderProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Select.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Separator.OrientationProperty -> Vixen.Ui.UiPropertyKey
@@ -1246,9 +1320,11 @@ static readonly Vixen.Ui.Controls.Tabs.SelectedIndexProperty -> Vixen.Ui.UiPrope
 static readonly Vixen.Ui.Controls.TextField.MaxLengthProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.TextField.PlaceholderProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.TextField.ReadOnlyProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.TextField.RequiredProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.TextField.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Toast.DurationProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.ToggleBase.IsCheckedProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Toolbar.OrientationProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Tooltip.DelayProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.VirtualizingGrid.CountProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.VirtualizingPanel.CountProperty -> Vixen.Ui.UiPropertyKey
@@ -1269,5 +1345,6 @@ virtual Vixen.Ui.Controls.TextField.Coerce(string? value) -> string?
 virtual Vixen.Ui.Controls.TextField.OnSubmit() -> void
 virtual Vixen.Ui.Controls.TextField.SelectAt(int index, int count) -> void
 virtual Vixen.Ui.Controls.TextField.Shown(string? value) -> string?
+virtual Vixen.Ui.Controls.TextField.Validate(string? value) -> string?
 virtual Vixen.Ui.Controls.ToggleBase.CanUncheck.get -> bool
 virtual Vixen.Ui.Controls.ToggleBase.OnChecked(bool current) -> void

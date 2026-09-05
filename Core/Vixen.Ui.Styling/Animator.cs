@@ -75,6 +75,16 @@ public sealed class Animator {
     readonly KeyframesTable keyframes;
     readonly NameTable properties;
     readonly NameTable values;
+
+    /// <summary>What a property computes to on an element that never mentioned it.</summary>
+    /// <remarks>
+    ///     ⚠ Owned by the animator rather than by <c>StyleResolver</c>, because it is the only reader
+    ///     that needs one. Materialising an initial value into every <see cref="ComputedStyle" />
+    ///     would put dozens of entries into every element's dictionary to serve a question only a
+    ///     transition asks — and would change what "the style holds this property" means for every
+    ///     other consumer in the engine.
+    /// </remarks>
+    readonly InitialValues initials;
     readonly int animationName;
     readonly int animationDuration;
     readonly int animationDelay;
@@ -104,6 +114,7 @@ public sealed class Animator {
         this.keyframes = keyframes;
         parser = new StyleValueParser(values, keywords);
         this.transitions = new TransitionParser(properties);
+        initials = new InitialValues(properties, values);
 
         animationName = properties.Intern("animation-name");
         animationDuration = properties.Intern("animation-duration");
@@ -199,13 +210,28 @@ public sealed class Animator {
         }
 
         foreach (var property in after.Properties) {
+            Start(property);
+        }
+
+        // ⚠ <b>And every property the old style had that the new one does not, which is the same
+        // defect approached from the other side and the more visible half of it.</b> A hover rule
+        // that adds <c>margin-left: 9px</c> leaves the property out of the computed style again the
+        // moment the pointer leaves — so a loop over <see cref="ComputedStyle.Properties" /> of
+        // <paramref name="after" /> alone never visits it, and the fade in happened while the fade
+        // back did not. That asymmetry is invisible in a fixture that only ever adds a class, which
+        // is what every transition fixture here did.
+        foreach (var property in before.Properties) {
+            if (!after.TryGet(property, out _)) {
+                Start(property);
+            }
+        }
+
+        return;
+
+        void Start(int property) {
             var spec = SpecFor(property);
             if (spec is not { } wanted || wanted.Duration <= 0f) {
-                continue;
-            }
-
-            if (!after.TryGet(property, out var target)) {
-                continue;
+                return;
             }
 
             // What it is *displaying*, which is the running transition's current value where there
@@ -214,13 +240,16 @@ public sealed class Animator {
             var key = (element.Index, property);
             var displayed = running.TryGetValue(key, out var current)
                 ? current.ValueAt(now)
-                : before.TryGet(property, out var previous) ? parser.Parse(previous) : StyleValue.Unknown;
+                : Computed(before, property);
 
-            var destination = parser.Parse(target);
+            var destination = Computed(after, property);
 
-            if (displayed.Kind == StyleValueKind.Unknown || displayed == destination) {
+            if (displayed.Kind == StyleValueKind.Unknown
+                || destination.Kind == StyleValueKind.Unknown
+                || displayed == destination) {
                 running.Remove(key);
-                continue;
+
+                return;
             }
 
             running[key] = new RunningTransition(
@@ -234,6 +263,38 @@ public sealed class Animator {
                 now
             );
         }
+    }
+
+    /// <summary>What a style computes a property to, filling in an initial value where it says nothing.</summary>
+    /// <param name="style">The computed style.</param>
+    /// <param name="property">The interned property name.</param>
+    /// <returns>The value, or <see cref="StyleValue.Unknown" /> where there is nothing to say.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The computed-value stage this cascade does not otherwise have, and it exists for
+    ///         exactly one reader.</b> A <see cref="ComputedStyle" /> holds only what a declaration or
+    ///         an inheritance put in it, so "absent" and "computes to its initial value" are one state
+    ///         here — which every consumer downstream is content with, because a missing length means
+    ///         zero to the layout store and a missing colour means nothing is painted. A transition
+    ///         cannot be content with it: it needs a value to travel from and a value to travel to,
+    ///         and <c>absent</c> is neither.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="StyleValue.Unknown" /> is still the answer for a property with no entry,
+    ///         and that is the honest partial rather than an omission.</b> See
+    ///         <see cref="InitialValues" /> for the two rules that decide the table — it does not
+    ///         inherit, and its initial is something <see cref="StyleValue.Lerp" /> can travel from.
+    ///         A property outside them keeps the behaviour it had: no fade, and the new value the
+    ///         instant the cascade decides it. Guessing at the rest would put a wrong fade where there
+    ///         is currently a correct snap.
+    ///     </para>
+    /// </remarks>
+    StyleValue Computed(ComputedStyle style, int property) {
+        if (style.TryGet(property, out var declared)) {
+            return parser.Parse(declared);
+        }
+
+        return initials.TryGet(property, out var initial) ? parser.Parse(initial) : StyleValue.Unknown;
     }
 
     /// <summary>Starts or stops the element's keyframe animations.</summary>

@@ -33,10 +33,14 @@ top.
 | `KeyEvent`, `TextInputEvent` | Keys routed from the focus outwards; typed text as its own event. Tab is the document's default, after the route. |
 | `UiDocument.Track` | `:hover` and `:active` on the ancestor chain, `Entered`/`Exited` per element crossed, `:focus-visible` from how the focus arrived. |
 | `WheelEvent` | Hit-tested and bubbling, so nested scrolling chains on `Handled` rather than on a rule. Carries `Modifiers`, because Ctrl-wheel means zoom in every canvas and timeline ever written. |
-| `DropEvent` | A file or a string dragged in from another application, hit-tested and bubbling like a wheel. ⚠ The OS half only: there is no `DataObject` and no in-app drop model, because the payload an in-app drag negotiates is the half an OS drop cannot fill in. |
+| `DropEvent` | A file or a string dragged in from another application, hit-tested and bubbling like a wheel. `Data` materialises the two OS representations as a `DataObject` on demand, so one handler reads a drag-in and an in-app drag alike. |
+| `UiElement.Provide`/`Inject`, `Component.OnProvide` | An ambient value keyed by type, found by walking up: this element, its ancestors, then the document — SwiftUI's `Environment`, and the third walk of the shape `FindUndoManager` and `FindEditedDocument` already had. ⚠ Not `[UiProperty(Inherits = true)]`, whose generated walk tests `ancestor is TOwner` and whose only producers in the tree are three fixtures. ⚠ `OnProvide` runs after a component's parameters are assigned and before its first child exists, which is the only window a declaration can be made in. |
+| `IEditableDocument`, `EditableDocument`, `DocumentCommands`, `UiWindowTitle` | The user's document below the editor: name, location and dirty as signals; `document.save`/`document.revert` answered by the nearest element that hosts one, so two panels give two answers to ⌘S; a title that follows both. ⚠ `Install` also stands up an effect that invalidates the route when `IsDirty` moves — command state is *pulled*, so a signal that changed and raised nothing leaves Save greyed. |
+| `DataObject`, `UiElement.AllowDrop`, `DragOverEvent`, `UiDocument.BeginDrag` | The in-app drag: a payload offered in several formats in the source's own preference order, a single opt-in that says which element the passing-over events are addressed to, and a `DropEffect` the target narrows or refuses. ⚠ The target lookup hit-tests **past** `Captured`, because a source captures the pointer to keep receiving moves and a capture-first answer is "the source", forever. |
 | `UiElement.OnCreated`, `TagName` | The constructor a control cannot have, and the element name a type answers to. |
 | `UiElement.OffsetX/Y` | A translation applied after layout — scrolling, popups and drag previews, at the cost of a walk. |
 | `translate` (CSS) | The declarative half of the same idea, resolved by `TranslationReader` and added into the same sum. Separate from `OffsetX` on purpose: a stylesheet must not be able to erase a scroll position. `scale` and `rotate` are *not* refused — `TransformReader` composes them into one `UiTransform` a composited group's four vertices carry and the hit test inverts, because a shape change cannot be folded into a position the way a translation can. |
+| `position: sticky` | The third contributor to that same sum, resolved by `StickyReader`. ⚠ It is here rather than in `Vixen.Ui.Layout` for a reason that is a fact rather than a preference: a sticky offset is a function of a *scroll* offset, and that store has none — `ScrollView` scrolls by writing `OffsetY`, which never reaches the layout tree. A box is floored at its scrollport's edge and then clamped inside its own containing block; the second clamp is the whole difference between `sticky` and `fixed`, which doc 09 refuses because a game overlay has no viewport. |
 | `UiElement.SetStyle` | Declarations written on an element, for the lengths no stylesheet was given: a splitter's ratio, a virtualised row's position. |
 | `UiDocument.Reparent` | Moving a subtree to a different parent: fresh style slots, the same elements. What docking and drag-and-drop between lists are made of. |
 | `UiElement.Role`, `AccessibleName`, `AccessibleState`, relations | What a screen reader is told: a WAI-ARIA role, a name, a value, a state set, and the pairings the tree does not show. Computed from the control, not stored on it. |
@@ -62,6 +66,27 @@ the keyboard.
 
 `:focus` and `:focus-within` are set on the style tree, so a focus ring is a stylesheet's business
 rather than a special case in the renderer.
+
+**A hidden element is not a stop, and one that had the focus when it was hidden does not keep it.**
+Those are two rules and the second was missing for as long as the first existed: `Collect` decides
+what is in the order at the moment somebody asks for the order, and nothing looked at the element the
+focus was already on. A pool parking a subtree the user is typing into left a `display: none` element
+holding the keyboard, `:focus-within` lit on every ancestor above it, and — the visible half —
+`MoveFocus` finding `IndexOf(Focused) == -1` and restarting Tab from the top of the document.
+`Reseat` runs after the settle, because the settle is where a pool parks things.
+
+⚠ **It hands the focus to the nearest ancestor that can hold it, and only to nothing when there is
+none.** The web's answer is the document body; for a pooled interface that is wrong, because the
+ancestor a parked element hangs from is the thing that parked it. A node canvas takes the keyboard
+back from its own port box instead of throwing the user out of the graph.
+
+⚠ **Forced, so the leaving element cannot veto.** A focus veto is a control saying "not yet" about a
+move somebody asked for. Nobody asked for this one, and an element no longer on the screen does not
+get to keep the keyboard by refusing to let go of it.
+
+`Reachable` states the same rule `Collect` walks, once, because two copies would drift: `display` is
+asked of every ancestor because it takes the subtree with it, `visibility` of the element alone
+because it inherits and a descendant may declare itself back.
 
 **A press that lands on nothing focusable takes the focus away.** Which control a press *gives* the
 focus to is that control's own decision — some decline it, a `NumericInput` being scrubbed among
@@ -114,8 +139,37 @@ that a delegate gets its chance "even though a delegate isn't formally in the re
 
 The gap that closed: **a handler had to hang on a `UiElement`**, so a view-model or a document
 object that wanted to own `edit.copy` had to own a piece of the view tree in order to say so.
-`ICommandResponder` is one method, id to handler; `CommandResponder` is the table almost everything
+`IResponder` is one method, id to handler; `CommandResponder` is the table almost everything
 wants, with the same five arguments and the same duplicate-id throw as `AddCommandHandler`.
+
+⚠ **It was `ICommandResponder`, and the rename is a claim about the number of chains.** AppKit has
+one: the same `NSResponder` receives `keyDown:`, answers `copy:`, validates the menu item that sends
+it and supplies the `undoManager`. Vixen had three that did not meet — routed events, commands, and
+the editor's keymap — and only the middle one had an interface. `IResponder` now carries `OnKey` and
+`UndoManager` as well, both *defaulted*, so a responder that is only a table of verbs is unchanged
+and every existing implementation compiles as it stood.
+
+### The middle of the walk: `UiElement.Responders`
+
+The two `IResponder` slots on `UiDocument` are the chain's two **ends**. AppKit puts a view
+controller, a window controller and a document *between* the views and `NSApp`, and until
+`UiElement.Responders` there was nowhere for any of them: the chain could be extended at its ends
+and nowhere else. An element **appends** a responder at its own position with `AddResponder`, and
+the walk consults it right after that element's own handlers and before moving to `Parent` —
+`CommandRoute.Resolve`, `UiDocument.Dispatch(KeyEvent)` and `FindUndoManager` all walk the same
+links in the same order, which is the point of there being one interface.
+
+⚠ **Deliberately not a settable `nextResponder`.** A mutable next-link is where AppKit's worst chain
+bugs come from: anything holding the pointer can splice itself in ahead of the window, forget to
+restore it, and orphan the root — after which the application stops answering verbs it has always
+answered, with nothing to look at. Appending at a position cannot rewrite the walk, so the invariant
+above holds whatever anybody appends.
+
+⚠ **A key reaches a non-element responder here and nowhere else.** `EventRouter.Raise` is
+`UiElement`-typed end to end and its route is a `List<UiElement>`, so this is not an omission that
+could be fixed inside the router. `Dispatch(KeyEvent)` offers the key to the responder walk *after*
+the bubble leg — a focused control still wins — and *before* the access-key and Tab fallbacks,
+because those are defaults and this is not.
 
 ⚠ **No rule changed, only the length of the walk.** Nearer wins all the way out — leaf, panel, root,
 document, application — the first responder that *answers* wins, and only that one is asked
@@ -128,7 +182,7 @@ preferred the document anyway, and nought lookups is the claim the rule actually
 `true` with a predicate that says no. Returning `false` drops the id out of the chain, and there is
 nothing after the application to catch it.
 
-⚠ **Lifetime: the document holds the responders and never the reverse.** `ICommandResponder` has no
+⚠ **Lifetime: the document holds the responders and never the reverse.** `IResponder` has no
 event and no back-reference by design, so a responder never learns which documents it was installed
 on and a long-lived one cannot pin a closed window's element tree —
 `A_long_lived_responder_does_not_keep_a_closed_document_alive` asserts that against the collector.
@@ -185,7 +239,7 @@ document, and a command becoming executable is not a thing that dirties one.
 **What consumes it.** `Vixen.Ui.Controls`' `ButtonBase.Command` — so `Button`, `IconButton`,
 `MenuItem`, `ToggleButton` and `Link` all bind an id, from markup as readily as from code, and each
 follows the invalidation for as long as it has one bound. The extended chain's consumer is the
-editor: `CommandRegistry` implements `ICommandResponder` over the table it already had, and
+editor: `CommandRegistry` implements `IResponder` over the table it already had, and
 `EditorShell` installs it as its document's `ApplicationCommandResponder`, so a plain `Vixen.Ui`
 control bound to an editor command id resolves, greys and runs it — through the registry's own
 scope-and-enablement gate and raising its `Executed` — with nothing editor-shaped in the control.
@@ -436,7 +490,7 @@ manual gate on purpose.
 
 `BackgroundTaskManager` is the list of long operations an application is running and
 `BackgroundTask` is one of them — a title, a status, a progress fraction, a state and a cancellation
-token. It is here for the same reason `ICommandResponder` is: **it is application-framework
+token. It is here for the same reason `IResponder` is: **it is application-framework
 machinery, and it was reachable only by the editor.** It came out of `Vixen.Editor.Ui/Tasks/` whole;
 what stayed behind is `TaskCenter.vxml`, the panel that shows them, which is the editor's chrome.
 The split cost one `@using` line — the model named nothing editor-shaped, and the centre names
@@ -1166,6 +1220,31 @@ stop being usable with no backend at all. `Vixen.Platform.Ui` is what fills it. 
 false on a browser tab, an Android activity and iOS, and a control that wanted a second window is
 expected to have something to do instead.
 
+### Which window the user is in
+
+`UiDocument.KeySurface` is `NSApp.keyWindow`: the window manager's answer, written by whatever
+bridges the platform (`PlatformInput`'s `WindowFocusGained` and `WindowFocusLost` arms) and read as
+the fallback for a keystroke nothing has the focus for. `KeySurfaceChanged` announces **both edges as
+two raises**, the losing surface first, and `KeySurface` already holds the new answer by the time
+either arrives — so a handler that redraws a title bar never sees a moment when two windows are both
+key.
+
+`IUiWindow.IsKey` is that comparison written once and **defaulted on the interface**, so a window
+cannot hold a second copy of a fact the document already owns; `IUiWindow.DidBecomeKey` is the
+per-window convenience over `KeySurfaceChanged`, raised by whatever host opened the window.
+
+⚠ **`Dispatch(UiSurface, KeyEvent)` is a better answer than the key surface where a caller has one.**
+The key surface is an opinion that arrives asynchronously; the surface passed to `Dispatch` is where
+*this* event was delivered, which is the operating system having settled the question by sending it
+to that window at all. The pointer and wheel overloads always took a surface and this one did not,
+on the argument that a key goes to the focus and the focus is the document's — true, and it stops
+being an answer the moment nothing is focused.
+
+⚠ **`UiSurface.Focused` does not exist, so only the nothing-focused case is right.** `Focused` is one
+document-global element: a keystroke aimed at an unfocused control in a background window still
+reaches whatever holds the document's focus. That is the larger half of the key-window work and is
+still owed (#644).
+
 ## Removal
 
 `UiElement.Remove()` takes an element and its subtree out of all three stores at once — which is why
@@ -1711,6 +1790,27 @@ tell "nothing was invalidated" from "nobody was recording" is a panel that repor
 it does not run. ⚠ **And a frame that finds nothing to do empties the regions** rather than leaving
 the last real pass's boxes up — the same lie `Update`'s own counters told for a year, and the reason
 the ring is turned on *both* of `Update`'s exits.
+
+**`DrawListsBuilt` and `DrawListsChanged` are the instrument for the damage-tracking work, and they
+exist before it.** There is no retained per-element surface and no dirty-rect path — `DrawListBuilder`
+reconstructs the whole list on every frame of every window — and the only economy is a content diff
+*afterwards*, `DrawList.Version`, which lets a still window skip the tessellation and the GPU
+recording and does not skip the rebuild that produced the identical list again. A still document
+reports thirty rebuilds and one change over thirty frames, and that gap is the waste.
+
+⚠ **Neither number means anything alone, and the pair is stated as work rather than as watts.** A
+rebuild count is the same on an idle laptop and a loaded one; the differential doc 49 asks for — idle
+frame work, before against after, on the same machine — needs a figure that exists on both sides of
+the change, and a wall-clock budget could not express the property anyway. An interface that redraws
+a hundred times to produce one picture is wasteful at every frame rate.
+
+⚠ **These two are compiled in every configuration**, unlike the region ring beside them: a counter
+behind `DEBUG` is a counter a Release gate cannot assert on, and two runs of a differential in
+different builds are not a differential. The cost is one increment per window per frame.
+
+⚠ **`IdleFrameWorkTests` is written to go red the day the retained surface lands**, at the line that
+says a still window rebuilds once per frame. That is deliberate: a gate that could not tell the two
+worlds apart would be a predicate that cannot be false.
 
 ### Still owed: the overlay, and the reason it is not written here
 

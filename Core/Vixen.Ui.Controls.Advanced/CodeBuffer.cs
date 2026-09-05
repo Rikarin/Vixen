@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
+using Vixen.Ui.Text;
 
 namespace Vixen.Ui.Controls.Advanced;
 
@@ -57,6 +58,10 @@ public readonly record struct TextPosition(int Line, int Column) : IComparable<T
 /// </remarks>
 public sealed class CodeBuffer {
     readonly List<string> lines = [string.Empty];
+
+    // Reused across moves rather than allocated per keystroke. `WordBreaker.Collect` clears it, and
+    // the document is single-threaded by contract, so one buffer per editor is enough.
+    readonly List<int> breaks = [];
 
     /// <summary>Creates an empty buffer.</summary>
     public CodeBuffer() {
@@ -224,10 +229,25 @@ public sealed class CodeBuffer {
     /// <param name="position">The position.</param>
     /// <returns>Where Ctrl-Left goes.</returns>
     /// <remarks>
-    ///     ⚠ <b>Runs of one class at a time, and whitespace is skipped before the run rather than
-    ///     with it.</b> That is what makes Ctrl-Left from the end of <c>foo.bar(</c> stop at the
-    ///     bracket, then at <c>bar</c>, then at the dot — which is how every editor behaves and is
-    ///     not what "characters up to the next space" gives.
+    ///     <para>
+    ///         ⚠ <b>Runs of one class at a time, and whitespace is skipped before the run rather than
+    ///         with it.</b> That is what makes Ctrl-Left from the end of <c>foo.bar(</c> stop at the
+    ///         bracket, then at <c>bar</c>, then at the dot — which is how every editor behaves and is
+    ///         not what "characters up to the next space" gives. It is also not what UAX #29 gives,
+    ///         which is why <c>TextField</c>'s rule cannot simply be used here: replacing this with
+    ///         <c>WordBreaker</c> outright would regress the one case a code editor exists for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>But a run of the <i>word</i> class is then subdivided by <c>WordBreaker</c>, and
+    ///         without that step this navigates Japanese as one word.</b> <see cref="IsWord" /> is
+    ///         <c>char.IsLetterOrDigit</c>, which is true of every Han, Kana and Thai codepoint —
+    ///         languages that put no space between words — so the whole of <c>編集するためのボタン</c>
+    ///         was a single class run and Ctrl-Left jumped all of it. UAX #29 is what knows where
+    ///         those break, and it costs nothing on code: <c>fooBar</c>, <c>foo_bar</c> and
+    ///         <c>abc123</c> are each one word to it, because <c>_</c> is <c>ExtendNumLet</c> and
+    ///         digits join letters. So the class rule decides what a run <i>is</i> and the breaker
+    ///         only ever divides one further.
+    ///     </para>
     /// </remarks>
     public TextPosition WordStart(TextPosition position) {
         position = Clamp(position);
@@ -248,12 +268,13 @@ public sealed class CodeBuffer {
         }
 
         var word = IsWord(line[index - 1]);
+        var end = index;
 
         while (index > 0 && !char.IsWhiteSpace(line[index - 1]) && IsWord(line[index - 1]) == word) {
             index--;
         }
 
-        return position with { Column = index };
+        return position with { Column = word ? LastBreakBefore(line, index, end) : index };
     }
 
     /// <summary>The end of the word a position is in or just before.</summary>
@@ -279,12 +300,13 @@ public sealed class CodeBuffer {
         }
 
         var word = IsWord(line[index]);
+        var start = index;
 
         while (index < line.Length && !char.IsWhiteSpace(line[index]) && IsWord(line[index]) == word) {
             index++;
         }
 
-        return position with { Column = index };
+        return position with { Column = word ? FirstBreakAfter(line, start, index) : index };
     }
 
     /// <summary>How many characters of whitespace a line starts with.</summary>
@@ -323,6 +345,48 @@ public sealed class CodeBuffer {
     }
 
     static bool IsWord(char value) => char.IsLetterOrDigit(value) || value == '_';
+
+    /// <summary>The last UAX #29 word boundary strictly inside a run, walking back.</summary>
+    /// <param name="line">The line.</param>
+    /// <param name="start">Where the class run begins.</param>
+    /// <param name="end">Where the caret is, which is where the run ends for this move.</param>
+    /// <returns>The boundary to stop at, which is <paramref name="start" /> when there is none.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The breaker is run over the run alone rather than over the line, and the two agree
+    ///     here because the run's own edges are boundaries.</b> A class run ends at whitespace or at
+    ///     a character of the other class, and UAX #29 breaks at both — so the context the substring
+    ///     loses is context that could not have moved a boundary. Running it over the line instead
+    ///     would mean mapping offsets back and re-deciding which of its boundaries fall inside the
+    ///     run, for the same answer.
+    /// </remarks>
+    int LastBreakBefore(string line, int start, int end) {
+        WordBreaker.Collect(line.AsSpan(start, end - start), breaks);
+
+        for (var i = breaks.Count - 1; i >= 0; i--) {
+            if (start + breaks[i] < end) {
+                return start + breaks[i];
+            }
+        }
+
+        return start;
+    }
+
+    /// <summary>The first UAX #29 word boundary strictly inside a run, walking on.</summary>
+    /// <param name="line">The line.</param>
+    /// <param name="start">Where the caret is, which is where the run begins for this move.</param>
+    /// <param name="end">Where the class run ends.</param>
+    /// <returns>The boundary to stop at, which is <paramref name="end" /> when there is none.</returns>
+    int FirstBreakAfter(string line, int start, int end) {
+        WordBreaker.Collect(line.AsSpan(start, end - start), breaks);
+
+        foreach (var boundary in breaks) {
+            if (start + boundary > start) {
+                return start + boundary;
+            }
+        }
+
+        return end;
+    }
 
     static void Order(ref TextPosition from, ref TextPosition to) {
         if (from > to) {

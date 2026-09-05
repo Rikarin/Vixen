@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.CompilerServices;
 using Vixen.EditorShell;
+using Vixen.Ui.Rendering;
 using Xunit;
 
 namespace Vixen.Ui.Controls.Advanced.Tests;
@@ -284,12 +286,30 @@ public class EditorShellBudgetTests {
     ///         broken document reports too; that test is what says this one is measuring a frame that
     ///         emits several hundred draw commands.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which frame it measures is the whole of #703, and <c>while (Update()) Draw();</c>
+    ///         is not the warm-up it reads as.</b> The body runs only on iterations where
+    ///         <c>Update</c> returned <c>true</c>, so a document that is <i>already</i> settled — and
+    ///         <c>EditorShellScene.Build</c> ends with one <c>Update</c> and one <c>Draw</c>, so this
+    ///         one always is — settles in zero iterations and never draws. The first measured frame
+    ///         was therefore the <b>second draw of this list's life</b>, and it reported 479 280
+    ///         bytes. See <see cref="The_second_draw_of_a_list_pays_for_its_comparison_snapshot" />
+    ///         for what those bytes are; the fix here is that the warm-up draws unconditionally, so
+    ///         that what this measures is the third draw and after.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_settled_frame_allocates_nothing() {
         while (Shell.Document.Update()) {
             Shell.Document.Draw();
         }
+
+        // ⚠ Unconditional, and outside the loop rather than inside it. The loop above draws only on
+        // the frames that had something to settle, so on an already-settled document it draws
+        // nothing at all — and the very next draw is the one that grows `DrawList`'s previous-frame
+        // buffers to the size of the frame. That growth is a one-off of the list, not of the frame,
+        // and measuring across it is what made this test red.
+        Shell.Document.Draw();
 
         // Ten frames, because a per-frame allocation of one object would otherwise be a number small
         // enough to read as measurement noise — which, being a count of bytes rather than of
@@ -311,6 +331,76 @@ public class EditorShellBudgetTests {
             + "something on the draw walk is asking the allocator for a per-frame object — a boxed "
             + "enumerator over a collection typed as an interface is what it has been every time"
         );
+    }
+
+    /// <summary>And the one draw that does allocate is buying the list's previous-frame snapshot.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The 479 KB #703 found is not on the draw walk at all, and it is not #597's kind of
+    ///         defect.</b> <c>DrawList.BeginFrame</c> keeps the finished frame for comparison —
+    ///         <c>previous.AddRange(commands)</c> and the same for the glyph, segment, box and mask
+    ///         side tables — which is what lets <c>EndFrame</c> answer "did the drawing change" without
+    ///         re-walking anything. On the <b>second</b> draw of a list those snapshot lists are still
+    ///         empty, so each grows once to its frame's size and never again. Everything after it is
+    ///         a copy into capacity that already exists, and allocates nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the number is closed form rather than a magic constant</b>, and asserting it as
+    ///         one is what separates this from a per-frame object of the same size: the shell's
+    ///         1 389 commands and 1 181 path segments come to 477 596 bytes of arrays, which is
+    ///         99.6 % of the 479 280 that was measured. A per-element or per-frame allocation would
+    ///         have no reason to land inside a bound derived from <c>sizeof</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Its own scene, and that is not incidental.</b> The property is about a
+    ///         <c>DrawList</c> that has been drawn exactly once, which the shared <see cref="Shell" />
+    ///         stops being the moment any other test in this class draws it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_second_draw_of_a_list_pays_for_its_comparison_snapshot() {
+        // Built here rather than shared: `EditorShellScene.Build` ends with one `Update` and one
+        // `Draw`, so this document has been drawn exactly once and the next draw is the second.
+        var scene = EditorShellScene.Build();
+        var drawing = scene.Document.Drawing;
+
+        Assert.False(scene.Document.Update(), "the freshly built scene had not settled, so the count below moves");
+
+        var commands = drawing.Commands.Count;
+        var segments = drawing.Segments.Count;
+
+        // The floor, and without it every bound below is met by a document that drew nothing.
+        Assert.True(commands > 100, $"the shell emitted {commands} draw commands, which is not a populated shell");
+
+        var snapshot = (commands * Unsafe.SizeOf<DrawCommand>())
+            + (drawing.Glyphs.Count * Unsafe.SizeOf<PositionedGlyph>())
+            + (segments * Unsafe.SizeOf<PathSegment>())
+            + (drawing.Boxes.Count * Unsafe.SizeOf<BoxStyle>())
+            + (drawing.Masks.Count * Unsafe.SizeOf<UiMask>());
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+
+        scene.Document.Draw();
+
+        var second = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        // Five array headers and the odd rounding, and nothing that scales with the walk. A boxed
+        // enumerator per element — the defect #597 closed and the one this test's neighbour would
+        // read as the same number — is 1 389 of them, which does not fit here.
+        Assert.True(
+            second <= snapshot + 4096,
+            $"the second draw allocated {second} bytes where its comparison snapshot is {snapshot}, so the "
+            + "difference is something proportional to the walk rather than the one-off this pins"
+        );
+
+        // And the third draw and every one after it is free, which is what makes the second a
+        // property of the list's life rather than of the frame.
+        before = GC.GetAllocatedBytesForCurrentThread();
+
+        scene.Document.Draw();
+        scene.Document.Draw();
+
+        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
     }
 
     static int Count(UiElement element) {

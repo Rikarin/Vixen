@@ -146,7 +146,8 @@ public static class SoftwareUiRasterizer {
         GlyphAtlas atlas,
         Bounds clip,
         float[]? surface,
-        ReadOnlySpan<UiMask> masks
+        ReadOnlySpan<UiMask> masks,
+        UiBlendMode blend
     ) {
         var area = Edge(a.Position, b.Position, c.Position);
 
@@ -227,7 +228,7 @@ public static class SoftwareUiRasterizer {
                     _ => Solid(colour, shape)
                 };
 
-                Blend(target, ((y * width) + x) * 4, fragment);
+                Blend(target, ((y * width) + x) * 4, fragment, blend);
             }
         }
     }
@@ -579,7 +580,32 @@ public static class SoftwareUiRasterizer {
         MathF.Max(MathF.Min(a, b), MathF.Min(MathF.Max(a, b), c));
 
     /// <summary>Premultiplied source over destination — the blend state the UI pipeline uses.</summary>
-    static void Blend(float[] target, int offset, Color4 source) {
+    /// <summary>Source-over, with a blend mode's change of source colour applied first.</summary>
+    /// <param name="target">The destination buffer, premultiplied.</param>
+    /// <param name="offset">Where this pixel starts in it.</param>
+    /// <param name="source">The fragment, premultiplied.</param>
+    /// <param name="mode">
+    ///     How the two are mixed. <see cref="UiBlendMode.Normal" /> for everything but a composited
+    ///     group whose <c>mix-blend-mode</c> says otherwise.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <b>The one line in this file that reads the destination for anything but the source-over
+    ///     itself, and it is what a blend mode costs.</b> Every other group-wide effect — the fade,
+    ///     the Gaussian, the colour matrix, the mask — is a function of the group's own surface, so it
+    ///     is applied at the seam where that surface is finished and this method never learns of it.
+    ///     A blend is a function of both operands and there is nowhere earlier to put it. See
+    ///     <see cref="UiBlend.Apply" />, which turns that into an ordinary source-over of a changed
+    ///     colour rather than a second blend state.
+    /// </remarks>
+    static void Blend(float[] target, int offset, Color4 source, UiBlendMode mode = UiBlendMode.Normal) {
+        if (mode != UiBlendMode.Normal) {
+            source = UiBlend.Apply(
+                mode,
+                source,
+                new Color4(target[offset], target[offset + 1], target[offset + 2], target[offset + 3])
+            );
+        }
+
         var inverse = 1f - source.A;
         target[offset + 0] = source.R + (target[offset + 0] * inverse);
         target[offset + 1] = source.G + (target[offset + 1] * inverse);
@@ -784,6 +810,16 @@ public static class SoftwareUiRasterizer {
         /// </remarks>
         readonly Dictionary<ulong, (int First, int Count)> masks = [];
 
+        /// <summary>Each composited group's blend mode, keyed the way <see cref="masks" /> is.</summary>
+        /// <remarks>
+        ///     ⚠ <b>A third dictionary rather than a field on the surface, because the mode is a
+        ///     property of the <i>composite</i> and not of the pixels.</b> The surface is finished
+        ///     before anything knows where its quad lands; the mode is only meaningful at the moment
+        ///     it does. Recorded here and read in <see cref="Execute" /> is the same arrangement the
+        ///     masks have, and for the same reason: neither may be folded into the surface.
+        /// </remarks>
+        readonly Dictionary<ulong, UiBlendMode> blends = [];
+
         /// <summary>Every mask of the frame, flattened once so a composite can take a span of it.</summary>
         /// <remarks>
         ///     ⚠ <c>UiGeometry.Masks</c> is an <c>IReadOnlyList</c> and a fragment needs a
@@ -901,6 +937,22 @@ public static class SoftwareUiRasterizer {
                     }
 
                     surfaces[layer.Image] = surface;
+
+                    // ⚠ Recorded on the same terms as the mask below, and on the shadow's quad too.
+                    // A `filter: drop-shadow()` is part of the element's rendered result, so CSS
+                    // blends it with the backdrop along with everything else the group drew — and
+                    // this path composites the two quads separately, so each has to carry the mode.
+                    // ⚠ That is an approximation and is the mask's word for word: blending two quads
+                    // separately is not blending their union once, and it shows wherever the shadow
+                    // reaches out from under the silhouette. Stated rather than hidden, because the
+                    // alternative is a fourth surface holding the group and its shadow together.
+                    if (layer.Blend != UiBlendMode.Normal) {
+                        blends[layer.Image] = layer.Blend;
+
+                        if (layer.Shadow is not null) {
+                            blends[layer.ShadowImage] = layer.Blend;
+                        }
+                    }
 
                     // ⚠ Recorded rather than applied, which is the whole of the difference between a
                     // mask and the two transforms above it. Nothing here may touch the surface with
@@ -1089,6 +1141,14 @@ public static class SoftwareUiRasterizer {
                 ? entries.AsSpan(range.First, range.Count)
                 : default;
 
+            // ⚠ Keyed by the surface number for `masks`' reason and with one more of its own: the
+            // mode belongs to a *group*, and the only draw in the frame that is that group is the one
+            // naming its surface. Reading it off the batch instead would be a per-command blend, which
+            // is exactly the shape `DrawCommand.Blend` refuses.
+            var blend = draw.Kind == BatchKind.Image && blends.TryGetValue(draw.Image, out var mode)
+                ? mode
+                : UiBlendMode.Normal;
+
             for (var i = draw.First; i + 2 < draw.First + draw.Count; i += 3) {
                 Triangle(
                     target,
@@ -1102,7 +1162,8 @@ public static class SoftwareUiRasterizer {
                     atlas,
                     clip,
                     surface,
-                    mask
+                    mask,
+                    blend
                 );
             }
         }

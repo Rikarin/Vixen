@@ -70,6 +70,31 @@ public sealed class FocusEvent : UiEvent {
 }
 
 public sealed partial class UiDocument {
+    /// <summary>The element that is part-way through answering "will you give the focus up".</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A resignation is asked once, and without this it was asked twice for the one
+    ///         handler shape this feature exists for.</b> A commit-on-blur control ends its edit by
+    ///         removing itself from inside its own losing event; <see cref="Remove" /> clears the
+    ///         focus it finds, and the focus it finds is still this element because
+    ///         <see cref="Focus(UiElement,bool)" /> deliberately writes nothing until the handler
+    ///         has returned. So the nested call asked the same element the same question again,
+    ///         from underneath the answer.
+    ///     </para>
+    ///     <para>
+    ///         Every commit-on-blur control in this tree survived that only by guarding — a rename
+    ///         editor testing whether the row still has one — and a control written without the
+    ///         guard committed its value twice. The guard belongs here, once, rather than in each of
+    ///         them: an element that is answering the question is not asked it again, and the
+    ///         change it is being asked about still happens.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Saved and restored rather than cleared</b>, because the handler is free to move
+    ///         the focus again and the element resigning underneath is not always the same one.
+    ///     </para>
+    /// </remarks>
+    UiElement? resigning;
+
     /// <summary>The element the keyboard is talking to.</summary>
     public UiElement? Focused { get; private set; }
 
@@ -160,9 +185,21 @@ public sealed partial class UiDocument {
             // give the focus up after it has already gone is being told, not asked. This is the same
             // event the tree would have heard afterwards and not a second one — a duplicate "lost"
             // would be worse than no veto at all.
-            if (previous is not null) {
+            // ⚠ And not asked at all when it is already answering. See `resigning`: a handler that
+            // ends the edit by removing its own element re-enters here through `Remove` → `Release`
+            // with the focus still on it, and the old code put the same question to it a second
+            // time. The move itself still happens — this suppresses the ask, not the change.
+            if (previous is not null && !ReferenceEquals(previous, resigning)) {
                 var leaving = new FocusEvent { Gained = false, Previous = previous, Next = element };
-                previous.Raise(leaving);
+
+                var outer = resigning;
+                resigning = previous;
+
+                try {
+                    previous.Raise(leaving);
+                } finally {
+                    resigning = outer;
+                }
 
                 // ⚠ The refusal is read only when the move is one somebody asked for. `force` is how
                 // removal and teardown say they are not asking, and without it a field with an
@@ -383,6 +420,77 @@ public sealed partial class UiDocument {
         foreach (var child in element.Children) {
             Collect(child, into);
         }
+    }
+
+    /// <summary>Moves the focus off an element that has just been hidden, and says where it lands.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Skipping a hidden element in <see cref="Collect(UiElement, List{UiElement})" /> fixed the walk and left the
+    ///         element that was <i>already focused</i> when it was hidden exactly where it was.</b>
+    ///         That is not a corner: it is what a pool does while somebody is typing. Panning a node
+    ///         canvas parks the <c>NodeItem</c> whose port box has the caret, and the caret stayed in
+    ///         it — a <c>display: none</c> element holding the keyboard, with <c>:focus-within</c>
+    ///         still lit on every ancestor and a screen reader announcing something nobody can see.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The next Tab was the visible half.</b> <see cref="MoveFocus(FocusDirection)" /> finds its place
+    ///         by <c>IndexOf(Focused)</c> in the order, and a hidden element is no longer in it — so
+    ///         the index was <c>-1</c> and Tab restarted from the top of the document. A user who
+    ///         panned a canvas and pressed Tab was thrown to the first control in the window, which
+    ///         reads as the focus having been lost rather than as a pool having tidied up.
+    ///     </para>
+    ///     <para>
+    ///         <b>To the nearest ancestor that can hold it, and only to nothing when there is
+    ///         none.</b> The web's answer here is the document body — focus is simply lost — and it
+    ///         is the wrong one for a pooled interface: the ancestor a parked element hangs from is
+    ///         the thing that parked it, and it is usually focusable itself. The canvas takes the
+    ///         keyboard back from its own port box, so the arrow keys keep working; a browser would
+    ///         have dropped the user out of the graph entirely.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Forced, so the leaving element cannot veto.</b> A focus veto is a control saying
+    ///         "not yet" about a move somebody asked for — a field with an invalid value refusing to
+    ///         be left. Nobody asked for this one, and an element that is no longer on the screen
+    ///         does not get to keep the keyboard by refusing to let go of it.
+    ///     </para>
+    /// </remarks>
+    void Reseat() {
+        if (Focused is not { } focused || Reachable(focused)) {
+            return;
+        }
+
+        for (var candidate = focused.Parent; candidate is not null; candidate = candidate.Parent) {
+            if (candidate.Focusable && Reachable(candidate)) {
+                Focus(candidate, force: true);
+                return;
+            }
+        }
+
+        Focus(null, force: true);
+    }
+
+    /// <summary>Whether the tab order can see an element, which is the rule <see cref="Collect(UiElement, List{UiElement})" /> walks.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Stated once and asked from both places, because two copies of this would drift.</b>
+    ///     <see cref="Collect(UiElement, List{UiElement})" /> expresses it as a descent — it returns early on an undisplayed
+    ///     element and never reaches the children — and this has to express the same rule as a climb,
+    ///     since it starts at the element and does not know what is above it. The asymmetry between
+    ///     the two hiding rules is why it cannot be one test: <c>display</c> takes the subtree with
+    ///     it and so is asked of every ancestor, <c>visibility</c> is inherited and a descendant may
+    ///     declare itself back, so it is asked of this element alone.
+    /// </remarks>
+    static bool Reachable(UiElement element) {
+        if (element.IsStyleHidden) {
+            return false;
+        }
+
+        for (var ancestor = element; ancestor is not null; ancestor = ancestor.Parent) {
+            if (ancestor.IsUndisplayed) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>The innermost focus scope containing the focus, or the root.</summary>

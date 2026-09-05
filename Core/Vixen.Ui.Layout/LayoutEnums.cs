@@ -182,9 +182,12 @@ public enum OverflowAlignment : byte {
 ///         <c>block_text_align_center_rtl</c> in the Taffy corpus is that pin exactly.
 ///     </para>
 ///     <para>
-///         <c>text-align</c> proper — the inline-axis distribution of the items on a line box — is a
-///         separate, unwritten thing with no oracle in either corpus. See
-///         <c>InlineKnownGaps.txt</c>, which has carried the entry since before this enum existed.
+///         <c>text-align</c> proper — the inline-axis distribution of the items on a line box — is
+///         <see cref="TextAlign" />, a separate field on the same struct. ⚠ This paragraph used to say
+///         it was "a separate, unwritten thing"; the second half stopped being true and the first half
+///         is what the two enums are. It still has no oracle in either corpus, for the reason
+///         <c>InlineKnownGaps.txt</c> opens with, so its fixtures are closed-form rather than
+///         recorded.
 ///     </para>
 /// </remarks>
 public enum LegacyTextAlign : byte {
@@ -205,6 +208,55 @@ public enum LegacyTextAlign : byte {
 
     /// <summary><c>-webkit-right</c>: against the container's right content edge in both directions.</summary>
     Right
+}
+
+/// <summary>
+///     CSS Text §7.1's <c>text-align</c> proper: where the items on a line box sit along the inline
+///     axis.
+/// </summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The other half of <see cref="LegacyTextAlign" />, and the two are separate fields on
+///         purpose.</b> One CSS property carries both sets of keywords and they govern different
+///         boxes: the legacy three move a block container's <i>block-level</i> children and this one
+///         distributes the <i>inline-level</i> items on a line. A container can have both kinds of
+///         child, so one field could not hold both answers — which is the argument
+///         <see cref="LegacyTextAlign" />'s remarks make and this enum is the other end of.
+///     </para>
+///     <para>
+///         ⚠ <b>Read by the inline walk and by nothing else</b>, so it moves a line's items and never
+///         a glyph. Text inside a leaf is aligned a layer out, in <c>Vixen.Ui</c>'s
+///         <c>TextAlignShift</c>, because that needs the shaped line's width and this project has no
+///         font. The two compose the way CSS says they do — a centred line box holding a
+///         shrink-to-fit leaf whose own lines are centred inside it — and neither is the other's
+///         approximation.
+///     </para>
+///     <para>
+///         ⚠ <b><c>justify</c> is not here, and it is refused rather than approximated.</b> Justifying
+///         distributes a line's slack between its <i>word</i> boundaries, and a text leaf is one
+///         atomic item to this walk — so the only slack this store could distribute is the space
+///         between whole inline-level boxes, which is not what the keyword asks for and would look
+///         like it on a line that happened to hold several. <c>LayoutStyleBuilder</c> drops it, the
+///         same way it drops the five font-relative <c>vertical-align</c> values, and the shape falls
+///         back to <see cref="Start" /> — which is where CSS puts a justified block's last line
+///         anyway.
+///     </para>
+/// </remarks>
+public enum TextAlign : byte {
+    /// <summary>The line's items begin at the inline start edge. The initial value.</summary>
+    Start,
+
+    /// <summary>The line's items end at the inline end edge.</summary>
+    End,
+
+    /// <summary>Against the left edge whatever <see cref="Direction" /> says.</summary>
+    Left,
+
+    /// <summary>Against the right edge whatever <see cref="Direction" /> says.</summary>
+    Right,
+
+    /// <summary>Centred in the space the line box has.</summary>
+    Center
 }
 
 /// <summary>Which side a box floats to, per CSS 2.1 §9.5.</summary>
@@ -235,7 +287,24 @@ public enum FloatSide : byte {
     Left,
 
     /// <summary><c>float: right</c> — against the right content edge, or the last right float's left edge.</summary>
-    Right
+    Right,
+
+    /// <summary><c>float: inline-start</c> — <see cref="Left" /> in LTR and <see cref="Right" /> in RTL.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A flow-relative float is a <see cref="Direction" /> question, not a writing-mode
+    ///     one, and reading it as the latter is what kept it out of this enum.</b> CSS Logical
+    ///     Properties defines <c>inline-start</c> against the writing mode <i>and</i> the direction —
+    ///     and with no vertical writing mode the inline axis is horizontal in every configuration
+    ///     this engine can be in, so the whole of the resolution is the one this line states. It does
+    ///     not make <see cref="Left" /> flip: §9.5's physical keywords stay physical, which is what
+    ///     the ten <c>float_bfc_*</c> families assert by shipping RTL variants with expectations
+    ///     identical to their LTR twins. The two answers coexist, which is the point of them being
+    ///     four values rather than two.
+    /// </remarks>
+    InlineStart,
+
+    /// <summary><c>float: inline-end</c> — <see cref="Right" /> in LTR and <see cref="Left" /> in RTL.</summary>
+    InlineEnd
 }
 
 /// <summary>Which floats a box refuses to sit beside, per CSS 2.1 §9.5.2.</summary>
@@ -248,9 +317,11 @@ public enum FloatSide : byte {
 ///         spent rather than carried forward.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Physical, and they do not flip with <see cref="Direction" />.</b> §9.5.2's keywords
-///         name the same two sides <see cref="FloatSide" /> does, and neither pair is
-///         writing-mode-relative in CSS 2.1.
+///         ⚠ <b><see cref="Left" /> and <see cref="Right" /> are physical and do not flip with
+///         <see cref="Direction" />.</b> §9.5.2's keywords name the same two sides
+///         <see cref="FloatSide" /> does, and neither pair is writing-mode-relative in CSS 2.1.
+///         <see cref="InlineStart" /> and <see cref="InlineEnd" /> are the flow-relative pair CSS
+///         Logical Properties adds beside them, and they exist <i>because</i> the first two do not.
 ///     </para>
 /// </remarks>
 public enum Clear : byte {
@@ -264,7 +335,13 @@ public enum Clear : byte {
     Right,
 
     /// <summary><c>clear: both</c> — below every earlier float on either side.</summary>
-    Both
+    Both,
+
+    /// <summary><c>clear: inline-start</c> — <see cref="Left" /> in LTR and <see cref="Right" /> in RTL.</summary>
+    InlineStart,
+
+    /// <summary><c>clear: inline-end</c> — <see cref="Right" /> in LTR and <see cref="Left" /> in RTL.</summary>
+    InlineEnd
 }
 
 /// <summary>How a node is positioned relative to its parent.</summary>

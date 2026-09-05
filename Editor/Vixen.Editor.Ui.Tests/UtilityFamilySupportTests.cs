@@ -120,21 +120,31 @@ public class UtilityFamilySupportTests {
         { "inline-block", "display", "inline-block" },
         { "inline-flex", "display", "inline-flex" },
 
-        // ⚠ <b>The four that are here are the four CSS 2.1 has, and Tailwind's other four are
-        // deliberately absent.</b> `float-start`, `float-end`, `clear-start` and `clear-end` emit the
-        // logical `inline-start` / `inline-end`, which resolve against a writing mode; `FloatSide`
-        // and `Clear` are physical and do not flip with `direction`. Adding rows for them here would
-        // assert that the cascade computes a value, which it would — and the engine would then drop
-        // it, which is exactly the reading this file's own first paragraph says is not enough. They
-        // are not in `Inert` either, because they resolve to nothing at all rather than to a property
-        // nobody reads. See `Core/Vixen.Ui.Styling.Utilities/README.md`.
+        // ⚠ <b>All eight are here now, and the four that were absent were absent for a conflation
+        // rather than for a limit.</b> This comment said `float-start`, `float-end`, `clear-start`
+        // and `clear-end` "emit the logical `inline-start` / `inline-end`, which resolve against a
+        // writing mode", and that adding rows for them would assert a value the engine then dropped.
+        // CSS Logical Properties resolves them against the writing mode AND the direction, and with
+        // no vertical writing mode — the decision #282 recorded — the inline axis is horizontal in
+        // every configuration this engine can be in. So `FloatSide` and `Clear` gained a
+        // flow-relative pair each and resolve them against `direction`, and these four rows now
+        // assert a value that is read rather than one that is computed and discarded.
+        //
+        // ⚠ The physical four still do not flip, which is why the logical pair is separate values
+        // rather than a rereading of `left` and `right`; the ten `float_bfc_*` families in
+        // `Corpus/float.xml` are what asserts that, by shipping RTL variants with identical
+        // expectations.
         { "float-left", "float", "left" },
         { "float-right", "float", "right" },
         { "float-none", "float", "none" },
+        { "float-start", "float", "inline-start" },
+        { "float-end", "float", "inline-end" },
         { "clear-left", "clear", "left" },
         { "clear-right", "clear", "right" },
         { "clear-both", "clear", "both" },
         { "clear-none", "clear", "none" },
+        { "clear-start", "clear", "inline-start" },
+        { "clear-end", "clear", "inline-end" },
 
         // ⚠ The pair the two vocabularies make easy to confuse, which is why both are written out
         // here next to each other: `hidden` above is `display: none` and takes the box out of
@@ -378,9 +388,17 @@ public class UtilityFamilySupportTests {
         { "size-2", "height", "8px" },
 
         // Position.
+        //
+        // ⚠ <b>`sticky` is here and `fixed` is not, and only one of the two is a refusal.</b> Doc 09
+        // excludes `fixed` because a game overlay has no viewport for it to be positioned against;
+        // `sticky`'s reference is a scrollport, which every `ScrollView` has. The keyword is honoured
+        // in `UiDocument.Accumulate` rather than in `Vixen.Ui.Layout` — that store has no scroll
+        // offsets — so this row asserts a value that is read, and `StickyPositionTests` is what reads
+        // it.
         { "absolute", "position", "absolute" },
         { "relative", "position", "relative" },
         { "static", "position", "static" },
+        { "sticky", "position", "sticky" },
         { "top-0", "top", "0" },
         { "inset-x-1", "left", "4px" },
         { "start-2", "inset-inline-start", "8px" },
@@ -551,6 +569,37 @@ public class UtilityFamilySupportTests {
         // Paint.
         { "bg-surface-raised", "background-color", "#f2f3f6" },
         { "opacity-50", "opacity", "0.5" },
+
+        // ⚠ <b>Three rows for one feature, because `isolation` is the half that has no picture of its
+        // own.</b> `mix-blend-multiply` reaches `UiLayer.Blend` and `SoftwareUiRasterizer` applies it;
+        // `isolate` opens a group and changes no pixel of it, bounding which backdrop a *descendant's*
+        // blend reaches. The computed value is all this table can state either way — what the two
+        // actually do to a picture is `Vixen.Ui.Controls.Tests.MixBlendModeTests`, in pixels.
+        { "mix-blend-multiply", "mix-blend-mode", "multiply" },
+        { "isolate", "isolation", "isolate" },
+        { "isolation-auto", "isolation", "auto" },
+
+        // ⚠ <b>Fourteen static roots under one prefix and two properties, which is why every one of
+        // them gets a line rather than the pair getting two.</b> `object-contain` is a fit and
+        // `object-center` is a position; a reader who saw only the first two rows would take the
+        // prefix for a family. ⚠ And the four corners are the reason this root needed a new accessor:
+        // `object-left-top` computes to the TWO-WORD value `left top`, which `UiDocument.KeywordOf`
+        // reports as absent by construction. What the two properties do to a picture is
+        // `Vixen.Ui.Controls.Tests.ObjectFitTests`, in rectangles.
+        { "object-contain", "object-fit", "contain" },
+        { "object-cover", "object-fit", "cover" },
+        { "object-fill", "object-fit", "fill" },
+        { "object-none", "object-fit", "none" },
+        { "object-scale-down", "object-fit", "scale-down" },
+        { "object-bottom", "object-position", "bottom" },
+        { "object-center", "object-position", "center" },
+        { "object-left", "object-position", "left" },
+        { "object-left-bottom", "object-position", "left bottom" },
+        { "object-left-top", "object-position", "left top" },
+        { "object-right", "object-position", "right" },
+        { "object-right-bottom", "object-position", "right bottom" },
+        { "object-right-top", "object-position", "right top" },
+        { "object-top", "object-position", "top" },
         { "bg-position-[25%_75%]", "background-position", "25% 75%" },
         { "bg-size-[25%_75%]", "background-size", "25% 75%" },
 
@@ -1263,8 +1312,10 @@ public class UtilityFamilySupportTests {
             "would pin the mechanism rather than the answer, which is `NumericFigures`' finding one " +
             "category over. ⚠ And half the reason this group used to give is refuted: it claimed " +
             "`MaskGradientTests` pins the cluster against pixels, and that file writes hand-authored " +
-            "`mask-image` declarations rather than one utility class — so what actually covers these " +
-            "roots is their emission, which is the mechanism again and not the answer.",
+            "`mask-image` declarations rather than one utility class. What covers the eighteen mask roots " +
+            "instead is `Vixen.Ui.Styling.Utilities.Tests/MaskFamilyTests`, which resolves each class " +
+            "through the cascade and asserts the whole assembled `mask-image` — the answer rather than the " +
+            "fragment — and the gradient six are `CompositionTests`'.",
             "bg-conic", "bg-linear", "bg-radial", "from", "mask-b-from",
             "mask-b-to", "mask-conic", "mask-conic-from", "mask-conic-to", "mask-l-from",
             "mask-l-to", "mask-linear", "mask-linear-from", "mask-linear-to", "mask-r-from",

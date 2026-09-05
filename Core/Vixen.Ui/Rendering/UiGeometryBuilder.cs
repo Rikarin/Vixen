@@ -492,7 +492,8 @@ public sealed class UiGeometryBuilder {
                     command.Shadow,
                     command.Backdrop,
                     new Rectangle(command.X, command.Y, command.Width, command.Height),
-                    command.Transform
+                    command.Transform,
+                    command.Blend
                 )
             );
             return;
@@ -570,13 +571,71 @@ public sealed class UiGeometryBuilder {
             reachable = Intersect(undo.Bounds(reachable), viewport);
         }
 
+        // ⚠ <b>The border box and not the ink, clipped by the same two rectangles the group's own
+        // bounds are, and dropped whole when nothing is left.</b> CSS clips a backdrop filter to the
+        // element's border box — so a panel whose child overflows it, or whose own <c>blur-*</c> grew
+        // the ink, must not filter the backdrop over the overflow. Nulling the backdrop here rather
+        // than leaving an empty rectangle is <c>cast</c>'s arrangement above and for its reason: both
+        // executors read <see cref="UiLayer.Backdrop" /> as the whole answer, and one that named a
+        // surface no quad draws would have each of them allocate one and capture into it for nobody.
+        // ⚠ <b>And nulled outright when the group is transformed, which is the one interaction of
+        // this feature that is refused rather than implemented.</b> Every other thing a group does
+        // survives a transform for free, because each of them happens in the surface's own space and
+        // the matrix is spent afterwards on the composite quad: a blur convolves the surface, a colour
+        // matrix is per pixel, a mask is read from the composite's own untransformed coordinate, and a
+        // drop shadow displaces in local space and is carried along. CSS orders them the same way —
+        // filter, then mask, then transform — so all four come out right without being told.
+        //
+        // A backdrop does not, and the reason is that it is the one surface holding something the
+        // group did not draw. `UiRenderer.Capture` replays the draw-list prefix into a surface and both
+        // executors read it at the coordinates the quad covers, so a *rotated* backdrop quad would have
+        // to sample a rotated window of the captured picture — four texture coordinates that are no
+        // longer an axis-aligned rectangle, a capture region that is no longer `BackdropBounds`, and a
+        // clip to the border box that is no longer a rectangle either. Sampling the untransformed patch
+        // instead would show the scene from where the element *was* rather than from where it is, which
+        // under a rotation is simply the wrong picture. Dropped here, once, so that both executors go on
+        // reading `UiLayer.Backdrop` as the whole answer.
+        //
+        // ⚠ <b>Decided <i>above</i> the empty-group guard rather than below it, which is the ordering
+        // the guard now depends on.</b> An element that paints nothing keeps its group only when a
+        // backdrop survived this block, so the answer has to be in hand before that question is
+        // asked. `cast` still comes after, because a shadow is a function of the group's own bounds
+        // and those are not settled until then.
+        var behind = open.Transform is null ? open.Backdrop : null;
+        var backdropBounds = default(Rectangle);
+
+        if (behind is not null) {
+            backdropBounds = Intersect(open.Box, reachable);
+
+            if (backdropBounds.Width <= 0f || backdropBounds.Height <= 0f) {
+                behind = null;
+            }
+        }
+
         var bounds = Intersect(ink, reachable);
 
         if (bounds.Width <= 0f || bounds.Height <= 0f) {
-            // The group inked nothing the clip lets through. There is no surface worth allocating and
-            // nothing to composite — and emitting a zero-sized layer would ask a renderer for a
-            // zero-sized texture, which is a validation error rather than an empty picture.
-            return;
+            // ⚠ <b>An empty group survives exactly one thing, and it is the one surface it did not
+            // paint.</b> Everything else a group carries — the blur, the colour matrix, the mask, the
+            // drop shadow — is a function of its own ink, so with no ink there is provably nothing to
+            // show and a layer here would ask both executors for a zero-sized texture, which is a
+            // validation error rather than an empty picture. A backdrop is the exception because it
+            // holds what was painted *behind* the element, which an element that paints nothing has
+            // exactly as much of as one that paints a background. CSS says so plainly: Filter Effects
+            // 2 § 2 clips the filtered backdrop to the border box and never mentions the element's
+            // own paint, and `backdrop-blur-md` on a bare `div` is a picture a browser shows.
+            //
+            // ⚠ The border box is what the group is then bounded by, and it is not a substitute for
+            // the ink — it is the only rectangle in play. `backdropBounds` is that box already
+            // narrowed by the clip and the viewport, and it is non-empty by construction here or
+            // `behind` would have been nulled above. The group's own surface stays empty and its
+            // composite quad draws transparent black over it, which costs one quad and is what makes
+            // this the same code path as every other group rather than a second kind of layer.
+            if (behind is null) {
+                return;
+            }
+
+            bounds = backdropBounds;
         }
 
         // ⚠ <b>Decided before the layer is built, because the shadow can be clipped away while the
@@ -600,42 +659,6 @@ public sealed class UiGeometryBuilder {
             }
         }
 
-        // ⚠ <b>The border box and not the ink, clipped by the same two rectangles the group's own
-        // bounds are, and dropped whole when nothing is left.</b> CSS clips a backdrop filter to the
-        // element's border box — so a panel whose child overflows it, or whose own <c>blur-*</c> grew
-        // the ink, must not filter the backdrop over the overflow. Nulling the backdrop here rather
-        // than leaving an empty rectangle is <c>cast</c>'s arrangement above and for its reason: both
-        // executors read <see cref="UiLayer.Backdrop" /> as the whole answer, and one that named a
-        // surface no quad draws would have each of them allocate one and capture into it for nobody.
-        // ⚠ <b>And nulled outright when the group is transformed, which is the one interaction of
-        // this feature that is refused rather than implemented.</b> Every other thing a group does
-        // survives a transform for free, because each of them happens in the surface's own space and
-        // the matrix is spent afterwards on the composite quad: a blur convolves the surface, a colour
-        // matrix is per pixel, a mask is read from the composite's own untransformed coordinate, and a
-        // drop shadow displaces in local space and is carried along. CSS orders them the same way —
-        // filter, then mask, then transform — so all four come out right without being told.
-        //
-        // A backdrop does not, and the reason is that it is the one surface holding something the
-        // group did not draw. `UiRenderer.Capture` replays the draw-list prefix into a surface and both
-        // executors read it at the coordinates the quad covers, so a *rotated* backdrop quad would have
-        // to sample a rotated window of the captured picture — four texture coordinates that are no
-        // longer an axis-aligned rectangle, a capture region that is no longer `BackdropBounds`, and a
-        // clip to the border box that is no longer a rectangle either. Sampling the untransformed patch
-        // instead would show the scene from where the element *was* rather than from where it is, which
-        // under a rotation is simply the wrong picture. Dropped here, once, where `cast` and the empty
-        // group are already dropped, so that both executors go on reading `UiLayer.Backdrop` as the
-        // whole answer.
-        var behind = open.Transform is null ? open.Backdrop : null;
-        var backdropBounds = default(Rectangle);
-
-        if (behind is not null) {
-            backdropBounds = Intersect(open.Box, reachable);
-
-            if (backdropBounds.Width <= 0f || backdropBounds.Height <= 0f) {
-                behind = null;
-            }
-        }
-
         // ⚠ All three drawn off the one counter and in this order, so that they are distinct by
         // construction — see <see cref="UiLayer.ShadowImage" />, which argues against deriving one
         // from another. A group with no shadow and no backdrop consumes one number and not three,
@@ -647,6 +670,11 @@ public sealed class UiGeometryBuilder {
         var layer = new UiLayer(open.Draw, draws.Count - open.Draw, bounds, open.Alpha) {
             Image = image,
             Blur = open.Blur,
+
+            // ⚠ Carried with no effect on the bounds, the surface or the quad, because a blend
+            // changes only what the composite's fragment arithmetic does with the destination — see
+            // `UiBlend.Apply`. It is the one field here that outsets nothing and schedules nothing.
+            Blend = open.Blend,
 
             // ⚠ <b>Carried with no outset of the group's bounds, and that is not the colour matrix's
             // reason.</b> A backdrop's Gaussian does move coverage — but it moves it within a surface
@@ -961,7 +989,8 @@ public sealed class UiGeometryBuilder {
         UiDropShadow? Shadow,
         UiBackdrop? Backdrop,
         Rectangle Box,
-        UiTransform? Transform
+        UiTransform? Transform,
+        UiBlendMode Blend
     );
 
     /// <summary>Puts every glyph the frame draws into the atlas, before any of it is read back.</summary>

@@ -696,17 +696,19 @@ came from somewhere else entirely: it is the first layout feature here judged by
 corpus contains**, and the condition this section set on it — write the oracle first — was met by
 lifting WPT's parsing suite case for case rather than by re-expressing a reftest's geometry.
 
-**The strut, `text-align`, and generated boxes** — the parts of inline formatting still open. Two
-of the four this line used to name have closed: non-atomic inline fragmentation, and anonymous block
-boxes for mixed content. See [the inline section](#inline-formatting-and-the-invariant-nobody-had-written-down)
+**The strut and generated boxes** — the parts of inline formatting still open. Three of the five
+this line used to name have closed: non-atomic inline fragmentation, anonymous block boxes for mixed
+content, and now `text-align`. See [the inline section](#inline-formatting-and-the-invariant-nobody-had-written-down)
 and `Taffy/../InlineKnownGaps.txt`.
 
-⚠ **`text-align` here means the inline one and only the inline one.** CSS Text §7.1's three legacy
-keywords — `-webkit-left`, `-webkit-center`, `-webkit-right` — align a block container's
-*block-level children* rather than its inline content, which is a block-layout rule needing no line
-box at all, and they are implemented: `LegacyTextAlign` on `LayoutStyle`, read once in
-`WalkBlockChildren`. Sixteen Taffy fixtures cover them. Distributing the items on a *line* is the
-part still owed, and it has no oracle in either corpus.
+⚠ **`text-align` is two fields, and both are implemented.** CSS Text §7.1's three legacy keywords —
+`-webkit-left`, `-webkit-center`, `-webkit-right` — align a block container's *block-level children*
+rather than its inline content, which is a block-layout rule needing no line box at all:
+`LegacyTextAlign` on `LayoutStyle`, read once in `WalkBlockChildren`, sixteen Taffy fixtures. The
+inline half — distributing the items on a *line* — is `TextAlign`, read once in `PlaceLine`, and it
+has no oracle in either corpus, so `InlineTextAlignTests` is closed-form rather than recorded. ⚠ One
+CSS property, two fields, because a container can hold both kinds of child and the two answers are
+not the same answer. `justify` is refused at the stylesheet bridge rather than aliased.
 
 **Floats** — *done for block-level content, owed for inline.* All 92 fixtures pass. What none of
 them tests, and what is therefore still owed, is a line box narrowing beside a float: there is no
@@ -723,6 +725,40 @@ stretched axis accepts a transferred bound is `IsFlexItem` against `IsFlexOrGrid
 Auto margins on an absolutely positioned box (CSS 2.1 §10.3.7 and §10.6.4) were the other half of
 that sentence and are now implemented, judged by the 22 `block_absolute_margin_auto_*_with_inset`
 fixtures and, for the cases none of them reaches, by `AbsoluteAutoMarginTests`.
+
+**CSS containment (`contain`)** — *not here at all, and this is the proposal rather than a refusal.*
+There is no property, no `LayoutStyle` field, no `LayoutEnums` member and no branch anywhere in this
+store; the same is true one layer up, so `contain-*` computes and moves nothing. ⚠ It is **five
+independent effects behind one property**, which is why sizing it as a single item is the mistake:
+`contain: content` is `layout paint style` and `contain: strict` adds `size`, so three of five made
+real leaves both aggregate values half working.
+
+- **`size`** — the box sizes as if it had no contents. This is the interesting one, and the seam is
+  already written: `MeasureNodeWithoutChildren` in `LayoutTree.Layout.cs` *is* that computation, for
+  a node that happens to have none. ⚠ But it is not "skip the children": a contained box still lays
+  them out, paints them and hit-tests them — it only refuses to let them decide its own box. Since
+  `CalculateLayoutImpl` measures the node and places its children in one pass, the intervention is to
+  settle the dimensions first and then run the children against them as though they were `Exactly`,
+  which is a change in the middle of the flex and block algorithms rather than at either end. The
+  intrinsic pre-pass needs the matching half, so that a content keyword on a contained box measures
+  zero.
+- **`inline-size`** — the same on one axis, and it arrives with `size`.
+- **`layout`** — an independent formatting context and a containing block for out-of-flow
+  descendants. ⚠ Mostly true here already: a flex or grid item is an independent formatting context
+  by construction, and `LayoutTree.Absolute` picks a containing block per node — so the observable
+  part is the one `position: relative` already provides. That makes it cheap **and** makes it the one
+  whose test is most likely to be unable to fail.
+- **`paint`** — descendants clipped to the padding box, which is the clip `overflow: hidden` already
+  pushes through `DrawListBuilder`'s `OverflowReader`.
+- **`style`** — ⛔ **refused in writing.** It scopes counters and quotes, and this engine has neither,
+  so every value of it would resolve, compute and move nothing.
+
+⚠ **The instrument comes first, because a contained box and an uncontained one draw the same picture
+wherever the children happen to fit.** A fixture with an explicit `width` and `height` proves nothing
+about `contain: size`; it has to be an auto-sized box whose children overflow it, where containment
+collapses the box and its absence does not. `contain: paint` has the mirror-image trap. See
+`docs/plan/43-web-styling-parity.md` § Part 9, Bucket 3, which carries the same table with the
+Tailwind classes beside it.
 
 **Parallel layout.** Independent subtrees with a fixed available size are jobs, and text measurement
 of siblings is where the win is. `Benchmarks/Vixen.Benchmarks.Ui` now gives the serial number to

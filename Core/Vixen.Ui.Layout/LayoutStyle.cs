@@ -93,6 +93,13 @@ public struct LayoutStyle {
     /// </remarks>
     public LegacyTextAlign LegacyTextAlign;
 
+    /// <summary>Where the items on this container's line boxes sit along the inline axis.</summary>
+    /// <remarks>
+    ///     Read only by the inline walk, and only by it — the other half of the CSS property
+    ///     <see cref="LegacyTextAlign" /> holds. See <see cref="Layout.TextAlign" />.
+    /// </remarks>
+    public TextAlign TextAlign;
+
     /// <summary>Which side this box floats to, or <see cref="FloatSide.None" />.</summary>
     /// <remarks>
     ///     ⚠ A non-<c>None</c> value takes the box out of flow, makes it block-level whatever
@@ -312,6 +319,7 @@ public struct LayoutStyle {
         style.JustifySelfOverflow = OverflowAlignment.Unsafe;
 
         style.LegacyTextAlign = LegacyTextAlign.None;
+        style.TextAlign = TextAlign.Start;
         style.Float = FloatSide.None;
         style.Clear = Clear.None;
         style.PositionType = PositionType.Relative;

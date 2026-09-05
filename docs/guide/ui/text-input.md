@@ -131,6 +131,44 @@ field.On<TextCompositionEvent>(
 whatever it showed last time, and committing it as input would leave every intermediate reading in
 the field. The two events exist to keep them apart.
 
+## Whether what it holds is acceptable
+
+Three seams act on a value and they answer three different questions. `Coerce` decides what the
+field will *hold* — `NumericInput` refuses letters outright. `Shown` decides what it *draws* —
+`SecureTextBox` draws bullets. `Validate` decides whether what it holds is *acceptable*, and unlike
+the other two it changes nothing: the value stays where it is, with the mistake visible, so that the
+person who made it can correct it.
+
+```csharp no-compile="a fragment; `field` is a TextField"
+field.Required = true;
+field.Validator = value => value?.Contains('@') == true ? null : "Needs an at-sign";
+```
+
+`null` means acceptable and anything else is the reason. `TextField.IsValid` and
+`TextField.ValidationMessage` are the answer; `Required` is applied first, and it is the only rule
+this assembly can put words to — every other rule is a fact about what the field is *for*, which
+lives in the application.
+
+⚠ **A rule about acceptability must not be written as a `Coerce`.** A field that silently dropped
+what was typed because it was too short could never be typed into at all: the user would watch their
+own keystrokes vanish with nothing on screen to explain it.
+
+⚠ **`Revalidate()` is public because validity can turn on something that is not the value** — a name
+checked against a list that has just arrived, a confirmation that has to match another field.
+Nothing about those changes when a keystroke lands here, so a control that only revalidated on its
+own edits would sit there green.
+
+An invalid field writes an `invalid` class, which is what the theme draws a ring with, and reports
+`AccessibleStates.Invalid`; a required one reports `AccessibleStates.Required`. Those two flags had
+no producer anywhere in the repository until this seam existed, so a form's mandatory fields sounded
+exactly like its optional ones.
+
+⚠ **The message is not written into the accessibility tree by the control.** ARIA pairs
+`aria-invalid` with a *separate* element holding the words, reached by `aria-describedby` — so the
+error text a form shows is a label in the layout and pointing at it is one
+`field.AddAccessibleRelation(AccessibleRelation.DescribedBy, message)`. Folding the string into
+`AccessibleDescription` from inside the control would overwrite whatever the application put there.
+
 ## The editing keymap
 
 A chord is not a verb. `EditingCommands.Resolve(key, modifiers, keymap)` turns one into an

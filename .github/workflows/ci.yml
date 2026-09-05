@@ -605,11 +605,15 @@ jobs:
   # the machine this leg was written on — no workload is installed there, so the step would have been
   # committed unverified. #327 carries it.
   #
-  # ⚠ AND WIRING IT UP WOULD NOT YET BUY WHAT THIS JOB BUYS. CheckAotIos is a DotNetPublish and
-  # nothing else: its only assertion is the exit code, which is exactly the state CheckAot was in
-  # before the paragraph above — where a publish with PublishAot edited out succeeded in 17 seconds
-  # having written 51 managed assemblies. AssertAotOutput is called by the desktop target and by
-  # nothing else. So the iOS leg needs the assertions before it needs the runner. #634.
+  # ⚠ AND WIRING IT UP STILL DOES NOT BUY WHAT THIS JOB BUYS. CheckAotIos was a DotNetPublish and
+  # nothing else, asserting only the exit code — exactly the state CheckAot was in before the
+  # paragraph above, where a publish with PublishAot edited out succeeded in 17 seconds having
+  # written 51 managed assemblies. It now runs the two checks that need no device first: the probe
+  # roots every assembly it references, and PublishAot plus the three warning properties are still
+  # in the csproj. AssertAotOutput itself is still called by the desktop target and by nothing else,
+  # because reading a net10.0-ios publish's output needs somebody with the workload to look at its
+  # layout before anything asserts over it. So the iOS leg still needs that assertion as much as it
+  # needs the runner. #634.
   aot:
     name: aot-${{ matrix.os }}
     runs-on: ${{ matrix.os }}

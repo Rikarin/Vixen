@@ -181,6 +181,15 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     readonly IFileWatcher? watcher;
 
+    /// <summary>Whether this editor has a watcher over the project at all.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The only honest instrument for "did the harness actually skip it".</b> Every other
+    ///     observable of a missing watcher is a silence — nothing rescans, nothing reloads — and a
+    ///     silence is what a broken watcher looks like too, so a test asserting on one would pass
+    ///     for both reasons. This is the constructor's decision, read back.
+    /// </remarks>
+    internal bool IsWatchingAssets => watcher is not null;
+
     /// <summary>What the watcher has to say, reused so that a quiet frame allocates nothing.</summary>
     readonly List<FileChange> changes = [];
 
@@ -466,6 +475,14 @@ sealed partial class EditorApplication : IDisposable {
     ///     is what a test and a headless run get. The commands that need them grey themselves out
     ///     rather than being absent.
     /// </param>
+    /// <param name="watchAssets">
+    ///     Whether to open a <see cref="FileWatcher" /> over the project's assets. ⚠ On for anything
+    ///     a person uses, and the only caller that turns it off is a harness: a watcher is a
+    ///     convenience — <c>Refresh</c> does the same work on demand, and a project on a share the
+    ///     platform cannot watch already runs without one — but starting the platform's stream costs
+    ///     80–95 ms, which is the largest single thing a test session pays for a path it never
+    ///     exercises. See <c>EditorSessionOptions.WatchAssets</c>.
+    /// </param>
     public EditorApplication(
         float width,
         float height,
@@ -473,7 +490,8 @@ sealed partial class EditorApplication : IDisposable {
         string? projectRoot = null,
         EditorServices? services = null,
         IEditorRegistry? extensions = null,
-        IReadOnlyList<(string Id, string Name, IEditorPlugin Module)>? modules = null
+        IReadOnlyList<(string Id, string Name, IEditorPlugin Module)>? modules = null,
+        bool watchAssets = true
     ) {
         store = new EditorUserStore(directory);
         dataDirectory = directory;
@@ -679,7 +697,12 @@ sealed partial class EditorApplication : IDisposable {
         }
 
         thumbnails = new ThumbnailCache(project);
-        watcher = Watch(project);
+
+        // ⚠ 80–95 ms of a session, measured on this machine, and it is the platform's rather than
+        // ours: `FileSystemWatcher.EnableRaisingEvents = true` starts an FSEvents stream. A test
+        // that never edits a file behind the editor's back pays it anyway, 344 times over in
+        // `Vixen.Editor.App.Tests` — see `EditorSessionOptions.WatchAssets` and #557.
+        watcher = watchAssets ? Watch(project) : null;
 
         // ⚠ Constructed even when there is no watcher, because the object is what subscribes to
         // `EditorProject.DocumentSaving`, and a project with no watcher still has documents that

@@ -277,9 +277,10 @@ public static class UtilityFamilies {
     ///         border on <i>every child but the last</i>: they are a rule over a relationship, not a
     ///         declaration on a box, and no amount of value-table work reaches them. With
     ///         <c>" &gt; :not(:last-child)"</c> here the generator writes
-    ///         <c>.space-x-4 &gt; :not(:last-child)</c>, which the selector engine compiles and
-    ///         matches — <see cref="SimpleSelectorKind.Not" />, <see cref="PositionTest.Last" /> and
-    ///         <see cref="Combinator.Child" /> have all been there the whole time.
+    ///         <c>:where(.space-x-4 &gt; :not(:last-child))</c>, which the selector engine compiles
+    ///         and matches — <see cref="SimpleSelectorKind.Not" />, <see cref="PositionTest.Last" />
+    ///         and <see cref="Combinator.Child" /> have all been there the whole time, and the
+    ///         <c>:where()</c> that keeps the rule out of a child's way is the generator's.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>It is appended <i>after</i> the variants, which is the only order that is
@@ -346,21 +347,28 @@ public static class UtilityFamilies {
         Static("grid", "display", "grid");
         Static("hidden", "display", "none");
 
-        // ⚠ <b>Four keywords each, and the two Tailwind also has are deliberately not here.</b>
-        // Tailwind v4's `float-start` and `float-end` emit `float: inline-start` / `inline-end`,
-        // which CSS Logical Properties resolves against the writing mode. `FloatSide` and `Clear`
-        // are CSS 2.1 §9.5's PHYSICAL keywords and do not flip with `direction` — the float corpus
-        // proves it by shipping RTL variants of ten `float_bfc_*` families with expectations
-        // identical to their LTR twins. So there are three shapes available and only one of them is
-        // honest: emit the logical keyword and let the bridge drop it, which is a class that
-        // computes and does nothing; alias it onto `left`, which is correct in LTR and wrong in RTL
-        // inside the same declaration; or leave it unspelt and record the gap. This is the third.
-        // `docs/plan/43-web-styling-parity.tsv` carries both roots as `partial` with `value_gap`
-        // naming the two keywords, which is what stops the omission reading as an oversight.
-        Keywords("float", "float", new() { ["left"] = "left", ["right"] = "right", ["none"] = "none" });
+        // ⚠ <b>All of Tailwind's keywords, and the two that used to be missing were missing for a
+        // reason that turned out to be a conflation.</b> This comment said `float-start` and
+        // `float-end` emit `float: inline-start` / `inline-end`, "which CSS Logical Properties
+        // resolves against the writing mode", and then listed three shapes of which only leaving
+        // them unspelt was honest. CSS Logical Properties resolves them against the writing mode
+        // AND the direction, and with no vertical writing mode — the decision #282 recorded — the
+        // inline axis is horizontal in every configuration this engine can be in. So the resolution
+        // is `direction` alone, `FloatSide` and `Clear` gained a flow-relative pair each, and there
+        // was a fourth shape all along.
+        //
+        // ⚠ <b>The float corpus observation was true and was about the other keywords.</b> Ten
+        // `float_bfc_*` families do ship RTL variants with identical expectations, which proves
+        // `float: left` does not flip — and that is the reason `inline-start` is a separate value
+        // rather than a rereading of `left`, not a reason it cannot be spelt.
+        Keywords("float", "float", new() {
+            ["left"] = "left", ["right"] = "right", ["none"] = "none",
+            ["start"] = "inline-start", ["end"] = "inline-end"
+        });
 
         Keywords("clear", "clear", new() {
-            ["left"] = "left", ["right"] = "right", ["both"] = "both", ["none"] = "none"
+            ["left"] = "left", ["right"] = "right", ["both"] = "both", ["none"] = "none",
+            ["start"] = "inline-start", ["end"] = "inline-end"
         });
 
         // ⚠ <b>`visibility` was never a missing reader — `DrawListBuilder` has honoured `hidden`
@@ -378,6 +386,99 @@ public static class UtilityFamilies {
         Static("visible", "visibility", "visible");
         Static("invisible", "visibility", "hidden");
         Static("collapse", "visibility", "collapse");
+
+        // ⚠ <b>`sr-only` is eight declarations where v4 writes nine, and the missing one is `clip`.</b>
+        // The class hides an element from sight while leaving it in the accessibility tree, and the
+        // eight that land are what does the hiding: a one-point absolutely-positioned box with no
+        // edges, pulled a point out of flow, clipping whatever is inside it. `clip: rect(0,0,0,0)`
+        // adds nothing to that — it is 2009's spelling of the same intent, kept in the v4 recipe for
+        // browsers that shipped before `overflow: hidden` on a 1×1 box was reliable — and nothing in
+        // this engine reads a clip rectangle, so emitting it would put a property on
+        // `InertProperties.txt` for no behaviour. That is the documented substitute #268 asks for
+        // rather than a reader.
+        //
+        // ⚠ <b>The class only means anything because the accessibility tree is built from
+        // <c>Role</c> and not from geometry.</b> `UiElement.IsInAccessibilityTree` asks the role
+        // alone; nothing subtracts an element for being one point wide, clipped or off-screen. Were
+        // it otherwise this family would not hide an element from sight, it would delete it — which
+        // is the opposite of what the author wrote, and would have been the reason to refuse.
+        Register(new Family(
+            "sr-only",
+            ValueKind.Static,
+            ["position"],
+            new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = "position:absolute" },
+            Alongside: [
+                new UtilityDeclaration("width", "1px"),
+                new UtilityDeclaration("height", "1px"),
+                new UtilityDeclaration("padding", "0"),
+                new UtilityDeclaration("margin", "-1px"),
+                new UtilityDeclaration("overflow", "hidden"),
+                new UtilityDeclaration("white-space", "nowrap"),
+                new UtilityDeclaration("border-width", "0")
+            ]
+        ));
+
+        // The undo, and it is not the same list backwards: v4's `not-sr-only` restores seven
+        // properties and leaves `border-width` alone, because a border the element declared for
+        // itself is not `sr-only`'s to give back.
+        Register(new Family(
+            "not-sr-only",
+            ValueKind.Static,
+            ["position"],
+            new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = "position:static" },
+            Alongside: [
+                new UtilityDeclaration("width", "auto"),
+                new UtilityDeclaration("height", "auto"),
+                new UtilityDeclaration("padding", "0"),
+                new UtilityDeclaration("margin", "0"),
+                new UtilityDeclaration("overflow", "visible"),
+                new UtilityDeclaration("white-space", "normal")
+            ]
+        ));
+
+        // ⚠ <b>Two static roots and not a keyword family, because v4 spells them with two different
+        // shapes</b> — `isolate` bare and `isolation-auto` prefixed — which is `normal-nums`' problem
+        // further down and has the same answer.
+        //
+        // ⚠ <b>The property was worth nothing at all until `mix-blend-mode` existed, and is worth
+        // exactly a composited group now that it does.</b> `isolation` has no picture of its own: its
+        // only defined effect is on a descendant's blend, and it bounds that blend by being a
+        // stacking context. `DrawListBuilder` reads it as a sixth reason to open a group, and a
+        // nested group's draws land in its parent's surface — so the bound comes out of the
+        // compositor's existing shape rather than out of anything new. See `UiLayer.Blend`.
+        Static("isolate", "isolation", "isolate");
+        Static("isolation-auto", "isolation", "auto");
+
+        // ⚠ <b>Fourteen static roots and not two keyword families, because Tailwind spells two
+        // properties under one prefix</b> — `object-contain` is a fit and `object-center` is a
+        // position, and a family named `object` would have to decide which property a value belongs
+        // to by looking the value up. That is `mask-alpha`'s arrangement beside `mask-repeat`, one
+        // prefix and two meanings, and the answer there was separate registry roots.
+        //
+        // ⚠ <b>Four of the nine positions are TWO-WORD values, which is why this root needed a
+        // reader and not just a table.</b> `object-left-top` computes to `left top`, and
+        // `UiDocument.KeywordOf` answers null to anything that is not one bare identifier — so the
+        // four corners were unreadable by every accessor `StyleAccess` had. `UiDocument.PositionOf`
+        // is the fifth, and it is the same `<position>` parser `background-position` uses.
+        //
+        // ⚠ <b>All five fit keywords but `fill` are undefined without an intrinsic size, and
+        // supplying one is an application's job.</b> `Image.IntrinsicSize` is where it goes; zero
+        // means unknown, and unknown draws `fill` whatever the class says — which is CSS's own answer
+        // for content with no intrinsic dimensions rather than a shortfall.
+        Static("object-contain", "object-fit", "contain");
+        Static("object-cover", "object-fit", "cover");
+        Static("object-fill", "object-fit", "fill");
+        Static("object-none", "object-fit", "none");
+        Static("object-scale-down", "object-fit", "scale-down");
+        Static("object-bottom", "object-position", "bottom");
+        Static("object-center", "object-position", "center");
+        Static("object-left", "object-position", "left");
+        Static("object-left-bottom", "object-position", "left bottom");
+        Static("object-left-top", "object-position", "left top");
+        Static("object-right", "object-position", "right");
+        Static("object-right-bottom", "object-position", "right bottom");
+        Static("object-right-top", "object-position", "right top");
+        Static("object-top", "object-position", "top");
 
         // ⚠ <b>Three declarations, because `truncate` <i>is</i> three declarations.</b> It was one
         // here — `overflow: hidden` alone — and doc 43's F5 is the finding that the other two were
@@ -924,6 +1025,20 @@ public static class UtilityFamilies {
         Static("static", "position", "static");
         Static("relative", "position", "relative");
         Static("absolute", "position", "absolute");
+
+        // ⚠ <b>`sticky` is here and `fixed` never will be, and the two look alike from Tailwind's
+        // side only.</b> Doc 09 refuses `fixed` because there is no viewport in a game overlay — a
+        // box positioned against one has nothing to be positioned against. That argument does not
+        // reach `sticky`, whose reference is a SCROLLPORT: the nearest scrolling ancestor's box,
+        // which every `ScrollView` in the editor has. A sticky table header inside a scroller is a
+        // real requirement rather than a web habit.
+        //
+        // ⚠ <b>And it is honoured outside `Vixen.Ui.Layout`, which is not where doc 43 sized it.</b>
+        // A sticky box's offset is a function of a scroll offset and that store has none —
+        // `ScrollView` scrolls by writing `UiElement.OffsetY`, which never reaches the layout tree.
+        // `UiDocument.Accumulate` is where a position is already assembled from more than one
+        // contribution, and it is where this one lands. See `Core/Vixen.Ui/Sticky.cs`.
+        Static("sticky", "position", "sticky");
         Size("inset", "top", "right", "bottom", "left");
         Size("inset-x", "left", "right");
         Size("inset-y", "top", "bottom");
@@ -1105,12 +1220,12 @@ public static class UtilityFamilies {
         // Keeping them apart is what lets `break-keep` and `wrap-anywhere` be written together and
         // both mean something, which one merged mode could not have expressed.
         //
-        // ⚠ <b>Vixen does not distinguish `anywhere` from `break-word`, and both are registered
-        // anyway.</b> CSS Sizing § 5.2 separates them only by their min-content contribution:
+        // ⚠ <b>`anywhere` and `break-word` ARE distinguished, and this comment said for months that
+        // they were not.</b> CSS Sizing § 5.2 separates them only by their min-content contribution:
         // `anywhere` lets the intrinsic minimum shrink to one grapheme and `break-word` does not.
-        // `Vixen.Ui.Layout` has no intrinsic-minimum stage that consults either, so the two are one
-        // behaviour here — a stated deviation rather than a missing keyword, and the same shape as
-        // `WrapsOf` answering one of `white-space`'s three questions.
+        // #682 is where that landed, as `TextWrapMode.BreakWord` beside `Anywhere` — the two are the
+        // same break at every width a box can be seen at and differ in a room of nothing, which is
+        // exactly how `LayoutTree` asks a box for its min-content size.
         Keywords("wrap", "overflow-wrap", new() {
             ["anywhere"] = "anywhere", ["break-word"] = "break-word", ["normal"] = "normal"
         });
@@ -1618,9 +1733,11 @@ public static class UtilityFamilies {
         // ⚠ <b>`outline-hidden` is v4's spelling and here it is `outline-none` exactly, which is a
         // loss worth naming rather than papering over.</b> In v4 the class removes the visible ring
         // *and* restores a transparent two-pixel one inside `@media (forced-colors: active)`, so a
-        // Windows high-contrast user keeps a focus indicator the sighted default hid. `MediaQuery`
-        // has no forced-colors feature and this engine has no forced-colors mode for one to
-        // describe, so the second half has nowhere to go and the class collapses to the first. It is
+        // Windows high-contrast user keeps a focus indicator the sighted default hid. ⚠ `MediaQuery`
+        // evaluates `forced-colors` now and `IPlatform.Accessibility` feeds it — that half of this
+        // remark is out of date — but this engine still has no forced-colors *mode* for the
+        // transparent ring to be substituted against, so the second half has nowhere to go and the
+        // class collapses to the first. It is
         // registered anyway because the visible half is real, is read, and is the idiom every v4
         // sheet writes for "take the focus ring off" — refusing it would leave the common case
         // spelled only by the v3 name.
@@ -1797,6 +1914,42 @@ public static class UtilityFamilies {
             },
             Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
         ));
+
+        // ⚠ <b>Sixteen keywords rather than the eight the ledger's `classes` column transcribed, and
+        // the extra eight are not padding.</b> That column is the original survey's list and is short
+        // of v4 on several roots — the four non-separable modes are the ones anybody actually reaches
+        // for on a tinted panel, and `hard-light`, `soft-light`, `difference` and `exclusion` are the
+        // rest of CSS Compositing 1 § 5.1. Registering fewer would leave `mix-blend-difference`
+        // producing no rule at all, which is the failure `blur-md` was.
+        //
+        // ⚠ <b>`plus-darker` and `plus-lighter` are deliberately absent.</b> They are CSS
+        // Compositing 2's *porter-duff* operators rather than § 5.1 blend functions — they change how
+        // much of the source lands, not what colour it is — so they do not fit `UiBlend.Apply`'s
+        // shape at all, and neither `UiLayer` nor either executor has a second composite operator to
+        // put them in. A class that resolved to a keyword nothing could act on would measure `inert`
+        // and read as a family that half works.
+        Keywords(
+            "mix-blend",
+            "mix-blend-mode",
+            new Dictionary<string, string>(StringComparer.Ordinal) {
+                ["normal"] = "normal",
+                ["multiply"] = "multiply",
+                ["screen"] = "screen",
+                ["overlay"] = "overlay",
+                ["darken"] = "darken",
+                ["lighten"] = "lighten",
+                ["color-dodge"] = "color-dodge",
+                ["color-burn"] = "color-burn",
+                ["hard-light"] = "hard-light",
+                ["soft-light"] = "soft-light",
+                ["difference"] = "difference",
+                ["exclusion"] = "exclusion",
+                ["hue"] = "hue",
+                ["saturation"] = "saturation",
+                ["color"] = "color",
+                ["luminosity"] = "luminosity"
+            }
+        );
 
         // ── The backdrop ────────────────────────────────────────────────────────────────
         //
@@ -3848,20 +4001,19 @@ public static class UtilityFamilies {
     /// <param name="kind">How its value turns into declarations — the same kinds as anything else.</param>
     /// <param name="properties">What it sets, on each child but the last.</param>
     /// <remarks>
-    ///     ⚠ <b><c>:not(:last-child)</c> and not v4's <c>:where(&amp; &gt; :not(:last-child))</c>,
-    ///     and the difference is one Vixen cannot currently paper over.</b> The <c>&amp;</c> is CSS
-    ///     nesting, which the loader does not do, so the emitted form is the flattened one — proved
-    ///     rather than assumed, in <c>ChildScopedFamilyTests</c>. The <c>:where()</c> is v4's way of
-    ///     keeping the rule at one class of specificity so that a child's own <c>me-0</c> still
-    ///     wins; the rule lands at <c>(0,2,0)</c> here and beats a child's own single-class utility.
-    ///     That is exactly what Tailwind v3 did for four major versions, and it is written down in
-    ///     the guide rather than left to be discovered.
+    ///     ⚠ <b>The scope is the bare <c>&gt; :not(:last-child)</c>, and v4's <c>:where()</c> goes
+    ///     round the whole selector rather than round this.</b> The <c>&amp;</c> in v4's
+    ///     <c>:where(&amp; &gt; :not(:last-child))</c> is CSS nesting, which the loader does not do,
+    ///     so the flattening is <see cref="UtilityGenerator" />'s — and it wraps there because that
+    ///     is where the variants have already been applied and the whole selector exists. Wrapping
+    ///     this constant instead would emit <c>.space-y-4 &gt; :where(:not(:last-child))</c>, which
+    ///     lands at (0,1,0) and only ties with a child's own <c>mb-0</c>.
     ///     <para>
-    ///         ⚠ <b>This remark used to say the fix was "three lines in a file this project does not
-    ///         own" — that <c>SelectorCompiler</c> counts <c>:where()</c> like <c>:is()</c> and a
-    ///         charge could simply be dropped. It does not.</b> ExCSS 4.3.2 does not parse
-    ///         <c>:where()</c> at all, so the whole selector arrives as one unknown and the rule is
-    ///         refused rather than compiled at the wrong specificity. Measured in
+    ///         ⚠ <b>This remark used to say the rule was stuck at (0,2,0) because
+    ///         <c>SelectorCompiler</c> counts <c>:where()</c> like <c>:is()</c> and the charge could
+    ///         not be dropped. It counted nothing:</b> ExCSS 4.3.2 does not parse <c>:where()</c> at
+    ///         all, so the whole selector arrived as one unknown and the rule was refused rather
+    ///         than compiled at the wrong specificity. The compiler repairs that text itself now —
     ///         <c>Vixen.Ui.Styling.Tests</c>' <c>WhereSelectorTests</c>.
     ///     </para>
     /// </remarks>

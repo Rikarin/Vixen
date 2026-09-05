@@ -134,14 +134,37 @@ partial class Build {
     ///         set is all twenty-two.
     ///     </para>
     ///     <para>
+    ///         Until that is decided, the set this gate skips is at least <em>written down</em>:
+    ///         <c>build/ApiUncovered.txt</c> names every packable project in <c>Vixen.slnx</c> with
+    ///         no baseline — twenty-nine of them — and <c>ApiCoverageTests</c> fails if that list
+    ///         and the tree disagree in either direction. ⚠ That matters more than the decision
+    ///         does, because of what this target prints for an assembly it has never heard of:
+    ///         <em>nothing</em>. A glob says nothing about what it does not match, so the log reads
+    ///         <c>Checking the public surface of 132 assemblies</c> and the target succeeds whether
+    ///         the uncovered set is one project or fifty. A project that starts packing now joins a
+    ///         committed list in a reviewed diff instead of joining that silence.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And <c>Editor/</c> is not the only folder the criterion is wrong about. Seven
+    ///         projects under <c>Tools/</c> declare <c>IsPackable=true</c> — two of them
+    ///         (<c>Vixen.App</c>, whose <c>VixenApp.Run&lt;TGame&gt;</c> is what a game's entry
+    ///         point compiles against, and <c>Vixen.ShaderCompiler</c>) are libraries with a real
+    ///         referenced surface and no baseline, which is #749.
+    ///     </para>
+    ///     <para>
     ///         And <c>Vixen.Raven</c>, which is the second named exception. <c>Raven/</c> is
     ///         build-time tooling and is not covered as a folder — but the compiler is not the CLI
     ///         around it. Its own <c>.csproj</c> says so: <em>"Shipped package: the compiler is
     ///         useful on its own, without the engine"</em>, with a description, package tags and a
     ///         readme. It is the assembly with the most churn in the tree, and it was the one whose
     ///         entire surface — 4 913 entries — was approved by nothing, so every addition, removal
-    ///         and signature change in it passed silently. The CLI, the tests and the ANTLR oracle
-    ///         beside it still are not covered, because none of them packs.
+    ///         and signature change in it passed silently. The tests and the ANTLR oracle beside it
+    ///         are not covered, because neither packs — ⚠ but <c>Vixen.Raven.Cli</c>, which this
+    ///         sentence used to include, <em>does</em> pack: <c>PackAsTool</c>,
+    ///         <c>PackageId=Vixen.Raven.Cli</c>, a description, tags and a readme. Leaving it out is
+    ///         still right, for a different reason — what a <c>dotnet tool install</c> promises is a
+    ///         command line rather than a type — and that reason is now the one written beside it in
+    ///         <c>build/ApiUncovered.txt</c>.
     ///     </para>
     /// </remarks>
     List<AbsolutePath> ApiCheckedProjects() =>

@@ -117,6 +117,18 @@ public sealed class UiTest : IDisposable {
     /// </remarks>
     public ModifierKeys Modifiers { get; private set; }
 
+    /// <summary>What kind of device the harness's pointers claim to be.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="PointerType.Mouse" /> here, where <see cref="PointerEvent.PointerType" />
+    ///     defaults to <see cref="PointerType.Unknown" />, and the two defaults disagree on
+    ///     purpose.</b> The field's default has to be "nobody said", because an unset field that
+    ///     claimed to be a mouse would be an arbitration point lying to whoever trusted it. A test
+    ///     harness is not an unset field: it is a producer, it knows what it is driving, and every
+    ///     existing test in this repository that reaches for a pointer means the desktop one. Set it
+    ///     to <see cref="PointerType.Touch" /> for the span of a test that means a finger.
+    /// </remarks>
+    public PointerType PointerType { get; set; } = PointerType.Mouse;
+
     /// <summary>Everything in the document, as a subject to chain from.</summary>
     public UiSubject Root => UiSubject.Of(this, "root", [Document.Root]);
 
@@ -813,6 +825,7 @@ public sealed class UiTest : IDisposable {
 
         return Document.Dispatch(new PointerEvent {
             PointerId = pointer,
+            PointerType = PointerType,
             X = position.X,
             Y = position.Y,
             Button = button,

@@ -172,6 +172,36 @@ public sealed class DrawListBuilder {
     /// </remarks>
     readonly int backdropFilter;
 
+    /// <summary>The property <see cref="Blend" /> reads.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A group-wide effect and not a paint one, however much its name sounds like a colour.</b>
+    ///     CSS Compositing 1 § 5.1 blends an element's <i>rendered result</i> with its backdrop, so
+    ///     this reaches the frame as a field on the <see cref="DrawCommandKind.LayerPush" /> and never
+    ///     on the commands the element paints — see <see cref="DrawCommand.Blend" />, which argues the
+    ///     difference out on a bordered element.
+    /// </remarks>
+    readonly int mixBlendMode;
+
+    /// <summary>The sixteen blend keywords, interned in <see cref="UiBlendMode" />'s order.</summary>
+    /// <remarks>
+    ///     ⚠ An array indexed by the enum rather than sixteen comparisons, for the reason
+    ///     <see cref="filterFunctions" /> gives one field up: a chain is where the seventeenth is
+    ///     forgotten. The order is the enum's and CSS Compositing 1 § 5.1's, and nothing may reorder
+    ///     either without the other.
+    /// </remarks>
+    readonly int[] blendKeywords;
+
+    /// <summary>The property that makes an element a stacking context and nothing else.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Its only defined effect is on somebody <i>else</i>'s <c>mix-blend-mode</c>, which is
+    ///     why it is worth nothing at all until a blend exists and worth exactly a group once one
+    ///     does.</b> A blended descendant mixes with whatever surface its composite lands in, and a
+    ///     nested group's draws are executed into its parent's surface — so opening a group here is
+    ///     the whole of the feature. See <see cref="Rendering.UiLayer.Blend" />.
+    /// </remarks>
+    readonly int isolation;
+
+    readonly int isolate;
     readonly int blurFunction;
     readonly int dropShadowFunction;
 
@@ -364,6 +394,36 @@ public sealed class DrawListBuilder {
         // because a vendor prefix is a fact about a browser and this is not one — see
         // `UtilityFamilies.BackdropAlongside`.
         backdropFilter = properties.Intern("backdrop-filter");
+
+        mixBlendMode = properties.Intern("mix-blend-mode");
+
+        // ⚠ The `values` table and not `keywords`, which is the opposite of the filter functions two
+        // blocks down and for a reason that is not stylistic. A filter's `blur` arrives through
+        // `StyleValueParser` as the *name of a function* and is interned where identifiers go; a blend
+        // mode is a plain keyword declaration, so the cascade holds it in the same table
+        // `visibility: hidden` is held in. An id from the wrong table can never compare equal, so this
+        // is the difference between reading the declaration and silently ignoring every one of them.
+        blendKeywords = [
+            values.Intern("normal"),
+            values.Intern("multiply"),
+            values.Intern("screen"),
+            values.Intern("overlay"),
+            values.Intern("darken"),
+            values.Intern("lighten"),
+            values.Intern("color-dodge"),
+            values.Intern("color-burn"),
+            values.Intern("hard-light"),
+            values.Intern("soft-light"),
+            values.Intern("difference"),
+            values.Intern("exclusion"),
+            values.Intern("hue"),
+            values.Intern("saturation"),
+            values.Intern("color"),
+            values.Intern("luminosity")
+        ];
+
+        isolation = properties.Intern("isolation");
+        isolate = values.Intern("isolate");
 
         // ⚠ The keywords table, for the reason `currentColor` below says: a function name arrives
         // from `StyleValueParser` as an identifier, and an identifier is interned there.
@@ -692,7 +752,30 @@ public sealed class DrawListBuilder {
             return;
         }
 
-        var group = Compositing && (own < 1f || filters.Any || masks > 0 || backdrop is not null || placed is not null)
+        // ⚠ <b>The sixth reason to open a group, and the first whose output is a function of two
+        // pictures rather than one.</b> The other five transform what the subtree drew; this one
+        // decides how the result meets what is already there. It cannot be pushed down onto the
+        // element's own commands for the reason the colour matrix cannot — CSS Compositing 1 § 5.1
+        // blends the element's *rendered result* — and a bordered element is two commands, so the
+        // difference shows on the commonest element in any interface rather than on a contrived one.
+        var blend = Blend(element);
+
+        // ⚠ <b>The seventh, and the only one that changes no pixel of the group it opens.</b>
+        // `isolation: isolate` exists solely to bound which backdrop a *descendant's*
+        // `mix-blend-mode` mixes with, and the bound is the surface itself: a nested group's draws are
+        // executed into its parent's surface, so a blended descendant of this group can never reach
+        // the page behind it. That is the whole feature — see `UiLayer.Blend` — and it is why this is
+        // twenty lines on top of the blend rather than a feature of its own.
+        var isolated = element.Style.TryGet(isolation, out var mode) && mode == isolate;
+
+        var group = Compositing
+            && (own < 1f
+                || filters.Any
+                || masks > 0
+                || backdrop is not null
+                || placed is not null
+                || blend != UiBlendMode.Normal
+                || isolated)
             ? into.Count
             : -1;
 
@@ -709,6 +792,7 @@ public sealed class DrawListBuilder {
                     0f
                 ) {
                     Blur = filters.Blur,
+                    Blend = blend,
                     Filter = filters.Colour,
                     Shadow = filters.Shadow,
                     Backdrop = backdrop,
@@ -743,20 +827,27 @@ public sealed class DrawListBuilder {
         // wrong for exactly the controls that draw the most.
         var drawn = into.Count - group - 1;
 
-        if (drawn == 0) {
+        if (drawn == 0 && backdrop is null) {
             // ⚠ Discarded even when there is a blur, and that is not the same exception the collapse
             // needs. Blurring nothing gives nothing however wide the kernel is, so the surface would
             // cost two render passes to convolve a cleared target — the group is genuinely empty, not
-            // merely small.
+            // merely small. The same argument disposes of the colour matrix, the mask and the drop
+            // shadow: every one of them is a function of ink this group has none of.
             //
-            // ⚠ <b>And discarded even when there is a <c>backdrop-filter</c>, which is a stated
-            // divergence rather than the same argument.</b> Blurring the backdrop of an element that
-            // paints nothing of its own is a picture CSS would show and this does not. The reason is
-            // structural and not thrift: a group with no draws has <c>Count == 0</c>, and both
-            // executors walk the layer list by matching a draw index — a zero-width range matches its
-            // own start and never advances. Every glass panel in practice paints a background, which
-            // is what <c>bg-white/30</c> is for; an element that wants only the blur can carry a
-            // fully transparent background to become one.
+            // ⚠ <b>A <c>backdrop-filter</c> is the one exception, and the divergence recorded here
+            // until 2026-09-05 rested on a structural claim that is not true.</b> The note said both
+            // executors walk the layer list by matching a draw index, so a zero-width range would
+            // match its own start and never advance. Neither of them does that. `SoftwareUiRasterizer`
+            // advances its <c>next</c> cursor as it enters a group, so a zero-width range leaves the
+            // draw index alone and the very next turn of the loop executes the composite quad sitting
+            // at it; `UiRenderer.Forest` takes a group's descendants as the entries whose <c>First</c>
+            // is strictly inside its range, which an empty range has none of, and hands the index on.
+            // What actually dropped the group was the *other* guard — `UiGeometryBuilder.Layer`
+            // refusing a layer whose ink is empty — and that one is real, because a zero-sized surface
+            // is a validation error. It is answered there, where the border box is already computed
+            // and is exactly the rectangle CSS clips a backdrop to.
+            //
+            // So a bare `backdrop-blur-md` div now gets its backdrop, which is what a browser draws.
             into.Discard(group);
             return;
         }
@@ -782,10 +873,20 @@ public sealed class DrawListBuilder {
         // square, at full strength, in the place it was not asked to be. A single background rectangle
         // under a `rotate-*` or a `scale-*` is precisely the shape this branch catches, which is to say
         // it is the commonest transformed element there is.
+        // ⚠ `blend == UiBlendMode.Normal` joins the guard for the filter's reason: the collapse throws
+        // the bracket away, and the bracket is the only thing carrying the mode — so a blended group
+        // folded here would paint its one command source-over, at full strength, which is precisely
+        // the picture the declaration was asking not to have.
+        // ⚠ <b>`isolated` deliberately does <i>not</i> join it, and that is an argument rather than an
+        // omission.</b> Isolation is only ever observable through a blended *descendant*, and a
+        // descendant that opened a group of its own contributes a `LayerPush`, its contents and a
+        // `LayerPop` — at least three commands. So `drawn == 1` is already the statement that there is
+        // no descendant group here, which makes the isolation unobservable and the surface pure cost.
         if (!filters.Any
             && masks == 0
             && backdrop is null
             && placed is null
+            && blend == UiBlendMode.Normal
             && drawn == 1
             && DrawList.Fadeable(into.Commands[group + 1])) {
             into.Collapse(group, inherited * own);
@@ -804,6 +905,7 @@ public sealed class DrawListBuilder {
                 0f
             ) {
                 Blur = filters.Blur,
+                Blend = blend,
                 Filter = filters.Colour,
                 Shadow = filters.Shadow,
                 Backdrop = backdrop,
@@ -1395,12 +1497,14 @@ public sealed class DrawListBuilder {
     ///         solid.</b> <c>none</c> and <c>hidden</c> switch the ring off — CSS UI 4 makes them
     ///         synonyms on an outline, unlike on a border — and that pair is what <c>outline-none</c>
     ///         and <c>outline-hidden</c> compile to. <b>The forced-colors half of Tailwind's
-    ///         <c>outline-hidden</c> is not expressible here and is not emulated:</b> v4 pairs the
+    ///         <c>outline-hidden</c> is not emulated, and the reason has changed:</b> v4 pairs the
     ///         <c>none</c> with a transparent two-pixel ring inside
-    ///         <c>@media (forced-colors: active)</c>, and <c>MediaQuery</c> has no forced-colors
-    ///         feature to evaluate, so the class collapses to <c>outline-none</c> exactly. Said here
-    ///         because the two spellings being indistinguishable is the thing a reader will otherwise
-    ///         assume is a bug.
+    ///         <c>@media (forced-colors: active)</c>. ⚠ <c>MediaQuery</c> <i>does</i> evaluate
+    ///         <c>forced-colors</c> now and <c>IPlatform.Accessibility</c> feeds it, so a sheet can
+    ///         write that block and it will apply — what is still missing is a forced-colours
+    ///         <i>mode</i> in this builder for the ring to be visible against, so the class still
+    ///         collapses to <c>outline-none</c> exactly. Said here because the two spellings being
+    ///         indistinguishable is the thing a reader will otherwise assume is a bug.
     ///     </para>
     /// </remarks>
     void EmitOutline(
@@ -2688,6 +2792,36 @@ public sealed class DrawListBuilder {
 
         var value = parser.Parse(id);
         return value.Kind == StyleValueKind.Number ? Math.Clamp(value.Number, 0f, 1f) : 1f;
+    }
+
+    /// <summary>An element's <c>mix-blend-mode</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The scan starts at one rather than zero, which is what makes an undeclared
+    ///         property and an explicit <c>normal</c> the same answer.</b> They are the same picture
+    ///         and CSS says so — <c>normal</c> is the initial value — so spending a comparison to tell
+    ///         them apart would buy a distinction nothing downstream can act on, and an unrecognised
+    ///         keyword falls through to the same place for the same reason.
+    ///     </para>
+    ///     <para>
+    ///         Not inherited, unlike <c>fill</c> and <c>color</c>: CSS Compositing 1 § 5 gives
+    ///         <c>mix-blend-mode</c> no inheritance, so each element that wants one says so. That is
+    ///         also why this is read per element here rather than threaded through <see cref="Emit" />
+    ///         the way <see cref="Opacity" /> is.
+    ///     </para>
+    /// </remarks>
+    UiBlendMode Blend(UiElement element) {
+        if (!element.Style.TryGet(mixBlendMode, out var id)) {
+            return UiBlendMode.Normal;
+        }
+
+        for (var i = 1; i < blendKeywords.Length; i++) {
+            if (blendKeywords[i] == id) {
+                return (UiBlendMode) i;
+            }
+        }
+
+        return UiBlendMode.Normal;
     }
 
     /// <summary>A colour with the accumulated opacity multiplied into its alpha.</summary>

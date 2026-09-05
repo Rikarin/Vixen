@@ -211,6 +211,60 @@ public class FlexibleLengthResolutionTests {
     }
 
     [Fact]
+    public void A_shrink_to_fit_row_sizes_itself_from_the_contributions_and_then_flexes_from_the_bases() {
+        // Taffy's `padding_border_overrides_size_flex_basis_0_growable`, and the two sentences of the
+        // specification this store used to answer with one number. §9.9.1 makes the container's
+        // max-content main size the sum of its items' max-content CONTRIBUTIONS — 22 for the padded
+        // item, whose border-box `width: 12px` cannot go below its own 22 points of edges, and 12 for
+        // its bare sibling, so the row is 34. §9.2 then makes each item's flex BASE its declared
+        // `flex-basis: 0px`, floored at the same edges — 22 and 0 — and §9.7 splits the 12 points
+        // between them evenly, because their grow factors are equal.
+        //
+        // ⚠ THE ORACLE IS THE EVEN SPLIT, not the two widths. The container's size and the sum of the
+        // items' were both already right before this rule existed: the contributions were left
+        // standing in as bases, the items froze at 22 and 12, and 22 + 12 is still 34. What cannot
+        // survive that is the SPLIT — one item grew by 0 and the other by 12 where equal factors owe
+        // them 6 apiece — and it is the only property here that tells the two readings apart.
+        using var tree = new LayoutTree();
+
+        var root = tree.CreateNode();
+        tree.SetFlexDirection(root, FlexDirection.Row);
+
+        var padded = tree.CreateNode();
+        tree.SetBoxSizing(padded, BoxSizing.BorderBox);
+        tree.SetFlexGrow(padded, 1f);
+        tree.SetFlexBasis(padded, StyleLength.Points(0f));
+        tree.SetDimension(padded, Dimension.Width, StyleLength.Points(12f));
+        tree.SetDimension(padded, Dimension.Height, StyleLength.Points(12f));
+        tree.SetPadding(padded, Edge.Left, StyleLength.Points(8f));
+        tree.SetPadding(padded, Edge.Right, StyleLength.Points(4f));
+        tree.SetBorder(padded, Edge.Left, StyleLength.Points(7f));
+        tree.SetBorder(padded, Edge.Right, StyleLength.Points(3f));
+        tree.AddChild(root, padded);
+
+        var bare = tree.CreateNode();
+        tree.SetBoxSizing(bare, BoxSizing.BorderBox);
+        tree.SetFlexGrow(bare, 1f);
+        tree.SetFlexBasis(bare, StyleLength.Points(0f));
+        tree.SetDimension(bare, Dimension.Width, StyleLength.Points(12f));
+        tree.SetDimension(bare, Dimension.Height, StyleLength.Points(12f));
+        tree.AddChild(root, bare);
+
+        // No width at all: the row is asked how wide it wants to be, which is the only constraint
+        // under which the contribution and the base are allowed to disagree.
+        tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
+
+        const float paddingAndBorder = 8f + 4f + 7f + 3f;
+
+        var paddedWidth = tree.GetWidth(padded);
+        var bareWidth = tree.GetWidth(bare);
+
+        Assert.Equal(paddingAndBorder + 12f, tree.GetWidth(root), Tolerance);
+        Assert.Equal(tree.GetWidth(root), paddedWidth + bareWidth, Tolerance);
+        Assert.Equal(paddedWidth - paddingAndBorder, bareWidth - 0f, Tolerance);
+    }
+
+    [Fact]
     public void A_content_sized_item_shrinks_from_its_max_content_size_and_not_from_the_room_it_was_offered() {
         // Taffy's `measure_child_with_flex_shrink_hidden`, and CSS Flexbox §9.2 step 3E: an item with
         // no declared basis and no declared main size has its flex base size measured under a

@@ -421,6 +421,10 @@ public sealed class LayoutStyleBuilder {
             result.VerticalAlign = verticalAlign;
         }
 
+        if (TryKeyword(style, names.TextAlign, keywords.TextAligns, out TextAlign textAlign)) {
+            result.TextAlign = textAlign;
+        }
+
         if (TryKeyword(style, names.BoxSizing, keywords.BoxSizings, out BoxSizing boxSizing)) {
             result.BoxSizing = boxSizing;
         }
@@ -1198,6 +1202,7 @@ public sealed class LayoutStyleBuilder {
             Float = table.Intern("float");
             Clear = table.Intern("clear");
             VerticalAlign = table.Intern("vertical-align");
+            TextAlign = table.Intern("text-align");
             BoxSizing = table.Intern("box-sizing");
 
             Flex = table.Intern("flex");
@@ -1269,6 +1274,7 @@ public sealed class LayoutStyleBuilder {
         public int Float { get; }
         public int Clear { get; }
         public int VerticalAlign { get; }
+        public int TextAlign { get; }
         public int BoxSizing { get; }
         public int Flex { get; }
         public int FlexGrow { get; }
@@ -1472,28 +1478,39 @@ public sealed class LayoutStyleBuilder {
                 [table.Intern("flow-root")] = Display.FlowRoot
             };
 
-            // ⚠ <b>The two LOGICAL keywords are absent, and it is the same refusal <c>inline-grid</c>
-            // gets one table up.</b> Tailwind v4 emits <c>float: inline-start</c> and
-            // <c>inline-end</c>, and CSS Logical Properties defines both against the writing mode.
-            // <see cref="FloatSide" /> and <see cref="Clear" /> are physical by construction — CSS
-            // 2.1 §9.5's keywords, which do not flip with <see cref="Direction" />, and which the
-            // whole `float_bfc_*` corpus asserts do not flip by shipping RTL variants with identical
-            // expectations. Mapping `inline-start` onto `Left` would be right in LTR and wrong in
-            // RTL within the same declaration; accepting it and doing nothing is worse in a
-            // different way. So the utility families do not emit them either, and
-            // `docs/plan/43-web-styling-parity.tsv` records both roots as `partial` with the gap
-            // named, rather than as `works` with a class that quietly does nothing.
+            // ⚠ <b>The two LOGICAL keywords are here now, and what used to keep them out was a
+            // conflation rather than a limit.</b> This table said Tailwind v4's
+            // <c>float: inline-start</c> "resolves against the writing mode", concluded that a store
+            // which had decided never to gain one (#282) could only alias it onto
+            // <see cref="FloatSide.Left" /> — right in LTR and wrong in RTL inside one declaration —
+            // or accept it and drop it, and recorded both roots as `partial`. CSS Logical Properties
+            // resolves <c>inline-start</c> against the writing mode <i>and the direction</i>, and
+            // with no vertical writing mode the inline axis is horizontal in every configuration
+            // this engine can be in. So the whole of the resolution is <see cref="Direction" />,
+            // which every algorithm in <c>Vixen.Ui.Layout</c> already has in hand, and the answer
+            // is a fourth value on each enum rather than a reinterpretation of the first two.
+            //
+            // ⚠ <b>The observation the refusal rested on is TRUE and was about something else.</b>
+            // The ten <c>float_bfc_*</c> families do ship RTL variants with identical expectations,
+            // and that proves <c>float: left</c> does not flip — which is exactly why
+            // <see cref="FloatSide.InlineStart" /> has to be its own value instead of a rereading of
+            // <see cref="FloatSide.Left" />. It was never an argument that the logical keyword could
+            // not be expressed.
             Floats = new Dictionary<int, FloatSide> {
                 [table.Intern("none")] = FloatSide.None,
                 [table.Intern("left")] = FloatSide.Left,
-                [table.Intern("right")] = FloatSide.Right
+                [table.Intern("right")] = FloatSide.Right,
+                [table.Intern("inline-start")] = FloatSide.InlineStart,
+                [table.Intern("inline-end")] = FloatSide.InlineEnd
             };
 
             Clears = new Dictionary<int, Clear> {
                 [table.Intern("none")] = Clear.None,
                 [table.Intern("left")] = Clear.Left,
                 [table.Intern("right")] = Clear.Right,
-                [table.Intern("both")] = Clear.Both
+                [table.Intern("both")] = Clear.Both,
+                [table.Intern("inline-start")] = Clear.InlineStart,
+                [table.Intern("inline-end")] = Clear.InlineEnd
             };
 
             // ⚠ <b>Three of the eight, and the five that are missing are missing on purpose.</b>
@@ -1508,6 +1525,25 @@ public sealed class LayoutStyleBuilder {
                 [table.Intern("baseline")] = VerticalAlign.Baseline,
                 [table.Intern("top")] = VerticalAlign.Top,
                 [table.Intern("bottom")] = VerticalAlign.Bottom
+            };
+
+            // ⚠ <b>Five of the six, and `justify` is the one that is dropped rather than aliased.</b>
+            // The other five say where a line's items go; `justify` says that the slack is spread
+            // *between* them, and to this store a text leaf is one atomic item — so justifying a
+            // paragraph would distribute nothing, and justifying a line that happened to hold several
+            // inline boxes would space them out, which is not what the keyword asks for and looks
+            // convincing enough that nobody would check. Dropped here, so the layout store's default
+            // (`start`) stands, which is where CSS puts a justified block's last line anyway.
+            //
+            // ⚠ The three legacy `-webkit-*` spellings are NOT here and belong to a different field:
+            // they move a container's BLOCK-level children, which is `LegacyTextAlign`. See its
+            // remarks — one property, two enums, because a container can have both kinds of child.
+            TextAligns = new Dictionary<int, TextAlign> {
+                [table.Intern("start")] = TextAlign.Start,
+                [table.Intern("end")] = TextAlign.End,
+                [table.Intern("left")] = TextAlign.Left,
+                [table.Intern("right")] = TextAlign.Right,
+                [table.Intern("center")] = TextAlign.Center
             };
 
             BoxSizings = new Dictionary<int, BoxSizing> {
@@ -1566,6 +1602,7 @@ public sealed class LayoutStyleBuilder {
         public HashSet<int> OverflowPositions { get; }
         public Dictionary<int, LayoutUnit> ContentSizes { get; }
         public Dictionary<int, VerticalAlign> VerticalAligns { get; }
+        public Dictionary<int, TextAlign> TextAligns { get; }
         public Dictionary<int, Direction> Directions { get; }
         public Dictionary<int, FlexDirection> FlexDirections { get; }
         public Dictionary<int, Justify> Justifications { get; }

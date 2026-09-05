@@ -55,6 +55,8 @@ Vixen.Platform.Headless.HeadlessLifecycle.Suspend() -> void
 Vixen.Platform.Headless.HeadlessPlatform -> sealed class
 Vixen.Platform.Headless.HeadlessPlatform : System.IDisposable
 Vixen.Platform.Headless.HeadlessPlatform : Vixen.Platform.IPlatform
+Vixen.Platform.Headless.HeadlessPlatform.Accessibility.get -> Vixen.Platform.SystemAccessibility
+Vixen.Platform.Headless.HeadlessPlatform.Accessibility.set -> Vixen.Platform.SystemAccessibility
 Vixen.Platform.Headless.HeadlessPlatform.Capabilities.get -> Vixen.Platform.PlatformCapabilities
 Vixen.Platform.Headless.HeadlessPlatform.Clipboard.get -> Vixen.Platform.IClipboard
 Vixen.Platform.Headless.HeadlessPlatform.ColorScheme.get -> Vixen.Platform.SystemColorScheme

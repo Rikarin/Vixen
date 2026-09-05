@@ -1464,7 +1464,26 @@ public sealed partial class LayoutTree {
             return new GridContribution(blockMinimum, height, height);
         }
 
-        var margin = StyleResolution.MarginForAxis(in styles[child], FlexDirection.Row, ownerWidth);
+        // ⚠ <b>A PERCENTAGE margin contributes NOTHING here, and resolving it against `ownerWidth`
+        // is the same §5.2.1 mistake the max-content probe below is written up as fixing — one line
+        // earlier and on the margin instead of on the width.</b> The item's containing block is its
+        // grid area, and the area's inline size is what this measurement is being taken in order to
+        // decide, so a percentage against it behaves as `auto`. The block pass's own remark already
+        // says the inline pass "deliberately does NOT do this"; it did, and the zero is what makes
+        // that sentence true.
+        //
+        // `grid_align_items_baseline_child_margin_percent` is the arithmetic: a `width: 50px;
+        // margin: 1%` box in a 50-point grid contributed 50 + 2% of the OUTER grid's 100, so its
+        // column came out 52 rather than 50, and the used margin — a fraction of the area the
+        // measurement had just inflated — came out 0.52 rather than 0.5. In LTR that is a half point
+        // of overflow either way and rounds to Chrome's answer; mirrored for RTL the item's left
+        // edge is −0.52 where Chrome has −0.5, and the pixel grid rounds those two to −1 and 0.
+        //
+        // ⚠ So the RTL variants were never an RTL bug. `GridKnownGaps.txt` filed them as "a rounding
+        // question in `PlaceGridItemBoxes`' RTL mirror"; the mirror is exact, and −0.5 rounds to 0
+        // through `RoundToPixelGrid` unaided. Direction only decided which side of a half point the
+        // wrong basis landed on.
+        var margin = StyleResolution.MarginForAxis(in styles[child], FlexDirection.Row, 0f);
 
         // The probe width is the owner width here for the same reason the block path above uses it:
         // a grid item's inline size is the track's, which is what this measurement is being taken to

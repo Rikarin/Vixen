@@ -131,6 +131,29 @@ public sealed class BuildContext {
                     (_, args) => { if (args.Stage is DragStage.Completed or DragStage.Cancelled) { handler(args); } }
                 ),
 
+            // ⚠ The drop side of the drag, and it was missing for as long as `DropEvent` existed: a
+            // file dragged in from Finder was routed to an element and bubbled correctly, and no
+            // `.vxml` in the tree could subscribe to it, because a name absent from this table is
+            // an `on:` the binder rejects. `dragstart`/`drag`/`dragend` above are the *source* half
+            // and always were; these three are the target's.
+            ["dragenter"] = (element, handler, how) =>
+                how.Listen<DragOverEvent>(
+                    element,
+                    (_, args) => { if (args.Stage == DragOverStage.Entered) { handler(args); } }
+                ),
+            ["dragover"] = (element, handler, how) =>
+                how.Listen<DragOverEvent>(
+                    element,
+                    (_, args) => { if (args.Stage == DragOverStage.Moved) { handler(args); } }
+                ),
+            ["dragleave"] = (element, handler, how) =>
+                how.Listen<DragOverEvent>(
+                    element,
+                    (_, args) => { if (args.Stage == DragOverStage.Left) { handler(args); } }
+                ),
+            ["drop"] = (element, handler, how) =>
+                how.Listen<DropEvent>(element, (_, args) => handler(args)),
+
             // ⚠ Two names over one event type, the shape `pointerdown`/`pointerup` already has and
             // for the same reason: a handler that had to test `args.Action` itself would be a
             // handler that fires twice per keystroke until somebody notices. `KeyAction` is the only

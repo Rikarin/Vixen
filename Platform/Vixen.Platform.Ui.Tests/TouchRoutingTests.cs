@@ -120,6 +120,93 @@ public class TouchRoutingTests {
         Assert.NotEqual(pointers[0], pointers[1]);
     }
 
+    /// <summary>And a finger says it is a finger, which no id range can be asked.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The floor under this is the assertion that the two values <i>differ</i>, not that
+    ///         either is right.</b> A build in which <see cref="PointerEvent.PointerType" /> exists
+    ///         and no producer sets it delivers <see cref="PointerType.Unknown" /> for both, which is
+    ///         a consistent, plausible, and entirely useless answer — and it is the state this
+    ///         repository was in until #699. Reading both from one route and comparing them is what
+    ///         a per-arm assertion could not do.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it is <em>not</em> the same claim as
+    ///         <see cref="A_finger_and_the_mouse_are_different_pointers" />.</b> That one says the
+    ///         two are numbered apart, which is a collision-avoidance measure: it is satisfied by a
+    ///         second mouse being given finger one. <c>touch-action</c> governs touch and nothing
+    ///         else, so the question it has to ask at the arbitration point is what the device
+    ///         <i>is</i> — applying it to a mouse would stop a map responding to a mouse drag, which
+    ///         no browser does and no author expects.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_finger_and_the_mouse_arrive_as_different_kinds_of_device() {
+        using var document = Documented();
+
+        var kinds = new List<PointerType>();
+        document.Root.AddHandler<PointerEvent>(
+            (_, args) => {
+                if (args.Action == PointerAction.Pressed) {
+                    kinds.Add(args.PointerType);
+                }
+            }
+        );
+
+        PlatformInput.Dispatch(
+            document,
+            PlatformEvent.MouseButtonChanged(
+                PlatformEventKind.MouseButtonDown,
+                1,
+                0,
+                MouseButton.Primary,
+                new Vector2(20f, 20f)
+            )
+        );
+
+        PlatformInput.Dispatch(document, Touch(PlatformEventKind.TouchDown, 0, 20f, 20f));
+
+        Assert.Equal(2, kinds.Count);
+        Assert.NotEqual(kinds[0], kinds[1]);
+        Assert.Equal(PointerType.Mouse, kinds[0]);
+        Assert.Equal(PointerType.Touch, kinds[1]);
+    }
+
+    /// <summary>And the crossings the document invents for itself keep the device that caused them.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="PointerAction.Entered" /> and <see cref="PointerAction.Exited" /> are
+    ///     never fed in from outside</b> — <c>Hover</c> works them out from where the pointer is and
+    ///     posts them itself. So they are the one place in a touch sequence where the device could
+    ///     be lost, and a reader that classified a sequence by its crossings would see
+    ///     <see cref="PointerType.Unknown" /> for a frame with the field set correctly everywhere
+    ///     else.
+    /// </remarks>
+    [Fact]
+    public void A_synthesised_crossing_keeps_the_device_that_caused_it() {
+        using var document = Documented();
+
+        var crossings = new List<PointerType>();
+
+        // ⚠ `RoutingStrategy.Direct`, and the default would have made this test vacuous. A crossing
+        // is delivered direct rather than bubbled — that asymmetry is what `Hover.Crossed` documents
+        // — so a handler registered the usual way never hears one, and `Assert.All` over an empty
+        // list passes.
+        document.Root.AddHandler<PointerEvent>(
+            (_, args) => {
+                if (args.Action is PointerAction.Entered or PointerAction.Exited) {
+                    crossings.Add(args.PointerType);
+                }
+            },
+            RoutingStrategy.Direct
+        );
+
+        PlatformInput.Dispatch(document, Touch(PlatformEventKind.TouchDown, 0, 20f, 20f));
+        PlatformInput.Dispatch(document, Touch(PlatformEventKind.TouchMoved, 0, 24f, 20f));
+
+        Assert.NotEmpty(crossings);
+        Assert.All(crossings, kind => Assert.Equal(PointerType.Touch, kind));
+    }
+
     /// <summary>Two fingers spreading apart are a pinch, which is the gesture only touch can make.</summary>
     /// <remarks>
     ///     <para>

@@ -226,13 +226,17 @@ public class LayoutStyleBridgeTests {
     [InlineData("clear: left", "Clear", "Left")]
     [InlineData("clear: both", "Clear", "Both")]
 
-    // ⚠ The logical keywords are NOT mapped, and the case below asserts that rather than leaving it
-    // to be discovered. `float: inline-start` resolving to `Left` would be right in an LTR container
-    // and wrong in an RTL one, in the same declaration — `FloatSide` is CSS 2.1 §9.5's physical
-    // keyword set and does not flip with `direction`. An unmapped keyword leaves the initial value,
-    // which is the documented behaviour two tests down.
-    [InlineData("float: inline-start", "Float", "None")]
-    [InlineData("clear: inline-end", "Clear", "None")]
+    // ⚠ <b>The logical keywords ARE mapped now, and these two cases used to assert the opposite.</b>
+    // The comment here said `float: inline-start` resolving to `Left` would be right in an LTR
+    // container and wrong in an RTL one inside the same declaration — which is true of an ALIAS and
+    // was read as if it were true of the keyword. `FloatSide` gained a flow-relative pair beside its
+    // physical one, and the resolution happens in the layout where the direction is known, so the
+    // bridge's job is only to carry the keyword across intact. The physical pair still does not flip,
+    // which is why there are four values and not two.
+    [InlineData("float: inline-start", "Float", "InlineStart")]
+    [InlineData("float: inline-end", "Float", "InlineEnd")]
+    [InlineData("clear: inline-start", "Clear", "InlineStart")]
+    [InlineData("clear: inline-end", "Clear", "InlineEnd")]
     [InlineData("box-sizing: border-box", "BoxSizing", "BorderBox")]
     [InlineData("direction: rtl", "Direction", "Rtl")]
     public void A_keyword_becomes_its_enum(string css, string field, string expected) {
@@ -435,5 +439,37 @@ public class LayoutStyleBridgeTests {
 
         static float Width(string css) =>
             new BridgeFixture().Build(css).Dimensions[(int) Dimension.Width].Value;
+    }
+
+    /// <summary>
+    ///     <c>text-align</c> crosses as <see cref="TextAlign" />, and <c>justify</c> is dropped.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The refusal is the half worth a test.</b> A dropped value leaves the initial one in
+    ///         place, so <c>justify</c> and <c>start</c> produce the same layout — which is exactly
+    ///         what a reader would want to check was deliberate. It is deliberate: justifying spreads a
+    ///         line's slack between its <i>words</i>, and a text leaf is one atomic item to the inline
+    ///         walk, so the only thing this store could spread it between is whole inline-level boxes.
+    ///         That is a different feature that would look like this one. Same shape as the five
+    ///         font-relative <c>vertical-align</c> values.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the three legacy <c>-webkit-*</c> spellings stay out</b>, because they are
+    ///         <see cref="LegacyTextAlign" /> — one CSS property, two fields, because the legacy values
+    ///         move a container's block-level children and these move the items on its lines.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("text-align: start", TextAlign.Start)]
+    [InlineData("text-align: end", TextAlign.End)]
+    [InlineData("text-align: left", TextAlign.Left)]
+    [InlineData("text-align: right", TextAlign.Right)]
+    [InlineData("text-align: center", TextAlign.Center)]
+    [InlineData("text-align: justify", TextAlign.Start)]
+    [InlineData("text-align: -webkit-center", TextAlign.Start)]
+    [InlineData("color: red", TextAlign.Start)]
+    public void Text_align_crosses_the_bridge_except_for_justify(string css, TextAlign expected) {
+        Assert.Equal(expected, new BridgeFixture().Build(css).TextAlign);
     }
 }

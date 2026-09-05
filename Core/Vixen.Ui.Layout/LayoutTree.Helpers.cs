@@ -645,6 +645,14 @@ public sealed partial class LayoutTree {
         // go: `bevy_issue_9530` and `measure_child_with_min_size_greater_than_available_space`
         // remain, the second under a different rule this file's `KnownGaps.txt` already files.
         //
+        // ⚠ <b>ONE FAMILY LEFT, MEASURED: the cap off costs four `bevy_issue_9530` and nothing
+        // else.</b> `measure_child_with_min_size_greater_than_available_space` closed with
+        // `ClampProbeInlineSize` — §5.1's minimum applied to the probe's offer, which is the same
+        // sentence `ConstrainMinSizeForMode` says to the layout. So this cap is now standing in front
+        // of exactly one over-report, and the `width: 50%` percentage half it used to be blamed on is
+        // not one: `ProbeContentWidth`'s zero is §5.2.1 obeyed and `ProbeInlineSize` is the other
+        // number.
+        //
         // ⚠ <b>AND THE CAP IS THE SMALLER OF TWO MEASUREMENTS NOW, because §9.2 step 3E made
         // `ComputedFlexBasis` stop being the one this sentence is about.</b> The justification is
         // "a box's min-content size cannot exceed the size its own contents were MEASURED at" —
@@ -828,13 +836,12 @@ public sealed partial class LayoutTree {
     ///     </para>
     /// </remarks>
     float ProbeInlineSize(int index, Direction direction, float ownerWidth, float probeWidth) {
+        var inset = StyleResolution.ContentInsetForAxis(in styles[index], FlexDirection.Row, direction, ownerWidth);
+
         if (StyleResolution.ProcessedDimension(in styles[index], Dimension.Width).Unit == LayoutUnit.Point) {
             var declared = ResolvedDimension(index, Dimension.Width, ownerWidth, ownerWidth, direction);
             if (!float.IsNaN(declared)) {
-                return MathF.Max(
-                    0f,
-                    declared - StyleResolution.ContentInsetForAxis(in styles[index], FlexDirection.Row, direction, ownerWidth)
-                );
+                return ClampProbeInlineSize(index, direction, ownerWidth, MathF.Max(0f, declared - inset), inset);
             }
         }
 
@@ -847,12 +854,46 @@ public sealed partial class LayoutTree {
         // with 20 points of margin either side inside a 260-wide column is laid out in 220, and
         // measuring it in 260 puts six of its chunks on a line where Chrome fits five — twenty lines
         // against twenty-four, and the item is floored four lines short of what it needs.
-        return MathF.Max(
+        var available = MathF.Max(
             0f,
             probeWidth
             - StyleResolution.MarginForAxis(in styles[index], FlexDirection.Row, ownerWidth)
-            - StyleResolution.ContentInsetForAxis(in styles[index], FlexDirection.Row, direction, ownerWidth)
+            - inset
         );
+
+        return ClampProbeInlineSize(index, direction, ownerWidth, available, inset);
+    }
+
+    /// <summary>CSS Sizing §5.1 over a probe's inline size: the room is clamped by the box's own bounds.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A box is never laid out at a width its own <c>min-width</c> forbids, so it must
+    ///         never be MEASURED at one either.</b> The block-axis intrinsic size is a function of the
+    ///         used inline size, and the used inline size is the offer clamped by the bounds — not the
+    ///         offer. Sixteen Ahem characters with <c>min-width: 200px</c> in a 100-point column were
+    ///         probed at 100, took two lines, and floored the item at 20 points where Chrome gives it
+    ///         the 200 it was always going to have and one line. That is
+    ///         <c>measure_child_with_min_size_greater_than_available_space</c>, and
+    ///         <see cref="ConstrainMinSizeForMode" /> is the same sentence said to the LAYOUT: the
+    ///         probe had only ever been told the maximum half of it, through nothing at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The minimum is applied last, which is CSS Sizing §5.1's min-over-max precedence and
+    ///         not an ordering accident: a <c>min-width</c> above a <c>max-width</c> wins.
+    ///     </para>
+    /// </remarks>
+    float ClampProbeInlineSize(int index, Direction direction, float ownerWidth, float size, float inset) {
+        var max = StyleResolution.ResolvedMaxDimension(in styles[index], Dimension.Width, ownerWidth, ownerWidth, direction);
+        if (!float.IsNaN(max)) {
+            size = MathF.Min(size, MathF.Max(0f, max - inset));
+        }
+
+        var min = StyleResolution.ResolvedMinDimension(in styles[index], Dimension.Width, ownerWidth, ownerWidth, direction);
+        if (!float.IsNaN(min)) {
+            size = MathF.Max(size, MathF.Max(0f, min - inset));
+        }
+
+        return size;
     }
 
     /// <summary>As <see cref="ProbeContentWidth" />, for the block axis.</summary>

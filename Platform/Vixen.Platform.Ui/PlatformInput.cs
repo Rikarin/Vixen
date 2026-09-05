@@ -88,6 +88,57 @@ public static class PlatformInput {
         }
     }
 
+    /// <summary>Tells every one of a document's surfaces which accessibility settings are on.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="accessibility">What <see cref="IPlatform.Accessibility" /> says.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The wire <c>@media (prefers-reduced-motion)</c> and <c>@media (forced-colors)</c>
+    ///         were built without, which is the same hole <see cref="ApplyColorScheme" /> above was
+    ///         written to close one axis over.</b> Both features have evaluated since they landed,
+    ///         <c>Animator.ReduceMotion</c> has honoured the first since the same day, and every
+    ///         writer of <c>UiSurface.Preferences</c> in the tree was a test — so an application
+    ///         animated at a user who had switched animation off and nothing anywhere reported it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An unknown axis becomes <c>NoPreference</c> and not the "off" value</b>, for the
+    ///         reason <see cref="SystemAccessibility" /> gives: a platform that could not read a
+    ///         setting has not told us the user is happy without it. CSS agrees — every
+    ///         <c>prefers-*</c> query is false when nothing has been expressed — so the two happen to
+    ///         land on the same verdict, and they land there for different reasons that a host can
+    ///         still tell apart by reading the platform.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>High contrast sets <i>both</i> <c>ForcedColors</c> and
+    ///         <see cref="ContrastPreference.More" />.</b> Windows' high-contrast mode and macOS's
+    ///         Increase Contrast are the platforms' single answer to a question CSS asks twice, and a
+    ///         sheet written with only <c>(prefers-contrast: more)</c> in it would otherwise do
+    ///         nothing on the one platform where the setting is most used. The converse is not true
+    ///         and is why this is not symmetrical: a user asking for more contrast has not asked for
+    ///         their palette to be replaced.
+    ///     </para>
+    ///     <para>
+    ///         Every surface rather than the primary one, on the same terms as the appearance: these
+    ///         are settings of the machine, so a torn-off panel cannot be running under different
+    ///         ones.
+    ///     </para>
+    /// </remarks>
+    public static void ApplyAccessibility(UiDocument document, SystemAccessibility accessibility) {
+        ArgumentNullException.ThrowIfNull(document);
+
+        var forced = accessibility.HighContrast == true;
+
+        foreach (var surface in document.Surfaces) {
+            surface.Preferences = surface.Preferences with {
+                Motion = accessibility.ReduceMotion == true
+                    ? MotionPreference.Reduce
+                    : MotionPreference.NoPreference,
+                Contrast = forced ? ContrastPreference.More : ContrastPreference.NoPreference,
+                ForcedColors = forced
+            };
+        }
+    }
+
     /// <summary>Sends one platform event to a document's primary surface.</summary>
     /// <param name="document">The document.</param>
     /// <param name="platformEvent">What happened.</param>
@@ -124,7 +175,15 @@ public static class PlatformInput {
             case PlatformEventKind.MouseMoved:
                 document.Dispatch(
                     surface,
-                    Pointer(platformEvent, PointerAction.Moved, PointerButton.None, modifiers, when, Mouse)
+                    Pointer(
+                        platformEvent,
+                        PointerAction.Moved,
+                        PointerButton.None,
+                        modifiers,
+                        when,
+                        Mouse,
+                        PointerType.Mouse
+                    )
                 );
 
                 return true;
@@ -141,7 +200,8 @@ public static class PlatformInput {
                         Button(platformEvent.MouseButton),
                         modifiers,
                         when,
-                        Mouse
+                        Mouse,
+                        PointerType.Mouse
                     )
                 );
 
@@ -193,7 +253,8 @@ public static class PlatformInput {
                         PointerButton.Primary,
                         modifiers,
                         when,
-                        Finger(platformEvent.DeviceId)
+                        Finger(platformEvent.DeviceId),
+                        PointerType.Touch
                     )
                 );
 
@@ -208,7 +269,8 @@ public static class PlatformInput {
                         PointerButton.None,
                         modifiers,
                         when,
-                        Finger(platformEvent.DeviceId)
+                        Finger(platformEvent.DeviceId),
+                        PointerType.Touch
                     )
                 );
 
@@ -216,10 +278,16 @@ public static class PlatformInput {
 
             case PlatformEventKind.KeyDown:
             case PlatformEventKind.KeyUp:
-                // Not routed by surface: a key event goes to the focus, and the focus is the
-                // document's rather than a window's. Which window has it is the operating system's
-                // question and it has already answered by sending the event at all.
+                // ⚠ Routed by surface, and it used not to be. The comment here read "a key event
+                // goes to the focus, and the focus is the document's rather than a window's" —
+                // true, and it stops being an answer the moment nothing is focused, which is the
+                // state every application starts in and returns to whenever something is dismissed.
+                // The fallback was the *primary* surface's root, so a keystroke the operating
+                // system delivered to a torn-off inspector ran against the main window. The surface
+                // is in hand here; the OS has already answered the question by sending the event to
+                // that window at all.
                 document.Dispatch(
+                    surface,
                     new KeyEvent {
                         Key = (Vixen.Input.InputKey) (ushort) platformEvent.Key,
                         Action = platformEvent.Kind == PlatformEventKind.KeyDown
@@ -323,10 +391,12 @@ public static class PlatformInput {
         PointerButton button,
         ModifierKeys modifiers,
         TimeSpan when,
-        int pointer
+        int pointer,
+        PointerType type
     ) =>
         new() {
             PointerId = pointer,
+            PointerType = type,
             X = platformEvent.Position.X,
             Y = platformEvent.Position.Y,
             Action = action,

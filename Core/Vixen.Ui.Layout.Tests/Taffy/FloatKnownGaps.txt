@@ -42,31 +42,56 @@
 #
 # float-beside-inline-content     §9.5's main event, above. CLOSED against a Chrome-built oracle
 #                                 rather than against anything in this corpus; `InlineKnownGaps.txt`
-#                                 owns what is left, which is a float declared INSIDE a run, the
-#                                 staircase a broken text leaf would wrap around, and the intrinsic
-#                                 width of a shrink-to-fit container that holds a float.
+#                                 owns what is left. ⚠ TWO OF THE THREE THINGS THAT ROW USED TO NAME
+#                                 HAVE SINCE CLOSED TOO — a float declared INSIDE a run (§9.5.1's
+#                                 rules 5 and 6) and the intrinsic width of a shrink-to-fit container
+#                                 that holds one. What is left is the staircase a broken text leaf
+#                                 would wrap around, and that one is structural rather than
+#                                 unwritten: it needs a text wrapper below `Vixen.Ui`, which is the
+#                                 same wall §10.8's strut is behind.
 #
-# float-in-auto-centred-block     `LayoutTree.Block`'s float origin reads an `auto` inline margin as
-#                                 its stated value rather than its resolved one, because resolving
-#                                 it needs the used width of the very layout the origin is about to
-#                                 start. A float inside a block centred by `margin: 0 auto` lands at
-#                                 the uncentred edge. Every float in the corpus is in a block with
-#                                 stated or zero margins.
+# ── OWED ROWS THAT HAVE SINCE CLOSED, KEPT BECAUSE THE REFUTATION IS THE FINDING ─────────────────
 #
-# float-margin-collapse-through   A float's own top margin is included in its margin box, which is
-#                                 right, but the corpus never writes one — `grep 'float=' -A0` finds
-#                                 no floated box with a `margin-top`. The arithmetic is reasoned,
-#                                 not measured.
+# ⚠ All four are asserted in `FloatBlindSpotTests` now. TWO WERE ALREADY RIGHT, one was wrong for a
+# different reason than this file gave, and the fourth turned out to be a SPECIAL CASE OF A DEFECT
+# NOBODY HAD NAMED — which is the one worth reading.
 #
-# float-percentage-height         A float with `height: 50%` resolves against its containing block
-#                                 like any other block box here. Chrome does the same, but no
-#                                 fixture asks, and floats are one of the places where the
-#                                 definite-size rules are easy to get wrong.
+# float-in-auto-centred-block     ⚠ **The diagnosis was half right and the stated consequence was
+#                                 wrong.** The row said such a float "lands at the uncentred edge".
+#                                 It did not: the float's own rectangle came out at the centred
+#                                 block's content edge and looked perfect. What landed at the
+#                                 uncentred edge was the EXCLUSION, because the float origin read an
+#                                 `auto` margin as its stated zero while the position was written
+#                                 from the resolved one — so the float was drawn at 150 and excluded
+#                                 at 0..50, and only a box that has to avoid it can see the
+#                                 difference. The reason given for not resolving it is refuted too:
+#                                 the used width is `childWidth`, which is in hand, being the number
+#                                 the StretchFit call is handed one line later.
 #
-# right-float-narrows-bfc-root    `AvoidFloats` handles a band constrained on the RIGHT symmetrically
-#                                 with one constrained on the left, and no fixture exercises it: all
-#                                 ten `float_bfc_*` families float LEFT, in their RTL variant as much
-#                                 as their LTR one. `float="right"` appears in this corpus twice —
-#                                 `float_simple` and `float_clear_no_preceding_float` — and neither
-#                                 puts a formatting context root beside the float. So the left half of
-#                                 that branch is measured 40 times and the right half zero.
+#                                 ⚠ AND IT WAS A SPECIAL CASE. §9.5.1's rules 1 and 7 name the
+#                                 float's CONTAINING BLOCK; the exclusion list is in the formatting
+#                                 context ROOT's coordinates; `PlaceFloatChild` took the band's edge
+#                                 as the float's edge without narrowing it to the container. So a
+#                                 float in a block with a STATED left margin was placed at the root's
+#                                 content edge and reported at x = −100 from its own parent, and a
+#                                 right float in a 200-point box inside a 400-point root went against
+#                                 the ROOT's right edge. Invisible to all 84 fixtures because
+#                                 `float_bfc_avoids_float_from_sibling_subtree` is the only one that
+#                                 nests a float at all, and the box it nests it in has no margin, no
+#                                 padding and no width of its own.
+#
+# float-margin-collapse-through   CONFIRMED, and the row's own framing was the honest one: the
+#                                 arithmetic was reasoned and is now measured. Both halves are
+#                                 asserted at once because they fail differently — the float's border
+#                                 box says the margin was spent, the cleared sibling below says the
+#                                 exclusion's bottom edge included it.
+#
+# float-percentage-height         CONFIRMED. Asserted through a cleared sibling rather than off the
+#                                 float, so a height that resolved in the geometry but not in the
+#                                 exclusion list would still be caught.
+#
+# right-float-narrows-bfc-root    CONFIRMED: `AvoidFloats` really is symmetric. Both halves of the
+#                                 pair are pinned now, because they are different branches — an
+#                                 automatic width narrows beside the float and a stated one drops
+#                                 below it, which is the distinction two of the ten left-floating
+#                                 families exist to draw.

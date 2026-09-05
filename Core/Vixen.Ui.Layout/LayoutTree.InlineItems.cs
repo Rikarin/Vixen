@@ -39,7 +39,23 @@ public sealed partial class LayoutTree {
         Open,
 
         /// <summary>The inline-end edge of a non-atomic inline box.</summary>
-        Close
+        Close,
+
+        /// <summary>
+        ///     A floated box written between two items, which takes no room on the line and is placed
+        ///     at the line's own top instead.
+        /// </summary>
+        /// <remarks>
+        ///     ⚠ <b>CSS 2.1 §9.5.1's rules 5 and 6, and the reason a float has to be <i>in</i> this
+        ///     stream rather than beside it.</b> §9.7 makes a floated box block-level whatever its
+        ///     <c>display</c> says, so the obvious reading is that it ends the run and is placed by the
+        ///     block walk after it — which is where it was, one line lower than Chrome puts it. What
+        ///     rules 5 and 6 actually say is narrower: a float may not start <i>above</i> the top of
+        ///     any line box holding earlier content, which for a float written mid-run is that line's
+        ///     top exactly. So its position is decided by the line walk, and it then shortens the very
+        ///     line it was written on — including the part of that line that came before it.
+        /// </remarks>
+        Float
     }
 
     /// <summary>One entry in the flattened line stream.</summary>
@@ -105,6 +121,17 @@ public sealed partial class LayoutTree {
                 return false;
             }
 
+            // ⚠ And a fifth restriction, for the same shape of reason as the fourth. A float is
+            // placed by the line walk in the *container's* coordinates, and a flattened box's
+            // children are rebased into the box's own on the way out — so a float inside a flattened
+            // span would be moved by the span's origin a second time. Staying atomic sends the span
+            // through its own layout, where its float is an ordinary block-level one placed against
+            // the span itself, which is a box that is merely un-split rather than one in the wrong
+            // place.
+            if (styles[child].Float != FloatSide.None) {
+                return false;
+            }
+
             any |= ParticipatesInLine(child);
         }
 
@@ -138,6 +165,16 @@ public sealed partial class LayoutTree {
             var child = childIds[i];
 
             if (!ParticipatesInLine(child)) {
+                continue;
+            }
+
+            // ⚠ Before the flattening test, because a floated `inline-block` answers `true` to
+            // `IsInlineLevel` and would otherwise be laid out as an ordinary box on the line with
+            // §9.5 never consulted — which is what it was, and is worse than the block-level float
+            // being one line low: the exclusion list never heard of it at all.
+            if (styles[child].Float != FloatSide.None) {
+                AppendInlineItem(new InlineItem(child, InlineItemKind.Float));
+
                 continue;
             }
 
