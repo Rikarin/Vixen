@@ -40,6 +40,8 @@ Vixen.Ui.Styling.Animator.Clear() -> void
 Vixen.Ui.Styling.Animator.Compact(System.ReadOnlySpan<int> remap) -> void
 Vixen.Ui.Styling.Animator.IsIdle.get -> bool
 Vixen.Ui.Styling.Animator.Observe(Vixen.Ui.Styling.StyleNodeId element, Vixen.Ui.Styling.ComputedStyle? before, Vixen.Ui.Styling.ComputedStyle after, float now) -> void
+Vixen.Ui.Styling.Animator.ReduceMotion.get -> bool
+Vixen.Ui.Styling.Animator.ReduceMotion.set -> bool
 Vixen.Ui.Styling.Animator.RunningCount.get -> int
 Vixen.Ui.Styling.Animator.TryGetAnimated(Vixen.Ui.Styling.StyleNodeId element, int property, float now, out Vixen.Ui.Styling.StyleValue value) -> bool
 Vixen.Ui.Styling.Animator.TryGetCurrent(Vixen.Ui.Styling.StyleNodeId element, int property, float now, out Vixen.Ui.Styling.StyleValue value) -> bool
@@ -256,9 +258,11 @@ Vixen.Ui.Styling.MediaContext.Gamut.init -> Vixen.Core.Mathematics.ColorGamut
 Vixen.Ui.Styling.MediaContext.Height.get -> float
 Vixen.Ui.Styling.MediaContext.Height.init -> float
 Vixen.Ui.Styling.MediaContext.MediaContext() -> void
-Vixen.Ui.Styling.MediaContext.MediaContext(float Width, float Height, float Resolution = 1, Vixen.Ui.Styling.ColorSchemePreference ColorScheme = Vixen.Ui.Styling.ColorSchemePreference.NoPreference, Vixen.Core.Mathematics.ColorGamut Gamut = Vixen.Core.Mathematics.ColorGamut.Srgb) -> void
+Vixen.Ui.Styling.MediaContext.MediaContext(float Width, float Height, float Resolution = 1, Vixen.Ui.Styling.ColorSchemePreference ColorScheme = Vixen.Ui.Styling.ColorSchemePreference.NoPreference, Vixen.Core.Mathematics.ColorGamut Gamut = Vixen.Core.Mathematics.ColorGamut.Srgb, Vixen.Ui.Styling.MotionPreference ReducedMotion = Vixen.Ui.Styling.MotionPreference.NoPreference) -> void
 Vixen.Ui.Styling.MediaContext.Resolution.get -> float
 Vixen.Ui.Styling.MediaContext.Resolution.init -> float
+Vixen.Ui.Styling.MediaContext.ReducedMotion.get -> Vixen.Ui.Styling.MotionPreference
+Vixen.Ui.Styling.MediaContext.ReducedMotion.init -> Vixen.Ui.Styling.MotionPreference
 Vixen.Ui.Styling.MediaContext.Width.get -> float
 Vixen.Ui.Styling.MediaContext.Width.init -> float
 Vixen.Ui.Styling.MediaQuery -> static class
@@ -276,6 +280,10 @@ Vixen.Ui.Styling.MediaVerdicts.Equals(Vixen.Ui.Styling.MediaVerdicts other) -> b
 Vixen.Ui.Styling.MediaVerdicts.Holds(int group) -> bool
 Vixen.Ui.Styling.MediaVerdicts.MediaVerdicts() -> void
 Vixen.Ui.Styling.MediaVerdicts.Revision.get -> int
+Vixen.Ui.Styling.MotionPreference -> enum : byte
+Vixen.Ui.Styling.MotionPreference.MotionPreference() -> void
+Vixen.Ui.Styling.MotionPreference.NoPreference = 0 -> Vixen.Ui.Styling.MotionPreference
+Vixen.Ui.Styling.MotionPreference.Reduce = 1 -> Vixen.Ui.Styling.MotionPreference
 Vixen.Ui.Styling.NameTable -> sealed class
 Vixen.Ui.Styling.NameTable.Count.get -> int
 Vixen.Ui.Styling.NameTable.Intern(string name) -> int

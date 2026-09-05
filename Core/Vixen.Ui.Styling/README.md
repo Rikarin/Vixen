@@ -206,6 +206,18 @@ Time is passed in, never read. The animator has no clock, which is what lets a t
 fade deterministically and what lets the engine drive it from `Vixen.Engine`'s fixed step without
 this project knowing that exists.
 
+⚠ **And the animator honours `prefers-reduced-motion` itself, which is a deliberate departure from
+the web.** A browser makes the preference a query and nothing more, leaving every decision to the
+author — right for a document, wrong for a toolkit that hands an author transitions, `@keyframes` and
+`spring()` without being asked. `StyleEngine.SetMedia` gives `MediaContext.ReducedMotion` to
+`Animator.ReduceMotion`, and with it set a transition does not start and an animation does not run, so
+a property arrives where the cascade put it. An author who wants reduced-but-present motion writes
+the `@media` block and turns the switch off. ⚠ A transition already in flight finishes and a keyframe
+animation does not: a transition has an end, and cutting it short freezes a panel at whatever opacity
+it had reached, while an `infinite` animation has no end to run out to. ⚠ The flag is carried across
+a `Reload`, because a hot edit of a stylesheet is a change of mind about the stylesheet and never
+about the user.
+
 ## The gates
 
 `SelectorOracleTests` is the one [doc 14](../../docs/plan/14-roadmap.md) names for 4b: over four

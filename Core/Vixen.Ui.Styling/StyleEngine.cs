@@ -38,6 +38,12 @@ public sealed class StyleEngine {
 
     readonly List<Sheet> sheets = [];
 
+    // ⚠ Kept here rather than read back off `Animations`, because `Build` runs from the constructor
+    // as well as from a reload and the property is null on the first of those. It is a fact about
+    // the person using the application, which is the one thing in this engine a reload must not
+    // forget.
+    bool reduceMotion;
+
     /// <summary>Creates an engine with nothing loaded.</summary>
     public StyleEngine() {
         Names = new NameTable();
@@ -202,7 +208,18 @@ public sealed class StyleEngine {
     ///     are still shared — one theme, one <c>@keyframes</c> table, one layer order — and only the
     ///     verdict is not.
     /// </remarks>
-    public bool SetMedia(int scope, MediaContext media) => Scopes.Set(scope, media);
+    public bool SetMedia(int scope, MediaContext media) {
+        // ⚠ The document's scope and not any scope, because the animator is one per engine while a
+        // media context is one per surface. A torn-off window on a second monitor is a different
+        // width and the same person, so taking reduced motion from whichever surface was updated
+        // last would make the switch flicker with the resizes.
+        if (scope == MediaScopes.Document) {
+            reduceMotion = media.ReducedMotion == MotionPreference.Reduce;
+            Animations.ReduceMotion = reduceMotion;
+        }
+
+        return Scopes.Set(scope, media);
+    }
 
     /// <summary>A transform every sheet's text goes through on its way to the parser.</summary>
     /// <remarks>
@@ -210,9 +227,14 @@ public sealed class StyleEngine {
     ///         ⚠ <b>The seam <c>@apply</c> needs, and the reason it is here rather than in front of
     ///         <see cref="Load" />.</b> A caller can already transform its own text before handing it
     ///         over; what it cannot do is be present for a <see cref="Reload" />, and a reload is not
-    ///         a rare event — <see cref="SetMedia(MediaContext)" /> triggers one, <see cref="Replace" /> triggers
-    ///         one, and both replay <see cref="SheetText" />. A transform applied by the caller would
-    ///         be applied once and then quietly dropped by the next resize.
+    ///         a rare event — <see cref="Replace" /> triggers one and <see cref="Reload" /> is one, and
+    ///         both replay <see cref="SheetText" />. A transform applied by the caller would be applied
+    ///         once and then quietly dropped by the next hot edit of a stylesheet. ⚠ It was claimed here
+    ///         that <see cref="SetMedia(MediaContext)" /> triggers a reload as well; it does not and never
+    ///         did — it re-evaluates the <see cref="MediaConditions" /> verdicts for one scope and leaves
+    ///         the rule set, the keyframes and the animator exactly where they were. That is the cheaper
+    ///         and correct behaviour, and it is worth knowing because it is the difference between a
+    ///         resize costing a re-evaluation and a resize costing a reparse of every sheet.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>What <see cref="sheets" /> keeps is the text as it was handed in, not the text the
@@ -361,7 +383,11 @@ public sealed class StyleEngine {
         // After `Keyframes`, which it holds — see the remarks on `Animations` for why it is rebuilt
         // here rather than kept. `Names` is the keyword table `StyleValueParser` interns identifiers
         // in, which is the same one `UiDocument` hands its own reader.
-        Animations = new Animator(Properties, Values, Names, Keyframes);
+        // ⚠ Carried across, because a reload is a change of mind about the *stylesheet* and never
+        // about the user. `Replace` is a hot edit of a `.vcss` file and `Reload` is the same thing by
+        // hand; neither is a reason to start animating at somebody who asked for stillness, and an
+        // animator rebuilt with the default would do exactly that on the next keystroke in an editor.
+        Animations = new Animator(Properties, Values, Names, Keyframes) { ReduceMotion = reduceMotion };
     }
 
     /// <summary>Records declarations written on an element itself.</summary>
