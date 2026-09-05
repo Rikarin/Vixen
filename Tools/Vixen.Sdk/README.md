@@ -189,6 +189,29 @@ another 82 MB that would otherwise have travelled. The way out is a smaller tool
 cleverer package: the SDK calls `vixen import` and `vixen content build` and nothing else, while what
 is packed is the whole CLI — `live`, `content serve`, Roslyn workspaces and the text stack included.
 
+⚠ **One exception is taken, and it is the only lever that changes neither the reference graph nor the
+RID coverage.** `Ultz.Native.Assimp` 6.0.2 ships **two majors** of the native in every Linux and macOS
+RID — `libassimp.so.5` beside `libassimp.so.6`, `libassimp.5.dylib` beside `libassimp.6.dylib` — and
+opens one of them. Windows ships a single unversioned `Assimp64.dll` and has no pair. The 6 is not
+packed: **44 251 540 bytes** across the five RIDs that carry a pair, about a quarter of the unpacked
+package.
+
+⚠ **Which major is the dead one was filed the wrong way round, and the cost of getting it wrong is a
+package that installs and then throws.** [#624](https://github.com/Rikarin/Vixen/issues/624) names the
+**5** as the copy nothing loads; the binding's own `AssimpLibraryNameContainer` says otherwise —
+`libassimp.so.5` on Linux and Android, `libassimp.5.dylib` on macOS, the unversioned Windows names,
+and `__Internal` on iOS. `Silk.NET.Assimp` 2.23.0 binds Assimp 5's C ABI, which `ci.yml` already said
+in a comment when it installs Ubuntu's `libassimp5` and warns that a 6 there "would load and then be
+wrong in ways a signature cannot catch". Dropping the 5 would produce a package that restores,
+installs, runs, and throws `FileNotFoundException` out of `Assimp.GetApi()` the first time anybody
+imported a model — a failure no pack test that only checked the 6 was absent could have caught.
+
+So the exclusion is held to the binding rather than to this paragraph.
+`Vixen.Editor.Assets.Tests.AssimpSonameTests` reads the names the binding asks for and fails if
+`Vixen.Sdk.csproj` excludes any of them, and `PackagedToolTests.OnlyTheAssimpSonameTheBindingOpensIsPacked`
+asserts both halves against a real `.nupkg`. The day the binding moves to Assimp 6, the first goes red
+and names the soname to keep.
+
 ⚠ **The apphosts are not packed.** `vixen`, `vixen-content-server` and `Vixen.AssetCompiler` sit in
 the build output beside the assemblies with no extension: they are native launchers built for
 whichever machine ran the build. Everything here is started as `dotnet "….dll"` — the targets, and
