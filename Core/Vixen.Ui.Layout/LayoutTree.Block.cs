@@ -604,6 +604,7 @@ public sealed partial class LayoutTree {
                     innerWidth,
                     innerHeightForPercentages,
                     committed + (stillCollapsingWithFirst && collapseWithFirstChild ? 0f : active.Resolve()),
+                    insetLeft,
                     performLayout,
                     currentDepth
                 );
@@ -783,11 +784,25 @@ public sealed partial class LayoutTree {
                     }
                 }
 
-                // ⚠ The origin the child's own floats are written against. An `auto` inline margin is
-                // read here as its stated value rather than its resolved one — resolving it needs the
-                // child's used width, which needs the layout this line is about to start. Nothing in
-                // the corpus floats inside an auto-centred block, and a float in one would land at the
-                // uncentred edge; it is recorded in `KnownGaps.txt` rather than guessed at.
+                // ⚠ <b>The origin the child's own floats are written against, and the `auto` inline
+                // margin is resolved into it rather than read as its stated zero.</b> This used to
+                // say resolving it needed the used width of the layout about to start — which was
+                // wrong twice over. `childWidth` IS the used width: it is what the
+                // <c>SizingMode.StretchFit</c> call below is handed, so the box comes out that wide
+                // by construction. And the consequence was not the one recorded either: a float in a
+                // block centred by `margin: 0 auto` was drawn at the centred edge and EXCLUDED at the
+                // uncentred one, so the box that avoided it moved to the wrong place while the float
+                // itself looked right.
+                var floatAutoInline = 0f;
+
+                if (marginStartIsAuto || marginEndIsAuto) {
+                    var autoCount = (marginStartIsAuto ? 1 : 0) + (marginEndIsAuto ? 1 : 0);
+                    floatAutoInline = MathF.Max(0f, stretchWidth - childWidth) / autoCount;
+                }
+
+                var floatMarginStart = marginStartIsAuto ? floatAutoInline : marginStart;
+                var floatMarginEnd = marginEndIsAuto ? floatAutoInline : marginEnd;
+
                 floatOriginX = containerOriginX
                     + insetLeft
                     + (float.IsNaN(floatLeft)
@@ -796,8 +811,8 @@ public sealed partial class LayoutTree {
                             direction,
                             innerWidth,
                             childWidth,
-                            direction == Direction.Ltr ? marginStart : marginEnd,
-                            direction == Direction.Ltr ? marginEnd : marginStart
+                            direction == Direction.Ltr ? floatMarginStart : floatMarginEnd,
+                            direction == Direction.Ltr ? floatMarginEnd : floatMarginStart
                         )
                         : floatLeft);
 

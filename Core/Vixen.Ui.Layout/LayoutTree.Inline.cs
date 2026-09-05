@@ -478,6 +478,7 @@ public sealed partial class LayoutTree {
                                 innerWidth,
                                 innerHeightForPercentages,
                                 lineTop,
+                                insetLeft,
                                 performLayout,
                                 currentDepth
                             )) {
@@ -633,6 +634,7 @@ public sealed partial class LayoutTree {
     /// <param name="innerWidth">The container's content-box width.</param>
     /// <param name="innerHeightForPercentages">What a percentage height resolves against, or NaN.</param>
     /// <param name="lineTop">The line box's top edge, in the container's coordinates.</param>
+    /// <param name="insetLeft">The container's left padding and border.</param>
     /// <param name="performLayout">Whether positions are being written.</param>
     /// <param name="currentDepth">The recursion guard's depth.</param>
     /// <returns>Whether anything was placed, which is whether the band the line saw has moved.</returns>
@@ -643,6 +645,7 @@ public sealed partial class LayoutTree {
         float innerWidth,
         float innerHeightForPercentages,
         float lineTop,
+        float insetLeft,
         bool performLayout,
         int currentDepth
     ) {
@@ -659,6 +662,7 @@ public sealed partial class LayoutTree {
                 innerWidth,
                 innerHeightForPercentages,
                 lineTop,
+                insetLeft,
                 performLayout,
                 currentDepth
             );
