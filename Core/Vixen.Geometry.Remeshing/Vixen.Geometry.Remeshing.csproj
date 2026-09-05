@@ -13,6 +13,16 @@
         </Description>
         <PackageTags>geometry;retopology;remesh;quad;mesh;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <!--
+            ⚠ Optimised even in Debug, for the reason Vixen.Geometry.Uv records at length: the field
+            solve and the extractor are float inner loops, and unoptimised they are what makes a
+            local run of this suite 327 s against CI's 85 s. Measured back to back on one machine:
+            Debug 327 s, Debug with this property 87 s, Release 85 s, 340 tests passing in each.
+            `DEBUG` is still defined, so nothing that reads `JobScheduler.SafetyChecksEnabled` or
+            `LeakTracker.IsSupported` changes behaviour.
+        -->
+        <Optimize Condition="'$(Configuration)' == 'Debug'">true</Optimize>
     </PropertyGroup>
 
     <ItemGroup>

@@ -12,6 +12,26 @@
         </Description>
         <PackageTags>geometry;uv;unwrap;atlas;packing;texture;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <!--
+            ⚠ Optimised even in Debug, because this is a float inner loop and the unoptimised one is
+            not a slower version of the same thing — it is the reason a local `Test` run measures
+            this suite at 362 s and CI measures it at 98 s. Measured back to back on one machine:
+            Debug 362 s, Debug with this property 96 s, Release 98 s, all 464 tests passing in each.
+            The whole of the difference was the optimiser; nothing about it is algorithmic.
+
+            ⚠ `Optimize` and `Configuration` are two decisions and only one of them is dangerous to
+            move. `DEBUG` is still defined here, so `JobScheduler.SafetyChecksEnabled` and
+            `LeakTracker.IsSupported` keep the values a Debug build gives them — which is what
+            `CheckApi` records for those `public const bool`s and what several suites assert. This
+            buys the Release speed without any suite crossing the configuration line.
+
+            The cost is that stepping through this assembly is worse: locals fold away and the
+            debugger's line table is approximate. That is the trade in a library whose public surface
+            is three pure entry points over values, and it does not apply to callers — `Optimize` is
+            per assembly.
+        -->
+        <Optimize Condition="'$(Configuration)' == 'Debug'">true</Optimize>
     </PropertyGroup>
 
     <ItemGroup>
