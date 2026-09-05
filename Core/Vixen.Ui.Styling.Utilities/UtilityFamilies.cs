@@ -1370,15 +1370,20 @@ public static class UtilityFamilies {
         // ⚠ <b>`divide-x` is the *end* edge and `divide-y` the *bottom* one, which is v4's choice and
         // not an arbitrary half of the pair.</b> Tailwind emits both edges of each axis — a zero on
         // one and the width on the other — so that `divide-x-reverse` can swap them by flipping a
-        // custom property. The zero is what this does not follow, and ⚠ <b>the reason given here
-        // stopped being true on 2026-09-05</b>: `StyleValueParser` folds a `calc()` now, so the
-        // multiply resolves and what is left unmeasured is whether anything reads the
-        // `--tw-*-reverse` flag itself. `divide-x-reverse` stays unregistered until somebody
-        // measures that, not because the arithmetic is missing.
-        // Emitting the leading `0` anyway would buy nothing and cost something real — it
-        // would out-specify a child's own `border-s-2` and silently erase it — so the family writes
-        // the one edge it means. Same argument for `space-x-*`, which is why it writes no leading
-        // margin either.
+        // custom property. The zero is what this does not follow: emitting the leading edge would
+        // buy nothing and cost something real — it would out-specify a child's own `border-s-2` and
+        // silently erase it — so the family writes the one edge it means. Same argument for
+        // `space-x-*`, which is why it writes no leading margin either.
+        //
+        // ⚠ <b>Both reasons `divide-x-reverse` was refused under have expired, and it stays
+        // unregistered on this one instead.</b> `StyleValueParser` folds a `calc()` now, and the
+        // flag is not a custom property nobody reads: `ReverseFlagTests` measures the whole v4 shape
+        // end to end — a flag one class writes is read by another class's declaration, it inherits
+        // to the descendants a `> :not(:last-child)` rule matches, and both arms of the arithmetic
+        // fold at both values. So the machinery works and the one-edge decision above is the whole
+        // of what is left. ⚠ Writing that leading edge as `calc(w * var(--tw-divide-x-reverse, 0))`
+        // rather than as a literal `0` does not dodge it: it is the declaration that out-specifies a
+        // child's utility, not the value it computes to.
         //
         // ⚠ <b>No colour longhands, and that is what `ColorProperties: null` says.</b> `divide-x-2`
         // is a width and `divide-x-accent` is not a class Tailwind has; the colour is written
