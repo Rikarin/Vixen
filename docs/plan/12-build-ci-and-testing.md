@@ -332,10 +332,27 @@ no cobertura document did not measure zero — it did not measure — so a missi
 a `--coverage-project` matching nothing fails, and a suite whose report does not name its own subject
 assembly fails. That last one is a finding about the suite rather than a number about the assembly.
 
+⚠️ **The reader counted every line twice, and running it once is how that was found.** The target has
+never been executed through `build.sh` by any session that wrote it, so its invocation was run by hand
+instead — `dotnet test Core/Vixen.Core.Mathematics.Tests --settings .runsettings --results-directory
+artifacts/coverage/<project> --collect "Code Coverage;Format=cobertura"`, which is what the fluent
+`DotNetTest` settings build, and the attachment landed exactly where `Measure` globs for it. Over that
+real document the reader said `Vixen.Core.Mathematics` was **8 444 of 11 318** lines. It is **4 221 of
+5 658**: a cobertura `<class>` lists its lines once inside each `<method>` and once more in its own
+`<lines>`, so `Descendants("line")` counts both. ⚠️ **The rate was right to three decimal places
+while both counts were doubled**, which is the kind of wrong a table of percentages cannot show you —
+and the fix carries its own oracle, because a document's header states the totals over its packages:
+`Measure` now sums every package and fails when that disagrees with `lines-covered`/`lines-valid`, so
+a reader and a collector that disagree about what the file says stop the run before a plausible number
+is printed. Restoring the descendants walk turns the sum into 14 092 of 21 139 against a header of
+7 045 of 10 566.
+
 ⚠️ **The number reported is the subject assembly's, not the run's, and that is most of what makes it
 worth reading.** Measured on this machine: `Vixen.Graphics.Null.Tests` covers **80.8 %** of
-`Vixen.Graphics.Null` (2 960 of 3 664 lines) and **32.6 %** of everything the run loaded, because the
-same document carries `Vixen.Core` at 0.1 % — a figure that describes neither project and moves
+`Vixen.Graphics.Null` (740 of 916 lines — this paragraph said *"2 960 of 3 664"*, which is that same
+measurement read by the double-counting walk above, twice over) and **32.6 %** of everything the run
+loaded (3 689 of 11 322), because the same document carries `Vixen.Core` at 0.1 % — a figure that
+describes neither project and moves
 whenever an unrelated dependency grows. A "per-project coverage" table built from a document's own
 `line-rate` would be that second number.
 
