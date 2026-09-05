@@ -15,7 +15,7 @@ Escape.
 | Text | `TextBlock`, `Link`, `Badge`, `KeyboardShortcut`, `Avatar`, `Skeleton`, `Icon`, `Image` |
 | Buttons | `Button`, `IconButton`, `ToggleButton` |
 | Toggles | `CheckBox` (with indeterminate), `Switch`, `RadioButton`, `RadioGroup` |
-| Fields | `TextBox`, `TextArea`, `SearchBox`, `SecureTextBox`, `NumericInput` (with drag-scrub), `Stepper` (`NumericInput` with the two arrows) |
+| Fields | `TextBox`, `TextArea`, `SearchBox`, `SecureTextBox`, `NumericInput` (with drag-scrub, and a `Format`/`Culture` pair for locale, currency, percent and grouping), `Stepper` (`NumericInput` with the two arrows) |
 | Range | `Slider`, `RangeSlider`, `ProgressBar`, `Spinner` |
 | Choice | `Select`, `MultiSelect`, `ComboBox` |
 | Grouping | `Panel`, `Card`, `Separator`, `Tabs`, `Expander`, `Accordion`, `ScrollView`, `SplitView` |

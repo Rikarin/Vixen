@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using Vixen.Input;
 using Vixen.Ui.Text;
 using Xunit;
@@ -780,4 +781,141 @@ public class TextFieldTests {
     /// <summary>What the field is showing, which is not the same string as its value.</summary>
     static string? Displayed(TextField field) =>
         Descendants(field).First(child => child.Tag == "field-text").Text;
+
+    // ================================================================== Format and culture
+
+    /// <summary>A locale built by hand rather than looked up, so no test here depends on ICU data.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A named culture would make these assertions a claim about the machine.</b> Separators
+    ///     and currency symbols move between ICU versions and between platforms, so a test written
+    ///     against <c>de-DE</c> asserts what this .NET happens to think Germany does. Writing the
+    ///     three separators out is the same statement about the control with none of that in it.
+    /// </remarks>
+    static CultureInfo Continental() {
+        var culture = (CultureInfo) CultureInfo.InvariantCulture.Clone();
+
+        culture.NumberFormat.NumberDecimalSeparator = ",";
+        culture.NumberFormat.NumberGroupSeparator = ".";
+        culture.NumberFormat.CurrencyDecimalSeparator = ",";
+        culture.NumberFormat.CurrencyGroupSeparator = ".";
+        culture.NumberFormat.CurrencySymbol = "€";
+        culture.NumberFormat.PercentDecimalSeparator = ",";
+
+        return culture;
+    }
+
+    /// <summary>With nothing said, the field prints exactly what it always did.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The instrument check for the three below.</b> A seam whose default quietly followed
+    ///     <see cref="CultureInfo.CurrentCulture" /> would change what every existing field prints on
+    ///     a machine setting nobody chose — and on an English developer's machine it would look
+    ///     identical, which is exactly the kind of change that is found by a user and not by a suite.
+    /// </remarks>
+    [Fact]
+    public void An_unformatted_field_is_invariant_and_unchanged() {
+        using var fixture = new ControlFixture();
+
+        var field = fixture.Add<NumericInput>();
+        field.Decimals = 2;
+        field.Number = 1234.5d;
+
+        Assert.Null(field.Format);
+        Assert.Null(field.Culture);
+        Assert.Equal("1234.50", field.Value);
+    }
+
+    /// <summary>A grouped format in a comma-decimal locale, both directions.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both halves in one test on purpose, because either alone is green against a field
+    ///     that only formats.</b> Printing in a locale and parsing back under the invariant rules is
+    ///     the arrangement that reads correct and eats the user's text: <c>Reread</c> is silent on
+    ///     text it cannot parse, so the number simply stops following the field — and a test that
+    ///     only set <c>Number</c> and looked at <c>Value</c> would never notice.
+    /// </remarks>
+    [Fact]
+    public void A_grouped_format_prints_and_reads_back_in_its_own_locale() {
+        using var fixture = new ControlFixture();
+
+        var field = fixture.Add<NumericInput>();
+        field.Culture = Continental();
+        field.Format = "N2";
+        field.Number = 1234.5d;
+
+        Assert.Equal("1.234,50", field.Value);
+
+        fixture.Document.Focus(field);
+        field.Value = "2.345,75";
+        fixture.Type(InputKey.Enter);
+
+        Assert.Equal(2345.75d, field.Number);
+        Assert.Equal("2.345,75", field.Value);
+    }
+
+    /// <summary>A currency format reads its own symbol back.</summary>
+    /// <remarks>
+    ///     <see cref="NumberStyles.Float" /> rejects a currency symbol, so the field would refuse
+    ///     every commit of text it had written itself.
+    /// </remarks>
+    [Fact]
+    public void A_currency_format_reads_its_own_symbol_back() {
+        using var fixture = new ControlFixture();
+
+        var field = fixture.Add<NumericInput>();
+        field.Culture = Continental();
+        field.Format = "C2";
+        field.Number = 12.5d;
+
+        var written = field.Value;
+        Assert.Contains("€", written, StringComparison.Ordinal);
+
+        fixture.Document.Focus(field);
+        field.Value = written;
+        fixture.Type(InputKey.Enter);
+
+        Assert.Equal(12.5d, field.Number);
+    }
+
+    /// <summary>⚠ Percent is the one .NET can write and cannot read.</summary>
+    /// <remarks>
+    ///     <c>ToString("P")</c> multiplies by a hundred and appends a symbol, and no
+    ///     <see cref="NumberStyles" /> undoes either — so a field that formatted as a percentage and
+    ///     parsed with a style would multiply its own value by a hundred on every commit, visibly,
+    ///     and only after the first blur. The assertion is the fixed point: committing what the field
+    ///     wrote leaves the number where it was.
+    /// </remarks>
+    [Fact]
+    public void A_percent_format_does_not_multiply_its_own_value_on_every_commit() {
+        using var fixture = new ControlFixture();
+
+        var field = fixture.Add<NumericInput>();
+        field.Format = "P0";
+        field.Number = 0.45d;
+
+        var written = field.Value;
+        Assert.Contains("45", written, StringComparison.Ordinal);
+
+        fixture.Document.Focus(field);
+        field.Value = written;
+        fixture.Type(InputKey.Enter);
+
+        Assert.Equal(0.45d, field.Number, 10);
+        Assert.Equal(written, field.Value);
+    }
+
+    /// <summary>Assigning a format rewrites the text at once, rather than at the next keystroke.</summary>
+    [Fact]
+    public void Assigning_a_format_reformats_what_is_already_there() {
+        using var fixture = new ControlFixture();
+
+        var field = fixture.Add<NumericInput>();
+        field.Decimals = 0;
+        field.Number = 1234d;
+
+        Assert.Equal("1234", field.Value);
+
+        field.Culture = Continental();
+        field.Format = "N0";
+
+        Assert.Equal("1.234", field.Value);
+    }
 }
