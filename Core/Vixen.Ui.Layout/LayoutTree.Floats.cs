@@ -91,6 +91,40 @@ public sealed partial class LayoutTree {
         }
     }
 
+    /// <summary>Which physical side a <c>float</c> keyword names, once the direction is known.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the whole of what CSS Logical Properties' <c>inline-start</c> costs here, and
+    ///     the reason it is one line is that a flow-relative float is a <see cref="Direction" />
+    ///     question rather than a writing-mode one.</b> The two were conflated: doc 43's ledger,
+    ///     <c>UtilityFamilies</c> and <c>LayoutStyleBuilder</c> all recorded <c>float-start</c> as
+    ///     waiting on a writing mode this store had decided never to gain (#282), and then reasoned
+    ///     that the only choices left were to alias it onto <see cref="FloatSide.Left" /> — right in
+    ///     LTR, wrong in RTL, inside one declaration — or to accept it and drop it. There was a
+    ///     fourth: resolve it, which needs the direction and nothing else, because with no vertical
+    ///     writing mode the inline axis is horizontal in every configuration the engine can be in.
+    ///     <para>
+    ///         ⚠ <b>The resolved side is what goes into the exclusion list, not the authored one.</b>
+    ///         Everything downstream — <see cref="ClearancePoint" />, <see cref="FloatBandAt" />,
+    ///         <see cref="AvoidFloats" /> — reasons about physical left and right, and a
+    ///         <see cref="FloatSide.InlineStart" /> stored raw would fall down the <c>else</c> of
+    ///         every one of them and be treated as a right float.
+    ///     </para>
+    /// </remarks>
+    static FloatSide ResolveFloatSide(FloatSide side, Direction direction) =>
+        side switch {
+            FloatSide.InlineStart => direction == Direction.Rtl ? FloatSide.Right : FloatSide.Left,
+            FloatSide.InlineEnd => direction == Direction.Rtl ? FloatSide.Left : FloatSide.Right,
+            _ => side
+        };
+
+    /// <summary>Which physical sides a <c>clear</c> keyword names, once the direction is known.</summary>
+    static Clear ResolveClear(Clear clear, Direction direction) =>
+        clear switch {
+            Clear.InlineStart => direction == Direction.Rtl ? Clear.Right : Clear.Left,
+            Clear.InlineEnd => direction == Direction.Rtl ? Clear.Left : Clear.Right,
+            _ => clear
+        };
+
     /// <summary>What a formatting context root saved on the way in.</summary>
     readonly record struct FloatScope(int Start, float OriginX, float OriginY, float ContextWidth);
 
@@ -367,7 +401,8 @@ public sealed partial class LayoutTree {
 
         // Container-relative to context-relative, then §9.5.2 and §9.5.1 rule 3 raise the floor.
         var top = floatOriginY + flowTop;
-        var clearance = ClearancePoint(styles[child].Clear);
+        var side = ResolveFloatSide(styles[child].Float, direction);
+        var clearance = ClearancePoint(ResolveClear(styles[child].Clear, direction));
 
         if (!float.IsNaN(clearance)) {
             top = MathF.Max(top, floatOriginY + clearance);
@@ -390,11 +425,9 @@ public sealed partial class LayoutTree {
 
         var (bandLeft, bandRight) = ClampedFloatBandAt(top, marginHeight, clampLeft, clampRight);
 
-        var marginLeft = styles[child].Float == FloatSide.Left ? bandLeft : bandRight - marginWidth;
+        var marginLeft = side == FloatSide.Left ? bandLeft : bandRight - marginWidth;
 
-        floatExclusions.Add(
-            new PlacedFloat(styles[child].Float, marginLeft, marginLeft + marginWidth, top, top + marginHeight)
-        );
+        floatExclusions.Add(new PlacedFloat(side, marginLeft, marginLeft + marginWidth, top, top + marginHeight));
 
         if (!performLayout) {
             return;

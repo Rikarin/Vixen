@@ -120,21 +120,31 @@ public class UtilityFamilySupportTests {
         { "inline-block", "display", "inline-block" },
         { "inline-flex", "display", "inline-flex" },
 
-        // ⚠ <b>The four that are here are the four CSS 2.1 has, and Tailwind's other four are
-        // deliberately absent.</b> `float-start`, `float-end`, `clear-start` and `clear-end` emit the
-        // logical `inline-start` / `inline-end`, which resolve against a writing mode; `FloatSide`
-        // and `Clear` are physical and do not flip with `direction`. Adding rows for them here would
-        // assert that the cascade computes a value, which it would — and the engine would then drop
-        // it, which is exactly the reading this file's own first paragraph says is not enough. They
-        // are not in `Inert` either, because they resolve to nothing at all rather than to a property
-        // nobody reads. See `Core/Vixen.Ui.Styling.Utilities/README.md`.
+        // ⚠ <b>All eight are here now, and the four that were absent were absent for a conflation
+        // rather than for a limit.</b> This comment said `float-start`, `float-end`, `clear-start`
+        // and `clear-end` "emit the logical `inline-start` / `inline-end`, which resolve against a
+        // writing mode", and that adding rows for them would assert a value the engine then dropped.
+        // CSS Logical Properties resolves them against the writing mode AND the direction, and with
+        // no vertical writing mode — the decision #282 recorded — the inline axis is horizontal in
+        // every configuration this engine can be in. So `FloatSide` and `Clear` gained a
+        // flow-relative pair each and resolve them against `direction`, and these four rows now
+        // assert a value that is read rather than one that is computed and discarded.
+        //
+        // ⚠ The physical four still do not flip, which is why the logical pair is separate values
+        // rather than a rereading of `left` and `right`; the ten `float_bfc_*` families in
+        // `Corpus/float.xml` are what asserts that, by shipping RTL variants with identical
+        // expectations.
         { "float-left", "float", "left" },
         { "float-right", "float", "right" },
         { "float-none", "float", "none" },
+        { "float-start", "float", "inline-start" },
+        { "float-end", "float", "inline-end" },
         { "clear-left", "clear", "left" },
         { "clear-right", "clear", "right" },
         { "clear-both", "clear", "both" },
         { "clear-none", "clear", "none" },
+        { "clear-start", "clear", "inline-start" },
+        { "clear-end", "clear", "inline-end" },
 
         // ⚠ The pair the two vocabularies make easy to confuse, which is why both are written out
         // here next to each other: `hidden` above is `display: none` and takes the box out of

@@ -1472,28 +1472,39 @@ public sealed class LayoutStyleBuilder {
                 [table.Intern("flow-root")] = Display.FlowRoot
             };
 
-            // ⚠ <b>The two LOGICAL keywords are absent, and it is the same refusal <c>inline-grid</c>
-            // gets one table up.</b> Tailwind v4 emits <c>float: inline-start</c> and
-            // <c>inline-end</c>, and CSS Logical Properties defines both against the writing mode.
-            // <see cref="FloatSide" /> and <see cref="Clear" /> are physical by construction — CSS
-            // 2.1 §9.5's keywords, which do not flip with <see cref="Direction" />, and which the
-            // whole `float_bfc_*` corpus asserts do not flip by shipping RTL variants with identical
-            // expectations. Mapping `inline-start` onto `Left` would be right in LTR and wrong in
-            // RTL within the same declaration; accepting it and doing nothing is worse in a
-            // different way. So the utility families do not emit them either, and
-            // `docs/plan/43-web-styling-parity.tsv` records both roots as `partial` with the gap
-            // named, rather than as `works` with a class that quietly does nothing.
+            // ⚠ <b>The two LOGICAL keywords are here now, and what used to keep them out was a
+            // conflation rather than a limit.</b> This table said Tailwind v4's
+            // <c>float: inline-start</c> "resolves against the writing mode", concluded that a store
+            // which had decided never to gain one (#282) could only alias it onto
+            // <see cref="FloatSide.Left" /> — right in LTR and wrong in RTL inside one declaration —
+            // or accept it and drop it, and recorded both roots as `partial`. CSS Logical Properties
+            // resolves <c>inline-start</c> against the writing mode <i>and the direction</i>, and
+            // with no vertical writing mode the inline axis is horizontal in every configuration
+            // this engine can be in. So the whole of the resolution is <see cref="Direction" />,
+            // which every algorithm in <c>Vixen.Ui.Layout</c> already has in hand, and the answer
+            // is a fourth value on each enum rather than a reinterpretation of the first two.
+            //
+            // ⚠ <b>The observation the refusal rested on is TRUE and was about something else.</b>
+            // The ten <c>float_bfc_*</c> families do ship RTL variants with identical expectations,
+            // and that proves <c>float: left</c> does not flip — which is exactly why
+            // <see cref="FloatSide.InlineStart" /> has to be its own value instead of a rereading of
+            // <see cref="FloatSide.Left" />. It was never an argument that the logical keyword could
+            // not be expressed.
             Floats = new Dictionary<int, FloatSide> {
                 [table.Intern("none")] = FloatSide.None,
                 [table.Intern("left")] = FloatSide.Left,
-                [table.Intern("right")] = FloatSide.Right
+                [table.Intern("right")] = FloatSide.Right,
+                [table.Intern("inline-start")] = FloatSide.InlineStart,
+                [table.Intern("inline-end")] = FloatSide.InlineEnd
             };
 
             Clears = new Dictionary<int, Clear> {
                 [table.Intern("none")] = Clear.None,
                 [table.Intern("left")] = Clear.Left,
                 [table.Intern("right")] = Clear.Right,
-                [table.Intern("both")] = Clear.Both
+                [table.Intern("both")] = Clear.Both,
+                [table.Intern("inline-start")] = Clear.InlineStart,
+                [table.Intern("inline-end")] = Clear.InlineEnd
             };
 
             // ⚠ <b>Three of the eight, and the five that are missing are missing on purpose.</b>

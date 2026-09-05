@@ -264,6 +264,112 @@ public sealed class FloatBlindSpotTests {
         Assert.Equal(200f, tree.GetWidth(bfc), Tolerance);
     }
 
+    // ── The flow-relative keywords, which are a `direction` question and not a writing-mode one ──
+    //
+    // ⚠ CSS Logical Properties adds `inline-start` and `inline-end` to `float` and `clear`, and doc
+    // 43's ledger, `UtilityFamilies` and `LayoutStyleBuilder` all recorded them as waiting on a
+    // writing mode this store decided (in #282) never to gain. They resolve against the writing mode
+    // AND the direction, and with no vertical writing mode the inline axis is horizontal in every
+    // configuration this engine can be in — so the whole of the resolution is `direction`.
+    //
+    // ⚠ The three tests below have to be read together. Two of them would pass against an
+    // implementation that simply aliased `inline-start` onto `Left`, which is the shortcut the
+    // refusal was written to avoid; the RTL one is the only one that can tell the two apart, and the
+    // fourth pins that the PHYSICAL keywords still do not flip beside them.
+
+    /// <summary><c>float: inline-start</c> is the left in LTR.</summary>
+    [Fact]
+    public void An_inline_start_float_is_the_left_in_ltr() {
+        using var tree = new LayoutTree();
+        var root = Block(tree, LayoutNodeId.Invalid, 200f);
+        var f = Float(tree, root, FloatSide.InlineStart, 50f, 50f);
+        var bfc = FormattingContextRoot(tree, root, 30f, 20f);
+
+        tree.CalculateLayout(root, 200f, float.NaN, Direction.Ltr);
+
+        AssertAt(tree, f, 0f, 0f);
+        AssertAt(tree, bfc, 50f, 0f);
+    }
+
+    /// <summary><c>float: inline-start</c> is the right in RTL, and the exclusion goes with it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the test the whole refusal turns on.</b> An implementation that aliased
+    ///     <c>inline-start</c> onto <see cref="FloatSide.Left" /> — "right in LTR and wrong in RTL
+    ///     inside the same declaration", which is how the refusal described the shortcut — passes the
+    ///     LTR test above and fails this one, on both assertions. The avoiding box is asserted as well
+    ///     as the float, because the side is written into the exclusion list as well as into the
+    ///     rectangle and a resolution applied to only one of them is a float that clears from the
+    ///     wrong edge.
+    /// </remarks>
+    [Fact]
+    public void An_inline_start_float_is_the_right_in_rtl() {
+        using var tree = new LayoutTree();
+        var root = Block(tree, LayoutNodeId.Invalid, 200f);
+        tree.SetDirection(root, Direction.Rtl);
+
+        var f = Float(tree, root, FloatSide.InlineStart, 50f, 50f);
+        var bfc = FormattingContextRoot(tree, root, 30f, 20f);
+
+        tree.CalculateLayout(root, 200f, float.NaN, Direction.Rtl);
+
+        AssertAt(tree, f, 150f, 0f);
+        AssertAt(tree, bfc, 120f, 0f);
+    }
+
+    /// <summary><c>clear: inline-end</c> clears the right in LTR and the left in RTL.</summary>
+    /// <remarks>
+    ///     The clear side is resolved where the clearance point is asked for, which is two call sites
+    ///     — the block walk's and <c>PlaceFloatChild</c>'s own — so this asserts the first and
+    ///     <see cref="An_inline_start_float_is_the_right_in_rtl" />'s shape covers the second.
+    /// </remarks>
+    [Theory]
+    [InlineData(Direction.Ltr, 50f)]
+    [InlineData(Direction.Rtl, 0f)]
+    public void An_inline_end_clear_names_the_far_side_of_the_inline_axis(Direction direction, float expectedTop) {
+        using var tree = new LayoutTree();
+        var root = Block(tree, LayoutNodeId.Invalid, 200f);
+        tree.SetDirection(root, direction);
+
+        // A physical RIGHT float. `clear: inline-end` clears it in LTR and does not in RTL, where
+        // `inline-end` names the left.
+        Float(tree, root, FloatSide.Right, 50f, 50f);
+
+        var cleared = Block(tree, root, float.NaN);
+        tree.SetClear(cleared, Clear.InlineEnd);
+        tree.SetDimension(cleared, Dimension.Height, StyleLength.Points(10f));
+
+        tree.CalculateLayout(root, 200f, float.NaN, direction);
+
+        Assert.Equal(expectedTop, tree.GetTop(cleared), Tolerance);
+    }
+
+    /// <summary>The physical keywords still do not flip, which is why the logical pair is separate.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The observation the refusal rested on is true and was about the other keywords.</b>
+    ///     The ten <c>float_bfc_*</c> families ship RTL variants whose expectations are identical to
+    ///     their LTR twins, which proves <c>float: left</c> does not flip — and that is precisely the
+    ///     reason <see cref="FloatSide.InlineStart" /> has to be a fourth value rather than a
+    ///     rereading of <see cref="FloatSide.Left" />. Asserted here so that a later simplification
+    ///     that "unifies" the two pairs goes red.
+    /// </remarks>
+    [Fact]
+    public void A_physical_left_float_is_still_the_left_in_rtl() {
+        using var tree = new LayoutTree();
+        var root = Block(tree, LayoutNodeId.Invalid, 200f);
+        tree.SetDirection(root, Direction.Rtl);
+
+        var f = Float(tree, root, FloatSide.Left, 50f, 50f);
+        var bfc = FormattingContextRoot(tree, root, 30f, 20f);
+
+        tree.CalculateLayout(root, 200f, float.NaN, Direction.Rtl);
+
+        // The float stays on the left. The avoiding box goes to 170 rather than to 50, and that is
+        // §10.3.3 rather than avoidance: a stated width is anchored at the inline START, which in RTL
+        // is the right edge, and 170..200 is already clear of a float occupying 0..50.
+        AssertAt(tree, f, 0f, 0f);
+        AssertAt(tree, bfc, 170f, 0f);
+    }
+
     // ── Fixture helpers ─────────────────────────────────────────────────────────────────────────
 
     static LayoutNodeId Block(LayoutTree tree, LayoutNodeId parent, float width) {

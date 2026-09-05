@@ -751,7 +751,7 @@ public sealed partial class LayoutTree {
                 // way out through the container's top edge, so the box's hypothetical position was
                 // zero and clearance simply replaced the whole set. Discarding it is what the tail of
                 // this loop does with `clearanceApplied`.
-                var clearPoint = ClearancePoint(styles[child].Clear);
+                var clearPoint = ClearancePoint(ResolveClear(styles[child].Clear, direction));
 
                 if (!float.IsNaN(clearPoint) && committed + advance < clearPoint) {
                     advance = clearPoint - committed;
