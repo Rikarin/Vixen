@@ -392,6 +392,37 @@ public static class UtilityFamilies {
         Static("isolate", "isolation", "isolate");
         Static("isolation-auto", "isolation", "auto");
 
+        // ⚠ <b>Fourteen static roots and not two keyword families, because Tailwind spells two
+        // properties under one prefix</b> — `object-contain` is a fit and `object-center` is a
+        // position, and a family named `object` would have to decide which property a value belongs
+        // to by looking the value up. That is `mask-alpha`'s arrangement beside `mask-repeat`, one
+        // prefix and two meanings, and the answer there was separate registry roots.
+        //
+        // ⚠ <b>Four of the nine positions are TWO-WORD values, which is why this root needed a
+        // reader and not just a table.</b> `object-left-top` computes to `left top`, and
+        // `UiDocument.KeywordOf` answers null to anything that is not one bare identifier — so the
+        // four corners were unreadable by every accessor `StyleAccess` had. `UiDocument.PositionOf`
+        // is the fifth, and it is the same `<position>` parser `background-position` uses.
+        //
+        // ⚠ <b>All five fit keywords but `fill` are undefined without an intrinsic size, and
+        // supplying one is an application's job.</b> `Image.IntrinsicSize` is where it goes; zero
+        // means unknown, and unknown draws `fill` whatever the class says — which is CSS's own answer
+        // for content with no intrinsic dimensions rather than a shortfall.
+        Static("object-contain", "object-fit", "contain");
+        Static("object-cover", "object-fit", "cover");
+        Static("object-fill", "object-fit", "fill");
+        Static("object-none", "object-fit", "none");
+        Static("object-scale-down", "object-fit", "scale-down");
+        Static("object-bottom", "object-position", "bottom");
+        Static("object-center", "object-position", "center");
+        Static("object-left", "object-position", "left");
+        Static("object-left-bottom", "object-position", "left bottom");
+        Static("object-left-top", "object-position", "left top");
+        Static("object-right", "object-position", "right");
+        Static("object-right-bottom", "object-position", "right bottom");
+        Static("object-right-top", "object-position", "right top");
+        Static("object-top", "object-position", "top");
+
         // ⚠ <b>Three declarations, because `truncate` <i>is</i> three declarations.</b> It was one
         // here — `overflow: hidden` alone — and doc 43's F5 is the finding that the other two were
         // missing: the class named the ellipsis it could not draw, and the wrapping the third

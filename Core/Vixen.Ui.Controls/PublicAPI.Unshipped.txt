@@ -269,6 +269,8 @@ Vixen.Ui.Controls.Image.Description.set -> string?
 Vixen.Ui.Controls.Image.HollowCentre.get -> bool
 Vixen.Ui.Controls.Image.HollowCentre.set -> bool
 Vixen.Ui.Controls.Image.Image() -> void
+Vixen.Ui.Controls.Image.IntrinsicSize.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Image.IntrinsicSize.set -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Controls.Image.Source.get -> string?
 Vixen.Ui.Controls.Image.Source.set -> string?
 Vixen.Ui.Controls.Image.SourceBorder.get -> Vixen.Core.Mathematics.NineSlice

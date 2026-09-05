@@ -84,7 +84,7 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **332** | 290 families |
+| Utility **roots** (the unit of this table) | **332** | 304 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
 | Variant keys | **88** | **51** |
@@ -107,10 +107,10 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **235** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **237** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **28** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **65** |
+| **absent** | not emitted at all | **63** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 
 ⚠ **There was a sixth, `unknown`, and it described a row rather than a state.** Exactly one row held
@@ -475,7 +475,7 @@ refusal block, which already says so for the same reason.
 
 | Category | roots | works | partial | inert | absent | composed |
 |---|--:|--:|--:|--:|--:|--:|
-| Layout | 51 | 31 | 4 | 0 | 13 | 3 |
+| Layout | 51 | 33 | 4 | 0 | 11 | 3 |
 | Interactivity | 40 | 30 | 0 | 1 | 9 | 0 |
 | Borders | 34 | 28 | 2 | 0 | 4 | 0 |
 | Effects | 34 | 27 | 2 | 0 | 5 | 0 |
@@ -490,10 +490,10 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 |
-| **Total** | **332** | **235** | **28** | **1** | **65** | **3** |
+| **Total** | **332** | **237** | **28** | **1** | **63** | **3** |
 
 Flexbox and Grid leads at 30 of 34, with only two absent roots left and both of those refused on
-policy rather than owed; then Layout and Interactivity at 31 of 51 and 30 of 40, Borders at 28 of 34,
+policy rather than owed; then Layout at 33 of 51, Interactivity at 30 of 40, Borders at 28 of 34,
 and Effects at 27 of 34. Tables and Accessibility still have **no working root at all**.
 
 ⚠ **No category is `complete`, and SVG — which this section called the first one to be — is 2 of 3.**
@@ -3251,34 +3251,55 @@ until that number can be zero on a frame that asks for a blend.
 ⚠ **`background-blend-mode` is not this and stays refused.** It blends an element's background
 *layers* with each other, and there is one background layer for them to blend.
 
-### Bucket 3 — the code exists and an *input* does not. `object-fit`, `object-position`, `contain`.
+### Bucket 3 — the code existed and an *input* did not. `object-fit`, `object-position` ✅; `contain` ⛔.
 
-⚠ **The guess going in was that these are about the sampling rectangle. The sampling rectangle is
+⚠ **The guess going in was that these are about the sampling rectangle. The sampling rectangle was
 already there and already honoured** — `DrawCommand.Source` is a UV sub-rect, it survives to the
 geometry builder, and negative extents work (`Viewport` flips vertically with one). Nine-slice
 already relates a destination rect to a source rect, and `Icon.Fit` is `object-fit: contain` plus
-`object-position: center` written out in path space. None of that is the blocker.
+`object-position: center` written out in path space. None of that was the blocker.
 
-**The blocker is that `Vixen.Ui` cannot see the texture's intrinsic size.** `Image.Texture` is an
-opaque `ulong` the renderer owns; the control does no measurement, has no measure hook, and takes
-its box entirely from `width`/`height`/`aspect-ratio`. `object-fit` is *defined* as a relation
-between the intrinsic ratio of the replaced content and the box — so `contain`, `cover`,
-`scale-down` and `none` are all undefined here, and only `fill`, the initial value, is expressible,
-which is what already happens. ⚠ **This is a layering decision, not an oversight**, and the honest
-close is an app-supplied intrinsic size on `Image` (the asset layer knows it) rather than reaching
-through the abstraction from the UI. That is an API design question and a decision about who fills
-it in, not a property registration. **Sized: small once the intrinsic size exists, and the intrinsic
-size is the actual work.** Note a video is an `Image` here, so this covers the classic
-non-matching-aspect case.
+**The blocker was that `Vixen.Ui` cannot see the texture's intrinsic size,** and ⚠ **that made the
+close an API decision rather than an algorithm.** `Image.Texture` is an opaque `ulong` the renderer
+owns, and this assembly does not reference `Vixen.Graphics` — which is the whole bargain, not an
+accident to route around. So the intrinsic size is **supplied**: `Image.IntrinsicSize`, in the
+texture's own pixels, written by whoever registered the texture, because the asset layer is the layer
+that knows. **Zero means unknown**, and unknown draws `fill` whatever the class says — which is not a
+fallback for a missing feature but CSS's own answer, since Images 3 § 5.5 defines every other keyword
+as a relation between the intrinsic ratio and the box and gives `fill` for content that has no
+intrinsic dimensions.
 
-⚠ **`object-position` is behind `object-fit` and carries one half of its own**, which is worth
-knowing before the pair is sized as one item. It is refused for `object-fit`'s reason first — a
-position says where the sampled rectangle sits in the box, and with no intrinsic size there is never
-anything left over to place — but four of Tailwind's nine position classes are *two-word* values
-(`object-left-top`), and `UiDocument.KeywordOf` answers `null` to a two-word value by construction.
-So that root also wants a `<position>` reading beside the four `StyleAccess` has, where `object-fit`
-wants none. Both rows now carry the measurement in the ledger, and the pair is tripwired:
-`object` expires on `Image.IntrinsicSize` and `object-*` expires with `object`.
+⚠ **It sizes the picture and not the element, and that half of CSS's replaced-element model is
+deliberately still absent.** A browser lets an `<img>` with no width take its box from the intrinsic
+size; an unsized `Image` here is still a zero-height box, because sizing a replaced element from its
+content needs a measure hook the control has no equivalent of. What landed changes what is drawn
+*inside* a box, not what the box is.
+
+**The arithmetic is one arrangement for all five keywords,** and the reason it can be is that the
+answer is always "place a rectangle, then clip it to the box". The tempting shape is two cases —
+shrink the *destination* for `contain`, narrow the *source* for `cover` — and it is two chances to
+get the position arithmetic subtly different. ⚠ `none` is the case that makes the two-branch version
+wrong outright: a 64 × 16 picture in a 40 × 40 box overflows on one axis and underfills on the other
+at the same time.
+
+⚠ **`object-position` carried a second blocker of its own, and sizing the pair as one item would have
+missed it.** Four of Tailwind's nine position classes are *two-word* values — `object-left-top`
+computes to `left top` — and `UiDocument.KeywordOf` answers `null` to anything that is not one bare
+identifier, so those four were unreadable by every accessor `StyleAccess` had. The root wanted a
+`<position>` **reading** and not another keyword table. `UiDocument.PositionOf` is the fifth accessor,
+and it is the *same* parser `background-position` and `radial-gradient(at …)` use, because CSS Values
+4 § 8.2 gives all three one grammar and two readers of it would be two sets of keyword handling to
+keep in step. ⚠ The extents it resolves against are the **slack** rather than the box: a 50% offset
+centres the concrete object size, which is half of what is left over, and passing the box's own size
+would put the middle of a smaller picture at the middle of nothing.
+
+⚠ **And the consumption gate needed a scene before it could see any of this.** `object-fit` and
+`object-position` are the only properties in the registry read by a *replaced element*, and no probe
+scene had one — the eighth entry on `UtilityConsumptionProbe`'s own tally of arrangements that were
+missing, and the one that would have made a finished feature measure `inert`. The `pictured` scene's
+`#probe` **is** an `Image` rather than holding one, because `object-fit` does not inherit, and it
+declares `object-fit: contain` itself so the injected `object-position` has slack to move in —
+`primed`'s lesson, one property along.
 
 `contain` is refused for a related reason and a worse one: **there is no containment concept in the
 layout store at all** — no property, no style slot, no branch — and no vocabulary to express the

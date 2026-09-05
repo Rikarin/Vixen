@@ -120,6 +120,48 @@ public sealed partial class UiDocument {
         return value.Kind == StyleValueKind.Keyword ? Styles.Names.NameOf(value.Keyword) : null;
     }
 
+    /// <summary>The point a computed style's CSS <c>&lt;position&gt;</c> names, resolved in a box.</summary>
+    /// <param name="style">The style, from <see cref="UiElement.Style" />.</param>
+    /// <param name="property">The property, from <see cref="PropertyId" />.</param>
+    /// <param name="width">The extent the horizontal component resolves against.</param>
+    /// <param name="height">The extent the vertical component resolves against.</param>
+    /// <returns>The point in pixels from the extent's origin, or <c>null</c> where it is not a position.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The fifth reading beside <see cref="ColorOf" />, <see cref="LengthOf" />,
+    ///         <see cref="NumberOf" /> and <see cref="KeywordOf" />, and — like <c>KeywordOf</c>
+    ///         before it — the one none of the others can stand in for. ⚠ <b>A
+    ///         <c>&lt;position&gt;</c> is up to four components and half of the values anyone writes
+    ///         are two</b>: <c>object-left-top</c> computes to <c>left top</c>, and
+    ///         <see cref="KeywordOf" /> answers <c>null</c> to that by construction, because it is not
+    ///         one bare identifier. So four of Tailwind's nine <c>object-position</c> classes were
+    ///         unreadable by every accessor this type had.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The same parser <c>background-position</c> and <c>radial-gradient(at …)</c> use,
+    ///         and sharing it is the point rather than a saving.</b> CSS Values 4 § 8.2 gives one
+    ///         grammar for all three — keywords in either order, percentages across-then-down,
+    ///         percentages and pixels summed, an edge plus an inset — and a second reader of it would
+    ///         be a second set of keyword handling to keep in step, where the failure is a picture
+    ///         that lands on a different side depending on which property an author reached for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The extents are what the position is a fraction <i>of</i>, and for
+    ///         <c>object-position</c> that is the <i>slack</i> rather than the box.</b> CSS Images 3
+    ///         § 5.5 places the concrete object size in the element's box exactly as a background
+    ///         layer is placed: a 50% offset centres it, which means half of what is left over.
+    ///         Passing the box's own size instead would put the middle of a smaller picture at the
+    ///         middle of nothing.
+    ///     </para>
+    /// </remarks>
+    public Vector2? PositionOf(ComputedStyle style, int property, float width, float height) {
+        if (!style.TryGet(property, out var id)) {
+            return null;
+        }
+
+        return GradientReader.ReadPlacement(Styles.Values.NameOf(id))?.Resolve(width, height);
+    }
+
     /// <summary>An element's <c>color</c>, which is what a control draws itself in.</summary>
     /// <param name="element">The element.</param>
     /// <returns>Its colour, or black if it has none.</returns>

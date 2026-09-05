@@ -560,6 +560,28 @@ public class UtilityFamilySupportTests {
         { "mix-blend-multiply", "mix-blend-mode", "multiply" },
         { "isolate", "isolation", "isolate" },
         { "isolation-auto", "isolation", "auto" },
+
+        // ⚠ <b>Fourteen static roots under one prefix and two properties, which is why every one of
+        // them gets a line rather than the pair getting two.</b> `object-contain` is a fit and
+        // `object-center` is a position; a reader who saw only the first two rows would take the
+        // prefix for a family. ⚠ And the four corners are the reason this root needed a new accessor:
+        // `object-left-top` computes to the TWO-WORD value `left top`, which `UiDocument.KeywordOf`
+        // reports as absent by construction. What the two properties do to a picture is
+        // `Vixen.Ui.Controls.Tests.ObjectFitTests`, in rectangles.
+        { "object-contain", "object-fit", "contain" },
+        { "object-cover", "object-fit", "cover" },
+        { "object-fill", "object-fit", "fill" },
+        { "object-none", "object-fit", "none" },
+        { "object-scale-down", "object-fit", "scale-down" },
+        { "object-bottom", "object-position", "bottom" },
+        { "object-center", "object-position", "center" },
+        { "object-left", "object-position", "left" },
+        { "object-left-bottom", "object-position", "left bottom" },
+        { "object-left-top", "object-position", "left top" },
+        { "object-right", "object-position", "right" },
+        { "object-right-bottom", "object-position", "right bottom" },
+        { "object-right-top", "object-position", "right top" },
+        { "object-top", "object-position", "top" },
         { "bg-position-[25%_75%]", "background-position", "25% 75%" },
         { "bg-size-[25%_75%]", "background-size", "25% 75%" },
 

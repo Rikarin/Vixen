@@ -1377,6 +1377,7 @@ Vixen.Ui.UiDocument.MoveFocus(Vixen.Ui.NavigationDirection direction) -> bool
 Vixen.Ui.UiDocument.Now.get -> System.TimeSpan
 Vixen.Ui.UiDocument.NumberOf(Vixen.Ui.Styling.ComputedStyle style, int property) -> float?
 Vixen.Ui.UiDocument.PointerSurface.get -> Vixen.Ui.UiSurface?
+Vixen.Ui.UiDocument.PositionOf(Vixen.Ui.Styling.ComputedStyle style, int property, float width, float height) -> Vixen.Core.Mathematics.Vector2?
 Vixen.Ui.UiDocument.Preferences.get -> Vixen.Ui.Styling.MediaPreferences
 Vixen.Ui.UiDocument.Preferences.set -> Vixen.Ui.Styling.MediaPreferences
 Vixen.Ui.UiDocument.Primary.get -> Vixen.Ui.UiSurface

@@ -158,6 +158,17 @@ channel on `UiLayer` and the arithmetic to go with it. `isolate` and `isolation-
 second, because `isolation` has no observable of its own — its only defined effect is on a
 descendant's blend.
 
+⚠ **`object-*` needs one line of C# per picture and does nothing without it.** The fourteen classes —
+five fits and nine positions — are read by `Image`, and every keyword but `object-fill` is *defined*
+as a relation between the picture's own shape and the box it is in. Nothing on the UI side can ask a
+texture how big it is, so the application says: set `Image.IntrinsicSize` beside `Image.Texture`, in
+the texture's own pixels. Left at zero it means "unknown", and an unknown picture stretches to the
+box whatever the class says — which is CSS's own answer for content with no intrinsic dimensions, and
+also why adding these classes to an existing screen changes nothing until somebody fills the size in.
+
+⚠ And they place the **picture**, not the element. An `Image` with no `width` is still a zero-height
+box: sizing a replaced element from its content is a separate thing this framework does not do.
+
 ⚠ **One half of `mix-blend-*` is still owed and the classes say so.** The blend is applied by
 `SoftwareUiRasterizer` and not by `UiRenderer`, so on the device a blended group composites
 source-over and looks as though the declaration were absent. `UiRenderer.Unblended` is what says it
