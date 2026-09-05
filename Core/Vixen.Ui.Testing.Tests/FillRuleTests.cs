@@ -50,10 +50,21 @@ namespace Vixen.Ui.Testing.Tests;
 ///         to that width across the row — and the tie rule they were written for is observable only
 ///         on a primitive whose quad <i>is</i> its boundary: an image, a glyph, a tessellated path.
 ///         The rule still runs on every one of those and on the diagonal every quad's two triangles
-///         share; #595 is the fixture that reads it there. ⚠ Measured rather than assumed: closing
-///         the axis-aligned edges again — <c>return true</c> in <c>TopLeft</c>'s <c>dy == 0f</c>
-///         branch, which is the defect #526 removed — leaves every assertion in this file and every
-///         other test in this assembly green.
+///         share, so the last two fixtures below read it there instead. ⚠ Measured rather than
+///         assumed: closing the axis-aligned edges again — <c>return true</c> in <c>TopLeft</c>'s
+///         <c>dy == 0f</c> branch, which is the defect #526 removed — left every <em>box</em>
+///         assertion in this file and every other test in this assembly green.
+///     </para>
+///     <para>
+///         ⚠ <b>And the primitive that reads the rule is a hard-edged path, not an image, which is
+///         the one guess worth recording as wrong.</b> An image quad <i>is</i> its own boundary and
+///         has no distance field, which makes it the obvious candidate — but this renderer draws
+///         nothing for one. <c>UiGeometryBuilder.Image</c> emits the quad with a zero
+///         <c>Shape</c>, and every image number but a composited group's names a texture the
+///         software renderer has never seen, so the fragment falls through to <c>Solid</c> with a
+///         coverage of zero. A path's fill triangles carry their coverage in the same slot and
+///         carry <b>one</b>, so with <see cref="UiGeometryBuilder.Fringe" /> turned off they are
+///         the frame's only primitive whose edge is decided by the fill rule and nothing else.
 ///     </para>
 /// </remarks>
 public class FillRuleTests {
@@ -65,6 +76,9 @@ public class FillRuleTests {
     static readonly Color4 Red = new(1f, 0f, 0f, 1f);
 
     static readonly Color4 Blue = new(0f, 0f, 1f, 1f);
+
+    /// <summary>Half opaque, which is what makes a doubly-shaded sample a different colour.</summary>
+    static readonly Color4 Translucent = new(1f, 0f, 0f, 0.5f);
 
     /// <summary>
     ///     A box whose right edge lands on a sample centre does not shade that column, and its left
@@ -189,6 +203,97 @@ public class FillRuleTests {
         Assert.NotEqual((byte)0, Pixel(both, 32, 20).B);
     }
 
+    /// <summary>A hard-edged quad owns the top and left edges it lands on, and not the other two.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Both halves of the asymmetry on one primitive, which is the only shape of fixture
+    ///         that can tell the rule from either blanket answer.</b> "Every axis-aligned edge is
+    ///         closed" satisfies the two inclusive assertions and "every one is open" satisfies the
+    ///         two exclusive ones; only asking for the pair together says the top row is in and the
+    ///         bottom row is out.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the answers are 255 and 0 rather than something near them.</b> A path's fill
+    ///         triangles carry a coverage of one and nothing else — no distance field, no ramp — so a
+    ///         sample either belongs to the primitive or does not, and a tie decided the wrong way is
+    ///         a whole row of ink appearing or vanishing rather than a level or two of drift. That is
+    ///         what a box could do before #590 grew its quad past its own edges and what it can no
+    ///         longer do; see the remarks on the class.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_hard_edged_path_owns_the_top_and_left_edges_it_lands_on_and_not_the_other_two() {
+        var image = RenderPath(new Rectangle(8.5f, 8.5f, 24f, 24f), Red);
+
+        // The top edge runs left to right, so it is the top one and its row is shaded; the bottom
+        // edge runs back the other way and its row belongs to whatever is under the path.
+        Assert.Equal((byte)255, Red8(image, 20, 8));
+        Assert.Equal((byte)0, Red8(image, 20, 32));
+
+        // The same on the other axis, decided by the other branch of the rule: a left edge is
+        // traversed upwards and is inclusive, a right edge downwards and is not.
+        Assert.Equal((byte)255, Red8(image, 8, 20));
+        Assert.Equal((byte)0, Red8(image, 32, 20));
+
+        // ⚠ The instrument. Two empty rows agree just as well as two the rule threw away, so the
+        // rows and columns *inside* the four edges have to be ink for the four answers above to mean
+        // anything — and the ones outside have to be background, or the picture is simply bigger than
+        // the path and every exclusive assertion is being satisfied by an accident of position.
+        Assert.Equal((byte)255, Red8(image, 20, 9));
+        Assert.Equal((byte)255, Red8(image, 20, 31));
+        Assert.Equal((byte)255, Red8(image, 9, 20));
+        Assert.Equal((byte)255, Red8(image, 31, 20));
+
+        Assert.Equal((byte)0, Red8(image, 20, 7));
+        Assert.Equal((byte)0, Red8(image, 20, 33));
+        Assert.Equal((byte)0, Red8(image, 7, 20));
+        Assert.Equal((byte)0, Red8(image, 33, 20));
+    }
+
+    /// <summary>The diagonal two triangles share is shaded once, not once per triangle.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Translucent, because that is the only way the fault is visible at all.</b>
+    ///         Blending an opaque colour over itself returns it, so a diagonal shaded twice is
+    ///         pixel-identical to one shaded once for every fill in the engine that is not
+    ///         see-through — and a composited group is see-through by construction, which is where
+    ///         this was originally found as a 0.75 line down a 40×40 box at half opacity.
+    ///     </para>
+    ///     <para>
+    ///         The rectangle's corners are on sample centres so that its diagonal passes through one
+    ///         too: the trapezoid the tessellator emits is split from <c>(8.5, 8.5)</c> to
+    ///         <c>(32.5, 32.5)</c>, which is a slope of exactly one through the centre of every pixel
+    ///         whose column and row are equal. Every other rectangle in the suite misses those
+    ///         samples and cannot see this.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The comparison is against a pixel of the <i>same</i> interior rather than against a
+    ///         constant, so a change to the colour or the blend cannot make it pass by moving both.
+    ///         The absolute range is what stops it passing on an empty frame, where the two agree
+    ///         perfectly at zero.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(13)]
+    [InlineData(20)]
+    [InlineData(29)]
+    public void The_diagonal_a_paths_two_triangles_share_is_shaded_once(int offset) {
+        var image = RenderPath(new Rectangle(8.5f, 8.5f, 24f, 24f), Translucent);
+
+        var diagonal = Red8(image, offset, offset);
+        var interior = Red8(image, offset - 4, offset);
+
+        // Half of red over black, quantised — and a tie taken by both triangles would put 0.75 here,
+        // which is 191 and nowhere near the range.
+        Assert.InRange(diagonal, 124, 132);
+        Assert.InRange(interior, 124, 132);
+
+        // ⚠ Within a level, not equal: the coverage rides in a vertex attribute and is interpolated
+        // by barycentrics, so an interior that is uniformly one arrives as 127 or 128 depending on
+        // where the sample falls. A doubly-shaded diagonal is sixty levels away from either.
+        Assert.InRange(Math.Abs(diagonal - interior), 0, 1);
+    }
+
     /// <summary>Renders one frame of boxes at the size the fixtures above assume.</summary>
     static Bitmap Render(params DrawCommand[] commands) {
         var list = new DrawList();
@@ -204,6 +309,41 @@ public class FillRuleTests {
 
         var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
         var geometry = new UiGeometryBuilder().Build(list, cache, new Rectangle(0, 0, Side, Side));
+
+        Assert.NotEmpty(geometry.Draws);
+
+        return SoftwareUiRasterizer.Render(geometry, cache.Atlas, Side, Side, Background);
+    }
+
+    /// <summary>Renders one filled rectangular path with nothing softening its edges.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="UiGeometryBuilder.Fringe" /> is zero, and that is what makes the picture
+    ///     an answer about the fill rule rather than about the tessellator's antialiasing.</b> The
+    ///     fringe is a strip of ramp triangles laid along the outline; with it on, every edge below
+    ///     would come out part-covered whichever way the tie fell, which is exactly the blur that
+    ///     took a box's edges out of this file's reach when its quad grew. Zero is a supported value
+    ///     — <c>PathTessellator.FillFringe</c> returns without emitting anything — so this is the
+    ///     shipping fill path with its antialiasing turned off, not a second code path.
+    /// </remarks>
+    static Bitmap RenderPath(Rectangle rectangle, Color4 colour) {
+        var list = new DrawList();
+        list.BeginFrame();
+
+        var path = new PathBuilder();
+        path.AddRectangle(rectangle);
+
+        list.Add(
+            new DrawCommand(DrawCommandKind.Path, 0f, 0f, 0f, 0f, colour, 0f, 0f) {
+                Offset = list.AddPath(path),
+                Length = path.Count
+            }
+        );
+
+        list.EndFrame();
+
+        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var builder = new UiGeometryBuilder { Fringe = 0f };
+        var geometry = builder.Build(list, cache, new Rectangle(0, 0, Side, Side));
 
         Assert.NotEmpty(geometry.Draws);
 
