@@ -294,8 +294,8 @@ public sealed partial class ImageView : Control {
         darkId = Document.PropertyId("--image-checker-dark");
         overlayId = Document.PropertyId("--image-overlay-color");
 
-        AddHandler<PointerEvent>(static (element, args) => ((ImageView) element).Pointed(args));
-        AddHandler<WheelEvent>(static (element, args) => ((ImageView) element).Wheeled(args));
+        AddHandler<PointerEvent>(static (element, args) => ((ImageView)element).Pointed(args));
+        AddHandler<WheelEvent>(static (element, args) => ((ImageView)element).Wheeled(args));
     }
 
     /// <inheritdoc />
@@ -354,8 +354,8 @@ public sealed partial class ImageView : Control {
         // ⚠ Indexed off the *view's* corner rather than the image's, so a pan does not make the
         // pattern crawl under a stationary image. It is a backdrop and not content, and content is
         // exactly what a moving pattern would read as.
-        var firstColumn = (int) MathF.Floor((visible.X - AbsoluteLeft) / square);
-        var firstRow = (int) MathF.Floor((visible.Y - AbsoluteTop) / square);
+        var firstColumn = (int)MathF.Floor((visible.X - AbsoluteLeft) / square);
+        var firstRow = (int)MathF.Floor((visible.Y - AbsoluteTop) / square);
 
         for (var row = firstRow; AbsoluteTop + (row * square) < bottom; row++) {
             for (var column = firstColumn; AbsoluteLeft + (column * square) < right; column++) {

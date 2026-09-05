@@ -69,13 +69,13 @@ static class HemisphereSampler {
     ///     walked in.
     /// </remarks>
     public static float Turn(int texel) {
-        var hash = (uint) texel * 2654435761u;
+        var hash = (uint)texel * 2654435761u;
 
         hash ^= hash >> 15;
         hash *= 2246822519u;
         hash ^= hash >> 13;
 
-        return (hash & 0xFFFFFF) / (float) 0x1000000;
+        return (hash & 0xFFFFFF) / (float)0x1000000;
     }
 
     /// <summary>An orthonormal pair spanning the plane a normal is perpendicular to.</summary>
@@ -102,7 +102,7 @@ static class HemisphereSampler {
 
     /// <summary>The base-2 radical inverse, which is the second half of a Hammersley pair.</summary>
     static float RadicalInverse(int index) {
-        var bits = (uint) index;
+        var bits = (uint)index;
 
         bits = (bits << 16) | (bits >> 16);
         bits = ((bits & 0x55555555u) << 1) | ((bits & 0xAAAAAAAAu) >> 1);
