@@ -19,21 +19,27 @@
 #
 # One line per project: its path from the repository root, whitespace, and the reason token.
 #
-# ⚠ Nothing here is an exemption somebody argued for on the merits. Twenty-one of the
-# twenty-nine lines are #641, which is open and asks the opposite question: a package is a
+# ⚠ Nothing here is an exemption somebody argued for on the merits. Twenty-three of the
+# thirty-one lines are #641, which is open and asks the opposite question: a package is a
 # promise, so either these are covered the way Core/ is, or they should not be packing.
 #
-# ⚠ Before answering it, know what "cover them" costs, because it is not twenty-one baselines.
+# ⚠ And the undecided set GROWS on its own, which is the argument for answering rather than
+# deferring: it was twenty-one, and Vixen.Editor.TextureGraph and Vixen.Editor.Texturing joined
+# it by being added under Editor/ — the profile packs them by default, so nobody chose to ship
+# them and nobody had to. This assertion going red is the only reason that was noticed at all,
+# and adding the two lines is deliberately not an answer to #641.
+#
+# ⚠ Before answering it, know what "cover them" costs, because it is not twenty-three baselines.
 # A PublicAPI baseline is read by TWO gates. CheckDocsCoverage takes every tracked
 # PublicAPI.Shipped.txt and PublicAPI.Unshipped.txt in the repository — a glob over tracked
 # files, not CheckApi's project list (build/Build.DocsCoverage.cs, BaselinedTypes) — and fails
 # any type in one that has neither a guide page nor a line in docs/DocsExempt.txt. So a
 # baseline is an enrolment in the documentation gate as well, and #686 is the same fact from
 # the other side: the types CheckDocsCoverage was written to catch are green precisely because
-# their projects keep no baseline. Covering the twenty-one would move on the order of a
-# thousand types (997 by a grep for public type declarations under the twenty-one, which is a
-# source-level count and so a floor, not a total) from silence into CheckDocs, each owing a
-# page or an exemption line — on top of the twenty-one Release-generated baselines. That is
+# their projects keep no baseline. Covering the twenty-three would move on the order of a
+# thousand types (1 052 by a grep for public type declarations under the twenty-three, which is
+# a source-level count and so a floor, not a total) from silence into CheckDocs, each owing a
+# page or an exemption line — on top of the twenty-three Release-generated baselines. That is
 # the real price of option 1, and it is why "just generate the baselines" is not a small change
 # an agent lands on the way past.
 #
@@ -91,6 +97,8 @@ Editor/Vixen.Editor.Scripts/Vixen.Editor.Scripts.csproj editor-undecided
 Editor/Vixen.Editor.ShaderGraph/Vixen.Editor.ShaderGraph.csproj editor-undecided
 Editor/Vixen.Editor.Terrain/Vixen.Editor.Terrain.csproj editor-undecided
 Editor/Vixen.Editor.Terrain.Physics/Vixen.Editor.Terrain.Physics.csproj editor-undecided
+Editor/Vixen.Editor.TextureGraph/Vixen.Editor.TextureGraph.csproj editor-undecided
+Editor/Vixen.Editor.Texturing/Vixen.Editor.Texturing.csproj editor-undecided
 Editor/Vixen.Editor.Ui/Vixen.Editor.Ui.csproj editor-undecided
 Editor/Vixen.Editor.VfxGraph/Vixen.Editor.VfxGraph.csproj editor-undecided
 Editor/Vixen.Editor.Water/Vixen.Editor.Water.csproj editor-undecided

@@ -825,12 +825,17 @@ partial class Build : NukeBuild {
         Assert.True(
             missing.Count == 0,
             $"{missing.Count} of the properties that make {probe.Name} an ahead-of-time probe are "
-            + "gone. They are declared in the project rather than passed on the command line — a "
+            + "gone, commented out, or behind a condition. They are declared in the project rather "
+            + "than passed on the command line — a "
             + "command-line property is global and reaches the source generators — which is exactly "
             + "why nothing else would notice them being removed."
         );
 
-        Log.Information("{Probe} still declares all four ahead-of-time properties.", probe.Name);
+        Log.Information(
+            "{Probe} still declares all {Count} ahead-of-time properties.",
+            probe.Name,
+            AotProbeContract.AheadOfTime.Count
+        );
     }
 
     /// <summary>
