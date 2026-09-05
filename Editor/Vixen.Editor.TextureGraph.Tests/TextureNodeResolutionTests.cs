@@ -190,6 +190,195 @@ public class TextureNodeResolutionTests {
         Assert.Equal(128, plan.SizeOf(source).X);
         Assert.Equal([16, 2, 1], rungs.Select(op => plan.SizeOf(op.Output).X).ToArray());
         Assert.Equal(source, rungs[0].Inputs[0]);
+
+        // ⚠ And the map's *target*, which this test asserted nothing about until #779 — the ladder
+        // was relative and the image it stretched into was not, so the rungs above were all correct
+        // over a 128² source while the answer was written into a 256² image. `AutoLevels.rvn` reads
+        // its source at the coordinate it is writing and clamps, so three quarters of that output was
+        // the source's right-hand and bottom edge stretched over the rest: a corner crop with a
+        // smear, from a node that emitted exactly the right number of exactly the right dispatches.
+        var map = Assert.Single(plan.Ops, op => op.Kernel == "AutoLevels");
+
+        Assert.Equal(plan.SizeOf(source), plan.SizeOf(map.Output));
+        Assert.Equal(source, map.Inputs[0]);
+    }
+
+    /// <summary>Every node in the library writes at the size of what it reads, not the graph's.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/779">#779</a>'s roll call, and
+    ///         the reason it is a roll call is that the defect was never in one node.</b> The
+    ///         relative-level API #733 added was consulted at two call sites in the whole library;
+    ///         every other node allocated at the graph's base, so <em>each</em> of them wrote a 256²
+    ///         image over a 128² source and read it coordinate-for-coordinate. A test per node would
+    ///         have been forty tests and the forty-first node would still have been wrong.
+    ///     </para>
+    ///     <para>
+    ///         <b>The library comes out of the registry rather than a list here</b>, so a node added
+    ///         by a later slice is covered the day it is registered. Every image input is fed from
+    ///         the same half-resolution image, which is what makes the expected answer unambiguous
+    ///         for the multi-input nodes as well.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A floor rather than an exact count, deliberately.</b> Some types cannot compile
+    ///         from a bare grey input — a <c>Bitmap</c> needs an asset, an <c>Output</c> writes no
+    ///         image of its own — and pinning the exact set that can would be a list that goes red on
+    ///         the merge that adds a node rather than on the change that breaks one.
+    ///         <see cref="Covered" /> is the guard that keeps this from passing vacuously.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_node_downstream_of_a_half_resample_writes_a_half_sized_image() {
+        List<string> wrong = [];
+        var covered = 0;
+
+        foreach (var definition in Registry().Types.OrderBy(type => type.Path, StringComparer.Ordinal)) {
+            // The one node whose answer is deliberately not the size of what it reads: a resample
+            // fed by a resample halves twice, which is `Two_resamples_in_a_row_each_halve`.
+            if (string.Equals(definition.Path, "Space/Resample", StringComparison.Ordinal)) {
+                continue;
+            }
+
+            if (!Downstream(definition, out var graph, out var node)) {
+                continue;
+            }
+
+            var compiler = Compiler();
+            var compilation = compiler.Compile(graph);
+
+            if (compilation.Artefact is not { } plan
+                || compilation.Diagnostics.Any(one => one.Severity == NodeSeverity.Error)) {
+                continue;
+            }
+
+            covered++;
+
+            foreach (var written in compiler.NodeImages) {
+                if (written.Node != node.Id) {
+                    continue;
+                }
+
+                if (plan.SizeOf(written.Image).X != Side / 2) {
+                    wrong.Add($"{definition.Path} wrote {plan.SizeOf(written.Image)} over a {Side / 2}² source");
+                }
+            }
+        }
+
+        Assert.Equal([], wrong);
+        Assert.True(covered >= 30, $"only {covered} node types reached the assertion, so it proves little");
+    }
+
+    /// <summary>Two images of different sizes meeting at one node are brought to the larger.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half of #779 that deriving alone cannot answer.</b> A node reads at the
+    ///     coordinate it writes, so a blend of a 256² and a 128² image is wrong whichever size the
+    ///     output takes — one of the two inputs is always mismatched. The compiler inserts a resample
+    ///     exactly as it inserts a <c>ChannelShuffle</c> for a grey image arriving at a colour port,
+    ///     and it goes <em>up</em>, because a promotion that threw detail away would be a silent
+    ///     downgrade of the branch the author did not touch.
+    /// </remarks>
+    [Fact]
+    public void Two_inputs_at_different_levels_meet_at_one_size() {
+        var compiler = Compiler();
+        var graph = Graph("Source/Noise", out var noise);
+        var checker = graph.Add("Source/Checker");
+        var resample = graph.Add("Space/Resample");
+        var blend = graph.Add("Colour/Blend");
+
+        graph.Connect(new(checker.Id, "Out"), new(resample.Id, "Input"));
+        graph.Connect(new(noise.Id, "Out"), new(blend.Id, "Background"));
+        graph.Connect(new(resample.Id, "Out"), new(blend.Id, "Foreground"));
+
+        Rewire(graph, blend);
+
+        var plan = Compile(compiler, graph);
+        var mix = Assert.Single(plan.Ops, op => op.Kernel == "Blend");
+
+        // The output is the larger of the two, and *both* of the images it reads are that size —
+        // which is the assertion, because the un-resampled input satisfies the first half on its own.
+        Assert.Equal(Side, plan.SizeOf(mix.Output).X);
+
+        foreach (var input in mix.Inputs) {
+            Assert.Equal(plan.SizeOf(mix.Output), plan.SizeOf(input));
+        }
+
+        // And it is a resample that made it so, rather than the half-resolution branch having been
+        // quietly dropped: the 128² image the resample node wrote is read by an op in this plan.
+        var half = Assert.Single(plan.Ops, op => op.Kernel == "Resample" && plan.SizeOf(op.Output).X == 128);
+
+        Assert.Contains(plan.Ops, op => op.Inputs.Contains(half.Output) && plan.SizeOf(op.Output).X == Side);
+    }
+
+    /// <summary>The splat inserted for a grey image is allocated at that image's size.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>#779 inside the compiler rather than inside a node.</b> The promotion op is a
+    ///         <c>ChannelShuffle</c>, which reads coordinate-for-coordinate like every other pointwise
+    ///         kernel — so a base-sized splat of a half-resolution mask is the same corner crop,
+    ///         emitted by the one piece of code no node-library change would ever have fixed.
+    ///     </para>
+    ///     <para>
+    ///         <b>Both branches are resampled first, so the level is settled before the blend reads
+    ///         either</b> — which is what isolates the splat: nothing here depends on the rescale
+    ///         <see cref="Two_inputs_at_different_levels_meet_at_one_size" /> is about.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_promotion_of_a_half_resolution_grey_image_is_half_sized() {
+        var compiler = Compiler();
+        var graph = Graph("Source/Noise", out var noise);
+        var colour = graph.Add("Source/Uniform");
+        var greyHalf = graph.Add("Space/Resample");
+        var colourHalf = graph.Add("Space/Resample");
+        var blend = graph.Add("Colour/Blend");
+
+        graph.Connect(new(noise.Id, "Out"), new(greyHalf.Id, "Input"));
+        graph.Connect(new(colour.Id, "Out"), new(colourHalf.Id, "Input"));
+        graph.Connect(new(colourHalf.Id, "Out"), new(blend.Id, "Background"));
+        graph.Connect(new(greyHalf.Id, "Out"), new(blend.Id, "Foreground"));
+
+        Rewire(graph, blend);
+
+        var plan = Compile(compiler, graph);
+        var splat = Assert.Single(plan.Ops, op => op.Kernel == "ChannelShuffle");
+
+        Assert.Equal(128, plan.SizeOf(splat.Output).X);
+        Assert.Equal(128, plan.SizeOf(splat.Inputs[0]).X);
+
+        // The instrument: the splat is what the blend reads, so the size above is the size of an
+        // image in the chain rather than of one allocated and abandoned.
+        Assert.Contains(splat.Output, Assert.Single(plan.Ops, op => op.Kernel == "Blend").Inputs);
+    }
+
+    /// <summary>A graph with one node of a type fed by a half-resolution source, and that node.</summary>
+    /// <returns>Whether the type is one this test can say anything about.</returns>
+    static bool Downstream(NodeTypeDefinition definition, out NodeGraphModel graph, out GraphNode node) {
+        graph = new();
+        node = null!;
+
+        var inputs = definition.Ports.Where(port => port is { Direction: PortDirection.Input, Kind: PortKind.Image });
+        var output = definition.Ports.FirstOrDefault(port =>
+            port is { Direction: PortDirection.Output, Kind: PortKind.Image }
+        );
+
+        if (output is null || !inputs.Any()) {
+            return false;
+        }
+
+        var noise = graph.Add("Source/Noise");
+        var resample = graph.Add("Space/Resample");
+
+        node = graph.Add(definition.Path);
+
+        graph.Connect(new(noise.Id, "Out"), new(resample.Id, "Input"));
+
+        foreach (var port in inputs) {
+            graph.Connect(new(resample.Id, "Out"), new(node.Id, port.Name));
+        }
+
+        Rewire(graph, node, output.Name);
+
+        return true;
     }
 
     /// <summary>A resample writes an image at a level of its own, relative to what arrives.</summary>
@@ -316,11 +505,11 @@ public class TextureNodeResolutionTests {
     }
 
     /// <summary>Points the graph's single Output node at <paramref name="from" />.</summary>
-    static void Rewire(NodeGraphModel graph, GraphNode from) {
+    static void Rewire(NodeGraphModel graph, GraphNode from, string port = "Out") {
         foreach (var node in graph.Nodes) {
             if (string.Equals(node.Type, "Output/Output", StringComparison.Ordinal)) {
                 graph.Disconnect(new(node.Id, "Input"));
-                graph.Connect(new(from.Id, "Out"), new(node.Id, "Input"));
+                graph.Connect(new(from.Id, port), new(node.Id, "Input"));
 
                 return;
             }
@@ -329,7 +518,7 @@ public class TextureNodeResolutionTests {
         var output = graph.Add("Output/Output");
 
         output.SetText("Usage", "baseColor");
-        graph.Connect(new(from.Id, "Out"), new(output.Id, "Input"));
+        graph.Connect(new(from.Id, port), new(output.Id, "Input"));
     }
 
     /// <summary>Compiles, and refuses to hand back a plan nobody could have meant.</summary>

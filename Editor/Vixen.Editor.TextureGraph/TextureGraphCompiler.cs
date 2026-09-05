@@ -142,6 +142,16 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     /// <summary>The splat inserted for one grey image, so two colour ports fed by it share one op.</summary>
     readonly Dictionary<int, int> promotions = [];
 
+    /// <summary>The resample inserted to bring one image to one level, shared the same way.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="promotions" />' twin over the other axis, and the second half of
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/779">#779</a>.</b> A node's images are
+    ///     the size of the <em>finest</em> thing arriving at it, so an input coarser than that has to
+    ///     be brought up — every pointwise kernel reads coordinate-for-coordinate with a clamp, and
+    ///     a mismatch there is three quarters of an edge smear rather than an error.
+    /// </remarks>
+    readonly Dictionary<(int Image, int Level), int> rescales = [];
+
     /// <summary>What each port whose value was written as an expression folded to.</summary>
     readonly Dictionary<(NodeId Node, string Port), float> folded = [];
 
@@ -287,6 +297,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         externals.Clear();
         imageOf.Clear();
         promotions.Clear();
+        rescales.Clear();
         folded.Clear();
         nodeImages.Clear();
         kernels.Clear();
@@ -508,7 +519,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             return;
         }
 
-        emitter.Enter(node, binding, Resolve(node, definition));
+        emitter.Enter(node, binding, Resolve(node, definition, out var level), level);
         texture.Compile(emitter);
     }
 
@@ -717,7 +728,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     }
 
     /// <summary>Allocates the image one output port carries.</summary>
-    internal int Write(GraphNode node, string port, TextureChannels wanted, int levelOffset = 0) {
+    internal int Write(GraphNode node, string port, TextureChannels wanted, int levelOffset) {
         var image = Allocate(TextureEmitter.FormatOf(wanted), wanted, levelOffset);
 
         imageOf[Variable(node, port)] = image;
@@ -765,7 +776,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     }
 
     /// <summary>Allocates an image no port names.</summary>
-    internal int Scratch(TextureFormat format, int levelOffset = 0) =>
+    internal int Scratch(TextureFormat format, int levelOffset) =>
         Allocate(
             format,
             format == TextureFormat.R16Float ? TextureChannels.Grey : TextureChannels.Colour,
@@ -823,7 +834,14 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     }
 
     /// <summary>The image arriving at one input, under doc 48 § Part 4's promotion rule.</summary>
-    internal int Read(GraphNode node, string port, NodeBinding binding, TextureChannels wanted, bool strict) {
+    internal int Read(
+        GraphNode node,
+        string port,
+        NodeBinding binding,
+        TextureChannels wanted,
+        int level,
+        bool strict
+    ) {
         if (!binding.IsConnected(port)) {
             Report(new(
                 "TG0002",
@@ -836,7 +854,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             return -1;
         }
 
-        if (Upstream(node, port) is not { } source) {
+        if (Upstream(node, port) is not { } arrived) {
             // ⚠ Said rather than passed over, even though whatever went wrong upstream has already
             // been reported. A node whose output port is an image and which never asked for one is a
             // node-library bug, and it is the exact shape of failure that would otherwise compile to
@@ -852,6 +870,10 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             return -1;
         }
 
+        // The size first and the channels after, because a rescale of one channel is cheaper than a
+        // rescale of four — and because the splat below has to be allocated at this node's level
+        // too, which it is by construction once its own source is.
+        var source = Rescale(arrived, level);
         var arriving = ChannelsOf(source);
 
         if (arriving == wanted) {
@@ -877,7 +899,10 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             return promoted;
         }
 
-        promoted = Allocate(TextureFormat.Rgba16Float, TextureChannels.Colour);
+        // ⚠ At the source's level and not at the base. The splat is a `ChannelShuffle`, which is a
+        // pointwise kernel like any other — a base-sized promotion of a half-resolution mask is
+        // #779's corner crop, inserted by the compiler itself rather than by any node.
+        promoted = Allocate(TextureFormat.Rgba16Float, TextureChannels.Colour, LevelOf(source));
 
         // ⚠ The same image bound to both of `ChannelShuffle`'s inputs, because the kernel declares two
         // and the evaluator binds an op's images over them positionally. Selector 0 is the first
@@ -898,14 +923,99 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         return promoted;
     }
 
-    /// <summary>What a node's image ports resolve to: the widest thing arriving at one.</summary>
+    /// <summary>The same image at one level, resampling into a new one when it is not there already.</summary>
+    /// <param name="source">The image arriving.</param>
+    /// <param name="level">Where the node reading it keeps its images.</param>
+    /// <returns>An image at <paramref name="level" /> holding that picture.</returns>
     /// <remarks>
-    ///     <see cref="PortKinds.Resolve" />'s rule, over channels instead of lanes. A node with
-    ///     nothing wired is grey for the same reason a node with nothing wired is a float: it has to
-    ///     be something, and the narrowest is the one that promotes into anything later.
+    ///     <para>
+    ///         ⚠ <b>The <c>ChannelShuffle</c> promotion's twin, and for the same reason —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/779">#779</a>.</b> Two images meeting
+    ///         at one node have to be the same size, because a kernel reads its inputs at the
+    ///         coordinate it is writing and clamps: a 256² blend of a 256² and a 128² image is the
+    ///         second one's top-left quarter stretched over nothing, with its edge row smeared down
+    ///         the rest. Refusing the graph instead would be refusing something an author can
+    ///         perfectly well mean.
+    ///     </para>
+    ///     <para>
+    ///         <b>Always a magnification, and that is a property of the rule above rather than of
+    ///         this method.</b> <see cref="Resolve" /> takes the <em>finest</em> level arriving, so
+    ///         nothing here is ever asked to make an image smaller and <c>Bilinear</c> is the whole
+    ///         answer. A rule that ever chose a coarser level would need <c>Box</c>, for
+    ///         <c>Resample.rvn</c>'s reason, and would have to say so here.
+    ///     </para>
+    ///     <para>
+    ///         <b>Shared between ports</b>, so a half-resolution mask arriving at two inputs of one
+    ///         node is one resample and one texture rather than two of each.
+    ///     </para>
     /// </remarks>
-    TextureChannels Resolve(GraphNode node, NodeTypeDefinition definition) {
+    int Rescale(int source, int level) {
+        if (source < 0 || source >= images.Count || images[source].LevelOffset == level) {
+            return source;
+        }
+
+        // ⚠ An external is never rescaled and never has to be: its size is the caller's picture's,
+        // it is read by exactly one op — the `Bitmap` or ramp kernel that asked for it — and that
+        // kernel samples it in normalised space precisely so a plan need not know how big it is.
+        if (images[source].External) {
+            return source;
+        }
+
+        if (rescales.TryGetValue((source, level), out var scaled)) {
+            return scaled;
+        }
+
+        scaled = Allocate(images[source].Format, ChannelsOf(source), level);
+
+        ops.Add(
+            new() {
+                Kernel = TextureColourKernels.Resample,
+                Output = scaled,
+                Inputs = [source],
+                Parameters = [new("filter", (float)TextureFilter.Bilinear)]
+            }
+        );
+
+        rescales[(source, level)] = scaled;
+
+        return scaled;
+    }
+
+    /// <summary>What a node's image ports resolve to: the widest and the finest thing arriving.</summary>
+    /// <param name="node">The node about to compile.</param>
+    /// <param name="definition">Its type, which is what says which of its ports are images.</param>
+    /// <param name="level">
+    ///     Where the images it allocates sit, in levels from the authoring base: the smallest level
+    ///     offset — the <em>largest</em> image — arriving at one of its inputs, and zero for a node
+    ///     with none.
+    /// </param>
+    /// <returns>The channels.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="PortKinds.Resolve" />'s rule, over channels instead of lanes. A node with
+    ///         nothing wired is grey for the same reason a node with nothing wired is a float: it has
+    ///         to be something, and the narrowest is the one that promotes into anything later.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the same question over size, which is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/779">#779</a>.</b> A node's output is
+    ///         the size of what it reads rather than the size of the graph — one rule, in one place,
+    ///         rather than forty nodes each remembering to ask. The three shapes this was weighed
+    ///         against are worth naming, because two of them are wrong: <em>refusing</em> a node
+    ///         whose output level differs from its input's would make <c>Space/Resample</c> a node
+    ///         nothing may be wired downstream of, and <em>inserting</em> a resample back up to the
+    ///         base would make it a node with no effect. Deriving is the only one of the three that
+    ///         leaves "the target's size is the scale" meaning anything.
+    ///     </para>
+    ///     <para>
+    ///         <b>The finest rather than the coarsest, because a promotion must not throw detail
+    ///         away.</b> That is the same choice "widest wins" makes one axis over, and it is what
+    ///         makes the resample <see cref="Read" /> inserts always a magnification.
+    ///     </para>
+    /// </remarks>
+    TextureChannels Resolve(GraphNode node, NodeTypeDefinition definition, out int level) {
         var widest = TextureChannels.Grey;
+        int? finest = null;
 
         foreach (var port in definition.Ports) {
             if (port is not { Direction: PortDirection.Input, Kind: PortKind.Image }) {
@@ -925,7 +1035,15 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             if (arriving > widest) {
                 widest = arriving;
             }
+
+            var at = LevelOf(image);
+
+            if (finest is null || at < finest) {
+                finest = at;
+            }
         }
+
+        level = finest ?? 0;
 
         return widest;
     }

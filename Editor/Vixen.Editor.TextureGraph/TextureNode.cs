@@ -64,10 +64,11 @@ sealed class TextureEmitter {
     internal TextureEmitter(TextureGraphCompiler compiler) => this.compiler = compiler;
 
     /// <summary>Points the emitter at the node about to run.</summary>
-    internal void Enter(GraphNode current, NodeBinding bound, TextureChannels resolved) {
+    internal void Enter(GraphNode current, NodeBinding bound, TextureChannels resolved, int level) {
         node = current;
         binding = bound;
         Resolved = resolved;
+        Level = level;
     }
 
     /// <summary>What this node's image ports resolved to: the widest thing arriving at one.</summary>
@@ -78,11 +79,43 @@ sealed class TextureEmitter {
     /// </remarks>
     public TextureChannels Resolved { get; private set; } = TextureChannels.Grey;
 
-    /// <summary>The width every level-0 image of this bake has, in texels.</summary>
-    public int Width => compiler.Extent(compiler.BaseWidth);
+    /// <summary>What this node's image ports resolved to in <em>size</em>: the finest thing arriving.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="Resolved" />'s twin, and
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/779">#779</a> is what a library
+    ///         without it looks like.</b> Every allocation a node made was at the graph's base level,
+    ///         so a node downstream of a <c>Space/Resample</c> wrote a base-sized image while reading
+    ///         a smaller one — and every pointwise kernel reads coordinate-for-coordinate with a
+    ///         clamp, so three quarters of the output was the source's clamped edge. It was not one
+    ///         node: the two nodes that had learned to ask were the exception, and about forty had
+    ///         not.
+    ///     </para>
+    ///     <para>
+    ///         <b>The finest of what arrives, because a promotion must not throw detail away</b> —
+    ///         which is <see cref="Resolved" />'s "widest wins" over the other axis. An input coarser
+    ///         than this is resampled up by an op the compiler inserts, exactly as a grey image
+    ///         feeding a colour port is splatted by one.
+    ///     </para>
+    ///     <para>
+    ///         Zero — the graph's base — for a node with no image input connected, which is every
+    ///         source node.
+    ///     </para>
+    /// </remarks>
+    public int Level { get; private set; }
+
+    /// <summary>The width of the image this node writes by default, in texels at this bake.</summary>
+    /// <remarks>
+    ///     ⚠ <b>At <see cref="Level" /> rather than at the graph's base.</b> The two nodes that read
+    ///     this — a jump flood and a flood fill — use it for the <em>length</em> of the chain they
+    ///     emit and for <see cref="TextureOp.EmittedForExtent" />, so a base-sized answer under a
+    ///     half-resolution input would be too many halvings and a plan
+    ///     <see cref="TexturePlan.Validate" /> refuses.
+    /// </remarks>
+    public int Width => compiler.Extent(compiler.BaseWidth, Level);
 
     /// <summary>Its height.</summary>
-    public int Height => compiler.Extent(compiler.BaseHeight);
+    public int Height => compiler.Extent(compiler.BaseHeight, Level);
 
     /// <summary>What an author typed into an unconnected scalar port, or its declared default.</summary>
     /// <param name="port">The port's name.</param>
@@ -140,7 +173,7 @@ sealed class TextureEmitter {
     ///     same promotion — which is doc 48 § Part 4's "grey into a colour port splats", and what
     ///     stops the library needing a <c>BlendGrayscale</c> beside every <c>Blend</c>.
     /// </remarks>
-    public int Read(string port) => compiler.Read(node, port, binding, Resolved, strict: false);
+    public int Read(string port) => compiler.Read(node, port, binding, Resolved, Level, strict: false);
 
     /// <summary>The image arriving at one input, which has to be a single channel.</summary>
     /// <param name="port">The port's name.</param>
@@ -152,7 +185,8 @@ sealed class TextureEmitter {
     ///     luminance a colour and a mask agree on. A graph that wants one says so with a
     ///     <c>Grayscale</c> node.
     /// </remarks>
-    public int ReadGrey(string port) => compiler.Read(node, port, binding, TextureChannels.Grey, strict: true);
+    public int ReadGrey(string port) =>
+        compiler.Read(node, port, binding, TextureChannels.Grey, Level, strict: true);
 
     /// <summary>Allocates the image one output port carries, at this node's resolved channels.</summary>
     /// <param name="port">The output port's name.</param>
@@ -164,7 +198,8 @@ sealed class TextureEmitter {
     /// <param name="channels">What it carries, for a node whose output is not its input's shape.</param>
     /// <param name="levelOffset">
     ///     How its size relates to the plan's base: <c>0</c> is the base, <c>1</c> is half,
-    ///     <c>-1</c> is double.
+    ///     <c>-1</c> is double. Left out, it is <see cref="Level" /> — the size of what this node
+    ///     reads.
     /// </param>
     /// <returns>Its index in the plan's image table.</returns>
     /// <remarks>
@@ -181,19 +216,25 @@ sealed class TextureEmitter {
     ///         because the target's size <em>is</em> the scale.
     ///     </para>
     ///     <para>
-    ///         <b>Absolute, not relative to the input.</b> A node that means "half of what arrived"
-    ///         reads <see cref="LevelOf" /> and adds to it, which is what
-    ///         <c>Space/Resample</c> does; passing a bare <c>1</c> would be half of the
-    ///         <em>graph's</em> base, and the two differ the moment anything upstream is already
-    ///         scaled.
+    ///         ⚠ <b>Absolute when it is given, and <see cref="Level" /> when it is not —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/779">#779</a>.</b> Defaulting to zero
+    ///         made every node that had not heard of #733 write a base-sized image over a smaller
+    ///         source, which is a corner crop with an edge smear in about forty nodes. A node that
+    ///         means "half of what arrived" still spells it as <see cref="LevelOf" /> plus one,
+    ///         because a bare <c>1</c> is half of the <em>graph's</em> base and the two differ the
+    ///         moment anything upstream is scaled.
     ///     </para>
     /// </remarks>
-    public int Write(string port, TextureChannels channels, int levelOffset = 0) =>
-        compiler.Write(node, port, channels, levelOffset);
+    public int Write(string port, TextureChannels channels, int? levelOffset = null) =>
+        compiler.Write(node, port, channels, levelOffset ?? Level);
 
     /// <summary>An image nothing outside this node reads: the middle of a separable filter.</summary>
     /// <param name="format">What it stores.</param>
-    /// <param name="levelOffset">Its size relative to the plan's base, as <see cref="Write(string,TextureChannels,int)" />.</param>
+    /// <param name="levelOffset">
+    ///     Its size relative to the plan's base, as <see cref="Write(string,TextureChannels,int?)" />
+    ///     — and <see cref="Level" /> when it is left out, because the middle of a filter is the size
+    ///     of its ends.
+    /// </param>
     /// <returns>Its index in the plan's image table.</returns>
     /// <remarks>
     ///     ⚠ <b>Named rather than reused, because an image in a plan is written exactly once</b> —
@@ -201,7 +242,8 @@ sealed class TextureEmitter {
     ///     of these rather than writing its output twice. The pool is what stops the count from
     ///     mattering: a scratch is freed the moment its last reader has run.
     /// </remarks>
-    public int Scratch(TextureFormat format, int levelOffset = 0) => compiler.Scratch(format, levelOffset);
+    public int Scratch(TextureFormat format, int? levelOffset = null) =>
+        compiler.Scratch(format, levelOffset ?? Level);
 
     /// <summary>Where one image this node can see sits, in levels from the authoring base.</summary>
     /// <param name="image">Its index in the plan's image table.</param>
