@@ -201,7 +201,10 @@ static class LayerStackYaml {
             mapping.Set("settings", settings);
         }
 
-        if (layer.Mask.Source != LayerMaskSource.None || layer.Mask.Paint.Length > 0) {
+        if (layer.Mask.Source != LayerMaskSource.None
+            || layer.Mask.Paint.Length > 0
+            || layer.Mask.Layers.Count > 0
+            || layer.Mask.Effects.Count > 0) {
             mapping.Set("mask", Write(layer.Mask));
         }
 
@@ -239,8 +242,112 @@ static class LayerStackYaml {
             mapping.Set("anchor", Text(mask.Anchor));
         }
 
+        if (mask.Generator.Length > 0) {
+            mapping.Set("generator", Text(mask.Generator));
+        }
+
+        if (mask.Map.Length > 0) {
+            mapping.Set("map", Text(mask.Map));
+        }
+
         if (mask.Paint.Length > 0) {
             mapping.Set("paint", Text(mask.Paint));
+        }
+
+        if (mask.Layers.Count > 0) {
+            YamlSequence entries = new();
+
+            foreach (var entry in mask.Layers) {
+                entries.Add(Write(entry));
+            }
+
+            mapping.Set("layers", entries);
+        }
+
+        if (mask.Effects.Count > 0) {
+            YamlSequence effects = new();
+
+            foreach (var effect in mask.Effects) {
+                effects.Add(Write(effect));
+            }
+
+            mapping.Set("effects", effects);
+        }
+
+        return mapping;
+    }
+
+    static YamlMapping Write(MaskLayerAsset entry) {
+        YamlMapping mapping = new();
+
+        mapping.Set("source", Text(entry.Source.ToString()));
+
+        if (entry.Source == LayerMaskSource.Constant) {
+            mapping.Set("value", Number(entry.Value));
+        }
+
+        if (entry.Asset.Length > 0) {
+            mapping.Set("asset", Text(entry.Asset));
+        }
+
+        if (entry.Anchor.Length > 0) {
+            mapping.Set("anchor", Text(entry.Anchor));
+        }
+
+        if (entry.Generator.Length > 0) {
+            mapping.Set("generator", Text(entry.Generator));
+        }
+
+        if (entry.Map.Length > 0) {
+            mapping.Set("map", Text(entry.Map));
+        }
+
+        if (entry.Paint.Length > 0) {
+            mapping.Set("paint", Text(entry.Paint));
+        }
+
+        if (entry.Blend != LayerBlendMode.Copy) {
+            mapping.Set("blend", Text(entry.Blend.ToString()));
+        }
+
+        if (entry.Opacity is < 1f or > 1f) {
+            mapping.Set("opacity", Number(entry.Opacity));
+        }
+
+        if (!entry.Enabled) {
+            mapping.Set("enabled", new YamlScalar("false"));
+        }
+
+        return mapping;
+    }
+
+    static YamlMapping Write(MaskEffectAsset effect) {
+        YamlMapping mapping = new();
+
+        mapping.Set("node", Text(effect.Node));
+
+        if (!effect.Enabled) {
+            mapping.Set("enabled", new YamlScalar("false"));
+        }
+
+        if (effect.Values.Count > 0) {
+            YamlMapping values = new();
+
+            foreach (var (port, value) in effect.Values) {
+                values.Set(port, Numbers(value));
+            }
+
+            mapping.Set("values", values);
+        }
+
+        if (effect.Texts.Count > 0) {
+            YamlMapping texts = new();
+
+            foreach (var (setting, value) in effect.Texts) {
+                texts.Set(setting, Text(value));
+            }
+
+            mapping.Set("texts", texts);
         }
 
         return mapping;
@@ -323,13 +430,59 @@ static class LayerStackYaml {
 
     static MaskAsset ReadMask(YamlNode node, string path) {
         var mapping = Mapping(node, path);
+        List<MaskLayerAsset> entries = [];
+        List<MaskEffectAsset> effects = [];
+
+        if (mapping.TryGet("layers", out var stacked)) {
+            foreach (var item in Sequence(stacked, $"{path}.layers")) {
+                entries.Add(ReadMaskLayer(item, $"{path}.layers"));
+            }
+        }
+
+        if (mapping.TryGet("effects", out var adjusted)) {
+            foreach (var item in Sequence(adjusted, $"{path}.effects")) {
+                effects.Add(ReadMaskEffect(item, $"{path}.effects"));
+            }
+        }
 
         return new() {
             Source = Choice(mapping, "source", LayerMaskSource.None, path),
             Value = Single(mapping, "value", 1f, path),
             Asset = String(mapping, "asset", path),
             Anchor = String(mapping, "anchor", path),
-            Paint = String(mapping, "paint", path)
+            Generator = String(mapping, "generator", path),
+            Map = String(mapping, "map", path),
+            Paint = String(mapping, "paint", path),
+            Layers = entries,
+            Effects = effects
+        };
+    }
+
+    static MaskLayerAsset ReadMaskLayer(YamlNode node, string path) {
+        var mapping = Mapping(node, path);
+
+        return new() {
+            Source = Choice(mapping, "source", LayerMaskSource.Constant, path),
+            Value = Single(mapping, "value", 1f, path),
+            Asset = String(mapping, "asset", path),
+            Anchor = String(mapping, "anchor", path),
+            Generator = String(mapping, "generator", path),
+            Map = String(mapping, "map", path),
+            Paint = String(mapping, "paint", path),
+            Blend = Choice(mapping, "blend", LayerBlendMode.Copy, path),
+            Opacity = Single(mapping, "opacity", 1f, path),
+            Enabled = Flag(mapping, "enabled", true, path)
+        };
+    }
+
+    static MaskEffectAsset ReadMaskEffect(YamlNode node, string path) {
+        var mapping = Mapping(node, path);
+
+        return new() {
+            Node = String(mapping, "node", path),
+            Enabled = Flag(mapping, "enabled", true, path),
+            Values = Colours(mapping, "values", path),
+            Texts = Strings(mapping, "texts", path)
         };
     }
 
