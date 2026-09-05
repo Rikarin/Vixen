@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Microsoft.Extensions.Logging;
+using Vixen.Core.Diagnostics;
 using Xunit;
 
 namespace Vixen.Ui.Tests;
@@ -583,5 +585,78 @@ public class ContainerWiringTests {
 
         Assert.Equal(90f, docked.Width, 0.001f);
         Assert.Equal(10f, torn.Width, 0.001f);
+    }
+
+    /// <summary>A container sized by its contents oscillates, and the log names <i>it</i>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The failure doc 43 § D3 predicted, and until now the only report of it was a
+    ///         document-level boolean.</b> <c>.seesaw</c> is a flex item with no width, so its inline
+    ///         size is its content's; the query fires when it is narrow and widens the content, the
+    ///         wider content widens the container past the threshold, and the next pass takes the
+    ///         width away again. The loop does not hang — it exhausts <see cref="UiDocument.SettlePasses" />
+    ///         and reports <see cref="UiDocument.Settled" /> false — but "this document did not
+    ///         settle" is not a thing anybody can go and fix, and a real interface has dozens of
+    ///         containers.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves are asserted, and the boolean alone is the weaker one.</b> It was
+    ///         already true before this walk recorded anything, so a test asserting only
+    ///         <c>Settled == false</c> passes against a document that says nothing at all. The
+    ///         message has to name the container, which is why the fixture gives it a
+    ///         <c>container-name</c>: that is the string an author can search their stylesheet for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is the diagnostic half of the owed containment coercion and not the
+    ///         coercion.</b> The box still oscillates; what changed is that it is named. Forcing
+    ///         <c>SizingMode.StretchFit</c> on a contained node is still owed under A16.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_container_sized_by_its_contents_never_settles_and_the_log_names_it() {
+        var sink = new RingBufferSink(64);
+
+        using var document = new UiDocument(1000f, 600f, logger: sink.CreateLogger("Vixen.Ui.Styling"));
+
+        document.Load("""
+            root { width: 1000px; height: 600px; flex-direction: row; }
+            .seesaw { container-type: inline-size; container-name: seesaw; height: 100px; }
+            .body { width: 10px; height: 10px; }
+            @container seesaw (max-width: 100px) { .body { width: 900px; } }
+            """);
+
+        document.Root.Add("div", classNames: "seesaw").Add("div", classNames: "body");
+        document.Update();
+
+        Assert.False(document.Settled, "the fixture converged, so it is not measuring an oscillation");
+
+        var warning = Assert.Single(
+            sink.Snapshot(),
+            record => record.Level >= LogLevel.Warning && record.EventId.Id == 7007
+        );
+
+        Assert.Contains("seesaw", warning.Message, StringComparison.Ordinal);
+        Assert.Contains("never settled", warning.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>And a document that settles says nothing, so the channel stays worth reading.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The other half of the sabotage.</b> Every container in a fresh document moves on its
+    ///     first pass — a chain entered from the root scope has moved by definition — so a reporter
+    ///     wired anywhere but the branch that gives up would write a line for every container in
+    ///     every document, on the frame it was built. That version passes the test above.
+    /// </remarks>
+    [Fact]
+    public void A_container_that_settles_writes_nothing() {
+        var sink = new RingBufferSink(64);
+
+        using var document = new UiDocument(1000f, 600f, logger: sink.CreateLogger("Vixen.Ui.Styling"));
+
+        document.Load(Responsive);
+        document.Root.Add("div", classNames: ["panel", "wide"]).Add("div", classNames: "body");
+        document.Update();
+
+        Assert.True(document.Settled);
+        Assert.DoesNotContain(sink.Snapshot(), record => record.EventId.Id == 7007);
     }
 }

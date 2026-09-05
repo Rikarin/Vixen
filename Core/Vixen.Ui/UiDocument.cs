@@ -1143,6 +1143,13 @@ public sealed partial class UiDocument : IDisposable {
 
             if (pass == SettlePasses) {
                 Settled = false;
+
+                // ⚠ Here and only here. `Settled` is a boolean about a document and the thing an
+                // author has to change is one element, so the containers that were still moving on
+                // the last pass are named on the way out. See `unsettledContainers`: on a document
+                // with no `@container` the list is empty and this writes nothing.
+                ReportUnsettledContainers();
+
                 return;
             }
 

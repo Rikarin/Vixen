@@ -571,36 +571,6 @@ public sealed class UiGeometryBuilder {
             reachable = Intersect(undo.Bounds(reachable), viewport);
         }
 
-        var bounds = Intersect(ink, reachable);
-
-        if (bounds.Width <= 0f || bounds.Height <= 0f) {
-            // The group inked nothing the clip lets through. There is no surface worth allocating and
-            // nothing to composite — and emitting a zero-sized layer would ask a renderer for a
-            // zero-sized texture, which is a validation error rather than an empty picture.
-            return;
-        }
-
-        // ⚠ <b>Decided before the layer is built, because the shadow can be clipped away while the
-        // group is not, and a layer that named a surface nothing draws would have both executors
-        // allocate one and blur into it for nobody.</b> The displacement is applied to the group's
-        // already-clipped bounds and the result clipped again: a `drop-shadow(0 400px 0)` inside an
-        // `overflow: hidden` panel is a group that composites normally and a shadow that does not
-        // exist. Both executors read <see cref="UiLayer.Shadow" /> as the whole answer, so nulling it
-        // here is the one place that has to decide.
-        var cast = open.Shadow;
-        var shadowBounds = default(Rectangle);
-
-        if (cast is { } shadow) {
-            shadowBounds = Intersect(
-                new Rectangle(bounds.X + shadow.Offset.X, bounds.Y + shadow.Offset.Y, bounds.Width, bounds.Height),
-                reachable
-            );
-
-            if (shadowBounds.Width <= 0f || shadowBounds.Height <= 0f) {
-                cast = null;
-            }
-        }
-
         // ⚠ <b>The border box and not the ink, clipped by the same two rectangles the group's own
         // bounds are, and dropped whole when nothing is left.</b> CSS clips a backdrop filter to the
         // element's border box — so a panel whose child overflows it, or whose own <c>blur-*</c> grew
@@ -623,9 +593,14 @@ public sealed class UiGeometryBuilder {
         // longer an axis-aligned rectangle, a capture region that is no longer `BackdropBounds`, and a
         // clip to the border box that is no longer a rectangle either. Sampling the untransformed patch
         // instead would show the scene from where the element *was* rather than from where it is, which
-        // under a rotation is simply the wrong picture. Dropped here, once, where `cast` and the empty
-        // group are already dropped, so that both executors go on reading `UiLayer.Backdrop` as the
-        // whole answer.
+        // under a rotation is simply the wrong picture. Dropped here, once, so that both executors go on
+        // reading `UiLayer.Backdrop` as the whole answer.
+        //
+        // ⚠ <b>Decided <i>above</i> the empty-group guard rather than below it, which is the ordering
+        // the guard now depends on.</b> An element that paints nothing keeps its group only when a
+        // backdrop survived this block, so the answer has to be in hand before that question is
+        // asked. `cast` still comes after, because a shadow is a function of the group's own bounds
+        // and those are not settled until then.
         var behind = open.Transform is null ? open.Backdrop : null;
         var backdropBounds = default(Rectangle);
 
@@ -634,6 +609,53 @@ public sealed class UiGeometryBuilder {
 
             if (backdropBounds.Width <= 0f || backdropBounds.Height <= 0f) {
                 behind = null;
+            }
+        }
+
+        var bounds = Intersect(ink, reachable);
+
+        if (bounds.Width <= 0f || bounds.Height <= 0f) {
+            // ⚠ <b>An empty group survives exactly one thing, and it is the one surface it did not
+            // paint.</b> Everything else a group carries — the blur, the colour matrix, the mask, the
+            // drop shadow — is a function of its own ink, so with no ink there is provably nothing to
+            // show and a layer here would ask both executors for a zero-sized texture, which is a
+            // validation error rather than an empty picture. A backdrop is the exception because it
+            // holds what was painted *behind* the element, which an element that paints nothing has
+            // exactly as much of as one that paints a background. CSS says so plainly: Filter Effects
+            // 2 § 2 clips the filtered backdrop to the border box and never mentions the element's
+            // own paint, and `backdrop-blur-md` on a bare `div` is a picture a browser shows.
+            //
+            // ⚠ The border box is what the group is then bounded by, and it is not a substitute for
+            // the ink — it is the only rectangle in play. `backdropBounds` is that box already
+            // narrowed by the clip and the viewport, and it is non-empty by construction here or
+            // `behind` would have been nulled above. The group's own surface stays empty and its
+            // composite quad draws transparent black over it, which costs one quad and is what makes
+            // this the same code path as every other group rather than a second kind of layer.
+            if (behind is null) {
+                return;
+            }
+
+            bounds = backdropBounds;
+        }
+
+        // ⚠ <b>Decided before the layer is built, because the shadow can be clipped away while the
+        // group is not, and a layer that named a surface nothing draws would have both executors
+        // allocate one and blur into it for nobody.</b> The displacement is applied to the group's
+        // already-clipped bounds and the result clipped again: a `drop-shadow(0 400px 0)` inside an
+        // `overflow: hidden` panel is a group that composites normally and a shadow that does not
+        // exist. Both executors read <see cref="UiLayer.Shadow" /> as the whole answer, so nulling it
+        // here is the one place that has to decide.
+        var cast = open.Shadow;
+        var shadowBounds = default(Rectangle);
+
+        if (cast is { } shadow) {
+            shadowBounds = Intersect(
+                new Rectangle(bounds.X + shadow.Offset.X, bounds.Y + shadow.Offset.Y, bounds.Width, bounds.Height),
+                reachable
+            );
+
+            if (shadowBounds.Width <= 0f || shadowBounds.Height <= 0f) {
+                cast = null;
             }
         }
 

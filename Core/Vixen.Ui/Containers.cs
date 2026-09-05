@@ -113,6 +113,34 @@ public sealed partial class UiDocument {
     int inlineSizeKeyword;
     int sizeKeyword;
 
+    /// <summary>The containers whose own box moved during the last <see cref="Arrange" />.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What <see cref="Settled" /> could not say.</b> A container whose inline size is
+    ///         decided by its contents can flip on every pass — the query widens the content, the
+    ///         wider content widens the container, the container's own verdict changes — and the
+    ///         settle loop answers that by exhausting its budget and reporting <c>false</c>. That is
+    ///         a document-level boolean about a document-level symptom, and the thing an author has
+    ///         to change is one element. Both halves of doc 43 § D3's owed coercion are still owed;
+    ///         this is the half that says <i>which box</i> to go and give a definite width to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Rewritten on every walk and read only when the loop gives up</b>, which is what
+    ///         makes it a measurement rather than a prediction. A predicate over the style — "is this
+    ///         container sized by its contents" — has to know about flex bases, intrinsic grid tracks
+    ///         and four content keywords, and would be a guess in exactly the arrangements it was
+    ///         written for. A box that changed between two passes of one frame changed; there is
+    ///         nothing to be wrong about.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Every container is in here on the first pass of a fresh document, because a chain
+    ///         entered from <see cref="ContainerScopes.Root" /> has moved by definition. That costs
+    ///         one add per container per walk on documents that declare a <c>@container</c> at all,
+    ///         and nothing reads it unless the budget ran out.
+    ///     </para>
+    /// </remarks>
+    readonly List<UiElement> unsettledContainers = [];
+
     void InternContainers() {
         containerType = Styles.Properties.Intern("container-type");
         containerName = Styles.Properties.Intern("container-name");
@@ -165,6 +193,9 @@ public sealed partial class UiDocument {
             return;
         }
 
+        // Cleared here rather than in the recursive half, which is entered once per element.
+        unsettledContainers.Clear();
+
         var before = Styles.ContainerScopes.Count;
 
         if (before > ContainerScopeCeiling) {
@@ -186,6 +217,7 @@ public sealed partial class UiDocument {
         if (moved) {
             Invalidate();
         }
+
     }
 
     /// <summary>Assigns a subtree's container scopes, returning whether any of them changed.</summary>
@@ -217,8 +249,16 @@ public sealed partial class UiDocument {
             provided = Styles.ContainerScopes.Enter(scope, name, BoxOf(element, kind));
         }
 
-        var moved = Styles.Tree.GetContainerScope(node) != scope
-            || Styles.Tree.GetProvidedContainerScope(node) != provided;
+        var wasProvided = Styles.Tree.GetProvidedContainerScope(node);
+        var moved = Styles.Tree.GetContainerScope(node) != scope || wasProvided != provided;
+
+        // ⚠ Recorded off the *provided* slot and only for an element that declares a containment,
+        // which is what makes the entry mean "this container's own box moved" rather than "something
+        // above it did". An ordinary element's chain changes whenever any ancestor container is
+        // resized, and naming those would bury the one box an author can fix under its whole subtree.
+        if (kind != ContainerKind.Normal && wasProvided != provided) {
+            unsettledContainers.Add(element);
+        }
 
         Styles.Tree.SetContainedIn(node, scope);
 
@@ -331,5 +371,47 @@ public sealed partial class UiDocument {
             - Layout.GetComputedBorder(node, Edge.Bottom);
 
         return new ContainerBox(Math.Max(width, 0f), Math.Max(height, 0f), kind);
+    }
+
+    /// <summary>Names the containers that were still moving when the settle loop gave up.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Called from the one branch that sets <see cref="Settled" /> false, and from
+    ///         nowhere else.</b> A container moving is the ordinary case on the way to a fixed point
+    ///         — two levels of nesting legitimately move a box on each of two passes — so the list is
+    ///         news only on the pass after which there will be no more passes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A handler is the other way the budget runs out and this says nothing about
+    ///         it.</b> A document with no <c>@container</c> never walks, so the list is empty and no
+    ///         line is written; a document with both gets the containers it can name and the handler
+    ///         stays <see cref="Settled" />'s business, because nothing here knows which handler
+    ///         asked for what.
+    ///     </para>
+    /// </remarks>
+    void ReportUnsettledContainers() {
+        for (var index = 0; index < unsettledContainers.Count; index++) {
+            var element = unsettledContainers[index];
+
+            StyleLog.ContainerNeverSettled(
+                logger,
+                NameOrTagOf(element),
+                element.Width,
+                element.Height,
+                SettlePasses
+            );
+        }
+    }
+
+    /// <summary>What to call a container in a message: its <c>container-name</c>, or its tag.</summary>
+    /// <remarks>
+    ///     ⚠ The name is what the stylesheet's <c>@container</c> writes, so it is the string an author
+    ///     can search for. An unnamed container has only its element name, which is weak — but a
+    ///     message naming a box weakly is still the difference between one element and a document.
+    /// </remarks>
+    string NameOrTagOf(UiElement element) {
+        KindOf(element.Style, out var name);
+
+        return name.Length != 0 ? name : element.TagName;
     }
 }

@@ -491,14 +491,25 @@ machinery cannot express a rounded rectangle — its shapes are linear, radial a
 closing it needs a rounded-rect signed distance in the composite fragment, which is a change to
 `ui-image.frag`, `ui-colour.frag` and `ui-mask.frag`, to the three committed copies of each, and to
 `SoftwareUiRasterizer.Composite`. The ten `backdrop-*` roots read **partial** in `docs/plan/43` for
-this reason and for one more below.
+this reason and this reason alone.
 
-⚠ **An element that paints nothing of its own gets no backdrop, and that is structural rather than
-thrift.** `DrawListBuilder` discards a group with no draws in it, and a group with `Count == 0` is not
-merely wasteful: both executors walk the layer list by matching a draw index, and a zero-width range
-matches its own start and never advances. Every glass panel in practice paints a background — that is
-what `bg-white/30` is for — and an element that wants only the blur can carry a fully transparent one
-to become a group.
+⚠ **An element that paints nothing of its own used to get no backdrop, and the reason recorded for it
+was a claim about these two executors that was not true of either.** The claim was that both walk the
+layer list by matching a draw index, so a group with `Count == 0` would match its own start and never
+advance. `SoftwareUiRasterizer` advances its `next` cursor as it *enters* a group, so a zero-width
+range leaves the draw index where it was and the next turn of the loop executes the composite quad
+standing at it; `UiRenderer.Forest` takes a group's descendants as the entries whose `First` is
+*strictly* inside its range, which an empty range has none of, and hands the index straight on.
+`Confine` already falls back to the whole attachment for a degenerate rectangle, and `Submit` over an
+empty range is a pass that clears and draws nothing.
+
+What was really dropping the group is the guard in `UiGeometryBuilder.Layer` that refuses a layer
+whose ink is empty — and *that* one is real: a zero-sized surface is a validation error rather than an
+empty picture. A backdrop is the one thing a group carries that is not a function of its own ink, and
+the rectangle it wants is `BackdropBounds`, the border box it was going to be clipped to anyway. So an
+inkless group keeps its layer when a backdrop survived, bounded by that box, and every other inkless
+group is still discarded — a blur, a colour matrix, a mask and a drop shadow are each a function of
+ink there is none of. `BackdropFilterTests` pins both halves.
 
 ⚠ **The trap this feature sets is that `SoftwareUiRasterizer` can do it in three lines**, because its
 recursion already holds the parent's buffer while it runs the group's. A backdrop filter written there

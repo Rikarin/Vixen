@@ -33,6 +33,33 @@ static partial class StyleLog {
     )]
     public static partial void RefusedIn(ILogger logger, string source, string text, string rule, string reason);
 
+    /// <summary>A query container whose own box was still moving when the budget ran out.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The failure doc 43 § D3 predicted, given a name.</b> A <c>container-type</c> makes an
+    ///     element answerable about its own measured box, so a container whose inline size is decided
+    ///     by its <i>contents</i> closes a loop: the verdict widens the content, the content widens
+    ///     the container, and the container's next verdict is different. The settle loop bounds that
+    ///     rather than hanging, and until the containment coercion lands this is what an author gets
+    ///     instead of a silently stale panel. The cure is a definite inline size — or a
+    ///     <c>width: auto</c> in normal flow, which is sized by the parent and cannot depend on what
+    ///     is inside it.
+    /// </remarks>
+    [LoggerMessage(
+        EventId = 7007,
+        Level = LogLevel.Warning,
+        Message = "The query container '{Container}' never settled: it measured {Width}×{Height} on the last "
+            + "of {Passes} layout passes and its box was still moving. Its own @container verdicts are one "
+            + "pass stale, because a container sized by its contents can change the contents that size it. "
+            + "Give it a definite inline size."
+    )]
+    public static partial void ContainerNeverSettled(
+        ILogger logger,
+        string container,
+        float width,
+        float height,
+        int passes
+    );
+
     [LoggerMessage(
         EventId = 7005,
         Level = LogLevel.Warning,

@@ -570,6 +570,17 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             // actually left, and it is the half that was always this feature's own — a generated box
             // carries a STYLE of its own, so it needs a second style slot rather than a second
             // rectangle. Until doc 43's A12, the author gets a message instead of a surprise.
+            //
+            // ⚠ <b>Four ledger rows rest on this one refusal and until 2026-09-05 not one of them
+            // declared it, which is the exact shape `RefusalExpiry.txt`'s header warns about.</b>
+            // `list-*`, `list-image-*`, `list-style-position` and `placeholder-*` are all `absent`
+            // and all say "blocked on F6" in English; the day a generated box exists they rot
+            // together and nothing would have said so. The condition is written here, where the
+            // refusal is, and on the two rows that do not sit behind another one. The anchor is the
+            // field this compiler deleted: a rule that really generates a box has to carry WHICH
+            // pseudo-element it names, and `Selector` is where that lived. ⚠ It is walked around by
+            // anyone who spells the returning thing differently — move the clause with it.
+            // [expires-on Vixen.Ui.Styling.Selector.PseudoElement]
             case PseudoElementSelector:
                 Refuse(
                     selector.Text,

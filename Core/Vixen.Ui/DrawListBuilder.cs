@@ -827,20 +827,27 @@ public sealed class DrawListBuilder {
         // wrong for exactly the controls that draw the most.
         var drawn = into.Count - group - 1;
 
-        if (drawn == 0) {
+        if (drawn == 0 && backdrop is null) {
             // ⚠ Discarded even when there is a blur, and that is not the same exception the collapse
             // needs. Blurring nothing gives nothing however wide the kernel is, so the surface would
             // cost two render passes to convolve a cleared target — the group is genuinely empty, not
-            // merely small.
+            // merely small. The same argument disposes of the colour matrix, the mask and the drop
+            // shadow: every one of them is a function of ink this group has none of.
             //
-            // ⚠ <b>And discarded even when there is a <c>backdrop-filter</c>, which is a stated
-            // divergence rather than the same argument.</b> Blurring the backdrop of an element that
-            // paints nothing of its own is a picture CSS would show and this does not. The reason is
-            // structural and not thrift: a group with no draws has <c>Count == 0</c>, and both
-            // executors walk the layer list by matching a draw index — a zero-width range matches its
-            // own start and never advances. Every glass panel in practice paints a background, which
-            // is what <c>bg-white/30</c> is for; an element that wants only the blur can carry a
-            // fully transparent background to become one.
+            // ⚠ <b>A <c>backdrop-filter</c> is the one exception, and the divergence recorded here
+            // until 2026-09-05 rested on a structural claim that is not true.</b> The note said both
+            // executors walk the layer list by matching a draw index, so a zero-width range would
+            // match its own start and never advance. Neither of them does that. `SoftwareUiRasterizer`
+            // advances its <c>next</c> cursor as it enters a group, so a zero-width range leaves the
+            // draw index alone and the very next turn of the loop executes the composite quad sitting
+            // at it; `UiRenderer.Forest` takes a group's descendants as the entries whose <c>First</c>
+            // is strictly inside its range, which an empty range has none of, and hands the index on.
+            // What actually dropped the group was the *other* guard — `UiGeometryBuilder.Layer`
+            // refusing a layer whose ink is empty — and that one is real, because a zero-sized surface
+            // is a validation error. It is answered there, where the border box is already computed
+            // and is exactly the rectangle CSS clips a backdrop to.
+            //
+            // So a bare `backdrop-blur-md` div now gets its backdrop, which is what a browser draws.
             into.Discard(group);
             return;
         }
