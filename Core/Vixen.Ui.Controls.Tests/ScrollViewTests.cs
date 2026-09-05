@@ -238,10 +238,13 @@ public class ScrollViewTests {
 
     /// <summary>A wheel on a view that has run out chains outwards, unless it is told not to.</summary>
     /// <remarks>
-    ///     ⚠ <b>`contain` and `none` are asserted to behave identically</b>, which is a claim about
-    ///     this engine rather than about CSS — there is no rubber-band here for `none` to suppress on
-    ///     top of stopping the chain. Written down as a test so that the day one appears, this fails
-    ///     rather than the difference going unnoticed. See <see cref="OverscrollBehavior" />.
+    ///     ⚠ <b>`contain` and `none` are asserted to behave identically <i>here</i>, and they no
+    ///     longer do everywhere.</b> This is the chaining half of the property, which the two share;
+    ///     the boundary half is where they part company, and it is asserted in
+    ///     <see cref="ScrollRubberBandTests" /> — `contain` keeps the rubber band and `none`
+    ///     suppresses it. The note this replaces said the pair were identical in this engine because
+    ///     there was no rubber band for `none` to turn off, and asked to be failed the day one
+    ///     appeared. See <see cref="OverscrollBehavior" />.
     /// </remarks>
     [Theory]
     [InlineData("", true)]

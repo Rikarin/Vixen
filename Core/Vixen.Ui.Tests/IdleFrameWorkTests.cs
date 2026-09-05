@@ -108,6 +108,63 @@ public class IdleFrameWorkTests {
         Assert.Equal(2, document.Diagnostics.DrawListsBuilt);
     }
 
+    /// <summary>The five buffers a frame boundary has to carry over, read as instances.</summary>
+    static object[] Buffers(DrawList list) => [list.Commands, list.Glyphs, list.Segments, list.Boxes, list.Masks];
+
+    /// <summary>
+    ///     ⚠ <b>The other half of an idle frame's cost, and the one no allocation gate can see.</b>
+    ///     Keeping the finished frame for the next frame's diff was five <c>AddRange</c>s — on the
+    ///     editor shell's 1 389 commands a 444 KB copy every frame, landing in capacity that already
+    ///     existed, so <c>A_settled_frame_allocates_nothing</c> was blind to it. The pairs are a double
+    ///     buffer, so the boundary is two references exchanged.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Stated as identity rather than as bytes or milliseconds, because identity is what
+    ///         tells the two implementations apart.</b> A copy leaves the same list instance in place
+    ///         forever and rewrites its contents; a swap alternates between two. So the assertion is
+    ///         that the instance a frame drew into is <i>not</i> the one the next frame draws into, and
+    ///         <i>is</i> the one the frame after that returns to — which a copy cannot satisfy at any
+    ///         speed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>All five pairs, not just the commands.</b> A swap that forgot the masks would be
+    ///         silently wrong in only the frames that composite, and the two tests above would not
+    ///         see it: a stale <c>previous</c> half makes the diff report a change that did not happen,
+    ///         which is a lost optimisation rather than a wrong picture, so it hides.
+    ///     </para>
+    ///     <para>
+    ///         And the content half is guarded by the two tests above rather than repeated here — a
+    ///         boundary that lost the finished frame would make a still window report thirty changes
+    ///         instead of one, which is exactly what
+    ///         <see cref="A_still_window_rebuilds_its_drawing_every_frame_and_changes_it_once" /> reads.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_frame_boundary_exchanges_its_buffers_instead_of_copying_between_them() {
+        using var document = Still();
+
+        document.Update();
+        document.Draw();
+
+        var first = Buffers(document.Drawing);
+
+        document.Update();
+        document.Draw();
+
+        var second = Buffers(document.Drawing);
+
+        document.Update();
+        document.Draw();
+
+        var third = Buffers(document.Drawing);
+
+        for (var buffer = 0; buffer < first.Length; buffer++) {
+            Assert.NotSame(first[buffer], second[buffer]);
+            Assert.Same(first[buffer], third[buffer]);
+        }
+    }
+
     /// <summary>
     ///     A document that is never drawn has done no drawing work, which is the answer the instrument
     ///     has to give on the day nothing calls it — the reading that would otherwise be mistaken for

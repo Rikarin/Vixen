@@ -190,8 +190,10 @@ reader existed. What each is for:
   does a browser: an eased wheel lags the finger by the whole time constant and reads as a dropped
   frame.
 - **`overscroll-contain`** on an inner `ScrollView` stops the wheel chaining to the panel behind it
-  once the inner has run out. ⚠ `overscroll-none` does the same thing here — the two differ in CSS
-  only over the rubber-band that this engine does not have.
+  once the inner has run out. ⚠ `overscroll-none` stops the chain the same way and additionally makes
+  the boundary hard: `contain` keeps the elastic overscroll a drag gets at the end of the content and
+  `none` refuses it. The two used to be identical here, for as long as there was no rubber-band for
+  `none` to suppress.
 
 The logical edges (`scroll-ms-*`, `scroll-pe-*`, …) mirror under `direction: rtl` exactly as `ms-*`
 does. The **block** ones — `scroll-mbs-*`, `scroll-mbe-*`, `scroll-pbs-*`, `scroll-pbe-*` — are
