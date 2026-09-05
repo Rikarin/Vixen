@@ -287,7 +287,7 @@ public partial class SharedUiShaderTests {
     }
 
     /// <summary>A lower-case hexadecimal SHA-256, which is what the ledger holds.</summary>
-    static string Digest(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
+    internal static string Digest(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
 
     /// <summary>Every <c>Ui.rvn</c> in the tree agrees, shader for shader, with every other.</summary>
     /// <remarks>
@@ -572,7 +572,7 @@ public partial class SharedUiShaderTests {
     static string Relative(string root, string path) => Path.GetRelativePath(root, path);
 
     /// <summary>The repository root, found by walking up rather than by counting directories.</summary>
-    static string RepositoryRoot() {
+    internal static string RepositoryRoot() {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
             if (Directory.Exists(Path.Combine(directory.FullName, "Raven", "Library"))) {
                 return directory.FullName;
