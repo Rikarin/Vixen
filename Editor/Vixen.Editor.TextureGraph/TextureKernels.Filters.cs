@@ -128,12 +128,23 @@ static class TextureFilters {
     ///     <para>
     ///         <b><see cref="Verify" /> is the refusal that replaces the silence</b>, and it is the
     ///         only place that can be: a shader cannot raise, and <c>TexturePlan.Validate</c> knows
-    ///         nothing about what a kernel's loop bound is.
+    ///         nothing about what a kernel's loop bound is. It is the
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/692">#692</see> table, built here
+    ///         rather than on the plan because this batch does not own <c>TexturePlan.cs</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>Blur</c> is deliberately not in this table, and the reason is the more
+    ///         interesting half of #678's answer.</b> That kernel's constant is a budget on the
+    ///         number of <em>taps</em> rather than a ceiling on the width: past it the same width is
+    ///         covered by the same number of taps spaced further apart, so the box thins rather than
+    ///         narrowing and the width the plan resolved is always the width the picture has. There
+    ///         is nothing to report, because nothing is clipped. The five entries below are the
+    ///         kernels that do clip — and a future slice that gives one of them a tap budget should
+    ///         take its line out of here rather than raise the number.
     ///     </para>
     /// </remarks>
     static readonly ImmutableDictionary<(string Kernel, string Parameter), float> Ceilings =
         new Dictionary<(string, string), float> {
-            [(Blur, "radius")] = 64f,
             [(BlurHq, "sigma")] = 64f / 3f,
             [(DirectionalBlur, "length")] = 64f,
             [(NonUniformBlur, "maxRadius")] = 12f,

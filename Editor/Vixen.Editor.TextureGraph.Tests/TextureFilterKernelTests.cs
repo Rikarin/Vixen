@@ -255,13 +255,23 @@ public class TextureFilterKernelTests {
 
     /// <summary>Every kernel's ceiling is the constant its <c>.rvn</c> actually loops to.</summary>
     /// <remarks>
-    ///     ⚠ <b>Two tables, one of them in a shader.</b> <see cref="TextureFilters.Verify" /> is only
-    ///     worth running if the numbers it checks against are the numbers the kernels clamp with; a
-    ///     ceiling raised in one place and not the other would produce a walk that reports a plan
-    ///     nothing clamps, or worse, stays quiet about one that is.
+    ///     <para>
+    ///         ⚠ <b>Two tables, one of them in a shader.</b> <see cref="TextureFilters.Verify" /> is
+    ///         only worth running if the numbers it checks against are the numbers the kernels clamp
+    ///         with; a ceiling raised in one place and not the other would produce a walk that
+    ///         reports a plan nothing clamps, or worse, stays quiet about one that is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>Blur</c> is not listed, and this file must not list it.</b> Its constant is a
+    ///         budget on taps rather than a ceiling on the width —
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/678">#678</see>'s answer, landed by
+    ///         another slice of this batch — so nothing about its radius is clipped and there is
+    ///         nothing here to agree with. An assertion naming its constant would also be a test in
+    ///         one branch reading a kernel another branch owns, which is the cross-branch drift no
+    ///         per-branch run can see.
+    ///     </para>
     /// </remarks>
     [Theory]
-    [InlineData("Blur", "MaxRadius", 64)]
     [InlineData("BlurHq", "MaxRadius", 64)]
     [InlineData("DirectionalBlur", "MaxSteps", 64)]
     [InlineData("NonUniformBlur", "MaxRadius", 12)]
