@@ -79,6 +79,7 @@ public sealed partial class UiDocument : IDisposable {
     readonly int oblique;
     readonly OverflowReader overflow;
     readonly TranslationReader translation;
+    readonly StickyReader sticky;
     readonly TransformReader transform;
     /// <summary>How many tombstoned slots it takes before compacting is worth the walk.</summary>
     /// <remarks>
@@ -183,6 +184,7 @@ public sealed partial class UiDocument : IDisposable {
         oblique = Styles.Values.Intern("oblique");
         overflow = new OverflowReader(Styles.Properties, Styles.Values);
         translation = new TranslationReader(Styles.Properties, Styles.Values, Styles.Names);
+        sticky = new StickyReader(Styles.Properties, Styles.Values, Styles.Names);
         transform = new TransformReader(Styles.Properties, Styles.Values, Styles.Names);
         none = Styles.Values.Intern("none");
         InternCursors();
@@ -1162,7 +1164,7 @@ public sealed partial class UiDocument : IDisposable {
             // ⚠ The surface's own metrics and not the primary's, for the same reason the grid factor
             // above is written per surface: `translate: 50vw` in a torn-off window is half of *that*
             // window.
-            Accumulate(surface.Root, 0f, 0f, surface.Metrics);
+            Accumulate(surface.Root, 0f, 0f, surface.Metrics, Scrollport.None);
         }
 
         // ⚠ Last, because it is the one thing here that needs a box rather than producing one — and
@@ -2395,7 +2397,18 @@ public sealed partial class UiDocument : IDisposable {
     ///     bounds several times per pointer move, and the draw list will ask for every element's
     ///     every frame; a walk to the root per read is the same arithmetic done depth times over.
     /// </remarks>
-    void Accumulate(UiElement element, float x, float y, LengthContext metrics) {
+    /// <param name="element">The element to place, and its subtree.</param>
+    /// <param name="x">Its parent's accumulated left, in document coordinates.</param>
+    /// <param name="y">Its parent's accumulated top.</param>
+    /// <param name="metrics">The lengths this surface's relative units resolve against.</param>
+    /// <param name="port">
+    ///     The nearest scrolling ancestor's box in document coordinates, or
+    ///     <see cref="Scrollport.None" /> at a surface root. Carried down rather than searched
+    ///     upward for the reason the position itself is: a walk to the root per sticky element is the
+    ///     same arithmetic done depth times over, and this walk already visits every ancestor in
+    ///     order.
+    /// </param>
+    void Accumulate(UiElement element, float x, float y, LengthContext metrics, in Scrollport port) {
         // ⚠ The offset lands here and nowhere else, which is what makes it free. Every consumer of a
         // position — hit testing, the draw list, arrow navigation — reads the accumulated value, so
         // a shifted element is drawn, clicked and navigated to in its shifted place without any of
@@ -2421,6 +2434,25 @@ public sealed partial class UiDocument : IDisposable {
         element.AbsoluteLeft = x + element.Left + element.OffsetX + dx;
         element.AbsoluteTop = y + element.Top + element.OffsetY + dy;
 
+        // ⚠ <b>And `position: sticky` lands in the same sum, for the third time and the same
+        // reason.</b> A sticky box's offset is a function of a SCROLL offset, which is why it cannot
+        // live in `Vixen.Ui.Layout` — that store has none — and why the natural-looking home doc 43
+        // sized for it, "the layout's position handling", is not available. Here it is one more
+        // contribution to a position both consumers already read the result of, so a stuck header
+        // cannot draw in one place and be clicked in another.
+        //
+        // ⚠ <b>After the translation and before the children, which is the order sticky needs.</b>
+        // The shift is measured from where the flow and the scroll left the box, so everything that
+        // decides that has to have run; and it must reach the subtree, which the recursion below
+        // gives for nothing because it passes this element's accumulated position on. See
+        // `Sticky.cs`.
+        if (sticky.Is(element)) {
+            sticky.Of(element, metrics, in port, out var sx, out var sy);
+
+            element.AbsoluteLeft += sx;
+            element.AbsoluteTop += sy;
+        }
+
         // ⚠ <b>`rotate` and `scale` land here too, and pointedly <i>not</i> in the sum above.</b> A
         // translation is a position and can be added to one; a rotation and a scale change the box's
         // shape, so there is no pair of numbers that could carry them and no accumulated rectangle
@@ -2443,6 +2475,19 @@ public sealed partial class UiDocument : IDisposable {
         // transforms in turn — and it is what stops a transform leaking into layout.
         element.Transform = transform.Of(element, metrics);
 
+        // ⚠ <b>A scrolling box is the scrollport its descendants stick to, and the rectangle is the
+        // one the clip uses.</b> `Cut` clips against this element's border box, so a sticky header
+        // held to a padding box would come unstuck a padding-width before it was clipped — two
+        // rectangles that disagree, where one that is the clip cannot.
+        var inner = overflow.Of(element.Style).Any
+            ? new Scrollport(
+                element.AbsoluteLeft,
+                element.AbsoluteTop,
+                element.AbsoluteLeft + element.Width,
+                element.AbsoluteTop + element.Height
+            )
+            : port;
+
         // ⚠ The children accumulate from the translated parent, so a transform moves the subtree —
         // CSS Transforms 1 §3, and the reason a translated panel takes its contents with it rather
         // than sliding out from under them. Nothing extra is needed for it: the recursion below
@@ -2455,7 +2500,7 @@ public sealed partial class UiDocument : IDisposable {
                 continue;
             }
 
-            Accumulate(child, element.AbsoluteLeft, element.AbsoluteTop, metrics);
+            Accumulate(child, element.AbsoluteLeft, element.AbsoluteTop, metrics, in inner);
         }
     }
 

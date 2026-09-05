@@ -931,6 +931,20 @@ public static class UtilityFamilies {
         Static("static", "position", "static");
         Static("relative", "position", "relative");
         Static("absolute", "position", "absolute");
+
+        // ⚠ <b>`sticky` is here and `fixed` never will be, and the two look alike from Tailwind's
+        // side only.</b> Doc 09 refuses `fixed` because there is no viewport in a game overlay — a
+        // box positioned against one has nothing to be positioned against. That argument does not
+        // reach `sticky`, whose reference is a SCROLLPORT: the nearest scrolling ancestor's box,
+        // which every `ScrollView` in the editor has. A sticky table header inside a scroller is a
+        // real requirement rather than a web habit.
+        //
+        // ⚠ <b>And it is honoured outside `Vixen.Ui.Layout`, which is not where doc 43 sized it.</b>
+        // A sticky box's offset is a function of a scroll offset and that store has none —
+        // `ScrollView` scrolls by writing `UiElement.OffsetY`, which never reaches the layout tree.
+        // `UiDocument.Accumulate` is where a position is already assembled from more than one
+        // contribution, and it is where this one lands. See `Core/Vixen.Ui/Sticky.cs`.
+        Static("sticky", "position", "sticky");
         Size("inset", "top", "right", "bottom", "left");
         Size("inset-x", "left", "right");
         Size("inset-y", "top", "bottom");

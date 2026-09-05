@@ -388,9 +388,17 @@ public class UtilityFamilySupportTests {
         { "size-2", "height", "8px" },
 
         // Position.
+        //
+        // ⚠ <b>`sticky` is here and `fixed` is not, and only one of the two is a refusal.</b> Doc 09
+        // excludes `fixed` because a game overlay has no viewport for it to be positioned against;
+        // `sticky`'s reference is a scrollport, which every `ScrollView` has. The keyword is honoured
+        // in `UiDocument.Accumulate` rather than in `Vixen.Ui.Layout` — that store has no scroll
+        // offsets — so this row asserts a value that is read, and `StickyPositionTests` is what reads
+        // it.
         { "absolute", "position", "absolute" },
         { "relative", "position", "relative" },
         { "static", "position", "static" },
+        { "sticky", "position", "sticky" },
         { "top-0", "top", "0" },
         { "inset-x-1", "left", "4px" },
         { "start-2", "inset-inline-start", "8px" },
