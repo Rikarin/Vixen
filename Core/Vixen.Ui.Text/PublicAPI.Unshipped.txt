@@ -654,6 +654,7 @@ Vixen.Ui.Text.TextTransform.TextTransform() -> void
 Vixen.Ui.Text.TextTransform.Uppercase = 1 -> Vixen.Ui.Text.TextTransform
 Vixen.Ui.Text.TextWrapMode -> enum : byte
 Vixen.Ui.Text.TextWrapMode.Anywhere = 1 -> Vixen.Ui.Text.TextWrapMode
+Vixen.Ui.Text.TextWrapMode.BreakWord = 2 -> Vixen.Ui.Text.TextWrapMode
 Vixen.Ui.Text.TextWrapMode.TextWrapMode() -> void
 Vixen.Ui.Text.TextWrapMode.Word = 0 -> Vixen.Ui.Text.TextWrapMode
 Vixen.Ui.Text.TransformedText -> sealed class

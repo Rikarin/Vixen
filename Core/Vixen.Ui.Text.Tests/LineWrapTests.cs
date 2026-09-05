@@ -152,7 +152,11 @@ public class LineWrapTests {
         var generator =
             from text in Gen.String[Gen.Char["abcde \n-"], 0, 60]
             from width in Gen.Float[0f, 4000f]
-            from mode in Gen.OneOfConst(TextWrapMode.Word, TextWrapMode.Anywhere)
+            // ⚠ All three, and `BreakWord` is the one that has to be here rather than the one that
+            // was added for symmetry: it and `Anywhere` differ only in a room of nothing, and
+            // `width` here starts at exactly nothing. A generator over two of the three would sample
+            // that width for the mode whose behaviour at it is unchanged.
+            from mode in Gen.OneOfConst(TextWrapMode.Word, TextWrapMode.Anywhere, TextWrapMode.BreakWord)
             select (text, width, mode);
 
         generator.Sample(

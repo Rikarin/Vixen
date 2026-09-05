@@ -194,6 +194,10 @@ public sealed partial class UiDocument {
             element,
             new PointerEvent {
                 PointerId = args.PointerId,
+                // Carried across, because a crossing is a fact about the pointer that caused it. A
+                // synthesised `Entered` that said `Unknown` would be the one event in a touch
+                // sequence a `touch-action` reader could not classify.
+                PointerType = args.PointerType,
                 X = args.X,
                 Y = args.Y,
                 Button = PointerButton.None,

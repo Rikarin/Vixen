@@ -127,5 +127,7 @@ window — runs in an ordinary unit test with no display server.
 ## See also
 
 * [Utility composition](utility-composition.md) — where the `cursor-*` classes come from
+* [Pointer devices](pointer-devices.md) — telling a finger from a mouse, which is what decides
+  whether there is a cursor to shape at all
 * [`UiDocument`](/docs/api/vixen.ui/uidocument) — `Cursor` and `CursorOf`, the cascade's half
 * [`IWindow`](/docs/api/vixen.platform/iwindow) — `CursorShape` and `CursorMode`, the platform's
