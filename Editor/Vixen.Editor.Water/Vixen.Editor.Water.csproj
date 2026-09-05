@@ -96,6 +96,18 @@
         <ProjectReference Include="..\..\Core\Vixen.Ui.Markup.Generators\Vixen.Ui.Markup.Generators.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
+
+        <!--
+            ⚠ **"These two lines" was three, and this is the third.** `Vixen.Ui.Generators` is the
+            other analyzer the package carries beside the markup compiler: it turns a `[UiProperty]`
+            into a property the cascade can see and it runs VXS0320. The paragraph above is right
+            that the first `.vxml` in an assembly costs a fixed price, and it named half of it — so
+            the state it describes as now diagnosed had a second, quieter form nothing reported.
+            VX4003 is that form.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Generators\Vixen.Ui.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>

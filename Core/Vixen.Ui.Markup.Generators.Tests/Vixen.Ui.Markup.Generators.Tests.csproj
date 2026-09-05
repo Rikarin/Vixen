@@ -53,6 +53,17 @@
             <_Parameter2>$(MSBuildThisFileDirectory)../Vixen.Ui.Markup.Generators/Vixen.Ui.Markup.Generators.csproj</_Parameter2>
         </AssemblyAttribute>
 
+        <!--
+            ⚠ The *other* generator, which this fixture had no reason to name until VX4003 existed.
+            A project that compiles markup and does not load it gets no [UiProperty] registrations
+            and no VXS0320 — silently, in both directions — which is why the check that reports it
+            needs a fixture that can be in exactly that state and one that cannot.
+        -->
+        <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+            <_Parameter1>VixenPropertyGeneratorProject</_Parameter1>
+            <_Parameter2>$(MSBuildThisFileDirectory)../Vixen.Ui.Generators/Vixen.Ui.Generators.csproj</_Parameter2>
+        </AssemblyAttribute>
+
         <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
             <_Parameter1>VixenUiBuildTargets</_Parameter1>
             <_Parameter2>$(MSBuildThisFileDirectory)../Vixen.Ui/build/Vixen.Ui.targets</_Parameter2>
