@@ -84,7 +84,7 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **332** | 307 families |
+| Utility **roots** (the unit of this table) | **331** | 307 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
 | Variant keys | **88** | **54** |
@@ -110,7 +110,7 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 | **works** | Vixen emits it, and a consumer acts on every property it sets | **241** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **26** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **61** |
+| **absent** | not emitted at all | **60** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 
 ⚠ **There was a sixth, `unknown`, and it described a row rather than a state.** Exactly one row held
@@ -122,6 +122,20 @@ splitting it is what makes every state true of something. `snap-mandatory` and `
 families that already emit them; the four `*-reverse` classes are two roots of their own, `absent`,
 carrying the reason. ⚠ The state is gone from `ParityLedger.States` as well as from the file, because
 a state nothing can produce is a state somebody will find a use for.
+
+⚠ **The row came back, and every test in this suite stayed green** ([#710](https://github.com/Rikarin/Vixen/issues/710)).
+A hand resolution of a merge conflict in the `.tsv` took the side that still had it, at `absent`; the
+row is a legal row, `absent` is a legal state, and the counts add up because they are computed from
+the rows as they now are. What was observable is that six of its eight classes were on two rows at
+once, so that is the invariant — `ParityLedgerTests.Every_class_is_listed_by_exactly_one_row`. ⚠ Two
+cheaper rules were considered and are refuted by this file: refusing a root whose `vixen_family` names
+no registered family would fail the 60 refused roots, which have no family by construction, and
+refusing a name containing parentheses or the word `only` would fail `sr-only`, `not-sr-only` and
+every `… (keywords)` row. ⚠ And **regenerating the `.tsv` after a merge would not have caught it
+either** — `VIXEN_REGENERATE=1` rewrites three computed columns of whatever rows it is handed, so it
+can neither delete a row that returned nor restore the two classes the same resolution dropped off
+`snap`. A `union` merge driver would have produced this state automatically rather than preventing it.
+The invariant is the cure.
 
 ⚠ **`composed` fell from twelve to three, and eight of the nine moved for two different reasons.**
 Five (`space-x/y-*`, `divide-*`, `divide-x/y-*`) were never composition at all: they are child-scoped
@@ -475,7 +489,7 @@ refusal block, which already says so for the same reason.
 
 | Category | roots | works | partial | inert | absent | composed |
 |---|--:|--:|--:|--:|--:|--:|
-| Layout | 51 | 35 | 2 | 0 | 11 | 3 |
+| Layout | 50 | 35 | 2 | 0 | 10 | 3 |
 | Interactivity | 40 | 30 | 0 | 1 | 9 | 0 |
 | Borders | 34 | 28 | 2 | 0 | 4 | 0 |
 | Effects | 34 | 27 | 2 | 0 | 5 | 0 |
@@ -490,10 +504,10 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 |
-| **Total** | **332** | **241** | **26** | **1** | **61** | **3** |
+| **Total** | **331** | **241** | **26** | **1** | **60** | **3** |
 
 Flexbox and Grid leads at 30 of 34, with only two absent roots left and both of those refused on
-policy rather than owed; then Layout at 33 of 51, Interactivity at 30 of 40, Borders at 28 of 34,
+policy rather than owed; then Layout at 35 of 50, Interactivity at 30 of 40, Borders at 28 of 34,
 and Effects at 27 of 34. Tables and Accessibility still have **no working root at all**.
 
 ⚠ **No category is `complete`, and SVG — which this section called the first one to be — is 2 of 3.**
@@ -2915,7 +2929,7 @@ of each other.
 **B · Layout modes.** `display` is `{ Flex, None }`. Block, grid and inline formatting are three
 algorithms over the existing store.
 
-**C · Families.** The 332 roots.
+**C · Families.** Every root in Part 0's table.
 
 ⚠ **C depends on A and B, and inverting that is how the present state came about.** `grid-cols-3`
 exists as a family and emits `grid-template-columns` because a family is a line of a table and the
@@ -3851,7 +3865,7 @@ ask is not "where is this read" but "what else reads the number it changes".**
 
 ## Exit criteria (measured)
 
-1. **Every one of the 332 roots is `works`, or carries an open task number, or is one of the four
+1. **Every one of the table's roots is `works`, or carries an open task number, or is one of the four
    exclusions in Part 8.** Checked by regenerating the TSV; the states are computed, not asserted.
 2. ✅ **No family emits a property no consumer *acts on***, except entries on the allow-list, each of
    which names a task this document contains. `UtilityConsumptionGateTests` fails otherwise — a test
@@ -3892,7 +3906,7 @@ ask is not "where is this read" but "what else reads the number it changes".**
 being matched is Tailwind's utility index, which is a much smaller and better-defined thing than CSS.
 
 **A second styling language.** Every gap here closes by making the *existing* property bridge wider.
-There is no case in the 332 rows for a Vixen-specific styling concept, and adding one would be the
+There is no case in any row of that table for a Vixen-specific styling concept, and adding one would be the
 third version of the mistake in the README.
 
 **A promise that a Tailwind stylesheet drops in.** Class names and semantics match; the generator is
