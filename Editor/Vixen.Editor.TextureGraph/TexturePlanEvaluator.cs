@@ -25,6 +25,7 @@ public sealed class TextureBake : IDisposable {
 
     internal TextureBake(
         IGraphicsDevice device,
+        ICommandSubmitter queue,
         TexturePlan plan,
         TexturePoolSchedule schedule,
         TextureHandle[] textures,
@@ -33,9 +34,22 @@ public sealed class TextureBake : IDisposable {
         this.device = device;
         this.textures = textures;
         this.views = views;
+        Queue = queue;
         Plan = plan;
         Schedule = schedule;
     }
+
+    /// <summary>The queue the evaluation ran on, and the only one this bake's textures are touched from.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The submitter itself rather than a <see cref="QueueKind" />, so that the queue a
+    ///     read-back records on and the queue it submits to cannot drift apart.</b> That is exactly
+    ///     how <a href="https://github.com/Rikarin/Vixen/issues/617">#617</a> happened: the dispatches
+    ///     named <see cref="QueueKind.Compute" /> in one method and the read-back named
+    ///     <see cref="QueueKind.Graphics" /> in another, and on every adapter this engine has been
+    ///     developed on the two are one family, so nothing anywhere said so. There is one object here
+    ///     now, and <see cref="Read" /> takes both its list kind and its submission from it.
+    /// </remarks>
+    public ICommandSubmitter Queue { get; }
 
     /// <summary>What was evaluated.</summary>
     public TexturePlan Plan { get; }
@@ -72,6 +86,14 @@ public sealed class TextureBake : IDisposable {
     ///         A single-channel image comes back as grey with an opaque alpha rather than as red,
     ///         because what is being looked at is a mask and a red mask is unreadable.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The copy is recorded on <see cref="Queue" /> — the queue the bake wrote on — and
+    ///         that is a correctness requirement rather than a tidiness one.</b> See
+    ///         <see cref="TexturePlanEvaluator" />: every texture here is
+    ///         <c>ResourceSharing.Exclusive</c>, and reading one from a second queue family without an
+    ///         ownership transfer is undefined. The list kind comes from the same object as the
+    ///         submission, so a copy recorded for one queue can never be submitted to another.
+    ///     </para>
     /// </remarks>
     public Core.Imaging.Bitmap Read(int image) {
         ObjectDisposedException.ThrowIf(disposed, this);
@@ -95,7 +117,7 @@ public sealed class TextureBake : IDisposable {
 
         device.BeginFrame();
 
-        using (var commands = device.BeginCommandList(QueueKind.Graphics, "texture graph readback")) {
+        using (var commands = device.BeginCommandList(Queue.Kind, "texture graph readback")) {
             commands.Barrier(
                 new BarrierGroup([], [new TextureBarrier(texture, ResourceState.ShaderRead, ResourceState.CopySource)])
             );
@@ -107,7 +129,7 @@ public sealed class TextureBake : IDisposable {
             );
 
             commands.Finish();
-            device.GraphicsQueue.Submit([commands]);
+            Queue.Submit([commands]);
         }
 
         device.EndFrame();
@@ -165,6 +187,35 @@ public sealed class TextureBake : IDisposable {
 ///         the interactive per-node preview of doc 48 § M4 is a different caller with a different
 ///         budget, and it will want the recording half of this split out rather than this method
 ///         called sixty times a second.
+///     </para>
+///     <para>
+///         ⚠ <b>Every command list a bake records — the dispatches, and every later read-back — goes
+///         to <see cref="IGraphicsDevice.ComputeQueue" />, recorded for that submitter's own
+///         <see cref="ICommandSubmitter.Kind" />, and that is a correctness requirement rather than a
+///         preference.</b> (On a unified adapter that kind <em>is</em>
+///         <see cref="QueueKind.Graphics" />, because the backend collapses a queue sharing the
+///         graphics family — which is precisely why the defect below was invisible here.) The pool's
+///         textures are created with
+///         <c>TextureDescription.Sharing</c> at its default, <c>ResourceSharing.Exclusive</c>, so on
+///         an adapter whose <c>QueueFamilySelection</c> found a compute family of its own — a discrete
+///         AMD or NVIDIA card — touching one of them from a second family without a queue-family
+///         ownership transfer leaves its contents <b>undefined by specification</b>. The validation
+///         layers say nothing, because it is undefined behaviour and not invalid usage, and
+///         <c>VulkanBarriers.cs</c> records in as many words that a separate compute family is no
+///         device this engine has been developed on — so this would have been a corrupt bake on
+///         somebody else's machine and a clean run on every machine here.
+///     </para>
+///     <para>
+///         <b>One queue rather than the ownership-transfer pair, and a future reader should not
+///         "optimise" it back.</b> A transfer is two barriers with identical parameters plus a
+///         semaphore edge between the submissions (<c>TextureBarrier.TransfersOwnership</c>) — and the
+///         release half would have to be recorded at the end of the bake's own list, for every image,
+///         before anybody knows which ones will ever be read, how often, or whether at all. An image
+///         released to a queue that never acquires it is exactly the corruption that pair exists to
+///         prevent. There is also nothing to buy: a bake is modal, <see cref="Evaluate" /> waits for
+///         the device before it returns, and the read-back has no frame to overlap with. The
+///         precedent is <c>Platform/Vixen.Raven.Gpu.Tests/ShaderRun.cs</c>, which dispatches and
+///         copies on one compute list for this same reason.
 ///     </para>
 ///     <para>
 ///         <b>Variants are compiled once and kept.</b> The cache is keyed on the kernel and the
@@ -254,7 +305,7 @@ public sealed class TexturePlanEvaluator : IDisposable {
             owned.Add(slotViews[slot]);
         }
 
-        var bake = new TextureBake(device, plan, schedule, textures, owned);
+        var bake = new TextureBake(device, device.ComputeQueue, plan, schedule, textures, owned);
 
         try {
             Run(plan, schedule, bake, slotViews, ExternalViews(plan, externals, owned));
@@ -329,7 +380,7 @@ public sealed class TexturePlanEvaluator : IDisposable {
 
         device.BeginFrame();
 
-        using (var commands = device.BeginCommandList(QueueKind.Compute, "texture graph")) {
+        using (var commands = device.BeginCommandList(bake.Queue.Kind, "texture graph")) {
             for (var index = 0; index < plan.Ops.Length; index++) {
                 var op = plan.Ops[index];
                 var image = op.Output;
@@ -387,7 +438,7 @@ public sealed class TexturePlanEvaluator : IDisposable {
             }
 
             commands.Finish();
-            device.ComputeQueue.Submit([commands]);
+            bake.Queue.Submit([commands]);
         }
 
         device.EndFrame();

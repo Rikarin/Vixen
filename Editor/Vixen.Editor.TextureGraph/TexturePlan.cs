@@ -119,11 +119,93 @@ public sealed record TextureOp {
 ///     </para>
 /// </remarks>
 public sealed class TexturePlan {
-    /// <summary>The width every relative image is measured against, in texels.</summary>
+    /// <summary>The largest extent any image in a plan may reach, in texels.</summary>
+    /// <remarks>
+    ///     Well past what any adapter will create — <c>maxImageDimension2D</c> is 16 384 on the
+    ///     hardware this runs on — and it is here to make a nonsensical level a message rather than
+    ///     an allocation. ⚠ It also keeps <c>baseExtent &lt;&lt; -level</c> away from a shift of 32 or
+    ///     more, which in C# is a shift by <c>-level &amp; 31</c> and would silently make a 1024-texel
+    ///     base come back as 1024.
+    /// </remarks>
+    public const int MaxExtent = 65536;
+
+    /// <summary>
+    ///     The width every relative image is measured against, in texels: the resolution the graph
+    ///     was <b>authored</b> at.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Authored, not baked, and <see cref="BakeLevelOffset" /> is the difference.</b> This is
+    ///     the unit <see cref="TextureParameterUnit.TexelsAtBase" /> is counted in, so it is a
+    ///     property of the graph and not of the run — a radius of 8 means 8 texels of a 1024-wide
+    ///     image forever, whatever resolution the same plan is later baked at.
+    /// </remarks>
     public required int BaseWidth { get; init; }
 
-    /// <summary>The height every relative image is measured against, in texels.</summary>
+    /// <summary>
+    ///     The height every relative image is measured against, in texels, at the authoring
+    ///     resolution.
+    /// </summary>
     public required int BaseHeight { get; init; }
+
+    /// <summary>How much bigger this bake is than the resolution the graph was authored at.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 48 § D8's actual criterion, and until
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/619">#619</a> the plan had no field
+    ///         that could express it.</b> <see cref="BaseWidth" /> alone answers "how big is a
+    ///         half-resolution image inside this graph"; it cannot answer "what is this graph at 4K",
+    ///         because moving it moves the unit a radius is counted in by exactly as much and the
+    ///         radius comes out unchanged. A plan with a base of 1024 and one with a base of 4096
+    ///         both resolve <c>8</c> texels-at-base to <c>8</c> — which is the two-year fuse § D8 was
+    ///         written to prevent, lit inside the type meant to prevent it.
+    ///     </para>
+    ///     <para>
+    ///         <b>Same currency and same sign as <see cref="TextureImage.LevelOffset" />, and it adds
+    ///         to it:</b> <c>0</c> bakes at the authoring resolution, <c>-2</c> bakes a 1K graph at
+    ///         4K, <c>1</c> bakes it at 512 for a preview. <see cref="BakeLevelFor" /> turns a pair of
+    ///         resolutions into one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One number rather than a bake width and a bake height, deliberately.</b> Two would
+    ///         let a caller bake 1024×1024 as 4096×2048, and then a radius would have to be either
+    ///         four times wider horizontally and twice vertically — a filter that is no longer round —
+    ///         or wrong in one axis. That is the mirror-image failure § D8 names for a radius stored
+    ///         as a fraction of the image, and refusing to represent it is cheaper than deciding it.
+    ///     </para>
+    /// </remarks>
+    public int BakeLevelOffset { get; init; }
+
+    /// <summary>The level offset that bakes a graph authored at one width at another.</summary>
+    /// <param name="authoredWidth">The plan's <see cref="BaseWidth" />.</param>
+    /// <param name="bakeWidth">The width to bake at.</param>
+    /// <returns>The value to put in <see cref="BakeLevelOffset" />.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Either width is not positive.</exception>
+    /// <exception cref="ArgumentException">One is not a power-of-two multiple of the other.</exception>
+    /// <remarks>
+    ///     ⚠ <b>It refuses a ratio that is not a power of two rather than rounding one.</b> Baking a
+    ///     1024 graph at 1536 would put every image at a size no level names, and the plan's whole
+    ///     relative model — "every node is relative and only a bitmap is absolute" — would stop
+    ///     meaning anything. A front end that wants 1536 bakes at 2048 and resamples the file.
+    /// </remarks>
+    public static int BakeLevelFor(int authoredWidth, int bakeWidth) {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(authoredWidth);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(bakeWidth);
+
+        if (bakeWidth % authoredWidth == 0 && int.IsPow2(bakeWidth / authoredWidth)) {
+            return -int.Log2(bakeWidth / authoredWidth);
+        }
+
+        if (authoredWidth % bakeWidth == 0 && int.IsPow2(authoredWidth / bakeWidth)) {
+            return int.Log2(authoredWidth / bakeWidth);
+        }
+
+        throw new ArgumentException(
+            $"A graph authored at {authoredWidth} cannot be baked at {bakeWidth}: the two are not a "
+            + "power of two apart, and every image in a plan is a level offset from the base. Bake at the "
+            + "next power of two and resample the file.",
+            nameof(bakeWidth)
+        );
+    }
 
     /// <summary>The image table. Ops address these by index.</summary>
     public required ImmutableArray<TextureImage> Images { get; init; }
@@ -148,29 +230,51 @@ public sealed class TexturePlan {
     /// </remarks>
     public uint Seed { get; init; }
 
-    /// <summary>How big one image is, in texels.</summary>
+    /// <summary>How big one image is in this bake, in texels.</summary>
     /// <param name="image">Its index in <see cref="Images" />.</param>
     /// <returns>Its width and height.</returns>
     /// <remarks>
-    ///     Never smaller than one texel in either axis: a base of 1024 with a level offset of 12
-    ///     would otherwise be a zero-sized image, which is a dispatch of no groups and a texture no
-    ///     backend will create.
+    ///     <para>
+    ///         The image's own <see cref="TextureImage.LevelOffset" /> and the plan's
+    ///         <see cref="BakeLevelOffset" /> added: one says where this image sits inside the graph,
+    ///         the other says how big the whole graph is being made this time.
+    ///     </para>
+    ///     <para>
+    ///         Never smaller than one texel in either axis: a base of 1024 with a level offset of 12
+    ///         would otherwise be a zero-sized image, which is a dispatch of no groups and a texture
+    ///         no backend will create.
+    ///     </para>
     /// </remarks>
     public Int2 SizeOf(int image) {
-        var level = Images[image].LevelOffset;
+        var level = LevelOf(image);
 
         return new(Extent(BaseWidth, level), Extent(BaseHeight, level));
     }
 
-    /// <summary>How many texels of this image there are per texel of the base resolution.</summary>
+    /// <summary>Where one image sits, counted in mip levels from the authoring base.</summary>
     /// <param name="image">Its index in <see cref="Images" />.</param>
-    /// <returns><c>1</c> at the base, <c>0.5</c> one level down, <c>2</c> one level up.</returns>
+    /// <returns>The image's own offset plus this bake's.</returns>
+    public int LevelOf(int image) => Images[image].LevelOffset + BakeLevelOffset;
+
+    /// <summary>How many texels of this image there are per texel of the <em>authoring</em> base.</summary>
+    /// <param name="image">Its index in <see cref="Images" />.</param>
+    /// <returns><c>1</c> at the base, <c>0.5</c> one level down, <c>4</c> in a bake two levels up.</returns>
     /// <remarks>
-    ///     ⚠ <b>Measured from the width the plan actually gets rather than from the level.</b> They
-    ///     agree until an image is clamped to one texel, and past that point <c>1 / 2^level</c> would
-    ///     scale a radius to a fraction of a texel on an image that is not that small.
+    ///     <para>
+    ///         ⚠ <b>Per texel of the base the graph was <em>authored</em> at, which is what makes
+    ///         this the whole of § D8.</b> A level-0 image is <c>1</c> in a bake at the authoring
+    ///         resolution and <c>4</c> in a bake two levels above it, so the same authored radius is
+    ///         four times as many texels there — the same physical width, which is the property that
+    ///         makes a 1K graph and its 4K bake one material.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Measured from the width the plan actually gets rather than from the level.</b>
+    ///         They agree until an image is clamped to one texel, and past that point
+    ///         <c>1 / 2^level</c> would scale a radius to a fraction of a texel on an image that is
+    ///         not that small.
+    ///     </para>
     /// </remarks>
-    public float ScaleOf(int image) => Extent(BaseWidth, Images[image].LevelOffset) / (float)BaseWidth;
+    public float ScaleOf(int image) => Extent(BaseWidth, LevelOf(image)) / (float)BaseWidth;
 
     /// <summary>What one op's parameter is worth at the resolution that op writes.</summary>
     /// <param name="op">The op's index in <see cref="Ops" />.</param>
@@ -178,7 +282,9 @@ public sealed class TexturePlan {
     /// <returns>The number to write into the kernel's uniform block.</returns>
     /// <remarks>
     ///     The one place doc 48 § D8's scaling happens. A kernel is written as though every length
-    ///     were already in its own texels, because by the time the number reaches it, it is.
+    ///     were already in its own texels, because by the time the number reaches it, it is — and
+    ///     that covers both halves of § D8 at once, because <see cref="ScaleOf" /> folds the image's
+    ///     level and the bake's together.
     /// </remarks>
     public float Resolve(int op, TextureParameter parameter) =>
         parameter.Unit == TextureParameterUnit.TexelsAtBase
@@ -222,6 +328,29 @@ public sealed class TexturePlan {
 
         if (BaseWidth <= 0 || BaseHeight <= 0) {
             problems.Add($"The base resolution is {BaseWidth}×{BaseHeight}, and both axes have to be positive.");
+        } else {
+            for (var image = 0; image < Images.Length; image++) {
+                // An external image's size is the caller's — the plan's level for it is nominal and
+                // nothing here allocates it, so an absurd one is not this plan's problem.
+                if (Images[image].External) {
+                    continue;
+                }
+
+                var level = LevelOf(image);
+
+                // ⚠ Reported rather than clamped, because the arithmetic below it stops being
+                // arithmetic: `1024 << 32` in C# shifts by `32 & 31`, which is zero, so an absurd
+                // level comes back as the base resolution and the plan bakes something that looks
+                // plausible. Positive levels clamp to a texel and are a legitimate, if odd, thing to
+                // ask for; only the doubling direction can run away.
+                if (level < 0 && (Math.Max(BaseWidth, BaseHeight) > MaxExtent >> -Math.Max(level, -31))) {
+                    problems.Add(
+                        $"Image {image} is at level {level} of a {BaseWidth}×{BaseHeight} base — "
+                        + $"{Images[image].LevelOffset} of its own plus a bake offset of {BakeLevelOffset} — "
+                        + $"which is past the {MaxExtent}-texel ceiling."
+                    );
+                }
+            }
         }
 
         var written = new int[Images.Length];
@@ -306,6 +435,17 @@ public sealed class TexturePlan {
         return problems.ToImmutable();
     }
 
+    /// <summary>One axis at a level, saturating rather than wrapping at either end.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both shifts are clamped to 31, because C# shifts by <c>count &amp; 31</c> for an
+    ///     <see cref="int" />.</b> Without the clamp a level of 32 would be a level of 0 and a level
+    ///     of −32 would be one too: an absurd plan would come back reporting exactly the base
+    ///     resolution, which is the most plausible-looking wrong answer available.
+    ///     <see cref="Validate" /> refuses those plans; this makes the number honest even for a
+    ///     caller that never asked.
+    /// </remarks>
     static int Extent(int baseExtent, int level) =>
-        level >= 0 ? Math.Max(1, baseExtent >> level) : baseExtent << -level;
+        level >= 0
+            ? Math.Max(1, baseExtent >> Math.Min(level, 31))
+            : (int)Math.Min(MaxExtent, (long)baseExtent << Math.Min(-level, 31));
 }

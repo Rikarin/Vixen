@@ -63,6 +63,20 @@ shader Levels {
         return lerp(outputBlack, outputWhite, shaped)
     }
 
+    /// One texel of the source, clamped to *its* edge rather than to the target's.
+    ///
+    /// ⚠ **The extent asked for here is the source's and not `target`'s, and the two are not the
+    /// same number.** An op may write an image larger than the one it reads — a level offset is a
+    /// first-class plan feature — and clamping the read to the *storage image's* extent is a no-op
+    /// after `Main`'s own bounds guard: it looks like a bounds check and is not one, and every texel
+    /// past the source's edge is an out-of-bounds `Load`, which is undefined and reads as zero on
+    /// most drivers.
+    func Tap(x: int, y: int): float4 {
+        val size = source.GetDimensions(0)
+
+        return source.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+    }
+
     [ComputeShader(8, 8, 1)]
     func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
         val coord = int2(int(id.x), int(id.y))
@@ -72,7 +86,7 @@ shader Levels {
             return
         }
 
-        val texel = source.Load(int3(clamp(coord.x, 0, size.x - 1), clamp(coord.y, 0, size.y - 1), 0))
+        val texel = Tap(coord.x, coord.y)
         val shaped = float3(Curve(texel.x), Curve(texel.y), Curve(texel.z))
 
         // A hash of the texel and the seed, in −0.5…0.5 of one 8-bit step. Zero `dither` removes it

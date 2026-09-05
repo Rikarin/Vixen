@@ -16,10 +16,11 @@ namespace Tests;
 /// </remarks>
 public class TexturePlanTests {
     /// <summary>A plan of one blur over one supplied image, at whatever base and level are asked for.</summary>
-    static TexturePlan Blur(int baseSize, int level, float radius) =>
+    static TexturePlan Blur(int baseSize, int level, float radius, int bake = 0) =>
         new() {
             BaseWidth = baseSize,
             BaseHeight = baseSize,
+            BakeLevelOffset = bake,
             Images = [
                 new(TextureFormat.Rgba8, External: true),
                 new(TextureFormat.Rgba8, level)
@@ -92,22 +93,115 @@ public class TexturePlanTests {
     }
 
     /// <summary>
-    ///     A graph authored at one resolution and baked at another asks its kernels for proportionally
-    ///     wider filters, which is the property D8 says is testable.
+    ///     ⚠ The same plan baked at four times its authoring resolution asks for four times the
+    ///     radius, which is the property § D8 says is testable.
     /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This test asserted the opposite of its own name until
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/619">#619</a>, and that is how the gap
+    ///         survived a review.</b> It compared a plan with a base of 1024 against one with a base
+    ///         of 4096 — two <em>different graphs</em>, not one graph baked twice — found 8 either
+    ///         way, which is right for what it actually built, and wrote it down as agreement. Moving
+    ///         the base moves the unit a radius is counted in by exactly as much, so no pair of bases
+    ///         can ever disagree; the question needed a second field to be asked at all.
+    ///     </para>
+    ///     <para>
+    ///         The two halves below are what "the same material" means: <b>four times the texels and
+    ///         four times the radius</b>. Either alone is satisfied by a bug — an unscaled radius
+    ///         keeps the first, and an image that did not grow keeps the second.
+    ///     </para>
+    /// </remarks>
     [Fact]
     public void The_same_plan_at_four_times_the_base_asks_for_four_times_the_radius() {
+        var at1K = Blur(1024, 0, 8f);
+        var at4K = Blur(1024, 0, 8f, TexturePlan.BakeLevelFor(1024, 4096));
+
+        Assert.Equal(-2, at4K.BakeLevelOffset);
+        Assert.Equal(4 * at1K.SizeOf(1).X, at4K.SizeOf(1).X);
+
+        Assert.Equal(8f, at1K.Resolve(0, at1K.Ops[0].Find("radius")!.Value), 4);
+        Assert.Equal(32f, at4K.Resolve(0, at4K.Ops[0].Find("radius")!.Value), 4);
+    }
+
+    /// <summary>Two plans that differ only in their base are two graphs, and neither is a bake of the other.</summary>
+    /// <remarks>
+    ///     <b>The claim the old test was really making, kept because it is true and worth pinning.</b>
+    ///     A radius of 8 texels-at-base is 8 texels of a level-0 image whatever the base says, because
+    ///     that is what "at base" means. What it is <em>not</em> is § D8's criterion, and reading it as
+    ///     one is the whole of #619.
+    /// </remarks>
+    [Fact]
+    public void Moving_the_base_moves_the_unit_with_it_and_so_cannot_scale_anything() {
         var small = Blur(1024, 0, 8f);
         var large = Blur(4096, 0, 8f);
 
-        var at1K = small.Resolve(0, small.Ops[0].Find("radius")!.Value);
-        var at4K = large.Resolve(0, large.Ops[0].Find("radius")!.Value);
+        Assert.Equal(
+            small.Resolve(0, small.Ops[0].Find("radius")!.Value),
+            large.Resolve(0, large.Ops[0].Find("radius")!.Value),
+            4
+        );
 
-        // Both are 8 — a texel-at-base *is* a texel of a level-0 image — and the picture is four times
-        // wider at 4K because the image is. Storing the radius as an absolute number of texels of the
-        // *output* is what would make these differ, and would make the two bakes different materials.
-        Assert.Equal(at1K, at4K, 4);
-        Assert.Equal(4f * small.SizeOf(1).X, large.SizeOf(1).X);
+        Assert.Equal(4 * small.SizeOf(1).X, large.SizeOf(1).X);
+    }
+
+    /// <summary>A bake offset and an image's own level are the same currency and add.</summary>
+    [Theory]
+    [InlineData(0, 0, 1024, 8f)]
+    [InlineData(0, -2, 4096, 32f)]
+    [InlineData(1, -2, 2048, 16f)]
+    [InlineData(-1, 1, 1024, 8f)]
+    [InlineData(0, 3, 128, 1f)]
+    public void A_bake_offset_and_an_images_level_add(int level, int bake, int width, float radius) {
+        var plan = Blur(1024, level, 8f, bake);
+
+        Assert.Equal(width, plan.SizeOf(1).X);
+        Assert.Equal(radius, plan.Resolve(0, plan.Ops[0].Find("radius")!.Value), 4);
+    }
+
+    /// <summary>A bake resolution is a power of two from the authoring one, or it is refused.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Refused rather than rounded.</b> A 1536-wide bake of a 1024 graph puts every image at
+    ///     a size no level names, and the relative model stops meaning anything quietly.
+    /// </remarks>
+    [Theory]
+    [InlineData(1024, 1024, 0)]
+    [InlineData(1024, 4096, -2)]
+    [InlineData(1024, 256, 2)]
+    [InlineData(2048, 128, 4)]
+    public void A_bake_level_is_read_off_a_pair_of_resolutions(int authored, int baked, int expected) {
+        Assert.Equal(expected, TexturePlan.BakeLevelFor(authored, baked));
+        Assert.Equal(baked, Blur(authored, 0, 1f, expected).SizeOf(1).X);
+    }
+
+    /// <summary>A bake resolution that is not a power of two away is an exception rather than a rounding.</summary>
+    [Fact]
+    public void A_bake_resolution_that_is_not_a_power_of_two_away_is_refused() {
+        var failure = Assert.Throws<ArgumentException>(() => TexturePlan.BakeLevelFor(1024, 1536));
+
+        Assert.Contains("power of two", failure.Message, StringComparison.Ordinal);
+        Assert.Throws<ArgumentOutOfRangeException>(() => TexturePlan.BakeLevelFor(1024, 0));
+    }
+
+    /// <summary>
+    ///     ⚠ A level that would take an image past the ceiling is a message, not a shift that wraps.
+    /// </summary>
+    /// <remarks>
+    ///     <b>C# shifts an <see cref="int" /> by <c>count &amp; 31</c>.</b> So a doubling level of 32
+    ///     is a level of 0, and a plan asking for something absurd would report exactly the base
+    ///     resolution — the most plausible-looking wrong answer there is. <c>Validate</c> names it and
+    ///     <c>SizeOf</c> saturates, so neither half can hand back the base.
+    /// </remarks>
+    [Fact]
+    public void A_level_that_would_overflow_the_shift_is_refused_rather_than_wrapped() {
+        var plan = Blur(1024, 0, 8f, -32);
+
+        Assert.Contains(plan.Validate(), problem => problem.Contains("ceiling", StringComparison.Ordinal));
+        Assert.NotEqual(1024, plan.SizeOf(1).X);
+        Assert.Equal(TexturePlan.MaxExtent, plan.SizeOf(1).X);
+
+        // And the doubling that does fit is not refused.
+        Assert.Empty(Blur(1024, 0, 8f, -2).Validate());
     }
 
     /// <summary>Two ops never draw the same seed, and a seed is the same on every run.</summary>

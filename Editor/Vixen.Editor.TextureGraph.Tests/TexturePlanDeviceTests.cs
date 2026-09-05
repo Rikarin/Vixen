@@ -53,6 +53,13 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
         $"{device.Adapter.Name} ({device.Adapter.Kind}, {device.Adapter.DriverVersion})";
 
     /// <summary>Uploads a picture as an RGBA8 texture the plan can read.</summary>
+    /// <remarks>
+    ///     ⚠ <b>On the compute queue, because that is the queue the kernel that reads it runs on.</b>
+    ///     The texture is <c>ResourceSharing.Exclusive</c>, so filling it from the graphics family and
+    ///     sampling it from a compute family is the same undefined cross-family access
+    ///     <see cref="TexturePlanEvaluator" />'s own lists avoid — in reverse, and equally invisible
+    ///     on a unified-family adapter like this Mac's.
+    /// </remarks>
     static (TextureHandle Texture, BufferHandle Staging) Upload(VulkanDevice device, byte[] pixels, int side) {
         var texture = device.CreateTexture(
             new(PixelFormat.Rgba8UNorm, side, side, TextureUsage.Sampled | TextureUsage.CopyDestination, Name: "source")
@@ -65,7 +72,7 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
         device.Write(staging, 0, pixels);
         device.BeginFrame();
 
-        using (var commands = device.BeginCommandList(QueueKind.Graphics, "upload")) {
+        using (var commands = device.BeginCommandList(QueueKind.Compute, "upload")) {
             commands.Barrier(
                 new BarrierGroup([], [new TextureBarrier(texture, ResourceState.Undefined, ResourceState.CopyDestination)])
             );
@@ -80,7 +87,7 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
             );
 
             commands.Finish();
-            device.GraphicsQueue.Submit([commands]);
+            device.ComputeQueue.Submit([commands]);
         }
 
         device.EndFrame();
@@ -114,6 +121,34 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
             for (var x = 0; x < side; x++) {
                 var value = (byte)(x * 255 / (side - 1));
                 var at = (((y * side) + x) * 4);
+
+                pixels[at] = value;
+                pixels[at + 1] = value;
+                pixels[at + 2] = value;
+                pixels[at + 3] = 255;
+            }
+        }
+
+        return pixels;
+    }
+
+    /// <summary>A vertical edge down the middle: black on the left, white on the right.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one source shape that is exactly the same picture at every power-of-two
+    ///     resolution</b>, which is what doc 48 § D8's criterion needs of an input. A ramp is not — it
+    ///     is <em>invariant</em> under a box blur in its interior, so it would agree at both
+    ///     resolutions whether or not the radius scaled. An impulse is not either: one texel at 1K is
+    ///     four at 4K, so the two bakes would be given different pictures. A step edge is the same
+    ///     continuous image sampled twice, and a box blur turns it into a ramp whose *width* is the
+    ///     radius — which is exactly the quantity under test.
+    /// </remarks>
+    static byte[] Step(int side) {
+        var pixels = new byte[side * side * 4];
+
+        for (var y = 0; y < side; y++) {
+            for (var x = 0; x < side; x++) {
+                var value = (byte)(x < side / 2 ? 0 : 255);
+                var at = ((y * side) + x) * 4;
 
                 pixels[at] = value;
                 pixels[at + 1] = value;
@@ -320,13 +355,21 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
     ///     half-resolution image.
     /// </summary>
     /// <remarks>
-    ///     <b>Two plans that differ only in the base resolution, writing images of exactly the same
-    ///     size.</b> The first has a base of 64 and writes at level 0; the second has a base of 128
-    ///     and writes at level 1 — 64 texels either way, reading the same source, dispatching the same
-    ///     number of groups. The only thing that differs is what "8 texels at the base" resolves to,
-    ///     and the picture is what says whether the evaluator applied it. A radius that reached the
-    ///     kernel unscaled would make these two bars identical, which is a perfectly plausible picture
-    ///     and the reason nobody notices this bug for two years.
+    ///     <para>
+    ///         <b>Two plans writing images of exactly the same size.</b> The first has a base of 64
+    ///         and writes at level 0; the second has a base of 128 and writes at level 1 — 64 texels
+    ///         either way, reading the same source, dispatching the same number of groups. The only
+    ///         thing that differs is what "8 texels at the base" resolves to, and the picture is what
+    ///         says whether the evaluator applied it. A radius that reached the kernel unscaled would
+    ///         make these two bars identical, which is a perfectly plausible picture.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is the mip difference <em>within</em> one plan, and it is not § D8's
+    ///         criterion</b> — the two plans here are two graphs, not one graph baked twice.
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/619">#619</a> found that half missing
+    ///         and it is
+    ///         <see cref="The_same_plan_baked_at_four_times_the_resolution_agrees_with_the_smaller_bake" />.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_radius_in_texels_at_base_is_half_as_wide_on_a_half_resolution_image() {
@@ -374,6 +417,196 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
 
             return lit;
         }
+    }
+
+    /// <summary>
+    ///     ⚠ Doc 48 § D8's actual criterion: the same plan baked at 1× and at 4×, the larger
+    ///     downsampled, agreeing within a small tolerance.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The test the plan document asks for and
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/619">#619</a> found missing.</b> One
+    ///         plan, authored at 64, baked twice: once at <c>BakeLevelOffset</c> 0 and once at −2. The
+    ///         source is the same continuous picture sampled at both sizes, the radius is authored
+    ///         once in texels-at-base, and the 256² result is box-downsampled 4:1 and compared with
+    ///         the 64² one texel for texel.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Before #619 the plan had no way to express the second bake at all</b>, which is
+    ///         why nothing here could be written: moving <c>BaseWidth</c> to 256 moves the unit the
+    ///         radius is counted in by the same factor and produces a picture four times sharper.
+    ///         That is the two-year fuse § D8 names, and this is the assertion that keeps it out —
+    ///         for every kernel added to <c>Shaders/</c> afterwards as much as for this one.
+    ///     </para>
+    ///     <para>
+    ///         <b>The downsample is the criterion, not a CPU kernel.</b> § D3 forbids a C# twin of a
+    ///         kernel because a parity test against one proves the two transcriptions agree; a 4×4 box
+    ///         average is how the two bakes are brought into one coordinate system, and nothing in a
+    ///         graph does it.
+    ///     </para>
+    ///     <para>
+    ///         <b>Why the tolerance is not zero, and why it is nowhere near the bug.</b> A box of
+    ///         radius <c>r</c> is <c>2r + 1</c> texels wide, and <c>2(4r) + 1</c> is three texels
+    ///         short of four times that — so the 4× ramp is about 3 % shallower and the profiles part
+    ///         by a few 255ths at the ramp's ends. An unscaled radius parts them by ninety.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_same_plan_baked_at_four_times_the_resolution_agrees_with_the_smaller_bake() {
+        using var device = Open();
+
+        const int Authored = 64;
+        const int Large = 256;
+        const int Factor = Large / Authored;
+        const float RadiusAtBase = 12f;
+
+        var (small, smallStaging) = Upload(device, Step(Authored), Authored);
+        var (large, largeStaging) = Upload(device, Step(Large), Large);
+
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        var at1x = Bake(small, 0);
+        var at4x = Bake(large, TexturePlan.BakeLevelFor(Authored, Large));
+
+        Assert.Equal(Authored, at1x.Width);
+        Assert.Equal(Large, at4x.Width);
+
+        var reduced = Downsample(at4x, Factor);
+        var worst = 0;
+        var worstAt = 0;
+        var total = 0L;
+
+        for (var x = 0; x < Authored; x++) {
+            var difference = Math.Abs(At(at1x, x, Authored / 2, 0) - reduced[x]);
+
+            total += difference;
+
+            if (difference > worst) {
+                worst = difference;
+                worstAt = x;
+            }
+        }
+
+        output.WriteLine(
+            string.Create(
+                CultureInfo.InvariantCulture,
+                $"adapter: {Adapter(device)}; worst {worst}/255 at column {worstAt}, "
+                + $"mean {total / (double)Authored:F2}/255"
+            )
+        );
+
+        // A box of radius 12 is 25 texels and one of radius 48 is 97, and 97 is not 100 — so the two
+        // ramps differ in slope by 3 % and part by a few 255ths where the ramp meets the flat. A
+        // radius that did not scale parts them by about ninety.
+        Assert.True(
+            worst <= 8,
+            $"the 4× bake downsampled differs from the 1× bake by {worst}/255 at column {worstAt} on "
+            + $"{Adapter(device)}, and § D8 says the two are the same material"
+        );
+
+        device.Destroy(smallStaging);
+        device.Destroy(small);
+        device.Destroy(largeStaging);
+        device.Destroy(large);
+
+        return;
+
+        Bitmap Bake(TextureHandle source, int bake) {
+            var plan = new TexturePlan {
+                BaseWidth = Authored,
+                BaseHeight = Authored,
+                BakeLevelOffset = bake,
+                Images = [new(TextureFormat.Rgba8, External: true), new(TextureFormat.Rgba16Float)],
+                Ops = [Blur(1, 0, RadiusAtBase, 1, 0)],
+                Outputs = [1]
+            };
+
+            using var baked = evaluator.Evaluate(plan, new Dictionary<int, TextureHandle> { [0] = source });
+
+            return baked.Read(1);
+        }
+
+        // A box average of one row, which is what brings the larger bake into the smaller one's
+        // coordinates. Averaged over the block in both axes so a per-row artefact cannot hide in it.
+        int[] Downsample(Bitmap picture, int factor) {
+            var row = new int[picture.Width / factor];
+
+            for (var x = 0; x < row.Length; x++) {
+                var sum = 0;
+
+                for (var dy = 0; dy < factor; dy++) {
+                    for (var dx = 0; dx < factor; dx++) {
+                        sum += At(picture, (x * factor) + dx, ((picture.Height / 2 / factor) * factor) + dy, 0);
+                    }
+                }
+
+                row[x] = sum / (factor * factor);
+            }
+
+            return row;
+        }
+    }
+
+    /// <summary>
+    ///     ⚠ A Levels op writing an image larger than the one it reads clamps to the <em>source's</em>
+    ///     edge.
+    /// </summary>
+    /// <remarks>
+    ///     <b><a href="https://github.com/Rikarin/Vixen/issues/618">#618</a>, and no test in this
+    ///     suite used unequal sizes.</b> <c>Levels.rvn</c> took its extent from <c>target</c> and then
+    ///     clamped its <em>source</em> read to it — a no-op after <c>Main</c>'s own bounds guard, so
+    ///     it looked like a bounds check and was not one. Everything past the source's width was an
+    ///     out-of-bounds <c>Load</c>: undefined, and black on this driver. Its two siblings both ask
+    ///     their own source. The closed form is that column 100 of a 128-wide output over a 64-wide
+    ///     ramp is the ramp's last column, which is white — and was black.
+    /// </remarks>
+    [Fact]
+    public void A_levels_op_writing_a_larger_image_clamps_to_its_sources_edge() {
+        using var device = Open();
+
+        var (source, staging) = Upload(device, Ramp(Side), Side);
+
+        var plan = new TexturePlan {
+            BaseWidth = Side,
+            BaseHeight = Side,
+            Images = [
+                new(TextureFormat.Rgba8, External: true),
+
+                // Twice the source in each axis, which is a level offset the plan has always allowed
+                // and no kernel test had ever asked for.
+                new(TextureFormat.Rgba8, -1)
+            ],
+            Ops = [Levels(1, 0, 0f, 1f)],
+            Outputs = [1]
+        };
+
+        using var evaluator = new TexturePlanEvaluator(device);
+        using var bake = evaluator.Evaluate(plan, new Dictionary<int, TextureHandle> { [0] = source });
+
+        var picture = bake.Read(1);
+
+        Assert.Equal(Side * 2, picture.Width);
+        Assert.Equal(Side * 2, picture.Height);
+
+        // Inside the source's extent the identity curve is the ramp, one output texel per source
+        // texel — Levels does not resample and is not supposed to.
+        Assert.InRange(At(picture, 32, 8, 0), 124, 135);
+
+        // And past it, every column is the ramp's last one. Zero here is the out-of-bounds read.
+        foreach (var x in (int[])[Side, Side + 1, 100, (Side * 2) - 1]) {
+            Assert.True(
+                At(picture, x, 8, 0) > 247,
+                $"column {x} of a {Side * 2}-wide output over a {Side}-wide source is "
+                + $"{At(picture, x, 8, 0)} and the source's edge is white ({Adapter(device)})"
+            );
+        }
+
+        // The bottom of the image as well, because the y clamp is a second copy of the same mistake.
+        Assert.True(At(picture, 32, (Side * 2) - 1, 0) is > 124 and < 136);
+
+        device.Destroy(staging);
+        device.Destroy(source);
     }
 
     /// <summary>Multiply blend of two known images is their product, texel by texel.</summary>

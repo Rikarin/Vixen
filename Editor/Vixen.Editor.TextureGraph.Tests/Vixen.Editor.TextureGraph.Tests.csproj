@@ -27,5 +27,14 @@
              turns the skip into a failure. ⚠ Half of this suite needs no device at all — the plan,
              the pool and the kernel compilations are asserted with nothing open. -->
         <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+
+        <!-- ⚠ And the Null backend, for exactly one question a real adapter cannot answer: which
+             queue a bake submits to. `NullDevice` builds three distinct submitters — "unlike every
+             real device the tree runs on", as it says itself — while MoltenVK, and every unified
+             adapter, collapses compute onto the graphics family, so #617's cross-queue access was
+             invisible on the machine it was written on. Nothing in `TextureQueueTests` looks at a
+             pixel; a Null-device test that did would be proving that a black image equals a black
+             image. -->
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
     </ItemGroup>
 </Project>

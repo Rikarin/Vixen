@@ -93,16 +93,68 @@ reinterpretable.
 
 ## Resolution, and the bug with a two-year fuse
 
-[§ D8](../../docs/plan/48-material-authoring.md). The plan declares a base resolution; every image is a
-power of two away from it; **every radius, width and length is in texels at the base resolution** and is
-scaled by the evaluator to the image the op writes.
+[§ D8](../../docs/plan/48-material-authoring.md). The plan declares the resolution the graph was
+**authored** at (`BaseWidth` / `BaseHeight`); every image is a power of two away from it
+(`LevelOffset`); and **every radius, width and length is in texels at that authoring resolution**
+(`TextureParameterUnit.TexelsAtBase`), scaled by the evaluator to the image the op writes.
 
 ⚠ **A radius stored as absolute texels looks right at the resolution it was tuned at and is half as
 wide at 4K**, so a graph authored at 1K and shipped at 4K is a different material and nobody associates
 the change with the resolution field. Storing it as a fraction of the image has the mirror-image failure
-at a non-square resolution. `TexturePlanDeviceTests` proves the scaling on a device with two plans that
-differ only in the base and write images of exactly the same size: the impulse bar is 17 texels wide in
-one and 9 in the other, and a radius that reached the kernel unscaled would make them identical.
+at a non-square resolution.
+
+### Authoring resolution and bake resolution are two numbers
+
+`BakeLevelOffset` is how big the whole graph is being made *this time*, in the same currency and with
+the same sign as an image's own level: `0` bakes at the authoring resolution, `-2` bakes a 1K graph at
+4K, `1` bakes a 512 preview. `TexturePlan.BakeLevelFor(authored, baked)` reads one off a pair of
+resolutions and refuses a ratio that is not a power of two. `SizeOf` adds the two levels; `ScaleOf`
+therefore reports **4** for a level-0 image in a bake two levels up, and `Resolve` turns 8 texels-at-base
+into 32 — the same physical width, which is what makes the two bakes one material.
+
+⚠ **One number rather than a bake width and a bake height**, deliberately: two would let a caller ask
+for 4096×2048 out of a 1024² graph, and then a radius would be either four times wider in x and twice
+in y — a filter that is no longer round — or wrong in one axis.
+
+⚠ **This field did not exist until [#619](https://github.com/Rikarin/Vixen/issues/619), and this
+section used to claim `TexturePlanDeviceTests` proved the scaling.** It did not, and could not: moving
+`BaseWidth` moves the unit a radius is counted in by exactly as much, so `Resolve` returned 8 at a base
+of 1024 and 8 at a base of 4096, and the test that was meant to catch this asserted that the two agreed
+— the opposite of what its own name said. What that device test does prove, and still does, is the mip
+difference *within* one plan: two plans writing 64-texel images, one at base 64 / level 0 and one at
+base 128 / level 1, produce a 17-texel bar and a 9-texel bar.
+
+§ D8's own criterion — **bake at 1K and at 4K, downsample the second, require agreement** — is
+`TexturePlanDeviceTests.The_same_plan_baked_at_four_times_the_resolution_agrees_with_the_smaller_bake`:
+one plan, baked at `BakeLevelOffset` 0 and −2 over a step edge sampled at both sizes, the 256² result
+box-downsampled 4:1, worst column agreeing to 4/255 against a tolerance of 8. An unscaled radius parts
+them by 92/255. That test is what protects every kernel added to `Shaders/` afterwards.
+
+## One queue, and why not a barrier pair
+
+Every command list a bake records — the dispatches and every later read-back — is a compute list
+submitted to `IGraphicsDevice.ComputeQueue`. `TextureBake` is handed the submitter and takes both its
+command-list kind and its submission from it, so the two halves cannot name different queues.
+
+⚠ **[#617](https://github.com/Rikarin/Vixen/issues/617): they used to.** The dispatches went to the
+compute queue and the read-back's `CopyTextureToBuffer` to the graphics queue, on textures created
+`ResourceSharing.Exclusive`, with no queue-family ownership transfer anywhere — **undefined by
+specification** on any adapter whose `QueueFamilySelection` found a compute family of its own. The
+validation layers say nothing, because it is undefined behaviour and not invalid usage, and
+`Platform/Vixen.Graphics.Vulkan/VulkanBarriers.cs` records in as many words that a separate compute
+family is no device this engine has been developed on. So it was a clean bake on every machine here and
+undefined texels on a discrete card.
+
+**One queue rather than the transfer pair, and a future reader should not "optimise" it back.** An
+ownership transfer is two barriers with identical parameters plus a semaphore edge; the release half
+would have to be recorded at the end of the bake's own list, for every image, before anybody knows
+which will ever be read — and a texture released to a queue that never acquires it is exactly the
+corruption the pair exists to prevent. There is also nothing to buy: a bake is modal, `Evaluate` waits
+for the device before it returns, and a read-back has no frame to overlap. `Vixen.Raven.Gpu.Tests`'
+`ShaderRun` dispatches and copies on one compute list for the same reason.
+
+`TextureQueueTests` is what says so, and it runs on the **Null** device — the only backend in this tree
+whose three submitters are three objects. It asserts a queue and never a pixel.
 
 ## Formats, and the two that turned out to be read-only
 
@@ -134,5 +186,9 @@ and prints character-for-character identical healthy counters. **A texture-graph
 Null device would have proved that a black image equals a black image.** Every device test here opens
 through one helper that names the adapter into every failure message and skips loudly when there is
 none; `VIXEN_REQUIRE_VULKAN=1` turns the skip into a failure.
+
+⚠ **`TextureQueueTests` is the one exception and it is deliberate.** It opens a Null device on purpose,
+because a unified adapter cannot tell the compute queue from the graphics one and that is the whole
+question it asks. It never reads a texel.
 
 Licensed under Apache-2.0.

@@ -90,8 +90,8 @@ caller's own `BeginFrame` and `EndFrame`. A bake is a modal operation somebody s
 
 ## Resolution is relative, and every length is in texels at the base
 
-The plan declares a base resolution. Every image is a power of two away from it — `LevelOffset` `1` is
-half, `-1` is double — and only an external image has a size of its own.
+The plan declares the resolution the graph was **authored** at. Every image is a power of two away from
+it — `LevelOffset` `1` is half, `-1` is double — and only an external image has a size of its own.
 
 **Every radius, width and length is authored in texels at the base resolution** and scaled by the
 evaluator to the image the op writes. `TextureParameterUnit.TexelsAtBase` is what says so, and
@@ -102,6 +102,41 @@ evaluator to the image the op writes. `TextureParameterUnit.TexelsAtBase` is wha
 > associates the change with the resolution field. Storing it as a fraction of the image has the
 > mirror-image failure at a non-square resolution. Texels-at-base, with the base written in the plan,
 > is the only form in which both questions have one answer.
+
+## Baking the same graph at another resolution
+
+`BakeLevelOffset` says how big the whole graph is being made this time, in the same currency and with
+the same sign as an image's own level. `0` bakes at the authoring resolution, `-2` bakes a 1K graph at
+4K, `1` bakes a 512 preview:
+
+```csharp no-compile="the plan above, baked at four times what it was authored at"
+var at4K = new TexturePlan {
+    BaseWidth = 2048,                                        // still what the graph was authored at
+    BaseHeight = 2048,
+    BakeLevelOffset = TexturePlan.BakeLevelFor(2048, 8192),   // -2
+    Images = plan.Images,
+    Ops = plan.Ops,
+    Outputs = plan.Outputs
+};
+
+// Every image is four times wider, and so is every radius.
+var width = at4K.SizeOf(1).X;                                      // 8192, was 2048
+var radius = at4K.Resolve(0, at4K.Ops[0].Find("radius")!.Value);   // 32, was 8
+```
+
+`BakeLevelFor` refuses a ratio that is not a power of two — a 1536-wide bake of a 1024 graph would put
+every image at a size no level names. Bake at the next power of two and resample the file.
+
+> ⚠ **`BaseWidth` alone cannot express this, and until
+> [#619](https://github.com/Rikarin/Vixen/issues/619) it was the only field there was.** Moving the
+> base moves the unit a radius is counted in by exactly as much, so a plan with a base of 1024 and one
+> with a base of 4096 both resolve `8` texels-at-base to `8` — the two-year fuse § D8 was written to
+> prevent, lit inside the type meant to prevent it. Two fields; one for what the artist authored, one
+> for what this run is producing.
+
+> ⚠ **One number rather than a bake width and a bake height.** Two would let a caller ask for
+> 4096×2048 out of a 1024² graph, and then a radius would be either four times wider in x and twice in
+> y — a filter that is no longer round — or wrong in one axis.
 
 ## The image pool
 
@@ -159,3 +194,16 @@ What they assert are closed forms rather than goldens, and never a CPU re-implem
 filter's impulse response is `1/(2r+1)` over exactly `2r+1` texels; a levels curve maps three known
 inputs to three known outputs; the same authored radius produces a 17-texel bar at the base resolution
 and a 9-texel bar at half of it.
+
+§ D8's own criterion is one of them —
+`The_same_plan_baked_at_four_times_the_resolution_agrees_with_the_smaller_bake` bakes one plan at
+`BakeLevelOffset` 0 and −2 over a step edge, box-downsamples the larger 4:1, and requires the two
+profiles to agree. On an M1 Max the worst column differs by 4/255 against a tolerance of 8; a radius
+that did not scale parts them by 92.
+
+> ⚠ **`TextureQueueTests` opens a Null device on purpose**, and it is the only file here that does. A
+> unified adapter cannot tell the compute queue from the graphics one — which is why
+> [#617](https://github.com/Rikarin/Vixen/issues/617), a bake that wrote on one and read back on the
+> other with no ownership transfer, was invisible on every machine this engine has been developed on.
+> `NullDevice` builds three distinct submitters, so the question has an answer there. It asserts a
+> queue and never a texel.
