@@ -83,13 +83,13 @@ public class EditorShellBudgetTests {
     /// <summary>A settled shell does no work at all, and draws the same frame again.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The property is <c>Update</c> returning <c>false</c>, which is not the same claim
-    ///         as <c>StylesResolved == 0</c> and is the one that is true.</b> On a no-op frame
-    ///         <c>UiDocument.Update</c> returns before it touches anything and clears
-    ///         <c>StylesApplied</c> — but leaves <c>StylesResolved</c> holding whatever the last
-    ///         <i>real</i> pass resolved. So a settled shell reads a few hundred there for ever, and a
-    ///         test asserting zero would be red against a document that is doing nothing whatever.
-    ///         Filed as #596; asserted here as it behaves rather than as it reads.
+    ///         ⚠ <b>Both claims, and for a while only the first of them was true.</b> <c>Update</c>
+    ///         returning <c>false</c> is the behaviour; <c>StylesResolved == 0</c> is the counter
+    ///         reading, and it used to be red against a document doing nothing whatever — the early
+    ///         return in <c>UiDocument.Update</c> cleared <c>StylesApplied</c> and left
+    ///         <c>StylesResolved</c> holding whatever the last <i>real</i> pass resolved, so a settled
+    ///         shell reported a few hundred elements cascaded for ever. Fixed under #596, and asserted
+    ///         here now that the reading and the behaviour agree.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A count of work and not a millisecond, for the reason this whole file exists.</b>
@@ -117,6 +117,8 @@ public class EditorShellBudgetTests {
 
         Assert.False(Shell.Document.Update(), "a settled shell reported work to do");
         Assert.Equal(0, Shell.Document.StylesApplied);
+        Assert.Equal(0, Shell.Document.StylesResolved);
+        Assert.Equal(0, Shell.Document.ContainerScopesEntered);
 
         Shell.Document.Draw();
         Assert.Equal(commands, Shell.Document.Drawing.Commands.Count);

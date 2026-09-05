@@ -376,11 +376,13 @@ public sealed partial class UiDocument : IDisposable {
     /// <summary>The element every other one descends from.</summary>
     public UiElement Root { get; }
 
-    /// <summary>How many elements had a layout style written on the last pass.</summary>
+    /// <summary>How many elements had a layout style written on the last <see cref="Update" />.</summary>
     /// <remarks>
     ///     Exposed because it is the number the incremental story is about, and a claim about work
     ///     avoided that cannot be measured is a claim nobody can check. A second
-    ///     <see cref="Update" /> over an unchanged tree should report zero.
+    ///     <see cref="Update" /> over an unchanged tree reports zero — including the one that returns
+    ///     early without running a pass at all, which is what makes "zero" mean "this frame did
+    ///     nothing" rather than "the last frame that did something did nothing".
     /// </remarks>
     public int StylesApplied { get; private set; }
 
@@ -922,7 +924,19 @@ public sealed partial class UiDocument : IDisposable {
         // loop that is already running is what will pick them up.
         if (updating || !dirty) {
             if (!updating) {
+                // ⚠ All three, and for a year it was only the first — which made a no-op frame report
+                // whatever the last *real* pass had done. The counters are about the frame and say so
+                // in as many words a dozen lines below; the early return is the one path where that
+                // stopped being true of two of them, so `StylesResolved` read a few hundred for ever
+                // on a settled document and `ContainerScopesEntered` reported a chain interned on
+                // some earlier frame. Both are read by gates, and the shape of the fault is the one
+                // this repository keeps meeting: a diagnostic that reads as work on a frame that did
+                // none. The natural assertion — "a settled document cascades nothing" — was red
+                // against a correct implementation, so the gate for the editor shell had to be
+                // written round it and carry a paragraph saying why.
                 StylesApplied = 0;
+                StylesResolved = 0;
+                ContainerScopesEntered = 0;
             }
 
             return false;

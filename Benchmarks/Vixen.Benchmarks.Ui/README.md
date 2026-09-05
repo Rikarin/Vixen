@@ -244,11 +244,12 @@ nothing.** The scene docks them into four regions on purpose. A fixture that ski
 report an *excellent* frame time for a document drawing a tree view and four empty rectangles — which
 is the shape of benchmark that makes a framework look fast and says nothing.
 
-⚠ **`StylesResolved` is not cleared on a no-op frame.** Writing the obvious assertion for "a settled
-shell cascades nothing" — `StylesResolved == 0` — turns out to be red against a document doing
-nothing whatever, because the early return in `UiDocument.Update` clears `StylesApplied` and leaves
-`StylesResolved` holding the last real pass's number. Filed as
-[#596](https://github.com/Rikarin/Vixen/issues/596); the gate asserts `Update()` returning `false`
-instead, which is what is actually true.
+⚠ **`StylesResolved` was not cleared on a no-op frame, and neither was `ContainerScopesEntered`.**
+Writing the obvious assertion for "a settled shell cascades nothing" — `StylesResolved == 0` — was
+red against a document doing nothing whatever, because the early return in `UiDocument.Update` cleared
+`StylesApplied` and left the other two holding the last real pass's numbers. Filed as
+[#596](https://github.com/Rikarin/Vixen/issues/596) and since fixed by clearing all three on that
+path; the gate now asserts the counters *and* `Update()` returning `false`, which is the reading and
+the behaviour agreeing rather than the gate being written round the counter.
 
 Licensed under Apache-2.0.
