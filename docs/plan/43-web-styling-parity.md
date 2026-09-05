@@ -597,6 +597,24 @@ scene outside the panel that asked for it. Closing the radius needs a rounded-re
 three shipped fragment modules and their software transcription. A second, smaller divergence rides in
 the same column: an element that paints nothing of its own opens no group and so gets no backdrop.
 
+⛔ **The third divergence is permanent and is stated here as one, 2026-09-05.** A group carrying a
+`transform` is refused the backdrop outright rather than given an approximation of it, in
+`UiGeometryBuilder.Layer`. ⚠ **Every other thing a group does survives a transform for free** — a
+blur convolves the surface, a colour matrix is per pixel, a mask is read from the composite's own
+untransformed coordinate, and a drop shadow displaces in local space and is carried along — because
+each of them happens in the surface's own space and the matrix is spent afterwards on the composite
+quad. CSS orders them the same way, filter then mask then transform, so all four come out right
+without being told. The backdrop is the one surface holding something the group *did not draw*:
+`UiRenderer.Capture` replays the draw-list prefix into a surface and both executors read it at the
+coordinates the quad covers, so a rotated backdrop quad would have to sample a rotated window of a
+captured picture — four texture coordinates that are no longer an axis-aligned rectangle, a capture
+region that is no longer `BackdropBounds`, and a border-box clip that is no longer a rectangle
+either. Sampling the untransformed patch instead shows the scene from where the element *was* rather
+than from where it is, which under a rotation is not an approximation but a different picture. So it
+is dropped once, beside where a degenerate drop shadow and an empty group are already dropped, and
+neither executor learns that a backdrop can be missing for a new reason. This is a refusal with its
+reason, not an owed item; the two divergences above it are the owed half of A8's remainder.
+
 ⚠ **Vixen emits only `backdrop-filter` where Tailwind emits `-webkit-backdrop-filter` beside it.**
 That copy is for Safari and there is no Safari here; emitting it would put a declaration into every
 generated sheet that nothing could ever read, which is the exact shape of debt `InertProperties.txt`
