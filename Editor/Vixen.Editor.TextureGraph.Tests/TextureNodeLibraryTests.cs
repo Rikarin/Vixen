@@ -147,11 +147,33 @@ public class TextureNodeLibraryTests {
         "mask"
     ];
 
+    /// <summary>
+    ///     A node type the fixture does not place, and the reason it cannot be placed by a fixture.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>An entry here is a claim, not a waiver.</b> The Pixel Processor's whole input is a
+    ///     Raven expression an author writes, so a fixture that wired one would be asserting against a
+    ///     shader this file made up — and doc 48 § D6's point is that the expression goes through the
+    ///     real compiler with its diagnostics mapped back to the node, which is
+    ///     <c>TextureGraphExpressionTests</c>' subject rather than this file's.
+    /// </remarks>
+    static readonly string[] Unwired = ["Filters/Pixel Processor"];
+
     /// <summary>Every node type the fixture places is one the assembly declares, and the reverse.</summary>
     /// <remarks>
-    ///     ⚠ <b>The instrument for everything else in this file.</b> A node type nobody wires into
-    ///     <see cref="Wire" /> contributes no op, so its kernel reads as unnoded and the roll call
-    ///     below fails describing the wrong problem. This one names it exactly.
+    ///     <para>
+    ///         ⚠ <b>The instrument for everything else in this file.</b> A node type nobody wires into
+    ///         <see cref="Wire" /> contributes no op, so its kernel reads as unnoded and the roll call
+    ///         below fails describing the wrong problem. This one names it exactly.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The exemption exists because this assertion went red on a merge and not on a
+    ///         branch.</b> Two slices added nodes to one assembly in one batch; each was exhaustive
+    ///         against what it could see, and neither could see the other. So the shape that survives
+    ///         is not "everything is wired" but "everything is wired or is on a list that says why" —
+    ///         which is the same answer the kernel roll call reached, and it still fails loudly for a
+    ///         node somebody merely forgot.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void The_fixture_uses_every_node_type_the_assembly_declares() {
@@ -159,10 +181,18 @@ public class TextureNodeLibraryTests {
 
         Wire(wiring);
 
-        var declared = Registry().Types.Select(type => type.Path).Order(StringComparer.Ordinal).ToArray();
+        var declared = Registry().Types.Select(type => type.Path)
+            .Except(Unwired, StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
         var used = wiring.Used.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
 
         Assert.Equal(declared, used);
+
+        // The exemption is a list of node types, so a path nobody declares any more is a line to
+        // delete rather than a silent allowance that outlives what it excused.
+        Assert.All(Unwired, path => Assert.Contains(path, Registry().Types.Select(type => type.Path)));
     }
 
     /// <summary>
