@@ -1041,10 +1041,137 @@ partial class Build : NukeBuild {
                     .SetOutputDirectory(PackagesDirectory)
                 );
 
+                CheckApacheObligations();
                 CheckStyleGenIsShippable();
                 CheckCliIsShippable();
             }
         );
+
+    /// <summary>
+    ///     The package-contents half of <see cref="Pack" />, on its own, over whatever is already in
+    ///     <c>artifacts/packages</c>.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Not a second implementation — it calls the same three methods</b>, and it exists for
+    ///     the reason <see cref="CheckAttribution" /> exists: a check reachable only through a target
+    ///     that packs the whole solution is a check nobody has watched fail, and one nobody has
+    ///     watched fail is indistinguishable from one that cannot. Delete a <c>NOTICE</c> out of a
+    ///     <c>.nupkg</c> in that directory and run this; it should name the package.
+    ///     <para>
+    ///         It packs nothing, so it asserts about the last <see cref="Pack" />'s output rather than
+    ///         about the working tree. That is the point of it and also its limit: a stale directory
+    ///         gives a stale answer, and an empty one is reported as skipped rather than passed.
+    ///     </para>
+    /// </remarks>
+    Target CheckPackages => definition => definition
+        .Description("Checks the packages already in artifacts/packages, without packing")
+        .Executes(() => {
+                CheckApacheObligations();
+                CheckStyleGenIsShippable();
+                CheckCliIsShippable();
+            }
+        );
+
+    /// <summary>
+    ///     Asserts that every package produced carries the two ADR-015 obligations that live inside the
+    ///     package rather than in the repository: the Apache-2.0 licence expression in its manifest,
+    ///     and the <c>NOTICE</c> at its root.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Both are satisfied today, and that is the reason to check them rather than an
+    ///         argument against it.</b> Neither is written by a package's own project: the expression
+    ///         comes from <c>PackageLicenseExpression</c> in <c>Directory.Build.props</c>, and the
+    ///         <c>NOTICE</c> from a <c>None</c> item at the bottom of the same file, conditioned on
+    ///         <c>IsPackable</c>. A project that sets a property early, a profile that stops matching
+    ///         a renamed folder, or a package built by path rather than by the solution loses one of
+    ///         them silently — and Apache-2.0 §4(d) is an obligation that travels with the
+    ///         distribution, so the only place the answer is real is inside the <c>.nupkg</c>. That is
+    ///         the same lesson <see cref="CheckStyleGenIsShippable" /> was written from.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The third obligation docs/plan/12 names — the generated third-party attribution
+    ///         manifest — is not checked here because no package ships it at all</b>, and whether it
+    ///         should is a licence decision rather than a build one (<see href="https://github.com/Rikarin/Vixen/issues/129" />).
+    ///         <c>CheckAttribution</c> holds <c>docs/manual/third-party.md</c> against the pins; it
+    ///         says nothing about any package's contents, and this says nothing about the manifest.
+    ///     </para>
+    ///     <para>
+    ///         Every offender is named, not the first — the same argument
+    ///         <see cref="CheckAttributionManifest" /> makes: a gate that stops at one turns a
+    ///         five-package omission into five runs of a target that packs the whole solution.
+    ///     </para>
+    /// </remarks>
+    void CheckApacheObligations() {
+        var packages = PackagesDirectory.GlobFiles("*.nupkg")
+            .Where(file => !file.Name.EndsWith(".symbols.nupkg", StringComparison.Ordinal))
+            .OrderBy(file => file.Name, StringComparer.Ordinal)
+            .ToList();
+
+        if (packages.Count == 0) {
+            Log.Information("No packages were produced; skipping the ADR-015 obligation check");
+            return;
+        }
+
+        var problems = new List<string>();
+
+        foreach (var package in packages) {
+            using var archive = ZipFile.OpenRead(package);
+
+            var notice = archive.GetEntry("NOTICE");
+
+            if (notice is null) {
+                problems.Add($"{package.Name} carries no NOTICE at its root");
+            } else if (notice.Length == 0) {
+                // An empty file is packed, present, and discharges nothing — the failure this whole
+                // repository keeps meeting, in the one shape a name check cannot see.
+                problems.Add($"{package.Name} carries an empty NOTICE");
+            }
+
+            // The manifest is the one entry at the root whose name ends in .nuspec; a package may
+            // legitimately ship a .nuspec deeper down as content, so the root is what is asked for.
+            var manifest = archive.Entries.FirstOrDefault(entry =>
+                !entry.FullName.Contains('/')
+                && entry.FullName.EndsWith(".nuspec", StringComparison.OrdinalIgnoreCase)
+            );
+
+            if (manifest is null) {
+                problems.Add($"{package.Name} has no .nuspec at its root");
+
+                continue;
+            }
+
+            using var reader = new StreamReader(manifest.Open());
+
+            if (!reader.ReadToEnd().Contains(LicenceExpression, StringComparison.Ordinal)) {
+                problems.Add($"{package.Name}'s manifest does not declare {LicenceExpression}");
+            }
+        }
+
+        Assert.True(
+            problems.Count == 0,
+            "ADR-015 requires every package to declare Apache-2.0 and to carry the NOTICE, and "
+            + $"{problems.Count} did not:{Environment.NewLine}  "
+            + string.Join(Environment.NewLine + "  ", problems)
+            + Environment.NewLine
+            + "Both come from Directory.Build.props — PackageLicenseExpression, and the None item "
+            + "conditioned on IsPackable at the bottom of the file — so a package missing one has "
+            + "either escaped that condition or been packed by a path that never imported it."
+        );
+
+        Log.Information(
+            "All {Count} packages declare Apache-2.0 and carry the NOTICE",
+            packages.Count
+        );
+    }
+
+    /// <summary>
+    ///     What NuGet writes into a manifest for <c>PackageLicenseExpression=Apache-2.0</c>. Read from
+    ///     a real package rather than assumed: the element carries a <c>type</c> attribute, and a
+    ///     search for the bare expression would also be satisfied by the <c>licenseUrl</c> NuGet emits
+    ///     beside it for older clients.
+    /// </summary>
+    const string LicenceExpression = "<license type=\"expression\">Apache-2.0</license>";
 
     /// <summary>
     ///     Asserts that <c>Vixen.Ui.Styling.Utilities</c> ships a <c>tools/</c> the utility build step

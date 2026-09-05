@@ -15,9 +15,12 @@ engine's own UI framework, and is the primary proof that the framework is genera
 ```
 
 The SDK version is pinned in [`global.json`](global.json); nothing else is required to build the
-solution. `./build.sh` is the entry point CI and developers share — `Clean Restore Compile Test Pack
-CheckFormat CheckArchitecture CheckApi Benchmark GoldenImages CheckAot CheckAotIos CompileMobile
-CompileWeb PublishWeb RestoreNativeDeps` are the targets.
+solution. `./build.sh` is the entry point CI and developers share. There are thirty-three targets:
+`Clean Restore RestoreNativeDeps Compile CompileRelease Test Pack CheckPackages GoldenImages Benchmark
+CheckBenchmarks CheckArchitecture CheckApi CheckFormat CheckWhitespace CheckAttribution CheckStrings
+CheckShaders CheckDocs Docs CheckAot CheckAotIos CompileMobile CompileWeb PublishWeb BrowserSmoke
+PublishEditor Release ContentBytes RemeshBytes SampleFrame AffectedProjects AffectedTests` — with
+[`docs/plan/12`](docs/plan/12-build-ci-and-testing.md) saying what each does and which are gates.
 
 `--workers <n>` bounds how many projects compile and how many test assemblies run at once. It
 defaults to 4 locally and to unbounded in CI, which has the machine to itself; `--workers 0` asks for

@@ -8,21 +8,55 @@ test, package, or release — CI calls the same targets a developer calls, so "w
 
 ### Target graph
 
+The thirty-three targets, by what they depend on. Only the `DependsOn` edges are drawn; a target with
+no edge into it is reachable on its own, which most of the checks deliberately are.
+
 ```
-Clean ──► Restore ──► Compile ──┬─► Test ─────────────┬─► Pack ──► Publish
-                                │                     │
-        RestoreNativeDeps ──────┤                     ├─► PublishEditor ──► Sign ──► Notarize
-                                │                     │
-        CompileShaderLibrary ───┤                     ├─► PublishAndroid / PublishIos / PublishWeb
-                                │                     │
-        GenerateApiBaseline ────┤                     ├─► Benchmark
-                                │                     │
-        CheckArchitecture ──────┤                     ├─► GoldenImages
-        CheckApi ───────────────┤                     ├─► AotSmoke
-        CheckFormat ────────────┘                     └─► Coverage
-                                                          │
-                                                     Docs ─┴─► Release (tag-triggered)
+Restore ──┬─► Compile ────────┬─► Test ──┬─► Pack
+          │                   │          └─► PublishEditor
+          │                   ├─► GoldenImages
+          │                   ├─► ContentBytes
+          │                   ├─► RemeshBytes
+          │                   └─► SampleFrame
+          │
+          ├─► CompileRelease ─┬─► CheckApi
+          │                   ├─► Docs
+          │                   ├─► CheckDocs
+          │                   └─► Release            (tag-triggered)
+          │
+          ├─► CheckFormat        RestoreNativeDeps ──► CheckAotIos
+          ├─► CheckShaders
+          └─► CheckAot           CompileWeb ──► PublishWeb ──► BrowserSmoke
+
+Depending on nothing, and run alone:  Clean · Benchmark · CheckArchitecture · CheckAttribution ·
+CheckBenchmarks · CheckPackages · CheckStrings · CheckWhitespace · CompileMobile · CompileWeb ·
+AffectedProjects · AffectedTests
 ```
+
+⚠️ **`CheckApi`, `Docs`, `CheckDocs` and `Release` hang off `CompileRelease` and not off `Compile`.**
+A public surface and a generated doc site are promises about a *shipped* package, and the two
+configurations disagree wherever a `public const` is `#if DEBUG` — so those four build Release whatever
+`--configuration` says. A conclusion drawn from a manual `-c Release` run of `Test`, which compiles
+Debug, is not a conclusion about them.
+
+⚠️ **Eight names this graph and the table below used to carry do not exist**
+([#340](https://github.com/Rikarin/Vixen/issues/340)). Four were renamed and four were never built:
+
+| Named | Actually |
+|---|---|
+| `CompileShaderLibrary` | `CheckShaders` — recompiles the shaders whose `.spv` is committed, from their import closure, and reports drift |
+| `GenerateApiBaseline` | `--update-api` on `CheckApi` |
+| `AotSmoke` | `CheckAot` and `CheckAotIos` |
+| `Coverage` | — dropped deliberately; § Coverage below |
+| `Sign`, `Notarize` | — |
+| `PublishAndroid`, `PublishIos` | — `CompileMobile` builds the assemblies; nothing publishes |
+
+And fourteen existed that this document mentioned nowhere, which now have rows below:
+`AffectedProjects`, `AffectedTests`,
+`BrowserSmoke`, `CheckAttribution`, `CheckBenchmarks`, `CheckPackages`, `CheckStrings`,
+`CheckWhitespace`, `CompileMobile`, `CompileRelease`, `CompileWeb`, `ContentBytes`, `RemeshBytes`,
+`SampleFrame`. ⚠️ Several have real teeth — `CheckStrings` is what caught the untranslatable Undo menu
+item, and `CheckAttribution` is ADR-015's enforcement.
 
 ### Targets in detail
 
@@ -31,23 +65,63 @@ Clean ──► Restore ──► Compile ──┬─► Test ─────�
 | `Clean` | wipes `artifacts/`, `**/bin`, `**/obj`, `Library/` in samples |
 | `RestoreNativeDeps` | downloads pinned native binaries (MoltenVK, Jolt, HarfBuzz, SPIRV-Cross, shaderc, astcenc) from checksummed URLs into `artifacts/native/<rid>/`; verifies SHA-256; emits a third-party licence manifest. Fails on checksum mismatch. *Recast is no longer on this list: `Vixen.Navigation` is managed code and has no native half.* |
 | `Restore` | `dotnet restore Vixen.slnx` with locked mode in CI (`--locked-mode`) so a transitive version drift breaks the build instead of silently shipping |
-| `CompileShaderLibrary` | runs Raven over `Raven/Library/**/*.rvn` → `.rvnlib`; `spirv-val` on every module; fails on any diagnostic |
-| `Compile` | `dotnet build` with `-warnaserror`; the generator projects build first |
+| `CheckShaders` | recompiles the nine modules whose `.spv` is **committed** — five permutations of the three `Raven/Library/Terrain` shaders, each from its own import closure, plus the four `.rvn` beside `Vixen.Editor.Host` and `Vixen.Ui.Desktop` — and fails if any committed binary drifted. ⚠️ **Not the whole library, and this row used to be called `CompileShaderLibrary` and to claim it was**: the library has over a hundred shaders and `LibraryReflectionTests` is what binds it whole. ⚠️ It also sweeps the other way, over every committed `.spv` that *nothing* in those two lists produces — because everything else here walks the lists, so a module dropped from one was never opened and the target reported green over a binary the editor still loads. `--update-shaders` rewrites the committed bytecode |
+| `Compile` / `CompileRelease` | `dotnet build` with `-warnaserror`; the generator projects build first. `CompileRelease` is the same build pinned to Release whatever `--configuration` says, and is what `CheckApi`, `Docs`, `CheckDocs` and `Release` depend on |
+| `CompileMobile` / `CompileWeb` / `PublishWeb` / `BrowserSmoke` | the three heads no solution build reaches. `CompileMobile` builds the Android and iOS assemblies (nothing publishes them — [#327](https://github.com/Rikarin/Vixen/issues/327)); `CompileWeb` then `PublishWeb` produce a loadable browser head, and `BrowserSmoke` drives it over CDP — 37 checks, no Playwright and no npm |
+| `ContentBytes` / `RemeshBytes` | build one fixture and emit a manifest of `ObjectId`s. ⚠️ **Neither is the determinism gate on its own** — a single machine agreeing with itself proves nothing. The gate is the CI job that downloads all three legs' manifests and compares them, and it counts the manifests first, because a comparison of nothing agrees with itself |
+| `SampleFrame` | renders `--frame-sample` for `--frame-count` frames on the local backend and asserts the counters. The one target whose cost is a shader-variant compile rather than the frames |
+| `AffectedProjects` / `AffectedTests` | `--since <ref>` narrows to the projects owning the diff, and to the test projects reachable from them. ⚠️ **Inner-loop conveniences and never the gate**: a `ProjectReference` closure cannot see a golden image, a content bundle, an `.rvn` import closure, or a test that walks the repository |
 | `CheckArchitecture` | walks the project reference graph and asserts the layer rules from [00](00-vision-and-principles.md) — most importantly that `Vixen.Ui` does not reference `Vixen.Engine`, and that no `Core/*` project references a `Platform/*` implementation. Also enforces **ADR-002**: fails if `Mono.Cecil`, `dnlib`, `ILRepack`, `Fody`, or any IL-rewriting `AfterCompile`/`AfterBuild` target appears in the restore graph or the evaluated MSBuild target graph of any project. And **ADR-015**: fails if an authoring-format importer reaches a runtime (non-editor, non-tooling) assembly, and if any `Silk.NET.Vulkan` type appears in `Vixen.Graphics`' public surface (ADR-001, keeping D3D12 mappable). ⚠️ **This row used to name `SixLabors.ImageSharp` as the package the rule guards.** It no longer does — nothing in the repository references ImageSharp, it has no `PackageVersion` to reference, and a rule naming it read as though it were still a dependency. `Silk.NET.Assimp` is what the rule now carries. |
 | `CheckApi` | ✅ `Tools/Vixen.ApiCheck` reads the public surface of every packable assembly out of the built binary and diffs it against `PublicAPI.Shipped.txt` + `PublicAPI.Unshipped.txt` beside the project. Unapproved additions fail, and so do removals — a deleted `public` method compiles perfectly and breaks every consumer, and nothing else in the build would notice. `--update-api` rewrites the unshipped half; shipped API is only ever withdrawn through a `*REMOVED*` line, so a break is a line somebody wrote rather than an absence nobody looked for. Coverage is the RUNTIME profile: `Core/**` and `Platform/**`, non-test, non-generator, packable, `net10.0`. The subject is always the **Release** build, whatever `--configuration` says — a surface is a promise about a shipped package, and the two configurations disagree wherever a `public const` is `#if DEBUG`. See [Tools/Vixen.ApiCheck](../../Tools/Vixen.ApiCheck/README.md) |
-| `CheckFormat` | `dotnet format style` and `dotnet format analyzers`, both `--verify-no-changes`. **Not `whitespace`**: the repository indents a lambda body passed as an argument one level further than `dotnet format` does — uniformly, in every file — and no `.editorconfig` key expresses that, so the whitespace pass reports ~900 violations against code that is entirely self-consistent. The brace and spacing rules the config *can* express are written down in `.editorconfig § Layout`, which took that number down from roughly forty thousand. The narrowing is real and reversible: the alternative is to reformat twenty-eight files against the tool that actually formats them. |
-| `Test` | `dotnet test` with xunit v3, collecting coverage; enforces per-project coverage floors and the allocation gates. Passes `.runsettings`, which exists solely to set environment that has to be in place *before* the process starts (see below) |
+| `CheckFormat` | four passes, cheapest first: the SPDX licence header on every file, `CheckAttributionManifest`, `CheckWhitespaceFormatting`, and then `dotnet format style` and `dotnet format analyzers` with `--verify-no-changes`. ⚠️ **This row used to say the whitespace pass was refused outright.** It is not: the lambda-indentation argument that refused it covers 551 files out of 4 842, and using it to skip the other 4 291 left mis-indentation ungated everywhere. `docs/WhitespaceExempt.txt` carries the exceptions and may only shrink, so a file that becomes clean fails until its line is removed |
+| `CheckWhitespace` / `CheckAttribution` / `CheckStrings` | the three of those passes that are also targets of their own, so each can be run — and watched failing — without the two minute-long `dotnet format` passes. `CheckStrings` fails on a declared string id used nowhere and on a call site that rebuilds an id a declaration class already declares; it is what caught the untranslatable Undo menu item. `CheckAttribution` is ADR-015's enforcement over `docs/manual/third-party.md`. `--update-exemptions` rewrites the whitespace list, and the diff is worth reading: a commit that grows it added mis-indented code |
+| `Test` | xunit v3 over every test project, and the allocation gates run inside it as ordinary tests. Passes `.runsettings`, which exists solely to set environment that has to be in place *before* the process starts (see below). ⚠️ **Collects no coverage and enforces no floor, and this row used to say it did both** — see § Coverage below for why `Coverage` is off the graph rather than owed |
 | `GoldenImages` | ✅ renders the fixture suite on the local backend — lavapipe on the Linux leg, MoltenVK on macOS — and compares it with the committed references; writes the rendering, the reference and a diff into `artifacts/golden-diff/` on failure, which CI uploads. `--update-golden` rewrites the references. The fixtures also run under `Test`, so a wrong picture fails an ordinary build; the separate target exists for the diffs and the switch. |
-| `AotSmoke` | `PublishAot` + `PublishTrimmed` of `Samples/01` and `Samples/02` per RID; **any IL2xxx/IL3xxx warning fails** |
-| `Benchmark` | BenchmarkDotNet over `Benchmarks/*`; compares against a committed baseline JSON; fails on > 10 % regression or any allocation-count increase |
-| `Pack` | produces every NuGet package; validates package contents against an expected-files manifest (a package that silently stops shipping its native asset is a real failure mode) |
+| `CheckAot` / `CheckAotIos` | `PublishAot` + `PublishTrimmed` of a probe that roots the runtime assemblies; **any IL2xxx/IL3xxx warning fails**. ⚠️ **Two targets and not one `AotSmoke`**, because iOS is the NativeAOT-only platform and `CheckAotIos` `.Requires` macOS — a single target would have been silently half a gate on every other runner. ⚠️ The probe roots 29 of 95 runtime assemblies rather than all of them ([#506](https://github.com/Rikarin/Vixen/issues/506)) |
+| `Benchmark` | BenchmarkDotNet over `Benchmarks/*`, then judged against `Benchmarks/baseline.json`: **any** allocation growth fails, a mean more than 10 % above the baseline fails only under `--gate-timing`, and a benchmark that is in the baseline and did not run fails too. ⚠️ **There is no committed baseline yet, and the target therefore fails rather than passing** — a comparison with nothing to compare against is the shape of a gate that did not run, and this row described one for as long as it had described anything. `--update-baseline` writes the file, stamped with the machine, the runtime, the BenchmarkDotNet version and the commit out of BenchmarkDotNet's own `HostEnvironmentInfo`; `--report-only` asks for numbers without a verdict. The comparison alone, over whatever is already in `artifacts/benchmarks`, is `CheckBenchmarks` |
+| `Pack` | produces every NuGet package, then opens some of them. ⚠️ **There is no expected-files manifest and this row used to claim one** — a table of required entries per package is still owed ([#337](https://github.com/Rikarin/Vixen/issues/337)), and a package that silently stops shipping its native asset is still the failure mode it would catch. What exists is three checks, each written from a failure that had already happened or from an obligation that cannot be satisfied by memory: `CheckApacheObligations` opens **every** package and asserts the Apache-2.0 licence expression in its manifest and a non-empty `NOTICE` at its root (ADR-015); `CheckStyleGenIsShippable` names the four files `Vixen.Ui.Styling.Utilities` must carry for its `tools/` to start; `CheckCliIsShippable` extracts `Vixen.Sdk` and **runs** the CLI out of it. All three are reachable alone as `CheckPackages`, over whatever is already in `artifacts/packages` — an instrument nobody can run alone is one nobody has watched fail |
 | `PublishEditor` | per-RID single-file publish of `Vixen.Editor.App`; `.app` bundle + `.dmg` on macOS, AppImage on Linux, MSI/zip on Windows |
-| `Sign` / `Notarize` | codesign + notarytool on macOS, Authenticode on Windows; secrets from CI, skipped locally |
+| ~~`Sign` / `Notarize`~~ | ⚠️ **Not built.** codesign + notarytool on macOS and Authenticode on Windows are still what a signed editor build needs; nothing in `build/` does either, and `PublishEditor` produces an unsigned bundle |
 | `Docs` | ⚠️ **Superseded by [25](25-documentation-generator-and-site.md)**: `Vixen.DocGen` over Roslyn source symbols + `docs/guide`, built into the Angular site in `www/` and shipped as an nginx image of static assets. `CheckDocs` is its gate — coverage, links and compiled examples — and sits beside `CheckApi` |
 | `Release` | on tag: everything above, plus GitHub Release creation with changelog from conventional commits, artefact upload, and `dotnet nuget push` |
 
-Nuke parameters: `--configuration`, `--platform`, `--rid`, `--skip-native`, `--update-golden`,
-`--update-api`, `--filter <test-trait>`.
+Nuke parameters, all of them: `--configuration`, `--workers <n>`, `--since <ref>`; the four that
+rewrite something a gate then checks — `--update-api`, `--update-golden`, `--update-shaders`,
+`--update-baseline`, `--update-exemptions`; and the per-target ones — `--benchmark-filter`, `--short`,
+`--gate-timing`, `--report-only`, `--verify-docs`, `--all-native-deps`, `--stage-vulkan`,
+`--publish-smoke`, `--frame-sample`, `--frame-count`, `--browser-smoke-checks`,
+`--browser-smoke-timeout`, `--release-version`, `--release-date`.
+
+⚠️ **`--platform`, `--rid`, `--skip-native` and `--filter <test-trait>` are not among them and this
+line used to name all four** ([#340](https://github.com/Rikarin/Vixen/issues/340)). There is no
+per-RID switch because the targets that need one derive it, and no test-trait filter because a
+narrowed run is `AffectedTests --since` or a direct `dotnet test --filter`.
+
+### The benchmark baseline
+
+Two numbers, judged differently, because only one of them is a property of the code.
+
+**An allocation count is machine-independent**, so it fails a pull request on a shared runner and it
+fails on *any* increase rather than on a percentage. That is the same reasoning as the allocation
+gates below asserting through `Measured` **in a test rather than in a report** — it fails the build
+instead of producing a document nobody opens.
+
+**A mean is not.** This repository has attributed a ±14 % swing to machine state alone, and wall-clock
+budgets calibrated on an idle machine are its single largest flake source. So a timing regression is
+*reported* everywhere and *fatal* only under `--gate-timing`, which is the nightly run — and ⚠️ **it is
+refused outright when the baseline's `host.processor` is not the machine doing the judging**, because
+comparing an M1 Max mean with a shared Linux runner's is not a weak signal but no signal, and a verdict
+drawn from one would be read as evidence.
+
+⚠️ **The baseline carries its provenance or it stops being evidence.** `--update-baseline` stamps the
+processor, core count, operating system, architecture, runtime and BenchmarkDotNet version out of
+BenchmarkDotNet's own `HostEnvironmentInfo`, plus the commit and the moment — an unattributed number is
+indistinguishable from a guess within a month, and this file is asked to be a gate. The comparison
+reads the processor back out, which is what makes the paragraph above enforceable rather than advisory.
+
+**Still owed** ([#339](https://github.com/Rikarin/Vixen/issues/339)): the baseline itself, taken on
+hardware that will run the suite again; and the `benchmark` CI job, which has to follow it — a job
+added first would fail every pull request for want of the file it compares against.
 
 ## NuGet package layout
 
@@ -81,37 +155,68 @@ One version for all packages (rationale in [02](02-repository-layout.md)).
 | `Vixen.Templates` | `dotnet new` templates |
 | `Vixen.Editor.Plugin` | plugin authoring API |
 
-Every package: SourceLink, symbols (`.snupkg`), deterministic, README, icon, and `PackageValidation`
-against the previous release for baseline compatibility. Plus, per **ADR-015**:
-`PackageLicenseExpression=Apache-2.0`, the `NOTICE` file, and the generated third-party attribution
-manifest. `Pack` fails if any of the three is missing from a package — Apache-2.0 §4 obligations are not
-something to satisfy by memory.
+Every package: SourceLink, symbols (`.snupkg`), deterministic, README, and — per **ADR-015** —
+`PackageLicenseExpression=Apache-2.0` and the `NOTICE` file. Both of the last two are set once, for
+every package at a time, in `Directory.Build.props`, and **`Pack` opens each produced `.nupkg` and
+fails if either is absent**: they are obligations that travel with the distribution, so the only place
+the answer is real is inside the archive.
+
+⚠️ **Three things this paragraph used to claim, that are not true and are owed rather than done**
+([#337](https://github.com/Rikarin/Vixen/issues/337)):
+
+- **No package declares an icon.** There is no `PackageIcon` anywhere in the tree.
+- **`PackageValidation` against the previous release is not switched on.** `EnablePackageValidation`
+  appears nowhere. It is the natural companion to `CheckApi` — which catches a source-level break in
+  the tree, where this catches a binary one against what was shipped — and it needs a published
+  baseline version to compare against, which is why it is waiting on the first release rather than on
+  a decision.
+- **The third-party attribution manifest is in no package.** `docs/manual/third-party.md` is packed by
+  nothing, so "fails if any of the three is missing" could never have held for it. Whether it belongs
+  inside every package, or whether the `NOTICE` discharges §4(d) on its own, is a licence question and
+  is tracked with [#129](https://github.com/Rikarin/Vixen/issues/129) rather than decided here.
+  `CheckAttribution` does a different job: it holds that page against the files that pin what it
+  attributes, and says nothing about any `.nupkg`.
 
 ## GitHub Actions
 
 ```
 .github/workflows/
-├── ci.yml               # PR + push to main: the matrix below
-├── nightly.yml          # physical-device suites, long benchmarks, fuzzing (a job per target), full golden sweep
-├── release.yml          # tag-triggered: Release target, signed artefacts, NuGet push
-└── docs.yml             # Docs + CheckDocs → GHCR image on master and on tags; pr-<n> tag per PR (25)
+├── ci.yml               # PR + push to master: the eight jobs below
+├── nightly.yml          # fuzzing (a job per target), property suites, and the three that need a real service
+└── docs.yml             # Docs → GHCR image on master and on tags; pr-<n> tag per PR (25).
+                         # ⚠ CheckDocs is not here — it runs in ci.yml's `checks`, on every PR
 ```
 
-`ci.yml` jobs (per [10](10-platforms.md)'s matrix), all required for merge:
+⚠️ **`release.yml` does not exist, and this list named four files for as long as it named any.** The
+`Release` target does exist, so the tag-triggered path is a target nothing triggers
+([#13](https://github.com/Rikarin/Vixen/issues/13)).
 
-| Job | Runner | Target |
+`ci.yml`, eight jobs:
+
+| Job | Runner | Runs |
 |---|---|---|
-| `build-test-windows` | `windows-latest` | `Test` |
-| `build-test-linux` | `ubuntu-latest` | `Test` |
-| `build-test-macos` | `macos-14` | `Test` |
-| `checks` | `ubuntu-latest` | `CheckArchitecture CheckApi CheckFormat` |
-| `graphics` | `ubuntu-latest` (+ Mesa/lavapipe) | `GoldenImages` |
-| `aot-trim` | `ubuntu-latest`, `macos-14` | `AotSmoke` |
-| `android` | `ubuntu-latest` | `PublishAndroid` + emulator smoke |
-| `ios` | `macos-14` | `PublishIos` + simulator smoke |
-| `web` | `ubuntu-latest` | `PublishWeb` + Playwright smoke |
-| `benchmark` | `ubuntu-latest` | `Benchmark` (allocation gates only on PR; timing gates nightly, since shared runners are too noisy for timing) |
-| `content` | `ubuntu-latest`, `windows-latest`, `macos-14` | full content build of `Samples/05`; asserts identical `ObjectId`s across all three — the determinism gate |
+| `test` | `ubuntu-latest`, `windows-latest`, `macos-14` | `RestoreNativeDeps`, then `Test --configuration Release`. ⚠️ The three legs are not "does it build everywhere": `Vixen.Net.Tests/Wire` asserts the wire format against committed bytes, so running it on three operating systems and two architectures **is** the assertion that two peers encode a value identically. It also builds and uploads the content and remesh manifests the two jobs below compare |
+| `checks` | `ubuntu-latest` | `CheckArchitecture CheckApi CheckFormat CheckDocs CheckStrings`, then `CheckShaders` |
+| `web` | `ubuntu-latest` | `CompileWeb PublishWeb`, then `BrowserSmoke` — 37 checks over CDP, no Playwright |
+| `pack` | `ubuntu-latest` | `Restore Compile Pack --skip Test`. ⚠️ `Pack` depends on `Test` in the target graph, which is right for a developer typing `nuke Pack` and would be a second full test run here |
+| `aot` | `ubuntu-latest`, `windows-latest`, `macos-14` | `CheckAot` |
+| `sample-frame` | `ubuntu-latest` | `SampleFrame` |
+| `content-bytes` | `ubuntu-latest`, needs `test` | compares the three legs' `ObjectId` manifests — the determinism gate. ⚠️ It counts them first: a comparison of nothing agrees with itself |
+| `remesh-bytes` | `ubuntu-latest`, needs `test` | the same for the remesh manifest |
+
+⚠️ **Eleven rows used to be named here and none of them corresponded**
+([#340](https://github.com/Rikarin/Vixen/issues/340)). The three `build-test-<os>` rows are one `test`
+job with a matrix; `graphics` is folded into it, because the golden fixtures run under `Test`;
+`content` is `content-bytes`; and `pack`, `sample-frame`, `remesh-bytes` and `web`'s `BrowserSmoke`
+appeared in no row at all. The four legs that are genuinely missing — `android`, `ios`, `benchmark`,
+and `CheckAotIos` — are [#327](https://github.com/Rikarin/Vixen/issues/327) and
+[#339](https://github.com/Rikarin/Vixen/issues/339); the `benchmark` row's reasoning (allocation gates
+on a pull request, timing gates nightly) is right and is now implementable, but it has to follow the
+committed baseline rather than precede it.
+
+`nightly.yml`: `targets` (reads the fuzz target list and its budgets), `fuzz` (a job per target, over a
+committed corpus), `properties` (a job per suite), and `postgres`, `docker` and `kubernetes` — the
+three that need a real service rather than a double.
 
 Build caching: NuGet packages, the native-deps directory (keyed on the checksum manifest), the shader
 bytecode cache, and the asset artefact DB (keyed on the source tree hash). Content builds are the
@@ -150,6 +255,37 @@ files.
   the file — but the report a human opens to find out *which* test is the entire point of producing
   one.
 
+### Coverage, and why there is no `Coverage` target
+
+⚠️ **Dropped from the target graph deliberately, not left owed.** This document used to put `Coverage`
+on the graph after `Test` and to say the `Test` row *"enforces per-project coverage floors"*. Neither
+was ever built: nothing in the repository references a collector, `.runsettings` configures none, and
+there is no such target. What follows is the decision that replaces those two sentences, so that the
+absence is a choice somebody can argue with rather than a hole nobody noticed.
+
+A percentage gate over ~180 projects fails all three of this repository's tests for an instrument:
+
+- **Ask what it prints on the day it does not run.** A collector that fails to attach reports 0 % or
+  100 % depending on which one it is — a number that fails the build for the wrong reason, or passes
+  it for the wrong reason, and in neither case says the instrument is dead. That is the Null-device
+  failure and the never-skipped-golden failure again, in a third costume.
+- **A floor set at today's number is a ratchet, and a ratchet is what people route around.** A test
+  written to raise a percentage rather than to catch a defect passes the gate and helps nobody, and
+  it is indistinguishable at review from one that does both.
+- **A per-project table goes stale the day a project is added**, which is the drift
+  `FuzzGateTests.TheNightlyMatrixIsTheRegistry` exists one document over to stop.
+
+So coverage is not a gate here. The gates that carry the same weight are the ones that are *executable
+claims* rather than metrics — the allocation gates above, the conformance suites, `CheckApi`,
+`CheckStrings`, the golden images — each of which fails on a described defect rather than on a number
+drifting downwards.
+
+What is still worth having, and is owed rather than refused, is coverage **reported** per project with
+no gate attached, plus a floor in the two or three places where "is this line reached" is a real
+question rather than a metric — `Vixen.Ecs`'s query surface, the serializers, and the cascade
+([#338](https://github.com/Rikarin/Vixen/issues/338)). A report cannot pass for the wrong reason,
+because nothing passes on it.
+
 ### Coverage of the pyramid
 
 | Layer | What | Volume |
@@ -167,21 +303,41 @@ files.
 
 These are ordinary tests, which is the point — the non-negotiables are executable.
 
+⚠️ **This block used to be written as `TestApp.Create(GraphicsBackend.Null)` / `app.RunFrames(10_000)`
+— against a type that has never existed** (see § Test infrastructure worth building early). The gates
+were written regardless, in twenty-three suites, each driving the subsystem it measures rather than a
+whole frame: `Measured.NothingAllocated` is the shared half, and the arrangement is the test's own.
+That turned out to be the better shape and not a workaround. A whole-engine frame that allocates
+forty-eight bytes names none of the forty systems that could have done it, and every one of these
+suites would still have had to construct its own subject inside the harness to say anything sharper.
+
 ```csharp
-[Fact, Trait("Category","Perf")]
-public void EmptyScene_TenThousandFrames_AllocatesNothing()
-{
-    using var app = TestApp.Create(GraphicsBackend.Null);
-    app.RunFrames(100);                                  // warm up: JIT, caches, pools
-    var before = GC.CollectionCount(0);
-    var bytes  = GC.GetAllocatedBytesForCurrentThread();
+const int WarmUpFrames = 200;
+const int MeasuredFrames = 2_000;
 
-    app.RunFrames(10_000);
+static readonly TimeSpan Sixtieth = TimeSpan.FromTicks(TimeSpan.TicksPerSecond / 60);
 
-    GC.CollectionCount(0).ShouldBe(before);
-    (GC.GetAllocatedBytesForCurrentThread() - bytes).ShouldBe(0);
+[Fact]
+public void ALoopingCoroutineAllocatesNothingPerFrame() {
+    var scheduler = new CoroutineScheduler();
+    var time = GameTime.Zero;
+
+    scheduler.BeginFrame(time = time.Advance(Sixtieth));
+    scheduler.Run(Body());
+
+    Measured.NothingAllocated(Frame, WarmUpFrames, MeasuredFrames);
+    return;
+
+    void Frame() {
+        scheduler.BeginFrame(time = time.Advance(Sixtieth));
+        scheduler.Drain(ResumePoint.Update);
+    }
 }
 ```
+
+— [`Core/Vixen.Engine.Tests/CoroutineAllocationTests.cs`](../../Core/Vixen.Engine.Tests/CoroutineAllocationTests.cs),
+abridged. `Measured` itself is linked test-only source rather than a package; the reasons are in
+[`Testing/Vixen.Testing.props`](../../Testing/Vixen.Testing.props).
 
 Equivalents exist for: a 10 k-entity scene, a steady-state UI frame, a signal-update storm, a layout
 pass over an unchanged tree, and an asset-load/release cycle. When one of these fails,
@@ -214,13 +370,32 @@ afford.
 
 ### Test infrastructure worth building early
 
+⚠️ **Four of the five are still unwritten, and the sequencing this section used to state is refuted by
+the tree.** `TestApp` was specified as a Phase 1 item that *"every later phase depends on"*. Every
+later phase shipped without it: 178 test projects, twenty-three suites of allocation gates and the golden
+suite exist, and nothing anywhere names the type. So the dependency was never real — what these four
+would buy is arrangement code deleted, not tests made possible, and they are worth building on that
+argument rather than on a blocking one. They are tracked as
+[#336](https://github.com/Rikarin/Vixen/issues/336).
+
 - **`TestApp`** — an in-process engine host with the Null backend, an in-memory VFS, a fake clock, and a
-  synthetic input source. Makes almost every "integration" test a fast unit test. Build this in Phase 1;
-  every later phase depends on it.
+  synthetic input source. Would make almost every "integration" test a fast unit test. ⚠️ **Whatever
+  lands has to answer the question the Null device already taught this repository once**: a host that
+  quietly falls back to a backend drawing nothing reports a healthy frame count and proves nothing —
+  the same failure as `--vixen-capture`'s, one layer up. `Vixen.App.Hosting`'s `AppBuilder` is the
+  precedent to copy: an `AppBuilder` with no backend installed **refuses to build, by name**, rather
+  than falling back to a headless one.
 - **`RecordingBackend`** — the Null backend's structured command log with a fluent assertion API
-  (`log.ShouldContainDrawIndexed(count: 36).AfterBinding(pipeline: "Opaque"))`.
+  (`log.ShouldContainDrawIndexed(count: 36).AfterBinding(pipeline: "Opaque"))`. ⚠️ The log itself is
+  built and heavily used — `Vixen.Graphics.Null` has `CommandRecorder` and `RecordedCommand`, and
+  sixty-nine test files read them. What is missing is only the assertion vocabulary, so each of those
+  sixty-nine spells out its own LINQ over the command list.
 - **`GoldenFile`** — the snapshot helper: reads/writes under `__golden__/`, honours `--update-golden`,
-  produces a readable unified diff on mismatch.
+  produces a readable unified diff on mismatch. ⚠️ Nothing writes `__golden__/`, and the suites that
+  need the behaviour each grew their own: `VIXEN_UPDATE_GOLDEN` in
+  [`Vixen.Graphics.Golden.Tests`](../../Platform/Vixen.Graphics.Golden.Tests), `VIXEN_REGENERATE` in
+  `LibraryReflectionTests` and `GeneratedBindingsTests`, `__wire__/` in the two `Vixen.Net` suites.
+  Three switches for one behaviour is the cost being paid.
 - **`Vixen.Ui.Testing`** — ✅ the interface half of `TestApp`, built ahead of it because it needs
   nothing from the engine: a real `UiDocument`, a clock the test owns, a synthetic pointer and
   keyboard, and a frame pump. Commands retry **in frames rather than in seconds**, which is what
@@ -232,7 +407,9 @@ afford.
   the golden-image suite: it cannot see below `UiGeometry`, which is where descriptor bindings and
   vertex layouts live. `Ticked` is the per-frame seam a real `TestApp` would drive it through.
 - **`FixtureProject`** — a synthetic Vixen project generator (N textures, M models, K scenes) for asset
-  pipeline scale tests.
+  pipeline scale tests. ⚠️ The scale test it was meant to serve was written without it:
+  `Vixen.Editor.Assets.Tests/ImportBudgetTests` builds its own fixture and scales it from
+  `VIXEN_IMPORT_SCALE`. So this one is a generalisation of a working thing rather than a hole.
 - **Fuzzers** — ✅ **all five of the parsers this line asked for are fuzzed**: VXML, VCSS (as
   `stylevalue` and `layerrule`), Raven, the `.meta` reader and the bundle reader, among twenty targets
   in [`Core/Vixen.Fuzz`](../../Core/Vixen.Fuzz), replayed nightly over a committed corpus by
