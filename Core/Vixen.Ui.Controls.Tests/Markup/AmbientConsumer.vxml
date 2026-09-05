@@ -6,7 +6,11 @@
 @namespace Vixen.Ui.Controls.Tests
 
 <!--
-    `Accent` is a code-behind property that injects; the markup reads it as it reads any other
-    expression. That is the whole markup spelling and it needs nothing new in the language.
+    ⚠ `@inject` is the whole of the code-behind property this used to carry: it generates
+    `private AmbientTheme? Theme => Inject<AmbientTheme>();` and nothing else. The `?? "none"` stays
+    in the markup because it has to — an injected value is nullable, since a leaf has to work in a
+    document that provides nothing, and no directive can guess what a file's fallback should be.
 -->
-<consumer-label>@Accent</consumer-label>
+@inject AmbientTheme Theme
+
+<consumer-label>@(Theme?.Accent ?? "none")</consumer-label>

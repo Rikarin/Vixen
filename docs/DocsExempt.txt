@@ -3477,6 +3477,7 @@ T:Vixen.Ui.Markup.Binding.BoundExpression sweep-pending
 T:Vixen.Ui.Markup.Binding.BoundExpressionPart sweep-pending
 T:Vixen.Ui.Markup.Binding.BoundFor sweep-pending
 T:Vixen.Ui.Markup.Binding.BoundIf sweep-pending
+T:Vixen.Ui.Markup.Binding.BoundInject sweep-pending
 T:Vixen.Ui.Markup.Binding.BoundInterpolation sweep-pending
 T:Vixen.Ui.Markup.Binding.BoundLiteralPart sweep-pending
 T:Vixen.Ui.Markup.Binding.BoundNode sweep-pending

@@ -4,7 +4,7 @@ slug: ui/ambient-values
 kind: guide
 area: Core
 summary: A value provided on an element and found by type from anything inside it — SwiftUI's Environment with the walk written down — so a theme, a selection or a view-model stops being threaded through props by hand.
-api: [T:Vixen.Ui.UiElement, T:Vixen.Ui.UiDocument]
+api: [T:Vixen.Ui.UiElement, T:Vixen.Ui.UiDocument, T:Vixen.Ui.Markup.Syntax.InjectDirectiveSyntax]
 tags: [ui, markup, components, composition]
 since: 0.2
 status: preview
@@ -71,6 +71,30 @@ partial class Inspector {
 
 A provider overrides `OnProvide` in its code-behind; a consumer exposes a property that injects, and
 the markup reads it as it reads any other expression.
+
+### `@inject`, for the consumer's half
+
+The property a consumer writes by hand is one line, and one line is what a header replaces:
+
+```xml no-compile="a fragment"
+@inject ISelection Selection
+
+<inspector-name>@(Selection?.Name ?? "nothing")</inspector-name>
+```
+
+That generates `private ISelection? Selection => Inject<ISelection>();` and nothing else. Write it
+more than once for more than one value — `@inject` and `@using` are the two headers a file may
+repeat.
+
+⚠ **The generated property is nullable and the fallback stays in the file.** `Inject` answering null
+is an ordinary case, so a directive that pretended otherwise would move a decision into generated
+code: what a missing value should mean is the consumer's to say, which is why `?? Selection.None`
+is still written where it is. Reach for the code-behind property when the fallback is the interesting
+part, and for the header when it is not.
+
+⚠ **The value is read at the moment the property is read, not when the component was built.** Nothing
+is cached, so a component that outlives a change of provider sees the new one. It is still not
+*reactive* — see below — and that distinction is the whole of what an ambient value promises.
 
 ### `<provide>`, for a value the markup already has
 
@@ -139,16 +163,18 @@ ISelection Selection => Inject<ISelection>() ?? Selection.None;
 
 ## What is deliberately not here yet
 
-**A typed `@inject` directive.** `<provide>` exists; its mirror does not. `@inject ITheme Theme` at
-the top of a `.vxml` would generate the property a consumer writes by hand today — which is one line
-of code-behind, not a missing capability, and unlike `<provide>` it needs a new directive in the
-lexer and the parser rather than a branch in the binder and the emitter. Worth doing when a file
-injects three values rather than one.
+**A generic key.** `@inject Row<T> Rows` does not lex, for `@inherits Row<T>`'s reason: a `<` does
+not appear inside a name, and teaching one directive to read angle brackets would make the lexer's
+one unambiguous character ambiguous. A generic key is still a code-behind property, and
+`Provide<T>`/`Inject<T>` take one happily.
 
-**Three diagnostics and no fourth.** `VXML2021`, `VXML2022` and `VXML2023` are about the tag's own
-shape. Nothing checks that the `type` names a real type, or that anything ever provides what a
-consumer injects — the first is Roslyn's, reported at the `type` attribute through the `#line`, and
-the second is not decidable at compile time in a tree that is assembled at run time.
+**Three diagnostics and no fourth.** `VXML2021`, `VXML2022` and `VXML2023` are about the `<provide>`
+tag's own shape, and `@inject` adds none: a half-written header is the parser's missing token and a
+key that is not a type is Roslyn's, both reported on the `.vxml`'s own characters through the
+`#line`. Nothing checks that anything ever provides what a consumer injects, and nothing can — the
+same component is correct with a provider above it and correct without one, in a tree that is
+assembled at run time. That is why the generated property is nullable rather than a shortcoming of
+the directive.
 
 **No reactivity of its own.** An ambient value is read where it is read; a value that has to *change*
 is a signal put into the ambient slot, and the consumer's `@expr` subscribes to it as it would to

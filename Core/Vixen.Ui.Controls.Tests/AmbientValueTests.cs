@@ -27,11 +27,15 @@ public partial class AmbientProvider {
     protected override void OnProvide() => Provide(new AmbientTheme(Name));
 }
 
-/// <summary>The code-behind half of <c>AmbientConsumer.vxml</c>: one property that injects.</summary>
+/// <summary>The code-behind half of <c>AmbientConsumer.vxml</c>.</summary>
+/// <remarks>
+///     ⚠ <b>The property the markup reads is no longer here.</b> It was
+///     <c>public string Accent =&gt; Inject&lt;AmbientTheme&gt;()?.Accent ?? "none"</c>; the file now
+///     writes <c>@inject AmbientTheme Theme</c> and the generator declares the same reading. What is
+///     left below is the half a directive cannot replace, because it is about <i>when</i> rather
+///     than <i>what</i>.
+/// </remarks>
 public partial class AmbientConsumer {
-    /// <summary>What the markup reads, and the whole of the markup spelling.</summary>
-    public string Accent => Inject<AmbientTheme>()?.Accent ?? "none";
-
     /// <summary>What was injectable at the moment this component was mounted.</summary>
     /// <remarks>
     ///     ⚠ <b>Recorded because an <c>@expr</c> cannot witness the ordering.</b> Every markup

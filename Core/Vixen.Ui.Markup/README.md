@@ -417,6 +417,57 @@ interpolated `type` (it becomes a generic argument, so `Provide<{whatever this s
 exist. A tag missing either half emits **nothing**: the binder has already reported it, and writing
 `Provide<>(…)` on top would add a Roslyn error against generated code the author cannot edit.
 
+## `@inject`, which is the mirror and is a header rather than a tag
+
+```html
+@component AmbientConsumer
+@inject AmbientTheme Theme
+
+<consumer-label>@(Theme?.Accent ?? "none")</consumer-label>
+```
+
+It emits one member and nothing else:
+
+```csharp
+private AmbientTheme? Theme => Inject<AmbientTheme>();
+```
+
+⚠ **A header and not a tag, because it declares a member rather than running a statement.**
+`<provide>` happens at a *place in a tree* — which element carries the value — so it belongs in the
+content, in document order. An inject happens at a *moment in a run*, every time the property is
+read, and has no position at all. That asymmetry is also why the two cannot be checked against each
+other: nothing at compile time knows whether anything will have provided the type by the time this
+runs, in a tree assembled at run time.
+
+⚠ **Read every time rather than captured once.** A field assigned during `Build` would be
+indistinguishable from this in any test that only asks what the markup drew, since at build time
+they hold the same value; `EmitterTests.An_injected_property_reads_the_provider_again_every_time_it_is_asked`
+re-provides afterwards and asks again. It has no reactivity of its own either way — a value that must
+*change* is a signal put in the ambient slot.
+
+⚠ **Nullable, always.** `Inject<T>` answering null is the ordinary case for a leaf in a document
+that provides nothing, so the generated property is `T?` and a fallback stays in the file
+(`?? "none"` above). That is the difference between sugar and a feature: the directive saves the
+declaration, not the decision.
+
+⚠ **The type is emitted twice on one mapped line** — as the property's type and as the generic
+argument — and both land on the `.vxml` characters after `@inject`, because a `#line` span clamps
+anything past its end to its end. So a key that is not a type is Roslyn's error where the author
+wrote it, the same bargain `@inherits` takes. There is no generic form for the same reason
+`@inherits Row<T>` has none: `<` does not lex inside a name.
+
+⚠ **Repeatable, and the second header that is** — `@using` is the other. A file reading three ambient
+values is the shape the directive exists for; a file reading one is a line of `@code`. The member
+name is written out rather than derived from the type, because a type name is not a member name and
+stripping an `I` is a convention rather than a rule.
+
+⚠ **The member name is looked for on the directive's own line.** A directive hands the lexer straight
+back to content, so an unguarded `SkipWhitespace` before the second name would take the first word of
+the next line — a file that compiles, declaring a property nobody wrote, out of a word that has
+vanished from the markup. `ParserTests.An_inject_missing_its_member_name_does_not_eat_the_next_line`
+pins it, and that test has teeth only because the line below starts with a *word*: written with a
+`<panel />` under it, both lexers report the same missing token.
+
 ## `change:` is a value binding, and `on:change` could not have been one
 
 `on:` maps a name through a table of `Action<UiElement, Action<UiEvent>, EventSubscription>` — a routed

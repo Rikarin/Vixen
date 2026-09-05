@@ -116,6 +116,72 @@ public class ParserTests {
     }
 
     /// <summary>
+    ///     <c>@inject ITheme Theme</c>: a dotted type and the member it becomes, both lexed as
+    ///     names and separated only by the space between them.
+    /// </summary>
+    [Fact]
+    public void An_inject_directive_parses_a_type_and_a_member_name() {
+        var document = Vxml.ParseClean("""
+            @component Counter
+            @inject Vixen.Ui.ITheme Theme
+            <panel />
+            """);
+
+        var inject = Assert.Single(document.Injects);
+        Assert.Equal("Vixen.Ui.ITheme", inject.Type.Text);
+        Assert.Equal("Theme", inject.Name.Text);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The one header besides <c>@using</c> a file may write more than once.</b> A second
+    ///     <c>@namespace</c> or <c>@tag</c> stops the header loop and is reported as a stray
+    ///     directive; a second <c>@inject</c> is the shape the directive exists for, so it must not.
+    /// </summary>
+    [Fact]
+    public void A_file_may_inject_more_than_one_value() {
+        var document = Vxml.ParseClean("""
+            @component Counter
+            @inject ITheme Theme
+            @using System
+            @inject ISelection Selection
+            <panel />
+            """);
+
+        Assert.Equal(["Theme", "Selection"], document.Injects.Select(inject => inject.Name.Text));
+        Assert.Single(document.Usings);
+    }
+
+    [Theory]
+    [InlineData("@component Counter\n@inject ITheme Theme\n<panel />")]
+    [InlineData("@component Counter\n@inject   ITheme   Theme  \n<panel />")]
+    [InlineData("@component Counter\n@inject ITheme\n<panel />")]
+    public void An_inject_prints_back_into_the_file_it_came_from(string source) =>
+        Assert.Equal(source, Vxml.Parse(source).GetDocument().ToFullString());
+
+    /// <summary>
+    ///     ⚠ <b>The member name is looked for on the directive's own line, and the line break is
+    ///     what stops the scan.</b> Consuming whitespace unconditionally would take the first word
+    ///     of the next line as the member name — a file that compiles, declaring a property nobody
+    ///     wrote, out of a word that has vanished from the markup. The half-written directive is a
+    ///     diagnostic instead and the line below it is still text.
+    ///     <para>
+    ///         ⚠ The next line has to <i>start with a word</i> for this to have teeth. Written with
+    ///         a <c>&lt;panel /&gt;</c> below it the test is green either way, because <c>&lt;</c>
+    ///         is not a name start: the unguarded lexer swallows the break as trivia, finds no name
+    ///         and reports the same missing token.
+    ///     </para>
+    /// </summary>
+    [Fact]
+    public void An_inject_missing_its_member_name_does_not_eat_the_next_line() {
+        var tree = Vxml.Parse("@component Counter\n@inject ITheme\nreadings\n<panel />");
+        var document = tree.GetDocument();
+
+        Assert.NotEmpty(tree.Diagnostics);
+        Assert.True(Assert.Single(document.Injects).Name.IsMissing);
+        Assert.Contains(document.Content.Items(), node => node is TextSyntax { TextToken.Text: "\nreadings\n" });
+    }
+
+    /// <summary>
     ///     ⚠ <b><c>static</c> is a keyword of the directive, not the name it imports.</b> Lexed as
     ///     one name and nothing else, <c>@using static System.Math</c> parsed <c>static</c> as the
     ///     namespace and left <c>System.Math</c> as a text node in the markup.

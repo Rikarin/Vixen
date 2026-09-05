@@ -212,5 +212,11 @@ public enum SyntaxKind : ushort {
     ///     approved API baseline: inserting one renumbers every kind after it, which is a diff about
     ///     nothing across the whole file.
     /// </remarks>
-    CommaToken
+    CommaToken,
+
+    /// <summary><c>@inject ITheme Theme</c>.</summary>
+    InjectDirective,
+
+    /// <summary><c>@inject</c>.</summary>
+    InjectKeyword
 }

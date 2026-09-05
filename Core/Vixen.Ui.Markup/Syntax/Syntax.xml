@@ -220,6 +220,52 @@
         </TypeComment>
     </Node>
 
+    <Node Name="InjectDirectiveSyntax" Base="DirectiveSyntax">
+        <Kind Name="InjectDirective"/>
+        <Field Name="InjectKeyword" Type="SyntaxToken">
+            <Kind Name="InjectKeyword"/>
+        </Field>
+        <Field Name="Type" Type="SyntaxToken">
+            <Kind Name="NameToken"/>
+            <PropertyComment>
+                <summary>The ambient key, dotted, carried whole as one token.</summary>
+                <remarks>
+                    ⚠ <b>It is the key and not the value's class.</b> <c>Inject&lt;T&gt;</c> matches
+                    on the type argument, so this has to be the same type the provider wrote — an
+                    interface, usually. Nothing here resolves it: the emitter writes it where a type
+                    goes, under its own <c>#line</c>, so a name that is not a type is Roslyn's error
+                    on the characters after <c>@inject</c>.
+                </remarks>
+            </PropertyComment>
+        </Field>
+        <Field Name="Name" Type="SyntaxToken">
+            <Kind Name="IdentifierToken"/>
+            <PropertyComment>
+                <summary>What the generated property is called.</summary>
+                <remarks>
+                    ⚠ <b>Written out rather than derived from the type.</b> A type name is not a
+                    member name — <c>ITheme</c> would give <c>ITheme</c>, and stripping an
+                    <c>I</c> is a convention rather than a rule — and a file injecting two values of
+                    related types needs to be able to say which is which.
+                </remarks>
+            </PropertyComment>
+        </Field>
+        <TypeComment>
+            <summary>
+                <c>@inject ITheme Theme</c> — the property that reads an ambient value.
+            </summary>
+            <remarks>
+                ⚠ <b>Sugar over one line of code-behind, and the mirror of
+                <c>&lt;provide&gt;</c>.</b> It generates
+                <c>private ITheme? Theme =&gt; Inject&lt;ITheme&gt;();</c> and nothing else, so the
+                property is nullable because injection can find nothing — a consumer that needs a
+                fallback still writes the <c>?? Default</c> in <c>@code</c>. Repeatable, like
+                <c>@using</c> and unlike every other header, because the shape it is for is a file
+                that reads three ambient values.
+            </remarks>
+        </TypeComment>
+    </Node>
+
     <!-- ===================================================== Blocks -->
 
     <Node Name="CodeBlockSyntax" Base="MarkupSyntax">
