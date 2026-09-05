@@ -605,6 +605,9 @@ Vixen.Ui.Controls.SearchBox : Vixen.Ui.Controls.TextField
 Vixen.Ui.Controls.SearchBox.ClearButton.get -> Vixen.Ui.Controls.IconButton
 Vixen.Ui.Controls.SearchBox.SearchBox() -> void
 Vixen.Ui.Controls.SearchBox.SearchIcon.get -> Vixen.Ui.Controls.Icon
+Vixen.Ui.Controls.SecureTextBox -> sealed class
+Vixen.Ui.Controls.SecureTextBox : Vixen.Ui.Controls.TextField
+Vixen.Ui.Controls.SecureTextBox.SecureTextBox() -> void
 Vixen.Ui.Controls.Select -> sealed class
 Vixen.Ui.Controls.Select : Vixen.Ui.Controls.SelectBase
 Vixen.Ui.Controls.Select.ClearPlaceholder() -> void
@@ -839,6 +842,7 @@ const Vixen.Ui.Controls.Expander.HeaderSlot = "header" -> string
 const Vixen.Ui.Controls.ScrollView.SmoothingConstant = 0.075 -> float
 const Vixen.Ui.Controls.ScrollView.SnapIdleSeconds = 0.125 -> float
 const Vixen.Ui.Controls.ScrollView.SnapProximity = 0.25 -> float
+const Vixen.Ui.Controls.SecureTextBox.Bullet = '•' -> char
 const Vixen.Ui.Controls.SplitView.SecondSlot = "second" -> string
 const Vixen.Ui.Controls.VirtualizingGrid.Overscan = 2 -> int
 const Vixen.Ui.Controls.VirtualizingPanel.Overscan = 2 -> int
@@ -1026,6 +1030,9 @@ override Vixen.Ui.Controls.ScrollView.TagName.get -> string
 override Vixen.Ui.Controls.SearchBox.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.SearchBox.OnCreated() -> void
 override Vixen.Ui.Controls.SearchBox.TagName.get -> string
+override Vixen.Ui.Controls.SecureTextBox.NativeAccessibleValue.get -> string?
+override Vixen.Ui.Controls.SecureTextBox.Shown(string? value) -> string?
+override Vixen.Ui.Controls.SecureTextBox.TagName.get -> string
 override Vixen.Ui.Controls.Select.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
 override Vixen.Ui.Controls.Select.NativeAccessibleValue.get -> string?
 override Vixen.Ui.Controls.Select.NativeRole.get -> Vixen.Ui.AccessibleRole
@@ -1250,5 +1257,6 @@ virtual Vixen.Ui.Controls.TextField.AcceptsNewlines.get -> bool
 virtual Vixen.Ui.Controls.TextField.Coerce(string? value) -> string?
 virtual Vixen.Ui.Controls.TextField.OnSubmit() -> void
 virtual Vixen.Ui.Controls.TextField.SelectAt(int index, int count) -> void
+virtual Vixen.Ui.Controls.TextField.Shown(string? value) -> string?
 virtual Vixen.Ui.Controls.ToggleBase.CanUncheck.get -> bool
 virtual Vixen.Ui.Controls.ToggleBase.OnChecked(bool current) -> void

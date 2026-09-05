@@ -409,6 +409,26 @@ public abstract partial class TextField : Control {
     /// </remarks>
     protected virtual string? Coerce(string? value) => value;
 
+    /// <summary>What the field draws for a value on its way out.</summary>
+    /// <param name="value">What is being shown, with any pre-edit already spliced in.</param>
+    /// <returns>What to put in the text part.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The mirror of <see cref="Coerce" /> and the only seam between what a field holds and
+    ///         what it shows. Overridden by <see cref="SecureTextBox" />, which is the reason it
+    ///         exists.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An override must return one UTF-16 unit per unit it was given.</b> The caret, the
+    ///         selection, the hit test and the composition underline are all indices into the value,
+    ///         and they are measured against this layout — so a substitution that changed the length
+    ///         would put the caret in a different place from the character it is in front of. Masking
+    ///         per code unit rather than per grapheme is what keeps that true, and on a run of
+    ///         identical bullets there is nothing a grapheme would have bought.
+    ///     </para>
+    /// </remarks>
+    protected virtual string? Shown(string? value) => value;
+
     /// <summary>Called when Enter is pressed, before <see cref="Submitted" /> is raised.</summary>
     protected virtual void OnSubmit() {
     }
@@ -1048,12 +1068,16 @@ public abstract partial class TextField : Control {
         var value = Value ?? string.Empty;
 
         if (!IsComposing) {
-            text.Text = Value;
+            text.Text = Shown(Value);
             return;
         }
 
+        // ⚠ The pre-edit goes through the same seam as the value. An input method's intermediate
+        // reading of a password is the password being typed, and a field that masked what was
+        // committed while showing what was being composed would leak exactly the same secret one
+        // keystroke earlier.
         var at = Math.Clamp(CaretIndex, 0, value.Length);
-        text.Text = string.Concat(value.AsSpan(0, at), composition, value.AsSpan(at));
+        text.Text = Shown(string.Concat(value.AsSpan(0, at), composition, value.AsSpan(at)));
     }
 
     void Keyed(KeyEvent args) {

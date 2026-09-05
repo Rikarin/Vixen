@@ -84,6 +84,14 @@
             <card-heading class="text-lg font-semibold">Fields</card-heading>
 
             <TextBox Placeholder="Name" bind:Value="@Model.Name.Value" />
+
+            <!--
+                ⚠ **Bound two-way like any other field, and that is the point of it being a field
+                rather than a mode.** The value is the real string — a form has to be able to submit
+                it — and the bullets exist only in what is drawn and in what the accessibility tree
+                is told. There is no reveal button and its absence is deliberate.
+            -->
+            <SecureTextBox Placeholder="Password" bind:Value="@Model.Secret.Value" />
             <SearchBox Placeholder="Filter assets" bind:Value="@Model.Filter.Value" />
             <NumericInput Minimum="0" Maximum="64" bind:Number="@Model.Samples.Value" />
 

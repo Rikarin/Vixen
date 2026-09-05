@@ -53,6 +53,16 @@ public sealed class ShellModel {
     /// <summary>What the asset filter says.</summary>
     public Signal<string?> Filter { get; } = new("");
 
+    /// <summary>What the secure field holds.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A plain signal of a plain string, which is the honest shape.</b> A
+    ///     <c>SecureTextBox</c> masks what it <i>draws</i>; the value is the value, and nothing in
+    ///     the framework pretends a managed string can be kept out of the heap. The sample never
+    ///     prints it — see <c>Program.Report</c>, which prints the docking arrangement and nothing
+    ///     else.
+    /// </remarks>
+    public Signal<string?> Secret { get; } = new("");
+
     /// <summary>How many samples the shading takes.</summary>
     public Signal<double> Samples { get; } = new(8d);
 
