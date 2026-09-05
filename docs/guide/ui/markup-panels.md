@@ -554,6 +554,14 @@ So a row of immutable data keyed on a stable field never updates again. `VXML201
 is a member access off the loop variable, which is the shape that mistake always takes; whether the
 item holds signals is a question about its type, and the markup binder deliberately resolves none.
 
+⚠ **And it is why `@for` has no index variable.** The obvious spelling — a second name bound to the
+item's position — would be captured in a body that a surviving key never re-runs, so every row's
+index would be whatever it was when its key first appeared and a reorder would leave all of them
+lying. An index that behaves has to be a signal per row, written by the reconciler when it
+repositions; it is not a name the emitter can simply hand to the body. The rule is the same one this
+section states, one step further along: *a binding may close over a region's identity and never over
+its position.*
+
 ### ⚠ And the same rule governs `@if`
 
 `@if` and `@for` are one mechanism, and an arm is rebuilt **only when the arm index changes** — so an

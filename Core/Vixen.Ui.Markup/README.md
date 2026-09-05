@@ -841,6 +841,14 @@ is a real limitation and the diagnostics are a guard rail over it. The alternati
 body for a surviving key — would throw away the elements and therefore the focus, scroll offset and
 animation state that keys exist to preserve, so it is not a fix, it is the other trade.
 
+⚠ **It is also why `@for` has no index variable, which is a refusal rather than an omission.** A
+second name bound to the item's position would be captured in a body a surviving key never re-runs,
+so after a reorder every row would report the index it had when its key first appeared —
+`VXML2011`'s mistake with no key to blame it on and nothing syntactic to warn about. An index that
+behaves has to be a per-row signal the reconciler writes when it repositions, which is a different
+feature from the one the spelling suggests. See `BuildContext.For`, whose `live`/`kept` pass is where
+such a signal would be set.
+
 ### ⚠ The same rule governs `@if`, where nothing diagnoses it
 
 **`@for` and `@if` are one mechanism** — `Switch` and `For` are deliberately the same construct, for
