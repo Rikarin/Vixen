@@ -606,8 +606,25 @@ use of the feature, shows square corners just outside the rounded ones. The bord
 honoured: `UiLayer.BackdropBounds` carries it separately from the group's ink, because the ink is
 grown by any child that overflows the element and filtering the backdrop over that would put blurred
 scene outside the panel that asked for it. Closing the radius needs a rounded-rect signed distance in
-three shipped fragment modules and their software transcription. A second, smaller divergence rides in
-the same column: an element that paints nothing of its own opens no group and so gets no backdrop.
+three shipped fragment modules and their software transcription. That is now the whole of the owed
+half: the radius alone.
+
+⚠ **The second divergence closed on 2026-09-05 under #229, and it closed by the premise being
+wrong rather than by the work being done.** An element that painted nothing of its own opened no
+group and so got no backdrop, and the reason recorded for it was structural: both executors were said
+to walk the layer list by matching a draw index, so a zero-width range would match its own start and
+never advance. **Neither of them does that.** `SoftwareUiRasterizer` advances its `next` cursor as it
+*enters* a group, so a zero-width range leaves the draw index where it was and the next turn of the
+loop executes the composite quad standing there; `UiRenderer.Forest` takes a group's descendants as
+the entries whose `First` is *strictly* inside its range, which an empty range has none of, and hands
+the index straight on. What was actually dropping the group was the other guard —
+`UiGeometryBuilder.Layer` refusing a layer whose ink is empty, which is real, because a zero-sized
+surface is a validation error rather than an empty picture. A backdrop is the one thing a group
+carries that is not a function of its own ink, and the rectangle it wants is the border box the
+backdrop was going to be clipped to in any case. So an inkless group with a backdrop is bounded by
+that box and every other inkless group is still discarded, which `BackdropFilterTests` pins from both
+sides. The lesson is one this document has had before: a refusal whose reason is a claim about code
+is worth re-reading against the code.
 
 ⛔ **The third divergence is permanent and is stated here as one, 2026-09-05.** A group carrying a
 `transform` is refused the backdrop outright rather than given an approximation of it, in
@@ -623,9 +640,10 @@ captured picture — four texture coordinates that are no longer an axis-aligned
 region that is no longer `BackdropBounds`, and a border-box clip that is no longer a rectangle
 either. Sampling the untransformed patch instead shows the scene from where the element *was* rather
 than from where it is, which under a rotation is not an approximation but a different picture. So it
-is dropped once, beside where a degenerate drop shadow and an empty group are already dropped, and
-neither executor learns that a backdrop can be missing for a new reason. This is a refusal with its
-reason, not an owed item; the two divergences above it are the owed half of A8's remainder.
+is dropped once, and ⚠ above the empty-group guard rather than beside it since #229, because that
+guard now asks whether a backdrop survived this one. Neither executor learns that a backdrop can be
+missing for a new reason. This is a refusal with its reason, not an owed item; the radius above it is
+the owed half of A8's remainder.
 
 ⚠ **Vixen emits only `backdrop-filter` where Tailwind emits `-webkit-backdrop-filter` beside it.**
 That copy is for Safari and there is no Safari here; emitting it would put a declaration into every

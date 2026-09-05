@@ -78,11 +78,13 @@ public class BackdropFilterTests {
     ///         than about the filter.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It has to paint <i>something</i>.</b> A group that draws nothing is discarded by
-    ///         <c>DrawListBuilder</c> before it becomes a layer — see the remark there, which states
-    ///         it as a divergence — so a panel with no background and no border would take its
-    ///         backdrop with it and every test in this file would be asserting against an empty
-    ///         geometry.
+    ///         ⚠ <b>It used to have to paint <i>something</i>, and that is why the border is here at
+    ///         all.</b> A group that drew nothing was discarded before it became a layer, so a panel
+    ///         with no background and no border took its backdrop with it and every test in this file
+    ///         would have been asserting against an empty geometry. That divergence closed under #229
+    ///         and <see cref="Bare" /> is the fixture for it; the border stays because a fixture whose
+    ///         panel paints one hairline reads its middle pixel as the filtered backdrop and only
+    ///         that, which is a narrower measurement than one taken through a group with no ink.
     ///     </para>
     /// </remarks>
     static UiTest Glass(string declaration) {
@@ -124,6 +126,36 @@ public class BackdropFilterTests {
                    background-color: #ffffff; }
             .glass { position: absolute; left: 20px; top: 10px; width: 20px; height: 20px;
                      border: 1px solid #000000; {{declaration}} }
+            """
+        );
+
+        ui.Create("div", null, "bar", "bar");
+        ui.Create("div", null, "glass", "glass");
+        ui.Frame();
+
+        return ui;
+    }
+
+    /// <summary>The same bar of light, under a panel that paints nothing at all.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="Bar" />'s one-pixel border is deliberate and this fixture is deliberately
+    ///     without it.</b> That border is what made every other test in this file possible while an
+    ///     empty group was discarded — a panel with no paint took its backdrop with it and left an
+    ///     empty geometry. This is the case the remark on <see cref="Bar" /> named as the divergence,
+    ///     and it is the commonest way anybody writes the feature: a <c>div</c> carrying
+    ///     <c>backdrop-blur-md</c> and no background of its own.
+    /// </remarks>
+    static UiTest Bare(string declaration) {
+        var ui = UiTest.Create(60f, 40f);
+        ui.Document.Compositing = true;
+
+        ui.Load(
+            $$"""
+            root { width: 60px; height: 40px; background-color: #000000; }
+            .bar { position: absolute; left: 28px; top: 0px; width: 4px; height: 40px;
+                   background-color: #ffffff; }
+            .glass { position: absolute; left: 20px; top: 10px; width: 20px; height: 20px;
+                     {{declaration}} }
             """
         );
 
@@ -619,4 +651,69 @@ public class BackdropFilterTests {
             "sepia(1)" => UiColorMatrix.Sepia(1f),
             _ => UiColorMatrix.HueRotate(90f)
         };
+
+    /// <summary>An element that paints nothing of its own still gets its backdrop.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The picture is the assertion and the geometry is only the explanation.</b> The bar
+    ///         of light is four pixels away from the sample point, so a positive red there is a
+    ///         capture that was taken <i>and</i> convolved — the same measurement
+    ///         <see cref="A_blurred_backdrop_puts_light_where_the_backdrop_had_none" /> makes, over a
+    ///         panel that paints nothing rather than one that paints a hairline border. That one pixel
+    ///         of border was all that stood between this file and an empty geometry.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>Count</c> is zero and the layer exists anyway, which is the whole of the
+    ///         change.</b> An empty group is refused everywhere else — a blur, a colour matrix, a mask
+    ///         and a drop shadow are all functions of ink this group has none of — and a backdrop is
+    ///         the one surface holding something the element did not draw. So the group is bounded by
+    ///         the border box, which is the rectangle CSS clips a backdrop to and the only rectangle
+    ///         an inkless group has.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_element_that_paints_nothing_of_its_own_still_gets_its_backdrop() {
+        using var ui = Bare("backdrop-filter: blur(4px);");
+
+        var layer = Assert.Single(ui.Geometry.Layers);
+
+        Assert.NotNull(layer.Backdrop);
+
+        // ⚠ Zero, and it is what the fixture is for: the group brackets no draws at all, which is the
+        // range the discarded divergence claimed neither executor could walk.
+        Assert.Equal(0, layer.Count);
+
+        // The border box, with no border on it. `Bounds` falls back to it because the ink is empty,
+        // and it is the same rectangle the backdrop is clipped to.
+        Assert.Equal(new Rectangle(20f, 10f, 20f, 20f), layer.Bounds);
+        Assert.Equal(new Rectangle(20f, 10f, 20f, 20f), layer.BackdropBounds);
+
+        // The bar is 28..32. Inside the panel (rows 11..29) the light must have spread four pixels to
+        // the left of it; above the panel (row 4) it must not have.
+        var spread = At(ui, 24, 20);
+        var sharp = At(ui, 24, 4);
+
+        Assert.Equal(0, sharp.R);
+
+        Assert.True(
+            spread.R > 0,
+            "an element that paints nothing of its own got no backdrop: the group was discarded before "
+            + "it became a layer, which is what this file's own fixtures were carrying a one-pixel "
+            + "border to avoid"
+        );
+    }
+
+    /// <summary>And an empty group that asked for no backdrop is still discarded.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half that must stay refused, and it is not the same question.</b> A group with no
+    ///     ink and no backdrop has nothing for either executor to show and would cost a viewport-sized
+    ///     surface to say so. Without this the change above reads as "an empty group is a layer now",
+    ///     which is the version of it that spends a surface on every invisible wrapper in a document.
+    /// </remarks>
+    [Fact]
+    public void An_element_that_paints_nothing_and_asks_for_no_backdrop_opens_no_group() {
+        using var ui = Bare("filter: blur(4px); opacity: 0.5;");
+
+        Assert.Empty(ui.Geometry.Layers);
+    }
 }
