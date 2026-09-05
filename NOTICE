@@ -114,10 +114,74 @@ this as its own case rather than as a stricter kind of reading.
   Unicode Character Database — UAX #9, #14, #29 conformance data
     Unicode-3.0 — https://www.unicode.org/Public/UCD/latest/
 
+  ICU4X — segmenter CSS-tailoring tests
+    Unicode-3.0 — https://github.com/unicode-org/icu4x
+    Copyright (c) The ICU4X Project Contributors.
+
+    The layer the Consortium's own conformance data cannot reach: UAX #14 as
+    written is settled by LineBreakTest.txt, and CSS Text §5.2's `word-break`
+    CHANGES what the algorithm is told the characters are. ICU4X's
+    components/segmenter/tests/css_word_break.rs is the only plain-data oracle
+    found for that layer — each of its cases is itself a web-platform-tests file,
+    reduced to a string and the pieces it segments into. Currently incorporated:
+
+      Core/Vixen.Ui.Text.Tests/CssWordBreakTailoringTests.cs
+        seventeen of its twenty-two active assertions, case for case. The five
+        that are not here need ICU4X's DICTIONARY segmenter — Thai, Lao and
+        Khmer have no algorithmic word boundary — and are listed by name in that
+        file rather than transcribed into red tests.
+
   text-rendering-tests
     Apache-2.0, fonts under OFL-1.1 — https://github.com/unicode-org/text-rendering-tests
     The one case where the test *fonts* are redistributed too; see
     Core/Vixen.Ui.Text.Tests/Fonts/README.md.
+
+  web-platform-tests
+    BSD-3-Clause — https://github.com/web-platform-tests/wpt
+    Copyright (c) web-platform-tests contributors. All rights reserved.
+
+    ⚠ Unlike the two corpora above, nothing here is generated: the cases are
+    transcribed by hand into ordinary xunit theories, and the entry is required
+    anyway. BSD-3-Clause asks for the copyright notice and the disclaimer to
+    travel with a redistribution of the *material in any form*, and an expected
+    value transcribed case for case is that material — which is why doc 43 § T5
+    states the obligation as arriving "the moment a translated fixture lands"
+    rather than when a file is copied. Currently incorporated:
+
+      Core/Vixen.Ui.Layout.Tests/GridTemplateAreasTests.cs
+        css/css-grid/grid-definition/grid-support-grid-template-areas-001.html —
+        thirty accepted values with their serialisation and sixteen refused ones,
+        quoted value for value. This is the only file that is a quotation; the
+        rest re-express a reftest's relation in stated geometry.
+      Core/Vixen.Ui.Layout.Tests/OrderTests.cs
+      Core/Vixen.Ui.Tests/OrderTests.cs
+        css/css-flexbox/ — the `order` property.
+      Core/Vixen.Ui.Layout.Tests/InlineFormattingTests.cs
+        css/css-flexbox/inline-flex.html.
+
+    Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions are met:
+
+      1. Redistributions of source code must retain the above copyright notice,
+         this list of conditions and the following disclaimer.
+      2. Redistributions in binary form must reproduce the above copyright
+         notice, this list of conditions and the following disclaimer in the
+         documentation and/or other materials provided with the distribution.
+      3. Neither the name of the copyright holder nor the names of its
+         contributors may be used to endorse or promote products derived from
+         this software without specific prior written permission.
+
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+    AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+    IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+    ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+    LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+    CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+    SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+    INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+    CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+    ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+    POSSIBILITY OF SUCH DAMAGE.
 
 --------------------------------------------------------------------------------
 Reference material — read, not incorporated

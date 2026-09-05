@@ -421,6 +421,10 @@ public sealed class LayoutStyleBuilder {
             result.VerticalAlign = verticalAlign;
         }
 
+        if (TryKeyword(style, names.TextAlign, keywords.TextAligns, out TextAlign textAlign)) {
+            result.TextAlign = textAlign;
+        }
+
         if (TryKeyword(style, names.BoxSizing, keywords.BoxSizings, out BoxSizing boxSizing)) {
             result.BoxSizing = boxSizing;
         }
@@ -1198,6 +1202,7 @@ public sealed class LayoutStyleBuilder {
             Float = table.Intern("float");
             Clear = table.Intern("clear");
             VerticalAlign = table.Intern("vertical-align");
+            TextAlign = table.Intern("text-align");
             BoxSizing = table.Intern("box-sizing");
 
             Flex = table.Intern("flex");
@@ -1269,6 +1274,7 @@ public sealed class LayoutStyleBuilder {
         public int Float { get; }
         public int Clear { get; }
         public int VerticalAlign { get; }
+        public int TextAlign { get; }
         public int BoxSizing { get; }
         public int Flex { get; }
         public int FlexGrow { get; }
@@ -1510,6 +1516,25 @@ public sealed class LayoutStyleBuilder {
                 [table.Intern("bottom")] = VerticalAlign.Bottom
             };
 
+            // ⚠ <b>Five of the six, and `justify` is the one that is dropped rather than aliased.</b>
+            // The other five say where a line's items go; `justify` says that the slack is spread
+            // *between* them, and to this store a text leaf is one atomic item — so justifying a
+            // paragraph would distribute nothing, and justifying a line that happened to hold several
+            // inline boxes would space them out, which is not what the keyword asks for and looks
+            // convincing enough that nobody would check. Dropped here, so the layout store's default
+            // (`start`) stands, which is where CSS puts a justified block's last line anyway.
+            //
+            // ⚠ The three legacy `-webkit-*` spellings are NOT here and belong to a different field:
+            // they move a container's BLOCK-level children, which is `LegacyTextAlign`. See its
+            // remarks — one property, two enums, because a container can have both kinds of child.
+            TextAligns = new Dictionary<int, TextAlign> {
+                [table.Intern("start")] = TextAlign.Start,
+                [table.Intern("end")] = TextAlign.End,
+                [table.Intern("left")] = TextAlign.Left,
+                [table.Intern("right")] = TextAlign.Right,
+                [table.Intern("center")] = TextAlign.Center
+            };
+
             BoxSizings = new Dictionary<int, BoxSizing> {
                 [table.Intern("border-box")] = BoxSizing.BorderBox,
                 [table.Intern("content-box")] = BoxSizing.ContentBox
@@ -1566,6 +1591,7 @@ public sealed class LayoutStyleBuilder {
         public HashSet<int> OverflowPositions { get; }
         public Dictionary<int, LayoutUnit> ContentSizes { get; }
         public Dictionary<int, VerticalAlign> VerticalAligns { get; }
+        public Dictionary<int, TextAlign> TextAligns { get; }
         public Dictionary<int, Direction> Directions { get; }
         public Dictionary<int, FlexDirection> FlexDirections { get; }
         public Dictionary<int, Justify> Justifications { get; }

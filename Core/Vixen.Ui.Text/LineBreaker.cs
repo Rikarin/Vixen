@@ -26,11 +26,19 @@ public enum WordBreakMode : byte {
     ///     scattering opportunities over the string, and the difference is every punctuation rule in
     ///     UAX#14.</b> CSS Text 3 § 5.2 allows a break "between any two typographic character units"
     ///     and still defers to the rules that are not about letters, which is a long list: a line may
-    ///     not begin with a closing bracket, a comma or an exclamation mark (LB13), may not end with
-    ///     an opening one (LB14), and may not start with a small kana (LB21). Adding a break at every
-    ///     grapheme boundary breaks all four; making the letters behave like Chinese — which is
-    ///     exactly what the property is asking for — keeps them, because those rules are written
-    ///     against the punctuation classes and go on holding.
+    ///     not begin with a closing bracket, a comma or an exclamation mark (LB13), and may not end
+    ///     with an opening one (LB14). Adding a break at every grapheme boundary breaks both; making
+    ///     the letters behave like Chinese — which is exactly what the property is asking for — keeps
+    ///     them, because those rules are written against the punctuation classes and go on holding.
+    ///     <para>
+    ///         ⚠ <b>This list used to end "and may not start with a small kana (LB21)", and that was
+    ///         wrong.</b> A small kana is a <c>CJ</c> — a <i>conditional</i> Japanese starter, whose
+    ///         class is a question about typographic strictness rather than about punctuation — and
+    ///         <c>break-all</c> is not asking about strictness. ICU4X's <c>break_all("フォ")</c>
+    ///         segments as <c>フ|ォ</c>; this store answered <c>フォ</c> until
+    ///         <c>CssWordBreakTailoringTests</c> transcribed the case. So <c>CJ</c> resolves to
+    ///         <c>ID</c> under both tailorings and to <c>NS</c> under neither.
+    ///     </para>
     /// </remarks>
     BreakAll,
 
@@ -41,6 +49,13 @@ public enum WordBreakMode : byte {
     ///     What it is for is CJK, and Korean above all: <c>LineBreaker</c> offers an opportunity
     ///     between any two Han characters and between any two Hangul syllables, and this suppresses
     ///     both, leaving spaces and punctuation as the only places a line may end.
+    ///     <para>
+    ///         ⚠ <b>A small kana counts as one of the letters</b>, which is not obvious from the class
+    ///         table: <c>CJ</c> resolves to <c>NS</c> by default and <c>NS</c> is not a letter unit, so
+    ///         <c>keep-all</c> left a break standing between <c>ょ</c> and the character after it.
+    ///         ICU4X's <c>keep_all("しょう。")</c> keeps the whole string together, and it is right —
+    ///         a small kana is part of the word beside it whatever a line's strictness says.
+    ///     </para>
     /// </remarks>
     KeepAll
 }
@@ -286,7 +301,7 @@ sealed class LineBreakRun {
 
             var codePoint = GraphemeBreaker.Decode(text, ref position);
             run.codePoints.Add(codePoint);
-            run.original.Add(Ideographic(Substitute(codePoint), mode));
+            run.original.Add(Ideographic(Substitute(codePoint, mode), mode));
         }
 
         // LB9, LB10 — a combining mark takes the class of its base, unless there is nothing to
@@ -313,7 +328,11 @@ sealed class LineBreakRun {
     }
 
     /// <summary>LB1 — the classes that stand for "resolve this some other way".</summary>
-    static LineBreakClass Substitute(int codePoint) {
+    /// <param name="codePoint">The code point.</param>
+    /// <param name="mode">
+    ///     The <c>word-break</c> in force, which decides what a conditional Japanese starter is.
+    /// </param>
+    static LineBreakClass Substitute(int codePoint, WordBreakMode mode) {
         var value = LineBreakClassTable.Of(codePoint);
 
         return value switch {
@@ -330,7 +349,22 @@ sealed class LineBreakRun {
 
             // `CJ` is conditional Japanese starter: small kana, which may or may not start a line
             // depending on typographic strictness. Normal strictness is the default.
-            LineBreakClass.CJ => LineBreakClass.NS,
+            //
+            // ⚠ <b>And both CSS tailorings override that, in the same direction and for the same
+            // reason.</b> `NS` is a class about *typographic strictness* — whether a small kana is
+            // allowed to open a line — and `word-break` is not asking about strictness at all: it is
+            // saying what counts as a word. Under `break-all` a small kana is a typographic character
+            // unit like any other and a line may end before it; under `keep-all` it is part of the
+            // word beside it and a line may not. `ID` gives both, because `break-all` already breaks
+            // between ideographs and `keep-all`'s letter-unit suppression already covers them —
+            // whereas `NS` gives neither, since LB21 forbids the first and `IsLetterUnit` declines
+            // the second.
+            //
+            // ⚠ Found by `CssWordBreakTailoringTests`, transcribed from ICU4X: `break_all("フォ")`
+            // segments as `フ|ォ` and `keep_all("しょう。")` stays whole, and this store gave the
+            // opposite of each. ⚠ `Normal` is untouched, which is what keeps the Consortium's 19 338
+            // cases out of it — they are judged with no tailoring at all.
+            LineBreakClass.CJ => mode == WordBreakMode.Normal ? LineBreakClass.NS : LineBreakClass.ID,
             _ => value
         };
     }

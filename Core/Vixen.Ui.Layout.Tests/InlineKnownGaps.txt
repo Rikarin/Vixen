@@ -41,6 +41,10 @@ vertical-align: top / bottom      measured from the line box's own edges, and th
                                   without moving the baseline
 inline-block baseline             the LAST line box's baseline, not the first
   · the overflow clause           a box that clips synthesises at its bottom margin edge instead
+text-align                        five of the six values distribute a line's items along the
+                                  inline axis, against THAT LINE'S slack; `justify` is refused at
+                                  the bridge. `InlineTextAlignTests`, and see the entry below for
+                                  what it cost against what it was sized at
 formatting-context barrier        an inline-level box is a flow root: nothing collapses through it
 right-to-left lines               the first item on a line is the rightmost one
 inner display is independent      `inline-flex` runs the flex algorithm; `inline-block` runs block
@@ -278,11 +282,30 @@ vertical-align: <length> / <%>    not in the enum at all; needs `line-height` to
 
 # ══ ABSENT, AND THE HONEST REASON IS "NOT YET" ══════════════════════════════════════════════════
 
-text-align                        the inline-axis distribution of a line's items. Not a fragmentation
-                                  problem and not a font problem — genuinely just unwritten. It is
-                                  the cheapest remaining item here: one offset per line, computed
-                                  from the line's slack, applied in `PlaceLine`, which already has
-                                  the slack in hand and throws it away.
+text-align                        ⚠ LANDED, and this entry's own sizing was right to the line:
+                                  ONE OFFSET PER LINE, computed from the line's slack, seeded into
+                                  `PlaceLine`'s `x`. `TextAlign` on `LayoutStyle`, five of the six
+                                  values, `SetTextAlign` to write it, `LayoutStyleBuilder` to bridge
+                                  it, and `InlineTextAlignTests` for the numbers. What is left of
+                                  the entry is the history below, which is still worth reading
+                                  because the correction in it is worth more than the item was.
+                                  ⚠ THREE THINGS IT COST THAT THE SIZING DID NOT NAME. The slack is
+                                  the LINE'S, not the container's, so the offset is computed against
+                                  the band a float left rather than against `innerWidth` — a
+                                  per-line number the walk had to start carrying. The extent is a
+                                  SECOND WALK over the same range, and it has to agree with the
+                                  placement loop about what an item costs down to the margin, or a
+                                  line is pushed past its own end edge by the difference. And
+                                  `justify` is REFUSED at the bridge rather than aliased: it spreads
+                                  slack between a line's WORDS, and a text leaf is one atomic item
+                                  here, so spreading it between whole inline-level boxes instead
+                                  would be a different feature wearing this one's name.
+                                  ⚠ It moves BOXES and never glyphs. `Vixen.Ui`'s `TextAlignShift`
+                                  has aligned a text leaf's own lines the whole time — which is why
+                                  `text-align` was never in `InertProperties.txt` — and the two
+                                  compose rather than duplicate: a centred line box holding a
+                                  shrink-to-fit leaf whose own lines are centred inside it.
+                                  The original sizing, kept because it was accurate:
                                   ⚠ THIS ENTRY USED TO CLAIM "124 of the block corpus's refusals
                                   cite text-align, so this is the one entry in this file with
                                   browser-recorded answers waiting". BOTH HALVES ARE WRONG and the

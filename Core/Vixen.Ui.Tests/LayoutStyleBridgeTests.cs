@@ -436,4 +436,36 @@ public class LayoutStyleBridgeTests {
         static float Width(string css) =>
             new BridgeFixture().Build(css).Dimensions[(int) Dimension.Width].Value;
     }
+
+    /// <summary>
+    ///     <c>text-align</c> crosses as <see cref="TextAlign" />, and <c>justify</c> is dropped.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The refusal is the half worth a test.</b> A dropped value leaves the initial one in
+    ///         place, so <c>justify</c> and <c>start</c> produce the same layout — which is exactly
+    ///         what a reader would want to check was deliberate. It is deliberate: justifying spreads a
+    ///         line's slack between its <i>words</i>, and a text leaf is one atomic item to the inline
+    ///         walk, so the only thing this store could spread it between is whole inline-level boxes.
+    ///         That is a different feature that would look like this one. Same shape as the five
+    ///         font-relative <c>vertical-align</c> values.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the three legacy <c>-webkit-*</c> spellings stay out</b>, because they are
+    ///         <see cref="LegacyTextAlign" /> — one CSS property, two fields, because the legacy values
+    ///         move a container's block-level children and these move the items on its lines.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("text-align: start", TextAlign.Start)]
+    [InlineData("text-align: end", TextAlign.End)]
+    [InlineData("text-align: left", TextAlign.Left)]
+    [InlineData("text-align: right", TextAlign.Right)]
+    [InlineData("text-align: center", TextAlign.Center)]
+    [InlineData("text-align: justify", TextAlign.Start)]
+    [InlineData("text-align: -webkit-center", TextAlign.Start)]
+    [InlineData("color: red", TextAlign.Start)]
+    public void Text_align_crosses_the_bridge_except_for_justify(string css, TextAlign expected) {
+        Assert.Equal(expected, new BridgeFixture().Build(css).TextAlign);
+    }
 }

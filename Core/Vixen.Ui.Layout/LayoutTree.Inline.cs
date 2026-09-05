@@ -401,6 +401,13 @@ public sealed partial class LayoutTree {
                 var lineStart = cursor;
                 var lineTop = y;
                 var lineStartInset = 0f;
+
+                // ⚠ <b>How wide this line box is, which is the container's inner width until a float
+                // takes some of it away</b> — and it is a per-line number rather than a per-container
+                // one for exactly that reason. `text-align` distributes the slack the line has, and a
+                // line beside a float has less of it, so aligning against `innerWidth` would push a
+                // centred line half a float's width into the float.
+                var lineAvailable = innerWidth;
                 var lineEnd = lineStart;
                 var placed = 0;
                 var metrics = default(LineMetrics);
@@ -439,6 +446,7 @@ public sealed partial class LayoutTree {
                         var (start, available) = InlineBandForLine(lineTop, probeHeight, innerWidth, insetLeft, direction);
 
                         lineStartInset = start;
+                        lineAvailable = available;
                         (lineEnd, placed) = BreakLine(lineStart, streamEnd, direction, innerWidth, available);
 
                         if (placed == 0) {
@@ -471,6 +479,8 @@ public sealed partial class LayoutTree {
                         insetLeft,
                         insetRight,
                         lineStartInset,
+                        lineAvailable,
+                        styles[index].TextAlign,
                         lineTop,
                         in metrics,
                         ref open
@@ -894,6 +904,79 @@ public sealed partial class LayoutTree {
         public static OpenInlineBox None => new() { Node = -1 };
     }
 
+    /// <summary>How far along the inline axis a line's items are pushed by <c>text-align</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Inline-relative, and that is what makes RTL free.</b> The returned number is added
+    ///         to the same <c>x</c> the placement loop advances, which
+    ///         <see cref="PlaceLine" /> already mirrors — so a positive offset moves items toward the
+    ///         inline <i>end</i>, which is rightwards in LTR and leftwards in RTL, with no second
+    ///         branch. Only the two physical keywords need to know the direction at all, and they
+    ///         need it precisely because they are the two that do not flip.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Negative slack returns zero rather than a negative offset</b>, which is the same
+    ///         rule <c>Vixen.Ui</c>'s <c>TextAlignShift</c> states for a line of glyphs and for the
+    ///         same reason: content wider than its line overflows past the <i>end</i> edge whatever
+    ///         the alignment says, because centring it would hide the beginning — and the beginning is
+    ///         the part that says what has been cut off.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Against the line's own available width and not the container's</b>, so a line
+    ///         beside a float centres in the band the float left it. The two differ only when
+    ///         <c>treeHasFloats</c> is set, which is why the parameter is threaded from the walk
+    ///         rather than read here.
+    ///     </para>
+    /// </remarks>
+    float TextAlignOffset(
+        TextAlign textAlign,
+        Direction direction,
+        int lineStart,
+        int lineEnd,
+        float innerWidth,
+        float lineAvailable
+    ) {
+        // Start is the initial value and is where every line already sat, so the common path costs a
+        // comparison and never walks the line.
+        if (textAlign == TextAlign.Start
+            || (textAlign == TextAlign.Left && direction == Direction.Ltr)
+            || (textAlign == TextAlign.Right && direction == Direction.Rtl)) {
+            return 0f;
+        }
+
+        var slack = lineAvailable - LineInlineExtent(lineStart, lineEnd, direction, innerWidth);
+
+        if (slack <= 0f) {
+            return 0f;
+        }
+
+        return textAlign == TextAlign.Center ? slack * 0.5f : slack;
+    }
+
+    /// <summary>How much of the inline axis one line's items take up, edges and margins included.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The same sum <see cref="PlaceLine" />'s <c>x</c> accumulates, and it has to stay that
+    ///     way.</b> A line that measured wider here than it places would be pushed off its own end
+    ///     edge by the difference. In particular an inline box that was already open when the line
+    ///     began contributes no start edge to either sum — its <c>Open</c> entry is on an earlier
+    ///     line — and a box still open when the line ends contributes no end edge to either.
+    /// </remarks>
+    float LineInlineExtent(int lineStart, int lineEnd, Direction direction, float innerWidth) {
+        var width = 0f;
+
+        for (var i = lineStart; i < lineEnd; i++) {
+            var item = inlineItems[i];
+
+            width += item.Kind switch {
+                InlineItemKind.Open => InlineBoxStartEdge(item.Node, direction, innerWidth),
+                InlineItemKind.Close => InlineBoxEndEdge(item.Node, direction, innerWidth),
+                _ => InlineOuterWidth(item.Node, direction, innerWidth)
+            };
+        }
+
+        return width;
+    }
+
     /// <summary>Positions every item on one line box, and closes off any fragment it ends.</summary>
     /// <remarks>
     ///     ⚠ <b><c>lineStartInset</c> is how far this line box's own start edge sits inside the
@@ -910,11 +993,13 @@ public sealed partial class LayoutTree {
         float insetLeft,
         float insetRight,
         float lineStartInset,
+        float lineAvailable,
+        TextAlign textAlign,
         float lineTop,
         in LineMetrics metrics,
         ref OpenInlineBox open
     ) {
-        var x = lineStartInset;
+        var x = lineStartInset + TextAlignOffset(textAlign, direction, lineStart, lineEnd, innerWidth, lineAvailable);
 
         // ⚠ A box that was still open when the last line ended reopens at THIS line's start edge, and
         // beside a float that is not the same place the last one started. Resetting it when the
