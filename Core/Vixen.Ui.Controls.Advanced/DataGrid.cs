@@ -264,6 +264,7 @@ public sealed partial class DataGrid : Control {
     readonly HashSet<object> collapsed = [];
 
     int rowHeightId;
+    int headerHeightId;
     int first;
     int firstColumn;
     int lastColumn;
@@ -300,6 +301,15 @@ public sealed partial class DataGrid : Control {
         MultiSelect ? AccessibleStates.MultiSelectable : AccessibleStates.None;
 
     /// <summary>The strip of headings.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Inside the scroller, and it used to be a sibling of it.</b> A header outside the
+    ///     scrollport is a second pane: it cannot scroll vertically because it is not in the port at
+    ///     all, and it has to be moved horizontally by <i>subtracting</i> the scroll offset where
+    ///     everything in the port adds it. Two arithmetics for one visual result is what
+    ///     <c>Rikarin/Vixen#787</c> is about, and the answer is CSS's: it is the scroller's own first
+    ///     child, <c>position: sticky; top: 0</c>, so the one offset every cell in the grid adds is
+    ///     the only one there is.
+    /// </remarks>
     public UiElement Header { get; private set; } = null!;
 
     /// <summary>The scroller the rows live in.</summary>
@@ -325,6 +335,17 @@ public sealed partial class DataGrid : Control {
 
     /// <summary>How tall a row is, from <c>--row-height</c>.</summary>
     public float RowHeight => Document.LengthOf(Style, rowHeightId) ?? 24f;
+
+    /// <summary>How tall the heading strip is, from <c>--header-height</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A declared length rather than <c>Header.Height</c>, and the difference is an ordering
+    ///     one.</b> <see cref="Refresh" /> sets the content pane's height before the pass that would
+    ///     measure the header, so reading the measured value there gives zero on the first frame and
+    ///     the right answer on every one after it — a grid whose rows are all one header out of place
+    ///     until something else invalidates it. The row offsets and the pane's height are decided from
+    ///     the same declaration the stylesheet lays the header out with.
+    /// </remarks>
+    public float HeaderHeight => Document.LengthOf(Style, headerHeightId) ?? 26f;
 
     /// <summary>How many columns on the left do not scroll.</summary>
     [UiProperty(Changed = nameof(OnLayoutChanged))]
@@ -357,9 +378,14 @@ public sealed partial class DataGrid : Control {
         base.OnCreated();
 
         rowHeightId = Document.PropertyId("--row-height");
+        headerHeightId = Document.PropertyId("--header-height");
 
-        Header = Part("data-header");
         Scroller = Part<ScrollView>();
+
+        // ⚠ The scroller's FIRST child, so that the flow position `position: sticky` floors against
+        // is the top of the content pane. Every row after it is absolutely positioned and cannot
+        // move it; the header is the one box in this control that is in flow at all.
+        Header = Scroller.Content.Add("data-header");
 
         Scroller.Scrolled += _ => Realise();
 
@@ -485,7 +511,9 @@ public sealed partial class DataGrid : Control {
 
         offsets.Add(running);
 
-        Scroller.Content.SetStyle("height", Inline.Px(view.Count * RowHeight));
+        // The header is in the pane now, so the pane is that much taller and every row starts that
+        // much further down. One term, in the two places that decide a vertical position.
+        Scroller.Content.SetStyle("height", Inline.Px(HeaderHeight + (view.Count * RowHeight)));
         Scroller.Content.SetStyle("width", Inline.Px(running));
 
         // A pass before anything reads a size — see `TreeView.Refresh` for why a declaration is not
@@ -565,7 +593,11 @@ public sealed partial class DataGrid : Control {
         Window();
 
         var capacity = Math.Min(view.Count, (int) MathF.Ceiling(Scroller.Height / rowHeight) + (Overscan * 2) + 1);
-        first = Math.Clamp((int) MathF.Floor(Scroller.ScrollTop / rowHeight) - Overscan, 0, Math.Max(0, view.Count - capacity));
+        first = Math.Clamp(
+            (int) MathF.Floor((Scroller.ScrollTop - HeaderHeight) / rowHeight) - Overscan,
+            0,
+            Math.Max(0, view.Count - capacity)
+        );
 
         while (rows.Count < capacity) {
             rows.Add(Scroller.Content.Add<DataRow>());
@@ -628,7 +660,7 @@ public sealed partial class DataGrid : Control {
         row.GroupKey = line.GroupKey;
         row.Item = line.Item >= 0 ? items[line.Item] : null;
 
-        row.SetStyle("top", Inline.Px(index * rowHeight));
+        row.SetStyle("top", Inline.Px(HeaderHeight + (index * rowHeight)));
         row.SetStyle("height", Inline.Px(rowHeight));
 
         if (line.Item < 0) {
@@ -708,14 +740,17 @@ public sealed partial class DataGrid : Control {
 
         var slot = 0;
 
+        // ⚠ The same two lines `Bind` uses for a row's cells, which is what moving the header into
+        // the scroller bought. A frozen heading adds the scroll offset back because the strip it is
+        // in has been moved left by exactly that much; a scrolling one takes the offset it was given.
+        // Until #787 the second of these SUBTRACTED the offset, because the header was outside the
+        // port and the rows were inside it.
         for (var i = 0; i < frozen; i++) {
-            Fill(headers[slot++], columns[i], offsets[i], true);
+            Fill(headers[slot++], columns[i], offsets[i] + Scroller.ScrollLeft, true);
         }
 
         for (var i = firstColumn; i <= lastColumn; i++) {
-            // ⚠ Minus the scroll offset, where a row's cell is plus it. The header is outside the
-            // scroller and the rows are inside it, so the same visual result needs opposite signs.
-            Fill(headers[slot++], columns[i], offsets[i] - Scroller.ScrollLeft, false);
+            Fill(headers[slot++], columns[i], offsets[i], false);
         }
 
         for (var i = slot; i < headers.Count; i++) {
@@ -980,7 +1015,9 @@ public sealed partial class DataGrid : Control {
         }
 
         var from = columns.IndexOf(column);
-        var at = x - Header.AbsoluteLeft + Scroller.ScrollLeft;
+        // ⚠ No scroll term. `Header.AbsoluteLeft` is inside the scrolled pane now, so it already
+        // carries the offset that used to have to be added back here.
+        var at = x - Header.AbsoluteLeft;
 
         for (var i = 0; i < columns.Count; i++) {
             if (at >= offsets[i] && at < offsets[i + 1] && i != from) {
@@ -1066,10 +1103,13 @@ public sealed partial class DataGrid : Control {
 
         // The minimum movement that works, for the reason `ScrollView.ScrollIntoView` gives:
         // centring makes a list jump under somebody arrowing down it one row at a time.
-        var top = row * RowHeight;
+        // ⚠ The near edge is the bottom of the sticky header and not the top of the port, because
+        // the header is inside the port and covers exactly that much of it. Scrolling a row to
+        // `ScrollTop` would put it underneath the heading it belongs to.
+        var top = HeaderHeight + (row * RowHeight);
 
-        if (top < Scroller.ScrollTop) {
-            Scroller.ScrollTop = top;
+        if (top - HeaderHeight < Scroller.ScrollTop) {
+            Scroller.ScrollTop = top - HeaderHeight;
         } else if (top + RowHeight > Scroller.ScrollTop + Scroller.Height) {
             Scroller.ScrollTop = top + RowHeight - Scroller.Height;
         }
