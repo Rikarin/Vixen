@@ -529,6 +529,65 @@ public class AutomaticMinimumSizeTests {
         Assert.Equal(height, tree.GetHeight(text), Tolerance);
     }
 
+    /// <summary>
+    ///     CSS Sizing §5.1 over the probe: a box is measured at the width it will be USED at, and its
+    ///     own <c>min-width</c> is part of that.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The oracle is that the answer does not depend on the container at all.</b> A
+    ///         <c>min-width: 600px</c> leaf is laid out 600 wide in a 150-point box exactly as it is
+    ///         in a 600-point one — the minimum wins over the room — so the run has one line's worth
+    ///         of room in every column of the theory and the floor it produces is one line. A probe
+    ///         that measures at the offer instead reports four lines at 150, two at 300 and one at
+    ///         600: the number it gives back is a function of a width the box will never be drawn at.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Hand-written because the corpus cannot see this rule at all.</b>
+    ///         <c>measure_child_with_min_size_greater_than_available_space</c> is the same arithmetic
+    ///         and it is GREEN either way, because §4.5's floor is capped at the item's own measured
+    ///         flex basis and the cap hides the over-report — see <c>ComputeAutoMinMainSize</c>. A
+    ///         declared <c>flex-basis</c> on the row is what keeps the cap out of this fixture, so
+    ///         the probe has to answer for itself.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(150f)]
+    [InlineData(300f)]
+    [InlineData(600f)]
+    public void A_leaf_is_probed_at_the_width_its_own_minimum_guarantees_it(float containerWidth) {
+        using var tree = new LayoutTree();
+
+        var root = tree.CreateNode();
+        tree.SetFlexDirection(root, FlexDirection.Column);
+        tree.SetDimension(root, Dimension.Width, StyleLength.Points(containerWidth));
+        tree.SetDimension(root, Dimension.Height, StyleLength.Points(5f));
+
+        // A DECLARED basis, so `FlexBasisFromContent` is false and §4.5's floor for this box is not
+        // capped by a measurement — the probe's answer is the answer.
+        var row = tree.CreateNode();
+        tree.SetFlexDirection(row, FlexDirection.Row);
+        tree.SetFlexGrow(row, 1f);
+        tree.SetFlexShrink(row, 1f);
+        tree.SetFlexBasis(row, StyleLength.Points(0f));
+        tree.AddChild(root, row);
+
+        var text = tree.CreateNode();
+        tree.SetFlexGrow(text, 1f);
+        tree.SetFlexShrink(text, 1f);
+        tree.SetFlexBasis(text, StyleLength.Points(0f));
+        tree.SetMinDimension(text, Dimension.Width, StyleLength.Points(600f));
+        tree.SetMeasureFunction(text, MeasureWrappedRun);
+        tree.AddChild(row, text);
+
+        tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
+
+        // 600 points of ink in 600 points of room is one line, whatever the box around it says.
+        Assert.Equal(600f, tree.GetWidth(text), Tolerance);
+        Assert.Equal(10f, tree.GetHeight(row), Tolerance);
+        Assert.Equal(10f, tree.GetHeight(text), Tolerance);
+    }
+
     static LayoutSize MeasureFixedContent(in MeasureRequest request) =>
         new((float) (request.Context ?? 0f), 20f);
 

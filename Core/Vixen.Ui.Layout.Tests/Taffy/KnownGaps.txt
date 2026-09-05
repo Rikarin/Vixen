@@ -191,6 +191,22 @@
 # should have preceded — and the flex corpus's pinned count. Two of the three defects the cap's own
 # comment names are now closed; the `width: 50%` percentage half is the one still standing under it.
 #
+# ⚠ RE-MEASURED AGAIN, AND HALF OF THAT REMAINDER IS NOW CLOSED — the cap off costs FOUR, all of them
+# bevy_issue_9530, plus the pinned count. `measure_child_with_min_size_greater_than_available_space`
+# went with the sentence its own name has been carrying all along: CSS Sizing §5.1 clamps a box's used
+# inline size by its own MINIMUM as well as its maximum, and the probe was never told either half.
+# Sixteen Ahem characters with `min-width: 200px` in a 100-point column were probed at 100, took two
+# lines and floored the item at 20 where Chrome gives it the 200 it was always going to have and one
+# line. ⚠ It is the same sentence `ConstrainMinSizeForMode` says to the LAYOUT, one question further
+# in — see LayoutTree.ClampProbeInlineSize, and AutomaticMinimumSizeTests.
+# A_leaf_is_probed_at_the_width_its_own_minimum_guarantees_it for the witness, whose oracle is that
+# the answer does not depend on the container at all.
+#
+# ⚠ AND THE `width: 50%` HALF IS REFUTED AS AN OWED ITEM. `ProbeContentWidth` returning zero for a
+# percentage width is CSS Sizing §5.2.1 being obeyed and its own remark says so; the number a text
+# below such a box is MEASURED at is `ProbeInlineSize`, a separate quantity threaded beside it since
+# #623. The two questions the sentence above conflates are already two numbers. Nothing is owed there.
+#
 # ⚠ percentage_flex_basis_cross_min_height CLOSED with §9.2's unclamped flex base, which is written up
 # under §9.7 below. It sat here rather than there because its symptom is a cross-axis minimum, and it
 # is the one fixture in this bucket that the base/hypothetical split reached.
