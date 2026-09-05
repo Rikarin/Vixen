@@ -384,10 +384,36 @@ and an `Entity` read that drops its world id — fail this suite and **nothing e
 84 other tests green in each case, which is the measurement of the gap rather than a claim about it.
 Adding a twenty-sixth serializer without a sweep entry fails the census.
 
-Still owed, and deliberately not attempted here: the same treatment for **the cascade**
-([#338](https://github.com/Rikarin/Vixen/issues/338)). ⚠️ Whatever lands there should almost
-certainly not be a percentage either: the shape that survives this section's own argument is an
-executable claim that a named path is exercised, which is a test, not a threshold.
+✅ **The cascade is the third, and it needed the census far more than it needed the drive.**
+`Vixen.Ui.Styling.Tests/SelectorSurfaceSweepTests` carries one row per member of the four enums the
+selector language is made of — `Combinator`, `SimpleSelectorKind`, `AttributeOperator`, `PositionTest`,
+thirty-four in all — and reads the enums back so a member with no row fails by name.
+⚠️ **That direction is the whole value here, because this is the one subsystem where the gap is
+silent by construction**: a new member with no arm in `SelectorMatcher` *compiles*, and a selector
+using it then matches nothing at all — no exception, no diagnostic, a rule that never fires. It is
+`TypeSelectorReachTests`' drift one layer down, in the language rather than in the sheets.
+
+⚠️ **The rows had to be made unable to lie, and that is not the usual table's problem.**
+`SelectorMatchingTests` already says what each construct *means*, by hand and better than a table
+can; what it cannot say is that its list is complete. So each row's selector is compiled and walked
+— compounds, simples, and the selectors nested inside `:not()`, `:is()` and `:has()` — and the member
+it claims must actually appear, or `":first-child"` filed under `NthLastOfType` would satisfy the
+census while testing something else. ⚠️ `SimpleSelector.Operator` and `.Position` are read **only**
+where the kind says they mean something: both are non-nullable with a real default, so every simple
+selector in the tree otherwise "contains" `AttributeOperator.Present` and `PositionTest.First`, and
+those two rows would pass against anything. Each row also asserts an element it does *not* match;
+`Universal` is the single row that cannot, and a row without a negative has to say why.
+
+Three sabotages, each red and each on its own: `SelectorMatcher`'s `Lang` arm returning `false` — the
+missing-arm failure itself — fails that row and nothing else; a row mis-filed under another member
+fails on what compiling it actually produced; deleting a row fails the census naming the member.
+1860/1860 in `Vixen.Ui.Styling.Tests`, 0 skipped.
+
+⚠️ **None of the three ended up as a percentage, and that is now evidence rather than an argument.**
+Each of the query surface, the serializers and the cascade turned into an executable claim that a
+named surface is exercised whole, and in each the enumeration — not the assertion — is what caught
+something: twenty unswept serializers, six hundred ungated arities, and a selector language nothing
+counted.
 
 ### Coverage of the pyramid
 
