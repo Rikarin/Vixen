@@ -60,6 +60,19 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         which is why the golden through each stays owed rather than closed.
 ///     </para>
 ///     <para>
+///         ⚠ <b>That check ran over one file of eight and now runs over all eight, and widening it
+///         turned up exactly the rearrangement its own remark predicted.</b> Nothing made
+///         <c>ui-box.frag</c> special about <i>constants</i> — it is special about the <i>record</i>,
+///         which is a different claim and <c>UiShapeLayoutTests</c>' — and the other seven transcribe
+///         the same Raven out of the same specification, <c>ui-mask.frag</c> alone holding ten
+///         numbers. Widening it needed <c>layout(…)</c> qualifiers dropped, whose numbers are an ABI
+///         stated in one language and not in the other; and it found one number spelled two ways —
+///         <c>ui-mask.frag</c> divides a conic sweep by <c>6.28318531</c> where the Raven multiplies
+///         by its reciprocal. Same rotation, and no comparison of numbers can see through it, so it
+///         is an exception of one carrying its reason, on a list that is allowed to shrink and never
+///         to grow quietly.
+///     </para>
+///     <para>
 ///         So what stays here is the half that applies to one copy: every committed module is the one
 ///         built from the GLSL beside it as that GLSL now reads — and, since there is more than one
 ///         Raven copy after all, <see cref="EveryRavenCopyAgreesAboutTheShadersItShares" />, which is
@@ -393,26 +406,90 @@ public partial class SharedUiShaderTests {
     ///         find one named coefficient it is impossible to be right without.
     ///     </para>
     /// </remarks>
-    [Fact]
-    public void EveryConstantInTheGlslCopyIsOneTheRavenHoldsToo() {
+    /// <summary>The one number a copy spells differently, and why it is not drift.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An exception list of one, and it is the case this whole check's own remark
+    ///         predicted it could not see.</b> <c>ui-mask.frag</c> normalises a conic sweep as
+    ///         <c>angle / 6.28318531</c> and the Raven as <c>angle * 0.15915494309189535f</c> — the
+    ///         same rotation, spelled as a division and as a multiplication by the reciprocal, and no
+    ///         comparison of numbers can see through that. Admitting reciprocals generally would be
+    ///         the wrong fix: it would weaken every file's containment to catch one legitimate
+    ///         difference, and this repository's own history is of allow-lists that rot into holes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The list can only shrink, which is what stops it being a hiding place.</b> An
+    ///         entry that is no longer missing fails, so the day somebody rewrites either expression
+    ///         to match the other, this says so instead of quietly excusing a number that is now
+    ///         present. Filed as an issue rather than fixed here: editing the GLSL changes its code
+    ///         digest, and <see cref="EveryCommittedModuleMatchesTheSourceItWasBuiltFrom" /> then
+    ///         wants <c>glslc</c> and a new committed module for what is arithmetically a no-op.
+    ///     </para>
+    /// </remarks>
+    static readonly Dictionary<string, float[]> Spelled = new(StringComparer.Ordinal) {
+        ["ui-mask.frag"] = [6.28318531f]
+    };
+
+    /// <summary>Every number each GLSL copy holds is a number the Raven it transcribes holds too.</summary>
+    /// <remarks>
+    ///     ⚠ <b>All eight, where this was <c>ui-box.frag</c> alone.</b> The record's layout is what
+    ///     <c>ui-box.frag</c> is special about — it is the file <c>UiShapeLayoutTests</c> parses — and
+    ///     nothing made it special about <i>constants</i>: the other seven transcribe the same Raven
+    ///     out of the same specification, and <c>ui-mask.frag</c> alone holds ten of them. A check
+    ///     that compared one file of eight was answering a narrower question than the one this class
+    ///     exists to ask.
+    /// </remarks>
+    [Theory]
+    [InlineData("ui-blur.frag")]
+    [InlineData("ui-box.frag")]
+    [InlineData("ui-colour.frag")]
+    [InlineData("ui-image.frag")]
+    [InlineData("ui-mask.frag")]
+    [InlineData("ui-solid.frag")]
+    [InlineData("ui-text.frag")]
+    [InlineData("ui.vert")]
+    public void EveryConstantInTheGlslCopyIsOneTheRavenHoldsToo(string name) {
         var root = RepositoryRoot();
-        var glsl = Path.Combine(root, Shaders, "ui-box.frag");
+        var glsl = Path.Combine(root, Shaders, name);
         var raven = Path.Combine(root, "Platform", "Vixen.Ui.Desktop", "Shaders", "Ui.rvn");
 
         Assert.True(File.Exists(glsl), $"'{Relative(root, glsl)}' is missing, and it is the copy this compares.");
         Assert.True(File.Exists(raven), $"'{Relative(root, raven)}' is missing, and it is what every application draws through.");
 
-        var copy = Constants(File.ReadAllText(glsl));
+        var text = File.ReadAllText(glsl);
+
+        var copy = Constants(text);
         var source = Constants(File.ReadAllText(raven));
 
         // ⚠ The instrument's own check, and it runs before the comparison rather than after it. This
-        // is the first coefficient of Ottosson's linear-to-LMS matrix: no correct version of either
-        // file can be without it, so a sweep that does not find it has stopped reading rather than
+        // is the first coefficient of Ottosson's linear-to-LMS matrix: no correct version of the
+        // Raven can be without it, so a sweep that does not find it has stopped reading rather than
         // found agreement.
-        Assert.Contains(0.4122214708f, copy);
         Assert.Contains(0.4122214708f, source);
 
+        // ⚠ <b>And the per-file anchor is that the file was READ, not that it held a number.</b>
+        // `ui-image.frag` samples a texture and holds no arithmetic constant at all once the
+        // `layout(…)` qualifiers are dropped, so an empty set is its right answer and is trivially
+        // contained — while an empty set arrived at by an extractor that stopped working is the
+        // "comparator that called three empty manifests identical" this repository has shipped once.
+        // What separates the two is whether there was any code to read.
+        Assert.NotEqual(0, Code(text).Trim().Length);
+
+        var spelled = Spelled.TryGetValue(name, out var known) ? known : [];
         var missing = copy.Where(value => !source.Contains(value)).Order().ToList();
+
+        // ⚠ Before the comparison, so the list can only shrink: an exception whose number the Raven
+        // now holds is an exception that has outlived its reason.
+        foreach (var value in spelled) {
+            Assert.True(
+                missing.Contains(value),
+                $"'{name}' is excused {value.ToString("R", CultureInfo.InvariantCulture)} and no longer needs to be — "
+                + $"'{Relative(root, raven)}' holds it now, or the copy has stopped holding it. Drop the entry from "
+                + $"`{nameof(Spelled)}`; that list is allowed to shrink and never to grow quietly."
+            );
+        }
+
+        missing.RemoveAll(spelled.Contains);
 
         Assert.True(
             missing.Count == 0,
@@ -451,7 +528,13 @@ public partial class SharedUiShaderTests {
                 continue;
             }
 
-            foreach (Match match in Literal().Matches(line)) {
+            // ⚠ A `layout(offset = 16)` is an ABI, not a constant of the specification, and the two
+            // languages state it in different places — the Raven declares a push-constant block and
+            // spells no byte offsets at all. Left in, every GLSL file carrying one reports the offset
+            // as drift; and the thing those numbers actually have to agree with is the record, which
+            // `UiShapeLayoutTests` parses out of this same file. So the qualifier is dropped whole,
+            // for `#version`'s reason: it is not the kind of number this is about.
+            foreach (Match match in Literal().Matches(Qualifier().Replace(line, " "))) {
                 if (float.TryParse(match.Value.TrimEnd('f', 'F'), NumberStyles.Float, CultureInfo.InvariantCulture, out var value)) {
                     values.Add(value);
                 }
@@ -470,6 +553,10 @@ public partial class SharedUiShaderTests {
     /// </remarks>
     [GeneratedRegex(@"(?<![\w.])\d+(?:\.\d*)?(?:[eE][-+]?\d+)?[fF]?")]
     private static partial Regex Literal();
+
+    /// <summary>A GLSL <c>layout(…)</c> qualifier, whose numbers are an ABI rather than arithmetic.</summary>
+    [GeneratedRegex(@"layout\s*\([^)]*\)")]
+    private static partial Regex Qualifier();
 
     /// <summary>Every <c>shader Name { … }</c> block in a Raven source, by name.</summary>
     /// <remarks>
