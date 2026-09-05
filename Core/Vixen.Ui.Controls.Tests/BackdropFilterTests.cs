@@ -495,6 +495,59 @@ public class BackdropFilterTests {
         Assert.Empty(ui.Geometry.Layers);
     }
 
+    /// <summary>A transformed group is refused its backdrop, and keeps everything else a group does.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⛔ <b>A permanent divergence rather than an owed item, pinned here so that lifting it is
+    ///         a deliberate act.</b> Every other thing a group does survives a transform for free — a
+    ///         blur convolves the surface, a colour matrix is per pixel, a mask reads the composite's
+    ///         own untransformed coordinate, a drop shadow displaces in local space — because each
+    ///         happens in the surface's own space and the matrix is spent afterwards on the composite
+    ///         quad. CSS orders them the same way: filter, then mask, then transform.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The backdrop is the one surface holding something the group did not draw</b>, and
+    ///         that is the whole of why it cannot come along. <c>UiRenderer.Capture</c> replays the
+    ///         draw-list prefix and both executors read it at the coordinates the quad covers, so a
+    ///         rotated backdrop quad would sample a rotated window of a captured picture — four
+    ///         texture coordinates that are no longer an axis-aligned rectangle, a capture region that
+    ///         is no longer <see cref="UiLayer.BackdropBounds" />, and a border-box clip that is no
+    ///         longer a rectangle either. Sampling the untransformed patch instead shows the scene
+    ///         from where the element <i>was</i>, which under a rotation is a different picture rather
+    ///         than a coarser one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves are asserted, and the second is what stops this passing vacuously.</b>
+    ///         "No backdrop on the transformed panel" is satisfied by a fixture whose declaration
+    ///         never resolved at all, by compositing being off, and by the group being discarded — so
+    ///         the same panel without the transform is asserted to have one, and the transformed
+    ///         group is asserted to still be a group with its matrix on it. What is refused is the
+    ///         backdrop and nothing else.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("rotate: 30deg;")]
+    [InlineData("scale: 150%;")]
+    [InlineData("transform: skewX(20deg);")]
+    public void A_transformed_group_is_refused_its_backdrop_and_keeps_the_rest(string placement) {
+        using var plain = Glass("backdrop-filter: blur(4px);");
+
+        // One: the fixture really does produce a backdrop without the transform. Without this the
+        // assertions below are true of a declaration nobody read.
+        Assert.NotNull(Assert.Single(plain.Geometry.Layers).Backdrop);
+
+        using var ui = Glass($"backdrop-filter: blur(4px); {placement}");
+
+        var layer = Assert.Single(ui.Geometry.Layers);
+
+        // Two: it is still a group and the matrix is still on it, so what changed is the backdrop and
+        // not whether the element composites at all.
+        Assert.NotNull(layer.Transform);
+
+        // Three: and the backdrop is gone rather than approximated.
+        Assert.Null(layer.Backdrop);
+    }
+
     /// <summary><c>opacity()</c> is accepted by <c>backdrop-filter</c> and refused by <c>filter</c>.</summary>
     /// <remarks>
     ///     ⚠ <b>The asymmetry between the two properties, asserted from both sides in one place.</b>

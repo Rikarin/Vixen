@@ -2135,6 +2135,43 @@ public static class UtilityFamilies {
             Alongside: [new UtilityDeclaration("transform", UtilityComposition.Transform())]
         ));
 
+        // ⚠ <b>The two skews, and they were never a parser away either — which makes this the second
+        // family to close on a refusal whose premise had already expired.</b> `rotate-z-*`'s note
+        // said the shorthand waited on a `<transform-function>` grammar; `TransformReader.Functions`
+        // has read `skew`, `skewX` and `skewY` since it was written, and `Vixen.Ui.Tests.TransformTests`
+        // has asserted `transform: skewX(45deg)` against pixels for as long. The rows sat `absent`
+        // with an empty note, so nothing recorded a reason and nothing could expire — worse than
+        // `rotate-z-*`, whose refusal at least named a condition. See #227, which corrected itself.
+        //
+        // ⚠ <b><see cref="ValueKind.Angle" /> and the angle in the fragment, for `rotate-z-*`'s two
+        // reasons</b>: zero is a real value here — `skew-x-0` means the identity — and `TryNegate`
+        // refuses a value that does not begin with a digit, so `-skew-x-6` is spellable only while
+        // the fragment holds `6deg` and the assembler holds `skewX(…)`.
+        Skew("skew-x", [UtilityComposition.SkewX]);
+        Skew("skew-y", [UtilityComposition.SkewY]);
+
+        // ⚠ <b>Both fragments from one class, which is v4's own reading and not a shorthand for it.</b>
+        // Tailwind's `skew-6` emits `skewX(6deg) skewY(6deg)` — two functions — rather than CSS's
+        // two-argument `skew(6deg, 6deg)`. Writing the CSS spelling instead would resolve and paint
+        // the same box today and would silently drop the axis of any `skew-y-*` written beside it,
+        // because a `skew(…)` slot and a `skewY(…)` slot are different slots. The pair is the
+        // translations' arrangement, arrived at from the other direction.
+        Skew("skew", [UtilityComposition.SkewX, UtilityComposition.SkewY]);
+
+        // ⚠ <b>`transform-none` is a keyword this engine already read, and the three classes v4
+        // spells beside it are refused rather than absent.</b> `TransformReader` answers `none` with
+        // the identity, so this row is a registration and nothing else. `transform-cpu` and
+        // `transform-gpu` are compositing hints — v4's `transform-gpu` prepends `translateZ(0)` to
+        // force a layer — and this engine has no layer to force: `DrawListBuilder` rebuilds the whole
+        // draw list every frame and promotion is decided by what the element does, not by what its
+        // classes ask for, which is `will-change-*`'s refusal one property over. Emitting the
+        // `translateZ(0)` v4 emits would be worse than nothing: `TransformReader` cannot read it and
+        // refuses the whole list, so `transform-gpu` beside a `rotate-z-45` would silently unrotate
+        // the box. `transform-flat`/`transform-3d` are `transform-style` and `transform-content` and
+        // its four siblings are `transform-box` — different properties, both refused with the 3D
+        // family under #228 rather than here.
+        Keywords("transform", "transform", new() { ["none"] = "none" });
+
         // ⚠ <b>The third refusal this section retired, and the only one that was refused as
         // <i>unobservable</i> rather than merely unread.</b> Doc 43 § C6 struck `origin-*` because
         // "`transform-origin` moves no channel, and cannot: it needs a transform whose fixed point
@@ -3688,6 +3725,18 @@ public static class UtilityFamilies {
             [fragment],
             Template: "{0}%",
             Alongside: [new UtilityDeclaration("scale", UtilityComposition.Scaling())]
+        ));
+
+    /// <summary>Registers a skew axis as an angle fragment plus the <c>transform</c> it assembles into.</summary>
+    /// <param name="name">The utility prefix.</param>
+    /// <param name="fragments">The fragments it writes — one per axis, both for the bare root.</param>
+    static void Skew(string name, string[] fragments) =>
+        Register(new Family(
+            name,
+            ValueKind.Angle,
+            fragments,
+            Template: "{0}",
+            Alongside: [new UtilityDeclaration("transform", UtilityComposition.Transform())]
         ));
 
     static void Number(string name, params string[] properties) =>
