@@ -150,6 +150,69 @@ public class TextureGraphDeclarationTests {
         Assert.Equal(parameters, TextureGraphParameters.Declared(TextureGraphParameters.Settings(parameters)));
     }
 
+    /// <summary>A graph declaring its own numbers keeps them when it contains a sub-graph.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/780">#780</a>, and it is #719's
+    ///         own failure reached by another route on the day #719 closed.</b>
+    ///         <c>NodeGraphCompiler.Compile</c> replaces the graph with
+    ///         <see cref="SubGraphs.Flatten" />'s before <c>Begin</c> runs, and the flattener built a
+    ///         fresh model carrying the three side tables that existed when it was written. So a
+    ///         graph declaring 512×512 and a seed compiled at the host's 256 and 41823 the moment it
+    ///         contained one published node — with no diagnostic, because there is nothing structural
+    ///         about the wrong number.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every other test in this file uses a flat graph</b>, which is exactly the one
+    ///         input for which the flattener does not run.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_graph_containing_a_sub_graph_still_declares_its_own_resolution_and_seed() {
+        NodeGraphModel published = new() { Name = "Grunge" };
+
+        published.Interface.Add(new("Out", PortDirection.Output, PortKind.Image));
+
+        var inner = published.Add("Source/Noise");
+        var exit = published.Add(SubGraphs.OutputType);
+
+        published.Connect(new(inner.Id, "Out"), new(exit.Id, "Out"));
+
+        NodeTypeRegistry registry = new();
+
+        NodeTypes.Register(registry);
+
+        TextureGraphLibrary library = new();
+
+        library.Publish("Library/Grunge", published, [], registry);
+
+        NodeGraphModel graph = new();
+        var used = graph.Add("Library/Grunge");
+        var output = graph.Add("Output/Output");
+
+        output.SetText("Usage", "baseColor");
+        graph.Connect(new(used.Id, "Out"), new(output.Id, "Input"));
+        TextureGraphSettings.Declare(graph, 512, 128, 90210);
+
+        TextureGraphCompiler compiler = new(registry) {
+            BaseWidth = 256,
+            BaseHeight = 256,
+            Seed = 41823,
+            SubGraphSource = library
+        };
+
+        var compilation = compiler.Compile(graph);
+
+        Assert.Empty(compilation.Diagnostics);
+        Assert.Equal(512, compilation.Value.BaseWidth);
+        Assert.Equal(128, compilation.Value.BaseHeight);
+        Assert.Equal(90210u, compilation.Value.Seed);
+
+        // The instrument: the sub-graph really was inlined, so the numbers above survived a flatten
+        // rather than a compilation that never called one.
+        Assert.Contains(compilation.Value.Ops, op => op.Kernel == "Noise");
+    }
+
     /// <summary>A graph of one noise node, kept as a base colour.</summary>
     static NodeGraphModel Noise() {
         NodeGraphModel graph = new();

@@ -266,6 +266,57 @@ public sealed class NodeGraphModel {
     /// <returns>What it says.</returns>
     public string SettingOf(string key) => Settings.TryGetValue(key, out var value) ? value : "";
 
+    /// <summary>Copies everything this graph is <em>besides</em> its nodes and edges onto another.</summary>
+    /// <param name="target">The graph to copy onto. Its own lists are added to, not replaced.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="target" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Here rather than at the one caller, because
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/780">#780</a> is what the other
+    ///         arrangement costs.</b> <see cref="SubGraphs.Flatten" /> built a fresh model and copied
+    ///         <see cref="Groups" />, <see cref="Comments" /> and <see cref="Interface" /> — the
+    ///         three side tables that existed when it was written — so the two
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a> added on the same day
+    ///         were silently dropped, and a texture graph declaring 512×512 with a seed compiled at
+    ///         its host's numbers the moment it contained one sub-graph node. A list of what to copy
+    ///         that lives away from the fields will always be one behind the fields.
+    ///     </para>
+    ///     <para>
+    ///         <b>So the list is here, next to the declarations</b>, and
+    ///         <c>Tests.GraphDocumentTests</c> walks this type's own properties to say that every one
+    ///         of them is either carried by this method or exempt with a reason. Adding a side table
+    ///         and forgetting this is a red test naming the property rather than a graph that
+    ///         quietly loses it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="Nodes" /> and <see cref="Edges" /> are the deliberate exemptions</b>,
+    ///         and they are what every caller of this is <em>for</em>: an inlining rewrites node
+    ///         identities as it copies, so a method that copied them too would be
+    ///         <see cref="Add(NodeId,string,Vector2)" /> with an opinion. Nothing here raises
+    ///         <see cref="Changed" /> either — the graph being copied onto is one nothing is watching
+    ///         yet.
+    ///     </para>
+    ///     <para>
+    ///         <b>Shallow, exactly as the code it replaces was.</b> A <see cref="GraphGroup" /> and a
+    ///         <see cref="PortDefinition" /> cross as references, so the copy shares the furniture
+    ///         with the graph it came from — which is what a flattened model is, and is why nothing
+    ///         may edit one afterwards.
+    ///     </para>
+    /// </remarks>
+    internal void CopyDocumentTo(NodeGraphModel target) {
+        ArgumentNullException.ThrowIfNull(target);
+
+        target.Name = Name;
+        target.Groups.AddRange(Groups);
+        target.Comments.AddRange(Comments);
+        target.Interface.AddRange(Interface);
+        target.Parameters.AddRange(Parameters);
+
+        foreach (var (key, value) in Settings) {
+            target.Settings[key] = value;
+        }
+    }
+
     /// <summary>Raised after anything structural changes.</summary>
     /// <remarks>
     ///     What a view subscribes to. Every method on this type raises it for itself; the three
