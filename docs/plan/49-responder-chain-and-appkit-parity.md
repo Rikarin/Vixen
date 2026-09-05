@@ -662,6 +662,38 @@ its non-goals and that stands.
 
 ---
 
+## Part 8b — The issue register
+
+Filed on `Rikarin/Vixen` 2026-09-05, one `area:` label each plus `doc-audit`, and a defect-class label
+only where the signal is specific.
+
+| Wave | Issues |
+|---|---|
+| **W1 — the chain, made real** | [#642](https://github.com/Rikarin/Vixen/issues/642) the chain has no responders · [#643](https://github.com/Rikarin/Vixen/issues/643) `IResponder`, one chain · [#644](https://github.com/Rikarin/Vixen/issues/644) no key window · [#645](https://github.com/Rikarin/Vixen/issues/645) no focus veto · [#646](https://github.com/Rikarin/Vixen/issues/646) `TabOrder` visits hidden elements |
+| **W2 — what the chain carries** | [#647](https://github.com/Rikarin/Vixen/issues/647) `IUndoManager` · [#648](https://github.com/Rikarin/Vixen/issues/648) the editing-command table · [#649](https://github.com/Rikarin/Vixen/issues/649) `IClipboard` has no consumer · [#650](https://github.com/Rikarin/Vixen/issues/650) accelerators live in the editor · [#651](https://github.com/Rikarin/Vixen/issues/651) `UiApplication` hides `IPlatform` |
+| **W3 — the application layer** | [#652](https://github.com/Rikarin/Vixen/issues/652) native menu bar (decision) · [#653](https://github.com/Rikarin/Vixen/issues/653) no quit veto · [#654](https://github.com/Rikarin/Vixen/issues/654) drag-in dropped, no drop model · [#655](https://github.com/Rikarin/Vixen/issues/655) `INativeDialogs` unreachable · [#656](https://github.com/Rikarin/Vixen/issues/656) no document model · [#657](https://github.com/Rikarin/Vixen/issues/657) Toolbar/StatusBar/SplitView/Segmented |
+| **W4 — markup parity** | [#658](https://github.com/Rikarin/Vixen/issues/658) no ambient value · [#659](https://github.com/Rikarin/Vixen/issues/659) props assigned after `Build` · [#660](https://github.com/Rikarin/Vixen/issues/660) inert attributes on lowercase tags · [#661](https://github.com/Rikarin/Vixen/issues/661) six modifiers with no spelling · [#662](https://github.com/Rikarin/Vixen/issues/662) `@for` gaps · [#663](https://github.com/Rikarin/Vixen/issues/663) `bind:` too narrow |
+| **W5 — controls** | [#664](https://github.com/Rikarin/Vixen/issues/664) seven controls nothing constructs · [#665](https://github.com/Rikarin/Vixen/issues/665) declared and never set · [#666](https://github.com/Rikarin/Vixen/issues/666) the missing controls, ranked |
+| **W6 — presentation and system** | [#667](https://github.com/Rikarin/Vixen/issues/667) `prefers-color-scheme` never fed · [#668](https://github.com/Rikarin/Vixen/issues/668) reduced motion, forced colours, accent · [#669](https://github.com/Rikarin/Vixen/issues/669) no momentum or anchoring · [#670](https://github.com/Rikarin/Vixen/issues/670) no UI white level |
+| **W7 — damage tracking** | [#671](https://github.com/Rikarin/Vixen/issues/671) |
+| **W8 — accessibility bridge** | [#672](https://github.com/Rikarin/Vixen/issues/672) no platform bridge · [#673](https://github.com/Rikarin/Vixen/issues/673) the IME is half-wired |
+| **Part 9 — stale claims** | [#674](https://github.com/Rikarin/Vixen/issues/674) |
+
+**Not filed, because they already exist**: [#128](https://github.com/Rikarin/Vixen/issues/128) (doc 45
+step 2 — an editor scope is not derivable from focus) is § 3.6's third bullet reached from doc 45's
+side, and [#642](https://github.com/Rikarin/Vixen/issues/642) names it rather than repeating it;
+[#248](https://github.com/Rikarin/Vixen/issues/248) is `position: sticky`;
+[#283](https://github.com/Rikarin/Vixen/issues/283) is the refuted touch-events claim, commented
+rather than re-filed; [#362](https://github.com/Rikarin/Vixen/issues/362) and
+[#361](https://github.com/Rikarin/Vixen/issues/361) are the editor-side consequences of
+[#654](https://github.com/Rikarin/Vixen/issues/654); [#627](https://github.com/Rikarin/Vixen/issues/627)
+is the other half of [#670](https://github.com/Rikarin/Vixen/issues/670)'s seam;
+[#421](https://github.com/Rikarin/Vixen/issues/421), [#420](https://github.com/Rikarin/Vixen/issues/420)
+and [#330](https://github.com/Rikarin/Vixen/issues/330) sit under
+[#672](https://github.com/Rikarin/Vixen/issues/672).
+
+---
+
 ## Part 9 — Claims that turned out wrong
 
 A refuted claim is worth as much as a fix, and each of these is a sentence a future contributor would
