@@ -33,6 +33,16 @@ so a torn-off window answers for itself while the rules stay shared.
 a default would be wrong in a way nobody notices: false silently drops styles and true silently
 applies phone styles on a desktop.
 
+## What it is for
+
+A stylesheet that answers the surface it is drawn on rather than the machine it is running on. A
+game's UI can be a full window, a split-screen viewport or a world-space panel on the side of a
+crate, and all three want `@media (max-width: …)` to mean *this panel* — never *the monitor*.
+
+The accessibility features are the other half: `prefers-reduced-motion`, `prefers-contrast`,
+`forced-colors` and `inverted-colors` are statements about the person, and a stylesheet is the only
+place in this engine that asks.
+
 ## Reduced motion
 
 ```css
@@ -61,7 +71,7 @@ false.
 and cutting it short freezes a panel at whatever opacity it had got to — the one state no stylesheet
 asked for. An animation may be `infinite`, so there is no end to let it reach.
 
-## Feeding it
+## Using it
 
 ```csharp no-compile="a fragment; `engine` is a StyleEngine and `surface` a UiSurface"
 engine.SetMedia(new MediaContext(
@@ -107,6 +117,36 @@ therefore costs a re-evaluation and not a reparse. (`Replace` and `Reload` are t
 and the reduced-motion switch is carried across one — a hot edit of a `.vcss` is a change of mind
 about the stylesheet and never about the user.)
 
+## Examples
+
+**A panel that lays out by its own width.** The context is the surface, so the same sheet works for a
+window and for a world-space panel:
+
+```vcss
+inspector-row { flex-direction: row; }
+
+@media (max-width: 320px) {
+  inspector-row { flex-direction: column; }
+}
+```
+
+**Honouring a request for less movement.** ⚠ `no-preference` is the feature's false value, so the
+bare boolean form is the idiomatic spelling and means `reduce`:
+
+```vcss
+@media (prefers-reduced-motion) {
+  * { transition-duration: 0ms; }
+}
+```
+
+**A high-contrast palette.** ⚠ `(prefers-contrast)` is true of *any* stated preference, `custom`
+included — it is not a synonym for `more`, and a rule that treats it as one applies to a palette the
+user chose for themselves:
+
+```vcss
+@media (prefers-contrast: more) { :root { --border: #000; } }
+```
+
 ## What is not here
 
 A system accent colour, dynamic semantic colours and an OS text-size scale are all absent.
@@ -117,3 +157,12 @@ is a forced-colours *mode*: nothing substitutes a system palette for the colours
 So the two places that record the gap — `UtilityFamilies`' `outline-hidden` registration and
 `DrawListBuilder`'s `outline-style` remarks — are still true about the mode and no longer true about
 the query, and both now say which half they mean.
+
+
+## See also
+
+- [Cascade layers](../ui/cascade-layers.md) — where a media block sits in the order rules are resolved.
+- [Accessibility](../ui/accessibility.md) — the four preference features, and what an application owes
+  a person who has stated one.
+- [Desktop applications](../ui/desktop-application.md) — who fills the context in, and why a surface
+  that is never fed one answers every query with its defaults.

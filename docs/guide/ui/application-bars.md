@@ -11,7 +11,7 @@ status: preview
 related: [ui/split-view, ui/commands, ui/accessibility]
 ---
 
-## What they are
+## What it is
 
 Three strips every desktop application has, each of which existed in the editor as a bare
 `UiElement` with a tag name and a stylesheet — visually right, and with no keyboard and no
@@ -26,6 +26,22 @@ accessible structure at all.
 ⚠ **`AccessibleRole.Toolbar` had existed with nothing to carry it.** A role in an enum that no
 control reports is a role no screen reader ever hears, which is this repository's commonest defect
 wearing an accessibility tree.
+
+## What it is for
+
+The three strips a desktop application has, with the behaviour that is not CSS: one tab stop rather
+than one per button, arrow keys that move inside the strip, an exclusive choice that wraps, and a
+status line a screen reader announces without the focus moving to it.
+
+⚠ **Each existed already as a bare `UiElement` with a tag and a stylesheet** — right to look at, and
+with no keyboard and no accessible structure at all. What these controls add is the half a stylesheet
+cannot express.
+
+## Using it
+
+Each is a control rather than a tag, so the behaviour comes with it: add one, put its items inside,
+and the keyboard, the roles and the live region are already there. The three sections below are the
+three strips in turn.
 
 ## Toolbar
 
@@ -99,6 +115,25 @@ already reachable; a mode flag here would make `Value` mean two things.
 own rule, so `strip.Add("div")` would quietly make a segment labelled "div". Every container in this
 set names its own method for the same reason.
 
+## Examples
+
+**A toolbar that is one tab stop.** The arrows move between the buttons; Tab leaves the strip, which
+is what stops a twelve-button toolbar from costing twelve presses to walk past:
+
+```vxml no-compile="a fragment; the handlers are the shell's own"
+<Toolbar>
+  <IconButton Icon="Play" on:Click={Run} />
+  <IconButton Icon="Pause" on:Click={Pause} />
+</Toolbar>
+```
+
+**A status line that announces itself.** It is a live region, so writing to it is the whole of it —
+nothing takes the focus away from what the user was doing:
+
+```csharp no-compile="a fragment; `status` is the shell's own"
+status.Text = $"Imported {count} assets";
+```
+
 ## The joins are the group's, not the segments'
 
 `segmented-control` has the border, the radius and `overflow: hidden`; a segment has only a left
@@ -108,3 +143,11 @@ border and no radius at all. A per-segment `:first-child`/`:last-child` radius r
 ⚠ **`flex-shrink: 0` on the toolbar and the status bar is not redundant.** `flex-shrink`'s CSS
 initial is 1, so a strip with a declared height in a column that runs out of room now *can* be
 squeezed to nothing — which looks exactly like the strip never having been built.
+
+## See also
+
+- [Split view](../ui/split-view.md) — the other structural control a shell is built from.
+- [Commands and the responder chain](../ui/commands.md) — what a toolbar button sends, and why it
+  greys itself out without asking anyone.
+- [Accessibility](../ui/accessibility.md) — the roles these report, and why a role nothing carries is
+  a role no screen reader hears.

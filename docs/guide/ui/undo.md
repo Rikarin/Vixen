@@ -45,7 +45,7 @@ panel.UndoManager = document.Edits;
 
 Everything inside `panel` now registers with that document's stack rather than with the application's.
 
-## Installing one
+## Using it
 
 `UiApplication` puts a `UndoManager` on the document before `UiApplicationOptions.Configure` runs, so a
 plain dialog text box is undoable in a program that has no documents at all, and an application with
@@ -65,6 +65,22 @@ else — a delete, a paste, a caret move, a newline — starts a fresh entry.
 
 Undo restores the **selection** as well as the value and the caret. An undo of a cut that leaves the
 user to re-select what came back is an undo that only half happened.
+
+## Examples
+
+**A document that puts its own stack behind ⌘Z.** `UiApplication` installs a manager before
+`Configure` runs, so replacing it there is the seam an application with real documents uses:
+
+```csharp no-compile="a fragment; `CommandStack` is the application's own"
+options.Configure = document => document.UndoManager = new CommandStackUndoManager(stack);
+```
+
+**A field that must not shadow the application's Undo.** Registering nothing is the behaviour, not an
+omission — a search field with no manager leaves ⌘Z unhandled and the chord climbs past it:
+
+```csharp no-compile="a fragment; `search` is the caller's own"
+search.HostedDocument = null;   // no manager found, so no handler registered
+```
 
 ## What is still owed
 

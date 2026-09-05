@@ -29,6 +29,22 @@ one of them through the reactive graph, so there is no "raise the changed event"
 forget. A `bool IsDirty` with a `Changed` event beside it — which is what the editor's own document
 has — is a subscription in every consumer and a raise the producer can miss.
 
+## What it is for
+
+An application whose windows hold something the user edits and may lose. `IEditableDocument` is the
+dirty flag, the location, the save and the revert — the parts every such application writes the same
+way, put where the framework can answer for them: the window title, the close prompt, and the two
+commands.
+
+⚠ **Below the editor deliberately.** `Vixen.Editor.Core` had all of this and nothing else could reach
+it, so every application that was not the editor wrote it again or went without.
+
+## Using it
+
+Two steps and no registration: derive a document from `EditableDocument`, and set it on the view that
+owns it with `HostedDocument`. Everything else — the title, the close prompt, `document.save` and
+`document.revert` — reads that one property by walking up from wherever it is asked.
+
 ## Writing one
 
 ```csharp no-compile="a fragment; `File` stands in for whatever storage the application has"
@@ -106,6 +122,22 @@ binding stops it following, which is what a closing window does.
 running there, so the title is whatever the window was opened with until the next flush — one frame
 in an application, an explicit `Update` in a test.
 
+## Examples
+
+**Finding the document a control is inside.** The nearest one on the way up wins, so two panels
+showing two documents each answer for their own and a field deep inside one needs to be told nothing:
+
+```csharp no-compile="a fragment; `field` is a UiElement in a document"
+var document = field.FindHostedDocument();
+```
+
+**Hosting one on the view that owns it.** This is the line that makes the title, the close prompt and
+`document.save` work — all three read the same property:
+
+```csharp no-compile="a fragment; `pane` and `note` are the application's own"
+pane.HostedDocument = note;
+```
+
 ## What is deliberately not here yet
 
 **A close prompt.** Save / Don't Save / Cancel on closing a dirty document needs `DialogService` and
@@ -121,3 +153,11 @@ framework has no file watcher and does not want one in `Core/`.
 document that wants to be where one lives sets `UndoManager` on the element that hosts it. Marking
 clean when the undo stack returns to its loaded state is the document's own job — `MarkClean` is
 public for exactly that.
+
+## See also
+
+- [Undo](../ui/undo.md) — the other thing a document owns, found by the same walk up the tree.
+- [Commands and the responder chain](../ui/commands.md) — `document.save` and `document.revert` are
+  ordinary commands, and grey out on the dirty flag.
+- [Desktop applications](../ui/desktop-application.md) — the window title and the quit prompt, which
+  are what a document is for from the host's side.

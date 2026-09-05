@@ -87,6 +87,31 @@ split-bar:hover { background-color: var(--accent); }
 split-pane { padding: 0px; }
 ```
 
+## Examples
+
+**A sidebar whose width survives a restart.** The ratio is a fraction, so it means the same thing in
+a window the user has since resized — which is what makes it the number worth writing to settings:
+
+```csharp no-compile="a fragment; `root` and `settings` are the application's own"
+var split = root.Add<SplitView>();
+
+split.Ratio = settings.SidebarRatio ?? 0.28f;
+split.MinimumRatio = 0.15f;
+split.RatioChanged += (_, ratio) => settings.SidebarRatio = ratio;
+
+split.First.Add<TreeView>();
+split.Second.Add<ScrollView>();
+```
+
+**A split that starts collapsed and opens to a remembered place.** `MinimumRatio` clamps
+retroactively, so raising it past the bar moves the bar rather than leaving the split outside its own
+minimum:
+
+```csharp no-compile="a fragment; `split` is the one above"
+split.Ratio = 0f;              // collapsed
+split.MinimumRatio = 0.2f;     // the bar moves out to 0.2, it is not left behind
+```
+
 ## Two traps
 
 ⚠ **`flex-basis: 0px` on both panes is what makes the ratio mean the ratio.** A flex item's basis is

@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.IUiClipboard, T:Vixen.Platform.Ui.PlatformClipboard, T:Vixen.Pl
 tags: [ui, controls, clipboard, pasteboard, commands, hosting, text]
 since: 0.2
 status: preview
-related: [ui/commands, ui/text-input, ui/desktop-application]
+related: [ui/commands, ui/text-input, ui/desktop-application, ui/drag-and-drop]
 ---
 
 ## What it is
@@ -49,7 +49,7 @@ enablement rule. See [Commands](commands.md) for the route.
 The chords are handled directly as well, so a field answers them in an application with no keymap
 installed at all.
 
-## Wiring a host
+## Using it
 
 ⚠ **One line, and its absence is the whole of what this fixed.** `IClipboard` had real backends on
 macOS, Windows and Linux from Phase 1 and *no caller above `Vixen.Platform`* — so cut, copy and
@@ -67,6 +67,27 @@ other is silently absent from the other, which is the failure this codebase has 
 A platform without `PlatformCapabilities.Clipboard` leaves `Document.Clipboard` null, which is not a
 failure: `HasClipboard` is false, the three verbs grey out, and `Copy`, `Cut` and `Paste` answer
 `false` rather than throwing.
+
+## Examples
+
+**Copying from a control that is not a text field.** The four ids are ordinary commands, so anything
+on the responder chain can answer them — a grid answering `edit.copy` for its selected rows needs no
+new mechanism:
+
+```csharp no-compile="a fragment; `Selection` and `Format` are the grid's own"
+grid.AddCommandHandler("edit.copy", new CommandHandler(
+    CanExecute: () => Selection.Count > 0,
+    Execute: () => grid.Document?.Clipboard?.SetText(Format(Selection))
+));
+```
+
+**Asking whether paste is available before offering it.** `HasText` is the question a menu asks; it
+is false both when the pasteboard is empty and when the platform has no clipboard at all, which is
+the answer a greyed-out item wants in either case:
+
+```csharp no-compile="a fragment; `document` is the application's own"
+var canPaste = document.Clipboard is { HasText: true };
+```
 
 ## Two decisions worth knowing
 

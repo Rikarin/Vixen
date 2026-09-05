@@ -22,13 +22,13 @@ related: [ui/text-input, ui/accessibility]
 Everything else about it is `TextField`: the caret, the selection, the placeholder, `Submitted`, the
 theme. It is `TextBox` with one method overridden.
 
-## Why it exists
+## What it is for
 
 Until it did, an application that wanted a password asked for one with a `TextBox`, in front of
 whoever was standing behind the user. Nothing in `Core/Vixen.Ui.Controls` matched `secure` or
 `password` — so a login screen was the first thing a new application could not build.
 
-## How the masking works
+## Using it
 
 `TextField.Shown` is the seam: the field's value goes through it on the way to the text part, and the
 default returns it unchanged. `SecureTextBox` returns bullets instead.
@@ -46,6 +46,28 @@ would leak the same secret one keystroke earlier.
 ⚠ **The bullet is a character rather than a drawing.** It goes through the same shaping, font
 fallback and measurement as any other glyph — a field that painted circles itself would put the caret
 in the wrong place the first time somebody changed the font size.
+
+## Examples
+
+**A sign-in row.** It is a `TextField`, so `Submitted` and `bind:` behave exactly as they do on a
+`TextBox` — the only difference is what is drawn:
+
+```vxml no-compile="a fragment; the model is the application's own"
+<SecureTextBox Placeholder="Password" bind:Value="@Model.Password.Value" on:Submitted={SignIn} />
+```
+
+**Revealing what was typed.** The control holds the real string, so a reveal toggle is a swap of the
+control and not a decoding step — there is nothing to decode:
+
+```csharp no-compile="a fragment; `row` and `revealed` are the caller's own"
+row.Clear();
+
+if (revealed) {
+    row.Add<TextBox>().Value = password;
+} else {
+    row.Add<SecureTextBox>().Value = password;
+}
+```
 
 ## What it does not do
 

@@ -142,6 +142,37 @@ exactly the test for "this came from another application".
 `BuildContext`'s subscription table is an `on:` the binder rejects, so a file dragged out of Finder
 was routed to an element and bubbled correctly and no `.vxml` in the tree could hear it.
 
+## Examples
+
+**Accepting files dropped from the desktop.** The four target names are the half that did not exist
+until recently, so this is the spelling to reach for rather than a hand-rolled walk up from
+`args.Source`:
+
+```vxml no-compile="a fragment; the handlers are the panel's own"
+<panel on:dragover={Highlight} on:dragleave={Unhighlight} on:drop={Accept}>
+  <label>Drop a texture here</label>
+</panel>
+```
+
+```csharp no-compile="a fragment; `Import` is the application's own"
+void Accept(UiElement source, DropEvent args) {
+    foreach (var path in args.Files) {
+        Import(path);
+    }
+}
+```
+
+**A row dragged onto another row inside one document.** The source's three names and the target's
+four are the same event stream seen from the two ends, so a reorder needs both halves and nothing
+else:
+
+```vxml no-compile="a fragment; `Row` is the panel's own model"
+<row on:dragstart={Grab} on:dragend={Release} on:dragover={ShowLine} on:drop={Reorder} />
+```
+
+⚠ `on:drag` is the middle stage only — the moves between the grab and the release. A handler written
+there and nowhere else compiles, runs on every move, and never sees the beginning or the end.
+
 ## What is deliberately not here yet
 
 **A cross-process drag out.** `BeginDrag` is a drag inside one document; dragging a Vixen row *into*
@@ -165,3 +196,12 @@ it with more than one today.
 the application to whatever sits there. The desktop backend asks the window system where the pointer
 is at the moment of the drop instead; it cannot use the last motion event, because while a native
 drag is in progress the window system owns the pointer and SDL delivers no motion at all.
+
+## See also
+
+- [Commands and the responder chain](../ui/commands.md) — the four target names are subscriptions on
+  the same table the command ids use, and a name missing from it is an `on:` the binder rejects.
+- [Accessibility](../ui/accessibility.md) — a drop target reachable only by pointer is a drop target
+  half the users cannot use.
+- [Desktop applications](../ui/desktop-application.md) — where the platform drag session is installed,
+  and why a host that installs it on one of its two entry points has installed it on neither.

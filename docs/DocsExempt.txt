@@ -2341,6 +2341,7 @@ T:Vixen.Platform.IWindow sweep-pending
 T:Vixen.Platform.Key sweep-pending
 T:Vixen.Platform.KeyModifierExtensions sweep-pending
 T:Vixen.Platform.KeyModifiers sweep-pending
+T:Vixen.Platform.Linux.LinuxAccessibility	sweep-pending
 T:Vixen.Platform.Linux.LinuxAppearance	the three appearance sources are documented together on IPlatform.ColorScheme
 T:Vixen.Platform.Linux.LinuxClipboard sweep-pending
 T:Vixen.Platform.Linux.LinuxDialogs sweep-pending
