@@ -197,11 +197,11 @@ Vixen.Ui.CommandHandler.Equals(Vixen.Ui.CommandHandler other) -> bool
 Vixen.Ui.CommandHandler.Id.get -> string
 Vixen.Ui.CommandHandler.IsCheckable.get -> bool
 Vixen.Ui.CommandHandler.IsChecked.get -> bool
-Vixen.Ui.CommandHandler.Responder.get -> Vixen.Ui.ICommandResponder?
+Vixen.Ui.CommandHandler.Responder.get -> Vixen.Ui.IResponder?
 Vixen.Ui.CommandHandler.Run() -> void
 Vixen.Ui.CommandHandler.Title.get -> string?
 Vixen.Ui.CommandResponder -> sealed class
-Vixen.Ui.CommandResponder : Vixen.Ui.ICommandResponder
+Vixen.Ui.CommandResponder : Vixen.Ui.IResponder
 Vixen.Ui.CommandResponder.Add(string id, System.Action execute, System.Func<bool>? canExecute = null, System.Func<string?>? title = null, System.Func<bool>? isChecked = null) -> void
 Vixen.Ui.CommandResponder.Clear() -> void
 Vixen.Ui.CommandResponder.CommandResponder() -> void
@@ -582,8 +582,10 @@ Vixen.Ui.GradientStops.To.get -> float
 Vixen.Ui.GradientStops.To.init -> float
 Vixen.Ui.GradientStops.Via.get -> float
 Vixen.Ui.GradientStops.Via.init -> float
-Vixen.Ui.ICommandResponder -> interface
-Vixen.Ui.ICommandResponder.TryGetCommandHandler(string id, out Vixen.Ui.CommandHandler handler) -> bool
+Vixen.Ui.IResponder -> interface
+Vixen.Ui.IResponder.OnKey(Vixen.Ui.KeyEvent args) -> bool
+Vixen.Ui.IResponder.TryGetCommandHandler(string id, out Vixen.Ui.CommandHandler handler) -> bool
+Vixen.Ui.IResponder.UndoManager.get -> Vixen.Ui.IUndoManager?
 Vixen.Ui.ITextInputTarget -> interface
 Vixen.Ui.ITextInputTarget.AcceptsTextInput.get -> bool
 Vixen.Ui.ITextInputTarget.CaretArea.get -> Vixen.Core.Mathematics.Rectangle
@@ -596,9 +598,11 @@ Vixen.Ui.IUiWindow : System.IDisposable
 Vixen.Ui.IUiWindow.Bounds.get -> (float X, float Y, float Width, float Height)
 Vixen.Ui.IUiWindow.Bounds.set -> (float X, float Y, float Width, float Height)
 Vixen.Ui.IUiWindow.CloseRequested -> System.Action<Vixen.Ui.IUiWindow>?
+Vixen.Ui.IUiWindow.DidBecomeKey -> System.Action<Vixen.Ui.IUiWindow>?
 Vixen.Ui.IUiWindow.DpiScale.get -> float
 Vixen.Ui.IUiWindow.Focus() -> void
 Vixen.Ui.IUiWindow.IsClosed.get -> bool
+Vixen.Ui.IUiWindow.IsKey.get -> bool
 Vixen.Ui.IUiWindow.Moved -> System.Action<Vixen.Ui.IUiWindow>?
 Vixen.Ui.IUiWindow.Surface.get -> Vixen.Ui.UiSurface
 Vixen.Ui.IUiWindow.Title.get -> string
@@ -1282,8 +1286,8 @@ Vixen.Ui.UiDocument -> sealed class
 Vixen.Ui.UiDocument : System.IDisposable
 Vixen.Ui.UiDocument.AccessibilityInvalidated -> System.Action<Vixen.Ui.UiDocument>?
 Vixen.Ui.UiDocument.Adopt(Vixen.Ui.UiElement element, string? tag, Vixen.Ui.UiElement? parent, string? id = null, params System.ReadOnlySpan<string> classNames) -> Vixen.Ui.UiElement
-Vixen.Ui.UiDocument.ApplicationCommandResponder.get -> Vixen.Ui.ICommandResponder?
-Vixen.Ui.UiDocument.ApplicationCommandResponder.set -> Vixen.Ui.ICommandResponder?
+Vixen.Ui.UiDocument.ApplicationCommandResponder.get -> Vixen.Ui.IResponder?
+Vixen.Ui.UiDocument.ApplicationCommandResponder.set -> Vixen.Ui.IResponder?
 Vixen.Ui.UiDocument.Builder.get -> Vixen.Ui.LayoutStyleBuilder
 Vixen.Ui.UiDocument.CanOpenWindows.get -> bool
 Vixen.Ui.UiDocument.CapturePointer(Vixen.Ui.UiElement element) -> void
@@ -1295,8 +1299,8 @@ Vixen.Ui.UiDocument.ColorOf(Vixen.Ui.Styling.ComputedStyle style, int property) 
 Vixen.Ui.UiDocument.ColorScheme.get -> Vixen.Ui.Styling.ColorSchemePreference
 Vixen.Ui.UiDocument.ColorScheme.set -> Vixen.Ui.Styling.ColorSchemePreference
 Vixen.Ui.UiDocument.CommandFocus.get -> Vixen.Ui.UiElement?
-Vixen.Ui.UiDocument.CommandResponder.get -> Vixen.Ui.ICommandResponder?
-Vixen.Ui.UiDocument.CommandResponder.set -> Vixen.Ui.ICommandResponder?
+Vixen.Ui.UiDocument.CommandResponder.get -> Vixen.Ui.IResponder?
+Vixen.Ui.UiDocument.CommandResponder.set -> Vixen.Ui.IResponder?
 Vixen.Ui.UiDocument.CommandsInvalidated -> System.Action<Vixen.Ui.UiDocument>?
 Vixen.Ui.UiDocument.CompactStyles() -> bool
 Vixen.Ui.UiDocument.ComponentAt(Vixen.Ui.UiElement element) -> Vixen.Ui.Composition.Component?
@@ -1316,6 +1320,7 @@ Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.PointerEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.TextCompositionEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.TextInputEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.DropEvent args) -> Vixen.Ui.UiElement?
+Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.KeyEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.PointerEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.WheelEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.WheelEvent args) -> Vixen.Ui.UiElement?
@@ -1345,6 +1350,7 @@ Vixen.Ui.UiDocument.InvalidateCommands() -> void
 Vixen.Ui.UiDocument.InvokeAccessKey(char key) -> bool
 Vixen.Ui.UiDocument.KeySurface.get -> Vixen.Ui.UiSurface?
 Vixen.Ui.UiDocument.KeySurface.set -> Vixen.Ui.UiSurface?
+Vixen.Ui.UiDocument.KeySurfaceChanged -> System.Action<Vixen.Ui.UiDocument, Vixen.Ui.UiSurface>?
 Vixen.Ui.UiDocument.KeyboardMode.get -> bool
 Vixen.Ui.UiDocument.KeywordOf(Vixen.Ui.Styling.ComputedStyle style, int property) -> string?
 Vixen.Ui.UiDocument.Language.get -> string
@@ -1419,6 +1425,7 @@ Vixen.Ui.UiElement.AddAccessibleRelation(Vixen.Ui.AccessibleRelation relation, V
 Vixen.Ui.UiElement.AddClass(string className) -> bool
 Vixen.Ui.UiElement.AddCommandHandler(string id, System.Action execute, System.Func<bool>? canExecute = null, System.Func<string?>? title = null, System.Func<bool>? isChecked = null) -> void
 Vixen.Ui.UiElement.AddHandler<T>(System.Action<Vixen.Ui.UiElement, T> handler, Vixen.Ui.RoutingStrategy strategy = Vixen.Ui.RoutingStrategy.Bubble, bool handledEventsToo = false) -> void
+Vixen.Ui.UiElement.AddResponder(Vixen.Ui.IResponder responder) -> void
 Vixen.Ui.UiElement.Attribute(string name) -> string?
 Vixen.Ui.UiElement.Block() -> Vixen.Ui.TextLayout?
 Vixen.Ui.UiElement.Block(float width) -> Vixen.Ui.TextLayout?
@@ -1481,7 +1488,9 @@ Vixen.Ui.UiElement.RemoveAccessibleRelation(Vixen.Ui.AccessibleRelation relation
 Vixen.Ui.UiElement.RemoveClass(string className) -> bool
 Vixen.Ui.UiElement.RemoveCommandHandler(string id) -> bool
 Vixen.Ui.UiElement.RemoveHandler<T>(System.Action<Vixen.Ui.UiElement, T> handler) -> bool
+Vixen.Ui.UiElement.RemoveResponder(Vixen.Ui.IResponder responder) -> bool
 Vixen.Ui.UiElement.ResolvedLanguage.get -> string
+Vixen.Ui.UiElement.Responders.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.IResponder>
 Vixen.Ui.UiElement.Role.get -> Vixen.Ui.AccessibleRole
 Vixen.Ui.UiElement.Role.set -> Vixen.Ui.AccessibleRole
 Vixen.Ui.UiElement.SetAttribute(string name, string value) -> void
@@ -1626,7 +1635,7 @@ override Vixen.Ui.UiPropertyKey.ToString() -> string
 static Vixen.Ui.AccessKey.Parse(string? label, out char key) -> string
 static Vixen.Ui.BoxStyle.Rounded(Vixen.Ui.CornerRadii corners) -> Vixen.Ui.BoxStyle
 static Vixen.Ui.BoxStyle.Vertical(Vixen.Core.Mathematics.Color4 end, Vixen.Ui.CornerRadii corners = default(Vixen.Ui.CornerRadii)) -> Vixen.Ui.BoxStyle
-static Vixen.Ui.CommandHandler.For(string id, Vixen.Ui.ICommandResponder responder, System.Action execute, System.Func<bool>? canExecute = null, System.Func<string?>? title = null, System.Func<bool>? isChecked = null) -> Vixen.Ui.CommandHandler
+static Vixen.Ui.CommandHandler.For(string id, Vixen.Ui.IResponder responder, System.Action execute, System.Func<bool>? canExecute = null, System.Func<string?>? title = null, System.Func<bool>? isChecked = null) -> Vixen.Ui.CommandHandler
 static Vixen.Ui.CommandHandler.operator !=(Vixen.Ui.CommandHandler left, Vixen.Ui.CommandHandler right) -> bool
 static Vixen.Ui.CommandHandler.operator ==(Vixen.Ui.CommandHandler left, Vixen.Ui.CommandHandler right) -> bool
 static Vixen.Ui.CommandRoute.CanExecute(Vixen.Ui.UiDocument document, string id) -> bool

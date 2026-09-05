@@ -63,6 +63,30 @@ public class WindowFocusRoutingTests {
         Assert.Equal(1, inspector);
     }
 
+    /// <summary>
+    ///     ⚠ <b>And the window manager's opinion is no longer the only route.</b> The bridge now
+    ///     passes the surface the platform delivered the key to, so a keystroke lands in the right
+    ///     window even when <c>WindowFocusGained</c> never arrived — a backend that does not produce
+    ///     it, a host driving the document itself, a replayed trace.
+    /// </summary>
+    [Fact]
+    public void A_keystroke_follows_the_window_it_was_delivered_to_with_no_focus_event_at_all() {
+        using var document = new UiDocument(200f, 100f);
+        var second = document.CreateSurface(120f, 80f);
+
+        var inspector = 0;
+        second.Root.AddHandler<KeyEvent>((_, _) => inspector++);
+
+        PlatformInput.Dispatch(
+            document,
+            second,
+            PlatformEvent.Keyboard(PlatformEventKind.KeyDown, 2, 0, Key.F5, KeyModifiers.None)
+        );
+
+        Assert.Null(document.KeySurface);
+        Assert.Equal(1, inspector);
+    }
+
     [Fact]
     public void Losing_focus_to_another_window_does_not_undo_that_windows_gain() {
         using var document = new UiDocument(200f, 100f);

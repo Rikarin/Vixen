@@ -97,6 +97,11 @@ public class DockingWindowTests {
 
         public event Action<IUiWindow>? Moved;
 
+        // Never raised: this double opens no real window, so nothing ever tells it the user moved
+        // to another one. `IsKey` is defaulted on the interface and reads the document, so a test
+        // that wants to know which of these is key asks that rather than this.
+        public event Action<IUiWindow>? DidBecomeKey { add { } remove { } }
+
         public void Dispose() {
             if (IsClosed) {
                 return;

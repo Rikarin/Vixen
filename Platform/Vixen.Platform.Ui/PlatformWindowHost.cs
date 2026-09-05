@@ -53,6 +53,12 @@ public sealed class PlatformWindowHost : IUiWindowHost, IDisposable {
         Main = main;
         owner.Windows = this;
 
+        // ⚠ One subscription for every window this host will ever open, rather than one per window.
+        // `KeySurfaceChanged` is the ground truth — the window manager's answer, arriving through
+        // `PlatformInput`'s `WindowFocusGained` arm — and a window that raised its own event from
+        // its own copy of the fact would be the second copy `IUiWindow.IsKey` exists to refuse.
+        owner.KeySurfaceChanged += OnKeySurfaceChanged;
+
         // The primary surface is laid out for the window it is already in, which nothing else has
         // told it. Without this a document constructed at a nominal size and then handed a real
         // window would lay out at the nominal one until the first resize arrived.
@@ -317,9 +323,26 @@ public sealed class PlatformWindowHost : IUiWindowHost, IDisposable {
         }
 
         windows.Clear();
+        owner.KeySurfaceChanged -= OnKeySurfaceChanged;
 
         if (ReferenceEquals(owner.Windows, this)) {
             owner.Windows = null;
+        }
+    }
+
+    /// <summary>Tells the window whose key status changed, if this host opened it.</summary>
+    /// <remarks>
+    ///     The primary surface is not one of ours — it is <see cref="Main" />, which the head owns —
+    ///     so nothing is raised for it and a caller that cares about the main window listens to
+    ///     <see cref="UiDocument.KeySurfaceChanged" /> directly.
+    /// </remarks>
+    void OnKeySurfaceChanged(UiDocument document, UiSurface surface) {
+        foreach (var window in windows) {
+            if (ReferenceEquals(window.Surface, surface)) {
+                window.AnnounceKey();
+
+                return;
+            }
         }
     }
 
@@ -432,7 +455,12 @@ public sealed class PlatformUiWindow : IUiWindow {
         Window.Dispose();
     }
 
+    /// <inheritdoc />
+    public event Action<IUiWindow>? DidBecomeKey;
+
     internal void RequestClose() => CloseRequested?.Invoke(this);
+
+    internal void AnnounceKey() => DidBecomeKey?.Invoke(this);
 
     internal void Announce() => Moved?.Invoke(this);
 }

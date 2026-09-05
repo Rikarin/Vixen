@@ -39,6 +39,63 @@ public class PlatformWindowHostTests {
         }
     }
 
+    /// <summary>
+    ///     ⚠ <b>The half of the key-window work that was a window's own to answer, and a host had to
+    ///     write <c>document.KeySurface == surface</c> for itself.</b> That is a second copy of a
+    ///     fact the document already holds, and the failure mode of a second copy is two windows
+    ///     drawing an active title bar with nothing anywhere reporting a problem.
+    /// </summary>
+    [Fact]
+    public void A_window_learns_that_it_became_the_key_one() {
+        var (platform, document, host) = Open();
+
+        using (platform) {
+            using (host) {
+                var window = host.Open(document, new UiWindowRequest("Inspector", 40f, 60f, 320f, 240f));
+
+                Assert.NotNull(window);
+                Assert.False(window!.IsKey);
+
+                var announced = 0;
+                window.DidBecomeKey += _ => announced++;
+
+                // What `PlatformInput`'s `WindowFocusGained` arm does, written directly so that this
+                // test is about the host's wiring rather than about the bridge's.
+                document.KeySurface = window.Surface;
+
+                Assert.True(window.IsKey);
+                Assert.Equal(1, announced);
+
+                // ⚠ Both edges on one event. A title bar wants to stop drawing itself active as much
+                // as it wants to start, and a pair of events would be two subscriptions for one
+                // question — so the raise carries the window and `IsKey` carries the answer.
+                document.KeySurface = null;
+
+                Assert.False(window.IsKey);
+                Assert.Equal(2, announced);
+            }
+        }
+    }
+
+    [Fact]
+    public void A_disposed_host_stops_hearing_about_the_key_surface() {
+        var (platform, document, host) = Open();
+
+        using (platform) {
+            var window = host.Open(document, new UiWindowRequest("Inspector", 40f, 60f, 320f, 240f));
+            Assert.NotNull(window);
+
+            host.Dispose();
+
+            // Disposing the host closed the window and took its surface out of the document, so the
+            // subscription has to go too — a host still listening would be walking a list of windows
+            // it has already closed every time the user changed window.
+            document.KeySurface = document.Primary;
+
+            Assert.False(window!.IsKey);
+        }
+    }
+
     [Fact]
     public void Opening_a_window_adds_a_surface_and_closing_it_takes_the_surface_away() {
         var (platform, document, host) = Open();

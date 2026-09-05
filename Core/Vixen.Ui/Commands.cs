@@ -5,8 +5,17 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Vixen.Ui;
 
-/// <summary>Something that answers command ids without being an element.</summary>
+/// <summary>Something on the responder chain that is not an element.</summary>
 /// <remarks>
+///     <para>
+///         ⚠ <b>It was called <c>ICommandResponder</c> and answered command ids only.</b> AppKit has
+///         <i>one</i> chain: the same <c>NSResponder</c> receives <c>keyDown:</c>, answers
+///         <c>copy:</c>, validates the menu item that sends it and supplies the
+///         <c>undoManager</c>. Vixen had three that did not meet, and the name recorded the
+///         narrowest of them. <see cref="OnKey" /> and <see cref="UndoManager" /> are the other two
+///         legs, defaulted in so that every existing implementation compiles unchanged and a
+///         responder that only answers verbs stays three lines long.
+///     </para>
 ///     <para>
 ///         <b>The part of the chain that is not the tree.</b> AppKit's action chain does not stop at
 ///         the view hierarchy: past the last view it consults the window, the window controller, the
@@ -35,7 +44,7 @@ namespace Vixen.Ui;
 ///         keep in step; the editor's <c>CommandRegistry</c> is that case.
 ///     </para>
 /// </remarks>
-public interface ICommandResponder {
+public interface IResponder {
     /// <summary>The handler this responder has for a command id, if it has one.</summary>
     /// <param name="id">The command id.</param>
     /// <param name="handler">Receives the handler.</param>
@@ -47,6 +56,37 @@ public interface ICommandResponder {
     ///     "this verb is mine and I cannot do it right now" means.
     /// </remarks>
     bool TryGetCommandHandler(string id, out CommandHandler handler);
+
+    /// <summary>A chance at a key event, at the position on the chain the responder was appended at.</summary>
+    /// <param name="args">The event.</param>
+    /// <returns>Whether it took the key.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A non-element responder could not previously see a key at all</b>, and that was
+    ///         structural rather than an omission: <c>EventRouter.Raise</c> is <see cref="UiElement" />
+    ///         -typed end to end and its route is a <c>List&lt;UiElement&gt;</c>, so a view controller
+    ///         or a document object had no way onto the keyboard leg. This is the join —
+    ///         <see cref="UiDocument.Dispatch(KeyEvent)" /> walks the responders on the same elements
+    ///         the command route walks, after the bubble leg and before the access-key and Tab
+    ///         fallbacks.
+    ///     </para>
+    ///     <para>
+    ///         <b>Defaulted to <c>false</c>: the overwhelming majority of responders are verb tables
+    ///         and want no keys.</b> Returning <c>true</c> marks the event handled, which is what
+    ///         stops the walk and what keeps the fallbacks from also running.
+    ///     </para>
+    /// </remarks>
+    bool OnKey(KeyEvent args) => false;
+
+    /// <summary>The undo manager this responder supplies to the chain, if it owns one.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>NSResponder.undoManager</c>'s third leg, and the reason a text box in a dialog can
+    ///     have ⌘Z without owning a stack.</b> A control does not own an undo manager, it
+    ///     <i>finds</i> one — see <see cref="UiElement.FindUndoManager" />. Defaulted to <c>null</c>,
+    ///     which means "not mine, keep walking", and is the right answer for every responder that is
+    ///     a table of verbs.
+    /// </remarks>
+    IUndoManager? UndoManager => null;
 }
 
 /// <summary>The handler a command id resolved to, and the two things a caller can do with it.</summary>
@@ -75,7 +115,7 @@ public readonly struct CommandHandler : IEquatable<CommandHandler> {
     internal CommandHandler(
         string id,
         UiElement? element,
-        ICommandResponder? responder,
+        IResponder? responder,
         Action execute,
         Func<bool>? canExecute,
         Func<string?>? title,
@@ -98,7 +138,7 @@ public readonly struct CommandHandler : IEquatable<CommandHandler> {
     /// <param name="canExecute">Whether it can, asked whenever anything shows the command. Always, if omitted.</param>
     /// <param name="title">What to call it right now, or omitted to leave every surface's own label alone.</param>
     /// <param name="isChecked">Whether it is on, or omitted for a command that is not a toggle.</param>
-    /// <returns>The handler, to be returned from <see cref="ICommandResponder.TryGetCommandHandler" />.</returns>
+    /// <returns>The handler, to be returned from <see cref="IResponder.TryGetCommandHandler" />.</returns>
     /// <remarks>
     ///     ⚠ <b>Build it once and keep it, rather than per lookup.</b> The struct exists so that a
     ///     toolbar re-resolving twenty ids on the tick allocates nothing; a responder that closes
@@ -107,7 +147,7 @@ public readonly struct CommandHandler : IEquatable<CommandHandler> {
     /// </remarks>
     public static CommandHandler For(
         string id,
-        ICommandResponder responder,
+        IResponder responder,
         Action execute,
         Func<bool>? canExecute = null,
         Func<string?>? title = null,
@@ -132,7 +172,7 @@ public readonly struct CommandHandler : IEquatable<CommandHandler> {
     ///     the root the chain is objects rather than views, and a handler that claimed an element it
     ///     did not have would make a diagnostic overlay lie about where a verb lives.
     /// </remarks>
-    public ICommandResponder? Responder { get; }
+    public IResponder? Responder { get; }
 
     /// <summary>Whether it can run right now.</summary>
     /// <remarks>
@@ -234,7 +274,7 @@ public readonly struct CommandHandler : IEquatable<CommandHandler> {
 ///         responder in the first place already does.
 ///     </para>
 /// </remarks>
-public sealed class CommandResponder : ICommandResponder {
+public sealed class CommandResponder : IResponder {
     readonly Dictionary<string, CommandHandler> handlers = new(StringComparer.Ordinal);
 
     /// <summary>Declares that this responder handles a command.</summary>
@@ -324,7 +364,7 @@ public sealed class CommandResponder : ICommandResponder {
 ///     <para>
 ///         ⚠ <b>And it continues past the tree.</b> AppKit's action chain runs first responder →
 ///         views → window → window controller → delegate → document → <c>NSApp</c> → app delegate,
-///         and most of that tail is not views at all. <see cref="ICommandResponder" /> is that tail:
+///         and most of that tail is not views at all. <see cref="IResponder" /> is that tail:
 ///         <see cref="UiDocument.CommandResponder" /> and then
 ///         <see cref="UiDocument.ApplicationCommandResponder" />, asked in that order once the last
 ///         parent is gone. Every rule above holds across the join — first to answer wins, only that
@@ -406,6 +446,22 @@ public static class CommandRoute {
             if (element.TryGetCommandHandler(id, out var handler)) {
                 return handler;
             }
+
+            // ⚠ After the element's own handlers and before its parent, which is what "at its own
+            // position" means. An element that both handles an id and hosts a responder answering
+            // the same id answers with its own: the responder is a link the element appended
+            // *behind* itself, not one it delegated to.
+            //
+            // ⚠ Indexed rather than `foreach`, because `IReadOnlyList<T>`'s enumerator is boxed and
+            // this loop runs once per id per element per resolve — a toolbar of twenty buttons on
+            // the tick, which is the allocation `CommandHandler` is a struct to avoid.
+            var responders = element.Responders;
+
+            for (var i = 0; i < responders.Count; i++) {
+                if (responders[i].TryGetCommandHandler(id, out var appended)) {
+                    return appended;
+                }
+            }
         }
 
         // ⚠ Written out rather than looped over an array of two, because the array would be an
@@ -453,8 +509,8 @@ public static class CommandRoute {
 public sealed partial class UiDocument {
     bool commandsDirty;
 
-    ICommandResponder? commandResponder;
-    ICommandResponder? applicationCommandResponder;
+    IResponder? commandResponder;
+    IResponder? applicationCommandResponder;
 
     /// <summary>What answers a command id once the element walk has run out of parents.</summary>
     /// <remarks>
@@ -463,7 +519,7 @@ public sealed partial class UiDocument {
     ///         object that owns what the window is showing, which in most applications is not a view
     ///         and should not have to become one in order to own <c>edit.save</c>. Set it to a
     ///         <see cref="CommandResponder" /> and fill that in, or implement
-    ///         <see cref="ICommandResponder" /> on the model object itself.
+    ///         <see cref="IResponder" /> on the model object itself.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Asked after the root and before
@@ -478,7 +534,7 @@ public sealed partial class UiDocument {
     ///         released by <see cref="Dispose" />.
     ///     </para>
     /// </remarks>
-    public ICommandResponder? CommandResponder {
+    public IResponder? CommandResponder {
         get => commandResponder;
         set {
             if (ReferenceEquals(commandResponder, value)) {
@@ -517,7 +573,7 @@ public sealed partial class UiDocument {
     ///         table when the plugin unloads.
     ///     </para>
     /// </remarks>
-    public ICommandResponder? ApplicationCommandResponder {
+    public IResponder? ApplicationCommandResponder {
         get => applicationCommandResponder;
         set {
             if (ReferenceEquals(applicationCommandResponder, value)) {
@@ -820,6 +876,76 @@ public partial class UiElement {
         }
     }
 
+    /// <summary>The responders this element has appended at its own position on the chain.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The middle of the walk, which the chain previously had no way to reach.</b> The
+    ///         two <see cref="IResponder" /> slots on <see cref="UiDocument" /> are its two ends, so
+    ///         a view controller, a window controller or a document object — the three AppKit puts
+    ///         <i>between</i> the views and <c>NSApp</c> — had nowhere to sit. An element appends one
+    ///         here and it is consulted right after that element's own handlers and before the walk
+    ///         moves to <see cref="Parent" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Deliberately not a settable <c>nextResponder</c>.</b> AppKit's worst chain bugs
+    ///         come from a mutable next-link: anything holding the pointer can splice itself in
+    ///         ahead of the window, forget to restore it, and orphan the root — after which the
+    ///         application stops answering verbs it has always answered, with nothing to look at.
+    ///         Appending at a position cannot rewrite the walk, so <c>CommandRoute</c>'s invariant —
+    ///         the nearest responder that answers wins, all the way out — is unchanged whatever
+    ///         anybody appends.
+    ///     </para>
+    ///     <para>
+    ///         <b>Lifetime keeps the existing rule: the element holds the responder and never the
+    ///         reverse.</b> A responder is dropped when its element is, which is why there is no
+    ///         registration token and no disposable here.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<IResponder> Responders =>
+        commands?.Responders ?? (IReadOnlyList<IResponder>) Array.Empty<IResponder>();
+
+    /// <summary>Appends a responder at this element's position on the chain.</summary>
+    /// <param name="responder">What to append.</param>
+    /// <exception cref="ArgumentException">That responder is already appended here.</exception>
+    /// <remarks>
+    ///     ⚠ <b>Appending the same responder twice throws</b>, on
+    ///     <see cref="AddCommandHandler" />'s terms: the second registration would be dead — the
+    ///     walk stops at the first — and a duplicate is always somebody wiring the same thing up
+    ///     from two places rather than an intent to be asked twice.
+    /// </remarks>
+    public void AddResponder(IResponder responder) {
+        ArgumentNullException.ThrowIfNull(responder);
+
+        var bindings = commands ??= new CommandBindings();
+
+        if (bindings.Responders.Contains(responder)) {
+            throw new ArgumentException("This element already has that responder.", nameof(responder));
+        }
+
+        bindings.Responders.Add(responder);
+
+        // Same reason as a handler: a new responder can turn a greyed item live.
+        Document.InvalidateCommands();
+    }
+
+    /// <summary>Takes a responder back off.</summary>
+    /// <param name="responder">The responder.</param>
+    /// <returns>Whether it was appended here.</returns>
+    /// <remarks>
+    ///     The other half of a plugin's panel closing. Not a way to <i>reorder</i> the chain: what
+    ///     comes back is the walk without that link, and everything else keeps its place.
+    /// </remarks>
+    public bool RemoveResponder(IResponder responder) {
+        ArgumentNullException.ThrowIfNull(responder);
+
+        if (commands is null || !commands.Responders.Remove(responder)) {
+            return false;
+        }
+
+        Document.InvalidateCommands();
+        return true;
+    }
+
     readonly record struct CommandRegistration(
         string Id,
         Action Execute,
@@ -837,5 +963,10 @@ public partial class UiElement {
         public bool Transparent { get; set; }
 
         public List<CommandRegistration> Handlers { get; } = [];
+
+        // Allocated with the bindings rather than lazily on top of them: an element that has any
+        // command feature at all has already paid for the object, and a second nullable field
+        // inside it would be the two-fields-for-one-reach shape the comment on `commands` refuses.
+        public List<IResponder> Responders { get; } = [];
     }
 }

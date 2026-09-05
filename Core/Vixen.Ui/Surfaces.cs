@@ -32,11 +32,18 @@ public sealed partial class UiDocument {
     /// <remarks>
     ///     <para>
     ///         <b><c>NSApp.keyWindow</c>, and until this existed there was no answer to the
-    ///         question.</b> Keys are not routed by surface — <see cref="Dispatch(KeyEvent)" /> takes
-    ///         none, unlike the pointer and the wheel, because the focus is the document's — so with
-    ///         nothing focused every keystroke landed on <see cref="Primary" />'s root. In a
-    ///         one-window application that is right by construction; in one that has torn a panel off
-    ///         it means a key pressed in the inspector ran against the main window.
+    ///         question.</b> With nothing focused every keystroke landed on <see cref="Primary" />'s
+    ///         root: right by construction in a one-window application, which is why nothing caught
+    ///         it, and in one that has torn a panel off it means a key pressed in the inspector ran
+    ///         against the main window.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is the fallback and no longer the only answer.</b>
+    ///         <see cref="Dispatch(UiSurface, KeyEvent)" /> takes the surface the platform actually
+    ///         delivered the event to, which is a better answer where the caller has it — the
+    ///         operating system settled the question by sending the event to that window at all.
+    ///         This is what <see cref="CommandRoute.Origin" /> reads, and what a host with no
+    ///         surface in hand falls back to.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Written by whoever bridges the platform, and it was being thrown away.</b>
@@ -61,9 +68,43 @@ public sealed partial class UiDocument {
                 throw new ArgumentException("that surface belongs to another document.", nameof(value));
             }
 
+            if (ReferenceEquals(keySurface, value)) {
+                return;
+            }
+
+            var lost = keySurface;
             keySurface = value;
+
+            // ⚠ Both edges, and the losing one first, so that a handler reading `IUiWindow.IsKey`
+            // on either window during either raise reads the state after the change rather than
+            // half of it. Two windows drawing an active title bar at once is the failure this
+            // ordering exists to make impossible.
+            if (lost is not null) {
+                KeySurfaceChanged?.Invoke(this, lost);
+            }
+
+            if (value is not null) {
+                KeySurfaceChanged?.Invoke(this, value);
+            }
         }
     }
+
+    /// <summary>Raised for each surface whose key status has just changed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The surface named is the one that changed, not the one that now holds it</b> —
+    ///         losing and gaining are two raises, and <see cref="KeySurface" /> is already the new
+    ///         answer by the time either arrives. A handler asks
+    ///         <c>ReferenceEquals(document.KeySurface, surface)</c>, or reads
+    ///         <see cref="IUiWindow.IsKey" />, which is the same question with the comparison
+    ///         written once.
+    ///     </para>
+    ///     <para>
+    ///         What a host hangs <see cref="IUiWindow.DidBecomeKey" /> on, and what a title bar that
+    ///         draws itself differently when active listens to directly.
+    ///     </para>
+    /// </remarks>
+    public event Action<UiDocument, UiSurface>? KeySurfaceChanged;
 
     /// <summary>Where a keystroke goes when nothing holds the focus.</summary>
     /// <remarks>

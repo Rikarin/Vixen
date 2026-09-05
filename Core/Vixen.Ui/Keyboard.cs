@@ -188,13 +188,63 @@ public sealed partial class UiDocument {
     ///         what gives both: the default is the fallback rather than the rule.
     ///     </para>
     /// </remarks>
-    public UiElement? Dispatch(KeyEvent args) {
+    public UiElement? Dispatch(KeyEvent args) => Dispatch(args, KeyTarget);
+
+    /// <summary>Sends a key event that arrived at a particular window.</summary>
+    /// <param name="surface">The surface the platform delivered it to.</param>
+    /// <param name="args">The event.</param>
+    /// <returns>The element it went to.</returns>
+    /// <exception cref="ArgumentException">The surface belongs to another document.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The overload <see cref="Dispatch(UiSurface, PointerEvent)" /> and
+    ///         <see cref="Dispatch(UiSurface, WheelEvent)" /> always had and this one did not.</b>
+    ///         The reason given was that a key goes to the focus and the focus is the document's —
+    ///         true, and it stops being an answer the moment nothing is focused: the fallback was
+    ///         <see cref="Primary" />'s root, so a keystroke aimed at a torn-off inspector ran
+    ///         against the main window.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is a better answer than <see cref="KeySurface" /> and not a duplicate of
+    ///         it.</b> The key surface is the window manager's opinion, arriving through
+    ///         <c>WindowFocusGained</c>; the surface here is where <i>this</i> event was actually
+    ///         delivered, which is the operating system having already answered the question by
+    ///         sending it at all. A host that has the surface in hand should pass it.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="Focused" /> still outranks it, because it is still one document-global
+    ///         element — <c>UiSurface.Focused</c> does not exist, so a keystroke aimed at an
+    ///         unfocused control in a background window still reaches whatever holds the document's
+    ///         focus. That is the larger half of the key-window work and is owed.
+    ///     </para>
+    /// </remarks>
+    public UiElement? Dispatch(UiSurface surface, KeyEvent args) {
+        ArgumentNullException.ThrowIfNull(surface);
+
+        if (!ReferenceEquals(surface.Document, this)) {
+            throw new ArgumentException("that surface belongs to another document.", nameof(surface));
+        }
+
+        return Dispatch(args, Focused ?? surface.Root);
+    }
+
+    UiElement? Dispatch(KeyEvent args, UiElement target) {
         ArgumentNullException.ThrowIfNull(args);
 
         KeyboardMode = true;
 
-        var target = KeyTarget;
         target.Raise(args);
+
+        // ⚠ The one place a non-element responder can see a key, and until this existed there was
+        // none: `EventRouter.Raise` is `UiElement`-typed end to end and its route is a
+        // `List<UiElement>`, so a view controller or a document object could answer `edit.copy` and
+        // still be structurally unable to see the ⌘C that means it. This walks the same links
+        // `CommandRoute.Resolve` walks, in the same order, so the two chains finally agree about
+        // who is on them — after the bubble leg, because a focused control must still win, and
+        // before the access-key and Tab fallbacks, because those are defaults and this is not.
+        if (!args.Handled) {
+            args.Handled = OfferToResponders(target, args);
+        }
 
         // ⚠ After the route and only if nothing wanted it, exactly like Tab below. A menu that is
         // open has its own idea of what Alt-S means and must be able to take it; a text field that
@@ -247,6 +297,38 @@ public sealed partial class UiDocument {
         var target = KeyTarget;
         target.Raise(args);
         return target;
+    }
+
+    /// <summary>Offers a key to every responder appended along the walk, nearest first.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The element leg only, and then the document's two slots — the same three legs
+    ///         <see cref="CommandRoute.Resolve" /> has, in the same order. A responder that returns
+    ///         <c>true</c> ends the walk, because "I took the key" and "keep asking" are the two
+    ///         answers and there is no third.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>From the target upwards and not from the root down.</b> A capture leg here would
+    ///         let an appended responder take a key <i>before</i> the control the user is typing
+    ///         into, which is the ordering the editor's keymap deliberately rejects — see
+    ///         <c>CommandDispatcher</c>'s bubble-leg handler and AppKit's
+    ///         <c>performKeyEquivalent:</c>, which Vixen does not copy.
+    ///     </para>
+    /// </remarks>
+    bool OfferToResponders(UiElement target, KeyEvent args) {
+        for (var element = target; element is not null; element = element.Parent) {
+            var responders = element.Responders;
+
+            for (var i = 0; i < responders.Count; i++) {
+                if (responders[i].OnKey(args)) {
+                    return true;
+                }
+            }
+        }
+
+        // Written out rather than looped over an array of two, for the reason `CommandRoute.Resolve`
+        // gives: the order is the rule, and the array would be an allocation on a keystroke path.
+        return (CommandResponder?.OnKey(args) ?? false) || (ApplicationCommandResponder?.OnKey(args) ?? false);
     }
 
     /// <summary>Records that the interaction has gone back to the pointer.</summary>

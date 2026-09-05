@@ -25,7 +25,7 @@ namespace Vixen.Editor.Ui;
 ///         query is empty and there is nothing better to sort by. A ranked query reorders it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It is also the editor's <see cref="ICommandResponder" /></b> — the last link of
+///         ⚠ <b>It is also the editor's <see cref="IResponder" /></b> — the last link of
 ///         <see cref="CommandRoute" />'s chain, installed by <see cref="EditorShell" /> as its
 ///         document's <see cref="UiDocument.ApplicationCommandResponder" />. That is what makes a
 ///         <c>Vixen.Ui</c> control bound to <c>edit.rename</c> resolve, enable and run the editor's
@@ -38,7 +38,7 @@ namespace Vixen.Editor.Ui;
 ///         interface is three lines over it.
 ///     </para>
 /// </remarks>
-public sealed class CommandRegistry : ICommandResponder {
+public sealed class CommandRegistry : IResponder {
     readonly Dictionary<string, EditorCommand> byId = new(StringComparer.Ordinal);
     readonly List<EditorCommand> ordered = [];
 
