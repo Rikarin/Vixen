@@ -600,22 +600,26 @@ public static class SoftwareUiRasterizer {
         var dx = to.X - from.X;
         var dy = to.Y - from.Y;
 
-        // ⚠ <b>Axis-aligned edges keep the closed test they have always had, and that is a deliberate
-        // departure from the textbook rule.</b> The full rule also opens a quad's right and bottom
-        // edges, which is correct — it is what stops two abutting quads both shading the column they
-        // share — but every UI primitive here is an axis-aligned quad, so switching it on re-resolves
-        // the antialiasing of *every* edge in the suite whose coordinate happens to land on a sample
-        // centre. Measured: eleven committed screenshots moved, and the ones worth looking at were the
-        // outliner's one-pixel tree connectors losing half their coverage. That is a real improvement
-        // to argue for on its own day; it is not this change, and bundling it would hide the diagonal
-        // fix inside a diff nobody could read.
-        if (dx == 0f || dy == 0f) {
-            return true;
+        // ⚠ <b>A horizontal edge is the quad's <i>top</i> one when it runs left to right, and its
+        // bottom one when it runs right to left — so the sign of `dx` is the whole test and a
+        // <c>dy == 0</c> that returned true would close both.</b> This is the half of the rule that
+        // used to be missing: axis-aligned edges were closed on all four sides, which is a *generous*
+        // answer rather than an obviously broken one — a box from 8.5 to 32.5 does cover half of
+        // column 32 — and it is still the wrong one twice over. Two abutting quads both shaded the
+        // column they shared, blending to 0.75 where a single quad reaches 1; and the device opens
+        // its right and bottom edges, so every committed picture was a picture of a frame that never
+        // reaches a screen. Measured against `ui-box.frag` before this changed: 54 pixels of 16,384
+        // differing by up to <b>107 levels of 255</b>, which was the largest known disagreement left
+        // on the box path. `FillRuleTests` states both halves; eleven committed screenshots moved
+        // with it.
+        if (dy == 0f) {
+            return dx > 0f;
         }
 
-        // The diagonal, which is the only edge a quad's two triangles actually share. They traverse it
-        // in opposite directions, so exactly one of them sees a negative `dy` and the sample is shaded
-        // once. A tessellated path's shared edges fall here too, unless they are exactly horizontal.
+        // Every other edge, the quad's two vertical sides and the diagonal its triangles share alike.
+        // They are traversed in opposite directions by the two primitives that meet on them, so
+        // exactly one sees a negative `dy` and the sample is shaded once. A tessellated path's shared
+        // edges fall here too, unless they are exactly horizontal.
         return dy < 0f;
     }
 
