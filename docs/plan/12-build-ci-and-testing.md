@@ -400,7 +400,7 @@ executable claim that a named path is exercised, which is a test, not a threshol
 | **Integration** | import→compile→bundle→load round-trips, world save/load, hot-reload scenarios, editor scenario tests | ~50 scenarios |
 | **Golden image** | ✅ five fixtures — clear, triangle, indexed quad with push constants, reversed-Z depth, alpha blending — rendered headless through the render graph and compared perceptually with a per-fixture tolerance. Generated on MoltenVK and **verified against lavapipe**, so the tolerances are what cross-driver agreement actually needs rather than what one machine happens to produce. Grows towards ~40 with the rendering pipeline in Phase 4; editor layouts follow the editor. | GPU-dependent, runs everywhere a driver exists |
 | **Platform smoke** | boot, clear, triangle, UI, input on each of six targets | 6 × a handful |
-| **Performance** | BenchmarkDotNet with committed baselines and allocation gates | ~40 benchmarks |
+| **Performance** | BenchmarkDotNet, judged by `Benchmark` against `Benchmarks/baseline.json` — ⚠️ **which is not committed**, so the target fails rather than judging, and this row said "committed baselines" for as long as it said anything ([#339](https://github.com/Rikarin/Vixen/issues/339)). The allocation gates beside it are real and run inside `Test` | ~40 benchmarks |
 
 ### The gates that enforce [00](00-vision-and-principles.md)
 
@@ -686,9 +686,9 @@ dotnet tool restore
 
 # everyday
 nuke Compile
-nuke Test --filter Category=Unit
-nuke Test --filter Category=Golden --update-golden     # then review the diff
-nuke Benchmark --filter *Layout*
+nuke Test                                              # or dotnet test <one project> --filter <name>
+nuke GoldenImages --update-golden                      # then review the diff
+nuke Benchmark --benchmark-filter '*Layout*' --report-only
 
 # run things
 dotnet run --project Samples/03-PbrShowcase
