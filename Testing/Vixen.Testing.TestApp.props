@@ -1,0 +1,20 @@
+<Project>
+
+  <!--
+    Vixen — the in-process application host of docs/plan/12 § "Test infrastructure worth building
+    early", linked rather than referenced, on the same argument as Vixen.Testing.props beside it.
+
+    A THIRD FILE for the same reason RecordingBackend has a second one: the split is by what the file
+    needs, not by what it is for. TestApp.cs names Game, VixenApp, HeadlessPlatform, MemoryFileProvider
+    and NullDevice, so linking it anywhere else is a build error in return for nothing.
+
+    Consumers need a `using Vixen.Testing;`, xunit.v3, and a reference that brings in Tools/Vixen.App
+    — which carries Vixen.App.Hosting, Vixen.Platform.Headless and Vixen.Graphics.Null with it, and is
+    the whole set of projects that could host an application anyway.
+  -->
+
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)TestApp.cs" Link="Testing\TestApp.cs" />
+  </ItemGroup>
+
+</Project>

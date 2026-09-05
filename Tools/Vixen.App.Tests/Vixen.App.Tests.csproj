@@ -37,4 +37,8 @@
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
     </ItemGroup>
+
+    <!-- docs/plan/12's in-process application host. Linked rather than referenced; the props file
+         says why, and this is the project it was written against. -->
+    <Import Project="..\..\Testing\Vixen.Testing.TestApp.props" />
 </Project>

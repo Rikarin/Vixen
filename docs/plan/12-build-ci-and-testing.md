@@ -440,21 +440,40 @@ afford.
 
 ### Test infrastructure worth building early
 
-⚠️ **Three of the five are still unwritten, and the sequencing this section used to state is refuted by
+⚠️ **Two of the five are still unwritten, and the sequencing this section used to state is refuted by
 the tree.** `TestApp` was specified as a Phase 1 item that *"every later phase depends on"*. Every
 later phase shipped without it: 178 test projects, twenty-three suites of allocation gates and the golden
-suite exist, and nothing anywhere names the type. So the dependency was never real — what the
-remaining three would buy is arrangement code deleted, not tests made possible, and they are worth
-building on that argument rather than on a blocking one. They are tracked as
+suite exist, and nothing anywhere named the type until it landed. So the dependency was never real —
+what the remaining two would buy is arrangement code deleted, not tests made possible, and they are
+worth building on that argument rather than on a blocking one. They are tracked as
 [#336](https://github.com/Rikarin/Vixen/issues/336).
 
-- **`TestApp`** — an in-process engine host with the Null backend, an in-memory VFS, a fake clock, and a
-  synthetic input source. Would make almost every "integration" test a fast unit test. ⚠️ **Whatever
-  lands has to answer the question the Null device already taught this repository once**: a host that
-  quietly falls back to a backend drawing nothing reports a healthy frame count and proves nothing —
-  the same failure as `--vixen-capture`'s, one layer up. `Vixen.App.Hosting`'s `AppBuilder` is the
-  precedent to copy: an `AppBuilder` with no backend installed **refuses to build, by name**, rather
-  than falling back to a headless one.
+- **`TestApp`** — ✅ an in-process engine host with the Null backend, an in-memory VFS, a fake clock and
+  a synthetic input source, in [`Testing/TestApp.cs`](../../Testing/TestApp.cs), linked into a test
+  project the way `Measured` is. ⚠️ **All four parts already existed and none of them had ever been
+  assembled**: `HeadlessPlatform` is the host, `MemoryFileProvider` is the VFS,
+  `AppConfig.FixedFrameTime` is the clock, and `HeadlessInputSource` with `HeadlessPlatform.Post` is
+  the input. So what landed is arrangement plus **three refusals**, which is the part of the
+  specification that could not be got from the parts:
+
+  ⚠️ **Each refusal replaces a form that is green when it should be red**, which is this section's own
+  standard — *"whatever lands has to answer the question the Null device already taught this repository
+  once"*. (a) A game whose `OnConfigure` sets `Graphics.Enabled = false` builds, initialises and runs
+  frames perfectly happily, and every command-log assertion made against it is an assertion over a
+  device that was never opened — so `Create` refuses to hand one back. (b) `VixenApplication.RunFrame`
+  **returns normally on a stopping application**: it pumps events, drains posted work and returns
+  before `Advance`, so `for (…) app.RunFrame();` over an app that stopped on frame one is a hundred
+  successful calls, an unmoved clock and an empty log. `RunFrames` counts frames off `GameTime.FrameCount`,
+  which only a frame that simulated advances, and names why it stopped. (c) `HeadlessInputSource.SetKey`
+  is the obvious way to press a key and it posts **no event**, while `Services.Input` is fed from the
+  event stream in `PumpEvents` — so a key "pressed" that way reaches nothing, and a test asserting the
+  action did *not* fire passes for the wrong reason for ever. `PressKey` does both halves, and
+  `TestAppTests.SettingTheKeyWithoutTheEventReachesNothing` pins the difference.
+
+  Adopted in `HostedDeclaredSystemTests`, which lost its throwaway temp directory and its own builder
+  in the same change; the other ten fixtures in `Vixen.App.Tests` are the remaining adoption, and
+  ⚠️ one of them cannot move — `--vixen-loose-content` takes a **physical** directory (`Directory.Exists`
+  in `ContentMount.Open`), which an in-memory VFS by definition cannot provide.
 - **`RecordingBackend`** — ✅ the Null backend's structured command log with a fluent assertion API,
   in [`Testing/RecordingBackend.cs`](../../Testing/RecordingBackend.cs), linked into a test project
   the way `Measured` is. ⚠️ The recording half was never missing: `Vixen.Graphics.Null` has

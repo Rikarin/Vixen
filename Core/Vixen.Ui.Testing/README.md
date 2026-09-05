@@ -203,9 +203,12 @@ handler, which is the easy half and not the half that breaks.
 ## Scope
 
 This tests **interfaces**. It drives a `UiDocument`: elements, styles, layout, input, drawing. It is
-not a harness for the world — entities, physics, netcode — and does not pretend to be; `TestApp` in
-[doc 12](../../docs/plan/12-build-ci-and-testing.md) is where that belongs, and `Ticked` is the seam
-it would plug into.
+not a harness for the world — entities, physics, netcode — and does not pretend to be; `TestApp`
+([`Testing/TestApp.cs`](../../Testing/TestApp.cs), doc 12) is where that belongs. ⚠ It landed without
+using `Ticked`: it drives `VixenApplication.RunFrame` over the headless platform and the Null device
+and never builds a `UiDocument`, so `Ticked` is still a per-frame seam with no caller outside
+`Vixen.Ui`'s own tests. Joining the two — a `TestApp` whose frame also ticks a document — is the
+change that would give it one.
 
 ## Two fingers
 
