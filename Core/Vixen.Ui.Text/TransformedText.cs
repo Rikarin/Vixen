@@ -126,6 +126,17 @@ public sealed class TransformedText {
     ///         <i>unconditional</i> rows and a condition is a question about the neighbours.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>Lithuanian is a third language and its rows are not one set.</b> Three of them —
+    ///         the precomposed U+00CC, U+00CD and U+0128 — carry a language and no condition, so they
+    ///         are a lookup in <see cref="LithuanianRetainedDot" /> and are implemented. The rest
+    ///         (<c>More_Above</c> on <c>I</c>, <c>J</c> and U+012E, <c>After_Soft_Dotted</c> on
+    ///         U+0307) are conditional on combining class 230 and the <c>Soft_Dotted</c> property,
+    ///         and no generated table in this assembly carries either — so they are owed rather than
+    ///         approximated, because <c>More_Above</c> guessed without the classes would be wrong for
+    ///         every mark that is not above. Same for <c>tr</c>/<c>az</c>'s <c>Not_Before_Dot</c>,
+    ///         whose "no intervening character of class 0 or 230" is the same missing data.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b>No <c>CultureInfo</c>, deliberately and not merely incidentally.</b> The tag is
     ///         read from the element, so the same document uppercases the same way on a Turkish
     ///         laptop and on CI — the property <c>TextShaper</c> protects for shaping, held here for
@@ -143,6 +154,7 @@ public sealed class TransformedText {
         }
 
         var turkic = IsTurkic(language);
+        var lithuanian = IsLithuanian(language);
 
         var text = new StringBuilder(source.Length);
 
@@ -207,7 +219,7 @@ public sealed class TransformedText {
 
             var mapped = transform switch {
                 TextTransform.Uppercase => Upper(rune, turkic),
-                TextTransform.Lowercase => Lower(rune, turkic),
+                TextTransform.Lowercase => Lower(rune, turkic, lithuanian),
                 _ => starts!.Contains(at) ? Title(rune, turkic) : rune.ToString()
             };
 
@@ -398,19 +410,25 @@ public sealed class TransformedText {
     /// </remarks>
     /// <param name="language">The BCP-47 tag.</param>
     /// <returns>Whether Turkic casing applies.</returns>
-    static bool IsTurkic(string? language) {
+    static bool IsTurkic(string? language) =>
+        HasPrimarySubtag(language, "tr") || HasPrimarySubtag(language, "az");
+
+    /// <summary>Whether a BCP-47 tag's primary subtag is a given two-letter code.</summary>
+    /// <remarks>
+    ///     ⚠ The subtag has to <i>end</i> there and not merely start there, which is the check a
+    ///     prefix comparison drops: <c>tra</c> and <c>lto</c> are well-formed tags for other
+    ///     languages, and a rule that took them would case them as Turkish and Lithuanian.
+    /// </remarks>
+    static bool HasPrimarySubtag(string? language, string subtag) {
         if (language is null || language.Length < 2) {
             return false;
         }
-
-        var primary = language.AsSpan(0, 2);
 
         if (language.Length > 2 && language[2] != '-') {
             return false;
         }
 
-        return primary.Equals("tr", StringComparison.OrdinalIgnoreCase)
-            || primary.Equals("az", StringComparison.OrdinalIgnoreCase);
+        return language.AsSpan(0, 2).Equals(subtag, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>The full uppercase mapping, which is not always one code point.</summary>
@@ -420,11 +438,63 @@ public sealed class TransformedText {
         Rune.ToUpperInvariant(rune).ToString();
 
     /// <summary>The full lowercase mapping.</summary>
-    static string Lower(Rune rune, bool turkic) =>
+    /// <remarks>
+    ///     ⚠ The Lithuanian arm is <i>before</i> the table, for the reason the Turkic ones are: these
+    ///     three code points also have unconditional rows, and the language-tagged mapping is the one
+    ///     that wins where a language says so.
+    /// </remarks>
+    static string Lower(Rune rune, bool turkic, bool lithuanian) =>
         turkic && rune.Value == 'I' ? DotlessSmallI :
         turkic && rune.Value == 0x0130 ? "i" :
+        lithuanian && LithuanianRetainedDot.TryGetValue(rune.Value, out var retained) ? retained :
         SpecialCasingTable.TryLower(rune.Value, out var mapping) ? mapping :
         Rune.ToLowerInvariant(rune).ToString();
+
+    /// <summary>SpecialCasing.txt's three Lithuanian rows that carry a language and no condition.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Lithuanian keeps the dot on a lowercase <c>i</c> when an accent sits above it</b>,
+    ///         so <c>Ì</c> lowercases to <c>i</c> + COMBINING DOT ABOVE + COMBINING GRAVE rather than
+    ///         to the precomposed <c>ì</c>, whose dot the accent has replaced. Written out as three
+    ///         scalars because that is what the mapping is; a font with the precomposed glyph will
+    ///         still reach it through normalisation in the shaper, and one without stacks the marks.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>These three needed neither of the two data tables the rest of the Lithuanian set
+    ///         is blocked on, which is why they are here alone.</b> The <c>lt</c> rows split into two
+    ///         groups that look alike in the file and are not: <c>More_Above</c> (<c>I</c>, <c>J</c>,
+    ///         <c>Į</c>) and <c>After_Soft_Dotted</c> (U+0307) are language-tagged <i>and</i>
+    ///         context-conditional, and their conditions are questions about combining class 230 and
+    ///         the <c>Soft_Dotted</c> property — neither of which any generated table in this
+    ///         assembly carries. These three carry a language and nothing else, so they are a lookup.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And landing them alone is not "half a feature", which is the objection that kept
+    ///         them out.</b> They are disjoint from the conditional rows: implementing them makes
+    ///         these three code points right and leaves <c>I</c>-with-a-mark-above exactly as
+    ///         unimproved as it was, rather than newly wrong. What would have been worse than nothing
+    ///         is <c>More_Above</c> guessed without the combining classes it is defined on.
+    ///     </para>
+    /// </remarks>
+    static readonly Dictionary<int, string> LithuanianRetainedDot = new() {
+        // Ì → i + dot above + grave.
+        [0x00CC] = "\u0069\u0307\u0300",
+
+        // Í → i + dot above + acute.
+        [0x00CD] = "\u0069\u0307\u0301",
+
+        // Ĩ → i + dot above + tilde.
+        [0x0128] = "\u0069\u0307\u0303"
+    };
+
+    /// <summary>Whether a language tag selects the Lithuanian case mappings.</summary>
+    /// <remarks>
+    ///     The primary subtag alone, on <see cref="IsTurkic" />'s terms and for its reasons — the
+    ///     comparison is ordinal because a culture-sensitive one is the trap this whole file is about.
+    /// </remarks>
+    /// <param name="language">The BCP-47 tag.</param>
+    /// <returns>Whether Lithuanian casing applies.</returns>
+    static bool IsLithuanian(string? language) => HasPrimarySubtag(language, "lt");
 
     /// <summary>The full titlecase mapping.</summary>
     /// <remarks>
