@@ -416,4 +416,40 @@ public static class MarkupDiagnostics {
         BindingCategory,
         DiagnosticSeverity.Error
     );
+
+    /// <summary>A capitalised attribute on a lowercase tag, which sets no property.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The tag's case decides what an attribute <i>is</i>, and until this rule nothing
+    ///         said so.</b> On a capitalised tag a parameter becomes <c>n1.AccessibleName = …</c> and
+    ///         Roslyn typechecks it; on a lowercase one it becomes
+    ///         <c>ctx.Attribute(n1, "AccessibleName", "Save")</c>, which reaches the style tree as
+    ///         data a selector can match and nothing else reads. So
+    ///         <c>&lt;div AccessibleName="Save" Focusable="true"&gt;</c> compiled, ran, and did
+    ///         nothing at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The check is the attribute's case, not a lookup of the property.</b> The binder
+    ///         is syntax only — the generator never touches the compilation, which is what keeps a
+    ///         C# edit from re-running it — so there is no list of <c>[UiProperty]</c> names to
+    ///         consult here. What survives is the convention that separates the two intents: a
+    ///         property is PascalCase and a selector-matchable attribute is <c>data-state</c>,
+    ///         <c>role</c>, <c>aria-label</c>. A capitalised name on a plain element is therefore an
+    ///         author who expected an assignment.
+    ///     </para>
+    ///     <para>
+    ///         A warning rather than an error because a capitalised attribute <i>is</i> matchable —
+    ///         <c>[AccessibleName]</c> selects on it — so the reading is legal, merely almost never
+    ///         meant. Lowercase the name to say a selector was the point.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor InertElementAttribute = new(
+        "VXML2020",
+        "The attribute sets no property",
+        "'{0}' on '<{1}>' only adds an attribute a selector can match: a lowercase tag builds a "
+        + "plain element, so nothing assigns '{0}'. Use the capitalised tag of the control that has "
+        + "it, or lowercase the name if a selector is what you meant.",
+        BindingCategory,
+        DiagnosticSeverity.Warning
+    );
 }
