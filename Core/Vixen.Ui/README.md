@@ -39,7 +39,7 @@ top.
 | `UiElement.SetStyle` | Declarations written on an element, for the lengths no stylesheet was given: a splitter's ratio, a virtualised row's position. |
 | `UiDocument.Reparent` | Moving a subtree to a different parent: fresh style slots, the same elements. What docking and drag-and-drop between lists are made of. |
 | `UiElement.Role`, `AccessibleName`, `AccessibleState`, relations | What a screen reader is told: a WAI-ARIA role, a name, a value, a state set, and the pairings the tree does not show. Computed from the control, not stored on it. |
-| `UiDocument.AccessibilityInvalidated` | One coalesced raise per frame when anything above may have changed. |
+| `UiDocument.AccessibilityInvalidated` | One coalesced raise per frame when anything above may have changed — including a change to `ElementState.Checked` or `.Disabled`, which between them carry ticked, selected and open. |
 | Access keys | ⏳ |
 
 ## Focus
@@ -301,6 +301,18 @@ command-transparency branch, the one place the two events deliberately disagree:
 menu cannot have changed which view answers a verb, and it certainly changed what has the focus.
 `Attach`, `Insert` and `Detach` set it too, because the shape of the tree is the one thing no
 property setter could report.
+
+⚠ **And `State` sets it, for two of its seven bits.** It was written here and in the code that a
+computed state — ticked, selected, open — reached a bridge "through the restyle it already causes",
+and that was false: a restyle invalidates the cascade and touches nothing a bridge reads, so a
+consumer that re-read only when told missed every tick of every checkbox. The whole control set
+carries those three meanings on `ElementState.Checked` and greys with `ElementState.Disabled`, so
+masking the setter to those two bits closes it framework-side with nothing stored and no per-control
+callback. `Hover` and `Active` are excluded because they are not announced and would set the flag on
+every frame a pointer moves; the focus bits because `UiDocument.Focus` already raises. ⚠ What is
+still owed is a state computed from a control's *own* field with no style write beside it — a
+half-ticked `CheckBox`, a `MenuItem` whose submenu opened — which calls `InvalidateAccessibility()`
+itself, in one line.
 
 The gate is `Vixen.Ui.Testing.AccessibilitySnapshot`: `Render` for the tree as comparable text, and
 `Unnamed` for the assertion a snapshot cannot make. ⚠ Assert `Unnamed` first — a snapshot of a

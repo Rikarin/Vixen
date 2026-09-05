@@ -836,11 +836,19 @@ public sealed partial class UiDocument {
     ///         attaching or detaching an element; and the focus moving.
     ///     </para>
     ///     <para>
-    ///         What it cannot see is a control's own state changing — a checkbox being ticked is a
-    ///         field on the checkbox, and <see cref="UiElement.NativeAccessibleState" /> reads it on
-    ///         demand rather than being told. Those changes reach a bridge through the restyle they
-    ///         already cause; a control whose accessible view changed without any of that happening
-    ///         says so here, in one line.
+    ///         <b>And a change to the two style-state bits a screen reader announces</b> —
+    ///         <c>ElementState.Checked</c> and <c>ElementState.Disabled</c>, which between them
+    ///         carry ticked, selected, open and greyed for the whole control set. That write is
+    ///         framework-side and is not a mirror: nothing is stored, the flag is set and
+    ///         <see cref="UiElement.NativeAccessibleState" /> is still read on demand.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it still cannot see is a state a control computes from a field of its own
+    ///         with no style write beside it</b> — a half-ticked <c>CheckBox</c>, a <c>MenuItem</c>
+    ///         whose submenu opened, a <c>TreeRow</c> whose node expanded. It was previously claimed
+    ///         here that such changes "reach a bridge through the restyle they already cause"; they
+    ///         do not, and did not — a restyle invalidates the cascade and touches nothing a bridge
+    ///         reads. A control in that position says so here, in one line.
     ///     </para>
     ///     <para>Free to call as often as you like: it sets a flag.</para>
     /// </remarks>
