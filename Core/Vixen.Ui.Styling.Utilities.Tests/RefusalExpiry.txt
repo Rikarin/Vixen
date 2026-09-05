@@ -58,5 +58,6 @@ ring-offset-*	expires-on	Vixen.Ui.Styling.Utilities.UtilityComposition.RingOffse
 rotate-x-*	expires-with	perspective-*
 rotate-y-*	expires-with	rotate-x-*
 scale-z-*	expires-with	perspective-*
+scrollbar-gutter	expires-on	Vixen.Ui.Layout.Overflow.Auto
 select	expires-when-read	user-select
 translate-z-*	expires-with	perspective-*
