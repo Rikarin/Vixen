@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Reflection;
 using Vixen.Core;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.TextureGraph;
@@ -30,18 +31,6 @@ namespace Tests;
 ///     </para>
 /// </remarks>
 public class TextureGraphCompilerTests {
-    /// <summary>The node types this assembly declares, by menu path.</summary>
-    static readonly string[] Paths = [
-        "Analysis/Distance",
-        "Colour/Blend",
-        "Colour/Levels",
-        "Filters/Blur",
-        "Filters/Pixel Processor",
-        "Output/Output",
-        "Source/Noise",
-        "Source/Uniform",
-        "Space/Transform 2D"
-    ];
 
     static NodeTypeRegistry Registry() {
         NodeTypeRegistry registry = new();
@@ -54,12 +43,35 @@ public class TextureGraphCompilerTests {
     static TextureGraphCompiler Compiler(int baseWidth = 256, int baseHeight = 256, int bake = 0) =>
         new(Registry()) { BaseWidth = baseWidth, BaseHeight = baseHeight, BakeLevelOffset = bake, Seed = 41823 };
 
-    /// <summary>Every node type the generator found, so a ninth reaches this file by existing.</summary>
+    /// <summary>Every node type the generator found, so a node reaches the registry by existing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The property is about the <b>generator</b>: a class carrying <c>[Node]</c> must appear
+    ///         in the registry, and the registry must hold nothing else. Both halves matter — a class
+    ///         the generator skipped is a node an author cannot create, and a registration with no
+    ///         class behind it is a menu entry that constructs nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This read the attributes because a written list broke two merges.</b> It was a
+    ///         literal array of menu paths, and it was green on every branch and red on the merge —
+    ///         twice, in two different files, because two slices add nodes to one assembly and neither
+    ///         can see the other. A list of what the code declares, kept beside the code that
+    ///         declares it, is the defect this repository labels; the same move was made for the
+    ///         kernel roll call for the same reason. It cannot pass empty: an assembly with no node
+    ///         at all fails the count below.
+    ///     </para>
+    /// </remarks>
     [Fact]
     public void Every_node_this_assembly_declares_is_registered() {
-        var registry = Registry();
+        var declared = typeof(TextureGraphCompiler).Assembly.GetTypes()
+            .Select(type => type.GetCustomAttribute<NodeAttribute>())
+            .Where(node => node is not null)
+            .Select(node => node!.Path)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
 
-        Assert.Equal(Paths, registry.Types.Select(type => type.Path).Order(StringComparer.Ordinal).ToArray());
+        Assert.NotEmpty(declared);
+        Assert.Equal(declared, Registry().Types.Select(type => type.Path).Order(StringComparer.Ordinal).ToArray());
     }
 
     /// <summary>A graph compiles to a plan a test can read, with no device.</summary>

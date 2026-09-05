@@ -199,33 +199,24 @@ sealed partial class LevelsNode : TextureNode {
     }
 }
 
-/// <summary>Which lattice a <c>Transform 2D</c> reads outside the source.</summary>
-enum TextureTiling {
-    /// <summary>The edge texel is repeated.</summary>
-    Clamp = 0,
-
-    /// <summary>The image repeats.</summary>
-    Wrap = 1,
-
-    /// <summary>It repeats, reflected.</summary>
-    Mirror = 2
-}
-
-/// <summary>How a <c>Transform 2D</c> reads within one sub-sample.</summary>
-enum TextureFilter {
-    /// <summary>The nearest texel.</summary>
-    Point = 0,
-
-    /// <summary>Four, weighted.</summary>
-    Bilinear = 1
-}
-
 /// <summary>Rotate, scale, offset and shear.</summary>
 /// <remarks>
-///     ⚠ <b>Its rotation is in <em>turns</em> rather than radians, and that is the kernel's
-///     decision.</b> An exposed 0…1 parameter covers the circle exactly once, which is what a slider
-///     wants; a node converting to radians here would put the conversion in the one place nobody
-///     reads it back out of.
+///     <para>
+///         ⚠ <b>Its rotation is in <em>turns</em> rather than radians, and that is the kernel's
+///         decision.</b> An exposed 0…1 parameter covers the circle exactly once, which is what a
+///         slider wants; a node converting to radians here would put the conversion in the one place
+///         nobody reads it back out of.
+///     </para>
+///     <para>
+///         ⚠ <b>Its two settings used to name enums declared in this namespace, which shadowed the
+///         assembly's own</b> — <a href="https://github.com/Rikarin/Vixen/issues/727">#727</a>. The
+///         shadowing <c>TextureFilter</c> had two members where
+///         <see cref="TextureGraph.TextureFilter" /> has three, so <c>Box</c> was not a name this
+///         setting would take and the message listing what it <em>would</em> take said so. Deleting
+///         the copies fixes the shadowing and re-opens that hole from the other side, because
+///         <c>Transform2D.rvn</c> treats every non-zero filter as bilinear: <see cref="Compile" />
+///         refuses <c>Box</c> by name rather than silently drawing the bilinear picture under it.
+///     </para>
 /// </remarks>
 [Node("Space/Transform 2D", Preview = true, Summary = "Rotate, scale, offset and shear, with a mip-correct minification.")]
 sealed partial class Transform2DNode : TextureNode {
@@ -233,7 +224,7 @@ sealed partial class Transform2DNode : TextureNode {
     [Setting]
     public string Tiling = "Wrap";
 
-    /// <summary>How a sub-sample reads: <c>Point</c> or <c>Bilinear</c>.</summary>
+    /// <summary>How a sub-sample reads: <c>Point</c> or <c>Bilinear</c>. ⚠ Not <c>Box</c>.</summary>
     [Setting]
     public string Filter = "Bilinear";
 
@@ -283,6 +274,23 @@ sealed partial class Transform2DNode : TextureNode {
         var target = emitter.Write("Out");
 
         if (source < 0) {
+            return;
+        }
+
+        if (filter == TextureFilter.Box) {
+            // ⚠ Refused rather than passed through. `Transform2D.rvn` compares `filter` against 0 and
+            // takes bilinear for everything else, so a `Box` here is a bilinear transform drawn under
+            // the name of a box filter — a plausible picture, and the exact shape of #727's original
+            // defect. A box belongs to `Resample`, whose ratio is known because the target's size is
+            // the whole of its answer — and which has no node yet, for that same reason (#733).
+            emitter.Report(
+                "TG0010",
+                $"'{nameof(Filter)}' is 'Box', and a transform has no ratio to box over — its minification "
+                + "is already mip-correct per texel, which is what it computes instead of asking for a mip. "
+                + "Use Point or Bilinear.",
+                nameof(Filter)
+            );
+
             return;
         }
 
