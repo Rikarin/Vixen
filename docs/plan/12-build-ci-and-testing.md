@@ -298,11 +298,28 @@ same document carries `Vixen.Core` at 0.1 % — a figure that describes neither 
 whenever an unrelated dependency grows. A "per-project coverage" table built from a document's own
 `line-rate` would be that second number.
 
-Still owed and deliberately not attempted here: a floor in the two or three places where "is this line
-reached" is a real question rather than a metric — `Vixen.Ecs`'s query surface, the serializers, and
-the cascade ([#338](https://github.com/Rikarin/Vixen/issues/338)). ⚠️ Whatever lands there should
-almost certainly not be a percentage: the shape that survives this section's own argument is an
-executable claim that a named path is exercised, which is a test, not a threshold.
+**And where "is this line reached" is a real question, the answer is a test.** ✅ The first of the
+three places ([#338](https://github.com/Rikarin/Vixen/issues/338)) is done and is the worked example
+of the shape: `Vixen.Ecs.Tests/QueryAritySweepTests`. `QueryArityGenerator` emits sixteen arities of
+four iteration families over four description builders — its own remarks call it "roughly two thousand
+lines of code whose only variable is a number" — and ⚠️ **the suite was calling exactly one of them**,
+`ForEach<SumHealth, Health>`. The sweep now runs every arity of every family with a closed-form
+expectation (component *i* is visited by the arities above it, once per family per entity), and a
+second test reads the assembly's own IL back and fails naming any generated member nothing calls, so
+the claim survives `MaxArity` moving or a fifth family arriving.
+
+⚠️ **Two sabotages, and the first one is the lesson.** Transposing a column into the wrong parameter
+*does not compile* — the generated `Values<T{i}>()` is type-checked, so the failure mode everyone
+fears is the one the compiler already owns, and an attempt to prove the test that way proves nothing.
+The ones that compile are arithmetic: pinning the column offset to zero (every entity handed the
+first entity's components) and pinning the entity reference (the handle stops advancing beside the
+columns) each go red naming the entity they were given. That is why every component in the sweep
+knows which entity it belongs to.
+
+Still owed, and deliberately not attempted here: the same treatment for **the serializers and the
+cascade**. ⚠️ Whatever lands there should almost certainly not be a percentage either: the shape that
+survives this section's own argument is an executable claim that a named path is exercised, which is a
+test, not a threshold.
 
 ### Coverage of the pyramid
 
