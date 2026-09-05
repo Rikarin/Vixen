@@ -1,0 +1,349 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § 4.7's `Splatter`: `TileSampler`'s machine with the grid taken away — a count, a
+// distribution, and optionally a vector map that says where the instances go.
+//
+// ## ⚠ The count is the bound, and that is the whole of § D7's trade
+//
+// FX-Map is refused, so there is no recursion here and no `while`. What there is instead is
+// `MaxInstances`, a number a reader can multiply: this kernel does at most
+// `MaxInstances · MaxSamples²` pattern taps per output texel, and a plan that asks for more instances
+// than that is **refused by `TexturePlacement.Splatter` on the CPU** rather than quietly given fewer.
+// A graph that genuinely wants a thousand stamps runs four ops and blends them, which costs the same
+// arithmetic and says so in the plan.
+//
+// ⚠ **There is no grid, so there is no search radius, and every instance is examined by every
+// texel.** That is the honest cost of an unstructured scatter written as a gather, and it is why
+// `Tile Sampler` — whose instances are bounded to a neighbourhood — is the node § 4.9's pattern
+// compounds are built out of, with this one for the cases where a lattice would show.
+//
+// ## The field is toroidal, which is what makes both the tiling and the closed form work
+//
+// An instance's offset from a texel is wrapped into ±½ of the image before it is used, so an instance
+// near an edge draws its other half at the opposite edge. Two things follow, and the second is why
+// this kernel can be asserted at all: the output is **seamless when repeated**, and **no instance is
+// ever clipped**, so under `add` the mean of the result is exactly
+// `count · scale² · (the pattern's own mean)` — a closed form with no statistics in it, because the
+// sum of `count` identical stamps has no variance however they landed.
+//
+// ⚠ **Seamless takes two wraps here and the second was missing** —
+// [#709](https://github.com/Rikarin/Vixen/issues/709). The geometry wraps, and the *map lookups* have
+// to wrap too: `placementAmount` can push an instance's centre outside 0..1, the instance is then
+// drawn at `frac(centre)` by the fold, and the mask, size and rotation maps were read at the
+// unwrapped centre where `At` clamps to the border. So an instance moved off the right of the image
+// was modulated by the map's right-hand edge rather than by the map where it actually lands. It is
+// `frac` in `Gather`, and no total can see it: a mean cannot tell *which* instances were drawn.
+//
+// ## Nothing here is a length in texels
+//
+// `scale` is a fraction of the image, the rotations are angles and every other jitter is a fraction of
+// itself, so doc 48
+// § D8's scaling never touches this kernel. ⚠ Which also means `count` is **not** scaled by the bake:
+// a splatter of forty stamps is forty stamps at 1K and at 4K, four times larger in texels each. That
+// is what makes the two bakes one material and it is the opposite of what "density" would mean.
+
+shader Splatter {
+    /// The stamp, read as an atlas of `patternCount` columns. See `TileSampler.pattern`.
+    var pattern: Texture2D
+
+    /// Sampled at each instance's centre: an instance below `maskThreshold` is not drawn.
+    var mask: Texture2D
+
+    /// Sampled at each instance's centre: multiplies its scale, under `sizeMapAmount`.
+    var sizeMap: Texture2D
+
+    /// Sampled at each instance's centre: adds to its rotation, under `rotationMapAmount`.
+    var rotationMap: Texture2D
+
+    /// Where the instances go, under `placementAmount`: red and green are read as a signed offset.
+    ///
+    /// ⚠ **Decoded as `v · 2 − 1`, because a signed quantity in an unorm map is stored as
+    /// `v · 0.5 + 0.5`** — doc 48 § 4.4 names this exact pair as the encoding whose "two conventions
+    /// differ by a factor of two and a sign". A map read without the two moves every instance half as
+    /// far as it says, which reads as a weak effect and not as a wrong one.
+    var placement: Texture2D
+
+    /// How many instances. Refused above `MaxInstances` where the op is built.
+    var count: int = 16
+
+    /// An instance's size as a fraction of the **image**, not of a cell — there are no cells here.
+    var scale: float = 0.25f
+
+    /// How much an instance may randomly shrink, 0..1.
+    var scaleJitter: float = 0f
+
+    /// The rotation every instance starts at, in radians.
+    var rotation: float = 0f
+
+    /// How much an instance's rotation may randomly differ, in **radians**. At 2π it is free.
+    ///
+    /// ⚠ In turns until [#735](https://github.com/Rikarin/Vixen/issues/735), one line below a
+    /// `rotation` in radians. An artist could not see which was which and a node reading the wrong
+    /// one is out by 2π with no error anywhere.
+    var rotationJitter: float = 0f
+
+    /// How much an instance's colour may randomly darken, 0..1.
+    var colourJitter: float = 0f
+
+    /// How many equal-width columns the pattern image holds.
+    var patternCount: int = 1
+
+    /// Non-zero to read coverage from the pattern's alpha rather than its luminance.
+    var alphaCoverage: int = 0
+
+    /// The mask value below which an instance is dropped.
+    var maskThreshold: float = 0f
+
+    /// How much of the size map is mixed into an instance's scale, 0..1.
+    var sizeMapAmount: float = 0f
+
+    /// How much of the rotation map is added to an instance's rotation, in **radians** — the
+    /// map's channel is 0..1 and this is what a full one is worth. #735.
+    var rotationMapAmount: float = 0f
+
+    /// How far the placement map may move an instance, in fractions of the image. 0 ignores it.
+    var placementAmount: float = 0f
+
+    /// 0 max · 1 add · 2 blend. `TileSampler.Accumulate` is where the three are argued.
+    var accumulation: int = 0
+
+    /// How much of each instance reaches the result.
+    var opacity: float = 1f
+
+    /// The op's own seed, already mixed. See `TexturePlan.SeedFor`.
+    var seed: float = 0f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The most instances one op may place.
+    ///
+    /// ⚠ **A correctness ceiling and not a taste**, the argument `Blur.MaxRadius` makes: the loop
+    /// below is bounded by this constant and not by `count`, so a count arriving as a NaN or with
+    /// four zeros typed into it is a slower dispatch rather than a loop no invocation leaves — which
+    /// on a GPU is a device loss and a desktop that stops repainting. The number a reader should
+    /// carry is the product: 256 instances by 16 sub-samples is 4 096 pattern taps for one texel, and
+    /// a bake is modal.
+    const val MaxInstances: int = 256
+
+    /// The most sub-samples per axis, whatever the minification says. `TileSampler`'s number.
+    const val MaxSamples: int = 4
+
+    /// `Random.Multiplier`. Copied for `TileSampler.rvn`'s reason: no kernel here can import.
+    const val Multiplier: uint = 0x2C9277B5u
+
+    /// `Random.Combine`'s odd constant.
+    const val Golden: uint = 0x9E3779B9u
+
+    /// 2^-24 — `Random.InvTwo24`.
+    const val InvTwo24: float = 5.9604645e-8f
+
+    func Hash(value: uint): uint {
+        var state = value
+        state = state ^ (state >> 16)
+        state = state * Multiplier
+        state = state ^ (state >> 16)
+
+        return state
+    }
+
+    func Mix(a: uint, b: uint): uint => Hash(a ^ (b * Golden))
+
+    func ToFloat01(hash: uint): float => float(hash >> 8) * InvTwo24
+
+    func Seeded(): uint => uint(int(max(seed, 0f)))
+
+    /// One of an instance's independent random numbers. `lane` keeps the five uncorrelated.
+    func Draw(instance: uint, lane: uint): float => ToFloat01(Mix(Mix(instance, lane), Seeded()))
+
+    /// One texel of a source, clamped to **that source's** dimensions and never the target's — #618.
+    func Tap(image: Texture2D, x: int, y: int): float4 {
+        val size = image.GetDimensions(0)
+
+        return image.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+    }
+
+    /// A source at a normalised position, bilinear.
+    func At(image: Texture2D, u: float, v: float): float4 {
+        val size = image.GetDimensions(0)
+        val px = u * float(size.x) - 0.5f
+        val py = v * float(size.y) - 0.5f
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Tap(image, x0, y0), Tap(image, x0 + 1, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Tap(image, x0, y0 + 1), Tap(image, x0 + 1, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    /// One instance's stamp, bilinear, **confined to its own column of the atlas**.
+    ///
+    /// ⚠ **A tap that straddles a column boundary is a texel of a neighbouring pattern in the edge
+    /// of every stamp** — [#709](https://github.com/Rikarin/Vixen/issues/709), and `TileSampler.rvn`
+    /// carries the same function and the same reasoning. The atlas coordinate
+    /// `(slot + local.x + 0.5) / patternCount` handed to `At` is arithmetically right and samples
+    /// wrong: at `|local.x| = 0.5` the bilinear pair sits either side of the seam between column
+    /// `slot` and its neighbour. It is invisible at `patternCount` 1, where the clamp to the image is
+    /// the clamp to the column.
+    func Stamp(slot: int, local: float2): float4 {
+        val extent = pattern.GetDimensions(0)
+        val columns = max(patternCount, 1)
+        val wide = max(extent.x / columns, 1)
+        val first = min(slot, columns - 1) * wide
+        val last = first + wide - 1
+
+        val px = float(first) + (local.x + 0.5f) * float(wide) - 0.5f
+        val py = (local.y + 0.5f) * float(extent.y) - 0.5f
+
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val left = clamp(x0, first, last)
+        val right = clamp(x0 + 1, first, last)
+
+        val top = lerp(Tap(pattern, left, y0), Tap(pattern, right, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Tap(pattern, left, y0 + 1), Tap(pattern, right, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    /// How much of a texel one instance covers, from whichever channel carries it.
+    func Coverage(texel: float4): float {
+        if (alphaCoverage != 0) {
+            return texel.w
+        }
+
+        return dot(texel.xyz, float3(0.2126f, 0.7152f, 0.0722f))
+    }
+
+    /// One instance folded into the running result. `TileSampler.Accumulate`, and the same order.
+    func Accumulate(carried: float4, colour: float3, cover: float): float4 {
+        val weight = saturate(cover * saturate(opacity))
+
+        if (accumulation == 1) {
+            return float4(
+                carried.x + colour.x * saturate(opacity),
+                carried.y + colour.y * saturate(opacity),
+                carried.z + colour.z * saturate(opacity),
+                carried.w + weight
+            )
+        }
+
+        if (accumulation == 2) {
+            val mixed = lerp(carried.xyz, colour, float3(weight, weight, weight))
+
+            return float4(mixed.x, mixed.y, mixed.z, carried.w + (1f - carried.w) * weight)
+        }
+
+        val kept = max(carried.xyz, colour * saturate(opacity))
+
+        return float4(kept.x, kept.y, kept.z, max(carried.w, weight))
+    }
+
+    /// Every instance, gathered at one point of the image in normalised coordinates.
+    func Gather(uv: float2): float4 {
+        var carried = float4(0f, 0f, 0f, 0f)
+        val wanted = clamp(count, 0, MaxInstances)
+
+        for (index in 0 .. MaxInstances) {
+            if (index >= wanted) {
+                break
+            }
+
+            val id = uint(index + 1)
+            val placed = float2(Draw(id, 1u), Draw(id, 2u))
+            val push = At(placement, placed.x, placed.y)
+            val centre = placed + (float2(push.x, push.y) * 2f - float2(1f, 1f)) * placementAmount
+
+            // The maps are read at the instance's centre, in the image's own space — and **wrapped**,
+            // because the geometry below is.
+            //
+            // ⚠ `placementAmount` can push a centre outside 0..1 while the field it draws into is
+            // toroidal, so the instance appears at `frac(centre)` and the lookup read the map's
+            // clamped edge instead. That is #709 in `TileSampler.rvn` one file over, arriving here by
+            // a different route: there a cell outside the grid, here an instance pushed out of the
+            // image. An instance whose mask, size or rotation came from the border is not a wrong
+            // picture anywhere a total can see — a mean cannot tell which instances were drawn.
+            val at = float2(frac(centre.x), frac(centre.y))
+
+            if (Coverage(At(mask, at.x, at.y)) >= maskThreshold) {
+                val sized = At(sizeMap, at.x, at.y).x
+                val turned = At(rotationMap, at.x, at.y).x
+
+                // Both modulations shrink and never grow, so an instance's footprint never exceeds
+                // `scale` and the cost of the loop stays what the header claims.
+                val shrink = 1f - saturate(scaleJitter) * Draw(id, 3u)
+                val mapped = 1f - saturate(sizeMapAmount) * (1f - saturate(sized))
+                val size = max(scale, 0.000001f) * shrink * mapped
+
+                val spun = (Draw(id, 4u) - 0.5f) * max(rotationJitter, 0f)
+                val angle = rotation + spun + turned * rotationMapAmount
+                val c = cos(angle)
+                val s = sin(angle)
+
+                // ⚠ Wrapped into ±½ before anything else: this one line is what makes the field
+                // toroidal, and without it every instance within half its own width of an edge is
+                // cut in half — which shows up as a mean that is a few per cent low and as a seam,
+                // and the mean is the half a test can see.
+                val raw = uv - centre
+                val d = raw - float2(round(raw.x), round(raw.y))
+                val local = float2(d.x * c + d.y * s, -d.x * s + d.y * c) / size
+
+                if (abs(local.x) <= 0.5f && abs(local.y) <= 0.5f) {
+                    val slot = min(int(Draw(id, 5u) * float(max(patternCount, 1))), max(patternCount, 1) - 1)
+                    val texel = Stamp(slot, local)
+                    val tint = 1f - saturate(colourJitter) * Draw(id, 6u)
+
+                    carried = Accumulate(carried, texel.xyz * tint, Coverage(texel))
+                }
+            }
+        }
+
+        return carried
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        // How many pattern texels one output texel covers, so a minified stamp is boxed rather than
+        // point-sampled. Uniform across the dispatch, so the loops never diverge.
+        val extent = pattern.GetDimensions(0)
+        val acrossX = max(scale, 0.000001f) * float(size.x)
+        val acrossY = max(scale, 0.000001f) * float(size.y)
+        val footX = float(extent.x) / float(max(patternCount, 1)) / max(acrossX, 1f)
+        val footY = float(extent.y) / max(acrossY, 1f)
+        val samples = clamp(int(ceil(max(footX, footY))), 1, MaxSamples)
+        val step = 1f / float(samples)
+
+        var sum = float4(0f, 0f, 0f, 0f)
+
+        for (jy in 0 .. MaxSamples) {
+            if (jy >= samples) {
+                break
+            }
+
+            for (jx in 0 .. MaxSamples) {
+                if (jx >= samples) {
+                    break
+                }
+
+                val u = (float(coord.x) + (float(jx) + 0.5f) * step) / float(size.x)
+                val v = (float(coord.y) + (float(jy) + 0.5f) * step) / float(size.y)
+
+                sum = sum + Gather(float2(u, v))
+            }
+        }
+
+        target.Store(coord, sum / float(samples * samples))
+    }
+}

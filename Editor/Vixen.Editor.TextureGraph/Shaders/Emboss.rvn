@@ -1,0 +1,85 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § 4.4's `Emboss`: a height read as a relief and lit from one direction, written as a grey
+// about a mid tone.
+//
+//     out = 0.5 + intensity · cos(elevation) · (∇h · (cos angle, sin angle))
+//
+// **Three closed forms, one per parameter, and together they are the whole node.**
+//
+// - A **constant** input is 0.5 everywhere, exactly, because its gradient is zero. That is also what
+//   an `intensity` of zero gives, and it is the assertion that an emboss carries no offset of its
+//   own — a kernel that added a bias would be a picture an artist corrects with a levels node two
+//   steps later and never traces back.
+// - **`angle` reflects.** Adding π to it negates the dot product, so the picture reflects about 0.5:
+//   a texel at 0.5 + k becomes 0.5 − k. An equality either side of a mid tone, over every texel.
+// - **`elevation` at a quarter turn is 0.5 everywhere.** Light straight down the surface normal
+//   casts no directional relief, and `cos(π/2)` is what says so. Nothing else asserts elevation, and
+//   without this a kernel that dropped it would pass every other test here.
+//
+// ## ⚠ The gradient is per unit of **image width**, not per texel, and that is doc 48 § D8
+//
+// A central difference over ±1 texel is a slope in *texels*, and the same relief is half as steep
+// per texel at twice the resolution — so an emboss written the obvious way is a different picture at
+// 4K, which is the § D8 bug with the long fuse in its purest form. Multiplying by the source's own
+// dimensions turns it into a slope per unit of normalised image, which is the same number at every
+// resolution. **So `intensity` is a plain scalar and not a `TexelsAtBase`**: there is no length in
+// this kernel for `TexturePlan.Resolve` to scale.
+//
+// ⚠ **The height is the red channel and never a luminance** — a mask in this graph is an `R8` image
+// and `Load` gives `(r, 0, 0, 1)` for one, so a luminance would be a third of the relief. Every
+// map-reading kernel in § 4.4 reads red.
+
+shader Emboss {
+    var source: Texture2D
+
+    /// Radians from +x towards +y, and +y is down the image.
+    var angle: float = 0f
+
+    /// Radians above the surface. A quarter turn is straight down and flattens the relief entirely.
+    var elevation: float = 0.5f
+
+    /// How steep the relief reads. 0 is a flat mid grey.
+    var intensity: float = 0.1f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// One texel, clamped to the **source's** edge — never the target's.
+    func Tap(x: int, y: int): float4 {
+        val size = source.GetDimensions(0)
+
+        return source.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+    }
+
+    /// The height at one texel: the red channel, for the reason in the header.
+    func Height(x: int, y: int): float => Tap(x, y).x
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val sx = int(floor((float(coord.x) + 0.5f) * float(extent.x) / float(size.x)))
+        val sy = int(floor((float(coord.y) + 0.5f) * float(extent.y) / float(size.y)))
+
+        // A central difference, scaled into slope-per-image-width. See the header: this is what
+        // makes the same relief the same picture at 1K and at 4K.
+        val dhdx = (Height(sx + 1, sy) - Height(sx - 1, sy)) * 0.5f * float(extent.x)
+        val dhdy = (Height(sx, sy + 1) - Height(sx, sy - 1)) * 0.5f * float(extent.y)
+
+        val relief = dhdx * cos(angle) + dhdy * sin(angle)
+        val grey = 0.5f + intensity * cos(elevation) * relief
+        val lit = saturate(grey)
+
+        // The alpha is the source's. An emboss answers about the relief and has no opinion about
+        // coverage.
+        val alpha = Tap(sx, sy).w
+
+        target.Store(coord, float4(lit, lit, lit, alpha))
+    }
+}

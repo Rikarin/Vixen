@@ -1,0 +1,137 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// One ping-ponged step of the jump flood doc 48 § 4.5's `Distance` is built on, and the reason that
+// node is three kernels rather than one.
+//
+// ⚠ **The naive kernel is O(r²) per texel and this is O(log n) dispatches of nine taps.** A radius
+// search over a 256-texel maximum distance is a quarter of a million loads per texel; a jump flood is
+// eleven dispatches of nine, whatever the distance. § 4.5 puts the number at four milliseconds
+// against four seconds at 2K, and the difference is not an optimisation — a bake nobody waits for is
+// a node nobody uses.
+//
+// **The shape is `MinMaxReduce.rvn`'s**, deliberately: a `first` uniform selects between reading the
+// *mask* and reading the previous step's record, so the seeding pass and the flooding passes are one
+// kernel and the plan's op order is what sequences them. Batch 2 established that arrangement for
+// `Auto Levels` and there is no reason for a second one.
+//
+// **What a texel carries: two offsets, in texels, from here to the nearest seed of each class.**
+// `xy` points at the nearest texel that is *in* the mask and `zw` at the nearest texel that is
+// *out* of it — both fields flood in the same dispatch, over the same nine taps, because four
+// channels are there and a second chain would double the cost of the `Both` mode for nothing. So an
+// out-texel's `xy` is its distance to the shape and its `zw` is zero; an in-texel's are the other
+// way round; and `Distance.rvn` reads whichever the mode asks for without ever consulting the mask
+// again.
+//
+// ⚠ **An offset rather than the seed's coordinate, and that is what keeps the record exact.** The
+// only formats a plan can write are `rgba8` and the half-float pair — doc 48 § D5 rules 32-bit float
+// out — and a half is exact on the integers only up to 2048. A seed *coordinate* at 4K is therefore
+// quantised to even texels; an *offset* is bounded by the maximum distance, which is a number the
+// artist chose and `TextureAnalysis.Distance` refuses when it would exceed that ceiling. Nothing
+// here rounds silently.
+//
+// ⚠ **This is the one kernel in the folder whose taps are *skipped* at the edge rather than clamped,
+// and clamping would be a defect rather than a conservatism.** Everywhere else a tap's payload is a
+// colour and the edge texel is the best available answer. Here the payload is a *position*, read
+// relative to the texel it was loaded from — so a clamped tap contributes its neighbour's offset
+// measured from the wrong origin, which is shorter than the truth and therefore wins. The result is
+// a distance field that is too small in a band around the border, which reads as a shape slightly
+// the wrong size.
+
+shader JumpFlood {
+    /// The mask on the first dispatch, the previous step's record on every one after it.
+    var source: Texture2D
+
+    /// Non-zero when `source` is the mask rather than a record.
+    var first: int = 1
+
+    /// The jump, in texels of the image being written. Halves at every dispatch, down to one.
+    var step: float = 1f
+
+    /// What counts as inside the mask, read off the red channel.
+    var threshold: float = 0.5f
+
+    /// How far the field is measured, as a fraction of the image's longer side.
+    ///
+    /// ⚠ **A fraction rather than a `TexelsAtBase` length, which is the opposite of what doc 48 § D8
+    /// asks of a radius, and the reason is that this node is already built per bake.** The number of
+    /// dispatches a jump flood needs is `log2` of the image's *baked* extent, so its op list cannot
+    /// be resolution-independent the way a blur's is — `TextureAnalysis.Distance` is handed the baked
+    /// size and emits the chain for it. Given that, a fraction is what makes the same authored
+    /// distance the same physical distance at both resolutions *and* lets the exactness ceiling above
+    /// be checked on the CPU, where it can be refused.
+    var maxDistance: float = 0.25f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The offset that means "no seed of this class is within reach".
+    ///
+    /// A power of two, so it survives the half-float store exactly, and far enough outside any
+    /// legitimate offset that its square cannot be confused with one. `Distance.rvn` needs no
+    /// separate flag: an unset field is simply further away than the maximum.
+    const val Unset: float = 8192f
+
+    /// One neighbour's record, or its seeding, with no clamp — see the header.
+    func Record(x: int, y: int): float4 {
+        val extent = source.GetDimensions(0)
+
+        if (x < 0 || y < 0 || x >= extent.x || y >= extent.y) {
+            return float4(Unset, Unset, Unset, Unset)
+        }
+
+        val texel = source.Load(int3(x, y, 0))
+
+        if (first == 0) {
+            return texel
+        }
+
+        if (texel.x >= threshold) {
+            return float4(0f, 0f, Unset, Unset)
+        }
+
+        return float4(Unset, Unset, 0f, 0f)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val reach = maxDistance * float(max(size.x, size.y))
+        val ceiling = reach * reach
+        val jump = max(int(step), 1)
+
+        var insideOffset = float2(Unset, Unset)
+        var outsideOffset = float2(Unset, Unset)
+        var insideBest = Unset * Unset
+        var outsideBest = Unset * Unset
+
+        for (dy in -1 .. 1) {
+            for (dx in -1 .. 1) {
+                val toward = float2(float(dx * jump), float(dy * jump))
+                val tap = Record(coord.x + dx * jump, coord.y + dy * jump)
+
+                val toInside = float2(tap.x + toward.x, tap.y + toward.y)
+                val insideDistance = dot(toInside, toInside)
+
+                if (insideDistance < insideBest && insideDistance <= ceiling) {
+                    insideBest = insideDistance
+                    insideOffset = toInside
+                }
+
+                val toOutside = float2(tap.z + toward.x, tap.w + toward.y)
+                val outsideDistance = dot(toOutside, toOutside)
+
+                if (outsideDistance < outsideBest && outsideDistance <= ceiling) {
+                    outsideBest = outsideDistance
+                    outsideOffset = toOutside
+                }
+            }
+        }
+
+        target.Store(coord, float4(insideOffset.x, insideOffset.y, outsideOffset.x, outsideOffset.y))
+    }
+}

@@ -12,6 +12,7 @@ using Vixen.Editor.AssetEditors;
 using Vixen.Editor.AssetEditors.Content;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Assets.Content;
+using Vixen.Editor.Assets.MeshMaps;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Debugger;
@@ -215,6 +216,16 @@ sealed partial class EditorApplication : IDisposable {
     internal ExternalEdits External => external;
 
     readonly ContentTasks content;
+
+    /// <summary>What puts doc 48 § D12's baked mesh maps into the project as ordinary assets.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Held as well as published, because it has two callers and they are different
+    ///     shapes.</b> A plugin resolves <see cref="IMeshMapBaker" /> out of the service list, the
+    ///     way the block-out module resolves <c>IMeshBaker</c>; the editor's own Bake Mesh Maps verb
+    ///     hands this to <c>ContentTasks</c>, which does the arithmetic on a pool thread and calls
+    ///     <c>Write</c> back on the frame thread. Neither could reach it through the other.
+    /// </remarks>
+    readonly ProjectMeshMapBaker meshMaps;
 
     /// <summary>The project's own content, opened the way a player opens a build.</summary>
     /// <remarks>
@@ -713,6 +724,7 @@ sealed partial class EditorApplication : IDisposable {
         // been imported opens as a refusal rather than an exception — see the type — so this is
         // never null and `Assets` is what says whether there is anything to mount.
         projectContent = new(project);
+        meshMaps = new(project);
 
         content = new(project, Shell) {
             // The panel's own rescan, so the browser shows what an import repaired rather than what
@@ -740,6 +752,12 @@ sealed partial class EditorApplication : IDisposable {
             BusyChanged = RefreshBuildPanel
         };
 
+        // ⚠ And the bake panel's result list, which is the one surface a finished bake changes that
+        // a rescan does not. Assigned after the initializer rather than in it, because the hook
+        // reads the object being initialized back — `LastBake` is pulled rather than handed over, so
+        // that a panel opened *after* a bake can still ask what it produced.
+        content.Baked = () => bakeView?.ShowResult(content.LastBake);
+
         // ⚠ Before the panels, because the inspector's asset fields are built by drawers that have
         // to be pointed at a project first. `AssetDrawer` has raised `PickRequested` since it was
         // written and nothing ever listened, so the button in an asset field did nothing at all.
@@ -763,6 +781,10 @@ sealed partial class EditorApplication : IDisposable {
 
         SettingsPanels();
         BuildPanels();
+
+        // And doc 48 § D12's, which is where a mesh-map bake is set up and where what it produced is
+        // read afterwards.
+        MeshMapPanels();
 
         // And E5's four, for the same reason: the Sequencing preset names the scene list.
         WorldPanels();
@@ -1082,6 +1104,13 @@ sealed partial class EditorApplication : IDisposable {
         // ⚠ And the thumbnails, on the frame thread because the device is not thread-safe. The
         // decode happened on the pool; this is the upload.
         thumbnails.Pump();
+
+        // ⚠ Pulled, and it is the one panel in this loop that has to be. What it says depends on the
+        // project *selection*, and `Selection<T>` raises nothing when it changes — so a panel opened
+        // before a model was clicked would sit greyed with "select a model" for ever. The read is a
+        // count and two lookups and the panel writes nothing when the answer has not moved; compare
+        // `BuildRefusal`, which enumerates the project root and is therefore asked on events only.
+        bakeView?.Refresh();
 
         // ⚠ Pulled here rather than subscribed to, and the reason is threading: the sink is written
         // from the pool by a content import and by anything else the editor runs in the background,
@@ -2497,6 +2526,13 @@ sealed partial class EditorApplication : IDisposable {
             .Add(plane)
             .Add<IMeshBaker>(new ProjectMeshBaker(Project))
 
+            // ⚠ And doc 48 § D12's, under its own interface for the reason below. A mesh map is a
+            // measurement of geometry that lands in `Assets/` as a file an artist opens, so a module
+            // that generates or retopologises meshes has the same relationship to it that the
+            // block-out mode has to the mesh baker: it knows what it wants baked and nothing about
+            // where a GUID comes from.
+            .Add<IMeshMapBaker>(meshMaps)
+
             // ⚠ Under the interface, not under the implementation. `PluginServices` keys on the
             // static type it is handed, so publishing this as a `ProjectMeshSource` would mean a
             // module asking for the contract finding nothing — and being refused, correctly and
@@ -2517,6 +2553,15 @@ sealed partial class EditorApplication : IDisposable {
 
             // And what Deploy means, for the half of the editor that can build a player.
             .Add<IDeviceDeploy>(new PlayerDeploy(this))
+
+            // ⚠ And the graphics, which until now were the one thing a plugin could not get at all —
+            // doc 36 § F2's gap, found by the first plugin that draws, and #737.
+            // ⚠ A *view* of the device rather than the device, and #737's own "smallest honest fix is
+            // one line" is refuted by the line above it: this method runs from the constructor and
+            // `GraphicsDevice` is set by the host afterwards, so `.Add(device)` here would publish
+            // null for the life of the process — and `PluginServices.Add` throws on a second publish,
+            // so there is no later moment to correct it in. See `PluginGraphics`.
+            .Add<IEditorGraphics>(new PluginGraphics(this))
 
             // ⚠ And the asset-editor registry, so a module can hear that a document was opened. That
             // used to be `Bound`, a line in this class — see `AssetEditorsModule`.
@@ -3404,7 +3449,7 @@ sealed partial class EditorApplication : IDisposable {
         group.AddSeparator();
         group.Add("assets.rename", "assets.delete", "assets.move-to");
         group.AddSeparator();
-        group.Add("assets.reimport-all", "assets.show-in-explorer");
+        group.Add("assets.reimport-all", "assets.bake-mesh-maps", "assets.show-in-explorer");
 
         return MenuPresenter.Context(Shell.Document, group, Shell.Commands, Shell.Keys);
     }

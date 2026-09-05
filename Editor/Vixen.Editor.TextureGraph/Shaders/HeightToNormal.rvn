@@ -1,0 +1,93 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § 4.6's `Height → Normal`: a Sobel gradient turned into a tangent-space normal.
+//
+// ## ⚠ The green convention, derived rather than chosen
+//
+// § 4.6 says the convention is "whatever `TexturedNormalMapSurface` samples". Following that through
+// the engine gives one answer and no freedom:
+//
+// - `Raven/Library/Material/MaterialSurface.rvn:428` decodes with `Normals.Decode`, which is
+//   `2v − 1` and nothing else — **no green flip anywhere in the sampling path** — and rotates the
+//   result by `d.tangentFrame`.
+// - `Normals.Frame` builds that frame with `bitangent = cross(normal, tangent) * handedness`, and
+//   `Core/Vixen.Geometry.Remeshing/Transfer/MapBaker.cs:789` derives the pair by Lengyel's
+//   construction, whose tangent and bitangent are **the directions `u` and `v` increase in**.
+// - `v` increases *downwards*: a sampled texture's `v = 0` is its top row, which is what
+//   `Transform.rvn`'s `NdcToUv` was corrected to and what every kernel in this folder already
+//   assumes.
+//
+// A height field over that frame is `p(u, v) = uT + vB + hN`, so the surface normal is
+// `cross(∂p/∂u, ∂p/∂v) = (−∂h/∂u, −∂h/∂v, 1)`. **Green is `−∂h/∂v` with `v` pointing down the
+// image, so a height that rises as you move *down* the picture is green below a half.** In the usual
+// naming that is the Y-down (DirectX) convention, and `NormalTransform`'s `flipGreen` is what
+// converts a map authored the other way.
+//
+// ⚠ **This is asserted against a ramp and not claimed in a comment** — `TextureSurfaceDeviceTests`
+// bakes a height that rises downwards and requires green below 128 — because a flipped green is the
+// defect that survives every review: the lighting stays plausible and only looks wrong beside a
+// correct one.
+//
+// ## The gradient is per unit UV, which is what makes the node resolution-independent
+//
+// A Sobel measures a difference per *texel*, and a smooth height field's difference per texel halves
+// every time the image doubles — so the naive kernel produces a flatter normal map at 4K than at 1K
+// from the same graph, which is exactly doc 48 § D8's failure with a different face on it. Dividing
+// by the tap spacing and multiplying by the image's extent turns it into a slope per unit of UV, and
+// a full-range ramp then gives the same normal at every resolution.
+
+shader HeightToNormal {
+    var source: Texture2D
+
+    /// How far the normal is bent. 1 is the true slope of the height field.
+    var intensity: float = 1f
+
+    /// The spacing between the operator's two halves, in texels of the image being written.
+    var width: float = 1f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The furthest the operator may reach, whatever the width says. `Blur.rvn`'s argument.
+    const val MaxWidth: int = 256
+
+    /// One tap's height, clamped to the source's own edge.
+    func Height(x: int, y: int): float {
+        val extent = source.GetDimensions(0)
+
+        return source.Load(int3(clamp(x, 0, extent.x - 1), clamp(y, 0, extent.y - 1), 0)).x
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val spacing = clamp(int(max(width, 1f)), 1, MaxWidth)
+
+        val topLeft = Height(coord.x - spacing, coord.y - spacing)
+        val top = Height(coord.x, coord.y - spacing)
+        val topRight = Height(coord.x + spacing, coord.y - spacing)
+        val left = Height(coord.x - spacing, coord.y)
+        val right = Height(coord.x + spacing, coord.y)
+        val bottomLeft = Height(coord.x - spacing, coord.y + spacing)
+        val bottom = Height(coord.x, coord.y + spacing)
+        val bottomRight = Height(coord.x + spacing, coord.y + spacing)
+
+        val gx = (topRight + 2f * right + bottomRight) - (topLeft + 2f * left + bottomLeft)
+        val gy = (bottomLeft + 2f * bottom + bottomRight) - (topLeft + 2f * top + topRight)
+
+        // The operator's two halves sum to four and the taps straddle two spacings, so the slope per
+        // texel is the raw gradient over eight spacings; the extent turns that into a slope per unit
+        // of UV.
+        val perTexel = 1f / (8f * float(spacing))
+        val slope = float2(gx * perTexel * float(size.x), gy * perTexel * float(size.y))
+
+        val normal = normalize(float3(-slope.x * intensity, -slope.y * intensity, 1f))
+
+        target.Store(coord, float4(normal.x * 0.5f + 0.5f, normal.y * 0.5f + 0.5f, normal.z * 0.5f + 0.5f, 1f))
+    }
+}

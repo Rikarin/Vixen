@@ -153,6 +153,17 @@ sampling feature anybody writes shades a surface with a checker and says nothing
 material's textures never reach the table at all,
 [#493](https://github.com/Rikarin/Vixen/issues/493).
 
+> ⚠ **Landed.** [M11](#m11--the-runtime-layering-gap--075-em--optional-and-separable) closed all of
+> that except height: `TexturedMaterialLayersFeature` takes its weights from a splat map,
+> `TexturedEmissiveFeature` and `TexturedOpacityFeature` exist, `MaterialPairingInventoryTests` reads
+> `Raven/Library` for every shader inheriting `MaterialTextures` and asserts a pairing entry for each,
+> and `AssetMaterialSource.Pair` adds a graph's own `Maps`. **Height is deliberately not built** —
+> parallax, height-blending and true displacement are three different features wearing one name and
+> only the middle one is small, [#615](https://github.com/Rikarin/Vixen/issues/615). ⚠ And a second
+> defect came out with it: nothing registered `MaterialKeys.LayerCount` in
+> `MaterialRenderFeature.PermutationKeys`, so a three-layer material had always resolved the variant
+> compiled for two.
+
 **None of that blocks the authoring tool**, because the tool writes files. It blocks the *optional*
 last phase, [M11](#m11--the-runtime-layering-gap--075-em--optional-and-separable), and it is named
 here so nobody discovers it in the middle of M7.
@@ -220,7 +231,7 @@ being discovered in M9.
 ```
 Editor/Vixen.Editor.TextureGraph   TexturePlan · TextureOp · the evaluator · the [Node] library ·
                                    TextureGraphCompiler : NodeGraphCompiler<TexturePlan> · previews
-        └── Shaders/*.rvn          the 44 compute kernels
+        └── Shaders/*.rvn          § 4.11's 41 kernels + the chain dispatches three nodes need
                                    Holds a device; knows nothing about a project, a document or a panel.
 Editor/Vixen.Editor.Texturing      THE PLUGIN: documents, panels, the layer stack, the brush,
                                    the bake, the asset writes. TexturingModule : IEditorPlugin.
@@ -235,9 +246,9 @@ is the one that makes the rest free:
    headless `vixen texture bake` costs exactly nothing by being an editor assembly — which is the
    fact that usually decides this question the other way.
 2. **A shipped game never evaluates one.** § D4 means the runtime sees PNGs and a `.vxmat`, so putting
-   44 compute kernels and their SPIR-V in `Core/` would grow every build for a capability no build
-   uses. This is doc 40 § D9's decision — *inference is an editor assembly, not a core one* — reached
-   by the same argument for the deterministic half doc 40 left out.
+   forty-odd compute kernels and their SPIR-V in `Core/` would grow every build for a capability no
+   build uses. This is doc 40 § D9's decision — *inference is an editor assembly, not a core one* —
+   reached by the same argument for the deterministic half doc 40 left out.
 3. **`Core/` is the wrong altitude for a device-bound image kernel** whose only consumers are a panel
    and a content-authoring command. `Vixen.Rendering.PostFx` is in `Core/` because a frame draws it;
    nothing in a frame draws this.
@@ -251,11 +262,21 @@ beside its project and diffs the committed module — so the kernels are *gateab
 **four hand-written tuples**, and its own remarks say what a source it does not know about costs:
 *"a source this gate did not know about is a source somebody can edit without recompiling, which is
 exactly the state this whole target exists to make impossible"* — which has already fired once, on
-two divergent copies of `Ui.rvn` that each matched the module beside it. **Forty-four kernels are not
-forty-four more tuples.** M1 makes that half read its folders, which is
+two divergent copies of `Ui.rvn` that each matched the module beside it. **Forty-odd kernels are not
+forty-odd more tuples.** M1 makes that half read its folders, which is
 [#371](https://github.com/Rikarin/Vixen/issues/371)'s and
 [#512](https://github.com/Rikarin/Vixen/issues/512)'s shape a third time, and exit criterion 3 is the
 same assertion one layer up.
+
+✅ **Landed ahead of M1, and the kernels can be written against it.** `EditorSources` is gone:
+`Build.Shaders.cs`'s `DiscoverEditorSources` walks the tree and compiles every `.rvn` with a `.spv`
+for one of its shaders committed beside it, so a kernel dropped into
+`Editor/Vixen.Editor.Host/Shaders` is gated by the next run with no edit to the build
+([#564](https://github.com/Rikarin/Vixen/issues/564)). Two things a kernel author should know: a
+kernel that `import`s a library package is **refused by name**, not skipped — it is not standalone,
+and belongs in `EditorShaders` with its `--source` closure — and the walk's floor is
+`EditorSourceFloor`, which exists so a walk that has gone blind fails rather than deriving an empty
+list and printing success.
 
 ⚠ **The mesh-map bakers are the exception and they stay in `Core/`** — `MapBaker` is already there, it
 is CPU arithmetic with no device in it, and its own guide says it runs at import time inside a content
@@ -336,11 +357,18 @@ common reason for the mismatch is that somebody painted on it.
 ⚠ **This is also the answer to "why not `.sbsar` at runtime".** See
 [What this does not become](#what-this-does-not-become).
 
-### D5. Forty-four atomic kernels, and everything else is a compound
+### D5. Forty-one atomic kernels, and everything else is a compound
 
 The full list is [Part 4](#part-4--the-node-catalogue) and it is not repeated here — a vocabulary
 written down twice is two lists that have to agree, which is the argument `NodeGraph`'s own README
 makes about declaring a port's type beside its field.
+
+⚠ **This heading said forty-four for five batches, and the arithmetic was wrong in the way § 4.11
+describes**: it counted every row of Part 4's tables as a kernel while three of those rows said in
+their own cells that they are not compute shaders. The design is unchanged — the number is a *reading*
+of Part 4 and only ever was — but a heading is what people quote, and this one was quoted into two
+READMEs and a milestone. [§ 4.11](#411-the-count-and-the-claim-it-corrects) is where the correction
+lives.
 
 ⚠ **The kernels are the C#; the several hundred nodes are content.** A `Scratches`, a `Rust`, a
 `Dirt`, a `Metal Edge Wear` is a `.vxtexgraph` in a shipped library folder, authored in the tool,
@@ -401,6 +429,17 @@ questions have one answer.
 ⚠ **And it is testable, which is the point**: bake at 1K and at 4K, downsample the second, and require
 them to agree within a small tolerance. A node that fails that has a resolution bug and no other test
 in this plan would have found it.
+
+⚠ **Two nodes do not keep this promise, and the plan now says so rather than baking them wrong.** A
+node whose op *count* depends on the baked extent — [4.5](#45-analysis--3-kernels)'s `Distance`
+(`log2(n)` ping-ponged dispatches) and `Flood Fill` (a budget chosen against the mask's size), plus
+`Auto Levels`' reduction — is compiled *for one bake*. Re-baking is expressed by building a plan with
+the same `Ops` and a different `BakeLevelOffset`, and doing that to one of these chains leaves too few
+halvings: a distance field wrong at long range, which looks like a soft field rather than like a bug.
+Every op of such a chain therefore carries `TextureOp.EmittedForExtent`, and `TexturePlan.Validate`
+refuses the list at any other extent — [#689](https://github.com/Rikarin/Vixen/issues/689). **The
+honest reading is that a plan is a compiled artefact**: the front end re-emits, and the promise above
+is a promise about the *graph*.
 
 ### D9. A published graph is a node, and its parameters are its ports
 
@@ -495,6 +534,12 @@ the brush feel free and what M9's exit criterion measures.
 and unloading cleanly with `PluginHost.WaitForCollection` reporting no leak.
 
 ⚠ **Two things it will need that no existing module has needed, and finding out is the point.**
+⚠ **It needed four**, and this line stood above a list that had already grown past it. Items 3 and 4
+are the ones worth reading: they are the gaps the design did *not* predict, which is the whole
+argument for building the plugin rather than reasoning about it. The prediction is left as written,
+with this note, because *what was foreseen* and *what was found* are different facts and collapsing
+them into one list would delete the result — but a header that undercounts its own list is how a
+reader stops trusting the rest of the section, which is why it says so here.
 
 1. **A document type.** `.vxtexgraph` and `.vxlayers` need an editor registration, a create-menu entry
    and a thumbnail — and doc 36 § D4's last two rows (`AddSettingsPage`, `AddPreview`) are the two of
@@ -505,6 +550,52 @@ and unloading cleanly with `PluginHost.WaitForCollection` reporting no leak.
    `SceneDocument`, `DrawerRegistry` and `IEditorRegistry` — and not a device. ⚠ **Either a device is
    published through `PluginServices` or a third party cannot write anything that draws**, which is a
    real gap in the extensibility claim and is exactly the kind doc 36 § F2 was written to find.
+
+   ✅ **Closed, and three of the sentences around it were wrong.** `PluginServices` now publishes
+   `IEditorGraphics` and the texture panel evaluates a plan on the editor's device
+   ([#737](https://github.com/Rikarin/Vixen/issues/737)).
+
+   - ⚠ **"One `.Add(device)` line" could not have worked.** `EditorApplication.PluginPoints` runs
+     from the constructor and the host sets `GraphicsDevice` afterwards, when the window can
+     present — and back to `null` on the way down. `PluginServices.Add` throws on a second publish
+     of a type, so there was no moment at which a device could be added. What a plugin can be
+     handed is a **live view**, the shape `IActiveScene` and `IActiveView` beside it already take.
+   - ⚠ **A narrower "lend me a surface and run this on it" was the intended answer and the
+     evaluator refutes it.** `TexturePlanEvaluator` caches one compiled pipeline per kernel and
+     output format across evaluations, so a borrow-per-call would recompile every kernel a plan
+     touches on every preview. A plugin that dispatches its own work needs a device it can *hold*,
+     and nothing narrower expresses that. What is narrowed instead is the way **back** to the
+     screen: `Upload` takes pixels rather than a texture view, because a plugin's image is created
+     for what it dispatches into and a view registered from a storage image is missing `Sampled`
+     and in the wrong layout — which MoltenVK forgives and a discrete card does not.
+   - ⚠ **And a device does not by itself make a plugin able to draw.** `ImageView.Image` is a
+     number the *interface renderer* resolves, and nothing in `IGraphicsDevice` mints one. The
+     upload half is the second member of the contract, and leaving it out would have published a
+     device through which nothing could reach the screen.
+
+3. **A file extension.** ⚠ Not predicted here, and the reason `.vxtexgraph` had no double-click:
+   `AssetEditorRegistry.Add` had no `Remove`, so a plugin claiming an extension could never give it
+   back and its assembly was pinned for the session with no error anywhere. ✅ Closed — `Add` hands
+   back an `IDisposable`, the way `IEditorRegistry.Add` already did
+   ([#739](https://github.com/Rikarin/Vixen/issues/739)).
+
+4. **A public compiler.** ⚠ Also not predicted, and it survived both of the fixes above:
+   `TextureGraphCompiler` was `internal`, so a plugin could register the node library — the generated
+   `NodeTypes.Register` is `public` — and could not turn what an author wired into a plan. The panel
+   therefore evaluated the graph's *base layer* and said so. ✅ The type is `public` now
+   ([#738](https://github.com/Rikarin/Vixen/issues/738)).
+
+   ⚠ **Closing a visibility is not the same as closing a gap, and this one shows the difference.**
+   Nothing in the plugin has been changed to use it: six places in `Vixen.Editor.Texturing` still say
+   the compiler is internal, including a **status line the user reads**, and the preview is still the
+   base layer ([#792](https://github.com/Rikarin/Vixen/issues/792)). This document's own standing
+   warning — that the commonest defect here is a finished thing nothing calls — applies to the fix
+   for it as much as to the feature.
+
+   ⚠ **Four findings from one plugin, three of them unpredicted**, which is the measurement § D14 was
+   written to take. The claim it was testing — that the plugin surface is sufficient for what the
+   editor itself does — is answered *no, and here is the list*, which is worth more than a panel that
+   worked by reaching around the contract.
 
 ### D15. What is deliberately taken from each reference, and what is not
 
@@ -525,16 +616,25 @@ scale-invariance case** — [exit criteria 2–4](#exit-criteria-measured). Ever
 Three rules the whole catalogue obeys:
 
 - **Grey and colour are one port kind, and grey promotes.** `PortKind` gains `Image` — doc 40 § D5
-  asked for `Image` and `Mesh` and neither was added — and grey/colour is a *format* on it. Grey into
-  a colour port splats; colour into a grey port is a type error naming the port. ⚠ This is
-  `DynamicVector`'s widening rule reused rather than a second type system, and it is what stops the
-  library needing a `BlendGrayscale` beside every `Blend`.
+  asked for `Image` and `Mesh` and neither was added. Grey into a colour port splats; colour into a
+  grey port is a type error naming the port. ⚠ This is `DynamicVector`'s widening rule reused rather
+  than a second type system, and it is what stops the library needing a `BlendGrayscale` beside every
+  `Blend`.
+  - ⚠ **This paragraph used to say grey/colour was "a *format* on" the port kind, and that is not
+    where it could live.** A `PortKind` is one enum member shared by three graphs and carries no
+    format at all, so `PortKinds.Accepts` says yes to every image-to-image wire and the rule cannot be
+    stated there. It is `TextureGraphCompiler`'s: `TextureChannels` is the format, a node resolves to
+    the widest thing arriving at its image inputs, a grey feeding one that resolved to colour is
+    splatted by an inserted `ChannelShuffle`, and a colour arriving at a port that *measures* is
+    refused by name. That is the same division `PortKind.Dynamic` already makes — a width resolved by
+    a compiler rather than by the enum — which is why the rule survives the correction unchanged and
+    only its address moves.
 - **Every scalar parameter accepts a Raven expression** over the graph's exposed parameters (§ D6), so
   `amount * 0.5 + rust` is a field rather than eleven nodes.
 - **Every radius, width and length is in texels at the base resolution** (§ D8), and the evaluator
   scales it.
 
-### 4.1 Sources — 8 kernels
+### 4.1 Sources — 6 kernels and two that cannot be
 
 | Node | Out | Parameters | |
 |---|---|---|---|
@@ -544,8 +644,55 @@ Three rules the whole catalogue obeys:
 | **Shape** | grey | disc · square · triangle · paraboloid · gaussian · cone · half-bell · gradation, scale, rotation, falloff | The splatter's usual pattern input. Analytic rather than rasterised, so it is exact at every resolution — which is half of D8's scale-invariance criterion passing for free |
 | **Noise** | grey **+ cell id** | basis: value · gradient · worley · white; octaves, lacunarity, gain, **seed**, tiling | ⚠ One kernel with a **permutation**, because that is how this engine already varies a shader. Worley also outputs F1, F2 and a **cell index** — which is what a splatter wants and what saves a flood fill downstream |
 | **Checker** | grey | scale, rotation, offset | `ComputeColor.rvn:169` has one already, for the shader graph |
-| **Text** | grey | string, font, size, alignment, tracking | ⚠ Nearly free: `Vixen.Ui.Text` shapes, breaks, itemises and rasterises today, and its `Outlines` path is what a 4K texture wants rather than the glyph atlas |
-| **Svg Path** | grey | path data (`d`), fill rule, scale | ⚠ A wrap: `Core/Vixen.Ui/SvgPath.cs` parses path data and `Rendering/PathTessellator.cs` fills it. **A whole `.svg` document — groups, strokes, its own gradients — is not this node**, and is refused |
+| **Text** | grey | string, font, size, alignment, tracking | ⚙️ **Half built.** `TextureText.Rasterize` shapes and fills the string through the `Outlines` path and `TextureUploads.AddCoverage` puts it on the device — closed on an adapter, texel for texel, in `TextureTextDeviceTests`. ⚠ **There is still no node, and the reason recorded here has expired.** It said a node cannot allocate an *external* image ([#732](https://github.com/Rikarin/Vixen/issues/732), shared with `Bitmap`, `Gradient`, `Curve` and `Gradient Map`). That closed: `TextureEmitter.External` exists and all four of those nodes were written on it. So `Text` is now simply **unwritten** rather than blocked, which is a smaller and more actionable thing to say — and worth saying, because a row that keeps citing a closed issue is how work stays unclaimed. ⚠ And it is **not** a kernel — [#687](https://github.com/Rikarin/Vixen/issues/687) — because a compute kernel has no rasteriser and cannot reach a font |
+| **Svg Path** | grey | path data (`d`), fill rule, scale | ⛔ **Refused here, and the reason that was written down first is wrong.** See the measurement below |
+
+⚠ **`Svg Path`'s refusal, re-derived — and the closure argument it rested on does not survive.**
+Batch 5 refused the node on a measurement: `Core/Vixen.Ui`'s project closure at 20 against
+`Vixen.Editor.TextureGraph`'s 17, so an editor-side kernel assembly must not take it. Re-derived over
+every `ProjectReference` in the tree on 2026-09-05, both columns are wrong and the conclusion with
+them:
+
+| | |
+|---|---|
+| `Vixen.Editor.TextureGraph`'s closure | **29** projects — and `Vixen.Ui` and `Vixen.Ui.Text` are already two of them |
+| `Vixen.Ui`'s closure | **14**, a strict subset of those 29 |
+| What naming `Vixen.Ui` would add to `bin/` | **nothing** |
+
+The interface framework arrived with the `Vixen.Editor.NodeGraph` reference M4 could not do without
+(→ `Vixen.Ui.Controls.Advanced` → `Vixen.Ui` → `Vixen.Ui.Text`), and that csproj's own comment
+already says so at length. **So the cost of the reference is not assemblies.**
+
+⚠ **And the wrap really is a wrap.** `PathVerb` and `OutlineVerb` are the *same five verbs* —
+`Move`, `Line`, `Quadratic`, `Cubic`, `Close` — declared as one fixed-size struct per verb, in both
+places, with each file's remarks citing the other's decision. `PathBuilder` → `GlyphOutline` is a
+five-case switch, and `GlyphRasterizer` then fills it exactly as `Text` above is filled.
+
+**What actually refuses it is different, and it is worth keeping:**
+
+- **A compile surface, not an output directory.** `DisableTransitiveProjectReferences` is set here so
+  that what this assembly may *spell* is exactly what it names. `Vixen.Ui.Text` is a leaf — its own
+  closure is one project, `Vixen.Core` — and naming it buys fonts and a scanline fill. Naming
+  `Vixen.Ui` buys `UiElement`, `Signal`, styling, layout and input inside an assembly whose job is a
+  compute plan, and [#720](https://github.com/Rikarin/Vixen/issues/720) exists to make this assembly
+  *less* of a UI assembly rather than more.
+- **Fill rule.** § 4.1 lists one, and `GlyphRasterizer` is non-zero winding only — deliberately, with
+  a reason about counters in an `o` that fonts depend on. Even-odd means changing the only rasteriser
+  in `Vixen.Ui.Text` to take a rule, which moves a `CheckApi` baseline in a `Core/` assembly to serve
+  one editor caller.
+- ⚠ **The third reason was [#732](https://github.com/Rikarin/Vixen/issues/732) and it has gone.** It
+  read: *until an external image can be allocated by a node, an `Svg Path` rasteriser is a second
+  finished thing nothing calls.* A node can allocate one now, so the refusal rests on the two reasons
+  above and not on three. **Saying so matters more than it looks**: a refusal held up by a reason that
+  has since been fixed is how a decision outlives its argument, and the two that remain are about
+  what this assembly may *spell* and about a `Core/` rasteriser's API — neither of which any texture
+  slice will close by accident.
+
+**Where the node should live instead: on the far side of [#720](https://github.com/Rikarin/Vixen/issues/720)'s
+split.** The path is rasterised where a *node* is compiled and never where a *plan* is evaluated, so
+the evaluator half — the one the headless content build loads — never needs `SvgPath` at all. The
+node half is a UI assembly by construction, and `Editor/Vixen.Editor.Texturing` already references
+the stack. [#753](https://github.com/Rikarin/Vixen/issues/753) carries this.
 
 ### 4.2 Colour and channels — 9 kernels
 
@@ -603,12 +750,12 @@ Signed Add.
 are listed in [4.9](#49-the-compound-library--content-not-code). They are the wear-and-dirt knob every
 generator turns, and they are three files rather than three kernels.
 
-### 4.6 Surface — 6 kernels
+### 4.6 Surface — 5 kernels and one CPU solve
 
 | Node | Parameters | |
 |---|---|---|
 | **Height → Normal** | intensity, format | ⚠ **The green convention** is whatever `TexturedNormalMapSurface` samples, asserted by a test against a known ramp rather than claimed by a comment. A flipped green is the defect that survives every review because it looks like lighting |
-| **Normal → Height** | iterations | The Poisson solve doc 40 named. ⚠ **The solver exists**: doc 42 § B1 recorded that there was no sparse linear solver anywhere in the repository and then built one — `Vixen.Geometry.Uv/Solving/ConjugateGradient.cs`, warm-started, with a *fixed iteration budget because a residual test is not deterministic*. A grid Poisson is the easiest client it will ever have. ⚠ It is also the one entry here that is **not** a compute kernel: it runs on the CPU, which is a deliberate exception to D3 and carries a comment saying so |
+| **Normal → Height** | iterations, intensity | ✅ **Built** — `NormalToHeightOperation`, a node, and the first production user of [#688](https://github.com/Rikarin/Vixen/issues/688)'s CPU seam. Doc 42 § B1's `ConjugateGradient` is the solver; ⚠ **it was reachable only by a csproj line** — every type under `Vixen.Geometry.Uv/Solving` is `internal` and had no caller outside that assembly, so this takes an `InternalsVisibleTo` and [#752](https://github.com/Rikarin/Vixen/issues/752) records that the honest fix is an assembly of its own. ⚠ **The answer has mean zero and is therefore signed**: a gradient field fixes a height only up to a constant, and picking it by min-max would make the node depend on one extreme texel. A `Levels` after it is what makes a `[0, 1]` map. ⚠ It is the one entry here that is **not** a compute kernel, by the exception § D3 states |
 | **Normal Combine** | mode | ⚠ Reoriented normal mapping, not whiteout. Whiteout is cheaper and wrong at grazing detail, and the two **agree on the flat case a lazy test would use** |
 | **Normal Transform** | flip green, rotate, renormalise | |
 | **Curvature from Normal** | radius | ⚠ The cheap one, from a height field. **Not** § D12's mesh bake, and the node's own inspector says which a generator should prefer |
@@ -634,6 +781,24 @@ generator turns, and they are three files rather than three kernels.
 ⚠ **There is deliberately no Bake node.** A graph that could bake would drag `EditMesh`, the atlas
 raster and the ray tree into the evaluator. The bake is a command that writes maps; the graph reads
 them by usage.
+
+⚠ **Three of those five turned out not to be node classes in this assembly, and the design is better
+for it.** The row above is the *vocabulary*; where each entry lives is what M4 answered:
+
+- **`Input` and `Sub-graph` are the framework's already.** `Vixen.Editor.NodeGraph` has
+  `SubGraphs.InputType` / `OutputType` — boundary types built per graph rather than registered — and
+  `SubGraphLibrary` turns a published graph into a node type. Writing texture-graph copies of either
+  would have been a second implementation of § D9 that had to agree with the shader graph's.
+- ⚠ **`Material Output` is not needed at all.** The bake takes a dictionary keyed by
+  `MaterialMapUsage`, and every `Output` node already carries a usage — so the grouped node would be
+  a second way of saying the same thing, and the one that could disagree with the first. **A row of
+  this catalogue being deleted by the implementation is the good outcome**, and it is recorded rather
+  than quietly dropped because the argument (one usage per output, resolved at the bake) is the part
+  worth keeping.
+- **`Mesh Map Input` is § D12's** and arrives with the mesh-map front end rather than with M4.
+
+So `Output` is the one `[Node]` class § 4.8 costs, and the count in
+[§ 4.11](#411-the-count-and-the-claim-it-corrects) counts an entry rather than a file.
 
 ### 4.9 The compound library — content, not code
 
@@ -667,12 +832,33 @@ The same catalogue question for the other front end (§ D10), listed here so it 
 
 | | |
 |---|---|
-| Compute kernels | **44** — 8 sources · 9 colour · 5 space · 11 filters · 3 analysis · 6 surface · 2 placement |
-| Node classes | **49** — those, plus the five of [4.8](#48-graph-structure--5-node-classes-no-kernel) |
-| Not a kernel | One: `Normal → Height`, on the CPU, by exception |
+| Compute kernels | **41** — 6 sources · 9 colour · 5 space · 11 filters · 3 analysis · 5 surface · 2 placement. ⚠ **Not 44, and the three that came off are the three rows below.** The arithmetic here counted every row of every table as a kernel while the next row said one of them was not, which is a contradiction inside one table: `Text` and `Svg Path` are § 4.1 rows and neither can be a compute shader, and `Normal → Height` is a § 4.6 row that runs on the CPU |
+| Node classes | **46** — those forty-one, plus the five of [4.8](#48-graph-structure--5-node-classes-no-kernel). ⚠ **This row said 49 after the row above came down to 41 and it did not**, which is the correction moving one number and leaving the sum beneath it: 49 was 44 + 5, and 44 was the count this table exists to refute. It is also an *upper* bound rather than a target — three of § 4.8's five turned out not to be classes in this assembly at all, and the row below says which |
+| Not a kernel | One: `Normal → Height`, on the CPU, by exception — **built**, and declared in `TextureKernels.Cpu.cs` so that the roll calls can name the category rather than reading it as a kernel whose `.rvn` went missing |
+| Not a kernel and not an op | One: `Text`, which is CPU pixels *uploaded* rather than an op of any kind — `TextureText` + `TextureUploads.AddCoverage`. ⚠ It has no node, and no longer for a reason: [#732](https://github.com/Rikarin/Vixen/issues/732) closed and § 4.1's row says what is left |
+| Not a kernel and not built | One: `Svg Path`, refused — the measurement is under [4.1](#41-sources--6-kernels-and-two-that-cannot-be) and [#753](https://github.com/Rikarin/Vixen/issues/753) carries where it should live instead |
 | Shipped compounds | **24 ●** of the ~60 named in [4.9](#49-the-compound-library--content-not-code) |
 
-⚠ **Forty-four is not the reference's twenty-four, and § D7 is the reason.** In Designer every noise
+⚠ **And the numbers above are the plan's, not the tree's — deliberately, and they will not agree.**
+Two structural reasons, neither of which is a shortfall:
+
+- **`Shaders/` holds more `.rvn` files than this table has kernels**, because several catalogue
+  entries are *chains* rather than single dispatches. `JumpFlood`, `FloodBounds`, `FloodResidual` and
+  `MinMaxReduce` have no catalogue row and no node of their own, and never will — how many dispatches
+  a jump flood or a reduction ladder takes is the node's business and not the vocabulary's.
+- **`Nodes/` holds a class the catalogue does not name**: § D6's `Filters/Pixel Processor` is
+  described as a decision rather than as a node, so Part 4 never lists it. It is a node all the same.
+
+⚠ **This document is therefore not where the count is checked, and a snapshot of the tree does not
+belong in it.** `TextureKernelTests.Every_kernel_the_folder_holds_is_embedded` and
+`TextureNodeLibraryTests` read the folder and the registry and reconcile them against each other; a
+dated measurement written here would be a third list, and this paragraph has already been one — it
+said thirty-six nodes and eight unreachable kernels within a batch of both being wrong. The state of
+what is built belongs in `docs/overview.md` and in
+[#577](https://github.com/Rikarin/Vixen/issues/577); this table is the vocabulary they are counted
+against.
+
+⚠ **Forty-one is still not the reference's twenty-four, and § D7 is the reason.** In Designer every noise
 and every pattern is an FX-Map compound; refusing FX-Map's recursion means the *bases* have to be
 kernels. The trade is a larger kernel folder against nodes whose cost is knowable before
 they run — and it is why 4.9's patterns are compounds of `Tile Sampler` rather than of a recursive
@@ -728,19 +914,42 @@ behave.** No graph, no UI, no node classes.
 ### M1 — `Vixen.Editor.TextureGraph`: the plan, the evaluator and its shader gate · 1.25 EM
 
 `TexturePlan`, `TextureOp`, the image pool with liveness-based reuse, the dispatcher, the format rules
-(R8 / RG8 / RGBA8 / R16F / RGBA16F), the resolution rules of D8, and the seed — **plus turning
-`CheckShaders`' `EditorSources` from a hand-kept list into a folder read**, per D1. Tests are device
-tests that name their adapter and skip loudly without one.
+(R8 / RG8 / RGBA8 / R16F / RGBA16F), the resolution rules of D8, and the seed.
+
+⚠ **Two of those five format rows were wrong and the ban on 32-bit float is narrower than it reads.**
+R8 and RG8 cannot be *written*: `Raven/Vixen.Raven/Symbols/ImageFormats.cs` admits sixteen
+storage-image formats and neither is among them, and Vulkan requires neither for `STORAGE_IMAGE`
+either — so `TextureFormats.IsStorable` admits three, and a plan takes an R8 bitmap **in** and
+computes in one of the three. And the 32-bit exclusion is a decision about *material maps* rather than
+a capability: Raven admits `r32f`, `rg32f` and `rgba32f`, the RHI maps all three
+(`Platform/Vixen.Graphics.Vulkan/VulkanFormats.cs`), and `Core/Vixen.Rendering/HiZPyramid.cs` already
+dispatches into an `R32Float` storage image in production. ⚠ [#690](https://github.com/Rikarin/Vixen/issues/690)
+asks for it on behalf of the two § 4.5 kernels that carry a *position* rather than a colour, and its
+own remedy is refuted: both records are **four** channels — `JumpFlood.rvn` stores
+`float4(inside.xy, outside.xy)` and `FloodBounds` stores a min and a max — so the format they want is
+`rgba32f`, not the `r32f` / `rg32f` the issue names. That is a widening with a stated reason (a scratch
+record is never an output and never a material map), and it is **not free**: the memory figure this
+document and the assembly's README both quote is understated by 8×, because an `Rgba16Float`
+intermediate at 4K is 128 MiB and its `Rgba32Float` twin is 256 MiB, and a jump flood ping-pongs two of
+them. So it is admitted with the slice that lifts `TextureAnalysis.ExactExtent`, measured, rather than
+by widening `TextureFormats.Storable` for every kernel in the folder first. ✅ The shader-gate half
+of this milestone — **turning `CheckShaders`' `EditorSources` from a hand-kept list into a folder
+read**, per D1 — landed ahead of it under
+[#564](https://github.com/Rikarin/Vixen/issues/564), so a kernel added here is gated without a build
+edit. Tests are device tests that name their adapter and skip loudly without one.
 
 ### M2 — The atomic kernels, part I · 1.5 EM
 
-[4.1](#41-sources--8-kernels), [4.2](#42-colour-and-channels--9-kernels) and
-[4.3](#43-space--5-kernels) — twenty-two kernels. Every one gets a golden, a closed-form assertion
+[4.1](#41-sources--6-kernels-and-two-that-cannot-be), [4.2](#42-colour-and-channels--9-kernels) and
+[4.3](#43-space--5-kernels) — twenty kernels. Every one gets a golden, a closed-form assertion
 where one exists, a scale-invariance check at ×2, and a sabotage that proves the golden red.
+⚠ This said twenty-two, from § 4.11's old forty-four: `Text` and `Svg Path` are § 4.1 rows and
+neither is a kernel this phase can write.
 
 ### M3 — The atomic kernels, part II · 1.5 EM
 
-[4.4](#44-filters--11-kernels) through [4.7](#47-placement--2-kernels) — twenty-two more, and the four
+[4.4](#44-filters--11-kernels) through [4.7](#47-placement--2-kernels) — twenty-one more (⚠ not
+twenty-two: § 4.6's `Normal → Height` is the CPU exception), and the four
 with real algorithmic content in them: the jump-flooded distance transform, flood fill's label
 propagation, the Poisson solve, and slope blur, which is the one everybody gets subtly wrong.
 
@@ -790,6 +999,9 @@ weights come from a splat map; the completeness test for `WorldRenderer.Paired` 
 [#493](https://github.com/Rikarin/Vixen/issues/493)'s missing wiring. ⚠ **This is owed by doc 06 and
 doc 23 rather than by this document**, it belongs to the renderer, and nothing above it depends on it.
 
+⚠ **Landed, less height** — see the note under [B1](#b1-a-layer-stack-cannot-ship-as-a-live-layered-material--for-the-runtime-path-only).
+Height is [#615](https://github.com/Rikarin/Vixen/issues/615) and is a decision before it is work.
+
 ### Cost
 
 | | EM |
@@ -836,6 +1048,47 @@ plugin host and the asset write already exist, and every one of them would other
 12. **A frame is photographed.** A mesh, textured entirely in the tool, rendered through the real
     `StandardFrame` — because "tests pass" is not evidence for a visual defect, and three wrong-frame
     bugs have shipped past clean counters in this repository already.
+
+### What measuring them for the first time said about the criteria themselves
+
+⚠ **Where the answers live: [#577](https://github.com/Rikarin/Vixen/issues/577), not here.** The
+twelve above are what this document promised; which of them hold today is state, and state belongs in
+the tracking issue and in `docs/overview.md`. A plan that keeps a scoreboard becomes a scoreboard
+nobody updates. What *does* belong here is what the first honest pass over them revealed about the
+criteria as written — because four of them cannot fail, and this repository's own rule is that an
+instrument reporting success on the day it did not run is the first thing to fix.
+
+⚠ **Four are properties of the tests with nothing requiring the next test to have them.**
+
+- **3, a golden per node.** The half that *is* enforced is the half about the library being read
+  rather than listed. "Per node" is not: nothing fails when a node arrives without a golden, so the
+  criterion is satisfied by whatever goldens happen to exist.
+- **4, a sabotage per node.** Sabotage arguments appear across the suites and no mechanism notices a
+  missing one — the same shape as 3, and the more serious of the two, because a golden with no
+  sabotage may be a golden of a black image.
+- **10, "and it references `Vixen.Editor.App` in no build".** ⚠ **The named instrument is the wrong
+  one.** This says `CheckArchitecture`; what actually asserts it is `ModuleReferenceTests`, reading
+  the loaded assembly's references. That is a *better* instrument for the question — a csproj can name
+  a project and touch nothing in it — but a criterion that names a gate which does not check it is a
+  criterion nobody will notice going quiet.
+- **11, a device confirmed by name in every GPU test.** Every device file does it, through one
+  harness, by convention. Nothing enumerates the device files and requires the next one to.
+
+⚠ **And 1 is a threshold nothing gates**: the timing is recorded and printed, and what is asserted is
+a hang check. That is the right call for a wall-clock budget in this repository — a number calibrated
+on an idle machine is its single largest flake source — but then the criterion should say *recorded*,
+because "under 250 ms" reads as a gate and is not one.
+
+**6 and 8 name phases rather than properties**, so they cannot be measured before M7 and M9 exist.
+That is not a failure of the criteria and it is not a result either; it is why the exit criteria are
+counted at the end of the document and not at the end of a batch.
+
+⚠ **The pattern under all of this is one rule, applied to a plan instead of to a test.** Every
+criterion above that says "per node" or "every" is an exact-equality claim over a surface later
+slices grow — and five such roll calls in this workstream have been green on a branch and red on the
+merge. A criterion of that shape has to be *derived* — enumerate the folder, enumerate the registry,
+compare — or carry a named exemption with a reason. Written as prose in a plan, it is satisfied by
+whatever exists on the day somebody reads it.
 
 ---
 
@@ -904,7 +1157,7 @@ forgotten.
 | Output **usages** | ✅ | ✅ | ✅ | ● M5 — § 4.8 |
 | System variables (`$outputsize`, `$randomseed`) | ✅ | — | ✅ | ● M1 — resolution and seed are plan inputs |
 | Absolute vs relative-to-parent resolution | ✅ | — | ✅ | ● § D8 — relative only, with `Crop` and `Resample` as the two exits |
-| 8 / 16 / 32-bit and float formats | ✅ | ✅ | ✅ | ◐ M1 — R8…RGBA16F. **32-bit float is not planned** |
+| 8 / 16 / 32-bit and float formats | ✅ | ✅ | ✅ | ◐ M1 — R8…RGBA16F, of which three can be written. **32-bit float is not a material-map format**; ⚠ it is available in Raven and the RHI today and `rgba32f` is owed to § 4.5's two position-carrying records — [#690](https://github.com/Rikarin/Vixen/issues/690) |
 | Physical size metadata | ✅ | — | ? | 🕓 |
 | A cooked, runtime-parameterised material (`.sbsar`) | ✅ | consumes | ◐ | ✖ § What this does not become |
 | Importing `.sbs` / `.sbsar` | ✅ | ✅ | ✅ | ✖ same — and an importer over the vendor's own tooling is a third-party plugin's business |
@@ -1004,7 +1257,7 @@ forgotten.
 | A stock library of materials, filters and generators | ✅ several hundred | ✅ | ✅ 1000+ | ◐ **24 compounds and 6 smart materials at M10** |
 | Monthly asset drops | — | ✅ | ✅ | ✖ |
 
-⚠ **This is the row no engineering plan closes.** A tool with forty-four kernels and eleven compounds
+⚠ **This is the row no engineering plan closes.** A tool with forty-one kernels and eleven compounds
 is a tool an artist opens once. The references' libraries are years of full-time content authoring,
 they are what people actually buy, and M10's two dozen is a *seed* — enough to prove the atomic set is
 sufficient and to texture the samples, and not enough to compete. Saying so here is cheaper than

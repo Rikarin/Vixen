@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.Texturing.Tests</RootNamespace>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Editor.Ui.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Editor.Texturing\Vixen.Editor.Texturing.csproj" />
+
+        <!--
+            ⚠ The Null backend, and only so that `TexturePreview.Blocking`'s other branch is reachable
+            from a test. Nothing here dispatches anything: the whole point of these tests is what a
+            plugin can and cannot get hold of, and a device published into `PluginServices` by the
+            test is the evidence that the branch which needs one is not dead code waiting on a host
+            change nobody has made.
+        -->
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
+
+        <!--
+            ⚠ And the real backend, because the preview suite dispatches a kernel and reads the
+            texels back. The Null device would make every one of those assertions a claim that a
+            black image equals a black image — `TextureKernelHarness` says the same thing one
+            assembly along. The device tests skip loudly without an adapter, and
+            VIXEN_REQUIRE_VULKAN=1 turns the skip into a failure.
+        -->
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+    </ItemGroup>
+</Project>

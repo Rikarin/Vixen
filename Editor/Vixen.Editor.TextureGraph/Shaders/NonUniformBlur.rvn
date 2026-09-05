@@ -1,0 +1,150 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § 4.4's `Non-Uniform Blur`: a box whose **radius is read from a map**, per texel.
+//
+// ## ⚠ Not separable, and that is why it is a kernel rather than a parameter on `Blur`
+//
+// A separable blur is two passes over one radius. Here the radius belongs to the *output* texel, so
+// an x pass would have to choose a radius before the y pass knew which texel it was serving — the
+// two passes would blur different neighbourhoods and the answer would be neither. **If a future
+// reader finds themselves splitting this into two dispatches, they have changed what the node
+// means**, and the picture that follows is a plausible one: a blur that is slightly wrong in the
+// direction the radius varies, which reads as an artefact of the radius map.
+//
+// The test that says so is the impulse: with a constant radius of one texel, a lit texel spreads
+// over the full 3×3 including the four **diagonal** neighbours, each worth 1/9. A single separable
+// pass leaves the diagonals black.
+//
+// ## The cost, and why the ceiling is smaller than `Blur`'s
+//
+// `Blur` reaches 64 texels because 129 taps per axis is cheap. This one is `(2r+1)²`: at r = 12 that
+// is 625 taps and at 64 it would be 16 641. So `MaxRadius` is 12, and a plan asking for more is
+// reported by `TextureFilters.Verify` rather than silently clamped — which is #678's rule, and it
+// bites here exactly where it was found, because a radius that fits at the authoring resolution is
+// four times larger in a 4× bake.
+//
+// ## What the map is read as
+//
+// ⚠ **The red channel, and never a luminance.** A mask in this graph is an `R8` image and `Load`
+// hands back `(r, 0, 0, 1)` for one — so a luminance would be a third of the mask everywhere, which
+// is a blur a third as wide and a picture nobody would call broken. Every map-reading kernel in
+// § 4.4 reads red for that reason.
+//
+// ⚠ **`maxRadius` arrives in the texels of the image being written** — doc 48 § D8's scaling is
+// `TexturePlan.Resolve`'s and has already happened.
+
+shader NonUniformBlur {
+    var source: Texture2D
+
+    /// The radius map. Its **red** channel, 0..1, scales `maxRadius`.
+    var radiusMap: Texture2D
+
+    /// What a fully lit texel of the map is worth, in texels of the image being written.
+    var maxRadius: float = 4f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The widest box this kernel will build. See the header: the cost is the square of it.
+    const val MaxRadius: int = 12
+
+    /// One texel of the source, clamped to the **source's** edge — never the target's.
+    func Tap(x: int, y: int): float4 {
+        val size = source.GetDimensions(0)
+
+        return source.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+    }
+
+    /// The radius map at an output texel, in its own grid.
+    func Radius(coord: int2): float {
+        val size = target.GetDimensions()
+        val extent = radiusMap.GetDimensions(0)
+        val x = int(floor((float(coord.x) + 0.5f) * float(extent.x) / float(size.x)))
+        val y = int(floor((float(coord.y) + 0.5f) * float(extent.y) / float(size.y)))
+
+        return radiusMap.Load(int3(clamp(x, 0, extent.x - 1), clamp(y, 0, extent.y - 1), 0)).x
+    }
+
+    /// The weight of one axis offset under a fractional radius — 1 inside, the fraction on the rim.
+    func Weight(offset: int, whole: int, partial: float): float {
+        val d = abs(offset)
+
+        if (d <= whole) {
+            return 1f
+        }
+
+        if (d == whole + 1) {
+            return partial
+        }
+
+        return 0f
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val wide = clamp(saturate(Radius(coord)) * max(maxRadius, 0f), 0f, float(MaxRadius))
+        val whole = int(floor(wide))
+        val partial = wide - float(whole)
+
+        // A radius under a tenth of a texel is the texel itself, and taking it here keeps a black
+        // region of the radius map an **exact** copy rather than a copy within a rounding.
+        if (wide < 0.05f) {
+            target.Store(coord, Tap(coord.x, coord.y))
+
+            return
+        }
+
+        val reach = whole + 1
+
+        var sum = float4(0f, 0f, 0f, 0f)
+        var weight = 0f
+
+        for (jy in 0 .. 2 * MaxRadius + 2) {
+            val dy = jy - MaxRadius - 1
+
+            if (dy < -reach) {
+                continue
+            }
+
+            if (dy > reach) {
+                break
+            }
+
+            val wy = Weight(dy, whole, partial)
+
+            if (wy <= 0f) {
+                continue
+            }
+
+            for (jx in 0 .. 2 * MaxRadius + 2) {
+                val dx = jx - MaxRadius - 1
+
+                if (dx < -reach) {
+                    continue
+                }
+
+                if (dx > reach) {
+                    break
+                }
+
+                val w = wy * Weight(dx, whole, partial)
+
+                if (w <= 0f) {
+                    continue
+                }
+
+                // ⚠ One statement per line. A continuation is two statements here.
+                sum = sum + w * Tap(coord.x + dx, coord.y + dy)
+                weight = weight + w
+            }
+        }
+
+        target.Store(coord, sum / max(weight, 0.0001f))
+    }
+}

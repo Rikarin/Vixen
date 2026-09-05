@@ -8,7 +8,7 @@ api: [T:Vixen.Editor.Assets.Models.ModelRetopology, T:Vixen.Editor.Assets.Models
 tags: [editor, importer, cli, blockout, retopology, uv, atlas]
 since: 0.1
 status: preview
-related: [engine/retopology, engine/quad-remeshing, engine/uv-charting, engine/uv-flattening, engine/uv-packing, editor/booleans]
+related: [engine/retopology, engine/quad-remeshing, engine/uv-charting, engine/uv-flattening, engine/uv-packing, editor/booleans, editor/mesh-map-assets]
 ---
 
 ## What it is

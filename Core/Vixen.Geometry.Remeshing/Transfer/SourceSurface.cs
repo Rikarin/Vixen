@@ -49,6 +49,12 @@ sealed class SourceSurface {
     /// <summary>The bounding-box diagonal, which every relative tolerance here is a fraction of.</summary>
     public float Diagonal { get; }
 
+    /// <summary>The box a position map is normalised into.</summary>
+    public BoundingBox Bounds { get; }
+
+    /// <summary>The positions the triangles index, which a per-vertex field is indexed by.</summary>
+    public ReadOnlySpan<Vector3> Positions => mesh.Positions;
+
     SourceSurface(EditMesh mesh, int[] triangles, int[] faceOf, int[] cornerOf) {
         this.mesh = mesh;
         this.triangles = triangles;
@@ -60,6 +66,7 @@ sealed class SourceSurface {
         HasTexCoords = mesh.TexCoords.Length == mesh.CornerCount && mesh.CornerCount > 0;
 
         var bounds = mesh.Bounds;
+        Bounds = bounds;
         Diagonal = mesh.PositionCount > 0 ? Vector3.Distance(bounds.Minimum, bounds.Maximum) : 0f;
     }
 

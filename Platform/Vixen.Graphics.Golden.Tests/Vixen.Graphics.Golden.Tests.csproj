@@ -116,6 +116,20 @@
             the harness rather than a second test.
         -->
         <ProjectReference Include="..\..\Editor\Vixen.Editor.ShaderGraph\Vixen.Editor.ShaderGraph.csproj" />
+
+        <!--
+            Doc 48 § M5's exit criterion 12 — "a mesh, textured entirely in the tool, rendered through
+            the real StandardFrame". The two halves of "the tool" are here and in the reference below:
+            `TexturePlanEvaluator` is what produces the texels, and `MaterialBake` is what packs and
+            encodes them into the files a project ships. Photographing the result needs both in one
+            process with a device, and this is the only project in the tree that has the second.
+
+            ⚠ The same Platform/ → Editor/ edge as the shader graph above, on the same basis:
+            CheckArchitecture refuses it for shipping assemblies and exempts test projects. The
+            alternative is a third copy of Fixture and TierScene.
+        -->
+        <ProjectReference Include="..\..\Editor\Vixen.Editor.TextureGraph\Vixen.Editor.TextureGraph.csproj" />
+        <ProjectReference Include="..\..\Editor\Vixen.Editor.Assets\Vixen.Editor.Assets.csproj" />
     </ItemGroup>
 
     <ItemGroup>

@@ -117,3 +117,28 @@ public sealed partial class TestSettingNode : Node {
     [Output(Name = "Out")]
     public Scalar Out;
 }
+
+/// <summary>A whole raster out, which is what a texture graph's source nodes produce.</summary>
+[Node("Test/Image Source", Summary = "A raster.")]
+public sealed partial class TestImageSourceNode : Node {
+    /// <summary>The raster.</summary>
+    [Output(Name = "Out")]
+    public Image Out;
+}
+
+/// <summary>A raster in and a raster out: a blur, in miniature.</summary>
+/// <remarks>
+///     The pair exists so the generator is exercised over an <c>Image</c> field — a kind with no
+///     lanes and no fields, which is the combination an editor must not read as "draw nothing at
+///     all" for a socket and must read exactly that way for a box of digits.
+/// </remarks>
+[Node("Test/Image Filter", Summary = "A raster in, a raster out.")]
+public sealed partial class TestImageFilterNode : Node {
+    /// <summary>What it reads.</summary>
+    [Input(Name = "In")]
+    public Image Source;
+
+    /// <summary>What it writes.</summary>
+    [Output(Name = "Out")]
+    public Image Out;
+}

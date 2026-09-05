@@ -1,0 +1,93 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// A spline per channel — doc 48 § 4.2's `Curve`.
+//
+// ⚠ **The kernel does not evaluate a spline, and establishing that was half the work.** The editor
+// already has one curve representation and one evaluator for it: `Core/Vixen.Core/Curves/`'s
+// `CurveSample` — a time, a value and two *slopes*, cubic Hermite between neighbours, holding rather
+// than extrapolating outside the ends — with `AnimationCurve` and the animation bake as its two
+// existing callers, and `CurveEditor` as the control that edits it. Its own remark says why it is a
+// static function over a span: *"they must share the arithmetic, because a curve that reads one way
+// in the editor and another in the build is a bug nobody can see until it ships."*
+//
+// **Transcribing Hermite into Raven would be exactly that bug**, and doc 48 § D3 already forbids the
+// mirror image of it. So what reaches the GPU is a **lookup table** baked from the one evaluator —
+// `TextureRamp.FromCurves` — and this kernel interpolates between its entries. A curve control that
+// gains a tangent mode changes one file and this kernel does not move.
+//
+// **The table is one row, RGBA, and each lane is its own channel's curve.** Four rows would be four
+// loads; one row is one load, and the four curves an artist draws are four independent functions of
+// one input rather than of four, which is what a per-channel curve is.
+//
+// ⚠ **Linearly interpolated between entries, not point-sampled.** A 256-entry table point-sampled is
+// a 256-step staircase, and a bake is a file: the banding is permanent. The interpolation is done
+// here with two `Load`s rather than by a sampler because the evaluator binds no samplers — see this
+// folder's README.
+
+shader Curve {
+    var source: Texture2D
+
+    /// The baked table: width entries across, one row, each lane a channel's curve.
+    var curve: Texture2D
+
+    /// How much of the curved result to keep. 0 is the input, 1 is the curve.
+    var amount: float = 1f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// One lane of a float4, by index. A vector is not indexable here.
+    func Lane(value: float4, channel: int): float {
+        if (channel == 0) {
+            return value.x
+        }
+
+        if (channel == 1) {
+            return value.y
+        }
+
+        if (channel == 2) {
+            return value.z
+        }
+
+        return value.w
+    }
+
+    /// The table's value for one channel, interpolated between the two entries either side.
+    func Shape(value: float, channel: int): float {
+        val extent = curve.GetDimensions(0)
+        val last = max(extent.x - 1, 0)
+        val position = saturate(value) * float(last)
+        val low = clamp(int(floor(position)), 0, last)
+        val high = clamp(low + 1, 0, last)
+        val t = position - float(low)
+
+        val a = Lane(curve.Load(int3(low, 0, 0)), channel)
+        val b = Lane(curve.Load(int3(high, 0, 0)), channel)
+
+        return lerp(a, b, t)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val texel = source.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+
+        val shaped = float4(
+            Shape(texel.x, 0),
+            Shape(texel.y, 1),
+            Shape(texel.z, 2),
+            Shape(texel.w, 3)
+        )
+
+        val blend = saturate(amount)
+
+        target.Store(coord, lerp(texel, shaped, float4(blend, blend, blend, blend)))
+    }
+}
