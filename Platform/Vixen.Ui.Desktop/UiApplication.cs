@@ -325,6 +325,43 @@ public sealed class UiApplication : IDisposable {
     /// <summary>The window the application was opened on.</summary>
     public IWindow Window => window;
 
+    /// <summary>Everything the operating system does for this application.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Its absence is what made three finished, six-platform capabilities unreachable
+    ///         from application code.</b> <see cref="Run(UiApplicationOptions)" /> is the only public
+    ///         way to start an application and the constructor is internal by design, so a caller had
+    ///         <see cref="Window" /> and <see cref="Document" /> and no route at all to
+    ///         <see cref="IPlatform.Clipboard" />, <see cref="IPlatform.Dialogs" />,
+    ///         <see cref="IPlatform.Displays" /> or <see cref="IPlatform.Lifecycle" /> — none of which
+    ///         a UI framework can offer from <c>Core/</c>, because <c>Vixen.Platform</c> sits above
+    ///         it. No cut and paste, no file dialogs, no veto on quit, and nothing in the framework
+    ///         to point at as the reason.
+    ///     </para>
+    ///     <para>
+    ///         <b>Where an application reaches it is <see cref="UiApplicationOptions.Started" />,</b>
+    ///         which is handed this object and runs after the interface is built and before the first
+    ///         frame — <see cref="UiApplicationOptions.Configure" /> is offered the document alone
+    ///         and deliberately stays that way, because what it is for is loading sheets and
+    ///         registering types before the content mounts.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read <see cref="IPlatform.Capabilities" /> before using most of it.</b> A
+    ///         headless build has no displays and no pickers, and a Linux session may have no picker
+    ///         either — <c>PlatformExtensions.Pickers()</c> is that question for the one service
+    ///         where the "nothing chosen" answer is indistinguishable from a cancellation.
+    ///     </para>
+    ///     <para>
+    ///         <b>Threading.</b> The platform is owned by the loop thread. Every member of it must be
+    ///         called from there, which for an application using this loop means from
+    ///         <see cref="Started" />, <see cref="Frame" />, <see cref="Stopping" /> or an event
+    ///         handler — not from a continuation that resumed on a pool thread. See
+    ///         <see cref="IPlatform" />, which says why that is the operating systems' restriction
+    ///         rather than one of ours.
+    ///     </para>
+    /// </remarks>
+    public IPlatform Platform => platform;
+
     /// <summary>How many frames have been drawn.</summary>
     public int FrameCount { get; private set; }
 
