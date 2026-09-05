@@ -136,6 +136,12 @@ partial class Build {
     ///         independently and said nothing about the pair. The copy is gone and
     ///         <c>EditorHost</c> calls <c>UiShaderLibrary.Load</c>.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the list no longer has to be remembered.</b> It was four tuples with nothing
+    ///         asserting they were all of them, which is the failure the paragraph above describes
+    ///         waiting to happen a second time — <see cref="CheckSourceInventory" /> walks the tree for
+    ///         every source whose modules are committed and refuses one this list does not name.
+    ///     </para>
     /// </remarks>
     static readonly (string Project, string Source)[] EditorSources = [
         ("Editor/Vixen.Editor.Host", "Line"),
@@ -143,6 +149,65 @@ partial class Build {
         ("Editor/Vixen.Editor.Host", "MeshInstanced"),
         ("Platform/Vixen.Ui.Desktop", "Ui")
     ];
+
+    /// <summary>
+    ///     That <see cref="EditorSources" /> names every source it has to name, and no others.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The gap this closes: the list was four tuples and nothing said they were all of
+    ///         them.</b> The coverage half at the end of this target walks the directories the entries
+    ///         name, so it catches a committed module an entry stopped producing — and cannot catch a
+    ///         source, or a whole project's <c>Shaders</c> directory, that no entry ever mentioned.
+    ///         Both halves have to hold before a drift is actually caught, and only one of them was
+    ///         here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is asserted in both directions, and the second one is the instrument's own
+    ///         check.</b> A walk that goes blind — the root moved, the skip list swallowed a real
+    ///         directory, the parser stopped recognising a <c>shader</c> declaration — returns nothing,
+    ///         and "nothing uncovered" is what a working gate also prints. So every entry has to be
+    ///         *found* by the same walk, which is false the moment it stops walking.
+    ///     </para>
+    /// </remarks>
+    void CheckSourceInventory() {
+        var found = ShaderSourceInventory.WithCommittedModules(RootDirectory);
+        var named = EditorSources
+            .Select(entry => $"{entry.Project}/Shaders/{entry.Source}.rvn")
+            .ToHashSet(System.StringComparer.Ordinal);
+
+        var blind = named
+            .Where(source => !found.Contains(source, System.StringComparer.Ordinal))
+            .OrderBy(source => source, System.StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(
+            blind.Count == 0,
+            "EditorSources names sources this target's own walk of the tree did not find:\n  "
+            + string.Join("\n  ", blind)
+            + "\nEither the source moved and the entry is stale, or the walk is no longer reaching it "
+            + "— and a walk that reaches nothing reports every list complete."
+        );
+
+        var unnamed = found
+            .Where(source => !named.Contains(source))
+            .ToList();
+
+        Assert.True(
+            unnamed.Count == 0,
+            "These Raven sources have compiled modules committed beside them and no entry in "
+            + "EditorSources, so nothing recompiles them and an edit to one can sit in a commit next "
+            + "to a stale binary:\n  "
+            + string.Join("\n  ", unnamed)
+            + "\nAdd an entry, or delete the modules if nothing loads them."
+        );
+
+        Log.Information(
+            "{Count} Raven sources outside the library have committed modules, and EditorSources names "
+            + "every one of them.",
+            found.Count
+        );
+    }
 
     /// <summary>
     ///     Every file of the packages a shader can reach, which is what one compilation has to be.
@@ -237,6 +302,11 @@ partial class Build {
         )
         .DependsOn(Restore)
         .Executes(() => {
+                // ⚠ Before the compiler is built, because this one needs no compiler and the answer to
+                // it is never "regenerate": a source with no entry is a source nothing here compiles,
+                // so `--update-shaders` would rewrite every module except that one and report success.
+                CheckSourceInventory();
+
                 var compiler = RootDirectory / "Raven" / "Vixen.Raven.Cli" / "Vixen.Raven.Cli.csproj";
 
                 DotNetBuild(settings => settings
