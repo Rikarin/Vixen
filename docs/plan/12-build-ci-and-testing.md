@@ -47,7 +47,7 @@ Debug, is not a conclusion about them.
 | `CompileShaderLibrary` | `CheckShaders` — recompiles the shaders whose `.spv` is committed, from their import closure, and reports drift |
 | `GenerateApiBaseline` | `--update-api` on `CheckApi` |
 | `AotSmoke` | `CheckAot` and `CheckAotIos` |
-| `Coverage` | — dropped deliberately; § Coverage below |
+| `Coverage` | ✅ reports line coverage of each test project's own subject assembly and gates on nothing but its own instrument; not on the graph and not in CI. § Coverage below |
 | `Sign`, `Notarize` | — |
 | `PublishAndroid`, `PublishIos` | — `CompileMobile` builds the assemblies; nothing publishes |
 
@@ -75,11 +75,11 @@ item, and `CheckAttribution` is ADR-015's enforcement.
 | `CheckApi` | ✅ `Tools/Vixen.ApiCheck` reads the public surface of every packable assembly out of the built binary and diffs it against `PublicAPI.Shipped.txt` + `PublicAPI.Unshipped.txt` beside the project. Unapproved additions fail, and so do removals — a deleted `public` method compiles perfectly and breaks every consumer, and nothing else in the build would notice. `--update-api` rewrites the unshipped half; shipped API is only ever withdrawn through a `*REMOVED*` line, so a break is a line somebody wrote rather than an absence nobody looked for. Coverage is the RUNTIME profile: `Core/**` and `Platform/**`, non-test, non-generator, packable, `net10.0`. The subject is always the **Release** build, whatever `--configuration` says — a surface is a promise about a shipped package, and the two configurations disagree wherever a `public const` is `#if DEBUG`. See [Tools/Vixen.ApiCheck](../../Tools/Vixen.ApiCheck/README.md) |
 | `CheckFormat` | four passes, cheapest first: the SPDX licence header on every file, `CheckAttributionManifest`, `CheckWhitespaceFormatting`, and then `dotnet format style` and `dotnet format analyzers` with `--verify-no-changes`. ⚠️ **This row used to say the whitespace pass was refused outright.** It is not: the lambda-indentation argument that refused it covers 551 files out of 4 842, and using it to skip the other 4 291 left mis-indentation ungated everywhere. `docs/WhitespaceExempt.txt` carries the exceptions and may only shrink, so a file that becomes clean fails until its line is removed |
 | `CheckWhitespace` / `CheckAttribution` / `CheckStrings` | the three of those passes that are also targets of their own, so each can be run — and watched failing — without the two minute-long `dotnet format` passes. `CheckStrings` fails on a declared string id used nowhere and on a call site that rebuilds an id a declaration class already declares; it is what caught the untranslatable Undo menu item. `CheckAttribution` is ADR-015's enforcement over `docs/manual/third-party.md`. `--update-exemptions` rewrites the whitespace list, and the diff is worth reading: a commit that grows it added mis-indented code |
-| `Test` | xunit v3 over every test project, and the allocation gates run inside it as ordinary tests. Passes `.runsettings`, which exists solely to set environment that has to be in place *before* the process starts (see below). ⚠️ **Collects no coverage and enforces no floor, and this row used to say it did both** — see § Coverage below for why `Coverage` is off the graph rather than owed |
+| `Test` | xunit v3 over every test project, and the allocation gates run inside it as ordinary tests. Passes `.runsettings`, which exists solely to set environment that has to be in place *before* the process starts (see below). ⚠️ **Collects no coverage and enforces no floor, and this row used to say it did both** — the collector lives in the separate `Coverage` target, which reports and does not gate; § Coverage below says why the floor is refused rather than owed |
 | `GoldenImages` | ✅ renders the fixture suite on the local backend — lavapipe on the Linux leg, MoltenVK on macOS — and compares it with the committed references; writes the rendering, the reference and a diff into `artifacts/golden-diff/` on failure, which CI uploads. `--update-golden` rewrites the references. The fixtures also run under `Test`, so a wrong picture fails an ordinary build; the separate target exists for the diffs and the switch. |
 | `CheckAot` / `CheckAotIos` | `PublishAot` + `PublishTrimmed` of a probe that roots the runtime assemblies; **any IL2xxx/IL3xxx warning fails**. ⚠️ **Two targets and not one `AotSmoke`**, because iOS is the NativeAOT-only platform and `CheckAotIos` `.Requires` macOS — a single target would have been silently half a gate on every other runner. ⚠️ The probe roots 29 of 95 runtime assemblies rather than all of them ([#506](https://github.com/Rikarin/Vixen/issues/506)) |
 | `Benchmark` | BenchmarkDotNet over `Benchmarks/*`, then judged against `Benchmarks/baseline.json`: **any** allocation growth fails, a mean more than 10 % above the baseline fails only under `--gate-timing`, and a benchmark that is in the baseline and did not run fails too. ⚠️ **There is no committed baseline yet, and the target therefore fails rather than passing** — a comparison with nothing to compare against is the shape of a gate that did not run, and this row described one for as long as it had described anything. `--update-baseline` writes the file, stamped with the machine, the runtime, the BenchmarkDotNet version and the commit out of BenchmarkDotNet's own `HostEnvironmentInfo`; `--report-only` asks for numbers without a verdict. The comparison alone, over whatever is already in `artifacts/benchmarks`, is `CheckBenchmarks` |
-| `Pack` | produces every NuGet package, then opens some of them. ⚠️ **There is no expected-files manifest and this row used to claim one** — a table of required entries per package is still owed ([#337](https://github.com/Rikarin/Vixen/issues/337)), and a package that silently stops shipping its native asset is still the failure mode it would catch. What exists is three checks, each written from a failure that had already happened or from an obligation that cannot be satisfied by memory: `CheckApacheObligations` opens **every** package and asserts the Apache-2.0 licence expression in its manifest and a non-empty `NOTICE` at its root (ADR-015); `CheckStyleGenIsShippable` names the four files `Vixen.Ui.Styling.Utilities` must carry for its `tools/` to start; `CheckCliIsShippable` extracts `Vixen.Sdk` and **runs** the CLI out of it. All three are reachable alone as `CheckPackages`, over whatever is already in `artifacts/packages` — an instrument nobody can run alone is one nobody has watched fail |
+| `Pack` | produces every NuGet package, then opens every one of them. Four checks, each written from a failure that had already happened or from an obligation that cannot be satisfied by memory: `CheckApacheObligations` asserts the Apache-2.0 licence expression in each manifest and a non-empty `NOTICE` at its root (ADR-015); `CheckPackedToolsAreComplete` is the **expected-files manifest** this row asks for — ⚠️ **the manifest is the tool's own `.deps.json`**, so every assembly in the closure and every `runtimes/<rid>/native/` payload it names has to be in the package, and nothing is hand-maintained (`build/PackageContents.cs`); `CheckStyleGenIsShippable` names the five files `Vixen.Ui.Styling.Utilities` must carry for its `tools/` to start; `CheckCliIsShippable` extracts `Vixen.Sdk` and **runs** the CLI out of it. All four are reachable alone as `CheckPackages`, over whatever is already in `artifacts/packages` — an instrument nobody can run alone is one nobody has watched fail. Still owed: `PackageValidation` ([#337](https://github.com/Rikarin/Vixen/issues/337)) |
 | `PublishEditor` | per-RID single-file publish of `Vixen.Editor.App`; `.app` bundle + `.dmg` on macOS, AppImage on Linux, MSI/zip on Windows |
 | ~~`Sign` / `Notarize`~~ | ⚠️ **Not built.** codesign + notarytool on macOS and Authenticode on Windows are still what a signed editor build needs; nothing in `build/` does either, and `PublishEditor` produces an unsigned bundle |
 | `Docs` | ⚠️ **Superseded by [25](25-documentation-generator-and-site.md)**: `Vixen.DocGen` over Roslyn source symbols + `docs/guide`, built into the Angular site in `www/` and shipped as an nginx image of static assets. `CheckDocs` is its gate — coverage, links and compiled examples — and sits beside `CheckApi` |
@@ -255,13 +255,13 @@ files.
   the file — but the report a human opens to find out *which* test is the entire point of producing
   one.
 
-### Coverage, and why there is no `Coverage` target
+### Coverage, reported and not gated
 
-⚠️ **Dropped from the target graph deliberately, not left owed.** This document used to put `Coverage`
-on the graph after `Test` and to say the `Test` row *"enforces per-project coverage floors"*. Neither
-was ever built: nothing in the repository references a collector, `.runsettings` configures none, and
-there is no such target. What follows is the decision that replaces those two sentences, so that the
-absence is a choice somebody can argue with rather than a hole nobody noticed.
+⚠️ **The floor is refused; the report is a separate target and off the graph.** This document used to
+put `Coverage` on the graph after `Test` and to say the `Test` row *"enforces per-project coverage
+floors"*. Neither was ever built. What follows is the decision that replaces those two sentences, so
+that the refusal is a choice somebody can argue with rather than a hole nobody noticed — and then the
+half of it that is not refused.
 
 A percentage gate over ~180 projects fails all three of this repository's tests for an instrument:
 
@@ -280,11 +280,29 @@ claims* rather than metrics — the allocation gates above, the conformance suit
 `CheckStrings`, the golden images — each of which fails on a described defect rather than on a number
 drifting downwards.
 
-What is still worth having, and is owed rather than refused, is coverage **reported** per project with
-no gate attached, plus a floor in the two or three places where "is this line reached" is a real
-question rather than a metric — `Vixen.Ecs`'s query surface, the serializers, and the cascade
-([#338](https://github.com/Rikarin/Vixen/issues/338)). A report cannot pass for the wrong reason,
-because nothing passes on it.
+**The report is not the gate, and it is built.** ✅ `Coverage` (`build/Build.Coverage.cs`) runs the
+collector `Microsoft.NET.Test.Sdk` already carries — `--collect "Code Coverage;Format=cobertura"`, no
+new package and no restore — one assembly at a time, and writes `artifacts/coverage/coverage.md`.
+`--coverage-project` aims it, because instrumentation multiplies a run's cost and nothing in CI runs
+this.
+
+⚠️ **It gates on nothing about the number and on exactly one thing about itself.** A run that produced
+no cobertura document did not measure zero — it did not measure — so a missing document fails by name,
+a `--coverage-project` matching nothing fails, and a suite whose report does not name its own subject
+assembly fails. That last one is a finding about the suite rather than a number about the assembly.
+
+⚠️ **The number reported is the subject assembly's, not the run's, and that is most of what makes it
+worth reading.** Measured on this machine: `Vixen.Graphics.Null.Tests` covers **80.8 %** of
+`Vixen.Graphics.Null` (2 960 of 3 664 lines) and **32.6 %** of everything the run loaded, because the
+same document carries `Vixen.Core` at 0.1 % — a figure that describes neither project and moves
+whenever an unrelated dependency grows. A "per-project coverage" table built from a document's own
+`line-rate` would be that second number.
+
+Still owed and deliberately not attempted here: a floor in the two or three places where "is this line
+reached" is a real question rather than a metric — `Vixen.Ecs`'s query surface, the serializers, and
+the cascade ([#338](https://github.com/Rikarin/Vixen/issues/338)). ⚠️ Whatever lands there should
+almost certainly not be a percentage: the shape that survives this section's own argument is an
+executable claim that a named path is exercised, which is a test, not a threshold.
 
 ### Coverage of the pyramid
 
@@ -370,12 +388,12 @@ afford.
 
 ### Test infrastructure worth building early
 
-⚠️ **Four of the five are still unwritten, and the sequencing this section used to state is refuted by
+⚠️ **Three of the five are still unwritten, and the sequencing this section used to state is refuted by
 the tree.** `TestApp` was specified as a Phase 1 item that *"every later phase depends on"*. Every
 later phase shipped without it: 178 test projects, twenty-three suites of allocation gates and the golden
-suite exist, and nothing anywhere names the type. So the dependency was never real — what these four
-would buy is arrangement code deleted, not tests made possible, and they are worth building on that
-argument rather than on a blocking one. They are tracked as
+suite exist, and nothing anywhere names the type. So the dependency was never real — what the
+remaining three would buy is arrangement code deleted, not tests made possible, and they are worth
+building on that argument rather than on a blocking one. They are tracked as
 [#336](https://github.com/Rikarin/Vixen/issues/336).
 
 - **`TestApp`** — an in-process engine host with the Null backend, an in-memory VFS, a fake clock, and a
@@ -385,11 +403,23 @@ argument rather than on a blocking one. They are tracked as
   the same failure as `--vixen-capture`'s, one layer up. `Vixen.App.Hosting`'s `AppBuilder` is the
   precedent to copy: an `AppBuilder` with no backend installed **refuses to build, by name**, rather
   than falling back to a headless one.
-- **`RecordingBackend`** — the Null backend's structured command log with a fluent assertion API
-  (`log.ShouldContainDrawIndexed(count: 36).AfterBinding(pipeline: "Opaque"))`. ⚠️ The log itself is
-  built and heavily used — `Vixen.Graphics.Null` has `CommandRecorder` and `RecordedCommand`, and
-  sixty-nine test files read them. What is missing is only the assertion vocabulary, so each of those
-  sixty-nine spells out its own LINQ over the command list.
+- **`RecordingBackend`** — ✅ the Null backend's structured command log with a fluent assertion API,
+  in [`Testing/RecordingBackend.cs`](../../Testing/RecordingBackend.cs), linked into a test project
+  the way `Measured` is. ⚠️ The recording half was never missing: `Vixen.Graphics.Null` has
+  `CommandRecorder` and `RecordedCommand` and seventy-odd test files read them, so what landed is the
+  vocabulary — `log.ShouldContainDrawIndexed(36).AfterBinding(pipeline)` — and the name is the
+  document's rather than the thing's.
+
+  **Two of its rules exist because the hand-rolled form gets them wrong, and both are proved red in
+  `RecordingBackendTests`.** ⚠️ `ShouldNotContain` **fails on an empty log** rather than passing: a
+  device built without `Record = true`, or a frame that threw before it drew, satisfies every
+  `Assert.Empty(log.OfKind(…))` in a suite, which is a green report on a frame that never ran — the
+  Null-device trap one layer up. And the ordering assertions hang off a **cursor that exists only
+  because a match was found**, because the tree's usual form is
+  `stream.FindIndex(c => c.Kind == BindDescriptorSet) < stream.FindIndex(c => c.Kind == Draw)`, and
+  `FindIndex` returns −1 for a call that never happened — so "it bound before it drew" is green when
+  nothing bound anything. `AfterBinding` asks which pipeline was *in force*, not whether the one named
+  appears somewhere earlier.
 - **`GoldenFile`** — the snapshot helper: reads/writes under `__golden__/`, honours `--update-golden`,
   produces a readable unified diff on mismatch. ⚠️ Nothing writes `__golden__/`, and the suites that
   need the behaviour each grew their own: `VIXEN_UPDATE_GOLDEN` in

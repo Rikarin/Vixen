@@ -1,0 +1,21 @@
+<Project>
+
+  <!--
+    Vixen — the assertion vocabulary over the Null backend's command log, linked rather than
+    referenced, on the same argument as Vixen.Testing.props beside it.
+
+    A SECOND FILE rather than another Compile item in that one, because that one is imported by
+    projects with no graphics reference at all — Vixen.Ai.Tests, Vixen.Physics.Tests,
+    Vixen.Core.Threading.Tests. RecordingBackend.cs names CommandRecorder, so linking it into those
+    would be a build error in return for nothing. The split is by what the file needs, not by what
+    it is for.
+
+    Consumers need a `using Vixen.Testing;`, a ProjectReference to Platform/Vixen.Graphics.Null, and
+    xunit.v3 — which is the whole set of projects that could use it anyway.
+  -->
+
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)RecordingBackend.cs" Link="Testing\RecordingBackend.cs" />
+  </ItemGroup>
+
+</Project>

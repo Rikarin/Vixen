@@ -268,6 +268,17 @@ public sealed class VixenApplication : IDisposable {
         // check rather than an assertion.
         console = Services.Graphics?.Overlays?.Find("console") as ConsoleOverlay;
 
+        // docs/plan/17 Q5b's second surface, found the same way and for the same reason. Set once
+        // rather than per frame: a mount does not become loose halfway through a run, and the panel
+        // holds the flag rather than reading it.
+        //
+        // ⚠ The log line above is not enough on its own. It says so in a file nobody attaches to a
+        // bug report; this says so in the screenshot they do attach, which is what makes "the trade
+        // is deliberate and visible" true of the second reader as well as the first.
+        if (Services.Content.IsLoose && Services.Graphics?.Overlays?.Find("stats") is FrameStatsOverlay stats) {
+            stats.LooseContent = true;
+        }
+
         clock.Start();
         lastTimestamp = Stopwatch.GetTimestamp();
     }
@@ -483,9 +494,12 @@ public sealed class VixenApplication : IDisposable {
     ///     may be pointed at loose content and <em>refuses to let it be quiet about it</em>: the
     ///     invariant "release reads only bundles" is being weakened deliberately, and the trade is
     ///     only acceptable while it is visible. Once at startup is not visible — a build left running
-    ///     overnight in a QA lab scrolled that line away hours ago — so it repeats every minute. The
-    ///     overlay and crash-report stamps doc 17 also asks for arrive with the things that have
-    ///     them.
+    ///     overnight in a QA lab scrolled that line away hours ago — so it repeats every minute.
+    ///     <para>
+    ///         This is the surface a log carries. The one a screenshot carries is
+    ///         <see cref="FrameStatsOverlay.LooseContent" />, stamped in <see cref="Initialise" />.
+    ///         The third — the crash report — waits on crash reports existing at all (#331).
+    ///     </para>
     /// </remarks>
     void WarnAboutLooseContent() {
         if (!Services.Content.IsLoose) {

@@ -3,6 +3,7 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Graphics.Null;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.Graphics.RenderGraph.Tests;
@@ -875,15 +876,20 @@ public sealed class RenderGraphTests : IDisposable {
         // the point of it being a shipping backend: a server that never submits accumulates nothing.
         device.GraphicsQueue.Submit([list]);
 
-        var commands = device.Recorder!.Commands;
+        var log = device.Log();
 
-        Assert.Equal(2, commands.Count(command => command.Kind == RecordedCommandKind.BeginRenderPass));
-        Assert.Equal(2, commands.Count(command => command.Kind == RecordedCommandKind.EndRenderPass));
-        Assert.Equal(2, commands.Count(command => command.Kind == RecordedCommandKind.Draw));
+        log.ShouldContain(RecordedCommandKind.BeginRenderPass, 2);
+        log.ShouldContain(RecordedCommandKind.EndRenderPass, 2);
+
+        // Which draw belongs to which pass, rather than that there were two of them: the shadow pass
+        // draws three vertices and the main pass six, and a graph that ran the second one twice
+        // satisfies a count of two.
+        log.ShouldContainDraw(3).Before(RecordedCommandKind.EndRenderPass);
+        log.ShouldContainDraw(6).After(RecordedCommandKind.BeginRenderPass);
 
         // Every barrier is outside a pass. The Null backend refuses one inside, which is what a real
         // backend's validation layers would say too — so this passing at all is the assertion.
-        Assert.True(commands.Count(command => command.Kind == RecordedCommandKind.Barrier) >= 3);
+        Assert.True(log.CountOf(RecordedCommandKind.Barrier) >= 3);
 
         device.EndFrame();
     }

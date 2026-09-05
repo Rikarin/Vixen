@@ -21,4 +21,7 @@
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
     </ItemGroup>
+
+    <!-- RecordingBackend, the assertion vocabulary over the command log. See Testing/Vixen.Testing.RecordingBackend.props. -->
+    <Import Project="..\..\Testing\Vixen.Testing.RecordingBackend.props" />
 </Project>

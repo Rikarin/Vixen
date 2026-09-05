@@ -1065,6 +1065,7 @@ partial class Build : NukeBuild {
                 );
 
                 CheckApacheObligations();
+                CheckPackedToolsAreComplete(everyPackageExpected: true);
                 CheckStyleGenIsShippable();
                 CheckCliIsShippable();
             }
@@ -1075,7 +1076,7 @@ partial class Build : NukeBuild {
     ///     <c>artifacts/packages</c>.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Not a second implementation — it calls the same three methods</b>, and it exists for
+    ///     ⚠ <b>Not a second implementation — it calls the same four methods</b>, and it exists for
     ///     the reason <see cref="CheckAttribution" /> exists: a check reachable only through a target
     ///     that packs the whole solution is a check nobody has watched fail, and one nobody has
     ///     watched fail is indistinguishable from one that cannot. Delete a <c>NOTICE</c> out of a
@@ -1090,10 +1091,101 @@ partial class Build : NukeBuild {
         .Description("Checks the packages already in artifacts/packages, without packing")
         .Executes(() => {
                 CheckApacheObligations();
+                CheckPackedToolsAreComplete(everyPackageExpected: false);
                 CheckStyleGenIsShippable();
                 CheckCliIsShippable();
             }
         );
+
+    /// <summary>
+    ///     Asserts that every package shipping a <c>tools/</c> carries everything that tool's own
+    ///     <c>.deps.json</c> says it needs — the assembly closure, flat, and every per-RID native
+    ///     payload.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         This is doc 12's <i>"validates package contents against an expected-files manifest"</i>,
+    ///         with the manifest being the one the build already writes rather than one kept up to
+    ///         date by hand. <see cref="PackageContents" /> carries the reasoning and the two things
+    ///         it deliberately does not require.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The guard is against having checked nothing.</b> A package with no <c>tools/</c>
+    ///         is not examined at all, so a directory of ordinary libraries would otherwise pass this
+    ///         while asking no question — the shape of every gate this repository has caught reporting
+    ///         success on the day it did not run. Under <see cref="Pack" />, which packs the whole
+    ///         solution and therefore always produces both tool packages, examining none of them is a
+    ///         failure; under <see cref="CheckPackages" />, which asserts about whatever somebody left
+    ///         in the directory, it is reported as a skip.
+    ///     </para>
+    /// </remarks>
+    /// <param name="everyPackageExpected">Whether the run packed the whole solution.</param>
+    void CheckPackedToolsAreComplete(bool everyPackageExpected) {
+        var packages = PackagesDirectory.GlobFiles("*.nupkg")
+            .Where(file => !file.Name.EndsWith(".symbols.nupkg", StringComparison.Ordinal))
+            .OrderBy(file => file.Name, StringComparer.Ordinal)
+            .ToList();
+
+        if (packages.Count == 0) {
+            Log.Information("No packages were produced; skipping the packed-tools check");
+
+            return;
+        }
+
+        var problems = new List<string>();
+        var examined = 0;
+        var verified = 0;
+
+        foreach (var package in packages) {
+            using var archive = ZipFile.OpenRead(package);
+
+            var report = PackageContents.Check(
+                package.Name,
+                archive.Entries.Select(entry => entry.FullName),
+                path => archive.GetEntry(path)!.Open()
+            );
+
+            if (!report.ShipsTools) {
+                continue;
+            }
+
+            examined++;
+            verified += report.Verified;
+            problems.AddRange(report.Problems);
+        }
+
+        Assert.True(
+            problems.Count == 0,
+            $"{problems.Count} packed tool(s) are missing files their own .deps.json names:"
+            + Environment.NewLine
+            + "  "
+            + string.Join(Environment.NewLine + "  ", problems)
+            + Environment.NewLine
+            + "Both tool packages are packed by path from a project's bin/, so packing has to follow "
+            + "a solution build — and a per-RID native that stopped being restored is invisible to "
+            + "CheckCliIsShippable, which starts the tool on the machine whose RID is present."
+        );
+
+        if (examined == 0) {
+            Assert.False(
+                everyPackageExpected,
+                $"none of the {packages.Count} packages produced by a solution-wide pack ships a "
+                + "tools/, so this check asked no question. Vixen.Sdk and "
+                + "Vixen.Ui.Styling.Utilities both do — a run that sees neither has packed "
+                + "something other than the solution, and the answer it gave is about nothing."
+            );
+
+            Log.Information("None of the {Count} packages ships a tools/; the packed-tools check was skipped", packages.Count);
+
+            return;
+        }
+
+        Log.Information(
+            "{Examined} packed tool(s) carry all {Verified} files their manifests name",
+            examined,
+            verified
+        );
+    }
 
     /// <summary>
     ///     Asserts that every package produced carries the two ADR-015 obligations that live inside the

@@ -86,6 +86,23 @@ public sealed class FrameStatsOverlay : IDiagnosticOverlay {
     /// <summary>What the renderer reported. The host sets this once a frame.</summary>
     public FrameStatistics Statistics { get; set; }
 
+    /// <summary>Whether this build is reading loose files instead of its bundles.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The visible half of a trade, not a nicety.</b>
+    ///     [Doc 17](../../../../docs/plan/17-app-heads-and-shipping.md) Q5b allows a Release build to
+    ///     be pointed at a directory with <c>--vixen-loose-content</c>, which weakens the invariant
+    ///     that a shipping build's content is reproducible from its version — and it allows it
+    ///     <em>because</em> the trade is deliberate and visible. Without the second word, a build
+    ///     reading a directory somebody left on disk is indistinguishable from one reading its own
+    ///     bundles, and every downstream bug report is filed against the wrong thing. This is the
+    ///     surface a screenshot carries; the recurring log line is the one a log carries.
+    ///     <para>
+    ///         Pushed in by the host, like <see cref="Statistics" />, because <c>Vixen.Engine</c>
+    ///         does not know how content was mounted and should not learn.
+    ///     </para>
+    /// </remarks>
+    public bool LooseContent { get; set; }
+
     /// <summary>The smoothed frame time, in milliseconds.</summary>
     /// <remarks>
     ///     Smoothed because an unsmoothed readout at sixty hertz is a number nobody can read. The
@@ -104,7 +121,11 @@ public sealed class FrameStatsOverlay : IDiagnosticOverlay {
 
         var theme = surface.Theme;
         var graphHeight = surface.RowHeight * 2.6f;
-        var region = surface.Panel(Anchor, Width, surface.HeightForRows(Rows) + graphHeight, "FRAME");
+
+        // The stamp takes a row of its own rather than sharing one, and the panel grows for it. A
+        // build reading its bundles is the ordinary case and pays nothing.
+        var rows = LooseContent ? Rows + 1 : Rows;
+        var region = surface.Panel(Anchor, Width, surface.HeightForRows(rows) + graphHeight, "FRAME");
 
         if (region.IsEmpty) {
             return;
@@ -179,7 +200,15 @@ public sealed class FrameStatsOverlay : IDiagnosticOverlay {
             region.TextRight(8, buffer[..length], theme.Text);
         }
 
-        Graph(region, graphHeight, theme);
+        // ⚠ theme.Bad and not theme.Warning. This is not a slow frame, it is a build whose content
+        // did not come from its own bundles, and the row exists so that a screenshot of it in a bug
+        // report answers the question before anybody asks it.
+        if (LooseContent) {
+            region.Text(Rows, "content", theme.Text);
+            region.TextRight(Rows, "LOOSE", theme.Bad);
+        }
+
+        Graph(region, graphHeight, theme, rows);
     }
 
     /// <summary>Forgets the graph's history and the running average.</summary>
@@ -216,8 +245,8 @@ public sealed class FrameStatsOverlay : IDiagnosticOverlay {
         PeakMilliseconds = peak;
     }
 
-    void Graph(in OverlayRegion region, float height, in OverlayTheme theme) {
-        var top = Rows * region.RowHeight;
+    void Graph(in OverlayRegion region, float height, in OverlayTheme theme, int rows) {
+        var top = rows * region.RowHeight;
         var width = region.ContentWidth;
 
         region.Rect(new(0f, top), new(width, height), OverlayTheme.Fade(theme.Border, 0.4f));
