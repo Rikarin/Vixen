@@ -171,9 +171,11 @@ tick clock. ⚠ **Snapping on every wheel notch instead would pass every arithme
 unusable**, so `ScrollSnapTests` spends half its assertions watching a view stay unsnapped while a
 flick is still running.
 
-⚠ **`overscroll-contain` and `overscroll-none` do the same thing here.** In CSS they differ only over
-the rubber-band and pull-to-refresh at the boundary, and this engine has neither, so there is nothing
-for `none` to additionally suppress. Both stop the chain, which is the half the class is written for.
+⚠ **`overscroll-contain` and `overscroll-none` no longer do the same thing.** They stop the chain
+identically — that is the half the class is usually written for — and they differ over the boundary:
+`contain` keeps the rubber band below and `none` makes the edge hard. They *were* identical here for
+as long as there was no local effect for `none` to suppress, which the README and the enum both said;
+a reader who remembers that is reading a note that has been overtaken.
 
 ⚠ **There is no scroll anchoring, and the attempt at it is worth recording because the obstacle is not
 where it looks.** CSS Scroll Anchoring keeps the reader still when content above them grows: remember
@@ -194,7 +196,7 @@ the content height would fire on a virtualiser realising a row. Anchoring here n
 says which of its children are the *same content* as last frame, and that is the work rather than the
 four lines.
 
-**Momentum is here and rubber-band is not, and what unblocked the first was not the curve.** A
+**Momentum is here, and what unblocked it was not the curve.** A
 `ScrollView` used to scroll from the wheel, the keyboard and its bars and handle no `PointerEvent` or
 `DragEvent` of its own — so there was no finger for a fling to continue and nothing for a velocity
 tracker to track. `DragToScroll` is that finger: it takes the `DragEvent` the recogniser already
@@ -220,11 +222,27 @@ a second deceleration here would compound with it. That is reasoned from the two
 been measured on a device**; a drag is the platform-neutral gesture that carries no momentum of its
 own, which is why the curve lives there and nowhere else.
 
-⚠ **Rubber-band is still absent and needs one thing this does not have: an offset that may leave its
-range.** `ScrollTop` coerces into `[0, MaximumTop]`, so there is nowhere for an elastic overscroll to
-go — an axis that reaches an end simply loses its velocity here. Adding it means a second offset
-outside the clamp, a resistance function on the way out and a spring back, and it is what would
-finally make `overscroll-contain` and `overscroll-none` differ.
+**Rubber-band is here too, and the thing it was blocked on was an offset allowed to leave its range.**
+`ScrollTop` coerces into `[0, MaximumTop]` and has to: it is what the bars show, what `ScrollIntoView`
+computes against and what a snap position is measured in. So `OverscrollTop` is a *second* offset, and
+the two are added in exactly one place — on the way to `Content.OffsetY`. Every other question this
+control answers is still asked of the clamped one, which is what keeps a transient stretch out of all
+of them.
+
+⚠ **The pull accumulated is raw and the resistance is applied on the way out**, which is what makes a
+drag past the edge and back arrive at exactly the offset it left. Damping the accumulation instead
+needs no second number and is the obvious shortcut; it makes a pull-and-return end somewhere else, and
+the content reads as having slipped under the finger. The curve is bounded by the viewport's own
+dimension, so a determined drag cannot pull the content out of its window and hand back a blank box.
+
+⚠ **A view let go of while stretched springs rather than flings.** The velocity tracker samples the
+scroll offset, which is pinned at a stretched boundary — so the speed it holds is the speed of the last
+pixel before the edge. A fling that *arrives* at an end is the other direction of the same seam: it
+hands what is left of its speed to the spring, which is the bounce.
+
+⚠ **`Refresh` clears the stretch only when the ends have actually moved.** It runs on every
+`LayoutFinished`, so clearing whenever there was a pull erased it on the very next layout — the spring
+never ran, the bounce lasted one frame, and the result looked exactly like the hard edge it replaced.
 
 ## The theme
 

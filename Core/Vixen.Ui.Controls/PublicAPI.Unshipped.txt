@@ -425,6 +425,7 @@ Vixen.Ui.Controls.Overlay.Reposition() -> void
 Vixen.Ui.Controls.OverscrollBehavior -> enum : byte
 Vixen.Ui.Controls.OverscrollBehavior.Auto = 0 -> Vixen.Ui.Controls.OverscrollBehavior
 Vixen.Ui.Controls.OverscrollBehavior.Contain = 1 -> Vixen.Ui.Controls.OverscrollBehavior
+Vixen.Ui.Controls.OverscrollBehavior.None = 2 -> Vixen.Ui.Controls.OverscrollBehavior
 Vixen.Ui.Controls.OverscrollBehavior.OverscrollBehavior() -> void
 Vixen.Ui.Controls.PageButton -> sealed class
 Vixen.Ui.Controls.PageButton : Vixen.Ui.Controls.ButtonBase
@@ -592,9 +593,12 @@ Vixen.Ui.Controls.ScrollView.DragToScroll.get -> bool
 Vixen.Ui.Controls.ScrollView.DragToScroll.set -> bool
 Vixen.Ui.Controls.ScrollView.HorizontalBar.get -> Vixen.Ui.Controls.ScrollBar
 Vixen.Ui.Controls.ScrollView.IsFlinging.get -> bool
+Vixen.Ui.Controls.ScrollView.IsRubberBanding.get -> bool
 Vixen.Ui.Controls.ScrollView.IsScrolling.get -> bool
 Vixen.Ui.Controls.ScrollView.MaximumLeft.get -> float
 Vixen.Ui.Controls.ScrollView.MaximumTop.get -> float
+Vixen.Ui.Controls.ScrollView.OverscrollLeft.get -> float
+Vixen.Ui.Controls.ScrollView.OverscrollTop.get -> float
 Vixen.Ui.Controls.ScrollView.Refresh() -> void
 Vixen.Ui.Controls.ScrollView.ScrollIntoView(Vixen.Ui.UiElement element) -> void
 Vixen.Ui.Controls.ScrollView.ScrollLeft.get -> float
@@ -897,6 +901,8 @@ abstract Vixen.Ui.Controls.SelectBase.OnOptionChosen(Vixen.Ui.Controls.Option op
 const Vixen.Ui.Controls.Expander.HeaderSlot = "header" -> string
 const Vixen.Ui.Controls.ScrollView.FlingDecayConstant = 0.325 -> float
 const Vixen.Ui.Controls.ScrollView.FlingStopSpeed = 8 -> float
+const Vixen.Ui.Controls.ScrollView.RubberBandConstant = 0.55 -> float
+const Vixen.Ui.Controls.ScrollView.RubberBandSpringConstant = 0.11 -> float
 const Vixen.Ui.Controls.ScrollView.SmoothingConstant = 0.075 -> float
 const Vixen.Ui.Controls.ScrollView.SnapIdleSeconds = 0.125 -> float
 const Vixen.Ui.Controls.ScrollView.SnapProximity = 0.25 -> float

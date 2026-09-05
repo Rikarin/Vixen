@@ -223,20 +223,32 @@ public enum ScrollBehavior : byte {
 
 /// <summary>What a scroll that has run out of room does to the wheel.</summary>
 /// <remarks>
-///     ⚠ <b><c>Contain</c> and <c>None</c> are one behaviour here, and the difference is not
-///     implementable rather than unimplemented.</b> In CSS the pair differ only in the
-///     <i>local</i> effect at the boundary — <c>contain</c> keeps the browser's rubber-band or
-///     pull-to-refresh and <c>none</c> suppresses it — and this engine has neither, so there is
-///     nothing for <c>none</c> to additionally turn off. Both stop the chain, which is the half
-///     anybody writes the class for. Recorded here rather than left to be measured: a reader
-///     comparing the two values and finding identical frames has found the documented answer.
+///     <para>
+///         Two independent questions in one property, which is what CSS made it: whether a scroll
+///         that runs out here continues in whatever contains this, and whether the boundary itself
+///         does anything. <c>Auto</c> chains and bounces, <c>Contain</c> bounces without chaining,
+///         <c>None</c> does neither.
+///     </para>
+///     <para>
+///         ⚠ <b><c>Contain</c> and <c>None</c> used to be one value, and the reason they no longer
+///         are is that the local effect they differ over now exists.</b> The elastic overscroll
+///         <c>none</c> suppresses is <see cref="ScrollView.OverscrollTop" />; before there was one,
+///         <c>none</c> had nothing to additionally turn off and this enum said so. A reader who
+///         remembers that identity is reading a note that is no longer true.
+///     </para>
 /// </remarks>
 public enum OverscrollBehavior : byte {
     /// <summary>The wheel chains to whatever contains this once it can go no further.</summary>
     Auto,
 
-    /// <summary>It does not. The scroll stops at this box's edge.</summary>
-    Contain
+    /// <summary>It does not. The scroll stops at this box's edge, and the edge still gives.</summary>
+    Contain,
+
+    /// <summary>
+    ///     Neither. The chain stops here and the boundary is hard — no rubber-band, whatever the
+    ///     gesture.
+    /// </summary>
+    None
 }
 
 /// <summary>Which axes a scroll container snaps on.</summary>
@@ -557,9 +569,13 @@ public sealed partial class ScrollView : Control {
         // declared over, and snapped, while it was still happening. The wheel needs the timer
         // precisely because it has no end in it; a drag ends when the pointer comes up and a fling
         // ends when it runs out of speed.
+        // ⚠ And not while the spring is running either, for the drag's reason one line up: a bounce
+        // outlasts an eighth of a second, and a snap declared in the middle of one takes the content
+        // away from the edge it is being pulled back to.
         if (gesturing
             && !dragging
             && !IsFlinging
+            && !IsRubberBanding
             && (float) (now - gestureAt).TotalSeconds >= SnapIdleSeconds) {
             Ended();
         }
@@ -567,8 +583,17 @@ public sealed partial class ScrollView : Control {
         if (elapsed > 0f) {
             if (dragging) {
                 Track(elapsed);
-            } else if (IsFlinging) {
-                Fling(elapsed);
+            } else {
+                if (IsFlinging) {
+                    Fling(elapsed);
+                }
+
+                // ⚠ After the fling and not instead of it: the tick where a fling reaches an end is
+                // the tick that creates the stretch, and a bounce that waited for the *other* axis to
+                // finish flinging would hold the content out past its edge for the rest of it.
+                if (IsRubberBanding) {
+                    Spring(elapsed);
+                }
             }
         }
 
@@ -673,8 +698,7 @@ public sealed partial class ScrollView : Control {
                 break;
 
             case DragStage.Moved when dragging:
-                ScrollTop -= args.DeltaY;
-                ScrollLeft -= args.DeltaX;
+                Absorb(-args.DeltaY, -args.DeltaX);
 
                 args.Handled = true;
                 break;
@@ -686,11 +710,23 @@ public sealed partial class ScrollView : Control {
                 // rest somewhere a snap point does not want is snapped when it stops — see
                 // <see cref="Fling" /> — and snapping now would take the content away from the
                 // finger's speed at the moment the user expects it to keep going.
-                if (MathF.Abs(velocityTop) >= FlingStopSpeed || MathF.Abs(velocityLeft) >= FlingStopSpeed) {
+                // ⚠ And a view being held past its end does not fling either, whatever the numbers
+                // say. `Track` samples the offset, which is pinned while the spring is stretched, so
+                // the speed it reports there is the speed of the last pixel before the boundary — a
+                // stale reading that would launch the content away from the edge it is about to be
+                // pulled back to.
+                if (!IsRubberBanding
+                    && (MathF.Abs(velocityTop) >= FlingStopSpeed || MathF.Abs(velocityLeft) >= FlingStopSpeed)) {
                     IsFlinging = true;
                 } else {
                     StopFling();
-                    Ended();
+
+                    // The spring owns the end of the gesture when there is one to run: `Ended` snaps,
+                    // and snapping from a stretched offset would compete with the spring for the same
+                    // number. `Spring` calls it when the content is back inside its range.
+                    if (!IsRubberBanding) {
+                        Ended();
+                    }
                 }
 
                 args.Handled = true;
@@ -699,7 +735,10 @@ public sealed partial class ScrollView : Control {
             case DragStage.Cancelled when dragging:
                 dragging = false;
                 StopFling();
-                Ended();
+
+                if (!IsRubberBanding) {
+                    Ended();
+                }
 
                 args.Handled = true;
                 break;
@@ -739,8 +778,7 @@ public sealed partial class ScrollView : Control {
         // The integral of a decaying velocity over the interval, rather than speed × time: at a
         // frame long enough to matter the two differ by the whole of the deceleration, and a fling
         // stepped in one large tick would travel further than the same fling stepped in twenty.
-        ScrollTop = top + (velocityTop * FlingDecayConstant * (1f - decay));
-        ScrollLeft = left + (velocityLeft * FlingDecayConstant * (1f - decay));
+        Absorb(velocityTop * FlingDecayConstant * (1f - decay), velocityLeft * FlingDecayConstant * (1f - decay));
 
         velocityTop *= decay;
         velocityLeft *= decay;
@@ -748,13 +786,18 @@ public sealed partial class ScrollView : Control {
         // ⚠ An axis that did not move is an axis that has reached an end, and its speed is spent.
         // Without this the fling goes on decaying against a clamp for a second after it visibly
         // stopped, and a flick back the other way inside that second starts from a velocity the
-        // content has not had since it hit the edge. There is no bounce: elastic overscroll needs an
-        // offset that may leave its range, and `ScrollTop` coerces.
-        if (ScrollTop.Equals(top)) {
+        // content has not had since it hit the edge.
+        //
+        // ⚠ <b>An axis that is being held out by the spring counts as one that did not move</b>,
+        // and it is a separate test rather than the same one: at an elastic end the offset is pinned
+        // and the <i>pull</i> is what grew, so `ScrollTop` compares equal while the content is very
+        // much still travelling. Handing the speed to the spring here is the bounce — the fling ends
+        // at the boundary and `Spring` carries what is left of it back.
+        if (ScrollTop.Equals(top) || pulledTop != 0f) {
             velocityTop = 0f;
         }
 
-        if (ScrollLeft.Equals(left)) {
+        if (ScrollLeft.Equals(left) || pulledLeft != 0f) {
             velocityLeft = 0f;
         }
 
@@ -766,8 +809,183 @@ public sealed partial class ScrollView : Control {
 
         // Where a fling comes to rest is where the gesture came to rest, so this is the moment the
         // snap is defined at — the same moment `ScrollBar.ScrollEnded` and the wheel's idle
-        // terminator name for the gestures that have one.
-        Ended();
+        // terminator name for the gestures that have one. Unless it came to rest against an elastic
+        // end, in which case it has not come to rest at all and `Spring` owns the moment.
+        if (!IsRubberBanding) {
+            Ended();
+        }
+    }
+
+    // ── Rubber-band: the offset that is allowed to leave its range ──────────────────────────
+
+    float pulledTop;
+    float pulledLeft;
+    float rangeTop;
+    float rangeLeft;
+
+    /// <summary>How hard the edge resists, as a fraction of the first pixel that is given away.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The curve's slope at the boundary, not a multiplier on the result.</b> The first pixel
+    ///     of a pull moves the content about this far and every pixel after it moves it less, so a
+    ///     drag that starts inside the content and crosses the end does not change speed abruptly at
+    ///     the moment it crosses — which a constant fraction would, and which reads as the finger
+    ///     slipping. AppKit's number, arrived at by the same argument.
+    /// </remarks>
+    public const float RubberBandConstant = 0.55f;
+
+    /// <summary>How long the spring takes to give back about two thirds of the stretch.</summary>
+    /// <remarks>
+    ///     A time constant against real elapsed seconds, for <see cref="FlingDecayConstant" />'s
+    ///     reason and with the same consequence if it is got wrong. Much shorter than a fling,
+    ///     because a bounce is meant to be over before the eye has finished reading it as one.
+    /// </remarks>
+    public const float RubberBandSpringConstant = 0.11f;
+
+    /// <summary>
+    ///     How far past its vertical end the content is being held, in pixels — negative above the
+    ///     start, positive below the end, zero for all but a handful of frames.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the offset that may leave <c>[0, <see cref="MaximumTop" />]</c>, and the
+    ///         reason it is a second number rather than a wider range on <see cref="ScrollTop" />.</b>
+    ///         The scroll offset is what the bars show, what <c>ScrollIntoView</c> computes against
+    ///         and what a snap position is measured in; letting it go negative would make every one
+    ///         of those answer about a state the content is only passing through. So the clamp on
+    ///         <see cref="ScrollTop" /> stays exactly as it was, and this is added to it on the way
+    ///         to <see cref="UiElement.OffsetY" /> and nowhere else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Resisted rather than raw.</b> What the drag accumulates is a distance; what this
+    ///         reports is that distance through <see cref="RubberBandConstant" />'s curve, which
+    ///         approaches the viewport's own height and never reaches it. A pull with no ceiling lets
+    ///         a determined finger drag the content entirely off screen.
+    ///     </para>
+    /// </remarks>
+    public float OverscrollTop => Resist(pulledTop, Height);
+
+    /// <summary>The same, horizontally.</summary>
+    public float OverscrollLeft => Resist(pulledLeft, Width);
+
+    /// <summary>Whether either axis is being held past its end, or springing back from having been.</summary>
+    public bool IsRubberBanding => pulledTop != 0f || pulledLeft != 0f;
+
+    /// <summary>The elastic curve: a distance pulled, in the distance actually given.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asymptotic to the viewport, so the content can never be pulled entirely out of its
+    ///     own window.</b> Linear near zero at <see cref="RubberBandConstant" />'s slope and flatter
+    ///     with every pixel after — the standard rubber band, and the shape is the point rather than
+    ///     the constants: a bounded, monotone, odd function whose derivative is largest at the
+    ///     boundary. A view with no height has no scale to be elastic against and gives nothing.
+    /// </remarks>
+    static float Resist(float pulled, float dimension) {
+        if (pulled == 0f || dimension <= 0f) {
+            return 0f;
+        }
+
+        var distance = MathF.Abs(pulled);
+        var given = (1f - (1f / ((distance * RubberBandConstant / dimension) + 1f))) * dimension;
+
+        return MathF.CopySign(given, pulled);
+    }
+
+    /// <summary>
+    ///     Moves the content by a delta, and lets an end that cannot take all of it keep the rest as
+    ///     stretch.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one place a gesture writes the offset, so that the excess has somewhere to
+    ///         go.</b> Both the drag and the fling used to assign <see cref="ScrollTop" /> directly
+    ///         and the coercion ate whatever was past the end — silently, which is exactly what an
+    ///         elastic boundary must not do. Here the virtual position <c>offset + pull</c> is what
+    ///         moves, and the split back into the two is the clamp.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Reversible, which the resistance curve would not be if it were applied here.</b>
+    ///         The pull accumulated is the raw distance; dragging back towards the content unwinds it
+    ///         pixel for pixel and reaches the boundary at exactly the offset it left. Damping the
+    ///         accumulation instead makes a pull-and-return end somewhere other than where it started,
+    ///         which reads as the content having slipped.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>overscroll-behavior: none</c> is where it is refused</b>, per axis, and it is
+    ///         the local half of the property that had nothing to turn off before this existed.
+    ///     </para>
+    /// </remarks>
+    void Absorb(float top, float left) {
+        var (offsetTop, stretchTop) = Split(ScrollTop + pulledTop + top, MaximumTop, names.OverscrollY);
+        var (offsetLeft, stretchLeft) = Split(ScrollLeft + pulledLeft + left, MaximumLeft, names.OverscrollX);
+
+        pulledTop = stretchTop;
+        pulledLeft = stretchLeft;
+
+        ScrollTop = offsetTop;
+        ScrollLeft = offsetLeft;
+
+        // ⚠ Unconditionally, and not only when the offset changed. At a stretched end `ScrollTop` is
+        // pinned, so `OnScrolled` does not run — and it is the frame where the content is moving
+        // most visibly.
+        Displace();
+
+        (float Offset, float Stretch) Split(float wanted, float maximum, int axis) {
+            if (wanted < 0f) {
+                return Elastic(axis) ? (0f, wanted) : (0f, 0f);
+            }
+
+            if (wanted > maximum) {
+                return Elastic(axis) ? (maximum, wanted - maximum) : (maximum, 0f);
+            }
+
+            return (wanted, 0f);
+        }
+    }
+
+    /// <summary>Whether this axis's boundary gives at all.</summary>
+    bool Elastic(int axis) => Chaining(axis) != OverscrollBehavior.None;
+
+    /// <summary>Gives the stretch back, and ends the gesture when it has.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Terminated inside half a pixel of <i>given</i> displacement rather than of pull</b>,
+    ///     because those are different numbers and the pull is the larger one. An exponential never
+    ///     arrives, and a spring that went on relaxing by a millionth of a pixel would invalidate
+    ///     positions and rebuild the draw list for the life of the document — the argument
+    ///     <see cref="FlingStopSpeed" /> and the half-pixel terminator in <see cref="Advance" /> both
+    ///     make, in this one's units.
+    /// </remarks>
+    void Spring(float elapsed) {
+        var decay = MathF.Exp(-elapsed / RubberBandSpringConstant);
+
+        pulledTop *= decay;
+        pulledLeft *= decay;
+
+        if (MathF.Abs(OverscrollTop) < 0.5f) {
+            pulledTop = 0f;
+        }
+
+        if (MathF.Abs(OverscrollLeft) < 0.5f) {
+            pulledLeft = 0f;
+        }
+
+        Displace();
+
+        if (!IsRubberBanding) {
+            // Back inside its range, which is the moment the gesture the drag or the fling started
+            // is finally over — and the moment a snap is defined at. `Fling` names the same one.
+            Ended();
+        }
+    }
+
+    /// <summary>Writes the offset the content is actually drawn at.</summary>
+    /// <remarks>
+    ///     The scroll offset plus the stretch, and it is the only place the two are added. Everything
+    ///     else in this control — the bars, the snap, <c>ScrollIntoView</c> — reads
+    ///     <see cref="ScrollTop" /> alone, which is what keeps a transient elastic displacement out of
+    ///     every answer about where the content is.
+    /// </remarks>
+    void Displace() {
+        Content.OffsetY = -(ScrollTop + OverscrollTop);
+        Content.OffsetX = -(ScrollLeft + OverscrollLeft);
     }
 
     /// <summary>Abandons any smooth scroll in flight, leaving the offset where it got to.</summary>
@@ -1161,14 +1379,20 @@ public sealed partial class ScrollView : Control {
     /// </remarks>
     OverscrollBehavior Chaining(int axis) {
         if (Style.TryGet(axis, out var value)) {
-            return value == names.Auto ? OverscrollBehavior.Auto : OverscrollBehavior.Contain;
+            return Behaviour(value);
         }
 
         if (Style.TryGet(names.Overscroll, out var both)) {
-            return both == names.Auto ? OverscrollBehavior.Auto : OverscrollBehavior.Contain;
+            return Behaviour(both);
         }
 
         return OverscrollBehavior.Auto;
+
+        OverscrollBehavior Behaviour(int keyword) => keyword == names.Auto
+            ? OverscrollBehavior.Auto
+            : keyword == names.None
+                ? OverscrollBehavior.None
+                : OverscrollBehavior.Contain;
     }
 
     ScrollNames names = null!;
@@ -1206,6 +1430,7 @@ public sealed partial class ScrollView : Control {
 
             Smooth = values.Intern("smooth");
             Auto = values.Intern("auto");
+            None = values.Intern("none");
             Rtl = values.Intern("rtl");
             Always = values.Intern("always");
         }
@@ -1224,6 +1449,7 @@ public sealed partial class ScrollView : Control {
         public int Direction { get; }
         public int Smooth { get; }
         public int Auto { get; }
+        public int None { get; }
         public int Rtl { get; }
         public int Always { get; }
     }
@@ -1278,6 +1504,26 @@ public sealed partial class ScrollView : Control {
         ScrollTop = CoerceTop(ScrollTop);
         ScrollLeft = CoerceLeft(ScrollLeft);
 
+        // ⚠ And the stretch goes with it when the ends themselves move, because it is measured from
+        // one of them. A pull kept across a resize springs back to a boundary that is no longer where
+        // it was pulled from, which is a jump rather than a bounce.
+        //
+        // ⚠ <b>Only when they have actually moved</b>, which is why the two are remembered rather
+        // than compared against nothing. This runs on every `LayoutFinished`, so a version that
+        // cleared the pull whenever there was one erased the stretch on the very next layout — the
+        // spring never ran, the bounce lasted a single frame, and the drag looked exactly like the
+        // hard edge it replaced.
+        if (!MaximumTop.Equals(rangeTop) || !MaximumLeft.Equals(rangeLeft)) {
+            rangeTop = MaximumTop;
+            rangeLeft = MaximumLeft;
+
+            if (IsRubberBanding) {
+                pulledTop = 0f;
+                pulledLeft = 0f;
+                Displace();
+            }
+        }
+
         // ⚠ A `mandatory` container is snapped at rest and not merely on the way to rest, which is
         // the half of CSS Scroll Snap that is not about gestures at all: content inserted above the
         // viewport, or a resize, moves every candidate out from under an offset nobody touched. Only
@@ -1305,8 +1551,7 @@ public sealed partial class ScrollView : Control {
     float CoerceLeft(float value) => Math.Clamp(value, 0f, MaximumLeft);
 
     void OnScrolled(float previous, float current) {
-        Content.OffsetY = -ScrollTop;
-        Content.OffsetX = -ScrollLeft;
+        Displace();
 
         VerticalBar.Value = ScrollTop;
         VerticalBar.ViewportSize = Height;
@@ -1349,8 +1594,12 @@ public sealed partial class ScrollView : Control {
         // decision and nothing else's. Per axis, and asked only of an axis the wheel actually turned:
         // a purely vertical wheel over a view with `overscroll-x: contain` must still chain, or a
         // horizontal-only opt-out would silently trap every vertical scroll in the region.
-        var contained = (args.DeltaY != 0f && Chaining(names.OverscrollY) == OverscrollBehavior.Contain)
-            || (args.DeltaX != 0f && Chaining(names.OverscrollX) == OverscrollBehavior.Contain);
+        // ⚠ `!= Auto` rather than `== Contain`, and that is the arm the third value would have gone
+        // missing from. `none` stops the chain exactly as `contain` does — the two differ only over
+        // the boundary effect — and a switch that named `Contain` alone would have silently let every
+        // `overscroll-behavior: none` scroll straight through to the parent.
+        var contained = (args.DeltaY != 0f && Chaining(names.OverscrollY) != OverscrollBehavior.Auto)
+            || (args.DeltaX != 0f && Chaining(names.OverscrollX) != OverscrollBehavior.Auto);
 
         if (contained) {
             args.Handled = true;

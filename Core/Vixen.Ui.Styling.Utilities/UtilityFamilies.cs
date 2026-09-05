@@ -893,12 +893,11 @@ public static class UtilityFamilies {
             ["auto"] = "auto", ["smooth"] = "smooth"
         });
 
-        // ⚠ <b>`contain` and `none` are registered although `ScrollView` treats them alike</b>, and
-        // that is not the inert-class defect: the property moves a channel — `auto` chains the wheel
-        // outwards and both of the others do not — so a reader acts on it. What the two values share
-        // is that this engine has no rubber-band or pull-to-refresh for `none` to additionally
-        // suppress, which is a documented equivalence rather than a missing half. See
-        // `OverscrollBehavior`.
+        // ⚠ <b>All three values now move something, and two of them move two things.</b> `auto`
+        // chains the wheel outwards and the other two do not; and of those two, `contain` keeps the
+        // elastic overscroll at the boundary where `none` suppresses it. The note this replaces said
+        // `contain` and `none` were a documented equivalence here because there was no rubber-band
+        // for `none` to turn off — true when it was written and no longer. See `OverscrollBehavior`.
         var overscroll = new Dictionary<string, string>(StringComparer.Ordinal) {
             ["auto"] = "auto", ["contain"] = "contain", ["none"] = "none"
         };
