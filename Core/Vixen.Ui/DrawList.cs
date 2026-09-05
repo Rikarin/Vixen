@@ -500,16 +500,18 @@ public readonly record struct DrawCommand(
 ///     </para>
 /// </remarks>
 public sealed class DrawList {
-    readonly List<DrawCommand> commands = [];
-    readonly List<DrawCommand> previous = [];
-    readonly List<PositionedGlyph> glyphs = [];
-    readonly List<PositionedGlyph> previousGlyphs = [];
-    readonly List<PathSegment> segments = [];
-    readonly List<PathSegment> previousSegments = [];
-    readonly List<BoxStyle> boxes = [];
-    readonly List<BoxStyle> previousBoxes = [];
-    readonly List<UiMask> masks = [];
-    readonly List<UiMask> previousMasks = [];
+    // ⚠ Not `readonly`, and that is the whole of the frame boundary: `BeginFrame` swaps each pair
+    // rather than copying one into the other. See that method.
+    List<DrawCommand> commands = [];
+    List<DrawCommand> previous = [];
+    List<PositionedGlyph> glyphs = [];
+    List<PositionedGlyph> previousGlyphs = [];
+    List<PathSegment> segments = [];
+    List<PathSegment> previousSegments = [];
+    List<BoxStyle> boxes = [];
+    List<BoxStyle> previousBoxes = [];
+    List<UiMask> masks = [];
+    List<UiMask> previousMasks = [];
     readonly List<FontFace> fonts = [];
     readonly List<DrawBatch> batches = [];
 
@@ -578,25 +580,38 @@ public sealed class DrawList {
     public bool ChangedLastFrame { get; private set; }
 
     /// <summary>Starts collecting a frame.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A swap and not a copy.</b> Keeping the finished frame for <see cref="EndFrame" />'s
+    ///         comparison used to be five <c>AddRange</c>s — on the editor shell's 1 389 commands a
+    ///         444 KB <c>memcpy</c> every frame, on a settled frame that changed nothing and, by
+    ///         construction, allocated nothing: after the first growth the copy lands in capacity that
+    ///         already exists, so a bytes-allocated gate is blind to it. Each pair is a double buffer,
+    ///         so keeping the finished frame is O(1): two references exchanged, both capacities kept.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What makes the swap safe is that the accessors read the field on every use.</b>
+    ///         Nothing outside this class holds one of these lists across a frame boundary — and a
+    ///         caller that did would now see the frame it captured, intact in <c>previous</c>, rather
+    ///         than the cleared buffer the copy handed it. The property the tests assert is that
+    ///         instance: <see cref="Commands" /> alternates between two lists across boundaries, which
+    ///         a copy cannot do because a copy never changes the instance.
+    ///     </para>
+    /// </remarks>
     public void BeginFrame() {
-        previous.Clear();
-        previous.AddRange(commands);
+        (previous, commands) = (commands, previous);
         commands.Clear();
 
-        previousGlyphs.Clear();
-        previousGlyphs.AddRange(glyphs);
+        (previousGlyphs, glyphs) = (glyphs, previousGlyphs);
         glyphs.Clear();
 
-        previousSegments.Clear();
-        previousSegments.AddRange(segments);
+        (previousSegments, segments) = (segments, previousSegments);
         segments.Clear();
 
-        previousBoxes.Clear();
-        previousBoxes.AddRange(boxes);
+        (previousBoxes, boxes) = (boxes, previousBoxes);
         boxes.Clear();
 
-        previousMasks.Clear();
-        previousMasks.AddRange(masks);
+        (previousMasks, masks) = (masks, previousMasks);
         masks.Clear();
 
         // The fonts are not kept for comparison, because a command referring to a different face
