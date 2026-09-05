@@ -178,7 +178,7 @@ static class TextureDiagnostics {
         .. typeof(TextureDiagnostics)
             .GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
             .Where(field => field.IsLiteral && field.FieldType == typeof(string))
-            .Select(field => (string) field.GetRawConstantValue()!)
+            .Select(field => (string)field.GetRawConstantValue()!)
             .Order(StringComparer.Ordinal)
     ];
 }
