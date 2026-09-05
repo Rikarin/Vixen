@@ -900,7 +900,7 @@ public class TextFieldTests {
     ///     three separators out is the same statement about the control with none of that in it.
     /// </remarks>
     static CultureInfo Continental() {
-        var culture = (CultureInfo) CultureInfo.InvariantCulture.Clone();
+        var culture = (CultureInfo)CultureInfo.InvariantCulture.Clone();
 
         culture.NumberFormat.NumberDecimalSeparator = ",";
         culture.NumberFormat.NumberGroupSeparator = ".";

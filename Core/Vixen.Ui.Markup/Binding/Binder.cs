@@ -755,7 +755,7 @@ public sealed class Binder {
             return null;
         }
 
-        return ((int) Math.Round(number * scale), words.Length == 2 ? words[1] : null);
+        return ((int)Math.Round(number * scale), words.Length == 2 ? words[1] : null);
     }
 
     /// <summary>An attribute value as the author wrote it, for a message that quotes it back.</summary>

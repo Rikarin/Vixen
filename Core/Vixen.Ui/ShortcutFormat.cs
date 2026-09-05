@@ -82,7 +82,7 @@ public static class ShortcutFormat {
     /// </remarks>
     public static string Name(InputKey key) =>
         key switch {
-            >= InputKey.Number1 and <= InputKey.Number9 => ((int) (key - InputKey.Number1) + 1).ToString(),
+            >= InputKey.Number1 and <= InputKey.Number9 => ((int)(key - InputKey.Number1) + 1).ToString(),
             InputKey.Number0 => "0",
             InputKey.Space => "Space",
             InputKey.Grave => "`",
