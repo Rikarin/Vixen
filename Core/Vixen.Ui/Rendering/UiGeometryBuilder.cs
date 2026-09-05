@@ -310,6 +310,75 @@ public sealed class UiGeometryBuilder {
     /// </remarks>
     public int ColourSearches { get; private set; }
 
+    /// <summary>The draw-list version and extent the geometry this builder holds was made from.</summary>
+    /// <remarks>
+    ///     <c>(-1, default)</c> before the first build, which no real draw list can equal —
+    ///     <c>DrawList.Version</c> is a content hash and an empty extent is not a window.
+    /// </remarks>
+    public (int Version, Rectangle Extent) Built { get; private set; } = (-1, default);
+
+    /// <summary>How many frames this builder has actually tessellated.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read against <see cref="TessellationsSkipped" /> and never alone</b>, the way
+    ///     <c>UiDocument.Diagnostics.DrawListsBuilt</c> is read against <c>DrawListsChanged</c>. This
+    ///     is the recording half of what doc 49 § 7.3 calls an idle frame: the draw list is rebuilt
+    ///     every frame by <c>DrawListBuilder</c> and always will be until there is a retained surface,
+    ///     but flattening and tessellating it is skipped for a window whose drawing did not change,
+    ///     and until these two counters existed that saving could only be described in watts.
+    /// </remarks>
+    public int Tessellations { get; private set; }
+
+    /// <summary>How many frames were answered with the vertices this builder already had.</summary>
+    public int TessellationsSkipped { get; private set; }
+
+    /// <summary>Builds the geometry for a frame, or keeps the geometry it already has.</summary>
+    /// <param name="list">The frame's draw list, already batched.</param>
+    /// <param name="glyphs">Where glyph fields come from.</param>
+    /// <param name="viewport">The whole surface, which is the clip when nothing has pushed one.</param>
+    /// <param name="frame">The geometry to draw, left as it was when nothing had to be rebuilt.</param>
+    /// <returns>Whether anything was rebuilt.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The key is three things and each of the three has been the one that was
+    ///         missing.</b> The draw list's <c>Version</c> says the drawing changed; the extent says
+    ///         a window was resized without its contents changing, which keeps the version and still
+    ///         needs new vertices because the builder is what turns a command's clip into a scissor
+    ///         in the new extent; and <see cref="AtlasChanged" /> says the last build repacked the
+    ///         glyph texture, which moves every region already baked into the vertices — so a frame
+    ///         that skipped after a repack would draw the right letters read out of the wrong places.
+    ///         The atlas is the one part of the key that is not a property of the window, because the
+    ///         cache is shared.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Here rather than in a host, and that is this method's whole reason for
+    ///         existing.</b> The key was written out twice — once in <c>UiWindowSurface.Tessellate</c>
+    ///         and once, verbatim, in <c>EditorHost.Build</c>, which never called the method that
+    ///         already did it. Two copies of a three-part key in the two hosts is the shape this
+    ///         repository keeps finding: a feature wired into one renderer and not the other. It is
+    ///         also what made the saving unmeasurable, since neither copy can be reached from a test
+    ///         without a window.
+    ///     </para>
+    ///     <para>
+    ///         Safe to answer with the geometry already held because <see cref="Build" /> writes into
+    ///         the builder's own lists and a skipped frame does not call it — so the vertices a
+    ///         skipped frame draws are the ones the last build left, which is exactly the claim.
+    ///     </para>
+    /// </remarks>
+    public bool TryBuild(DrawList list, GlyphFieldCache glyphs, Rectangle viewport, ref UiGeometry frame) {
+        ArgumentNullException.ThrowIfNull(list);
+
+        if (Built == (list.Version, viewport) && !AtlasChanged) {
+            TessellationsSkipped++;
+            return false;
+        }
+
+        frame = Build(list, glyphs, viewport);
+        Built = (list.Version, viewport);
+        Tessellations++;
+
+        return true;
+    }
+
     /// <summary>Builds the geometry for a frame.</summary>
     /// <param name="list">The frame's draw list, already batched.</param>
     /// <param name="glyphs">Where glyph fields come from.</param>

@@ -65,8 +65,6 @@ Vixen.Ui.Desktop.UiWindowSurface : System.IDisposable
 Vixen.Ui.Desktop.UiWindowSurface.Acquire(Vixen.Graphics.IGraphicsDevice device, out Vixen.Graphics.TextureViewHandle view) -> bool?
 Vixen.Ui.Desktop.UiWindowSurface.Acquired.get -> Vixen.Graphics.TextureViewHandle
 Vixen.Ui.Desktop.UiWindowSurface.Acquired.set -> Vixen.Graphics.TextureViewHandle
-Vixen.Ui.Desktop.UiWindowSurface.Built.get -> (int Version, Vixen.Core.Mathematics.Rectangle Extent)
-Vixen.Ui.Desktop.UiWindowSurface.Built.set -> (int Version, Vixen.Core.Mathematics.Rectangle Extent)
 Vixen.Ui.Desktop.UiWindowSurface.Dispose() -> void
 Vixen.Ui.Desktop.UiWindowSurface.Ensure(Vixen.Graphics.IGraphicsDevice device, Vixen.Ui.Renderer.UiShaders shaders) -> bool
 Vixen.Ui.Desktop.UiWindowSurface.Extent.get -> Vixen.Core.Mathematics.Rectangle

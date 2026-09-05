@@ -1007,6 +1007,7 @@ Vixen.Ui.Rendering.UiGeometry.Vertices.init -> System.Collections.Generic.IReadO
 Vixen.Ui.Rendering.UiGeometryBuilder -> sealed class
 Vixen.Ui.Rendering.UiGeometryBuilder.AtlasChanged.get -> bool
 Vixen.Ui.Rendering.UiGeometryBuilder.Build(Vixen.Ui.DrawList list, Vixen.Ui.Text.Rasterizing.GlyphFieldCache glyphs, Vixen.Core.Mathematics.Rectangle viewport) -> Vixen.Ui.Rendering.UiGeometry
+Vixen.Ui.Rendering.UiGeometryBuilder.Built.get -> (int Version, Vixen.Core.Mathematics.Rectangle Extent)
 Vixen.Ui.Rendering.UiGeometryBuilder.CacheCapacity.get -> int
 Vixen.Ui.Rendering.UiGeometryBuilder.CacheCapacity.set -> int
 Vixen.Ui.Rendering.UiGeometryBuilder.CachedPaths.get -> int
@@ -1021,8 +1022,11 @@ Vixen.Ui.Rendering.UiGeometryBuilder.Icons.get -> Vixen.Ui.Rendering.IconAtlas?
 Vixen.Ui.Rendering.UiGeometryBuilder.MappedColours.get -> int
 Vixen.Ui.Rendering.UiGeometryBuilder.RefusedFields.get -> int
 Vixen.Ui.Rendering.UiGeometryBuilder.TessellatedPaths.get -> int
+Vixen.Ui.Rendering.UiGeometryBuilder.Tessellations.get -> int
+Vixen.Ui.Rendering.UiGeometryBuilder.TessellationsSkipped.get -> int
 Vixen.Ui.Rendering.UiGeometryBuilder.Tolerance.get -> float
 Vixen.Ui.Rendering.UiGeometryBuilder.Tolerance.set -> float
+Vixen.Ui.Rendering.UiGeometryBuilder.TryBuild(Vixen.Ui.DrawList list, Vixen.Ui.Text.Rasterizing.GlyphFieldCache glyphs, Vixen.Core.Mathematics.Rectangle viewport, ref Vixen.Ui.Rendering.UiGeometry frame) -> bool
 Vixen.Ui.Rendering.UiGeometryBuilder.UiGeometryBuilder() -> void
 Vixen.Ui.Rendering.UiGeometryBuilder.WhiteLevel.get -> float
 Vixen.Ui.Rendering.UiGeometryBuilder.WhiteLevel.set -> float
