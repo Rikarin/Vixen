@@ -35,14 +35,15 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         accepted by accident.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Integer coordinates throughout, and that is not tidiness.</b>
-///         <c>SoftwareUiRasterizer.TopLeft</c> keeps a closed test on axis-aligned edges where a GPU
-///         opens the right and bottom ones, which its own remark states as a deliberate departure with
-///         the eleven committed screenshots it would move. A box whose edge lands exactly on a sample
-///         centre — <c>x = 6.5</c> with a width of 45, say — therefore differs by a whole opaque
-///         column: measured at 54 pixels of 16384 differing by up to 107 levels, 42 of them by the
-///         full 107. That is a known divergence with a decision on file and it is not this file's;
-///         putting a half-pixel coordinate in the fixtures below would assert against it by accident.
+///         ⚠ <b>Integer coordinates throughout, and that is history rather than a constraint.</b>
+///         <c>SoftwareUiRasterizer.TopLeft</c> used to keep a <i>closed</i> test on axis-aligned edges
+///         where the device opens the right and bottom ones, so a box whose edge landed exactly on a
+///         sample centre differed by a whole half-covered column — 54 pixels of 16384 by up to 107
+///         levels, 42 of them by the full 107, which was the largest known disagreement on this path.
+///         The fixtures below were kept on integers so that they did not assert against it by
+///         accident. That divergence is gone: the rule is the textbook one on both sides now, and the
+///         property is stated on the software renderer alone by <c>FillRuleTests</c>, which needs no
+///         device and so says it on a machine where everything here skips.
 ///     </para>
 /// </remarks>
 [Collection("Vulkan")]

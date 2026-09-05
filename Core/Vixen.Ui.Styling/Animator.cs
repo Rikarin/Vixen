@@ -433,7 +433,83 @@ public sealed class Animator {
             overlaid[i] = new KeyValuePair<int, int>(property, values.Intern(value.ToCss(values)));
         }
 
+        overlaid = Introduce(element, style, now, overlaid);
+
         return overlaid is null ? style : ComputedStyle.Create(overlaid, style.Parent);
+    }
+
+    /// <summary>Adds the properties this element's animations name and its cascade never gave it.</summary>
+    /// <param name="element">The element.</param>
+    /// <param name="style">Its cascaded style.</param>
+    /// <param name="now">The current time in seconds.</param>
+    /// <param name="overlaid">The copy the loop above made, or <c>null</c> if it changed nothing.</param>
+    /// <returns>The copy, made here if it did not exist yet, or <c>null</c> if there was nothing to add.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the whole difference between a transition and an animation, and
+    ///         <see cref="Apply" /> used to treat them the same.</b> Overlaying only the properties
+    ///         already in the computed style is right for a transition — <see cref="Observe" /> takes
+    ///         the from-value out of the previous style, so a transition on a property the cascade
+    ///         never set has nothing to start from. A <c>@keyframes</c> block is the opposite: it is a
+    ///         complete description of the property over time and asks the cascade for nothing. So
+    ///         <c>@keyframes spin { to { rotate: 360deg } }</c> on a rule that does not itself declare
+    ///         <c>rotate</c> parsed, started, counted, and answered
+    ///         <see cref="TryGetAnimated(StyleNodeId, int, float, out StyleValue)" /> correctly — and
+    ///         moved nothing, because the loop it was answering never asked. Writing
+    ///         <c>rotate: 0deg</c> into the rule made it work, which is not something CSS asks an
+    ///         author to do.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every stop of every running animation, not the first.</b> A block may declare a
+    ///         property at <c>to</c> and nowhere else, which is the shape the example above has; a
+    ///         scan that stopped at the first keyframe would introduce nothing for it.
+    ///     </para>
+    /// </remarks>
+    List<KeyValuePair<int, int>>? Introduce(
+        StyleNodeId element,
+        ComputedStyle style,
+        float now,
+        List<KeyValuePair<int, int>>? overlaid
+    ) {
+        if (!animations.TryGetValue(element.Index, out var entries)) {
+            return overlaid;
+        }
+
+        List<int>? introduced = null;
+
+        foreach (var entry in entries) {
+            if (!keyframes.TryGet(entry.Spec.Name, out var stops)) {
+                continue;
+            }
+
+            foreach (var stop in stops) {
+                foreach (var declaration in keyframes.DeclarationsOf(stop.Declarations)) {
+                    var property = declaration.Property;
+
+                    // The loop in `Apply` already answered for anything the cascade set, and a
+                    // property named by two stops or by two animations must not be appended twice —
+                    // `ComputedStyle` is a sorted table and a duplicate key makes its binary search
+                    // return whichever of them it lands on.
+                    if (style.TryGet(property, out _) || introduced?.Contains(property) is true) {
+                        continue;
+                    }
+
+                    // Transitions still first, for `Apply`'s reason. A transition on a property the
+                    // cascade never set cannot start, so this arm is all but unreachable — it is here
+                    // so that the precedence is stated once rather than in two places that can drift.
+                    if (!TryGetCurrent(element, property, now, out var value)
+                        && !TryGetAnimated(element, property, now, out value)) {
+                        continue;
+                    }
+
+                    overlaid ??= Copy(style);
+                    overlaid.Add(new KeyValuePair<int, int>(property, values.Intern(value.ToCss(values))));
+                    (introduced ??= []).Add(property);
+                }
+            }
+        }
+
+        return overlaid;
     }
 
     /// <summary>Forgets everything, as a stylesheet reload must.</summary>
