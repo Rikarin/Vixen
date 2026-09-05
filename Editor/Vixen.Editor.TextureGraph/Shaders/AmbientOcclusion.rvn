@@ -1,0 +1,110 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § 4.6's `Ambient Occlusion from Height`: a horizon search over a height field.
+//
+// ⚠ **The cheap one, and a generator should prefer § D12's mesh bake.** That one casts rays against
+// the high-poly mesh — `MeshMaps.AmbientOcclusion` — and knows about geometry the height map never
+// contained, including anything the two halves of a shell occlude of each other. This knows only
+// what is in the picture, and a height map is a *field*: it cannot represent an overhang, so
+// nothing here can occlude under one. The node's own inspector says so.
+//
+// **Horizon search rather than a hemisphere of rays.** For each of `samples` directions, march out
+// to `radius` and keep the steepest rise seen; the sine of that elevation is the fraction of that
+// direction's sky the surface has taken away, and the answer is one minus the mean over the
+// directions. It is the standard construction and it is the one whose flat case is exactly one —
+// which is the only closed form a height-field occlusion has, and therefore the one
+// `TextureSurfaceDeviceTests` holds it to.
+//
+// ⚠ **`height` is what makes the node mean anything and its zero is a valid-looking number.** A
+// height field is a picture in 0..1 with no scale; how tall that is against the image's width is a
+// fact only the artist has. At zero the surface is flat and the answer is one everywhere — a
+// perfectly plausible unoccluded picture from a node that has been told the surface has no relief.
+// Doc 48 § D-zero: a zeroed parameter here is indistinguishable from a pass that did not run.
+//
+// **The march is uniform in distance and the tangent is a maximum, not a sum**, so a wall at the end
+// of the march occludes exactly as much as the same wall halfway along it. That is the behaviour a
+// horizon search has and the reason it is not an integral over the disc: an unoccluded direction
+// stays unoccluded however far the ray travels.
+
+shader AmbientOcclusion {
+    /// The height field, read from the red channel.
+    var source: Texture2D
+
+    /// How far each ray marches, in texels of the image being written.
+    var radius: float = 16f
+
+    /// How many directions are searched.
+    var samples: int = 8
+
+    /// How tall a height of one is, as a fraction of the image's width.
+    var height: float = 0.1f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The most directions a plan can ask for.
+    ///
+    /// ⚠ A ceiling rather than a runtime bound, for `Blur.rvn`'s reason: a sample count arriving as
+    /// a NaN would be a loop no invocation leaves, which on a GPU is a device loss rather than a slow
+    /// bake.
+    const val MaxSamples: int = 16
+
+    /// How many taps each ray takes. Fixed, because the cost of this node is the product of the two
+    /// and one of them is already the artist's.
+    const val Steps: int = 8
+
+    const val TwoPi: float = 6.2831853f
+
+    /// One tap's height, clamped to the source's own edge.
+    func Height(x: float, y: float): float {
+        val extent = source.GetDimensions(0)
+
+        return source.Load(int3(clamp(int(x), 0, extent.x - 1), clamp(int(y), 0, extent.y - 1), 0)).x
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val directions = clamp(samples, 1, MaxSamples)
+        val reach = max(radius, 1f)
+        val here = Height(float(coord.x), float(coord.y))
+
+        // A height of one is `height` of the image's width, and a march of d texels is d/width of it,
+        // so the tangent of an elevation is the rise over d, in the same units, which is where the
+        // extent comes from. That is also what makes the node resolution-independent: at twice the
+        // resolution the radius is twice as many texels of an image twice as wide.
+        val scale = height * float(size.x)
+
+        var occlusion = 0f
+
+        for (direction in 0 .. MaxSamples - 1) {
+            if (direction >= directions) {
+                break
+            }
+
+            val angle = TwoPi * float(direction) / float(directions)
+            val stride = float2(cos(angle), sin(angle))
+
+            var steepest = 0f
+
+            for (step in 1 .. Steps) {
+                val distance = reach * float(step) / float(Steps)
+                val sample = Height(float(coord.x) + stride.x * distance, float(coord.y) + stride.y * distance)
+                val tangent = (sample - here) * scale / distance
+
+                steepest = max(steepest, tangent)
+            }
+
+            occlusion = occlusion + steepest / sqrt(1f + steepest * steepest)
+        }
+
+        val value = saturate(1f - occlusion / float(directions))
+
+        target.Store(coord, float4(value, value, value, 1f))
+    }
+}
