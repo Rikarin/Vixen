@@ -559,12 +559,18 @@ public partial class UiElement : Composition.IComposable {
     ///         #546 is about are all wrong answers if a stylesheet can supply the language.
     ///     </para>
     ///     <para>
-    ///         So a stylesheet <i>reads</i> it, through the attribute selectors this engine already
-    ///         has: <c>[lang|="de"]</c> is <c>:lang(de)</c>'s own definition — CSS Selectors 4
-    ///         defines the <c>|=</c> operator as the BCP-47 prefix match for exactly this — so
-    ///         <c>de-AT</c> matches it and <c>de</c> does too. Markup writes it as
-    ///         <c>lang="de"</c> with no mapping, because <c>BuildContext.Attribute</c> already
-    ///         writes an attribute of that name.
+    ///         So a stylesheet <i>reads</i> it, as <c>:lang(de)</c> or as <c>[lang|="de"]</c>.
+    ///         Markup writes it as <c>lang="de"</c> with no mapping, because
+    ///         <c>BuildContext.Attribute</c> already writes an attribute of that name.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Those two spellings are not the same selector, which this paragraph asserted
+    ///         until #606 measured it.</b> They share a <i>comparison</i> — CSS Selectors 4 defines
+    ///         both as the BCP-47 range match, so <c>de-AT</c> matches <c>de</c> and <c>den</c> does
+    ///         not — and differ in their <i>subject</i>. <c>[lang|="de"]</c> asks what this element
+    ///         declares. <c>:lang(de)</c> asks what language this element's content is in, which is
+    ///         <see cref="ResolvedLanguage" />: a span inside a German paragraph is German, and only
+    ///         the pseudo-class knows it.
     ///     </para>
     ///     <para>
     ///         ⚠ <b><see langword="null" /> means "declares none", which is not "English" and not
@@ -867,7 +873,10 @@ public partial class UiElement : Composition.IComposable {
         // to what the author wrote, and every index this block hands out goes through it. When
         // nothing moved it *is* the element's own string, instance and all, so the shaping cache's
         // fast path and every reference test below carry on meaning what they meant.
-        var drawn = TransformedText.Of(Text, transform);
+        // ⚠ The language goes in because casing is language-dependent, and it is already in the
+        // cache key above for the shaper's sake — so a block built in one language is not reused in
+        // another, which is what makes passing it here safe rather than merely correct.
+        var drawn = TransformedText.Of(Text, transform, language);
         var text = drawn.Text;
 
         var lines = ImmutableArray.CreateBuilder<TextLine>();

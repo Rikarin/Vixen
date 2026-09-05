@@ -360,6 +360,7 @@ Vixen.Ui.Styling.SimpleSelectorKind -> enum : byte
 Vixen.Ui.Styling.SimpleSelectorKind.Attribute = 4 -> Vixen.Ui.Styling.SimpleSelectorKind
 Vixen.Ui.Styling.SimpleSelectorKind.Class = 3 -> Vixen.Ui.Styling.SimpleSelectorKind
 Vixen.Ui.Styling.SimpleSelectorKind.Empty = 9 -> Vixen.Ui.Styling.SimpleSelectorKind
+Vixen.Ui.Styling.SimpleSelectorKind.Lang = 10 -> Vixen.Ui.Styling.SimpleSelectorKind
 Vixen.Ui.Styling.SimpleSelectorKind.Id = 2 -> Vixen.Ui.Styling.SimpleSelectorKind
 Vixen.Ui.Styling.SimpleSelectorKind.Is = 8 -> Vixen.Ui.Styling.SimpleSelectorKind
 Vixen.Ui.Styling.SimpleSelectorKind.Not = 7 -> Vixen.Ui.Styling.SimpleSelectorKind
@@ -529,6 +530,8 @@ Vixen.Ui.Styling.StyleTree.HasClass(Vixen.Ui.Styling.StyleNodeId element, string
 Vixen.Ui.Styling.StyleTree.HasText(Vixen.Ui.Styling.StyleNodeId element) -> bool
 Vixen.Ui.Styling.StyleTree.InlineAt(int index) -> Vixen.Ui.Styling.InlineStyleId?
 Vixen.Ui.Styling.StyleTree.IsAlive(Vixen.Ui.Styling.StyleNodeId element) -> bool
+Vixen.Ui.Styling.StyleTree.Language.get -> string
+Vixen.Ui.Styling.StyleTree.Language.set -> string
 Vixen.Ui.Styling.StyleTree.LiveCount.get -> int
 Vixen.Ui.Styling.StyleTree.Move(Vixen.Ui.Styling.StyleNodeId element, int index) -> void
 Vixen.Ui.Styling.StyleTree.Names.get -> Vixen.Ui.Styling.NameTable

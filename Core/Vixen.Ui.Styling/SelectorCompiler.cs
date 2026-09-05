@@ -396,6 +396,10 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             return true;
         }
 
+        if (name.StartsWith("lang(", StringComparison.Ordinal) && name.EndsWith(')')) {
+            return TryCompileLang(pseudo.Text, name[5..^1].Trim(), ref specificity, out compiled);
+        }
+
         if (name == "enabled") {
             // The absence of a state rather than a state of its own, which is what CSS means by it.
             specificity = specificity with { Classes = specificity.Classes + 1 };
@@ -406,6 +410,46 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
 
         Refuse(pseudo.Text, $":{name} is not supported");
         return false;
+    }
+
+    /// <summary>Compiles <c>:lang(&lt;tag&gt;)</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Selectors 4 allows more here than can ever arrive, and the reason is one
+    ///         dependency out.</b> The specification takes a comma-separated list and allows <c>*</c>
+    ///         as a subtag wildcard — <c>:lang(de, fr)</c>, <c>:lang("*-CH")</c>. ExCSS 4.3.2 parses
+    ///         neither: measured, both come back as an <c>UnknownSelector</c> carrying the whole
+    ///         compound, along with <c>:lang()</c> with an empty argument. So they are refused with a
+    ///         diagnostic by the <c>default</c> arm of <see cref="TryCompileSimple" /> before this is
+    ///         ever called, and no branch is written here to handle a wildcard that cannot be
+    ///         delivered. A parser feature is what those forms wait on, not a matcher one.
+    ///     </para>
+    ///     <para>
+    ///         The tag is kept verbatim rather than folded to lower case. BCP-47 is
+    ///         case-insensitive, and the matcher compares that way; folding here would only move the
+    ///         work and would lose the author's spelling from a diagnostic.
+    ///     </para>
+    /// </remarks>
+    /// <param name="text">The whole pseudo-class, for a diagnostic.</param>
+    /// <param name="tag">Its argument.</param>
+    /// <param name="specificity">The specificity being accumulated.</param>
+    /// <param name="compiled">The compiled selector.</param>
+    /// <returns>Whether it compiled.</returns>
+    bool TryCompileLang(string text, string tag, ref Specificity specificity, out SimpleSelector compiled) {
+        compiled = default;
+
+        if (tag.Length == 0 || !tag.All(character => char.IsAsciiLetterOrDigit(character) || character == '-')) {
+            Refuse(text, $"'{tag}' is not a language range Vixen supports");
+            return false;
+        }
+
+        specificity = specificity with { Classes = specificity.Classes + 1 };
+
+        // The attribute name is interned here so that matching never has to look it up: `:lang()`
+        // reads the same `lang` attribute the tree already stores, and the walk is over ancestors,
+        // so a dictionary probe per level would be paid on the hottest half of this selector.
+        compiled = new SimpleSelector(SimpleSelectorKind.Lang, names.Intern("lang"), names.Intern(tag));
+        return true;
     }
 
     Selector NegatedState(ElementState state) {
