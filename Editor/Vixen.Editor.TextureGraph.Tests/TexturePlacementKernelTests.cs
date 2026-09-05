@@ -280,6 +280,66 @@ public class TexturePlacementKernelTests {
         Assert.Empty(imports);
     }
 
+    /// <summary>
+    ///     ⚠ Stamping a small pattern over a large output is what these two are <em>for</em>, and it
+    ///     raised a caution an artist could read.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/867">#867</a>. Both kernels take every
+    ///         input through the <em>source's</em> own extent — <c>Stamp</c> divides by
+    ///         <c>pattern.GetDimensions(0)</c>, <c>At</c> by the map's — so a 64² pattern under a 256²
+    ///         output is the ordinary case and not the smeared corner #801's caution describes. #801
+    ///         landed the flag, the guard and the reader that puts a caution under the layer stack's
+    ///         pane, and marked eight ops; these two were not among them.
+    ///     </para>
+    ///     <para>
+    ///         <b>The instrument first:</b> the same op with the declaration taken off is asserted to
+    ///         caution, on the same plan and the same sizes. Without that half this test would pass on
+    ///         a <c>Check</c> that had stopped looking at extents at all, which is the failure the
+    ///         whole batch is about.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Placement))]
+    public void A_placement_op_stamping_a_smaller_pattern_is_not_cautioned(string kernel) {
+        var placed = kernel == "Splatter"
+            ? TexturePlacement.Splatter(1, 0)
+            : TexturePlacement.TileSampler(1, 0);
+
+        TexturePlan plan = new() {
+            BaseWidth = 256,
+            BaseHeight = 256,
+
+            // Level 2 is a quarter of the base on each axis, so the pattern is 64² and the output 256².
+            Images = [new(TextureFormat.Rgba16Float, LevelOffset: 2), new(TextureFormat.Rgba8)],
+            Ops = [new() { Kernel = "Uniform", Output = 0 }, placed],
+            Outputs = [1]
+        };
+
+        Assert.Equal(64, plan.SizeOf(0).X);
+        Assert.Equal(256, plan.SizeOf(1).X);
+        Assert.True(placed.ReadsOtherExtents);
+        Assert.Empty(plan.Check());
+
+        // And the guard is awake: the identical plan whose op does not declare it is cautioned, once
+        // for every input bound to the small pattern.
+        TexturePlan undeclared = new() {
+            BaseWidth = plan.BaseWidth,
+            BaseHeight = plan.BaseHeight,
+            Images = plan.Images,
+            Ops = [plan.Ops[0], placed with { ReadsOtherExtents = false }],
+            Outputs = plan.Outputs
+        };
+
+        Assert.All(
+            undeclared.Check(),
+            problem => Assert.Equal(TextureProblemSeverity.Warning, problem.Severity)
+        );
+
+        Assert.Equal(placed.Inputs.Length, undeclared.Check().Length);
+    }
+
     static string Unqualified(string name, string shader) =>
         name.Length > shader.Length + 1
         && name.StartsWith(shader, StringComparison.Ordinal)

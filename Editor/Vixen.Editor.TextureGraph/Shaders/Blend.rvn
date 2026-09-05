@@ -4,10 +4,20 @@ package Vixen.Editor.TextureGraph.Shaders
 //
 // **The model, stated once, because two front ends and forty-five other kernels depend on it.** An
 // image here is a *straight* colour and a coverage: `xyz` is what the texel looks like where it is
-// covered at all, and `w` is how much of it there is. This kernel is the only thing in the library
-// that reads `w` as coverage, and it composites source-over — the foreground's coverage times the
-// opacity decides how much of the operator's answer replaces the backdrop, the coverages accumulate
-// as `αb + (1 − αb)·αs`, and the result is divided back out so that what leaves is straight again.
+// covered at all, and `w` is how much of it there is. This kernel composites source-over — the
+// foreground's coverage times the opacity decides how much of the operator's answer replaces the
+// backdrop, the coverages accumulate as `αb + (1 − αb)·αs`, and the result is divided back out so
+// that what leaves is straight again.
+//
+// ⚠ **Three kernels in this library *interpret* `w`, not one, and this file used to claim it was
+// alone** — [#864](https://github.com/Rikarin/Vixen/issues/864). `TileSampler.Accumulate` and
+// `Splatter.Accumulate` fold overlapping instances under the same rule, and under `alphaCoverage`
+// they read a pattern's `w` as the coverage to fold by. That claim being false is *why* both
+// carried #832's defect independently: a sentence saying "nowhere else does this" is where a
+// reviewer stops looking. Everything else in `Shaders/` either carries `w` through untouched
+// (`Grayscale`, `Levels`, `Sharpen`, …) or shapes it as a fourth number on the artist's own say-so
+// (`Invert`'s `invertA`, `Curve`'s fourth curve) — neither is an interpretation of coverage, and a
+// kernel that starts doing one belongs in this list.
 //
 // ⚠ **It used to implement only the opaque-backdrop specialisation of that**, which is exact
 // wherever the backdrop is opaque and silently premultiplying wherever it is not — see the two terms

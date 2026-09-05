@@ -221,6 +221,14 @@ shader Splatter {
     }
 
     /// One instance folded into the running result. `TileSampler.Accumulate`, and the same order.
+    ///
+    /// ⚠ **`blend` is source-over in its general form and not the opaque-backdrop specialisation of
+    /// it** — [#864](https://github.com/Rikarin/Vixen/issues/864), which is #832's defect in another
+    /// kernel. `TileSampler.Accumulate` carries the argument, and the sentence worth repeating here
+    /// is the one about reachability: a splatter's accumulator **starts empty**, so unlike
+    /// `Blend.rvn` — where a chain begins at an opaque source and only an isolated group could
+    /// produce a partial backdrop — the very first stamp landed on α = 0 and was premultiplied by
+    /// its own coverage. Stamping onto nothing is the first thing an author does with this node.
     func Accumulate(carried: float4, colour: float3, cover: float): float4 {
         val weight = saturate(cover * saturate(opacity))
 
@@ -234,9 +242,12 @@ shader Splatter {
         }
 
         if (accumulation == 2) {
-            val mixed = lerp(carried.xyz, colour, float3(weight, weight, weight))
+            val backdrop = saturate(carried.w)
+            val alpha = backdrop + (1f - backdrop) * weight
+            val over = carried.xyz * backdrop * (1f - weight) + colour * weight
+            val mixed = over / max(alpha, 0.000001f)
 
-            return float4(mixed.x, mixed.y, mixed.z, carried.w + (1f - carried.w) * weight)
+            return float4(mixed.x, mixed.y, mixed.z, alpha)
         }
 
         val kept = max(carried.xyz, colour * saturate(opacity))

@@ -302,9 +302,20 @@ public class TexturePlanCheckTests {
     ///         the kernel because "every construction of a <c>Resample</c> rescales wherever it is
     ///         built". Both are refuted by one op: <c>TextureAdjustKernels.AutoLevels</c>' final
     ///         dispatch is <em>pointwise</em> over its source and reads the 1×1 image the reduction
-    ///         ended on as its second input. A kernel-level flag would have to mark that kernel as a
-    ///         rescaler, which silences the guard for its full-size source — the exact case the guard
-    ///         exists for.
+    ///         ended on as its second input. Neither is a rescaler, and no list of rescaling kernels
+    ///         built from #801's own six would hold it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this does <em>not</em> buy is the guard on that source, and the remark here
+    ///         used to claim it did.</b> "A kernel-level flag silences the guard for its full-size
+    ///         source — the exact case the guard exists for" is true, and it is equally true of the
+    ///         per-op flag: <see cref="TexturePlan.Check" /> reads the property inside the loop over
+    ///         the inputs, so declaring it silences every one of them. Per-op is narrower than
+    ///         per-kernel — this op rather than this kernel in every plan — and on this op the
+    ///         narrowing is worth nothing.
+    ///         <see cref="A_declared_op_is_silent_about_an_input_it_reads_pointwise" /> is that shape
+    ///         written down, and <a href="https://github.com/Rikarin/Vixen/issues/878">#878</a> is
+    ///         what to do about it if a second multi-input op ever needs it.
     ///     </para>
     ///     <para>
     ///         <b>The plan below is that reduction's shape, built by hand</b>, because a hand-built
@@ -334,6 +345,56 @@ public class TexturePlanCheckTests {
         };
 
         Assert.Equal(1, plan.SizeOf(1).X);
+        Assert.Empty(plan.Check());
+    }
+
+    /// <summary>
+    ///     ⚠ The declaration covers the op and therefore every input of it, including one the kernel
+    ///     reads pointwise at the coordinate it is writing.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A limit written down rather than a property asserted</b>, and it is here because the
+    ///         sentence one method up used to say the opposite. The plan below is the same
+    ///         <c>AutoLevels</c> shape with its <em>source</em> deliberately at level 1 — 128² read by
+    ///         an op writing 256², which is precisely what
+    ///         <see cref="A_pointwise_op_reading_a_smaller_image_than_it_writes_is_reported" />
+    ///         cautions about — and the caution does not come, because the op said
+    ///         <see cref="TextureOp.ReadsOtherExtents" /> for the sake of its 1×1 second input.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only a hand-built plan can be in this state.</b>
+    ///         <c>TextureGraphCompiler.Rescale</c> resamples every image arriving at a node into that
+    ///         node's level before the op is built, so a compiled <c>AutoLevels</c> reads a source of
+    ///         its own extent by construction. That is why
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/878">#878</a> is a note rather than a
+    ///         fix — and why this case is an assertion rather than a comment: making the flag
+    ///         per-input turns it red, which is the point.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_declared_op_is_silent_about_an_input_it_reads_pointwise() {
+        TexturePlan plan = new() {
+            BaseWidth = 256,
+            BaseHeight = 256,
+            Images = [
+                new(TextureFormat.Rgba16Float, LevelOffset: 1),
+                new(TextureFormat.Rgba16Float, LevelOffset: 8),
+                new(TextureFormat.Rgba16Float)
+            ],
+            Ops = [
+                new() { Kernel = "Uniform", Output = 0 },
+                new() { Kernel = "MinMaxReduce", Output = 1, Inputs = [0], ReadsOtherExtents = true },
+                new() { Kernel = "AutoLevels", Output = 2, Inputs = [0, 1], ReadsOtherExtents = true }
+            ],
+            Outputs = [2]
+        };
+
+        // The instrument: the source really is half the size of what the last op writes, so a silent
+        // Check below is the flag's doing and not two images that quietly came out the same.
+        Assert.Equal(128, plan.SizeOf(0).X);
+        Assert.Equal(256, plan.SizeOf(2).X);
+
         Assert.Empty(plan.Check());
     }
 }
