@@ -197,7 +197,7 @@ sealed partial class CropNode : TextureNode {
             // bilinear crop drawn under the name of a box filter. Only `Resample` has a ratio to box
             // over, because only there is the target's size the whole of the answer.
             emitter.Report(
-                "TG0010",
+                TextureDiagnostics.SettingNotAccepted,
                 $"'{nameof(Filter)}' is 'Box', and '{TextureColourKernels.Crop}' takes Point or Bilinear. A box "
                 + "needs a minification ratio the kernel can work out, which a crop onto an arbitrary rect does "
                 + "not give it.",
@@ -310,7 +310,7 @@ sealed partial class ResampleNode : TextureNode {
             // — and because the *reason* it is a copy is the thing an author cannot see. This is the
             // failure #733 describes, said at the one moment somebody can act on it.
             emitter.Report(
-                "TG0018",
+                TextureDiagnostics.ResampleOntoItsOwnSize,
                 $"'{nameof(Size)}' is 'Same', so this resamples an image onto one of its own size — which is a "
                 + "copy, at the cost of a dispatch and a texture. The target's size is the scale; pick another.",
                 nameof(Size),

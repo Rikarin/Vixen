@@ -40,7 +40,7 @@ static class TextureSettings {
         }
 
         emitter.Report(
-            "TG0010",
+            TextureDiagnostics.SettingNotAccepted,
             $"'{setting}' is '{text}', which is not one of {string.Join(", ", System.Enum.GetNames<T>())}.",
             setting
         );

@@ -139,8 +139,14 @@ sealed partial class FloodFillNode : TextureNode {
         var iterations = emitter.Integer(nameof(Iterations));
 
         if (iterations is < 1 or > MaxIterations) {
+            // ⚠ `SettingNotAccepted` and not the id this line used to carry. It was TG0012, which
+            // `TextureGraphExpressions` already reported a refused expression under — two unrelated
+            // sentences, both errors, both reachable from one graph, so a host filtering on the id
+            // hid the wrong half. #804. The sentence this refusal wants was already written down as
+            // TG0010: a setting holding a value the node does not accept, with a range here where
+            // the other sites have a set.
             emitter.Report(
-                "TG0012",
+                TextureDiagnostics.SettingNotAccepted,
                 $"'{nameof(Iterations)}' is {iterations}, and this node runs between 1 and {MaxIterations}. Each one "
                 + "is a dispatch over the whole image and an image in the plan, and bounds travel one texel per "
                 + "iteration — so the number an island needs is about its longest dimension in texels.",
@@ -177,7 +183,7 @@ sealed partial class FloodFillNode : TextureNode {
             // only to 2048, and this bake's extent — and repeating that comparison here would be two
             // ceilings that have to agree. What the node adds is a diagnostic an author can select,
             // rather than an exception three frames away in a background bake.
-            emitter.Report("TG0011", refusal.Message, "Mask");
+            emitter.Report(TextureDiagnostics.BuilderRefusedTheNumbers, refusal.Message, "Mask");
         }
     }
 }

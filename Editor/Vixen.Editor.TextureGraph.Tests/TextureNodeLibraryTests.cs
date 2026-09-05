@@ -576,7 +576,11 @@ public class TextureNodeLibraryTests {
         graph.Connect(new(noise.Id, "Out"), new(flood.Id, "Mask"));
         graph.Connect(new(flood.Id, "Out"), new(output.Id, "Input"));
 
-        var refusal = Assert.Single(Compiler().Compile(graph).Diagnostics, diagnostic => diagnostic.Id == "TG0012");
+        // ⚠ TG0010 and not TG0012, which this line asserted until #804. TG0012 was also what a
+        // refused expression reported, so one graph could carry two of them meaning different
+        // things; the sentence a setting outside the range its node accepts wants was already
+        // written down as TG0010.
+        var refusal = Assert.Single(Compiler().Compile(graph).Diagnostics, diagnostic => diagnostic.Id == "TG0010");
 
         Assert.Equal(flood.Id, refusal.Node);
         Assert.Equal("Iterations", refusal.Port);
@@ -812,6 +816,10 @@ public class TextureNodeLibraryTests {
     ///     reads is "a slice declares its kernels in a static <c>All</c>", which is one line long.
     /// </remarks>
     static IEnumerable<string> Declared() {
+        // ⚠ The detector is a *member name*, so any static `All` of strings anywhere in this
+        // assembly joins the kernel inventory — measured, when a diagnostics registry called its id
+        // list `All`. `TextureColourKernelTests.Declared` is the same walk and carries the same
+        // note; #814.
         foreach (var type in typeof(TextureKernels).Assembly.GetTypes()) {
             if (type.GetProperty("All", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static) is not
                 { } all) {

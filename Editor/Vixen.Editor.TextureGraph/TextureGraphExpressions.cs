@@ -158,7 +158,7 @@ static class TextureGraphExpressions {
 
             if (Refuse(text) is { } reason) {
                 problems.Add(new(
-                    "TG0012",
+                    TextureDiagnostics.ExpressionRefused,
                     $"'{expression.Port}' is an expression that {reason}",
                     expression.Node,
                     expression.Port
@@ -189,7 +189,7 @@ static class TextureGraphExpressions {
             var owner = Owner(lineOf, at);
 
             problems.Add(new(
-                "TG0013",
+                TextureDiagnostics.ExpressionDoesNotCompile,
                 owner < 0
                     ? $"The graph's parameters do not compile: {diagnostic.Id}: {diagnostic.GetMessage()}"
                     : $"'{expressions[owner].Port}' does not compile: {diagnostic.Id}: {diagnostic.GetMessage()}",
@@ -221,7 +221,7 @@ static class TextureGraphExpressions {
 
             if (Value(members, NameOf(index)) is not { } value) {
                 problems.Add(new(
-                    "TG0014",
+                    TextureDiagnostics.ExpressionDoesNotFold,
                     $"'{expression.Port}' is '{expression.Text.Trim()}', which Raven binds and cannot fold to a "
                     + "number at compile time. A plan's parameter is one float, so an expression here is "
                     + "literals, parameters, and arithmetic over them — a function call is not folded.",
