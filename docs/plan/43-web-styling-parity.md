@@ -3302,14 +3302,15 @@ declares `object-fit: contain` itself so the injected `object-position` has slac
 `primed`'s lesson, one property along.
 
 `contain` is refused for a related reason and a worse one: **there is no containment concept in the
-layout store at all** — no property, no style slot, no branch — and no vocabulary to express the
-interesting half. Size containment means a box sizes as if it had no contents. ⚠ **Correcting a claim
-made in passing during the container-query work:** `LayoutUnit.Stretch` is *not* an enum member
-nothing references — `Tools/Vixen.YogaTestGen` emits it and two generated fixtures set it. It is one
-nothing *resolves*: `StyleLength.IsResolvable` admits only `Point` and `Percent`, so both fixtures
-pass with the keyword behaving as "undefined", and the two disagree about what it should mean
-(`Stretch_width` wants the containing block's width, `Stretch_flex_basis_column` wants its own
-content's height) — so resolving it closes one by opening the other.
+layout store at all** — no property, no style slot, no branch. That claim was re-checked against the
+tree rather than inherited: `LayoutStyle` has no field, `LayoutEnums` has no member, and no algorithm
+file mentions the word. ⚠ **Correcting a claim made in passing during the container-query work:**
+`LayoutUnit.Stretch` is *not* an enum member nothing references — `Tools/Vixen.YogaTestGen` emits it
+and two generated fixtures set it. It is one nothing *resolves*: `StyleLength.IsResolvable` admits
+only `Point` and `Percent`, so both fixtures pass with the keyword behaving as "undefined", and the
+two disagree about what it should mean (`Stretch_width` wants the containing block's width,
+`Stretch_flex_basis_column` wants its own content's height) — so resolving it closes one by opening
+the other.
 
 ⚠ **And the paragraph that used to sit here said three keywords were unimplemented, which stopped
 being true when the intrinsic pre-pass landed.** `MinContent`, `MaxContent` and `FitContent` *are*
@@ -3317,8 +3318,49 @@ resolved — `IsResolvable` is not the predicate that settles them, `StyleLength
 and `LayoutTree.Intrinsic.cs`'s whole-tree bottom-up pre-pass measures the node and substitutes a
 `Point` before the algorithm reads the slot. Reading a `NaN` out of `Resolve` as "unimplemented" is
 the mistake, and it is one this file made about its own store. **`Stretch` is the one left**, and
-`contain` is not behind it: containment is a concept the store does not have at all, which is a
-larger and separate item. This is also the layout half of the container-query coercion.
+`contain` is not behind it. This is also the layout half of the container-query coercion.
+
+#### What containment should be here, sized per kind
+
+⚠ **`contain` is one property with five independent effects, and the eight Tailwind classes are
+combinations of them — so sizing the root as one item is the mistake to avoid.** `contain-content` is
+`layout paint style`; `contain-strict` adds `size`. A registration that made three of the five real
+would leave both aggregate classes half working, which is the shape this document exists to refuse.
+Taken one at a time against this engine's own seams:
+
+| kind | what CSS asks for | the seam here | verdict |
+| --- | --- | --- | --- |
+| **size** | the box sizes as if it had no contents | `LayoutTree.Layout.cs`'s `MeasureNodeWithoutChildren`, which is *already* that computation for a childless node, plus `LayoutTree.Intrinsic.cs` so a content keyword on a contained box measures zero | **buildable, and the interesting half** |
+| **inline-size** | the same on one axis | the same seam, one axis | buildable with `size` |
+| **layout** | independent formatting context; a containing block for descendants | `LayoutTree.Absolute.cs` already picks a containing block per node | **buildable, and largely already true** — a flex or grid item is an independent formatting context by construction here, so the observable part is the abspos containing block, which `position: relative` already gives |
+| **paint** | descendants clipped to the padding box | `DrawListBuilder`'s `OverflowReader` and the clip stack | **buildable**, and the same clip `overflow: hidden` pushes |
+| **style** | counters and quotes are scoped to the subtree | — | ⛔ **refuse**: there are no counters and no `content` quotes in this engine, so every value of it computes and moves nothing. A class emitted for it would be inert by construction |
+
+**So the shape is: four of the five, and `style` refused in writing.** The order is forced by
+observability rather than by effort — `size` is the only one whose absence is visible on a fixture
+that does nothing else, and it is the one the aggregate classes are worth having for.
+
+⚠ **Size containment is not "skip the children", and reading it that way is how it gets built
+wrong.** A contained box still *lays its children out* — they are painted, they are hit-tested, they
+scroll. What it must not do is let them decide its own box. In this store that is a real distinction:
+`CalculateLayoutImpl` computes the node's measured dimensions and positions its children in one pass,
+so the intervention is to settle the box from `MeasureNodeWithoutChildren` first and then run the
+children against those dimensions as though they were `Exactly`. That is a change in the middle of
+the flex algorithm rather than at either end of it, and it is why this is not a table entry.
+
+⚠ **The instrument to build first, before any of it.** A contained box and an uncontained one draw
+the *same picture* wherever the children happen to fit — which is most fixtures — so a test whose
+box has an explicit `width` and `height` proves nothing about `contain: size` at all. The fixture has
+to be an auto-sized box with children that overflow it, where containment collapses the box to zero
+and its absence does not. `contain: paint` has the mirror-image trap: it is invisible unless a child
+overflows.
+
+**Sized:** `paint` is small and is the same clip that already exists. `layout` is small and is mostly
+a statement about what is already true, which is a reason to be careful that its test can fail.
+`size` and `inline-size` are the item, and they are a change inside the flex and block algorithms
+with an intrinsic-pre-pass half beside it. `style` is a refusal. The four buildable kinds are filed
+separately from this triage; the row stays `absent` until every keyword an aggregate class expands to
+is real, because a half-real `contain-strict` is worse than an absent one.
 
 ### Bucket 4 — the algorithm was never written. `columns`, the three `break-*`, `box-decoration-break`, `float`, `clear`.
 
