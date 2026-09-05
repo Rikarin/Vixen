@@ -317,6 +317,51 @@ public class SubGraphTests {
         Assert.Equal(new PortRef(inlined.Id, "Out"), flat.Source(new(keptSink.Id, "A")));
     }
 
+    /// <summary>An extraction carries the knobs the texts it copies are written against.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It did not, and the loss was silent both ways —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/802">#802</a>.</b> The node's text
+    ///     crossed and the declaration behind it did not, so a published sub-graph carried
+    ///     <c>amount * 32f</c> and declared no <c>amount</c>; nothing refused it, and the containing
+    ///     graph reported an undefined name about a graph that had compiled a moment earlier. This is
+    ///     the framework half — <c>TextureGraphSubGraphTests</c> is the one that shows the expression
+    ///     folding afterwards, which is what the parameter is <em>for</em>.
+    /// </remarks>
+    [Fact]
+    public void Extraction_carries_the_parameters_a_copied_expression_is_written_against() {
+        var graph = new NodeGraphModel();
+
+        graph.Parameters.Add(new("amount", "0.5", Kind: SettingKind.Float, Minimum: 0f, Maximum: 1f));
+
+        var named = graph.Add("Test/Named Thing");
+
+        named.SetText("=Label", "amount * 32f");
+
+        var extraction = SubGraphs.Extract(graph, [named.Id], "Inner", Library());
+        var carried = Assert.Single(extraction.Graph.Parameters);
+
+        Assert.Equal("amount", carried.Name);
+        Assert.Equal("0.5", carried.Default);
+        Assert.Equal(1f, carried.Maximum);
+    }
+
+    /// <summary>And the graph's own settings do not cross, which is the other half of #802.</summary>
+    /// <remarks>
+    ///     A sub-graph's base resolution and seed are ignored after a flatten — the containing
+    ///     graph's are what a compiler reads — so copying them would put two numbers nothing reads
+    ///     into an inspector that draws them as though something did.
+    /// </remarks>
+    [Fact]
+    public void Extraction_does_not_carry_the_graphs_own_settings() {
+        var graph = new NodeGraphModel();
+
+        graph.Settings["BaseWidth"] = "512";
+
+        var node = graph.Add("Test/Colour");
+
+        Assert.Empty(SubGraphs.Extract(graph, [node.Id], "Inner", Library()).Graph.Settings);
+    }
+
     [Fact]
     public void The_interface_survives_a_round_trip_through_the_file_shape() {
         var saved = NodeGraphDocument.Save(Tint());

@@ -1085,6 +1085,9 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
                 Kernel = TextureColourKernels.Resample,
                 Output = scaled,
                 Inputs = [source],
+
+                // #801: this op exists *because* the two sizes differ, which is #779's fix.
+                ReadsOtherExtents = true,
                 Parameters = [new("filter", (float)TextureFilter.Bilinear)]
             }
         );

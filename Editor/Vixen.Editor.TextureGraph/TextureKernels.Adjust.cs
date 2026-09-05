@@ -152,6 +152,10 @@ internal static class TextureAdjust {
                     Kernel = TextureColourKernels.MinMaxReduce,
                     Output = scratch[pass],
                     Inputs = [pass == 0 ? source : scratch[pass - 1]],
+
+                    // Each pass reads the level above the one it writes, which is the reduction —
+                    // #801.
+                    ReadsOtherExtents = true,
                     // ⚠ #713: the number of these is a function of the baked extent, so the list is
                     // emitted for one bake and TexturePlan.Validate refuses it at another. The
                     // number is this op's own output extent, which is what Validate compares.
@@ -165,7 +169,13 @@ internal static class TextureAdjust {
             new() {
                 Kernel = TextureColourKernels.AutoLevels,
                 Output = output,
-                Inputs = [source, scratch[^1]]
+                Inputs = [source, scratch[^1]],
+
+                // ⚠ Not a resampler — it is pointwise over `source` — and it still reads another
+                // size, because the second input is the 1×1 the reduction ended on. #801's own list
+                // of six rescaling kernels would not have held this op, which is why the property is
+                // on the op rather than on the kernel.
+                ReadsOtherExtents = true
             }
         );
 

@@ -178,7 +178,10 @@ public class TextureSurfaceKernelTests {
             .Order(StringComparer.Ordinal)
             .ToArray();
 
-        Assert.Equal(["Cpu", "EmittedForExtent", "Inputs", "Kernel", "Output", "Parameters"], members);
+        Assert.Equal(
+            ["Cpu", "EmittedForExtent", "Inputs", "Kernel", "Output", "Parameters", "ReadsOtherExtents"],
+            members
+        );
 
         // Every one of them but Cpu is inert data — a string, an image index, indices, scalars. Cpu is
         // the single exception doc 48 § 4.6 argues for and #688 built, and it is nullable: an op that

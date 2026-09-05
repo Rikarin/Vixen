@@ -592,6 +592,9 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
             Kernel = "MinMaxReduce",
             Output = output,
             Inputs = [source],
+
+            // A rung reads the level above the one it writes, which is the reduction — #801.
+            ReadsOtherExtents = true,
             Parameters = [new("first", first ? 1f : 0f)]
         };
 

@@ -130,6 +130,40 @@ public sealed record TextureOp {
     /// </remarks>
     public int? EmittedForExtent { get; init; }
 
+    /// <summary>
+    ///     Whether this op <em>means</em> to read an image of a size other than the one it writes.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/801">#801</a>, and the whole
+    ///         difficulty is that both halves look identical from here.</b> Nearly every kernel in
+    ///         <c>Shaders/</c> is pointwise — it reads <c>source.Load(clamp(coord, …))</c> at the
+    ///         coordinate it is writing — so an op writing 256² while reading 128² draws the source's
+    ///         top-left quarter with its right and bottom rows smeared over the rest: no refusal, no
+    ///         message, a plausible picture. And <c>Resample</c>, <c>Crop</c>, <c>Tile</c>,
+    ///         <c>Transform2D</c>, <c>Bitmap</c>, <c>MinMaxReduce</c> and <c>AutoLevels</c> do the same
+    ///         thing on purpose. <see cref="TexturePlan.Check" /> cautions about the first and this is
+    ///         what tells it which it is looking at.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A property of the <em>op</em> rather than a list of kernel names, and #801 named
+    ///         the alternative it is better than.</b> A roll call of "kernels allowed to disagree"
+    ///         goes red on the merge that adds a kernel rather than on the change that breaks one, it
+    ///         cannot say anything at all about a kernel a graph authored — doc 48 § D6's Pixel
+    ///         Processor is a kernel with no entry in any table — and it would have been wrong from
+    ///         the day it was written: <c>AutoLevels</c> is not a rescaler, it is a pointwise kernel
+    ///         that reads a 1×1 <em>statistics</em> image beside its full-size source, and no
+    ///         list-of-resamplers built from #801's own six would have held it.
+    ///     </para>
+    ///     <para>
+    ///         <b>And the failure mode of forgetting it is loud.</b> A new op that reads another size
+    ///         and does not say so gets the caution, in its author's own test, naming this property —
+    ///         where a hand-kept list forgotten in the other direction is silence. Setting it where it
+    ///         is not true costs only this one op's guard.
+    ///     </para>
+    /// </remarks>
+    public bool ReadsOtherExtents { get; init; }
+
     /// <summary>The image it writes, as an index into <see cref="TexturePlan.Images" />.</summary>
     public required int Output { get; init; }
 
@@ -645,6 +679,34 @@ public sealed class TexturePlan {
                         TextureProblem.Refusal(
                             $"Op {index} reads image {input}, which nothing has written yet. An intermediate is "
                             + "written by an earlier op or supplied by the caller."
+                        )
+                    );
+                }
+
+                // ⚠ #801, and a caution rather than a refusal because that is what the two severities
+                // mean here: this plan *bakes*, and what it bakes is not the picture the graph
+                // describes. It is #692's clipped radius exactly. A refusal would also be unusable —
+                // every hand-built plan that resamples on purpose would stop baking on the day this
+                // landed, which is a change to what the type accepts rather than a report about it.
+                //
+                // ⚠ An external image's size is the caller's and the plan's level for it is nominal
+                // — the same reason the ceiling check above skips one — so a mismatch there is a
+                // claim this method cannot check and `TexturePlanEvaluator` is where the supplied
+                // texture is finally seen. Everything else is measurable here.
+                if (op.ReadsOtherExtents || Images[input].External || input == op.Output) {
+                    continue;
+                }
+
+                var read = SizeOf(input);
+
+                if (read != size) {
+                    problems.Add(
+                        TextureProblem.Caution(
+                            $"Op {index} runs '{op.Kernel}', writes a {size.X}×{size.Y} image {op.Output} and reads a "
+                            + $"{read.X}×{read.Y} image {input}. A pointwise kernel taps its source at the coordinate "
+                            + "it is writing, so what this draws is the source's top-left corner with its last row "
+                            + "and column smeared over the rest — resample it into the size it is read at, or say "
+                            + $"{nameof(TextureOp.ReadsOtherExtents)} on the op if the difference is the point."
                         )
                     );
                 }
