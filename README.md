@@ -25,8 +25,11 @@ SampleFrame AffectedProjects AffectedTests TestOrder PruneWorktrees` — with
 
 `--workers <n>` bounds how many projects compile and how many test assemblies run at once. It
 defaults to 4 locally and to unbounded in CI, which has the machine to itself; `--workers 0` asks for
-unbounded anywhere. The cap costs about five minutes on a whole-solution `Test` and is what keeps the
-run from taking the machine away from everything else on it.
+unbounded anywhere. It is what keeps the run from taking the machine away from everything else on
+it, and it costs less than it reads: measured from the 178 TRX of the 2026-09-05 sweep, a capped
+`Test` reached a 3.93× speed-up on four lanes — 98% of the ideal, nine seconds off the optimal
+packing of the same assemblies. ⚠ Raising the cap **cannot** buy more than two and a half minutes and
+buys nothing at all above six, because the floor is one 412-second assembly and not the fan-out.
 
 Agent worktrees under `.claude/worktrees` are never cleaned up by anything, and each carries its own
 `bin`/`obj` — about 25 GB apiece once the solution has been built in both configurations.

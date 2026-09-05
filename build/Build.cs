@@ -47,6 +47,35 @@ partial class Build : NukeBuild {
     ///         long pole is one assembly, not the fan-out.
     ///     </para>
     ///     <para>
+    ///         <b>Measured again after the cap landed</b>, from the 178 TRX of the 2026-09-05 sweep
+    ///         — the run's own interval arithmetic rather than a stopwatch, so it is reproducible
+    ///         from committed artefacts. Per-assembly wall sums to 2 189 s; the window from the
+    ///         earliest start to the latest finish is 557 s; the longest assembly is
+    ///         <c>Vixen.Editor.App.Tests</c> at 412 s. That is a speed-up of <b>3.93×</b> against a
+    ///         cap of four — 98% of the ideal — and the optimal four-lane packing of those same
+    ///         durations is 548 s, so the cap loses about nine seconds to scheduling and nothing to
+    ///         anything else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Peak concurrency observed in those intervals is exactly four, and checking that
+    ///         is the point.</b> A run whose <c>-m</c> never arrived would look identical in every
+    ///         other respect — same tests, same TRX, a plausible elapsed — which is not a
+    ///         hypothetical: <c>d27cb75b</c> fixed a rerouted <c>Test</c> whose whole command line
+    ///         arrived as one quoted argument, and it failed in under a second having run nothing at
+    ///         all while printing no error. The overlap count in the TRX is the evidence that the
+    ///         switch reaches MSBuild.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it says four is not the interesting number: six is.</b> The makespan floor
+    ///         is <c>max(longest, work / W)</c>, and on this tree it bottoms out at the 412 s of the
+    ///         single longest assembly from <b>W = 6</b> upward — 730 s at three, 548 at four, 438
+    ///         at five, 412 from six to unbounded. So raising the cap past six cannot buy a second,
+    ///         and raising it from four buys at most 145 s. ⚠ The estimate this paragraph replaces
+    ///         said "about five minutes"; on the tree as it stands it is under two and a half, and
+    ///         it shrinks every time that one assembly does. Whatever makes
+    ///         <c>Vixen.Editor.App.Tests</c> quicker is worth more than any value of this parameter.
+    ///     </para>
+    ///     <para>
     ///         <b>Four locally, unbounded in CI.</b> A CI leg has the machine to itself and there is
     ///         nothing there for a cap to protect; a developer — or several agents in their own
     ///         worktrees — does not. The default is deliberately a number a laptop survives rather
