@@ -114,6 +114,23 @@ the diagnostic.** `TreatWarningsAsErrors` is a stated non-negotiable, so a warni
 the tree is a broken build — and a plain parameter is sometimes right, for a value a caller sets once
 and never changes. Promoting it is a decision to take after the tree has been swept with it.
 
+⚠ **A "full `Compile` will sweep it" is wrong, and the reason is three lines above the reference that
+loads it.** Analyzers do not flow transitively through a `ProjectReference`, so this rule runs only in
+a project that names `Vixen.Ui.Generators` itself or sets `<VixenUi>true</VixenUi>`. Inside the
+repository that is eleven projects; six that own `.vxml` are not among them — `Vixen.Editor.App`,
+`Vixen.Editor.AssetEditors`, `Vixen.Editor.NodeGraph`, `Vixen.Editor.Terrain`, `Vixen.Editor.Water`
+and `Vixen.Ui.Controls.Tests` — because they name only `Vixen.Ui.Markup.Generators`, which is what
+compiles the markup. A consumer outside the repository has no such gap: a `PackageReference` to
+`Vixen.Ui` carries both.
+
+**The sweep so far: nothing to report in `Vixen.Ui`, `Vixen.Ui.Controls`, `Vixen.Ui.Controls.Advanced`,
+`Vixen.Ui.Tests` and `Vixen.Ui.Generators.Tests` — zero hits between them.** ⚠ Verified as an
+instrument first, because a rule reported at `Info` prints nothing at any MSBuild verbosity: a probe
+component with `public string Title { get; set; }` produces no output at all until the severity is
+promoted in `.editorconfig`, at which point `TreatWarningsAsErrors` turns each hit into a build error
+that cannot be missed. That is how to run the rest of it. Still unswept: `Vixen.Editor.Ui`,
+`Vixen.Editor.Debugger`, `Vixen.Editor.Profiler` and the two samples.
+
 ⚠ **It cannot be a `VXML2xxx`.** `VxmlGenerator` never takes a `Compilation` — deliberately, so that
 editing a C# file re-runs no markup — and `Binder` is pure syntax, so "is this property signal-backed"
 is a question the markup compiler cannot ask at all. That is why it is a separate analyzer over the
