@@ -473,8 +473,24 @@ absence of the first is what makes a 10 000-row panel fall back to hand-written 
 
 `ctx.TwoWay` requires an **lvalue of the property's exact type** with no converter and no coercion
 (`ComponentEmitter.cs:629-630`, `BuildContext.cs:942-974`). Nested properties and settable indexers
-work; expressions, method calls and conversions do not. Across every committed `.vxml`: **7 `bind:`**
-against 29 `change:` and 281 `ref`. Two-way binding is nominally present and practically absent.
+work; expressions, method calls and conversions do not. Across every committed `.vxml`: **8 `bind:`**
+against 26 `change:` and 239 `ref`, and **all eight `bind:` attributes are in one file** —
+`Samples/02-HelloUi/Panels/Gallery.vxml`. Two-way binding is nominally present and practically absent.
+
+Three corrections to the paragraph above, from #663 and `BindReachTests`:
+
+- **`string?` against `string` is not a mismatch.** Nullable annotations on a *reference* type are
+  erased, so `typeof(string?)` is `typeof(string)` and the exact-type check never sees them. `int?`
+  against `int` is two types and that half is real.
+- **A mismatch used to do nothing at all**, which is the best available explanation for the eight.
+  Both legs box through `UiPropertyKey`, the unbox is exact, and the forward leg is an `Effect` —
+  which catches, suspends and logs rather than propagating. `TwoWay` now refuses a mismatch at
+  compose, naming both types.
+- ⚠ **The narrowness the section does not name: a model that is not reactive gets one forward write
+  and never another.** Nested paths and indexers do bind, and every `bind:` in the tree binds
+  `Something.Value` on a `Signal<T>` — so the forward effect has a dependency. Over a plain property
+  it has none, the write-back still works, and the result is a half-live binding that fails in the
+  direction an author tests second.
 
 ### 6.7 Smaller, but each is a real edge
 

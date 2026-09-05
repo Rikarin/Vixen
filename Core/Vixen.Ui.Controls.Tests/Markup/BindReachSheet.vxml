@@ -1,0 +1,73 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component BindReachSheet
+@namespace Vixen.Ui.Controls.Tests
+@using Vixen.Ui.Controls
+
+<bind-reach>
+    <!--
+        Two hops to an lvalue. `bind:` emits `() => EXPR` and `__v => EXPR = __v`, so what it needs
+        is an assignable expression rather than a signal or a one-level property — and #663 asserts
+        without pinning that a path reaches.
+    -->
+    <Slider ref="@Nested" bind:Value="@Model.Levels.Gain" />
+
+    <!-- A settable indexer, which is an lvalue nothing in the tree had ever written after `bind:`. -->
+    <Slider ref="@Indexed" bind:Value="@Model[0]" />
+
+    <!--
+        A non-nullable `string` model against `TextField.Value`, which is declared `string?`.
+        Nullable *reference* annotations are erased, so these are one type and the exact-type rule
+        never sees them — the half of #663's restriction list that does not hold.
+    -->
+    <TextBox ref="@Named" bind:Value="@Model.Name" />
+</bind-reach>
+
+@code {
+    /// <summary>The far end of a nested path.</summary>
+    public sealed class Bus {
+        /// <summary>What the nested binding writes.</summary>
+        public float Gain { get; set; } = 0.25f;
+    }
+
+    /// <summary>A model with a hop, an indexer and a plain string.</summary>
+    /// <remarks>
+    ///     ⚠ Every value is seeded here rather than assigned by the test, and that is the point
+    ///     rather than tidiness: nothing on this model is a signal, so the forward leg's effect has
+    ///     no dependency and runs exactly once. What it reads on that run is what the control gets.
+    /// </remarks>
+    public sealed class Mixer {
+        readonly float[] channels = [0.4f, 0f];
+
+        /// <summary>The hop.</summary>
+        public Bus Levels { get; } = new();
+
+        /// <summary>A non-nullable string, bound to a <c>string?</c> property.</summary>
+        public string Name { get; set; } = "Kick";
+
+        /// <summary>The settable indexer.</summary>
+        /// <param name="index">Which channel.</param>
+        public float this[int index] {
+            get => channels[index];
+            set => channels[index] = value;
+        }
+    }
+
+    /// <summary>
+    ///     ⚠ Get-only and initialised here, not assigned by a host afterwards.
+    ///     <c>BuildContext.Build&lt;T&gt;</c> mounts before it assigns parameters, so a model handed
+    ///     in later is null for the whole of the build these bindings are made in.
+    /// </summary>
+    public Mixer Model { get; } = new();
+
+    /// <summary>The slider bound through a path.</summary>
+    public Slider Nested { get; private set; } = null!;
+
+    /// <summary>The slider bound through an indexer.</summary>
+    public Slider Indexed { get; private set; } = null!;
+
+    /// <summary>The field bound to a <c>string?</c> property from a <c>string</c> model.</summary>
+    public TextBox Named { get; private set; } = null!;
+}
