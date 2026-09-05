@@ -34,7 +34,7 @@ a lighting model cannot exist in the first.
 
 ## Using it
 
-```csharp
+```csharp no-compile="a fragment against a caller's own device and its imported bitmap"
 var plan = new TexturePlan {
     BaseWidth = 2048,
     BaseHeight = 2048,
@@ -110,7 +110,7 @@ evaluator allocates on first write, frees when the last reader has run, and reus
 same format and size. `TexturePoolSchedule` works all of that out from the op order alone, with no
 device, which is what lets the bound be asserted anywhere:
 
-```csharp
+```csharp no-compile="a fragment against the plan above, as TexturePoolTests asserts it"
 var schedule = TexturePoolSchedule.For(plan);
 
 // A chain of forty ops threaded through two live images allocates two textures — at 2K, 32 MB
