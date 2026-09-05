@@ -104,19 +104,12 @@ public static class ContainerQuery {
         matches = false;
         reason = null;
 
-        var colon = feature.IndexOf(':');
-        var name = (colon < 0 ? feature : feature[..colon]).Trim();
-        var value = colon < 0 ? [] : feature[(colon + 1)..].Trim();
-
-        var comparison = Comparison.Exact;
-
-        if (name.StartsWith("min-", StringComparison.OrdinalIgnoreCase)) {
-            comparison = Comparison.AtLeast;
-            name = name[4..];
-        } else if (name.StartsWith("max-", StringComparison.OrdinalIgnoreCase)) {
-            comparison = Comparison.AtMost;
-            name = name[4..];
+        if (!FeatureRange.TryRead(feature, out var terms, out reason)) {
+            return false;
         }
+
+        var name = terms.Name;
+        var value = terms.Value;
 
         // Vixen has no vertical writing mode, so the logical names are the physical ones. Kept as
         // separate spellings rather than rewritten at load because that is what the author wrote, and
@@ -135,9 +128,16 @@ public static class ContainerQuery {
                 return true;
             }
 
-            return name.Equals("orientation", StringComparison.OrdinalIgnoreCase)
-                ? TryOrientation(value, box, out matches, out reason)
-                : TryRatio(value, comparison, box, out matches, out reason);
+            if (name.Equals("orientation", StringComparison.OrdinalIgnoreCase)) {
+                if (terms.IsRanged) {
+                    reason = "'orientation' is discrete, so it has no range or min-/max- form";
+                    return false;
+                }
+
+                return TryOrientation(value, box, out matches, out reason);
+            }
+
+            return TryRatio(terms, box, out matches, out reason);
         }
 
         if (!inline && !block) {
@@ -159,7 +159,7 @@ public static class ContainerQuery {
 
         var actual = inline ? box.Width : box.Height;
 
-        if (value.IsEmpty) {
+        if (terms.IsBoolean) {
             // The boolean form, which CSS defines as "the feature is non-zero".
             matches = actual != 0f;
             return true;
@@ -170,11 +170,18 @@ public static class ContainerQuery {
             return false;
         }
 
-        matches = comparison switch {
-            Comparison.AtLeast => actual >= wanted,
-            Comparison.AtMost => actual <= wanted,
-            _ => actual == wanted
-        };
+        matches = FeatureRange.Holds(actual, terms.Comparison, wanted);
+
+        if (!terms.HasSecond) {
+            return true;
+        }
+
+        if (!MediaQuery.TryLength(terms.SecondValue, out var second)) {
+            reason = $"'{terms.SecondValue}' is not a length Vixen can compare";
+            return false;
+        }
+
+        matches &= FeatureRange.Holds(actual, terms.SecondComparison, second);
 
         return true;
     }
@@ -199,18 +206,19 @@ public static class ContainerQuery {
         return false;
     }
 
-    static bool TryRatio(
-        ReadOnlySpan<char> value,
-        Comparison comparison,
-        ContainerBox box,
-        out bool matches,
-        out string? reason
-    ) {
+    static bool TryRatio(FeatureTerms terms, ContainerBox box, out bool matches, out string? reason) {
         matches = false;
         reason = null;
 
-        if (!TryRatioValue(value, out var wanted)) {
-            reason = $"'{value}' is not a ratio";
+        if (!TryRatioValue(terms.Value, out var wanted)) {
+            reason = $"'{terms.Value}' is not a ratio";
+            return false;
+        }
+
+        var second = 0f;
+
+        if (terms.HasSecond && !TryRatioValue(terms.SecondValue, out second)) {
+            reason = $"'{terms.SecondValue}' is not a ratio";
             return false;
         }
 
@@ -222,11 +230,15 @@ public static class ContainerQuery {
 
         var actual = box.Width / box.Height;
 
-        matches = comparison switch {
-            Comparison.AtLeast => actual >= wanted,
-            Comparison.AtMost => actual <= wanted,
-            _ => Math.Abs(actual - wanted) < 1e-4f
-        };
+        // ⚠ Equality on a ratio is the one comparison that cannot be exact — `16/9` is not a float —
+        // so it keeps its epsilon while every ordering is the plain one.
+        matches = terms.Comparison == FeatureComparison.Exact
+            ? Math.Abs(actual - wanted) < 1e-4f
+            : FeatureRange.Holds(actual, terms.Comparison, wanted);
+
+        if (terms.HasSecond) {
+            matches &= FeatureRange.Holds(actual, terms.SecondComparison, second);
+        }
 
         return true;
     }
@@ -254,11 +266,5 @@ public static class ContainerQuery {
 
         ratio = numerator / denominator;
         return ratio > 0f;
-    }
-
-    enum Comparison : byte {
-        Exact,
-        AtLeast,
-        AtMost
     }
 }

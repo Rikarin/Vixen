@@ -189,12 +189,14 @@ public static class Variants {
     ///         and nothing in CSS warns about a query that is merely always false.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>@max-*</c> emits <c>max-width</c>, which is <c>&lt;=</c> where v4's
-    ///         <c>(width &lt; 24rem)</c> is <c>&lt;</c>.</b> The two differ on exactly one width —
-    ///         the threshold itself — because <see cref="ContainerQuery" /> reads the
-    ///         <c>min-</c>/<c>max-</c> prefix forms and has no range syntax to read. It is the same
-    ///         inclusive reading <c>Screens</c> above already gives every breakpoint, so the
-    ///         divergence is the engine's throughout rather than this family's.
+    ///         ⚠ <b><c>@max-*</c> emits <c>(width &lt; …)</c> and not <c>max-width</c>, because v4's
+    ///         <c>@max-sm</c> is <c>(width &lt; 24rem)</c> and the two spellings differ on exactly one
+    ///         width — the threshold itself.</b> A container measured at precisely <c>24rem</c> takes
+    ///         the <c>@max-sm:</c> rule under <c>max-width</c> and does not under <c>&lt;</c>, and
+    ///         nothing about a one-pixel disagreement reads as a bug: it reads as an author
+    ///         mis-picking their breakpoint. <see cref="ContainerQuery" /> learned the range operators
+    ///         for this. <c>@min-*</c> stays inclusive, which is what v4 does too and what
+    ///         <c>Screens</c> above gives every breakpoint.
     ///     </para>
     ///     <para>
     ///         The name goes after the last <c>/</c>, which is where v4 puts it and is unambiguous
@@ -218,12 +220,12 @@ public static class Variants {
             rest = rest[..slash];
         }
 
-        var feature = "min-width";
+        var exclusive = false;
 
         if (rest.StartsWith("min-", StringComparison.Ordinal)) {
             rest = rest[4..];
         } else if (rest.StartsWith("max-", StringComparison.Ordinal)) {
-            feature = "max-width";
+            exclusive = true;
             rest = rest[4..];
         }
 
@@ -244,7 +246,9 @@ public static class Variants {
         }
 
         var subject = name.Length == 0 ? string.Empty : name + " ";
-        effect = new VariantEffect(string.Empty, string.Empty, $"@container {subject}({feature}: {width})");
+
+        var condition = exclusive ? $"(width < {width})" : $"(min-width: {width})";
+        effect = new VariantEffect(string.Empty, string.Empty, $"@container {subject}{condition}");
 
         return true;
     }

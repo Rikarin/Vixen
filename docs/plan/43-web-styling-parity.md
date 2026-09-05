@@ -2019,10 +2019,19 @@ three reasons this section used to give was actually worth:
   `TryContainer` at `Screens`: it turns every positive row of that enumeration red, which is the
   precise defect the namespace exists to prevent.
 
-⚠ **One divergence, stated rather than left to be found.** `@max-*` emits `max-width`, which is
-`<=`, where v4's `(width < 24rem)` is `<`; the two differ on exactly the threshold width.
-`ContainerQuery` reads the `min-`/`max-` prefix forms and has no range syntax, which is the same
-inclusive reading `Screens` already gives every breakpoint.
+✅ **The divergence this section used to state is closed** (#609). `@max-*` emitted `max-width`,
+which is `<=`, where v4's `(width < 24rem)` is `<` — an off-by-one pixel on every `max-` threshold in
+the engine, silent because it reads as an author mis-picking a breakpoint. Both evaluators read Media
+Queries 4 § 2.4's range syntax now — `(width < 24rem)`, `(width >= 600px)`,
+`(400px <= width < 600px)` and the reversed one-sided form — out of one shared `FeatureRange`, and
+`@max-*` emits the exclusive form. ⚠ **The assertions that prove it are all *at* the threshold**:
+every other width answers identically under both readings, which is why the existing bracketing rows
+could not see it. Sabotage: reading `Below` as `AtMost` takes eight rows red across the two suites,
+and putting `max-width` back under `@max-*` takes only the new variant test red. `@min-*` stays
+inclusive, which is v4's reading too and the one `Screens` gives every breakpoint. ⚠ Discrete
+features — `orientation`, `prefers-color-scheme`, `color-gamut` — refuse an operator the way
+`color-gamut` already refused the `min-` prefix, because Media Queries 5 § 2.4.2 gives them no range
+type and equality is not what the author wrote.
 
 The consumption gate turned out **not** to be the obstacle it was assumed to be: `UtilityFamilies.Surface`
 enumerates the family registry, and a pure variant emits no new property, so `@sm:` is invisible to it.
