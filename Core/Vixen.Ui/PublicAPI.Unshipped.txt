@@ -1172,6 +1172,7 @@ Vixen.Ui.UiDocument.ComponentAt(Vixen.Ui.UiElement element) -> Vixen.Ui.Composit
 Vixen.Ui.UiDocument.Compositing.get -> bool
 Vixen.Ui.UiDocument.Compositing.set -> bool
 Vixen.Ui.UiDocument.ContainerScopesEntered.get -> int
+Vixen.Ui.UiDocument.ContentWidthOf(Vixen.Ui.UiElement element) -> float
 Vixen.Ui.UiDocument.Create(string tag, Vixen.Ui.UiElement? parent, string? id = null, params System.ReadOnlySpan<string> classNames) -> Vixen.Ui.UiElement
 Vixen.Ui.UiDocument.Create<T>(string? tag, Vixen.Ui.UiElement? parent, string? id = null, params System.ReadOnlySpan<string> classNames) -> T
 Vixen.Ui.UiDocument.CreateSurface(float width, float height, float dpiScale = 1, Vixen.Ui.UiElement? owner = null) -> Vixen.Ui.UiSurface
@@ -1241,6 +1242,7 @@ Vixen.Ui.UiDocument.SurfaceAdded -> System.Action<Vixen.Ui.UiDocument, Vixen.Ui.
 Vixen.Ui.UiDocument.SurfaceOf(Vixen.Ui.UiElement element) -> Vixen.Ui.UiSurface?
 Vixen.Ui.UiDocument.SurfaceRemoved -> System.Action<Vixen.Ui.UiDocument, Vixen.Ui.UiSurface>?
 Vixen.Ui.UiDocument.Surfaces.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.UiSurface>
+Vixen.Ui.UiDocument.TextAlignShift(Vixen.Ui.UiElement element, float slack) -> float
 Vixen.Ui.UiDocument.Tick(System.TimeSpan now) -> void
 Vixen.Ui.UiDocument.Ticked -> System.Action<Vixen.Ui.UiDocument, System.TimeSpan>?
 Vixen.Ui.UiDocument.UiDocument(float width, float height, float rootFontSize = 16, Microsoft.Extensions.Logging.ILogger? logger = null) -> void

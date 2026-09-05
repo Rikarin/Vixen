@@ -599,6 +599,8 @@ public abstract partial class TextField : Control {
                     ranges.Add((line.CaretOffset(start), 0f));
                 }
 
+                var shift = ShiftOf(line);
+
                 foreach (var range in ranges) {
                     // ⚠ A minimum width, so a line whose whole content is inside the selection but
                     // which ends in the break still reads as selected. Zero-width is what a blank
@@ -606,7 +608,7 @@ public abstract partial class TextField : Control {
                     // like a gap.
                     context.FillRectangle(
                         new Rectangle(
-                            origin + range.X,
+                            origin + shift + range.X,
                             top + block.TopOf(index),
                             MathF.Max(range.Width, index < last ? 3f : 0f),
                             line.Height
@@ -628,10 +630,11 @@ public abstract partial class TextField : Control {
         // ⚠ The caret is drawn even when there is a selection. Every editor does — the caret is the
         // end you are extending from, and hiding it during a Shift-Arrow leaves the user unable to
         // tell which way the next keystroke will grow the selection.
+        var caretLine = block.Lines[block.LineOf(DisplayCaret, CaretAffinity)];
         var (caretX, caretY) = block.CaretAt(DisplayCaret, CaretAffinity);
 
         context.FillRectangle(
-            new Rectangle(origin + caretX, top + caretY, 1f, block.Lines[block.LineOf(DisplayCaret, CaretAffinity)].Height),
+            new Rectangle(origin + ShiftOf(caretLine) + caretX, top + caretY, 1f, caretLine.Height),
             CaretColour(context)
         );
     }
@@ -660,10 +663,12 @@ public abstract partial class TextField : Control {
             ranges.Clear();
             line.VisualRanges(Math.Max(start, line.Start), Math.Min(end, line.Start + line.Length), ranges);
 
+            var shift = ShiftOf(line);
+
             foreach (var range in ranges) {
                 context.FillRectangle(
                     new Rectangle(
-                        origin + range.X,
+                        origin + shift + range.X,
                         top + block.TopOf(index) + line.Height - 1f,
                         range.Width,
                         1f
@@ -850,12 +855,51 @@ public abstract partial class TextField : Control {
     ///     index throws away which of the two the user pointed at, and the caret is then drawn
     ///     somewhere they did not click.
     /// </remarks>
-    (int Index, CaretAffinity Affinity) PositionAt(float x, float y) =>
-        text.Block() is { } block
-            ? block.CaretPositionAt(x - text.AbsoluteLeft, y - text.AbsoluteTop)
-            : (0, CaretAffinity.Upstream);
+    /// <remarks>
+    ///     ⚠ <b>The row is picked first and the alignment is taken off afterwards</b>, and the order
+    ///     is not arbitrary: <see cref="ShiftOf" /> is a property of the row, so it cannot be
+    ///     subtracted before the y has said which row this is. Shifting the x does not change which
+    ///     row a y lands on, so the block is asked twice about the same point and answers the second
+    ///     time with the whole of its wrap-boundary reasoning intact — which is why this is not
+    ///     re-implemented here.
+    /// </remarks>
+    (int Index, CaretAffinity Affinity) PositionAt(float x, float y) {
+        if (text.Block() is not { } block) {
+            return (0, CaretAffinity.Upstream);
+        }
+
+        var local = (X: x - text.AbsoluteLeft, Y: y - text.AbsoluteTop);
+        var line = 0;
+
+        while (line + 1 < block.Lines.Length && local.Y >= block.TopOf(line + 1)) {
+            line++;
+        }
+
+        return block.CaretPositionAt(local.X - ShiftOf(block.Lines[line]), local.Y);
+    }
 
     int IndexAt(float x, float y) => PositionAt(x, y).Index;
+
+    /// <summary>How far <c>text-align</c> and <c>direction</c> push one line of the block sideways.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A <c>TextLayout</c> places every line from zero, and the alignment is applied by
+    ///         whoever draws it.</b> The block has no idea how wide the box around it is, so
+    ///         <c>CaretOffset</c>, <c>VisualRanges</c> and <c>CaretPositionAt</c> all speak in
+    ///         line-local coordinates — while <c>DrawListBuilder</c> puts the glyphs at
+    ///         <c>left + UiDocument.TextAlignShift(...)</c>. Everything this control draws over the
+    ///         text has to add the same number back or it lands where the text is not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Per line and not per block</b>, which is the whole reason it is a method: in a
+    ///         wrapped RTL area the long lines fill the box and have no shift at all, while a short
+    ///         one is pushed most of the width across. A single block-wide number would be right for
+    ///         some rows and wrong for the rest — and the rows it is wrong for are exactly the ragged
+    ///         ones a reader looks at.
+    ///     </para>
+    /// </remarks>
+    float ShiftOf(TextLine line) =>
+        Document.TextAlignShift(text, Document.ContentWidthOf(text) - line.Width - line.Offset);
 
     /// <summary>Where the line holding an index begins.</summary>
     /// <remarks>
@@ -911,7 +955,15 @@ public abstract partial class TextField : Control {
         // first index of a continuation row also ends the row above, so taking the landing line's
         // own reading would answer `Upstream` and draw the caret back on the row Down came from —
         // a Down key that visibly does nothing.
-        var landed = block.Lines[wanted].CaretPositionAt(block.Lines[line].CaretOffset(CaretIndex, CaretAffinity));
+        // ⚠ And the column is a VISUAL one, so the row it is leaving and the row it is arriving at
+        // are each converted through their own alignment. In a ragged right-aligned or RTL block the
+        // two rows start at different x, and an offset carried across unchanged puts the caret the
+        // difference between them away from where it looked like it was.
+        var column = block.Lines[line].CaretOffset(CaretIndex, CaretAffinity)
+            + ShiftOf(block.Lines[line])
+            - ShiftOf(block.Lines[wanted]);
+
+        var landed = block.Lines[wanted].CaretPositionAt(column);
 
         return block.LineOf(landed.Index, landed.Affinity) == wanted
             ? landed

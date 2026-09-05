@@ -651,6 +651,18 @@ Underestimating text is the classic UI-framework mistake.
   `Vixen.Ui.Tests.BidiMirroringTests`; ⚠ the click assertion there is on *which half of the line the
   caret is drawn in* and not on the index, because the wrong run's clamped edge answers with the same
   index at the opposite end of the line.
+
+  ⚠ **And a third one line, a layer up, which the first two could not see because the caret is not a
+  glyph.** A `TextLayout` places every line from zero and knows nothing about the box around it, so
+  `CaretOffset`, `VisualRanges` and `CaretPositionAt` are all *line-local* while the draw path puts
+  the glyphs at `left + TextAlignShift(…)`. `TextField` drew its caret, its selection band and its
+  input-method underline at the line-local number and hit-tested with it — so a wrapped RTL area drew
+  the caret against the **left** edge of the block while the short line it belonged to sat flush
+  against the right, fifty pixels away, and clicking on the text put the caret somewhere else again.
+  The rule now lives once, on `UiDocument.TextAlignShift`, with `DrawListBuilder` a caller of it
+  rather than its owner; `Vixen.Ui.Controls.Tests.RtlFieldMirroringTests` holds it, and its oracle is
+  *containment* — the caret is inside the horizontal span of the glyphs on its own row — rather than a
+  coordinate anybody would have to recompute.
 - **Line breaking**: UAX#14 with a compact rule table; UAX#29 grapheme/word segmentation for cursor
   movement and double-click selection.
 - **Rasterisation**: **MSDF** atlas — multi-channel signed distance fields give crisp text at any
