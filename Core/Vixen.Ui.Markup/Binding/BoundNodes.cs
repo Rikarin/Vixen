@@ -150,7 +150,29 @@ public enum BoundAttributeKind {
     ///         build, and open inside the panel that declared it.
     ///     </para>
     /// </remarks>
-    ContextMenu
+    ContextMenu,
+
+    /// <summary>How long a leaving row is kept, from <c>exit="200ms"</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="Key" />'s position exactly, and that is what settled the syntax
+    ///         question.</b> An exit is a property of the <i>loop</i> and not of the element it is
+    ///         written on — so the obvious spelling was a clause on the <c>@for</c> header — but
+    ///         <c>key</c> is already a property of the loop written on the row's own element, read
+    ///         by <c>BindFor</c> walking the bound body for it. A second convention for the second
+    ///         member of the same pair would have been the language disagreeing with itself, and
+    ///         this way the interval sits next to the identity it reconciles against and next to the
+    ///         class list the transition is written for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A literal, unlike every other directive on this list.</b> The value is a
+    ///         duration and an optional class name, read at compile time, because it is the same
+    ///         number the stylesheet already carries. An expression would have made the mistake
+    ///         Roslyn's, reported against generated code, for a value that can never depend on the
+    ///         row.
+    ///     </para>
+    /// </remarks>
+    Exit
 }
 
 /// <summary>One piece of an attribute's value.</summary>
@@ -260,6 +282,23 @@ public sealed record BoundElement(
         }
     }
 
+    /// <summary>The <c>exit</c> attribute, if it has one.</summary>
+    /// <remarks>
+    ///     Read by the enclosing <c>@for</c> and by nothing else, exactly as <see cref="Key" /> is.
+    ///     <c>VXML2024</c> is what stops one being written where no loop will come looking.
+    /// </remarks>
+    public BoundAttribute? ExitAttribute {
+        get {
+            foreach (var attribute in Attributes) {
+                if (attribute.Kind == BoundAttributeKind.Exit) {
+                    return attribute;
+                }
+            }
+
+            return null;
+        }
+    }
+
     /// <summary>The <c>tag</c> attribute, if it has one.</summary>
     /// <remarks>
     ///     Read by the emitter <i>before</i> it walks the attribute list, because the tag is an
@@ -334,7 +373,40 @@ public sealed record BoundFor(
     BoundExpression? Key,
     ImmutableArray<BoundNode> Body,
     string? Index = null
-) : BoundNode;
+) : BoundNode {
+    /// <summary>
+    ///     How long a removed row is kept, in whole milliseconds, or null to remove it at once.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Init-only properties rather than a sixth positional parameter, deliberately.</b>
+    ///         A record's primary constructor is public surface, so widening it is a removal and an
+    ///         addition in the same breath — and there is nothing here a caller has to supply. Null
+    ///         is the shape every loop in the tree already has.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two properties rather than the record that would pair them.</b> A pair type is
+    ///         the better C# and would be a new public type in an assembly whose whole
+    ///         <c>Binding</c> namespace is a documentation exemption — a list this repository allows
+    ///         to shrink and not to grow. <see cref="ExitClass" /> is meaningless without this, which
+    ///         is what the pair would have said; it is said here instead.
+    ///     </para>
+    ///     <para>
+    ///         Milliseconds because that is what a stylesheet's own durations are and what
+    ///         <c>TimeSpan.FromMilliseconds</c> takes.
+    ///     </para>
+    /// </remarks>
+    public int? ExitAfter { get; init; }
+
+    /// <summary>
+    ///     The class a leaving row wears, or null to take <c>ExitSpec</c>'s own default.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Null rather than the string <c>"leaving"</c> copied down here. Two places holding one
+    ///     default is how the two come to disagree, so the emitter omits the argument instead.
+    /// </remarks>
+    public string? ExitClass { get; init; }
+}
 
 /// <summary>One arm of an <c>@switch</c>.</summary>
 /// <param name="Pattern">The C# pattern, or null for <c>default</c>.</param>

@@ -1159,6 +1159,7 @@ Vixen.Ui.RoutingStrategy.Bubble = 1 -> Vixen.Ui.RoutingStrategy
 Vixen.Ui.RoutingStrategy.Capture = 0 -> Vixen.Ui.RoutingStrategy
 Vixen.Ui.RoutingStrategy.Direct = 2 -> Vixen.Ui.RoutingStrategy
 Vixen.Ui.RoutingStrategy.RoutingStrategy() -> void
+Vixen.Ui.Shortcuts -> static class
 Vixen.Ui.StringCatalog -> sealed class
 Vixen.Ui.StringCatalog.Count.get -> int
 Vixen.Ui.StringCatalog.Find(string id) -> string?
@@ -1851,6 +1852,10 @@ static Vixen.Ui.Rendering.UiMask.Hidden.get -> Vixen.Ui.Rendering.UiMask
 static Vixen.Ui.Rendering.UiTransform.Identity.get -> Vixen.Ui.Rendering.UiTransform
 static Vixen.Ui.Rendering.UiTransform.Rotation(float degrees, Vixen.Core.Mathematics.Vector2 about) -> Vixen.Ui.Rendering.UiTransform
 static Vixen.Ui.Rendering.UiTransform.Scale(float x, float y, Vixen.Core.Mathematics.Vector2 about) -> Vixen.Ui.Rendering.UiTransform
+static Vixen.Ui.Shortcuts.Describe(Vixen.Input.InputKey key, Vixen.Ui.ModifierKeys modifiers) -> string
+static Vixen.Ui.Shortcuts.Formatter.get -> System.Func<Vixen.Input.InputKey, Vixen.Ui.ModifierKeys, string>
+static Vixen.Ui.Shortcuts.Formatter.set -> System.Func<Vixen.Input.InputKey, Vixen.Ui.ModifierKeys, string>
+static Vixen.Ui.Shortcuts.Name(Vixen.Input.InputKey key) -> string
 static Vixen.Ui.StringCatalog.Source.get -> Vixen.Ui.StringCatalog
 static Vixen.Ui.Strings.Catalog.get -> Vixen.Ui.StringCatalog
 static Vixen.Ui.Strings.Changed -> System.Action<Vixen.Ui.StringCatalog>?

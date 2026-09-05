@@ -29,6 +29,7 @@ namespace Vixen.Ui.Markup.Generators.Tests;
 public sealed class BuildIntegrationTests : IDisposable {
     static readonly string UiProject = Metadata("VixenUiProject");
     static readonly string GeneratorProject = Metadata("VixenMarkupGeneratorProject");
+    static readonly string PropertyGeneratorProject = Metadata("VixenPropertyGeneratorProject");
     static readonly string BuildTargets = Metadata("VixenUiBuildTargets");
     static readonly string RepositoryTargets = Metadata("VixenRepositoryTargets");
 
@@ -116,6 +117,49 @@ public sealed class BuildIntegrationTests : IDisposable {
     }
 
     /// <summary>
+    ///     ⚠ The half-wired project whose other half nothing was watching: the markup compiler is
+    ///     loaded, so the <c>.vxml</c> compiles and the build is green — and
+    ///     <c>Vixen.Ui.Generators</c> is not, so a <c>[UiProperty]</c> in the same assembly emits no
+    ///     registration and VXS0320 never runs.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is the state seven projects in this tree reached master in</b>, and the reason
+    ///         it survived is that neither consequence produces output: an unregistered
+    ///         <c>[UiProperty]</c> compiles into an ordinary property that the cascade cannot see,
+    ///         and an analyzer that is absent reports nothing rather than reporting nothing wrong.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The build is asserted to fail without a single C# error</b>, which is what
+    ///         separates this from VX4002: there, thirty CS0117s were the symptom being replaced;
+    ///         here there was never a symptom at all, so the diagnostic <i>is</i> the observation.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_vxml_with_no_property_generator_loaded_fails_naming_the_project_file() {
+        Unwired(
+            $"""
+             <ItemGroup>
+                 <ProjectReference Include="{UiProject}" />
+                 <ProjectReference Include="{GeneratorProject}" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+               </ItemGroup>
+               <Import Project="{BuildTargets}" />
+             """
+        );
+
+        Markup("Ui/Counter.vxml", "@component Counter\n<div>hello</div>\n");
+
+        var (succeeded, output) = Run();
+
+        Assert.False(succeeded);
+        Assert.Contains("error VX4003", output, StringComparison.Ordinal);
+        Assert.Contains("Vixen.Ui.Generators", output, StringComparison.Ordinal);
+        Assert.Contains("<VixenUi>true</VixenUi>", output, StringComparison.Ordinal);
+        Assert.DoesNotContain("error CS", output, StringComparison.Ordinal);
+        Assert.DoesNotContain("VX4002", output, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     ⚠ The unwired project: a <c>.vxml</c> on disk that is not an item at all, which is what
     ///     <c>Vixen.Editor.Water</c> hit and what the repository's <c>Directory.Build.targets</c> is
     ///     the only possible place to catch — a check inside <c>Vixen.Ui.targets</c> is a check
@@ -184,9 +228,12 @@ public sealed class BuildIntegrationTests : IDisposable {
     ///     about markup — which is the claim.
     /// </summary>
     /// <remarks>
-    ///     The generator is named explicitly because analyzers are not transitive through a
-    ///     <c>ProjectReference</c>; through the package it travels in <c>analyzers/dotnet/cs</c> and
-    ///     the targets arrive with it. The two forms land on the same compilation.
+    ///     Both generators are named explicitly because analyzers are not transitive through a
+    ///     <c>ProjectReference</c>; through the package they travel in <c>analyzers/dotnet/cs</c> and
+    ///     the targets arrive with them. The two forms land on the same compilation.
+    ///     ⚠ <b>"Both" is the correction.</b> This fixture named only the VXML compiler for as long
+    ///     as it existed, which is exactly the state seven real projects in this tree were in, and
+    ///     nothing could notice because the missing generator's absence is silent.
     /// </remarks>
     void Project() {
         Directory.CreateDirectory(root);
@@ -204,6 +251,7 @@ public sealed class BuildIntegrationTests : IDisposable {
                <ItemGroup>
                  <ProjectReference Include="{UiProject}" />
                  <ProjectReference Include="{GeneratorProject}" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+                 <ProjectReference Include="{PropertyGeneratorProject}" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
                </ItemGroup>
                <Import Project="{BuildTargets}" />
              </Project>
@@ -241,18 +289,31 @@ public sealed class BuildIntegrationTests : IDisposable {
         );
     }
 
+    /// <summary>Builds the fixture and returns what the build said.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Node reuse off, and it is not a speed choice — it is what keeps this from hanging
+    ///     forever.</b> A reusable MSBuild worker outlives the <c>dotnet build</c> that spawned it
+    ///     and inherits the redirected pipes, so the child can exit while the read handle stays open
+    ///     and <see cref="Process.WaitForExit()" /> — which waits for the streams as well as for the
+    ///     process — never returns. Observed: the fixture's own <c>obj</c> finished at one minute
+    ///     and the call was still blocked eighteen minutes later with no child process left to wait
+    ///     for. The flag and the environment variable are the same switch reached two ways, and both
+    ///     are set because the second is what a nested <c>dotnet</c> invocation inherits.
+    /// </remarks>
     (bool Succeeded, string Output) Run() {
         var process = new Process {
             StartInfo = new ProcessStartInfo("dotnet") {
                 WorkingDirectory = root,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                UseShellExecute = false
+                UseShellExecute = false,
+                Environment = { ["MSBUILDDISABLENODEREUSE"] = "1" }
             }
         };
 
         process.StartInfo.ArgumentList.Add("build");
         process.StartInfo.ArgumentList.Add("--nologo");
+        process.StartInfo.ArgumentList.Add("-nodeReuse:false");
 
         var output = new StringBuilder();
         process.OutputDataReceived += (_, line) => output.AppendLine(line.Data);

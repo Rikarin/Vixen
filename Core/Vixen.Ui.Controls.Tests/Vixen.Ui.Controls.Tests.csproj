@@ -95,6 +95,18 @@
         <ProjectReference Include="..\Vixen.Ui.Markup.Generators\Vixen.Ui.Markup.Generators.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
+
+        <!--
+            ⚠ **And the other one, which matters here more than anywhere.** `Vixen.Ui.Generators` is
+            what turns a `[UiProperty]` into a property the cascade can see — and this assembly is
+            where `bind:` reaching a registered `[UiProperty]` is asserted, so a test declaring one
+            of its own would have been checking a registration that was never generated. The package
+            carries both analyzers side by side; only a hand-wired project can have one. VX4003 says
+            so now.
+        -->
+        <ProjectReference Include="..\Vixen.Ui.Generators\Vixen.Ui.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <!-- The **/*.vxml glob and the two properties the generator asks MSBuild for. -->

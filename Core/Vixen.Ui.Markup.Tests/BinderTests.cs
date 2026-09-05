@@ -680,6 +680,85 @@ public class BinderTests {
         );
     }
 
+    /// <summary>
+    ///     ⚠ <b><c>exit</c> is written where <c>key</c> is, and that is the syntax decision rather
+    ///     than a convenience.</b> Both are properties of the <i>loop</i> rather than of the element
+    ///     they sit on, and <c>key</c> settled the question first — so the interval lands beside the
+    ///     identity it reconciles against and beside the class list the transition is written for,
+    ///     instead of on a fourth clause of the <c>@for</c> header nobody would have expected it on.
+    /// </summary>
+    [Fact]
+    public void An_exit_is_read_off_the_row_element_and_becomes_the_loop_s() {
+        var loop = Assert.IsType<BoundFor>(
+            Assert.Single(BindClean("@component A\n@for (var i in xs) { <p key=\"@i\" exit=\"200ms\" /> }").Content)
+        );
+
+        Assert.Equal(200, loop.ExitAfter);
+
+        // ⚠ Null and not "leaving". `ExitSpec`'s own default is the only place that word is written
+        // down, so the emitter omits the argument rather than copying it.
+        Assert.Null(loop.ExitClass);
+    }
+
+    /// <summary>Seconds are the stylesheet's other spelling, and the class is the optional word.</summary>
+    [Theory]
+    [InlineData("200ms", 200, null)]
+    [InlineData("0.2s", 200, null)]
+    [InlineData("1s", 1000, null)]
+    [InlineData("200ms fading", 200, "fading")]
+    public void An_exit_reads_the_durations_a_stylesheet_writes(string written, int milliseconds, string? name) {
+        var loop = Assert.IsType<BoundFor>(
+            Assert.Single(
+                BindClean($"@component A\n@for (var i in xs) {{ <p key=\"@i\" exit=\"{written}\" /> }}").Content
+            )
+        );
+
+        Assert.Equal(milliseconds, loop.ExitAfter);
+        Assert.Equal(name, loop.ExitClass);
+    }
+
+    /// <summary>
+    ///     ⚠ A bare number is refused rather than assumed to be milliseconds, which is CSS's rule and
+    ///     is right for the reason that matters here: <c>exit="2"</c> read as two milliseconds is a
+    ///     row removed on the next frame, and that looks exactly like the attribute not working.
+    /// </summary>
+    [Theory]
+    [InlineData("2")]
+    [InlineData("fast")]
+    [InlineData("-200ms")]
+    [InlineData("200ms fading slowly")]
+    [InlineData("@Duration")]
+    public void An_exit_that_is_not_a_duration_is_refused(string written) =>
+        Assert.Contains(
+            "VXML2025",
+            Ids($"@component A\n@for (var i in xs) {{ <p key=\"@i\" exit=\"{written}\" /> }}")
+        );
+
+    /// <summary>
+    ///     ⚠ <c>VXML2013</c>'s rule for <c>VXML2013</c>'s reason: the interval belongs to the
+    ///     reconciler, and out here there is none to read it. Left as an ordinary parameter it would
+    ///     have put the word <c>exit</c> into the style tree as selector data and called that
+    ///     success.
+    /// </summary>
+    [Theory]
+    [InlineData("@component A\n<div exit=\"200ms\" />")]
+    [InlineData("@component A\n@if (x) { <div exit=\"200ms\" /> }")]
+    public void An_exit_outside_a_loop_is_refused(string source) => Assert.Contains("VXML2024", Ids(source));
+
+    /// <summary>
+    ///     ⚠ <b>The gap the runtime states, refused rather than dropped.</b>
+    ///     <c>BuildContext.For</c>'s indexed overload takes no <c>ExitSpec</c> — a leaving row is no
+    ///     longer in the sequence, so what its index signal should read while it animates out was
+    ///     never decided — and an <c>exit</c> that compiled and did nothing is a row that vanishes,
+    ///     which is indistinguishable from not having written it.
+    /// </summary>
+    [Fact]
+    public void An_exit_in_a_loop_that_declares_an_index_is_refused() =>
+        Assert.Contains(
+            "VXML2026",
+            Ids("@component A\n@for (var i, n in xs) { <p key=\"@i\" exit=\"200ms\" /> }")
+        );
+
     static BoundComponent BindClean(string source) {
         var component = Binder.Bind(Vxml.Parse(source), out var diagnostics);
 

@@ -99,6 +99,18 @@
         <ProjectReference Include="..\..\Core\Vixen.Ui.Markup.Generators\Vixen.Ui.Markup.Generators.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
+
+        <!--
+            ⚠ **And the other one, which the story above is equally about and which stayed missing
+            after it.** `Vixen.Ui.Generators` is what turns a `[UiProperty]` into a property the
+            cascade can see and what runs VXS0320; the package carries both side by side, so the
+            omission is only reachable from inside this repository. VX4003 says so now, and its
+            silence is worse than VX4002's wall of C# errors — a `[UiProperty]` here would have
+            compiled and simply never reached a stylesheet.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Generators\Vixen.Ui.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>

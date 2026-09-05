@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
+using System.Globalization;
 using Vixen.Core.Syntax;
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Core.Syntax.Text;
@@ -109,6 +110,15 @@ public sealed class Binder {
 
     /// <summary>The innermost <c>@for</c>'s variable, so a key can be compared against it.</summary>
     string? item;
+
+    /// <summary>The innermost <c>@for</c>'s index name, or null where it declares none.</summary>
+    /// <remarks>
+    ///     ⚠ Kept beside <see cref="item" /> so that <c>exit</c> can be refused where the author
+    ///     wrote it rather than where the loop is assembled — a bound attribute carries a
+    ///     <c>LinePositionSpan</c> and the diagnostic bag wants the token's own span, so the check
+    ///     has to happen while the syntax is still in hand.
+    /// </remarks>
+    string? itemIndex;
 
     /// <summary>Whether the file declared <c>@inherits</c>, so its class is an element.</summary>
     /// <remarks>Read before the content is bound, because <c>&lt;slot&gt;</c> means less on one.</remarks>
@@ -635,15 +645,22 @@ public sealed class Binder {
     BoundFor BindFor(ForSyntax @for) {
         var variable = @for.Identifier.IsMissing ? "item" : @for.Identifier.Text;
 
+        // A comma with no name after it leaves a missing token; there is nothing to bind and the
+        // parser has already reported it, so the loop is bound as if no index were declared.
+        var index = @for.Index is { IsMissing: false } named ? named.Text : null;
+
         var outer = inLoop;
         var outerVariable = item;
+        var outerIndex = itemIndex;
 
         inLoop = true;
         item = variable;
+        itemIndex = index;
         loops++;
         RefuseSlotAttributes(@for.Body.Content, "'@for'");
         var body = BindContent(@for.Body.Content);
         loops--;
+        itemIndex = outerIndex;
         item = outerVariable;
         inLoop = outer;
 
@@ -655,12 +672,90 @@ public sealed class Binder {
             }
         }
 
-        // A comma with no name after it leaves a missing token; there is nothing to bind and the
-        // parser has already reported it, so the loop is bound as if no index were declared.
-        var index = @for.Index is { IsMissing: false } named ? named.Text : null;
+        // The exit rides beside the key, on the same walk and by the same rule: the first row
+        // element that carries one is the loop's.
+        BoundAttribute? exit = null;
+        foreach (var node in body) {
+            if (node is BoundElement { ExitAttribute: { } written }) {
+                exit = written;
+                break;
+            }
+        }
 
-        return new(variable, Expression(@for.Sequence), key, body, index);
+        var spec = exit is null ? null : Duration(exit.Value);
+
+        return new(variable, Expression(@for.Sequence), key, body, index) {
+            ExitAfter = spec?.Milliseconds,
+            ExitClass = spec?.Class
+        };
     }
+
+    /// <summary>Reads an <c>exit</c> value: a duration, and optionally the class that goes with it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The stylesheet's own spelling and not a new one.</b> <c>200ms</c> and
+    ///         <c>0.2s</c> are what the author already wrote in <c>transition: opacity 200ms</c>,
+    ///         which is the number this has to agree with — so writing it any other way here would
+    ///         make the pair harder to keep in step rather than easier.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A bare number is refused rather than assumed to be milliseconds.</b> CSS refuses
+    ///         it too, and for the reason that matters here: <c>exit="2"</c> read as milliseconds is
+    ///         a row removed on the next frame, which looks exactly like the attribute not working.
+    ///     </para>
+    /// </remarks>
+    static (int Milliseconds, string? Class)? Duration(ImmutableArray<BoundValuePart> value) {
+        // ⚠ Every helper here is the netstandard2.0 spelling, because these files are compiled a
+        // second time as linked source into `Vixen.Ui.Markup.Generators`. `StringSplitOptions
+        // .TrimEntries` and `string.EndsWith(char)` both exist on the runtime this targets and
+        // neither exists there, and the build that catches it is the generator's rather than this
+        // project's — which is why the first attempt compiled and the analyzer did not.
+        if (value.Length != 1 || value[0] is not BoundLiteralPart literal) {
+            return null;
+        }
+
+        var words = literal.Text.Split([' '], StringSplitOptions.RemoveEmptyEntries);
+
+        if (words.Length is < 1 or > 2) {
+            return null;
+        }
+
+        var time = words[0];
+
+        // ⚠ The last character read directly rather than a one-character `EndsWith`, because the
+        // two compilations disagree about which spelling is legal: CA1865 refuses the string overload
+        // on net10 and the char overload does not exist on netstandard2.0, which the generator's copy
+        // of this file targets.
+        var scale = time.EndsWith("ms", StringComparison.Ordinal) ? 1d
+            : time.Length > 0 && time[time.Length - 1] == 's' ? 1000d
+            : 0d;
+
+        if (scale == 0d) {
+            return null;
+        }
+
+        var digits = time.Substring(0, time.Length - (scale == 1d ? 2 : 1));
+
+        if (!double.TryParse(digits, NumberStyles.Float, CultureInfo.InvariantCulture, out var number)
+            || number < 0d
+            || number * scale > int.MaxValue) {
+            return null;
+        }
+
+        return ((int) Math.Round(number * scale), words.Length == 2 ? words[1] : null);
+    }
+
+    /// <summary>An attribute value as the author wrote it, for a message that quotes it back.</summary>
+    static string Written(ImmutableArray<BoundValuePart> value) =>
+        string.Concat(
+            value.Select(
+                part => part switch {
+                    BoundLiteralPart literal => literal.Text,
+                    BoundExpressionPart expression => "@" + expression.Expression.Text,
+                    _ => string.Empty
+                }
+            )
+        );
 
     /// <summary>Whether a key expression reads a member of the loop variable instead of the variable.</summary>
     /// <remarks>
@@ -774,6 +869,35 @@ public sealed class Binder {
         // key to file the element under — see `MarkupDiagnostics.RefsOutsideLoop`.
         if (kind == BoundAttributeKind.Refs && loops == 0) {
             Report(MarkupDiagnostics.RefsOutsideLoop, attribute.Name.Span);
+            return null;
+        }
+
+        // `refs`' rule for `refs`' reason: the interval is the reconciler's and there is no
+        // reconciler out here.
+        if (kind == BoundAttributeKind.Exit && loops == 0) {
+            Report(MarkupDiagnostics.ExitOutsideLoop, attribute.Name.Span);
+            return null;
+        }
+
+        // ⚠ Refused rather than dropped. `BuildContext.For`'s indexed overload takes no `ExitSpec` —
+        // what a leaving row's index signal should read is undecided, because the row is no longer in
+        // the sequence — and an `exit` that compiled and did nothing would be a row that vanishes,
+        // which is exactly the symptom the attribute exists to remove.
+        if (kind == BoundAttributeKind.Exit && itemIndex is { } declared) {
+            Report(MarkupDiagnostics.ExitWithIndex, attribute.Name.Span, item ?? "item", declared);
+            return null;
+        }
+
+        // ⚠ Parsed here rather than carried to the emitter as characters, so the message lands on
+        // the characters the author wrote. `slot`'s reason: a value read at compile time is a value
+        // whose mistakes this can name.
+        if (kind == BoundAttributeKind.Exit && Duration(value) is null) {
+            Report(
+                MarkupDiagnostics.InvalidExitDuration,
+                attribute.Value?.Span ?? attribute.Name.Span,
+                Written(value)
+            );
+
             return null;
         }
 
@@ -938,6 +1062,14 @@ public sealed class Binder {
         // claim on every tag: it could never be a property name, which is `binding-path`'s argument.
         if (string.Equals(written, "context-menu", StringComparison.Ordinal)) {
             return (BoundAttributeKind.ContextMenu, written, []);
+        }
+
+        // ⚠ Claimed on every tag and refused by *position*, which is `slot`'s arrangement rather
+        // than `key`'s. `key` is legal anywhere and merely useless outside a loop; an `exit` outside
+        // one is read by nobody, so leaving it a `Parameter` would put the word `exit` into the
+        // style tree as selector data and call that success. See `MarkupDiagnostics.ExitOutsideLoop`.
+        if (string.Equals(written, "exit", StringComparison.Ordinal)) {
+            return (BoundAttributeKind.Exit, written, []);
         }
 
         var colon = written.IndexOf(':', StringComparison.Ordinal);

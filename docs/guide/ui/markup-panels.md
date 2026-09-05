@@ -151,7 +151,10 @@ assigned as properties. On a capitalised tag they reach the element the control 
 [`use`](#use-for-a-control-fed-by-a-method), [`help`](#help-for-a-sentence-a-screen-reader-can-reach)
 and [`context-menu`](#context-menu-for-a-right-click), which are below because none of them reaches
 the style tree: one *is* the element's name, one never touches the document at all, and the last two
-attach something that lives beside it.)
+attach something that lives beside it. `key` and `exit` are a fifth and sixth: both are read by the
+enclosing `@for` before the element exists — see
+[exit animations](exit-animations.md) for why the interval is written on the row rather than on the
+loop's header.)
 
 `style` is an *inline style*: a cascade origin that beats every rule, not an attribute a selector can
 match. Use it for the lengths no stylesheet was given.

@@ -457,84 +457,35 @@ public sealed partial class KeyboardShortcut : Control {
     /// <summary>How every shortcut in the process is written.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The hook a Mac head needs, and the reason it is here rather than at each call
-    ///         site.</b> A shortcut is drawn by menus, by toolbar tooltips and by the command
-    ///         palette; an application that adapted the text itself would have to find all three and
-    ///         would still miss whichever one was added next. Replacing this once changes every
-    ///         shortcut the process draws.
+    ///         ⚠ <b>One property over <see cref="Shortcuts.Formatter" />, not a second copy of
+    ///         it.</b> The formatter is process-wide because a shortcut is drawn by menus, by
+    ///         toolbar tooltips and by the command palette, and two settable statics would be two
+    ///         answers to the same question — an application that replaced this one and a menu that
+    ///         read the other would disagree about how the same chord is written. This is the
+    ///         spelling that already exists in every caller; the state is in <c>Vixen.Ui</c>,
+    ///         because writing a chord down needs neither an element nor a document.
     ///     </para>
     ///     <para>
-    ///         Defaulted to <see cref="Describe" />, which is deliberately not platform-adapted:
-    ///         <c>Vixen.Ui</c> sits below <c>Vixen.Platform</c> and does not know what it is running
-    ///         on. Knowing is the application's, and so is saying so.
+    ///         Defaulted, through there, to <see cref="Describe" />, which is deliberately not
+    ///         platform-adapted: <c>Vixen.Ui</c> sits below <c>Vixen.Platform</c> and does not know
+    ///         what it is running on. Knowing is the application's, and so is saying so.
     ///     </para>
     /// </remarks>
-    public static Func<InputKey, ModifierKeys, string> Formatter { get; set; } = Describe;
+    public static Func<InputKey, ModifierKeys, string> Formatter {
+        get => Shortcuts.Formatter;
+        set => Shortcuts.Formatter = value;
+    }
 
     /// <summary>Writes a combination the way a menu would.</summary>
     /// <param name="key">The key.</param>
     /// <param name="modifiers">What is held with it.</param>
     /// <returns>Something like <c>Ctrl+Shift+S</c>.</returns>
     /// <remarks>
-    ///     <para>
-    ///         The modifier order is Ctrl, Alt, Shift, Meta, which is the order Windows, GTK and Qt
-    ///         all write them in. It is not alphabetical and it is not the flag order; it is a
-    ///         convention, and a menu that used a different one would look wrong beside every other
-    ///         application on the machine.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Not localised and not platform-adapted.</b> A Mac writes <c>⌘⇧S</c> with no
-    ///         separators and a different modifier order, and getting that right needs to know what
-    ///         it is running on — which this assembly deliberately does not. <see cref="Formatter" />
-    ///         is where an application says otherwise; this is the default, not the answer.
-    ///     </para>
+    ///     <see cref="Shortcuts.Describe" />, kept here because it is what every call site names and
+    ///     because <see cref="Formatter" /> defaults to it. The modifier order and the key-name
+    ///     table are written down once, over there.
     /// </remarks>
-    public static string Describe(InputKey key, ModifierKeys modifiers) {
-        var text = new StringBuilder();
-
-        if (modifiers.HasFlag(ModifierKeys.Control)) {
-            text.Append("Ctrl+");
-        }
-
-        if (modifiers.HasFlag(ModifierKeys.Alt)) {
-            text.Append("Alt+");
-        }
-
-        if (modifiers.HasFlag(ModifierKeys.Shift)) {
-            text.Append("Shift+");
-        }
-
-        if (modifiers.HasFlag(ModifierKeys.Meta)) {
-            text.Append("Meta+");
-        }
-
-        return text.Append(Name(key)).ToString();
-    }
-
-    /// <summary>What a key is called on a menu.</summary>
-    /// <remarks>
-    ///     The enum's own name for everything except the handful whose member name is a description
-    ///     rather than a legend — <c>Number1</c> is the <c>1</c> key and no menu has ever written it
-    ///     that way.
-    /// </remarks>
-    static string Name(InputKey key) =>
-        key switch {
-            >= InputKey.Number1 and <= InputKey.Number9 => ((int) (key - InputKey.Number1) + 1).ToString(),
-            InputKey.Number0 => "0",
-            InputKey.Space => "Space",
-            InputKey.Grave => "`",
-            InputKey.Minus => "-",
-            InputKey.Equals => "=",
-            InputKey.LeftBracket => "[",
-            InputKey.RightBracket => "]",
-            InputKey.Backslash => "\\",
-            InputKey.Semicolon => ";",
-            InputKey.Apostrophe => "'",
-            InputKey.Comma => ",",
-            InputKey.Period => ".",
-            InputKey.Slash => "/",
-            _ => key.ToString()
-        };
+    public static string Describe(InputKey key, ModifierKeys modifiers) => Shortcuts.Describe(key, modifiers);
 
     void OnKeyChanged(InputKey previous, InputKey current) => Text = Formatter(current, Modifiers);
 
