@@ -82,7 +82,7 @@ public sealed class CommandStackUndoManagerTests {
 
         Assert.True(stack.Undo());
         Assert.Equal(["do", "untype", "undo"], log);
-        Assert.False(((IUndoManager) stack).CanUndo);
+        Assert.False(((IUndoManager)stack).CanUndo);
     }
 
     [Fact]

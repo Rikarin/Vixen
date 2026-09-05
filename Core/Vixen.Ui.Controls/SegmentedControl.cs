@@ -90,8 +90,8 @@ public sealed partial class SegmentedControl : Control {
     protected override void OnCreated() {
         base.OnCreated();
 
-        AddHandler<ClickEvent>(static (element, args) => ((SegmentedControl) element).Chosen(args));
-        AddHandler<KeyEvent>(static (element, args) => ((SegmentedControl) element).Keyed(args));
+        AddHandler<ClickEvent>(static (element, args) => ((SegmentedControl)element).Chosen(args));
+        AddHandler<KeyEvent>(static (element, args) => ((SegmentedControl)element).Keyed(args));
     }
 
     /// <summary>Adds a segment.</summary>

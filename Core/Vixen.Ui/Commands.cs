@@ -902,7 +902,7 @@ public partial class UiElement {
     ///     </para>
     /// </remarks>
     public IReadOnlyList<IResponder> Responders =>
-        commands?.Responders ?? (IReadOnlyList<IResponder>) Array.Empty<IResponder>();
+        commands?.Responders ?? (IReadOnlyList<IResponder>)Array.Empty<IResponder>();
 
     /// <summary>Appends a responder at this element's position on the chain.</summary>
     /// <param name="responder">What to append.</param>

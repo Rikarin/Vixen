@@ -72,11 +72,11 @@ public sealed partial class Toolbar : Control {
     protected override void OnCreated() {
         base.OnCreated();
 
-        AddHandler<KeyEvent>(static (element, args) => ((Toolbar) element).Keyed(args));
+        AddHandler<KeyEvent>(static (element, args) => ((Toolbar)element).Keyed(args));
 
         // On the toolbar rather than on each item: an item does not know what is next to it, and a
         // strip that subscribed per child would have to unsubscribe per removal.
-        AddHandler<FocusEvent>(static (element, args) => ((Toolbar) element).Focused(args));
+        AddHandler<FocusEvent>(static (element, args) => ((Toolbar)element).Focused(args));
     }
 
     /// <inheritdoc />

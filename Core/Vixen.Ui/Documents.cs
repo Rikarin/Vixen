@@ -182,9 +182,9 @@ public static class DocumentCommands {
     public static void Install(UiElement element) {
         ArgumentNullException.ThrowIfNull(element);
 
-        if (element.EditedDocument is not { } document) {
+        if (element.HostedDocument is not { } document) {
             throw new InvalidOperationException(
-                $"{nameof(Install)} needs {nameof(UiElement.EditedDocument)} set on the element first."
+                $"{nameof(Install)} needs {nameof(UiElement.HostedDocument)} set on the element first."
             );
         }
 
@@ -209,7 +209,7 @@ public partial class UiElement {
     ///     panels showing two documents each answer for their own, and a control deep inside one
     ///     finds the right document without being told which.
     /// </remarks>
-    public IEditableDocument? EditedDocument { get; set; }
+    public IEditableDocument? HostedDocument { get; set; }
 
     /// <summary>The nearest document on the way up, or the UI document's, or none.</summary>
     /// <returns>The document, or <see langword="null" />.</returns>
@@ -218,14 +218,14 @@ public partial class UiElement {
     ///     reason exactly: a panel is torn off into its own window and a cached answer is the one
     ///     that was nearest when the control was built.
     /// </remarks>
-    public IEditableDocument? FindEditedDocument() {
+    public IEditableDocument? FindHostedDocument() {
         for (var element = this; element is not null; element = element.Parent) {
-            if (element.EditedDocument is { } edited) {
+            if (element.HostedDocument is { } edited) {
                 return edited;
             }
         }
 
-        return document?.EditedDocument;
+        return document?.HostedDocument;
     }
 
     internal void TrackDocumentCommands(Effect effect) {
@@ -246,7 +246,7 @@ public sealed partial class UiDocument {
     ///     claims one. Null is the ordinary case, as it is for <see cref="Clipboard" /> and
     ///     <see cref="Windows" />.
     /// </remarks>
-    public IEditableDocument? EditedDocument { get; set; }
+    public IEditableDocument? HostedDocument { get; set; }
 }
 
 /// <summary>A window title that follows the document in it.</summary>

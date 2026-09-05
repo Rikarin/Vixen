@@ -48,6 +48,11 @@ public class EditableDocumentTests {
             remove { }
         }
 
+        public event Action<IUiWindow>? DidBecomeKey {
+            add { }
+            remove { }
+        }
+
         public event Action<IUiWindow>? Moved {
             add { }
             remove { }
@@ -147,8 +152,8 @@ public class EditableDocumentTests {
 
         var first = new Note("First");
         var second = new Note("Second");
-        left.EditedDocument = first;
-        right.EditedDocument = second;
+        left.HostedDocument = first;
+        right.HostedDocument = second;
         DocumentCommands.Install(left);
         DocumentCommands.Install(right);
         document.Update();
@@ -175,7 +180,7 @@ public class EditableDocumentTests {
         var field = panel.Add("div", classNames: "field");
         field.Focusable = true;
         var note = new Note("Notes.txt", "/tmp/Notes.txt");
-        panel.EditedDocument = note;
+        panel.HostedDocument = note;
         DocumentCommands.Install(panel);
         document.Update();
         document.Focus(field);
@@ -203,7 +208,7 @@ public class EditableDocumentTests {
         using var document = Laid();
         var panel = document.Root.Add("div", classNames: "panel");
         var note = new Note("Notes.txt", "/tmp/Notes.txt");
-        panel.EditedDocument = note;
+        panel.HostedDocument = note;
         DocumentCommands.Install(panel);
 
         // Settled first: registering a handler invalidates the route on its own, and so does the
@@ -234,15 +239,15 @@ public class EditableDocumentTests {
         var field = panel.Add("div", classNames: "field");
         document.Update();
 
-        Assert.Null(field.FindEditedDocument());
+        Assert.Null(field.FindHostedDocument());
 
         var wide = new Note("Wide");
-        document.EditedDocument = wide;
-        Assert.Same(wide, field.FindEditedDocument());
+        document.HostedDocument = wide;
+        Assert.Same(wide, field.FindHostedDocument());
 
         var near = new Note("Near");
-        panel.EditedDocument = near;
-        Assert.Same(near, field.FindEditedDocument());
+        panel.HostedDocument = near;
+        Assert.Same(near, field.FindHostedDocument());
     }
 
     /// <summary>Installing on an element that hosts nothing is a mistake, not a silent no-op.</summary>

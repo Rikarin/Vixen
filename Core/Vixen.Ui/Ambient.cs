@@ -72,7 +72,7 @@ public partial class UiElement {
     /// <returns>Whether anything on the way up provides one.</returns>
     /// <remarks>
     ///     ⚠ <b>Walked on every ask rather than cached</b>, for <see cref="FindUndoManager" />'s
-    ///     reason and <see cref="FindEditedDocument" />'s: an element is reparented, a panel is torn
+    ///     reason and <see cref="FindHostedDocument" />'s: an element is reparented, a panel is torn
     ///     off into its own window, and a cached answer is the one that was nearest when the control
     ///     was built. It is the same walk those two make and is deliberately the same shape — the
     ///     nearest declaration wins, and the document is the last word.
