@@ -215,6 +215,39 @@ public sealed class HostedOverlayTests : IDisposable {
         Assert.Contains(Walk(graphics.Renderer.Host.Compositor!.Game!), node => node is DebugOverlayRenderer);
     }
 
+    /// <summary>
+    ///     Doc 17 Q5b's second surface reaches the panel: a Release build pointed at a directory
+    ///     stamps the overlay a screenshot will carry.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The negative is the half worth having.</b> A stamp that is set on every build says
+    ///     nothing, and this is the wiring — not the drawing, which is
+    ///     <c>Vixen.Engine.Tests</c>' <c>TheStatsOverlayStampsALooseContentBuild</c>. Found through
+    ///     the registry rather than a field, because the object the frame draws is the only one
+    ///     worth setting.
+    /// </remarks>
+    [Fact]
+    public void ALooseContentBuildStampsTheStatsPanel() {
+        var loose = Directory
+            .CreateDirectory(Path.Combine(files.ApplicationDirectory, "..", "Loose"))
+            .FullName;
+
+        using var stamped = Build(new SilentGame(), ["--vixen-overlays", "--vixen-loose-content", loose]);
+        stamped.Initialise();
+
+        Assert.True(stamped.Services.Content.IsLoose);
+        Assert.True(Stats(stamped).LooseContent);
+
+        using var ordinary = Build(new SilentGame(), ["--vixen-overlays"]);
+        ordinary.Initialise();
+
+        Assert.False(ordinary.Services.Content.IsLoose);
+        Assert.False(Stats(ordinary).LooseContent);
+    }
+
+    static FrameStatsOverlay Stats(VixenApplication application) =>
+        Assert.IsType<FrameStatsOverlay>(application.Services.Graphics!.Overlays!.Find("stats"));
+
     static IEnumerable<SceneRenderer> Walk(SceneRenderer node) {
         yield return node;
 

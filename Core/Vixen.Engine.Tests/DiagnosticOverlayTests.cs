@@ -218,6 +218,55 @@ public sealed class DiagnosticOverlayTests {
         Assert.True(stats.SmoothedMilliseconds < 30f, "the average never recovered from the spike");
     }
 
+    /// <summary>
+    ///     Doc 17 Q5b's overlay stamp: a build reading loose files says so where a screenshot will
+    ///     carry it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Both halves, because the stamp is a claim that ink reached the screen.</b> The
+    ///     assertion is not that a property is set — that would pass over an overlay that drew
+    ///     nothing — but that drawing it puts lines on the surface in the alarming colour that the
+    ///     same overlay, on the same frame time, does not otherwise use. The frame is a healthy
+    ///     16 ms one precisely so that <c>theme.Bad</c> cannot arrive from the frame-time readout.
+    /// </remarks>
+    [Fact]
+    public void TheStatsOverlayStampsALooseContentBuild() {
+        Assert.Equal(0, BadLines(loose: false));
+        Assert.True(BadLines(loose: true) > 0, "the LOOSE stamp put no ink on the panel");
+        Assert.True(
+            Lines(loose: true) > Lines(loose: false),
+            "the stamped panel drew no more than the unstamped one"
+        );
+    }
+
+    static int Lines(bool loose) => Stamped(loose).ScreenCount;
+
+    /// <summary>How many of the panel's lines are drawn in the theme's alarm colour.</summary>
+    static int BadLines(bool loose) {
+        var draw = Stamped(loose);
+        var bad = OverlayTheme.Default.Bad;
+        var counted = 0;
+
+        foreach (var line in draw.ScreenLines) {
+            if (line.Colour == bad) {
+                counted++;
+            }
+        }
+
+        return counted;
+    }
+
+    /// <summary>One healthy 16 ms frame of the stats panel, with or without the stamp.</summary>
+    static DebugDraw Stamped(bool loose) {
+        var overlays = new DiagnosticOverlays();
+        overlays.Add(new FrameStatsOverlay { LooseContent = loose });
+
+        var draw = new DebugDraw();
+        overlays.Draw(draw, Screen, GameTime.Zero.Advance(TimeSpan.FromMilliseconds(16d)));
+
+        return draw;
+    }
+
     [Fact]
     public void TheLogOverlayReadsTheTailAndFiltersIt() {
         var sink = new RingBufferSink(64);

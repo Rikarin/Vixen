@@ -555,6 +555,8 @@ Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.Draw(Vixen.Engine.Diagnostic
 Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.Enabled.get -> bool
 Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.Enabled.set -> bool
 Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.FrameStatsOverlay() -> void
+Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.LooseContent.get -> bool
+Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.LooseContent.set -> bool
 Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.Name.get -> string
 Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.PeakMilliseconds.get -> float
 Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.Reset() -> void
