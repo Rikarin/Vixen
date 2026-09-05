@@ -160,6 +160,31 @@ public class UtilityFamilyTests {
         + "|mask-composite: intersect"
     )]
     [InlineData("mask-intersect", "mask-composite: intersect")]
+    // ⚠ <b>The two halves of the `mask` prefix, and they are the point of `Family.ValueAlongside`.</b>
+    // Tailwind spells the radial ending's *shape* `mask-circle`, on the same bare prefix as the four
+    // `mask-repeat` classes — one family, because `Register` keeps the first under a name and drops a
+    // second silently. A shape has to carry the three mask-layer declarations every other
+    // `mask-radial-*` carries; a repeat value must not, or `mask-no-repeat` alone would install a
+    // radial mask on an element nobody asked to mask. The pair below is the discriminating case: a
+    // family-wide `Alongside` passes the first row and fails the second.
+    [InlineData(
+        "mask-circle",
+        "--tw-mask-radial-shape: circle"
+        + "|--tw-mask-radial: radial-gradient(var(--tw-mask-radial-shape, ellipse) var(--tw-mask-radial-size, farthest-corner) at var(--tw-mask-radial-position, center), var(--tw-mask-from, black) var(--tw-mask-from-position, 0%), var(--tw-mask-to, transparent) var(--tw-mask-to-position, 100%))"
+        + "|mask-image: var(--tw-mask-linear, linear-gradient(#fff, #fff)), var(--tw-mask-radial, linear-gradient(#fff, #fff)), var(--tw-mask-conic, linear-gradient(#fff, #fff))"
+        + "|mask-composite: intersect"
+    )]
+    // ⚠ `ellipse` is CSS's own default and the class is still not a no-op: it is how an author
+    // overrides a `mask-circle` an ancestor or a component set, which is `filter-none`'s argument.
+    [InlineData(
+        "mask-ellipse",
+        "--tw-mask-radial-shape: ellipse"
+        + "|--tw-mask-radial: radial-gradient(var(--tw-mask-radial-shape, ellipse) var(--tw-mask-radial-size, farthest-corner) at var(--tw-mask-radial-position, center), var(--tw-mask-from, black) var(--tw-mask-from-position, 0%), var(--tw-mask-to, transparent) var(--tw-mask-to-position, 100%))"
+        + "|mask-image: var(--tw-mask-linear, linear-gradient(#fff, #fff)), var(--tw-mask-radial, linear-gradient(#fff, #fff)), var(--tw-mask-conic, linear-gradient(#fff, #fff))"
+        + "|mask-composite: intersect"
+    )]
+    [InlineData("mask-no-repeat", "mask-repeat: no-repeat")]
+    [InlineData("mask-repeat-x", "mask-repeat: repeat-x")]
     // Transitions.
     // ⚠ The longhand AND the fragment, and the fragment is not decoration: `transition` reads its own
     // default through `var(--tw-duration, 150ms)` because the generated sheet is ordered by class name

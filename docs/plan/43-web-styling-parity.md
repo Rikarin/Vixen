@@ -107,8 +107,8 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **224** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **29** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **225** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **28** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
 | **absent** | not emitted at all | **71** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
@@ -132,18 +132,23 @@ fragments with a working assembler.
 moved it out of `composed`: it was buildable all along and the flattering state was what hid it. A
 `--tw-mask-radial-position` fragment defaulting to `center` — CSS's own default — feeds an
 `at <position>` that `DrawListBuilder.MaskFrame` resolves, so an unmoved radial mask reaches the
-shader as the record it always had. ⚠ **Its sibling `mask-radial-*` reads `partial` now, and the two
-halves of that row are blocked on entirely different things.** The four ending *sizes* are registered
-and read: `GradientReader` takes all four keywords, `BackgroundGradient.Reach` is the closed form for
-each, and `GradientPaintTests.A_circle_ending_is_round_on_a_box_that_is_not` is the pixel oracle — on
-an 80×40 box, because on a square one every ending draws the same circle. ⚠ **The blocker the row
-named was wrong twice**, and the second time it was named "they land when `UiMask` carries a stated
-pair of radii": `UiShape.Paint.zw` *is* a stated pair and every rasteriser already honoured an
-arbitrary one, so nothing was ever waiting on a shader. What is still out is the two ending *shapes*,
-`mask-circle` and `mask-ellipse`, and their obstacle is this layer rather than the engine — Tailwind
-spells them with the bare `mask` prefix, which is already the `mask-repeat` family, and
-`Family.Alongside` belongs to a family rather than to a value, so those two values cannot carry the
-mask layer their siblings do.
+shader as the record it always had. ⚠ **Its sibling `mask-radial-*` reads `works` now, and the two
+halves of that row were blocked on entirely different things** — which is the whole reason it spent a
+while at `partial`. The four ending *sizes* wanted a reader: `GradientReader` takes all four
+keywords, `BackgroundGradient.Reach` is the closed form for each, and
+`GradientPaintTests.A_circle_ending_is_round_on_a_box_that_is_not` is the pixel oracle — on an 80×40
+box, because on a square one every ending draws the same circle. ⚠ **The blocker the row named was
+wrong twice**, and the second time it was named "they land when `UiMask` carries a stated pair of
+radii": `UiShape.Paint.zw` *is* a stated pair and every rasteriser already honoured an arbitrary one,
+so nothing was ever waiting on a shader. ⚠ **The two ending *shapes* wanted nothing from gradients at
+all** (#607): Tailwind spells `mask-circle` and `mask-ellipse` with the bare `mask` prefix, which is
+already the `mask-repeat` family, and `Family.Alongside` belonged to a family rather than to a value
+— so those two values could not carry the mask layer their siblings do while the four repeat values
+must not. `Family.ValueAlongside` is exactly that difference and `--tw-mask-radial-shape` is the
+second fragment, defaulting to CSS's own `ellipse` so that a class naming only the size still means
+what it meant. ⚠ One prefix now emits two unrelated properties, which is Tailwind's spelling and not
+a compromise: `Register` keeps the first family under a name and discards a second silently, so a
+second registration was never available.
 
 ### The composition mechanism
 
@@ -458,7 +463,7 @@ refusal block, which already says so for the same reason.
 
 | Category | roots | works | partial | inert | absent | composed | unknown |
 |---|--:|--:|--:|--:|--:|--:|--:|
-| Layout | 49 | 28 | 6 | 0 | 11 | 3 | 1 |
+| Layout | 49 | 29 | 5 | 0 | 11 | 3 | 1 |
 | Interactivity | 39 | 27 | 0 | 1 | 11 | 0 | 0 |
 | Borders | 34 | 28 | 2 | 0 | 4 | 0 | 0 |
 | Effects | 34 | 27 | 1 | 0 | 6 | 0 | 0 |
@@ -473,7 +478,7 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **329** | **224** | **29** | **1** | **71** | **3** | **1** |
+| **Total** | **329** | **225** | **28** | **1** | **71** | **3** | **1** |
 
 Flexbox and Grid leads at 29 of 34, with only two absent roots left and both of those refused on
 policy rather than owed; then Effects at 27 of 34, Interactivity at 27 of 39, Borders at 26 of 34,

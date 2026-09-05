@@ -204,6 +204,26 @@ public static class UtilityFamilies {
     ///         <c>via-*</c> in the theme, so it belongs to the family rather than to the value.
     ///     </para>
     /// </param>
+    /// <param name="ValueAlongside">
+    ///     Declarations emitted verbatim when the family resolves <i>a particular keyword</i>, keyed
+    ///     by that keyword.
+    ///     <para>
+    ///         ⚠ <b>This exists because a Tailwind prefix is not always one property family, and
+    ///         <see cref="Alongside" /> above cannot express that.</b> <c>mask-circle</c> and
+    ///         <c>mask-ellipse</c> are spelled with the bare <c>mask</c> prefix, which is already the
+    ///         <c>mask-repeat</c> family — and <see cref="Register" /> keeps the first family under a
+    ///         name and discards a second silently, so a second registration is not an option. The
+    ///         two shape values need the three mask-layer declarations every other
+    ///         <c>mask-radial-*</c> emits and the four repeat values must not have them, which is a
+    ///         difference between <i>values</i> and not between families.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Keyed on the keyword as written, and applied after the value resolved</b>, for
+    ///         <see cref="Alongside" />'s reason one step finer: a table keyed on a value the family
+    ///         does not accept would emit a mask layer for a typo, which is a rule that exists and
+    ///         silently changes the picture.
+    ///     </para>
+    /// </param>
     /// <param name="Template">
     ///     The value a <see cref="ValueKind.CountTemplate" /> family emits, with <c>{0}</c> where the
     ///     count goes. Null on every other kind.
@@ -243,6 +263,7 @@ public static class UtilityFamilies {
         string[]? ColorProperties = null,
         string[]? Positions = null,
         UtilityDeclaration[]? Alongside = null,
+        Dictionary<string, UtilityDeclaration[]>? ValueAlongside = null,
         string? Template = null,
         string? Scope = null
     );
@@ -1796,12 +1817,14 @@ public static class UtilityFamilies {
         // family registered against an ending the reader declines deletes the masking it was
         // written to shape.
         //
-        // ⚠ <b>`mask-circle` and `mask-ellipse` are still not here, and for a reason that has
-        // nothing to do with gradients.</b> The shape fragment exists and is read; the obstacle is
-        // this table's own shape — `Alongside` belongs to a family and not to a value, and the
-        // `mask` prefix is already the `mask-repeat` family, whose values must not emit a mask
-        // layer. Filed rather than worked around, because the workaround is a second family under a
-        // name `Register` would silently discard.
+        // ⚠ <b>`mask-circle` and `mask-ellipse` are registered now, under the `mask` prefix a
+        // hundred lines below, and what they waited on was never gradients.</b> The reader has
+        // understood `circle` since #545; the obstacle was this table's own shape — the `mask`
+        // prefix is already the `mask-repeat` family and `Alongside` belonged to a family rather
+        // than to a value, so the two shape values could not carry the mask layer their siblings do
+        // while the four repeat values must not. `Family.ValueAlongside` is that difference, and it
+        // was worth a second field rather than a second family: `Register` keeps the first family
+        // under a name and discards a second silently.
         Keywords("mask-radial", UtilityComposition.MaskRadialSize, new() {
             ["closest-side"] = "closest-side",
             ["closest-corner"] = "closest-corner",
@@ -1870,12 +1893,31 @@ public static class UtilityFamilies {
         Register(new Family("mask-size", ValueKind.Placement, ["mask-size"]));
         Register(new Family("mask-position", ValueKind.Placement, ["mask-position"]));
 
-        Keywords("mask", "mask-repeat", new() {
-            ["repeat"] = "repeat",
-            ["no-repeat"] = "no-repeat",
-            ["repeat-x"] = "repeat-x",
-            ["repeat-y"] = "repeat-y"
-        });
+        // ⚠ <b>One prefix, two unrelated properties, and that is Tailwind's spelling rather than an
+        // accident of this table.</b> `mask-repeat` and its three siblings are `mask-repeat`;
+        // `mask-circle` and `mask-ellipse` are the radial ending's *shape*. `Register` keeps the
+        // first family under a name and discards a second silently, so these cannot be two
+        // registrations — and the two halves differ in what they must emit *alongside* the value,
+        // which is why `Family.ValueAlongside` had to exist before this line could be written. A
+        // shape carries the three mask-layer declarations every other `mask-radial-*` carries; a
+        // repeat value must not, or `mask-no-repeat` on its own would install a radial mask.
+        Register(new Family(
+            "mask",
+            ValueKind.Keyword,
+            ["mask-repeat"],
+            new Dictionary<string, string>(StringComparer.Ordinal) {
+                ["repeat"] = "mask-repeat:repeat",
+                ["no-repeat"] = "mask-repeat:no-repeat",
+                ["repeat-x"] = "mask-repeat:repeat-x",
+                ["repeat-y"] = "mask-repeat:repeat-y",
+                ["circle"] = $"{UtilityComposition.MaskRadialShape}:circle",
+                ["ellipse"] = $"{UtilityComposition.MaskRadialShape}:ellipse"
+            },
+            ValueAlongside: new Dictionary<string, UtilityDeclaration[]>(StringComparer.Ordinal) {
+                ["circle"] = MaskAlongside(UtilityComposition.MaskRadial, Radial),
+                ["ellipse"] = MaskAlongside(UtilityComposition.MaskRadial, Radial)
+            }
+        ));
 
         Static("mask-none", "mask-image", "none");
 
@@ -2547,6 +2589,14 @@ public static class UtilityFamilies {
         // exists and silently changes the gradient.
         if (family.Alongside is not null) {
             declarations.AddRange(family.Alongside);
+        }
+
+        // ⚠ The same rule one step finer, and in the same place for the same reason: only once the
+        // value has resolved, so a `mask-nonsense` cannot emit a radial mask layer for a keyword the
+        // family declined. See `Family.ValueAlongside`.
+        if (family.ValueAlongside is not null
+            && family.ValueAlongside.TryGetValue(candidate.Value, out var perValue)) {
+            declarations.AddRange(perValue);
         }
 
         return true;
@@ -3570,10 +3620,21 @@ public static class UtilityFamilies {
     ///     <c>BackgroundGradient.IsDefaultEnding</c> is what keeps that on the shader's fast path
     ///     rather than merely arriving at the same picture by a longer route.
     /// </remarks>
+    /// <remarks>
+    ///     ⚠ <b>The ending <i>shape</i> is written unconditionally as well, and it is a second
+    ///     fragment rather than part of the size's.</b> CSS makes the two independent —
+    ///     <c>circle closest-side</c> is one ending named in two keywords — so
+    ///     <c>mask-circle mask-radial-closest-side</c> is two classes assembling one
+    ///     <c>mask-image</c>, and a single fragment would let whichever the cascade picked last
+    ///     erase the other's half. <c>GradientReader</c> reads the prelude word by word and has done
+    ///     since #545, so <c>ellipse farthest-corner at center</c> is the same record
+    ///     <c>farthest-corner at center</c> already produced.
+    /// </remarks>
     static string Radial =>
         UtilityComposition.MaskImage(
             "radial",
-            $"{UtilityComposition.Reference(UtilityComposition.MaskRadialSize)} "
+            $"{UtilityComposition.Reference(UtilityComposition.MaskRadialShape)} "
+            + $"{UtilityComposition.Reference(UtilityComposition.MaskRadialSize)} "
             + $"at {UtilityComposition.Reference(UtilityComposition.MaskRadialPosition)}"
         );
 

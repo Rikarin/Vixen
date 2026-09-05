@@ -179,19 +179,40 @@ public static class UtilityComposition {
     ///         keywords and <c>BackgroundGradient.Reach</c> is the closed form for each.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>There is deliberately no companion fragment for the ending <i>shape</i>, and the
-    ///         obstacle is this layer rather than the engine.</b> <c>circle</c> and <c>ellipse</c> are
-    ///         independent of the size in CSS and would want their own fragment for
-    ///         <see cref="TranslateX" />'s reason — but a fragment nothing emits fails
-    ///         <c>UtilityConsumptionGateTests</c>, correctly, and no family can emit it: Tailwind
-    ///         spells them <c>mask-circle</c> and <c>mask-ellipse</c>, the <c>mask</c> prefix is
-    ///         already the <c>mask-repeat</c> family, and <c>Family.Alongside</c> belongs to a family
-    ///         rather than to a value — so the two values cannot carry the mask layer their siblings
-    ///         do. The shape is therefore CSS's own default everywhere, which is what
-    ///         <c>mask-radial-*</c> already meant.
+    ///         The ending <i>shape</i> is <see cref="MaskRadialShape" />, a separate fragment because
+    ///         CSS spells the two as independent keywords: <c>circle closest-side</c> is a real
+    ///         declaration and either half may be written without the other.
     ///     </para>
     /// </remarks>
     public const string MaskRadialSize = Prefix + "mask-radial-size";
+
+    /// <summary>Whether a radial mask's ending shape is a circle or an ellipse.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Its own fragment rather than a second spelling of <see cref="MaskRadialSize" />,
+    ///         because CSS makes the two independent and <c>mask-circle mask-radial-closest-side</c>
+    ///         is two classes that have to agree about one <c>mask-image</c>.</b> Folding them into
+    ///         one fragment would make whichever class the cascade picked last erase the other's
+    ///         half of the ending.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>ellipse</c> is CSS's own default, so the fragment costs nothing while nobody
+    ///         sets it</b> — <c>BackgroundGradient.IsDefaultEnding</c> is false only for a circle or a
+    ///         non-farthest-corner size, so a radial mask that names neither still reaches the shader
+    ///         on the fast path where <c>UiShape.Paint</c> stays zero.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this fragment waited on was never the engine.</b> The reader has understood
+    ///         <c>circle</c> since #545 and a hand-written <c>radial-gradient(circle …)</c> painted
+    ///         correctly throughout. The obstacle was that Tailwind spells the two classes
+    ///         <c>mask-circle</c> and <c>mask-ellipse</c> — the bare <c>mask</c> prefix, which is
+    ///         already the <c>mask-repeat</c> family — and a family's <c>Alongside</c> could not vary
+    ///         by value, so those two values could not carry the mask layer their siblings do while
+    ///         the four repeat values must not. <c>Family.ValueAlongside</c> is that, and it is the
+    ///         whole of what #607 was.
+    ///     </para>
+    /// </remarks>
+    public const string MaskRadialShape = Prefix + "mask-radial-shape";
 
     // ── The mask layers ─────────────────────────────────────────────────────────────────────
     //
@@ -537,6 +558,12 @@ public static class UtilityComposition {
         // path where `UiShape.Paint` stays zero. A different value here would put every radial mask
         // in the interface on the stated-ending branch to arrive exactly where it started.
         [MaskRadialSize] = "farthest-corner",
+
+        // ⚠ CSS's own default too, and it has to be the fallback here rather than merely the value
+        // `mask-ellipse` writes: `mask-radial-closest-side` on its own emits the shape reference and
+        // sets only the size, so a fallback of anything else would make one class silently change
+        // the other half of the ending it does not name.
+        [MaskRadialShape] = "ellipse",
 
         // ⚠ v4's own number, and that is the whole of why it is this one. A different default would
         // make `class="transition"` mean a different animation in the two systems, which is a
