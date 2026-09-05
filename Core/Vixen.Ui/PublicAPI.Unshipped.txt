@@ -1195,6 +1195,7 @@ Vixen.Ui.UiDocument.Focus(Vixen.Ui.UiElement? element) -> bool
 Vixen.Ui.UiDocument.Focused.get -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Fonts.get -> Vixen.Ui.FontRegistry
 Vixen.Ui.UiDocument.ForegroundOf(Vixen.Ui.UiElement element) -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.UiDocument.ForgetPassRefusals() -> void
 Vixen.Ui.UiDocument.Gamut.get -> Vixen.Core.Mathematics.ColorGamut
 Vixen.Ui.UiDocument.Gamut.set -> Vixen.Core.Mathematics.ColorGamut
 Vixen.Ui.UiDocument.Gestures.get -> Vixen.Ui.GestureRecognizer
@@ -1222,6 +1223,7 @@ Vixen.Ui.UiDocument.NumberOf(Vixen.Ui.Styling.ComputedStyle style, int property)
 Vixen.Ui.UiDocument.PointerSurface.get -> Vixen.Ui.UiSurface?
 Vixen.Ui.UiDocument.Primary.get -> Vixen.Ui.UiSurface
 Vixen.Ui.UiDocument.PropertyId(string name) -> int
+Vixen.Ui.UiDocument.Refusals() -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.Ui.UiDocument.ReleasePointer() -> void
 Vixen.Ui.UiDocument.ReloadStyles(int sheet, string css) -> void
 Vixen.Ui.UiDocument.Remove(Vixen.Ui.UiElement element) -> void
