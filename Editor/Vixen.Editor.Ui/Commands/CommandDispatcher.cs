@@ -3,7 +3,6 @@
 
 using Vixen.Input;
 using Vixen.Ui;
-using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.Ui;
 
@@ -20,7 +19,9 @@ namespace Vixen.Editor.Ui;
 ///         single-key binding — <c>F</c> for frame-selection, which every 3D editor has — would fire
 ///         while somebody was naming an object, and the object would end up called
 ///         <c>Cubeaaa</c> with the camera somewhere else. Function keys are exempt, because they are
-///         not text.
+///         not text. <b>"A text field" means <see cref="ITextInputTarget" /></b>, which is the
+///         responder answering for itself rather than this assembly naming a class in
+///         <c>Vixen.Ui.Controls</c> — and it is what leaves nothing controls-shaped in this file.
 ///     </para>
 ///     <para>
 ///         <b>Auto-repeat is ignored.</b> Holding Ctrl+S must save once; the platform reports a
@@ -177,7 +178,22 @@ public sealed class CommandDispatcher {
         }
 
         for (var element = document.Focused; element is not null; element = element.Parent) {
-            if (element is TextField) {
+            // ⚠ The question asked of the responder rather than of a concrete controls type, and it
+            // used to read `element is TextField` — the editor reaching into `Vixen.Ui.Controls` for
+            // a class name in order to ask "is the first responder a field editor", which AppKit
+            // answers on the responder itself. `ITextInputTarget` is that answer: an element that
+            // wants keystrokes routed through the operating system's input method is, by
+            // definition, somewhere a bare letter is text.
+            //
+            // ⚠ It is deliberately broader than what it replaced, and the widening is a fix.
+            // `CodeEditor` is an `ITextInputTarget` and is not a `TextField`, so a single-key
+            // binding — `F` for frame-selection — was taken from the editor while somebody was
+            // typing in it, and only survived because the control usually handled the key first.
+            //
+            // ⚠ And not `{ AcceptsTextInput: true }`, which is the tempting spelling. That is false
+            // on a read-only or disabled field, and a read-only field is still a place with a caret
+            // in it that the user is reading rather than a viewport they are flying through.
+            if (element is ITextInputTarget) {
                 return false;
             }
         }

@@ -3,6 +3,7 @@
 
 using Vixen.Input;
 using Vixen.Ui;
+using Vixen.Ui.Controls.Advanced;
 using Xunit;
 
 namespace Vixen.Editor.Ui.Tests;
@@ -125,6 +126,46 @@ public class ChordRouteTests {
         // must leave it alone — otherwise every registered verb would become a hidden shortcut.
         Assert.False(Press(shell, InputKey.C).Handled);
         Assert.Equal(0, ran);
+    }
+
+    [Fact]
+    public void An_unmodified_chord_is_not_taken_from_a_code_editor_either() {
+        using var shell = new EditorShell(1280f, 800f);
+
+        var ran = 0;
+        shell.Commands.Add("scene.frame", Title("Frame Selected"), () => ran++);
+        shell.Keys.SetDefault("scene.frame", new KeyChord(InputKey.F, ModifierKeys.None));
+
+        var code = shell.Document.Root.Add<CodeEditor>();
+        shell.Document.Focus(code);
+
+        // ⚠ The guard used to read `element is TextField`, and a `CodeEditor` is not one — so a bare
+        // `F` typed into the code editor ran the viewport's frame-selection. It only ever looked
+        // harmless because the control usually handled the key before the root's handler saw it,
+        // which is not a rule, it is an ordering.
+        var args = new KeyEvent { Key = InputKey.F, Action = KeyAction.Pressed };
+        shell.Dispatcher.Pressed(shell.Document, args);
+
+        Assert.Equal(0, ran);
+        Assert.False(args.Handled);
+    }
+
+    [Fact]
+    public void A_modified_chord_is_still_taken_from_a_code_editor() {
+        using var shell = new EditorShell(1280f, 800f);
+
+        var ran = 0;
+        shell.Commands.Add("file.save", Title("Save"), () => ran++);
+        shell.Keys.SetDefault("file.save", new KeyChord(InputKey.S, ModifierKeys.Control));
+
+        var code = shell.Document.Root.Add<CodeEditor>();
+        shell.Document.Focus(code);
+
+        // The other half, and the half that makes the guard narrow rather than a blanket refusal:
+        // ⌘S must save while the caret is in the editor, because it is not a letter anybody is
+        // typing. Without this the widening would have made every shortcut dead in a text control.
+        Assert.True(Press(shell, InputKey.S).Handled);
+        Assert.Equal(1, ran);
     }
 
     static KeyEvent Press(EditorShell shell, InputKey key) {
