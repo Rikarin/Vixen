@@ -265,4 +265,44 @@ public class HarnessTests {
             + "list is not thread-safe. See AssemblyInfo.cs."
         );
     }
+
+    /// <summary>
+    ///     ⚠ <b>A session does not open a file watcher unless the scenario asks for one</b>, and
+    ///     this is a count of watchers rather than a stopwatch on purpose.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What it is worth is 80–95 ms per session, measured</b> — the whole of it inside
+    ///         <c>FileSystemWatcher.EnableRaisingEvents = true</c>, which starts the platform's
+    ///         stream; <c>Vixen.Core.IO</c>'s own constructor does no I/O. This assembly is
+    ///         serialised by the test above and calls <c>EditorSession.Start</c> 344 times, so the
+    ///         default is about half a minute of its wall spent on a path all but one of its suites
+    ///         never takes (#557).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves, because the off half alone cannot fail.</b> A harness that had lost
+    ///         the ability to open a watcher at all would satisfy the first assertion for the wrong
+    ///         reason — and would then make <c>ExternalEditPumpTests</c> fail as a timeout rather
+    ///         than as a missing watcher. The second is what says the switch still switches.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_session_watches_the_project_only_when_it_is_asked_to() {
+        using (var quiet = EditorSession.Start()) {
+            Assert.False(
+                quiet.Editor.IsWatchingAssets,
+                "A default EditorSession opened a FileWatcher. That is 80-95 ms of FSEvents per "
+                + "session across 344 of them in a serialised assembly, for a path almost no test "
+                + "takes. See EditorSessionOptions.WatchAssets."
+            );
+        }
+
+        using var watching = EditorSession.Start(new() { WatchAssets = true });
+
+        Assert.True(
+            watching.Editor.IsWatchingAssets,
+            "EditorSessionOptions.WatchAssets no longer opens a watcher, so the suites that write "
+            + "files underneath a running editor are asserting about a channel that is not there."
+        );
+    }
 }

@@ -852,7 +852,13 @@ public sealed class EditorSession : IDisposable {
 
             // ⚠ The editor's own features, from the executable's list rather than a second copy.
             // A harness that composed its own set would be a harness for an editor nobody ships.
-            EditorModules.Standard()
+            EditorModules.Standard(),
+
+            // ⚠ Off unless the scenario asks, and see `EditorSessionOptions.WatchAssets` for why
+            // that is not the same kind of shortcut as skipping the font: an editor with no watcher
+            // is a state the product has, and starting the platform's stream is 80–95 ms a test
+            // that never edits a file behind the editor's back has no use for.
+            options.WatchAssets
         );
 
         if (options.InstallFonts && !Fonts.Install(application.Shell.Document)) {
