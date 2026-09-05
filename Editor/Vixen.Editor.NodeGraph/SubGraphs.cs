@@ -211,7 +211,19 @@ public static class SubGraphs {
             }
         }
 
-        return new(path, ports.ToImmutable(), static () => new SubGraphNode(), graph.Name);
+        // ⚠ And the graph's own parameters as the node's settings, which is the seam #730 widened
+        // `SettingDefinition` for and nothing then declared. A published graph's knobs live on the
+        // model since #719 and this is the one place that turns a graph into a node type — so
+        // without this line every sub-graph node in every front end is drawn with no knobs at all,
+        // and the kind, the range and the group a parameter carries reach nothing to draw them.
+        return new(
+            path,
+            ports.ToImmutable(),
+            static () => new SubGraphNode(),
+            graph.Name,
+            false,
+            [.. graph.Parameters]
+        );
     }
 
     /// <summary>The node type of one of a sub-graph's own boundary nodes.</summary>

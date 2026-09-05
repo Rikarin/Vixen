@@ -61,7 +61,10 @@ sealed class TextureGraphLibrary : ITextureGraphLibrary {
     /// <summary>Publishes a graph as a node type, with its exposed parameters as its settings.</summary>
     /// <param name="path">The menu path, and the key a containing graph stores.</param>
     /// <param name="graph">The graph.</param>
-    /// <param name="exposed">Its exposed parameters, or empty for a graph with no knobs.</param>
+    /// <param name="exposed">
+    ///     The subset of its knobs to publish, or empty to publish the ones the graph declares. ⚠ Not
+    ///     the same thing as "no knobs": a graph with none declares none.
+    /// </param>
     /// <param name="registry">The registry to add the node type to, when there is one.</param>
     /// <exception cref="ArgumentNullException"><paramref name="graph" /> or the parameter list is null.</exception>
     /// <exception cref="ArgumentException">
@@ -81,9 +84,19 @@ sealed class TextureGraphLibrary : ITextureGraphLibrary {
         IReadOnlyList<TextureGraphParameter> exposed,
         NodeTypeRegistry? registry = null
     ) {
+        ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(exposed);
 
-        var problems = TextureGraphParameters.Check(exposed);
+        // ⚠ The graph's own declaration when the publisher names none, because since #719 a graph
+        // carries its knobs and a caller that has not been updated is a caller passing an empty
+        // list. Without this a published graph's parameters reach neither the settings of the node
+        // standing for it nor `ParametersOf` — so its knobs are missing from the containing canvas
+        // *and* every expression inside it binds against nothing.
+        var knobs = exposed.Count == 0
+            ? TextureGraphParameters.Declared(graph.Parameters)
+            : exposed;
+
+        var problems = TextureGraphParameters.Check(knobs);
 
         if (problems.Length > 0) {
             throw new ArgumentException(
@@ -93,8 +106,8 @@ sealed class TextureGraphLibrary : ITextureGraphLibrary {
         }
 
         graphs.Add(path, graph);
-        parameters[path] = [.. exposed];
-        registry?.Add(TextureGraphParameters.Definition(graph, exposed, path));
+        parameters[path] = [.. knobs];
+        registry?.Add(TextureGraphParameters.Definition(graph, knobs, path));
     }
 
     /// <inheritdoc />

@@ -264,6 +264,81 @@ public class TextureGraphDeclarationTests {
         Assert.Contains(compilation.Value.Ops, op => op.Kernel == "Noise");
     }
 
+    /// <summary>Publishing a graph that declares its own knobs needs no second list of them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The third instance of #779's and #780's shape, and the one that would have been
+    ///     found last.</b> <c>TextureGraphLibrary.Publish</c> takes the exposed parameters as an
+    ///     argument, because when it was written a parameter list was a property of whoever
+    ///     constructed a compiler. Since #719 the graph carries them — so a caller that has not been
+    ///     updated passes an empty list, and a published graph's knobs reach neither the settings of
+    ///     the node standing for it nor the expressions inside it, which then bind against nothing.
+    /// </remarks>
+    [Fact]
+    public void A_published_graph_declaring_its_own_parameters_needs_no_second_list() {
+        NodeGraphModel published = new() { Name = "Grunge" };
+
+        published.Interface.Add(new("Out", PortDirection.Output, PortKind.Image));
+        published.Parameters.Add(new("amount", "0.25", "How much", SettingKind.Float, 0f, 1f, "Wear"));
+
+        var inner = published.Add("Source/Noise");
+        var blur = published.Add("Filters/Blur");
+        var exit = published.Add(SubGraphs.OutputType);
+
+        published.Connect(new(inner.Id, "Out"), new(blur.Id, "Input"));
+        published.Connect(new(blur.Id, "Out"), new(exit.Id, "Out"));
+        blur.SetText(TextureGraphExpressions.KeyOf("Radius"), "amount * 32f");
+
+        NodeTypeRegistry registry = new();
+
+        NodeTypes.Register(registry);
+
+        TextureGraphLibrary library = new();
+
+        // No second list: what the graph declares is what it publishes.
+        library.Publish("Library/Grunge", published, [], registry);
+
+        var knob = Assert.Single(library.ParametersOf("Library/Grunge"));
+
+        Assert.Equal("amount", knob.Name);
+        Assert.Equal(1f, knob.Maximum);
+        Assert.Equal("Wear", knob.Group);
+
+        // And the node standing for it shows the knob, with the range that makes it a slider.
+        var setting = Assert.Single(registry.Get("Library/Grunge").Settings);
+
+        Assert.Equal("amount", setting.Name);
+        Assert.True(setting.IsBounded);
+
+        // ⚠ And the expression *inside* the published graph folds against it, which is the half that
+        // is a picture rather than a panel: 0.25 × 32.
+        NodeGraphModel host = new();
+        var used = host.Add("Library/Grunge");
+        var output = host.Add("Output/Output");
+
+        output.SetText("Usage", "baseColor");
+        host.Connect(new(used.Id, "Out"), new(output.Id, "Input"));
+
+        TextureGraphCompiler compiler = new(registry) {
+            BaseWidth = 256,
+            BaseHeight = 256,
+            Seed = 41823,
+            SubGraphSource = library
+        };
+
+        var compilation = compiler.Compile(host);
+
+        Assert.Empty(compilation.Diagnostics);
+        Assert.Equal(
+            8f,
+            Assert.Single(
+                compilation.Value.Ops
+                    .Where(op => op.Kernel == "Blur")
+                    .Select(op => op.Find("radius")!.Value)
+                    .Distinct()
+            ).Value
+        );
+    }
+
     /// <summary>A graph of one noise node, kept as a base colour.</summary>
     static NodeGraphModel Noise() {
         NodeGraphModel graph = new();

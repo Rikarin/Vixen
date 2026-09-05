@@ -126,6 +126,50 @@ public class GraphDocumentTests {
         }
     }
 
+    /// <summary>A published graph's knobs are the settings of the node that stands for it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The seam <a href="https://github.com/Rikarin/Vixen/issues/730">#730</a> widened
+    ///         <see cref="SettingDefinition" /> for, and until this it had no declaration site at
+    ///         all.</b> The kind, the range and the group were carried, saved, loaded and drawn —
+    ///         <c>NodeSettingMember</c> turns a bounded numeric setting into a slider — and nothing
+    ///         in the tree ever produced one: no <c>[Setting]</c> in any node library declares a
+    ///         kind, because every setting those libraries hold is an enumeration spelled as a name,
+    ///         which is a kind <see cref="SettingKind" /> does not have. A published graph's
+    ///         parameters are the numeric knobs, and <see cref="SubGraphs.Definition" /> is the one
+    ///         place a graph becomes a node type.
+    ///     </para>
+    ///     <para>
+    ///         <b>So it dropped them</b>, exactly as the flattener dropped the settings bag beside
+    ///         them: a node type built from the interface and nothing else, on a model whose own
+    ///         remarks say "doc 48 § D9 says its exposed parameters are its settings".
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_published_graphs_parameters_are_the_settings_of_its_node_type() {
+        NodeGraphModel published = new() { Name = "Grunge" };
+
+        published.Interface.Add(new("Out", PortDirection.Output, PortKind.Float));
+        published.Parameters.Add(new("Amount", "0.25", "How much", SettingKind.Float, 0f, 1f, "Wear"));
+
+        var setting = Assert.Single(SubGraphs.Definition(published, "Sub-graphs/Grunge").Settings);
+
+        Assert.Equal("Amount", setting.Name);
+        Assert.Equal(SettingKind.Float, setting.Kind);
+        Assert.Equal("Wear", setting.Group);
+        Assert.True(setting.IsBounded);
+
+        // And the range reaches a row rather than stopping at the definition, which is the half that
+        // makes this a knob an artist can turn instead of a box in which "ture" is a value.
+        Assert.NotNull(new NodeSettingMember(new(), setting).Range);
+
+        // The instrument: a published graph declaring no parameters gets no settings, so the single
+        // entry above is the graph's declaration and not something every sub-graph node has.
+        published.Parameters.Clear();
+
+        Assert.Empty(SubGraphs.Definition(published, "Sub-graphs/Grunge").Settings);
+    }
+
     /// <summary>A graph's declarations survive being flattened, which is what #780 was about.</summary>
     /// <remarks>
     ///     ⚠ <b>Through <see cref="SubGraphs.Flatten" /> rather than through the copy</b>, because the
