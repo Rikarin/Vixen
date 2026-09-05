@@ -598,9 +598,11 @@ Vixen.Ui.IUiWindow : System.IDisposable
 Vixen.Ui.IUiWindow.Bounds.get -> (float X, float Y, float Width, float Height)
 Vixen.Ui.IUiWindow.Bounds.set -> (float X, float Y, float Width, float Height)
 Vixen.Ui.IUiWindow.CloseRequested -> System.Action<Vixen.Ui.IUiWindow>?
+Vixen.Ui.IUiWindow.DidBecomeKey -> System.Action<Vixen.Ui.IUiWindow>?
 Vixen.Ui.IUiWindow.DpiScale.get -> float
 Vixen.Ui.IUiWindow.Focus() -> void
 Vixen.Ui.IUiWindow.IsClosed.get -> bool
+Vixen.Ui.IUiWindow.IsKey.get -> bool
 Vixen.Ui.IUiWindow.Moved -> System.Action<Vixen.Ui.IUiWindow>?
 Vixen.Ui.IUiWindow.Surface.get -> Vixen.Ui.UiSurface
 Vixen.Ui.IUiWindow.Title.get -> string
@@ -1310,6 +1312,7 @@ Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.PointerEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.TextCompositionEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.TextInputEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.DropEvent args) -> Vixen.Ui.UiElement?
+Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.KeyEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.PointerEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.WheelEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.WheelEvent args) -> Vixen.Ui.UiElement?
@@ -1339,6 +1342,7 @@ Vixen.Ui.UiDocument.InvalidateCommands() -> void
 Vixen.Ui.UiDocument.InvokeAccessKey(char key) -> bool
 Vixen.Ui.UiDocument.KeySurface.get -> Vixen.Ui.UiSurface?
 Vixen.Ui.UiDocument.KeySurface.set -> Vixen.Ui.UiSurface?
+Vixen.Ui.UiDocument.KeySurfaceChanged -> System.Action<Vixen.Ui.UiDocument, Vixen.Ui.UiSurface>?
 Vixen.Ui.UiDocument.KeyboardMode.get -> bool
 Vixen.Ui.UiDocument.KeywordOf(Vixen.Ui.Styling.ComputedStyle style, int property) -> string?
 Vixen.Ui.UiDocument.Language.get -> string

@@ -1195,6 +1195,31 @@ stop being usable with no backend at all. `Vixen.Platform.Ui` is what fills it. 
 false on a browser tab, an Android activity and iOS, and a control that wanted a second window is
 expected to have something to do instead.
 
+### Which window the user is in
+
+`UiDocument.KeySurface` is `NSApp.keyWindow`: the window manager's answer, written by whatever
+bridges the platform (`PlatformInput`'s `WindowFocusGained` and `WindowFocusLost` arms) and read as
+the fallback for a keystroke nothing has the focus for. `KeySurfaceChanged` announces **both edges as
+two raises**, the losing surface first, and `KeySurface` already holds the new answer by the time
+either arrives — so a handler that redraws a title bar never sees a moment when two windows are both
+key.
+
+`IUiWindow.IsKey` is that comparison written once and **defaulted on the interface**, so a window
+cannot hold a second copy of a fact the document already owns; `IUiWindow.DidBecomeKey` is the
+per-window convenience over `KeySurfaceChanged`, raised by whatever host opened the window.
+
+⚠ **`Dispatch(UiSurface, KeyEvent)` is a better answer than the key surface where a caller has one.**
+The key surface is an opinion that arrives asynchronously; the surface passed to `Dispatch` is where
+*this* event was delivered, which is the operating system having settled the question by sending it
+to that window at all. The pointer and wheel overloads always took a surface and this one did not,
+on the argument that a key goes to the focus and the focus is the document's — true, and it stops
+being an answer the moment nothing is focused.
+
+⚠ **`UiSurface.Focused` does not exist, so only the nothing-focused case is right.** `Focused` is one
+document-global element: a keystroke aimed at an unfocused control in a background window still
+reaches whatever holds the document's focus. That is the larger half of the key-window work and is
+still owed (#644).
+
 ## Removal
 
 `UiElement.Remove()` takes an element and its subtree out of all three stores at once — which is why

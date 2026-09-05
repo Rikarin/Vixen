@@ -188,12 +188,51 @@ public sealed partial class UiDocument {
     ///         what gives both: the default is the fallback rather than the rule.
     ///     </para>
     /// </remarks>
-    public UiElement? Dispatch(KeyEvent args) {
+    public UiElement? Dispatch(KeyEvent args) => Dispatch(args, KeyTarget);
+
+    /// <summary>Sends a key event that arrived at a particular window.</summary>
+    /// <param name="surface">The surface the platform delivered it to.</param>
+    /// <param name="args">The event.</param>
+    /// <returns>The element it went to.</returns>
+    /// <exception cref="ArgumentException">The surface belongs to another document.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The overload <see cref="Dispatch(UiSurface, PointerEvent)" /> and
+    ///         <see cref="Dispatch(UiSurface, WheelEvent)" /> always had and this one did not.</b>
+    ///         The reason given was that a key goes to the focus and the focus is the document's —
+    ///         true, and it stops being an answer the moment nothing is focused: the fallback was
+    ///         <see cref="Primary" />'s root, so a keystroke aimed at a torn-off inspector ran
+    ///         against the main window.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is a better answer than <see cref="KeySurface" /> and not a duplicate of
+    ///         it.</b> The key surface is the window manager's opinion, arriving through
+    ///         <c>WindowFocusGained</c>; the surface here is where <i>this</i> event was actually
+    ///         delivered, which is the operating system having already answered the question by
+    ///         sending it at all. A host that has the surface in hand should pass it.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="Focused" /> still outranks it, because it is still one document-global
+    ///         element — <c>UiSurface.Focused</c> does not exist, so a keystroke aimed at an
+    ///         unfocused control in a background window still reaches whatever holds the document's
+    ///         focus. That is the larger half of the key-window work and is owed.
+    ///     </para>
+    /// </remarks>
+    public UiElement? Dispatch(UiSurface surface, KeyEvent args) {
+        ArgumentNullException.ThrowIfNull(surface);
+
+        if (!ReferenceEquals(surface.Document, this)) {
+            throw new ArgumentException("that surface belongs to another document.", nameof(surface));
+        }
+
+        return Dispatch(args, Focused ?? surface.Root);
+    }
+
+    UiElement? Dispatch(KeyEvent args, UiElement target) {
         ArgumentNullException.ThrowIfNull(args);
 
         KeyboardMode = true;
 
-        var target = KeyTarget;
         target.Raise(args);
 
         // ⚠ The one place a non-element responder can see a key, and until this existed there was

@@ -74,6 +74,41 @@ public interface IUiWindow : IDisposable {
     /// <summary>Brings it to the front and asks for keyboard focus.</summary>
     void Focus();
 
+    /// <summary>Whether this is the window the user is in — <c>NSWindow.isKeyWindow</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Derived rather than stored, and that is what keeps two windows from both
+    ///         believing it.</b> There is exactly one key surface per document, so a window that
+    ///         kept a <c>bool</c> of its own would be a second copy of a fact the document already
+    ///         holds — and the failure mode of a second copy is two windows drawing an active title
+    ///         bar with no error anywhere. A host that answers this question by writing
+    ///         <c>document.KeySurface == surface</c> for itself has made the same copy, spelled out.
+    ///     </para>
+    ///     <para>
+    ///         <c>false</c> for every window while the application is in the background, which is
+    ///         what <see cref="UiDocument.KeySurface" /> being <c>null</c> means.
+    ///     </para>
+    /// </remarks>
+    bool IsKey => ReferenceEquals(Surface.Document.KeySurface, Surface);
+
+    /// <summary>Raised when this window becomes the key one, and again when it stops being.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>One event for both edges, carrying the window whose <see cref="IsKey" /> is now to
+    ///         be read.</b> AppKit has <c>didBecomeKey</c> and <c>didResignKey</c> as a pair; a
+    ///         handler that has to redraw a title bar wants both and would subscribe to both, so
+    ///         splitting them buys two subscriptions for one question.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not every window raises it.</b> It is raised by whatever host opened the window,
+    ///         which for the document's primary surface may be the application head rather than an
+    ///         <see cref="IUiWindowHost" /> — the ground truth is
+    ///         <see cref="UiDocument.KeySurfaceChanged" />, and this is the per-window convenience
+    ///         over it.
+    ///     </para>
+    /// </remarks>
+    event Action<IUiWindow>? DidBecomeKey;
+
     /// <summary>Raised when the user asks to close it, before anything is destroyed.</summary>
     /// <remarks>
     ///     ⚠ <b>A request, not a notification.</b> The window stays open until somebody disposes it,

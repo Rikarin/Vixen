@@ -216,10 +216,16 @@ public static class PlatformInput {
 
             case PlatformEventKind.KeyDown:
             case PlatformEventKind.KeyUp:
-                // Not routed by surface: a key event goes to the focus, and the focus is the
-                // document's rather than a window's. Which window has it is the operating system's
-                // question and it has already answered by sending the event at all.
+                // ⚠ Routed by surface, and it used not to be. The comment here read "a key event
+                // goes to the focus, and the focus is the document's rather than a window's" —
+                // true, and it stops being an answer the moment nothing is focused, which is the
+                // state every application starts in and returns to whenever something is dismissed.
+                // The fallback was the *primary* surface's root, so a keystroke the operating
+                // system delivered to a torn-off inspector ran against the main window. The surface
+                // is in hand here; the OS has already answered the question by sending the event to
+                // that window at all.
                 document.Dispatch(
+                    surface,
                     new KeyEvent {
                         Key = (Vixen.Input.InputKey) (ushort) platformEvent.Key,
                         Action = platformEvent.Kind == PlatformEventKind.KeyDown
