@@ -334,6 +334,177 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
     }
 
     /// <summary>
+    ///     ⚠ Two islands that share the minimum corner of their boxes still get two ids — and the
+    ///     picture that proves it is the one <a href="https://github.com/Rikarin/Vixen/issues/691">
+    ///     #691</a> asked for.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>#691 reported the collision one level too high.</b> It said two islands with the
+    ///         same bounding <em>box</em> read as one, and offered "an L-shape and a small square
+    ///         tucked into its corner". ⚠ <b>No such pair exists</b> —
+    ///         <c>TextureAnalysisKernelTests.No_two_islands_ever_share_a_bounding_box_but_a_minimum_corner_is_not_a_name</c>
+    ///         walks all 65 536 four-by-four masks under both connectivities and finds none, for the
+    ///         topological reason written there. The L in the example does not share its box with
+    ///         anything: whatever sits in its notch has a smaller one.
+    ///     </para>
+    ///     <para>
+    ///         What <em>is</em> real is that the <c>Id</c> picture published half the record. This
+    ///         mask is a five-texel bar and a hook that starts under its left end and reaches past its
+    ///         right: two islands, nowhere adjacent, whose boxes are <c>(10, 10)–(14, 10)</c> and
+    ///         <c>(10, 10)–(18, 12)</c> — <b>different boxes, one shared minimum corner</b>. Red and
+    ///         green therefore agree by construction, which is the assertion that says the fixture is
+    ///         the fixture; blue is the whole record hashed, and it is what has to differ.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The sizes are read as the instrument check.</b> Two ids differing would also be
+    ///         satisfied by a flood that had simply failed to join each island up — so the same bake
+    ///         is asked how big each island's box is, and both answers are the ones a settled flood
+    ///         owes.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Two_islands_that_share_a_minimum_corner_still_get_two_ids() {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
+        var mask = Rectangles(Side, (10, 10, 14, 10), (10, 12, 18, 12), (18, 10, 18, 12));
+        var (ids, sizes) = TwoFloods(device, mask, TextureFloodOutput.Id, TextureFloodOutput.Size, false);
+
+        // Both islands begin at (10, 10), so the addressable half of the id is the same one.
+        Assert.Equal(Byte(10f / Side), TextureKernelHarness.At(ids, 12, 10, 0));
+        Assert.Equal(Byte(10f / Side), TextureKernelHarness.At(ids, 12, 10, 1));
+        Assert.Equal(Byte(10f / Side), TextureKernelHarness.At(ids, 14, 12, 0));
+        Assert.Equal(Byte(10f / Side), TextureKernelHarness.At(ids, 14, 12, 1));
+
+        // And they are two islands, which the boxes say: 5×1 against 9×3.
+        Assert.Equal(Byte(5f / Side), TextureKernelHarness.At(sizes, 12, 10, 0));
+        Assert.Equal(Byte(1f / Side), TextureKernelHarness.At(sizes, 12, 10, 1));
+        Assert.Equal(Byte(9f / Side), TextureKernelHarness.At(sizes, 14, 12, 0));
+        Assert.Equal(Byte(3f / Side), TextureKernelHarness.At(sizes, 14, 12, 1));
+
+        // So the id has to separate them, and only blue can.
+        Assert.NotEqual(TextureKernelHarness.At(ids, 12, 10, 2), TextureKernelHarness.At(ids, 14, 12, 2));
+
+        // Every texel of one island still agrees with every other, which is what "settled" means and
+        // what a name hashed per texel rather than per record would break.
+        Assert.Equal(TextureKernelHarness.At(ids, 10, 10, 2), TextureKernelHarness.At(ids, 14, 10, 2));
+        Assert.Equal(TextureKernelHarness.At(ids, 10, 12, 2), TextureKernelHarness.At(ids, 18, 10, 2));
+    }
+
+    /// <summary>
+    ///     ⚠ Two squares touching only at a corner are <b>one</b> island under eight-connectivity and
+    ///     <b>two</b> under four.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/705">#705</a>.</b>
+    ///         <c>FloodBounds.rvn</c> branches on <c>diagonal</c> —
+    ///         <c>val skip = dx * dy != 0 &amp;&amp; diagonal == 0</c> — and nothing in the suite set
+    ///         it: every flood above took the builder's default, so ⚠ <b>a kernel that ignored the
+    ///         uniform, or inverted its sense, was green across the whole file</b>.
+    ///     </para>
+    ///     <para>
+    ///         The closed form is the definition of the two connectivities, and it needs no tolerance
+    ///         at all. Two 4×4 squares meeting at (13, 13)–(14, 14) are, under four-connectivity, two
+    ///         islands whose boxes are their own squares; under eight, one island whose box is the
+    ///         pair's. So the ids either differ or agree, and the sizes are either 4/64 in each axis
+    ///         or 8/64 — four numbers that no other reading of the uniform produces.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(false, 4, 4)]
+    [InlineData(true, 8, 8)]
+    public void Two_squares_touching_at_a_corner_are_one_island_only_under_eight_connectivity(
+        bool diagonal,
+        int firstSpan,
+        int secondSpan
+    ) {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
+        var mask = Rectangles(Side, (10, 10, 13, 13), (14, 14, 17, 17));
+        var (ids, sizes) = TwoFloods(device, mask, TextureFloodOutput.Id, TextureFloodOutput.Size, diagonal);
+
+        // The minimum corner is (10, 10) for the first square either way; what the connectivity
+        // decides is whether the second square carries it too.
+        Assert.Equal(Byte(10f / Side), TextureKernelHarness.At(ids, 11, 11, 0));
+        Assert.Equal(Byte(diagonal ? 10f / Side : 14f / Side), TextureKernelHarness.At(ids, 16, 16, 0));
+
+        if (diagonal) {
+            Assert.Equal(TextureKernelHarness.At(ids, 11, 11, 0), TextureKernelHarness.At(ids, 16, 16, 0));
+        } else {
+            Assert.NotEqual(TextureKernelHarness.At(ids, 11, 11, 0), TextureKernelHarness.At(ids, 16, 16, 0));
+        }
+
+        // And the box each texel settled on is the one island it belongs to, in both axes.
+        Assert.Equal(Byte(firstSpan / (float)Side), TextureKernelHarness.At(sizes, 11, 11, 0));
+        Assert.Equal(Byte(firstSpan / (float)Side), TextureKernelHarness.At(sizes, 11, 11, 1));
+        Assert.Equal(Byte(secondSpan / (float)Side), TextureKernelHarness.At(sizes, 16, 16, 0));
+        Assert.Equal(Byte(secondSpan / (float)Side), TextureKernelHarness.At(sizes, 16, 16, 1));
+    }
+
+    /// <summary>
+    ///     ⚠ The <c>BoundingBox</c> picture is the settled record itself — minimum in red and green,
+    ///     <em>maximum</em> in blue and alpha — and its alpha is what tells background from a dark
+    ///     island.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The fifth of § 4.5's five outputs, and the one nothing read.</b>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/705">#705</a>: the two-rectangle test
+    ///         above says in its own docstring that "four pictures are read out of one settled
+    ///         record", and <c>kind == 3</c> is the fifth — ⚠ <b>swapping the minimum and the maximum
+    ///         inside that branch was invisible to the entire suite</b>, and a swapped box is a
+    ///         perfectly plausible picture.
+    ///     </para>
+    ///     <para>
+    ///         It is also the only branch that stores four meaningful channels rather than an explicit
+    ///         alpha of one, which is what <c>FloodFill.rvn</c>'s header rests the background
+    ///         discriminator on: a texel in no island stores <c>(0, 0, 0, 1)</c>, and an island's alpha
+    ///         is <c>maxY / height</c>, which is at most <c>(h − 1) / h</c>. So <b>alpha of one is
+    ///         background and nothing else can be</b> — asserted here, because the header is the only
+    ///         other place it is written down.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_bounding_box_picture_is_the_record_and_its_alpha_names_the_background() {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
+        var mask = Rectangles(Side, (4, 4, 11, 11), (40, 20, 55, 35));
+        var (boxes, _) = TwoFloods(device, mask, TextureFloodOutput.BoundingBox, TextureFloodOutput.Id, false);
+
+        foreach (var (x, y, minX, minY, maxX, maxY) in new[] {
+            (7, 7, 4, 4, 11, 11),
+            (11, 11, 4, 4, 11, 11),
+            (48, 28, 40, 20, 55, 35)
+        }) {
+            Assert.Equal(Byte(minX / (float)Side), TextureKernelHarness.At(boxes, x, y, 0));
+            Assert.Equal(Byte(minY / (float)Side), TextureKernelHarness.At(boxes, x, y, 1));
+            Assert.Equal(Byte(maxX / (float)Side), TextureKernelHarness.At(boxes, x, y, 2));
+            Assert.Equal(Byte(maxY / (float)Side), TextureKernelHarness.At(boxes, x, y, 3));
+
+            // The ordering, said separately: a swapped branch reads as a box and this is what says
+            // which corner is which.
+            Assert.True(
+                TextureKernelHarness.At(boxes, x, y, 0) < TextureKernelHarness.At(boxes, x, y, 2),
+                $"the box at ({x}, {y}) has its red above its blue, so the minimum and the maximum are the "
+                + $"wrong way round on {TextureKernelHarness.Adapter(device)}"
+            );
+        }
+
+        // Background is opaque and every island's alpha is its own maxY over the image, which cannot
+        // reach one.
+        Assert.Equal(255, TextureKernelHarness.At(boxes, 30, 5, 3));
+        Assert.Equal(0, TextureKernelHarness.At(boxes, 30, 5, 0));
+        Assert.True(TextureKernelHarness.At(boxes, 48, 28, 3) < 255);
+    }
+
+    /// <summary>
     ///     ⚠ A budget too small to settle the mask is <em>reported</em>, and a budget large enough
     ///     reports that it was.
     /// </summary>
@@ -426,6 +597,62 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
 
     /// <summary>What an eight-bit read-back makes of a value in 0..1.</summary>
     static int Byte(float value) => (int)MathF.Round(value * 255f);
+
+    /// <summary>One flood over one mask, read out twice.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two reads of <em>one</em> settled record</b>, which is the arrangement § 4.5's five
+    ///     outputs rest on — a second flood would prove the same numbers and cost the settling time
+    ///     again. The budget is 24, which is past the arc length of every mask this file builds.
+    /// </remarks>
+    static (Bitmap First, Bitmap Second) TwoFloods(
+        VulkanDevice device,
+        byte[] mask,
+        TextureFloodOutput first,
+        TextureFloodOutput second,
+        bool diagonal
+    ) {
+        const int Budget = 24;
+
+        var (texture, staging) = TextureKernelHarness.Upload(device, mask, Side, Side);
+
+        try {
+            var images = ImmutableArray.CreateBuilder<TextureImage>();
+
+            images.Add(new(TextureFormat.Rgba8, External: true));
+
+            for (var pass = 0; pass < Budget; pass++) {
+                images.Add(new(TextureFormat.Rgba16Float));
+            }
+
+            var read = images.Count;
+
+            images.Add(new(TextureFormat.Rgba8));
+            images.Add(new(TextureFormat.Rgba8));
+
+            ImmutableArray<int> scratch = [.. Enumerable.Range(1, Budget)];
+
+            var plan = new TexturePlan {
+                BaseWidth = Side,
+                BaseHeight = Side,
+                Seed = 7717u,
+                Images = images.ToImmutable(),
+                Ops = TextureAnalysis
+                    .FloodFill(read, 0, scratch, Side, Side, first, diagonal)
+                    .Add(TextureAnalysis.FloodRead(read + 1, scratch[^1], second)),
+                Outputs = [read, read + 1]
+            };
+
+            Assert.Empty(plan.Validate());
+
+            using var evaluator = new TexturePlanEvaluator(device);
+            using var bake = evaluator.Evaluate(plan, new Dictionary<int, TextureHandle> { [0] = texture });
+
+            return (bake.Read(read), bake.Read(read + 1));
+        } finally {
+            device.Destroy(staging);
+            device.Destroy(texture);
+        }
+    }
 
     /// <summary>The whole distance chain over one uploaded mask, read back.</summary>
     static Bitmap Field(VulkanDevice device, byte[] mask, TextureDistanceMode mode, float maxDistance) {

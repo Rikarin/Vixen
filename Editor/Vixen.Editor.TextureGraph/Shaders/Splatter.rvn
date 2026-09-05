@@ -166,6 +166,39 @@ shader Splatter {
         return lerp(top, bottom, float4(ty, ty, ty, ty))
     }
 
+    /// One instance's stamp, bilinear, **confined to its own column of the atlas**.
+    ///
+    /// ⚠ **A tap that straddles a column boundary is a texel of a neighbouring pattern in the edge
+    /// of every stamp** — [#709](https://github.com/Rikarin/Vixen/issues/709), and `TileSampler.rvn`
+    /// carries the same function and the same reasoning. The atlas coordinate
+    /// `(slot + local.x + 0.5) / patternCount` handed to `At` is arithmetically right and samples
+    /// wrong: at `|local.x| = 0.5` the bilinear pair sits either side of the seam between column
+    /// `slot` and its neighbour. It is invisible at `patternCount` 1, where the clamp to the image is
+    /// the clamp to the column.
+    func Stamp(slot: int, local: float2): float4 {
+        val extent = pattern.GetDimensions(0)
+        val columns = max(patternCount, 1)
+        val wide = max(extent.x / columns, 1)
+        val first = min(slot, columns - 1) * wide
+        val last = first + wide - 1
+
+        val px = float(first) + (local.x + 0.5f) * float(wide) - 0.5f
+        val py = (local.y + 0.5f) * float(extent.y) - 0.5f
+
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val left = clamp(x0, first, last)
+        val right = clamp(x0 + 1, first, last)
+
+        val top = lerp(Tap(pattern, left, y0), Tap(pattern, right, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Tap(pattern, left, y0 + 1), Tap(pattern, right, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
     /// How much of a texel one instance covers, from whichever channel carries it.
     func Coverage(texel: float4): float {
         if (alphaCoverage != 0) {
@@ -239,8 +272,7 @@ shader Splatter {
 
                 if (abs(local.x) <= 0.5f && abs(local.y) <= 0.5f) {
                     val slot = min(int(Draw(id, 5u) * float(max(patternCount, 1))), max(patternCount, 1) - 1)
-                    val u = (float(slot) + local.x + 0.5f) / float(max(patternCount, 1))
-                    val texel = At(pattern, u, local.y + 0.5f)
+                    val texel = Stamp(slot, local)
                     val tint = 1f - saturate(colourJitter) * Draw(id, 6u)
 
                     carried = Accumulate(carried, texel.xyz * tint, Coverage(texel))

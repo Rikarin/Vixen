@@ -1028,6 +1028,61 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
     }
 
     /// <summary>
+    ///     ⚠ <c>intensity</c> is a <em>gain on the slope</em> and not a distance: halving the field's
+    ///     slope halves the walk.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/706">#706</a>, written down so the
+    ///         wording cannot drift back.</b> <c>SlopeBlur.rvn</c> and its builder both called
+    ///         <c>intensity</c> "the whole distance walked", and the loop steps by
+    ///         <c>−∇h · intensity / N</c> — so the path is <c>|∇h| · intensity</c> and the two agree
+    ///         only over a field of unit slope. ⚠ <b>Every other assertion in this file uses exactly
+    ///         such a field</b>, which is why the confusion survived a suite that measures the walk
+    ///         to the texel: <see cref="DownRamp" /> is <c>4x</c> in bytes, whose gradient per unit of
+    ///         image width is <c>256/255</c>, and the distance constant above is authored as
+    ///         <c>40 × 255/256</c> to cancel it.
+    ///     </para>
+    ///     <para>
+    ///         So the instrument is a <em>second</em> field, <c>2x</c> in bytes, at the same
+    ///         intensity. Its slope is half, so the walk is twenty texels rather than forty and lands
+    ///         on 112 rather than 192 — eighty counts apart over a source that rises by four a texel.
+    ///         A kernel that normalised <c>∇h</c> to walk the documented distance reads 192 in both
+    ///         rows, which is the sabotage this pins, and it is also the change #706 was resolved
+    ///         <em>against</em>: the gain is the node, because a slope blur is supposed to stand still
+    ///         on a flat.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(4, 192)]
+    [InlineData(2, 112)]
+    public void A_slope_blurs_intensity_is_a_gain_on_the_slope_and_not_a_distance(int rise, int expected) {
+        using var device = Device();
+
+        // The same 40 × 255/256 the pair above walks, so the only thing that changes between the two
+        // rows is the field's own slope.
+        const float Distance = 39.84375f;
+
+        var field = Along(Side, x => (byte)((Side - 1 - x) * rise));
+
+        var picture = Run(
+            device,
+            [Ramp4(Side), field],
+            [TextureFormat.Rgba8],
+            [TextureFilters.SlopeBlurOp(2, 0, 1, Distance, 16, TextureSlopeMode.Max)],
+            2
+        );
+
+        var landed = TextureKernelHarness.At(picture, 8, 32, 0);
+
+        Assert.True(
+            Math.Abs(landed - expected) <= 4,
+            $"over a field of {rise}/255 per texel the walk ended on {landed} and a gain on the slope owes "
+            + $"{expected}; a distance would owe 192 whatever the field ({TextureKernelHarness.Adapter(device)})"
+        );
+    }
+
+    /// <summary>
     ///     ⚠ The walk runs <em>down</em> the field, and the three modes are min, blend and max in
     ///     that order.
     /// </summary>
