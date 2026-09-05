@@ -64,8 +64,6 @@ border-spacing-x-*	expires-with	border-spacing-*
 border-spacing-y-*	expires-with	border-spacing-*
 hyphens	expires-on	Vixen.Ui.Text.HyphenMode.Auto
 inset-ring-*	expires-with	inset-shadow-*
-isolation	expires-with	mix-blend
-mix-blend	expires-on	Vixen.Ui.Rendering.UiLayer.Blend
 object	expires-on	Vixen.Ui.Controls.Image.IntrinsicSize
 object-*	expires-with	object
 perspective-*	expires-on	Vixen.Ui.Rendering.UiVertex.W

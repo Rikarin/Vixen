@@ -116,6 +116,44 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     /// </remarks>
     public float Blur { get; init; }
 
+    /// <summary>How its composite is mixed with the picture already under it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one field on this record that is a function of <i>two</i> pictures, and that
+    ///         is what makes it unlike <see cref="Alpha" /> rather than another value of it.</b>
+    ///         Fading a surface in never looks at what is beneath it: <c>Alpha</c>, <see cref="Blur" />,
+    ///         <see cref="Filter" /> and <see cref="MaskCount" /> are all computable from this group's
+    ///         own surface, which is why an executor can produce the composite's colour before it
+    ///         knows where the quad lands. A blend cannot. Its operand is the backdrop.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is nevertheless not a second blend <i>state</i>, and that is the design.</b>
+    ///         CSS Compositing 1 § 5.1 defines the whole feature as a change of source colour followed
+    ///         by an ordinary source-over — see <see cref="UiBlend.Apply" /> — so the composite draw
+    ///         stays the same draw it always was and only the fragment's arithmetic changes.
+    ///         <c>SoftwareUiRasterizer</c> reads the destination it is about to write and applies it
+    ///         there.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <i>backdrop</i> a blend mixes with is whatever surface this group's composite
+    ///         lands in, which is exactly what <c>isolation</c> means.</b> A nested group's draws are
+    ///         executed into its parent's surface, so a blended descendant of an isolated ancestor
+    ///         mixes with that ancestor's accumulation and never with the page behind it. So
+    ///         <c>isolation: isolate</c> costs nothing beyond a sixth reason to open a group — the
+    ///         boundary does the work, as CSS Compositing 1 § 3 says it does.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="UiBlendMode.Normal" /> is zero and is the only value that changes
+    ///         nothing.</b> A consumer that ignores this composites the group source-over, which is
+    ///         the same bargain <see cref="Blur" /> and <see cref="Filter" /> make: the picture the
+    ///         frame would have had without the declaration rather than a wrong one. ⚠ <c>UiRenderer</c>
+    ///         is such a consumer today — the device has no read of the destination in the UI pass —
+    ///         so a blended group is a divergence between the two executors rather than a shared
+    ///         picture, and <c>docs/guide/ui/compositing.md</c> prices closing it.
+    ///     </para>
+    /// </remarks>
+    public UiBlendMode Blend { get; init; }
+
     /// <summary>The colour transform its surface is put through, or null where there is none.</summary>
     /// <remarks>
     ///     <para>

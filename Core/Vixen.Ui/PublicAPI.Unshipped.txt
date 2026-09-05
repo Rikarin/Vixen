@@ -324,6 +324,8 @@ Vixen.Ui.DrawCommand -> readonly struct
 Vixen.Ui.DrawCommand : System.IEquatable<Vixen.Ui.DrawCommand>
 Vixen.Ui.DrawCommand.Backdrop.get -> Vixen.Ui.Rendering.UiBackdrop?
 Vixen.Ui.DrawCommand.Backdrop.init -> Vixen.Ui.Rendering.UiBackdrop?
+Vixen.Ui.DrawCommand.Blend.get -> Vixen.Ui.Rendering.UiBlendMode
+Vixen.Ui.DrawCommand.Blend.init -> Vixen.Ui.Rendering.UiBlendMode
 Vixen.Ui.DrawCommand.Blur.get -> float
 Vixen.Ui.DrawCommand.Blur.init -> float
 Vixen.Ui.DrawCommand.Cap.get -> Vixen.Ui.LineCap
@@ -826,6 +828,25 @@ Vixen.Ui.Rendering.UiBackdrop.Matrix.get -> Vixen.Ui.Rendering.UiColorMatrix?
 Vixen.Ui.Rendering.UiBackdrop.Matrix.init -> Vixen.Ui.Rendering.UiColorMatrix?
 Vixen.Ui.Rendering.UiBackdrop.UiBackdrop() -> void
 Vixen.Ui.Rendering.UiBackdrop.UiBackdrop(float Blur, float Alpha, Vixen.Ui.Rendering.UiColorMatrix? Matrix = null) -> void
+Vixen.Ui.Rendering.UiBlend -> static class
+Vixen.Ui.Rendering.UiBlendMode -> enum : int
+Vixen.Ui.Rendering.UiBlendMode.Color = 14 -> Vixen.Ui.Rendering.UiBlendMode
+Vixen.Ui.Rendering.UiBlendMode.ColorBurn = 7 -> Vixen.Ui.Rendering.UiBlendMode
+Vixen.Ui.Rendering.UiBlendMode.ColorDodge = 6 -> Vixen.Ui.Rendering.UiBlendMode
+Vixen.Ui.Rendering.UiBlendMode.Darken = 4 -> Vixen.Ui.Rendering.UiBlendMode
+Vixen.Ui.Rendering.UiBlendMode.Difference = 10 -> Vixen.Ui.Rendering.UiBlendMode
+Vixen.Ui.Rendering.UiBlendMode.Exclusion = 11 -> Vixen.Ui.Rendering.UiBlendMode
+Vixen.Ui.Rendering.UiBlendMode.HardLight = 8 -> Vixen.Ui.Rendering.UiBlendMode
+Vixen.Ui.Rendering.UiBlendMode.Hue = 12 -> Vixen.Ui.Rendering.UiBlendMode
+Vixen.Ui.Rendering.UiBlendMode.Lighten = 5 -> Vixen.Ui.Rendering.UiBlendMode
+Vixen.Ui.Rendering.UiBlendMode.Luminosity = 15 -> Vixen.Ui.Rendering.UiBlendMode
+Vixen.Ui.Rendering.UiBlendMode.Multiply = 1 -> Vixen.Ui.Rendering.UiBlendMode
+Vixen.Ui.Rendering.UiBlendMode.Normal = 0 -> Vixen.Ui.Rendering.UiBlendMode
+Vixen.Ui.Rendering.UiBlendMode.Overlay = 3 -> Vixen.Ui.Rendering.UiBlendMode
+Vixen.Ui.Rendering.UiBlendMode.Saturation = 13 -> Vixen.Ui.Rendering.UiBlendMode
+Vixen.Ui.Rendering.UiBlendMode.Screen = 2 -> Vixen.Ui.Rendering.UiBlendMode
+Vixen.Ui.Rendering.UiBlendMode.SoftLight = 9 -> Vixen.Ui.Rendering.UiBlendMode
+Vixen.Ui.Rendering.UiBlendMode.UiBlendMode() -> void
 Vixen.Ui.Rendering.UiColorMatrix -> readonly struct
 Vixen.Ui.Rendering.UiColorMatrix : System.IEquatable<Vixen.Ui.Rendering.UiColorMatrix>
 Vixen.Ui.Rendering.UiColorMatrix.Apply(Vixen.Core.Mathematics.Color4 colour) -> Vixen.Core.Mathematics.Color4
@@ -916,6 +937,8 @@ Vixen.Ui.Rendering.UiLayer.BackdropBounds.init -> Vixen.Core.Mathematics.Rectang
 Vixen.Ui.Rendering.UiLayer.BackdropDraw.get -> int
 Vixen.Ui.Rendering.UiLayer.BackdropImage.get -> ulong
 Vixen.Ui.Rendering.UiLayer.BackdropImage.init -> ulong
+Vixen.Ui.Rendering.UiLayer.Blend.get -> Vixen.Ui.Rendering.UiBlendMode
+Vixen.Ui.Rendering.UiLayer.Blend.init -> Vixen.Ui.Rendering.UiBlendMode
 Vixen.Ui.Rendering.UiLayer.Blur.get -> float
 Vixen.Ui.Rendering.UiLayer.Blur.init -> float
 Vixen.Ui.Rendering.UiLayer.Bounds.get -> Vixen.Core.Mathematics.Rectangle
@@ -1665,6 +1688,8 @@ static Vixen.Ui.Rendering.PathFlattener.Flatten(System.Collections.Generic.IRead
 static Vixen.Ui.Rendering.PathTessellator.Fill(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.Contour> contours, Vixen.Ui.PathFillRule rule, System.Collections.Generic.List<Vixen.Ui.Rendering.PathVertex> triangles) -> void
 static Vixen.Ui.Rendering.PathTessellator.FillFringe(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.Contour> contours, Vixen.Ui.PathFillRule rule, float width, System.Collections.Generic.List<Vixen.Ui.Rendering.PathVertex> triangles) -> void
 static Vixen.Ui.Rendering.PathTessellator.Stroke(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.Contour> contours, float width, Vixen.Ui.LineJoin join, Vixen.Ui.LineCap cap, float tolerance, System.Collections.Generic.List<Vixen.Ui.Rendering.PathVertex> triangles, float miterLimit = 4, float fringe = 0) -> void
+static Vixen.Ui.Rendering.UiBlend.Apply(Vixen.Ui.Rendering.UiBlendMode mode, Vixen.Core.Mathematics.Color4 source, Vixen.Core.Mathematics.Color4 backdrop) -> Vixen.Core.Mathematics.Color4
+static Vixen.Ui.Rendering.UiBlend.Blend(Vixen.Ui.Rendering.UiBlendMode mode, Vixen.Core.Mathematics.Vector3 cb, Vixen.Core.Mathematics.Vector3 cs) -> Vixen.Core.Mathematics.Vector3
 static Vixen.Ui.Rendering.UiColorMatrix.Brightness(float amount) -> Vixen.Ui.Rendering.UiColorMatrix
 static Vixen.Ui.Rendering.UiColorMatrix.Contrast(float amount) -> Vixen.Ui.Rendering.UiColorMatrix
 static Vixen.Ui.Rendering.UiColorMatrix.Grayscale(float amount) -> Vixen.Ui.Rendering.UiColorMatrix

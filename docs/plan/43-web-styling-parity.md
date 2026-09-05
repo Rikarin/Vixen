@@ -84,7 +84,7 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **332** | 287 families |
+| Utility **roots** (the unit of this table) | **332** | 290 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
 | Variant keys | **88** | **51** |
@@ -107,10 +107,10 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **234** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **27** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **235** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **28** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **67** |
+| **absent** | not emitted at all | **65** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 
 ⚠ **There was a sixth, `unknown`, and it described a row rather than a state.** Exactly one row held
@@ -475,10 +475,10 @@ refusal block, which already says so for the same reason.
 
 | Category | roots | works | partial | inert | absent | composed |
 |---|--:|--:|--:|--:|--:|--:|
-| Layout | 51 | 30 | 4 | 0 | 14 | 3 |
+| Layout | 51 | 31 | 4 | 0 | 13 | 3 |
 | Interactivity | 40 | 30 | 0 | 1 | 9 | 0 |
 | Borders | 34 | 28 | 2 | 0 | 4 | 0 |
-| Effects | 34 | 27 | 1 | 0 | 6 | 0 |
+| Effects | 34 | 27 | 2 | 0 | 5 | 0 |
 | Flexbox and Grid | 34 | 30 | 2 | 0 | 2 | 0 |
 | Typography | 34 | 21 | 4 | 0 | 9 | 0 |
 | Spacing | 24 | 22 | 0 | 0 | 2 | 0 |
@@ -490,10 +490,10 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 |
-| **Total** | **332** | **234** | **27** | **1** | **67** | **3** |
+| **Total** | **332** | **235** | **28** | **1** | **65** | **3** |
 
 Flexbox and Grid leads at 30 of 34, with only two absent roots left and both of those refused on
-policy rather than owed; then Interactivity at 30 of 40, Layout at 30 of 51, Borders at 28 of 34,
+policy rather than owed; then Layout and Interactivity at 31 of 51 and 30 of 40, Borders at 28 of 34,
 and Effects at 27 of 34. Tables and Accessibility still have **no working root at all**.
 
 ⚠ **No category is `complete`, and SVG — which this section called the first one to be — is 2 of 3.**
@@ -891,8 +891,9 @@ holds it to them:
 - `[expires-on <Namespace.Type>.<Member>]` — this refusal stands only while that member does not
   exist. ⚠ **A tripwire, not a proof**: whoever eventually builds the thing picks the name, and a
   different name leaves the clause green for ever. It is here because some refusals have no root to
-  hang on — `mix-blend`'s surviving half is a fact about a struct — and where both are available the
-  root is the one to name.
+  hang on — `mix-blend`'s surviving half was a fact about a struct — and where both are available the
+  root is the one to name. ⚠ That first anchor has since fired exactly as designed: `UiLayer.Blend`
+  landed, the clause resolved, and the run went red on a note nobody had thought about for a month.
 - `[expires-when-read <css-property>]` — this refusal stands only while **nothing in the engine reads
   that property**. Exact, like the first, and for the same reason: its condition is the *same
   measurement* `InertProperties.txt` expires on, taken by `UtilityConsumptionProbe` from a real frame.
@@ -1378,16 +1379,17 @@ Five of the names in that list had no family: **`space`**, **`divide`**, **`mix-
 **`origin`**, **`scroll`**. This was not a Tailwind-parity gap; it was doc 09 disagreeing with the
 code, which is the thing `docs/overview.md` exists to catch and did not.
 
-**Settled per family, with the reason, which is what C6 asked for.** Two were written and three were
-struck from doc 09's list, and the split is not a matter of effort — it is whether any consumer reads
-the property. Each of the three was *measured* inert through `UtilityConsumptionProbe.Channels`, over
+**Settled per family, with the reason, which is what C6 asked for.** ⚠ Two were written, three were
+struck from doc 09's list, and **all three of those refusals have since expired** — the split was
+never a matter of effort, it is whether any consumer reads the property, and building the consumer is
+what moved each of them. Each of the three was *measured* inert through `UtilityConsumptionProbe.Channels`, over
 all twelve scenes and at every value the family could emit, rather than argued from a grep.
 
 | root | verdict | why |
 | --- | --- | --- |
 | `space-x/y-*` | **written** | `margin-inline-end` and `margin-bottom` are read; the family needed a compound selector, not a reader |
 | `divide-x/y-*`, `divide-<color>` | **written** | `border-inline-end-width`, `border-bottom-width` and the four `border-color` longhands are read |
-| `mix-blend-*` | **refused** | `mix-blend-mode` moves no channel. ⚠ Half of the reason as written here has expired and the other half named the wrong seam: the offscreen target arrived with the compositor, and the channel a blend mode needs is on `UiLayer` beside `Alpha`, not on `DrawCommand`. See Part 9, Bucket 2 |
+| `mix-blend-*` | **written** ✅ | ⚠ Refused here as moving no channel, and every part of that refusal has now been retired — including the correction that replaced it. `UiLayer.Blend` carries all sixteen of CSS Compositing 1 § 5.1's modes, `DrawListBuilder` opens a group for one, and `SoftwareUiRasterizer` applies it. `isolation` came with it. The one thing still owed is the device composite, which is a shader variant rather than a channel. See Part 9, Bucket 2 |
 | `origin-*` | **written** ✅ | ⚠ Refused here as *unobservable*, and the last clause of that refusal — "`scale` and `rotate` are refused under **#23**" — was its expiry condition. Both are implemented now, `TransformReader` reads `transform-origin` into the point they turn about, and the family is registered. The refusal also needed a *scene*: the property is invisible without a transform whose fixed point matters, so `translated` could never have seen it and the new `turned` scene is what does — the seventh entry on `UtilityConsumptionProbe`'s list of arrangements that were missing |
 | `scroll-*` | **22 of 32 written** ✅ | Part 8 § 3, discharged by **A18**. `ScrollView` reads `scroll-margin-*`, `scroll-padding-*`, `scroll-behavior` and `overscroll-behavior*` now, so the roots are registered against real readers rather than as properties on a box. The four block roots stay absent (`space-y`'s reason); `snap-*` is registered now against the snapping behaviour A18 could not have used, and of `scrollbar-*` only `scrollbar` is written — see Part 8 § 3 |
 
@@ -2960,7 +2962,7 @@ mixed-content paragraph sit behind it.
 | C3 ✅ | `@theme` replaces `vixen.ui.yaml`; `ThemeTokens` reads a stylesheet, and v4.3.3's palette ships as the engine default in oklch (D1, D4) | 0.5 |
 | C4 ✅ | Cross-assembly token sharing, shape C (Part 3) — `VixenStyleTokens` names another project's `@theme`; `Vixen.Editor.Ui.Styling.targets` makes joining the editor's theme one `Import`; guarded by `SharedThemeTests`, which is cross-assembly because no per-project suite can be | 0.3 |
 | C5 🟡 | The gate: a family emitting a property no consumer **acts on** fails the build (#11) — ✅ landed as `UtilityConsumptionGateTests` with its expiring allow-list. ⛔ Still owed: `Tools/Vixen.TailwindParity` regenerating the TSV from a committed registry snapshot, which is the half that needs the Tailwind registry and cannot be a test | 0.2 |
-| C6 ✅ | Doc 09's five missing families — `space` and `divide` written (a new `Family.Scope`, so the generator can emit `& > :not(:last-child)`); `mix-blend` and `origin` refused as measured-inert and struck from doc 09's list; `scroll` deferred to A18 per Part 8 § 3. See F9 | 0.25 |
+| C6 ✅ | Doc 09's five missing families — `space` and `divide` written (a new `Family.Scope`, so the generator can emit `& > :not(:last-child)`); `mix-blend` and `origin` refused as measured-inert and struck from doc 09's list; `scroll` deferred to A18 per Part 8 § 3. ⚠ All three refusals have since expired and all five families are registered — `origin` in F9, `scroll` under A18, `mix-blend` (with `isolation`) in Part 9 Bucket 2. See F9 | 0.25 |
 | C7 🟢 | The ~120 families that are a table line each, once A and B land | 0.75 |
 | C8 🟡 | The families that are their own small feature: `mask-*`, gradients, `animate-*` | 0.75 |
 | | **C total** | **3.2** |
@@ -3191,52 +3193,63 @@ layout effect and needs `LayoutStyle` to carry the keyword, which it does not. S
 is right in that case too and strictly closer than painting it in full, so this is a smaller gap
 than the one it replaced, not a new one.
 
-### Bucket 2 — nothing exists that could observe it. `isolation`. ⛔ **Refused.**
+### Bucket 2 — nothing existed that could observe it. `isolation`, `mix-blend`. ✅ **Written.**
 
-The compositor does make real groups now — `DrawListBuilder` opens one for `opacity < 1`, for a
-`filter`, and for a `mask-image`, and both the GPU and software executors render a real offscreen
-surface and composite it back. So the obvious reading is that `isolation: isolate` is "open a
-layer", and it is available today.
+**What this bucket said, and what it turned out to be.** `isolation: isolate` looked available: the
+compositor makes real groups, so "open a layer" is a line of code. ⚠ **It was available and
+unobservable, which is not the same as working** — `isolation`'s only defined effect is on a
+descendant's `mix-blend-mode`, and `mix-blend-mode` existed at no layer at all. Registering it would
+have added a property that resolves, computes a value and moves no channel in any scene, which is
+the defect this document exists to prevent. So the order was forced: the blend first, the isolation
+after it.
 
-⚠ **It is available and it is unobservable, which is not the same as working.** `isolation`'s only
-defined effect is on `mix-blend-mode`: it stops a descendant blending with what is outside the
-group. **`mix-blend-mode` does not exist at any layer** — not parsed, not stored, no channel on
-`DrawCommand`, none on `UiLayer`, no shader path, no branch in the software rasteriser, whose blend
-is fixed at premultiplied source-over in both executors. `background-blend-mode` is absent too, and
-`backdrop-filter` — which *has* landed — is no help: it filters what is behind a group rather than
-changing how the group blends with it, so it gives `isolation` nothing to isolate. Registering `isolation` would add a property that resolves,
-computes a value and moves no channel in any scene — the defect this document exists to prevent.
+**Both are written now.** `UiBlendMode` is CSS Compositing 1 § 5.1's sixteen modes, `UiBlend.Apply`
+is their arithmetic (the separable twelve and the four non-separable ones, with § 5.3's `ClipColor`,
+`SetLum` and `SetSat`), `UiLayer.Blend` is the channel, `DrawListBuilder` reads `mix-blend-mode` as a
+sixth reason to open a group and `isolation: isolate` as a seventh, and `SoftwareUiRasterizer`
+applies the blend at the composite draw.
 
-⚠ **Two doc comments already argue this and one of them is now half stale.** `DrawListBuilder`'s
-`ElementFilter.Any` remark justifies departing from CSS for an identity filter with "the engine has
-no other observable that depends on the isolation", which is the same argument reached
-independently. But the *older* refusal of `mix-blend-mode` is justified partly with "there is no
-offscreen target to blend into", and that half is no longer true — the compositor has them.
+⚠ **Three claims made while refusing this were wrong, and the third was made by the correction that
+replaced the first two.**
 
-⚠ **And the surviving half names the wrong seam, which matters because it is what the expiry clause
-watches.** "No blend channel on a `DrawCommand`" reads as though the fix were a field on the command,
-and a per-command blend would be a *defect* of exactly the shape `LayerPush`'s own remark already
-warns about for opacity: CSS Compositing 1 § 5.1 blends an element's **rendered result** with its
-backdrop, so an element's background, its border and its text must first composite source-over with
-each other and with its children, and only the finished group blends. Blending each command
-separately gives a different picture the moment two of them overlap — and every bordered element has
-two. So `mix-blend-mode` is a sixth reason to open a group, and the channel belongs on `UiLayer`
-beside `Alpha`, `Blur`, `Filter` and `MaskCount`, which is the seam every other group-wide effect
-already occupies. The clause moved with it.
+1. *"There is no offscreen target to blend into."* Expired when the compositor landed.
+2. *"There is no blend channel on a `DrawCommand`."* Named the wrong seam — a **per-command** blend
+   is a defect, because § 5.1 blends an element's *rendered result*: a bordered element's background,
+   border and text composite source-over with each other first and only the finished group blends.
+   Every bordered element is two commands, so the two readings differ on the commonest element there
+   is. `MixBlendModeTests.A_bordered_element_blends_its_result_rather_than_each_command` is that
+   distinction as two pixels.
+   ⚠ The correction drawn from it — "the channel is on `UiLayer` and **not** on `DrawCommand`" — is
+   half wrong as stated. There *is* a `DrawCommand.Blend`, because a `LayerPush` is a `DrawCommand`
+   and that is how every other group-wide effect reaches the geometry builder; what must not exist is
+   a blend the *executors* read per command, which is a different statement about the same field.
+3. *"The composite must read its destination, which on the GPU is a subpass input, a framebuffer
+   fetch or a copy the UI pass does not have."* ⚠ **Refuted.** § 5.1 defines the whole feature as a
+   change of *source* colour followed by an ordinary source-over —
+   `Cs' = (1 − αb)·Cs + αb·B(Cb, Cs)` — so there is no read-modify-write and no second blend state
+   anywhere. The software rasteriser reads the destination because it happens to own the buffer; on a
+   device the backdrop can arrive as a **texture**, and `UiRenderer.Capture` already produces exactly
+   that picture for `backdrop-filter`. The shape is there. What is missing is a composite fragment
+   that samples two textures.
 
-⚠ **The sizing also missed the half that is not like `Alpha`: the composite has to READ its
-destination.** Fading a surface in is a source-over draw that never looks at what is under it, which
-is why `Alpha` cost one field and no new capability. A blend mode is a function of both operands, so
-the composite needs the backdrop under its own quad — free in `SoftwareUiRasterizer`, which already
-has the destination buffer in hand, and on the GPU a subpass input, a framebuffer fetch or a copy of
-the target, none of which the UI pass has today. `isolation` then bounds *which* backdrop, so a
-faithful pair is nested surfaces rather than one.
+**`isolation` cost what its own refusal predicted.** A nested group's draws are executed into its
+parent's surface, so a blended descendant of an isolated ancestor mixes with that ancestor's
+accumulation and can never reach the page behind it — the boundary does the work, which is what CSS
+Compositing 1 § 3 says a stacking context is for. ⚠ And where the ancestor painted nothing, that
+accumulation is transparent black, which § 5.1 weights the blend to zero against: a blend against
+nothing is `normal`. That is why an isolated wrapper makes a `mix-blend-multiply` child come out
+*unblended* rather than come out black, and it is the assertion the isolation test is built on.
 
-**Cost to close:** not `isolation` — `mix-blend-mode` first, and it is a channel through four layers
-(a field on `UiLayer`, a batching key, a shader variant in the composite that can sample its
-destination, matching arithmetic in `SoftwareUiRasterizer.Composite`) plus the separable and
-non-separable blend formulae. `isolation` is then perhaps twenty lines on top and cannot sensibly
-precede it.
+**Still owed: the device.** `UiRenderer` submits a blended composite source-over, so the picture on
+the GPU path is the one the frame would have had without the declaration. That is the same bargain
+`UiLayer.Blur` states for a consumer that ignores it, and it needs an observer for
+`Backdropped`'s reason and a sharper version of it — a blend over a flat backdrop is frequently the
+identity (`multiply` against white, `screen` against black), so neither a screenshot nor a comparison
+of the two executors can tell. `UiRenderer.Unblended` counts it. The `mix-blend` row stays `partial`
+until that number can be zero on a frame that asks for a blend.
+
+⚠ **`background-blend-mode` is not this and stays refused.** It blends an element's background
+*layers* with each other, and there is one background layer for them to blend.
 
 ### Bucket 3 — the code exists and an *input* does not. `object-fit`, `object-position`, `contain`.
 

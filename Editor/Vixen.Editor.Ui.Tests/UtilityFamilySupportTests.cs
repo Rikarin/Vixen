@@ -551,6 +551,15 @@ public class UtilityFamilySupportTests {
         // Paint.
         { "bg-surface-raised", "background-color", "#f2f3f6" },
         { "opacity-50", "opacity", "0.5" },
+
+        // ⚠ <b>Three rows for one feature, because `isolation` is the half that has no picture of its
+        // own.</b> `mix-blend-multiply` reaches `UiLayer.Blend` and `SoftwareUiRasterizer` applies it;
+        // `isolate` opens a group and changes no pixel of it, bounding which backdrop a *descendant's*
+        // blend reaches. The computed value is all this table can state either way — what the two
+        // actually do to a picture is `Vixen.Ui.Controls.Tests.MixBlendModeTests`, in pixels.
+        { "mix-blend-multiply", "mix-blend-mode", "multiply" },
+        { "isolate", "isolation", "isolate" },
+        { "isolation-auto", "isolation", "auto" },
         { "bg-position-[25%_75%]", "background-position", "25% 75%" },
         { "bg-size-[25%_75%]", "background-size", "25% 75%" },
 
