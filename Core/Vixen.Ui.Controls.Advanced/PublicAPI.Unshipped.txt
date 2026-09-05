@@ -349,6 +349,7 @@ Vixen.Ui.Controls.Advanced.DataGrid.FrozenColumns.set -> int
 Vixen.Ui.Controls.Advanced.DataGrid.GroupBy(Vixen.Ui.Controls.Advanced.DataColumn? column) -> void
 Vixen.Ui.Controls.Advanced.DataGrid.GroupColumn.get -> Vixen.Ui.Controls.Advanced.DataColumn?
 Vixen.Ui.Controls.Advanced.DataGrid.Header.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.DataGrid.HeaderHeight.get -> float
 Vixen.Ui.Controls.Advanced.DataGrid.Headers.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.DataHeaderCell>
 Vixen.Ui.Controls.Advanced.DataGrid.IndexOf(Vixen.Ui.Controls.Advanced.DataColumn column) -> int
 Vixen.Ui.Controls.Advanced.DataGrid.ItemAt(int row) -> int

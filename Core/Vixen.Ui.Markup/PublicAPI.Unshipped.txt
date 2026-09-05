@@ -247,8 +247,8 @@ Vixen.Ui.Markup.Syntax.ForSyntax.CloseParenToken.get -> Vixen.Core.Syntax.Syntax
 Vixen.Ui.Markup.Syntax.ForSyntax.CommaToken.get -> Vixen.Core.Syntax.SyntaxToken?
 Vixen.Ui.Markup.Syntax.ForSyntax.ForKeyword.get -> Vixen.Core.Syntax.SyntaxToken
 Vixen.Ui.Markup.Syntax.ForSyntax.Identifier.get -> Vixen.Core.Syntax.SyntaxToken
-Vixen.Ui.Markup.Syntax.ForSyntax.Index.get -> Vixen.Core.Syntax.SyntaxToken?
 Vixen.Ui.Markup.Syntax.ForSyntax.InKeyword.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.ForSyntax.Index.get -> Vixen.Core.Syntax.SyntaxToken?
 Vixen.Ui.Markup.Syntax.ForSyntax.OpenParenToken.get -> Vixen.Core.Syntax.SyntaxToken
 Vixen.Ui.Markup.Syntax.ForSyntax.Sequence.get -> Vixen.Core.Syntax.SyntaxToken
 Vixen.Ui.Markup.Syntax.ForSyntax.Update(Vixen.Core.Syntax.SyntaxToken forKeyword, Vixen.Core.Syntax.SyntaxToken openParenToken, Vixen.Core.Syntax.SyntaxToken varKeyword, Vixen.Core.Syntax.SyntaxToken identifier, Vixen.Core.Syntax.SyntaxToken? commaToken, Vixen.Core.Syntax.SyntaxToken? index, Vixen.Core.Syntax.SyntaxToken inKeyword, Vixen.Core.Syntax.SyntaxToken sequence, Vixen.Core.Syntax.SyntaxToken closeParenToken, Vixen.Ui.Markup.Syntax.MarkupBlockSyntax body) -> Vixen.Ui.Markup.Syntax.ForSyntax
@@ -258,8 +258,8 @@ Vixen.Ui.Markup.Syntax.ForSyntax.WithCloseParenToken(Vixen.Core.Syntax.SyntaxTok
 Vixen.Ui.Markup.Syntax.ForSyntax.WithCommaToken(Vixen.Core.Syntax.SyntaxToken commaToken) -> Vixen.Ui.Markup.Syntax.ForSyntax
 Vixen.Ui.Markup.Syntax.ForSyntax.WithForKeyword(Vixen.Core.Syntax.SyntaxToken forKeyword) -> Vixen.Ui.Markup.Syntax.ForSyntax
 Vixen.Ui.Markup.Syntax.ForSyntax.WithIdentifier(Vixen.Core.Syntax.SyntaxToken identifier) -> Vixen.Ui.Markup.Syntax.ForSyntax
-Vixen.Ui.Markup.Syntax.ForSyntax.WithIndex(Vixen.Core.Syntax.SyntaxToken index) -> Vixen.Ui.Markup.Syntax.ForSyntax
 Vixen.Ui.Markup.Syntax.ForSyntax.WithInKeyword(Vixen.Core.Syntax.SyntaxToken inKeyword) -> Vixen.Ui.Markup.Syntax.ForSyntax
+Vixen.Ui.Markup.Syntax.ForSyntax.WithIndex(Vixen.Core.Syntax.SyntaxToken index) -> Vixen.Ui.Markup.Syntax.ForSyntax
 Vixen.Ui.Markup.Syntax.ForSyntax.WithOpenParenToken(Vixen.Core.Syntax.SyntaxToken openParenToken) -> Vixen.Ui.Markup.Syntax.ForSyntax
 Vixen.Ui.Markup.Syntax.ForSyntax.WithSequence(Vixen.Core.Syntax.SyntaxToken sequence) -> Vixen.Ui.Markup.Syntax.ForSyntax
 Vixen.Ui.Markup.Syntax.ForSyntax.WithVarKeyword(Vixen.Core.Syntax.SyntaxToken varKeyword) -> Vixen.Ui.Markup.Syntax.ForSyntax
