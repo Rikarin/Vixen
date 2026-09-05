@@ -265,7 +265,20 @@ files.
   expression source, which is worth the dependency on its own.
 - `NSubstitute` only for genuine boundaries (platform interfaces, file providers, network). **Never mock
   a type you own and can construct** — a mocked `Signal<T>` or mocked `LayoutStore` tests the mock.
-- Traits for filtering: `[Trait("Category","Unit|Integration|Golden|Perf|Platform")]`.
+- ⚠️ **Proposed, and implemented by nothing** — traits for filtering:
+  `[Trait("Category","Unit|Integration|Golden|Perf|Platform")]`. `Trait(` appears in **zero** of the
+  4 992 tracked `.cs` files (searched with `git grep -a`, so a NUL byte in a literal cannot be hiding
+  one); no test in this repository has ever carried a trait of any kind. It is listed among the
+  conventions above, which read as *in force*, and it is not one — which is why it is marked here
+  rather than left to be discovered by somebody writing `--filter Category=Unit` and getting an empty
+  run. Whether it arrives at all is [#558](https://github.com/Rikarin/Vixen/issues/558)'s open
+  question: a speed lane wants a way to name the slow tests, and a tag every author has to remember
+  is a gate nothing enforces unless something enforces it per assembly.
+  ⚠️ It does **not** contradict the refusal 160 lines above. What that paragraph refuses is the *Nuke
+  switch* `--filter <test-trait>` ([#340](https://github.com/Rikarin/Vixen/issues/340)), and the
+  replacement it names — a direct `dotnet test --filter` — is exactly what would consume a trait.
+  Were these categories ever applied, `dotnet test <project> --filter "Category=Unit"` is the command,
+  and `nuke Test --filter` remains a switch that does not exist.
 - Deterministic: no `DateTime.Now`, no unseeded random, no `Thread.Sleep`, no real network, no ambient
   filesystem (an in-memory `IFileProvider` is the default).
 - Every test project runs green with `VIXEN_JOB_WORKERS=0` (single-threaded) as a separate CI leg.
