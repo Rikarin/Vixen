@@ -1208,6 +1208,8 @@ Vixen.Ui.UiDocument.InvalidateCommands() -> void
 Vixen.Ui.UiDocument.InvokeAccessKey(char key) -> bool
 Vixen.Ui.UiDocument.KeyboardMode.get -> bool
 Vixen.Ui.UiDocument.KeywordOf(Vixen.Ui.Styling.ComputedStyle style, int property) -> string?
+Vixen.Ui.UiDocument.Language.get -> string
+Vixen.Ui.UiDocument.Language.set -> string
 Vixen.Ui.UiDocument.LastPassWasCold.get -> bool
 Vixen.Ui.UiDocument.Layout.get -> Vixen.Ui.Layout.LayoutTree
 Vixen.Ui.UiDocument.LayoutFinished -> System.Action<Vixen.Ui.UiDocument>?
@@ -1315,6 +1317,8 @@ Vixen.Ui.UiElement.IsHitTestVisible.get -> bool
 Vixen.Ui.UiElement.IsInAccessibilityTree.get -> bool
 Vixen.Ui.UiElement.IsInCommandTransparentSubtree.get -> bool
 Vixen.Ui.UiElement.IsRemoved.get -> bool
+Vixen.Ui.UiElement.Language.get -> string?
+Vixen.Ui.UiElement.Language.set -> string?
 Vixen.Ui.UiElement.Left.get -> float
 Vixen.Ui.UiElement.LetterSpacing.get -> float
 Vixen.Ui.UiElement.LineHeight.get -> float
@@ -1332,6 +1336,7 @@ Vixen.Ui.UiElement.RemoveAccessibleRelation(Vixen.Ui.AccessibleRelation relation
 Vixen.Ui.UiElement.RemoveClass(string className) -> bool
 Vixen.Ui.UiElement.RemoveCommandHandler(string id) -> bool
 Vixen.Ui.UiElement.RemoveHandler<T>(System.Action<Vixen.Ui.UiElement, T> handler) -> bool
+Vixen.Ui.UiElement.ResolvedLanguage.get -> string
 Vixen.Ui.UiElement.Role.get -> Vixen.Ui.AccessibleRole
 Vixen.Ui.UiElement.Role.set -> Vixen.Ui.AccessibleRole
 Vixen.Ui.UiElement.SetAttribute(string name, string value) -> void
