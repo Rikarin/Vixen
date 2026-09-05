@@ -1505,7 +1505,9 @@ asserted the opposite and was wrong. The `primed` scene — a duration and a tim
 property the mutation does not touch — is where injecting `all` finally changes a frame. Same lesson
 as `gridded` and `inlined`: a green gate is a claim about the scenes as much as about the engine.
 
-⚠ **Two limitations found while proving it, both real and neither fixed here.**
+⚠ **Three limitations found while proving it — the header said two and the list has always had
+three, which is the smaller of the two things wrong with this paragraph.** All three were real; one is
+closed.
 
 - **A transition only runs where the previous computed style *also held the property*.** `Observe`
   reads the displayed value out of `before`, and a cascade with no computed-value stage has nothing
@@ -1513,10 +1515,17 @@ as `gridded` and `inlined`: a green gate is a claim about the scenes as much as 
   implicit `0` does not happen, while fading it from a declared `0px` does. That is why the three
   rows come back as `paint` consumers and not `layout` ones: the probe's mutation adds a `margin-left`
   that was not there before, and only its `background-color` change had both ends.
-- **The `transition` utility still does nothing on its own.** Vixen's family emits
-  `transition-property` and stops; Tailwind's also emits a 150 ms duration and a timing function. The
-  property is read, so the row belongs in `Supported`; the class needs a `duration-*` beside it. A
-  family gap rather than a property gap, recorded on the `Supported` table.
+- ✅ **The `transition` utility did nothing on its own — closed.** Vixen's family emitted
+  `transition-property` and stopped; Tailwind's also emits a 150 ms duration and a timing function.
+  ⚠ **The consumption gate could not have caught it and it is worth being exact about why**: that gate
+  is per-*property*, `transition-property` measured `read` throughout off a scene that supplies a
+  duration of its own, so the family could score `works` on everything it emitted and still be a class
+  that moves nothing when written alone. It reads `var(--tw-duration, 150ms)` now rather than a
+  literal, because `UtilityGenerator` orders rules by ordinal class name and `duration-1000` sorts
+  before `transition` — a literal would have made `transition duration-1000` a 150 ms transition.
+  ⚠ **Only the duration was missing**: CSS's initial timing function is already `ease`, so emitting
+  one would buy nothing and would overwrite the `ease-*` beside it for the same ordering reason.
+  `TransitionUtilityTests` holds all three claims, reading the width between the endpoints.
 - **A fading inherited value does not reach the children.** The animator is a tier over the finished
   cascade, so `StyleUpdater` inherits from the parent's *cascaded* style and the overlay is applied
   per element afterwards — a panel fading its `color` hands its descendants the destination on the
