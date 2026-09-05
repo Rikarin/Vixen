@@ -1050,15 +1050,23 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     ///         perfectly well mean.
     ///     </para>
     ///     <para>
-    ///         <b>Always a magnification, and that is a property of the rule above rather than of
-    ///         this method.</b> <see cref="Resolve" /> takes the <em>finest</em> level arriving, so
-    ///         nothing here is ever asked to make an image smaller and <c>Bilinear</c> is the whole
-    ///         answer. A rule that ever chose a coarser level would need <c>Box</c>, for
-    ///         <c>Resample.rvn</c>'s reason, and would have to say so here.
+    ///         ⚠ <b>Both directions, and the filter is derived from which one this call is.</b> Inside
+    ///         a graph it is always a magnification — <see cref="Resolve" /> takes the <em>finest</em>
+    ///         level arriving, so a node never asks an image to get smaller — and that used to be
+    ///         written here as "nothing here is ever asked to make an image smaller and
+    ///         <c>Bilinear</c> is the whole answer". <see cref="Keep" /> is the caller that made it
+    ///         false: a terminus rescales to level zero, and a level offset is signed, so
+    ///         <c>Resample(Quadruple) → Output</c> arrives here as a <b>4:1 minification</b>.
+    ///         <c>Resample.rvn</c>'s header is the authority on what that needs — "<c>Box</c> is the
+    ///         default and the only correct choice going down", because halving with anything that
+    ///         reads four texels keeps a fixed neighbourhood however far the ratio moves and drops
+    ///         the rest. Going up, a box degenerates to one sample and <c>Bilinear</c> is the one to
+    ///         reach for. <a href="https://github.com/Rikarin/Vixen/issues/829">#829</a>.
     ///     </para>
     ///     <para>
     ///         <b>Shared between ports</b>, so a half-resolution mask arriving at two inputs of one
-    ///         node is one resample and one texture rather than two of each.
+    ///         node is one resample and one texture rather than two of each. The key is the pair, and
+    ///         the filter is a function of the pair, so a shared entry cannot carry the wrong one.
     ///     </para>
     /// </remarks>
     int Rescale(int source, int level) {
@@ -1078,6 +1086,12 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             return scaled;
         }
 
+        // ⚠ Read before the allocation, because `Allocate` appends to `images` and a later read of
+        // `images[source]` would be a read through a list that has grown under it. The comparison is
+        // between two offsets rather than between two extents so that `BakeLevelOffset`, which moves
+        // both by the same amount, cannot change which filter a rescale gets.
+        var coarser = level > images[source].LevelOffset;
+
         scaled = Allocate(images[source].Format, ChannelsOf(source), level);
 
         ops.Add(
@@ -1085,7 +1099,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
                 Kernel = TextureColourKernels.Resample,
                 Output = scaled,
                 Inputs = [source],
-                Parameters = [new("filter", (float)TextureFilter.Bilinear)]
+                Parameters = [new("filter", (float)(coarser ? TextureFilter.Box : TextureFilter.Bilinear))]
             }
         );
 

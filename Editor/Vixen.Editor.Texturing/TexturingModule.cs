@@ -347,6 +347,12 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         // picture would leave the pane blank with an empty line under it — which says nothing about
         // whether this host could have drawn one. `TexturePreview.Describe` is the sentence naming
         // which of the two host states it is in.
+        //
+        // ⚠ And it carries no diagnostics, which is a real difference and not an oversight. Nothing
+        // compiles the stack on this path, because a host publishing no graphics at all is not the
+        // editor — it is a test or a tool embedding the shell. The state the editor is really in at
+        // start-up is graphics *with no device*, and `LayerStackPreview.Evaluate` compiles before it
+        // asks for one precisely so that pane is not silent.
         stackView.Show(
             stack,
             stackPreview?.Evaluate(stack)

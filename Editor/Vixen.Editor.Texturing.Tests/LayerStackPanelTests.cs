@@ -4,6 +4,7 @@
 using Vixen.Core;
 using Vixen.Editor.Core;
 using Vixen.Editor.Texturing.Layers;
+using Vixen.Ui;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -86,10 +87,21 @@ public class LayerStackPanelTests {
 
     /// <summary>A host with no device says which of the two reasons the pane is empty for.</summary>
     /// <remarks>
-    ///     ⚠ <b>The instrument, and it is the assertion this file would otherwise be missing.</b>
-    ///     With no graphics there is no <c>LayerStackPreview</c> at all — so a module that simply
-    ///     handed the view a null picture would leave the pane blank with an empty line under it,
-    ///     which says nothing about whether this host could ever have drawn one.
+    ///     <para>
+    ///         ⚠ <b>The instrument, and until
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/831">#831</a> it could not fail.</b>
+    ///         This test asserted <c>Assert.Contains("IEditorGraphics", TexturePreview.Describe(
+    ///         TexturePreviewBlocker.NoGraphics))</c> — a pure function over a switch expression. It
+    ///         opened no panel, touched no view and read no status, so deleting
+    ///         <c>TexturingModule.RefreshStack</c>'s fallback entirely left it green, which is the one
+    ///         thing its own remark says it exists to prevent.
+    ///     </para>
+    ///     <para>
+    ///         <b>What it reads now is the element on the screen.</b> With no graphics there is no
+    ///         <c>LayerStackPreview</c> at all, so a module that handed the view a null picture would
+    ///         leave the pane blank with an empty line under it — which says nothing about whether
+    ///         this host could ever have drawn one. The status line is that line.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_host_with_no_graphics_says_so_under_the_pane() {
@@ -100,11 +112,137 @@ public class LayerStackPanelTests {
 
         Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenStackCommand));
 
-        Assert.Contains(
-            "IEditorGraphics",
-            TexturePreview.Describe(TexturePreviewBlocker.NoGraphics),
-            StringComparison.Ordinal
+        var panel = fixture.Shell.Workspace.Open(TexturingModule.StackPanel);
+
+        Assert.NotNull(panel);
+
+        // The pane is showing a stack — so an empty line under it is a claim that nothing is wrong,
+        // which is exactly what is wrong.
+        Assert.NotEmpty(Rows(panel));
+        Assert.Contains("IEditorGraphics", Status(panel), StringComparison.Ordinal);
+    }
+
+    /// <summary>⚠ And a tab opened by a double-click says which pane holds the picture.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/831">#831</a>'s other half.</b>
+    ///         <c>LayerStackEditorFactory.CreateView</c> was <c>view.Show(stack)</c> with no picture,
+    ///         so the tab a double-click opens was a chequerboard under a blank line — while the
+    ///         factory's own doc comment said it "lists the stack and says so".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it must not say <c>NoGraphics</c>, which is what the sibling graph factory
+    ///         passes.</b> A double-click happens in the editor and the editor publishes
+    ///         <c>IEditorGraphics</c>, so that sentence is false in the only place it is ever read —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/841">#841</a>. Both halves are
+    ///         asserted, because a picture carrying the wrong sentence passes the first alone.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_tab_opened_by_a_double_click_says_which_pane_holds_the_picture() {
+        using var fixture = new TexturingFixture(editors: true);
+
+        fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
+
+        var asset = AddStack(fixture, "Hull");
+
+        Assert.True(
+            fixture.Editors.TryGetForFile("Assets/Hull" + LayerStackDocument.Extension, out var editor)
         );
+
+        Assert.True(fixture.Editors.TryOpen(fixture.Project, asset, out var document));
+
+        var host = fixture.Shell.Document.Root.Add<UiElement>();
+
+        editor.CreateView(document, host);
+
+        var status = Status(host);
+
+        Assert.NotEmpty(Rows(host));
+        Assert.Contains("Layer Stack", status, StringComparison.Ordinal);
+        Assert.DoesNotContain("publishes no IEditorGraphics", status, StringComparison.Ordinal);
+    }
+
+    /// <summary>⚠ A warning the compile produced is on the screen, which is what #830 found missing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/830">#830</a>.</b> The terminus
+    ///         rescale was chosen over a silent one because "it is said" — and nothing said it. No
+    ///         production type rendered a diagnostic, and <c>LayerStackPreview.Refused</c> both runs
+    ///         only when there is no plan and keeps the errors, so a warning against a stack that
+    ///         compiled reached nothing but xunit.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The input is a stack that <em>compiles</em>, deliberately.</b> A refusal was
+    ///         already on the screen — it is the whole of the status line. What was invisible is the
+    ///         thing that did not stop the map, and a test whose stack failed to compile would be
+    ///         green against the code this closes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Graphics with no device, which is a state the editor really starts in</b> — it
+    ///         builds its plugin host in its constructor and acquires a device when the window can
+    ///         present. It is also what makes this assertion device-free: the compile is pure, so
+    ///         everything the author needs to be told is known before a device is asked for.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_warning_a_compiled_stack_produced_is_listed_in_the_panel() {
+        using var fixture = new TexturingFixture(graphics: true);
+        var document = Open(fixture, "Hull");
+        var stack = LayerStackDocument.Starter("Hull");
+
+        // ⚠ 'Wobble' is not a port `Filters/Blur` declares, so `LayerStackGraph` drops the value and
+        // says so — a warning, and the graph still builds, still compiles and still bakes a map.
+        stack.Sets[0]
+            .Layers.Add(
+                new() {
+                    Id = "haze",
+                    Name = "Haze",
+                    Kind = LayerKind.Filter,
+                    Filter = LayerFilterKind.Blur,
+                    Settings = { ["Wobble"] = [1f] }
+                }
+            );
+
+        document.Document = stack;
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenStackCommand));
+
+        var panel = fixture.Shell.Workspace.Open(TexturingModule.StackPanel);
+
+        Assert.NotNull(panel);
+
+        var message = Assert.Single(Messages(panel));
+
+        Assert.StartsWith("Warning", message, StringComparison.Ordinal);
+        Assert.Contains("Wobble", message, StringComparison.Ordinal);
+        Assert.Contains("haze", message, StringComparison.Ordinal);
+
+        // ⚠ The premise, and it is what makes this test about a warning rather than about a refusal.
+        // `LayerStackPreview.Evaluate` reports a refused compilation *before* it looks at the device,
+        // so a status line naming the device is a statement that the plan was produced — the stack
+        // compiled, the map is sound, and the warning is the one thing an author would otherwise
+        // never learn. A refusal reaches the status line on its own and always did.
+        Assert.Contains("no graphics device", Status(panel), StringComparison.Ordinal);
+    }
+
+    /// <summary>⚠ And a stack with nothing wrong shows no list at all.</summary>
+    /// <remarks>
+    ///     <b>The predicate that could not be false without this.</b> Every assertion above holds of
+    ///     a panel that listed something on every refresh; the ordinary stack is the one an artist
+    ///     looks at all day, and a heading with nothing under it reads as a checked box.
+    /// </remarks>
+    [Fact]
+    public void A_stack_with_nothing_wrong_lists_nothing() {
+        using var fixture = new TexturingFixture(graphics: true);
+
+        Open(fixture, "Hull");
+
+        var panel = fixture.Shell.Workspace.Open(TexturingModule.StackPanel);
+
+        Assert.NotNull(panel);
+        Assert.NotEmpty(Rows(panel));
+        Assert.Empty(Messages(panel));
     }
 
     /// <summary>Selecting nothing is a notification rather than an exception.</summary>
@@ -116,6 +254,53 @@ public class LayerStackPanelTests {
 
         Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenStackCommand));
         Assert.Empty(fixture.Project.Documents);
+    }
+
+    /// <summary>What the status line under the pane says, read off the tree the panel built.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Off the tree and not off <c>LayerStackView.Status</c>, because the view is the
+    ///     module's private field.</b> A test that constructed its own view would pass in an editor
+    ///     where the panel was never registered — <c>TextureGraphPanelTests</c> states the same rule —
+    ///     and a test that called a static helper would pass in an editor where the panel drew
+    ///     nothing at all, which is what <a href="https://github.com/Rikarin/Vixen/issues/831">#831</a>
+    ///     found here.
+    /// </remarks>
+    static string Status(UiElement panel) => Find(panel, "layer-stack-status")?.Text ?? "";
+
+    /// <summary>The rows the panel drew.</summary>
+    static IReadOnlyList<string> Rows(UiElement panel) => Lines(panel, "layer-stack-list");
+
+    /// <summary>Everything the compile had to say, as the panel drew it.</summary>
+    static IReadOnlyList<string> Messages(UiElement panel) => Lines(panel, "layer-stack-messages");
+
+    /// <summary>The text of every child of one of the view's containers.</summary>
+    static IReadOnlyList<string> Lines(UiElement panel, string tag) {
+        if (Find(panel, tag) is not { } container) {
+            return [];
+        }
+
+        var lines = new List<string>(container.Children.Count);
+
+        foreach (var child in container.Children) {
+            lines.Add(child.Text ?? "");
+        }
+
+        return lines;
+    }
+
+    /// <summary>The first element in the tree with that tag.</summary>
+    static UiElement? Find(UiElement element, string tag) {
+        if (string.Equals(element.Tag, tag, StringComparison.Ordinal)) {
+            return element;
+        }
+
+        foreach (var child in element.Children) {
+            if (Find(child, tag) is { } found) {
+                return found;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Opens a stack through the verb and hands back the document it made.</summary>

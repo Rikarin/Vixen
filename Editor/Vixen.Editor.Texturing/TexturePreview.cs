@@ -11,9 +11,16 @@ namespace Vixen.Editor.Texturing;
 ///         ⚠ <b>This enum used to have two members and no third, "because there is no third state in
 ///         this build".</b> There is one now: <see cref="IEditorGraphics" /> is published, the pane
 ///         evaluates a plan on the editor's own device and shows the result, and
-///         <see cref="None" /> is what it reports. The two remaining members are the two ways a host
-///         can still have nothing to draw with, and they are distinguished because the cures are
-///         different people's.
+///         <see cref="None" /> is what it reports. <see cref="NoGraphics" /> and
+///         <see cref="NoDevice" /> are the two ways a host can still have nothing to draw with, and
+///         they are distinguished because the cures are different people's.
+///     </para>
+///     <para>
+///         ⚠ <b><see cref="AnotherPane" /> is not one of those, and mixing it in was
+///         <a href="https://github.com/Rikarin/Vixen/issues/831">#831</a>.</b> The first three are
+///         answers to "what can this host do"; the fourth is an answer to "what is this particular
+///         view for", and a view that borrowed the host's answer told an editor that publishes
+///         graphics that it publishes none.
 ///     </para>
 /// </remarks>
 enum TexturePreviewBlocker {
@@ -37,7 +44,28 @@ enum TexturePreviewBlocker {
     ///     which is afterwards, and releases it when the window goes. So the question is asked every
     ///     time the pane is drawn. <a href="https://github.com/Rikarin/Vixen/issues/737">#737</a>.
     /// </remarks>
-    NoDevice
+    NoDevice,
+
+    /// <summary>The host can draw perfectly well; this view is simply not the one that does.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one member <see cref="TexturePreview.Blocking(PluginServices)" /> never
+    ///         returns, because it is not a fact about the host.</b> A view built by an
+    ///         <c>IAssetEditorFactory</c> for a double-click has no <see cref="IEditorGraphics" /> of
+    ///         its own — the evaluator is the module's, and two of them over one device would be two
+    ///         pipeline caches — so the tab lists what is in the file and the plugin's own panel is
+    ///         where the map appears. It is chosen by the caller that knows that, and there is no
+    ///         service to ask.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it exists because <see cref="NoGraphics" /> is a <em>lie</em> in that
+    ///         position.</b> A double-click happens in the editor, and the editor publishes graphics
+    ///         — so a tab saying "this host publishes no IEditorGraphics" sends the one reader who
+    ///         could act on it to look for a plugin point that is already there.
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/831">#831</a>.
+    ///     </para>
+    /// </remarks>
+    AnotherPane
 }
 
 /// <summary>What a texture-graph panel can and cannot show in this host.</summary>
@@ -89,6 +117,11 @@ static class TexturePreview {
             TexturePreviewBlocker.NoDevice =>
                 "No preview: this editor has no graphics device right now — it is headless, or the "
                 + "window has not come up yet. The pane fills in when one arrives.",
+            TexturePreviewBlocker.AnotherPane =>
+                "No preview in this tab: a tab opened by a double-click shows what is in the file, "
+                + "and the picture is drawn by the Texturing plugin's own panel — Texture Graph or "
+                + "Layer Stack — which is the one holding the evaluator. Two evaluators over one "
+                + "device would be two pipeline caches.",
             _ => throw new ArgumentOutOfRangeException(nameof(blocker), blocker, "Not a blocker this build knows.")
         };
 }
