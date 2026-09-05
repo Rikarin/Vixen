@@ -1047,8 +1047,11 @@ plugin host and the asset write already exist, and every one of them would other
    of milliseconds or seconds — a chain of any length pools two textures and no more, one bake is one
    frame however many dispatches it holds, and forty ops of one kernel compile one variant. ⚠ **This
    criterion said "under 250 ms" and asserting that would have been the flake this repository warns
-   about**; the reference measurement is 40 ms at 2048² on an Apple M1 Max, six times under. A
-   parameter change re-evaluates only the affected sub-graph.
+   about**; the reference measurement is 40 ms at 2048² on an Apple M1 Max, six times under. ⚠ **And
+   a parameter change re-evaluates only the affected sub-graph — which is unimplemented, and was read
+   past by six audits in a row** ([#846](https://github.com/Rikarin/Vixen/issues/846)): the first
+   half of this sentence was measurable, so the sentence got measured. A criterion holding two claims
+   joined by an "and" is scored on whichever of them somebody can score.
 2. **Scale invariance.** Every atomic node, baked at 1K and at 4K, agrees within 2/255 after
    downsampling. ⚠ A node that fails this has D8's bug and no other test finds it.
 3. **Every node is covered by an assertion that would notice its picture changing, and the library is
