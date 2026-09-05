@@ -34,6 +34,19 @@ namespace Tests;
 ///     </para>
 /// </remarks>
 public class NodeNamespaceTests {
+    /// <summary>The namespace every node type is in, spelled once.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One spelling because two would drift apart silently.</b> Both facts below are
+    ///     computed from this string, so a rename that makes the query match nothing makes
+    ///     <see cref="The_guard_can_see_the_namespace_it_guards" /> red rather than making everything
+    ///     here vacuously true — which is what
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/747">#747</a> was.
+    /// </remarks>
+    const string Nodes = "Vixen.Editor.TextureGraph.Nodes";
+
+    /// <summary>The namespace they may not redeclare a name from.</summary>
+    const string Assembly = "Vixen.Editor.TextureGraph";
+
     /// <summary>The shadows that exist today, which the node slice owes a deletion for.</summary>
     /// <remarks>
     ///     <c>Nodes/FilterNodes.cs</c> declares both. The parent declarations are in
@@ -50,12 +63,12 @@ public class NodeNamespaceTests {
         var types = Declared();
 
         var above = types
-            .Where(type => type.Namespace == "Vixen.Editor.TextureGraph")
+            .Where(type => type.Namespace == Assembly)
             .Select(type => type.Name)
             .ToHashSet(StringComparer.Ordinal);
 
         var shadows = types
-            .Where(type => type.Namespace == "Vixen.Editor.TextureGraph.Nodes" && above.Contains(type.Name))
+            .Where(type => type.Namespace == Nodes && above.Contains(type.Name))
             .Select(type => type.Name)
             .Where(name => !Known.Contains(name, StringComparer.Ordinal))
             .Order(StringComparer.Ordinal)
@@ -69,29 +82,55 @@ public class NodeNamespaceTests {
         );
     }
 
-    /// <summary>⚠ The guard can see a shadow at all — which is the half a list makes easy to lose.</summary>
+    /// <summary>⚠ Both halves of the guard's query find something, so neither is vacuously true.</summary>
     /// <remarks>
-    ///     <b>An instrument that has stopped working reports success here</b>: an assembly whose types
-    ///     came back empty, a namespace renamed, a reflection query that matches nothing. So the same
-    ///     query is run over the tolerated names and required to find them, and the day the node slice
-    ///     deletes the last of them this test says so in its message rather than failing.
+    ///     <para>
+    ///         <b>An instrument that has stopped working reports success</b>: an assembly whose types
+    ///         came back empty, a namespace renamed, a reflection query that matches nothing. Both of
+    ///         the guard's queries are therefore required to return types — the parent's, which is
+    ///         where a shadowed name is declared, and <c>Nodes/</c>'s, which is where a shadow would
+    ///         be.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The second half was missing and it is exactly the half that matters</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/747">#747</a>. The only assertion over
+    ///         the <c>Nodes/</c> query was an <c>Assert.All</c>, which passes over an empty sequence,
+    ///         so renaming the namespace literal by one character left both tests green with the
+    ///         guard dead — measured, and this file's own remarks claimed the opposite. A shadow list
+    ///         makes that trivially easy to reach: the tolerated names are the only thing the query is
+    ///         expected to find, and "found nothing" and "found only tolerated names" are the same
+    ///         answer to an <c>Assert.All</c>.
+    ///     </para>
+    ///     <para>
+    ///         It still does <em>not</em> require a shadow to exist: the day the node slice deletes
+    ///         the last of them the guard is alive and finding nothing, which is the point. What it
+    ///         requires is that <c>Nodes/</c> holds types at all.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void The_guard_finds_the_shadows_it_tolerates() {
+    public void The_guard_can_see_the_namespace_it_guards() {
         var types = Declared();
 
         var above = types
-            .Where(type => type.Namespace == "Vixen.Editor.TextureGraph")
+            .Where(type => type.Namespace == Assembly)
             .Select(type => type.Name)
             .ToHashSet(StringComparer.Ordinal);
 
-        var found = types
-            .Where(type => type.Namespace == "Vixen.Editor.TextureGraph.Nodes" && above.Contains(type.Name))
-            .Select(type => type.Name)
-            .ToArray();
+        var inNodes = types.Where(type => type.Namespace == Nodes).Select(type => type.Name).ToArray();
+
+        var found = inNodes.Where(name => above.Contains(name)).ToArray();
 
         Assert.NotEmpty(above);
         Assert.Contains("TextureFilter", above);
+
+        // The half #747 was about: without it the query below could match nothing and every
+        // assertion over it would pass.
+        Assert.True(
+            inNodes.Length > 0,
+            $"No type in this assembly is in namespace '{Nodes}', so the shadow guard matches nothing "
+            + "and passes over an empty sequence. Either the node classes moved, or the namespace was "
+            + "renamed and this literal was not — #747."
+        );
 
         // Not an equality with Known: a name that has been cleaned up is progress, and failing on it
         // would put the failure on the branch that did the cleaning.
