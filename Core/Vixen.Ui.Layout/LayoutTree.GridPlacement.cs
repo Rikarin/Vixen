@@ -174,9 +174,10 @@ public sealed partial class LayoutTree {
                 explicitRows
             );
 
-            // ⚠ Clamped here rather than trusted, because the corpus writes `grid-column-start: -19553`
-            // and `span 20000` and CSS lets an implementation cap the grid. Without this the extents
-            // below become the size of the arrays §12 allocates. See LayoutLimits.MaximumGridTracks.
+            // ⚠ Bounded here rather than trusted, because the corpus writes `grid-column-start:
+            // -19553` and `span 20000` and CSS lets an implementation cap the grid. This no longer
+            // SATURATES the start — see ClampPlacement — so two items past the ceiling keep their
+            // distinct positions until CollapseEmptyRuns below has decided what the axis looks like.
             column = ClampPlacement(column);
             row = ClampPlacement(row);
 
@@ -196,6 +197,21 @@ public sealed partial class LayoutTree {
             }
 
             count++;
+        }
+
+        // ── The axis is compacted before anything reads its extent ──────────────────────────────
+        // ⚠ <b>A ceiling on how many tracks the store will allocate must not decide which items
+        // share a cell</b>, and until this ran it did: both clamps saturated, so two items whose
+        // authored lines were both past LayoutLimits.MaximumGridTracks landed on the same track and
+        // merged. Collapsing the empty runs answers the question the ceiling was answering by
+        // accident, and it runs only for an axis that has actually asked for more tracks than the
+        // store will give — every ordinary grid takes the identity map and does not pay for this.
+        if (maxColumn - minColumn > LayoutLimits.MaximumGridTracks) {
+            CollapseEmptyRuns(itemsAt, count, inline: true, explicitColumns, ref minColumn, ref maxColumn);
+        }
+
+        if (maxRow - minRow > LayoutLimits.MaximumGridTracks) {
+            CollapseEmptyRuns(itemsAt, count, inline: false, explicitRows, ref minRow, ref maxRow);
         }
 
         // ── The shift ───────────────────────────────────────────────────────────────────────────
@@ -339,6 +355,11 @@ public sealed partial class LayoutTree {
         // leaves items pointing past the last track. Chrome's own answer to these fixtures is a
         // clamped grid, so pulling the item into it is also the closer behaviour — and the failure
         // mode without it is an exception in the middle of a layout pass.
+        //
+        // ⚠ This is now the LAST RESORT and not the rule. CollapseEmptyRuns has already removed
+        // every empty run above, so what can still stand over the ceiling is OCCUPIED tracks — a
+        // document with a hundred `span 20000` items — and for that there is no answer but to
+        // saturate. No fixture in any of the four corpora reaches it.
         columns = int.Clamp(columns, 0, LayoutLimits.MaximumGridTracks);
         rows = int.Clamp(rows, 0, LayoutLimits.MaximumGridTracks);
 
@@ -367,28 +388,208 @@ public sealed partial class LayoutTree {
         }
     }
 
-    /// <summary>Keeps one axis of one item inside the grid the store is willing to allocate.</summary>
+    /// <summary>
+    ///     The widest authored line this store carries through placement, before the empty tracks
+    ///     between the items are collapsed.
+    /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This is the FIRST of two saturating clamps and the one that binds.</b> The other is
-    ///     at the end of <see cref="PlaceGridItems" />, where an item is pulled inside the final
-    ///     extent; that one is the one <c>GridKnownGaps.txt</c> names, and it is not reached with
-    ///     anything to fix. Two items whose authored lines are BOTH past
-    ///     <see cref="LayoutLimits.MaximumGridTracks" /> are saturated onto the same start here,
-    ///     before any extent exists, and merge into one cell — measured as a max-content grid of two
-    ///     50-point items coming out 50 wide with both at x=0 for lines 70 000 and 80 000, and 100
-    ///     wide for lines 65 534 and 65 536. Collapsing the empty runs has to replace both clamps to
-    ///     change anything; replacing either alone leaves the merge where it was.
+    ///     ⚠ <b>This is not a track ceiling and must not be read as one.</b>
+    ///     <see cref="LayoutLimits.MaximumGridTracks" /> bounds how many tracks are allocated; this
+    ///     bounds only how large a COORDINATE the arithmetic has to survive, so that
+    ///     <c>start + span</c> and the running sums in <see cref="CollapseEmptyRuns" /> cannot
+    ///     overflow. It is far above any line a document writes and far below
+    ///     <see cref="int.MaxValue" /> — and it is never <see cref="int.MinValue" />, which
+    ///     <see cref="AxisPlacement" /> spends on <c>auto</c>.
+    /// </remarks>
+    const int MaximumAuthoredLine = 1 << 28;
+
+    /// <summary>Bounds one axis of one item so that the arithmetic downstream cannot overflow.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This used to SATURATE the start at <see cref="LayoutLimits.MaximumGridTracks" />,
+    ///     and it was the clamp that bound.</b> Two items whose authored lines were both past the
+    ///     ceiling were given the same start here, before any extent existed, and merged into one
+    ///     cell — a max-content grid of two 50-point items came out 50 wide with both at x=0 for
+    ///     lines 70 000 and 80 000, where lines 65 534 and 65 536 gave the right 100. The other
+    ///     saturating clamp, at the end of <see cref="PlaceGridItems" />, is the one
+    ///     <c>GridKnownGaps.txt</c> named; either one alone merged the items, which is why the
+    ///     collapse had to replace both rather than rewrite the named one.
+    ///     <para>
+    ///         The SPAN is still capped at the track ceiling, because a span is a track count and
+    ///         nothing collapses inside an occupied run.
+    ///     </para>
     /// </remarks>
     static AxisPlacement ClampPlacement(AxisPlacement placement) {
         var span = int.Clamp(placement.Span, 1, LayoutLimits.MaximumGridTracks);
 
-        if (!placement.IsDefinite) {
-            return AxisPlacement.Auto(span);
+        return placement.IsDefinite
+            ? new AxisPlacement(int.Clamp(placement.Start, -MaximumAuthoredLine, MaximumAuthoredLine), span)
+            : AxisPlacement.Auto(span);
+    }
+
+    /// <summary>
+    ///     Collapses each maximal run of empty implicit tracks on one axis to a single track, and
+    ///     renumbers every definitely placed item through the same map.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What this preserves is what a grid means; what it discards is only how much
+    ///         nothing there is between two items.</b> The explicit region keeps its own length and
+    ///         its own coordinates — <see cref="BuildGridTracks" /> reads the explicit tracks as the
+    ///         ones at <c>ColumnOffset</c> and after, so explicit-relative zero may not move — and
+    ///         every occupied run keeps its own length. An empty implicit run becomes one empty
+    ///         implicit track, which sizes to zero exactly as the run it replaced did.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The one thing it does not preserve is the GUTTERS inside a collapsed run.</b> A
+    ///         grid with <c>column-gap: 10px</c> and thirty thousand empty tracks between two items
+    ///         is 300 000 points of gutter in a browser and one gutter here. That is a document
+    ///         nothing can lay out, and what this replaces is the two items sharing a cell.
+    ///     </para>
+    ///     <para>
+    ///         Runs are found by sorting the occupied intervals, which is an insertion sort and so
+    ///         quadratic in the definite items. It is reached only by an axis whose authored lines
+    ///         already exceed <see cref="LayoutLimits.MaximumGridTracks" />, so the ordinary path
+    ///         pays nothing — and the working storage is the scratch's integer arena, which is what
+    ///         keeps a laid-out frame allocation-free.
+    ///     </para>
+    /// </remarks>
+    void CollapseEmptyRuns(int itemsAt, int count, bool inline, int explicitCount, ref int min, ref int max) {
+        var mark = Scratch.Mark;
+
+        try {
+            // Three parallel runs: an interval's start, its end, and — once the map is built — how
+            // far the whole interval moves. Allocated before any of them is read, because the arena
+            // moves when it grows.
+            var starts = Scratch.AllocateSpans(count + 1);
+            var ends = Scratch.AllocateSpans(count + 1);
+            var shifts = Scratch.AllocateSpans(count + 1);
+
+            // ⚠ The explicit region goes in FIRST and unconditionally, even when it is empty. It is
+            // the anchor: explicit-relative zero is the one coordinate that may not move, and a grid
+            // with no template still has a line 1 that its items were placed against.
+            Scratch.Span(starts) = 0;
+            Scratch.Span(ends) = explicitCount;
+            var intervals = 1;
+
+            for (var at = 0; at < count; at++) {
+                var start = Scratch.Item(itemsAt + at).StartOn(inline);
+
+                if (start == int.MinValue) {
+                    continue;
+                }
+
+                Scratch.Span(starts + intervals) = start;
+                Scratch.Span(ends + intervals) = start + Scratch.Item(itemsAt + at).SpanOn(inline);
+                intervals++;
+            }
+
+            for (var i = 1; i < intervals; i++) {
+                var start = Scratch.Span(starts + i);
+                var end = Scratch.Span(ends + i);
+                var j = i - 1;
+
+                while (j >= 0 && Scratch.Span(starts + j) > start) {
+                    Scratch.Span(starts + j + 1) = Scratch.Span(starts + j);
+                    Scratch.Span(ends + j + 1) = Scratch.Span(ends + j);
+                    j--;
+                }
+
+                Scratch.Span(starts + j + 1) = start;
+                Scratch.Span(ends + j + 1) = end;
+            }
+
+            // Overlapping or touching intervals are one run: there is no empty track between them to
+            // collapse, and treating them as two would insert one.
+            var runs = 1;
+
+            for (var i = 1; i < intervals; i++) {
+                if (Scratch.Span(starts + i) <= Scratch.Span(ends + runs - 1)) {
+                    Scratch.Span(ends + runs - 1) = int.Max(Scratch.Span(ends + runs - 1), Scratch.Span(ends + i));
+                    continue;
+                }
+
+                Scratch.Span(starts + runs) = Scratch.Span(starts + i);
+                Scratch.Span(ends + runs) = Scratch.Span(ends + i);
+                runs++;
+            }
+
+            // The run holding explicit-relative zero stays where it is, and the others are laid end
+            // to end around it with exactly one track of nothing in between.
+            var anchor = 0;
+
+            for (var i = 0; i < runs; i++) {
+                if (Scratch.Span(starts + i) <= 0 && 0 <= Scratch.Span(ends + i)) {
+                    anchor = i;
+                    break;
+                }
+            }
+
+            Scratch.Span(shifts + anchor) = 0;
+            var cursor = (long) Scratch.Span(ends + anchor);
+
+            for (var i = anchor + 1; i < runs; i++) {
+                var placed = cursor + 1;
+
+                Scratch.Span(shifts + i) =
+                    (int) long.Clamp(placed - Scratch.Span(starts + i), -MaximumAuthoredLine, MaximumAuthoredLine);
+
+                cursor = placed + (Scratch.Span(ends + i) - Scratch.Span(starts + i));
+            }
+
+            cursor = Scratch.Span(starts + anchor);
+
+            for (var i = anchor - 1; i >= 0; i--) {
+                var placed = cursor - 1 - (Scratch.Span(ends + i) - Scratch.Span(starts + i));
+
+                Scratch.Span(shifts + i) =
+                    (int) long.Clamp(placed - Scratch.Span(starts + i), -MaximumAuthoredLine, MaximumAuthoredLine);
+
+                cursor = placed;
+            }
+
+            for (var at = 0; at < count; at++) {
+                var start = Scratch.Item(itemsAt + at).StartOn(inline);
+
+                if (start == int.MinValue) {
+                    continue;
+                }
+
+                var moved = start + Scratch.Span(shifts + RunHolding(starts, runs, start));
+
+                if (inline) {
+                    Scratch.Item(itemsAt + at).ColumnStart = moved;
+                } else {
+                    Scratch.Item(itemsAt + at).RowStart = moved;
+                }
+            }
+
+            min = int.Min(0, Scratch.Span(starts) + Scratch.Span(shifts));
+            max = int.Max(explicitCount, Scratch.Span(ends + runs - 1) + Scratch.Span(shifts + runs - 1));
+        } finally {
+            Scratch.Restore(mark);
+        }
+    }
+
+    /// <summary>Which run a track belongs to, by binary search over the sorted, merged runs.</summary>
+    /// <remarks>
+    ///     Every definite item contributed its own interval, so the track being asked about is
+    ///     always inside one of them and the search cannot miss.
+    /// </remarks>
+    int RunHolding(int starts, int runs, int track) {
+        var low = 0;
+        var high = runs - 1;
+
+        while (low < high) {
+            var middle = (low + high + 1) / 2;
+
+            if (Scratch.Span(starts + middle) <= track) {
+                low = middle;
+            } else {
+                high = middle - 1;
+            }
         }
 
-        var start = int.Clamp(placement.Start, -LayoutLimits.MaximumGridTracks, LayoutLimits.MaximumGridTracks);
-
-        return new AxisPlacement(start, int.Min(span, LayoutLimits.MaximumGridTracks - int.Max(0, start)));
+        return low;
     }
 
     /// <summary>The first free minor-axis position in a fixed major-axis band.</summary>
