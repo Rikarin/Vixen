@@ -2067,10 +2067,22 @@ public sealed partial class UiDocument : IDisposable {
     }
 
     /// <summary>What to do with a word wider than the line it has to fit in.</summary>
-    internal TextWrapMode WrapModeOf(ComputedStyle style) =>
-        style.TryGet(overflowWrap, out var value) && (value == anywhere || value == breakWord)
-            ? TextWrapMode.Anywhere
-            : TextWrapMode.Word;
+    /// <remarks>
+    ///     ⚠ <b>Three answers and not two, and the third was a stated deviation until #682.</b> The
+    ///     two breaking keywords do the same thing at every width a box can be seen at; CSS Sizing
+    ///     §5.2 separates them only by their min-content contribution, which <c>anywhere</c> lets
+    ///     shrink to one grapheme and <c>break-word</c> does not. This store asks a box for its
+    ///     min-content size by measuring it in no room at all, so that difference lands in
+    ///     <c>LineWrapper</c> as behaviour at zero width — see <see cref="TextWrapMode.BreakWord" />.
+    /// </remarks>
+    internal TextWrapMode WrapModeOf(ComputedStyle style) {
+        if (!style.TryGet(overflowWrap, out var value)) {
+            return TextWrapMode.Word;
+        }
+
+        return value == anywhere ? TextWrapMode.Anywhere :
+            value == breakWord ? TextWrapMode.BreakWord : TextWrapMode.Word;
+    }
 
     /// <summary>Whether a line may end inside a word. CSS Text 3 § 5.2's <c>word-break</c>.</summary>
     /// <remarks>

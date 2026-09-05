@@ -1105,12 +1105,12 @@ public static class UtilityFamilies {
         // Keeping them apart is what lets `break-keep` and `wrap-anywhere` be written together and
         // both mean something, which one merged mode could not have expressed.
         //
-        // ⚠ <b>Vixen does not distinguish `anywhere` from `break-word`, and both are registered
-        // anyway.</b> CSS Sizing § 5.2 separates them only by their min-content contribution:
+        // ⚠ <b>`anywhere` and `break-word` ARE distinguished, and this comment said for months that
+        // they were not.</b> CSS Sizing § 5.2 separates them only by their min-content contribution:
         // `anywhere` lets the intrinsic minimum shrink to one grapheme and `break-word` does not.
-        // `Vixen.Ui.Layout` has no intrinsic-minimum stage that consults either, so the two are one
-        // behaviour here — a stated deviation rather than a missing keyword, and the same shape as
-        // `WrapsOf` answering one of `white-space`'s three questions.
+        // #682 is where that landed, as `TextWrapMode.BreakWord` beside `Anywhere` — the two are the
+        // same break at every width a box can be seen at and differ in a room of nothing, which is
+        // exactly how `LayoutTree` asks a box for its min-content size.
         Keywords("wrap", "overflow-wrap", new() {
             ["anywhere"] = "anywhere", ["break-word"] = "break-word", ["normal"] = "normal"
         });

@@ -17,11 +17,40 @@ public enum TextWrapMode : byte {
 
     /// <summary>Break inside the word rather than overflow. CSS's <c>overflow-wrap: anywhere</c>.</summary>
     /// <remarks>
-    ///     ⚠ At a <i>grapheme</i> boundary, never a UTF-16 one. Breaking between a base letter and its
-    ///     combining mark, or in the middle of a surrogate pair, is not a narrow line — it is a line
-    ///     with a broken character on it.
+    ///     <para>
+    ///         ⚠ At a <i>grapheme</i> boundary, never a UTF-16 one. Breaking between a base letter and
+    ///         its combining mark, or in the middle of a surrogate pair, is not a narrow line — it is
+    ///         a line with a broken character on it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And at least one grapheme even when the line has room for none, which is the
+    ///         whole of what separates this from <see cref="BreakWord" />.</b> A caller that asks for
+    ///         a paragraph's width in <i>no</i> room at all is asking what its min-content size is,
+    ///         and CSS Sizing §5.2 makes that one grapheme under <c>anywhere</c>. See
+    ///         <see cref="BreakWord" /> for the other half of the same sentence.
+    ///     </para>
     /// </remarks>
-    Anywhere
+    Anywhere,
+
+    /// <summary>The same break, but not at zero. CSS's <c>overflow-wrap: break-word</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Identical to <see cref="Anywhere" /> at every width a box can be seen at, and
+    ///         different at exactly one: nothing.</b> CSS Text §5.3 and CSS Sizing §5.2 separate the
+    ///         two keywords only by their <i>min-content</i> contribution — <c>anywhere</c>'s
+    ///         intrinsic minimum shrinks to one grapheme, <c>break-word</c>'s stays the longest
+    ///         unbreakable run, and both break an overflowing word at line-layout time.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is why the distinction is expressed as behaviour in no room rather than as
+    ///         a flag on the call.</b> This engine asks a box for its min-content size by measuring
+    ///         it with an available width of zero — that is what <c>LayoutTree</c>'s intrinsic probe
+    ///         is — so "the width at which the soft wrap opportunities this keyword introduces stop
+    ///         counting" is a faithful rendering of the spec's distinction and not a shortcut around
+    ///         it. The cost is a wrong picture in a zero-width box, which draws nothing.
+    ///     </para>
+    /// </remarks>
+    BreakWord
 }
 
 /// <summary>One line of a wrapped paragraph, as a range of the source.</summary>
@@ -270,8 +299,19 @@ public static class LineWrapper {
             }
 
             // Nothing fits: one unbreakable run is wider than the whole line.
-            if (mode == TextWrapMode.Anywhere) {
+            if (mode != TextWrapMode.Word) {
                 var forced = Squeeze(text, advances, start, here, room, origin, tabStop, hyphen);
+
+                // ⚠ <b>One grapheme even when none fits, and only under `anywhere`.</b> This is the
+                // single line on which the two breaking keywords differ, and it is the whole of
+                // #682. `Squeeze` answers "the last grapheme boundary that fits", which in a room of
+                // nothing is `start` — so both keywords used to fall through to the run entire, and
+                // a min-content probe (an available width of zero, which is how `LayoutTree` asks
+                // the question) came back as the longest word for both. CSS Sizing §5.2 makes it one
+                // grapheme for `anywhere`; §5.3 leaves it the word for `break-word`.
+                if (forced == start && mode == TextWrapMode.Anywhere) {
+                    forced = FirstGrapheme(text, start, here);
+                }
 
                 if (forced > start) {
                     lines.Add(Line(text, advances, start, forced, origin, tabStop, hyphen, mandatory: false));
@@ -442,6 +482,30 @@ public static class LineWrapper {
     ///     reconciliation going away — the moment one grapheme cluster carries two advances, the
     ///     largest fitting UTF-16 index is a broken character.
     /// </remarks>
+    /// <summary>The end of the first grapheme of a run.</summary>
+    /// <param name="text">The source.</param>
+    /// <param name="start">Where the run begins.</param>
+    /// <param name="end">Where it ends.</param>
+    /// <returns>The first boundary after <paramref name="start" />, or it if there is none.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A grapheme and not a <c>char</c>.</b> Taking one UTF-16 unit would split a surrogate
+    ///     pair and put half an emoji on each line — and it would also make a combining sequence's
+    ///     min-content size the width of its base letter alone, which is not a width the text can be
+    ///     drawn at.
+    /// </remarks>
+    static int FirstGrapheme(string text, int start, int end) {
+        var boundaries = new List<int>();
+        GraphemeBreaker.Collect(text.AsSpan(start, end - start), boundaries);
+
+        foreach (var boundary in boundaries) {
+            if (start + boundary > start && start + boundary < end) {
+                return start + boundary;
+            }
+        }
+
+        return start;
+    }
+
     static int Squeeze(
         string text,
         ReadOnlySpan<float> advances,

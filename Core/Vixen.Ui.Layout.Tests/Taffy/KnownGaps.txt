@@ -630,11 +630,19 @@ align_baseline_multiline_column2
 #     30 where the answer is 10. Gating on the container's main-axis SizingMode is what keeps the two
 #     apart, and it is a symptom of the base and the contribution being one field where they are two
 #     numbers.
-#   · ⚠ AND THE ONE STILL OWED. `Vixen.Ui.Controls.Tests.TextWrappingPixelTests` puts an unbreakable
-#     word with `overflow-wrap: break-word` in a fixed box. With a true max-content base the item's
-#     §4.5 floor is the whole word, so it never shrinks to the box and never wraps — and that floor
-#     is right only because this engine has no intrinsic-minimum stage that reads `overflow-wrap`,
-#     which `The_two_breaking_keywords_are_one_behaviour_in_this_engine` already documents as absent.
-#     Filed as Rikarin/Vixen#682. ⚠ The shrink gate above is what has kept that out of reach for
-#     `Vixen.Ui.*` documents, and #628 has just made every undeclared element shrinkable — so the
-#     gate no longer excludes them, and #682 is the reason to look before taking the gate out.
+#   · ⚠ AND THE ONE STILL OWED, WHICH IS NOW HALF CLOSED. `TextWrappingPixelTests` puts an
+#     unbreakable word with `overflow-wrap: break-word` in a fixed box. With a true max-content base
+#     the item's §4.5 floor is the whole word, so it never shrinks to the box and never wraps — and
+#     that floor was right only because nothing read `overflow-wrap` when computing an intrinsic
+#     size. #682 built that stage: `anywhere`'s min-content size is one grapheme now and
+#     `break-word`'s is the word, which is CSS Sizing §5.2's own distinction, and it lives in the
+#     MEASURER rather than here — a min-content size in this store IS a measurement at an available
+#     width of zero, so `TextWrapMode.BreakWord` beside `Anywhere` is the whole mechanism.
+#     `The_two_breaking_keywords_are_one_behaviour_in_this_engine` was the deviation's record and is
+#     now `…_differ_in_the_intrinsic_minimum_and_nowhere_else`.
+#   · ⚠ What that leaves owed under #682 is the workaround it was propping up: `ComputeAutoMinMainSize`
+#     takes "the smaller of two measurements" — the max-content basis and the offer-measured one —
+#     and the second term exists to hold the floor down to the box while no intrinsic-minimum stage
+#     existed. It is `break-word` that still needs it, because `break-word`'s intrinsic minimum is
+#     specified NOT to shrink; whether Chrome's answer for that case comes from the same cap or from
+#     somewhere else is the measurement nobody has taken. Do not remove the second term without it.

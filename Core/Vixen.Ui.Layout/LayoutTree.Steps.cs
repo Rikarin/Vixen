@@ -512,9 +512,14 @@ public sealed partial class LayoutTree {
             // ⚠ The seventh was not repairable here and is a real behaviour change: a `ScrollView`
             // with no width filled its flex row only while its base was the width it was OFFERED,
             // and its max-content width is the scrollbar. That is CSS's answer and Chrome's; what it
-            // means is that a control expected to fill has to say so. `Rikarin/Vixen#682` is the
+            // means is that a control expected to fill has to say so. `Rikarin/Vixen#682` was the
             // remaining §9.2 step 3E question — an intrinsic-minimum stage that reads
-            // `overflow-wrap` — and this belongs beside it.
+            // `overflow-wrap` — and this belongs beside it. ⚠ That stage exists now, and it is NOT
+            // in this file: a box's min-content size here is its measurement at an available width
+            // of zero, so `overflow-wrap: anywhere` is read by the measurer rather than by the
+            // layout. See `TextWrapMode.BreakWord`. What is still owed under #682 is the §4.5 cap in
+            // `ComputeAutoMinMainSize` — "the smaller of two measurements" — which was put there to
+            // hold the floor down while no such stage existed.
             var mainSizingMode = isMainAxisRow ? childWidthSizingMode : childHeightSizingMode;
             var contentBase = float.NaN;
 
