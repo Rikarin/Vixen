@@ -1195,12 +1195,20 @@ public static class UtilityFamilies {
 
         // ── Hyphens ─────────────────────────────────────────────────────────────────────────
         // ⚠ <b>Two of Tailwind's three, and the third is left unregistered on purpose.</b>
-        // `hyphens-auto` needs a per-language Liang pattern set AND a language to pick one with, and
-        // `TextShaper` leaves HarfBuzz's language unset so that shaping does not depend on the
-        // machine's locale — so the input is missing as well as the algorithm. Registering it would
-        // put a class in the table that resolves, computes a value and hyphenates nothing, which is
-        // the exact state `UtilityConsumptionGateTests` exists to keep out. The root stays `partial`
-        // with the reason named, which is the honest state rather than the flattering one.
+        // `hyphens-auto` needs a per-language Liang pattern set. Registering it would put a class in
+        // the table that resolves, computes a value and hyphenates nothing, which is the exact state
+        // `UtilityConsumptionGateTests` exists to keep out. The root stays `partial` with the reason
+        // named, which is the honest state rather than the flattering one.
+        //
+        // ⚠ <b>Half of the reason this comment used to give has expired, and it expired without
+        // anything noticing — which is the finding worth more than the sentence.</b> It said the
+        // refusal also rested on there being no language to pick a pattern set with, `TextShaper`
+        // leaving HarfBuzz's language unset. `UiElement.ResolvedLanguage` carries a BCP-47 tag that
+        // inherits by tree and reaches `TextShaper.ShapeRun`, so that half is false. It went stale
+        // in prose because `RefusalExpiry` could not reach it: this root is `partial`, and until now
+        // only an `expires-when-read` clause was allowed on a `partial` row. The remaining half now
+        // carries `[expires-on Vixen.Ui.Text.HyphenMode.Auto]` in the ledger, so the arrival of the
+        // pattern set reddens a test instead of leaving a paragraph standing.
         //
         // ⚠ <b>`hyphens-manual` is the initial value, and it is registered anyway.</b> Normally a
         // class whose only effect is "write nothing" earns no place — `normal-case` is the exception

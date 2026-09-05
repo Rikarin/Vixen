@@ -26,7 +26,12 @@
 #                         is walked around by anyone who names the arriving thing differently. The
 #                         type must resolve, which is what keeps a misspelt anchor from being green
 #                         for ever — a member that is absent because the type is absent is the
-#                         failure mode this file would otherwise have.
+#                         failure mode this file would otherwise have. ⚠ A row carrying it may be
+#                         `partial`, since 2026-09-05 and because of `hyphens`: a refusal that lives
+#                         inside ONE KEYWORD of a root whose other keywords shipped is the most
+#                         exposed kind there is, because the row's state column stops moving and
+#                         nobody re-reads it. `hyphens: auto`'s second blocker closed in #600 and the
+#                         sentence naming it stood in three files, unreachable by this suite.
 #
 #   expires-when-read <p> The refusal stands only while nothing in the engine reads that CSS
 #                         property. As exact as `expires-with`, because its condition is the same
@@ -49,6 +54,7 @@ border-e-*	expires-when-read	border-inline-end-color
 border-s-*	expires-when-read	border-inline-start-color
 border-spacing-x-*	expires-with	border-spacing-*
 border-spacing-y-*	expires-with	border-spacing-*
+hyphens	expires-on	Vixen.Ui.Text.HyphenMode.Auto
 inset-ring-*	expires-with	inset-shadow-*
 isolation	expires-with	mix-blend
 mix-blend	expires-on	Vixen.Ui.DrawCommand.Blend
