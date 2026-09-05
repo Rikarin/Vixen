@@ -119,12 +119,19 @@
 #      "it happens to under-report" note predicted: see AutomaticMinimumSizeTests.
 #      An_empty_descendant_still_contributes_its_own_padding_and_border for the hand-written witness.
 #
-#   A third, in the same probe: it reads a GRID container as a flex row and sums all of its items
-#   along one axis. gridflex_row_integration is four 20-wide boxes in a 2x2 grid — 40 in Chrome, 80
-#   from the probe.
+#   3. It read a GRID container as a flex line. FIXED — ComputeGridMinContentSize sizes the grid's
+#      tracks under §12's min-content constraint (a case GridSizingConstraint had and nothing
+#      reached, because a grid being laid out is asked for a definite size or a max-content one and
+#      never for its smallest) and reports what they occupy. ⚠ The shape of the error was not what
+#      this line said: the probe resolved the container's main axis from `flex-direction`, which
+#      defaults to COLUMN and which no grid sets, so a grid's inline min-content came back as the
+#      WIDEST SINGLE CHILD rather than as the 80 the sum would have given. Both are wrong and the
+#      four `gridflex_row_integration` variants go red either way with the cap off; they are green
+#      with the fix and the cap off, which is how the fix was measured, since the cap hides it.
 #
-# ⚠ Because two of those three are still open — the grid one, and the `width: 50%` half of the
-# percentage one — the §4.5 floor is CAPPED at the item's own flex basis whenever that basis was
+# ⚠ Because ONE of those three is still open — the `width: 50%` half of the percentage one — plus a
+# fourth found by the same measurement (below), the §4.5 floor is CAPPED at the item's own flex basis
+# whenever that basis was
 # MEASURED rather than declared — LayoutResult.FlexBasisFromContent. The
 # justification is an inequality, not a heuristic: a box's min-content size cannot exceed the size
 # its own contents were just measured at, so a floor that comes out above such a basis is the probe
@@ -132,12 +139,23 @@
 # content_row is untouched by the cap. Remove the cap when the probe is fixed, and expect nothing to
 # move; keep it until then, or an over-reported floor becomes a real box.
 #
-# ⚠ "EXPECT NOTHING TO MOVE" WAS MEASURED AND IS WRONG, and it is worth the two lines because the next
+# ⚠ "EXPECT NOTHING TO MOVE" WAS MEASURED AND IS WRONG, and it is worth the lines because the next
 # person will otherwise repeat the experiment. Deleting the cap on the unclamped-flex-base branch
 # costs FOUR grid fixtures (measured when grid stood at 1 896) and gains nothing anywhere: flex
 # stayed at 2 190 / 66 and Yoga's 534 did not move. So the cap is load-bearing beyond the two probe
 # defects above, and bevy_issue_9530 — which the §9.7 heading expected the cap to be holding back —
 # was not waiting on it either.
+#
+# ⚠ RE-MEASURED, AND "FOUR GRID FIXTURES" IS NOT THE WHOLE BILL EITHER. Deleting the cap outright
+# costs TWENTY fixtures in five families: gridflex_row_integration (closed by the grid probe above),
+# and then bevy_issue_9530, bevy_issue_9530_reduced, blitz_issue_88 and
+# measure_child_with_min_size_greater_than_available_space, which are one defect and not four. Every
+# one of them is a TEXT LEAF in the BLOCK axis: ComputeMinContentSizeUncached measures it at
+# `ownerWidth` — the containing block's inline size — where what it is about to be given is its own
+# used width. blitz_issue_88 is one line of text in a 600-point row that the probe wraps to five:
+# 10 points tall in Chrome and 50 from the probe, and the flex item is then floored at 50. That
+# measurement is the whole of what stands between this cap and its removal, and it is filed on its
+# own rather than folded in here.
 #
 # ⚠ percentage_flex_basis_cross_min_height CLOSED with §9.2's unclamped flex base, which is written up
 # under §9.7 below. It sat here rather than there because its symptom is a cross-axis minimum, and it
