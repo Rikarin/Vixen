@@ -480,6 +480,14 @@ selector can match it and nothing reads it back. So `row.Add("fact-name").Text =
 markup spelling, and the difference is a box: a `text` child is a layout node and the parent's own
 text is not.
 
+⚠ **`VXML2020` warns when the name is capitalised**, because that is the shape of an author who
+expected an assignment: `<div AccessibleName="Save" Focusable="true">` compiled, matched an
+`[AccessibleName]` selector and did nothing at all. The rule reads the *case* of the name rather than
+looking the property up — the binder is syntax only, and never touches the compilation — so a
+selector attribute spelled the way CSS spells one (`data-state`, `role`, `aria-label`) is left alone.
+A warning rather than an error: a capitalised attribute really is matchable, so the reading is legal
+and merely almost never meant.
+
 ⚠ **A capitalised tag is a real property assignment, and that is the whole escape.** It does not have
 to be a `Component` or a `.vxml` — the emitter writes `ctx.Child<T>(…)` for any PascalCase tag and
 lets C# resolve it, and `Text` is a `[UiProperty]` on every `UiElement`:

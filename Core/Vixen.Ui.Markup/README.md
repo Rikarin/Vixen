@@ -83,6 +83,16 @@ has properties that are objects and there is no flat name for them. Nothing here
 path exists — the binder's rule is only that it will parse as C#, which is the same bargain the tag
 name is emitted under.
 
+⚠ **And on a lowercase tag a parameter is not an assignment at all.** It emits
+`ctx.Attribute(n1, "AccessibleName", "Save")`, which reaches `StyleTree.SetAttribute` as data a
+selector can match and nothing reads — so `<div AccessibleName="Save" Focusable="true">` compiled,
+ran and set nothing, in silence, for as long as the case split has existed. `VXML2020` warns on it.
+The rule reads the *case* of the attribute name rather than looking the property up: there is no list
+of `[UiProperty]` names available here, because the generator never touches the compilation, and the
+convention that separates the two intents is exactly the case — a property is PascalCase and a
+selector attribute is `data-state`. A warning and not an error, and the attribute is kept, because a
+capitalised name genuinely is matchable by an `[AccessibleName]` selector.
+
 ⚠ **Three attribute names are universal**, meaning they mean the same on a component tag as on an
 element and are never assigned as properties: `class`, `style`, and `binding-path`. The last is doc
 36's: it names a member of whatever an editor is editing, and the join happens *after* the tree is

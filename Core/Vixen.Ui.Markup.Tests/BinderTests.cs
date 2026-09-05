@@ -572,6 +572,51 @@ public class BinderTests {
         Assert.Empty(Ids("@component A\n<fact-name use=\"@(cell => cell.Text = Name)\" />"));
     }
 
+    /// <summary>
+    ///     ⚠ <b>The tag's case decides whether an attribute is an assignment or selector data</b>, and
+    ///     the lowercase half of that split was silent: <c>&lt;div AccessibleName="Save" /&gt;</c>
+    ///     compiled to <c>ctx.Attribute(n1, "AccessibleName", "Save")</c>, matched an
+    ///     <c>[AccessibleName]</c> selector, and set nothing. The same words on the control that owns
+    ///     the property are a real assignment and say nothing.
+    /// </summary>
+    [Fact]
+    public void A_capitalised_attribute_on_a_lowercase_tag_sets_nothing_and_says_so() {
+        Assert.Contains("VXML2020", Ids("@component A\n<div AccessibleName=\"Save\" />"));
+        Assert.Contains("VXML2020", Ids("@component A\n<div Focusable=\"@_can\" />"));
+        Assert.Empty(Ids("@component A\n<Button AccessibleName=\"Save\" />"));
+    }
+
+    /// <summary>
+    ///     And the names that are not properties stay legal, because a selector matching
+    ///     <c>[data-state]</c> is the whole reason a plain element carries attributes at all.
+    ///     <c>class</c>, <c>style</c> and <c>binding-path</c> are universal and never parameters;
+    ///     the rest are lowercase by CSS convention, which is exactly the signal the rule reads.
+    /// </summary>
+    [Theory]
+    [InlineData("data-state=\"open\"")]
+    [InlineData("role=\"button\"")]
+    [InlineData("aria-label=\"Save\"")]
+    [InlineData("class=\"row\"")]
+    [InlineData("style=\"width: 42%\"")]
+    [InlineData("binding-path=\"Speed\"")]
+    public void A_lowercase_attribute_on_a_lowercase_tag_is_selector_data_and_is_left_alone(string written) {
+        Assert.Empty(Ids($"@component A\n<div {written} />"));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Warned rather than refused, so the attribute still reaches the style tree.</b> A
+    ///     capitalised name <i>is</i> matchable — the interning in <c>StyleTree.SetAttribute</c> is
+    ///     ordinal — so dropping it would break the one author who meant it, and the diagnostic is
+    ///     suppressible for exactly that author.
+    /// </summary>
+    [Fact]
+    public void The_inert_attribute_survives_the_warning() {
+        var attribute = Assert.Single(FirstElement("@component A\n<div AccessibleName=\"Save\" />").Attributes);
+
+        Assert.Equal(BoundAttributeKind.Parameter, attribute.Kind);
+        Assert.Equal("AccessibleName", attribute.Name);
+    }
+
     static BoundComponent BindClean(string source) {
         var component = Binder.Bind(Vxml.Parse(source), out var diagnostics);
 
