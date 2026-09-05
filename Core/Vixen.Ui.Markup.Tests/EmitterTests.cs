@@ -1695,6 +1695,127 @@ public class EmitterTests {
     static Microsoft.CodeAnalysis.SyntaxTree Parse(string text, string path) =>
         CSharpSyntaxTree.ParseText(text, new CSharpParseOptions(LanguageVersion.Latest), path);
 
+    // ================================================================== Sections
+
+    /// <summary>A grouped list written as a nested <c>@for</c>, which is the whole construct.</summary>
+    /// <remarks>
+    ///     ⚠ The section is a class holding a signal, not a record over a list — which is the
+    ///     `@for` key rule and not a preference. A grouping recomputed in the sequence expression
+    ///     (<c>items.GroupBy(…)</c>) allocates new group objects every flush, so every section would
+    ///     be a new key and would be rebuilt: the trap `VXML2011` covers one level up.
+    /// </remarks>
+    const string Sections = """
+                            @component Greeter
+                            @using System.Collections.Generic
+                            @using Vixen.Ui.Reactive
+
+                            @code {
+                                public sealed class Section(string name, IReadOnlyList<string> rows) {
+                                    public string Name { get; } = name;
+                                    public Signal<IReadOnlyList<string>> Rows { get; } = new(rows);
+                                }
+
+                                public Section Shapes { get; } = new("Shapes", ["cube", "cone"]);
+                                public Section Lights { get; } = new("Lights", ["sun"]);
+
+                                public Signal<IReadOnlyList<Section>> Groups { get; }
+
+                                public Greeter() => Groups = new([Shapes, Lights]);
+                            }
+
+                            @for (var group in Groups.Value) {
+                                <group-block key="@group">
+                                    <group-header>@group.Name</group-header>
+
+                                    @for (var row in group.Rows.Value) {
+                                        <group-row key="@row">@row</group-row>
+                                    }
+                                </group-block>
+                            }
+                            """;
+
+    /// <summary>
+    ///     ⚠ <b>A reorder inside a section does not rebuild the section, and a nested <c>@for</c>
+    ///     is all it takes.</b>
+    /// </summary>
+    /// <remarks>
+    ///     The question <c>#760</c> asks is whether grouped lists need a construct of their own.
+    ///     They do not need one for <i>this</i>: the two loops are two regions, the inner one
+    ///     reconciles against its own siblings, and the section's own element and header are
+    ///     untouched. Asserted by element identity rather than by count, because the arrangement
+    ///     that rebuilds every section produces exactly the same counts and the same text.
+    /// </remarks>
+    [Fact]
+    public void A_row_moving_inside_a_section_leaves_the_section_and_its_header_alone() {
+        var (component, instance, document) = Run(Sections);
+
+        using var owned = document;
+        document.Effects.Flush();
+
+        var blocks = component.Root.Children.ToArray();
+        var shapes = blocks[0];
+        var header = shapes.Children[0];
+        var rows = shapes.Children.Skip(1).ToArray();
+
+        Assert.Equal(["group-block", "group-block"], blocks.Select(block => block.Tag));
+        Assert.Equal(["cube", "cone"], rows.Select(Text));
+
+        var section = Property(instance, "Shapes");
+        ((Signal<IReadOnlyList<string>>)Property(section, "Rows")).Value = ["cone", "cube"];
+        document.Effects.Flush();
+
+        // The section survived: same block, same header element, and the sibling section untouched.
+        Assert.Equal<UiElement>(blocks, component.Root.Children);
+        Assert.Same(header, shapes.Children[0]);
+
+        // And the rows moved rather than being remade.
+        Assert.Equal<UiElement>([header, rows[1], rows[0]], shapes.Children);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And a section <i>is</i> a region the reconciler moves as a unit</b>, which is the
+    ///     other half of what a dedicated construct was supposed to buy.
+    /// </summary>
+    /// <remarks>
+    ///     Reordering the outer sequence moves the section's element with everything under it: the
+    ///     header and the rows are the same objects afterwards, so nothing inside was rebuilt to
+    ///     achieve the move. That leaves sticky headers as the one thing on <c>#760</c>'s list that
+    ///     is genuinely missing — and a sticky header is a scrolling feature rather than a loop one.
+    /// </remarks>
+    [Fact]
+    public void Reordering_the_sections_moves_each_one_whole() {
+        var (component, instance, document) = Run(Sections);
+
+        using var owned = document;
+        document.Effects.Flush();
+
+        var blocks = component.Root.Children.ToArray();
+        var inside = blocks[0].Children.ToArray();
+
+        var shapes = Property(instance, "Shapes");
+        var lights = Property(instance, "Lights");
+
+        Reorder(instance, "Groups", [lights, shapes]);
+        document.Effects.Flush();
+
+        Assert.Equal<UiElement>([blocks[1], blocks[0]], component.Root.Children);
+        Assert.Equal<UiElement>(inside, blocks[0].Children);
+    }
+
+    /// <summary>Writes a <c>Signal&lt;IReadOnlyList&lt;T&gt;&gt;</c> whose <c>T</c> is only known at run time.</summary>
+    static void Reorder(object instance, string name, object[] items) {
+        var signal = Property(instance, name);
+        var value = signal.GetType().GetProperty("Value")!;
+        var element = value.PropertyType.GetGenericArguments()[0];
+        var array = Array.CreateInstance(element, items.Length);
+
+        for (var i = 0; i < items.Length; i++) {
+            array.SetValue(items[i], i);
+        }
+
+        value.SetValue(signal, array);
+    }
+
     // ================================================================== The @for index
 
     /// <summary>Three keyed rows, each showing where it is.</summary>

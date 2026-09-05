@@ -639,6 +639,34 @@ that moved is re-read, a row that did not move costs an equality check, and a ro
 its signal with it. The rule is the same one this section states, one step further along: *a binding
 may close over a region's identity and never over its position.*
 
+### Grouped lists are a nested `@for`
+
+```xml
+@for (var group in Groups.Value) {
+    <group-block key="@group">
+        <group-header>@group.Name</group-header>
+
+        @for (var row in group.Rows.Value) {
+            <group-row key="@row">@row</group-row>
+        }
+    </group-block>
+}
+```
+
+There is no separate section construct and none is needed. A row moving inside a section leaves the
+section and its header alone, and reordering the outer sequence moves a whole section — header and
+rows — as a unit, because a section *is* a region.
+
+⚠ **What decides whether that works is the key.** The sections have to be as stable as the rows, so
+hold them in a field and key on the object. A grouping recomputed in the sequence expression —
+`items.GroupBy(…)` — makes new group objects every flush, so every section is a new key and every
+section is rebuilt, with the right number of rows showing the right text and every scroll offset and
+focus inside them thrown away. Because the section object is then stable, what makes its rows follow
+is that it holds a signal.
+
+A *sticky* header is a different feature: it is `position: sticky` on the scroller, not something a
+loop can express.
+
 ### ⚠ And the same rule governs `@if`
 
 `@if` and `@for` are one mechanism, and an arm is rebuilt **only when the arm index changes** — so an

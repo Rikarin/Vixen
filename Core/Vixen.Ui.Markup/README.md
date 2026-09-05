@@ -938,6 +938,42 @@ overload and C# resolves it from the parameter count, so `@for (var row, i in �
 are the same private pass with the index bookkeeping switched off, because a second copy of the
 keyed reconciliation is how the two come to disagree about what a move is.
 
+### Sections are a nested `@for`, and there is nothing else to build
+
+A grouped list — a settings panel by category, an asset browser by folder, a source list with
+headings — is two loops:
+
+```html
+@for (var group in Groups.Value) {
+    <group-block key="@group">
+        <group-header>@group.Name</group-header>
+
+        @for (var row in group.Rows.Value) {
+            <group-row key="@row">@row</group-row>
+        }
+    </group-block>
+}
+```
+
+⚠ **Both of the things a dedicated construct was supposed to buy are already true of this, and it
+took two tests rather than a feature to find out.** A row moving inside a section leaves the section
+and its header alone — the two loops are two regions and the inner one reconciles against its own
+siblings — and reordering the outer sequence moves a whole section as a unit, header and rows
+included, because a section *is* a region. Both are asserted by element identity in `EmitterTests`,
+not by count: the arrangement that rebuilds every section produces exactly the same counts and the
+same text, so a count would have called the broken one correct.
+
+The third item on the list, a sticky header, is not a loop feature at all — it is
+`position: sticky`, which is [#248](https://github.com/Rikarin/Vixen/issues/248) and belongs to the
+scroller. Nothing about a grouped list is what makes it missing.
+
+⚠ **The keying rule is the whole of the constraint, and it is the one already written down.** A
+section identity has to be as stable as a row identity, so the sections live in a field and the loop
+keys on the object. A grouping recomputed in the sequence expression — `items.GroupBy(…)` — allocates
+new group objects on every flush, so every section is a new key and every section is rebuilt: the
+`VXML2011` trap one level up. And because the section object is stable, what makes its rows update is
+that it holds a `Signal<T>`, which is the rule's other half.
+
 ### ⚠ The same rule governs `@if`, where nothing diagnoses it
 
 **`@for` and `@if` are one mechanism** — `Switch` and `For` are deliberately the same construct, for
