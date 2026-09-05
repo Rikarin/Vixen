@@ -40,6 +40,21 @@ namespace Vixen.Ui.Testing.Tests;
 ///         left edge <i>and</i> the right one, the top <i>and</i> the bottom, can tell the rule from
 ///         either of the two blanket answers.
 ///     </para>
+///     <para>
+///         ⚠ <b>What this file asserts moved when the box quad grew, and the two paragraphs above are
+///         history rather than the current subject.</b> Since #590 a box's quad reaches a pixel past
+///         the box on every side, so <em>neither</em> of a box's own edges is a quad edge any more and
+///         the tie rule cannot decide either of them: both come out at the half coverage the distance
+///         field gives them, which is what the geometry says and what the device draws. So these
+///         fixtures now read the <b>ink</b> — a box of integer width at a half-pixel coordinate sums
+///         to that width across the row — and the tie rule they were written for is observable only
+///         on a primitive whose quad <i>is</i> its boundary: an image, a glyph, a tessellated path.
+///         The rule still runs on every one of those and on the diagonal every quad's two triangles
+///         share; #595 is the fixture that reads it there. ⚠ Measured rather than assumed: closing
+///         the axis-aligned edges again — <c>return true</c> in <c>TopLeft</c>'s <c>dy == 0f</c>
+///         branch, which is the defect #526 removed — leaves every assertion in this file and every
+///         other test in this assembly green.
+///     </para>
 /// </remarks>
 public class FillRuleTests {
     const int Side = 64;
@@ -61,39 +76,97 @@ public class FillRuleTests {
     ///     just as invisible on the integer coordinates the rest of the suite uses.
     /// </remarks>
     [Fact]
-    public void A_right_edge_on_a_sample_centre_is_open_and_a_left_edge_is_closed() {
+    public void A_box_on_a_sample_centre_shades_both_of_its_edge_columns_by_half() {
         var image = Render(new DrawCommand(DrawCommandKind.Rectangle, 8.5f, 8.5f, 24f, 24f, Red, 0f, 0f));
 
-        // The right edge is at x = 32.5, exactly on column 32's sample. The device gives that sample
-        // to whatever is drawn to the right of the seam, so this box leaves it untouched.
-        Assert.Equal((byte)0, Red8(image, 32, 20));
+        // Both edges land exactly on a sample — 8.5 and 32.5 — and the distance field is zero at
+        // each, so each column comes out half covered. ⚠ The right one used to be *nothing*: the
+        // quad ended there, the half-open rule gave the sample to the neighbour, and no fragment was
+        // generated for the half of the column the box geometrically covers.
+        Assert.InRange(Red8(image, 8, 20), 120, 136);
+        Assert.InRange(Red8(image, 32, 20), 120, 136);
 
-        // ⚠ And the column inside it is fully shaded, so "untouched" above is the fill rule and not a
-        // box that came out a column short at both ends.
+        // ⚠ And the columns inside them are whole, so "half" above is the ramp and not a box that
+        // came out soft all the way through.
+        Assert.Equal((byte)255, Red8(image, 9, 20));
         Assert.Equal((byte)255, Red8(image, 31, 20));
 
-        // The left edge is at x = 8.5, also exactly on a sample. That one is closed, and the distance
-        // field is zero there, so the column comes out at half coverage rather than none.
-        Assert.InRange(Red8(image, 8, 20), 120, 136);
+        // A pixel further out on each side is untouched: the margin is room for the ramp, not ink.
+        Assert.Equal((byte)0, Red8(image, 7, 20));
+        Assert.Equal((byte)0, Red8(image, 33, 20));
 
-        // The same on the other axis, which is what catches a rule applied to one of them.
-        Assert.Equal((byte)0, Red8(image, 20, 32));
-        Assert.Equal((byte)255, Red8(image, 20, 31));
+        // The same on the other axis, which is what catches a margin added to one of them.
         Assert.InRange(Red8(image, 20, 8), 120, 136);
+        Assert.InRange(Red8(image, 20, 32), 120, 136);
+        Assert.Equal((byte)0, Red8(image, 20, 33));
     }
 
-    /// <summary>Two boxes meeting on a sample centre shade the column they share exactly once.</summary>
+    /// <summary>A box of integer width at a half-pixel coordinate has that width's worth of ink.</summary>
     /// <remarks>
-    ///     ⚠ <b>Against the right-hand box drawn alone, which is the closed form.</b> "The seam is not
-    ///     red" would pass against a renderer that dropped the seam entirely, and "the seam is blue"
-    ///     would pass against one that shaded it twice in the same colour. Requiring the pair to draw
-    ///     the seam exactly as the second box draws it by itself says both things at once: the first
-    ///     box contributed nothing there, and the second contributed everything it would have anyway.
-    ///     The check that the seam is not background is what stops the comparison being two blank
-    ///     columns agreeing.
+    ///     <para>
+    ///         ⚠ <b>The closed form, and the reason this file exists in its present shape.</b> Coverage
+    ///         is conserved: however the edges fall across the sample grid, the alpha summed along a
+    ///         row through a box of width <c>w</c> is <c>w</c>. Nothing about which sample the
+    ///         rasteriser awarded to whom appears in that statement, which is what makes it worth
+    ///         asserting — a picture can be wrong in a way no per-pixel expectation anticipates, and
+    ///         still cannot hide from the total.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It read <c>w − 0.5</c> before the box quad was grown</b>, for every box on a
+    ///         half-pixel coordinate in the engine. On a 24-pixel box that is 2 % and invisible; on a
+    ///         <b>one-pixel hairline it is half the primitive</b>, which is why the outliner's tree
+    ///         connectors were drawn at half intensity and why the hairline is asserted here as well
+    ///         as the box. A width of one is the case where the defect is the whole of the ink.
+    ///     </para>
+    ///     <para>
+    ///         The tolerance is quantisation and nothing else: each column is a byte, so a row of
+    ///         twenty-six of them can be off by a fiftieth of a level's worth in total. A defect this
+    ///         is written against moves it by 0.5.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(24f)]
+    [InlineData(3f)]
+    [InlineData(1f)]
+    public void A_box_at_a_half_pixel_has_its_own_widths_worth_of_ink(float width) {
+        var image = Render(new DrawCommand(DrawCommandKind.Rectangle, 18.5f, 8f, width, 24f, Red, 0f, 0f));
+
+        var ink = 0.0;
+
+        for (var x = 0; x < Side; x++) {
+            ink += Red8(image, x, 20) / 255.0;
+        }
+
+        Assert.Equal(width, ink, 0.05);
+    }
+
+    /// <summary>Two boxes meeting on a sample centre each contribute their half of the seam.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What this used to assert was that the seam is drawn exactly once — and it was, by
+    ///         throwing the left-hand box's half of it away.</b> The two boxes cover the shared column
+    ///         half each, so the honest statement is that both are in it: the seam is the right box's
+    ///         half over the left box's half, and the background left showing through is a quarter
+    ///         rather than the half it was.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A quarter and not nothing, and that is a cost this change accepts rather than
+    ///         removes.</b> Two independently antialiased primitives that abut cannot composite to
+    ///         full coverage — 0.5 over 0.5 is 0.75, whatever order they arrive in — so a seam on a
+    ///         half-pixel boundary is a shade light. The alternative measured worse: before the quad
+    ///         grew, the same seam was <em>half</em> background, and every isolated hairline in the
+    ///         frame lost half its ink to buy it.
+    ///     </para>
+    ///     <para>
+    ///         The comparison against the right-hand box drawn alone is what makes each claim
+    ///         falsifiable. "The seam is bluer than the box alone" would pass against a renderer that
+    ///         shaded it twice in blue; requiring the blue to be <i>exactly</i> what the box draws by
+    ///         itself, and the red to be exactly what the left box's ramp adds under it, says which
+    ///         primitive put what there.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void Two_boxes_abutting_on_a_sample_centre_shade_the_seam_once() {
+    public void Two_boxes_abutting_on_a_sample_centre_each_shade_their_half_of_the_seam() {
         var left = new DrawCommand(DrawCommandKind.Rectangle, 8.5f, 8f, 24f, 24f, Red, 0f, 0f);
         var right = new DrawCommand(DrawCommandKind.Rectangle, 32.5f, 8f, 24f, 24f, Blue, 0f, 0f);
 
@@ -101,7 +174,14 @@ public class FillRuleTests {
         var alone = Render(right);
 
         for (var y = 12; y < 28; y++) {
-            Assert.Equal(Pixel(alone, 32, y), Pixel(both, 32, y));
+            // The right box contributes exactly what it contributes on its own: it is drawn last, over
+            // whatever is there, and half coverage of blue is half coverage of blue.
+            Assert.Equal(Pixel(alone, 32, y).B, Pixel(both, 32, y).B);
+
+            // And the left box is under it — a quarter of the column, being its own half attenuated by
+            // the blue over it. This is the half that was being discarded.
+            Assert.InRange(Pixel(both, 32, y).R, 56, 72);
+            Assert.Equal((byte)0, Pixel(alone, 32, y).R);
         }
 
         // ⚠ The instrument. Two columns of background agree perfectly, and so would two columns the

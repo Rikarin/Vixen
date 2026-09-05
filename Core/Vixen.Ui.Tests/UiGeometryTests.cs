@@ -31,9 +31,38 @@ public class UiGeometryTests {
         Assert.Equal(BatchKind.Geometry, draw.Kind);
         Assert.Equal(6, draw.Count);
 
-        // The corners, in document pixels.
-        Assert.Equal(new Vector2(10, 20), geometry.Vertices[0].Position);
-        Assert.Equal(new Vector2(110, 60), geometry.Vertices[2].Position);
+        // The corners, in document pixels — a pixel out from the box on every side, because the
+        // shader antialiases *inside* the quad and the ramp has to be somewhere.
+        Assert.Equal(new Vector2(9, 19), geometry.Vertices[0].Position);
+        Assert.Equal(new Vector2(111, 61), geometry.Vertices[2].Position);
+    }
+
+    /// <summary>A box's quad is grown for its ramp, and the shape it describes is not.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both halves, because growing the quad alone and growing both are the same picture at
+    ///     integer coordinates.</b> The distance field measures from <c>Size</c>, so a <c>Size</c> that
+    ///     grew with the quad would draw a box a pixel larger in every direction rather than the same
+    ///     box with room for its edge — and every fixture in this suite sits where that is invisible.
+    ///     The defect this asserts against is the mirror of the one that made the quad grow: a
+    ///     half-pixel-aligned hairline drew half its ink, because the sample on its far edge belonged
+    ///     to the neighbour under the half-open rule and no fragment was generated for it at all.
+    /// </remarks>
+    [Fact]
+    public void A_boxs_quad_is_grown_for_its_ramp_and_its_shape_is_not() {
+        var geometry = Build(list => list.Add(Rect(10, 20, 100, 40)));
+
+        Assert.Equal(new Vector2(9, 19), geometry.Vertices[0].Position);
+        Assert.Equal(new Vector2(111, 61), geometry.Vertices[2].Position);
+
+        // The coordinate is the offset from the centre and grows with the quad, or the field would be
+        // evaluated for a box the shader thinks is a different size from the one it was given.
+        Assert.Equal(new Vector2(-51, -21), geometry.Vertices[0].Texture);
+        Assert.Equal(new Vector2(51, 21), geometry.Vertices[2].Texture);
+
+        // The half size is the *box's*. Fifty by twenty, not fifty-one by twenty-one.
+        var shape = Assert.Single(geometry.Shapes);
+        Assert.Equal(50f, shape.Size.X, 3);
+        Assert.Equal(20f, shape.Size.Y, 3);
     }
 
     [Fact]
@@ -115,8 +144,10 @@ public class UiGeometryTests {
     public void A_box_is_parameterised_from_its_own_centre() {
         var geometry = Build(list => list.Add(Rect(500, 300, 80, 40)));
 
-        Assert.Equal(new Vector2(-40, -20), geometry.Vertices[0].Texture);
-        Assert.Equal(new Vector2(40, 20), geometry.Vertices[2].Texture);
+        // Forty-one by twenty-one rather than forty by twenty: the quad carries a pixel of margin on
+        // each side and the coordinate is the offset from the centre, so it carries it too.
+        Assert.Equal(new Vector2(-41, -21), geometry.Vertices[0].Texture);
+        Assert.Equal(new Vector2(41, 21), geometry.Vertices[2].Texture);
     }
 
     [Fact]

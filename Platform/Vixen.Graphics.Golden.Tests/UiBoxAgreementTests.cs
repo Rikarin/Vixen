@@ -35,7 +35,9 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         accepted by accident.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Integer coordinates throughout, and that is history rather than a constraint.</b>
+///         ⚠ <b>Integer coordinates in six of the seven fixtures, and that is history rather than a
+///         constraint — <c>halfpixel</c> is the seventh and exists because leaving the gap was
+///         expensive.</b>
 ///         <c>SoftwareUiRasterizer.TopLeft</c> used to keep a <i>closed</i> test on axis-aligned edges
 ///         where the device opens the right and bottom ones, so a box whose edge landed exactly on a
 ///         sample centre differed by a whole half-covered column — 54 pixels of 16384 by up to 107
@@ -44,6 +46,13 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         accident. That divergence is gone: the rule is the textbook one on both sides now, and the
 ///         property is stated on the software renderer alone by <c>FillRuleTests</c>, which needs no
 ///         device and so says it on a machine where everything here skips.
+///     </para>
+///     <para>
+///         ⚠ <b>So a half-pixel fixture is now the interesting one rather than the dangerous one.</b>
+///         Since #590 a box's quad reaches a pixel past the box, so an edge landing on a sample centre
+///         produces a fragment on <i>both</i> sides instead of being clipped away on one — which is
+///         the first arrangement in this file where the two renderers' half-open rules are actually
+///         asked anything. On integers they never are.
 ///     </para>
 /// </remarks>
 [Collection("Vulkan")]
@@ -87,6 +96,7 @@ public sealed class UiBoxAgreementTests {
     [InlineData("blurred")]
     [InlineData("gradient")]
     [InlineData("tiled")]
+    [InlineData("halfpixel")]
     public void TheDeviceAndTheSoftwareRendererDrawTheSameBox(string fixture) {
         if (!TryOpen(out var opened, out _)) {
             return;
@@ -252,6 +262,26 @@ public sealed class UiBoxAgreementTests {
                     ))
                 );
 
+                break;
+
+            case "halfpixel":
+                // ⚠ Every edge on a sample centre, which is the arrangement the six fixtures above
+                // were deliberately kept off. A box's quad reaches a pixel past the box now
+                // (`UiGeometryBuilder.BoxMargin`), so the ramp on an edge that lands exactly on a
+                // sample is drawn rather than clipped away — and that is a fragment the device
+                // generates through the *rasteriser's* half-open rule while the software renderer
+                // generates it through its own. Two implementations of one rule is exactly what this
+                // file exists to compare, and on integer coordinates neither of them is ever asked.
+                //
+                // A hairline among them, because a one-pixel box is the case where the clipped ramp
+                // was not a shade but half the primitive.
+                list.Add(new(DrawCommandKind.Rectangle, 8.5f, 8.5f, 40, 30, new Color4(0.2f, 0.6f, 0.95f, 1f), 0, 0));
+                list.Add(new(DrawCommandKind.Rectangle, 60.5f, 8.5f, 1, 30, new Color4(0.95f, 0.3f, 0.4f, 1f), 0, 0));
+                list.Add(new(DrawCommandKind.Rectangle, 8.5f, 60.5f, 60, 1, new Color4(0.4f, 0.9f, 0.3f, 1f), 0, 0));
+
+                // And a rounded one, so the corner arcs are read at a half-pixel offset too — the
+                // arc is where the two `fwidth` derivations diverge when they diverge at all.
+                list.Add(new(DrawCommandKind.Rectangle, 70.5f, 50.5f, 46, 44, new Color4(0.9f, 0.8f, 0.2f, 1f), 9, 0));
                 break;
 
             case "bordered":
