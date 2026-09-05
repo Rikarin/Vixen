@@ -53,11 +53,13 @@ public sealed partial class UiDocument {
     ///         repository's standing defect with the ends swapped.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It does not move the focus and must not.</b> <see cref="Focused" /> stays a single
-    ///         document-global element: this is the fallback for when there is none, not a second
-    ///         focus. A per-surface <c>Focused</c> is the larger change and is owed; what this buys is
-    ///         that the fallback is the window the user is looking at rather than the first one the
-    ///         application happened to open.
+    ///         ⚠ <b>It does not move any window's focus, and it does change what
+    ///         <see cref="Focused" /> answers.</b> The focus lives on the surface —
+    ///         <see cref="UiSurface.Focused" /> — and each window keeps its own across a switch, so
+    ///         this names which of them the document means by "the focus" rather than taking one
+    ///         window's caret and giving it to another. Nothing is focused or blurred by writing
+    ///         this, which is why the setter invalidates the two things that read the focus
+    ///         indirectly.
     ///     </para>
     /// </remarks>
     /// <exception cref="ArgumentException">The surface belongs to another document.</exception>
@@ -74,6 +76,13 @@ public sealed partial class UiDocument {
 
             var lost = keySurface;
             keySurface = value;
+
+            // ⚠ Because `Focused` and `CommandFocus` are derived from this, switching windows moves
+            // both without anything having been focused or blurred — so nothing else would say so.
+            // A menu asking which view answers `edit.copy`, and a screen reader asking what has the
+            // focus, both get a different answer from this line onwards.
+            InvalidateCommands();
+            InvalidateAccessibility();
 
             // ⚠ Both edges, and the losing one first, so that a handler reading `IUiWindow.IsKey`
             // on either window during either raise reads the state after the change rather than

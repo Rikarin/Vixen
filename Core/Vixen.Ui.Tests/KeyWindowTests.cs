@@ -23,11 +23,12 @@ namespace Vixen.Ui.Tests;
 ///         not been wired — a host embedding Vixen in its own event loop, for instance.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What is still owed, and these tests say so rather than implying otherwise.</b>
-///         <c>UiSurface.Focused</c> does not exist: <see cref="UiDocument.Focused" /> is one
-///         document-global element, so a keystroke aimed at an unfocused control in a background
-///         window still reaches whatever holds the document's focus. Only the nothing-focused case
-///         is fixed.
+///         ⚠ <b>The focus that outranks the delivering surface is now that surface's own.</b>
+///         <see cref="UiSurface.Focused" /> exists, so each window keeps its own first responder and
+///         a keystroke delivered to a torn-off inspector can no longer reach a field in the main
+///         window. Until it did, these tests asserted the opposite <i>as present behaviour</i> —
+///         which is what made the change show up here as two red tests rather than as nothing at
+///         all.
 ///     </para>
 /// </remarks>
 public class KeyWindowTests {
@@ -48,19 +49,105 @@ public class KeyWindowTests {
     }
 
     [Fact]
-    public void The_focus_still_outranks_the_surface_the_key_arrived_at() {
+    public void The_focus_that_outranks_the_delivering_surface_is_that_surface_s_own() {
         using var document = new UiDocument(200f, 100f);
         var inspector = document.CreateSurface(120f, 80f);
 
         var field = document.Root.Add("div");
         field.Focusable = true;
-        document.Focus(field);
 
-        // ⚠ The owed half, asserted as the current behaviour rather than left unstated. `Focused` is
-        // one document-global element, so a key delivered to the inspector while a control in the
-        // main window holds the focus still goes to that control. `UiSurface.Focused` is what would
-        // change this, and it does not exist.
-        Assert.Same(field, document.Dispatch(inspector, Pressed()));
+        Assert.True(document.Focus(field));
+
+        // ⚠ **The half that was owed, and it went the other way before.** A field in the main window
+        // holding the focus used to take a key the operating system had delivered to the inspector,
+        // because the focus was one element for the whole document and the surface only decided the
+        // fallback. The main window keeps its caret — nothing was blurred — and the key goes to the
+        // window it arrived at.
+        Assert.Same(inspector.Root, document.Dispatch(inspector, Pressed()));
+        Assert.Same(field, document.Primary.Focused);
+
+        // And within that window the focus outranks the root exactly as it always did, which is the
+        // rule the old assertion was really about.
+        var probe = inspector.Root.Add("div");
+        probe.Focusable = true;
+
+        Assert.True(document.Focus(probe));
+        Assert.Same(probe, document.Dispatch(inspector, Pressed()));
+
+        // ⚠ Two carets in one document, one per window, and both still there. This is what lets the
+        // user come back to the main window and go on typing where she left off, with no
+        // focus-restore machinery anywhere.
+        Assert.Same(field, document.Primary.Focused);
+        Assert.Same(probe, inspector.Focused);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The issue's Gate, with something focused in each window.</b> The verb, the document
+    ///     and the two handlers are the same; which one runs is decided by which window the user is
+    ///     in. While the command origin was one document-global element this could not be written at
+    ///     all — a menu opened over the inspector resolved <c>edit.copy</c> against whatever the main
+    ///     window had last focused.
+    /// </summary>
+    [Fact]
+    public void A_command_resolves_from_the_focus_in_the_key_window() {
+        using var document = new UiDocument(200f, 100f);
+        var inspector = document.CreateSurface(120f, 80f);
+
+        var here = document.Root.Add("div");
+        var there = inspector.Root.Add("div");
+
+        here.Focusable = true;
+        there.Focusable = true;
+
+        var ran = "";
+        here.AddCommandHandler("edit.copy", () => ran = "main");
+        there.AddCommandHandler("edit.copy", () => ran = "inspector");
+
+        Assert.True(document.Focus(here));
+        Assert.True(document.Focus(there));
+
+        // Nothing has been named key yet, so "the focus" is still the primary's — and the inspector
+        // holds its own caret at the same time without either having taken the other's.
+        Assert.True(CommandRoute.Execute(document, "edit.copy"));
+        Assert.Equal("main", ran);
+
+        document.KeySurface = inspector;
+
+        Assert.True(CommandRoute.Execute(document, "edit.copy"));
+        Assert.Equal("inspector", ran);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Tab is window-local, because a surface root ends the scope climb.</b> A surface
+    ///     root's parents run on to the document root, so without that rule Tab in the inspector
+    ///     would walk into the main window's controls — moving the focus to a window the user is not
+    ///     in, and leaving the key window with none.
+    /// </summary>
+    [Fact]
+    public void Tab_in_one_window_does_not_walk_into_another() {
+        using var document = new UiDocument(200f, 100f);
+        var inspector = document.CreateSurface(120f, 80f);
+
+        var here = document.Root.Add("div");
+        here.Focusable = true;
+
+        var first = inspector.Root.Add("div");
+        var second = inspector.Root.Add("div");
+
+        first.Focusable = true;
+        second.Focusable = true;
+
+        document.KeySurface = inspector;
+
+        Assert.True(document.Focus(first));
+        Assert.True(document.MoveFocus(FocusDirection.Next));
+        Assert.Same(second, document.Focused);
+
+        // ⚠ And it wraps rather than escaping: two stops in this window, so Next from the last is
+        // the first again and never the control in the other one.
+        Assert.True(document.MoveFocus(FocusDirection.Next));
+        Assert.Same(first, document.Focused);
+        Assert.Null(document.Primary.Focused);
     }
 
     [Fact]

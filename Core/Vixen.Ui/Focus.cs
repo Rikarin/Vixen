@@ -96,7 +96,41 @@ public sealed partial class UiDocument {
     UiElement? resigning;
 
     /// <summary>The element the keyboard is talking to.</summary>
-    public UiElement? Focused { get; private set; }
+    /// <remarks>
+    ///     ⚠ <b>Derived from <see cref="KeySurface" /> rather than stored, and it used to be one
+    ///     field for the whole document.</b> The focus lives on the surface that holds it — see
+    ///     <see cref="UiSurface.Focused" /> — so a second window keeps its own caret while the user
+    ///     is in the first, and this reads the one the window manager says the user is looking at.
+    ///     With no key surface named it is the primary's, which is what every single-window
+    ///     application has always meant by "the focus".
+    /// </remarks>
+    public UiElement? Focused => Home().Focused;
+
+    /// <summary>The surface a focus question is about when nothing names one.</summary>
+    /// <remarks>
+    ///     The key window if the window manager has named one, and the primary otherwise. ⚠ Not
+    ///     <see cref="Primary" /> alone: the whole point of a per-surface focus is that "the focus"
+    ///     means the window being typed into.
+    /// </remarks>
+    UiSurface Home() => keySurface ?? surfaces[0];
+
+    /// <summary>The surface an element is shown in, without the disposal check <see cref="SurfaceOf" /> makes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Reached from teardown, which is why it is not <see cref="SurfaceOf" />.</b> Removing
+    ///     a subtree releases the focus that pointed into it, and a document being disposed removes
+    ///     its tree — so the public walk's <c>ThrowIfDisposed</c> would turn the last tidy-up into an
+    ///     exception. An element with no surface above it is the primary's by construction: only a
+    ///     surface root is marked, and every other element is under one.
+    /// </remarks>
+    UiSurface Holding(UiElement element) {
+        for (var walk = element; walk is not null; walk = walk.Parent) {
+            if (walk.SurfaceRoot is { } surface) {
+                return surface;
+            }
+        }
+
+        return surfaces[0];
+    }
 
     /// <summary>The element a command id resolves from — the focus, ignoring the surfaces that show commands.</summary>
     /// <remarks>
@@ -114,14 +148,21 @@ public sealed partial class UiDocument {
     ///         again would land on the hidden item. This one never moved.
     ///     </para>
     /// </remarks>
-    public UiElement? CommandFocus { get; private set; }
+    public UiElement? CommandFocus => Home().CommandFocus;
 
     /// <summary>Forgets the command focus if it is inside a subtree that is going away.</summary>
+    /// <remarks>
+    ///     ⚠ Every surface, not the key one. A window can be closed while another is key, and the
+    ///     origin left behind would be an element outside the document — which is what
+    ///     <see cref="UiElement.Document" /> throws on.
+    /// </remarks>
     void ReleaseCommandFocus(UiElement removed) {
-        for (var origin = CommandFocus; origin is not null; origin = origin.Parent) {
-            if (ReferenceEquals(origin, removed)) {
-                CommandFocus = null;
-                return;
+        foreach (var surface in surfaces) {
+            for (var origin = surface.CommandFocus; origin is not null; origin = origin.Parent) {
+                if (ReferenceEquals(origin, removed)) {
+                    surface.CommandFocus = null;
+                    break;
+                }
             }
         }
     }
@@ -160,7 +201,22 @@ public sealed partial class UiDocument {
     ///         and said plainly so the paragraph above is not read as a defended claim.
     ///     </para>
     /// </remarks>
-    public bool Focus(UiElement? element, bool force = false) {
+    public bool Focus(UiElement? element, bool force = false) =>
+        Focus(element is null ? Home() : Holding(element), element, force);
+
+    /// <summary>Moves the focus within one window.</summary>
+    /// <param name="surface">The window whose focus is being moved.</param>
+    /// <param name="element">The element, which must be in that surface, or <c>null</c>.</param>
+    /// <param name="force">As <see cref="Focus(UiElement,bool)" />.</param>
+    /// <returns>Whether the focus is now where it was asked for.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Focusing something in a background window does not make that window key.</b> The
+    ///     window manager decides which window the user is in and says so through
+    ///     <see cref="KeySurface" />; an application arranging its own second window is not the
+    ///     user clicking on it, and a focus call that raised a window would make every
+    ///     <c>Focus(…)</c> in a construction path steal the keyboard.
+    /// </remarks>
+    internal bool Focus(UiSurface surface, UiElement? element, bool force) {
         if (element is not null && !element.Focusable) {
             return false;
         }
@@ -175,11 +231,11 @@ public sealed partial class UiDocument {
             // clearing an already-clear focus succeeds — the old `false` was indistinguishable from
             // a refusal, which was harmless while nothing could refuse and is a real bug the moment
             // something can.
-            if (ReferenceEquals(Focused, element)) {
+            if (ReferenceEquals(surface.Focused, element)) {
                 return true;
             }
 
-            var previous = Focused;
+            var previous = surface.Focused;
 
             // ⚠ Raised before anything is written, which is the point of it: an element asked to
             // give the focus up after it has already gone is being told, not asked. This is the same
@@ -220,7 +276,7 @@ public sealed partial class UiDocument {
                 // what stops two handlers that each re-focus the other from spinning here for ever;
                 // it is allocated only when a handler has actually moved the focus, which is close
                 // to never.
-                if (!ReferenceEquals(Focused, previous)) {
+                if (!ReferenceEquals(surface.Focused, previous)) {
                     asked ??= [];
 
                     if (asked.Contains(previous)) {
@@ -240,21 +296,22 @@ public sealed partial class UiDocument {
                 return false;
             }
 
-            return Give(previous, element);
+            return Give(surface, previous, element);
         }
     }
 
     /// <summary>Writes a focus change that has been agreed to.</summary>
+    /// <param name="surface">The window whose focus is moving.</param>
     /// <param name="previous">What had it, read after the last handler ran rather than before.</param>
     /// <param name="element">What is getting it.</param>
     /// <returns><c>true</c>, so the one caller reads as a decision followed by its consequence.</returns>
-    bool Give(UiElement? previous, UiElement? element) {
-        Focused = element;
+    bool Give(UiSurface surface, UiElement? previous, UiElement? element) {
+        surface.Focused = element;
 
         // ⚠ The one place the command route's origin is written, and it is deliberately *not* every
         // focus change. See `CommandFocus`.
         if (element is null || !element.IsInCommandTransparentSubtree) {
-            CommandFocus = element;
+            surface.CommandFocus = element;
 
             // Inside the branch, not outside it: a focus change that leaves the route where it was
             // — every press on a menu, on a menu bar and on a toolbar button — cannot have changed
@@ -278,6 +335,7 @@ public sealed partial class UiDocument {
     }
 
     /// <summary>Takes the focus away when a press lands on something that cannot hold it.</summary>
+    /// <param name="surface">The window the press landed in.</param>
     /// <param name="target">What the press was routed to, or <c>null</c> if it landed on nothing.</param>
     /// <param name="focused">What had the focus when the press landed.</param>
     /// <remarks>
@@ -306,10 +364,14 @@ public sealed partial class UiDocument {
     ///         selection because the panel around it was scrolled.
     ///     </para>
     /// </remarks>
-    void Defocus(UiElement? target, UiElement? focused) {
+    void Defocus(UiSurface surface, UiElement? target, UiElement? focused) {
         // Nothing to take away, or the route has already moved the focus itself and is entitled to
         // the last word — including moving it to nothing.
-        if (focused is null || !ReferenceEquals(Focused, focused) || Captured is not null) {
+        //
+        // ⚠ Compared against *that* surface's focus rather than the document's. A click on the
+        // background of a window the user has just switched to would otherwise be read against the
+        // window they left, and would clear a caret in a window nobody clicked in.
+        if (focused is null || !ReferenceEquals(surface.Focused, focused) || Captured is not null) {
             return;
         }
 
@@ -319,7 +381,7 @@ public sealed partial class UiDocument {
             }
         }
 
-        Focus(null);
+        Focus(surface, null, false);
     }
 
     /// <summary>Moves the focus one step round the tab order.</summary>
@@ -455,18 +517,29 @@ public sealed partial class UiDocument {
     ///     </para>
     /// </remarks>
     void Reseat() {
-        if (Focused is not { } focused || Reachable(focused)) {
+        // ⚠ Every surface, and not only the key one. A style change that hides a control is a pass
+        // over the whole document; a background window whose focus had been hidden would otherwise
+        // keep pointing at an element the tab order can no longer see, and would hand the keyboard
+        // to it the moment the user switched back.
+        for (var i = 0; i < surfaces.Count; i++) {
+            Reseat(surfaces[i]);
+        }
+    }
+
+    /// <inheritdoc cref="Reseat()" />
+    void Reseat(UiSurface surface) {
+        if (surface.Focused is not { } focused || Reachable(focused)) {
             return;
         }
 
         for (var candidate = focused.Parent; candidate is not null; candidate = candidate.Parent) {
             if (candidate.Focusable && Reachable(candidate)) {
-                Focus(candidate, force: true);
+                Focus(surface, candidate, true);
                 return;
             }
         }
 
-        Focus(null, force: true);
+        Focus(surface, null, true);
     }
 
     /// <summary>Whether the tab order can see an element, which is the rule <see cref="Collect(UiElement, List{UiElement})" /> walks.</summary>
@@ -493,15 +566,24 @@ public sealed partial class UiDocument {
         return true;
     }
 
-    /// <summary>The innermost focus scope containing the focus, or the root.</summary>
+    /// <summary>The innermost focus scope containing the focus, or the window it is in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A surface root ends the climb, which makes Tab window-local.</b> A surface root's
+    ///     parents run on to the document root — deliberately, since that is what keeps one style
+    ///     tree and lets a routed event reach the control that opened the window — so without this a
+    ///     Tab pressed in a torn-off inspector would walk into the main window's tab order and hand
+    ///     it the keyboard, leaving <see cref="Focused" /> reading the key window's <c>null</c> and
+    ///     the next Tab starting from the top again. Identical for a single-window document, where
+    ///     the primary's root <i>is</i> <see cref="Root" />.
+    /// </remarks>
     UiElement Scope() {
         for (var element = Focused; element is not null; element = element.Parent) {
-            if (element.IsFocusScope) {
+            if (element.IsFocusScope || element.SurfaceRoot is not null) {
                 return element;
             }
         }
 
-        return Root;
+        return Home().Root;
     }
 
     /// <summary>Moves the focus flags from one chain to another.</summary>

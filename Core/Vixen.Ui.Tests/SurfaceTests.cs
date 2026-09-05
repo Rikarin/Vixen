@@ -261,13 +261,28 @@ public class SurfaceTests {
         var args = new KeyEvent { Key = Input.InputKey.F5, Action = KeyAction.Pressed };
         Assert.Same(second.Root, document.Dispatch(args));
 
-        // The focus still outranks it, and has to: the key surface is the answer to "where is the
-        // user" and the focus is the answer to "what is she typing into", and only the second exists
-        // once something has been clicked.
+        // ⚠ **A focus in the OTHER window does not pull the keystroke back, and it used to.** The
+        // key surface answers "where is the user" and the focus answers "what is she typing into",
+        // and the second question is asked of the window the first named — so a caret left behind in
+        // the main window is not what the user is typing into while she is in the inspector.
         var field = document.Root.Add("div");
         field.Focusable = true;
-        document.Focus(field);
 
+        Assert.True(document.Focus(field));
+        Assert.Same(second.Root, document.Dispatch(new KeyEvent { Key = Input.InputKey.F5, Action = KeyAction.Pressed }));
+
+        // The focus in the key window does outrank its root, which is the half that was always true.
+        var probe = second.Root.Add("div");
+        probe.Focusable = true;
+
+        Assert.True(document.Focus(probe));
+        Assert.Same(probe, document.Dispatch(new KeyEvent { Key = Input.InputKey.F5, Action = KeyAction.Pressed }));
+        Assert.Same(probe, document.Focused);
+
+        // Switching back finds the main window's caret where it was left.
+        document.KeySurface = document.Primary;
+
+        Assert.Same(field, document.Focused);
         Assert.Same(field, document.Dispatch(new KeyEvent { Key = Input.InputKey.F5, Action = KeyAction.Pressed }));
     }
 

@@ -1667,9 +1667,11 @@ Vixen.Ui.UiPropertyRegistry -> static class
 Vixen.Ui.UiSurface -> sealed class
 Vixen.Ui.UiSurface.ColorScheme.get -> Vixen.Ui.Styling.ColorSchemePreference
 Vixen.Ui.UiSurface.ColorScheme.set -> Vixen.Ui.Styling.ColorSchemePreference
+Vixen.Ui.UiSurface.CommandFocus.get -> Vixen.Ui.UiElement?
 Vixen.Ui.UiSurface.Document.get -> Vixen.Ui.UiDocument
 Vixen.Ui.UiSurface.DpiScale.get -> float
 Vixen.Ui.UiSurface.Drawing.get -> Vixen.Ui.DrawList
+Vixen.Ui.UiSurface.Focused.get -> Vixen.Ui.UiElement?
 Vixen.Ui.UiSurface.Gamut.get -> Vixen.Core.Mathematics.ColorGamut
 Vixen.Ui.UiSurface.Gamut.set -> Vixen.Core.Mathematics.ColorGamut
 Vixen.Ui.UiSurface.Height.get -> float
