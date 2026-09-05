@@ -168,12 +168,22 @@ sealed class LayerStackPreview : IDisposable {
 
         Evaluations++;
 
+        // ⚠ The plan's cautions, said here because until now nothing anywhere read one — the reason
+        // #801 was declined twice. A caution is a plan that bakes and does not draw what the stack
+        // describes: an op reading an image of a size it does not write (#801), a radius past its
+        // kernel's loop (#692). `TextureGraphCompiler` surfaces `Validate()` — the refusals — and a
+        // caution reached `TextureBake.Warnings` and stopped there, which made every guard of this
+        // kind a finished thing nothing called.
+        var cautions = bake.Warnings.Length > 0
+            ? " ⚠ " + string.Join(" · ", bake.Warnings)
+            : "";
+
         return new(
             uploaded,
             usage,
             picture.Width,
             picture.Height,
-            $"Preview: '{usage}', compiled from this stack and evaluated on the editor's device."
+            $"Preview: '{usage}', compiled from this stack and evaluated on the editor's device." + cautions
         );
     }
 

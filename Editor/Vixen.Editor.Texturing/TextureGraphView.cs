@@ -147,8 +147,29 @@ sealed class TextureGraphView {
 
         title.Text = "Result — " + Resolution(document);
 
+        // ⚠ The compounds that would not read, and this is the only place the loss is visible —
+        // #803. `TextureCompoundLibrary.Publish` reports and skips rather than throwing, so that one
+        // bad file in `Assets/Compounds` does not cost an author every other node in the menu; the
+        // cost of that decision is a node type silently missing from the search popup, and until
+        // this line nothing anywhere read `TextureGraphDocument.CompoundProblems`.
+        if (document.CompoundProblems.Length > 0) {
+            status.Text = string.Join(
+                " · ",
+                document.CompoundProblems
+                    .Select(problem => $"'{problem.Path}' is not in the menu: {problem.Problem}")
+                    .Prepend(status.Text)
+            );
+        }
+
         Canvas.Graph = document.Graph;
         Canvas.Registry = document.Registry;
+
+        // ⚠ What the *canvas* does with a published node type, which is the half of #803 the
+        // document's own wire left dark: `NodeGraphView` uses this only to tell a sub-graph node
+        // from an ordinary one, so that double-clicking one raises `SubGraphOpened` with the graph
+        // it stands for. Without it a compound is a node that looks atomic and cannot be looked
+        // inside, on a canvas whose registry offers it.
+        Canvas.SubGraphSource = document.SubGraphs;
 
         // The document's own stack, which is what makes every gesture on the canvas one undo entry in
         // the same history as everything else done to this asset.

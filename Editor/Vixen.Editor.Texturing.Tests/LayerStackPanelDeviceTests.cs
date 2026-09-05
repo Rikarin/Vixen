@@ -168,6 +168,74 @@ public class LayerStackPanelDeviceTests {
     /// <summary>A stack whose one fill authors an ordered colour no default matches.</summary>
     /// <param name="side">How big to bake it.</param>
     /// <returns>The stack.</returns>
+    /// <summary>A plan's caution reaches the pane's sentence rather than stopping at the bake.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Why #801 was declined twice, closed here.</b> <c>TexturePlan.Check</c> has had a
+    ///         third severity since <a href="https://github.com/Rikarin/Vixen/issues/692">#692</a> —
+    ///         the plan bakes and does not draw what the graph describes — and every caution it
+    ///         produced stopped at <c>TextureBake.Warnings</c>, which nothing in the editor or the
+    ///         CLI read. A guard nobody reads is this repository's commonest defect, so the guard
+    ///         landed with a reader.
+    ///     </para>
+    ///     <para>
+    ///         <b>The caution is a real one and it is #692's own.</b> <c>Filters/Sharpen</c> loops to
+    ///         8 texels at the base resolution and this mask effect asks for 32, so the picture is
+    ///         sharpened by a quarter of what the stack says — which is exactly the class of defect
+    ///         nothing anywhere used to mention.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_plans_caution_reaches_the_panes_sentence() {
+        using var device = Open();
+        using var fixture = new TexturingFixture(device);
+
+        using LayerStackPreview preview = new(fixture.Graphics!);
+
+        var stack = Painted(64);
+
+        stack.Sets[0].Layers[0] = stack.Sets[0].Layers[0] with {
+            Mask = new() {
+                Source = LayerMaskSource.Constant,
+                Value = 1f,
+                Effects = [
+                    new() {
+                        Node = "Filters/Sharpen",
+                        Values = { ["Radius"] = [32f] }
+                    }
+                ]
+            }
+        };
+
+        var document = new LayerStackDocument(
+            fixture.Project,
+            LayerStackPanelTests.AddStack(fixture, "Hull"),
+            fixture.Paths.Absolute("Assets/Hull" + LayerStackDocument.Extension)
+        ) {
+            Document = stack
+        };
+
+        var picture = preview.Evaluate(document);
+
+        // It baked: a caution is a report about the picture and not a refusal of the plan.
+        Assert.NotNull(picture.Image);
+
+        Assert.Contains("Sharpen", picture.Status, StringComparison.Ordinal);
+        Assert.Contains("32", picture.Status, StringComparison.Ordinal);
+
+        // The instrument: a stack with no such effect says the same sentence without the caution, so
+        // this cannot be passing on a pane that appends a warning whatever happened.
+        var plain = new LayerStackDocument(
+            fixture.Project,
+            LayerStackPanelTests.AddStack(fixture, "Plain"),
+            fixture.Paths.Absolute("Assets/Plain" + LayerStackDocument.Extension)
+        ) {
+            Document = Painted(64)
+        };
+
+        Assert.DoesNotContain("⚠", preview.Evaluate(plain).Status, StringComparison.Ordinal);
+    }
+
     static LayerStackAsset Painted(int side) {
         var stack = LayerStackDocument.Starter("Hull");
 
