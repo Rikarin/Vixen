@@ -107,8 +107,8 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **242** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **25** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **243** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **24** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
 | **absent** | not emitted at all | **60** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
@@ -494,7 +494,7 @@ refusal block, which already says so for the same reason.
 | Borders | 34 | 28 | 2 | 0 | 4 | 0 |
 | Effects | 34 | 27 | 2 | 0 | 5 | 0 |
 | Flexbox and Grid | 34 | 30 | 2 | 0 | 2 | 0 |
-| Typography | 34 | 22 | 3 | 0 | 9 | 0 |
+| Typography | 34 | 23 | 2 | 0 | 9 | 0 |
 | Spacing | 24 | 24 | 0 | 0 | 0 | 0 |
 | Transforms | 23 | 10 | 3 | 0 | 10 | 0 |
 | Filters | 20 | 10 | 10 | 0 | 0 | 0 |
@@ -504,7 +504,7 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 |
-| **Total** | **331** | **242** | **25** | **1** | **60** | **3** |
+| **Total** | **331** | **243** | **24** | **1** | **60** | **3** |
 
 Flexbox and Grid leads at 30 of 34, with only two absent roots left and both of those refused on
 policy rather than owed; then Layout at 35 of 50, Interactivity at 30 of 40, Borders at 28 of 34,

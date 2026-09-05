@@ -55,6 +55,8 @@ public sealed partial class UiDocument : IDisposable {
     string language = string.Empty;
     readonly int ellipsis;
     readonly int nowrap;
+    readonly int balance;
+    readonly int pretty;
     readonly int anywhere;
     readonly int breakWord;
     readonly int breakAll;
@@ -152,6 +154,8 @@ public sealed partial class UiDocument : IDisposable {
         fontFamily = Styles.Properties.Intern("font-family");
         whiteSpace = Styles.Properties.Intern("white-space");
         textWrap = Styles.Properties.Intern("text-wrap");
+        balance = Styles.Values.Intern("balance");
+        pretty = Styles.Values.Intern("pretty");
         overflowWrap = Styles.Properties.Intern("overflow-wrap");
         wordBreak = Styles.Properties.Intern("word-break");
         textOverflow = Styles.Properties.Intern("text-overflow");
@@ -2122,16 +2126,42 @@ public sealed partial class UiDocument : IDisposable {
     ///         case anybody writes, and <c>whitespace-normal</c> is the opt-out for the other.
     ///     </para>
     ///     <para>
-    ///         ⚠ <c>balance</c> and <c>pretty</c> are values of this property that fall through to
-    ///         "wraps", which is the honest answer rather than a gap: both ask for a *better* set of
-    ///         line breaks, <c>LineWrapper</c> is greedy first-fit on purpose, and neither utility is
-    ///         registered — so no class can put either value here. See docs/plan/43's Typography
-    ///         section for what a balancing pass would cost.
+    ///         ⚠ <c>balance</c> and <c>pretty</c> still fall through to "wraps" here, and that is now
+    ///         the whole of what this method has to say about them: both wrap, and <i>which</i> of the
+    ///         legal breaks they take is <see cref="TextWrapStyleOf" />'s question rather than this
+    ///         one. This paragraph used to say the two were indistinguishable from the default
+    ///         because <c>LineWrapper</c> is greedy first-fit on purpose; the wrapper has a second
+    ///         pass now, and the two classes are registered.
     ///     </para>
     /// </remarks>
     internal bool WrapsOf(ComputedStyle style) =>
         (!style.TryGet(whiteSpace, out var collapsing) || collapsing != nowrap)
         && (!style.TryGet(textWrap, out var wrapping) || wrapping != nowrap);
+
+    /// <summary>Which of a paragraph's legal breaks it prefers. CSS Text 4's <c>text-wrap-style</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Read from <c>text-wrap</c>, which is the shorthand, because that is the property
+    ///         a stylesheet writes and this cascade does not expand shorthands.</b> The same
+    ///         declaration therefore answers two questions — <see cref="WrapsOf" /> asks whether the
+    ///         paragraph wraps at all, this asks which breaks it takes — and the two keyword sets are
+    ///         disjoint, so neither can see the other's answer.
+    ///     </para>
+    ///     <para>
+    ///         Anything else, including <c>wrap</c> and a value nobody here knows, is
+    ///         <see cref="TextWrapStyle.Auto" />: greedy first-fit, and exactly what every paragraph
+    ///         in this engine did before the two keywords were readable.
+    ///     </para>
+    /// </remarks>
+    internal TextWrapStyle TextWrapStyleOf(ComputedStyle style) {
+        if (!style.TryGet(textWrap, out var value)) {
+            return TextWrapStyle.Auto;
+        }
+
+        return value == balance ? TextWrapStyle.Balance
+            : value == pretty ? TextWrapStyle.Pretty
+            : TextWrapStyle.Auto;
+    }
 
     /// <summary>Whether a line too wide for its box ends in an ellipsis rather than being cut.</summary>
     /// <remarks>

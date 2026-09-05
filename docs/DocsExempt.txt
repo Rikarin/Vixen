@@ -3696,7 +3696,6 @@ T:Vixen.Ui.Text.ShapingCache sweep-pending
 T:Vixen.Ui.Text.TextItem sweep-pending
 T:Vixen.Ui.Text.TextItemizer sweep-pending
 T:Vixen.Ui.Text.TextShaper sweep-pending
-T:Vixen.Ui.Text.TextWrapMode sweep-pending
 T:Vixen.Ui.Text.WordBreakClass sweep-pending
 T:Vixen.Ui.Text.WordBreakMode sweep-pending
 T:Vixen.Ui.Text.WordBreaker sweep-pending
