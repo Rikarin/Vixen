@@ -245,15 +245,31 @@ public class TextureBudgetDeviceTests(ITestOutputHelper output) {
     }
 
     /// <summary>
-    ///     Under the budget nothing changed: the taps are still one texel apart and the impulse
-    ///     response is still flat.
+    ///     Under the budget nothing changed: the taps are still one texel apart, so a step comes out
+    ///     as a <b>straight line</b> of exactly <c>2r + 1</c> equal steps.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The half of the fix that is worth a test of its own.</b> Spacing the taps only past
-    ///     the budget means every radius an artist is likely to author takes exactly the path it took
-    ///     before — so this asserts the ordinary case is a unit-spaced box: a step blurred by 12
-    ///     ramps over 24 texels, which is <c>2r</c> and no wider. A spacing applied unconditionally
-    ///     would round the taps apart and widen it.
+    ///     <para>
+    ///         ⚠ <b>The half of the fix that is worth a test of its own.</b> Spacing the taps only
+    ///         past the budget means every radius an artist is likely to author takes exactly the path
+    ///         it took before, and the closed form for that is the box's own step response: with 25
+    ///         unit-weighted taps, the texel <c>d</c> to the right of the edge has <c>d + 13</c> of
+    ///         them on the white side, so the ramp climbs by <c>255 / 25</c> per texel and by nothing
+    ///         else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Measuring the ramp's <em>width</em> instead proves nothing, and that is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/707">#707</a>.</b> The obvious
+    ///         sabotage — <c>spacing = wide / MaxTaps</c>, dropping the <c>max(1f, …)</c> that
+    ///         confines the spreading to radii past the budget — leaves the width at exactly 24 and
+    ///         the whole file green. At a radius of 12 that spacing is 0.1875, the loop runs all 64
+    ///         iterations, and <c>round(i · 0.1875)</c> still tops out at 12: the reach is unchanged
+    ///         and only the <em>weights</em> move, three taps piling onto the outermost offset and two
+    ///         onto the centre. ⚠ <b>So the taps bunch together rather than spreading apart</b> — the
+    ///         superseded remark here said "would round the taps apart and widen it", and both halves
+    ///         of that were false. What the bunching does is bend the straight line into an S, which
+    ///         is what this now reads: 5.9/255 where the box owes 10.2 at the ramp's foot.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_radius_inside_the_budget_is_a_box_of_unit_spaced_taps() {
@@ -263,21 +279,42 @@ public class TextureBudgetDeviceTests(ITestOutputHelper output) {
 
         using var evaluator = new TexturePlanEvaluator(device);
 
+        const int Radius = 12;
+        const int Taps = (2 * Radius) + 1;
+        const int Edge = Authored / 2;
+
         var plan = new TexturePlan {
             BaseWidth = Authored,
             BaseHeight = Authored,
             Images = [new(TextureFormat.Rgba8, External: true), new(TextureFormat.Rgba16Float)],
-            Ops = [Blur(1, 0, 12f, 1, 0)],
+            Ops = [Blur(1, 0, Radius, 1, 0)],
             Outputs = [1]
         };
 
         using var bake = evaluator.Evaluate(plan, new Dictionary<int, TextureHandle> { [0] = source });
+        var picture = bake.Read(1);
+        var width = RampWidth(picture, Edge);
 
-        var width = RampWidth(bake.Read(1), Authored / 2);
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}; a radius of {Radius} ramps over {width} texels");
 
-        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}; a radius of 12 ramps over {width} texels");
+        Assert.Equal(2 * Radius, width);
 
-        Assert.Equal(24, width);
+        // The whole profile, texel by texel, against the box's own step response. A tap at offset
+        // `d` from texel `x` lands on the white side when `x + d >= Edge`, so the count is
+        // `x - Edge + Radius + 1` clamped into 0..Taps — one equal step per texel and no curve
+        // anywhere in it.
+        for (var x = Edge - Radius - 2; x <= Edge + Radius + 2; x++) {
+            var lit = Math.Clamp(x - Edge + Radius + 1, 0, Taps);
+            var expected = (int)MathF.Round(255f * lit / Taps);
+            var measured = TextureKernelHarness.At(picture, x, Edge, 0);
+
+            Assert.True(
+                Math.Abs(measured - expected) <= 2,
+                $"texel {x} reads {measured} and a {Taps}-tap box owes {expected} ({lit} of {Taps} taps on the "
+                + $"white side) on {TextureKernelHarness.Adapter(device)} — the profile is not a straight ramp, "
+                + "so the taps are not one texel apart"
+            );
+        }
 
         device.Destroy(staging);
         device.Destroy(source);

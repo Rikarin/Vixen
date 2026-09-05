@@ -308,7 +308,14 @@ static class TextureFilters {
     /// <param name="output">The image to write.</param>
     /// <param name="source">The image the walk samples.</param>
     /// <param name="slope">The slope field, as its red channel.</param>
-    /// <param name="intensity">The whole distance walked, in texels at the base resolution.</param>
+    /// <param name="intensity">
+    ///     How far a unit of slope walks, in texels at the base resolution, over all the steps
+    ///     together — <see cref="WarpOp" />'s quantity. ⚠ <b>Not the distance walked</b>: the path is
+    ///     <c>|∇h| · intensity</c>, so a slope field spanning 0.1 rather than 1.0 walks a tenth as
+    ///     far. <see href="https://github.com/Rikarin/Vixen/issues/706">#706</see> — both this line
+    ///     and <c>SlopeBlur.rvn</c>'s said "the whole distance walked", which is the number only over
+    ///     a field of unit slope.
+    /// </param>
     /// <param name="samples">
     ///     How many steps the walk is cut into. ⚠ <b>This changes the answer wherever the field
     ///     curves</b>, which is the node rather than a quality setting — see <c>SlopeBlur.rvn</c>.

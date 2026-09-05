@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Immutable;
+using System.Reflection;
 using Vixen.Editor.TextureGraph;
 using Vixen.Graphics;
 using Vixen.ShaderCompiler;
@@ -143,15 +145,68 @@ public class TextureSurfaceKernelTests {
     ///         Poisson instead would be a different node with a different convergence story, and doc
     ///         48 § 4.6 already named the solver it wants.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this asserted until
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/704">#704</a> was that a file was
+    ///         absent</b> — <c>Variant("NormalToHeight", …)</c> throws and the name is not in
+    ///         <c>TextureKernels.Names</c> — which is <c>An_unknown_kernel_is_refused_by_name</c>
+    ///         spelled twice, touches neither <see cref="TexturePlan" /> nor <see cref="TextureOp" />,
+    ///         and turns <b>red the day somebody adds <c>Shaders/NormalToHeight.rvn</c></b>. It also
+    ///         could not fail if the plan grew a CPU op tomorrow, which is the one thing its name
+    ///         claims. The same trap had already bitten one slice over: the base's unknown-name test
+    ///         used <c>"Warp"</c>, and § 4.4 then shipped a kernel called <c>Warp</c>.
+    ///     </para>
+    ///     <para>
+    ///         So the claim is asserted where it lives — <b>on the shape of an op</b>. An op is four
+    ///         pieces of data: a name, an image to write, images to read and numbers. There is no
+    ///         member that could carry code, no kind discriminator, and nothing the evaluator could
+    ///         branch on; and the plan's own <see cref="TexturePlan.Validate" /> has no opinion about
+    ///         what a kernel name means, which is what says every op is resolved the one way. ⚠ This
+    ///         goes red exactly when <see cref="TextureOp" /> grows a fifth member — which is the
+    ///         change § 4.6's sixth node is owed, so a failure here is the finding being answered
+    ///         rather than a test rotting.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_plan_cannot_express_an_operation_that_is_not_a_dispatch() {
-        var failure = Assert.Throws<ArgumentException>(
-            () => TextureKernels.Variant("NormalToHeight", TextureFormat.Rgba16Float)
+        var members = typeof(TextureOp)
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+            .Select(member => member.Name)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(["Inputs", "Kernel", "Output", "Parameters"], members);
+
+        // Every one of them is inert data — a string, an image index, indices, scalars. Nothing an op
+        // holds can be executed, which is the whole of "the plan cannot express a CPU operation".
+        Assert.Equal(typeof(string), typeof(TextureOp).GetProperty("Kernel")!.PropertyType);
+        Assert.Equal(typeof(int), typeof(TextureOp).GetProperty("Output")!.PropertyType);
+        Assert.Equal(typeof(ImmutableArray<int>), typeof(TextureOp).GetProperty("Inputs")!.PropertyType);
+
+        Assert.Equal(
+            typeof(ImmutableArray<TextureParameter>),
+            typeof(TextureOp).GetProperty("Parameters")!.PropertyType
         );
 
-        Assert.Contains("NormalToHeight", failure.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain("NormalToHeight", TextureKernels.Names);
+        // And the plan does not know what a kernel is: a name no `.rvn` will ever carry validates
+        // clean and is refused only where it is dispatched. That asymmetry is the finding — the one
+        // place an op is interpreted builds a compute pipeline out of it, so a solve that is not a
+        // dispatch has nowhere in a plan to be.
+        var plan = new TexturePlan {
+            BaseWidth = 8,
+            BaseHeight = 8,
+            Images = [new(TextureFormat.Rgba8)],
+            Ops = [new() { Kernel = "NoKernelIsCalledThis", Output = 0 }],
+            Outputs = [0]
+        };
+
+        Assert.Empty(plan.Validate());
+
+        var failure = Assert.Throws<ArgumentException>(
+            () => TextureKernels.Variant(plan.Ops[0].Kernel, TextureFormat.Rgba8)
+        );
+
+        Assert.Contains("NoKernelIsCalledThis", failure.Message, StringComparison.Ordinal);
     }
 
     static string Unqualified(string name, string shader) =>

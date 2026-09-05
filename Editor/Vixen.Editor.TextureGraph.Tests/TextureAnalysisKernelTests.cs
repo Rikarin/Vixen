@@ -285,6 +285,125 @@ public class TextureAnalysisKernelTests {
         Assert.Equal(["EdgeDetect.width"], scaled);
     }
 
+    /// <summary>
+    ///     ⚠ <b>Two distinct islands can never share a bounding box</b> — which refutes
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/691">#691</a> — but they very easily share
+    ///     its <em>minimum corner</em>, which is all the <c>Id</c> picture publishes.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>#691 recorded the box-as-identity as a known collision</b>, with "an L-shape and a
+    ///         small square tucked into its corner" as the realistic case. ⚠ <b>There is no such
+    ///         case.</b> Both islands would have to touch all four sides of the shared box, so one
+    ///         holds a connected left-to-right path across it and the other a top-to-bottom one; the
+    ///         4/8 duality of digital topology says a black 4-connected left-right crossing exists
+    ///         exactly when the white set has no 8-connected top-bottom one, and the mirror statement
+    ///         covers the eight-connected setting once the diagonal steps of the second island are
+    ///         filled in — the filler texels cannot belong to the first island without the two being
+    ///         adjacent, which would make them one island. Either way the two crossings cannot
+    ///         coexist. So <b>the settled box is a sound name</b> and the two-chain alternative #691
+    ///         costs its dispatches for nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What is real is one level down, and it is what "flood fill to index" actually
+    ///         reads</b>: <c>FloodFill.rvn</c>'s <c>kind == 0</c> stores <c>minX</c> and <c>minY</c>
+    ///         and nothing else, and two islands sharing a minimum corner with different boxes are
+    ///         ordinary — a bar and a hook that starts under its left end. Below, 1 273 of the 65 536
+    ///         four-by-four masks contain such a pair. <c>Id</c> therefore carries a third channel,
+    ///         <see cref="TextureFloodOutput.Id" />, and
+    ///         <c>TextureAnalysisDeviceTests.Two_islands_that_share_a_minimum_corner_still_get_two_ids</c>
+    ///         is the picture.
+    ///     </para>
+    ///     <para>
+    ///         <b>Exhaustive rather than sampled, and it walks the definition rather than the
+    ///         kernel</b> — this is a claim about connectivity, not about a dispatch, so a CPU
+    ///         enumeration is the right instrument and a device would only confirm one mask of it.
+    ///         ⚠ <b>The second assertion is the first one's instrument check</b>: a component walk
+    ///         that merged everything into one island, or found none, would report zero shared boxes
+    ///         and pass the headline vacuously. It has to find the minimum-corner collisions too.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void No_two_islands_ever_share_a_bounding_box_but_a_minimum_corner_is_not_a_name(bool diagonal) {
+        const int Side = 4;
+
+        var sharedBoxes = 0;
+        var sharedCorners = 0;
+
+        for (var bits = 1; bits < 1 << (Side * Side); bits++) {
+            var boxes = Islands(bits, Side, diagonal);
+
+            if (boxes.Count < 2) {
+                continue;
+            }
+
+            if (boxes.Distinct().Count() < boxes.Count) {
+                sharedBoxes++;
+            }
+
+            if (boxes.Select(box => (box.MinX, box.MinY)).Distinct().Count() < boxes.Count) {
+                sharedCorners++;
+            }
+        }
+
+        Assert.Equal(0, sharedBoxes);
+        Assert.Equal(diagonal ? 1302 : 1273, sharedCorners);
+    }
+
+    /// <summary>The bounding box of every connected island of a bitmask, one bit per texel.</summary>
+    static List<(int MinX, int MinY, int MaxX, int MaxY)> Islands(int bits, int side, bool diagonal) {
+        var seen = new bool[side * side];
+        var boxes = new List<(int MinX, int MinY, int MaxX, int MaxY)>();
+        var stack = new Stack<int>();
+
+        for (var start = 0; start < side * side; start++) {
+            if ((bits & (1 << start)) == 0 || seen[start]) {
+                continue;
+            }
+
+            var box = (MinX: side, MinY: side, MaxX: -1, MaxY: -1);
+
+            seen[start] = true;
+            stack.Push(start);
+
+            while (stack.Count > 0) {
+                var at = stack.Pop();
+                var x = at % side;
+                var y = at / side;
+
+                box = (Math.Min(box.MinX, x), Math.Min(box.MinY, y), Math.Max(box.MaxX, x), Math.Max(box.MaxY, y));
+
+                for (var dy = -1; dy <= 1; dy++) {
+                    for (var dx = -1; dx <= 1; dx++) {
+                        if ((dx == 0 && dy == 0) || (!diagonal && dx * dy != 0)) {
+                            continue;
+                        }
+
+                        var nx = x + dx;
+                        var ny = y + dy;
+
+                        if (nx < 0 || ny < 0 || nx >= side || ny >= side) {
+                            continue;
+                        }
+
+                        var next = (ny * side) + nx;
+
+                        if ((bits & (1 << next)) != 0 && !seen[next]) {
+                            seen[next] = true;
+                            stack.Push(next);
+                        }
+                    }
+                }
+            }
+
+            boxes.Add(box);
+        }
+
+        return boxes;
+    }
+
     static string Unqualified(string name, string shader) =>
         name.Length > shader.Length + 1
         && name.StartsWith(shader, StringComparison.Ordinal)

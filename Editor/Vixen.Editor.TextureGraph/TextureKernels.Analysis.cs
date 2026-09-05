@@ -33,7 +33,20 @@ internal enum TextureDistanceMode {
 ///     monotone iteration settle them.
 /// </remarks>
 internal enum TextureFloodOutput {
-    /// <summary>The island's name: the minimum corner of its box, normalised, in red and green.</summary>
+    /// <summary>
+    ///     The island's name: the minimum corner of its box in red and green, and the whole record
+    ///     hashed into blue.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Three channels, because the corner alone is not a name.</b> Two islands never share a
+    ///     settled bounding <em>box</em> — <see href="https://github.com/Rikarin/Vixen/issues/691">
+    ///     #691</see> says they can and they cannot; each would have to cross the shared box in both
+    ///     directions and digital topology's 4/8 duality forbids the pair. But they share its
+    ///     <em>minimum corner</em> all the time: a bar with a hook starting under its left end is
+    ///     enough, and 1 273 of the 65 536 four-by-four masks contain such a pair. So red and green
+    ///     stay the addressable corner and blue carries the rest, and a consumer comparing two ids
+    ///     compares all three.
+    /// </remarks>
     Id = 0,
 
     /// <summary>A value per island, seeded from the box and the op's own seed.</summary>

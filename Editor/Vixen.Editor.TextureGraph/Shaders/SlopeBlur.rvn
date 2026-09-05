@@ -55,7 +55,20 @@ shader SlopeBlur {
     /// The slope field. Its **red** channel is the height the walk descends.
     var slope: Texture2D
 
-    /// The whole distance walked, in texels of the image being written, over all the steps together.
+    /// How far a unit of slope walks, in texels of the image being written, over all the steps
+    /// together — `Warp.intensity`'s quantity and `Warp.intensity`'s wording.
+    ///
+    /// ⚠ **Not the distance walked**, which is what this said until
+    /// [#706](https://github.com/Rikarin/Vixen/issues/706). The loop steps by `−∇h · intensity / N`
+    /// and takes `N` of them, so the path is `|∇h| · intensity` long: a slope field whose red channel
+    /// spans 0.1 rather than 1.0 walks a **tenth** as far, and nothing about the number said so. It
+    /// reads as the distance only over a field of unit slope, which is exactly what
+    /// `TextureFilterDeviceTests`' `DownRamp` is — its 40 texels are authored as `40 × 255/256`
+    /// precisely because the number is a gain and not a length.
+    ///
+    /// **The gain is the node and the length would be a different one**: a slope blur moves further
+    /// where the field is steeper, which is what makes it stretch along an edge and stand still on a
+    /// flat. Normalising `∇h` to walk a fixed distance would smear the flats too.
     var intensity: float = 4f
 
     /// How many steps the walk is cut into. **0 is a copy**; the answer depends on this number
