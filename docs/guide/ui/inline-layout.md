@@ -4,7 +4,7 @@ slug: ui/inline-layout
 kind: guide
 area: Core
 summary: Line boxes over Vixen's layout store — inline-block and inline-flex, shrink-to-fit sizing, baseline alignment and vertical-align, and the one invariant an inline formatting context asks the store to give up.
-api: [T:Vixen.Ui.Layout.VerticalAlign, T:Vixen.Ui.Layout.LayoutFragmentEnds]
+api: [T:Vixen.Ui.Layout.VerticalAlign, T:Vixen.Ui.Layout.TextAlign, T:Vixen.Ui.Layout.LayoutFragmentEnds]
 tags: [ui, layout, inline, css, line-boxes, baseline]
 since: 0.2
 status: preview
@@ -126,6 +126,37 @@ between values defined against the **line box** and values defined against a **f
 than approximated, because rounding `middle` to `baseline` looks almost right and reads as a
 rendering quirk.
 
+### `text-align`
+
+Where the items on a line box sit along the **inline** axis, which is the half of the CSS property
+that <xref:Vixen.Ui.Layout.LegacyTextAlign> is not:
+
+```csharp no-compile="a fragment; `panel` is a container whose children are inline-level"
+tree.SetTextAlign(panel, TextAlign.Center);
+```
+
+| Value | State |
+|---|---|
+| `Start`, `End` | **done** — resolved against `direction`, like every other logical edge |
+| `Left`, `Right` | **done** — physical, and they do **not** flip with `direction` |
+| `Center` | **done** |
+| `justify` | **refused** — dropped at the stylesheet bridge |
+
+⚠ **The slack it distributes is the *line's*, not the container's.** A line beside a float has less
+of it, so a centred line centres in the band the float left rather than in the content box — and
+negative slack is left alone, so content wider than its line still overflows past the end edge.
+
+⚠ **`justify` is refused rather than aliased**, for the reason the five font-relative
+`vertical-align` values are: it asks for the slack to be spread *between* a line's words, and a text
+leaf is one atomic item here. Spreading it between whole inline-level boxes instead would look
+convincing and be a different feature. Dropped at the bridge, so the value falls back to `Start` —
+which is where CSS puts a justified block's last line anyway.
+
+⚠ **This moves boxes, never glyphs.** Text inside a leaf is aligned a layer out, by `Vixen.Ui`'s
+`TextAlignShift`, because that needs the shaped line's width and this store has no font. The two
+compose the way CSS says: a centred line box holding a shrink-to-fit leaf whose own lines are
+centred inside it.
+
 ### Fragmentation: when one node is several boxes
 
 Every other algorithm in this store preserves an invariant it never had to state: **one node
@@ -166,7 +197,7 @@ and so is one with an out-of-flow child. Both are limits of the walk rather than
 representation, and both are written up in `Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt`.
 
 Also absent, each with its reason in the same file: generated `::before`/`::after` boxes, the strut,
-`text-align`, `white-space`, `text-overflow: ellipsis`, `line-clamp` and bidirectional reordering.
+`white-space`, `text-overflow: ellipsis`, `line-clamp` and bidirectional reordering.
 ⚠ A generated box is the *opposite* direction from fragmentation — a box with no node behind it —
 and the fragment arena does not help. Anonymous block boxes were the other half of that direction
 and have landed; what a generated box still needs is a **style** of its own, which is a second style

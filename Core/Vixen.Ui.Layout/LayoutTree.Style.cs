@@ -182,6 +182,24 @@ public sealed partial class LayoutTree {
         MarkDirtyAndPropagate(index);
     }
 
+    /// <summary>Sets where this container puts the items on its line boxes, along the inline axis.</summary>
+    /// <remarks>
+    ///     ⚠ <c>text-align</c> proper, which is a different field from <see cref="SetLegacyTextAlign" />
+    ///     and governs different boxes — see <see cref="TextAlign" />. Setting it on a node whose
+    ///     children are block-level does nothing at all, which is what CSS says it should do.
+    /// </remarks>
+    /// <param name="node">The node.</param>
+    /// <param name="textAlign">The alignment.</param>
+    public void SetTextAlign(LayoutNodeId node, TextAlign textAlign) {
+        var index = Validate(node);
+        if (styles[index].TextAlign == textAlign) {
+            return;
+        }
+
+        styles[index].TextAlign = textAlign;
+        MarkDirtyAndPropagate(index);
+    }
+
     /// <summary>Sets which side this box floats to.</summary>
     /// <remarks>
     ///     ⚠ Floating a box takes it out of flow, makes it block-level and makes it a block

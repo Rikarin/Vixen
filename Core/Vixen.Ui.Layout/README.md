@@ -696,17 +696,19 @@ came from somewhere else entirely: it is the first layout feature here judged by
 corpus contains**, and the condition this section set on it — write the oracle first — was met by
 lifting WPT's parsing suite case for case rather than by re-expressing a reftest's geometry.
 
-**The strut, `text-align`, and generated boxes** — the parts of inline formatting still open. Two
-of the four this line used to name have closed: non-atomic inline fragmentation, and anonymous block
-boxes for mixed content. See [the inline section](#inline-formatting-and-the-invariant-nobody-had-written-down)
+**The strut and generated boxes** — the parts of inline formatting still open. Three of the five
+this line used to name have closed: non-atomic inline fragmentation, anonymous block boxes for mixed
+content, and now `text-align`. See [the inline section](#inline-formatting-and-the-invariant-nobody-had-written-down)
 and `Taffy/../InlineKnownGaps.txt`.
 
-⚠ **`text-align` here means the inline one and only the inline one.** CSS Text §7.1's three legacy
-keywords — `-webkit-left`, `-webkit-center`, `-webkit-right` — align a block container's
-*block-level children* rather than its inline content, which is a block-layout rule needing no line
-box at all, and they are implemented: `LegacyTextAlign` on `LayoutStyle`, read once in
-`WalkBlockChildren`. Sixteen Taffy fixtures cover them. Distributing the items on a *line* is the
-part still owed, and it has no oracle in either corpus.
+⚠ **`text-align` is two fields, and both are implemented.** CSS Text §7.1's three legacy keywords —
+`-webkit-left`, `-webkit-center`, `-webkit-right` — align a block container's *block-level children*
+rather than its inline content, which is a block-layout rule needing no line box at all:
+`LegacyTextAlign` on `LayoutStyle`, read once in `WalkBlockChildren`, sixteen Taffy fixtures. The
+inline half — distributing the items on a *line* — is `TextAlign`, read once in `PlaceLine`, and it
+has no oracle in either corpus, so `InlineTextAlignTests` is closed-form rather than recorded. ⚠ One
+CSS property, two fields, because a container can hold both kinds of child and the two answers are
+not the same answer. `justify` is refused at the stylesheet bridge rather than aliased.
 
 **Floats** — *done for block-level content, owed for inline.* All 92 fixtures pass. What none of
 them tests, and what is therefore still owed, is a line box narrowing beside a float: there is no
