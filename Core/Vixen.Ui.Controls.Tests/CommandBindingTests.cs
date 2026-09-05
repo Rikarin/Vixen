@@ -414,4 +414,62 @@ public class CommandBindingTests {
         items[0].Activate();
         Assert.Equal(1, runs);
     }
+
+    [Fact]
+    public void A_focused_text_box_answers_select_all_and_outranks_the_shell() {
+        using var fixture = new ControlFixture();
+
+        var shell = "";
+        fixture.Document.Root.AddCommandHandler("edit.select-all", () => shell = "shell");
+
+        var field = fixture.Document.Root.Add<TextBox>();
+        field.Value = "hello";
+        fixture.Update();
+
+        var menu = Menu(fixture);
+        var selectAll = Item(menu, "Select All", "edit.select-all");
+
+        // Nothing focused: the walk starts at the root and the shell's meaning is the only one.
+        menu.Open();
+        fixture.Update();
+        selectAll.Activate();
+        Assert.Equal("shell", shell);
+        Assert.Equal(0, field.CaretIndex);
+
+        // ⚠ The first production instance of `CommandRoute`'s defining rule. `AddCommandHandler` had
+        // zero callers outside test projects, so "the nearest responder wins" was a claim only its
+        // own tests could make. The field is nearer than the root, so the same menu item means
+        // something different because the caret is in a text box.
+        shell = "";
+        fixture.Document.Focus(field);
+        menu.Open();
+        fixture.Update();
+        selectAll.Activate();
+
+        Assert.Equal("", shell);
+        Assert.Equal(0, field.SelectionAnchor);
+        Assert.Equal(5, field.CaretIndex);
+    }
+
+    [Fact]
+    public void An_empty_text_box_greys_select_all_without_the_menu_knowing_why() {
+        using var fixture = new ControlFixture();
+
+        var field = fixture.Document.Root.Add<TextBox>();
+        fixture.Update();
+        fixture.Document.Focus(field);
+
+        var menu = Menu(fixture);
+        var selectAll = Item(menu, "Select All", "edit.select-all");
+
+        menu.Open();
+        fixture.Update();
+        Assert.True(selectAll.Disabled);
+
+        field.Value = "hello";
+        menu.Close();
+        menu.Open();
+        fixture.Update();
+        Assert.False(selectAll.Disabled);
+    }
 }

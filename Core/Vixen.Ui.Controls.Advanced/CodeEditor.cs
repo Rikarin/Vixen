@@ -550,6 +550,12 @@ public sealed partial class CodeEditor : Control {
         caretColorStandard = Document.PropertyId("caret-color");
         currentLineColor = Document.PropertyId("--current-line-color");
 
+        // The other half of `TextField`'s registration, and the reason both are done together: a
+        // rule that only one control in the library obeys is a special case rather than a chain. See
+        // `TextField.OnCreated` for why Select All is the only editing verb either of them can
+        // register today.
+        AddCommandHandler("edit.select-all", SelectAll, () => !Disabled && buffer.End != default);
+
         Gutter = Part("code-gutter");
         Scroller = Part<ScrollView>();
 
