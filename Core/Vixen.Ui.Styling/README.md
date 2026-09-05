@@ -127,8 +127,12 @@ rule mentions, does it appear against the element itself, as an ancestor, or bef
 combinator, and *what does the far end of that rule test*. The last part is what turns "restyle the
 subtree" into "restyle the `.cell`s in the subtree".
 
-Nothing needs to look upward, because Vixen does not support `:has()`. That is the second thing doc
-09's P2 decision buys, after match cost.
+⚠ **This used to say that nothing needs to look upward, because Vixen did not support `:has()`.**
+The reasoning was sound and its premise expired. `:has()` is supported now, so a name inside a
+`:has()` argument carries a fourth direction — `InvalidationEntry.ReachesAncestors` — and a change to
+it walks to the top of the tree and then collects by the far end's names from there. That is the cost
+doc 09's P2 decision was buying, and `HasInvalidationTests` measures it in elements resolved rather
+than leaving it as an adjective.
 
 Then the pass descends, and the stopping rule is the whole design: re-resolving gives back an
 *interned* style, so the question at each element is whether the properties a child would have
@@ -476,9 +480,16 @@ box sized by its contents.
 
 ## Deliberately not supported
 
-`:has()` — [doc 09](../../docs/plan/09-ui-framework.md) marks it P2 and gives the reason: it is
-expensive to match *incrementally*, which is the only way a UI can afford to match at all. (Doc 09
-lists container queries beside it; that entry is now stale — see the section above.) Anything else
+⚠ **`:has()` used to head this list and no longer does** — doc 09 marked it P2 on incremental match
+cost, and the cost turned out to be nameable rather than prohibitive: a subtree walk to match and an
+upward invalidation walk narrowed by the far end's names. What *is* refused is a `:has()` argument
+with a combinator in it. CSS anchors the argument at the element, so `:has(.a .b)` requires the `.a`
+to be inside the subtree too, and the obvious implementation — matching the nested selector against
+every descendant — also says yes when the `.a` is an ancestor. ⚠ And the relative form `:has(> .x)`
+cannot be refused here at all: ExCSS 4.3.2 parses it into the same node as `:has(.x)`, so the
+combinator is gone before this compiler sees it. `Variants` refuses `has-[>_.x]` at the one point
+where the text is still intact, and a hand-written rule is unguarded — filed as **#711**. (Doc 09 lists container queries beside `:has()`; that entry is stale
+too — see the section above.) Anything else
 Vixen does not understand is dropped with a diagnostic naming the selector, never approximated. A rule that silently matches more than it says produces a UI that is
 wrong everywhere nobody looked; a rule that does not load produces a message.
 

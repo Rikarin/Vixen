@@ -190,6 +190,21 @@ public static class Variants {
         // `not-sm:p-4` is not a class rather than being a class that means something else — the
         // distinction F6 was written about. The arbitrary form is refused for the third reason: its
         // `&` has to land somewhere, and `:not(&>*)` is not a selector.
+        // ⚠ The same bare-suffix rule `not-` follows, plus one refusal of its own. A `:has()`
+        // argument that begins with a combinator — v4's `has-[>_.x]` — is a *relative* selector, and
+        // ExCSS 4.3.2 parses `:has(> .x)` into the same node it parses `:has(.x)` into: the
+        // combinator is gone before the compiler can refuse it, and the rule would silently mean
+        // "any descendant" where the author wrote "a child". This is the one place the text is still
+        // intact, so this is where it is refused.
+        if (variant.StartsWith("has-", StringComparison.Ordinal)
+            && TryResolve(variant["has-".Length..], tokens, out var contained)
+            && contained is { SelectorPrefix.Length: 0, AtRule: null, SelectorSuffix.Length: > 0 }
+            && !IsArbitrary(contained)
+            && contained.SelectorSuffix.TrimStart()[0] is not ('>' or '+' or '~')) {
+            effect = new VariantEffect($":has({contained.SelectorSuffix})", string.Empty, null);
+            return true;
+        }
+
         if (variant.StartsWith("not-", StringComparison.Ordinal)
             && TryResolve(variant["not-".Length..], tokens, out var negated)
             && negated is { SelectorPrefix.Length: 0, AtRule: null, SelectorSuffix.Length: > 0 }

@@ -53,7 +53,18 @@ public enum SimpleSelectorKind : byte {
     Is,
 
     /// <summary><c>:empty</c> — the element has neither children nor text.</summary>
-    Empty
+    Empty,
+
+    /// <summary><c>:has()</c> — one of the nested selectors must match some descendant.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The only kind that looks <i>downward</i>, which is what made it a subsystem change
+    ///     rather than a case in a switch.</b> Every other simple selector is a question about the
+    ///     element or about what is above and before it, and <c>StyleInvalidator</c>'s whole design
+    ///     rested on that — its own remarks used to say "nothing needs to look upward". A
+    ///     <c>:has()</c> makes an element's style depend on its subtree, so a class added deep in a
+    ///     panel can restyle the panel, and the invalidator had to learn a fourth direction.
+    /// </remarks>
+    Has
 }
 
 /// <summary>How an attribute selector compares.</summary>

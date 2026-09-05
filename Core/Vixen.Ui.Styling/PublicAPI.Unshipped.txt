@@ -398,6 +398,7 @@ Vixen.Ui.Styling.SimpleSelectorKind -> enum : byte
 Vixen.Ui.Styling.SimpleSelectorKind.Attribute = 4 -> Vixen.Ui.Styling.SimpleSelectorKind
 Vixen.Ui.Styling.SimpleSelectorKind.Class = 3 -> Vixen.Ui.Styling.SimpleSelectorKind
 Vixen.Ui.Styling.SimpleSelectorKind.Empty = 9 -> Vixen.Ui.Styling.SimpleSelectorKind
+Vixen.Ui.Styling.SimpleSelectorKind.Has = 10 -> Vixen.Ui.Styling.SimpleSelectorKind
 Vixen.Ui.Styling.SimpleSelectorKind.Id = 2 -> Vixen.Ui.Styling.SimpleSelectorKind
 Vixen.Ui.Styling.SimpleSelectorKind.Is = 8 -> Vixen.Ui.Styling.SimpleSelectorKind
 Vixen.Ui.Styling.SimpleSelectorKind.Not = 7 -> Vixen.Ui.Styling.SimpleSelectorKind
@@ -457,6 +458,7 @@ Vixen.Ui.Styling.StyleEngine.Values.get -> Vixen.Ui.Styling.NameTable
 Vixen.Ui.Styling.StyleInvalidator -> sealed class
 Vixen.Ui.Styling.StyleInvalidator.Collect(Vixen.Ui.Styling.StyleTree tree, Vixen.Ui.Styling.StyleNodeId element, System.ReadOnlySpan<int> changed, bool stateChanged, System.Collections.Generic.List<Vixen.Ui.Styling.StyleNodeId> roots) -> void
 Vixen.Ui.Styling.StyleInvalidator.Read(Vixen.Ui.Styling.StyleRuleSet rules) -> void
+Vixen.Ui.Styling.StyleInvalidator.StateReachesAncestors.get -> bool
 Vixen.Ui.Styling.StyleInvalidator.StateReachesDescendants.get -> bool
 Vixen.Ui.Styling.StyleInvalidator.StateReachesEverything.get -> bool
 Vixen.Ui.Styling.StyleInvalidator.StateReachesSiblings.get -> bool

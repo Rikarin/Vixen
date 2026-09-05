@@ -403,8 +403,16 @@ public class SelectorMatchingTests {
     public void A_selector_Vixen_does_not_support_is_dropped_with_a_diagnostic() {
         // Dropped rather than approximated. A rule that silently matches more than it says produces
         // a UI that is wrong everywhere nobody looked; a rule that does not load produces a message.
+        //
+        // ⚠ This used to be written against `:has(.x)`, which now compiles. The refusal it stands on
+        // is the *argument* restriction instead, and that is a stricter example rather than a
+        // weaker one: `:has(.a .b)` is a selector this compiler could very nearly answer, and the
+        // reason it does not is precisely that "nearly" would be a rule matching more than it says.
+        // CSS anchors a `:has()` argument at the element, so the `.a` has to be inside the subtree
+        // too — and testing the nested selector against every descendant also says yes when the
+        // `.a` is an ancestor of the element the rule is about.
         var fixture = new StyleFixture();
-        var compiled = fixture.Load(".ok { color: red } .bad:has(.x) { color: blue } .also-ok { color: green }");
+        var compiled = fixture.Load(".ok { color: red } .bad:has(.a .b) { color: blue } .also-ok { color: green }");
 
         Assert.Equal(2, compiled.Count);
         Assert.Single(fixture.Compiler.Diagnostics);
@@ -414,7 +422,50 @@ public class SelectorMatchingTests {
         // name "HasSelector" both contain it, and the message said the second one.
         var diagnostic = fixture.Compiler.Diagnostics[0];
 
-        Assert.Contains(":has(.x)", diagnostic.Reason, StringComparison.Ordinal);
+        Assert.Contains(":has(.a .b)", diagnostic.Reason, StringComparison.Ordinal);
         Assert.DoesNotContain("Selector", diagnostic.Reason, StringComparison.Ordinal);
+
+        // And the pseudo-element refusal, which is the other half of the same rule and is the one
+        // that has to keep working — F6 exists because `p::before` used to compile and style the
+        // paragraph.
+        var second = new StyleFixture();
+
+        Assert.Empty(second.Load("p::before { color: red }"));
+        Assert.Single(second.Compiler.Diagnostics);
+    }
+
+    [Fact]
+    public void A_has_selector_asks_about_the_subtree_and_only_the_subtree() {
+        var fixture = new StyleFixture();
+        var page = fixture.Tree.CreateElement("div", classNames: ["page"]);
+        var card = fixture.Tree.CreateElement("div", page, classNames: ["card"]);
+        var body = fixture.Tree.CreateElement("div", card, classNames: ["body"]);
+        var field = fixture.Tree.CreateElement("input", body, classNames: ["field"]);
+        var plain = fixture.Tree.CreateElement("div", page, classNames: ["card"]);
+
+        Assert.False(fixture.Matches(".card:has(.error)", card));
+
+        fixture.Tree.AddClass(field, "error");
+
+        // ⚠ Any depth, not just a child. The whole subtree is the question `:has()` asks, and an
+        // implementation that only looked one level down passes every fixture whose interesting
+        // element happens to be a direct child — which is most of them.
+        Assert.True(fixture.Matches(".card:has(.error)", card));
+        Assert.True(fixture.Matches(".page:has(.error)", page));
+        Assert.False(fixture.Matches(".card:has(.error)", plain));
+
+        // ⚠ And not the element itself, which is the boundary CSS draws and the easy one to cross:
+        // `:has()` is about descendants, so a card that *is* the error does not have one.
+        Assert.False(fixture.Matches(".field:has(.error)", field));
+
+        // State, so that `has-checked:` composes over the same table `hover:` does.
+        fixture.Tree.SetState(field, ElementState.Checked);
+
+        Assert.True(fixture.Matches(".card:has(:checked)", card));
+        Assert.False(fixture.Matches(".card:has(:hover)", card));
+
+        // A list argument is a disjunction, exactly as `:is()`'s is.
+        Assert.True(fixture.Matches(".card:has(.missing, .error)", card));
+        Assert.False(fixture.Matches(".card:has(.missing, .absent)", card));
     }
 }

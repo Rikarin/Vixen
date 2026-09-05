@@ -433,6 +433,42 @@ public class VariantCoverageTests {
     }
 
     [Fact]
+    public void The_has_variant_asks_about_the_subtree_and_refuses_a_relative_argument() {
+        var fixture = new UtilityFixture();
+
+        // Composed over the state table, so `has-checked:` is `:has(:checked)` and reads the same
+        // entries `group-*` and `peer-*` do.
+        Assert.Equal(
+            "16px",
+            fixture.Computed(["has-checked:p-4"], "padding-left", children: [new Probe([], ElementState.Checked)])
+        );
+
+        Assert.Null(fixture.Computed(["has-checked:p-4"], "padding-left", children: [new Probe([])]));
+
+        // ⚠ The subtree and not the element. A `has-*` that dropped its `:has()` would style the
+        // element from its own state and pass the positive row above, so the row that matters is
+        // this one: the element is checked and has no checked descendant.
+        Assert.Null(fixture.Computed(["has-checked:p-4"], "padding-left", state: ElementState.Checked));
+
+        // The arbitrary form, which is what carries a class rather than a state.
+        Assert.Equal(
+            "16px",
+            fixture.Computed(["has-[.error]:p-4"], "padding-left", children: [new Probe(["error"])])
+        );
+
+        Assert.Null(fixture.Computed(["has-[.error]:p-4"], "padding-left", children: [new Probe(["fine"])]));
+
+        // ⚠ And the refusal that has to happen here rather than in the compiler. `has-[>_.error]` is
+        // v4's child form, and ExCSS 4.3.2 parses `:has(> .error)` into the same node it parses
+        // `:has(.error)` into — the combinator is gone before any Vixen code sees it, so a rule that
+        // reached the compiler would silently mean "any descendant". This is the last place the text
+        // is intact, so this is where it is refused.
+        Assert.DoesNotContain("padding", fixture.Generate("has-[>_.error]:p-4"), StringComparison.Ordinal);
+        Assert.DoesNotContain("padding", fixture.Generate("has-sm:p-4"), StringComparison.Ordinal);
+        Assert.DoesNotContain("padding", fixture.Generate("has-nothing:p-4"), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void The_not_variant_negates_the_variant_it_wraps_and_refuses_the_ones_it_cannot() {
         var fixture = new UtilityFixture();
 
