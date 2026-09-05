@@ -137,7 +137,7 @@ sealed class NormalToHeightOperation : ITextureCpuOperation {
         if ((long)width * height > MaxTexels) {
             var message = string.Create(
                 CultureInfo.InvariantCulture,
-                $"Op {invocation.Op} runs '{Name}' over {width}×{height} texels, and the Poisson system that needs is more memory than a process should ask for — the ceiling is {MaxTexels} texels. Bake the height at a lower resolution and upscale, or see #755."
+                $"Op {invocation.Op} runs '{Name}' over {width}×{height} texels, and the Poisson system that needs is larger than a process should ask for — the ceiling is {MaxTexels} texels. Bake the height at a lower resolution and upscale, or see #755."
             );
 
             throw new InvalidOperationException(message);

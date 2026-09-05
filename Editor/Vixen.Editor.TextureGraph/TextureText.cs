@@ -9,7 +9,14 @@ using Vixen.Ui.Text.Rasterizing;
 namespace Vixen.Editor.TextureGraph;
 
 /// <summary>Where a line of text sits across the picture it is drawn into.</summary>
-public enum TextureTextAlignment : byte {
+/// <remarks>
+///     ⚠ <b>Internal, like everything else this batch adds, and it matters here for a reason beyond
+///     the convention.</b> `Docs` refuses any new public type with no guide page and no line in
+///     `docs/DocsExempt.txt` — so a `public` enum nobody outside this assembly names is not a wider
+///     surface, it is a gate failure two merges later, on a machine that is not the one that wrote
+///     it.
+/// </remarks>
+internal enum TextureTextAlignment : byte {
     /// <summary>The first glyph's pen is at the left edge.</summary>
     Left,
 
