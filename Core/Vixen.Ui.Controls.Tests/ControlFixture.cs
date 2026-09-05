@@ -95,11 +95,30 @@ sealed class ControlFixture : IDisposable {
         Release(x, y, modifiers, button);
     }
 
-    public void Press(float x, float y, ModifierKeys modifiers = ModifierKeys.None, PointerButton button = PointerButton.Primary) =>
-        Send(x, y, PointerAction.Pressed, button, modifiers);
+    /// <summary>Puts a pointer down, optionally saying what kind of device it is.</summary>
+    /// <remarks>
+    ///     ⚠ The device defaults to <see cref="PointerType.Unknown" /> rather than to
+    ///     <see cref="PointerType.Mouse" />, deliberately matching the event's own default: a fixture
+    ///     that quietly claimed to be a mouse would make a control's touch branch untestable and its
+    ///     mouse branch untestably right. A test that means a finger says so.
+    /// </remarks>
+    public void Press(
+        float x,
+        float y,
+        ModifierKeys modifiers = ModifierKeys.None,
+        PointerButton button = PointerButton.Primary,
+        PointerType type = PointerType.Unknown
+    ) =>
+        Send(x, y, PointerAction.Pressed, button, modifiers, type);
 
-    public void Release(float x, float y, ModifierKeys modifiers = ModifierKeys.None, PointerButton button = PointerButton.Primary) =>
-        Send(x, y, PointerAction.Released, button, modifiers);
+    public void Release(
+        float x,
+        float y,
+        ModifierKeys modifiers = ModifierKeys.None,
+        PointerButton button = PointerButton.Primary,
+        PointerType type = PointerType.Unknown
+    ) =>
+        Send(x, y, PointerAction.Released, button, modifiers, type);
 
     /// <summary>Moves the pointer, optionally with something held on the keyboard.</summary>
     /// <remarks>
@@ -108,20 +127,33 @@ sealed class ControlFixture : IDisposable {
     ///     part way through a drag — and a fixture that could only state them at the press would make
     ///     that untestable.
     /// </remarks>
-    public void MovePointer(float x, float y, ModifierKeys modifiers = ModifierKeys.None) =>
-        Send(x, y, PointerAction.Moved, PointerButton.None, modifiers);
+    public void MovePointer(
+        float x,
+        float y,
+        ModifierKeys modifiers = ModifierKeys.None,
+        PointerType type = PointerType.Unknown
+    ) =>
+        Send(x, y, PointerAction.Moved, PointerButton.None, modifiers, type);
 
     public void MoveOver(UiElement element) {
         var bounds = element.Bounds;
         MovePointer(bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f));
     }
 
-    void Send(float x, float y, PointerAction action, PointerButton button, ModifierKeys modifiers) {
+    void Send(
+        float x,
+        float y,
+        PointerAction action,
+        PointerButton button,
+        ModifierKeys modifiers,
+        PointerType type = PointerType.Unknown
+    ) {
         clock += TimeSpan.FromMilliseconds(16);
 
         Document.Dispatch(
             new PointerEvent {
                 PointerId = Pointer,
+                PointerType = type,
                 X = x,
                 Y = y,
                 Action = action,

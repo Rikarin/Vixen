@@ -301,6 +301,8 @@ Vixen.Ui.DragEvent.DeltaY.init -> float
 Vixen.Ui.DragEvent.DragEvent() -> void
 Vixen.Ui.DragEvent.PointerId.get -> int
 Vixen.Ui.DragEvent.PointerId.init -> int
+Vixen.Ui.DragEvent.PointerType.get -> Vixen.Ui.PointerType
+Vixen.Ui.DragEvent.PointerType.init -> Vixen.Ui.PointerType
 Vixen.Ui.DragEvent.Stage.get -> Vixen.Ui.DragStage
 Vixen.Ui.DragEvent.Stage.init -> Vixen.Ui.DragStage
 Vixen.Ui.DragEvent.TotalX.get -> float
@@ -749,6 +751,8 @@ Vixen.Ui.LongPressEvent : Vixen.Ui.UiEvent
 Vixen.Ui.LongPressEvent.LongPressEvent() -> void
 Vixen.Ui.LongPressEvent.PointerId.get -> int
 Vixen.Ui.LongPressEvent.PointerId.init -> int
+Vixen.Ui.LongPressEvent.PointerType.get -> Vixen.Ui.PointerType
+Vixen.Ui.LongPressEvent.PointerType.init -> Vixen.Ui.PointerType
 Vixen.Ui.LongPressEvent.X.get -> float
 Vixen.Ui.LongPressEvent.X.init -> float
 Vixen.Ui.LongPressEvent.Y.get -> float
@@ -1172,6 +1176,8 @@ Vixen.Ui.TapEvent.Modifiers.get -> Vixen.Ui.ModifierKeys
 Vixen.Ui.TapEvent.Modifiers.init -> Vixen.Ui.ModifierKeys
 Vixen.Ui.TapEvent.PointerId.get -> int
 Vixen.Ui.TapEvent.PointerId.init -> int
+Vixen.Ui.TapEvent.PointerType.get -> Vixen.Ui.PointerType
+Vixen.Ui.TapEvent.PointerType.init -> Vixen.Ui.PointerType
 Vixen.Ui.TapEvent.TapEvent() -> void
 Vixen.Ui.TapEvent.X.get -> float
 Vixen.Ui.TapEvent.X.init -> float
