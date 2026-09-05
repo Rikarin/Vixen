@@ -453,8 +453,10 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     ///     <para>
     ///         ⚠ <b>Grouped by which graph each node was <em>written</em> in, not by which graph is
     ///         being compiled.</b> An inlined node's expression was authored against the sub-graph's
-    ///         own parameters, and after <see cref="SubGraphs.Flatten" /> it sits in a graph whose
-    ///         parameters are somebody else's — so binding the whole flattened graph against one
+    ///         own parameters, and after
+    ///         <see cref="SubGraphs.Flatten(NodeGraphModel,ISubGraphSource,out IReadOnlyList{NodeDiagnostic})" />
+    ///         it sits in a graph whose parameters are somebody else's — so binding the whole
+    ///         flattened graph against one
     ///         parameter list would report "undefined name" for every published graph that has a knob,
     ///         or, worse, silently bind to a containing parameter of the same name and produce a
     ///         picture. <see cref="NodeGraphInlining" /> already says which graph each node came out

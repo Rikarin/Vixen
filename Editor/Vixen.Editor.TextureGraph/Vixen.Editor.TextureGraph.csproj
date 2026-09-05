@@ -41,6 +41,23 @@
           failure nobody predicted.
         -->
         <NoWarn>$(NoWarn);CA1051</NoWarn>
+
+        <!--
+          ⚠ **Back on, against the TOOLING profile's default, and #821 is what that default cost.**
+          `Directory.Build.props` turns documentation generation off for `Editor/**`, `Tools/**` and
+          `Raven/**` — so nothing in those trees emits CS1570, CS1573, CS1574 or CS1734, and every
+          `<see cref>` in ~43 node classes, 46 kernel files and the compiler was unchecked. Ask what
+          that gate prints on the day it does not run: `0 Warning(s)`. Switching it on here found
+          three broken crefs and a malformed `<remarks>` immediately, and this assembly is the one
+          doc 48 is building, so it is where the instrument goes on first.
+
+          CS1591 and CS1573 are the "undocumented public member" and "undocumented parameter" rules,
+          which are a question about a *packaged* API and not about whether a link resolves; they
+          are suppressed so that the rules that catch a lie stay on and the rule that asks for prose
+          stays off.
+        -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>

@@ -268,7 +268,7 @@ enum TextureResampleSize {
 ///         <a href="https://github.com/Rikarin/Vixen/issues/733">#733</a>.</b> Every image a node
 ///         allocated was at the plan's base level, so a Resample writing its output at its input's
 ///         size was an <em>identity copy</em> — a node that draws a perfectly plausible picture and
-///         does nothing. <see cref="TextureEmitter.Write(string,TextureChannels,int)" /> is the level
+///         does nothing. <see cref="TextureEmitter.Write(string,TextureChannels,int?)" /> is the level
 ///         it needed, and <see cref="Size" /> at <see cref="TextureResampleSize.Same" /> is still
 ///         that copy, so it says so.
 ///     </para>

@@ -10,8 +10,9 @@ namespace Vixen.Editor.TextureGraph;
 /// <summary>Turns CPU pixels into the textures a plan's external images are read from.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The one step <see cref="TexturePlanEvaluator.Evaluate" /> does not do, and every
-///         external image needs it.</b> A <see cref="TextureImage" /> marked
+///         <b>The one step
+///         <see cref="TexturePlanEvaluator.Evaluate(TexturePlan,IReadOnlyDictionary{int,TextureExternal})" />
+///         does not do, and every external image needs it.</b> A <see cref="TextureImage" /> marked
 ///         <see cref="TextureImage.External" /> says "the caller supplies this one", and
 ///         <c>Evaluate</c> takes a dictionary of handles the caller has already created — so a plan
 ///         has always been able to express a picture that came from somewhere other than a kernel,
@@ -108,7 +109,10 @@ public sealed class TextureUploads : IDisposable {
     public const TextureUsage UploadUsage =
         TextureUsage.Sampled | TextureUsage.CopyDestination | TextureUsage.CopySource;
 
-    /// <summary>What to hand <see cref="TexturePlanEvaluator.Evaluate" /> as its externals.</summary>
+    /// <summary>
+    ///     What to hand <see cref="TexturePlanEvaluator.Evaluate(TexturePlan,IReadOnlyDictionary{int,TextureExternal})" />
+    ///     as its externals.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         Keyed by the image's index in <see cref="TexturePlan.Images" />, which is what the
