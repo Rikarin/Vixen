@@ -288,6 +288,65 @@ public sealed class TexturePlan {
     /// </remarks>
     public uint Seed { get; init; }
 
+    /// <summary>The kernels this plan brought with it, by the name its ops give them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 48 § D6's Pixel Processor emitted an op nothing could evaluate, and this is
+    ///         the field it needed —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/729">#729</a>.</b> An op's
+    ///         <see cref="TextureOp.Kernel" /> is a <em>name</em>, and the evaluator resolved every
+    ///         one of them through <see cref="TextureKernels" />, which reads this assembly's
+    ///         embedded <c>Shaders/*.rvn</c> and nothing else. A kernel a graph <em>authored</em> is
+    ///         not embedded and never can be, so a plan holding one threw at bake time naming a
+    ///         shader nobody has — while looking, in every other respect, like a plan.
+    ///     </para>
+    ///     <para>
+    ///         <b>On the plan rather than beside it, which is the smaller of the two shapes #729
+    ///         weighed.</b> An evaluator taking a source table alongside the plan would mean a bake
+    ///         carrying two things that have to agree, and the plan is already the compiled artefact
+    ///         § D8 says it is: everything else an evaluation needs is here, and a kernel is no
+    ///         different.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A source, not a module.</b> A storage image's texel format is part of its type,
+    ///         so the same kernel writing <c>rgba8</c> and <c>rgba16f</c> is two modules — see
+    ///         <see cref="TextureKernels" /> — and what is carried has to be the text the format
+    ///         rewrite is applied to. <see cref="Source" /> is where the two paths meet.
+    ///     </para>
+    /// </remarks>
+    public ImmutableDictionary<string, string> Kernels { get; init; } =
+        ImmutableDictionary<string, string>.Empty;
+
+    /// <summary>The Raven one of this plan's ops runs, wherever it came from.</summary>
+    /// <param name="kernel">The op's kernel name.</param>
+    /// <returns>The source, ready for the format rewrite.</returns>
+    /// <exception cref="ArgumentException">The plan does not carry it and this assembly does not ship it.</exception>
+    /// <remarks>
+    ///     ⚠ <b>A name is either authored or embedded and never both, and this refuses the overlap
+    ///     rather than picking a winner.</b> Shadowing would look like the friendly answer and is a
+    ///     trap two layers down: an evaluator caches a compiled module on
+    ///     <c>(kernel name, output format)</c> across every plan it runs, so a plan that redefined
+    ///     <c>Blur</c> would either take the cached embedded module or leave its own behind for the
+    ///     next plan — the same op drawing two different pictures depending on evaluation order.
+    ///     Names an authoring front end generates carry a hash of their own source for exactly this
+    ///     reason.
+    /// </remarks>
+    public string Source(string kernel) {
+        if (!Kernels.TryGetValue(kernel, out var authored)) {
+            return TextureKernels.Source(kernel);
+        }
+
+        if (TextureKernels.Names.Contains(kernel)) {
+            throw new ArgumentException(
+                $"This plan carries a kernel called '{kernel}' and so does this assembly. A name is one kernel: "
+                + "a compiled module is cached by name and format across plans, so the two would take turns.",
+                nameof(kernel)
+            );
+        }
+
+        return authored;
+    }
+
     /// <summary>How big one image is in this bake, in texels.</summary>
     /// <param name="image">Its index in <see cref="Images" />.</param>
     /// <returns>Its width and height.</returns>
@@ -464,6 +523,28 @@ public sealed class TexturePlan {
                         )
                     );
                 }
+            }
+        }
+
+        foreach (var (kernel, source) in Kernels) {
+            // ⚠ Said here as well as thrown by `Source`, because this is the layer that can say it
+            // *before* a bake: a plan carrying a kernel nothing can compile is doc 48 § D6's failure
+            // — a graph that looks complete and throws in a background task.
+            if (TextureKernels.Names.Contains(kernel)) {
+                problems.Add(
+                    TextureProblem.Refusal(
+                        $"This plan carries a kernel called '{kernel}' and so does this assembly. A compiled module "
+                        + "is cached by name and format across plans, so the two would take turns."
+                    )
+                );
+            }
+
+            if (string.IsNullOrWhiteSpace(source)) {
+                problems.Add(
+                    TextureProblem.Refusal($"The kernel '{kernel}' this plan carries has no source, so nothing "
+                        + "could be compiled for the ops that name it."
+                    )
+                );
             }
         }
 

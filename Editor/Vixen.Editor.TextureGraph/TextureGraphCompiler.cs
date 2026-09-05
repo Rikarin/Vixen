@@ -496,6 +496,12 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             }
         }
 
+        var authored = ImmutableDictionary.CreateBuilder<string, string>(StringComparer.Ordinal);
+
+        foreach (var kernel in kernels) {
+            authored[kernel.Kernel] = kernel.Source;
+        }
+
         var plan = new TexturePlan {
             BaseWidth = BaseWidth,
             BaseHeight = BaseHeight,
@@ -503,7 +509,12 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             Seed = Seed,
             Images = images.ToImmutable(),
             Ops = ops.ToImmutable(),
-            Outputs = [.. kept]
+            Outputs = [.. kept],
+
+            // ⚠ On the plan, which is what makes a Pixel Processor's op *runnable* — #729. Until
+            // this line the generated Raven reached `Kernels` below and nowhere else, so the plan a
+            // graph with one compiled to threw at bake time naming a shader nothing had.
+            Kernels = authored.ToImmutable()
         };
 
         // ⚠ The plan's own refusals, said as diagnostics rather than left for the evaluator to throw

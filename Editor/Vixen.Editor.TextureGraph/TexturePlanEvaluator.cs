@@ -533,7 +533,7 @@ public sealed class TexturePlanEvaluator : IDisposable {
                     continue;
                 }
 
-                var variant = VariantFor(op.Kernel, plan.Images[image].Format);
+                var variant = VariantFor(plan, op.Kernel, plan.Images[image].Format);
 
                 sets.Add(Bind(plan, schedule, index, variant, slotViews, externals, constants));
 
@@ -928,13 +928,23 @@ public sealed class TexturePlanEvaluator : IDisposable {
         }
     }
 
-    Variant VariantFor(string kernel, TextureFormat output) {
+    /// <summary>The compiled module one op runs, built once per kernel and output format.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The source comes off the <em>plan</em> and not off this assembly's embedded
+    ///     resources, which is <a href="https://github.com/Rikarin/Vixen/issues/729">#729</a>.</b> A
+    ///     graph may author a kernel — doc 48 § D6's Pixel Processor puts a Raven expression through
+    ///     the real front end and emits an op naming the module it generated — and such a kernel is
+    ///     not embedded and never will be. <see cref="TexturePlan.Source" /> is what answers for
+    ///     both, so the ordinary case is unchanged and the authored one stops throwing about a
+    ///     resource nobody could have added.
+    /// </remarks>
+    Variant VariantFor(TexturePlan plan, string kernel, TextureFormat output) {
         if (variants.TryGetValue((kernel, output), out var existing)) {
             return existing;
         }
 
         var name = TextureKernels.VariantName(kernel, output);
-        var source = TextureKernels.Variant(kernel, output);
+        var source = TextureKernels.Variant(kernel, plan.Source(kernel), output);
 
         var data = RavenEffectCompiler.FromSources([(name, source)]).TryGet(EffectKey.Of(kernel))
             ?? throw new ArgumentException(

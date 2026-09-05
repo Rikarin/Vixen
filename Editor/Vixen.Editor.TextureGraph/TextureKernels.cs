@@ -62,8 +62,26 @@ public static class TextureKernels {
     /// <returns>The Raven text to compile.</returns>
     /// <exception cref="ArgumentException">No such kernel, or its source does not declare one storage image.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The format is one no kernel can write.</exception>
-    public static string Variant(string kernel, TextureFormat output) {
-        var source = Source(kernel);
+    public static string Variant(string kernel, TextureFormat output) => Variant(kernel, Source(kernel), output);
+
+    /// <summary>The same rewrite over a source this assembly did not ship.</summary>
+    /// <param name="kernel">The shader name, used only in the messages.</param>
+    /// <param name="source">The Raven text.</param>
+    /// <param name="output">What the image it writes stores.</param>
+    /// <returns>The Raven text to compile.</returns>
+    /// <exception cref="ArgumentException">The source does not declare exactly one storage image.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The format is one no kernel can write.</exception>
+    /// <remarks>
+    ///     ⚠ <b>The half <a href="https://github.com/Rikarin/Vixen/issues/729">#729</a> needed, and
+    ///     it is the whole of what an authored kernel asks of this class.</b> A plan may carry a
+    ///     kernel a graph wrote — doc 48 § D6's Pixel Processor — and such a source is not an
+    ///     embedded resource and never will be; what it is is text, which needs exactly the same
+    ///     format rewrite for exactly the same reason. Reading and rewriting are two questions and
+    ///     this is the second one alone.
+    /// </remarks>
+    public static string Variant(string kernel, string source, TextureFormat output) {
+        ArgumentNullException.ThrowIfNull(source);
+
         var wanted = TextureFormats.RavenName(output);
         var at = source.IndexOf(FormatMarker, StringComparison.Ordinal);
 
