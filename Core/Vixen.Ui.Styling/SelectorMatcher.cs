@@ -174,6 +174,15 @@ public sealed class SelectorMatcher(SelectorTable table) {
                 return true;
             }
 
+            // ⚠ A walk of the whole subtree, and there is no bloom to shorten it. The ancestor bloom
+            // answers "could an element with this name be *above* me", which is the question every
+            // other combinator asks; `:has()` asks about below, and a descendant bloom would have to
+            // be rebuilt on every insertion rather than inherited once at creation. So the cost is
+            // real and is the reason doc 09 deferred this — see `StyleInvalidator`, where the other
+            // half of that cost lives.
+            case SimpleSelectorKind.Has:
+                return MatchesInSubtree(tree, element, simple, useBloom);
+
             case SimpleSelectorKind.Is: {
                 for (var i = 0; i < simple.NestedCount; i++) {
                     if (MatchFrom(tree, element, table.Nested(simple.NestedStart + i), table.Nested(simple.NestedStart + i).Count - 1, useBloom)) {
@@ -187,6 +196,37 @@ public sealed class SelectorMatcher(SelectorTable table) {
             default:
                 return false;
         }
+    }
+
+    /// <summary>Whether any descendant of <paramref name="element" /> satisfies a <c>:has()</c>.</summary>
+    /// <remarks>
+    ///     Depth-first and short-circuiting, so a <c>:has()</c> that is satisfied by the first child
+    ///     costs one test rather than a subtree. The one that is <i>not</i> satisfied costs the whole
+    ///     subtree, and that is the case a document pays for on every restyle.
+    /// </remarks>
+    bool MatchesInSubtree(StyleTree tree, int element, SimpleSelector simple, bool useBloom) {
+        var owner = new StyleNodeId(element);
+        var children = tree.GetChildCount(owner);
+
+        for (var i = 0; i < children; i++) {
+            var child = tree.GetChild(owner, i).Index;
+
+            for (var n = 0; n < simple.NestedCount; n++) {
+                var nested = table.Nested(simple.NestedStart + n);
+
+                // Every argument is one compound — the compiler refuses the rest — so this is a test
+                // of the descendant itself and never a climb back out of the subtree.
+                if (MatchFrom(tree, child, nested, nested.Count - 1, useBloom)) {
+                    return true;
+                }
+            }
+
+            if (MatchesInSubtree(tree, child, simple, useBloom)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     static bool MatchesAttribute(StyleTree tree, int element, SimpleSelector simple) {
@@ -243,6 +283,18 @@ public sealed class SelectorMatcher(SelectorTable table) {
             PositionTest.Only => siblings == 1,
             PositionTest.Nth => MatchesNth(index + 1, simple.Step, simple.Offset),
             PositionTest.NthLast => MatchesNth(siblings - index, simple.Step, simple.Offset),
+
+            // ⚠ The of-type tests count the same way the four above do, over a different sequence:
+            // the siblings sharing this element's tag. Nothing is stored for that, so it is walked.
+            PositionTest.FirstOfType => tree.TypeIndexOf(element) == 1,
+            PositionTest.LastOfType => tree.TypeIndexOf(element) == tree.TypeCountOf(element),
+            PositionTest.OnlyOfType => tree.TypeCountOf(element) == 1,
+            PositionTest.NthOfType => MatchesNth(tree.TypeIndexOf(element), simple.Step, simple.Offset),
+            PositionTest.NthLastOfType => MatchesNth(
+                tree.TypeCountOf(element) - tree.TypeIndexOf(element) + 1,
+                simple.Step,
+                simple.Offset
+            ),
             _ => false
         };
 

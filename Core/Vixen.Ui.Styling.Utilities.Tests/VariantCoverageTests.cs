@@ -46,7 +46,27 @@ public class VariantCoverageTests {
     /// <param name="Before">How many siblings precede it.</param>
     /// <param name="After">How many follow it.</param>
     /// <param name="Matches">Whether the utility should apply.</param>
-    public sealed record Scene(string Variant, ElementState State, int Before, int After, bool Matches);
+    /// <param name="Tag">The element's own tag.</param>
+    /// <param name="FillerTag">The tag its filler siblings carry.</param>
+    /// <param name="Children">How many children it has.</param>
+    /// <remarks>
+    ///     ⚠ <b>The last three exist because a scene made of identical siblings cannot fail an
+    ///     of-type test.</b> <c>:nth-of-type(2)</c> and <c>:nth-child(2)</c> pick the same element
+    ///     out of any run of <c>div</c>s, so an of-type row whose fillers were <c>div</c>s like the
+    ///     element would pass whichever of the two the compiler had actually produced — the exact
+    ///     shape of green this file was written to stop. Every of-type row below therefore differs
+    ///     from its child-test twin in the filler tag and in nothing else.
+    /// </remarks>
+    public sealed record Scene(
+        string Variant,
+        ElementState State,
+        int Before,
+        int After,
+        bool Matches,
+        string Tag = "div",
+        string FillerTag = "div",
+        int Children = 0
+    );
 
     /// <summary>The scenes, as data the completeness gate can also read.</summary>
     /// <remarks>
@@ -56,14 +76,23 @@ public class VariantCoverageTests {
     /// </remarks>
     static readonly Scene[] Scenes = BuildScenes();
 
-    public static TheoryData<string, ElementState, int, int, bool> StateScenes {
+    public static TheoryData<string, ElementState, int, int, bool, string, string, int> StateScenes {
         get {
             // Primitives only. xunit serialises theory rows so it can run one of them on its own, and
             // a `Probe[]` in the row would collapse the whole theory into a single opaque case.
-            var data = new TheoryData<string, ElementState, int, int, bool>();
+            var data = new TheoryData<string, ElementState, int, int, bool, string, string, int>();
 
             foreach (var scene in Scenes) {
-                data.Add(scene.Variant, scene.State, scene.Before, scene.After, scene.Matches);
+                data.Add(
+                    scene.Variant,
+                    scene.State,
+                    scene.Before,
+                    scene.After,
+                    scene.Matches,
+                    scene.Tag,
+                    scene.FillerTag,
+                    scene.Children
+                );
             }
 
             return data;
@@ -74,8 +103,17 @@ public class VariantCoverageTests {
         var scenes = new List<Scene>();
 
         // variant, own state, siblings before, siblings after, should match
-        void Row(string variant, ElementState state, int before, int after, bool matches) =>
-            scenes.Add(new Scene(variant, state, before, after, matches));
+        void Row(
+            string variant,
+            ElementState state,
+            int before,
+            int after,
+            bool matches,
+            string tag = "div",
+            string fillerTag = "div",
+            int children = 0
+        ) =>
+            scenes.Add(new Scene(variant, state, before, after, matches, tag, fillerTag, children));
 
         foreach (var (variant, on) in new[] {
                      ("hover", ElementState.Hover),
@@ -109,6 +147,22 @@ public class VariantCoverageTests {
         Row("even", ElementState.None, 1, 0, true);
         Row("even", ElementState.None, 0, 1, false);
 
+        // ⚠ `:empty` counts text as content, so its negative has to be a child rather than a word —
+        // the fixture has no way to hang text on a probe, and a scene that put one there would be
+        // testing `StyleTree.SetHasText` instead. `SelectorMatchingTests` owns the text half.
+        Row("empty", ElementState.None, 0, 0, true);
+        Row("empty", ElementState.None, 0, 0, false, children: 1);
+
+        // The of-type family. Every row is its child-test twin with the filler tags changed, so a
+        // compiler that resolved `:first-of-type` to `:first-child` fails the positive rows here
+        // while passing every row above.
+        Row("first-of-type", ElementState.None, 1, 0, true, tag: "p", fillerTag: "div");
+        Row("first-of-type", ElementState.None, 1, 0, false, tag: "p", fillerTag: "p");
+        Row("last-of-type", ElementState.None, 0, 1, true, tag: "p", fillerTag: "div");
+        Row("last-of-type", ElementState.None, 0, 1, false, tag: "p", fillerTag: "p");
+        Row("only-of-type", ElementState.None, 1, 1, true, tag: "p", fillerTag: "div");
+        Row("only-of-type", ElementState.None, 1, 0, false, tag: "p", fillerTag: "p");
+
         return [.. scenes];
     }
 
@@ -119,7 +173,10 @@ public class VariantCoverageTests {
         ElementState state,
         int before,
         int after,
-        bool matches
+        bool matches,
+        string tag,
+        string fillerTag,
+        int children
     ) {
         var fixture = new UtilityFixture();
 
@@ -130,19 +187,23 @@ public class VariantCoverageTests {
             "padding-left",
             state: state,
             ancestor: new Probe([]),
-            before: Filler(before),
-            after: Filler(after)
+            before: Filler(before, fillerTag),
+            after: Filler(after, fillerTag),
+            tag: tag,
+            children: Filler(children, "div")
         );
 
         Assert.Equal(matches ? "16px" : null, value);
     }
 
-    static Probe[] Filler(int count) => [.. Enumerable.Range(0, count).Select(_ => new Probe([]))];
+    static Probe[] Filler(int count, string tag = "div") =>
+        [.. Enumerable.Range(0, count).Select(_ => new Probe([], Tag: tag))];
 
     [Fact]
     public void The_state_variant_table_has_no_untested_entry() {
-        // The gate. A thirteenth entry added to `Variants.States` without a scene above lands here
-        // rather than in the silent majority — which is where all eleven of them were.
+        // The gate. An entry added to `Variants.States` without a scene above lands here rather than
+        // in the silent majority — which is where eleven of the first thirteen were. No count is
+        // named: the table grows, and a number in this comment would be the copy nothing checks.
         var tested = Scenes.Select(scene => scene.Variant).ToHashSet(StringComparer.Ordinal);
         var untested = Variants.StateVariants.Where(variant => !tested.Contains(variant)).ToArray();
 
@@ -156,6 +217,285 @@ public class VariantCoverageTests {
         var stale = tested.Where(variant => !Variants.StateVariants.Contains(variant)).ToArray();
 
         Assert.True(stale.Length == 0, $"these scenes name a variant that no longer exists: {string.Join(", ", stale)}");
+    }
+
+    /// <summary>The surfaces the media variants are judged against, by name.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Named rather than inlined, because a <see cref="MediaContext" /> in a theory row is
+    ///     not a primitive and xunit would collapse the whole theory into one opaque case</b> — the
+    ///     same constraint <see cref="StateScenes" /> is built around. A name also makes the failure
+    ///     readable: <c>("motion-reduce", "reduced-motion", True)</c> says what was asked and of
+    ///     what.
+    /// </remarks>
+    static readonly Dictionary<string, MediaContext> Surfaces = new(StringComparer.Ordinal) {
+        // Landscape, a mouse, and every preference where a platform that has said nothing leaves it.
+        ["desktop"] = new(1280, 720),
+        ["portrait"] = new(720, 1280),
+        ["reduced-motion"] = new(1280, 720) { Preferences = new(Motion: MotionPreference.Reduce) },
+        ["more-contrast"] = new(1280, 720) { Preferences = new(Contrast: ContrastPreference.More) },
+        ["less-contrast"] = new(1280, 720) { Preferences = new(Contrast: ContrastPreference.Less) },
+
+        // ⚠ `custom` is neither more nor less, and it is here to prove that `contrast-more:` does not
+        // read as "any stated contrast preference".
+        ["custom-contrast"] = new(1280, 720) { Preferences = new(Contrast: ContrastPreference.Custom) },
+        ["forced-colors"] = new(1280, 720) { Preferences = new(ForcedColors: true) },
+        ["inverted"] = new(1280, 720) { Preferences = new(InvertedColors: true) },
+        ["touch"] = new(1280, 720) {
+            Preferences = new(Pointer: PointerCapability.Coarse, AnyPointer: PointerCapability.Coarse)
+        },
+
+        // ⚠ The row that tells `pointer-*` from `any-pointer-*`. A tablet with a stylus is coarse
+        // *primarily* and fine as well, so `pointer-fine:` must be off here and `any-pointer-fine:`
+        // must be on — and a table that resolved both families to the same feature passes every
+        // other scene in this file.
+        ["touch-and-stylus"] = new(1280, 720) {
+            Preferences = new(
+                Pointer: PointerCapability.Coarse,
+                AnyPointer: PointerCapability.Coarse | PointerCapability.Fine
+            )
+        },
+        ["no-pointer"] = new(1280, 720) {
+            Preferences = new(Pointer: PointerCapability.NoDevice, AnyPointer: PointerCapability.NoDevice)
+        }
+    };
+
+    static readonly (string Variant, string Surface, bool Matches)[] MediaRows = [
+        ("motion-safe", "desktop", true),
+        ("motion-safe", "reduced-motion", false),
+        ("motion-reduce", "reduced-motion", true),
+        ("motion-reduce", "desktop", false),
+
+        ("contrast-more", "more-contrast", true),
+        ("contrast-more", "desktop", false),
+        ("contrast-more", "custom-contrast", false),
+        ("contrast-less", "less-contrast", true),
+        ("contrast-less", "desktop", false),
+        ("contrast-less", "more-contrast", false),
+
+        ("forced-colors", "forced-colors", true),
+        ("forced-colors", "desktop", false),
+        ("inverted-colors", "inverted", true),
+        ("inverted-colors", "desktop", false),
+
+        ("portrait", "portrait", true),
+        ("portrait", "desktop", false),
+        ("landscape", "desktop", true),
+        ("landscape", "portrait", false),
+
+        // ⚠ Two rows and both negative, which is the whole of what these two variants can be asked.
+        // Paged media is out of scope for good and a Vixen document always scripts, so each is a
+        // condition that resolves and never holds — and the assertion that matters is the one in
+        // `Every_media_variant_generates_a_rule` below: the class is a class, so it is not a typo,
+        // and it applies nowhere.
+        ("print", "desktop", false),
+        ("print", "portrait", false),
+        ("noscript", "desktop", false),
+        ("noscript", "touch", false),
+
+        ("pointer-fine", "desktop", true),
+        ("pointer-fine", "touch", false),
+        ("pointer-fine", "touch-and-stylus", false),
+        ("pointer-coarse", "touch", true),
+        ("pointer-coarse", "desktop", false),
+        ("pointer-coarse", "no-pointer", false),
+        ("pointer-none", "no-pointer", true),
+        ("pointer-none", "desktop", false),
+        ("pointer-none", "touch", false),
+
+        ("any-pointer-fine", "desktop", true),
+        ("any-pointer-fine", "touch-and-stylus", true),
+        ("any-pointer-fine", "touch", false),
+        ("any-pointer-coarse", "touch", true),
+        ("any-pointer-coarse", "touch-and-stylus", true),
+        ("any-pointer-coarse", "desktop", false),
+        ("any-pointer-none", "no-pointer", true),
+        ("any-pointer-none", "desktop", false),
+        ("any-pointer-none", "touch-and-stylus", false)
+    ];
+
+    public static TheoryData<string, string, bool> MediaScenes {
+        get {
+            var data = new TheoryData<string, string, bool>();
+
+            foreach (var (variant, surface, matches) in MediaRows) {
+                data.Add(variant, surface, matches);
+            }
+
+            return data;
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(MediaScenes))]
+    public void A_media_variant_changes_what_the_element_computes(string variant, string surface, bool matches) {
+        var fixture = new UtilityFixture();
+        var value = fixture.Computed([$"{variant}:p-4"], "padding-left", media: Surfaces[surface]);
+
+        Assert.Equal(matches ? "16px" : null, value);
+    }
+
+    [Fact]
+    public void The_media_variant_table_has_no_untested_entry() {
+        // The same gate `The_state_variant_table_has_no_untested_entry` is, over the other table.
+        var tested = MediaRows.Select(row => row.Variant).ToHashSet(StringComparer.Ordinal);
+        var untested = Variants.MediaVariants.Where(variant => !tested.Contains(variant)).ToArray();
+
+        Assert.True(
+            untested.Length == 0,
+            $"these media variants have no end-to-end scene: {string.Join(", ", untested)}"
+        );
+
+        var stale = tested.Where(variant => !Variants.MediaVariants.Contains(variant)).ToArray();
+
+        Assert.True(stale.Length == 0, $"these scenes name a variant that no longer exists: {string.Join(", ", stale)}");
+
+        // ⚠ And a scene of each sign, which is the assertion that stops a variant from passing on a
+        // negative row alone — a table entry that emitted an at-rule nothing can satisfy would do
+        // exactly that. The two exceptions are named rather than inferred: `print` and `noscript`
+        // *cannot* have a positive scene, and a gate that worked that out for itself would stop
+        // noticing the day a third one arrived by accident.
+        string[] neverMatch = ["print", "noscript"];
+
+        foreach (var variant in Variants.MediaVariants) {
+            var signs = MediaRows.Where(row => row.Variant == variant).Select(row => row.Matches).ToArray();
+
+            Assert.Contains(false, signs);
+
+            if (!neverMatch.Contains(variant, StringComparer.Ordinal)) {
+                Assert.Contains(true, signs);
+            } else {
+                Assert.DoesNotContain(true, signs);
+            }
+        }
+    }
+
+    [Fact]
+    public void Every_media_variant_generates_a_rule_even_when_it_can_never_match() {
+        // ⚠ What tells "a variant that is always false" from "not a variant at all", which is
+        // exactly the pair `print:` and `noscript:` sit between. Their whole justification is that a
+        // stylesheet shared with a web codebase loads unchanged; a class that silently vanished
+        // would be that stylesheet failing quietly instead of loudly.
+        var fixture = new UtilityFixture();
+
+        foreach (var variant in Variants.MediaVariants) {
+            Assert.Contains("padding", fixture.Generate($"{variant}:p-4"), StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void The_nth_variants_count_children_and_their_of_type_pair_counts_a_tag() {
+        // ⚠ Four families that differ only in which sequence they index, so every row here is
+        // matched by a row that must NOT apply — and the pairs are chosen so that resolving any one
+        // family to any other fails at least one of them. `nth-2` and `nth-of-type-2` pick different
+        // elements only once the siblings carry different tags, which is why the of-type rows mix
+        // `p` and `div` and the child rows do not.
+        var fixture = new UtilityFixture();
+
+        string? Padding(string variant, string tag, string[] before, string[] after) =>
+            fixture.Computed(
+                [$"{variant}:p-4"],
+                "padding-left",
+                ancestor: new Probe([]),
+                before: [.. before.Select(t => new Probe([], Tag: t))],
+                after: [.. after.Select(t => new Probe([], Tag: t))],
+                tag: tag
+            );
+
+        // Third child of five.
+        Assert.Equal("16px", Padding("nth-3", "div", ["div", "div"], ["div", "div"]));
+        Assert.Null(Padding("nth-4", "div", ["div", "div"], ["div", "div"]));
+
+        // ⚠ Counted from the end, which is the whole of `nth-last-*`. The same element is child 3
+        // and last-child 3 here on purpose — five siblings — so the pair below is what tells the two
+        // families apart rather than the pair above.
+        Assert.Equal("16px", Padding("nth-last-2", "div", ["div", "div", "div"], ["div"]));
+        Assert.Null(Padding("nth-2", "div", ["div", "div", "div"], ["div"]));
+
+        // Second `p` among `div p div p div`: child 4, of-type 2.
+        Assert.Equal("16px", Padding("nth-of-type-2", "p", ["div", "p", "div"], ["div"]));
+        Assert.Null(Padding("nth-2", "p", ["div", "p", "div"], ["div"]));
+        Assert.Equal("16px", Padding("nth-4", "p", ["div", "p", "div"], ["div"]));
+
+        // The same element counted from the end: of-type 1, child 2.
+        Assert.Equal("16px", Padding("nth-last-of-type-1", "p", ["div", "p", "div"], ["div"]));
+        Assert.Null(Padding("nth-last-of-type-2", "p", ["div", "p", "div"], ["div"]));
+        Assert.Equal("16px", Padding("nth-last-2", "p", ["div", "p", "div"], ["div"]));
+
+        // The arbitrary form carries a whole `an+b`, and the underscore is a space as it is
+        // everywhere else a variant takes one.
+        Assert.Equal("16px", Padding("nth-[2n+1]", "div", ["div", "div"], ["div"]));
+        Assert.Null(Padding("nth-[2n]", "div", ["div", "div"], ["div"]));
+
+        // ⚠ An argument that is not a positive integer is not a variant at all, so the class is
+        // never generated — rather than being generated into a selector the compiler then refuses.
+        Assert.Null(Padding("nth-two", "div", [], []));
+        Assert.Null(Padding("nth-2n", "div", ["div"], []));
+    }
+
+    [Fact]
+    public void The_has_variant_asks_about_the_subtree_and_refuses_a_relative_argument() {
+        var fixture = new UtilityFixture();
+
+        // Composed over the state table, so `has-checked:` is `:has(:checked)` and reads the same
+        // entries `group-*` and `peer-*` do.
+        Assert.Equal(
+            "16px",
+            fixture.Computed(["has-checked:p-4"], "padding-left", children: [new Probe([], ElementState.Checked)])
+        );
+
+        Assert.Null(fixture.Computed(["has-checked:p-4"], "padding-left", children: [new Probe([])]));
+
+        // ⚠ The subtree and not the element. A `has-*` that dropped its `:has()` would style the
+        // element from its own state and pass the positive row above, so the row that matters is
+        // this one: the element is checked and has no checked descendant.
+        Assert.Null(fixture.Computed(["has-checked:p-4"], "padding-left", state: ElementState.Checked));
+
+        // The arbitrary form, which is what carries a class rather than a state.
+        Assert.Equal(
+            "16px",
+            fixture.Computed(["has-[.error]:p-4"], "padding-left", children: [new Probe(["error"])])
+        );
+
+        Assert.Null(fixture.Computed(["has-[.error]:p-4"], "padding-left", children: [new Probe(["fine"])]));
+
+        // ⚠ And the refusal that has to happen here rather than in the compiler. `has-[>_.error]` is
+        // v4's child form, and ExCSS 4.3.2 parses `:has(> .error)` into the same node it parses
+        // `:has(.error)` into — the combinator is gone before any Vixen code sees it, so a rule that
+        // reached the compiler would silently mean "any descendant". This is the last place the text
+        // is intact, so this is where it is refused.
+        Assert.DoesNotContain("padding", fixture.Generate("has-[>_.error]:p-4"), StringComparison.Ordinal);
+        Assert.DoesNotContain("padding", fixture.Generate("has-sm:p-4"), StringComparison.Ordinal);
+        Assert.DoesNotContain("padding", fixture.Generate("has-nothing:p-4"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_not_variant_negates_the_variant_it_wraps_and_refuses_the_ones_it_cannot() {
+        var fixture = new UtilityFixture();
+
+        // The state table read through a negation. Both halves, because a `not-*` that dropped the
+        // `:not()` and emitted the bare state would pass neither — and one that emitted nothing at
+        // all would pass the first and fail the second.
+        Assert.Equal("16px", fixture.Computed(["not-hover:p-4"], "padding-left"));
+        Assert.Null(fixture.Computed(["not-hover:p-4"], "padding-left", state: ElementState.Hover));
+
+        // Over a structural entry too, since `not-*` reads the same table `group-*` and `peer-*` do.
+        Assert.Equal(
+            "16px",
+            fixture.Computed(["not-first:p-4"], "padding-left", ancestor: new Probe([]), before: Filler(1))
+        );
+
+        Assert.Null(
+            fixture.Computed(["not-first:p-4"], "padding-left", ancestor: new Probe([]), after: Filler(1))
+        );
+
+        // ⚠ And the refusals, which are the half that says `not-*` is not a blanket prefix.
+        // `not-sm:` is an at-rule in v4, `not-group-hover:` an ancestor, `not-[&>*]:` an arbitrary
+        // selector with a `&` that has nowhere to land — all three are *not variants*, so the class
+        // never reaches the stylesheet. A `not-` that wrapped them anyway would emit
+        // `:not(@media …)`, and CSS has no way to say that is wrong.
+        foreach (var candidate in new[] { "not-sm:p-4", "not-group-hover:p-4", "not-[&>*]:p-4", "not-nothing:p-4" }) {
+            Assert.DoesNotContain("padding", fixture.Generate(candidate), StringComparison.Ordinal);
+        }
     }
 
     [Fact]

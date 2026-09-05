@@ -328,7 +328,15 @@ public class IncrementalRestyleOracleTests {
                 ".row", ".cell", ".selected", ".dark", ".sidebar", ".label",
                 "#id0", "#id1",
                 ":hover", ":focus", ":disabled", ":first-child", ":nth-child(2n)", ":empty",
-                ":not(.selected)", ":is(.row, .cell)"
+                ":not(.selected)", ":is(.row, .cell)",
+
+                // ⚠ `:has()` is the only piece here that makes a style depend on what is *below* the
+                // element, and it is the reason this generator earns its keep twice over: the
+                // invalidator's upward walk is impossible to get right by inspection, and a
+                // hand-written scene proves it for the tree that scene happens to have. Only in the
+                // unsafe list — a `:has()` turns sharing off, so putting it in the other generator
+                // would make that test's own assertion that sharing fired impossible.
+                ":has(.selected)", ":has(.cell)", ":has(:hover)"
             };
 
         var combinators = sharingSafe ? [" ", " > "] : new[] { " ", " > ", " + ", " ~ " };

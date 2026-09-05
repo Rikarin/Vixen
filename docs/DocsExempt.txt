@@ -3560,6 +3560,7 @@ T:Vixen.Ui.Styling.ContainerQuery sweep-pending
 T:Vixen.Ui.Styling.ContainerScope sweep-pending
 T:Vixen.Ui.Styling.ContainerScopes sweep-pending
 T:Vixen.Ui.Styling.ContainerVerdicts sweep-pending
+T:Vixen.Ui.Styling.ContrastPreference sweep-with-MediaContext — one axis of MediaPreferences and exempt on MediaContext's terms; why custom is a fourth value rather than a synonym for more is on the type and in docs/plan/43 § A14
 T:Vixen.Ui.Styling.Declaration sweep-pending
 T:Vixen.Ui.Styling.DeclarationRange sweep-pending
 T:Vixen.Ui.Styling.ElementState sweep-pending
@@ -3572,11 +3573,14 @@ T:Vixen.Ui.Styling.LayerRule sweep-pending
 T:Vixen.Ui.Styling.LayerRuleParser sweep-pending
 T:Vixen.Ui.Styling.MediaConditions sweep-pending
 T:Vixen.Ui.Styling.MediaContext sweep-pending
+T:Vixen.Ui.Styling.MediaPreferences sweep-with-MediaContext — the platform-settings half of a MediaContext and exempt on its terms; why these six travel as one value while the other five axes do not is on the type and in Core/Vixen.Ui/Media.cs
 T:Vixen.Ui.Styling.MediaQuery sweep-pending
 T:Vixen.Ui.Styling.MediaScopes sweep-pending
 T:Vixen.Ui.Styling.MediaVerdicts sweep-pending
+T:Vixen.Ui.Styling.MotionPreference sweep-with-MediaContext — one axis of MediaPreferences and exempt on MediaContext's terms; it is what motion-safe and motion-reduce ask
 T:Vixen.Ui.Styling.NameTable sweep-pending
 T:Vixen.Ui.Styling.NamedColors sweep-pending
+T:Vixen.Ui.Styling.PointerCapability sweep-with-MediaContext — one axis of MediaPreferences and exempt on MediaContext's terms; why its zero is Unspecified rather than the empty set CSS calls none is on the type
 T:Vixen.Ui.Styling.PositionTest sweep-pending
 T:Vixen.Ui.Styling.RuleIndex sweep-pending
 T:Vixen.Ui.Styling.Selector sweep-pending

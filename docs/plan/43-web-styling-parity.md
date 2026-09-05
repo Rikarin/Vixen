@@ -87,7 +87,7 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | Utility **roots** (the unit of this table) | **332** | 283 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
-| Variant keys | **88** | **25** |
+| Variant keys | **88** | **51** |
 
 ⚠ **The family figure moves every week, which is why it is no longer typed here.** It has been quoted
 as 43 (the helper calls in one region of `UtilityFamilies`' static constructor), then as 98 (the
@@ -451,10 +451,19 @@ from `UiMask`, which is an analytic ramp over a box and has no way to express a 
 needs a pass that binds `ui-text.frag` with the colour forced to white, a surface to put it in, and a
 `UiLayer` that names a *coverage* source separately from its colour source.
 
-Two further things are absent and would be needed for the general form, and both are recorded against
-their own rows: an ordered filter list on `UiLayer` (today it carries a `Blur`, a `Filter` and a
-`Mask` as discrete fields, which is enough because their order is fixed by the specification), and
-`mask-composite`, without which two mask sources cannot be intersected.
+One further thing is absent and would be needed for the general form, and it is recorded against its
+own row: an ordered filter list on `UiLayer` (today it carries a `Blur`, a `Filter` and a `Mask` as
+discrete fields, which is enough because their order is fixed by the specification).
+
+⚠ **This paragraph named a second absence, `mask-composite`, and that half is refuted — it landed
+with the mask list and the generated row has read `works` since.** `mask-add`, `mask-subtract`,
+`mask-intersect` and `mask-exclude` are registered families writing the property,
+`DrawListBuilder.MasksFor` reads it as a *list* — `mask-composite: add, intersect` is one operator
+per layer — and `UiMask.Coverage` folds that list bottom-up through `UiMask.Compose`, which is the
+Porter-Duff step both executors run at the composite draw. So two mask sources **can** be
+intersected, and `bg-clip-text` is blocked on the text-coverage surface alone.
+The lesson is the one this document keeps re-learning one section up: a count or a state repeated in
+prose beside a generated table is a copy nothing checks, and it outlives the thing it described.
 
 **Recommendation stands, with the blocker now named rather than implied: `bg-clip-text` is absent
 until a text-coverage surface exists.** It is not a `mask-*` root, `bg-clip` is not a registered
@@ -1618,7 +1627,7 @@ glyph advances and the glyph comparison catches it, so this is a note and not a 
 
 | | Tailwind v4 | Vixen | |
 |---|---|---|---|
-| Registered variant keys | 88 | 25 | 28 % |
+| Registered variant keys | 88 | 51 | 58 % |
 | Arbitrary variant `[&>*]:` | ✅ | ✅ | |
 | Arbitrary value `w-[37px]` | ✅ | ✅ | |
 | Arbitrary property `[mask-type:luminance]` | ✅ | ✅ | F7 *closed* |
@@ -1629,25 +1638,45 @@ glyph advances and the glyph comparison catches it, so this is a note and not a 
 | Prefix (`tw:flex`) | ✅ | ⛔ | |
 | Two media variants on one utility | nests | ✅ nests | A15 |
 
-The 25 Vixen covers: `hover focus focus-visible focus-within active disabled enabled checked first
-last only odd even dark ltr rtl group peer data aria` plus the five breakpoint names when the theme
-declares them.
+The 51 Vixen covers: `hover focus focus-visible focus-within active disabled enabled checked first
+last only odd even empty first-of-type last-of-type only-of-type dark ltr rtl group peer data aria
+not nth nth-last nth-of-type nth-last-of-type motion-safe motion-reduce contrast-more contrast-less
+forced-colors inverted-colors portrait landscape print noscript pointer-none pointer-coarse
+pointer-fine any-pointer-none any-pointer-coarse any-pointer-fine has` plus the five breakpoint names
+when the theme declares them. ⚠ It was 25 until A13's structural half and A14 landed; this figure is
+hand-kept and nothing checks it, so it is spelled out as a list rather than as a number for the
+reason two paragraphs of Part 0 give about the family count — a bare figure beside a table nobody
+regenerates is the copy that rots.
 
-The 63 it does not fall into three quite different buckets, and lumping them together is how this
-gets mis-sized:
+⚠ **The bucket sizes below do not add up to the difference, and forcing them to would be the
+dishonest arithmetic rather than the honest one.** The 88 is a count of Tailwind's variant
+*families* and this is a count of registered *keys*: `pointer-*` is one line in v4's documentation
+and three keys here. Each bucket says what it is about; none of them is a share of a total.
 
-- **Twenty-two are a table entry each**, because the selector already compiles: `empty`, `not-*`,
-  `nth-*`, `nth-last-*`, `*-of-type`, `target`, `open`, `required`, `optional`, `valid`, `invalid`,
-  `read-only`, `placeholder-shown`, `indeterminate`, `default`, `autofill`, `in-range`,
-  `out-of-range`, `visited`, `inert`, `user-valid`, `user-invalid`. Some need an element-state bit
-  set by the control library; none needs a matcher change.
+What is left falls into three quite different kinds, and lumping them together is how this gets
+mis-sized:
+
+- **Seventeen are a table entry plus an element-state bit** the control library has to set:
+  `target`, `open`, `required`, `optional`, `valid`, `invalid`, `read-only`, `placeholder-shown`,
+  `indeterminate`, `default`, `autofill`, `in-range`, `out-of-range`, `visited`, `inert`,
+  `user-valid`, `user-invalid`. ⚠ **This bucket said twenty-two and "none needs a matcher change",
+  and both halves were wrong.** Five of the twenty-two — `empty`, `not-*`, `nth-*`, `nth-last-*` and
+  `*-of-type` — are structural and are registered now, and the of-type family was precisely the one
+  that *did* need a matcher change: a child index is stored on every element and an of-type index is
+  a position among the siblings sharing a tag, which nothing stored. It reads as a table entry
+  because `:nth-of-type(n)` and `:nth-child(n)` agree on every document whose children all carry one
+  tag. ⚠ Two of the seventeen want **refusing** rather than building — `visited` and `target` are
+  about a navigation model Vixen does not have — and `open` needs the CSS parser before it needs a
+  bit, since ExCSS 4.3.2 returns `:open` as an `UnknownSelector`.
 - **Seven need pseudo-elements to mean something** — F6.
-- **Thirteen are media features** (`motion-safe`, `motion-reduce`, `contrast-more`, `contrast-less`,
-  `forced-colors`, `inverted-colors`, `portrait`, `landscape`, `print`, `noscript`, `pointer-*`,
-  `any-pointer-*`), each one condition in `MediaQuery`.
-- **The rest are engine features**: `has-*` (doc 09 defers it to P2 on incremental-match cost),
-  `supports-*`, `starting` (`@starting-style`), `in-*`, `*`/`**`, and the whole container-query
-  family `@`/`@min`/`@max` — Part 2.
+- **The media features are done** — A14. ⚠ The bucket said "thirteen … each one condition in
+  `MediaQuery`" and it listed twelve, of which **two needed no condition at all**: `portrait` and
+  `landscape` are `(orientation: …)`, which has been answered from the surface's own width and
+  height since media queries existed here, so they were a table entry and nothing more. The other
+  ten are sixteen keys, because `pointer-*` and `any-pointer-*` are three each.
+- **The rest are engine features**: `supports-*`, `starting` (`@starting-style`), `in-*`, `*`/`**`,
+  and the whole container-query family `@`/`@min`/`@max` — Part 2. ⚠ `has-*` was the head of this
+  list on doc 09's P2 deferral and is registered now — A17.
 
 ---
 
@@ -2822,12 +2851,12 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A10 ✅ | `oklch()`/`oklab()` colour syntax, both notations, `none`, and every angle unit | `Vixen.Ui.Styling` | done | — |
 | A11 🟢 | Backgrounds. **`linear-gradient()`, `radial-gradient()` and `conic-gradient()` all paint**: `background-image` is parsed into `BoxStyle`, all eight direction keywords with CSS's corner rule, all four angle units, both colour notations, two or three stops, arbitrary stop positions inside or outside the box, `in srgb` / `in srgb-linear` / `in oklab`, and it layers over `background-color` as CSS does. `bg-radial` and `bg-conic` are assemblers now, and every assembler emits `in oklab` for v4 parity. Everything else is *refused loudly* rather than approximated — see `GradientRefusal`. `UiShape` grew 80 → 112 bytes; `UiShapeLayoutTests` and `CheckShaders` are what keep its four files in step. **Owed:** an explicit radial/conic centre, `bg-conic-<angle>` (the parser and shader do `from <angle>`; the *utility* needs a numeric family), `background-position`/`-size`/`-repeat`, and gradient text — see [what a third stop cost](#what-a-third-stop-cost) | `DrawListBuilder`, `BackgroundGradient`, `UiShape`, `Ui.rvn` | **#43** | 0.15 |
 | A12 🟡 | Pseudo-elements materialised — `::before`/`::after` with `content` | `StyleRuleSet`, `UiDocument` | — | 0.5 |
-| A13 🟢 | The 22 selector-only variants (`empty`, `nth-*`, `*-of-type`, form states) | `Variants`, `ElementState` | — | 0.3 |
-| A14 🟢 | The 13 media-feature variants | `MediaQuery` | — | 0.2 |
+| A13 🟡 | **The five structural ones landed and the seventeen form states did not, and that split is the shape of the item rather than how far it got.** `empty`, `not-*`, `nth-*`, `nth-last-*` and the whole `*-of-type` family are registered, each with a positive and a negative computed-value scene. ⚠ **The item's own claim that "none needs a matcher change" was wrong, and wrong about exactly the family that looks most like a table entry**: an of-type index is a position among the siblings *sharing a tag*, which nothing stored, so `PositionTest` grew five members and `StyleTree` learned to count them. The trap it hides behind is that `:nth-of-type(n)` and `:nth-child(n)` pick the same element out of any run of one tag — so a fixture of five `li` proves nothing, and the scenes here mix `p` and `div` for that reason. ⚠ **`not-*` is a bare-suffix negation only**: `not-sm:` is an at-rule in v4 and `not-group-hover:` an ancestor, and negating either is a different production, so both are *not variants* rather than variants meaning something else. **Owed**: the seventeen that need an element-state bit — and two of those (`visited`, `target`) want refusing rather than building, since Vixen has no navigation model to make either true. ⚠ And `:open` is a *parser* problem before it is a state bit: ExCSS 4.3.2 hands it back as an `UnknownSelector`, so a state flag for it would reach a compiler that never sees the pseudo-class | `Variants`, `ElementState` | — | 0.15 of 0.3 |
+| A14 ✅ | **Done, as sixteen keys rather than thirteen conditions, and two of them were already answerable.** `portrait` and `landscape` are `(orientation: …)`, which `MediaQuery` has always derived from the surface's own width and height — a table entry and no condition. The rest brought five axes onto a new `MediaPreferences` value: reduced motion, contrast (⚠ four values, because `custom` is neither more nor less and collapsing it would apply every high-contrast rule to a palette the user chose), forced colours, inverted colours, and the two pointer families. ⚠ **`PointerCapability` needed a fourth member for a reason that is this repository's commonest bug in a new disguise**: CSS's `pointer: none` is the empty capability set, and the empty set is also what a field nobody assigned holds — so a zero meaning "no pointing device" would make `pointer-none:` the rule that always applies under `default(MediaContext)`. Zero is `Unspecified` and reads as a mouse; `NoDevice` carries a bit so the stated emptiness can be told from the unstated one. ⚠ **`print:` and `noscript:` resolve and can never match, deliberately** — paged media is out of scope for good (Part 8 § 1) and a Vixen document always scripts — so the gate names them as the two entries that must have a negative scene and must *not* have a positive one, and a separate test proves the class is still generated, which is what tells "always false" from "not a variant". ⚠ **Owed, and filed separately: nothing sets any of it.** `UiSurface.Preferences` is exposed and defaults to "nothing unusual", exactly as `UiSurface.ColorScheme` has since it was added — and `Vixen.Ui.Desktop` reads the swapchain's gamut and has never read the system appearance, so `dark:` under the media strategy has never been true in a real application either. That is one hole in the platform layer with two victims | `MediaQuery`, `MediaPreferences`, `UiSurface` | — | 0.2 |
 | A15 ✅ | **Nested conditional-group rules — done, and for a tenth of the estimate, because the cascade already did it.** `StyleSheetLoader.LoadMedia` has always recursed into the rule it matched, so `@media A { @media B { … } }` loaded and conjoined; the thing that could not nest was `UtilityGenerator`, carrying one `string?` for the whole variant stack. It carries an ordered, deduplicated chain now and emits a trie over those chains, so `sm:md:p-4` and `dark:md:p-4` nest and share their outer wrapper with the shallower utilities. **Nesting cost the rule representation nothing at the time** — though a `StyleRule` carries a
 conditional-group id since per-surface media landed; see F11. ⚠ The real finding was next door: see § D6 | cascade | — | done |
 | A16 🟡 | Container queries. ⚠ **The cascade half landed** — `ContainerConditions`, `ContainerScopes`, `ContainerQuery`, a second group id on `StyleRule`, two scope slots on `StyleTree`, one integer test in the cascade, 34 computed-value tests. ⚠ **And it closed a silent drop**: ExCSS parses `@container` into a `ContainerRule`, so it never reached `LoadUnknown` and was discarded with no diagnostic, while two docs said it warned. ⚠ **And the `@sm:` variants were never gated on the wiring**: a pure variant emits no property, so the consumption gate never sees one — the blocker was that `--container-*` did not exist, and `Screens` under the same names means numbers two-thirds too big. They are registered now, off `ThemeTokens.Containers`. **Owed**: the layout coercion for containers sized by their contents, the `@container` marker family (which *does* face the gate, and wants a fifteenth probe scene), and the `cq*` units. Containment is *free* for a normal-flow block, whose inline size is already `SizingMode.StretchFit`. See § D3 | cascade + layout | 0.15 | 0.6 |
-| A17 🟢 | `has-*` | `SelectorMatcher` + invalidation | doc 09 P2 | 0.4 |
+| A17 ✅ | **Done, and the P2 deferral's premise was right about where the cost is and wrong that it was prohibitive.** Matching is a subtree walk with no bloom to shorten it — the ancestor bloom answers "could this name be above me", and a descendant bloom would have to be rebuilt on every insertion rather than inherited once at creation. Invalidation is the half doc 09 actually deferred on, and it is a *fourth direction*: `StyleInvalidator`'s own remarks said "nothing needs to look upward", and a name inside a `:has()` argument now carries `ReachesAncestors`, walks to the top of the tree and collects by the far end's names from there. ⚠ **The measurement, in work rather than milliseconds** (`HasInvalidationTests`): on a page of ten cards with ten cells each, `.card:has(.error) .cell` costs **103** elements resolved for one class added to one cell, against **11** for the same rule written `.card.flagged .cell` and driven from the card. The upward walk is narrowed by name and cannot be narrowed by depth, because the `:has()` may sit on the root. ⚠ **Two things the obvious implementation gets wrong and both were sabotage-tested.** The argument is restricted to a single compound: CSS anchors it at the element, so `:has(.a .b)` needs the `.a` inside the subtree, and testing the nested selector against every descendant also accepts an `.a` that is an *ancestor* — a rule matching more than it says, which is what F6 is about. And `:has()` blocks the style-sharing cache for `:empty`'s reason one level worse: a sharing key is parent, tag, classes and state, and two identical sibling cards can still differ in what their subtrees hold. ⚠ **`has-[>_.x]` is refused in `Variants` and not in the compiler, because ExCSS 4.3.2 parses `:has(> .x)` into the same node as `:has(.x)`** — the combinator is gone before any Vixen code sees it, so the variant table is the last place the text is intact. A hand-written `.vcss` rule is unguarded and is filed as **#711** | `SelectorMatcher`, `StyleInvalidator`, `StyleRuleSet` | doc 09 P2 — spent | 0.4 |
 | A18 ✅ | **Scroll properties as `ScrollView` inputs rather than CSS — done, and the control it was waiting for had been there the whole time.** The deferral's premise was that "scrolling in this engine is `ScrollView`" and that the behaviour had to land first; `ScrollView` was already 397 lines with bars, wheel, keyboard, a focus hook and a `ScrollIntoView`, used by `TreeView`, `DataGrid`, `CodeEditor`, both virtualisers and six editor panels. What was absent was not the feature but the four *readers*, and they are four now: `scroll-margin-*` off the target and `scroll-padding-*` off the container (CSS Scroll Snap §6 — the two come off different elements, and a reader that took both off one passes every test where the numbers match), `scroll-behavior` as an exponential ease off `UiDocument.Ticked`, and `overscroll-behavior*` as the one thing that decides whether a wheel at the stop chains outwards. **22 roots, all `works`**; the four block roots (`scroll-mbs/mbe`, `scroll-pbs/pbe`) stay absent for `space-y`'s reason, and `snap-*` and `scrollbar-*` are still deferred. ⚠ **Two findings worth more than the families.** The insets emit four longhands where `m-*` emits one shorthand, because ExCSS expands `margin` while parsing and has never heard of `scroll-margin` — v4's spelling would have resolved, computed and moved nothing, which is `inset`'s hole and would have been invisible from the class. And the gate could not see any of it until the probe grew a `scrolled` scene with *nested* views and three driven phases: one scroll container measures half the properties inert because the declaration only lands on `#probe`, and one approach direction measures half the edges inert because `ScrollIntoView` moves the minimum and the other branch never runs | `ScrollView`, `UtilityFamilies` | — | done |
 | A19 🟡 | **`text-decoration` is done and the other three are not.** Five properties, all five read: `text-decoration-line` (`underline`, `overline`, `line-through`, `no-underline`, and the space-separated list, so `underline overline` is one declaration and two bars), `-color`, `-style`, `-thickness` and `text-underline-offset`. ⚠ **Every position and every thickness comes out of the face**, through `FontFace.Decoration` and HarfBuzz's `hb_ot_metrics` — which was the point: across the twenty-two fonts this repository ships the underline thickness runs from 20 design units per em-square of 2048 to 184, a factor of nine, so any constant is wrong for one of two faces a document could mix. A zeroed `post` table is synthesised from rather than believed (`TestGSUBOne.otf` states 0 and 0), an `auto` thickness under one pixel is floored and an authored one is not, and an underline offset is the *centre* of the stem — FreeType's and Skia's reading of `post.underlinePosition`, which is the one the fonts were drawn against. ⚠ **It needed no command kind, no shader and no second executor**: a bar is a `DrawCommandKind.Rectangle` with a zero radius, so it batches as `Geometry` and the device and the software rasteriser draw it because they are drawing the same quad. One bar per *line* rather than per run — spanning `TextLine.Width`, so it follows the alignment and covers the gaps between faces — and it moves nothing that was measured, which is both CSS's rule and the only behaviour compatible with `TextLayout.Measure` reporting whole device pixels. ⚠ **The five properties are in `InheritedProperties` although CSS inherits none of them**, for `text-overflow`'s reason one step stronger: CSS *propagates* a decoration from the block box across its line boxes, one node produces one box here, and a `.vxml` interpolation emits its text as a child — so `<div class="underline">{Label}</div>` decorates nothing without it. ⚠ **`decoration-dotted` and `-dashed` were absent under the finding `divide-solid` was — there was no dash pattern in `Vixen.Ui` and `border-style` was read by nothing — and A3 closed both halves, so all four of CSS's drawable styles are registered.** A bar is the *easy* consumer of that pattern and it is easy structurally: an axis-aligned rectangle with no corner radius, so breaking it up is breaking up a length, and the marks batch as `Geometry` like the whole bar did. ⚠ `-wavy` stays absent under a reason the dash pattern does not touch: a wave is a stroked path where every other decoration is a rectangle, and CSS states neither its amplitude nor its period. ⚠ **Two things the gate could not see.** The consumption probe needed a `decorated` scene: `text-decoration-line` is observable everywhere there is text, and the four properties that *modify* a bar are observable nowhere, because the injected declaration is the only declaration and a thickness on undecorated text correctly moves nothing — four readers and a green gate that would have called them dead. And "the draw list changed" is satisfied by a bar in the wrong place, so the relations are asserted on pixels the software rasteriser produced, each chosen to fail for the neighbouring case; that is what caught the overline, which an earlier draft put with its top edge on the ascent and which therefore landed on the capitals of a face whose ascent (1556) barely clears its cap height (1493). ⚠ **Owed: `text-transform`, and it is not a keyword table.** It is a *shaping-time* transform, so it changes the measured width — but the blocker is narrower and worse: `straße` uppercases to `STRASSE` and `ﬁne` to `FINE`, so a case mapping changes the UTF-16 length, and `TextRun.Start`, `CaretOffset`, `CaretIndexAt`, `TextLine.Start`/`Length`, `Ellipsized` and `TextField`'s selection are all indices into the element's own string. Without a mapping between the two, `uppercase` on an editable field puts the caret in the wrong place silently. The property is already interned as inherited and waiting. Also owed: `font-variant-numeric` and `font-stretch` | `Vixen.Ui.Text`, `DrawListBuilder`, `TextRun`, `InheritedProperties` | — | 0.2 of 0.4 |
 | A20 ✅ | **Run the `Animator`** — built on the style engine, `Observe` from the updater, `Advance` on the tick, `Apply` before the consumers read (F10). **Landed with F11**, which the same seam turned up: `UiDocument` never handed the cascade a `MediaContext` either, so every breakpoint, every `dark:` under the media strategy and every `color-gamut` query was dead | `StyleEngine`, `UiDocument` | **#46** | done |

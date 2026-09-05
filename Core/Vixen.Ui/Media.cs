@@ -81,6 +81,22 @@ public sealed partial class UiDocument {
         set => Primary.ColorScheme = value;
     }
 
+    /// <summary>The platform's accessibility settings, on the primary surface.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A sixth axis that has to be given and cannot be discovered, joining the two the
+    ///     paragraph above names.</b> Reduced motion, contrast, forced colours, inverted colours and
+    ///     what is pointing at the window are all platform settings, and a document has no way to
+    ///     read any of them — so the whole group defaults to "nothing unusual" and waits, exactly as
+    ///     the gamut waits at sRGB. ⚠ And the wait is real: nothing in this repository sets this
+    ///     yet, nor <see cref="ColorScheme" />, which has been in the same position since it was
+    ///     added. That is a hole in the platform layer and it is above the cascade — the queries
+    ///     answer truthfully from what the host said.
+    /// </remarks>
+    public MediaPreferences Preferences {
+        get => Primary.Preferences;
+        set => Primary.Preferences = value;
+    }
+
     /// <summary>The primary surface's context, as the cascade is evaluating it there.</summary>
     public MediaContext Media => Primary.Media;
 
