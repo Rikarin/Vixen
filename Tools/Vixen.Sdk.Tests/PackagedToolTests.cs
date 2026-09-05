@@ -109,6 +109,42 @@ public sealed class PackagedToolTests : IDisposable {
         Assert.DoesNotContain("tools/Vixen.AssetCompiler", entries);
     }
 
+    /// <summary>
+    ///     ⚠ <b>Nor Assimp's second soname, and which of the two is second is the whole finding.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>Ultz.Native.Assimp</c> 6.0.2 ships <c>libassimp.so.5</c> <i>and</i>
+    ///         <c>libassimp.so.6</c> in every Linux RID, and both <c>.dylib</c> majors in every macOS
+    ///         one; Windows ships a single unversioned <c>Assimp64.dll</c>. Only one of each pair is
+    ///         ever opened, and it is the **5** — <c>Silk.NET.Assimp</c> 2.23.0 binds Assimp 5's C
+    ///         ABI, which is why <c>ci.yml</c> installs Ubuntu's <c>libassimp5</c> and says in as many
+    ///         words that a 6 there "would load and then be wrong in ways a signature cannot catch".
+    ///         44 251 540 bytes of major 6 across the five RIDs that carry a pair.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves are asserted, and the first is the one that matters.</b> An exclusion
+    ///         written as <c>libassimp.so.*</c> — or written against the wrong major, which is how
+    ///         `Rikarin/Vixen#624` filed it — produces a package that restores, installs, runs, and
+    ///         throws <c>FileNotFoundException</c> out of <c>Assimp.GetApi()</c> the first time
+    ///         anybody imports a model. A test that only checked the 6 was gone would pass on it.
+    ///         What ties the number here to the binding rather than to this comment is
+    ///         <c>Vixen.Editor.Assets.Tests.AssimpSonameTests</c>, which reads the name the binding
+    ///         asks for and holds this file's exclusion to it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void OnlyTheAssimpSonameTheBindingOpensIsPacked() {
+        var entries = Pack();
+
+        Assert.Contains("tools/runtimes/osx-arm64/native/libassimp.5.dylib", entries);
+        Assert.Contains("tools/runtimes/linux-x64/native/libassimp.so.5", entries);
+        Assert.Contains("tools/runtimes/win-x64/native/Assimp64.dll", entries);
+
+        Assert.DoesNotContain("tools/runtimes/osx-arm64/native/libassimp.6.dylib", entries);
+        Assert.DoesNotContain("tools/runtimes/linux-x64/native/libassimp.so.6", entries);
+    }
+
     /// <summary>Nor the symbols, which are most of what a native package weighs.</summary>
     [Fact]
     public void TheSymbolsAreNotPacked() {
@@ -183,6 +219,14 @@ public sealed class PackagedToolTests : IDisposable {
         Write(Path.Combine(cli, "runtimes", "osx-arm64", "native", "libmade-up.dylib"), "native");
         Write(Path.Combine(cli, "runtimes", "osx-arm64", "native", "libmade-up.pdb"), "native symbols");
         Write(Path.Combine(cli, "runtimes", "win-x64", "lib", "net10.0", "MadeUp.Windows.dll"), "managed");
+
+        // Both sonames `Ultz.Native.Assimp` ships per RID, so the exclusion has something to choose
+        // between. Real names rather than made-up ones, because the exclusion names them literally.
+        Write(Path.Combine(cli, "runtimes", "osx-arm64", "native", "libassimp.5.dylib"), "the one that loads");
+        Write(Path.Combine(cli, "runtimes", "osx-arm64", "native", "libassimp.6.dylib"), "the one that does not");
+        Write(Path.Combine(cli, "runtimes", "linux-x64", "native", "libassimp.so.5"), "the one that loads");
+        Write(Path.Combine(cli, "runtimes", "linux-x64", "native", "libassimp.so.6"), "the one that does not");
+        Write(Path.Combine(cli, "runtimes", "win-x64", "native", "Assimp64.dll"), "no pair on Windows");
 
         var pack = Run(
             "pack",

@@ -156,6 +156,7 @@ const Vixen.Ui.Styling.Utilities.UtilityComposition.ScaleX = "--tw-scale-x" -> s
 const Vixen.Ui.Styling.Utilities.UtilityComposition.ScaleY = "--tw-scale-y" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.ScrollSnapStrictness = "--tw-scroll-snap-strictness" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Sepia = "--tw-sepia" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.Shadow = "--tw-shadow" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.SlashedZero = "--tw-slashed-zero" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.TransitionDuration = "--tw-duration" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.TranslateX = "--tw-translate-x" -> string
@@ -183,6 +184,7 @@ static Vixen.Ui.Styling.Utilities.UtilityComposition.NumericFigures() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Reference(string fragment) -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Ring() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Scaling() -> string
+static Vixen.Ui.Styling.Utilities.UtilityComposition.Shadows() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.StopList(bool via) -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Transform() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Translation() -> string

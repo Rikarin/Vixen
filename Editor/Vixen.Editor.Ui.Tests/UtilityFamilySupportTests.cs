@@ -170,6 +170,24 @@ public class UtilityFamilySupportTests {
         { "row-3", "grid-row-end", "auto" },
         { "col-auto", "grid-column-start", "auto" },
         { "row-auto", "grid-row-start", "auto" },
+
+        // ⚠ <b>The row half of everything above, plus the four roots that place implicit tracks —
+        // and the asymmetry between `col-span-*` and `row-span-*` is the point of listing both.</b>
+        // `grid-column` and `grid-row` are shorthands ExCSS has never heard of, so each depends on
+        // `ShorthandExpansion` splitting it at load; the two are separate entries in that table, and
+        // a split written for one axis and not the other is a defect no `col-*` row can see.
+        // `grid-rows-*` is `grid-cols-*`'s twin for the same reason and emits the same `repeat()`
+        // form, which is the emission that changed under it once already.
+        { "grid-rows-2", "grid-template-rows", "repeat(2, minmax(0, 1fr))" },
+        { "row-span-2", "grid-row-start", "span 2" },
+        { "row-span-2", "grid-row-end", "span 2" },
+        { "col-start-2", "grid-column-start", "2" },
+        { "col-end-2", "grid-column-end", "2" },
+        { "row-start-2", "grid-row-start", "2" },
+        { "row-end-2", "grid-row-end", "2" },
+        { "grid-flow-col", "grid-auto-flow", "column" },
+        { "auto-cols-2", "grid-auto-columns", "8px" },
+        { "auto-rows-2", "grid-auto-rows", "8px" },
         { "flex-col", "flex-direction", "column" },
         { "flex-wrap", "flex-wrap", "wrap" },
         { "items-center", "align-items", "center" },
@@ -238,6 +256,43 @@ public class UtilityFamilySupportTests {
         { "m-2", "margin-top", "8px" },
         { "me-1", "margin-inline-end", "4px" },
 
+        // ⚠ <b>The other edge of every root above, and the reason they are worth the lines is that
+        // a family is one <c>Register</c> call per <i>spelling</i> and not per axis.</b> `p-3` and
+        // `pt-1` above proved the shorthand and the top edge; nothing in this file said that `pb`,
+        // `pl`, `pr` and `py` were even registered, and a family that had never been added — or
+        // whose `Properties` array named the wrong longhand, which is the mistake `scroll-mbs-*`
+        // below was written to catch — would have read here as silence rather than as a red test.
+        // #629, and the whole of what it is: coverage of the reader existed for every one of these,
+        // and the *inventory* did not.
+        //
+        // The axis roots take two rows apiece for `place-content-*`'s reason: a family emitting into
+        // only the first member of its `Properties` array satisfies either row on its own.
+        { "mt-2", "margin-top", "8px" },
+        { "mb-2", "margin-bottom", "8px" },
+        { "ml-2", "margin-left", "8px" },
+        { "mr-2", "margin-right", "8px" },
+        { "mx-2", "margin-left", "8px" },
+        { "mx-2", "margin-right", "8px" },
+        { "my-2", "margin-top", "8px" },
+        { "my-2", "margin-bottom", "8px" },
+        { "ms-2", "margin-inline-start", "8px" },
+        { "pb-2", "padding-bottom", "8px" },
+        { "pl-2", "padding-left", "8px" },
+        { "pr-2", "padding-right", "8px" },
+        { "py-2", "padding-top", "8px" },
+        { "py-2", "padding-bottom", "8px" },
+        { "pe-2", "padding-inline-end", "8px" },
+
+        // ⚠ <b>The block logicals resolve to the <i>physical</i> longhand, and the property is what
+        // these four rows are for</b> — `inset-bs-*`'s argument and `scroll-mbs-*`'s, arriving a
+        // third time. `margin-block-start` is interned by nobody, so a later hand "correcting" these
+        // to v4's spelling would leave four classes that parse, cascade and compute perfectly and
+        // move no box at all. Asserting the value alone would not notice.
+        { "mbs-2", "margin-top", "8px" },
+        { "mbe-2", "margin-bottom", "8px" },
+        { "pbs-2", "padding-top", "8px" },
+        { "pbe-2", "padding-bottom", "8px" },
+
         // ⚠ <b>Scroll insets — doc 43 A18, and note what the shorthand rows are <i>not</i>.</b>
         // `scroll-m-2` emits four longhands where `m-2` emits the one shorthand `margin`, because
         // ExCSS expands `margin` on the way in and has never heard of `scroll-margin`. So a row here
@@ -264,12 +319,32 @@ public class UtilityFamilySupportTests {
         { "scroll-pbs-2", "scroll-padding-top", "8px" },
         { "scroll-pbe-1", "scroll-padding-bottom", "4px" },
 
+        // The remaining eleven spellings, for the reason the margin edges above are here: `ScrollView`
+        // reads a per-edge longhand and nothing said which of these roots reach it. ⚠ The two inline
+        // logicals keep CSS's spelling and the rest are physical, which is the same split as the
+        // block above and is not a symmetry — `ScrollView.EdgeIds.For` interns exactly six names.
+        { "scroll-mb-2", "scroll-margin-bottom", "8px" },
+        { "scroll-ml-2", "scroll-margin-left", "8px" },
+        { "scroll-mr-2", "scroll-margin-right", "8px" },
+        { "scroll-my-2", "scroll-margin-top", "8px" },
+        { "scroll-my-2", "scroll-margin-bottom", "8px" },
+        { "scroll-me-2", "scroll-margin-inline-end", "8px" },
+        { "scroll-pt-2", "scroll-padding-top", "8px" },
+        { "scroll-pl-2", "scroll-padding-left", "8px" },
+        { "scroll-pr-2", "scroll-padding-right", "8px" },
+        { "scroll-px-2", "scroll-padding-left", "8px" },
+        { "scroll-px-2", "scroll-padding-right", "8px" },
+        { "scroll-py-2", "scroll-padding-top", "8px" },
+        { "scroll-py-2", "scroll-padding-bottom", "8px" },
+        { "scroll-ps-2", "scroll-padding-inline-start", "8px" },
+
         // The three keyword families that go with them. `scroll-smooth` is the one worth a row of its
         // own: it is the only member of any of these that changes *when* something happens rather
         // than where, and `ScrollView` animates it off `UiDocument.Ticked`.
         { "scroll-smooth", "scroll-behavior", "smooth" },
         { "overscroll-contain", "overscroll-behavior", "contain" },
         { "overscroll-y-none", "overscroll-behavior-y", "none" },
+        { "overscroll-x-auto", "overscroll-behavior-x", "auto" },
 
         // ⚠ <b>Three rows for one family, because Tailwind spells four roots with the `snap-` prefix
         // and they set three different properties.</b> `snap-y` is the container's axis, `snap-start`
@@ -284,18 +359,50 @@ public class UtilityFamilySupportTests {
         { "snap-start", "scroll-snap-align", "start" },
         { "snap-always", "scroll-snap-stop", "always" },
 
-        // Sizing.
+        // Sizing. ⚠ <b>The block and inline roots resolve to the physical longhand and the row is
+        // about that.</b> `min-block-*` is `min-height` and `min-inline-*` is `min-width` — the
+        // spelling `Vixen.Ui.Layout` interns — so the four logical roots are the block-edge trade
+        // one more time, and `size-*` takes two rows because it is the one root here that writes
+        // both axes from one value.
         { "w-full", "width", "100%" },
         { "h-4", "height", "16px" },
         { "min-w-0", "min-width", "0" },
         { "max-w-40", "max-width", "160px" },
+        { "min-h-2", "min-height", "8px" },
+        { "max-h-2", "max-height", "8px" },
+        { "min-block-2", "min-height", "8px" },
+        { "max-block-2", "max-height", "8px" },
+        { "min-inline-2", "min-width", "8px" },
+        { "max-inline-2", "max-width", "8px" },
+        { "size-2", "width", "8px" },
+        { "size-2", "height", "8px" },
 
         // Position.
         { "absolute", "position", "absolute" },
         { "relative", "position", "relative" },
+        { "static", "position", "static" },
         { "top-0", "top", "0" },
         { "inset-x-1", "left", "4px" },
         { "start-2", "inset-inline-start", "8px" },
+
+        // ⚠ <b>`inset-2` is four rows because a family emitting into three of its four longhands is
+        // the defect the single-row form cannot see</b>, and it is the one root in this file whose
+        // `Properties` array is that long. The other three are the edges `top-0` and `inset-x-1`
+        // above left unstated; `end-*` and `inset-e-*` are two spellings of the same logical edge,
+        // registered separately because Tailwind spells both, and `inset-be-*` is the block logical
+        // resolving physical for `inset-bs-*`'s reason below.
+        { "inset-2", "top", "8px" },
+        { "inset-2", "right", "8px" },
+        { "inset-2", "bottom", "8px" },
+        { "inset-2", "left", "8px" },
+        { "inset-y-2", "top", "8px" },
+        { "inset-y-2", "bottom", "8px" },
+        { "left-2", "left", "8px" },
+        { "right-2", "right", "8px" },
+        { "bottom-2", "bottom", "8px" },
+        { "end-2", "inset-inline-end", "8px" },
+        { "inset-e-2", "inset-inline-end", "8px" },
+        { "inset-be-2", "bottom", "8px" },
 
         // ⚠ <b>v4's four logical insets, and the pair of them is here because the two halves emit
         // different <i>kinds</i> of longhand on purpose.</b> `inset-s-*` keeps CSS's logical spelling
@@ -310,6 +417,12 @@ public class UtilityFamilySupportTests {
         { "z-10", "z-index", "10" },
         { "box-border", "box-sizing", "border-box" },
 
+        // ⚠ <b>`box-content` is not the absence of `box-border` and neither is `static`.</b> Both
+        // emit the CSS initial, which makes them look like no-ops and is exactly why they need
+        // rows: they are the only way to undo a `box-border` or an `absolute` set by an earlier
+        // rule, which is `visible`'s argument two categories over.
+        { "box-content", "box-sizing", "content-box" },
+
         // Typography. `text-` is alignment, then size, then colour, resolved in that order.
         { "text-center", "text-align", "center" },
         { "text-sm", "font-size", "11px" },
@@ -318,6 +431,35 @@ public class UtilityFamilySupportTests {
         { "leading-8", "line-height", "32px" },
         { "leading-tight", "line-height", "1.25" },
         { "tracking-px", "letter-spacing", "1px" },
+
+        // ⚠ <b>Ten typographic roots with no row anywhere in this file until #629, and `normal-case`
+        // is the one that shows why a row per <i>root</i> is the unit rather than a row per
+        // family.</b> All four of the case classes are one `text-transform` family, so the
+        // consumption gate goes green on any one of them — and `normal-case` emits `none`, a value
+        // whose whole job is to undo an inherited `uppercase`. Register it under the wrong keyword
+        // and three classes keep working while the fourth silently does nothing, which is the shape
+        // the gate cannot see and this table can.
+        { "capitalize", "text-transform", "capitalize" },
+        { "uppercase", "text-transform", "uppercase" },
+        { "lowercase", "text-transform", "lowercase" },
+        { "normal-case", "text-transform", "none" },
+
+        // ⚠ <b>Two of `hyphens`' three keywords, and the absent third is why the ledger measures the
+        // root `partial`.</b> `hyphens-auto` is not registered — automatic hyphenation wants a
+        // dictionary the text stack does not carry — so a row for it here would assert a value the
+        // cascade never holds. What is registered is the pair an author can act on: `manual`, which
+        // honours a soft hyphen already in the text, and `none`, which does not.
+        { "hyphens-manual", "hyphens", "manual" },
+        { "hyphens-none", "hyphens", "none" },
+        { "line-clamp-2", "-webkit-line-clamp", "2" },
+        { "tab-2", "tab-size", "2" },
+
+        // ⚠ <b>The arbitrary form is the only form this family has, and the quoting is the reason
+        // it needs a row.</b> An OpenType tag is a *string* in `font-feature-settings`, so the value
+        // that reaches the shaper carries its double quotes through the class name, the generator
+        // and the cascade — and a family that stripped them, or an escape that ate them, computes a
+        // declaration the shaper declines while the property still measures read.
+        { "font-features-[\"onum\"_1]", "font-feature-settings", "\"onum\" 1" },
 
         // ⚠ `text-indent` was one of doc 43 Part 0's seven interned-but-unread properties and moved
         // tables by being implemented rather than by finding a reader: `LineWrapper` had to learn a
@@ -409,6 +551,31 @@ public class UtilityFamilySupportTests {
         // Paint.
         { "bg-surface-raised", "background-color", "#f2f3f6" },
         { "opacity-50", "opacity", "0.5" },
+        { "bg-position-[25%_75%]", "background-position", "25% 75%" },
+        { "bg-size-[25%_75%]", "background-size", "25% 75%" },
+
+        // ⚠ <b>The mask keyword families, which are the part of the `mask-*` cluster a computed
+        // value can honestly state.</b> Each of these is one property, one keyword, read by name —
+        // unlike the edge-ramp roots beside them in the registry, whose value is an assembled
+        // `--tw-mask-*` composition and whose row would pin the mechanism rather than the answer,
+        // exactly as <see cref="NumericFigures" /> found for `font-variant-numeric`. Those are still
+        // uncovered here and #629 says so.
+        //
+        // ⚠ <b>The bare `mask` root is `mask-repeat` and not `mask-mode`</b>, which is worth the
+        // line because the ledger carries the mode family under the root spelling `mask` too — two
+        // rows, two meanings, one prefix. `mask-alpha` and its two siblings are the mode family, and
+        // they are separate registry roots.
+        { "mask-repeat", "mask-repeat", "repeat" },
+        { "mask-none", "mask-image", "none" },
+        { "mask-alpha", "mask-mode", "alpha" },
+        { "mask-luminance", "mask-mode", "luminance" },
+        { "mask-match", "mask-mode", "match-source" },
+        { "mask-add", "mask-composite", "add" },
+        { "mask-subtract", "mask-composite", "subtract" },
+        { "mask-intersect", "mask-composite", "intersect" },
+        { "mask-exclude", "mask-composite", "exclude" },
+        { "mask-position-[25%_75%]", "mask-position", "25% 75%" },
+        { "mask-size-[25%_75%]", "mask-size", "25% 75%" },
 
         // ⚠ <b>`blur-*` was the last row of A6's "paint the renderer has no channel for", and it left
         // that list the way `fill-*` and `ring-*` did — by the row being wrong about the disease.</b>
@@ -498,7 +665,7 @@ public class UtilityFamilySupportTests {
         // ⚠ Two families composing into one declaration is the case this theory cannot state — a row
         // here is one class — so it is
         // <see cref="Two_filter_families_compose_into_one_declaration_and_one_matrix" /> instead.
-        { "shadow-elevation", "box-shadow", "0px 10px 26px rgba(12, 14, 18, 0.22)" },
+        { "shadow-elevation", "box-shadow", "0 0 0 0px currentcolor, 0px 10px 26px rgba(12, 14, 18, 0.22)" },
 
         // ⚠ <b>`fill-*` and `stroke-*` are the first rows here to move because a <i>consumer</i> was
         // found rather than written.</b> Everything the pair needed already existed: `IconPath`
@@ -546,6 +713,19 @@ public class UtilityFamilySupportTests {
         { "border-be-2", "border-bottom-width", "2px" },
         { "border-be-accent", "border-bottom-color", "#2f6ecd" },
 
+        // ⚠ <b>The paragraph above named `border-s-*`/`border-e-*` as "the table's one genuinely
+        // partial pair" while the table held no row for either of them</b>, and the same was true of
+        // `border-t-*` and `border-r-*` — prose asserting a fact the rows did not. That is #629 in
+        // miniature: the finer claim this file exists to make was being made in a comment. The width
+        // half is here; the colour half of the logical pair is in <see cref="Inert" />, which is what
+        // makes the partiality a row rather than a sentence.
+        { "border-t-2", "border-top-width", "2px" },
+        { "border-r-2", "border-right-width", "2px" },
+        { "border-t-accent", "border-top-color", "#2f6ecd" },
+        { "border-r-accent", "border-right-color", "#2f6ecd" },
+        { "border-e-2", "border-inline-end-width", "2px" },
+        { "border-s-2", "border-inline-start-width", "2px" },
+
         // ⚠ <b>The arbitrary form was the only form here, and it is not any more.</b> This block used
         // to carry a note saying the editor's tokens defined no `radius` scale at all: the three
         // radii lived in `EditorTheme` as `var(--radius-row)` and friends, `ThemeTokens.Radius` was a
@@ -561,6 +741,19 @@ public class UtilityFamilySupportTests {
         { "rounded-b-[4px]", "border-bottom-left-radius", "4px" },
         { "rounded-lg", "border-top-left-radius", "8px 8px" },
         { "rounded-tl-row", "border-top-left-radius", "4px" },
+
+        // ⚠ <b>The two corners and the two physical sides the block above left unstated, and note
+        // the shape of the value.</b> The bare `rounded-*` row above computes `8px 8px` — a pair,
+        // because ExCSS expands the `border-radius` shorthand into the two-value form — where every
+        // per-corner and per-side root computes the single length. A row copied from the shorthand's
+        // expectation onto a per-corner root would be red for a reason that has nothing to do with
+        // the corner.
+        { "rounded-tr-2xl", "border-top-right-radius", "16px" },
+        { "rounded-bl-2xl", "border-bottom-left-radius", "16px" },
+        { "rounded-l-2xl", "border-top-left-radius", "16px" },
+        { "rounded-l-2xl", "border-bottom-left-radius", "16px" },
+        { "rounded-r-2xl", "border-top-right-radius", "16px" },
+        { "rounded-r-2xl", "border-bottom-right-radius", "16px" },
 
         // ⚠ <b>All three radius tokens, because for a while only two of them were there.</b>
         // `--radius-row` and `--radius-control` resolved and `--radius-panel` did not, and the
@@ -657,6 +850,11 @@ public class UtilityFamilySupportTests {
         { "transition", "transition-property", "all" },
         { "duration-150", "transition-duration", "150ms" },
         { "ease-out", "transition-timing-function", "ease-out" },
+
+        // ⚠ <b>The fourth member of that set, and the unit is the assertion.</b> `delay-300`
+        // computes `300ms` and not the bare count — the same shape `duration-150` above carries, and
+        // the one thing about this family a row can state that its mere registration cannot.
+        { "delay-300", "transition-delay", "300ms" },
         { "cursor-pointer", "cursor", "pointer" },
 
         // ⚠ <b>`cursor-help` is here because it was the one keyword of the eight the ledger lists
@@ -706,8 +904,30 @@ public class UtilityFamilySupportTests {
         // `scale: 2%`, not twice — which is the half of these two rows that was always right.
         { "translate-x-2", "translate", "8px 0px" },
         { "translate-y-2", "translate", "0px 8px" },
+
+        // ⚠ <b>The two-axis root and its `none` are rows because the inventory has no other way to
+        // hold them</b>, and neither is a third fragment: `translate-2` writes *both* axis slots and
+        // assembles the same `translate` the two rows above do, so it reads `8px 8px`; and
+        // `translate-none` is its own registered family rather than a keyword value on that one,
+        // because `Alongside` is appended on every resolution and would have re-assembled the
+        // movement over the top of the `none` that was meant to turn it off.
+        { "translate-2", "translate", "8px 8px" },
+        { "translate-none", "translate", "none" },
         { "scale-2", "scale", "2%" },
         { "rotate-45", "rotate", "45deg" },
+
+        // ⚠ <b>The per-axis scales are the composition again, and the <i>identity</i> in the slot
+        // the class did not name is the whole of what these two rows say.</b> `scale-x-2` computes
+        // `2% 1`, not `2%` and not `2% 2%`: the y half falls back to `--tw-scale-y`'s initial `1`,
+        // which is a multiplier where the value written is a ratio. A fallback of `0` — the guess a
+        // reader coming from `translate` makes, and the initial that would look right in the
+        // fragment — collapses the box on the axis nobody touched.
+        { "scale-x-2", "scale", "2% 1" },
+        { "scale-y-2", "scale", "1 2%" },
+
+        // The origin the two of them turn and scale about. Read by name and not composed, which is
+        // why it is one row rather than a pair.
+        { "origin-top", "transform-origin", "top" },
 
         // ⚠ <b><c>rotate-z-*</c>, whose family emits the shorthand rather than a longhand — the first
         // row here to name <c>transform</c>.</b> Composed the way the translations are: the class
@@ -750,8 +970,14 @@ public class UtilityFamilySupportTests {
         // `ring-accent` alone resolves a zero width and paints a shadow exactly the size of the box,
         // which the background then covers — the same nothing v4 gives it. See
         // <see cref="A_ring_paints_outside_the_box_and_costs_the_layout_nothing" />.
-        { "ring-2", "box-shadow", "0 0 0 2px currentcolor" },
-        { "ring-accent", "box-shadow", "0 0 0 0px #2f6ecd" }
+        //
+        // ⚠ <b>And both rows now carry a second, transparent item, which is the ring sharing the
+        // property with `shadow-*` rather than winning it.</b> The two families wrote one longhand,
+        // so `shadow-lg ring-2` resolved to whichever rule the cascade picked and the other class
+        // did nothing — `filter`'s failure, in the one place the fragment table had not reached.
+        // See <see cref="A_ring_and_an_elevation_shadow_on_one_element_are_both_painted" />.
+        { "ring-2", "box-shadow", "0 0 0 2px currentcolor, 0 0 transparent" },
+        { "ring-accent", "box-shadow", "0 0 0 0px #2f6ecd, 0 0 transparent" }
     };
 
     /// <summary>Utility, property — the families that compute a value nothing in the engine reads.</summary>
@@ -887,6 +1113,16 @@ public class UtilityFamilySupportTests {
         // document-wide model, not the reader.
         { "select-none", "user-select" },
 
+        // ⚠ <b>Half of `border-s-*`/`border-e-*`, and the half is the row.</b> The width longhands
+        // are in <see cref="Supported" /> above; these two colours are read by nothing, which is the
+        // "one genuinely partial pair" that block's comment has been claiming since it was written
+        // — against a table that until #629 held no row for either root at all. `align-*` is the
+        // same shape for a different reason: a family is not a property, and half a family being
+        // real is a state this file has to be able to express in rows rather than in prose.
+        // `InertProperties.txt` carries both names against #21, which is what expires them.
+        { "border-e-accent", "border-inline-end-color" },
+        { "border-s-accent", "border-inline-start-color" },
+
         // ⚠ <b>The three `transition-*` rows were here and are now back in `Supported`.</b> They are
         // the only rows in this file to have made the trip in both directions, and the round trip is
         // worth more than either leg: they sat in `Supported` on the strength of the cascade computing
@@ -970,6 +1206,14 @@ public class UtilityFamilySupportTests {
     ///         here, because the declaration it emits is never on the element a row would ask about.
     ///         Every other entry is work nobody has done.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And most of it has since been done: 121 entries are 33.</b> #629 wrote the rows
+    ///         for eighty-eight roots and six of this list's groups went with them — which is the
+    ///         expiry above doing its job, since the rows and the lines arrived on two different
+    ///         branches and neither knew about the other. What is left is the five scoped roots and
+    ///         the mask and gradient cluster, and the cluster's own reason had to be rewritten: the
+    ///         file it named as pinning it against pixels does not write a utility class at all.
+    ///     </para>
     /// </remarks>
     public static IReadOnlyDictionary<string, string> Uncovered { get; } = BuildUncovered();
 
@@ -985,80 +1229,28 @@ public class UtilityFamilySupportTests {
             "divide", "divide-x", "divide-y", "space-x", "space-y"
         ),
 
-        // ── Edges and axes ──────────────────────────────────────────────────────────────────────────
-        new UncoveredGroup(
-            "the other edge or axis of a root this table already holds. One family, one reader, one code " +
-            "path, and nobody wrote the second row.",
-            "bottom", "end", "inset", "inset-be", "inset-e",
-            "inset-y", "left", "mb", "mbe", "mbs",
-            "ml", "mr", "ms", "mt", "mx",
-            "my", "pb", "pbe", "pbs", "pe",
-            "pl", "pr", "py", "right"
-        ),
-
-        // ── Sizing ──────────────────────────────────────────────────────────────────────────────────
-        new UncoveredGroup(
-            "a sizing root whose axis twin is already held; `TrySize` answers every one of them through " +
-            "one rule, so what is untested is the spelling rather than the behaviour.",
-            "box-content", "max-block", "max-h", "max-inline", "min-block",
-            "min-h", "min-inline", "size", "static"
-        ),
-
-        // ── Borders and radii ───────────────────────────────────────────────────────────────────────
-        new UncoveredGroup(
-            "a per-edge or per-corner spelling whose sibling is held. Their behaviour is pinned by the " +
-            "two per-edge facts in this file, which is exactly why nobody noticed the inventory row was " +
-            "missing.",
-            "border-e", "border-r", "border-s", "border-t", "rounded-bl",
-            "rounded-l", "rounded-r", "rounded-tr"
-        ),
-
-        // ── Grid placement ──────────────────────────────────────────────────────────────────────────
-        new UncoveredGroup(
-            "a grid placement root. The grid facts in this file measure tracks and spans rather than " +
-            "computed values, so these have coverage and no row.",
-            "auto-cols", "auto-rows", "col-end", "col-start", "grid-flow",
-            "grid-rows", "row-end", "row-span", "row-start"
-        ),
-
-        // ── Scroll insets ───────────────────────────────────────────────────────────────────────────
-        new UncoveredGroup(
-            "a scroll inset or overscroll axis whose sibling is held; `ScrollView.InsetOf` reads all " +
-            "twelve through one table and the consumption gate measures each longhand separately.",
-            "overscroll-x", "scroll-mb", "scroll-me", "scroll-ml", "scroll-mr",
-            "scroll-my", "scroll-pl", "scroll-pr", "scroll-ps", "scroll-pt",
-            "scroll-px", "scroll-py"
-        ),
-
-        // ── Transforms ──────────────────────────────────────────────────────────────────────────────
-        new UncoveredGroup(
-            "a transform root whose sibling is held; the two transform facts in this file measure a moved " +
-            "box and a turned one rather than a computed value.",
-            "origin", "scale-x", "scale-y"
-        ),
-
-        // ── Typography ──────────────────────────────────────────────────────────────────────────────
-        new UncoveredGroup(
-            "a typography root with no row anywhere in this file. Not a refusal and not an inert family, " +
-            "simply never written down, which is the whole of what this list is for.",
-            "capitalize", "delay", "font-features", "hyphens-manual", "hyphens-none",
-            "line-clamp", "lowercase", "normal-case", "tab", "uppercase"
-        ),
-
         // ── Masks and gradients ─────────────────────────────────────────────────────────────────────
+        //
+        // ⚠ <b>Six groups used to stand between this one and the scoped roots above, and they were
+        // deleted rather than shrunk.</b> #629 wrote their rows — every physical edge and axis, the
+        // sizing spellings, the per-edge borders and per-corner radii, the row half of grid
+        // placement, the scroll insets, the per-axis scales, `origin`, and ten typographic roots
+        // whose only appearance anywhere was a line in this list. 121 entries became 33, and a line
+        // that has since gained a row is one this test fails on rather than one somebody has to
+        // notice.
         new UncoveredGroup(
-            "the mask and gradient cluster. Its behaviour is pinned against pixels by `MaskGradientTests` " +
-            "and `GradientPaintTests` and its emission by `UtilityFamilyTests`, so it is among the best- " +
-            "covered groups here and has not one inventory row.",
-            "bg-conic", "bg-linear", "bg-position", "bg-radial", "bg-size",
-            "from", "mask", "mask-add", "mask-alpha", "mask-b-from",
-            "mask-b-to", "mask-conic", "mask-conic-from", "mask-conic-to", "mask-exclude",
-            "mask-intersect", "mask-l-from", "mask-l-to", "mask-linear", "mask-linear-from",
-            "mask-linear-to", "mask-luminance", "mask-match", "mask-none", "mask-position",
-            "mask-r-from", "mask-r-to", "mask-radial", "mask-radial-at", "mask-radial-from",
-            "mask-radial-to", "mask-size", "mask-subtract", "mask-t-from", "mask-t-to",
-            "mask-x-from", "mask-x-to", "mask-y-from", "mask-y-to", "to",
-            "via"
+            "the mask and gradient cluster, whose computed value is an assembled `--tw-*` list: a row here " +
+            "would pin the mechanism rather than the answer, which is `NumericFigures`' finding one " +
+            "category over. ⚠ And half the reason this group used to give is refuted: it claimed " +
+            "`MaskGradientTests` pins the cluster against pixels, and that file writes hand-authored " +
+            "`mask-image` declarations rather than one utility class — so what actually covers these " +
+            "roots is their emission, which is the mechanism again and not the answer.",
+            "bg-conic", "bg-linear", "bg-radial", "from", "mask-b-from",
+            "mask-b-to", "mask-conic", "mask-conic-from", "mask-conic-to", "mask-l-from",
+            "mask-l-to", "mask-linear", "mask-linear-from", "mask-linear-to", "mask-r-from",
+            "mask-r-to", "mask-radial", "mask-radial-at", "mask-radial-from", "mask-radial-to",
+            "mask-t-from", "mask-t-to", "mask-x-from", "mask-x-to", "mask-y-from",
+            "mask-y-to", "to", "via"
         ),
         ];
 
@@ -1393,6 +1585,18 @@ public class UtilityFamilySupportTests {
     ///     walk <c>ParityLedger.Locate</c> makes, re-stated rather than referenced: a test assembly
     ///     cannot be referenced by another test assembly, and eight lines of TSV reading is a smaller
     ///     price than the third project that would make it shareable.
+    ///     <para>
+    ///         ⚠ <b>The class-name lookup is not enough on its own, and finding out cost two red rows
+    ///         rather than a silent pass, which is the guard working.</b> <c>classes</c> is Tailwind's
+    ///         <i>static</i> set for a root as the original survey transcribed it and <c>example</c> is
+    ///         one class — so a row keyed on a <i>functional</i> class the ledger never spells, which
+    ///         <c>border-s-accent</c> is, matched nothing and failed as "the name has drifted". It had
+    ///         not. The fallback is the <c>vixen_family</c> column, which holds registry root names and
+    ///         is what <see cref="UtilityFamilies.SplitName" /> yields — several to a cell where one
+    ///         ledger row covers several families. That keeps the anti-vacuity half intact: a family
+    ///         that reached a table here without reaching the ledger at all still fails, which is the
+    ///         only thing this lookup exists to catch.
+    ///     </para>
     /// </remarks>
     static (string Root, string Reads) LedgerRow(string utility) {
         var lines = File.ReadAllLines(Ledger());
@@ -1402,12 +1606,16 @@ public class UtilityFamilySupportTests {
         var reads = Array.IndexOf(header, "engine_reads");
         var classes = Array.IndexOf(header, "classes");
         var example = Array.IndexOf(header, "example");
+        var families = Array.IndexOf(header, "vixen_family");
 
         Assert.True(
-            root >= 0 && reads >= 0 && classes >= 0 && example >= 0,
-            "the parity ledger's header no longer names root, engine_reads, classes and example, so this "
-            + "check is reading columns by a layout that has moved."
+            root >= 0 && reads >= 0 && classes >= 0 && example >= 0 && families >= 0,
+            "the parity ledger's header no longer names root, engine_reads, classes, example and "
+            + "vixen_family, so this check is reading columns by a layout that has moved."
         );
+
+        var family = UtilityFamilies.SplitName(utility).Name;
+        (string Root, string Reads)? byFamily = null;
 
         foreach (var line in lines.Skip(1)) {
             var cells = line.Split('\t');
@@ -1424,13 +1632,24 @@ public class UtilityFamilySupportTests {
             if (named.Contains(utility)) {
                 return (cells[root], cells[reads]);
             }
+
+            var registered = cells[families].Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+            if (byFamily is null && registered.Contains(family, StringComparer.Ordinal)) {
+                byFamily = (cells[root], cells[reads]);
+            }
+        }
+
+        if (byFamily is { } found) {
+            return found;
         }
 
         Assert.Fail(
             $"no row of docs/plan/43-web-styling-parity.tsv names the class '{utility}' in its `classes` or "
-            + "`example` column, so this check compared nothing. Either the class name has drifted from the "
-            + "ledger's spelling of it, or a family reached `Inert` without reaching the ledger — which its "
-            + "own completeness guard is supposed to refuse."
+            + $"`example` column, and none names its family '{family}' in `vixen_family`, so this check "
+            + "compared nothing. Either the class name has drifted from the ledger's spelling of it, or a "
+            + "family reached `Inert` without reaching the ledger — which its own completeness guard is "
+            + "supposed to refuse."
         );
 
         return default;
@@ -2266,8 +2485,9 @@ public class UtilityFamilySupportTests {
         ui.Frame();
 
         // Both classes wrote the same declaration and neither zeroed the other, which is the whole
-        // point of making both of them assemblers.
-        Assert.Equal("0 0 0 2px #2f6ecd", ui.StyleOf(ringed, "box-shadow"));
+        // point of making both of them assemblers. ⚠ The second item is `shadow-*`'s slot resolving
+        // to its initial, and the `Single` below is what says an unwritten slot costs no command.
+        Assert.Equal("0 0 0 2px #2f6ecd, 0 0 transparent", ui.StyleOf(ringed, "box-shadow"));
 
         var ring = Assert.Single(
             ui.Document.Drawing.Commands,
@@ -2288,6 +2508,80 @@ public class UtilityFamilySupportTests {
         // have put the sibling at 36 — and every other assertion here would still have passed.
         Assert.Equal(32f, beside.AbsoluteLeft);
         Assert.Equal(32f, ringed.Width);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A ring and an elevation shadow on one element are two commands, and until
+    ///     `Rikarin/Vixen#279` item 4 they were one.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>shadow-lg ring-2</c> on a focused card is the way both classes are actually
+    ///         written, and it did not work: two families emitted <c>box-shadow</c>, so the cascade
+    ///         kept one rule and the other class silently did nothing at all. ⚠ <b>Nothing could see
+    ///         it.</b> The consumption gate measures <c>box-shadow</c> read either way;
+    ///         <see cref="Supported" /> holds one row per class and each row passed on its own; and
+    ///         the property computed a perfectly good value. It is only with both classes on one
+    ///         element that the defect exists, which is why this is a <c>Fact</c> and not a row.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two commands and their <i>order</i>, because emitting the list forwards is the
+    ///         wrong half of the fix and passes any count.</b> A draw list paints later commands over
+    ///         earlier ones and CSS Backgrounds 3 § 7.1.1 paints a shadow list front to back in the
+    ///         order written, so <c>EmitShadow</c> emits backwards — and the ring, which is item one,
+    ///         has to come out <i>last</i>. Asserting only that both are present would be green with
+    ///         the elevation shadow painted over the ring, which is the picture anybody writing the
+    ///         pair is trying to avoid.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the third assertion is the one that says the composition is not free by
+    ///         default.</b> Every element carrying either class emits both slots, so the one the
+    ///         author did not write arrives as a transparent shadow; <c>EmitOneShadow</c> drops it.
+    ///         Without that, a sheet with <c>shadow-*</c> anywhere in it doubles its shadow commands
+    ///         for a picture nobody can see, and no assertion about pixels would ever notice.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_ring_and_an_elevation_shadow_on_one_element_are_both_painted() {
+        using var ui = Sheet("ring-2", "ring-accent", "shadow-elevation", "w-8", "h-8");
+
+        var both = ui.Create(
+            "probe", ui.Document.Root, null, "ring-2", "ring-accent", "shadow-elevation", "w-8", "h-8"
+        );
+
+        var ringOnly = ui.Create("probe", ui.Document.Root, null, "ring-2", "ring-accent", "w-8", "h-8");
+
+        ui.Frame();
+
+        var shadows = ui.Document.Drawing.Commands
+            .Where(command => command.Kind == DrawCommandKind.Shadow)
+            .ToArray();
+
+        // Three, not four: two for the element carrying both classes, one for the element carrying
+        // only the ring — whose `--tw-shadow` slot resolved to a transparent shadow and was dropped.
+        Assert.Equal(3, shadows.Length);
+
+        // The ring is the hard-edged one — no blur, so `Thickness` is zero — and the elevation shadow
+        // is the blurred one. Both are present, which is the whole claim. ⚠ Selected by the left edge
+        // and not only by the falloff, because the sibling's ring is the same shape and the same
+        // width: a predicate that matched it too would be a `Single` failure rather than a wrong
+        // answer, but only by luck.
+        var ring = Assert.Single(
+            shadows, command => command.Thickness == 0f && command.X == both.AbsoluteLeft - 2f
+        );
+
+        var elevation = Assert.Single(shadows, command => command.Thickness > 0f);
+
+        // ⚠ Painted after, so it lands on top. Emitting the list forwards puts the elevation shadow
+        // over the ring and passes every assertion above it.
+        Assert.True(
+            Array.IndexOf(shadows, ring) > Array.IndexOf(shadows, elevation),
+            "the ring is the first item of the list, so it must be the last command emitted"
+        );
+
+        // And the ring the composition produced is the same ring it produces alone: sharing the
+        // property cost the family nothing.
+        Assert.Equal(ringOnly.Width + 4f, ring.Width);
     }
 
     /// <summary>

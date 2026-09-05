@@ -1310,7 +1310,7 @@ public static class UtilityFamilies {
             ValueKind.BorderEdge,
             [UtilityComposition.RingWidth],
             ColorProperties: [UtilityComposition.RingColor],
-            Alongside: [new UtilityDeclaration("box-shadow", UtilityComposition.Ring())]
+            Alongside: [new UtilityDeclaration("box-shadow", UtilityComposition.Shadows())]
         ));
 
         // ── Gradients: the composed families ────────────────────────────────────────────────
@@ -1963,9 +1963,26 @@ public static class UtilityFamilies {
         // thing: its offset, blur and alpha are chosen together to read as one height above the
         // surface. `shadow-none` is here rather than in the theme so that turning one off never
         // depends on somebody having remembered to define it.
-        Register(new Family("shadow", ValueKind.Shadow, ["box-shadow"], new Dictionary<string, string>(StringComparer.Ordinal) {
-            ["none"] = "box-shadow:none"
-        }));
+        //
+        // ⚠ <b>Composed, and the fragment is the whole shadow.</b> This family wrote `box-shadow`
+        // directly until `Rikarin/Vixen#279` item 4, and so does `ring-*` — two families, one
+        // longhand, so `shadow-lg ring-2` on one element resolved to whichever rule the cascade
+        // picked and the other class silently did not apply. Nothing about *this* family needed a
+        // fragment; sharing the property with the ring did. See `UtilityComposition.Shadows`.
+        //
+        // ⚠ <b>`shadow-none` is now a transparent shadow rather than the `none` keyword</b>, and the
+        // change is not cosmetic: `none` substituted into the middle of a comma list is not an empty
+        // item, it is a keyword `EmitShadow` refuses the whole declaration over — so the old spelling
+        // would have made `shadow-none ring-2` paint no ring either.
+        Register(new Family(
+            "shadow",
+            ValueKind.Shadow,
+            [UtilityComposition.Shadow],
+            new Dictionary<string, string>(StringComparer.Ordinal) {
+                ["none"] = UtilityComposition.Shadow + ":0 0 transparent"
+            },
+            Alongside: [new UtilityDeclaration("box-shadow", UtilityComposition.Shadows())]
+        ));
 
         // ── Transforms ──────────────────────────────────────────────────────────────────────
         //

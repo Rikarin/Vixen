@@ -110,9 +110,33 @@ public class UtilityFamilyTests {
     [InlineData("border-t-accent", "border-top-color: #4f7cff")]
     // Effects.
     [InlineData("opacity-50", "opacity: 0.5")]
-    [InlineData("shadow", "box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.3)")]
-    [InlineData("shadow-lg", "box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.45)")]
-    [InlineData("shadow-none", "box-shadow: none")]
+    // ⚠ <b>The shadow is a fragment and the ring is written inline, and both classes emit the same
+    // assembled `box-shadow`.</b> That is what lets `shadow-lg ring-2` be both — the two families
+    // wrote the one longhand until `Rikarin/Vixen#279` item 4, so the cascade picked a rule and the
+    // other class silently did not apply. ⚠ `shadow-none` sets a *transparent* shadow rather than
+    // the `none` keyword: `none` in the middle of a comma list is not an empty item, it is a keyword
+    // `EmitShadow` refuses the whole declaration over, so `shadow-none ring-2` would have lost the
+    // ring too. What drops the invisible half of the pair is `EmitOneShadow`, not the emission.
+    [InlineData(
+        "shadow",
+        "--tw-shadow: 0px 1px 2px rgba(0, 0, 0, 0.3)"
+        + "|box-shadow: 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
+    )]
+    [InlineData(
+        "shadow-lg",
+        "--tw-shadow: 0px 8px 24px rgba(0, 0, 0, 0.45)"
+        + "|box-shadow: 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
+    )]
+    [InlineData(
+        "shadow-none",
+        "--tw-shadow: 0 0 transparent"
+        + "|box-shadow: 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
+    )]
+    [InlineData(
+        "ring-2",
+        "--tw-ring-width: 2px"
+        + "|box-shadow: 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
+    )]
     [InlineData("mask-none", "mask-image: none")]
     // ⚠ The assembled `mask-image` is what these rows are really about. Each stop family sets one
     // fragment and emits the whole declaration beside it, so `mask-linear-from-50%` masks on its own

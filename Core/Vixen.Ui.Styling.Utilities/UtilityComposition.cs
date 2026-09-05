@@ -431,6 +431,27 @@ public static class UtilityComposition {
     /// </remarks>
     public const string RingColor = Prefix + "ring-color";
 
+    /// <summary>The <c>shadow-*</c> token, held as a fragment so a ring can be layered over it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one fragment here that exists for a <i>collision</i> rather than for an
+    ///         ordered list.</b> Every other entry in this table is a slot in a value CSS builds out
+    ///         of parts — a transform's functions, a filter's, a gradient's stops. This one is a whole
+    ///         shadow, and <c>shadow-lg</c> could perfectly well have gone on emitting
+    ///         <c>box-shadow</c> directly. What it could not do is share the property with
+    ///         <c>ring-*</c>: two families writing one longhand means the cascade picks one and the
+    ///         other silently does not apply, which is <c>filter</c>'s failure in a different suit and
+    ///         is what `Rikarin/Vixen#279` item 4 names.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The initial is a transparent shadow rather than the <c>none</c> keyword</b>, for
+    ///         `DropShadow`'s reason one table down: an unset slot is substituted into the middle of a
+    ///         comma list, and <c>none</c> there is not a shadow — it is a keyword that refuses the
+    ///         whole declaration, so a bare <c>ring-2</c> would cascade perfectly and paint nothing.
+    ///     </para>
+    /// </remarks>
+    public const string Shadow = Prefix + "shadow";
+
     // ── The filter ──────────────────────────────────────────────────────────────────────────
     //
     // ⚠ <b>One fragment and one property, which looks like it did not need the mechanism at all —
@@ -656,6 +677,14 @@ public static class UtilityComposition {
         // `ring-accent` draw a ring nobody asked for.
         [RingWidth] = "0px",
         [RingColor] = "currentcolor",
+
+        // ⚠ <b>A transparent shadow and not <c>none</c></b>, which is the same trap `DropShadow`'s
+        // initial is written up under and is sharper here, because this slot is one item of a comma
+        // list rather than one function of a filter: `box-shadow: 0 0 0 2px currentcolor, none` is
+        // not a two-item list with an empty second item, it is a declaration `EmitShadow` refuses
+        // whole. A bare `ring-2` would then cascade perfectly and paint nothing — the failure this
+        // table exists to make impossible.
+        [Shadow] = "0 0 transparent",
         [Blur] = "0px",
 
         // ⚠ <b>Each initial is the identity of <i>its own</i> function, which is one for four of
@@ -956,19 +985,45 @@ public static class UtilityComposition {
     ///         absence looked exactly like the utility being broken.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A ring and a <c>shadow-*</c> on one element is still the known limit, and it is
-    ///         this mechanism's now rather than the draw list's.</b> It used to be both: CSS layers
-    ///         them by comma and <c>EmitShadow</c> refused a list outright. ⚠ <b>It does not any
-    ///         more</b> — a list is a command each, painted last to first, and a hand-written
-    ///         <c>box-shadow: a, b</c> in a <c>.vcss</c> draws both (`Rikarin/Vixen#279`). What is
-    ///         left is here: the two families write the same property, so the cascade picks one and
-    ///         the other is not applied. Composing them is v4's five-fragment shape —
-    ///         <c>--tw-shadow</c>, <c>--tw-inset-shadow</c>, <c>--tw-ring-shadow</c>,
-    ///         <c>--tw-inset-ring-shadow</c> and <c>--tw-ring-offset-shadow</c> assembled into one
-    ///         comma list — which is a fragment table and no longer a draw path.
+    ///         ⚠ <b>A ring and a <c>shadow-*</c> on one element used to be the known limit and is not
+    ///         any more.</b> It was two defects wearing one symptom: CSS layers them by comma and
+    ///         <c>EmitShadow</c> refused a list outright, so even a hand-written
+    ///         <c>box-shadow: a, b</c> in a <c>.vcss</c> drew nothing. The list landed first
+    ///         (`Rikarin/Vixen#279` item 1); what was left was here, and is <see cref="Shadows" />.
     ///     </para>
     /// </remarks>
     public static string Ring() => $"0 0 0 {Reference(RingWidth)} {Reference(RingColor)}";
+
+    /// <summary>The one <c>box-shadow</c> that <c>ring-*</c> and <c>shadow-*</c> both emit.</summary>
+    /// <returns>The assembled comma list.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The ring is written inline and the shadow is a fragment, which is deliberately
+    ///         not v4's arrangement.</b> v4 keeps five <c>--tw-*-shadow</c> slots and assembles all
+    ///         five; four of them belong to families this engine does not register —
+    ///         <c>inset-shadow-*</c>, <c>inset-ring-*</c> and <c>ring-offset-*</c>, which are blocked
+    ///         on an inner-shadow draw path and on an offset fragment that does not exist. A slot for
+    ///         a family nobody can write is a lane reserved for a guess, and it is not free: every
+    ///         unset slot substitutes a transparent shadow into this list on every element that
+    ///         carries either class. Each of the four joins this string on the day its family is
+    ///         registered, exactly as <see cref="Transform" />'s four missing functions do.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The ring comes first because a draw list paints later commands over earlier ones
+    ///         and <c>EmitShadow</c> therefore emits a list backwards.</b> CSS Backgrounds 3 § 7.1.1
+    ///         paints a shadow list front to back in the order written, so the ring being item one is
+    ///         what puts it *over* the elevation shadow — which is v4's order too, and is the way
+    ///         round anybody writing <c>shadow-lg ring-2</c> on a focused card means.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both items are always present, and the transparent one costs nothing only because
+    ///         <c>EmitOneShadow</c> drops a shadow whose colour is fully transparent.</b> Without that
+    ///         drop this composition would put a second, invisible <c>Shadow</c> command under every
+    ///         shadowed and every ringed element in the editor — a real cost for a picture nobody can
+    ///         see, and the kind of thing that is only ever noticed in a profile.
+    ///     </para>
+    /// </remarks>
+    public static string Shadows() => $"{Ring()}, {Reference(Shadow)}";
 
     /// <summary>The <c>filter</c> declaration the eight filter families assemble into.</summary>
     /// <returns>The assembled value.</returns>
