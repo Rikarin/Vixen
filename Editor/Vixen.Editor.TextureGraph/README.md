@@ -43,9 +43,15 @@ bake.Save(3, "Assets/Materials/hull-height.png");
 ## What this deliberately does not do
 
 - **No node classes, no compiler, no `.vxtexgraph`.** A plan is the artefact; how one is produced is
-  M4's (a graph) and M7's (a layer stack). This assembly does not reference
-  `Vixen.Editor.NodeGraph` at all, which is what makes every test here a test of the evaluator.
-- **No CPU implementation of any kernel** — [§ D3](../../docs/plan/48-material-authoring.md). A parity
+  M4's (a graph) and M7's (a layer stack). ⚠ **This used to say the assembly does not reference
+  `Vixen.Editor.NodeGraph` at all, and that has not been true since M4** — a `TextureGraphCompiler`
+  *is* a `NodeGraphCompiler<TexturePlan>`, and the csproj says at length what the reference cost.
+  What replaces the wall is a convention: the compiler suites build their own graphs, the evaluator
+  suites still hand-build their plans, and one differential test compares the two.
+- **No CPU implementation of any kernel** — [§ D3](../../docs/plan/48-material-authoring.md). ⚠ Which
+  is not the same as "no CPU op": `NormalToHeightOperation` is § 4.6's stated exception, and what
+  makes it one is that there is no *kernel* it duplicates. `TextureNodeLibraryTests` refuses a CPU
+  operation that shares a name with an embedded shader, which is this rule made mechanical. A parity
   test against a C# re-implementation proves the two transcriptions agree, not that either is right,
   and this repository has already fallen into that trap once. What the device tests assert are
   **closed forms**: a box filter's impulse response is `1/(2r+1)` over exactly `2r+1` texels, a levels
@@ -306,14 +312,36 @@ promise does not hold and the plan does not say so.
 ## Surface — doc 48 § 4.6
 
 Five `.rvn` files for six nodes, plus `TextureKernels.Surface.cs`: `HeightToNormal` · `NormalCombine`
-· `NormalTransform` · `Curvature` · `AmbientOcclusion`.
+· `NormalTransform` · `Curvature` · `AmbientOcclusion` — and `TextureKernels.Cpu.cs` for the sixth,
+which declares no shader.
 
-**⚠ `Normal → Height` is the sixth and is deliberately not here.** Doc 48 § 4.6 makes it the
-catalogue's one CPU exception — a Poisson solve over `Vixen.Geometry.Uv`'s conjugate gradient — and a
-`TexturePlan` has no op that is not a compute dispatch, so it cannot be expressed at all yet
-([#688](https://github.com/Rikarin/Vixen/issues/688)). `TextureSurfaceKernelTests` asserts its absence
-**by name**, so "nobody has built it" and "somebody built it as a kernel" are different colours rather
-than the same silence.
+**⚠ `Normal → Height` is the sixth, it is built, and it is deliberately not a `.rvn`.** Doc 48 § 4.6
+makes it the catalogue's one CPU exception — a Poisson solve — and `NormalToHeightOperation` is it,
+over doc 42 § B1's warm-started conjugate gradient in `Vixen.Geometry.Uv/Solving`.
+`TextureSurfaceKernelTests` asserts that a plan expresses **exactly one** kind of op that is not a
+dispatch, which is a claim about `TextureOp`'s shape rather than about a missing file — so a second
+execution model arriving is red, and a `Shaders/NormalToHeight.rvn` appearing is red for the other
+reason.
+
+⚠ **The solver was reachable only through a csproj line.** Every type under `Solving/` is `internal`
+and had no caller outside its own assembly, so `Vixen.Geometry.Uv` names this one in an
+`InternalsVisibleTo`. That is a wart with a written fix —
+[#752](https://github.com/Rikarin/Vixen/issues/752), which is to give the solver an assembly of its
+own, since nothing in it mentions a chart or a triangle. Writing a second conjugate gradient here to
+avoid the line is the outcome doc 42 argued against.
+
+⚠ **The answer has mean zero and is therefore signed.** A gradient field fixes a height only up to a
+constant; that constant is the one part of the answer the input does not contain, and picking it by
+min–max would make the node depend on a single extreme texel. A `Levels` after it is what makes a
+`[0, 1]` map, and that is the node whose whole job it is.
+
+⚠ **And its `iterations` is a budget rather than a target**, which is doc 42 § D5's trade: a residual
+comparison decides differently on different hardware and a bake is meant to be byte-identical. So a
+graph baked large and looking gently tilted wants a larger number, and no number announces itself as
+enough. The cost of the exception is real and visible: a CPU op ends the command list, waits, copies
+both ways and starts a new one — two pipeline drains — and `TextureNormalToHeightDeviceTests` is
+where the two-byte-per-texel side of that transport is proved, since the only CPU op before it moved
+four bytes each way.
 
 **⚠ The green convention is derived, not chosen, and it is the defect that survives every review
 because it looks like lighting.** § 4.6 says the convention is whatever `TexturedNormalMapSurface`
@@ -391,23 +419,53 @@ a size off the image's level and the plan's base resolution; nothing allocates a
 `TextureUploads.SizeOf` is what remembers the real one, and a device test asserts the two disagree so
 that the trap is written down rather than discovered.
 
-**Where the two nodes themselves have to live, which is not here.** Neither rasteriser can be in this
-assembly as it stands, and the two costs are very different:
+**`Text` is built and lives here; `Svg Path` is refused, and the measurement that refused it was
+wrong.**
 
-- **`Svg Path`** needs `Core/Vixen.Ui`'s `SvgPath` and `PathTessellator`. `Vixen.Ui`'s project closure
-  is twenty projects against this assembly's seventeen, and eleven of them would be new here — the
-  whole UI framework plus `Vixen.Input`. ⚠ A bake would then have the element tree, the cascade and
-  the input enum behind it, which is a cost no content build should pay for a parser.
-- **`Text`** needs `Core/Vixen.Ui.Text`, whose closure is `Vixen.Core` and nothing else — **already in
-  this assembly's closure**, so the projects added are zero and the only new dependency is
-  HarfBuzzSharp's native assets. ⚠ So "`Text` is blocked by the same wall as `Svg Path`" is false; what
-  makes it not this assembly's work is narrower, and it is *which font*: `FontFace.Load` takes bytes,
-  and resolving an asset to bytes is the project-and-document question this assembly deliberately
-  knows nothing about.
+`TextureText.Rasterize` shapes a string with `TextShaper`, reads each glyph through
+`FontFace.GetOutline` and fills it with `GlyphRasterizer` — the **`Outlines` path, not
+`GlyphAtlas`**, because an atlas caches small rasterisations behind a distance field so a *label*
+scales smoothly, while a texture graph fills one outline once at whatever size a 4K bake asks for.
+The result goes through `AddCoverage`, and `TextureTextDeviceTests` closes the whole path on an
+adapter in eight bits, texel for texel.
 
-Both belong with the § M4 node classes, whose own closure already contains `Vixen.Ui` through
-`Vixen.Editor.NodeGraph` — so neither reference costs anything *there*, and the evaluator keeps the
-property that makes every test in this project a test of the evaluator.
+⚠ **It takes a `FontFace` and never a path, which is what keeps this assembly's ignorance intact.**
+The paragraph this replaced was right about the real obstacle: resolving an asset to bytes is the
+project-and-document question this project deliberately knows nothing about. It is still not asked —
+the caller supplies the face, exactly as the caller supplies an external image's texels.
+
+⚠ **And there is no `Text` node**, for a reason that has nothing to do with fonts: a node has to
+allocate an *external* image, and `TextureGraphCompiler.Allocate` only ever builds a pooled one. That
+is [#732](https://github.com/Rikarin/Vixen/issues/732), shared with `Bitmap`, `Gradient`, `Curve` and
+`Gradient Map`, and it is why the roll call's `Unnoded` list will not grow a `Text` entry — there is
+no kernel to excuse.
+
+⚠ **The closure argument against `Svg Path` does not survive re-derivation.** This file said
+`Vixen.Ui`'s closure was twenty against this assembly's seventeen with eleven new. Re-derived over
+every `ProjectReference` in the tree on 2026-09-05:
+
+| | |
+|---|---|
+| this assembly's closure | **29** projects — and `Vixen.Ui` and `Vixen.Ui.Text` are already two of them |
+| `Vixen.Ui`'s closure | **14**, a strict subset of those 29 |
+| new projects a `Vixen.Ui` reference would add | **zero** |
+
+The interface framework arrived with the `Vixen.Editor.NodeGraph` reference M4 could not do without,
+and the csproj already says so. ⚠ And the wrap really is a wrap: `PathVerb` and `OutlineVerb` are the
+same five verbs, one fixed-size struct per verb, in both files, each citing the other's decision —
+`PathBuilder` → `GlyphOutline` is a five-case switch.
+
+**What refuses it instead is a compile surface, and that argument does hold.**
+`DisableTransitiveProjectReferences` makes what this project may *spell* exactly what it names.
+`Vixen.Ui.Text` is a leaf — its own closure is one project — and naming it buys a font and a scanline
+fill. Naming `Vixen.Ui` buys `UiElement`, `Signal`, styling, layout and input inside an assembly
+[#720](https://github.com/Rikarin/Vixen/issues/720) is trying to make *less* of a UI assembly. On top
+of that, § 4.1 wants a fill rule and `GlyphRasterizer` is non-zero winding only, deliberately.
+
+So `Svg Path` belongs on the far side of #720's split: a path is rasterised where a *node* is
+compiled and never where a *plan* is evaluated, so the evaluator half — the one the headless content
+build loads — never needs `SvgPath` at all.
+[#753](https://github.com/Rikarin/Vixen/issues/753) carries it.
 
 ## What a node may ask the plan for
 

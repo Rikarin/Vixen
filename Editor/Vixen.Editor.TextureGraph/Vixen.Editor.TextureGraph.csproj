@@ -127,6 +127,44 @@
         <ProjectReference Include="..\Vixen.Editor.NodeGraph\Vixen.Editor.NodeGraph.csproj" />
 
         <!--
+          ⚠ **Doc 48 § 4.6's `Normal → Height` is a grid Poisson, and doc 42 § B1's solver is the
+          solver.** `Vixen.Geometry.Uv/Solving` is a general sparse `SparseMatrix` /
+          `ConjugateGradient` pair that happens to live behind an unwrapper's front door — warm
+          started, with a fixed iteration budget rather than a residual test, which is exactly the
+          determinism a bake wants. Its types are `internal`, so that assembly names this one in an
+          `InternalsVisibleTo`; the wart and its fix are recorded there and in
+          [#752](https://github.com/Rikarin/Vixen/issues/752).
+
+          ⚠ **`Vixen.Core.Threading` is not optional even though nothing here starts a thread.**
+          `ConjugateGradient.Solve` takes a `JobScheduler?` with a default of null, and C# cannot
+          bind a call to a method whose parameter type the compilation cannot see — so leaving it out
+          is a build error at the call site rather than a reference nobody uses. It costs two
+          assemblies in the output directory, measured: `Vixen.Geometry` and `Vixen.Core.Threading`
+          were the only names the closure did not already hold.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Geometry.Uv\Vixen.Geometry.Uv.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
+
+        <!--
+          ⚠ **The text stack, for doc 48 § 4.1's `Text`, and it costs nothing in the output
+          directory.** Batch 5 refused `Core/Vixen.Ui` on a closure measurement — 20 projects against
+          this assembly's 17 — and that measurement is now stale in both columns. Re-derived over
+          every `ProjectReference` in the tree on 2026-09-05: this assembly's closure is **29**
+          projects and **`Vixen.Ui` and `Vixen.Ui.Text` are already two of them**, arriving through
+          the `Vixen.Editor.NodeGraph` reference above (→ `Vixen.Ui.Controls.Advanced` → `Vixen.Ui`
+          → `Vixen.Ui.Text`), whose own comment says as much. `Vixen.Ui`'s closure is 14 and a strict
+          subset of those 29. So naming either adds **zero** files to `bin/`; what it changes is only
+          what this compilation may spell, which `DisableTransitiveProjectReferences` above otherwise
+          hides.
+
+          Only the text half is named, because only the text half is used. Glyph outlines and a
+          scanline fill are `Vixen.Ui.Text`; `SvgPath` and `PathFlattener` are `Vixen.Ui` proper, and
+          § 4.1's `Svg Path` stays unwritten for a reason that is about a rasteriser rather than
+          about a reference — [#753](https://github.com/Rikarin/Vixen/issues/753).
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Text\Vixen.Ui.Text.csproj" />
+
+        <!--
           The node generator, over this assembly's own [Node] classes. Analyzers do not flow through
           a ProjectReference, so every assembly declaring nodes references it directly — which is
           also what a third-party plugin does.

@@ -203,12 +203,28 @@ public class TextureNodeLibraryTests {
         var reached = plan.Ops.Select(op => op.Kernel).ToHashSet(StringComparer.Ordinal);
         var shipped = Declared().Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
 
+        var cpu = CpuOperations();
+
         Assert.NotEmpty(shipped);
 
-        // Every declaring surface names kernels this assembly actually embeds: without this the
-        // union could be a set of typos and the roll call would compare two wrong things.
-        foreach (var kernel in shipped) {
-            Assert.Contains(kernel, TextureKernels.Names);
+        // ⚠ Every declaring surface names something this assembly actually ships, and there are two
+        // kinds of thing it can name. A kernel is embedded; a CPU operation is not and never will be,
+        // because doc 48 § 4.6's `Normal → Height` names no `.rvn` at all. Before this partition
+        // existed the second kind read as the first and failed here saying a shader had gone missing,
+        // which is the wrong sentence about the right fact — and a category a roll call cannot say the
+        // name of is the shape this repository's gates go quiet in.
+        foreach (var name in shipped) {
+            if (cpu.Contains(name)) {
+                // ⚠ And a CPU operation must *not* be embedded, which is § D3's ban on a CPU twin made
+                // mechanical: an implementation that reproduced what some kernel already does would
+                // arrive named after it, and it would turn every parity test into a claim that two
+                // transcriptions agree.
+                Assert.DoesNotContain(name, TextureKernels.Names);
+
+                continue;
+            }
+
+            Assert.Contains(name, TextureKernels.Names);
         }
 
         var excused = Unnoded.Select(entry => entry.Kernel).Order(StringComparer.Ordinal).ToArray();
@@ -238,7 +254,15 @@ public class TextureNodeLibraryTests {
         Assert.NotEmpty(plan.Ops);
 
         foreach (var kernel in plan.Ops.Select(op => op.Kernel).Distinct(StringComparer.Ordinal)) {
-            var declared = Members(kernel).Keys.Order(StringComparer.Ordinal).ToArray();
+            // ⚠ A CPU operation has no uniform block to read, so the second source is its own builder
+            // rather than a `.rvn`. That is a weaker check than the one above it — two things in the
+            // same assembly rather than a C# surface against a shader — and it is still the check that
+            // matters: a node spelling `iterations` where the operation reads `iteration` falls
+            // through to the operation's own fallback and draws a picture at the default budget,
+            // silently. It is stated as the weaker claim rather than skipped.
+            var declared = Cpu(kernel) is { } builder
+                ? builder.Parameters.Select(parameter => parameter.Name).Order(StringComparer.Ordinal).ToArray()
+                : Members(kernel).Keys.Order(StringComparer.Ordinal).ToArray();
 
             foreach (var op in plan.Ops.Where(candidate => candidate.Kernel == kernel)) {
                 Assert.Equal(
@@ -262,9 +286,13 @@ public class TextureNodeLibraryTests {
         var plan = Library();
 
         foreach (var kernel in plan.Ops.Select(op => op.Kernel).Distinct(StringComparer.Ordinal)) {
-            var textures = Compile(kernel).Bindings.Count(binding =>
-                binding is { Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.SampledTexture }
-            );
+            // A CPU operation binds no descriptors — it is handed its inputs as bytes — so what it is
+            // held to is the count its own builder emits, which is what `Run` indexes.
+            var textures = Cpu(kernel) is { } builder
+                ? builder.Inputs.Length
+                : Compile(kernel).Bindings.Count(binding =>
+                    binding is { Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.SampledTexture }
+                );
 
             foreach (var op in plan.Ops.Where(candidate => candidate.Kernel == kernel)) {
                 Assert.Equal(textures, op.Inputs.Length);
@@ -297,7 +325,15 @@ public class TextureNodeLibraryTests {
         var differences = new List<string>();
 
         foreach (var op in plan.Ops) {
-            var members = Members(op.Kernel);
+            // The same second source as above: a CPU operation's "declared default" is what its
+            // builder's optional arguments produce, which is the number a node naming no port got.
+            var members = Cpu(op.Kernel) is { } builder
+                ? builder.Parameters.ToDictionary(
+                    parameter => parameter.Name,
+                    parameter => parameter.Value,
+                    StringComparer.Ordinal
+                )
+                : Members(op.Kernel);
 
             foreach (var parameter in op.Parameters) {
                 if (!members.TryGetValue(parameter.Name, out var declared)
@@ -325,6 +361,7 @@ public class TextureNodeLibraryTests {
             Assert.Contains(
                 plan.Ops.Where(op => op.Kernel == kernel).SelectMany(op => op.Parameters),
                 emitted => emitted.Name == parameter
+                    && Cpu(kernel) is null
                     && Members(kernel).TryGetValue(parameter, out var declared)
                     && Math.Abs(declared - emitted.Value) >= 1e-6f
             );
@@ -340,17 +377,85 @@ public class TextureNodeLibraryTests {
         Assert.Equal(Usages.Length, plan.Outputs.Length);
     }
 
-    /// <summary>Every kernel a node names is one the assembly embeds.</summary>
+    /// <summary>
+    ///     Every op a node emits is an embedded kernel or a declared CPU operation, and exactly one of
+    ///     the two.
+    /// </summary>
     /// <remarks>
-    ///     A node naming a kernel that is not there is an exception at evaluation about an embedded
-    ///     resource, three frames from anything an author can select. It is the one mistake in a node
-    ///     that <see cref="Every_op_the_library_emits_carries_exactly_its_kernel_parameters" /> would
-    ///     report as a compiler failure rather than as what it is.
+    ///     <para>
+    ///         A node naming a kernel that is not there is an exception at evaluation about an
+    ///         embedded resource, three frames from anything an author can select. It is the one
+    ///         mistake in a node that
+    ///         <see cref="Every_op_the_library_emits_carries_exactly_its_kernel_parameters" /> would
+    ///         report as a compiler failure rather than as what it is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>"Exactly one of the two" is the half that needed writing.</b> Doc 48 § 4.11 counts
+    ///         a third category — "not a kernel: one" — and until it existed the roll calls in this
+    ///         file knew of two kinds of thing, so an op carrying a <see cref="TextureOp.Cpu" /> would
+    ///         have read as a kernel whose <c>.rvn</c> had gone missing and the failure would have
+    ///         described the wrong problem. What is asserted is a partition rather than an allowance:
+    ///         an op that carries a CPU operation must not also be embedded, and one that does not
+    ///         must be.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void Every_kernel_a_node_names_is_embedded() {
-        foreach (var kernel in Library().Ops.Select(op => op.Kernel).Distinct(StringComparer.Ordinal)) {
-            Assert.Contains(kernel, TextureKernels.Names);
+    public void Every_op_a_node_emits_is_a_kernel_or_a_cpu_operation_and_not_both() {
+        var ops = Library().Ops;
+        var cpu = CpuOperations();
+
+        // ⚠ Not vacuous, and it is worth saying so rather than trusting the fixture: the partition
+        // below is only interesting while the library actually contains one of each kind.
+        Assert.Contains(ops, op => op.Cpu is not null);
+        Assert.Contains(ops, op => op.Cpu is null);
+
+        foreach (var op in ops) {
+            if (op.Cpu is null) {
+                Assert.Contains(op.Kernel, TextureKernels.Names);
+                Assert.DoesNotContain(op.Kernel, cpu);
+
+                continue;
+            }
+
+            Assert.DoesNotContain(op.Kernel, TextureKernels.Names);
+
+            // And it is *declared*, not merely present: an operation reachable from a node but named
+            // by no `All` surface is invisible to every roll call in this assembly, which is the
+            // failure this whole file is written against.
+            Assert.Contains(op.Kernel, cpu);
+        }
+    }
+
+    /// <summary>The declared builder for one CPU operation, or null when the name is a kernel's.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Derived from the ops rather than from a list of names</b>, so a slice adding a second
+    ///     CPU operation is classified by existing. An op is a CPU operation exactly when it carries a
+    ///     <see cref="TextureOp.Cpu" />, which is the same fact <c>TexturePlanEvaluator</c> branches
+    ///     on when it decides whether to end the command list.
+    /// </remarks>
+    static TextureOp? Cpu(string kernel) =>
+        DeclaredOps()
+            .FirstOrDefault(op => op.Cpu is not null && string.Equals(op.Kernel, kernel, StringComparison.Ordinal));
+
+    /// <summary>The names of every declared CPU operation.</summary>
+    static IReadOnlyCollection<string> CpuOperations() =>
+        DeclaredOps().Where(op => op.Cpu is not null).Select(op => op.Kernel).ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>Every op any declaring surface in this assembly builds.</summary>
+    static IEnumerable<TextureOp> DeclaredOps() {
+        foreach (var type in typeof(TextureKernels).Assembly.GetTypes()) {
+            if (type.GetProperty("All", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static) is not
+                { } all) {
+                continue;
+            }
+
+            if (all.GetValue(null) is not IEnumerable<TextureOp> ops) {
+                continue;
+            }
+
+            foreach (var op in ops) {
+                yield return op;
+            }
         }
     }
 
@@ -564,7 +669,15 @@ public class TextureNodeLibraryTests {
         graph.Connect(heightToNormal, "Out", normalCombine, "Base");
         graph.Connect(normalTransform, "Out", normalCombine, "Detail");
         graph.Connect(normalTransform, "Out", curvature, "Normal");
-        graph.Connect(slopeBlur, "Out", occlusion, "Height");
+
+        // ⚠ The one node in the library that is not a dispatch, wired *between* two that are. Doc
+        // 48 § 4.6's `Normal → Height` is a Poisson solve on the CPU, so this edge is what makes the
+        // fixture's plan contain a `TextureOp.Cpu` at all — and it is deliberately in the middle of a
+        // chain rather than at its end, because the seams that break are the two either side of it.
+        var normalToHeight = graph.Add("Surface/Normal to Height");
+
+        graph.Connect(heightToNormal, "Out", normalToHeight, "Normal");
+        graph.Connect(normalToHeight, "Out", occlusion, "Height");
 
         // The colour side. ⚠ The blend takes a colour and a grey, so the compiler's promotion is on
         // this path too — the one op in the plan no node emitted.

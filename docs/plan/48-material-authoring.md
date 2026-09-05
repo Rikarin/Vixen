@@ -607,7 +607,7 @@ Three rules the whole catalogue obeys:
 - **Every radius, width and length is in texels at the base resolution** (§ D8), and the evaluator
   scales it.
 
-### 4.1 Sources — 8 kernels
+### 4.1 Sources — 6 kernels and two that cannot be
 
 | Node | Out | Parameters | |
 |---|---|---|---|
@@ -617,8 +617,50 @@ Three rules the whole catalogue obeys:
 | **Shape** | grey | disc · square · triangle · paraboloid · gaussian · cone · half-bell · gradation, scale, rotation, falloff | The splatter's usual pattern input. Analytic rather than rasterised, so it is exact at every resolution — which is half of D8's scale-invariance criterion passing for free |
 | **Noise** | grey **+ cell id** | basis: value · gradient · worley · white; octaves, lacunarity, gain, **seed**, tiling | ⚠ One kernel with a **permutation**, because that is how this engine already varies a shader. Worley also outputs F1, F2 and a **cell index** — which is what a splatter wants and what saves a flood fill downstream |
 | **Checker** | grey | scale, rotation, offset | `ComputeColor.rvn:169` has one already, for the shader graph |
-| **Text** | grey | string, font, size, alignment, tracking | ⚠ Nearly free: `Vixen.Ui.Text` shapes, breaks, itemises and rasterises today, and its `Outlines` path is what a 4K texture wants rather than the glyph atlas |
-| **Svg Path** | grey | path data (`d`), fill rule, scale | ⚠ A wrap: `Core/Vixen.Ui/SvgPath.cs` parses path data and `Rendering/PathTessellator.cs` fills it. **A whole `.svg` document — groups, strokes, its own gradients — is not this node**, and is refused |
+| **Text** | grey | string, font, size, alignment, tracking | ⚙️ **Half built.** `TextureText.Rasterize` shapes and fills the string through the `Outlines` path and `TextureUploads.AddCoverage` puts it on the device — closed on an adapter, texel for texel, in `TextureTextDeviceTests`. ⚠ **There is no node**, and not because of anything here: a node has to allocate an *external* image and `TextureGraphCompiler.Allocate` only ever builds a pooled one, which is [#732](https://github.com/Rikarin/Vixen/issues/732) and is shared with `Bitmap`, `Gradient`, `Curve` and `Gradient Map`. ⚠ And it is **not** a kernel — [#687](https://github.com/Rikarin/Vixen/issues/687) — because a compute kernel has no rasteriser and cannot reach a font |
+| **Svg Path** | grey | path data (`d`), fill rule, scale | ⛔ **Refused here, and the reason that was written down first is wrong.** See the measurement below |
+
+⚠ **`Svg Path`'s refusal, re-derived — and the closure argument it rested on does not survive.**
+Batch 5 refused the node on a measurement: `Core/Vixen.Ui`'s project closure at 20 against
+`Vixen.Editor.TextureGraph`'s 17, so an editor-side kernel assembly must not take it. Re-derived over
+every `ProjectReference` in the tree on 2026-09-05, both columns are wrong and the conclusion with
+them:
+
+| | |
+|---|---|
+| `Vixen.Editor.TextureGraph`'s closure | **29** projects — and `Vixen.Ui` and `Vixen.Ui.Text` are already two of them |
+| `Vixen.Ui`'s closure | **14**, a strict subset of those 29 |
+| What naming `Vixen.Ui` would add to `bin/` | **nothing** |
+
+The interface framework arrived with the `Vixen.Editor.NodeGraph` reference M4 could not do without
+(→ `Vixen.Ui.Controls.Advanced` → `Vixen.Ui` → `Vixen.Ui.Text`), and that csproj's own comment
+already says so at length. **So the cost of the reference is not assemblies.**
+
+⚠ **And the wrap really is a wrap.** `PathVerb` and `OutlineVerb` are the *same five verbs* —
+`Move`, `Line`, `Quadratic`, `Cubic`, `Close` — declared as one fixed-size struct per verb, in both
+places, with each file's remarks citing the other's decision. `PathBuilder` → `GlyphOutline` is a
+five-case switch, and `GlyphRasterizer` then fills it exactly as `Text` above is filled.
+
+**What actually refuses it is different, and it is worth keeping:**
+
+- **A compile surface, not an output directory.** `DisableTransitiveProjectReferences` is set here so
+  that what this assembly may *spell* is exactly what it names. `Vixen.Ui.Text` is a leaf — its own
+  closure is one project, `Vixen.Core` — and naming it buys fonts and a scanline fill. Naming
+  `Vixen.Ui` buys `UiElement`, `Signal`, styling, layout and input inside an assembly whose job is a
+  compute plan, and [#720](https://github.com/Rikarin/Vixen/issues/720) exists to make this assembly
+  *less* of a UI assembly rather than more.
+- **Fill rule.** § 4.1 lists one, and `GlyphRasterizer` is non-zero winding only — deliberately, with
+  a reason about counters in an `o` that fonts depend on. Even-odd means changing the only rasteriser
+  in `Vixen.Ui.Text` to take a rule, which moves a `CheckApi` baseline in a `Core/` assembly to serve
+  one editor caller.
+- **[#732](https://github.com/Rikarin/Vixen/issues/732) again.** Until an external image can be
+  allocated by a node, an `Svg Path` rasteriser is a second finished thing nothing calls.
+
+**Where the node should live instead: on the far side of [#720](https://github.com/Rikarin/Vixen/issues/720)'s
+split.** The path is rasterised where a *node* is compiled and never where a *plan* is evaluated, so
+the evaluator half — the one the headless content build loads — never needs `SvgPath` at all. The
+node half is a UI assembly by construction, and `Editor/Vixen.Editor.Texturing` already references
+the stack. [#753](https://github.com/Rikarin/Vixen/issues/753) carries this.
 
 ### 4.2 Colour and channels — 9 kernels
 
@@ -676,12 +718,12 @@ Signed Add.
 are listed in [4.9](#49-the-compound-library--content-not-code). They are the wear-and-dirt knob every
 generator turns, and they are three files rather than three kernels.
 
-### 4.6 Surface — 6 kernels
+### 4.6 Surface — 5 kernels and one CPU solve
 
 | Node | Parameters | |
 |---|---|---|
 | **Height → Normal** | intensity, format | ⚠ **The green convention** is whatever `TexturedNormalMapSurface` samples, asserted by a test against a known ramp rather than claimed by a comment. A flipped green is the defect that survives every review because it looks like lighting |
-| **Normal → Height** | iterations | ✅ The seam exists: `TextureOp.Cpu` / `ITextureCpuOperation`, [#688](https://github.com/Rikarin/Vixen/issues/688) — the solve itself is still owed. The Poisson solve doc 40 named. ⚠ **The solver exists**: doc 42 § B1 recorded that there was no sparse linear solver anywhere in the repository and then built one — `Vixen.Geometry.Uv/Solving/ConjugateGradient.cs`, warm-started, with a *fixed iteration budget because a residual test is not deterministic*. A grid Poisson is the easiest client it will ever have. ⚠ It is also the one entry here that is **not** a compute kernel: it runs on the CPU, which is a deliberate exception to D3 and carries a comment saying so |
+| **Normal → Height** | iterations, intensity | ✅ **Built** — `NormalToHeightOperation`, a node, and the first production user of [#688](https://github.com/Rikarin/Vixen/issues/688)'s CPU seam. Doc 42 § B1's `ConjugateGradient` is the solver; ⚠ **it was reachable only by a csproj line** — every type under `Vixen.Geometry.Uv/Solving` is `internal` and had no caller outside that assembly, so this takes an `InternalsVisibleTo` and [#752](https://github.com/Rikarin/Vixen/issues/752) records that the honest fix is an assembly of its own. ⚠ **The answer has mean zero and is therefore signed**: a gradient field fixes a height only up to a constant, and picking it by min-max would make the node depend on one extreme texel. A `Levels` after it is what makes a `[0, 1]` map. ⚠ It is the one entry here that is **not** a compute kernel, by the exception § D3 states |
 | **Normal Combine** | mode | ⚠ Reoriented normal mapping, not whiteout. Whiteout is cheaper and wrong at grazing detail, and the two **agree on the flat case a lazy test would use** |
 | **Normal Transform** | flip green, rotate, renormalise | |
 | **Curvature from Normal** | radius | ⚠ The cheap one, from a height field. **Not** § D12's mesh bake, and the node's own inspector says which a generator should prefer |
@@ -740,12 +782,23 @@ The same catalogue question for the other front end (§ D10), listed here so it 
 
 | | |
 |---|---|
-| Compute kernels | **44** — 8 sources · 9 colour · 5 space · 11 filters · 3 analysis · 6 surface · 2 placement |
+| Compute kernels | **41** — 6 sources · 9 colour · 5 space · 11 filters · 3 analysis · 5 surface · 2 placement. ⚠ **Not 44, and the three that came off are the three rows below.** The arithmetic here counted every row of every table as a kernel while the next row said one of them was not, which is a contradiction inside one table: `Text` and `Svg Path` are § 4.1 rows and neither can be a compute shader, and `Normal → Height` is a § 4.6 row that runs on the CPU |
 | Node classes | **49** — those, plus the five of [4.8](#48-graph-structure--5-node-classes-no-kernel) |
-| Not a kernel | One: `Normal → Height`, on the CPU, by exception |
+| Not a kernel | One: `Normal → Height`, on the CPU, by exception — **built**, and declared in `TextureKernels.Cpu.cs` so that the roll calls can name the category rather than reading it as a kernel whose `.rvn` went missing |
+| Not a kernel and not an op | One: `Text`, which is CPU pixels *uploaded* rather than an op of any kind — `TextureText` + `TextureUploads.AddCoverage`. ⚠ It has no node, on [#732](https://github.com/Rikarin/Vixen/issues/732) |
+| Not a kernel and not built | One: `Svg Path`, refused — the measurement is under [4.1](#41-sources--6-kernels-and-two-that-cannot-be) and [#753](https://github.com/Rikarin/Vixen/issues/753) carries where it should live instead |
 | Shipped compounds | **24 ●** of the ~60 named in [4.9](#49-the-compound-library--content-not-code) |
 
-⚠ **Forty-four is not the reference's twenty-four, and § D7 is the reason.** In Designer every noise
+⚠ **And the numbers above are the plan's, not the tree's.** Measured on 2026-09-05: `Shaders/` holds
+**45** `.rvn` files and `Nodes/` declares **36** `[Node]` classes. The kernel count is *higher* than
+this table's target because several catalogue entries are chains rather than single dispatches —
+`JumpFlood`, `FloodBounds` and `FloodResidual` have no node of their own and never will — and the
+node count is lower because eight kernels are still unreachable from a graph for reasons
+`TextureNodeLibraryTests.Unnoded` states one by one, mostly [#732](https://github.com/Rikarin/Vixen/issues/732)
+and [#733](https://github.com/Rikarin/Vixen/issues/733). Those two suites are where the real count
+lives; this table is what it is being counted against.
+
+⚠ **Forty-one is still not the reference's twenty-four, and § D7 is the reason.** In Designer every noise
 and every pattern is an FX-Map compound; refusing FX-Map's recursion means the *bases* have to be
 kernels. The trade is a larger kernel folder against nodes whose cost is knowable before
 they run — and it is why 4.9's patterns are compounds of `Tile Sampler` rather than of a recursive
@@ -827,7 +880,7 @@ edit. Tests are device tests that name their adapter and skip loudly without one
 
 ### M2 — The atomic kernels, part I · 1.5 EM
 
-[4.1](#41-sources--8-kernels), [4.2](#42-colour-and-channels--9-kernels) and
+[4.1](#41-sources--6-kernels-and-two-that-cannot-be), [4.2](#42-colour-and-channels--9-kernels) and
 [4.3](#43-space--5-kernels) — twenty-two kernels. Every one gets a golden, a closed-form assertion
 where one exists, a scale-invariance check at ×2, and a sabotage that proves the golden red.
 

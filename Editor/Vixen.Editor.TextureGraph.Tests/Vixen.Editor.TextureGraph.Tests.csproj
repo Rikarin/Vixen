@@ -42,4 +42,21 @@
              image. -->
         <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
     </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ **A face, because doc 48 § 4.1's `Text` cannot be asserted without one and the machine
+            must not be asked for it.** `TextShaper` deliberately reads no `CultureInfo` and takes no
+            default from the process; a test that loaded "the system's sans-serif" would be shaping a
+            different outline on every developer's laptop and on CI, which is the failure
+            `Vixen.Ui.Text`'s own suite committed twenty-two fonts to avoid.
+
+            The editor's own UI font, linked rather than copied: a second checked-in binary of the
+            same face is a thing that can drift, and this one is already in the tree with its licence
+            beside it.
+        -->
+        <EmbeddedResource Include="..\Vixen.Editor.App\Fonts\OpenSans-Regular.ttf"
+                          Link="Fonts\OpenSans-Regular.ttf"
+                          LogicalName="Fonts.OpenSans-Regular.ttf" />
+    </ItemGroup>
 </Project>
