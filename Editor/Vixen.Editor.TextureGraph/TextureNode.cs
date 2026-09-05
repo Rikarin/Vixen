@@ -112,10 +112,10 @@ sealed class TextureEmitter {
     ///     half-resolution input would be too many halvings and a plan
     ///     <see cref="TexturePlan.Validate" /> refuses.
     /// </remarks>
-    public int Width => compiler.Extent(compiler.BaseWidth, Level);
+    public int Width => compiler.Extent(compiler.AuthoredWidth, Level);
 
     /// <summary>Its height.</summary>
-    public int Height => compiler.Extent(compiler.BaseHeight, Level);
+    public int Height => compiler.Extent(compiler.AuthoredHeight, Level);
 
     /// <summary>What an author typed into an unconnected scalar port, or its declared default.</summary>
     /// <param name="port">The port's name.</param>

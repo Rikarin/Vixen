@@ -161,7 +161,22 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     /// <summary>The kernels the graph's own nodes wrote, by the name their op gives.</summary>
     readonly List<TextureGraphKernel> kernels = [];
 
+    /// <summary>What this compilation is actually using, once the graph has had its say.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Beside the properties rather than in them, because <see cref="Adopt" /> used to write
+    ///     the graph's declarations back into the host's own fields.</b> A compiler is reusable — the
+    ///     preview pane keeps one and hands it every graph in the document — so a graph declaring a
+    ///     seed left that seed on the compiler, and the next graph, which declared nothing and was
+    ///     therefore promised the host's number, drew with somebody else's. The properties are the
+    ///     host's input and stay it; what a compilation used is on the plan.
+    /// </remarks>
+    readonly List<TextureGraphParameter> declared = [];
+
     TextureEmitter emitter = null!;
+
+    int authoredWidth = 1024;
+    int authoredHeight = 1024;
+    uint authoredSeed;
 
     /// <summary>The graph being walked — the flattened one, not the author's. See the base class.</summary>
     NodeGraphModel? graph;
@@ -170,15 +185,22 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     /// <param name="registry">The node types the graph may contain.</param>
     public TextureGraphCompiler(NodeTypeRegistry registry) : base(registry) { }
 
-    /// <summary>The width the graph was <em>authored</em> at, in texels.</summary>
+    /// <summary>The width the graph was <em>authored</em> at, in texels, when the graph says nothing.</summary>
     /// <remarks>
-    ///     ⚠ <b>A property of the compiler because the model has nowhere to put it.</b> Doc 48 § D8
-    ///     says "the graph declares a base resolution" and <c>NodeGraphModel</c> carries a name, a
-    ///     node list and an interface — nothing a number fits in. Until it does, a host sets this and
-    ///     a <c>.vxtexgraph</c> cannot round-trip it —
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a>, which also covers
-    ///     <see cref="Seed" />: doc 48 § D5 says the seed is part of the graph, and a seed a host sets
-    ///     is a seed that changes between machines.
+    ///     <para>
+    ///         <b>The host's answer, and the graph's own declaration wins over it</b> —
+    ///         <see cref="Adopt" />, and <c>NodeGraphModel.Settings</c> is where a file keeps it since
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a>. Doc 48 § D8 says "the
+    ///         graph declares a base resolution"; this is what a preview asks for and what a graph
+    ///         written in code gets.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An input only.</b> Compiling does not write a graph's declaration back into it —
+    ///         a compiler is reusable, and a number left here by one document is a number the next
+    ///         one silently inherits. What a compilation actually used is on the plan:
+    ///         <see cref="TexturePlan.BaseWidth" />, <see cref="TexturePlan.BaseHeight" /> and
+    ///         <see cref="TexturePlan.Seed" />.
+    ///     </para>
     /// </remarks>
     public int BaseWidth { get; set; } = 1024;
 
@@ -204,14 +226,14 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     /// </remarks>
     public ImmutableArray<TextureGraphOutput> Outputs { get; private set; } = [];
 
-    /// <summary>The graph's exposed parameters: doc 48 § D9's knobs.</summary>
+    /// <summary>The exposed parameters a host declares, for a graph that declares none of its own.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>A property of the compiler for <see cref="BaseWidth" />'s reason</b> —
-    ///         <c>NodeGraphModel</c> carries a name, a node list and an interface, and a parameter
-    ///         list fits in none of them
-    ///         (<a href="https://github.com/Rikarin/Vixen/issues/719">#719</a>). A host sets it, and
-    ///         <see cref="TextureGraphParameters.Definition" /> is what turns the same list into the
+    ///         <b>The host's list, for <see cref="BaseWidth" />'s reason and with the same
+    ///         precedence:</b> a graph carrying its own — <c>NodeGraphModel.Parameters</c>, since
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a> — replaces it for that
+    ///         compilation and does not replace what is here.
+    ///         <see cref="TextureGraphParameters.Definition" /> is what turns such a list into the
     ///         settings a <em>containing</em> graph's node shows.
     ///     </para>
     ///     <para>
@@ -329,15 +351,24 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     ///         file has an opinion.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>And it reads them rather than writing them, which the first version of this did
+    ///         not.</b> Assigning the answer back into <see cref="BaseWidth" />, <see cref="Seed" />
+    ///         and <see cref="Parameters" /> made the sentence above true exactly once per compiler:
+    ///         a document declaring a seed left it behind, and the next graph — promised the host's
+    ///         number because it declares nothing — drew with somebody else's. A compiler is
+    ///         reusable, so what one compilation resolved lives for that compilation and reaches the
+    ///         caller on the plan.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b>The bake level offset is deliberately <em>not</em> read.</b> It says how big this
     ///         run is making the material, which is a decision of the run and not a property of the
     ///         graph — a saved one would be somebody's preview resolution baked into the asset.
     ///     </para>
     /// </remarks>
     void Adopt(NodeGraphModel graph) {
-        BaseWidth = TextureGraphSettings.Extent(graph, TextureGraphSettings.BaseWidth, BaseWidth, out var width);
-        BaseHeight = TextureGraphSettings.Extent(graph, TextureGraphSettings.BaseHeight, BaseHeight, out var height);
-        Seed = TextureGraphSettings.SeedOf(graph, Seed, out var seed);
+        authoredWidth = TextureGraphSettings.Extent(graph, TextureGraphSettings.BaseWidth, BaseWidth, out var width);
+        authoredHeight = TextureGraphSettings.Extent(graph, TextureGraphSettings.BaseHeight, BaseHeight, out var height);
+        authoredSeed = TextureGraphSettings.SeedOf(graph, Seed, out var seed);
 
         foreach (var problem in new[] { width, height, seed }) {
             if (problem is not null) {
@@ -347,15 +378,14 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             }
         }
 
-        if (graph.Parameters.Count == 0) {
-            return;
-        }
+        declared.Clear();
 
         // ⚠ Replaced rather than merged. Two lists of knobs under one name is a graph whose
         // parameter means whichever the walk reached first, and a host that set some of its own is
         // a host that has not been updated — the file is the declaration.
-        Parameters.Clear();
-        Parameters.AddRange(TextureGraphParameters.Declared(graph.Parameters));
+        declared.AddRange(
+            graph.Parameters.Count == 0 ? Parameters : TextureGraphParameters.Declared(graph.Parameters)
+        );
     }
 
     /// <summary>Resolves the graph's parameters, and every expression written over them.</summary>
@@ -368,13 +398,13 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     ///     be forty compilations of forty nearly identical files.
     /// </remarks>
     void Bind(NodeGraphModel graph) {
-        foreach (var problem in TextureGraphParameters.Check(Parameters)) {
+        foreach (var problem in TextureGraphParameters.Check(declared)) {
             // Against no node, because a parameter belongs to the graph rather than to any node in
             // it. There is nothing to select and saying so is better than picking one at random.
             Report(new("TG0011", "This graph's parameters do not hold together: " + problem, NodeId.None));
         }
 
-        ParameterValues = TextureGraphParameters.Read(Parameters, Arguments, out var refused);
+        ParameterValues = TextureGraphParameters.Read(declared, Arguments, out var refused);
 
         foreach (var problem in refused) {
             Report(new("TG0015", problem, NodeId.None, "", NodeSeverity.Warning));
@@ -382,7 +412,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
 
         foreach (var (scope, expressions) in Collect(graph)) {
             var parameters = scope.Length == 0
-                ? Parameters
+                ? declared
                 : (SubGraphSource as ITextureGraphLibrary)?.ParametersOf(scope) ?? [];
 
             var values = scope.Length == 0
@@ -561,10 +591,10 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         }
 
         var plan = new TexturePlan {
-            BaseWidth = BaseWidth,
-            BaseHeight = BaseHeight,
+            BaseWidth = authoredWidth,
+            BaseHeight = authoredHeight,
             BakeLevelOffset = BakeLevelOffset,
-            Seed = Seed,
+            Seed = authoredSeed,
             Images = images.ToImmutable(),
             Ops = ops.ToImmutable(),
             Outputs = [.. kept],
@@ -629,7 +659,19 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     /// <summary>Says something about a node, for <see cref="TextureEmitter" />.</summary>
     internal void Say(NodeDiagnostic diagnostic) => Report(diagnostic);
 
-    /// <summary>One axis at this bake's level 0, with <see cref="TexturePlan.SizeOf" />'s clamping.</summary>
+    /// <summary>The width this compilation's level-0 images are measured against.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What the <em>graph</em> declared, falling back to <see cref="BaseWidth" />.</b> A node
+    ///     asking how big the image it is about to write is has to be told the number the plan will
+    ///     report, and since #780 that number is the file's rather than the host's whenever the file
+    ///     has an opinion.
+    /// </remarks>
+    internal int AuthoredWidth => authoredWidth;
+
+    /// <summary>And the height.</summary>
+    internal int AuthoredHeight => authoredHeight;
+
+    /// <summary>One axis at a level offset from the base, at this bake.</summary>
     /// <remarks>
     ///     ⚠ <b>The same arithmetic as <c>TexturePlan</c>'s, in a second place, because a node that
     ///     needs it needs it <em>while</em> the plan is being built.</b> A jump flood's dispatch count
@@ -637,9 +679,6 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     ///     before there is a plan to ask. <c>The_size_a_node_was_told_is_the_size_the_plan_reports</c>
     ///     is what keeps the two honest.
     /// </remarks>
-    internal int Extent(int baseExtent) => Extent(baseExtent, 0);
-
-    /// <summary>One axis at a level offset from the base, at this bake.</summary>
     /// <remarks>
     ///     The image's own offset and the bake's added, which is <see cref="TexturePlan.LevelOf" />'s
     ///     sum — so a node asking for the size of the scratch it is about to allocate gets the number
@@ -667,7 +706,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     ///     known here at all — <c>TextureUploads.SizeOf</c> is what remembers that one.
     /// </remarks>
     internal Int2 SizeOf(int image) =>
-        new(Extent(BaseWidth, LevelOf(image)), Extent(BaseHeight, LevelOf(image)));
+        new(Extent(authoredWidth, LevelOf(image)), Extent(authoredHeight, LevelOf(image)));
 
     /// <summary>What one image carries.</summary>
     internal TextureChannels ChannelsOf(int image) =>

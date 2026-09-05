@@ -122,14 +122,65 @@ public class TextureGraphDeclarationTests {
 
         Assert.Equal(8f, radius.Value);
 
-        // And the list the compiler now holds is the graph's, with every field of it.
-        var parameter = Assert.Single(compiler.Parameters);
+        // ⚠ And the compiler's own list is untouched by having compiled that graph, which is what
+        // the *next* graph depends on: the declaration is per compilation, and a list adopted into
+        // the host's field is a knob one document leaves behind for another.
+        Assert.Empty(compiler.Parameters);
 
-        Assert.Equal("amount", parameter.Name);
-        Assert.Equal(TextureGraphParameterKind.Scalar, parameter.Kind);
-        Assert.Equal(0.25f, parameter.Default);
-        Assert.Equal(1f, parameter.Maximum);
-        Assert.Equal("Wear", parameter.Group);
+        // The range the graph declared crossed with the name, and the assertion is behavioural
+        // rather than a field-by-field read of a list: an override outside 0…1 is refused and the
+        // declared default stands, which is only true if the minimum, the maximum *and* the default
+        // all arrived.
+        var overridden = Compiler();
+
+        overridden.Arguments = new Dictionary<string, string>(StringComparer.Ordinal) { ["amount"] = "5" };
+
+        var refused = overridden.Compile(graph);
+
+        Assert.Single(refused.Diagnostics, diagnostic => diagnostic.Id == "TG0015");
+        Assert.Equal(
+            8f,
+            Assert.Single(
+                refused.Value.Ops.Where(op => op.Kernel == "Blur").Select(op => op.Find("radius")!.Value).Distinct()
+            ).Value
+        );
+    }
+
+    /// <summary>What one graph declares does not reach the next graph the same compiler compiles.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The documented behaviour is "a graph that declares nothing keeps the host's
+    ///         values", and before this it was true exactly once.</b> <c>Adopt</c> wrote the graph's
+    ///         declarations into the compiler's own settable properties and replaced its parameter
+    ///         list, so a compiler that had seen a graph declaring 512×512 and a seed carried both
+    ///         into every graph it compiled afterwards.
+    ///     </para>
+    ///     <para>
+    ///         <b>A compiler is reusable and the preview pane reuses one</b> —
+    ///         <c>TextureGraphPreviews.Rebuild</c> asks its factory for one per rebuild and re-sets
+    ///         the resolution but not the seed or the knobs — so this is the shape the trap has: a
+    ///         second document previewing with the first one's seed, which is a different picture and
+    ///         nothing anywhere says so.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void What_one_graph_declares_does_not_leak_into_the_next() {
+        var compiler = Compiler();
+        var declaring = Noise();
+
+        TextureGraphSettings.Declare(declaring, 512, 512, 90210);
+        declaring.Parameters.Add(new("amount", "0.25", "", SettingKind.Float, 0f, 1f));
+
+        Assert.Equal(512, compiler.Compile(declaring).Value.BaseWidth);
+
+        // The same compiler, a graph that declares nothing, and the host's numbers back.
+        var plain = compiler.Compile(Noise()).Value;
+
+        Assert.Equal(256, plain.BaseWidth);
+        Assert.Equal(256, plain.BaseHeight);
+        Assert.Equal(41823u, plain.Seed);
+        Assert.Empty(compiler.Parameters);
+        Assert.Empty(compiler.ParameterValues);
     }
 
     /// <summary>A parameter list is the same list after a trip through the framework's settings.</summary>

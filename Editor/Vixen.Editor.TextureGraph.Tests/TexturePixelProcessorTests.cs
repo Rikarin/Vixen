@@ -195,7 +195,7 @@ public class TexturePixelProcessorTests {
         var (compiler, graph, processor) = Processing("a.nonsense");
         var compilation = compiler.Compile(graph);
 
-        var diagnostic = Assert.Single(compilation.Diagnostics, one => one.Id == "TG0017");
+        var diagnostic = Assert.Single(compilation.Diagnostics, one => one.Id == "TG0021");
 
         Assert.Equal(processor.Id, diagnostic.Node);
         Assert.Equal("Expression", diagnostic.Port);
@@ -219,7 +219,7 @@ public class TexturePixelProcessorTests {
     public void The_complaint_carries_ravens_own_diagnostic_id() {
         var (compiler, graph, _) = Processing("nothing * 2f");
 
-        var diagnostic = Assert.Single(compiler.Compile(graph).Diagnostics, one => one.Id == "TG0017");
+        var diagnostic = Assert.Single(compiler.Compile(graph).Diagnostics, one => one.Id == "TG0021");
 
         Assert.Contains("RVN", diagnostic.Message, StringComparison.Ordinal);
     }
@@ -279,7 +279,7 @@ public class TexturePixelProcessorTests {
     public void An_expression_over_two_lines_is_refused() {
         var (compiler, graph, _) = Processing("a\n * 2f");
 
-        var diagnostic = Assert.Single(compiler.Compile(graph).Diagnostics, one => one.Id == "TG0018");
+        var diagnostic = Assert.Single(compiler.Compile(graph).Diagnostics, one => one.Id == "TG0020");
 
         Assert.Contains("newline ends a statement", diagnostic.Message, StringComparison.Ordinal);
     }
@@ -289,7 +289,7 @@ public class TexturePixelProcessorTests {
     public void An_empty_expression_is_refused() {
         var (compiler, graph, _) = Processing("   ");
 
-        Assert.Single(compiler.Compile(graph).Diagnostics, one => one.Id == "TG0018");
+        Assert.Single(compiler.Compile(graph).Diagnostics, one => one.Id == "TG0020");
     }
 
     /// <summary>
