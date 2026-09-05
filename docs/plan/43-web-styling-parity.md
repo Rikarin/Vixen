@@ -1538,10 +1538,20 @@ somebody else's compound and invalidated the wrong subtree, and one that produce
 end and threw — reachable through `UiDocument.ReloadStyles` and therefore through every hot edit of a
 stylesheet, and invisible only because a hot edit rarely changes the rule count much. A breakpoint
 being crossed turned a dropped block into rules, which adds selectors by construction, so the first
-`@media` re-evaluation found it immediately. ⚠ **The fix is still needed and the finder is gone:**
-crossing a breakpoint no longer reloads anything, so `StyleUpdater.Refresh` is now exercised only by
-`StyleEngine.Replace` — a hot edit of a stylesheet — which is where the latent crash lived all along
-and where it would have gone on living unnoticed.
+`@media` re-evaluation found it immediately. ⚠ **The finder is gone:** crossing a breakpoint no
+longer reloads anything, so `StyleUpdater.Refresh` is now exercised only by `StyleEngine.Replace` —
+a hot edit of a stylesheet — which is where the latent crash lived all along and where it would have
+gone on living unnoticed.
+
+✅ **Closed 2026-09-05.** `StyleUpdater.Refresh` landed with `47151dfe` and rebuilds the invalidator
+whenever the engine has replaced its `SelectorTable`, which resets the rule cursor with it. ⚠ What
+was still missing was anything that could tell you so: no test anywhere drove a `StyleUpdater` across
+a `StyleEngine.Replace`, and the paragraph above went on saying the fix was owed.
+`Core/Vixen.Ui.Styling.Tests/StyleUpdaterReloadTests.cs` now replaces a sheet in **both** directions,
+and the two are not one test twice — the growing case throws out of `SelectorTable.Compound`, and the
+shrinking case leaves the cursor past the end of the new rule set, so the read loop never runs, the
+map still describes the sheet that is gone, and the element that should have restyled silently keeps
+the style it had. Sabotage (`Refresh` returning unconditionally) is red on both, one per failure mode.
 
 **Sized at 0.3 EM and landed with A20**, because it is the same shape of bug and the same seam.
 
