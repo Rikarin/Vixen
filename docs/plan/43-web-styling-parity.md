@@ -3341,6 +3341,16 @@ gate cannot check.
   subpixel filter at all, so `antialiased` and `subpixel-antialiased` are the same picture *by
   construction* rather than by omission. Closing it is an RGB-decimated raster path and a second
   sampler in both executors — a rendering feature, and a very small one to want.
+  ⚠ **Re-confirmed 2026-09-05 (#542), and the impossibility is one line rather than an absence.**
+  `ui-text.frag` collapses the field to a single scalar `coverage` and writes
+  `vec4(colour.rgb * colour.a * coverage, colour.a * coverage)` — one number for all three channels,
+  so no value of any property could make them differ. ⚠ **And the atlas's three channels are already
+  spent, on something else**: it is a *multi-channel* distance field whose median reconstructs the
+  corner a single channel rounds off, which is the trap this refusal has to name. A reader who sees
+  `.rgb` in the sampler and concludes a subpixel path is half-built is reading three distances as
+  three coverages. Closing this needs a fourth thing to sample, not a switch over the three that are
+  there — so the refusal stands, unchanged in shape and now grounded in the shader rather than in the
+  rasteriser's file list.
 - **`scheme`** — ⚠ **and this is Bucket 2 of Part 9 in its purest form.** `color-scheme` tells a
   *user agent* which schemes an element's UA-rendered widgets, scrollbars and canvas support. Every
   control in Vixen is drawn by the engine from CSS somebody wrote, so there is no UA rendering for
