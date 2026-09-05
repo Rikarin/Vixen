@@ -625,22 +625,28 @@ public enum Display : byte {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Three of these eight are implemented and five are refused, and the split is not
-///         arbitrary — it is exactly the line between the values defined against the <i>line box</i>
-///         and the values defined against a <i>font</i>.</b> <see cref="Baseline" />,
-///         <see cref="Top" /> and <see cref="Bottom" /> are geometry this store already has: a
-///         baseline it computes, and the two edges of a box it just laid out.
-///         <see cref="Middle" />, <see cref="TextTop" />, <see cref="TextBottom" />,
-///         <see cref="Sub" /> and <see cref="Super" /> are each defined against the parent's
-///         <i>strut</i> — its font's ascent, descent or x-height — and
-///         <c>Vixen.Ui.Layout</c> has no font, no font size and no way to ask for one. It is a
-///         geometry store; the fonts live one layer out in <c>Vixen.Ui</c>.
+///         ⚠ <b>The split that used to be "three work and five are refused" is now a split between
+///         the values that need a <i>strut</i> and the values that do not, and the five are honoured
+///         wherever one has been written down.</b> <see cref="Baseline" />, <see cref="Top" /> and
+///         <see cref="Bottom" /> are geometry this store computes for itself: a baseline, and the two
+///         edges of a box it just laid out. <see cref="Middle" />, <see cref="TextTop" />,
+///         <see cref="TextBottom" />, <see cref="Sub" /> and <see cref="Super" /> are each defined
+///         against the parent's strut — its font's ascent, descent or x-height — and this is still a
+///         geometry store with no font in it. What changed is that a strut is <i>five numbers</i>
+///         rather than a font: <see cref="StrutMetrics" /> is a computed value the layer that owns
+///         the fonts writes on the container, the same way it already writes a resolved font size.
 ///     </para>
 ///     <para>
-///         So the five are carried as computed values and refused by the algorithm rather than
-///         silently rounded to <see cref="Baseline" />. A silent fallback would put
-///         <c>vertical-align: middle</c> a half-x-height out and look like a rounding error;
-///         <c>InlineKnownGaps.txt</c> names them and says what each would need.
+///         ⚠ <b>Where no strut was written the five still fall back to <see cref="Baseline" />, and
+///         that refusal is unchanged.</b> A silent fallback would put <c>vertical-align: middle</c>
+///         half an x-height out and read as a rounding error rather than as a missing number; what
+///         the fallback now means is "nobody supplied a font", not "this store cannot".
+///     </para>
+///     <para>
+///         <see cref="Offset" /> is the <c>&lt;length&gt;</c> and <c>&lt;percentage&gt;</c> form and
+///         needs no strut at all — it is a signed distance in
+///         <see cref="LayoutStyle.VerticalAlignOffset" />, and the percentage is resolved against the
+///         element's own <c>line-height</c> before it gets here, where a line height still exists.
 ///     </para>
 /// </remarks>
 public enum VerticalAlign : byte {
@@ -653,20 +659,30 @@ public enum VerticalAlign : byte {
     /// <summary>The box's bottom edge sits against the bottom of the line box.</summary>
     Bottom,
 
-    /// <summary>Centred on the parent's baseline plus half its x-height. ⚠ Needs font metrics.</summary>
+    /// <summary>Centred on the parent's baseline plus half its x-height. Needs a strut.</summary>
     Middle,
 
-    /// <summary>Aligned with the top of the parent's strut. ⚠ Needs font metrics.</summary>
+    /// <summary>Aligned with the top of the parent's content area. Needs a strut.</summary>
     TextTop,
 
-    /// <summary>Aligned with the bottom of the parent's strut. ⚠ Needs font metrics.</summary>
+    /// <summary>Aligned with the bottom of the parent's content area. Needs a strut.</summary>
     TextBottom,
 
-    /// <summary>Lowered to the parent's subscript position. ⚠ Needs font metrics.</summary>
+    /// <summary>Lowered to the parent's subscript position. Needs a strut.</summary>
     Sub,
 
-    /// <summary>Raised to the parent's superscript position. ⚠ Needs font metrics.</summary>
-    Super
+    /// <summary>Raised to the parent's superscript position. Needs a strut.</summary>
+    Super,
+
+    /// <summary>
+    ///     Raised by <see cref="LayoutStyle.VerticalAlignOffset" />, which is negative to lower it.
+    /// </summary>
+    /// <remarks>
+    ///     The one value of the eight that is a distance rather than a keyword, and the only one that
+    ///     needs neither a strut nor the line box: CSS 2.1 §10.8.1's <c>&lt;length&gt;</c> and
+    ///     <c>&lt;percentage&gt;</c>, both of which arrive here already resolved to a distance.
+    /// </remarks>
+    Offset
 }
 
 /// <summary>Which way the inline axis runs.</summary>

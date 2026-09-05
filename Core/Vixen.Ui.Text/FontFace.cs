@@ -153,6 +153,29 @@ public sealed class FontFace : IDisposable {
         }
     }
 
+    /// <summary>The height of a lowercase <c>x</c>, in design units.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Optional, and two of the twenty-two faces in this repository report zero for it</b> —
+    ///     so a face with no opinion is synthesised from rather than believed. Half the ascender lands
+    ///     within a few per cent of what every face that <i>does</i> answer says, and the number's one
+    ///     consumer is <c>vertical-align: middle</c>, which is a half of it: an x-height read as zero
+    ///     would centre a box on the baseline itself and look like the alignment had been ignored.
+    /// </remarks>
+    public int XHeight => Positive(OpenTypeMetricsTag.XHeight) ?? Metrics.Ascender / 2;
+
+    /// <summary>How far below the baseline this face sets a subscript, in design units.</summary>
+    /// <remarks>
+    ///     The fallback is a fifth of an em, which is what browsers use for a face that carries no
+    ///     <c>OS/2</c> subscript offset. Positive is downwards here, unlike
+    ///     <see cref="SuperscriptOffset" />, because each is the distance in the direction its own
+    ///     name goes.
+    /// </remarks>
+    public int SubscriptOffset => Positive(OpenTypeMetricsTag.SubScriptEmYOffset) ?? UnitsPerEm / 5;
+
+    /// <summary>How far above the baseline this face sets a superscript, in design units.</summary>
+    /// <remarks>The fallback is a third of an em, for the reason on <see cref="SubscriptOffset" />.</remarks>
+    public int SuperscriptOffset => Positive(OpenTypeMetricsTag.SuperScriptEmYOffset) ?? UnitsPerEm / 3;
+
     /// <summary>One OpenType metric, or null where the face does not carry the table it lives in.</summary>
     int? Metric(OpenTypeMetricsTag tag) =>
         font.OpenTypeMetrics.TryGetPosition(tag, out var value) ? value : null;

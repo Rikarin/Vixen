@@ -342,8 +342,8 @@ public sealed partial class LayoutTree {
     /// <remarks>
     ///     ⚠ Read only where the node is an inline-level box in an inline formatting context, which
     ///     is CSS 2.1 §10.8.1's own scope rather than a limitation — the property means nothing on a
-    ///     flex item or a block-level box in normal flow. Three of the eight values are honoured; see
-    ///     <see cref="VerticalAlign" /> for which five are not and exactly why.
+    ///     flex item or a block-level box in normal flow. Five of the nine values need the container
+    ///     to carry a <see cref="SetStrut" />; see <see cref="VerticalAlign" /> for which and why.
     /// </remarks>
     public void SetVerticalAlign(LayoutNodeId node, VerticalAlign verticalAlign) {
         var index = Validate(node);
@@ -352,6 +352,46 @@ public sealed partial class LayoutTree {
         }
 
         styles[index].VerticalAlign = verticalAlign;
+        MarkDirtyAndPropagate(index);
+    }
+
+    /// <summary>Sets how far <see cref="VerticalAlign.Offset" /> raises this box off the baseline.</summary>
+    /// <param name="node">The node.</param>
+    /// <param name="offset">The distance. Negative lowers the box.</param>
+    /// <remarks>
+    ///     Inert unless <see cref="SetVerticalAlign" /> is <see cref="VerticalAlign.Offset" />, and a
+    ///     distance rather than a percentage for the reason on
+    ///     <see cref="LayoutStyle.VerticalAlignOffset" />.
+    /// </remarks>
+    public void SetVerticalAlignOffset(LayoutNodeId node, float offset) {
+        var index = Validate(node);
+        if (styles[index].VerticalAlignOffset.Equals(offset)) {
+            return;
+        }
+
+        styles[index].VerticalAlignOffset = offset;
+        MarkDirtyAndPropagate(index);
+    }
+
+    /// <summary>Sets the font metrics this container's line boxes start from.</summary>
+    /// <param name="node">The block container that establishes the inline formatting context.</param>
+    /// <param name="strut">The metrics, or <c>default</c> for no strut at all.</param>
+    /// <remarks>
+    ///     ⚠ <b>This is the one property in the store whose numbers cannot be derived from anything
+    ///     the store knows, and writing it is how a layer that has fonts lends this one a strut.</b>
+    ///     CSS 2.1 §10.8's strut is an imaginary zero-width inline box carrying the container's own
+    ///     font and line height; it is why an empty line is a line tall, why <c>line-height</c> on a
+    ///     container does anything, and what the five font-relative <see cref="VerticalAlign" />
+    ///     values are measured against. Leaving it at <c>default</c> is what every tree did before it
+    ///     existed and lays out identically. See <see cref="StrutMetrics" />.
+    /// </remarks>
+    public void SetStrut(LayoutNodeId node, StrutMetrics strut) {
+        var index = Validate(node);
+        if (styles[index].Strut == strut) {
+            return;
+        }
+
+        styles[index].Strut = strut;
         MarkDirtyAndPropagate(index);
     }
 

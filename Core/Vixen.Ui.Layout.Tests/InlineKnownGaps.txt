@@ -122,11 +122,12 @@ a span with an out-of-flow child  refused, and the child is the reason rather th
                                   CSS's — so a flattened span, whose own `CalculateLayoutImpl`
                                   never runs, is where that walk stops. Refusing leaves a box
                                   un-split; flattening would leave the child positioned by nobody.
-the strut's effect on a fragment  a fragment is exactly as tall as its line box, and its line box
-                                  is exactly as tall as the boxes on it. Same missing strut as
-                                  below; §10.8's rule that a non-replaced inline box's VERTICAL
-                                  padding and border do not affect line height is implemented, and
-                                  is the one place that rule is visible.
+the strut's effect on a fragment  ⚠ CLOSED BY THE STRUT SECTION BELOW, and it closed for free: a
+                                  fragment is exactly as tall as its line box, so a container with a
+                                  strut now gives every fragment the strut's height without this
+                                  producer being touched. §10.8's rule that a non-replaced inline
+                                  box's VERTICAL padding and border do not affect line height is
+                                  implemented, and is still the one place that rule is visible.
 
 # ══ ANONYMOUS BOXES — LANDED, and the estimate that was right is worth keeping written down ═════
 #
@@ -316,8 +317,12 @@ generated boxes (::before/after)  doc 43's A12. ⚠ ITS PRECONDITION IS NOW MET 
 #     leaf's first line is the fragmentation item three rows down, and it is the same blocker: there
 #     must not be a second text wrapper disagreeing with `TextLayout` about UAX #14. ⚠ THIS IS THE
 #     ONE ITEM OF THE THREE THAT IS STRUCTURAL RATHER THAN UNWRITTEN, and it does not become
-#     available by trying harder here: `Vixen.Ui.Layout` has no font, no font size and no
-#     `FontRegistry`, which is the same wall the strut is behind.
+#     available by trying harder here. ⚠ AND THE COMPARISON THAT USED TO END THIS ROW — "the same
+#     wall the strut is behind" — IS NOW WRONG TWICE. The strut's wall was font METRICS, and metrics
+#     crossed this boundary as five numbers the moment somebody asked whether they had to be a font;
+#     see the strut section below. This wall is text BREAKING, which is a protocol and not a value: a
+#     measure function answers one size for one width, and a staircase is a different width per line.
+#     Whatever closes it will not be a `StrutMetrics`-shaped answer.
 #   · `clear` on a line box, which is NOT owed and was measured rather than argued. §9.5.2 applies
 #     `clear` to floating and block-level elements only, and Chrome 148 agrees: `clear: left` on an
 #     `inline-block` beside a left float leaves it exactly where it was, on the same line. A `clear`
@@ -326,26 +331,69 @@ generated boxes (::before/after)  doc 43's A12. ⚠ ITS PRECONDITION IS NOW MET 
 #     content edge, not the band. §10.3.7's hypothetical box beside a float; no oracle consulted.
 
 
-# ══ DELIBERATELY ABSENT — the store still cannot represent it ═══════════════════════════════════
-
-# ⚠ THE STRUT. §10.8 begins every line box with an imaginary zero-width inline box carrying the
-# block container's own font and line height. It is why an empty line is still a line tall, why a
-# short image never makes a line shorter than its text would be, and why `line-height` on a
-# container does anything at all. A strut is font metrics; `Vixen.Ui.Layout` has no font and no font
-# size — it is geometry, and `FontRegistry` lives a layer out in `Vixen.Ui`. A line here is exactly
-# as tall as the boxes on it.
+# ══ THE STRUT — LANDED, and the refusal it replaces was the right answer to the wrong question ══
 #
-# ⚠ This is also why the five font-relative `vertical-align` values are refused rather than
-# approximated. Each is defined against the parent's strut, and rounding them to `baseline` looks
-# almost right and reads as a rendering quirk. `LayoutStyleBuilder` drops the keywords; the layout
-# store falls them back; `A_font_relative_vertical_align_falls_back_to_the_baseline` pins it.
+# ⚠ THIS SECTION USED TO BE THE HEAD OF "DELIBERATELY ABSENT", and what moved it was one sentence
+# being read again rather than any new capability. The old text said: a strut is font metrics;
+# `Vixen.Ui.Layout` has no font and no font size; therefore no strut, therefore five of the eight
+# `vertical-align` values are refused. Every clause of that is true and the conclusion does not
+# follow. §10.8's strut is an imaginary zero-width inline box carrying the container's font and line
+# height, and EVERY RULE THAT DEPENDS ON IT IS ARITHMETIC OVER FIVE NUMBERS. Only producing the five
+# needs a font.
+#
+# So the five are a COMPUTED VALUE, exactly like the resolved `font-size` that has always crossed
+# this boundary, and they are written by the layer that owns the fonts:
+#
+#   · `StrutMetrics` on `LayoutStyle`, and `LayoutTree.SetStrut` to write it. Two ascents and two
+#     descents rather than one pair, because the strut's LINE BOX (half-leading included) is what a
+#     line is never shorter than, and the font's CONTENT AREA is what `text-top` and `text-bottom`
+#     align to — under `line-height: 2` they differ by half a font size on each side.
+#   · `UiDocument.StrutOf` resolves the element's own face through the `FontRegistry` and writes it
+#     after `SetStyle` — after, because `SetStyle` writes the whole struct and would clear it.
+#   · `MeasureLine` SEEDS its two accumulators with the strut rather than clamping the finished
+#     height to it. A box taller than the strut but hanging lower than it must grow the line
+#     downwards and still clear the strut's ascent; a max over the total gets the same height with
+#     the baseline in the wrong place.
+#   · `BaselineShift` is the whole of the five values, one arm each, plus a sixth for `<length>`.
+#
+# ⚠ ALL-ZERO IS THE INITIAL VALUE AND MEANS "NO STRUT", so a tree that never writes one lays out
+# byte-identically to before — which is what let this land without moving a single existing
+# expectation, including `InlineFloatInteractionTests`, whose Chrome readings were all recorded at
+# `font-size: 0; line-height: 0` precisely to take the strut out of them.
+#
+# ⚠ AND THE FALLBACK IS STILL THERE, one meaning to the left. The five still resolve to `baseline`
+# on a container with no strut — `A_font_relative_vertical_align_falls_back_to_the_baseline_with_no
+# _strut` is that test, renamed because its premise moved: it now says "no font was supplied" rather
+# than "this store cannot ask for one". Rounding `middle` to `baseline` silently is still the wrong
+# answer, and it is still what the layer above must not report as support.
+#
+# Covered by `InlineStrutTests` (10 closed-form tests, the metrics stated rather than measured
+# because a browser reading here would be a reading of that browser's FONT), by
+# `Core/Vixen.Ui.Tests/InlineStrutWiringTests` for the half that is a document rather than a store,
+# and by `LayoutStyleBridgeTests` for the keywords and the length. Sabotage-checked twice: dropping
+# the seed reddens 8 of the 10, and conflating the two ascent pairs reddens exactly the two tests
+# about the difference.
 
-the strut                         no font metrics below `Vixen.Ui`
+the strut                         `StrutMetrics`, written by whoever has the fonts
 vertical-align: middle            parent's baseline + half its x-height
-vertical-align: text-top          top of the parent's strut
-vertical-align: text-bottom       bottom of the parent's strut
-vertical-align: sub / super       the parent's subscript / superscript offsets
-vertical-align: <length> / <%>    not in the enum at all; needs `line-height` to be a percentage base
+vertical-align: text-top          top of the parent's CONTENT AREA, which is not the line box's top
+vertical-align: text-bottom       bottom of the same
+vertical-align: sub / super       the face's own subscript / superscript offsets, or 1/5 and 1/3 em
+vertical-align: <length> / <%>    `VerticalAlign.Offset`; the percentage is resolved against the
+                                  ELEMENT'S OWN line-height at the bridge, which is the last place
+                                  that knows what it is a percentage of
+
+
+# ══ DELIBERATELY ABSENT — the store still cannot represent it ═══════════════════════════════════
+#
+# ⚠ THIS SECTION IS NOW SHORTER THAN ITS HEADING SUGGESTS, and what is left of it is one item: a
+# strut belongs to the block container, and a `span` that changes the font inside one is flattened
+# here and carries no metrics of its own. So a `vertical-align: middle` on a box inside such a span
+# is measured against the container's x-height rather than the span's — right whenever the span does
+# not change the font, and wrong by the difference when it does. Refusing the value inside a span
+# instead would be worse. It needs the same thing nested non-atomic inline boxes need.
+
+a span's own strut                a flattened span has no font of its own; the container's is used
 
 
 # ══ ABSENT, AND THE HONEST REASON IS "NOT YET" ══════════════════════════════════════════════════
@@ -424,7 +472,9 @@ a text leaf's first line          ⚠ STILL NOT shortened to the space left on t
                                   line-level Chromium citations. Do not move a break position
                                   without that file or the 2048 Chrome-recorded positions in
                                   `linebreaking_browser_recorder/data/*.csv` as the reference.
-line-height on the container      needs the strut
+line-height on the container      ⚠ LANDED with the strut above — it is the strut's half-leading,
+                                  and nothing else in this walk reads a line height. `The_containers
+                                  _leading_moves_the_baseline_and_the_line_height` is the test
 white-space / nowrap              the container-level suppression of line breaking
 text-overflow: ellipsis           ⚠ Parley was proposed for this and REFUTED — the word "ellipsis"
                                   appears nowhere in that repository. The reference implementation is

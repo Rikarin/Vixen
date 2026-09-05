@@ -195,6 +195,32 @@ public struct LayoutStyle {
     /// </remarks>
     public VerticalAlign VerticalAlign;
 
+    /// <summary>
+    ///     How far <see cref="VerticalAlign.Offset" /> raises this box off the baseline. Negative
+    ///     lowers it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A distance and never a percentage, because the percentage's base is the one number
+    ///     this store does not have.</b> CSS 2.1 §10.8.1 resolves a percentage <c>vertical-align</c>
+    ///     against the <i>element's own</i> <c>line-height</c> — not the container's, not the line
+    ///     box's — and an atomic inline-level box here is a rectangle with no line height of its own.
+    ///     The layer that resolved the line height resolves this with it, which is the same division
+    ///     of labour <see cref="Strut" /> is built on.
+    /// </remarks>
+    public float VerticalAlignOffset;
+
+    /// <summary>
+    ///     The font metrics every line box in this container starts from. CSS 2.1 §10.8's strut.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Read on the <i>container</i> and never on the item</b> — the strut belongs to the
+    ///     block container that established the inline formatting context, so it is the one field
+    ///     here that an inline-level box's own copy of has no meaning. All-zero is the initial value
+    ///     and means "no font supplied", which lays out exactly as this store did before the field
+    ///     existed. See <see cref="StrutMetrics" />.
+    /// </remarks>
+    public StrutMetrics Strut;
+
     /// <summary>Which ordinal group this item is laid out and painted in.</summary>
     /// <remarks>
     ///     ⚠ <b>Not in Yoga, so not in a single one of the 534 ported fixtures.</b> CSS Flexbox §5.4

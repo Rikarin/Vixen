@@ -34,8 +34,11 @@ verified by enumeration. Its oracle had to be fetched from `web-platform-tests`,
 inline suite could not cross either — a line box's metrics depend on a font, and this store has none.
 It is **partial and says which part**: atomic inlines are done, and so is **fragmentation** — a
 non-atomic `inline` box crossing a line break is now one box per line, which is the first time a node
-in this store has produced more than one rectangle. What is still owed is nested spans, anonymous
-boxes and the strut. See
+in this store has produced more than one rectangle. ⚠ **And so is the strut**, which this file listed
+as structurally out of reach for as long as inline formatting has been here: §10.8's strut is font
+metrics, this store has no font, and neither of those facts stopped it — a strut is five *numbers*,
+so `StrutMetrics` is a computed value the layer with the `FontRegistry` writes down, and every rule
+that depends on one is arithmetic. What is still owed is nested spans and generated boxes. See
 [the inline section](#inline-formatting-and-the-invariant-nobody-had-written-down) and
 `InlineKnownGaps.txt`.
 
@@ -307,10 +310,16 @@ float's margin box (§9.5), clearance (§9.5.2) and a root's contains-its-floats
 flow root *and* a float, four of which had already changed census buckets once when `flow-root`
 landed.
 
-⚠ **A line box still does not shorten as it passes a float**, which is §9.5's main clause and the
-only thing most people mean by the word. `LayoutTree.Inline` has no exclusion awareness at all. It
-survived being measured because `Corpus/float.xml` has no `<text>` element in it: the corpus named
-after the feature is entirely block-level and cannot see the feature's headline rule. See
+⚠ **This paragraph used to say a line box does not shorten as it passes a float, and that
+`LayoutTree.Inline` has no exclusion awareness at all. Both halves are false and have been since the
+line walk learned §9.5.** `WalkInlineLines` asks `InlineBandForLine` for the band at each line's own
+top and height, shortens the line box to it, applies §9.5's shift-downward clause when the band is
+too narrow for the first item, and places a float declared inside a run at the top of the line it was
+written on. Eighteen tests in `InlineFloatInteractionTests` hold it, and their expectations had to be
+read out of Chrome 148 case by case — because the reason the gap survived measurement is unchanged
+and is the thing worth keeping in this paragraph: `Corpus/float.xml` has no `<text>` element in it,
+so the corpus named after the feature is entirely block-level and cannot see the feature's headline
+rule. What is genuinely still absent is a text leaf breaking around a float's *staircase*; see
 `InlineKnownGaps.txt` and `Taffy/FloatKnownGaps.txt`, and `docs/guide/ui/floats.md` for the shape of
 what is there.
 
@@ -696,9 +705,13 @@ came from somewhere else entirely: it is the first layout feature here judged by
 corpus contains**, and the condition this section set on it — write the oracle first — was met by
 lifting WPT's parsing suite case for case rather than by re-expressing a reftest's geometry.
 
-**The strut and generated boxes** — the parts of inline formatting still open. Three of the five
-this line used to name have closed: non-atomic inline fragmentation, anonymous block boxes for mixed
-content, and now `text-align`. See [the inline section](#inline-formatting-and-the-invariant-nobody-had-written-down)
+**Generated boxes** — the part of inline formatting still open. Four of the five this line used to
+name have closed: non-atomic inline fragmentation, anonymous block boxes for mixed content,
+`text-align`, and ⚠ **the strut**, whose refusal was the right answer to the wrong question. "A
+strut is font metrics and this store has no font" is true; what does not follow is that the store
+cannot have one, because the five numbers a font produces cross this boundary as easily as a
+resolved `font-size` does. With them come `line-height` on a container, a line that is never shorter
+than its text, and the five font-relative `vertical-align` values. See [the inline section](#inline-formatting-and-the-invariant-nobody-had-written-down)
 and `Taffy/../InlineKnownGaps.txt`.
 
 ⚠ **`text-align` is two fields, and both are implemented.** CSS Text §7.1's three legacy keywords —

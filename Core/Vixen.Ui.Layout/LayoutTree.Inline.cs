@@ -356,6 +356,11 @@ public sealed partial class LayoutTree {
         // inline box puts its *children* on the line and only its two edges.
         var streamBase = inlineItemTop;
         var fragmentBase = fragmentScratchTop;
+
+        // ⚠ Copied out of the style once rather than read through `styles[index]` at each of the two
+        // call sites below, because sizing an item runs a whole nested layout and a nested layout can
+        // add nodes — which reallocates the style array out from under a `ref` into it.
+        var strut = styles[index].Strut;
         BuildInlineItems(index, childStart, childEnd, nested: false);
         var streamEnd = inlineItemTop;
 
@@ -427,7 +432,7 @@ public sealed partial class LayoutTree {
                         break;
                     }
 
-                    metrics = MeasureLine(lineStart, lineEnd, direction, innerWidth);
+                    metrics = MeasureLine(lineStart, lineEnd, direction, innerWidth, in strut);
                 } else {
                     // ── §9.5's main clause ──────────────────────────────────────────────────────
                     // ⚠ <b>The band a line gets depends on how tall the line is, and how tall the
@@ -471,7 +476,7 @@ public sealed partial class LayoutTree {
                         // still leaves a height belonging to the range `lineEnd` names. Placing a
                         // float cannot change what is on the line without a re-break, and a re-break
                         // measures again.
-                        metrics = MeasureLine(lineStart, lineEnd, direction, innerWidth);
+                        metrics = MeasureLine(lineStart, lineEnd, direction, innerWidth, in strut);
 
                         // ── §9.5.1's rules 5 and 6 ──────────────────────────────────────────────
                         // A float written between two items may not start above the top of the line
@@ -523,6 +528,7 @@ public sealed partial class LayoutTree {
                         styles[index].TextAlign,
                         lineTop,
                         in metrics,
+                        in strut,
                         ref open
                     );
                 }
@@ -946,18 +952,24 @@ public sealed partial class LayoutTree {
     ///         instead of below it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>There is no <i>strut</i>, and it is the largest single approximation in this
-    ///         file.</b> §10.8 begins every line box with an imaginary zero-width inline box carrying
-    ///         the block container's own font and line height, so an empty line is still a line tall
-    ///         and a short image never makes the line shorter than the text around it would be. A
-    ///         strut is font metrics, and this project has no font — <c>Vixen.Ui.Layout</c> is
-    ///         geometry, and <c>FontRegistry</c> lives a layer out. So a line here is exactly as tall
-    ///         as the boxes on it. See <c>InlineKnownGaps.txt</c>.
+    ///         ⚠ <b>The <i>strut</i> is where the line starts, and it is the one input to this method
+    ///         that does not come from a box.</b> §10.8 begins every line box with an imaginary
+    ///         zero-width inline box carrying the block container's own font and line height, so an
+    ///         empty line is still a line tall and a short image never makes the line shorter than the
+    ///         text around it would be. This store still has no font; what it has is the five numbers
+    ///         a font would have produced, written on the container by the layer that owns them. An
+    ///         all-zero strut is the initial value and seeds nothing, which is exactly the line this
+    ///         method measured before the field existed. See <see cref="StrutMetrics" />.
     ///     </para>
     /// </remarks>
-    LineMetrics MeasureLine(int lineStart, int lineEnd, Direction direction, float innerWidth) {
-        var ascent = 0f;
-        var descent = 0f;
+    LineMetrics MeasureLine(int lineStart, int lineEnd, Direction direction, float innerWidth, in StrutMetrics strut) {
+        // ⚠ The strut is an ordinary baseline-aligned participant and not a floor applied afterwards,
+        // which matters for exactly one case and it is the common one: a box TALLER than the strut but
+        // hanging LOWER than it — an image with a big descender's worth of margin — must grow the line
+        // downward and still be raised to clear the strut's ascent. Maxing the finished height against
+        // a strut height would give the same total and put the baseline in the wrong place.
+        var ascent = strut.Ascent;
+        var descent = strut.Descent;
 
         // ⚠ Only the atomic entries. An inline box's own edges are horizontal — border, padding and
         // margin on the left and right — and CSS 2.1 §10.8 is explicit that a non-replaced inline
@@ -965,7 +977,12 @@ public sealed partial class LayoutTree {
         // Open or a Close contributes nothing here, which is the one place that rule shows up.
         for (var i = lineStart; i < lineEnd; i++) {
             var item = inlineItems[i];
-            if (item.Kind != InlineItemKind.Atomic || EffectiveVerticalAlign(item.Node) != VerticalAlign.Baseline) {
+            if (item.Kind != InlineItemKind.Atomic) {
+                continue;
+            }
+
+            var alignment = EffectiveVerticalAlign(item.Node, in strut);
+            if (alignment is VerticalAlign.Top or VerticalAlign.Bottom) {
                 continue;
             }
 
@@ -974,8 +991,15 @@ public sealed partial class LayoutTree {
             var height = results[child].MeasuredDimensions[(int) Dimension.Height];
             var baseline = InlineItemBaseline(child);
 
-            ascent = MathF.Max(ascent, top + baseline);
-            descent = MathF.Max(descent, height - baseline + bottom);
+            // ⚠ Every one of the seven remaining values is this loop with a different shift, which is
+            // what makes them cheap: `sub`, `super`, `middle`, `text-top`, `text-bottom` and a length
+            // all put a box's own baseline somewhere OTHER than the line's, and none of them changes
+            // which side of the baseline the box's two halves are on. So the box still contributes an
+            // ascent and a descent — moved by the shift, in opposite directions.
+            var shift = BaselineShift(alignment, in strut, in styles[child], top + baseline, height - baseline + bottom);
+
+            ascent = MathF.Max(ascent, top + baseline - shift);
+            descent = MathF.Max(descent, height - baseline + bottom + shift);
         }
 
         // Round two: an edge-aligned box can only grow the side it is anchored to.
@@ -986,8 +1010,8 @@ public sealed partial class LayoutTree {
             }
 
             var child = item.Node;
-            var alignment = EffectiveVerticalAlign(child);
-            if (alignment == VerticalAlign.Baseline) {
+            var alignment = EffectiveVerticalAlign(child, in strut);
+            if (alignment is not (VerticalAlign.Top or VerticalAlign.Bottom)) {
                 continue;
             }
 
@@ -1118,6 +1142,7 @@ public sealed partial class LayoutTree {
         TextAlign textAlign,
         float lineTop,
         in LineMetrics metrics,
+        in StrutMetrics strut,
         ref OpenInlineBox open
     ) {
         var x = lineStartInset + TextAlignOffset(textAlign, direction, lineStart, lineEnd, innerWidth, lineAvailable);
@@ -1175,10 +1200,28 @@ public sealed partial class LayoutTree {
             var width = results[child].MeasuredDimensions[(int) Dimension.Width];
             var height = results[child].MeasuredDimensions[(int) Dimension.Height];
 
-            var top = EffectiveVerticalAlign(child) switch {
+            var alignment = EffectiveVerticalAlign(child, in strut);
+            var itemBaseline = InlineItemBaseline(child);
+
+            var top = alignment switch {
                 VerticalAlign.Top => lineTop + marginTop,
                 VerticalAlign.Bottom => lineTop + metrics.Height - marginBottom - height,
-                _ => lineTop + metrics.Ascent - InlineItemBaseline(child)
+
+                // ⚠ The shift is computed from the same two sums `MeasureLine` fed it and has to
+                // stay that way: the line's ascent was chosen so that this box clears it, so a shift
+                // computed differently here would place the box outside the line it was measured
+                // into. That is why both call sites pass the item's own ascent and descent rather
+                // than the item.
+                _ => lineTop
+                    + metrics.Ascent
+                    - itemBaseline
+                    + BaselineShift(
+                        alignment,
+                        in strut,
+                        in styles[child],
+                        marginTop + itemBaseline,
+                        height - itemBaseline + marginBottom
+                    )
             };
 
             // ⚠ Physical, and mirrored rather than negated. The item advances along the *inline*
@@ -1268,21 +1311,77 @@ public sealed partial class LayoutTree {
     ///     Which <c>vertical-align</c> this box is actually laid out with.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The five font-relative values fall back to <see cref="VerticalAlign.Baseline" /> here,
-    ///     and the honest place to notice that is the bridge rather than this line.</b>
-    ///     <c>middle</c>, <c>text-top</c>, <c>text-bottom</c>, <c>sub</c> and <c>super</c> are each
-    ///     defined against the parent's strut — its font's x-height, ascent or descent — and this
-    ///     project has no font to ask. Falling back is what a layout engine must do with a value it
-    ///     cannot honour; what it must *not* do is let the layer above report the family as supported.
-    ///     So <c>LayoutStyleBuilder</c> maps only the three that work, the utilities that emit the
-    ///     other five stay in the editor's inert inventory with a task number, and
-    ///     <c>InlineKnownGaps.txt</c> says what each one would need. See <see cref="VerticalAlign" />.
+    ///     ⚠ <b>The five font-relative values fall back to <see cref="VerticalAlign.Baseline" /> only
+    ///     where the container carries no strut, and that is now a statement about the document rather
+    ///     than about this store.</b> <c>middle</c>, <c>text-top</c>, <c>text-bottom</c>, <c>sub</c>
+    ///     and <c>super</c> are each defined against the parent's strut — its font's x-height, ascent
+    ///     or descent — and a strut is five numbers somebody with a font wrote down. Where they were
+    ///     written the value is honoured; where they were not, falling back is what a layout engine
+    ///     must do with a value it cannot honour, and what it must <i>not</i> do is let the layer
+    ///     above report the family as supported on a document that never supplied one.
+    ///     <see cref="VerticalAlign.Offset" /> is never refused: it is a distance and asks the strut
+    ///     nothing. See <see cref="VerticalAlign" /> and <c>InlineKnownGaps.txt</c>.
     /// </remarks>
-    VerticalAlign EffectiveVerticalAlign(int child) =>
-        styles[child].VerticalAlign switch {
-            VerticalAlign.Top => VerticalAlign.Top,
-            VerticalAlign.Bottom => VerticalAlign.Bottom,
-            _ => VerticalAlign.Baseline
+    VerticalAlign EffectiveVerticalAlign(int child, in StrutMetrics strut) {
+        var requested = styles[child].VerticalAlign;
+
+        return requested switch {
+            VerticalAlign.Middle or VerticalAlign.TextTop or VerticalAlign.TextBottom or VerticalAlign.Sub
+                or VerticalAlign.Super when !strut.HasFont => VerticalAlign.Baseline,
+            _ => requested
+        };
+    }
+
+    /// <summary>
+    ///     How far below the line's baseline a box's own baseline sits, per CSS 2.1 §10.8.1.
+    /// </summary>
+    /// <param name="alignment">The resolved alignment. Never <c>top</c> or <c>bottom</c>, which are
+    ///     defined against the line box's edges rather than against its baseline.</param>
+    /// <param name="strut">The container's strut.</param>
+    /// <param name="style">The item's own style, for <see cref="VerticalAlign.Offset" />.</param>
+    /// <param name="itemAscent">The item's margin-box top to its own baseline.</param>
+    /// <param name="itemDescent">Its own baseline to its margin-box bottom.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Positive is <i>down</i> here and positive is <i>up</i> in the CSS property</b>,
+    ///         which is worth stating because <see cref="VerticalAlign.Offset" /> is the one value
+    ///         where the two meet: <c>vertical-align: 5px</c> raises a box, so it is a shift of −5.
+    ///         Down is positive in every other number in this file, and one sign flip at the source is
+    ///         cheaper than an axis that changes direction halfway through a method.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The parent is the block container in every case, and where CSS says otherwise this
+    ///         store cannot.</b> §10.8.1 measures each of these against the <i>parent inline box</i>,
+    ///         which for a box directly inside the block container is the strut. A box inside a
+    ///         <c>span</c> should measure against that span's font — but a span is flattened here and
+    ///         carries no metrics of its own, so it inherits the container's answer. That is exactly
+    ///         right whenever the span does not change the font and wrong by the difference when it
+    ///         does; the alternative is refusing the value inside a span, which is worse.
+    ///     </para>
+    /// </remarks>
+    static float BaselineShift(
+        VerticalAlign alignment,
+        in StrutMetrics strut,
+        in LayoutStyle style,
+        float itemAscent,
+        float itemDescent
+    ) =>
+        alignment switch {
+            VerticalAlign.Sub => strut.SubOffset,
+            VerticalAlign.Super => -strut.SuperOffset,
+            VerticalAlign.Offset => -style.VerticalAlignOffset,
+
+            // The box's own vertical midpoint against the baseline plus half an x-height. Written as
+            // a shift of the baseline rather than as a top edge so that it composes with the two
+            // rounds above, which only ever move baselines.
+            VerticalAlign.Middle => itemAscent - (itemAscent + itemDescent) / 2f - strut.XHeight / 2f,
+
+            // The two content-area values, and they are the reason `TextAscent`/`TextDescent` are
+            // separate numbers from `Ascent`/`Descent`: under `line-height: 2` the strut's line box
+            // is half a font size taller on each side than the content area these align to.
+            VerticalAlign.TextTop => itemAscent - strut.TextAscent,
+            VerticalAlign.TextBottom => strut.TextDescent - itemDescent,
+            _ => 0f
         };
 
     /// <summary>How far below an atomic inline's top edge its baseline sits, per CSS 2.1 §10.8.1.</summary>

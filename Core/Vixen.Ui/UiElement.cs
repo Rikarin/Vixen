@@ -786,6 +786,7 @@ public partial class UiElement : Composition.IComposable {
         var revision = Document.Fonts.Revision;
         var mode = Document.WrapModeOf(Style);
         var breaking = Document.WordBreakOf(Style);
+        var wrapStyle = Document.TextWrapStyleOf(Style);
         var transform = Document.TextTransformOf(Style);
         var clamp = Document.LineClampOf(Style);
 
@@ -820,6 +821,13 @@ public partial class UiElement : Composition.IComposable {
             && lineRevision == revision
             && lineMode == mode
             && lineBreaking == breaking
+
+            // ⚠ In the key for the same reason `mode` is, and it is the easier of the two to leave
+            // out: it changes where the lines BREAK without changing anything about the text, the
+            // font or the width — so a block built under `balance` and reused under `auto` is a
+            // paragraph whose breaks belong to a declaration that is no longer on it, and nothing
+            // else in this key can tell.
+            && lineWrapStyle == wrapStyle
 
             // ⚠ In the key for the same reason `word-spacing` is: a case mapping changes how wide
             // the text is, so a block built before the transform arrived is a paragraph measured at
@@ -898,7 +906,7 @@ public partial class UiElement : Composition.IComposable {
             // whatever glyph the font has for it — however wide the box is.
             lines.Add(whole);
         } else {
-            Wrap(text, whole, width, mode, breaking, indent, chain, drawn, tabStop, hyphens, lines);
+            Wrap(text, whole, width, mode, breaking, indent, chain, drawn, tabStop, hyphens, wrapStyle, lines);
         }
 
         // ⚠ <b>The clamp drops the lines here, in the measure path, and this is where it differs from
@@ -931,6 +939,7 @@ public partial class UiElement : Composition.IComposable {
         lineRevision = revision;
         lineMode = mode;
         lineBreaking = breaking;
+        lineWrapStyle = wrapStyle;
         lineWidth = width;
         lineSize = FontSize;
         lineTracking = LetterSpacing;
@@ -1469,6 +1478,7 @@ public partial class UiElement : Composition.IComposable {
         TransformedText transformed,
         float tabStop,
         HyphenMode hyphens,
+        TextWrapStyle wrapStyle,
         ImmutableArray<TextLine>.Builder into
     ) {
         var advances = new float[text.Length + 1];
@@ -1490,7 +1500,7 @@ public partial class UiElement : Composition.IComposable {
         // letters before it are in.
         var hyphen = hyphens == HyphenMode.Manual && text.Contains('­') ? HyphenWidth(chain) : 0f;
 
-        LineWrapper.Wrap(text, advances, width, wrapped, mode, breaking, indent, tabStop, hyphens, hyphen);
+        LineWrapper.Wrap(text, advances, width, wrapped, mode, breaking, indent, tabStop, hyphens, hyphen, wrapStyle);
 
         foreach (var line in wrapped) {
             // ⚠ Each line is shaped as its own string rather than sliced out of the paragraph's
@@ -1544,6 +1554,7 @@ public partial class UiElement : Composition.IComposable {
     int lineRevision;
     TextWrapMode lineMode;
     WordBreakMode lineBreaking;
+    TextWrapStyle lineWrapStyle;
     float lineWidth;
     float lineSize;
     float lineTracking;
@@ -2021,6 +2032,17 @@ public partial class UiElement : Composition.IComposable {
 
     /// <summary>The line height that went with it.</summary>
     internal float AppliedLineHeight { get; set; } = float.NaN;
+
+    /// <summary>Which <see cref="FontRegistry.Revision" /> the strut was resolved against.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The strut has the same "styled before the font was registered" trap the measure
+    ///     function had, and this is the same cure.</b> A face that arrives after an element was
+    ///     styled changes nothing about that element's <c>ComputedStyle</c>, its font size or its line
+    ///     height — so without a revision in the test, an interface built before its font is installed
+    ///     keeps a strut of nothing for ever and every line box in it stays as tall as the boxes on
+    ///     it. Minus one so that the first pass always resolves, since a registry starts at zero.
+    /// </remarks>
+    internal int AppliedFontRevision { get; set; } = -1;
 
     /// <summary>The letter spacing that went with it.</summary>
     internal float AppliedLetterSpacing { get; set; } = float.NaN;

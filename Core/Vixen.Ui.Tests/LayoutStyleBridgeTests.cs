@@ -442,6 +442,72 @@ public class LayoutStyleBridgeTests {
     }
 
     /// <summary>
+    ///     ⚠ All seven <c>vertical-align</c> keywords cross now, including the five that were
+    ///     deliberately dropped here for the life of the property.
+    /// </summary>
+    /// <remarks>
+    ///     The five were dropped because each is defined against the parent's <i>strut</i> and the
+    ///     layout store has no font. It still has none — what it has is a
+    ///     <see cref="StrutMetrics" />, five numbers <c>UiDocument.StrutOf</c> resolves from the
+    ///     element's own face and writes on the container. So this bridge no longer claims support
+    ///     that is not there, and the store's fallback is now about a document that supplied no font
+    ///     rather than about a store that cannot ask for one.
+    /// </remarks>
+    [Theory]
+    [InlineData("vertical-align: baseline", VerticalAlign.Baseline)]
+    [InlineData("vertical-align: top", VerticalAlign.Top)]
+    [InlineData("vertical-align: bottom", VerticalAlign.Bottom)]
+    [InlineData("vertical-align: middle", VerticalAlign.Middle)]
+    [InlineData("vertical-align: text-top", VerticalAlign.TextTop)]
+    [InlineData("vertical-align: text-bottom", VerticalAlign.TextBottom)]
+    [InlineData("vertical-align: sub", VerticalAlign.Sub)]
+    [InlineData("vertical-align: super", VerticalAlign.Super)]
+    [InlineData("color: red", VerticalAlign.Baseline)]
+    public void Every_vertical_align_keyword_crosses_the_bridge(string css, VerticalAlign expected) {
+        Assert.Equal(expected, new BridgeFixture().Build(css).VerticalAlign);
+    }
+
+    /// <summary>
+    ///     A length or a percentage <c>vertical-align</c> crosses as a distance, and the percentage is
+    ///     resolved here.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The percentage's base is the <i>element's own</i> <c>line-height</c> (§10.8.1), which
+    ///     is the one thing the layout store cannot supply</b> — an atomic inline-level box there is a
+    ///     rectangle, and a line height is not one of its fields. So <c>50%</c> of a 24-point line
+    ///     height is 12 points before it ever crosses, and <see cref="VerticalAlign.Offset" /> is a
+    ///     distance rather than a <c>StyleLength</c>. Positive raises the box, which is CSS's sign and
+    ///     not the layout walk's.
+    /// </remarks>
+    [Theory]
+    [InlineData("vertical-align: 5px", 5f)]
+    [InlineData("vertical-align: -5px", -5f)]
+    [InlineData("vertical-align: 0.5em", 8f)]
+    [InlineData("vertical-align: 50%", 12f)]
+    public void A_length_vertical_align_crosses_as_a_resolved_distance(string css, float expected) {
+        var context = LengthContext.ForViewport(1000f, 500f).WithFontSize(16f).WithLineHeight(24f);
+        var style = new BridgeFixture().Build(css, context);
+
+        Assert.Equal(VerticalAlign.Offset, style.VerticalAlign);
+        Assert.Equal(expected, style.VerticalAlignOffset, Tolerance);
+    }
+
+    /// <summary>An unreadable <c>vertical-align</c> leaves the initial value alone.</summary>
+    /// <remarks>
+    ///     Written inline for <see cref="BridgeFixture.BuildInline" />'s reason — ExCSS drops what it
+    ///     cannot parse, so a stylesheet cannot deliver one. Zero would be a wrong answer that looks
+    ///     right: an offset of zero <i>is</i> the baseline, so writing one would turn a typo into a
+    ///     silently ignored declaration rather than a dropped one.
+    /// </remarks>
+    [Fact]
+    public void An_unreadable_vertical_align_leaves_the_initial_value_alone() {
+        var style = new BridgeFixture().BuildInline(("vertical-align", "4furlongs"));
+
+        Assert.Equal(VerticalAlign.Baseline, style.VerticalAlign);
+        Assert.Equal(0f, style.VerticalAlignOffset, Tolerance);
+    }
+
+    /// <summary>
     ///     <c>text-align</c> crosses as <see cref="TextAlign" />, and <c>justify</c> is dropped.
     /// </summary>
     /// <remarks>

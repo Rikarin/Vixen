@@ -621,17 +621,19 @@ public class InlineFormattingTests {
 
     /// <summary>
     ///     ⚠ <b>The five font-relative <c>vertical-align</c> values fall back to
-    ///     <see cref="VerticalAlign.Baseline" />, and that is asserted rather than left to be
-    ///     discovered.</b>
+    ///     <see cref="VerticalAlign.Baseline" /> on a container with no strut, and that is asserted
+    ///     rather than left to be discovered.</b>
     /// </summary>
     /// <remarks>
-    ///     <c>middle</c>, <c>text-top</c>, <c>text-bottom</c>, <c>sub</c> and <c>super</c> are each
-    ///     defined against the parent's strut — its font's x-height, ascent or descent — and this
-    ///     project has no font to ask; <c>FontRegistry</c> is a layer out. A layout engine has to do
-    ///     <i>something</i> with a value it cannot honour, and falling back is the only safe choice;
-    ///     what it must not do is let the layer above call the family supported. So this test pins the
-    ///     fallback, <c>LayoutStyleBuilder</c> maps only the three that work, and the utilities that
-    ///     emit the other five stay in the editor's inert inventory with a task number against them.
+    ///     ⚠ <b>This test's name gained four words and its premise moved, which is the honest half to
+    ///     record.</b> It used to say the five were refused because <c>Vixen.Ui.Layout</c> has no font
+    ///     and never could — and the store still has none, but a strut turned out to be five
+    ///     <i>numbers</i> rather than a font, so <see cref="StrutMetrics" /> is now written on the
+    ///     container by whoever owns the <c>FontRegistry</c> and all five are honoured wherever one
+    ///     was. What survives unchanged is this: a container that supplied no font gets
+    ///     <c>baseline</c>, because rounding <c>middle</c> to it silently is half an x-height out and
+    ///     reads as a rendering quirk rather than as a missing number. <see cref="InlineStrutTests" />
+    ///     is the other side of the same rule.
     /// </remarks>
     [Theory]
     [InlineData(VerticalAlign.Middle)]
@@ -639,7 +641,7 @@ public class InlineFormattingTests {
     [InlineData(VerticalAlign.TextBottom)]
     [InlineData(VerticalAlign.Sub)]
     [InlineData(VerticalAlign.Super)]
-    public void A_font_relative_vertical_align_falls_back_to_the_baseline(VerticalAlign requested) {
+    public void A_font_relative_vertical_align_falls_back_to_the_baseline_with_no_strut(VerticalAlign requested) {
         using var tree = new LayoutTree();
         var root = Root(tree, 300f);
 

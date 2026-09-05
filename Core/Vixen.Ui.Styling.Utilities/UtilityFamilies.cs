@@ -1287,19 +1287,38 @@ public static class UtilityFamilies {
         // `white-space` — so `text-nowrap` genuinely stops the wrapping and `text-wrap` is the
         // inherited opt-out from it, the same shape as `text-clip`.
         //
-        // `text-balance` and `text-pretty` are not registered and must not be. Both ask for a better
-        // *choice* of breaks rather than for breaking to stop: balance minimises the raggedness of
-        // the whole paragraph and pretty forbids a one-word last line. `LineWrapper` is greedy
-        // first-fit by an argued decision — see its remarks — so both would resolve, compute, reach
-        // `WrapsOf`, fall through to "wraps", and produce exactly the lines `text-wrap` produces. Two
-        // classes that differ from the default in name only is the inert family this table's gate
-        // exists to keep out, and it would be invisible to that gate: the property is read.
+        // ⚠ <b>`text-balance` and `text-pretty` are registered, and this comment used to say they
+        // must not be — for a reason that was true and is not any more.</b> Both ask for a better
+        // CHOICE of breaks rather than for breaking to stop, `LineWrapper` was greedy first-fit by an
+        // argued decision, and so both resolved, computed, reached `WrapsOf`, fell through to
+        // "wraps", and produced exactly the lines `text-wrap` produced — two classes differing from
+        // the default in name only, which is the inert family this table's gate exists to keep out
+        // and which that gate could not have seen, because the property IS read.
+        //
+        // The wrapper has a second pass now: `TextWrapStyle.Balance` bisects for the narrowest width
+        // that still costs no line, and `Pretty` refuses a last line with one word on it. The greedy
+        // first-fit decision is untouched and is still what `auto` means.
         Keywords("text", "text-wrap", new() {
-            ["wrap"] = "wrap", ["nowrap"] = "nowrap"
+            ["wrap"] = "wrap", ["nowrap"] = "nowrap", ["balance"] = "balance", ["pretty"] = "pretty"
         });
 
+        // ⚠ <b>Eight of Tailwind's eight now, and the four that arrive last are the four that were
+        // waiting on a strut rather than on this table.</b> `align-text-top`, `align-text-bottom`,
+        // `align-sub` and `align-super` each emit a value defined against the parent's font metrics,
+        // which `LayoutStyleBuilder` dropped for the life of the property because the layout store
+        // had no font to measure them against. It still has none — it has `StrutMetrics`, five
+        // numbers `UiDocument.StrutOf` resolves from the element's own face — so all four now reach
+        // the line walk and move a box. Registering them before that would have been the inert
+        // family this table's gate exists to keep out.
         Keywords("align", "vertical-align", new() {
-            ["top"] = "top", ["middle"] = "middle", ["bottom"] = "bottom", ["baseline"] = "baseline"
+            ["top"] = "top",
+            ["middle"] = "middle",
+            ["bottom"] = "bottom",
+            ["baseline"] = "baseline",
+            ["text-top"] = "text-top",
+            ["text-bottom"] = "text-bottom",
+            ["sub"] = "sub",
+            ["super"] = "super"
         });
 
         // ── Line clamp ──────────────────────────────────────────────────────────────────────

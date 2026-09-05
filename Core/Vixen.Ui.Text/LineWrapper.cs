@@ -53,6 +53,52 @@ public enum TextWrapMode : byte {
     BreakWord
 }
 
+/// <summary>How a paragraph chooses <i>which</i> of its legal breaks to take. CSS Text 4's
+/// <c>text-wrap-style</c>.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>A different question from <see cref="TextWrapMode" />, and the two are easy to
+///         confuse because CSS's <c>text-wrap</c> shorthand sets both.</b> That one is about a word
+///         that does not fit at all; this one is about a paragraph all of whose breaks are legal and
+///         some of which look better than others. Neither can answer the other's question.
+///     </para>
+///     <para>
+///         ⚠ <b>Both non-default values cost extra wraps of the same paragraph, which is why
+///         <see cref="Auto" /> is the default and stays greedy first-fit.</b> A user interface
+///         reflows on every resize and every keystroke; paying for an optimum on text nobody asked
+///         to have balanced is the trade this type exists to let an author opt into rather than the
+///         one it imposes.
+///     </para>
+/// </remarks>
+public enum TextWrapStyle : byte {
+    /// <summary>Greedy first-fit: every line takes as much as it can hold.</summary>
+    Auto,
+
+    /// <summary>
+    ///     The same number of lines, as even as they can be made. CSS Text 4's <c>balance</c>.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Balancing must never cost a line, which is the constraint that makes it a search
+    ///     rather than an algorithm.</b> A heading broken into three even lines where two would have
+    ///     done is not balanced, it is wrong — so the answer is the narrowest width that still wraps
+    ///     to the line count the full width gave, found by bisection. That is what browsers do and it
+    ///     is why the result is judged by line count and widest line rather than by a raggedness
+    ///     score nobody could reproduce.
+    /// </remarks>
+    Balance,
+
+    /// <summary>No last line with a single word on it. CSS Text 4's <c>pretty</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Local, and deliberately much less than the specification licenses.</b> CSS Text 4
+    ///     leaves <c>pretty</c> to the user agent — better hyphenation, fewer rivers, no short last
+    ///     line — and the one clause it names outright is the orphan: a last line holding one word.
+    ///     That clause needs no search, only the previous break, so it is what is implemented and
+    ///     what is claimed. Implementing the rest silently under the same keyword would be a
+    ///     different feature wearing this one's name.
+    /// </remarks>
+    Pretty
+}
+
 /// <summary>One line of a wrapped paragraph, as a range of the source.</summary>
 /// <param name="Start">Where it begins in the source text, as a UTF-16 index.</param>
 /// <param name="Length">How many characters it covers, including any trailing whitespace.</param>
@@ -108,6 +154,7 @@ public static class LineWrapper {
     /// <param name="indent">How much narrower the first line is. CSS's <c>text-indent</c>.</param>
     /// <param name="tabStop">How far apart the tab stops are, or zero for a tab of no width.</param>
     /// <param name="hyphens">Whether a soft hyphen may end a line. CSS's <c>hyphens</c>.</param>
+    /// <param name="style">Which of the legal breaks to prefer. CSS's <c>text-wrap-style</c>.</param>
     public static void Wrap(
         ShapedText shaped,
         float maxAdvance,
@@ -116,10 +163,24 @@ public static class LineWrapper {
         WordBreakMode wordBreak = WordBreakMode.Normal,
         float indent = 0f,
         float tabStop = 0f,
-        HyphenMode hyphens = HyphenMode.Manual
+        HyphenMode hyphens = HyphenMode.Manual,
+        TextWrapStyle style = TextWrapStyle.Auto
     ) {
         ArgumentNullException.ThrowIfNull(shaped);
-        Wrap(shaped.Text, Advances(shaped), maxAdvance, lines, mode, wordBreak, indent, tabStop, hyphens);
+
+        Wrap(
+            shaped.Text,
+            Advances(shaped),
+            maxAdvance,
+            lines,
+            mode,
+            wordBreak,
+            indent,
+            tabStop,
+            hyphens,
+            hyphen: 0f,
+            style
+        );
     }
 
     /// <summary>Wraps a paragraph whose widths the caller measured.</summary>
@@ -170,6 +231,19 @@ public static class LineWrapper {
     ///         offer is not taken, which is a decision about this paragraph and belongs here.
     ///     </para>
     /// </param>
+    /// <param name="style">
+    ///     <para>
+    ///         Which of the legal breaks to prefer. CSS Text 4's <c>text-wrap-style</c>, and the one
+    ///         argument here that changes nothing about <i>where</i> a line may end — only about
+    ///         which of the places it may end it does.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Applied as a second pass over the greedy answer</b>, so
+    ///         <see cref="TextWrapStyle.Auto" /> costs exactly what this method cost before the
+    ///         parameter existed. See <see cref="TextWrapStyle" /> for what each of the other two
+    ///         costs and what each one guarantees.
+    ///     </para>
+    /// </param>
     /// <param name="hyphen">
     ///     <para>
     ///         What a drawn hyphen costs, in the same unit as the advances, for a line that ends on a
@@ -199,7 +273,8 @@ public static class LineWrapper {
         float indent = 0f,
         float tabStop = 0f,
         HyphenMode hyphens = HyphenMode.Manual,
-        float hyphen = 0f
+        float hyphen = 0f,
+        TextWrapStyle style = TextWrapStyle.Auto
     ) {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(lines);
@@ -236,6 +311,45 @@ public static class LineWrapper {
             // removing it when the text happens to finish on a soft hyphen would drop the last line.
             opportunities.RemoveAll(at => at > 0 && at < text.Length && text[at - 1] == '­');
         }
+
+        Greedy(text, advances, maxAdvance, opportunities, lines, mode, indent, tabStop, hyphen);
+
+        // ⚠ <b>Both better-break styles are a SECOND pass over the greedy answer rather than a
+        // different first-fit, and that is what keeps `auto` costing exactly what it always did.</b>
+        // Neither can be decided while the first line is being filled: `balance` needs the line
+        // count the full width produced, which is not known until the paragraph is finished, and
+        // `pretty` is a statement about the LAST line. A wrapper that tried to decide either as it
+        // went would have to guess.
+        switch (style) {
+            case TextWrapStyle.Balance:
+                Rebalance(text, advances, maxAdvance, opportunities, lines, mode, indent, tabStop, hyphen);
+                break;
+
+            case TextWrapStyle.Pretty:
+                Unorphan(text, advances, maxAdvance, opportunities, lines, indent, tabStop, hyphen);
+                break;
+        }
+    }
+
+    /// <summary>Greedy first-fit: every line takes as much as it can hold.</summary>
+    /// <remarks>
+    ///     The body this method holds was <see cref="Wrap(string,System.ReadOnlySpan{float},float,System.Collections.Generic.List{WrappedLine},TextWrapMode,WordBreakMode,float,float,HyphenMode,float,TextWrapStyle)" />'s
+    ///     own for the whole of its life, and it moved for one reason: <see cref="TextWrapStyle.Balance" />
+    ///     has to run it several times at several widths over the <i>same</i> opportunities, and
+    ///     collecting those again per attempt would make a bisection quadratic in the paragraph.
+    /// </remarks>
+    static void Greedy(
+        string text,
+        ReadOnlySpan<float> advances,
+        float maxAdvance,
+        List<int> opportunities,
+        List<WrappedLine> lines,
+        TextWrapMode mode,
+        float indent,
+        float tabStop,
+        float hyphen
+    ) {
+        lines.Clear();
 
         var start = 0;
         var candidate = -1;
@@ -332,6 +446,203 @@ public static class LineWrapper {
         if (start < text.Length) {
             lines.Add(Line(text, advances, start, text.Length, origin, tabStop, hyphen, mandatory: false));
         }
+    }
+
+    /// <summary>How many times the balance search halves its interval.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A count rather than a tolerance, because the thing being searched is not continuous.</b>
+    ///     Wrapping is a step function of the width — it changes only where a word crosses the edge —
+    ///     so "stop when the interval is smaller than epsilon" is a promise about the wrong axis. Ten
+    ///     halvings put the answer within a thousandth of the box's width, which is well inside the
+    ///     narrowest step any real font produces, and it costs ten wraps of a paragraph that asked to
+    ///     be balanced.
+    /// </remarks>
+    const int BalanceAttempts = 10;
+
+    /// <summary>The longest paragraph <see cref="TextWrapStyle.Balance" /> will search.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A cost bound, and it is the only place this file refuses to do what it was asked.</b>
+    ///     The search is <see cref="BalanceAttempts" /> wraps of the whole paragraph, and balancing
+    ///     is a rule about headings and pull quotes — the keyword on a page of prose asks for eleven
+    ///     wraps of a page of prose on every resize, which is a cost nobody asked for and no reader
+    ///     would see the benefit of. Browsers give up too, each at a line count of its own. Above
+    ///     this the greedy answer stands, which is what <c>auto</c> would have produced.
+    /// </remarks>
+    const int BalanceLineLimit = 12;
+
+    /// <summary>
+    ///     Re-wraps the paragraph as narrow as it will go without costing a line. CSS Text 4's
+    ///     <c>balance</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The property being minimised is the widest line, not the raggedness</b>, and the
+    ///         two agree on every case anybody writes the keyword for. Minimum raggedness is a sum of
+    ///         squares over a set of breaks and needs Knuth–Plass to optimise; the narrowest width
+    ///         that still fits in the same number of lines is a bisection over a monotone predicate,
+    ///         and for a two- or three-line heading — which is what <c>balance</c> is for — it lands
+    ///         on the same breaks. It is also what browsers do.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The acceptance test is not "the same line count" alone, and the second half is
+    ///         insurance rather than a case anybody has produced — which is worth saying plainly,
+    ///         because a guard nobody can redden is a guard nobody can trust.</b> Dropping
+    ///         <c>Widest(attempt) &lt;= widest</c> leaves every test in
+    ///         <c>LineWrapTests</c> green, and the argument for why is nearly a proof: every line of
+    ///         a trial wrap is capped by the trial width except an unbreakable run, and such a run
+    ///         was already that wide in the greedy answer. What the argument does not cover is the
+    ///         two widths that depend on <i>which</i> line a range lands on — a tab measures to the
+    ///         next stop from where the line's content begins, and an indent narrows the first line
+    ///         only — so a range moved between lines can genuinely come out wider. It is one
+    ///         comparison per attempt and it is kept for those.
+    ///     </para>
+    /// </remarks>
+    static void Rebalance(
+        string text,
+        ReadOnlySpan<float> advances,
+        float maxAdvance,
+        List<int> opportunities,
+        List<WrappedLine> lines,
+        TextWrapMode mode,
+        float indent,
+        float tabStop,
+        float hyphen
+    ) {
+        // ⚠ A short circuit rather than a correctness guard, and the sabotage says so: letting a
+        // one-line paragraph through leaves every test green, because the search asks for a width
+        // that still wraps to ONE line and the only such width is one the whole paragraph fits in —
+        // so nothing is accepted and nothing changes. What the clause buys is the ten wraps that
+        // would have found that out, on every label in an interface that carries the class.
+        if (lines.Count is < 2 or > BalanceLineLimit || maxAdvance <= 0f) {
+            return;
+        }
+
+        var target = lines.Count;
+        var widest = Widest(lines);
+        var accepted = -1f;
+        var low = 0f;
+        var high = maxAdvance;
+
+        var attempt = new List<WrappedLine>(lines.Count);
+
+        for (var i = 0; i < BalanceAttempts; i++) {
+            var middle = (low + high) / 2f;
+            Greedy(text, advances, middle, opportunities, attempt, mode, indent, tabStop, hyphen);
+
+            if (attempt.Count <= target && Widest(attempt) <= widest) {
+                accepted = middle;
+                high = middle;
+            } else {
+                low = middle;
+            }
+        }
+
+        // ⚠ Re-wrapped at the accepted width rather than keeping the last attempt, because the last
+        // attempt is whatever the final halving tried and that one may be the rejected side of the
+        // interval. Nothing is written unless a candidate was accepted, so a paragraph that cannot be
+        // narrowed at all keeps the greedy answer exactly.
+        if (accepted >= 0f) {
+            Greedy(text, advances, accepted, opportunities, lines, mode, indent, tabStop, hyphen);
+        }
+    }
+
+    /// <summary>
+    ///     Pulls a word down so that the last line is not one word on its own. CSS Text 4's
+    ///     <c>pretty</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Local, and needs no search — which is the whole reason it is a separate style
+    ///         from <see cref="TextWrapStyle.Balance" /> rather than a flag on it.</b> The orphan is
+    ///         a property of the last two lines only, and the cure is to end the second-to-last line
+    ///         one opportunity earlier. Everything above it is untouched, so a hundred-line paragraph
+    ///         costs two measurements.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Refused where the cure would overflow, and that refusal is the half worth
+    ///         testing.</b> Moving a word down makes the last line longer; if the pair being moved
+    ///         does not fit, taking it anyway trades an orphan for a line that runs out of its box —
+    ///         which is worse and is the failure mode a naïve orphan fix ships with. Refused equally
+    ///         where the penultimate line has no earlier opportunity of its own to end at, since a
+    ///         line cannot be emptied to feed the one below it.
+    ///     </para>
+    /// </remarks>
+    static void Unorphan(
+        string text,
+        ReadOnlySpan<float> advances,
+        float maxAdvance,
+        List<int> opportunities,
+        List<WrappedLine> lines,
+        float indent,
+        float tabStop,
+        float hyphen
+    ) {
+        if (lines.Count < 2) {
+            return;
+        }
+
+        var last = lines[^1];
+        var previous = lines[^2];
+
+        // ⚠ A line the TEXT ended is not an orphan this property may touch. `pretty` chooses between
+        // breaks the wrapper was free to take, and a mandatory break is not one of them: pulling a
+        // word across a newline the author wrote would change what the paragraph says.
+        if (previous.Mandatory || HasOpportunityInside(opportunities, last.Start, last.End)) {
+            return;
+        }
+
+        var cut = LastOpportunityInside(opportunities, previous.Start, previous.End);
+        if (cut < 0) {
+            return;
+        }
+
+        // The first line is the one an indent narrows, and the penultimate line is it whenever the
+        // paragraph is two lines long — so the origin follows the line's position rather than being
+        // assumed to be zero.
+        var origin = lines.Count == 2 ? indent : 0f;
+        var moved = Line(text, advances, cut, last.End, 0f, tabStop, hyphen, last.Mandatory);
+
+        if (moved.Advance > maxAdvance) {
+            return;
+        }
+
+        lines[^2] = Line(text, advances, previous.Start, cut, origin, tabStop, hyphen, mandatory: false);
+        lines[^1] = moved;
+    }
+
+    /// <summary>The widest line of a wrap, which is what balancing minimises.</summary>
+    static float Widest(List<WrappedLine> lines) {
+        var widest = 0f;
+
+        foreach (var line in lines) {
+            widest = MathF.Max(widest, line.Advance);
+        }
+
+        return widest;
+    }
+
+    /// <summary>Whether a line holds a break the wrapper chose not to take — i.e. more than one word.</summary>
+    static bool HasOpportunityInside(List<int> opportunities, int start, int end) {
+        foreach (var opportunity in opportunities) {
+            if (opportunity > start && opportunity < end) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>The last break a line could have ended at instead, or -1 where it had no choice.</summary>
+    static int LastOpportunityInside(List<int> opportunities, int start, int end) {
+        var found = -1;
+
+        foreach (var opportunity in opportunities) {
+            if (opportunity > start && opportunity < end) {
+                found = opportunity;
+            }
+        }
+
+        return found;
     }
 
     /// <summary>Wraps a shaped paragraph to a width.</summary>

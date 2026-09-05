@@ -390,23 +390,44 @@ public class TextWrappingPixelTests {
         Assert.True(escaped.Bands >= 2, $"the text stayed on {escaped.Bands} line(s)");
     }
 
-    /// <summary><c>balance</c> and <c>pretty</c> change nothing, which is why no class emits them.</summary>
+    /// <summary>⚠ <c>balance</c> and <c>pretty</c> draw different pictures from the default.</summary>
     /// <remarks>
-    ///     ⚠ <b>The refusal, measured and kept.</b> <c>LineWrapper</c> is greedy first-fit by an
-    ///     argued decision, so both values reach <c>WrapsOf</c>, fall through to "wraps", and produce
-    ///     exactly the lines <c>text-wrap: wrap</c> produces. Registering <c>text-balance</c> and
-    ///     <c>text-pretty</c> would be two classes that resolve, compute, and differ from the default
-    ///     in name only — and the consumption gate could not have caught it, because the property is
-    ///     read. This is what would have to start failing before either class is worth having.
+    ///     <para>
+    ///         ⚠ <b>This test is the inversion of
+    ///         <c>The_better_break_keywords_are_indistinguishable_from_the_default</c>, which held
+    ///         this file's whole refusal and was named as the thing that had to start failing before
+    ///         either class was worth registering.</b> It said: <c>LineWrapper</c> is greedy
+    ///         first-fit by an argued decision, so both values reach <c>WrapsOf</c>, fall through to
+    ///         "wraps", and produce exactly the lines <c>text-wrap: wrap</c> produces — two classes
+    ///         that would resolve, compute, and differ from the default in name only, invisible to
+    ///         the consumption gate because the property <i>is</i> read.
+    ///     </para>
+    ///     <para>
+    ///         Every clause of that was true and the greedy decision is untouched: <c>auto</c> is
+    ///         still first-fit and still costs one pass. What the two keywords now get is a
+    ///         <i>second</i> pass over the greedy answer — <c>balance</c> bisects for the narrowest
+    ///         width that still costs no line, <c>pretty</c> refuses a last line holding one word —
+    ///         so the picture moves, which is what this asserts.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Asserted as "not the default" rather than as a pixel count</b>, because what each
+    ///         keyword does to <i>this</i> paragraph in <i>this</i> face is
+    ///         <c>Vixen.Ui.Text.Tests.LineWrapTests</c>'s question and it answers it in closed form
+    ///         against a stub advance array. What this file is for is the crossing: that a class on
+    ///         an element reaches the wrapper at all.
+    ///     </para>
     /// </remarks>
     [Theory]
     [InlineData("balance")]
     [InlineData("pretty")]
-    public void The_better_break_keywords_are_indistinguishable_from_the_default(string keyword) =>
-        Assert.Equal(
-            Render(Words, string.Empty, string.Empty),
-            Render(Words, $"text-wrap: {keyword}", string.Empty)
-        );
+    public void The_better_break_keywords_change_where_the_lines_break(string keyword) {
+        var greedy = Render(Words, string.Empty, string.Empty);
+        var chosen = Render(Words, $"text-wrap: {keyword}", string.Empty);
+
+        // Both keywords wrap — neither may quietly turn wrapping off on its way through `WrapsOf`.
+        Assert.True(chosen.Bands >= 2, $"the text stayed on {chosen.Bands} line(s)");
+        Assert.NotEqual(greedy, chosen);
+    }
 
     /// <summary>Twelve Han ideographs, which UAX#14 lets a line end between any two of.</summary>
     /// <remarks>

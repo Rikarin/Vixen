@@ -208,5 +208,161 @@ public class LineWrapTests {
         Assert.Equal(["a ", "b ", "c"], lines.Select(line => "a b c"[line.Start..line.End]));
     }
 
+    /// <summary>Four two-letter words, one advance per character.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A stub advance array here, where the rest of this file insists on a real font, and
+    ///     the difference is what the question is.</b> Every other test asks how wide something is,
+    ///     which a stub would answer by agreeing with whatever the code did. These ask <i>which of
+    ///     the legal breaks is taken</i> — a choice among opportunities the breaker found — so a
+    ///     uniform advance is not a weaker instrument, it is the one that makes the right answer
+    ///     computable by hand: "aa bb cc dd" in a room of 8 holds three words and orphans the fourth.
+    /// </remarks>
+    const string Monospaced = "aa bb cc dd";
+
+    /// <summary>⚠ <c>balance</c> keeps the line count and narrows the widest line.</summary>
+    /// <remarks>
+    ///     Greedy first-fit fills line one to 8 and leaves 2 on line two. Balanced, the same two lines
+    ///     are 5 and 5 — the narrowest width that still wraps to two lines, which is what CSS Text 4's
+    ///     <c>balance</c> asks for. ⚠ <b>Both halves are asserted because either alone is passed by
+    ///     something wrong</b>: a wrapper that just narrowed the box would balance a two-line heading
+    ///     into three even lines, and one that only kept the count is what the default already does.
+    /// </remarks>
+    [Fact]
+    public void Balance_keeps_the_line_count_and_narrows_the_widest_line() {
+        var greedy = Fill(Monospaced, 8f, TextWrapStyle.Auto);
+        var balanced = Fill(Monospaced, 8f, TextWrapStyle.Balance);
+
+        Assert.Equal(2, greedy.Count);
+        Assert.Equal(8f, Widest(greedy));
+
+        Assert.Equal(greedy.Count, balanced.Count);
+        Assert.Equal(5f, Widest(balanced));
+        Assert.Equal("aa bb ", Monospaced[balanced[0].Start..balanced[0].End]);
+        Assert.Equal("cc dd", Monospaced[balanced[1].Start..balanced[1].End]);
+    }
+
+    /// <summary>Balancing a paragraph that already fits on one line does nothing at all.</summary>
+    /// <remarks>
+    ///     ⚠ The case a bisection gets wrong by trying: one line is as balanced as a paragraph gets,
+    ///     and a search for "the narrowest width with at most one line" would find the width of the
+    ///     longest word and break the heading into four.
+    /// </remarks>
+    [Fact]
+    public void Balance_leaves_a_paragraph_that_fits_alone() {
+        var balanced = Fill(Monospaced, 100f, TextWrapStyle.Balance);
+
+        Assert.Equal(Fill(Monospaced, 100f, TextWrapStyle.Auto), balanced);
+        Assert.Single(balanced);
+    }
+
+    /// <summary>⚠ <c>pretty</c> pulls a word down rather than leaving one alone on the last line.</summary>
+    /// <remarks>
+    ///     CSS Text 4 leaves <c>pretty</c> to the user agent and names one clause outright: no last
+    ///     line with a single word on it. That clause needs the previous break and nothing else, so
+    ///     the lines above the last two are untouched — which is what separates this from
+    ///     <see cref="TextWrapStyle.Balance" /> and why it costs two measurements rather than ten
+    ///     wraps.
+    /// </remarks>
+    [Fact]
+    public void Pretty_refuses_a_last_line_with_one_word_on_it() {
+        var greedy = Fill(Monospaced, 8f, TextWrapStyle.Auto);
+        var pretty = Fill(Monospaced, 8f, TextWrapStyle.Pretty);
+
+        Assert.Equal("dd", Monospaced[greedy[^1].Start..greedy[^1].End]);
+        Assert.Equal("cc dd", Monospaced[pretty[^1].Start..pretty[^1].End]);
+        Assert.Equal(greedy.Count, pretty.Count);
+    }
+
+    /// <summary>⚠ …and refuses the cure where the cure would overflow the box.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The half a naïve orphan fix ships without.</b> Moving a word down lengthens the last
+    ///         line: here the greedy wrap is "aa bb" then "cccc", the cure would be "aa" then
+    ///         "bb cccc" — 7 wide in a room of 5 — so taking it would trade an orphan for a line
+    ///         hanging out of its box. The greedy answer stands instead, orphan and all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This fixture was written first against <see cref="Monospaced" /> in a room of 4,
+    ///         where it passed and proved nothing.</b> That paragraph wraps to four lines of one word
+    ///         each, so the line above the orphan has no earlier break to end at and the refusal
+    ///         under test was never reached — widening the overflow test to a hundred times the room
+    ///         left it green. The case below has both: a cut is available <i>and</i> taking it
+    ///         overflows. The no-cut refusal is worth its own test and has one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Pretty_leaves_an_orphan_alone_rather_than_overflow_the_line() {
+        const string text = "aa bb cccc";
+
+        var greedy = Fill(text, 5f, TextWrapStyle.Auto);
+        var pretty = Fill(text, 5f, TextWrapStyle.Pretty);
+
+        Assert.Equal(2, greedy.Count);
+        Assert.Equal("cccc", text[greedy[^1].Start..greedy[^1].End]);
+        Assert.Equal(greedy, pretty);
+    }
+
+    /// <summary>…and where the line above the orphan has no earlier break of its own.</summary>
+    /// <remarks>
+    ///     A line cannot be emptied to feed the one below it. In a room of 4 the stub paragraph is
+    ///     four lines of one word each, so the penultimate line is "cc" and there is nothing inside it
+    ///     to end at — the orphan stands. ⚠ The two refusals are separate tests because they are
+    ///     separate branches, and the overflow one was reached by neither until this one took its
+    ///     fixture off it.
+    /// </remarks>
+    [Fact]
+    public void Pretty_leaves_an_orphan_alone_when_the_line_above_it_is_one_word_too() {
+        var greedy = Fill(Monospaced, 4f, TextWrapStyle.Auto);
+        var pretty = Fill(Monospaced, 4f, TextWrapStyle.Pretty);
+
+        Assert.Equal(4, greedy.Count);
+        Assert.Equal("dd", Monospaced[greedy[^1].Start..greedy[^1].End]);
+        Assert.Equal(greedy, pretty);
+    }
+
+    /// <summary>Balancing real prose in a real font keeps every invariant the default keeps.</summary>
+    /// <remarks>
+    ///     The stub above makes the choice computable; this makes sure the choice survives contact
+    ///     with measured widths. The two properties are the ones this whole file is built on — the
+    ///     lines partition the text, and none is wider than it was allowed to be — plus the one
+    ///     balancing adds, which is that it never costs a line.
+    /// </remarks>
+    [Fact]
+    public void Balancing_real_prose_partitions_it_and_costs_no_line() {
+        var shaped = Shape(Prose);
+        var width = shaped.Advance / 3;
+
+        var greedy = new List<WrappedLine>();
+        var balanced = new List<WrappedLine>();
+
+        LineWrapper.Wrap(shaped, width, greedy);
+        LineWrapper.Wrap(shaped, width, balanced, style: TextWrapStyle.Balance);
+
+        Assert.Equal(greedy.Count, balanced.Count);
+        Assert.True(Widest(balanced) <= Widest(greedy), $"{Widest(balanced)} is wider than {Widest(greedy)}");
+
+        var at = 0;
+
+        foreach (var line in balanced) {
+            Assert.Equal(at, line.Start);
+            at = line.End;
+        }
+
+        Assert.Equal(Prose.Length, at);
+    }
+
+    /// <summary>Wraps the stub paragraph, one advance per character.</summary>
+    static List<WrappedLine> Fill(string text, float room, TextWrapStyle style) {
+        var advances = new float[text.Length];
+        Array.Fill(advances, 1f);
+
+        var lines = new List<WrappedLine>();
+        LineWrapper.Wrap(text, advances, room, lines, style: style);
+
+        return lines;
+    }
+
+    static float Widest(List<WrappedLine> lines) => lines.Max(line => line.Advance);
+
     static ShapedText Shape(string text) => TextShaper.Shape(TestFonts.Load(TestFonts.ContextualLatin), text);
 }

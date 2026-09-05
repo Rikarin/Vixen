@@ -153,7 +153,11 @@ a float declared inside a run; what is left is the one piece that is structural 
 unwritten. A text leaf reaches this store as a measure function and is one atomic item, so a
 paragraph beside a float re-flows as whole leaves and a leaf's own first line is not shortened to the
 room left beside the float. Breaking inside one would mean a second text wrapper below `Vixen.Ui`
-disagreeing with `TextLayout` about UAX #14, which is the same wall §10.8's strut is behind. ⚠ None
+disagreeing with `TextLayout` about UAX #14. ⚠ This sentence used to end "which is the same wall
+§10.8's strut is behind", and that comparison is now wrong twice over: the strut's wall was font
+*metrics*, which crossed the boundary as five numbers and is down, and this one is text *breaking*,
+which is a protocol rather than a value — a measure function answers one size for one width, and a
+staircase is a different width per line. They were never the same wall. ⚠ None
 of the 92 Chrome-derived fixtures has any text in it, which is how the whole clause survived being
 measured for as long as it did; the expectations for the part that landed had to be read out of
 Chrome case by case instead.
