@@ -1548,15 +1548,26 @@ property the mutation does not touch — is where injecting `all` finally change
 as `gridded` and `inlined`: a green gate is a claim about the scenes as much as about the engine.
 
 ⚠ **Three limitations found while proving it — the header said two and the list has always had
-three, which is the smaller of the two things wrong with this paragraph.** All three were real; one is
-closed.
+three, which is the smaller of the two things wrong with this paragraph.** All three were real; two
+are closed.
 
-- **A transition only runs where the previous computed style *also held the property*.** `Observe`
-  reads the displayed value out of `before`, and a cascade with no computed-value stage has nothing
-  to offer for a property the element did not previously declare — so fading `margin-left` from an
-  implicit `0` does not happen, while fading it from a declared `0px` does. That is why the three
-  rows come back as `paint` consumers and not `layout` ones: the probe's mutation adds a `margin-left`
-  that was not there before, and only its `background-color` change had both ends.
+- ✅ **A transition only ran where the previous computed style *also held the property* — closed.**
+  `Observe` read the displayed value out of `before`, and a cascade with no computed-value stage had
+  nothing to offer for a property the element did not previously declare — so fading `margin-left`
+  from an implicit `0` did not happen, while fading it from a declared `0px` did.
+  ⚠ **What made this look bigger than it is was reading the table as a design choice.** It is not:
+  two checkable rules decide every entry. A property qualifies when **it does not inherit** — because
+  `StyleResolver` materialises inheritance into the computed style, so an inherited property the
+  element did not declare is *already there*, with the value it really computes to, and an entry for
+  `color` would fade every label out of the user agent's black — and when **its initial value is one
+  `StyleValue.Lerp` can travel from**, because a keyword initial (`left: auto`, `filter: none`)
+  interpolates discretely in CSS too, so an entry would buy a jump at the halfway mark in place of no
+  transition. `InitialValues` is the table; anything outside it keeps the snap it had.
+  ⚠ **And the half that is more visible in a real interface was the reverse one.** `Observe` looped
+  over the *new* style's properties, so a `:hover` rule that adds a property — which leaves it out of
+  the computed style again the moment the pointer goes — faded in and never faded back. That
+  asymmetry cannot appear in a fixture that only ever adds a class, which is what every transition
+  fixture here did. `InitialValueTransitionTests` holds both halves and both sabotages.
 - ✅ **The `transition` utility did nothing on its own — closed.** Vixen's family emitted
   `transition-property` and stopped; Tailwind's also emits a 150 ms duration and a timing function.
   ⚠ **The consumption gate could not have caught it and it is worth being exact about why**: that gate
@@ -1568,12 +1579,24 @@ closed.
   ⚠ **Only the duration was missing**: CSS's initial timing function is already `ease`, so emitting
   one would buy nothing and would overwrite the `ease-*` beside it for the same ordering reason.
   `TransitionUtilityTests` holds all three claims, reading the width between the endpoints.
-- **A fading inherited value does not reach the children.** The animator is a tier over the finished
-  cascade, so `StyleUpdater` inherits from the parent's *cascaded* style and the overlay is applied
-  per element afterwards — a panel fading its `color` hands its descendants the destination on the
-  first frame while the panel itself travels, and a descendant cannot start its own transition
-  because `transition-*` do not inherit. Fixing it means the overlay participating in inheritance,
-  which is a change to the order of the pass rather than to the animator, and is not A20's.
+- **A fading inherited value does not reach the children** — still open, and the two ways to close
+  it are worth writing down because they are not equivalent. The animator is a tier over the finished
+  cascade: `StyleUpdater.Resolve` inherits from the parent's *cascaded* style (`styles[parent]`) and
+  `UiDocument.Apply` overlays the running values per element afterwards. So a panel fading its
+  `color` hands its descendants the destination on the first frame while the panel itself travels,
+  and a descendant cannot start its own transition because `transition-*` do not inherit.
+  ⚠ **The obvious fix is the expensive one.** Making `StyleUpdater.Resolve` inherit from the parent's
+  *overlaid* style is three lines and changes what a stored `ComputedStyle` is: it would then move
+  every frame for every descendant of anything animating, so the sharing cache stops sharing, and
+  `Announce` — which is a comparison, not an event — sees a change every frame and re-targets the
+  descendant's own transitions continuously.
+  ⚠ **The cheaper one is a heuristic and needs a decision rather than a patch.** `UiDocument.Apply`
+  already walks parent-to-child with the overlaid style in hand, so it could push each property the
+  parent is *currently transitioning* down onto descendants that inherit it. Telling "the child
+  inherited this" from "the child declared the same value" is what it cannot do — a `ComputedStyle`
+  does not record which — so the test would be "the child's value equals the parent's destination",
+  which is right in every case anyone writes and is still a guess about a case nobody has named.
+  Left open on purpose: choosing between them is a decision about what a stored computed style *is*.
 
 ### F11 · The whole of `@media` was evaluated against a surface that does not exist ✅ *closed*
 
