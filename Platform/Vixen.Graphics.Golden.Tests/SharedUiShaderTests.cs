@@ -57,7 +57,17 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         branch on are the same in both files or one of them is wrong. Constants are the part of a
 ///         specification that survives translation between two languages unchanged, so they are the
 ///         part a laptop can check. An expression rearranged around the same numbers still passes,
-///         which is why the golden through each stays owed rather than closed.
+///         which is why that check is necessary and not sufficient.
+///     </para>
+///     <para>
+///         ⚠ <b>The sufficient half exists now, and it cost no reference image at all.</b> It was
+///         carried as owed for months on the belief that comparing the two meant a golden rendered
+///         through each, and a golden is a committed picture — so a second renderer meant a second
+///         baseline for every fixture in this suite. It does not:
+///         <see cref="UiRavenAgreementTests" /> draws one frame through both tables on one device in
+///         one process and compares the two <i>with each other</i>, exactly. There is no baseline, so
+///         there is nothing to regenerate and no way for a divergence to be accepted by editing a
+///         file.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>That check ran over one file of eight and now runs over all eight, and widening it
