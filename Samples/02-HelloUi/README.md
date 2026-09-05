@@ -28,6 +28,7 @@ a sample.
 | [`Theme/vixen.ui.vcss`](Theme/vixen.ui.vcss) | The tokens. Change the accent here and it changes everywhere. |
 | [`Theme/shell.vcss`](Theme/shell.vcss) | The rules a class name cannot say, and nothing else. |
 | [`ShellModel.cs`](ShellModel.cs) | The state, as signals. |
+| [`MaterialDocument.cs`](MaterialDocument.cs) | The same state seen as something that can be dirty, saved and reverted. |
 | [`Program.cs`](Program.cs) | A thirty-line `Main` — what the window is called, and which component to mount — plus the sample's two development conveniences. |
 
 `HelloUi.csproj` is worth a look for what is *not* in it. `<VixenUi>true</VixenUi>` is the whole of
@@ -66,6 +67,26 @@ sample's three panels now declare `Root.CommandScope`, and `Shell.vxml` reads it
 `CommandRoute.ScopeOf` from wherever the focus happens to be, so the toast names the panel the user
 was in without anything having pushed or popped a context string.
 `Core/Vixen.Ui.Tests/ResponderReachTests.cs` counts these callers and fails at zero.
+
+## Save and Revert grey themselves out
+
+File ▸ Save is bound to `document.save` and File ▸ Revert to `document.revert`, and neither item has
+a handler or an enablement rule of its own. `Shell.vxml` sets `Root.HostedDocument` to a
+`MaterialDocument` and calls `DocumentCommands.Install`, and from there the route answers both verbs
+and `IEditableDocument.IsDirty` greys them — the same mechanism as Copy above, one verb family over.
+
+⚠ **This is the first thing in the repository ever to be an `IEditableDocument`.** The dirty-state
+model, `HostedDocument` and `DocumentCommands.Install` all existed with no production caller at all,
+which is the defect this repository meets most often and the one a sample is the cheapest cure for.
+
+⚠ **Dirty is derived, not announced.** The document holds the snapshot Save took and an effect
+compares the live signals against it, so editing a field and editing it back leaves Save grey again.
+A `MarkDirty()` called from each panel would leave it live for the rest of the session.
+
+⚠ **There is nowhere to write, and the sample says so instead of pretending.** `Location` is null —
+the framework's way of saying "never saved", which is what makes Save mean Save As — and saving takes
+a snapshot in memory. The round trip is real; the disk is what is absent, and inventing a path would
+be the one thing a sample must not do.
 
 ⚠ **The Inspector declares a scope and handles no verb, deliberately.** Declaring where you are and
 taking over a verb are two separate things, and a sample in which every scope came with a handler

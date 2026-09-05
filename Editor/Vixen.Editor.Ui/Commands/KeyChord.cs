@@ -12,7 +12,7 @@ namespace Vixen.Editor.Ui;
 // through `KeyboardShortcut.Formatter` and `KeyboardShortcut.Describe` — two statics on a *Control*
 // in `Vixen.Ui.Controls`, an assembly above `Vixen.Ui`, which references neither it nor anything in
 // it — so #650's "move the self-contained leaf first" could not start here, and the real leaf was
-// the split rather than this type. They are `Vixen.Ui`'s `Shortcuts` now, the control's two members
+// the split rather than this type. They are `Vixen.Ui`'s `ShortcutFormat` now, the control's two members
 // forward to it, and nothing in this file names anything above `Vixen.Ui`.
 //
 // The same shape still blocks two of the other four: `EditorCommand` holds an `IconArt`, also
@@ -112,7 +112,7 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
     /// <summary>What a menu shows against the command.</summary>
     /// <returns>Something like <c>Ctrl+Shift+S</c>.</returns>
     /// <remarks>
-    ///     ⚠ <b>Through <see cref="Shortcuts.Formatter" /> and after
+    ///     ⚠ <b>Through <see cref="ShortcutFormat.Formatter" /> and after
     ///     <see cref="ForPlatform" />, which is the two halves of writing a shortcut the way the
     ///     machine's other applications do.</b> The swap turns the stored <c>Ctrl+S</c> into the
     ///     <c>Meta+S</c> a Mac user actually presses; the formatter turns that into <c>⌘S</c>. A
@@ -120,14 +120,14 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
     ///     cannot disagree.
     /// </remarks>
     public string Describe() =>
-        IsBound ? Shortcuts.Formatter(Key, ForPlatform().Modifiers) : string.Empty;
+        IsBound ? ShortcutFormat.Formatter(Key, ForPlatform().Modifiers) : string.Empty;
 
     /// <summary>Makes every shortcut in the process read the way this machine writes them.</summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Called once by the shell, and it replaces a static.</b>
-    ///         <see cref="Shortcuts.Formatter" /> is process-wide because a shortcut is drawn by
-    ///         three views and an application that adapted each one would miss the fourth. On
+    ///         <see cref="ShortcutFormat.Formatter" /> is process-wide because a shortcut is drawn
+    ///         by three views and an application that adapted each one would miss the fourth. On
     ///         anything but a Mac this does nothing at all, so it costs a branch at start-up.
     ///     </para>
     ///     <para>
@@ -146,7 +146,7 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
         // none of ⌘ ⇧ ⌥ ⌃. An unmapped codepoint does not draw as a box or as nothing: it resolves
         // to whatever glyph zero happens to be, and the menu bar read "L+S" for Save. A shortcut
         // nobody can read is worse than one written the long way.
-        Shortcuts.Formatter = CanDrawGlyphs(document) ? MacFormat : MacWords;
+        ShortcutFormat.Formatter = CanDrawGlyphs(document) ? MacFormat : MacWords;
     }
 
     /// <summary>Whether a document's default face has the four modifier glyphs.</summary>
@@ -176,7 +176,7 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
     /// <returns>Something like <c>Shift+Cmd+S</c>.</returns>
     /// <remarks>
     ///     ⚠ <b>The platform's order and the platform's names, with separators.</b> It is not the
-    ///     <see cref="Shortcuts.Describe" /> form: that writes <c>Meta</c>, which is what the
+    ///     <see cref="ShortcutFormat.Describe" /> form: that writes <c>Meta</c>, which is what the
     ///     modifier is called in an event and not what it is called on the key — a Mac user reading
     ///     "Meta+S" has to translate, and the whole point of adapting is that they should not have to.
     /// </remarks>
@@ -199,7 +199,7 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
             text.Append("Cmd+");
         }
 
-        return text.Append(Shortcuts.Name(key)).ToString();
+        return text.Append(ShortcutFormat.Name(key)).ToString();
     }
 
     public static string MacFormat(InputKey key, ModifierKeys modifiers) {
@@ -221,12 +221,10 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
             text.Append('⌘');
         }
 
-        // ⚠ The key's own name comes from `Shortcuts`, because the list of exceptions — `Number1`
-        // is the `1` key, `Grave` is a backtick — is long and belongs in one place. Only the
-        // modifiers are written differently here. Both of these used to ask for it by calling
-        // `Describe` with no modifiers — a whole rendering requested for the part after the
-        // modifiers — and `Shortcuts.Name` is that part, which is why it is public.
-        return text.Append(Shortcuts.Name(key)).ToString();
+        // ⚠ The key's own name comes from the control set, because the list of exceptions —
+        // `Number1` is the `1` key, `Grave` is a backtick — is long and belongs in one place. Only
+        // the modifiers are written differently here.
+        return text.Append(ShortcutFormat.Name(key)).ToString();
     }
 
     /// <summary>What a keymap file writes.</summary>

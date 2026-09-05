@@ -1159,7 +1159,7 @@ Vixen.Ui.RoutingStrategy.Bubble = 1 -> Vixen.Ui.RoutingStrategy
 Vixen.Ui.RoutingStrategy.Capture = 0 -> Vixen.Ui.RoutingStrategy
 Vixen.Ui.RoutingStrategy.Direct = 2 -> Vixen.Ui.RoutingStrategy
 Vixen.Ui.RoutingStrategy.RoutingStrategy() -> void
-Vixen.Ui.Shortcuts -> static class
+Vixen.Ui.ShortcutFormat -> static class
 Vixen.Ui.StringCatalog -> sealed class
 Vixen.Ui.StringCatalog.Count.get -> int
 Vixen.Ui.StringCatalog.Find(string id) -> string?
@@ -1727,6 +1727,7 @@ Vixen.Ui.UiWindowRequest.X.init -> float
 Vixen.Ui.UiWindowRequest.Y.get -> float
 Vixen.Ui.UiWindowRequest.Y.init -> float
 Vixen.Ui.UiWindowTitle -> static class
+Vixen.Ui.UndoCommands -> static class
 Vixen.Ui.UndoManager -> sealed class
 Vixen.Ui.UndoManager : Vixen.Ui.IUndoManager
 Vixen.Ui.UndoManager.CanRedo.get -> bool
@@ -1775,6 +1776,8 @@ const Vixen.Ui.Rendering.UiLayer.MaximumKernel = 64 -> int
 const Vixen.Ui.UiDiagnostics.RecordsRegions = false -> bool
 const Vixen.Ui.UiDocument.ContainerScopeCeiling = 4096 -> int
 const Vixen.Ui.UiDocument.SettlePasses = 3 -> int
+const Vixen.Ui.UndoCommands.Redo = "edit.redo" -> string
+const Vixen.Ui.UndoCommands.Undo = "edit.undo" -> string
 override Vixen.Ui.CommandHandler.Equals(object? obj) -> bool
 override Vixen.Ui.CommandHandler.GetHashCode() -> int
 override Vixen.Ui.CommandHandler.ToString() -> string
@@ -1852,10 +1855,10 @@ static Vixen.Ui.Rendering.UiMask.Hidden.get -> Vixen.Ui.Rendering.UiMask
 static Vixen.Ui.Rendering.UiTransform.Identity.get -> Vixen.Ui.Rendering.UiTransform
 static Vixen.Ui.Rendering.UiTransform.Rotation(float degrees, Vixen.Core.Mathematics.Vector2 about) -> Vixen.Ui.Rendering.UiTransform
 static Vixen.Ui.Rendering.UiTransform.Scale(float x, float y, Vixen.Core.Mathematics.Vector2 about) -> Vixen.Ui.Rendering.UiTransform
-static Vixen.Ui.Shortcuts.Describe(Vixen.Input.InputKey key, Vixen.Ui.ModifierKeys modifiers) -> string
-static Vixen.Ui.Shortcuts.Formatter.get -> System.Func<Vixen.Input.InputKey, Vixen.Ui.ModifierKeys, string>
-static Vixen.Ui.Shortcuts.Formatter.set -> System.Func<Vixen.Input.InputKey, Vixen.Ui.ModifierKeys, string>
-static Vixen.Ui.Shortcuts.Name(Vixen.Input.InputKey key) -> string
+static Vixen.Ui.ShortcutFormat.Describe(Vixen.Input.InputKey key, Vixen.Ui.ModifierKeys modifiers) -> string
+static Vixen.Ui.ShortcutFormat.Formatter.get -> System.Func<Vixen.Input.InputKey, Vixen.Ui.ModifierKeys, string>
+static Vixen.Ui.ShortcutFormat.Formatter.set -> System.Func<Vixen.Input.InputKey, Vixen.Ui.ModifierKeys, string>
+static Vixen.Ui.ShortcutFormat.Name(Vixen.Input.InputKey key) -> string
 static Vixen.Ui.StringCatalog.Source.get -> Vixen.Ui.StringCatalog
 static Vixen.Ui.Strings.Catalog.get -> Vixen.Ui.StringCatalog
 static Vixen.Ui.Strings.Changed -> System.Action<Vixen.Ui.StringCatalog>?
@@ -1873,6 +1876,7 @@ static Vixen.Ui.UiPropertyRegistry.Register(string name, System.Type ownerType, 
 static Vixen.Ui.UiPropertyRegistry.TryFind(System.Type ownerType, string name, out Vixen.Ui.UiPropertyKey? key) -> bool
 static Vixen.Ui.UiPropertyRegistry.TryFindFor(Vixen.Ui.UiElement element, string name, out Vixen.Ui.UiPropertyKey? key) -> bool
 static Vixen.Ui.UiWindowTitle.Bind(Vixen.Ui.IUiWindow window, Vixen.Ui.IEditableDocument document, Vixen.Ui.Reactive.EffectScheduler? scheduler = null, string dirtyMarker = "• ") -> System.IDisposable
+static Vixen.Ui.UndoCommands.Install(Vixen.Ui.UiElement element) -> void
 static readonly Vixen.Ui.LayoutStyleBuilder.CssInitial -> Vixen.Ui.Layout.LayoutStyle
 static readonly Vixen.Ui.Rendering.UiColorMatrix.Luminance -> Vixen.Core.Mathematics.Vector3
 static readonly Vixen.Ui.UiElement.AccessKeyProperty -> Vixen.Ui.UiPropertyKey

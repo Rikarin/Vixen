@@ -4,7 +4,7 @@ slug: ui/undo
 kind: guide
 area: Core
 summary: A control finds an undo manager on the way up rather than owning one — what the seam is, where a manager is installed, why a run of typing is one entry and not one per keystroke, and why a text field that finds nothing deliberately lets ⌘Z go past it.
-api: [T:Vixen.Ui.IUndoManager, T:Vixen.Ui.UndoManager]
+api: [T:Vixen.Ui.IUndoManager, T:Vixen.Ui.UndoManager, T:Vixen.Ui.UndoCommands]
 tags: [ui, controls, undo, editing, text, commands]
 since: 0.2
 status: preview
@@ -56,6 +56,30 @@ and leaves ⌘Z **unhandled**, so the chord climbs to whatever else was listenin
 text box from shadowing an application's own Undo for as long as it has the focus — which, for a
 search field, is most of the time.
 
+### The menu half: `UndoCommands.Install`
+
+A manager nothing can reach from a menu is half a feature — until this existed ⌘Z worked inside a
+`TextField` and Edit ▸ Undo did nothing at all, because no responder anywhere answered `edit.undo`.
+`UndoCommands.Install(element)` registers the pair on the element that owns a manager, and
+`UiApplication` calls it on the document root beside the default it installs.
+
+⚠ **The pair goes where the manager is and deliberately not on the control**, which is the same
+argument `CodeBuffer` makes about the stack, arriving from the other end. `CommandRoute.Resolve`
+stops at the first element that *registered* an id and a refusal from it is final, so a focused field
+answering `edit.undo` would swallow the application's Undo whatever its `canExecute` said — exactly
+what the chord leg in `TextField` already refuses to do. Installed on the root, the same walk gives
+the field what it wanted anyway: ⌘Z climbs out of the field and reaches the very stack the field
+recorded into.
+
+Nearest still wins. A panel that owns a document's stack sets `UiElement.UndoManager` and calls
+`Install` on the same element; the route then means that panel's history while the focus is inside it
+and the application's everywhere else, and neither knows the other exists.
+
+⚠ **Each run invalidates the document's commands, and so does each edit a control records.** Command
+state is pulled once per raise rather than observed, so undoing the only edit has to grey Undo and
+un-grey Redo in one breath — without that the menu keeps the enablement it had when it was opened,
+which reads exactly like Undo being broken.
+
 ## Coalescing, which is what makes ⌘Z useful
 
 A run of typing is one entry. ⚠ **Decided by shape, not by a clock**: a wall-clock typing window
@@ -90,11 +114,15 @@ they happened. ⚠ `Register` is the opposite of `Execute`: the edit has already
 recorded and not run — and it is ignored inside a transaction, whose entry is built out of commands
 the transaction ran itself.
 
-⚠ **What is still owed is the install.** Nothing sets `UiDocument.UndoManager` or
-`UiElement.UndoManager` to a document's stack, so a text field in the editor still finds nothing and
-still leaves ⌘Z to the editor's global `edit.undo`. That wants the panel hosting the active document
-to set its own `UndoManager` — which is a real feature rather than a line, because the active
-document changes as the user switches tabs.
+⚠ **What is still owed is the *editor's* install, and only that.** `UiApplication` installs a
+default manager and `UndoCommands.Install` beside it, so every application built on the desktop host
+has both a stack and the two verbs that reach it. The editor is not one of those applications: it
+keeps only `UiWindowSurface` from that host, and nothing sets `UiDocument.UndoManager` or
+`UiElement.UndoManager` to a document's `CommandStack`. So a text field in the editor still finds
+nothing and still leaves ⌘Z to the editor's global `edit.undo`. That wants the panel hosting the
+active document to set its own `UndoManager` and call `UndoCommands.Install` on the same element —
+which is a real feature rather than a line, because the active document changes as the user switches
+tabs, and the call sites are in `Vixen.Editor.App`.
 
 ⚠ **`CodeEditor` registering nothing is a decision and not the same owed item**, which earlier notes
 here read the other way round. `CodeDocument` is already on `CodeBuffer.Changed` and already turns

@@ -4,7 +4,7 @@ slug: ui/commands
 kind: guide
 area: Core
 summary: A menu declares what, and the focus decides who — a command id resolved by walking outwards from the focused element and on past the root to the document and the application, so two views can answer the same verb without knowing each other exists and an item nothing handles greys itself out.
-api: [T:Vixen.Ui.CommandRoute, T:Vixen.Ui.CommandHandler, T:Vixen.Ui.IResponder, T:Vixen.Ui.CommandResponder]
+api: [T:Vixen.Ui.CommandRoute, T:Vixen.Ui.CommandHandler, T:Vixen.Ui.IResponder, T:Vixen.Ui.CommandResponder, T:Vixen.Ui.ShortcutFormat]
 tags: [ui, commands, focus, input, menus]
 since: 0.2
 status: preview
@@ -255,6 +255,28 @@ stutters. On frames where nothing asked, nothing is raised and no predicate is i
 It is raised from `Tick` rather than from `Update` because `Update` is allowed not to happen — a
 frame in which nothing dirtied the document returns early, and a command becoming executable does not
 dirty one. `Tick` is the call a host must make every frame regardless.
+
+### Writing a chord down: `ShortcutFormat`
+
+A menu shows the chord beside the verb, and `ShortcutFormat` is how the chord becomes text:
+`Describe(key, modifiers)` writes the neutral `Ctrl+Shift+S` form, `Name(key)` writes the key's own
+legend (`Number1` is `1`, `Grave` is a backtick), and `Formatter` is the process-wide hook an
+application replaces once so that every menu, tooltip and palette in it agrees.
+
+```csharp no-compile="a fragment; the shell calls this once at start-up"
+ShortcutFormat.Formatter = (key, modifiers) => MacGlyphs(modifiers) + ShortcutFormat.Name(key);
+```
+
+⚠ **Where it lives is the point.** Both members used to be statics on `KeyboardShortcut`, a
+`Control` — so anything that wanted to say what a chord is called had to reference the controls
+library to ask a view class a question with no element in it, and a keymap in `Vixen.Ui` therefore
+could not exist. `KeyboardShortcut.Formatter` and `KeyboardShortcut.Describe` remain as forwarders
+onto this one setting.
+
+⚠ **`Describe` is deliberately neither localised nor platform-adapted.** A Mac writes `⌘⇧S` with no
+separators and a different modifier order, and knowing that means knowing what the program is running
+on — which this assembly, below `Vixen.Platform`, does not. `Formatter` is where an application says
+otherwise; `Describe` is the default, not the answer.
 
 ## Examples
 

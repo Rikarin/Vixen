@@ -241,6 +241,24 @@ public sealed partial class UiDocument {
             return target;
         }
 
+        // ⚠ <b>And Enter completes one, for the same reason and with the same precedence.</b> A drag
+        // could be started and abandoned from the keyboard and not *finished* from it, which is the
+        // accessibility gap the feature shipped with: everything between picking up and letting go
+        // worked — Tab retargets, because `Give` tells the drag where the focus went — and the last
+        // step needed a pointer. Enter alone and unmodified, and not Space: Space is what activates
+        // the button, checkbox or row that has the focus, and a drop that also pressed the thing it
+        // landed on would be two gestures in one key.
+        //
+        // ⚠ Nothing under the focus leaves the drag *running* rather than cancelling it: Enter is
+        // the key the user pressed to complete the gesture, and Escape is already how one is
+        // abandoned.
+        if (args is { Action: KeyAction.Pressed, Key: InputKey.Enter, Modifiers: ModifierKeys.None }
+            && CurrentDrag is not null
+            && DropOnFocus(target) is not null) {
+            args.Handled = true;
+            return target;
+        }
+
         target.Raise(args);
 
         // ⚠ The one place a non-element responder can see a key, and until this existed there was

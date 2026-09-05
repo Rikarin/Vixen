@@ -340,9 +340,17 @@ public sealed partial class UiDocument {
     ///     would answer "on the source", forever, which is exactly the drag that can never be
     ///     dropped anywhere.
     /// </remarks>
-    void TrackDrag(UiSurface surface, DragSession session, float x, float y) {
-        var over = DropTargetAt(surface, x, y);
+    void TrackDrag(UiSurface surface, DragSession session, float x, float y) =>
+        TrackDragTo(session, DropTargetAt(surface, x, y), x, y);
 
+    /// <summary>Points the drag at a target somebody else has already worked out.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The pointer is one driver of a drag and the focus is the other</b>, which is what
+    ///     makes a keyboard drag the same feature rather than a parallel one. Everything below this
+    ///     line — enter once, leave once, the effect the target narrowed to — is the same whichever
+    ///     of the two moved.
+    /// </remarks>
+    static void TrackDragTo(DragSession session, UiElement? over, float x, float y) {
         if (!ReferenceEquals(over, session.Target)) {
             Leave(session);
             session.Target = over;
@@ -362,13 +370,17 @@ public sealed partial class UiDocument {
 
     /// <summary>Lets go, and delivers a <see cref="DropEvent" /> if the target would take it.</summary>
     /// <returns>The element it was dropped on, or <c>null</c> if nothing took it.</returns>
-    UiElement? FinishDrag(UiSurface surface, DragSession session, float x, float y) {
+    UiElement? FinishDrag(UiSurface surface, DragSession session, float x, float y) =>
+        FinishDragOn(session, DropTargetAt(surface, x, y), x, y);
+
+    /// <summary>Lets go onto a target already resolved — by a hit test, or by where the focus is.</summary>
+    UiElement? FinishDragOn(DragSession session, UiElement? over, float x, float y) {
         drag = null;
 
         // The last `dragover` is what decided the effect, and the pointer may have moved between it
         // and the release — so this is re-asked at the position it was actually let go over rather
         // than trusting a reading taken somewhere else.
-        TrackDrag(surface, session, x, y);
+        TrackDragTo(session, over, x, y);
 
         if (session.Target is not { } target || session.Effect == DropEffect.None) {
             Leave(session);
@@ -433,14 +445,68 @@ public sealed partial class UiDocument {
         });
     }
 
-    UiElement? DropTargetAt(UiSurface surface, float x, float y) {
-        for (var element = HitTest(surface, x, y); element is not null; element = element.Parent) {
+    UiElement? DropTargetAt(UiSurface surface, float x, float y) => DropTargetAbove(HitTest(surface, x, y));
+
+    /// <summary>The nearest thing at or above an element that would take a drop.</summary>
+    static UiElement? DropTargetAbove(UiElement? element) {
+        for (; element is not null; element = element.Parent) {
             if (element.AllowDrop) {
                 return element;
             }
         }
 
         return null;
+    }
+
+    /// <summary>Where a keyboard drag is, since it has no pointer to ask.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The centre and not the origin.</b> A `DropEvent` at an element's top-left corner is
+    ///     on its border, and a target that reads the position to decide *where within itself* the
+    ///     drop went — a tree row's "before / into / after", which is most of what reordering is —
+    ///     would read every keyboard drop as "before". The centre is the only point that means "on
+    ///     this, and nowhere in particular".
+    /// </remarks>
+    static (float X, float Y) CentreOf(UiElement element) =>
+        (element.AbsoluteLeft + (element.Width / 2f), element.AbsoluteTop + (element.Height / 2f));
+
+    /// <summary>Moves the drag in progress to wherever the focus now is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Called from every focus change, and a pointer drag is unaffected because a pointer
+    ///     drag does not move the focus.</b> The press that preceded it already did; a move does
+    ///     not, and the source has the pointer captured. So this is the keyboard's half of driving a
+    ///     drag without being a second mode that the rest of the model has to know about.
+    /// </remarks>
+    internal void TrackDragToFocus(UiElement? focused) {
+        if (drag is not { } session) {
+            return;
+        }
+
+        if (DropTargetAbove(focused) is not { } over) {
+            // ⚠ Left, not ignored. Tabbing off the last target and pressing Enter must do nothing,
+            // and a session still pointing at the target two stops back would drop there instead.
+            Leave(session);
+            return;
+        }
+
+        var (x, y) = CentreOf(over);
+        TrackDragTo(session, over, x, y);
+    }
+
+    /// <summary>Drops the drag in progress onto whatever the focus is in.</summary>
+    /// <returns>The element it went to, or <c>null</c> if the focus is not in anything that takes it.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Nothing under the focus means the drag keeps running.</b> A keyboard drag has no
+    ///     release to end it, so treating "Enter over nothing" as a drop would cancel the gesture
+    ///     with a key the user pressed to complete it — Escape is how a drag is abandoned, and it
+    ///     already is.
+    /// </remarks>
+    internal UiElement? DropOnFocus(UiElement? focused) {
+        if (drag is not { } session || DropTargetAbove(focused) is not { } over) {
+            return null;
+        }
+
+        var (x, y) = CentreOf(over);
+        return FinishDragOn(session, over, x, y);
     }
 
     /// <summary>Move beats copy beats link, which is what every platform's cursor says.</summary>

@@ -457,8 +457,8 @@ public sealed partial class KeyboardShortcut : Control {
     /// <summary>How every shortcut in the process is written.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One property over <see cref="Shortcuts.Formatter" />, not a second copy of
-    ///         it.</b> The formatter is process-wide because a shortcut is drawn by menus, by
+    ///         ⚠ <b>One property over <see cref="ShortcutFormat.Formatter" />, not a second copy
+    ///         of it.</b> The formatter is process-wide because a shortcut is drawn by menus, by
     ///         toolbar tooltips and by the command palette, and two settable statics would be two
     ///         answers to the same question — an application that replaced this one and a menu that
     ///         read the other would disagree about how the same chord is written. This is the
@@ -472,8 +472,8 @@ public sealed partial class KeyboardShortcut : Control {
     ///     </para>
     /// </remarks>
     public static Func<InputKey, ModifierKeys, string> Formatter {
-        get => Shortcuts.Formatter;
-        set => Shortcuts.Formatter = value;
+        get => ShortcutFormat.Formatter;
+        set => ShortcutFormat.Formatter = value;
     }
 
     /// <summary>Writes a combination the way a menu would.</summary>
@@ -481,11 +481,11 @@ public sealed partial class KeyboardShortcut : Control {
     /// <param name="modifiers">What is held with it.</param>
     /// <returns>Something like <c>Ctrl+Shift+S</c>.</returns>
     /// <remarks>
-    ///     <see cref="Shortcuts.Describe" />, kept here because it is what every call site names and
-    ///     because <see cref="Formatter" /> defaults to it. The modifier order and the key-name
-    ///     table are written down once, over there.
+    ///     <see cref="ShortcutFormat.Describe" />, kept here because it is what every call site
+    ///     names and because <see cref="Formatter" /> defaults to it. The modifier order and the
+    ///     key-name table are written down once, over there.
     /// </remarks>
-    public static string Describe(InputKey key, ModifierKeys modifiers) => Shortcuts.Describe(key, modifiers);
+    public static string Describe(InputKey key, ModifierKeys modifiers) => ShortcutFormat.Describe(key, modifiers);
 
     void OnKeyChanged(InputKey previous, InputKey current) => Text = Formatter(current, Modifiers);
 
