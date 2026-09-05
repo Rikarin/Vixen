@@ -67,7 +67,7 @@ namespace Vixen.Editor.TextureGraph;
 public sealed class TextureUploads : IDisposable {
     readonly IGraphicsDevice device;
     readonly Dictionary<int, Int2> sizes = [];
-    readonly Dictionary<int, TextureHandle> textures = [];
+    readonly Dictionary<int, TextureExternal> declared = [];
 
     bool disposed;
 
@@ -80,17 +80,55 @@ public sealed class TextureUploads : IDisposable {
         this.device = device;
     }
 
+    /// <summary>What every upload is created with, and therefore what it is declared as.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One expression, read twice</b> — by <see cref="Upload" /> and by
+    ///         <see cref="Externals" /> — because a declaration that does not match the creation puts
+    ///         back exactly the undefined behaviour the declaration exists to refuse.
+    ///         <c>TextureKernelHarness.SourceUsage</c> is the same shape for the same reason.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="TextureUsage.Sampled" /> because a kernel reads it and because every
+    ///         external image is viewed and held readable for the whole bake;
+    ///         <see cref="TextureUsage.CopyDestination" /> because this fills it; and
+    ///         <see cref="TextureUsage.CopySource" /> because a <see cref="TextureOp.Cpu" /> op copies
+    ///         out of the image it reads — <a href="https://github.com/Rikarin/Vixen/issues/744">#744</a>.
+    ///         Deliberately no <see cref="TextureUsage.Storage" />: an external image is never written
+    ///         by an op, and <c>TexturePlan.Validate</c> refuses a plan where one is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <c>CopySource</c> is not a nicety and it is not visible here.</b> Nothing in
+    ///         production builds a plan with a CPU op yet — § 4.6's <c>Normal → Height</c> Poisson
+    ///         solve is the node that will — so today this only decides whether that node's first bake
+    ///         is a refusal. On a unified adapter it would have been neither: MoltenVK enforces no
+    ///         usage bits, and the wrong answer belongs to a discrete card.
+    ///     </para>
+    /// </remarks>
+    public const TextureUsage UploadUsage =
+        TextureUsage.Sampled | TextureUsage.CopyDestination | TextureUsage.CopySource;
+
     /// <summary>What to hand <see cref="TexturePlanEvaluator.Evaluate" /> as its externals.</summary>
     /// <remarks>
-    ///     Keyed by the image's index in <see cref="TexturePlan.Images" />, which is what the
-    ///     evaluator looks each one up by. Every texture in here is already in
-    ///     <see cref="ResourceState.ShaderRead" />, which is the state <c>Evaluate</c> documents it
-    ///     expects an external image to arrive in.
+    ///     <para>
+    ///         Keyed by the image's index in <see cref="TexturePlan.Images" />, which is what the
+    ///         evaluator looks each one up by. Every texture in here is already in
+    ///         <see cref="ResourceState.ShaderRead" />, which is the state <c>Evaluate</c> documents it
+    ///         expects an external image to arrive in.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A <see cref="TextureExternal" /> rather than a bare handle, and that is the whole
+    ///         point of the type</b> — <a href="https://github.com/Rikarin/Vixen/issues/744">#744</a>.
+    ///         The bare-handle overload of <c>Evaluate</c> declares <see cref="TextureUsage.Sampled" />
+    ///         and nothing else, so an upload passed through it could not be read by a CPU op however
+    ///         it was created. There is no way to get the handles out of here without the usage beside
+    ///         them, because a caller who could would be the caller who gets it wrong.
+    ///     </para>
     /// </remarks>
-    public IReadOnlyDictionary<int, TextureHandle> Externals => textures;
+    public IReadOnlyDictionary<int, TextureExternal> Externals => declared;
 
     /// <summary>How many images have been uploaded.</summary>
-    public int Count => textures.Count;
+    public int Count => declared.Count;
 
     /// <summary>Uploads texels for one of a plan's external images.</summary>
     /// <param name="plan">The plan the image belongs to.</param>
@@ -158,7 +196,7 @@ public sealed class TextureUploads : IDisposable {
             );
         }
 
-        if (textures.ContainsKey(image)) {
+        if (declared.ContainsKey(image)) {
             throw new ArgumentException(
                 $"Image {image} has already been uploaded. A second upload would leak the first, because this "
                 + "set is what owns them.",
@@ -181,7 +219,7 @@ public sealed class TextureUploads : IDisposable {
 
         var texture = Upload(image, format, width, height, texels);
 
-        textures[image] = texture;
+        declared[image] = new(texture, UploadUsage);
         sizes[image] = new(width, height);
 
         return texture;
@@ -287,13 +325,13 @@ public sealed class TextureUploads : IDisposable {
         disposed = true;
         device.WaitIdle();
 
-        foreach (var texture in textures.Values) {
-            if (texture.IsValid) {
-                device.Destroy(texture);
+        foreach (var external in declared.Values) {
+            if (external.Texture.IsValid) {
+                device.Destroy(external.Texture);
             }
         }
 
-        textures.Clear();
+        declared.Clear();
         sizes.Clear();
     }
 
@@ -305,10 +343,9 @@ public sealed class TextureUploads : IDisposable {
                 TextureFormats.Pixel(format),
                 width,
                 height,
-                // Sampled because a kernel reads it, CopyDestination because this fills it — and
-                // deliberately no Storage: an external image is never written by an op, and
-                // TexturePlan.Validate refuses a plan where one is.
-                TextureUsage.Sampled | TextureUsage.CopyDestination,
+                // The same expression `Externals` declares, and it is one constant precisely so that
+                // the creation and the declaration cannot say different things — #744.
+                UploadUsage,
                 Name: name
             )
         );

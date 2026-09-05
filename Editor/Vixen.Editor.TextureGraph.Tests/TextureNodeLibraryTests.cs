@@ -184,11 +184,28 @@ public class TextureNodeLibraryTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The kernels are read rather than listed</b>, by the convention
-    ///         <c>TextureColourKernelTests</c> established: a slice declares its kernels in a static
-    ///         <c>All</c> on a type of its own, and this walks every such surface. So a slice that
-    ///         ships a forty-sixth kernel and no node for it fails here by existing, which is the
-    ///         property the whole file is for.
+    ///         <b>The kernels are the <em>embedded</em> ones</b> —
+    ///         <see cref="TextureKernels.Names" />, built from this assembly's <c>Shaders/*.rvn</c>
+    ///         manifest resources. A kernel exists because a file ships, so that is what the roll call
+    ///         is taken over, and a slice that ships a forty-sixth <c>.rvn</c> with no node for it
+    ///         fails here by existing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It used to read the static <c>All</c> declarations instead, and that left a hole
+    ///         a kernel was already in</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/746">#746</a>. The union of the
+    ///         <c>All</c> surfaces was 44 names against 45 embedded kernels, and the difference was
+    ///         <c>Levels</c>: <c>Shaders/Levels.rvn</c> ships, <c>FilterNodes.cs</c> dispatches it by
+    ///         a bare string literal, and no <c>All</c> mentions it. A declaration is something a
+    ///         slice can forget, so a roll call that reads declarations cannot see the thing it
+    ///         exists to find — this file's own claim that "a slice that ships a forty-sixth kernel
+    ///         and no node for it fails here by existing" was false while the declarations were the
+    ///         source.
+    ///     </para>
+    ///     <para>
+    ///         The declarations are still read, in the other direction: every name a slice declares
+    ///         has to be a kernel that is actually embedded, which is what makes a typo in an
+    ///         <c>All</c> red rather than a silently excused gap.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And the exemptions are checked from both ends.</b> A kernel that acquires a node
@@ -201,11 +218,13 @@ public class TextureNodeLibraryTests {
     public void Every_kernel_has_a_node_or_a_written_reason_not_to() {
         var plan = Library();
         var reached = plan.Ops.Select(op => op.Kernel).ToHashSet(StringComparer.Ordinal);
-        var shipped = Declared().Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        var shipped = TextureKernels.Names.Order(StringComparer.Ordinal).ToArray();
+        var declared = Declared().Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
 
         var cpu = CpuOperations();
 
         Assert.NotEmpty(shipped);
+        Assert.NotEmpty(declared);
 
         // ⚠ Every declaring surface names something this assembly actually ships, and there are two
         // kinds of thing it can name. A kernel is embedded; a CPU operation is not and never will be,
@@ -213,7 +232,12 @@ public class TextureNodeLibraryTests {
         // existed the second kind read as the first and failed here saying a shader had gone missing,
         // which is the wrong sentence about the right fact — and a category a roll call cannot say the
         // name of is the shape this repository's gates go quiet in.
-        foreach (var name in shipped) {
+        //
+        // ⚠ It walks the DECLARATIONS here and the EMBEDDED kernels below, and both directions are
+        // load-bearing: a name in an `All` that no `.rvn` answers to is a typo that would reach the
+        // compiler as a missing-shader exception at bake time, and an `.rvn` in no `All` was invisible
+        // to this file entirely — which is what #746 found, with `Levels` already in the hole.
+        foreach (var name in declared) {
             if (cpu.Contains(name)) {
                 // ⚠ And a CPU operation must *not* be embedded, which is § D3's ban on a CPU twin made
                 // mechanical: an implementation that reproduced what some kernel already does would
@@ -224,7 +248,8 @@ public class TextureNodeLibraryTests {
                 continue;
             }
 
-            Assert.Contains(name, TextureKernels.Names);
+            Assert.Contains(name, shipped, StringComparer.Ordinal);
+        }
         }
 
         var excused = Unnoded.Select(entry => entry.Kernel).Order(StringComparer.Ordinal).ToArray();

@@ -202,10 +202,13 @@ sealed partial class LevelsNode : TextureNode {
 /// <summary>Rotate, scale, offset and shear.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Its rotation is in <em>turns</em> rather than radians, and that is the kernel's
-///         decision.</b> An exposed 0…1 parameter covers the circle exactly once, which is what a
-///         slider wants; a node converting to radians here would put the conversion in the one place
-///         nobody reads it back out of.
+///         ⚠ <b>Its rotation is in radians, and it was in turns until
+///         <a href="https://github.com/Rikarin/Vixen/issues/735">#735</a>.</b> An exposed 0…1
+///         parameter covering the circle exactly once is what a slider wants, and it is still the
+///         better argument of the two — what it did not survive is being the *only* kernel that took
+///         one, next to a <c>Source/Shape</c> whose identical-looking number meant a sixth of a
+///         degree. The node does not convert: a number means the same thing in the graph and in the
+///         plan, everywhere in this assembly.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Its two settings used to name enums declared in this namespace, which shadowed the
@@ -232,7 +235,7 @@ sealed partial class Transform2DNode : TextureNode {
     [Input(Name = "Input")]
     public Image Input;
 
-    /// <summary>The rotation, in turns.</summary>
+    /// <summary>The rotation, in radians, clockwise on screen. ⚠ Turns until #735.</summary>
     [Input]
     public Scalar Rotation = 0f;
 

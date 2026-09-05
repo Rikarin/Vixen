@@ -121,4 +121,79 @@ public class TextureValidationDeviceTests(ITestOutputHelper output) {
             + messages
         );
     }
+
+    /// <summary>
+    ///     ⚠ The layers refuse a view over an image created for copies alone — which is why
+    ///     <c>TexturePlanEvaluator</c> asks every external image for <c>Sampled</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The evidence behind a refusal, rather than a second copy of it</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/745">#745</a>. The evaluator's rule is
+    ///         a claim about Vulkan: a view may only be made over an image whose usage includes one of
+    ///         <c>SAMPLED</c>, <c>STORAGE</c> or an attachment bit
+    ///         (<c>VUID-VkImageViewCreateInfo-image-04441</c>), and
+    ///         <c>ExternalViews</c> makes one over every external before any op runs. Nothing else in
+    ///         this assembly can say whether that claim is true, because the refusal now stops the
+    ///         evaluator ever reaching the call — so the call is made here, directly, and the layers
+    ///         answer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is deliberately the one test in this suite that expects errors, and the reason
+    ///         is the instrument.</b> A validation test that only ever asserts silence passes on a
+    ///         device whose layers are loaded and mute, absent, or watching the wrong thing — the
+    ///         failure mode this file's own remarks are about. This is the positive control: the same
+    ///         <c>VulkanDiagnostics</c>, the same device, and a call the specification forbids.
+    ///     </para>
+    ///     <para>
+    ///         <b>MoltenVK executes it perfectly happily</b>, which is the whole point. The image is
+    ///         created, the view is created, nothing complains at the Metal layer, and only the layers
+    ///         say the program is wrong.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_view_over_an_image_created_only_for_copies_is_what_the_layers_refuse() {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+        TextureKernelHarness.RequireValidation(device);
+
+        var texture = device.CreateTexture(
+            new(
+                PixelFormat.Rgba8UNorm,
+                Side,
+                Side,
+                // No Sampled, no Storage, no attachment bit: the exact declaration #745's permissive
+                // rule would have accepted for an external image only a CPU op reads.
+                TextureUsage.CopySource | TextureUsage.CopyDestination,
+                Name: "copies only"
+            )
+        );
+
+        VulkanDiagnostics.Reset();
+
+        var view = device.CreateTextureView(texture);
+
+        var errors = VulkanDiagnostics.ErrorCount;
+        var messages = string.Join(Environment.NewLine, VulkanDiagnostics.Messages);
+
+        device.Destroy(view);
+        device.Destroy(texture);
+
+        // Reset again: this test's errors are the only deliberate ones in the assembly, and leaving
+        // them in a process-wide recorder would fail whichever test ran next.
+        VulkanDiagnostics.Reset();
+
+        output.WriteLine(messages);
+
+        Assert.True(
+            errors > 0,
+            "The validation layers said nothing about a view over an image created with neither "
+            + "Sampled nor Storage nor an attachment usage. Either they are not watching — in which "
+            + $"case every other assertion in this file is vacuous on {TextureKernelHarness.Adapter(device)} "
+            + "— or VUID-VkImageViewCreateInfo-image-04441 is not what #745 claimed it was."
+        );
+
+        Assert.Contains("04441", messages, StringComparison.Ordinal);
+    }
 }

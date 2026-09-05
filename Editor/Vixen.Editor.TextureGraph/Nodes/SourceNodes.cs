@@ -128,11 +128,11 @@ sealed partial class NoiseNode : TextureNode {
 ///         setting cannot hide a port.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Its rotation is in radians, where <c>Transform 2D</c>'s is in turns.</b> Both are the
-///         kernel's own unit, read off <c>Shape.rvn</c> and <c>Transform2D.rvn</c>; a node that
-///         converted one would be the only place in the assembly where a number changed meaning
-///         between the graph and the plan —
-///         <a href="https://github.com/Rikarin/Vixen/issues/735">#735</a>.
+///         <b>Its rotation is in radians, and so is every other angle in this assembly.</b> It was
+///         not: <c>Transform 2D</c>'s identical-looking number was a whole turn until
+///         <a href="https://github.com/Rikarin/Vixen/issues/735">#735</a>. No node converts — a
+///         number means the same thing in the graph and in the plan — so what makes the units agree
+///         is that the kernels agree, and <c>TextureAngleUnitTests</c> is what keeps them agreeing.
 ///     </para>
 /// </remarks>
 [Node("Source/Shape", Preview = true, Summary = "A disc, square, triangle or one of five falloff profiles.")]

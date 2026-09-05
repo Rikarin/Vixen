@@ -354,10 +354,11 @@ public class TextureSplatterParameterDeviceTests(ITestOutputHelper output) {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The second row is <c>rotationMapAmount</c> and it is the same picture</b>: the map
-    ///         is read at the instance's centre and multiplied by a whole turn, so a uniform map of
-    ///         0.25 at an amount of 1 is the quarter turn the first row authors in radians. The pair
-    ///         pins the unit — turns for the map, radians for <c>rotation</c> — which neither could
-    ///         do alone.
+    ///         is read at the instance's centre and multiplied by the amount, so a uniform map of 0.25
+    ///         at an amount of 2π is the quarter turn the first row authors directly. The pair pins
+    ///         the unit and the amount together, which neither could do alone — and until #735 the two
+    ///         were in *different* units, the map's amount in turns and the rotation beside it in
+    ///         radians, which is a difference of 2π that nothing anywhere printed.
     ///     </para>
     /// </remarks>
     [Theory]
@@ -419,7 +420,7 @@ public class TextureSplatterParameterDeviceTests(ITestOutputHelper output) {
                             scale: 1f,
                             rotation: turn && !mapped ? MathF.PI / 2f : 0f,
                             alphaCoverage: true,
-                            rotationMapAmount: mapped ? 1f : 0f
+                            rotationMapAmount: mapped ? MathF.Tau : 0f
                         )
                     ],
                     Outputs = [2]
@@ -459,7 +460,7 @@ public class TextureSplatterParameterDeviceTests(ITestOutputHelper output) {
             using var evaluator = new TexturePlanEvaluator(device);
 
             var still = Bake(0f);
-            var spun = Bake(1f);
+            var spun = Bake(MathF.Tau);
             var differences = 0;
 
             for (var y = 0; y < Side; y++) {

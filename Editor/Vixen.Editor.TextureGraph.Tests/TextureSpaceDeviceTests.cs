@@ -31,6 +31,11 @@ namespace Tests;
 public class TextureSpaceDeviceTests(ITestOutputHelper output) {
     const int Side = TextureKernelHarness.Side;
 
+    /// <summary>Turns, in the radians `Transform2D` takes since #735 — where they were 0.5 and 0.125.</summary>
+    const float HalfTurn = MathF.PI;
+
+    const float EighthTurn = MathF.PI / 4f;
+
     static TextureOp Op(string kernel, int output, int[] inputs, TextureParameter[] parameters) =>
         new() { Kernel = kernel, Output = output, Inputs = [.. inputs], Parameters = [.. parameters] };
 
@@ -145,7 +150,7 @@ public class TextureSpaceDeviceTests(ITestOutputHelper output) {
             device,
             source,
             Side,
-            Op("Transform2D", 1, [0], Transform(0.5f, 1f, TextureTiling.Clamp, TextureFilter.Point))
+            Op("Transform2D", 1, [0], Transform(HalfTurn, 1f, TextureTiling.Clamp, TextureFilter.Point))
         );
 
         var expected = AsPicture(source, Side);
@@ -196,7 +201,7 @@ public class TextureSpaceDeviceTests(ITestOutputHelper output) {
     ///         a 1K and a downsampled 4K bake within 2/255, and § D8's machinery for it —
     ///         <c>TextureParameterUnit.TexelsAtBase</c> and <c>TexturePlan.Resolve</c> — applies to
     ///         lengths in texels. <b>Not one parameter of § 4.2's or § 4.3's thirteen kernels is a
-    ///         length in texels.</b> A rotation is in turns, a scale is a ratio, an offset is a
+    ///         length in texels.</b> A rotation is an angle, a scale is a ratio, an offset is a
     ///         fraction of the image, a rect is normalised and a repeat is a count — so these kernels
     ///         are resolution-independent by construction, and
     ///         <a href="https://github.com/Rikarin/Vixen/issues/619">#619</a>'s rework of the base
@@ -267,7 +272,7 @@ public class TextureSpaceDeviceTests(ITestOutputHelper output) {
                     new(TextureFormat.Rgba8, downLevels)
                 ],
                 Ops = [
-                    Op("Transform2D", 1, [0], Transform(0.125f, 1f, TextureTiling.Clamp, TextureFilter.Bilinear)),
+                    Op("Transform2D", 1, [0], Transform(EighthTurn, 1f, TextureTiling.Clamp, TextureFilter.Bilinear)),
                     Op("Resample", 2, [1], [new("filter", (float)TextureFilter.Box)])
                 ],
                 Outputs = [2]

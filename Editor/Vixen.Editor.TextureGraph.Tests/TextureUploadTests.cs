@@ -85,7 +85,19 @@ public class TextureUploadTests {
         }
     }
 
-    /// <summary>The handles come back under the image indices the evaluator looks them up by.</summary>
+    /// <summary>
+    ///     The declarations come back under the image indices the evaluator looks them up by, and
+    ///     each says what its texture was created with.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The usage is asserted against the constant the texture is created from</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/744">#744</a>. Writing the three bits out
+    ///     here instead would make this test the second place the answer is kept, which is the
+    ///     arrangement the declaration exists to remove: what has to be true is that the two readers
+    ///     of <c>UploadUsage</c> are the creation and the declaration, and
+    ///     <see cref="An_uploaded_bitmap_can_be_read_by_a_cpu_op" /> is what pins what the bits have
+    ///     to be.
+    /// </remarks>
     [Fact]
     public void The_externals_map_is_keyed_by_the_image_index() {
         using var device = new NullDevice();
@@ -102,10 +114,62 @@ public class TextureUploadTests {
         var texture = uploads.AddCoverage(plan, 1, Side, Side, new float[Side * Side]);
 
         Assert.Equal(1, uploads.Count);
-        Assert.Equal(texture, Assert.Contains(1, uploads.Externals));
+        Assert.Equal(new TextureExternal(texture, TextureUploads.UploadUsage), Assert.Contains(1, uploads.Externals));
         Assert.DoesNotContain(0, uploads.Externals);
         Assert.Equal(new Int2(Side, Side), uploads.SizeOf(1));
     }
+
+    /// <summary>A plan whose CPU op reads an uploaded bitmap is accepted rather than refused.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/744">#744</a>, and it is a claim
+    ///         about a discrete card asserted on a machine that cannot see it.</b> An upload was
+    ///         created <c>Sampled | CopyDestination</c> and handed over as a bare handle, so the first
+    ///         plan to read one with a <see cref="TextureOp.Cpu" /> op met
+    ///         <c>TexturePlanEvaluator</c>'s refusal from the other side — the refusal being the good
+    ///         outcome, and what it replaced being undefined behaviour. § 4.6's
+    ///         <c>Normal → Height</c> Poisson solve is the node that gets there first.
+    ///     </para>
+    ///     <para>
+    ///         <b>It is the whole chain rather than the constant</b>: the usage the texture was
+    ///         created with, the declaration <see cref="TextureUploads.Externals" /> hands over, and
+    ///         the requirement the evaluator computes from the plan. Any one of the three changing
+    ///         alone turns this red — which is what a test of <c>UploadUsage</c>'s bits could not do,
+    ///         because it would be the second copy of the answer.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_uploaded_bitmap_can_be_read_by_a_cpu_op() {
+        using var device = new NullDevice();
+        using var uploads = new TextureUploads(device);
+
+        var plan = new TexturePlan {
+            BaseWidth = Side,
+            BaseHeight = Side,
+            Images = [new(TextureFormat.Rgba8, External: true), new(TextureFormat.Rgba8)],
+            Ops = [new() { Kernel = "Transpose", Output = 1, Inputs = [0], Cpu = new TransposeRgba8() }],
+            Outputs = [1]
+        };
+
+        uploads.Add(plan, 0, Side, Side, new byte[Side * Side * 4]);
+
+        using var evaluator = new TexturePlanEvaluator(device);
+        using var bake = evaluator.Evaluate(plan, uploads.Externals);
+
+        Assert.Equal(0, bake.Dispatches);
+    }
+
+    /// <summary>⚠ And an upload is not a storage image, which is the bit that must stay off.</summary>
+    /// <remarks>
+    ///     An external image is never written by an op and <c>TexturePlan.Validate</c> refuses a plan
+    ///     where one is, so <see cref="TextureUsage.Storage" /> here would be a bit asked for on every
+    ///     bitmap an author imports and needed by none — and for several formats a conformant device
+    ///     does not have to support it at all. Nothing above would notice: a usage nobody exercises is
+    ///     invisible to every behavioural test there is.
+    /// </remarks>
+    [Fact]
+    public void An_upload_is_not_created_as_a_storage_image() =>
+        Assert.Equal(TextureUsage.None, TextureUploads.UploadUsage & TextureUsage.Storage);
 
     /// <summary>⚠ An R8 mask uploads, although no kernel can write one.</summary>
     /// <remarks>

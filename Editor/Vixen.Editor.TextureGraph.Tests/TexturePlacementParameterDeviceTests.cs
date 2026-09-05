@@ -309,7 +309,7 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
 
     /// <summary>
     ///     ⚠ A rotation of a quarter turn transposes the pattern exactly, and the rotation
-    ///     <em>map</em> says the same thing in turns.
+    ///     <em>map</em> says the same thing through its amount.
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -323,9 +323,12 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
     ///     </para>
     ///     <para>
     ///         <b>The second row is <c>rotationMapAmount</c>, and it is the same picture.</b> The map
-    ///         is read at the instance's centre and multiplied by a whole turn, so a uniform map of
-    ///         0.25 at an amount of 1 is a quarter turn — which pins the unit (turns, not radians) and
-    ///         the amount together against a number neither could reach alone.
+    ///         is read at the instance's centre and multiplied by the amount, so a uniform map of 0.25
+    ///         at an amount of 2π is a quarter turn — which pins the unit and the amount together
+    ///         against a number neither could reach alone. ⚠ The amount was in turns and the rotation
+    ///         beside it in radians until #735: this row read <c>amount: 1</c> and meant a whole
+    ///         circle, which is the arrangement an artist could not see and a node could not get
+    ///         right.
     ///     </para>
     /// </remarks>
     [Theory]
@@ -362,7 +365,7 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
                         scale: 1f,
                         rotation: mapped ? 0f : MathF.PI / 2f,
                         alphaCoverage: true,
-                        rotationMapAmount: mapped ? 1f : 0f
+                        rotationMapAmount: mapped ? MathF.Tau : 0f
                     )
                 ],
                 Outputs = [2]
@@ -420,7 +423,7 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
             using var evaluator = new TexturePlanEvaluator(device);
 
             var still = Bake(0f);
-            var spun = Bake(1f);
+            var spun = Bake(MathF.Tau);
             var differences = 0;
 
             for (var y = 0; y < Side; y++) {
