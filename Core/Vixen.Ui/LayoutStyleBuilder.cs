@@ -39,12 +39,21 @@ public sealed class LayoutStyleBuilder {
     /// <remarks>
     ///     <para>
     ///         ⚠ <b><see cref="LayoutStyle.Default" /> is Yoga's initial state, and it differs from
-    ///         CSS's in four places.</b> That is correct where it lives — <c>Vixen.Ui.Layout</c> is
+    ///         CSS's in five places.</b> That is correct where it lives — <c>Vixen.Ui.Layout</c> is
     ///         judged by Yoga's own conformance suite and has to start where Yoga starts — and it is
     ///         wrong here, because a VCSS author writes CSS. The two specifications disagree about
     ///         <c>flex-direction</c> (<c>column</c> against <c>row</c>), <c>align-content</c>
     ///         (<c>flex-start</c> against <c>stretch</c>), <c>position</c> (<c>relative</c> against
-    ///         <c>static</c>) and <c>box-sizing</c> (<c>border-box</c> against <c>content-box</c>).
+    ///         <c>static</c>), <c>box-sizing</c> (<c>border-box</c> against <c>content-box</c>) and
+    ///         <c>flex-shrink</c> (<c>0</c> against <c>1</c>).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>flex-shrink</c> was the fifth and it was missing for as long as this class
+    ///         existed</b>, which made every element in every <c>.vcss</c> and <c>.vxml</c> in the
+    ///         repository unable to shrink. It is the one of the five that changes what a document
+    ///         looks like rather than only what an author has to type: an over-full row in a browser
+    ///         squeezes its items and wraps their text, and the same markup here overflowed instead.
+    ///         See <c>Rikarin/Vixen#628</c>.
     ///     </para>
     ///     <para>
     ///         Starting from the wrong one is the sort of mistake that produces a stylesheet full of
@@ -318,6 +327,18 @@ public sealed class LayoutStyleBuilder {
         style.AlignContent = Align.Stretch;
         style.PositionType = PositionType.Static;
         style.BoxSizing = BoxSizing.ContentBox;
+
+        // ⚠ Written as a number rather than left at `NaN`, and that is the whole of the change:
+        // `StyleResolution.ResolveFlexShrink` reads an unset shrink as Yoga's 0, so an element that
+        // never said `flex-shrink` could not shrink. A root is exempt in the algorithm regardless,
+        // so this is the non-root initial value and nothing else. See `Rikarin/Vixen#628`.
+        //
+        // ⚠ The `flex` shorthand was NOT part of this and the issue's reading of it is refuted:
+        // ExCSS expands `flex: 1` into the three longhands before the cascade sees it, so
+        // `TryNumber(names.Flex, …)` never fires from a stylesheet and `LayoutStyle.Flex` stays NaN.
+        // `flex: 1` has always crossed this bridge as a shrink of 1 — by the longhand, not by
+        // `ResolveFlexShrink`'s negative-`Flex` convention, which no stylesheet can reach.
+        style.FlexShrink = 1f;
 
         return style;
     }
