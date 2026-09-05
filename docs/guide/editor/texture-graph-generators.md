@@ -27,7 +27,9 @@ type it lives in:
 | `MeshMapReference` · `MeshMapBinding` | What that request looks like crossing an assembly boundary, and what turns it into a file |
 | `TextureCompoundLibrary` | Where a shipped compound lives, and how a project's own sit beside it |
 
-## The design decision: a graph does not name a mesh
+## What it is for
+
+### The design decision: a graph does not name a mesh
 
 ⚠ **This is the whole of why one generator works on every mesh, and it is a decision about what a
 graph is *not* allowed to contain.**
@@ -48,9 +50,11 @@ rewiring" is therefore not a feature the node implements; it is the only thing t
 which is why the test that proves it checks the two bakes bind *different* files, rather than merely
 that both compiled.
 
-## Asking for a map
+## Using it
 
-```csharp
+### Asking for a map
+
+```csharp no-compile="a fragment against a graph the caller already has"
 var node = graph.Add("Source/Mesh Map");
 
 node.SetText("Map", "curvature");
@@ -79,11 +83,11 @@ it, creases below. The node cannot decode it: reading the sidecar means an asset
 compilation runs on every edit. A `Colour/Levels` picking the half you want is what a generator does,
 and every shipped one does exactly that.
 
-## Resolving one
+### Resolving one
 
 A compilation hands back what it could not fill itself, and a mesh-map reference is one of those:
 
-```csharp
+```csharp no-compile="a fragment: project, compiler and Report are the caller's"
 var library = MeshMapLibrary.Index(project.Assets);
 MeshMapBinding binding = new(library, "Barrel");
 
@@ -112,7 +116,9 @@ bitmaps with mesh maps, and a host walks it once — so a resolver that reported
 `Assets/Textures/rust.png` as an unresolvable mesh map would make every graph containing a
 `Source/Bitmap` look broken. `MeshMapReference.IsMeshMap` is the same question asked before the call.
 
-## The compound library
+## Examples
+
+### The compound library
 
 Doc 48 § D5's claim is that the several hundred nodes a reference tool ships are **content**, and this
 is the mechanism that makes it true. `TextureCompoundLibrary.Publish` reads two roots into one menu:
@@ -162,7 +168,7 @@ published graph folds against that graph's own declared default and turning the 
 until [#742](https://github.com/Rikarin/Vixen/issues/742). A port survives inlining because it is an
 edge. So every knob on a shipped compound is an interface port.
 
-## What this does not do yet
+### What this does not do yet
 
 - ⚠ **No host in this tree calls `TextureCompoundLibrary.Publish` or `MeshMapBinding.TryResolve`.**
   `TextureNodeLibrary.Create` registers the generated node types and nothing else, so the shipped
