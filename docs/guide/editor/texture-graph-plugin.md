@@ -65,36 +65,44 @@ document.Save();
 ⚠ **A file this build cannot read opens anyway**, with the reason in `LoadDiagnostics` — the panel
 that could show the problem is only reachable if the document opens.
 
-## Three things a plugin cannot do, and what would close each
+## Three things a plugin could not do. Two of them it can now
 
-Doc 48 § D14 predicted two of these and said finding out was the point. All three are confirmed, and
-none is worked around: a panel that worked by cheating would make them invisible.
+Doc 48 § D14 predicted two of these and said finding out was the point. All three were confirmed; two
+are closed and the third is not worked around, because a panel that worked by cheating would make it
+invisible.
 
-**No plugin can get a graphics device.** `EditorApplication.PluginPoints` publishes the project, the
-scene, the drawers, the importers, the contribution registry, the editing state, the work plane, the
-mesh services, the shown scene, the shown view, the deploy target, the asset-editor registry, the
-reload host and the plugin host — and no `IGraphicsDevice`. There is no other route: the contract's
-only channel is `PluginServices`. So doc 48's sentence stands as written — *either a device is
-published through `PluginServices` or a third party cannot write anything that draws.* One
-`.Add(device)` line in `PluginPoints` closes it, under the interface rather than the implementation.
+**A graphics device — closed.** `EditorApplication.PluginPoints` publishes `IEditorGraphics`: the
+editor's device to allocate on and dispatch over, and an upload that turns pixels into the number an
+`ImageView` draws. ⚠ **Its predicted one-line fix — `.Add(device)` — could not have worked**, which
+is the useful half of the finding: `PluginPoints` runs from `EditorApplication`'s constructor and the
+host sets `GraphicsDevice` afterwards, when the window can present, so a device added there would be
+`null` for the life of the process and `PluginServices.Add` throws on a second publish. What a plugin
+is handed is a live view of whether there is one.
 [#737](https://github.com/Rikarin/Vixen/issues/737)
+
+⚠ **The device is handed over whole, and the narrower contract was refused for a measured reason.**
+`TexturePlanEvaluator` caches a compiled pipeline per kernel and output format across evaluations, so
+lending the device for the duration of one call would recompile every kernel on every preview. What
+is narrowed is the return path: `Upload` takes pixels rather than a texture view, because a plugin's
+image is created for what it dispatches into and a view registered from a storage image is missing
+`Sampled` and in the wrong layout — which MoltenVK forgives and a discrete card does not.
 
 **`TextureGraphCompiler` is `internal`.** `Vixen.Editor.TextureGraph`'s `InternalsVisibleTo` names
 only its own test project, so the generated `NodeTypes.Register` crosses the boundary and the thing
-that turns a graph into a `TexturePlan` does not. ⚠ This one survives the first fix: a device alone
-would still leave the panel unable to compile what an author wires.
+that turns a graph into a `TexturePlan` does not. ⚠ This one survived the first fix, exactly as
+predicted: the device is published and the panel still cannot compile what an author wires, so what
+the pane shows is the graph's base layer and says so.
 [#738](https://github.com/Rikarin/Vixen/issues/738)
 
-**An asset-editor registration cannot be undone.** `AssetEditorRegistry` has `Add` and no `Remove`,
-so claiming `.vxtexgraph` from a plugin would be a registration with no matching `OnUnload` — and a
-factory the editor still holds is a reference into the plugin's assembly, which pins it for the
-session with no error anywhere. That is why the Create ▸ entry is `Opens: false` and why the way in
-is a command. Returning an `IDisposable` from `AssetEditorRegistry.Add`, the way `IEditorRegistry`
-already does, closes it. [#739](https://github.com/Rikarin/Vixen/issues/739)
+**An asset-editor registration could not be undone — closed.** `AssetEditorRegistry.Add` hands back
+an `IDisposable` now, the way `IEditorRegistry.Add` already did, and it gives up the editor's name
+*and* every extension it claimed. So `.vxtexgraph` has a double-click, registered inside the module's
+scope and gone when the module unloads, and the Create ▸ entry's `Opens` is derived from whether the
+host published a registry rather than declared.
+[#739](https://github.com/Rikarin/Vixen/issues/739)
 
 `AddPreview` and `AddSettingsPage` — doc 36 § D4's last two rows — are still unbuilt, so a
-`.vxtexgraph` has no thumbnail. That is downstream of the first item rather than beside it: a
-thumbnail registry with nothing able to render a thumbnail is half a feature.
+`.vxtexgraph` has no thumbnail.
 [#400](https://github.com/Rikarin/Vixen/issues/400)
 
 ## What the panel shows, and what it does not
@@ -102,10 +110,17 @@ thumbnail registry with nothing able to render a thumbnail is half a feature.
 The canvas is real and complete: the graph, the document's own `CommandStack` behind every gesture,
 and the node library in the search popup.
 
-The preview pane carries the graph's extent and **no texture handle**, so it draws `ImageView`'s
-chequerboard at the resolution a bake would write, with the zoom, the fit and the pointer readout all
-in texels — and a line under it naming which of the two obstacles above this host is stopped by. It
-is not a picture and does not pretend to be one.
+The preview pane carries a real picture in a host with a device: a one-op `TexturePlan` at the
+document's resolution, dispatched by `TexturePlanEvaluator` and uploaded through
+`IEditorGraphics.Upload`. The extent is the document's either way, so the zoom, the fit and the
+pointer readout are in the texels an author is authoring — and the line under it says the picture is
+the graph's **base layer** rather than the wired graph, or, in a host with no device, which of the
+two reasons the pane is empty.
+
+⚠ **Every route into the evaluation is outside the host's own frame.**
+`TexturePlanEvaluator.Evaluate` drives `BeginFrame`, `EndFrame` and `WaitIdle` on the device itself,
+so a call from inside `EditorHost.Present`'s pair would reset a command pool with work still
+executing in it. A command handler and a panel build both run from `EditorApplication.Update`.
 
 ⚠ **The base resolution is held rather than saved.** `NodeGraphModel` carries a name, a node list and
 an interface, with nowhere to put a number — the same gap `TextureGraphCompiler.BaseWidth` records —

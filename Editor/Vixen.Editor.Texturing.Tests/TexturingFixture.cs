@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Editor.AssetEditors;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Ui;
+using Vixen.Graphics;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -38,11 +40,22 @@ sealed class TexturingFixture : IDisposable {
     /// </remarks>
     public EditorRegistry Extensions { get; } = new();
 
+    /// <summary>Where an editor claiming a file extension goes, when the test publishes one.</summary>
+    public AssetEditorRegistry Editors { get; } = new();
+
     /// <summary>The loader the module is activated through.</summary>
     public PluginHost Host { get; }
 
     /// <summary>Builds it.</summary>
-    public TexturingFixture() {
+    /// <param name="device">
+    ///     A device to publish graphics over, or <see langword="null" /> to publish none. ⚠ Publishing
+    ///     an <see cref="IEditorGraphics" /> with a null device is a third state and a real one — the
+    ///     editor is in it between construction and the window coming up — so it is spelled by
+    ///     <paramref name="graphics" /> rather than inferred from this.
+    /// </param>
+    /// <param name="graphics">Whether to publish graphics at all. Defaults to "when there is a device".</param>
+    /// <param name="editors">Whether to publish an <see cref="AssetEditorRegistry" />.</param>
+    public TexturingFixture(IGraphicsDevice? device = null, bool? graphics = null, bool editors = false) {
         Paths = new(Path.Combine(Path.GetTempPath(), "vixen-tests", Guid.NewGuid().ToString("N")));
         Directory.CreateDirectory(Paths.Assets);
 
@@ -51,8 +64,20 @@ sealed class TexturingFixture : IDisposable {
         Services.Add(Project);
         Services.Add<IEditorRegistry>(Extensions);
 
+        if (graphics ?? device is not null) {
+            Graphics = new RecordingGraphics(device);
+            Services.Add<IEditorGraphics>(Graphics);
+        }
+
+        if (editors) {
+            Services.Add(Editors);
+        }
+
         Host = new PluginHost(Shell, Services);
     }
+
+    /// <summary>What the module drew through, when this fixture published any.</summary>
+    public RecordingGraphics? Graphics { get; }
 
     /// <summary>Writes a <c>.vxtexgraph</c> and its sidecar, and scans it in.</summary>
     /// <param name="name">What to call it, without the extension.</param>

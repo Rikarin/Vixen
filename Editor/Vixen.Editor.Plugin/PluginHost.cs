@@ -469,7 +469,9 @@ public sealed class PluginHost {
     ///     <para>
     ///         ⚠ <b>It does not participate in dependency ordering.</b> A module is named by the
     ///         composition root in the order that root wants; <see cref="PluginOrder" /> exists to
-    ///         sort a set discovered on disk, which nobody chose. x    ///         <c>Load</c> so that a third-party plugin can depend on a built-in.
+    ///         sort a set discovered on disk, which nobody chose. What it <i>does</i> take part in is
+    ///         the dependency resolution of a later <c>Load</c>, so that a third-party plugin can
+    ///         depend on a built-in.
     ///     </para>
     /// </remarks>
     public LoadedPlugin Activate(string id, string name, IEditorPlugin module, PluginLoadContext? context = null) {

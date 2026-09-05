@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Editor.AssetEditors;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Ui;
@@ -24,37 +25,37 @@ namespace Vixen.Editor.Texturing;
 ///         of <see cref="Activate" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Three things doc 48 predicted this plugin would need and could not have, all
-///         three confirmed.</b> They are the finding this slice produced and they are not worked
-///         around here:
+///         ⚠ <b>Three things doc 48 predicted this plugin would need and could not have. Two are
+///         closed, and closing them is what this module was for.</b>
 ///     </para>
 ///     <list type="number">
 ///         <item>
 ///             <description>
-///                 <b>A graphics device.</b> <c>EditorApplication.PluginPoints</c> publishes the
-///                 project, the scene, the registries and the plugin host, and no
-///                 <c>IGraphicsDevice</c> — so no plugin can draw anything. See
-///                 <see cref="TexturePreviewBlocker.NoDevice" /> and
-///                 <a href="https://github.com/Rikarin/Vixen/issues/737">#737</a>.
+///                 <b>A graphics device — closed.</b> <c>EditorApplication.PluginPoints</c> now
+///                 publishes <see cref="IEditorGraphics" />, so the preview pane evaluates a plan on
+///                 the editor's own device and shows the result.
+///                 <a href="https://github.com/Rikarin/Vixen/issues/737">#737</a>. ⚠ Its "smallest
+///                 honest fix is one line" was wrong: the application builds its plugin host in its
+///                 constructor and acquires a device afterwards, so what a plugin can be handed is a
+///                 live view rather than the device.
 ///             </description>
 ///         </item>
 ///         <item>
 ///             <description>
-///                 <b>The compiler.</b> <c>TextureGraphCompiler</c> is <c>internal</c>, so this
-///                 plugin can offer an author every node and cannot compile what they wire. See
-///                 <see cref="TexturePreviewBlocker.NoCompiler" /> and
-///                 <a href="https://github.com/Rikarin/Vixen/issues/738">#738</a>.
-///             </description>
-///         </item>
-///         <item>
-///             <description>
-///                 <b>A double-click.</b> <c>AssetEditorRegistry</c> has an <c>Add</c> and no
-///                 <c>Remove</c>, so a plugin that claimed <c>.vxtexgraph</c> there could never give
-///                 it back — which is rule 2 of the four that make unloading work, and a leak with no
-///                 symptom. So this module registers a <i>command</i> that opens the selected asset,
-///                 and the Create ▸ entry it contributes has <c>Opens: false</c>. The README says what
-///                 the smallest honest fix would be —
+///                 <b>A double-click — closed.</b> <c>AssetEditorRegistry.Add</c> hands back the
+///                 removal now, so <see cref="TextureGraphEditorFactory" /> claims
+///                 <c>.vxtexgraph</c> inside this module's registration scope and gives it back on
+///                 unload. The Create ▸ entry says <c>Opens: true</c> exactly when a host published
+///                 a registry to claim it in.
 ///                 <a href="https://github.com/Rikarin/Vixen/issues/739">#739</a>.
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 <b>The compiler — still open.</b> <c>TextureGraphCompiler</c> is
+///                 <c>internal</c>, so this plugin can offer an author every node and cannot compile
+///                 what they wire; the preview is therefore the graph's base layer and says so.
+///                 <a href="https://github.com/Rikarin/Vixen/issues/738">#738</a>.
 ///             </description>
 ///         </item>
 ///     </list>
@@ -68,7 +69,7 @@ namespace Vixen.Editor.Texturing;
 ///         <a href="https://github.com/Rikarin/Vixen/issues/740">#740</a>.
 ///     </para>
 /// </remarks>
-public sealed class TexturingModule : IEditorPlugin {
+public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// <summary>What the host activates it under, and what a plugin depending on it names.</summary>
     public const string ModuleId = "vixen.texturing";
 
@@ -83,7 +84,18 @@ public sealed class TexturingModule : IEditorPlugin {
 
     EditorProject project = null!;
     EditorShell shell = null!;
-    TexturePreviewBlocker blocker;
+
+    /// <summary>The host's graphics, or null in a host that publishes none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Optional, unlike the project and the contribution registry.</b> A module that
+    ///     <c>Require</c>d this would refuse to start in a headless host — which is every test of
+    ///     everything else it does — and doc 36's own rule for an extension point a plugin can do
+    ///     without is <c>TryGet</c>. The pane says which of the two states it is in.
+    /// </remarks>
+    IEditorGraphics? graphics;
+
+    /// <summary>What turns the open graph into pixels, once there is anything to turn it with.</summary>
+    TextureGraphPreview? preview;
 
     /// <summary>The view, once the panel has been opened at least once.</summary>
     /// <remarks>
@@ -104,16 +116,39 @@ public sealed class TexturingModule : IEditorPlugin {
         project = context.Services.Require<EditorProject>();
         shell = context.Shell;
 
-        // ⚠ Asked once, here, rather than when the panel is built. A host does not start publishing a
-        // device halfway through a session, and a panel that re-asked would answer differently
-        // depending on when it happened to be opened — which is a difference nobody could reproduce.
-        blocker = TexturePreview.Blocking(context.Services);
+        // ⚠ Asked here and *read* on every show, and the difference is the finding. This used to
+        // resolve to a `TexturePreviewBlocker` once, on the grounds that a host does not start
+        // publishing a device halfway through a session — and the editor does exactly that: it
+        // builds its `PluginHost` in its constructor and acquires a device when the window can
+        // present. What is stored is the service; whether it has a device is a question with a
+        // different answer at different moments and is asked each time.
+        graphics = context.Services.TryGet<IEditorGraphics>(out var published) ? published : null;
+
+        if (graphics is not null) {
+            preview = new TextureGraphPreview(graphics);
+
+            // ⚠ Through the scope rather than in `Deactivate`, because it holds device resources: an
+            // evaluator's pipelines and one uploaded image. `Deactivate` runs first and this runs
+            // whatever happens to it, which is the difference that matters for a throw.
+            context.OnUnload(Release);
+        }
 
         var registry = context.Services.Require<IEditorRegistry>();
 
-        // ⚠ `Opens: false`, and it is the third finding rather than a preference. A kind that opens
-        // needs an editor claiming the extension, and claiming one is not undoable — see this type's
-        // remarks. What an author gets is the file, and the verb below.
+        // ⚠ Registered inside the scope, which is what #739 made possible: `AssetEditorRegistry.Add`
+        // hands back the removal, so the factory and every document it opened go when this module
+        // does. Optional, because a host may publish no registry — and then the Create ▸ entry below
+        // says `Opens: false` rather than promising a double-click nothing answers.
+        var editors = context.Services.TryGet<AssetEditorRegistry>(out var found) ? found : null;
+
+        if (editors is not null) {
+            context.Owns(editors.Add(new TextureGraphEditorFactory()));
+        }
+
+        // ⚠ `Opens` is derived rather than declared. A kind that opens needs an editor claiming the
+        // extension; a constant `true` here would put "No editor claims that file" on screen every
+        // time somebody made one in a host with no registry, and a constant `false` would be a lie in
+        // the host that has one.
         context.Owns(
             registry.Add(
                 new NewAssetKind(
@@ -122,7 +157,7 @@ public sealed class TexturingModule : IEditorPlugin {
                     TextureGraphDocument.Extension,
                     "New Texture Graph",
                     TextureGraphDocument.NewContents,
-                    false
+                    editors is not null
                 )
             )
         );
@@ -131,8 +166,8 @@ public sealed class TexturingModule : IEditorPlugin {
             GraphPanel,
             new StringId("editor.panel.texture-graph", "Texture Graph"),
             panel => {
-                view = new TextureGraphView(panel, blocker);
-                view.Show(document);
+                view = new TextureGraphView(panel);
+                Refresh();
             }
         );
 
@@ -161,6 +196,53 @@ public sealed class TexturingModule : IEditorPlugin {
         }
 
         document = null;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Not the path that runs, and it is here because the analyzer is right for the wrong
+    ///     reason.</b> A module is torn down by <see cref="Deactivate" /> and by its registration
+    ///     scope, and nothing in the plugin host disposes an <see cref="IEditorPlugin" /> — but this
+    ///     type does own device resources, so a reader who reaches for <c>using</c> should get the
+    ///     right behaviour rather than a silent leak. <see cref="Release" /> is idempotent, so the
+    ///     two paths cannot free anything twice.
+    /// </remarks>
+    public void Dispose() => Release();
+
+    /// <summary>Gives back everything of the host's that this module is holding.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The uploaded image and the evaluator, and both are the editor's memory rather than
+    ///     this module's.</b> A picture left behind is a texture and a descriptor set the renderer
+    ///     holds for the rest of the session; an evaluator left behind is a pipeline and a shader
+    ///     module per kernel it compiled. Neither shows up as a leaked registration, which is why it
+    ///     is said here rather than assumed.
+    /// </remarks>
+    void Release() {
+        preview?.Dispose();
+        preview = null;
+
+        graphics = null;
+    }
+
+    /// <summary>Re-evaluates the open graph and puts the result in the pane.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Outside the host's own frame.</b> Every route here is a command handler or a panel
+    ///     build, which run from the application's update — <c>TexturePlanEvaluator</c> drives
+    ///     <c>BeginFrame</c> and <c>EndFrame</c> on the device itself, so a call from inside the
+    ///     editor's frame would reset a command pool with work still executing in it.
+    /// </remarks>
+    void Refresh() {
+        if (view is null) {
+            return;
+        }
+
+        var blocker = TexturePreview.Blocking(graphics);
+
+        view.Show(
+            document,
+            blocker,
+            blocker == TexturePreviewBlocker.None && document is not null ? preview?.Evaluate(document) : null
+        );
     }
 
     /// <summary>Opens the selected <c>.vxtexgraph</c> on the canvas.</summary>
@@ -200,6 +282,6 @@ public sealed class TexturingModule : IEditorPlugin {
         // ⚠ Opened rather than toggled. The command means "show me this graph"; a toggle would close
         // the panel for anybody who ran it while it was already open, which is every second use.
         shell.Workspace.Open(GraphPanel);
-        view?.Show(document);
+        Refresh();
     }
 }

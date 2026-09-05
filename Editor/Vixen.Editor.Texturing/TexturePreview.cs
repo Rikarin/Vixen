@@ -2,41 +2,42 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Plugin;
-using Vixen.Graphics;
 
 namespace Vixen.Editor.Texturing;
 
-/// <summary>Why the preview pane is empty. There is no member for "it is not".</summary>
+/// <summary>Why the preview pane is empty, or that it is not.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Two members and no third, because there is no third state in this build.</b> An
-///         enum with a <c>None</c> nobody can reach would read as though the feature worked
-///         somewhere, which is the shape of claim doc 48 § D14 exists to test. When either half
-///         below is closed this type grows a member and <see cref="TexturePreview.Blocking" /> grows
-///         a branch — and until then the panel says which of the two it is looking at, by name.
+///         ⚠ <b>This enum used to have two members and no third, "because there is no third state in
+///         this build".</b> There is one now: <see cref="IEditorGraphics" /> is published, the pane
+///         evaluates a plan on the editor's own device and shows the result, and
+///         <see cref="None" /> is what it reports. The two remaining members are the two ways a host
+///         can still have nothing to draw with, and they are distinguished because the cures are
+///         different people's.
 ///     </para>
 /// </remarks>
 enum TexturePreviewBlocker {
-    /// <summary>This host publishes no <see cref="IGraphicsDevice" />, so nothing can be dispatched.</summary>
-    /// <remarks>
-    ///     <b>Doc 48 § D14's second prediction, confirmed.</b> <c>EditorApplication.PluginPoints</c>
-    ///     publishes the project, the scene, the drawers, the importers, the contribution registry,
-    ///     the editing state, the work plane, two mesh services, the mesh-map baker, the shown scene,
-    ///     the shown view, the deploy target, the asset-editor registry, the reload host and the
-    ///     plugin host itself — and no device. So a third party cannot write a plugin that draws,
-    ///     which is a real gap in the extensibility claim rather than an oversight in this panel —
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/737">#737</a>.
-    /// </remarks>
-    NoDevice,
+    /// <summary>Nothing is in the way: the pane shows what the device produced.</summary>
+    None,
 
-    /// <summary>There is a device, and no way to turn this graph into a plan to run on it.</summary>
+    /// <summary>This host publishes no <see cref="IEditorGraphics" />, so nothing can be dispatched.</summary>
     /// <remarks>
-    ///     <c>TextureGraphCompiler</c> is <c>internal</c> to <c>Vixen.Editor.TextureGraph</c>, whose
-    ///     <c>InternalsVisibleTo</c> names its own test project alone. The generated
-    ///     <c>NodeTypes.Register</c> is public, so the node <i>library</i> crosses the boundary and
-    ///     the compiler does not — <a href="https://github.com/Rikarin/Vixen/issues/738">#738</a>.
+    ///     What a host that is not the editor looks like — a test, a tool embedding the shell. The
+    ///     editor itself publishes one from <c>EditorApplication.PluginPoints</c>.
     /// </remarks>
-    NoCompiler
+    NoGraphics,
+
+    /// <summary>There is a graphics service and it has no device right now.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A separate state from <see cref="NoGraphics" />, and asking for it is what refuted
+    ///     the claim this panel used to make.</b> <c>TexturingModule</c> read the answer once at
+    ///     activation, on the grounds that "a host does not start publishing a device halfway
+    ///     through a session" — and the editor does exactly that: it builds its
+    ///     <c>PluginHost</c> in its constructor and acquires a device when the window can present,
+    ///     which is afterwards, and releases it when the window goes. So the question is asked every
+    ///     time the pane is drawn. <a href="https://github.com/Rikarin/Vixen/issues/737">#737</a>.
+    /// </remarks>
+    NoDevice
 }
 
 /// <summary>What a texture-graph panel can and cannot show in this host.</summary>
@@ -47,37 +48,47 @@ enum TexturePreviewBlocker {
 /// </remarks>
 static class TexturePreview {
     /// <summary>What stops this host previewing a graph.</summary>
+    /// <param name="graphics">What the host published, or <see langword="null" /> for nothing.</param>
+    /// <returns>The obstacle, or <see cref="TexturePreviewBlocker.None" />.</returns>
+    public static TexturePreviewBlocker Blocking(IEditorGraphics? graphics) =>
+        graphics is null
+            ? TexturePreviewBlocker.NoGraphics
+            : graphics.Device is null
+                ? TexturePreviewBlocker.NoDevice
+                : TexturePreviewBlocker.None;
+
+    /// <summary>What stops this host previewing a graph, asked of the whole service table.</summary>
     /// <param name="services">What the host published.</param>
-    /// <returns>The nearer of the two obstacles.</returns>
+    /// <returns>The obstacle, or <see cref="TexturePreviewBlocker.None" />.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="services" /> is null.</exception>
-    /// <remarks>
-    ///     The device first, because it is the one a host can fix in a line and the one doc 36 § F2
-    ///     was written to find. A host that publishes one still gets an empty pane, and then the
-    ///     sentence names the other half rather than repeating the one that has been dealt with.
-    /// </remarks>
     public static TexturePreviewBlocker Blocking(PluginServices services) {
         ArgumentNullException.ThrowIfNull(services);
 
-        return services.Contains<IGraphicsDevice>() ? TexturePreviewBlocker.NoCompiler : TexturePreviewBlocker.NoDevice;
+        return Blocking(services.TryGet<IEditorGraphics>(out var graphics) ? graphics : null);
     }
 
-    /// <summary>What to put under the empty pane.</summary>
-    /// <param name="blocker">What is in the way.</param>
+    /// <summary>What to put under the pane.</summary>
+    /// <param name="blocker">What is in the way, if anything.</param>
     /// <returns>A sentence naming it and what would close it.</returns>
     /// <remarks>
     ///     ⚠ <b>Each sentence names the change rather than apologising.</b> A reader of this panel is
     ///     either the person who would make that change or the person who has to report it, and
-    ///     "preview unavailable" serves neither.
+    ///     "preview unavailable" serves neither. The <see cref="TexturePreviewBlocker.None" />
+    ///     sentence says what is on screen <i>and</i> what it is not, because a base layer that
+    ///     claimed to be the wired graph would hide the one gap left.
     /// </remarks>
     public static string Describe(TexturePreviewBlocker blocker) =>
         blocker switch {
+            TexturePreviewBlocker.None =>
+                "Preview: the graph's base layer, evaluated on this editor's device. ⚠ Not the wired "
+                + "graph — TextureGraphCompiler is internal to Vixen.Editor.TextureGraph, so this "
+                + "plugin can offer every node and cannot compile what you wire (#738).",
+            TexturePreviewBlocker.NoGraphics =>
+                "No preview: this host publishes no IEditorGraphics to plugins, so nothing here can "
+                + "dispatch a kernel. The editor publishes one from EditorApplication.PluginPoints.",
             TexturePreviewBlocker.NoDevice =>
-                "No preview: this editor publishes no IGraphicsDevice to plugins, so nothing here can "
-                + "dispatch a kernel. Publishing one in EditorApplication.PluginPoints is the fix.",
-            TexturePreviewBlocker.NoCompiler =>
-                "No preview: TextureGraphCompiler is internal to Vixen.Editor.TextureGraph, so this "
-                + "plugin can offer every node and cannot compile what you wire. Making the compiler "
-                + "public is the fix.",
+                "No preview: this editor has no graphics device right now — it is headless, or the "
+                + "window has not come up yet. The pane fills in when one arrives.",
             _ => throw new ArgumentOutOfRangeException(nameof(blocker), blocker, "Not a blocker this build knows.")
         };
 }
