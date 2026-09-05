@@ -76,7 +76,10 @@ public static class PlatformInput {
 
         switch (platformEvent.Kind) {
             case PlatformEventKind.MouseMoved:
-                document.Dispatch(surface, Pointer(platformEvent, PointerAction.Moved, PointerButton.None, modifiers, when));
+                document.Dispatch(
+                    surface,
+                    Pointer(platformEvent, PointerAction.Moved, PointerButton.None, modifiers, when, Mouse)
+                );
 
                 return true;
 
@@ -91,7 +94,8 @@ public static class PlatformInput {
                             : PointerAction.Released,
                         Button(platformEvent.MouseButton),
                         modifiers,
-                        when
+                        when,
+                        Mouse
                     )
                 );
 
@@ -112,6 +116,54 @@ public static class PlatformInput {
                         Modifiers = modifiers,
                         Timestamp = when
                     }
+                );
+
+                return true;
+
+            // ⚠ <b>These three arms were missing, and the consumer they starve is not the one the
+            // gap is named after.</b> <c>touch-action</c> is refused in the parity ledger because
+            // there is no touch pipeline for it to govern — but <c>GestureRecognizer</c>, which the
+            // document already runs on every pointer event, is written for several pointers at once:
+            // it keys its presses by <c>PointerEvent.PointerId</c>, and its pinch needs two distinct
+            // ones. Every producer of a <c>PointerEvent</c> left that id at its default, so the
+            // recogniser has never in its life seen two. A tap, a long press, a drag and a pinch were
+            // all implemented, tested against synthesised events, and unreachable from a finger.
+            //
+            // ⚠ <b>A touch is a pointer here rather than a fourth kind of event.</b> The document
+            // hit-tests, hovers, captures and focuses in terms of one pointer abstraction, and a
+            // parallel touch route would need every one of those again — which is how a control ends
+            // up clickable and not tappable. What a touch does not share is the button: it has none,
+            // so a press is <see cref="PointerButton.Primary" /> by convention and a move carries
+            // <see cref="PointerButton.None" /> exactly as a mouse move does.
+            case PlatformEventKind.TouchDown:
+            case PlatformEventKind.TouchUp:
+                document.Dispatch(
+                    surface,
+                    Pointer(
+                        platformEvent,
+                        platformEvent.Kind == PlatformEventKind.TouchDown
+                            ? PointerAction.Pressed
+                            : PointerAction.Released,
+                        PointerButton.Primary,
+                        modifiers,
+                        when,
+                        Finger(platformEvent.DeviceId)
+                    )
+                );
+
+                return true;
+
+            case PlatformEventKind.TouchMoved:
+                document.Dispatch(
+                    surface,
+                    Pointer(
+                        platformEvent,
+                        PointerAction.Moved,
+                        PointerButton.None,
+                        modifiers,
+                        when,
+                        Finger(platformEvent.DeviceId)
+                    )
                 );
 
                 return true;
@@ -178,9 +230,11 @@ public static class PlatformInput {
         PointerAction action,
         PointerButton button,
         ModifierKeys modifiers,
-        TimeSpan when
+        TimeSpan when,
+        int pointer
     ) =>
         new() {
+            PointerId = pointer,
             X = platformEvent.Position.X,
             Y = platformEvent.Position.Y,
             Action = action,
@@ -188,6 +242,25 @@ public static class PlatformInput {
             Modifiers = modifiers,
             Timestamp = when
         };
+
+    /// <summary>The id every mouse event carries.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Zero, and written down rather than left to the default — because it is now a value
+    ///     something else could collide with.</b> <c>TouchTracker</c> hands out the lowest free
+    ///     finger from zero, so the first finger on a screen and the mouse would be the same pointer
+    ///     to <c>GestureRecognizer</c>: a tablet with a stylus and a trackpad, or any browser, can
+    ///     have both alive at once, and the failure is a press that is never released because the
+    ///     other device's release closed it. <see cref="Finger" /> is what keeps the two ranges
+    ///     apart; this constant is what says which range the mouse is in.
+    /// </remarks>
+    const int Mouse = 0;
+
+    /// <summary>Which pointer a finger is, given the platform's id for it.</summary>
+    /// <remarks>
+    ///     Shifted past <see cref="Mouse" />. <c>TouchTracker.MaximumTouches</c> is ten and its ids
+    ///     start at zero, so fingers are one to ten here and nothing overlaps.
+    /// </remarks>
+    static int Finger(int device) => device + 1;
 
     static PointerButton Button(MouseButton button) =>
         button switch {
