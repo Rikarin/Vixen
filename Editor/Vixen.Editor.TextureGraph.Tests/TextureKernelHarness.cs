@@ -34,8 +34,21 @@ static class TextureKernelHarness {
     public const int Side = 64;
 
     /// <summary>A device, or a loud skip — or, when one was required, a failure.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It names the adapter into the running test's output itself, and that is doc 48's exit
+    ///     criterion 11 made mechanical.</b> Nineteen device files here name it because each of them
+    ///     remembered to; nothing required the twentieth to, and the failure this repository has
+    ///     actually suffered is the one where an instrument stops running and reports success —
+    ///     eighteen golden files that <em>passed</em> rather than skipped without a device. A device
+    ///     that cannot be opened anonymously is a stronger guarantee than a convention, and
+    ///     <c>TextureAdapterRollCallTests</c> is what holds this line to it.
+    /// </remarks>
     public static VulkanDevice Open() {
         if (VulkanDevice.TryCreate(new(), out var device, out var reason)) {
+            // `?.`, because a helper called from a fixture's constructor or a class fixture has no
+            // test in scope. A device opened there is still named by whichever test uses it.
+            TestContext.Current.TestOutputHelper?.WriteLine($"adapter: {Adapter(device!)}");
+
             return device!;
         }
 
