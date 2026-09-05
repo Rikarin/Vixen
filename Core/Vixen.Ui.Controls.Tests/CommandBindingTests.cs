@@ -472,4 +472,25 @@ public class CommandBindingTests {
         fixture.Update();
         Assert.False(selectAll.Disabled);
     }
+
+    [Fact]
+    public void Disabling_a_control_takes_the_focus_off_it_even_when_it_refuses() {
+        using var fixture = new ControlFixture();
+
+        var field = fixture.Document.Root.Add<TextBox>();
+        field.Value = "not a number";
+        field.AddHandler<FocusEvent>((_, args) => args.Cancel = !args.Gained);
+
+        fixture.Update();
+        fixture.Document.Focus(field);
+        Assert.Same(field, fixture.Document.Focused);
+
+        // ⚠ The third path that is not a user's decision, beside removal and teardown. A field that
+        // can refuse to resign must not be able to refuse being disabled: the keyboard would be left
+        // talking to a control that will not answer, and Tab starts from the focus so there is no way
+        // out of it.
+        field.Disabled = true;
+
+        Assert.Null(fixture.Document.Focused);
+    }
 }

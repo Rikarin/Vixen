@@ -287,9 +287,103 @@ public class FocusTests {
         var stop = Stop(document.Root);
         document.Focus(stop);
 
-        Assert.False(document.Focus(null));
+        // ⚠ True, and it answered false until refusals existed. "The focus is where you asked for
+        // it" is the only reading that survives a veto; the old one made a successful clear
+        // indistinguishable from an element that would not let go.
+        Assert.True(document.Focus(null));
         Assert.Null(document.Focused);
         Assert.False(stop.State.HasFlag(ElementState.Focus));
+
+        // And again, on a document that already has no focus: the caller asked for nothing and got
+        // nothing, which is success.
+        Assert.True(document.Focus(null));
+    }
+
+    [Fact]
+    public void An_element_can_refuse_to_give_the_focus_up() {
+        using var document = new UiDocument(100f, 100f);
+
+        var field = Stop(document.Root);
+        var other = Stop(document.Root);
+
+        var valid = false;
+        field.AddHandler<FocusEvent>((_, args) => args.Cancel = !args.Gained && !valid);
+
+        document.Focus(field);
+
+        // A click elsewhere.
+        Assert.False(document.Focus(other));
+        Assert.Same(field, document.Focused);
+
+        // And Tab, which goes through the same one door.
+        Assert.False(document.MoveFocus(FocusDirection.Next));
+        Assert.Same(field, document.Focused);
+
+        // ⚠ Not `Handled`. The refusal says the change must not happen, and every remaining handler
+        // still hears the event — a scroll view that reveals the focus has to know it is staying.
+        Assert.False(document.Focus(null));
+        Assert.Same(field, document.Focused);
+
+        valid = true;
+        Assert.True(document.Focus(other));
+        Assert.Same(other, document.Focused);
+    }
+
+    [Fact]
+    public void The_veto_is_asked_before_the_focus_moves() {
+        using var document = new UiDocument(100f, 100f);
+
+        var field = Stop(document.Root);
+        var other = Stop(document.Root);
+
+        UiElement? seenDuringLoss = null;
+        field.AddHandler<FocusEvent>((_, args) => {
+            if (!args.Gained) {
+                seenDuringLoss = document.Focused;
+            }
+        });
+
+        document.Focus(field);
+        document.Focus(other);
+
+        // ⚠ The element still holds the focus while it is being asked to give it up, which is what
+        // makes the answer a veto rather than a report. Raised after the write, a refusal would be
+        // arriving about a change that had already happened.
+        Assert.Same(field, seenDuringLoss);
+    }
+
+    [Fact]
+    public void A_refusal_cannot_survive_its_own_element_being_removed() {
+        using var document = new UiDocument(100f, 100f);
+
+        var panel = document.Root.Add("div");
+        var field = Stop(panel);
+
+        field.AddHandler<FocusEvent>((_, args) => args.Cancel = !args.Gained);
+        document.Focus(field);
+
+        // ⚠ The failure mode of this feature in every framework that ships it: a refusal that
+        // outlives its element leaves the document holding a focus pointing into a detached subtree,
+        // and every later read of `Focused` throws on it. Removal does not ask.
+        document.Remove(panel);
+
+        Assert.Null(document.Focused);
+        Assert.True(field.IsRemoved);
+    }
+
+    [Fact]
+    public void Force_moves_the_focus_past_a_refusal() {
+        using var document = new UiDocument(100f, 100f);
+
+        var field = Stop(document.Root);
+        var other = Stop(document.Root);
+
+        field.AddHandler<FocusEvent>((_, args) => args.Cancel = !args.Gained);
+        document.Focus(field);
+
+        Assert.False(document.Focus(other));
+        Assert.True(document.Focus(other, force: true));
+        Assert.Same(other, document.Focused);
     }
 
     [Fact]

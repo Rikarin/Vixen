@@ -759,7 +759,12 @@ public sealed partial class UiDocument : IDisposable {
     void Release(UiElement element) {
         for (var focused = Focused; focused is not null; focused = focused.Parent) {
             if (ReferenceEquals(focused, element)) {
-                Focus(null);
+                // ⚠ Forced, and it is the reason `force` exists. A removal is not a move the user
+                // asked for, so a field refusing to resign while its value is invalid must not be
+                // able to refuse being deleted — the alternative is a document holding a focus that
+                // points into a subtree it has just detached, which every read of `Focused` after
+                // that would throw on.
+                Focus(null, force: true);
                 break;
             }
         }

@@ -16,9 +16,21 @@ public enum FocusDirection : byte {
 
 /// <summary>The focus arriving at or leaving an element.</summary>
 /// <remarks>
-///     Routed like any other event, so an ancestor can hear that something inside it took the focus
-///     without every control having to tell it. That is what a form uses to know which field is
-///     current, and what a scroll view uses to bring it into view.
+///     <para>
+///         Routed like any other event, so an ancestor can hear that something inside it took the
+///         focus without every control having to tell it. That is what a form uses to know which
+///         field is current, and what a scroll view uses to bring it into view.
+///     </para>
+///     <para>
+///         ⚠ <b>The two halves are raised on opposite sides of the change, and they were not.</b>
+///         The losing element hears it <i>before</i> <see cref="UiDocument.Focused" /> moves and the
+///         gaining one <i>after</i>, which is what makes <see cref="Cancel" /> mean anything: a
+///         refusal that arrived after the focus had already left would be a report rather than a
+///         veto. So a handler on the losing leg reads the state it is losing, and one on the gaining
+///         leg reads the state it has gained; both read the event's own
+///         <see cref="Previous" />/<see cref="Next" /> for the other end, which is what every
+///         handler in the tree already did.
+///     </para>
 /// </remarks>
 public sealed class FocusEvent : UiEvent {
     /// <summary>Whether this element is taking the focus rather than losing it.</summary>
@@ -29,6 +41,32 @@ public sealed class FocusEvent : UiEvent {
 
     /// <summary>What has it now.</summary>
     public UiElement? Next { get; init; }
+
+    /// <summary>Set by a losing element to refuse to give the focus up.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>AppKit's <c>resignFirstResponder</c>, and the pattern it exists for is a field that
+    ///         will not let go while its value is invalid.</b> The nearest thing available before was
+    ///         to clear <see cref="UiElement.Focusable" /> pre-emptively, which is a different rule —
+    ///         it stops the element being reached at all, it does not know where the focus was going,
+    ///         and it takes the element out of the tab order on the way.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read on the losing leg only, and only on a move somebody asked for.</b>
+    ///         <see cref="UiDocument.Focus(UiElement, bool)" /> with <c>force</c> does not ask, and
+    ///         every path that is not a user's decision passes it: removing the focused element,
+    ///         tearing the document down. A refusal that could outlive its own element is how an
+    ///         application becomes permanently unfocusable, which is this feature's failure mode in
+    ///         every framework that ships it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is not <see cref="UiEvent.Handled" />.</b> Handled says somebody acted on the
+    ///         event and the ones further along need not; this says the change must not happen, which
+    ///         every remaining handler still deserves to hear — a scroll view that reveals the focus
+    ///         has to know the focus is staying put.
+    ///     </para>
+    /// </remarks>
+    public bool Cancel { get; set; }
 }
 
 public sealed partial class UiDocument {
@@ -65,7 +103,15 @@ public sealed partial class UiDocument {
 
     /// <summary>Moves the focus.</summary>
     /// <param name="element">The element to focus, or <c>null</c> to focus nothing.</param>
-    /// <returns>Whether the focus ended up there.</returns>
+    /// <param name="force">
+    ///     Whether to move it whatever the losing element says. For the paths that are not a user's
+    ///     decision — removal, teardown — and for nothing else. See <see cref="FocusEvent.Cancel" />.
+    /// </param>
+    /// <returns>
+    ///     Whether the focus is now where it was asked for. ⚠ <b><c>true</c> for
+    ///     <c>Focus(null)</c></b>, which used to answer <c>false</c> on success and so could not be
+    ///     told apart from a refusal.
+    /// </returns>
     /// <remarks>
     ///     <para>
     ///         Sets <see cref="ElementState.Focus" /> on the element and
@@ -87,16 +133,38 @@ public sealed partial class UiDocument {
     ///         and said plainly so the paragraph above is not read as a defended claim.
     ///     </para>
     /// </remarks>
-    public bool Focus(UiElement? element) {
+    public bool Focus(UiElement? element, bool force = false) {
         if (element is not null && !element.Focusable) {
             return false;
         }
 
+        // ⚠ True rather than `element is not null`, and the difference is the whole of what a caller
+        // can now conclude. The answer means "the focus is where you asked for it", so clearing an
+        // already-clear focus succeeds — the old `false` was indistinguishable from a refusal, which
+        // was harmless while nothing could refuse and is a real bug the moment something can.
         if (ReferenceEquals(Focused, element)) {
-            return element is not null;
+            return true;
         }
 
         var previous = Focused;
+
+        // ⚠ Raised before anything is written, which is the point of it: an element asked to give the
+        // focus up after it has already gone is being told, not asked. This is the same event the
+        // tree would have heard afterwards and not a second one — a duplicate "lost" would be worse
+        // than no veto at all.
+        if (previous is not null) {
+            var leaving = new FocusEvent { Gained = false, Previous = previous, Next = element };
+            previous.Raise(leaving);
+
+            // ⚠ The refusal is read only when the move is one somebody asked for. `force` is how
+            // removal and teardown say they are not asking, and without it a field with an invalid
+            // value could refuse to be deleted — leaving the document holding a focus that points
+            // into a subtree it has just detached.
+            if (leaving.Cancel && !force) {
+                return false;
+            }
+        }
+
         Focused = element;
 
         // ⚠ The one place the command route's origin is written, and it is deliberately *not* every
@@ -120,10 +188,9 @@ public sealed partial class UiDocument {
 
         Restate(previous, element, KeyboardMode);
 
-        previous?.Raise(new FocusEvent { Gained = false, Previous = previous, Next = element });
         element?.Raise(new FocusEvent { Gained = true, Previous = previous, Next = element });
 
-        return element is not null;
+        return true;
     }
 
     /// <summary>Takes the focus away when a press lands on something that cannot hold it.</summary>
