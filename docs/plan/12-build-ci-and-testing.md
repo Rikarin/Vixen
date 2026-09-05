@@ -8,12 +8,13 @@ test, package, or release — CI calls the same targets a developer calls, so "w
 
 ### Target graph
 
-The thirty-three targets, by what they depend on. Only the `DependsOn` edges are drawn; a target with
+The thirty-eight targets, by what they depend on. Only the `DependsOn` edges are drawn; a target with
 no edge into it is reachable on its own, which most of the checks deliberately are.
 
 ```
-Restore ──┬─► Compile ────────┬─► Test ──┬─► Pack
+Restore ──┬─► Compile ────────┬─► Test ──┬─► Pack ──► CheckTemplates
           │                   │          └─► PublishEditor
+          │                   ├─► Coverage
           │                   ├─► GoldenImages
           │                   ├─► ContentBytes
           │                   ├─► RemeshBytes
@@ -29,9 +30,16 @@ Restore ──┬─► Compile ────────┬─► Test ──┬
           └─► CheckAot           CompileWeb ──► PublishWeb ──► BrowserSmoke
 
 Depending on nothing, and run alone:  Clean · Benchmark · CheckArchitecture · CheckAttribution ·
-CheckBenchmarks · CheckPackages · CheckStrings · CheckWhitespace · CompileMobile · CompileWeb ·
-AffectedProjects · AffectedTests
+CheckBenchmarks · CheckDocsCoverage · CheckPackages · CheckStrings · CheckWhitespace · CompileMobile ·
+CompileWeb · AffectedProjects · AffectedTests · TestOrder · PruneWorktrees
 ```
+
+⚠️ **And four targets existed that this ledger did not name, which is #340's defect the other way
+round** — `Coverage`, `CheckDocsCoverage`, `TestOrder` and `PruneWorktrees`, the last two added on
+2026-09-05. A target no document names is one nobody types, and `PruneWorktrees` is the one that
+matters for that: it is the only thing in the repository that reclaims the disk agent worktrees take
+([#561](https://github.com/Rikarin/Vixen/issues/561)), and it deletes checkouts, so it will never be
+put on the graph or in CI. It has to be findable instead.
 
 ⚠️ **`CheckApi`, `Docs`, `CheckDocs` and `Release` hang off `CompileRelease` and not off `Compile`.**
 A public surface and a generated doc site are promises about a *shipped* package, and the two
@@ -47,7 +55,7 @@ Debug, is not a conclusion about them.
 | `CompileShaderLibrary` | `CheckShaders` — recompiles the shaders whose `.spv` is committed, from their import closure, and reports drift |
 | `GenerateApiBaseline` | `--update-api` on `CheckApi` |
 | `AotSmoke` | `CheckAot` and `CheckAotIos` |
-| `Coverage` | ✅ reports line coverage of each test project's own subject assembly and gates on nothing but its own instrument; not on the graph and not in CI. § Coverage below |
+| `Coverage` | ✅ reports line coverage of each test project's own subject assembly and gates on nothing but its own instrument; not in CI. ⚠️ This row used to add "not on the graph", and it is: `Coverage` `DependsOn(Compile)` (`build/Build.Coverage.cs:67`). § Coverage below |
 | `Sign`, `Notarize` | — |
 | `PublishAndroid`, `PublishIos` | — `CompileMobile` builds the assemblies; nothing publishes |
 
@@ -76,10 +84,15 @@ item, and `CheckAttribution` is ADR-015's enforcement.
 | `CheckFormat` | four passes, cheapest first: the SPDX licence header on every file, `CheckAttributionManifest`, `CheckWhitespaceFormatting`, and then `dotnet format style` and `dotnet format analyzers` with `--verify-no-changes`. ⚠️ **This row used to say the whitespace pass was refused outright.** It is not: the lambda-indentation argument that refused it covers 551 files out of 4 842, and using it to skip the other 4 291 left mis-indentation ungated everywhere. `docs/WhitespaceExempt.txt` carries the exceptions and may only shrink, so a file that becomes clean fails until its line is removed |
 | `CheckWhitespace` / `CheckAttribution` / `CheckStrings` | the three of those passes that are also targets of their own, so each can be run — and watched failing — without the two minute-long `dotnet format` passes. `CheckStrings` fails on a declared string id used nowhere and on a call site that rebuilds an id a declaration class already declares; it is what caught the untranslatable Undo menu item. `CheckAttribution` is ADR-015's enforcement over `docs/manual/third-party.md`. `--update-exemptions` rewrites the whitespace list, and the diff is worth reading: a commit that grows it added mis-indented code |
 | `Test` | xunit v3 over every test project, and the allocation gates run inside it as ordinary tests. Passes `.runsettings`, which exists solely to set environment that has to be in place *before* the process starts (see below). ⚠️ **Collects no coverage and enforces no floor, and this row used to say it did both** — the collector lives in the separate `Coverage` target, which reports and does not gate; § Coverage below says why the floor is refused rather than owed |
+| `TestOrder` | prints the order `Test` starts the 178 assemblies in, which is longest first out of `build/test-cost.txt`; `--update-test-cost` rewrites that list from the last run's TRX `Times`. ⚠️ **What used to decide the order was `Vixen.slnx`**, and a solution build of a custom target walks each project's dependencies first — so the assembly referencing the most of the tree was dispatched last, and that assembly is for the same reason the slowest one. `Test` hands MSBuild a generated flat traversal project instead. Measured on the 2026-09-05 runs either side of the change: elapsed 873.3 s → **677.5 s**, with `Vixen.Editor.App.Tests` moving from a 218.4 s start to 0.2 s. The run is now its longest single assembly and cannot be shortened by scheduling at all ([#592](https://github.com/Rikarin/Vixen/issues/592), then [#557](https://github.com/Rikarin/Vixen/issues/557)) |
+| `Coverage` | reports line coverage of each test project against its own subject assembly and gates on nothing but its own instrument; not in CI. `--coverage-project <substring>` narrows it. § Coverage below says why the floor is refused rather than owed |
+| `CheckDocsCoverage` | the half of `CheckDocs` that builds nothing: fails when a type in a `PublicAPI` baseline has no guide page and no `docs/DocsExempt.txt` line. Reachable alone precisely because `CheckDocs` costs a Release build of the solution first |
+| `PruneWorktrees` | reports the agent worktrees under `.claude/worktrees` that are **merged into master, clean and unlocked**, and with `--remove-merged` removes those and only those. ⚠️ **Nothing else in the repository reclaims that disk**: on 2026-09-04 it was 105 GB of a 132 GB tree, ~25 GB per worktree, three of them merged and clean for days. ⚠️ It enumerates *directory entries* and not `git worktree list`, because one 3.8 GB directory in there was not a registered worktree at all — and git run from inside such a directory answers about the parent repository, so it reported itself clean and on master while being neither. Those are warned about and never removed. Removal is `git worktree remove`, so git's own dirtiness refusal stays behind the filter rather than being replaced by it. Not on the graph and never in CI: it deletes checkouts, so it is a target somebody types on purpose ([#561](https://github.com/Rikarin/Vixen/issues/561)) |
 | `GoldenImages` | ✅ renders the fixture suite on the local backend — lavapipe on the Linux leg, MoltenVK on macOS — and compares it with the committed references; writes the rendering, the reference and a diff into `artifacts/golden-diff/` on failure, which CI uploads. `--update-golden` rewrites the references. The fixtures also run under `Test`, so a wrong picture fails an ordinary build; the separate target exists for the diffs and the switch. |
 | `CheckAot` / `CheckAotIos` | `PublishAot` + `PublishTrimmed` of a probe that roots the runtime assemblies; **any IL2xxx/IL3xxx warning fails**. ⚠️ **Two targets and not one `AotSmoke`**, because iOS is the NativeAOT-only platform and `CheckAotIos` `.Requires` macOS — a single target would have been silently half a gate on every other runner. ⚠️ The probe roots 29 of 95 runtime assemblies rather than all of them ([#506](https://github.com/Rikarin/Vixen/issues/506)) |
 | `Benchmark` | BenchmarkDotNet over `Benchmarks/*`, then judged against `Benchmarks/baseline.json`: **any** allocation growth fails, a mean more than 10 % above the baseline fails only under `--gate-timing`, and a benchmark that is in the baseline and did not run fails too. ⚠️ **There is no committed baseline yet, and the target therefore fails rather than passing** — a comparison with nothing to compare against is the shape of a gate that did not run, and this row described one for as long as it had described anything. `--update-baseline` writes the file, stamped with the machine, the runtime, the BenchmarkDotNet version and the commit out of BenchmarkDotNet's own `HostEnvironmentInfo`; `--report-only` asks for numbers without a verdict. The comparison alone, over whatever is already in `artifacts/benchmarks`, is `CheckBenchmarks` |
 | `Pack` | produces every NuGet package, then opens every one of them. Four checks, each written from a failure that had already happened or from an obligation that cannot be satisfied by memory: `CheckApacheObligations` asserts the Apache-2.0 licence expression in each manifest and a non-empty `NOTICE` at its root (ADR-015); `CheckPackedToolsAreComplete` is the **expected-files manifest** this row asks for — ⚠️ **the manifest is the tool's own `.deps.json`**, so every assembly in the closure and every `runtimes/<rid>/native/` payload it names has to be in the package, and nothing is hand-maintained (`build/PackageContents.cs`); `CheckStyleGenIsShippable` names the five files `Vixen.Ui.Styling.Utilities` must carry for its `tools/` to start; `CheckCliIsShippable` extracts `Vixen.Sdk` and **runs** the CLI out of it. All four are reachable alone as `CheckPackages`, over whatever is already in `artifacts/packages` — an instrument nobody can run alone is one nobody has watched fail. Still owed: `PackageValidation` ([#337](https://github.com/Rikarin/Vixen/issues/337)) |
+| `CheckTemplates` | ✅ scaffolds every `dotnet new` template from the feed `Pack` just wrote, into a directory outside the repository, with an **empty package cache**, and builds each one. On the `pack` leg, in the same invocation as `Pack` — a second invocation would clean the feed it consumes. ⚠️ **The assertion that carries this target is the negative control, not the six builds**: a scaffolded project restores perfectly well outside the repository on any machine that has ever run `Pack`, because ~57 `Vixen.*` packages are sitting in the global NuGet cache, so "it restored" is a statement about the cache. The target therefore first requires a restore to **fail** with the feed unwired, and refuses to continue if it succeeds. Source mapping pins `Vixen.*` to the local feed so a package this build failed to produce cannot be supplied by a published one. Still owed on [#114](https://github.com/Rikarin/Vixen/issues/114): the Android, iOS and Web *platform* heads, which need workloads no desktop leg has |
 | `PublishEditor` | per-RID single-file publish of `Vixen.Editor.App`; `.app` bundle + `.dmg` on macOS, AppImage on Linux, MSI/zip on Windows |
 | ~~`Sign` / `Notarize`~~ | ⚠️ **Not built.** codesign + notarytool on macOS and Authenticode on Windows are still what a signed editor build needs; nothing in `build/` does either, and `PublishEditor` produces an unsigned bundle |
 | `Docs` | ⚠️ **Superseded by [25](25-documentation-generator-and-site.md)**: `Vixen.DocGen` over Roslyn source symbols + `docs/guide`, built into the Angular site in `www/` and shipped as an nginx image of static assets. `CheckDocs` is its gate — coverage, links and compiled examples — and sits beside `CheckApi` |
@@ -87,7 +100,8 @@ item, and `CheckAttribution` is ADR-015's enforcement.
 
 Nuke parameters, all of them: `--configuration`, `--workers <n>`, `--since <ref>`; the four that
 rewrite something a gate then checks — `--update-api`, `--update-golden`, `--update-shaders`,
-`--update-baseline`, `--update-exemptions`; and the per-target ones — `--benchmark-filter`, `--short`,
+`--update-baseline`, `--update-exemptions`, `--update-test-cost`; and the per-target ones —
+`--coverage-project`, `--remove-merged`, `--benchmark-filter`, `--short`,
 `--gate-timing`, `--report-only`, `--verify-docs`, `--all-native-deps`, `--stage-vulkan`,
 `--publish-smoke`, `--frame-sample`, `--frame-count`, `--browser-smoke-checks`,
 `--browser-smoke-timeout`, `--release-version`, `--release-date`.
@@ -298,28 +312,48 @@ same document carries `Vixen.Core` at 0.1 % — a figure that describes neither 
 whenever an unrelated dependency grows. A "per-project coverage" table built from a document's own
 `line-rate` would be that second number.
 
-**The first of the three places is now an executable claim rather than a number.** ✅
-`Vixen.Ecs.Tests.QueryAritySurfaceTests` drives every arity of the generated query surface and checks
-the arithmetic it leaves behind. ⚠️ **What made it worth writing is what the grep found**:
-`QueryArityGenerator` emits **256** methods — four description builders and four iteration families,
-sixteen arities each — and the whole tree called **ten** of them. `Query` at arities 1, 2 and 4,
-`QueryWithEntity` and `ForEach` at arity 1, `WithAll` at 1, 2 and 4, `WithAny` at 2, `WithNone` at 1 —
-and `ForEachWithEntity`, all sixteen arities of it, by nothing at all. A coverage percentage would
-have reported that as one number against `Vixen.Ecs` and left the reader to guess which lines it was
-about.
+**And where "is this line reached" is a real question, the answer is a test.** ✅ The first of the
+three places ([#338](https://github.com/Rikarin/Vixen/issues/338)) is done, and it is the worked
+example of the shape: the generated ECS query surface, driven rather than counted, by
+`Vixen.Ecs.Tests/QueryAritySurfaceTests` and `Vixen.Ecs.Tests/QueryAritySweepTests`.
 
-The claim is a drive and a census together, because either alone is green on the day it stops
-measuring: the drive runs all sixty-four iteration methods and all sixty-four builders over three
-entities and asserts a closed form — slot *i* is a column of every arity above *i*, in each of four
-families, so it ends worth `seed + i + 4 × (16 − i)` — and the census asserts by reflection that the
-generator emits **no arity beyond** the ones the drive covers, so raising `MaxArity` without extending
-the drive fails rather than silently leaving the new arities untouched. Sabotage-proved both ways: a
-row offset made wrong only above arity 4 fails the drive and **nothing else in the 127-test suite**,
-which is the measurement of the gap; raising `MaxArity` to 17 fails the census.
+⚠️ **What made it worth writing is what the grep found, from both ends.** `QueryArityGenerator`
+emits sixteen arities of four description builders and four iteration families — "roughly two
+thousand lines of code whose only variable is a number", as its own remarks put it — which is
+**128 callable methods** (sixty-four builders, sixty-four iteration methods) beside thirty-two
+delegates and thirty-two visitor interfaces. Across `Core`, `Samples`, `Editor`, `Platform` and
+`Tools` the tree called **ten** of them: `Query` at arities 1, 2 and 4, `QueryWithEntity` and
+`ForEach` at arity 1, `WithAll` at 1, 2 and 4, `WithAny` at 2, `WithNone` at 1 — and
+`ForEachWithEntity`, all sixteen arities of it, by nothing at all. Narrow the grep to the suite that
+is supposed to be testing this and the number is **one**: `ForEach<SumHealth, Health>`, in
+`QueryTests`. A transposed index at arity nine would have been found by a game, months later. A
+coverage percentage would have reported all of that as one number against `Vixen.Ecs` and left the
+reader to guess which lines it was about.
 
-Still owed, and deliberately not attempted here: the same treatment for the other two places
-([#338](https://github.com/Rikarin/Vixen/issues/338)) — the serializers and the cascade. ⚠️ Whatever
-lands there should not be a percentage either: the shape that survives this section's own argument is
+The claim is a **drive and a census together**, because either alone is green on the day it stops
+measuring. The drive runs all sixty-four iteration methods and all sixty-four builders over three
+entities — three and not one, because with a single row every offset into the chunk is zero and a
+loop that walked the same row *n* times would leave the arithmetic exactly right — and asserts a
+closed form: slot *i* is a column of every arity above *i*, in each of four families, so it ends
+worth `seed + i + 4 × (16 − i)`. The census comes in two forms, and they are complementary rather
+than duplicate: one asserts by reflection that the generator emits **no arity beyond** the ones the
+drive covers, so raising `MaxArity` without extending the drive fails rather than silently leaving
+the new arities untouched; the other reads the test assembly's own IL back and fails **naming any
+generated member nothing calls**, so the claim survives a fifth family arriving as well.
+
+⚠️ **Three sabotages, and the first one is the lesson.** Transposing a column into the wrong
+parameter *does not compile* — the generated `Values<T{i}>()` is type-checked, so the failure mode
+everyone fears is the one the compiler already owns, and an attempt to prove these tests that way
+proves nothing. ⚠ A build error is not a red test. The ones that compile are arithmetic: a row
+offset made wrong only above arity 4 fails the drive and **nothing else in the suite** — 127 other
+tests at the time it was measured, and that silence is the measurement of the gap; pinning the column offset to zero (every entity handed the
+first entity's components) and pinning the entity reference (the handle stops advancing beside the
+columns) each go red naming the entity they were given — which is why every component in the sweep
+knows which entity it belongs to. Raising `MaxArity` to 17 fails the census.
+
+Still owed, and deliberately not attempted here: the same treatment for **the serializers and the
+cascade** ([#338](https://github.com/Rikarin/Vixen/issues/338)). ⚠️ Whatever lands there should
+almost certainly not be a percentage either: the shape that survives this section's own argument is
 an executable claim that a named path is exercised, which is a test, not a threshold.
 
 ### Coverage of the pyramid

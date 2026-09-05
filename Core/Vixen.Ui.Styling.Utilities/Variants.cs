@@ -56,8 +56,79 @@ public static class Variants {
         ["last"] = ":last-child",
         ["only"] = ":only-child",
         ["odd"] = ":nth-child(2n+1)",
-        ["even"] = ":nth-child(2n)"
+        ["even"] = ":nth-child(2n)",
+        ["empty"] = ":empty",
+
+        // ⚠ The three of-type keywords needed a matcher change, which is the one claim the task they
+        // came from got wrong. A child index is stored on every element; an of-type index is a
+        // position among the siblings sharing a tag and is counted on demand — see
+        // `StyleTree.TypeIndexOf`. Registering these against the old matcher would have refused them
+        // at compile time, which is the honest failure; registering them against a matcher that
+        // folded them into the child tests would have been the quiet one.
+        ["first-of-type"] = ":first-of-type",
+        ["last-of-type"] = ":last-of-type",
+        ["only-of-type"] = ":only-of-type"
     };
+
+    /// <summary>The variants that are a media feature rather than a selector.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two of these were already answerable and needed no condition at all.</b>
+    ///         <c>portrait</c> and <c>landscape</c> are <c>(orientation: …)</c>, which
+    ///         <c>MediaQuery</c> has always derived from the surface's own width and height — so
+    ///         they were a table entry and nothing else, while the item they arrived in was sized as
+    ///         "one condition each". The other axes did need one, and needed a field on
+    ///         <c>MediaContext</c> to answer it from.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>print</c> and <c>noscript</c> resolve and can never match, deliberately.</b>
+    ///         Paged media is permanently out of scope and a Vixen document always scripts, so both
+    ///         are one comparison that is false — which is worth having rather than refusing,
+    ///         because a stylesheet shared with a web codebase then loads unchanged instead of
+    ///         failing a block. They are the two entries a coverage gate cannot ask for a positive
+    ///         scene from, and <c>VariantCoverageTests</c> names them for that reason.
+    ///     </para>
+    /// </remarks>
+    static readonly Dictionary<string, string> MediaFeatures = new(StringComparer.Ordinal) {
+        ["motion-safe"] = "(prefers-reduced-motion: no-preference)",
+        ["motion-reduce"] = "(prefers-reduced-motion: reduce)",
+        ["contrast-more"] = "(prefers-contrast: more)",
+        ["contrast-less"] = "(prefers-contrast: less)",
+        ["forced-colors"] = "(forced-colors: active)",
+        ["inverted-colors"] = "(inverted-colors: inverted)",
+        ["portrait"] = "(orientation: portrait)",
+        ["landscape"] = "(orientation: landscape)",
+        ["print"] = "print",
+        ["noscript"] = "(scripting: none)",
+        ["pointer-none"] = "(pointer: none)",
+        ["pointer-coarse"] = "(pointer: coarse)",
+        ["pointer-fine"] = "(pointer: fine)",
+        ["any-pointer-none"] = "(any-pointer: none)",
+        ["any-pointer-coarse"] = "(any-pointer: coarse)",
+        ["any-pointer-fine"] = "(any-pointer: fine)"
+    };
+
+    /// <summary>The variants that are one <c>@media</c> feature on the element's own surface.</summary>
+    /// <remarks>
+    ///     Exposed for the same reason <see cref="StateVariants" /> is: the coverage test enumerates
+    ///     it, so a seventeenth entry with no scene fails the build rather than joining the silent
+    ///     ones. That gate is what a whole dead breakpoint family cost before it existed.
+    /// </remarks>
+    public static IReadOnlyCollection<string> MediaVariants => MediaFeatures.Keys;
+
+    /// <summary>The <c>nth-*</c> families, longest prefix first.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Order is the whole of this table.</b> <c>nth-last-of-type-3</c> begins with
+    ///     <c>nth-last-</c> and with <c>nth-</c>, so a shorter prefix tested first would resolve it
+    ///     to <c>:nth-last-child(of-type-3)</c> — a selector ExCSS refuses, which is at least loud,
+    ///     and <c>nth-of-type-3</c> to <c>:nth-child(of-type-3)</c>, which is the same shape.
+    /// </remarks>
+    static readonly (string Prefix, string Function)[] NthFamilies = [
+        ("nth-last-of-type-", "nth-last-of-type"),
+        ("nth-of-type-", "nth-of-type"),
+        ("nth-last-", "nth-last-child"),
+        ("nth-", "nth-child")
+    ];
 
     /// <summary>The variants that are a pseudo-class on the element itself.</summary>
     /// <remarks>
@@ -100,6 +171,45 @@ public static class Variants {
         }
 
         if (variant.Length > 1 && variant[0] == '@' && TryContainer(variant.AsSpan(1), tokens, out effect)) {
+            return true;
+        }
+
+        if (MediaFeatures.TryGetValue(variant, out var feature)) {
+            effect = new VariantEffect(string.Empty, string.Empty, $"@media {feature}");
+            return true;
+        }
+
+        if (TryNth(variant, out effect)) {
+            return true;
+        }
+
+        // ⚠ Only over a variant that is a bare suffix, which rules out more than it looks like.
+        // `not-sm:` is `@media not (min-width: …)` in v4 and `not-dark:` under the class strategy is
+        // a selector with an ancestor in it; negating a *prefix* is not negating the rule, and
+        // negating an at-rule is a different production entirely. Refusing them here means
+        // `not-sm:p-4` is not a class rather than being a class that means something else — the
+        // distinction F6 was written about. The arbitrary form is refused for the third reason: its
+        // `&` has to land somewhere, and `:not(&>*)` is not a selector.
+        // ⚠ The same bare-suffix rule `not-` follows, plus one refusal of its own. A `:has()`
+        // argument that begins with a combinator — v4's `has-[>_.x]` — is a *relative* selector, and
+        // ExCSS 4.3.2 parses `:has(> .x)` into the same node it parses `:has(.x)` into: the
+        // combinator is gone before the compiler can refuse it, and the rule would silently mean
+        // "any descendant" where the author wrote "a child". This is the one place the text is still
+        // intact, so this is where it is refused.
+        if (variant.StartsWith("has-", StringComparison.Ordinal)
+            && TryResolve(variant["has-".Length..], tokens, out var contained)
+            && contained is { SelectorPrefix.Length: 0, AtRule: null, SelectorSuffix.Length: > 0 }
+            && !IsArbitrary(contained)
+            && contained.SelectorSuffix.TrimStart()[0] is not ('>' or '+' or '~')) {
+            effect = new VariantEffect($":has({contained.SelectorSuffix})", string.Empty, null);
+            return true;
+        }
+
+        if (variant.StartsWith("not-", StringComparison.Ordinal)
+            && TryResolve(variant["not-".Length..], tokens, out var negated)
+            && negated is { SelectorPrefix.Length: 0, AtRule: null, SelectorSuffix.Length: > 0 }
+            && !IsArbitrary(negated)) {
+            effect = new VariantEffect($":not({negated.SelectorSuffix})", string.Empty, null);
             return true;
         }
 
@@ -165,6 +275,63 @@ public static class Variants {
         }
 
         return false;
+    }
+
+    /// <summary>Reads <c>nth-3</c>, <c>nth-last-3</c>, their <c>-of-type</c> pairs and the <c>[an+b]</c> form.</summary>
+    /// <param name="variant">The variant, without its colon.</param>
+    /// <param name="effect">Receives the pseudo-class suffix.</param>
+    /// <returns>Whether it is an <c>nth-*</c> variant.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The shorthand argument is a positive integer and nothing else, which is narrower
+    ///         than <c>an+b</c> on purpose.</b> v4 spells <c>nth-3</c> for the third child and puts
+    ///         everything else in the arbitrary form, so accepting <c>nth-2n</c> here would invent a
+    ///         spelling Tailwind does not have — and it would collide with nothing today and with
+    ///         whatever v5 does with it later. Anything unrecognised falls through to "not a
+    ///         variant", so <c>nth-foo:p-4</c> is not a class rather than a class that emits a
+    ///         selector the compiler then refuses.
+    ///     </para>
+    ///     <para>
+    ///         The arbitrary form keeps the underscore-to-space rule the <c>[&amp;>*]</c> escape
+    ///         hatch uses, so <c>nth-[2n+1]</c> and <c>nth-[odd]</c> both reach the compiler as
+    ///         written and <c>an+b</c> is parsed once, by ExCSS, rather than twice.
+    ///     </para>
+    /// </remarks>
+    static bool TryNth(string variant, out VariantEffect effect) {
+        effect = default;
+
+        foreach (var (prefix, function) in NthFamilies) {
+            if (!variant.StartsWith(prefix, StringComparison.Ordinal)) {
+                continue;
+            }
+
+            var argument = variant[prefix.Length..];
+
+            if (argument.Length > 2 && argument[0] == '[' && argument[^1] == ']') {
+                argument = argument[1..^1].Replace('_', ' ');
+            } else if (!IsChildNumber(argument)) {
+                return false;
+            }
+
+            effect = new VariantEffect($":{function}({argument})", string.Empty, null);
+            return true;
+        }
+
+        return false;
+
+        static bool IsChildNumber(string text) {
+            if (text.Length == 0) {
+                return false;
+            }
+
+            foreach (var character in text) {
+                if (character is < '0' or > '9') {
+                    return false;
+                }
+            }
+
+            return true;
+        }
     }
 
     /// <summary>Whether a variant's effect goes where <c>&amp;</c> is rather than after the selector.</summary>

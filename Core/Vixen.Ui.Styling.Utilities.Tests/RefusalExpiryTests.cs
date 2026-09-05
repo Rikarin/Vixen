@@ -83,8 +83,39 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         allow-list line is now one dependency edge out from that line's own expiry rather than
 ///         prose beside it. <c>border-s-*</c> is the worked case: its width is read, its logical colour
 ///         is not, and its note has cited <c>InertProperties.txt #21</c> in words since the row was
-///         written. ⚠ A row carrying this clause may be <c>partial</c>, unlike the two kinds above —
+///         written. ⚠ A row carrying this clause may be <c>partial</c>, unlike <c>expires-with</c> —
 ///         see <see cref="RefusalExpiry.Gapped" />, where the difference is argued.
+///     </para>
+///     <para>
+///         ⚠ <b><c>expires-on</c> may sit on a <c>partial</c> row too, and it took a rotted sentence
+///         to find that out.</b> <c>hyphens</c>' <c>auto</c> keyword was refused on two things: no
+///         Liang pattern set, and nothing carrying a language. #600 landed the language, and nothing
+///         went red — the row is <c>partial</c> because <c>none</c> and <c>manual</c> shipped, so it
+///         could carry no clause at all, and the stale half of the reason stood in three files.
+///         ⚠ The lesson is the opposite of the intuition: a refusal buried in one keyword of a
+///         half-landed root is <i>more</i> exposed than one on an <c>absent</c> row, because once the
+///         other keywords ship the row's own state stops moving and nobody re-reads it.
+///     </para>
+///     <para>
+///         ⚠ <b>The ledger is not where refusals live — it is only where they were checked.</b> #674
+///         found four false ones in prose the same month: <c>Core/Vixen.Ui/README.md</c> said
+///         <c>scale</c> and <c>rotate</c> were refused while <c>TransformReader</c> read both,
+///         <c>NodeCanvas</c> said there is no <c>transform</c> property, the <c>touch-action</c> row
+///         said no touch reaches <c>UiDocument</c> while <c>PlatformInput</c> routed them, and
+///         <c>Vixen.Ui.Markup</c>'s README taught a <c>[Parameter]</c> attribute that has never
+///         existed. So the sweep reads every <c>README.md</c> and every doc comment in the tree as
+///         well — see <see cref="RefusalExpiry.DeclaredInProse" /> — and a prose refusal declares its
+///         condition in exactly the same clause a note does.
+///     </para>
+///     <para>
+///         ⚠ <b>Widening the sweep would not have caught those four and it is worth being exact about
+///         why.</b> None of them declared a clause; a clause-reader catches only conditions somebody
+///         wrote down. What the widening buys is that a prose refusal now <i>can</i> be written down —
+///         <c>Core/Vixen.Ui</c>'s <c>box-shadow</c> paragraph is the first, resting its <c>inset</c>
+///         half on <c>inset-shadow-*</c> — where before there was nowhere to put the condition but a
+///         sentence, and a sentence is what the four were. Detecting an <i>undeclared</i> refusal is
+///         the mechanism <see cref="RefusalExpiry" />'s own remarks measured at 106 false positives
+///         across 42 rows and refused to build.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>And the typo, which is how a check like this normally dies.</b> An anchor is a string
@@ -133,9 +164,9 @@ public class RefusalExpiryTests {
     ///     reasons against a committed one for the same reason.
     /// </remarks>
     [Fact]
-    public void The_census_is_exactly_the_clauses_the_ledger_declares() {
+    public void The_census_is_exactly_the_clauses_the_ledger_and_the_prose_declare() {
         var (_, rows) = ParityLedger.Read(ParityLedger.Locate());
-        var declared = RefusalExpiry.Declared(rows);
+        var declared = RefusalExpiry.All(rows, RefusalExpiry.Root());
         var path = RefusalExpiry.Locate();
 
         if (Regenerating) {
@@ -155,8 +186,12 @@ public class RefusalExpiryTests {
     [Fact]
     public void A_clause_that_does_not_parse_is_a_failure_rather_than_a_row_the_sweep_skips() {
         var (_, rows) = ParityLedger.Read(ParityLedger.Locate());
+        var root = RefusalExpiry.Root();
 
-        Assert.Equal(RefusalExpiry.Opened(rows), RefusalExpiry.Declared(rows).Count);
+        Assert.Equal(
+            RefusalExpiry.Opened(rows) + RefusalExpiry.OpenedInProse(root),
+            RefusalExpiry.All(rows, root).Count
+        );
     }
 
     /// <summary>An anchor names a root the ledger has, or a type an assembly has.</summary>
@@ -169,7 +204,7 @@ public class RefusalExpiryTests {
         var (_, rows) = ParityLedger.Read(ParityLedger.Locate());
         var roots = rows.Select(row => row.Root).ToHashSet(StringComparer.Ordinal);
 
-        foreach (var clause in RefusalExpiry.Declared(rows)) {
+        foreach (var clause in RefusalExpiry.All(rows, RefusalExpiry.Root())) {
             if (clause.Kind == ExpiryKind.With) {
                 Assert.True(
                     roots.Contains(clause.Anchor),
@@ -221,13 +256,25 @@ public class RefusalExpiryTests {
         var (_, rows) = ParityLedger.Read(ParityLedger.Locate());
         var state = rows.ToDictionary(row => row.Root, row => row.State, StringComparer.Ordinal);
 
-        foreach (var clause in RefusalExpiry.Declared(rows)) {
-            var standing = clause.Kind == ExpiryKind.WhenRead ? RefusalExpiry.Gapped : RefusalExpiry.Refusing;
+        // ⚠ The sweep is the WIDE one — the ledger plus every README and doc comment — because a
+        // refusal in prose rots exactly as a note does, and four false ones were found in prose in
+        // the same month the ledger held none.
+        foreach (var clause in RefusalExpiry.All(rows, RefusalExpiry.Root())) {
+            // ⚠ Only `expires-with` demands that the CARRIER still be refused outright, and the
+            // asymmetry is argued on `RefusalExpiry.Gapped`. `expires-with` is prose about another
+            // root's state, which a half-landed root has stopped making claims about. The other two
+            // name a condition of this root's own — a property nothing reads, a symbol that does not
+            // exist — and a `partial` root is where those live, because a refusal inside one keyword
+            // of a root whose other keywords shipped is the one whose state column stops moving.
+            var standing = clause.Kind == ExpiryKind.With ? RefusalExpiry.Refusing : RefusalExpiry.Gapped;
 
+            // A prose refusal has no row, so there is no state to hold it to — only the condition
+            // below. That is the whole of the difference between the two sources.
             Assert.True(
-                standing.Contains(state[clause.Root]),
-                $"{clause.Root} is '{state[clause.Root]}' and still declares an expiry clause. It is not "
-                + "refused any more, so the clause and the sentence it formalises both want deleting."
+                clause.Prose || standing.Contains(state[clause.Root]),
+                $"{clause.Root} is '{(clause.Prose ? "prose" : state[clause.Root])}' and still declares an "
+                + "expiry clause. It is not refused any more, so the clause and the sentence it "
+                + "formalises both want deleting."
             );
 
             if (clause.Kind == ExpiryKind.WhenRead) {

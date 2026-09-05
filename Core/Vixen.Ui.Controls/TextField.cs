@@ -37,7 +37,7 @@ namespace Vixen.Ui.Controls;
 ///         than a loop here that would get the interesting scripts wrong.
 ///     </para>
 /// </remarks>
-public abstract partial class TextField : Control {
+public abstract partial class TextField : Control, ITextInputTarget {
     UiElement text = null!;
     UiElement placeholder = null!;
     int selectionColor;
@@ -283,6 +283,32 @@ public abstract partial class TextField : Control {
         caretColor = Document.PropertyId("--caret-color");
         caretColorStandard = Document.PropertyId("caret-color");
 
+        // ⚠ The first things in this repository ever to register an element command handler, and
+        // that is the point of them rather than a side effect. `CommandRoute`'s rule — the nearest
+        // responder that answers wins, all the way out — had no production responders at all, so the
+        // element leg of the walk always found nothing and the whole design was unfalsifiable outside
+        // its own tests. A focused field answering these verbs is the smallest true instance of it: a
+        // menu item now means "act on this field's text" while the caret is here and whatever the
+        // shell says when it is not, with nothing shell-shaped in the control.
+        //
+        // ⚠ Select All was for one batch the only verb here, because nothing above `Vixen.Platform`
+        // could reach `IClipboard` and no undo manager existed below the editor's `CommandStack` — a
+        // handler that ran and did nothing is worse than none, since the route would report the verb
+        // available and the menu item would go live. `IUiClipboard` retired the first half of that,
+        // so Cut, Copy and Paste are registered here and their `CanExecute` asks the pasteboard
+        // rather than assuming. Undo and Redo are still keystrokes only: they answer through
+        // `FindUndoManager`, which returns nothing in an application that has not put one anywhere,
+        // and an always-grey menu item is the thing this comment refuses.
+        //
+        // The four are ids, not a private key switch, so a menu item spelling `edit.copy` and a
+        // keymap bound to it both reach the focused field without either of them knowing a text field
+        // exists. The chords below still call the same methods, because a field must answer them with
+        // no keymap installed at all.
+        AddCommandHandler("edit.cut", () => Cut(), () => CanCopy && !ReadOnly && !Disabled);
+        AddCommandHandler("edit.copy", () => Copy(), () => CanCopy);
+        AddCommandHandler("edit.paste", () => Paste(), () => CanPaste);
+        AddCommandHandler("edit.select-all", SelectAll, () => !Disabled && !string.IsNullOrEmpty(Value));
+
         AddHandler<KeyEvent>(static (element, args) => ((TextField) element).Keyed(args));
         AddHandler<TextInputEvent>(static (element, args) => ((TextField) element).Typed(args));
         AddHandler<TextCompositionEvent>(static (element, args) => ((TextField) element).Composing(args));
@@ -308,6 +334,11 @@ public abstract partial class TextField : Control {
     /// <param name="extend">Whether Shift is held.</param>
     public void MoveCaret(int index, CaretAffinity affinity, bool extend = false) {
         var length = Value?.Length ?? 0;
+
+        // ⚠ A caret move ends the run of typing, so the next keystroke is a new undo entry. Without
+        // it, typing a word, clicking somewhere else and typing another would be one ⌘Z that took
+        // back two edits in two places.
+        BreakUndoRun();
 
         CaretIndex = Math.Clamp(index, 0, length);
         CaretAffinity = affinity;
@@ -392,12 +423,195 @@ public abstract partial class TextField : Control {
 
         var updated = string.Concat(value.AsSpan(0, start), replacement, value.AsSpan(end));
 
+        var caretBefore = CaretIndex;
+        var anchorBefore = SelectionAnchor;
+
         // The caret before the value, because assigning the value raises the change and a handler
         // that reads the caret should see where it ended up rather than where it was.
         CaretIndex = start + replacement.Length;
         SelectionAnchor = CaretIndex;
 
         Value = updated;
+
+        Record(value, caretBefore, anchorBefore, start, end, replacement);
+    }
+
+    // The open run of typing, if one is running. `edit` is the entry already on the manager's stack;
+    // extending the run mutates it in place rather than pushing a second one, which is what makes
+    // one ⌘Z take back a word rather than a letter.
+    FieldEdit? run;
+    int runEnd;
+
+    /// <summary>One entry on an undo stack: what the field held either side of an edit.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Mutable, and that is what coalescing is.</b> A run of typing is one entry whose
+    ///     "after" grows with every keystroke; pushing an entry per character gives a ⌘Z that takes
+    ///     back one letter, which every field on every desktop refuses to do.
+    /// </remarks>
+    sealed class FieldEdit {
+        public required string Before { get; init; }
+
+        public required int CaretBefore { get; init; }
+
+        public required int AnchorBefore { get; init; }
+
+        public required string After { get; set; }
+
+        public required int CaretAfter { get; set; }
+    }
+
+    /// <summary>Records an edit with the nearest undo manager, if the field is anywhere near one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Nothing happens when there is no manager, and that is the design.</b> A throwaway
+    ///     field in a dialog with nothing behind it registers nothing and leaves ⌘Z to whatever else
+    ///     was listening — which is what stops a text box in the editor from shadowing the editor's
+    ///     own Undo with a stack that knows about typing and nothing else.
+    /// </remarks>
+    void Record(string before, int caretBefore, int anchorBefore, int start, int end, string replacement) {
+        if (FindUndoManager() is not { IsPerforming: false } manager) {
+            run = null;
+            return;
+        }
+
+        var after = Value ?? string.Empty;
+
+        // ⚠ Coalesced by *shape*, not by a clock. A wall-clock typing window calibrated on an idle
+        // machine is this repository's largest flake source; what makes two keystrokes one edit is
+        // that the second inserted at the end of the first with nothing selected and no line broken.
+        // Anything else — a delete, a paste, a caret move, a newline — starts a fresh entry.
+        var isTyping = end == start && replacement.Length > 0 && !replacement.Contains('\n');
+
+        if (isTyping && run is { } open && start == runEnd) {
+            open.After = after;
+            open.CaretAfter = CaretIndex;
+            runEnd = CaretIndex;
+
+            return;
+        }
+
+        var edit = new FieldEdit {
+            Before = before,
+            CaretBefore = caretBefore,
+            AnchorBefore = anchorBefore,
+            After = after,
+            CaretAfter = CaretIndex
+        };
+
+        manager.Register(
+            isTyping ? "Typing" : "Editing",
+            () => Restore(edit.Before, edit.CaretBefore, edit.AnchorBefore),
+            () => Restore(edit.After, edit.CaretAfter, edit.CaretAfter)
+        );
+
+        run = isTyping ? edit : null;
+        runEnd = CaretIndex;
+    }
+
+    /// <summary>Puts the field back to a recorded state, selection and all.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The selection too, not only the value and the caret.</b> Undoing a cut that has to be
+    ///     followed by re-selecting what came back is an undo that only half happened, and it is what
+    ///     a field that restored the string alone gives.
+    /// </remarks>
+    void Restore(string value, int caret, int anchor) {
+        run = null;
+
+        Value = value;
+
+        var length = Value?.Length ?? 0;
+
+        CaretIndex = Math.Clamp(caret, 0, length);
+        SelectionAnchor = Math.Clamp(anchor, 0, length);
+
+        Reveal();
+    }
+
+    /// <summary>Ends the open run of typing, so the next keystroke starts a new undo entry.</summary>
+    /// <remarks>
+    ///     Called wherever the user has said the run is over without editing: moving the caret,
+    ///     clicking elsewhere, leaving the field.
+    /// </remarks>
+    void BreakUndoRun() => run = null;
+
+    /// <summary>Takes back the last edit, if this field is under an undo manager.</summary>
+    /// <returns>Whether anything was undone.</returns>
+    public bool Undo() {
+        BreakUndoRun();
+
+        return FindUndoManager() is { CanUndo: true } manager && manager.Undo();
+    }
+
+    /// <summary>Puts back the last undone edit.</summary>
+    /// <returns>Whether anything was redone.</returns>
+    public bool Redo() {
+        BreakUndoRun();
+
+        return FindUndoManager() is { CanRedo: true } manager && manager.Redo();
+    }
+
+    /// <summary>Whether there is something to put on the clipboard, and somewhere to put it.</summary>
+    public bool CanCopy => HasSelection && Document.Clipboard is not null;
+
+    /// <summary>Whether there is text on the clipboard and this field would take it.</summary>
+    /// <remarks>
+    ///     ⚠ Asks the clipboard rather than caching, because the answer is another application's to
+    ///     change and nothing tells us when it does. That is what <c>validateMenuItem:</c> does on
+    ///     the platform this shape comes from.
+    /// </remarks>
+    public bool CanPaste => !ReadOnly && !Disabled && Document.Clipboard is { HasText: true };
+
+    /// <summary>Puts the selection on the clipboard.</summary>
+    /// <returns>Whether anything was written.</returns>
+    public bool Copy() => CanCopy && Document.Clipboard!.SetText(SelectedText);
+
+    /// <summary>Puts the selection on the clipboard and deletes it.</summary>
+    /// <returns>Whether anything was written.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A read-only field cuts nothing and copies nothing.</b> Not "copies without
+    ///     deleting": the text is still on screen, so a user who reached for Cut and got Copy has no
+    ///     way to tell which happened, and the next paste is a silent duplication. The verb is
+    ///     disabled instead, which is what the menu shows.
+    /// </remarks>
+    public bool Cut() {
+        if (ReadOnly || Disabled || !Copy()) {
+            return false;
+        }
+
+        Replace(string.Empty);
+
+        return true;
+    }
+
+    /// <summary>Replaces the selection with the clipboard's text.</summary>
+    /// <returns>Whether anything was inserted.</returns>
+    public bool Paste() {
+        if (!CanPaste || !Document.Clipboard!.TryGetText(out var text) || text.Length == 0) {
+            return false;
+        }
+
+        Replace(Flatten(text));
+
+        return true;
+    }
+
+    /// <summary>What a paste actually inserts, once the field has had its say about line breaks.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A single-line field turns every break into a space rather than dropping it.</b>
+    ///     Dropping it welds the last word of one line to the first of the next — "Ada\nLovelace"
+    ///     pastes as "AdaLovelace" — which looks like a truncation bug in whatever reads the field
+    ///     back. Truncating at the first break, which the Win32 edit control does, loses data the
+    ///     user watched themselves copy. A space is the only one of the three that is visibly what
+    ///     was asked for.
+    ///     <para>
+    ///         CRLF and a lone CR are normalised first, so a paste from a Windows application does
+    ///         not arrive with a stray carriage return inside a value that is then compared,
+    ///         serialised and diffed against one without.
+    ///     </para>
+    /// </remarks>
+    string Flatten(string text) {
+        var normalised = text.Contains('\r') ? text.Replace("\r\n", "\n").Replace('\r', '\n') : text;
+
+        return AcceptsNewlines ? normalised : normalised.Replace('\n', ' ');
     }
 
     /// <summary>What the field does with a value on its way in.</summary>
@@ -408,6 +622,26 @@ public abstract partial class TextField : Control {
     ///     that let a caller assign "banana" would then have to decide what its number was.
     /// </remarks>
     protected virtual string? Coerce(string? value) => value;
+
+    /// <summary>What the field draws for a value on its way out.</summary>
+    /// <param name="value">What is being shown, with any pre-edit already spliced in.</param>
+    /// <returns>What to put in the text part.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The mirror of <see cref="Coerce" /> and the only seam between what a field holds and
+    ///         what it shows. Overridden by <see cref="SecureTextBox" />, which is the reason it
+    ///         exists.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An override must return one UTF-16 unit per unit it was given.</b> The caret, the
+    ///         selection, the hit test and the composition underline are all indices into the value,
+    ///         and they are measured against this layout — so a substitution that changed the length
+    ///         would put the caret in a different place from the character it is in front of. Masking
+    ///         per code unit rather than per grapheme is what keeps that true, and on a run of
+    ///         identical bullets there is nothing a grapheme would have bought.
+    ///     </para>
+    /// </remarks>
+    protected virtual string? Shown(string? value) => value;
 
     /// <summary>Called when Enter is pressed, before <see cref="Submitted" /> is raised.</summary>
     protected virtual void OnSubmit() {
@@ -556,10 +790,7 @@ public abstract partial class TextField : Control {
         // `field-text` a `min-height` — the same declaration that stops an empty field collapsing.
         if (text.Block() is not { } block) {
             if (CaretIsLit) {
-                context.FillRectangle(
-                    new Rectangle(origin, top, 1f, MathF.Max(text.Height, 1f)),
-                    CaretColour(context)
-                );
+                context.FillRectangle(CaretArea, CaretColour(context));
             }
 
             return;
@@ -630,14 +861,41 @@ public abstract partial class TextField : Control {
         // ⚠ The caret is drawn even when there is a selection. Every editor does — the caret is the
         // end you are extending from, and hiding it during a Shift-Arrow leaves the user unable to
         // tell which way the next keystroke will grow the selection.
-        var caretLine = block.Lines[block.LineOf(DisplayCaret, CaretAffinity)];
-        var (caretX, caretY) = block.CaretAt(DisplayCaret, CaretAffinity);
-
-        context.FillRectangle(
-            new Rectangle(origin + ShiftOf(caretLine) + caretX, top + caretY, 1f, caretLine.Height),
-            CaretColour(context)
-        );
+        context.FillRectangle(CaretArea, CaretColour(context));
     }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Computed here rather than remembered from the last <see cref="OnDraw" />.</b> The
+    ///     caret rectangle used to exist only as three locals inside the paint, which is why nothing
+    ///     outside could place an input method's candidate window with it — and the paint now reads
+    ///     this, so the two cannot drift into disagreeing about where the caret is.
+    /// </remarks>
+    public Rectangle CaretArea {
+        get {
+            var origin = text.AbsoluteLeft;
+            var top = text.AbsoluteTop;
+
+            // An empty field has no block to ask and still has a caret — see `OnDraw`, where the
+            // same fallback is what makes clicking an empty search box look like something happened.
+            if (text.Block() is not { } block) {
+                return new(origin, top, 1f, MathF.Max(text.Height, 1f));
+            }
+
+            var line = block.Lines[block.LineOf(DisplayCaret, CaretAffinity)];
+            var (x, y) = block.CaretAt(DisplayCaret, CaretAffinity);
+
+            return new(origin + ShiftOf(line) + x, top + y, 1f, line.Height);
+        }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <see cref="ShowsCaret" />, and for exactly its reason: a caret is a promise that the next
+    ///     keystroke lands here, and an input method activated over a field that will discard what it
+    ///     commits makes the same false promise one layer up.
+    /// </remarks>
+    public bool AcceptsTextInput => ShowsCaret;
 
     /// <summary>Underlines the input method's pre-edit, which is what says it is not committed yet.</summary>
     /// <remarks>
@@ -1048,12 +1306,16 @@ public abstract partial class TextField : Control {
         var value = Value ?? string.Empty;
 
         if (!IsComposing) {
-            text.Text = Value;
+            text.Text = Shown(Value);
             return;
         }
 
+        // ⚠ The pre-edit goes through the same seam as the value. An input method's intermediate
+        // reading of a password is the password being typed, and a field that masked what was
+        // committed while showing what was being composed would leak exactly the same secret one
+        // keystroke earlier.
         var at = Math.Clamp(CaretIndex, 0, value.Length);
-        text.Text = string.Concat(value.AsSpan(0, at), composition, value.AsSpan(at));
+        text.Text = Shown(string.Concat(value.AsSpan(0, at), composition, value.AsSpan(at)));
     }
 
     void Keyed(KeyEvent args) {
@@ -1061,23 +1323,34 @@ public abstract partial class TextField : Control {
             return;
         }
 
+        // ⚠ **The chord is decided once, in one table, for both text controls.** This was a
+        // `switch (args.Key)` with `var word = Control || Meta` and a comment saying the assembly
+        // could not know which platform it was on — while `CodeEditor` had a second copy of the same
+        // switch that took Control *only*, so ⌘← moved by a word here and by one character there.
+        // Neither could ever grow the AppKit emacs bindings, because ⌃A cannot be Select All and the
+        // start of the line in the same table. See `EditingCommands`.
         var shift = args.Modifiers.HasFlag(ModifierKeys.Shift);
+        var command = EditingCommands.Resolve(args.Key, args.Modifiers, Document.EditingKeymap);
 
-        // ⚠ Ctrl on Windows and Linux, Meta on macOS — and this assembly cannot know which it is on,
-        // so it takes either. The cost is that Meta-Left also moves by word on Windows, where
-        // nothing else claims it; the alternative is a text field that does not respond to the
-        // shortcuts of whichever platform the author did not think of.
-        var word = args.Modifiers.HasFlag(ModifierKeys.Control) || args.Modifiers.HasFlag(ModifierKeys.Meta);
-
-        switch (args.Key) {
-            case InputKey.Left:
-                var back = word ? WordBefore(CaretIndex) : Step(CaretIndex, -1);
+        switch (command) {
+            case EditingCommand.MoveLeft:
+                var back = Step(CaretIndex, -1);
                 MoveCaret(back.Index, back.Affinity, shift);
                 break;
 
-            case InputKey.Right:
-                var forward = word ? WordAfter(CaretIndex) : Step(CaretIndex, 1);
+            case EditingCommand.MoveWordLeft:
+                var wordBack = WordBefore(CaretIndex);
+                MoveCaret(wordBack.Index, wordBack.Affinity, shift);
+                break;
+
+            case EditingCommand.MoveRight:
+                var forward = Step(CaretIndex, 1);
                 MoveCaret(forward.Index, forward.Affinity, shift);
+                break;
+
+            case EditingCommand.MoveWordRight:
+                var wordForward = WordAfter(CaretIndex);
+                MoveCaret(wordForward.Index, wordForward.Affinity, shift);
                 break;
 
             // ⚠ To the end of the *line* in a field that has more than one, and to the end of the
@@ -1087,34 +1360,104 @@ public abstract partial class TextField : Control {
             // are the same two indices. Home downstream is the head of the row the caret is on;
             // upstream would be the tail of the row above, so Home would appear to jump up a line.
             // End upstream is that row's own tail rather than the head of the next.
-            case InputKey.Home:
+            case EditingCommand.MoveLineStart:
                 MoveCaret(AcceptsNewlines ? LineStart(CaretIndex) : 0, CaretAffinity.Downstream, shift);
                 break;
 
-            case InputKey.End:
+            case EditingCommand.MoveLineEnd:
                 MoveCaret(AcceptsNewlines ? LineEnd(CaretIndex) : Value?.Length ?? 0, CaretAffinity.Upstream, shift);
                 break;
 
-            case InputKey.Up when AcceptsNewlines:
+            case EditingCommand.MoveDocumentStart:
+                MoveCaret(0, CaretAffinity.Downstream, shift);
+                break;
+
+            case EditingCommand.MoveDocumentEnd:
+                MoveCaret(Value?.Length ?? 0, CaretAffinity.Upstream, shift);
+                break;
+
+            case EditingCommand.MoveUp when AcceptsNewlines:
                 var movedUp = Vertically(-1);
                 MoveCaret(movedUp.Index, movedUp.Affinity, shift);
                 break;
 
-            case InputKey.Down when AcceptsNewlines:
+            case EditingCommand.MoveDown when AcceptsNewlines:
                 var movedDown = Vertically(1);
                 MoveCaret(movedDown.Index, movedDown.Affinity, shift);
                 break;
 
-            case InputKey.Backspace:
+            case EditingCommand.DeleteBackward:
                 Backspace();
                 break;
 
-            case InputKey.Delete:
+            case EditingCommand.DeleteForward:
                 Forward();
                 break;
 
-            case InputKey.A when word:
+            // ⚠ Written as *select, then replace with nothing*, which is what makes the whole family
+            // one mutation. `Replace` is where `MaxLength`, the change notification and the caret
+            // arithmetic live, so a delete that reached round it would be the second place any of
+            // the three could be wrong.
+            case EditingCommand.DeleteWordBackward:
+                DeleteTo(WordBefore(CaretIndex).Index);
+                break;
+
+            case EditingCommand.DeleteWordForward:
+                DeleteTo(WordAfter(CaretIndex).Index);
+                break;
+
+            case EditingCommand.DeleteToLineStart:
+                DeleteTo(AcceptsNewlines ? LineStart(CaretIndex) : 0);
+                break;
+
+            case EditingCommand.DeleteToLineEnd:
+                DeleteTo(AcceptsNewlines ? LineEnd(CaretIndex) : Value?.Length ?? 0);
+                break;
+
+            case EditingCommand.SelectAll:
                 SelectAll();
+                break;
+
+            // ⚠ Unhandled when there is no manager or nothing to take back, so ⌘Z climbs to the
+            // application's own `edit.undo`. A field that consumed it regardless would make the
+            // editor's Undo stop working for as long as any text box had the focus.
+            case EditingCommand.Undo:
+                if (!Undo()) {
+                    return;
+                }
+
+                break;
+
+            case EditingCommand.Redo:
+                if (!Redo()) {
+                    return;
+                }
+
+                break;
+
+            // ⚠ These return rather than break when there is nothing to do, so that an unhandled
+            // ⌘C climbs to whatever else was listening — a list that wanted to copy its selection,
+            // a document that wanted to copy the whole thing. Marking the chord handled on a field
+            // with no selection is how a text box silently eats the application's Copy.
+            case EditingCommand.Copy:
+                if (!Copy()) {
+                    return;
+                }
+
+                break;
+
+            case EditingCommand.Cut:
+                if (!Cut()) {
+                    return;
+                }
+
+                break;
+
+            case EditingCommand.Paste:
+                if (!Paste()) {
+                    return;
+                }
+
                 break;
 
             // ⚠ Two consumers want Enter in a text area and only one of them can have it, so this is
@@ -1128,15 +1471,15 @@ public abstract partial class TextField : Control {
             //     is `Submitted`, which is what `DialogService.Prompt` binds. A `TextBox` gives it
             //     the plain key; a text area cannot.
             //
-            // Ctrl-Enter is the field's answer: the modified chord submits, the plain one breaks the
-            // line. ⚠ `word` is Control *or* Meta, so Cmd-Enter submits too — which is what a Mac
-            // expects and costs nothing on Windows, where nothing else claims it.
+            // So the plain chord breaks the line and the modified one submits — Ctrl-Enter on
+            // Windows, ⌘-Enter on a Mac, which is `EditingCommand.Submit` in either table. A
+            // single-line field has no line to break and submits on both.
             //
             // ⚠ `CodeEditor` deliberately does not join this, and it is not an oversight: Ctrl-Enter
             // there inserts a newline like any other Enter, because nothing in this tree puts a code
             // editor inside a form and the second consumer therefore does not exist for it. The day
             // one does, it raises `SubmitEvent` on the chord and this comment is why.
-            case InputKey.Enter or InputKey.KeypadEnter when AcceptsNewlines && !word:
+            case EditingCommand.InsertNewline when AcceptsNewlines:
                 Replace("\n");
                 break;
 
@@ -1146,20 +1489,42 @@ public abstract partial class TextField : Control {
             // The routed event is raised last because it is the one an ancestor can see, and an
             // ancestor seeing the submission before the field's own handler has is a form whose
             // default button fires on a value the field has not finished with.
-            case InputKey.Enter or InputKey.KeypadEnter:
+            case EditingCommand.InsertNewline or EditingCommand.Submit:
                 OnSubmit();
                 Submitted?.Invoke(this);
                 Raise(new SubmitEvent());
                 break;
 
             default:
-                // Everything else, including every key that produces a character. Those arrive as
-                // TextInputEvent and must not be handled here, or the field would consume Escape,
-                // the function keys and every shortcut an ancestor was listening for.
+                // Everything else, including every key that produces a character, and every verb
+                // this control has no reading of — Tab, which is focus navigation; Escape, which a
+                // dialog wants; the completion chords, which are the code editor's. Those must not
+                // be handled here, or the field would consume every shortcut an ancestor was
+                // listening for.
                 return;
         }
 
         args.Handled = true;
+    }
+
+    /// <summary>Selects from the caret to an index and deletes what that covers.</summary>
+    /// <param name="index">The other end.</param>
+    /// <remarks>
+    ///     ⚠ <b>Leaves the selection alone and does nothing when there is one.</b> Every desktop's
+    ///     delete-by-word deletes the <i>selection</i> when there is one rather than the word beyond
+    ///     it, and a field that reached past a highlighted range would delete text the user could
+    ///     see was not selected.
+    /// </remarks>
+    void DeleteTo(int index) {
+        if (!HasSelection) {
+            if (index == CaretIndex) {
+                return;
+            }
+
+            SelectionAnchor = index;
+        }
+
+        Replace(string.Empty);
     }
 
     void Backspace() {

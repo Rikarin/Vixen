@@ -117,6 +117,23 @@ partial class Build {
     ///         build, which is exactly the subject of this gate.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>"<c>Editor/</c> is applications" is true of three projects and false of
+    ///         twenty-two, which is #641 and is not settled here.</b> The <c>TOOLING</c> profile in
+    ///         <c>Directory.Build.props</c> sets no <c>IsPackable</c> at all, so every Editor project
+    ///         takes the SDK's default of <em>true</em>: only <c>Vixen.Editor.App</c>,
+    ///         <c>Vixen.Editor.Host</c> and <c>Vixen.Editor.Testing</c> opt out, and the two
+    ///         generators are excluded by the compiler-plugin profile. The other twenty-two pack —
+    ///         and every one of them carries a <c>&lt;Description&gt;</c>, <c>PackageTags</c> and a
+    ///         <c>PackageReadmeFile</c>, which is a project that means to ship rather than an
+    ///         accident of the default. Twenty-one of the twenty-two are checked by nothing, because
+    ///         <c>Vixen.Editor.Plugin</c> is the one named below. So the criterion this remark closes
+    ///         with — <em>not covered, because none of them packs</em> — does not hold for
+    ///         <c>Editor/</c>, and the two statements cannot both stand: either those twenty-one
+    ///         should be covered the way <c>Core/</c> is, or they should not be packing. ⚠ Note that
+    ///         "cover only the ones carrying package metadata" is not a third way out, because that
+    ///         set is all twenty-two.
+    ///     </para>
+    ///     <para>
     ///         And <c>Vixen.Raven</c>, which is the second named exception. <c>Raven/</c> is
     ///         build-time tooling and is not covered as a folder — but the compiler is not the CLI
     ///         around it. Its own <c>.csproj</c> says so: <em>"Shipped package: the compiler is

@@ -100,6 +100,18 @@ public abstract class Component : IComposable {
     internal string? Scope => StyleIsScoped ? ScopedStyles.ScopeOf(GetType()) : null;
 
     internal void Mount(BuildContext ctx, UiElement root) {
+        Attach(ctx, root);
+        Compose(ctx);
+    }
+
+    /// <summary>Everything a mount does before <see cref="Build" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Split out so that a caller can assign the component's parameters in between.</b>
+    ///     They used to be assigned after <c>Build</c> had run, which meant every effect the
+    ///     component made had already read them at their defaults — see
+    ///     <see cref="BuildContext.Create{T}(Vixen.Ui.UiElement,string)" />.
+    /// </remarks>
+    internal void Attach(BuildContext ctx, UiElement root) {
         Root = root;
         Content = root;
         Slots = null;
@@ -114,6 +126,11 @@ public abstract class Component : IComposable {
         if (Scope is { } scope) {
             root.AddClass(scope);
         }
+    }
+
+    /// <summary>The rest of a mount: <see cref="Build" /> and what depends on what it made.</summary>
+    internal void Compose(BuildContext ctx) {
+        var root = Root;
 
         Build(ctx);
 

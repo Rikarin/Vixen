@@ -66,6 +66,11 @@ public sealed class WebPlatform : IPlatform {
         WebClock.Prime();
         WebInterop.Initialise();
         MobileLifecycle.EnterForeground();
+
+        // After `Initialise`, because the module has to be there to be asked. Seeded rather than
+        // left to the first pump so that a host choosing a palette before its first frame chooses
+        // the right one.
+        ColorScheme = (SystemColorScheme)WebInterop.ColorScheme();
     }
 
     /// <summary>Creates the platform, once the browser has given us everything it has to give.</summary>
@@ -128,6 +133,15 @@ public sealed class WebPlatform : IPlatform {
 
     /// <inheritdoc />
     public IDisplayInfo Displays { get; } = new WebDisplays();
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Polled once a pump rather than driven by the media query's <c>change</c> listener.</b>
+    ///     A listener would be the browser's own idiom and would mean one more entry in the event
+    ///     ring for a fact that is two <c>matchMedia</c> calls to read — and <c>matchMedia</c> results
+    ///     are cached by the browser, so asking is a property read rather than a re-evaluation.
+    /// </remarks>
+    public SystemColorScheme ColorScheme { get; private set; }
 
     /// <inheritdoc />
     public IFileSystemHost FileSystem => fileSystem;
@@ -262,6 +276,15 @@ public sealed class WebPlatform : IPlatform {
 
         TakeDroppedFiles();
         input.PollGamepads(events, WebClock.Now);
+
+        // ⚠ Before `Drain`, so the change travels in the batch it happened in — see the same note on
+        // `DesktopPlatform.PumpEvents`, which is the other half of this wire.
+        var scheme = (SystemColorScheme)WebInterop.ColorScheme();
+
+        if (scheme != ColorScheme) {
+            ColorScheme = scheme;
+            events.Post(PlatformEvent.Application(PlatformEventKind.SystemColorSchemeChanged, WebClock.Now));
+        }
 
         var frame = events.Drain();
 

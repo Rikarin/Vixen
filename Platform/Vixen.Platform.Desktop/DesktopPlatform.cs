@@ -126,6 +126,7 @@ public sealed unsafe class DesktopPlatform : IPlatform {
     readonly bool requestGpuSurface;
     readonly bool requestGlContext;
     readonly IPlatformSupplement? supplement;
+    readonly DesktopAppearance appearance;
 
     bool disposed;
 
@@ -202,6 +203,11 @@ public sealed unsafe class DesktopPlatform : IPlatform {
             services = supplement.Augment(services);
         }
 
+        // ⚠ Last, and read once here rather than lazily on the first `ColorScheme`. The whole point
+        // of the property is that a host can seed its document from it before the first frame, and a
+        // lazy first read would put a `gsettings` subprocess in the middle of one.
+        appearance = new DesktopAppearance();
+
         Clipboard = services.Clipboard;
         Dialogs = services.Dialogs;
         Power = services.Power;
@@ -241,6 +247,9 @@ public sealed unsafe class DesktopPlatform : IPlatform {
 
     /// <inheritdoc />
     public IDisplayInfo Displays { get; }
+
+    /// <inheritdoc />
+    public SystemColorScheme ColorScheme => appearance.Current;
 
     /// <inheritdoc />
     public IFileSystemHost FileSystem { get; }
@@ -371,6 +380,16 @@ public sealed unsafe class DesktopPlatform : IPlatform {
 
         while (sdl.PollEvent(&sdlEvent) != 0) {
             Translate(&sdlEvent);
+        }
+
+        // ⚠ After the SDL drain and before `Drain`, so the appearance change is in the same batch as
+        // whatever else happened this frame. Posting it after the span was taken would hold it until
+        // the next pump — one frame late on every theme switch, and on a host that pumps only on
+        // input, indefinitely.
+        if (appearance.Pump()) {
+            events.Post(
+                PlatformEvent.Application(PlatformEventKind.SystemColorSchemeChanged, TimestampOf(sdl.GetTicks()))
+            );
         }
 
         return events.Drain();
@@ -665,7 +684,7 @@ public sealed unsafe class DesktopPlatform : IPlatform {
                         sdlEvent->Drop.WindowID,
                         TimestampOf(sdlEvent->Drop.Timestamp),
                         text,
-                        Vector2.Zero
+                        DropPosition(sdlEvent->Drop.WindowID)
                     )
                 );
 
@@ -679,6 +698,39 @@ public sealed unsafe class DesktopPlatform : IPlatform {
             default:
                 break;
         }
+    }
+
+    /// <summary>Where the pointer is over a window, for an event that does not say.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>SDL 2's drop event carries no coordinates at all, and posting
+    ///         <c>Vector2.Zero</c> is not a neutral answer — it is the top-left corner.</b> A
+    ///         consumer that hit-tests a drop the way it hit-tests a click would therefore deliver
+    ///         every file in the application to whatever element happens to sit in that corner,
+    ///         which is a working-looking wire that is wrong everywhere. That was the shipped
+    ///         behaviour until this had a consumer, and it was invisible because it had none.
+    ///     </para>
+    ///     <para>
+    ///         <b>The position has to be asked for rather than read off the event, and it cannot be
+    ///         remembered from the last motion event either</b>: while a native drag is in progress
+    ///         the window system owns the pointer and SDL delivers no motion at all, so the last one
+    ///         seen is from wherever the pointer was before the drag began.
+    ///         <c>SDL_GetGlobalMouseState</c> queries the window system instead of reading SDL's
+    ///         cached state, which is what makes it answer during a drag, and it reports desktop
+    ///         coordinates in the same logical points <c>IWindow.Position</c> is in — so the
+    ///         difference is the position within the window.
+    ///     </para>
+    /// </remarks>
+    Vector2 DropPosition(uint windowId) {
+        if (!byId.TryGetValue(windowId, out var window) || window.IsClosed) {
+            return Vector2.Zero;
+        }
+
+        int x, y;
+        sdl.GetGlobalMouseState(&x, &y);
+        var origin = window.Position;
+
+        return new(x - origin.X, y - origin.Y);
     }
 
     void TranslateWindow(Event* sdlEvent) {

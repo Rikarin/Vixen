@@ -221,6 +221,7 @@ Vixen.Ui.Layout.LayoutResult.Margin -> Vixen.Ui.Layout.EdgeValues
 Vixen.Ui.Layout.LayoutResult.MeasuredDimensions -> Vixen.Ui.Layout.DimensionValues
 Vixen.Ui.Layout.LayoutResult.MinContentOwnerHeight -> float
 Vixen.Ui.Layout.LayoutResult.MinContentOwnerWidth -> float
+Vixen.Ui.Layout.LayoutResult.MinContentProbeWidth -> float
 Vixen.Ui.Layout.LayoutResult.MinContentSizes -> Vixen.Ui.Layout.DimensionValues
 Vixen.Ui.Layout.LayoutResult.NextCachedMeasurementsIndex -> uint
 Vixen.Ui.Layout.LayoutResult.Padding -> Vixen.Ui.Layout.EdgeValues

@@ -87,11 +87,16 @@ static class ParityLedger {
     ///     state.</b> <c>unknown</c> existed for one row: an aggregate the original script left behind,
     ///     eight static classes from unrelated Tailwind roots under one descriptive name, of which two
     ///     resolved and six did not. Recording that was better than picking the state that flattered —
-    ///     and better still was splitting the row, which its own note asked for. The eight classes now
-    ///     sit on the roots that actually own them: <c>snap-mandatory</c> and <c>snap-proximity</c> on
-    ///     <c>snap</c>, <c>space-x-px</c> and <c>space-y-px</c> on their own families, and the four
-    ///     <c>*-reverse</c> classes on two rows of their own that read <c>absent</c> and say why.
-    ///     Nothing here can produce <c>unknown</c> any more, so nothing here offers it.
+    ///     and better still was giving the eight classes the roots that actually own them, which the
+    ///     row's own note asked for. <c>snap-mandatory</c> and <c>snap-proximity</c> are v4's
+    ///     strictness half of <c>scroll-snap-type</c>, <c>space-x-px</c> and <c>space-y-px</c> are
+    ///     values of the functional roots that already emit them, and the four <c>*-reverse</c>
+    ///     switches are static roots of their own, on two rows that read <c>absent</c> and say why.
+    ///     What is left of the aggregate is measured like every other row, at the <c>absent</c> the
+    ///     engine reports for it. Nothing here can produce <c>unknown</c> any more, so nothing here
+    ///     offers it — a state nothing can produce is a state somebody finds a use for — and
+    ///     <c>Bucket</c>, the predicate that recognised the one row, went with it out of
+    ///     <see cref="Derive" />.
     /// </remarks>
     public static readonly string[] States = ["works", "partial", "inert", "absent", "composed"];
 

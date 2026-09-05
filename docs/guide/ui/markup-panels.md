@@ -81,6 +81,30 @@ itself into is removed or the branch that built it closes. Whichever comes first
 Neither is an override, so neither costs anything when nobody implements it. `@code` may not override
 `OnCreated` or `OnRemoved`: the generated scaffold uses both, and these two run in the same places.
 
+### A component is built with its parameters
+
+`<Panel Model="@Model" />` assigns `Model` **before** the panel's `Build` runs — the emitter writes
+`BuildContext.Create`, the assignments, then `BuildContext.Compose`, and only a tag that carries a
+parameter pays for the split.
+
+⚠ **It used not to.** `Child<T>` constructs a component, mounts it — which runs `Build` — and
+returns, so the assignment landed after every effect inside the panel had already read the property
+once at its default. A plain C# property assigned then notifies nobody, so the panel drew the default
+for ever and nothing said so.
+
+⚠ **Signal-backing is still what makes a prop keep up.** The order fixes the value the child is built
+with; it does not make a plain property something an effect inside the child can subscribe to. A prop
+that has to follow its source after the build is signal-backed, exactly as before:
+
+```csharp no-compile="the shape every panel prop takes; Samples/02-HelloUi/Shell.vxml has the real one"
+readonly Signal<ShellModel> model = new(new());
+
+public ShellModel Model {
+    get => model.Value;
+    set => model.Value = value;
+}
+```
+
 ### The three universal attributes
 
 `class`, `style` and `binding-path` mean the same on a component tag as on an element, and are never
@@ -480,6 +504,14 @@ selector can match it and nothing reads it back. So `row.Add("fact-name").Text =
 markup spelling, and the difference is a box: a `text` child is a layout node and the parent's own
 text is not.
 
+⚠ **`VXML2020` warns when the name is capitalised**, because that is the shape of an author who
+expected an assignment: `<div AccessibleName="Save" Focusable="true">` compiled, matched an
+`[AccessibleName]` selector and did nothing at all. The rule reads the *case* of the name rather than
+looking the property up — the binder is syntax only, and never touches the compilation — so a
+selector attribute spelled the way CSS spells one (`data-state`, `role`, `aria-label`) is left alone.
+A warning rather than an error: a capitalised attribute really is matchable, so the reading is legal
+and merely almost never meant.
+
 ⚠ **A capitalised tag is a real property assignment, and that is the whole escape.** It does not have
 to be a `Component` or a `.vxml` — the emitter writes `ctx.Child<T>(…)` for any PascalCase tag and
 lets C# resolve it, and `Text` is a `[UiProperty]` on every `UiElement`:
@@ -521,6 +553,14 @@ every per-item binding stays closed over the item as it was when its key first a
 So a row of immutable data keyed on a stable field never updates again. `VXML2011` warns when a key
 is a member access off the loop variable, which is the shape that mistake always takes; whether the
 item holds signals is a question about its type, and the markup binder deliberately resolves none.
+
+⚠ **And it is why `@for` has no index variable.** The obvious spelling — a second name bound to the
+item's position — would be captured in a body that a surviving key never re-runs, so every row's
+index would be whatever it was when its key first appeared and a reorder would leave all of them
+lying. An index that behaves has to be a signal per row, written by the reconciler when it
+repositions; it is not a name the emitter can simply hand to the body. The rule is the same one this
+section states, one step further along: *a binding may close over a region's identity and never over
+its position.*
 
 ### ⚠ And the same rule governs `@if`
 

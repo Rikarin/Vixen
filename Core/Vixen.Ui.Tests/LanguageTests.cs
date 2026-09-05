@@ -49,8 +49,8 @@ public class LanguageTests {
         document.Load(
             """
             root  { width: 600px; height: 300px; align-items: flex-start; }
-            panel { width: 300px; }
-            label { font-family: Test; font-size: 16px; width: 300px; }
+            panel { width: 300px; flex-shrink: 0; }
+            label { font-family: Test; font-size: 16px; width: 300px; flex-shrink: 0; }
             """
         );
 
@@ -217,8 +217,12 @@ public class LanguageTests {
     ///     is a fact about the document that a stylesheet selects on; a property would let a theme
     ///     assert what language somebody's words are in, which is the one thing font fallback,
     ///     locale-aware casing and hyphenation must not let it do. CSS Selectors 4 defines
-    ///     <c>:lang(de)</c> as the BCP-47 prefix match <c>[lang|="de"]</c> — so <c>de-AT</c> matches
-    ///     and <c>den</c> does not — and this engine already has that operator.
+    ///     <c>:lang(de)</c>'s <i>comparison</i> as the BCP-47 range match <c>[lang|="de"]</c> also
+    ///     performs — so <c>de-AT</c> matches and <c>den</c> does not — and this engine already had
+    ///     that operator. ⚠ It is not the same selector, though, and the sentence this remark used
+    ///     to end on said it was: see
+    ///     <see cref="The_lang_pseudo_class_reaches_a_child_that_declares_nothing" />. The attribute
+    ///     asks what an element declares; the pseudo-class asks what its content is in.
     /// </remarks>
     [Fact]
     public void A_stylesheet_selects_on_the_language_by_prefix() {
@@ -235,6 +239,103 @@ public class LanguageTests {
 
         Assert.Equal(111f, austrian.Width, 0.001f);
         Assert.Equal(300f, danish.Width, 0.001f);
+    }
+
+    /// <summary><c>:lang()</c> selects the content language, which the attribute selector cannot.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This refutes the sentence above it, and #606's premise with it.</b> Both say
+    ///     <c>:lang(de)</c> is a <i>spelling</i> of <c>[lang|="de"]</c> because Selectors 4 defines
+    ///     the comparison that way. The comparison, yes; the subject, no. An attribute selector asks
+    ///     what an element <i>declares</i>, and <c>:lang()</c> asks what language its content
+    ///     <i>is in</i> — which inherits from the nearest ancestor that declared one, exactly as
+    ///     <see cref="UiElement.ResolvedLanguage" /> does. The label below declares nothing and is
+    ///     German, and only one of the two selectors can tell.
+    /// </remarks>
+    /// <remarks>
+    ///     ⚠ Two documents rather than two properties in one, and the first draft was the lesson:
+    ///     asserting the <c>height</c> of a label inside a 77-pixel panel measures flexbox's default
+    ///     <c>align-items: stretch</c> and not the selector at all. The two spellings are asked the
+    ///     same question about the same scene instead, and the answers differ.
+    /// </remarks>
+    [Theory]
+    [InlineData(":lang(de)", 111f)]
+    [InlineData("""[lang|="de"]""", 300f)]
+    public void The_lang_pseudo_class_reaches_a_child_that_declares_nothing(string selector, float expected) {
+        using var document = Documented();
+        document.Load($"{selector} {{ width: 111px; }}");
+
+        var panel = document.Root.Add("panel");
+        var label = panel.Add("label");
+
+        panel.Language = "de";
+        document.Update();
+
+        // The panel declares it, so both spellings reach the panel — which is what makes the label
+        // the only element the two disagree about.
+        Assert.Equal(111f, panel.Width, 0.001f);
+        Assert.Equal(expected, label.Width, 0.001f);
+    }
+
+    /// <summary>A document-level language is the bottom of <c>:lang()</c>'s climb too.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half that would have made the selector unusable.</b> The commonest configuration
+    ///     is a host that declares the interface's language once, on
+    ///     <see cref="UiDocument.Language" />, with no <c>lang</c> attribute anywhere in the tree. A
+    ///     <c>:lang()</c> that read attributes alone would match nothing at all in it.
+    /// </remarks>
+    [Fact]
+    public void The_documents_language_reaches_the_pseudo_class() {
+        using var document = Documented();
+        document.Load(":lang(de) { width: 111px; }");
+
+        var panel = document.Root.Add("panel");
+
+        document.Update();
+        Assert.Equal(300f, panel.Width, 0.001f);
+
+        document.Language = "de-CH";
+        document.Update();
+
+        Assert.Equal(111f, panel.Width, 0.001f);
+    }
+
+    /// <summary>Casing is language-dependent, and the tag reaches the transform that does it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Asserted as a glyph, because this one has a picture.</b> Turkish <c>i</c>
+    ///         uppercases to <c>İ</c> and not to <c>I</c> — two different letters, so two different
+    ///         glyph ids in the same face — and the whole question is whether the element's language
+    ///         reaches <c>TransformedText.Of</c> at all. A width would not answer it: the two letters
+    ///         are nearly the same width.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The control is the same label with no language</b>, which must draw the plain
+    ///         <c>I</c>. Without it the assertion would pass against a build that uppercased to
+    ///         <c>İ</c> for everybody.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_Turkish_label_uppercases_to_the_dotted_capital() {
+        using var document = Documented();
+        document.Load("label { text-transform: uppercase; }");
+
+        var turkish = document.Root.Add("label");
+        var undeclared = document.Root.Add("label");
+
+        turkish.Language = "tr";
+        turkish.Text = "i";
+        undeclared.Text = "i";
+
+        document.Update();
+
+        var dotted = Font.GlyphFor(0x0130);
+        var plain = Font.GlyphFor('I');
+
+        Assert.NotEqual(0, dotted);
+        Assert.NotEqual(dotted, plain);
+
+        Assert.Equal(dotted, Placements(turkish.Block(300f)).Single().GlyphId);
+        Assert.Equal(plain, Placements(undeclared.Block(300f)).Single().GlyphId);
     }
 
     static List<GlyphPlacement> Placements(TextLayout? block) {

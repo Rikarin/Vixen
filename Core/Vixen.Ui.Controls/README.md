@@ -174,6 +174,37 @@ flick is still running.
 the rubber-band and pull-to-refresh at the boundary, and this engine has neither, so there is nothing
 for `none` to additionally suppress. Both stop the chain, which is the half the class is written for.
 
+⚠ **There is no scroll anchoring, and the attempt at it is worth recording because the obstacle is not
+where it looks.** CSS Scroll Anchoring keeps the reader still when content above them grows: remember
+the first child the viewport can see and its position in *content* space — `Top` is relative to
+`Content` and the scroll is an `OffsetY` applied after layout, so the two are independent — and the
+difference between one frame's position and the next's is exactly what appeared above it. Hung on
+`Refresh` from `LayoutFinished` that correction lands inside the same frame's settle loop, it is four
+lines, and a closed-form test over forty-pixel rows passes both directions and both instrument checks.
+
+⚠ **It is not here because it fights a row recycler, which no browser has to deal with.** The rule
+assumes an element's position in content space changes only when content is inserted or removed above
+it. A virtualising panel breaks that assumption on every scroll: it *reuses* one element for a
+different row, so the anchor moves for a reason that is not growth, and the correction cancels the
+scroll that caused it. `EditorShellBudgetTests.Scrolling_one_row_restyles_the_rows_it_rebound_and_not_the_shell`
+catches it exactly — the scroll ends up dirtying nothing at all — and no cheap discriminator separates
+the two cases: keying off the child count would miss an image that finished decoding, and keying off
+the content height would fire on a virtualiser realising a row. Anchoring here needs a recycler that
+says which of its children are the *same content* as last frame, and that is the work rather than the
+four lines.
+
+⚠ **Momentum and rubber-band are still absent, and the reason is one level down from where it is
+usually looked for.** There is no drag-to-scroll on the content at all: a `ScrollView` scrolls from
+the wheel, the keyboard and its bars, and handles no `PointerEvent` or `DragEvent` of its own. So
+there is no finger for a fling to continue, and velocity tracking has nothing to track until content
+dragging exists. On the wheel path the question is different again and is a
+platform one that should be answered before any curve is written: AppKit generates a trackpad's
+momentum phase itself and SDL forwards those events as ordinary wheel deltas, which would mean a
+flick on macOS already coasts and a second deceleration here would fight it. ⚠ That is reasoned from
+the two APIs and **has not been measured on a device**, and measuring it is the first step of the
+work rather than a footnote to it — a deceleration added on top of an OS that already provides one is
+a bug that only shows up on the platform the feature was asked for.
+
 ## The theme
 
 **The sheet is `ControlTheme.vcss`, a file beside the loader**, embedded by the `**/*.vcss` glob in
@@ -229,6 +260,51 @@ to. Clicking still opens one, for the keyboard's Right arrow and for anybody who
 placed beside the item that opens it, so reaching into it means leaving that item — a close-on-exit
 rule would shut the menu the user is reaching for, every time, and no nested command would be
 reachable with the mouse at all.
+
+### The menu bar is drawn, and stays drawn — decided 2026-09-05
+
+`MenuBar` is a `Control` and there is no `IUiMenuHost`, no `NSMenu`, no `SetMenu` on `IWindow` and no
+seam in `Core/Vixen.Ui` for one. That is the state; this is why it is not being changed yet.
+
+⚠ **The urgency argument for native menus is built on a claim that is false.** Doc 49 § Part 5 and
+issue #652 both say that a macOS application with no `NSMenu` "has no ⌘Q and no About, and the OS
+draws the previous application's bar". SDL builds one. The library this engine actually loads on a
+Mac — `sdl2-compat` over SDL3 — carries the whole default application menu in its binary: `strings`
+on `libSDL3.0.dylib` finds `About `, `Services`, `Hide `, `Hide Others`, `Show All`, `Quit `,
+`Window`, `Minimize`, `Zoom` and `Toggle Full Screen`, alongside the `setMainMenu:`, `setAppleMenu:`,
+`hideOtherApplications:` and `orderFrontStandardAboutPanel:` selectors that install and drive them. A
+Vixen application on macOS therefore has ⌘Q, About, Hide, Services and a working Window menu today,
+without a line of code.
+
+**So what is actually missing is narrower than it was filed as**: an application's *own* menus —
+File, Edit, View, Help — appear inside the window rather than in the system bar. That is a
+platform-convention gap, not a broken quit.
+
+**Three reasons to leave it.**
+
+- **The test suite can drive a drawn menu and cannot drive an `NSMenu`.** A drawn bar is in the draw
+  list, so it is screenshotted by the golden-image suite and clicked by a headless run; a native one
+  is in another process's compositor and its items are reachable only through the accessibility API.
+  Making the native path the default would move the menu bar out of every test that covers it.
+- **A seam is cheap and the implementations are not.** `IUiMenuHost` is an afternoon. Three native
+  implementations that keep enablement, checkmarks, key equivalents, dynamic items and the responder
+  chain's answers in step with a live `MenuBar` are not, and a half-built one is worse than none: a
+  greyed item that should be live reads as a broken command.
+- **Nothing above is blocked on it.** Every capability the menus carry is reachable through the drawn
+  bar and through `Commands`; this is about where the strip is painted.
+
+**What changes the answer**, and these are the conditions to reopen on rather than a preference:
+
+1. A shipped application whose users are on macOS full-time — the convention gap is felt daily there
+   and barely at all on Windows or Linux, where an in-window menu bar is ordinary.
+2. Global shortcuts that must work while a modal native panel is up: an `NSMenu` key equivalent does,
+   a drawn one does not, because the drawn bar's window is not in the responder chain then.
+3. The accessibility work landing. A native bar is read by VoiceOver for free; the drawn one needs
+   `Core/Vixen.Ui`'s accessibility layer to have a consumer, which it does not yet have.
+
+Recorded here rather than in the issue because a decision that lives only in a tracker is a decision
+the next reader re-derives. See `docs/plan/49-responder-chain-and-appkit-parity.md` § Part 5 for the
+proposed `IUiMenuHost` shape, which stands unchanged if the answer becomes yes.
 
 ## What the set says to a screen reader
 

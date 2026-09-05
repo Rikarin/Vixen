@@ -119,8 +119,25 @@
             NuGet appends an item's own recursive path to a PackagePath that has no extension on it, so
             spelling the path out gives every file its directory twice.
         -->
+        <!--
+            ⚠ **Assimp's major 6 is dropped and its major 5 is kept, which is the opposite way round
+            from how the saving was first filed.** `Ultz.Native.Assimp` 6.0.2 ships two sonames in
+            every Linux and macOS RID and the binding names exactly one of them:
+            `Silk.NET.Assimp` 2.23.0's `AssimpLibraryNameContainer` reads `libassimp.so.5` on Linux
+            and Android, `libassimp.5.dylib` on macOS, and the unversioned `Assimp64.dll` /
+            `Assimp32.dll` on Windows — which is why `ci.yml` installs Ubuntu's `libassimp5` and says
+            in as many words that a 6 there "would load and then be wrong in ways a signature cannot
+            catch". So the copy nothing opens is the **6**, 44 251 540 bytes of it across the five
+            RIDs that carry a pair, and Windows has no pair to choose between.
+
+            The version is named rather than globbed. `libassimp.so.*` would drop both the day the
+            binding moves to 6 and leave a package whose model importer throws on first use — the one
+            failure mode this exclusion can produce, and the reason it is spelt with the number in it.
+        -->
         <None Include="$(VixenCliOutputDirectory)runtimes/**/*"
-              Exclude="$(VixenCliOutputDirectory)runtimes/**/*.pdb"
+              Exclude="$(VixenCliOutputDirectory)runtimes/**/*.pdb;
+                       $(VixenCliOutputDirectory)runtimes/**/libassimp.so.6;
+                       $(VixenCliOutputDirectory)runtimes/**/libassimp.6.dylib"
               Pack="true"
               PackagePath="tools/runtimes/"
               Visible="false" />

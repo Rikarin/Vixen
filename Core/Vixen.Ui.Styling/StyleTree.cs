@@ -130,6 +130,29 @@ public sealed class StyleTree {
     /// <summary>The table this store's names live in.</summary>
     public NameTable Names => names;
 
+    /// <summary>The language in force where no element declares one, as a BCP-47 tag.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The bottom of <c>:lang()</c>'s climb</b>, and the only fact about the whole
+    ///         document this store carries. <c>UiDocument.Language</c> mirrors into it, so a host
+    ///         that declares the interface's language once has said it to the selector engine too.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not on the root element, which is where it would be tempting to put it.</b>
+    ///         Writing the document's tag into the root's <c>lang</c> attribute would make
+    ///         <c>UiElement.Language</c> report it as a declaration, and the two are ordered:
+    ///         <c>lang</c> on the root must beat the document's default, which it cannot do if they
+    ///         share one slot.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Empty means undetermined, and is never the process locale.</b> Same rule as
+    ///         <c>UiDocument.Language</c> and for the same reason: a document must select and shape
+    ///         identically on a German laptop and on CI. An element in an undetermined language
+    ///         matches no <c>:lang()</c> at all.
+    ///     </para>
+    /// </remarks>
+    public string Language { get; set; } = string.Empty;
+
     /// <summary>How many slots have ever been used, live and removed alike.</summary>
     /// <remarks>
     ///     The bound for anything walking the store by index, which is why it counts removed slots
@@ -886,6 +909,56 @@ public sealed class StyleTree {
         var parent = links[index].Parent;
         var position = links[index].IndexInParent;
         return parent < 0 || position == 0 ? NoParent : childArena[links[parent].ChildOffset + position - 1];
+    }
+
+    /// <summary>The element's one-based position among the siblings that share its tag.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Counted rather than looked up, and it is the one structural test that cannot be
+    ///     O(1) here.</b> <see cref="IndexInParentOf" /> is stored because a child's position is
+    ///     maintained by every insertion anyway; an of-type position is a position in a subsequence
+    ///     that depends on which tag is being asked about, so a stored copy would be one number per
+    ///     element per tag. Browsers count it too. The walk is over the parent's child list, which
+    ///     is contiguous in the arena, and it runs only for a selector that asked for it.
+    /// </remarks>
+    internal int TypeIndexOf(int index) {
+        var parent = links[index].Parent;
+        if (parent < 0) {
+            return 1;
+        }
+
+        var tag = tags[index];
+        var offset = links[parent].ChildOffset;
+        var position = links[index].IndexInParent;
+        var seen = 0;
+
+        for (var i = 0; i <= position; i++) {
+            if (tags[childArena[offset + i]] == tag) {
+                seen++;
+            }
+        }
+
+        return seen;
+    }
+
+    /// <summary>How many of the element's siblings — itself included — share its tag.</summary>
+    internal int TypeCountOf(int index) {
+        var parent = links[index].Parent;
+        if (parent < 0) {
+            return 1;
+        }
+
+        var tag = tags[index];
+        var offset = links[parent].ChildOffset;
+        var count = links[parent].ChildCount;
+        var seen = 0;
+
+        for (var i = 0; i < count; i++) {
+            if (tags[childArena[offset + i]] == tag) {
+                seen++;
+            }
+        }
+
+        return seen;
     }
 
     internal AncestorBloom BloomOf(int index) => blooms[index];

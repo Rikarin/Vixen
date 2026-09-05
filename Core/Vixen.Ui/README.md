@@ -33,9 +33,10 @@ top.
 | `KeyEvent`, `TextInputEvent` | Keys routed from the focus outwards; typed text as its own event. Tab is the document's default, after the route. |
 | `UiDocument.Track` | `:hover` and `:active` on the ancestor chain, `Entered`/`Exited` per element crossed, `:focus-visible` from how the focus arrived. |
 | `WheelEvent` | Hit-tested and bubbling, so nested scrolling chains on `Handled` rather than on a rule. Carries `Modifiers`, because Ctrl-wheel means zoom in every canvas and timeline ever written. |
+| `DropEvent` | A file or a string dragged in from another application, hit-tested and bubbling like a wheel. ⚠ The OS half only: there is no `DataObject` and no in-app drop model, because the payload an in-app drag negotiates is the half an OS drop cannot fill in. |
 | `UiElement.OnCreated`, `TagName` | The constructor a control cannot have, and the element name a type answers to. |
 | `UiElement.OffsetX/Y` | A translation applied after layout — scrolling, popups and drag previews, at the cost of a walk. |
-| `translate` (CSS) | The declarative half of the same idea, resolved by `TranslationReader` and added into the same sum. Separate from `OffsetX` on purpose: a stylesheet must not be able to erase a scroll position. `scale` and `rotate` are refused — a `DrawCommand` is an axis-aligned rectangle. |
+| `translate` (CSS) | The declarative half of the same idea, resolved by `TranslationReader` and added into the same sum. Separate from `OffsetX` on purpose: a stylesheet must not be able to erase a scroll position. `scale` and `rotate` are *not* refused — `TransformReader` composes them into one `UiTransform` a composited group's four vertices carry and the hit test inverts, because a shape change cannot be folded into a position the way a translation can. |
 | `UiElement.SetStyle` | Declarations written on an element, for the lengths no stylesheet was given: a splitter's ratio, a virtualised row's position. |
 | `UiDocument.Reparent` | Moving a subtree to a different parent: fresh style slots, the same elements. What docking and drag-and-drop between lists are made of. |
 | `UiElement.Role`, `AccessibleName`, `AccessibleState`, relations | What a screen reader is told: a WAI-ARIA role, a name, a value, a state set, and the pairings the tree does not show. Computed from the control, not stored on it. |
@@ -93,6 +94,16 @@ simply a handler on the root, which always responds — so nothing changes for o
 **The walk starts at `CommandFocus ?? Root`.** The root rather than nothing, so a document-wide
 handler still answers while the focus is nowhere. With something focused the root is on the walk
 anyway.
+
+⚠ **What runs a command is here; what a keystroke means is not.** There is no chord table in
+`Vixen.Ui` and no `.vxml` spelling of a shortcut — `MenuItem.ShowShortcut(key, modifiers)` *draws* one
+and registers nothing, which is why `Samples/02-HelloUi/Shell.vxml` says in as many words that a menu
+claiming ⌘S would be lying. The half that is missing is only the table, though, and it is not
+missing from the tree: `Editor/Vixen.Editor.Ui/Commands/CommandDispatcher.cs` attaches to any
+`UiDocument`, turns a `KeyEvent` into a platform-adapted `KeyChord`, resolves it against a `KeyMap` in
+the focused context and executes — falling through rather than refusing when the chord belongs
+somewhere the user is not. So an application that is not the editor has the route and not the chords,
+and what it lacks is a home for that dispatcher below `Vixen.Editor.Ui`, not the dispatcher.
 
 ### Past the root: responders that are not elements
 
@@ -327,6 +338,99 @@ The gate is `Vixen.Ui.Testing.AccessibilitySnapshot`: `Render` for the tree as c
 `Unnamed` for the assertion a snapshot cannot make. ⚠ Assert `Unnamed` first — a snapshot of a
 document with no accessibility at all is the empty string, and an expectation of the empty string
 matches it.
+
+## What a screen-reader bridge has to be, and why there is not one
+
+⚠ **Everything above is read by xUnit and by nothing else.** Every `AccessibilityInvalidated +=` in
+the repository is in a test — `Vixen.Ui.Tests/AccessibilityTests.cs:32,176,208` and the two
+`AccessibilityNotificationTests` — and grepping every platform assembly for `NSAccessibility`,
+`IRawElementProvider`, `UIAutomation`, `AtSpi` and `IAccessible` returns nothing. No screen reader on
+any platform can see a Vixen element, and the suite that covers the tree is green either way, which
+is exactly the question the working agreement says to ask of an instrument: *what does this print on
+the day it does not run?* This section is the shape the missing half has to take, written down
+because the tree above was designed against it and the reasons are not recoverable from the code.
+
+**The bridge is per surface, not per document.** Every one of the three protocols roots at a *window*
+— an `NSWindow`, an `HWND`, an AT-SPI object with `ROLE_FRAME` — and `UiDocument` deliberately spans
+several (`Surfaces.cs:20`, and one document across windows is the thing this framework does that
+AppKit does not). So the attach and detach points are `SurfaceAdded`/`SurfaceRemoved`
+(`Surfaces.cs:35,38`), `SurfaceOf` (`Surfaces.cs:199`) is how a node answers which window it belongs
+to, and the per-frame raise stays document-wide because coalescing across surfaces is cheaper than
+three flags and the diff has to walk anyway.
+
+⚠ **What a bridge publishes is a snapshot, and it may not read the element tree at all.** This is the
+load-bearing decision and it is not obvious. Assistive technology calls *in*, on its own thread: AT-SPI2
+is a D-Bus server answering from the bus thread, UI Automation calls providers from an RPC thread it
+owns, and only `NSAccessibility` is main-thread — and even that one is re-entrant inside the run loop,
+so it can arrive between a layout walk and the draw walk. `Vixen.Ui`'s reactive graph is
+single-threaded by contract, a signal read asserts its owning thread, and `AccessibleName` on a
+control is a *computed* property that reads the control's own fields. A bridge that answered
+`accessibilityLabel` by reaching for the live element would therefore be reading the UI thread's
+graph from the AT's thread, and the failure mode is a torn read on a good day and the assert on a
+bad one. The rule is: build an immutable snapshot on the UI thread from `AccessibilityInvalidated`,
+answer every protocol call out of the most recently published snapshot, and never dereference a
+`UiElement` off the UI thread. ⚠ This is also the real reason the event says *that* something changed
+and never *what* — a bridge was always going to hold a whole cached tree, because the protocol
+requires it to answer questions about nodes nobody touched this frame.
+
+**Node identity has to outlive the frame and must not keep the element alive.** UIA hands out
+provider references an AT retains for as long as it likes, AT-SPI hands out bus paths, and
+`NSAccessibility` retains the element objects it is given; none of the three re-fetches because a
+frame ended. So a snapshot node carries a stable id allocated once per element and kept across
+republishes, and the map from id back to a live element for the *action* path is weak — a request
+against an id whose element is gone answers "no longer valid" rather than resurrecting it or
+crashing. `ReleaseAccessibilitySubscribers` (`Accessibility.cs:897`) exists for the mirror image of
+this leak and is the precedent for taking it seriously.
+
+**Three things the model owes a bridge and does not have yet, in the order a bridge needs them.**
+
+* **Actions.** Every protocol asks an element to *do* something — `accessibilityPerformPress`,
+  `IInvokeProvider.Invoke`, AT-SPI's `Action.DoAction` — and there is no mapping here from a role to
+  a verb. `UiDocument` has commands and a hit test; what is missing is the small table that says a
+  `Button` has one action named "press" that raises a `ClickEvent` on it, and the seam for a control
+  with more than one.
+* **Text ranges.** `NativeAccessibleValue` answers a whole string. A screen reader reads a text field
+  by asking for the line the caret is on, the word to its right, the selected range and the character
+  offsets of each — `AXTextMarker`, `ITextProvider`, AT-SPI's `Text` interface. Without it `TextField`
+  is announced as one opaque value and `CodeEditor` is unreadable, bridge or no bridge.
+* **Live-region announcements.** `Toasts.cs:31,114` assigns `Alert` and `Log` correctly and there is
+  nothing to deliver: a toast appears where the user is not looking and takes itself away again, so a
+  reader that is only told when the user walks to it is never told. The announcement is a *message*
+  rather than a tree change, which is why the coalesced per-frame diff cannot carry it and why it
+  needs its own small queue drained on the same tick.
+
+Adjacent and cheap, and none of them is a bridge: `AccessibleStates.Required` and `.Invalid` have no
+producer anywhere in the tree, so no control ever reports a required or invalid field — they wait on
+a validation seam that does not exist rather than on a bridge — and `AccessibleRelation.FlowsTo` has
+no producer either.
+
+**Geometry crosses two coordinate systems and neither of them is the one AT asks for.** Layout gives
+a rect in document space; a surface knows its size and DPI scale (`UiSurface.cs:101`); the protocols
+want screen space, and on macOS in a bottom-left origin. The snapshot therefore carries surface-space
+rects and the platform half adds the window origin, because the window origin is the one number that
+only the platform assembly can know and the one that changes when the user drags the window without
+anything in the document changing.
+
+**`NSAccessibility` first, and it is first because it is worth most rather than because it is
+cheapest.** ⚠ `Platform/Vixen.Platform.MacOS/ObjC.cs` is send-only — `objc_getClass`,
+`sel_registerName` and a set of `objc_msgSend` prototypes — and a bridge is the first thing in this
+repository that has to be *called by* Objective-C rather than call it. That needs
+`objc_allocateClassPair`, `class_addMethod` and IMPs that survive the GC, which is a genuinely new
+capability in that file and is the largest single cost in the wave; it is not visible from the
+outside, and estimating the bridge from the 163 lines already there would be wrong by an order of
+magnitude. ⚠ Second cost, also invisible: the `NSWindow` is not reachable from what exists.
+`DesktopSurface.Resolve` (`DesktopSurface.cs:54-63`) deliberately takes the `SDL_Metal_CreateView`
+route on macOS and hands back a `CAMetalLayer`, precisely so nothing has to reach into AppKit — so
+the bridge needs its own `SDL_GetWindowWMInfo` route to the window and its content view, and it is
+the first consumer that does. Windows is the same shape one level over: UIA arrives as `WM_GETOBJECT`
+on a window procedure SDL owns.
+
+⚠ **The gate is a real assistive technology and nothing else counts.** A second in-process consumer —
+a test double that subscribes, diffs and asserts — reproduces exactly the defect this work exists to
+fix, because it is another reader inside the same process reading a tree that is already correct.
+What is unproven is not the tree; it is that a `NSAccessibility` object graph built from it is one
+VoiceOver will read. So the gate is VoiceOver reading a `Samples/02-HelloUi` panel, and it is a
+manual gate on purpose.
 
 ## Background tasks
 
@@ -834,7 +938,10 @@ as a unit mistake.
 ⚠ **One shadow, outer only, and not clipped to outside the border box.** CSS takes a comma-separated
 list and an `inset` keyword; a list would be a command each, which is easy, and `inset` is a
 different distance field, which is not — so both are refused rather than half-applied, because the
-first shadow of a list being drawn and the rest silently dropped looks like it worked. And CSS
+first shadow of a list being drawn and the rest silently dropped looks like it worked. The `inset`
+half is the parity ledger's `inset-shadow-*` seen from inside the draw list rather than a second
+decision, so it expires when that row does — `[expires-with inset-shadow-*]`, and
+`RefusalExpiryTests` reads this sentence. And CSS
 punches the box out of its own shadow, where here the blurred box is drawn whole with the background
 on top: visible only under a background that is not opaque.
 
@@ -1501,6 +1608,23 @@ and nothing else. What it costs today is a real move per element on a list that 
 — a rotation by one changes nearly every index — and each of those is a layout remove-and-insert
 plus a style-tree move.
 
+Also owed: **an ambient value — anything a descendant can read without being handed it**. A theme, an
+edit target, a document scale: today each of them is a parameter repeated on every tag that needs one,
+which `Samples/02-HelloUi/Shell.vxml` shows at three `Model="@Model"`s and an editor multiplies by
+forty panels. ⚠ **Three ancestor walks exist and not one of them generalises**, which is worth writing
+down because each looks from a distance as if it might:
+
+- `[UiProperty(Inherits = true)]` emits a walk that matches only ancestors **of the declaring type**
+  (`Vixen.Ui.Generators/UiPropertyGenerator.cs`, the `ancestor is <Owner> owner` test), so it inherits
+  a property down a chain of one kind of element. It is CSS inheritance, and ⚠ its only producers in
+  the tree are three fixtures in `Vixen.Ui.Tests/SampleElements.cs` — nothing ships with it on.
+- `UiElement.EffectiveCommandScope` is a real nearest-ancestor walk whose value is one `string?`.
+- `UiDocument.ComponentAt` is a dictionary keyed on the exact host element, not a walk: there is no
+  "nearest ancestor component of type T" to ask.
+
+What is wanted is a provide/inject keyed by type over the `Parent` walk — the same walk the responder
+chain makes, and worth sharing one implementation with it rather than growing a fourth.
+
 Also owed: **fallback content in a `<slot>`**. `<slot name="footer">Nothing yet</slot>` is how every
 other framework spells a default, and it is `VXML2017` here — refused rather than supported, because
 building the fallback and then removing it if the slot turns out to be filled needs an ordering the
@@ -1624,3 +1748,59 @@ host registers a panel, and its rule is written there: an overlay is registered 
 holds the object its numbers come from. An aggregator with no `IDiagnosticOverlay` over it and no
 registration is this repository's commonest defect wearing a diagnostics badge — a finished thing
 nothing calls.
+
+### ⚠ The registration site named above does not exist, and that decides the panel's shape
+
+Two things were true when the paragraph above was written and neither was checked, because both are
+facts about `.csproj` files rather than about code.
+
+**`AppGraphics` holds no `UiDocument`.** `Core/Vixen.App.Hosting/Vixen.App.Hosting.csproj` does not
+reference `Vixen.Ui` at all — not directly and not through `Vixen.Engine.Renderer` — so
+`BuildOverlays` cannot register a UI panel *under its own stated rule*, which is the rule the
+paragraph above quotes approvingly. It is the only production holder of a `DiagnosticOverlays` in the
+tree: every other construction of one is in `Vixen.Engine.Tests`.
+
+**And the host that does own a `UiDocument` cannot see `IDiagnosticOverlay`.**
+`Platform/Vixen.Ui.Desktop`'s `UiApplication` is the framework's own application host, and its remark
+says why it exists: *"No `Vixen.Engine` and no `Vixen.App`, and the absence is the reason this
+assembly exists."* `IDiagnosticOverlay` and `DiagnosticOverlays` are `Vixen.Engine`'s. So the overlay
+interface is unreachable from the one host whose whole job is drawing a `UiDocument` — which is
+precisely the case a UI-debug panel is *for*.
+
+`Editor/Vixen.Editor.App` is the single assembly in the tree that references both sides. It registers
+no overlays today.
+
+So the seam question has now been answered wrongly three times — first as "`Vixen.Ui` may not
+reference `Vixen.Engine`" ([#461](https://github.com/Rikarin/Vixen/issues/461) refuted that), then as
+"`Vixen.Ui` publishes nothing to report" (the table above refutes that), and now as "an overlay in
+`Vixen.Engine.Renderer` registered by `AppGraphics`". ⚠ **The pattern is the tell: every answer has
+assumed the panel must be an `IDiagnosticOverlay`, and that is the assumption to drop.**
+
+**The defended shape: a `Vixen.Ui` control, not an overlay.** Doc 13's four rows — element bounds,
+layout boxes, style origin for the hovered element, dirty-region highlight — are all *about* a
+`UiDocument`, and every one of them is readable inside `Vixen.Ui` with no seam whatever. A control
+reading the aggregator works in `UiApplication`, in the editor, and in any game that draws a document,
+and it needs no new assembly, no reference either way across the `Ui`/`Engine` line, and no host to
+grow a `DiagnosticOverlays` it does not have. `GpuOverlay` and `StreamingOverlay` are overlays because
+their numbers come from a frame the UI knows nothing about; this panel's numbers come from the UI
+itself, and that is the difference the interface was drawing all along.
+
+⚠ **What that costs, said out loud, because it is the one real objection.** A panel drawn into the
+document it describes is part of that document: it has elements, it is styled, it is laid out, and it
+therefore moves `StylesApplied`, `NodeCount` and the settling counters it is reporting. `GpuOverlay`
+has no such problem. Three ways out, in preference order — the panel reads a snapshot taken at the top
+of the frame, before it is itself restyled, which makes the numbers a frame old and self-consistent
+(the same trade `FrameStatsOverlay` already documents); or it subtracts its own subtree, which is
+exact and fragile; or it lives in its own `UiDocument` on its own surface, which is honest and costs a
+second document. The first is what `AppGraphics.BuildOverlays`' neighbour comment already argues for
+on the frame stats, and it is why the aggregator wants to be a **snapshot** rather than a live view —
+a decision the "reads, does not sample" constraint above does not settle on its own.
+
+**So the owed items are re-ordered rather than re-scoped.** ⚠ Item 1, the aggregator, has since
+landed — `UiDocument.Diagnostics` above — so what this section changes about it is not whether it
+exists but what it must be: a snapshot taken at the top of the frame with an in-process reader,
+rather than the live view "reads, does not sample" alone would have allowed. Item 2 is a control
+rather than an `IDiagnosticOverlay`, and item 3 is composing it into a host's tree rather than
+registering it in `BuildOverlays`. Neither of those two is built, and the reason for writing the seam
+answer into the README rather than into a session is that the last two attempts each re-derived one
+that was already there.

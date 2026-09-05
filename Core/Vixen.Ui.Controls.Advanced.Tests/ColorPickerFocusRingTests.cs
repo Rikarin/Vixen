@@ -106,7 +106,10 @@ public class ColorPickerFocusRingTests {
         );
 
         // And it goes away again, so the ring follows the focus rather than being stuck on.
-        Assert.True(fixture.Document.Focus(null) == false);
+        //
+        // ⚠ True. `Focus(null)` used to answer false on success, and this line was written against
+        // that; it now means what it says, which is that the focus went where it was asked to go.
+        Assert.True(fixture.Document.Focus(null));
         fixture.Update();
 
         Assert.False(

@@ -258,9 +258,22 @@ public sealed class StyleRuleSet {
             for (var s = 0; s < compound.Count; s++) {
                 var simple = table.Simple(compound.Start + s);
 
+                // ⚠ `Lang` is here for `Attribute`'s reason and one of its own. The key carries the
+                // parent, so two siblings agree on every ancestor's `lang` — but not on their own,
+                // which is an attribute the key does not hold. A German `<span lang="de">` beside an
+                // otherwise identical sibling would take the sibling's computed style.
+                //
+                // ⚠ `Has` is in this list for the reason the other three are and one step worse. A
+                // sharing key describes what an element *is* — parent, tag, classes, state — and two
+                // siblings identical by that key can still differ in what their subtrees contain, so
+                // a `:has()` rule matching one and not the other would hand the second the first's
+                // style. `Empty` is the same argument about the child count; this is the same
+                // argument about the whole subtree.
                 if (simple.Kind is SimpleSelectorKind.Position
                     or SimpleSelectorKind.Attribute
-                    or SimpleSelectorKind.Empty) {
+                    or SimpleSelectorKind.Empty
+                    or SimpleSelectorKind.Lang
+                    or SimpleSelectorKind.Has) {
                     return true;
                 }
 

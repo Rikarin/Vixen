@@ -203,6 +203,7 @@ Vixen.Platform.IPlatform -> interface
 Vixen.Platform.IPlatform : System.IDisposable
 Vixen.Platform.IPlatform.Capabilities.get -> Vixen.Platform.PlatformCapabilities
 Vixen.Platform.IPlatform.Clipboard.get -> Vixen.Platform.IClipboard
+Vixen.Platform.IPlatform.ColorScheme.get -> Vixen.Platform.SystemColorScheme
 Vixen.Platform.IPlatform.CreateWindow(in Vixen.Platform.WindowOptions options) -> Vixen.Platform.IWindow
 Vixen.Platform.IPlatform.Dialogs.get -> Vixen.Platform.INativeDialogs
 Vixen.Platform.IPlatform.Displays.get -> Vixen.Platform.IDisplayInfo
@@ -546,6 +547,7 @@ Vixen.Platform.PlatformEventKind.PlatformEventKind() -> void
 Vixen.Platform.PlatformEventKind.Quit = 73 -> Vixen.Platform.PlatformEventKind
 Vixen.Platform.PlatformEventKind.Resumed = 71 -> Vixen.Platform.PlatformEventKind
 Vixen.Platform.PlatformEventKind.Suspending = 70 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.SystemColorSchemeChanged = 61 -> Vixen.Platform.PlatformEventKind
 Vixen.Platform.PlatformEventKind.TextEditing = 23 -> Vixen.Platform.PlatformEventKind
 Vixen.Platform.PlatformEventKind.TextInput = 22 -> Vixen.Platform.PlatformEventKind
 Vixen.Platform.PlatformEventKind.TouchDown = 40 -> Vixen.Platform.PlatformEventKind
@@ -600,6 +602,11 @@ Vixen.Platform.StandardFileSystemHost.MountStandardLocations(Vixen.Core.IO.Virtu
 Vixen.Platform.StandardFileSystemHost.RequestPermissionAsync(Vixen.Platform.PermissionKind permission, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
 Vixen.Platform.StandardFileSystemHost.StandardFileSystemHost(string organisation, string application, string? applicationDirectory = null) -> void
 Vixen.Platform.StandardFileSystemHost.TemporaryDirectory.get -> string
+Vixen.Platform.SystemColorScheme -> enum : byte
+Vixen.Platform.SystemColorScheme.Dark = 2 -> Vixen.Platform.SystemColorScheme
+Vixen.Platform.SystemColorScheme.Light = 1 -> Vixen.Platform.SystemColorScheme
+Vixen.Platform.SystemColorScheme.SystemColorScheme() -> void
+Vixen.Platform.SystemColorScheme.Unknown = 0 -> Vixen.Platform.SystemColorScheme
 Vixen.Platform.ThermalState -> enum : byte
 Vixen.Platform.ThermalState.Critical = 3 -> Vixen.Platform.ThermalState
 Vixen.Platform.ThermalState.Fair = 1 -> Vixen.Platform.ThermalState
@@ -673,3 +680,4 @@ static Vixen.Platform.PlatformEvent.WindowMoved(uint windowId, long timestamp, V
 static Vixen.Platform.PlatformEvent.WindowResized(uint windowId, long timestamp, Vixen.Core.Mathematics.Int2 size, Vixen.Core.Mathematics.Int2 pixelSize) -> Vixen.Platform.PlatformEvent
 static Vixen.Platform.PlatformExtensions.FocusedWindow(this Vixen.Platform.IPlatform platform) -> Vixen.Platform.IWindow?
 static Vixen.Platform.PlatformExtensions.Has(this Vixen.Platform.IPlatform platform, Vixen.Platform.PlatformCapabilities required) -> bool
+static Vixen.Platform.PlatformExtensions.Pickers(this Vixen.Platform.IPlatform platform) -> Vixen.Platform.INativeDialogs?

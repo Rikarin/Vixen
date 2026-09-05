@@ -110,9 +110,33 @@ public class UtilityFamilyTests {
     [InlineData("border-t-accent", "border-top-color: #4f7cff")]
     // Effects.
     [InlineData("opacity-50", "opacity: 0.5")]
-    [InlineData("shadow", "box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.3)")]
-    [InlineData("shadow-lg", "box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.45)")]
-    [InlineData("shadow-none", "box-shadow: none")]
+    // ⚠ <b>The shadow is a fragment and the ring is written inline, and both classes emit the same
+    // assembled `box-shadow`.</b> That is what lets `shadow-lg ring-2` be both — the two families
+    // wrote the one longhand until `Rikarin/Vixen#279` item 4, so the cascade picked a rule and the
+    // other class silently did not apply. ⚠ `shadow-none` sets a *transparent* shadow rather than
+    // the `none` keyword: `none` in the middle of a comma list is not an empty item, it is a keyword
+    // `EmitShadow` refuses the whole declaration over, so `shadow-none ring-2` would have lost the
+    // ring too. What drops the invisible half of the pair is `EmitOneShadow`, not the emission.
+    [InlineData(
+        "shadow",
+        "--tw-shadow: 0px 1px 2px rgba(0, 0, 0, 0.3)"
+        + "|box-shadow: 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
+    )]
+    [InlineData(
+        "shadow-lg",
+        "--tw-shadow: 0px 8px 24px rgba(0, 0, 0, 0.45)"
+        + "|box-shadow: 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
+    )]
+    [InlineData(
+        "shadow-none",
+        "--tw-shadow: 0 0 transparent"
+        + "|box-shadow: 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
+    )]
+    [InlineData(
+        "ring-2",
+        "--tw-ring-width: 2px"
+        + "|box-shadow: 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
+    )]
     [InlineData("mask-none", "mask-image: none")]
     // ⚠ The assembled `mask-image` is what these rows are really about. Each stop family sets one
     // fragment and emits the whole declaration beside it, so `mask-linear-from-50%` masks on its own
@@ -423,6 +447,38 @@ public class UtilityFamilyTests {
         Assert.Equal(["width: 100vh", "height: 100vh"], fixture.Emits("size-svh"));
     }
 
+    /// <summary><c>lh</c> is one line box, on every sizing root that answers a keyword.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The only sizing value whose <i>unit</i> did not exist, which is why it was the
+    ///         ledger's one Sizing <c>partial</c> and why the row's own <c>value_gap</c> said nothing
+    ///         about it.</b> Every keyword beside it resolves to a unit the parser already read;
+    ///         <c>max-block-lh</c> emitted text <c>StyleValueParser</c> refused, so the class
+    ///         cascaded to nothing and the demotion came from the measurement rather than from the
+    ///         prose. Resolving it took a <c>StyleUnit</c>, a line height on <c>LengthContext</c> and
+    ///         a wire from <c>UiDocument</c>; <c>Vixen.Ui.Tests</c>' <c>LineHeightUnitTests</c> is the
+    ///         half of that which measures a box.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And the negation, which is the third time this trap has been laid: <c>1lh</c> begins
+    ///         with a digit exactly as <c>100%</c> and <c>100vh</c> do, so <c>-max-block-lh</c> would
+    ///         have emitted "minus one line box" on the strength of that first character had
+    ///         <c>lh</c> not been named in <c>NotNegatable</c>.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_lh_keyword_is_one_line_box_and_cannot_be_negated() {
+        var fixture = new UtilityFixture();
+
+        Assert.Equal(["max-height: 1lh"], fixture.Emits("max-block-lh"));
+        Assert.Equal(["height: 1lh"], fixture.Emits("h-lh"));
+        Assert.Equal(["min-height: 1lh"], fixture.Emits("min-h-lh"));
+        Assert.Equal(["max-height: 1lh"], fixture.Emits("max-h-lh"));
+
+        Assert.Null(fixture.Declarations("-h-lh"));
+        Assert.Null(fixture.Declarations("-max-block-lh"));
+    }
+
     [Fact]
     public void The_writing_mode_relative_sizing_roots_are_physical_on_both_axes() {
         // ⚠ The block three are the `inset-bs-*` argument: no writing mode, so the block axis is
@@ -553,6 +609,67 @@ public class UtilityFamilyTests {
         Assert.Equal(["width: 50%"], fixture.Emits("w-1/2"));
         Assert.Equal(["width: 66.6667%"], fixture.Emits("w-2/3"));
 
+        Assert.Equal(
+            ["background-color: color-mix(in oklab, #4f7cff 50%, transparent)"],
+            fixture.Emits("bg-accent/50")
+        );
+    }
+
+    [Fact]
+    public void A_slash_means_what_the_family_says_it_means() {
+        // ⚠ **Both of these used to resolve, and that was the defect.** The ledger recorded them as
+        // classes that "cannot be spelled" because the parser read a top-level slash as an opacity;
+        // it never did — `UtilityParser` keeps the suffix as written precisely so a family can take
+        // the other reading — and what actually happened is that neither family looked. `aspect-16/9`
+        // emitted `aspect-ratio: 16` and `text-lg/7` emitted the theme's own 24px. Valid CSS, a
+        // value nobody asked for, and nothing to look up.
+        var fixture = new UtilityFixture();
+
+        Assert.Equal(["aspect-ratio: 16 / 9"], fixture.Emits("aspect-16/9"));
+        Assert.Equal(["aspect-ratio: 4 / 3"], fixture.Emits("aspect-4/3"));
+
+        // The pair is the value, so the head alone is still the bare-number form CSS also allows.
+        Assert.Equal(["aspect-ratio: 2"], fixture.Emits("aspect-2"));
+        Assert.Equal(["aspect-ratio: 16 / 9"], fixture.Emits("aspect-video"));
+
+        // `text-lg/7` is `text-lg leading-7` written once, so the two spellings have to agree —
+        // including on the keyword half, where a leading is a ratio and not a length.
+        Assert.Equal(["font-size: 17px", "line-height: 28px"], fixture.Emits("text-lg/7"));
+        Assert.Equal(fixture.Emits("leading-7")[0], fixture.Emits("text-lg/7")[1]);
+        Assert.Equal(["font-size: 17px", "line-height: 1"], fixture.Emits("text-lg/none"));
+        Assert.Equal(["font-size: 12px", "line-height: 1.5"], fixture.Emits("text-sm/[1.5]"));
+
+        // And the same prefix still reads a slash as an alpha when the value was a colour, which is
+        // the whole reason the family rather than the parser has to decide.
+        Assert.Equal(
+            ["color: color-mix(in oklab, #4f7cff 50%, transparent)"],
+            fixture.Emits("text-accent/50")
+        );
+    }
+
+    [Fact]
+    public void A_modifier_a_family_does_not_read_is_refused_rather_than_dropped() {
+        // The other half of the same rule, and the half that has to exist for the first to be worth
+        // anything: a family with no reading of a slash must produce no rule at all. Every one of
+        // these resolved before, emitting its head and silently losing the suffix — `p-4/2` was
+        // `padding: 16px`, which is the class the author wrote in a way they cannot see is wrong.
+        var fixture = new UtilityFixture();
+
+        Assert.Null(fixture.Declarations("p-4/2"));
+        Assert.Null(fixture.Declarations("z-10/2"));
+        Assert.Null(fixture.Declarations("leading-5/2"));
+        Assert.Null(fixture.Declarations("grid-cols-3/2"));
+
+        // A keyword takes no modifier even on a family that has one elsewhere.
+        Assert.Null(fixture.Declarations("text-center/50"));
+        Assert.Null(fixture.Declarations("w-full/2"));
+
+        // A ratio is two positive numbers — CSS Sizing 4 § 4.1 — so a zero half is not a class.
+        Assert.Null(fixture.Declarations("aspect-16/0"));
+        Assert.Null(fixture.Declarations("aspect-auto/9"));
+
+        // Nothing that already worked moved: the fraction and the alpha are still read.
+        Assert.Equal(["width: 50%"], fixture.Emits("w-1/2"));
         Assert.Equal(
             ["background-color: color-mix(in oklab, #4f7cff 50%, transparent)"],
             fixture.Emits("bg-accent/50")

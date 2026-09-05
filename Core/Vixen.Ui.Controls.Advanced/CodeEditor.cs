@@ -199,7 +199,7 @@ sealed class CodeOverlay : UiElement {
 ///         <see cref="CodeBuffer.Changed" /> is the seam.
 ///     </para>
 /// </remarks>
-public sealed partial class CodeEditor : Control {
+public sealed partial class CodeEditor : Control, ITextInputTarget {
     readonly List<CodeLine> pool = [];
     readonly List<CodeGutterRow> gutterRows = [];
     readonly List<UiElement> completionRows = [];
@@ -580,6 +580,21 @@ public sealed partial class CodeEditor : Control {
         // walks every line in the buffer to rebuild the row list, so a hundred-thousand-line file
         // would pay for that on every frame of every pass. See Control.WhenResized.
         WhenResized(Refresh);
+
+        // The same four ids `TextField` registers, answered the same way, and the reason both
+        // controls are done together: a rule that only one control in the library obeys is a special
+        // case rather than a chain. A menu or a keymap that spells `edit.copy` reaches whichever of
+        // the two has the focus without naming either.
+        //
+        // ⚠ `edit.select-all` is registered **once**, here with the other three. It briefly existed
+        // twice — a batch that could register only Select All, and a later one that could register
+        // all four — and `AddCommandHandler` throws on a repeated id per element, so the pair would
+        // have made every `CodeEditor` throw as it was created. The `!Disabled` half of the guard is
+        // the Select-All-only version's and is kept: a disabled editor answers no verb.
+        AddCommandHandler("edit.cut", () => Cut(), () => CanCopy && !ReadOnly);
+        AddCommandHandler("edit.copy", () => Copy(), () => CanCopy);
+        AddCommandHandler("edit.paste", () => Paste(), () => CanPaste);
+        AddCommandHandler("edit.select-all", SelectAll, () => !Disabled && buffer.End != default);
 
         AddHandler<KeyEvent>(static (element, args) => ((CodeEditor) element).Keyed(args));
         AddHandler<TextInputEvent>(static (element, args) => ((CodeEditor) element).Typed(args));
@@ -1195,20 +1210,49 @@ public sealed partial class CodeEditor : Control {
             return;
         }
 
-        var content = Scroller.Content;
-
         context.FillRectangle(
-            new Rectangle(
-                content.AbsoluteLeft + ((Caret.Column - starts[row]) * CharacterWidth),
-                content.AbsoluteTop + (row * RowHeight),
-                MathF.Max(1f, CharacterWidth * 0.1f),
-                RowHeight
-            ),
+            CaretArea,
             Document.ColorOf(Style, caretColorStandard)
             ?? Document.ColorOf(Style, caretColor)
             ?? Document.ForegroundOf(this)
         );
     }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The rectangle used to exist only as four expressions inside <see cref="DrawCaret" />,
+    ///     which is why an input method's candidate window could not be placed against it.</b> The
+    ///     draw now reads this, so the caret an editor shows and the caret the operating system is
+    ///     told about cannot drift apart.
+    /// </remarks>
+    public Rectangle CaretArea {
+        get {
+            var row = RowAt(Caret);
+            var content = Scroller.Content;
+
+            // A caret in a fold or before the first layout has no row. The content origin is still a
+            // better answer than nothing: it puts the candidate list in the editor rather than at the
+            // corner of the screen, which is what the whole wire is for.
+            return row < 0
+                ? new(content.AbsoluteLeft, content.AbsoluteTop, 1f, MathF.Max(RowHeight, 1f))
+                : new Rectangle(
+                    content.AbsoluteLeft + ((Caret.Column - starts[row]) * CharacterWidth),
+                    content.AbsoluteTop + (row * RowHeight),
+                    MathF.Max(1f, CharacterWidth * 0.1f),
+                    RowHeight
+                );
+        }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>True, and this editor still cannot render a composition.</b> It registers no
+    ///     <c>TextCompositionEvent</c> handler, so a pre-edit is invisible until it commits — see
+    ///     issue #673. Refusing to activate would be worse rather than better: text input is off by
+    ///     default on the web and on mobile, so an editor that never activated would receive no
+    ///     characters at all, and on the desktop it would lose the ones SDL currently leaves it.
+    /// </remarks>
+    public bool AcceptsTextInput => !ReadOnly && !Disabled;
 
     // ── Caret and editing ────────────────────────────────────────────────────
 
@@ -1262,6 +1306,47 @@ public sealed partial class CodeEditor : Control {
         Reveal();
 
         CaretMoved?.Invoke(this);
+    }
+
+    /// <summary>Whether there is something to put on the clipboard, and somewhere to put it.</summary>
+    public bool CanCopy => HasSelection && Document.Clipboard is not null;
+
+    /// <summary>Whether there is text on the clipboard and this editor would take it.</summary>
+    public bool CanPaste => !ReadOnly && Document.Clipboard is { HasText: true };
+
+    /// <summary>Puts the selection on the clipboard.</summary>
+    /// <returns>Whether anything was written.</returns>
+    public bool Copy() => CanCopy && Document.Clipboard!.SetText(SelectedText);
+
+    /// <summary>Puts the selection on the clipboard and deletes it.</summary>
+    /// <returns>Whether anything was written.</returns>
+    /// <remarks>A read-only editor cuts nothing, for the reason <c>TextField.Cut</c> states.</remarks>
+    public bool Cut() {
+        if (ReadOnly || !Copy()) {
+            return false;
+        }
+
+        Erase(false);
+
+        return true;
+    }
+
+    /// <summary>Replaces the selection with the clipboard's text.</summary>
+    /// <returns>Whether anything was inserted.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Line breaks are kept and only normalised</b>, which is the one place this differs
+    ///     from a single-line field: a code editor is the control multi-line text is <i>for</i>, and
+    ///     a paste from a Windows editor that left its carriage returns in would put a stray \r at
+    ///     the end of every line of the file it was saved back to.
+    /// </remarks>
+    public bool Paste() {
+        if (!CanPaste || !Document.Clipboard!.TryGetText(out var text) || text.Length == 0) {
+            return false;
+        }
+
+        Insert(text.Contains('\r') ? text.Replace("\r\n", "\n").Replace('\r', '\n') : text);
+
+        return true;
     }
 
     /// <summary>Removes the selection, or one character either side of the caret.</summary>
@@ -1370,74 +1455,139 @@ public sealed partial class CodeEditor : Control {
             return;
         }
 
+        // ⚠ **The same table `TextField` reads, which is the whole point of there being one.** This
+        // was a second hand-maintained `switch (args.Key)` over the same vocabulary, and it had
+        // already diverged: `var word = Control` here against `Control || Meta` there, so ⌘← moved by
+        // a word in a text box and by a single character in the code editor on the platform ⌘ exists
+        // on. See `EditingCommands`.
         var extend = args.Modifiers.HasFlag(ModifierKeys.Shift);
-        var word = args.Modifiers.HasFlag(ModifierKeys.Control);
+        var command = EditingCommands.Resolve(args.Key, args.Modifiers, Document.EditingKeymap);
 
-        switch (args.Key) {
-            case InputKey.Left:
-                Move(word ? buffer.WordStart(Caret) : buffer.Back(Caret), extend);
+        switch (command) {
+            case EditingCommand.MoveLeft:
+                Move(buffer.Back(Caret), extend);
                 break;
 
-            case InputKey.Right:
-                Move(word ? buffer.WordEnd(Caret) : buffer.Forward(Caret), extend);
+            case EditingCommand.MoveWordLeft:
+                Move(buffer.WordStart(Caret), extend);
                 break;
 
-            case InputKey.Up:
+            case EditingCommand.MoveRight:
+                Move(buffer.Forward(Caret), extend);
+                break;
+
+            case EditingCommand.MoveWordRight:
+                Move(buffer.WordEnd(Caret), extend);
+                break;
+
+            case EditingCommand.MoveUp:
                 Step(-1, extend);
                 break;
 
-            case InputKey.Down:
+            case EditingCommand.MoveDown:
                 Step(1, extend);
                 break;
 
-            case InputKey.PageUp:
+            case EditingCommand.MovePageUp:
                 Step(-VisibleRows, extend);
                 break;
 
-            case InputKey.PageDown:
+            case EditingCommand.MovePageDown:
                 Step(VisibleRows, extend);
                 break;
 
-            case InputKey.Home:
-                Move(word ? default : Home(), extend);
+            case EditingCommand.MoveLineStart:
+                Move(Home(), extend);
                 break;
 
-            case InputKey.End:
-                Move(word ? buffer.End : Caret with { Column = buffer[Caret.Line].Length }, extend);
+            case EditingCommand.MoveLineEnd:
+                Move(Caret with { Column = buffer[Caret.Line].Length }, extend);
                 break;
 
-            case InputKey.Backspace:
+            case EditingCommand.MoveDocumentStart:
+                Move(default, extend);
+                break;
+
+            case EditingCommand.MoveDocumentEnd:
+                Move(buffer.End, extend);
+                break;
+
+            case EditingCommand.DeleteBackward:
                 Erase(false);
                 break;
 
-            case InputKey.Delete:
+            case EditingCommand.DeleteForward:
                 Erase(true);
                 break;
 
-            // ⚠ Whatever is held. `TextArea` gives Ctrl-Enter to submission so a form's default
-            // button stays reachable from a field that took the plain key; this control does not,
-            // and that is a decision rather than an omission. Nothing in this tree puts a code
+            // ⚠ Selecting to the boundary and erasing the selection, rather than a second delete
+            // path: `Erase` already owns the collapse, the refresh and the caret, and a delete that
+            // reached round it would be a second place all three could be wrong. Nothing happens
+            // when the boundary is where the caret already is.
+            case EditingCommand.DeleteWordBackward:
+                EraseTo(buffer.WordStart(Caret));
+                break;
+
+            case EditingCommand.DeleteWordForward:
+                EraseTo(buffer.WordEnd(Caret));
+                break;
+
+            case EditingCommand.DeleteToLineStart:
+                EraseTo(Caret with { Column = 0 });
+                break;
+
+            case EditingCommand.DeleteToLineEnd:
+                EraseTo(Caret with { Column = buffer[Caret.Line].Length });
+                break;
+
+            // ⚠ Whatever is held. `TextArea` gives the modified chord to submission so a form's
+            // default button stays reachable from a field that took the plain key; this control does
+            // not, and that is a decision rather than an omission. Nothing in this tree puts a code
             // editor inside a form, so the second claimant on the chord does not exist here — and a
             // chord that silently stopped inserting a newline would be a worse surprise than one
-            // that does nothing. The day a code editor lives in a dialog, it raises `SubmitEvent`
-            // on Ctrl-Enter and `TextField.Keyed`'s comment says why.
-            case InputKey.Enter or InputKey.KeypadEnter:
+            // that does nothing. The day a code editor lives in a dialog, it raises `SubmitEvent` on
+            // `EditingCommand.Submit` and `TextField.Keyed`'s comment says why.
+            case EditingCommand.InsertNewline or EditingCommand.Submit:
                 Insert(AutoIndent ? "\n" + buffer[Caret.Line][..buffer.IndentOf(Caret.Line)] : "\n");
                 break;
 
-            case InputKey.Tab:
+            case EditingCommand.InsertTab:
                 Indent(!extend);
                 break;
 
-            case InputKey.A when word:
+            case EditingCommand.SelectAll:
                 SelectAll();
                 break;
 
-            case InputKey.Space when word:
+            // Returning rather than breaking when there is nothing to do, for the reason
+            // `TextField.Keyed` states: an editor with no selection must not eat the application's
+            // Copy.
+            case EditingCommand.Copy:
+                if (!Copy()) {
+                    return;
+                }
+
+                break;
+
+            case EditingCommand.Cut:
+                if (!Cut()) {
+                    return;
+                }
+
+                break;
+
+            case EditingCommand.Paste:
+                if (!Paste()) {
+                    return;
+                }
+
+                break;
+
+            case EditingCommand.ShowCompletion:
                 ShowCompletion();
                 break;
 
-            case InputKey.Escape when IsCompleting:
+            case EditingCommand.Cancel when IsCompleting:
                 HideCompletion();
                 break;
 
@@ -1446,6 +1596,25 @@ public sealed partial class CodeEditor : Control {
         }
 
         args.Handled = true;
+    }
+
+    /// <summary>Selects from the caret to a position and erases what that covers.</summary>
+    /// <param name="position">The other end.</param>
+    /// <remarks>
+    ///     ⚠ <b>A selection wins.</b> Every desktop's delete-by-word deletes the selection when there
+    ///     is one rather than the word past it, and an editor that reached beyond a highlighted range
+    ///     would delete lines the user could see were not selected.
+    /// </remarks>
+    void EraseTo(TextPosition position) {
+        if (!HasSelection) {
+            if (position == Caret) {
+                return;
+            }
+
+            Move(position, extend: true);
+        }
+
+        Erase(false);
     }
 
     int VisibleRows => Math.Max(1, (int) (Scroller.Height / MathF.Max(1f, RowHeight)) - 1);

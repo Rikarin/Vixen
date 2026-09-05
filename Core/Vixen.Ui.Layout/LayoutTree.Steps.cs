@@ -357,12 +357,25 @@ public sealed partial class LayoutTree {
         // load-bearing: §5.2.1 makes a percentage against an indefinite main size behave as
         // `content`. It is belt and braces here — `Resolve(NaN)` is already NaN — but the two are
         // different reasons and only one of them is being relaxed.
+        // ⚠ <b>WRITTEN UNCONDITIONALLY, and the `if (isUndefined(computedFlexBasis))` that used to
+        // stand here was Yoga's memo and is a trap the moment one node can be asked twice in a
+        // pass.</b> The branch below it overwrites the basis every time; only this one declined to,
+        // so the two disagreed about whether the field is a cache. Which branch a child takes is not
+        // a function of the child — it is a function of whether the CONTAINER's main size is
+        // definite, and the paragraph above is why: under a max-content constraint a declared
+        // `flex-basis: 0px` deliberately falls through to the content branch. So a probe that sizes
+        // the container at max-content leaves the child holding a measured basis, and the real pass
+        // that follows — where the declaration should win — kept the probe's number.
+        //
+        // `KeyValueListTests.A_list_in_a_row_does_not_collapse` is the fixture: two `flex-basis: 0`
+        // halves that must split their row evenly came out 88 and 53, which are their max-content
+        // widths. ⚠ It needed §9.2 step 3E's max-content pass to become reachable — that is what
+        // asks a container for its max-content size mid-layout — so neither the memo nor the
+        // fall-through was wrong on its own.
         if (!float.IsNaN(resolvedFlexBasis)
             && (!float.IsNaN(mainAxisSize) || (!isMainAxisRow && processedFlexBasis.Unit != LayoutUnit.Percent))) {
-            if (float.IsNaN(results[child].ComputedFlexBasis)) {
-                var paddingAndBorder = StyleResolution.PaddingAndBorderForAxis(in styles[child], mainAxis, direction, ownerWidth);
-                results[child].ComputedFlexBasis = MathF.Max(resolvedFlexBasis, paddingAndBorder);
-            }
+            var paddingAndBorder = StyleResolution.PaddingAndBorderForAxis(in styles[child], mainAxis, direction, ownerWidth);
+            results[child].ComputedFlexBasis = MathF.Max(resolvedFlexBasis, paddingAndBorder);
         } else if (isMainAxisRow && isRowStyleDimDefined) {
             var paddingAndBorder = StyleResolution.PaddingAndBorderForAxis(in styles[child], FlexDirection.Row, direction, ownerWidth);
             results[child].ComputedFlexBasis =
@@ -477,19 +490,31 @@ public sealed partial class LayoutTree {
             // is a stretch or a max-content constraint already answers the question being asked.
             //
             // ⚠ <b>AND ONLY AN ITEM THAT CAN SHRINK, WHICH IS A WORKAROUND AND NOT THE RULE.</b>
-            // §9.2 asks this of every item; the reason it cannot be asked of every item HERE is that
-            // `flex-shrink`'s initial value in this store is Yoga's 0 and not CSS's 1 — see
+            // §9.2 asks this of every item; the reason it could not be asked of every item HERE was
+            // that `flex-shrink`'s initial value in this store is Yoga's 0 and not CSS's 1 — see
             // `LayoutStyle.Default` and `TaffyStyleMap.ApplyCssInitialValues`, which resets it per
             // node precisely because the corpus is Chrome's. An item given its true max-content base
-            // and no way to shrink back simply overflows: `TextWrapTests.
-            // A_label_with_no_width_of_its_own_wraps_at_its_container` came out one line and 28
-            // points tall against three lines and 83.6, because the label's base became the width of
-            // the unwrapped string and nothing brought it back. In a browser that label shrinks to
-            // its container and §4.5 floors it at its longest word.
+            // and no way to shrink back simply overflows.
             //
-            // So the base is taken where it is used and left alone where it cannot be — and the day
-            // the initial value is CSS's, this clause comes out. It is #628, and the six red tests
-            // above are the measurement in it.
+            // ⚠ <b>#628 HAS SINCE MADE `LayoutStyleBuilder.CssInitial` WRITE A SHRINK OF 1, so this
+            // gate no longer excludes anything a `.vcss` document builds — and "the day the initial
+            // value is CSS's, this clause comes out and nothing moves" is REFUTED.</b> Six tests
+            // across two projects went red the moment the two met, and none of them was this gate's
+            // stated case of an item overflowing with no way back. They were three separate
+            // invariants that only a second, unconstrained pass can break, each fixed where it
+            // lives and each with its own note: the measurement cache handing back a CLAMPED
+            // unconstrained answer for a stricter question (`CanUseCachedMeasurement`), the declared
+            // flex basis being memoised by a branch that would not overwrite it
+            // (`ComputeFlexBasisForChild`, above), and §4.5's cap reading this max-content basis
+            // where it meant the offer-measured one (`ComputeAutoMinMainSize`). The gate stays as
+            // written because it is now inert rather than because it is still load-bearing.
+            //
+            // ⚠ The seventh was not repairable here and is a real behaviour change: a `ScrollView`
+            // with no width filled its flex row only while its base was the width it was OFFERED,
+            // and its max-content width is the scrollbar. That is CSS's answer and Chrome's; what it
+            // means is that a control expected to fill has to say so. `Rikarin/Vixen#682` is the
+            // remaining §9.2 step 3E question — an intrinsic-minimum stage that reads
+            // `overflow-wrap` — and this belongs beside it.
             var mainSizingMode = isMainAxisRow ? childWidthSizingMode : childHeightSizingMode;
             var contentBase = float.NaN;
 

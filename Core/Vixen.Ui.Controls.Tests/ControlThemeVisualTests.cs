@@ -48,6 +48,14 @@ namespace Vixen.Ui.Controls.Tests;
 ///         <c>Vixen.Ui.Controls.Advanced.Tests.SyntaxThemeTests</c> — on a contrast oracle, because
 ///         a syntax colour that loses its dark rule is unreadable rather than merely different.
 ///     </para>
+///     <para>
+///         ⚠ <b>All of which is a claim about the stylesheet, and the failure it cannot see is a
+///         claim about a control.</b> A control that paints a colour not drawn from a token looks
+///         identical in both palettes, and nothing above would move — which is #594's slider thumb
+///         exactly. <c>ControlPaletteCoverageTests</c> is where that is asserted, per control, by a
+///         sweep and without committing a single further picture. This file keeps what a sweep
+///         cannot give: a frame a person can look at.
+///     </para>
 /// </remarks>
 public class ControlThemeVisualTests {
     /// <summary>How wide and tall the gallery is. Small, for <c>ControlVisualTests</c>' reason.</summary>
@@ -66,14 +74,23 @@ public class ControlThemeVisualTests {
     ///     luminance assertion below would be measuring the harness rather than the stylesheet.
     ///     </para>
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b><c>flex-shrink: 0</c>, because six declared heights, five gaps and two paddings come
+    ///     to 196 in a 190-point frame.</b> Since #628 gave the bridge CSS's initial shrink of 1 the
+    ///     column divides that six-point deficit among whichever controls have slack above their
+    ///     automatic minimum — measured, the textbox loses four and the slider two — so the gallery
+    ///     would become a picture of the deficit rather than of the palette, and the two goldens
+    ///     would move for a reason that has nothing to do with either theme. The declared sizes are
+    ///     the subject here; the frame is deliberately small and is allowed to clip.
+    /// </remarks>
     const string Css = """
         root      { flex-direction: column; align-items: flex-start;
                     background-color: var(--surface); padding: 8px; gap: 6px; }
-        button    { width: 90px; height: 26px; }
-        checkbox  { width: 120px; height: 20px; }
-        textbox   { width: 180px; height: 26px; }
-        slider    { width: 180px; height: 18px; }
-        alert     { width: 180px; height: 34px; }
+        button    { width: 90px; height: 26px; flex-shrink: 0; }
+        checkbox  { width: 120px; height: 20px; flex-shrink: 0; }
+        textbox   { width: 180px; height: 26px; flex-shrink: 0; }
+        slider    { width: 180px; height: 18px; flex-shrink: 0; }
+        alert     { width: 180px; height: 34px; flex-shrink: 0; }
         """;
 
     /// <summary>Builds the gallery, in one theme or the other.</summary>

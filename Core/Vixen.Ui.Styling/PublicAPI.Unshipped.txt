@@ -40,6 +40,8 @@ Vixen.Ui.Styling.Animator.Clear() -> void
 Vixen.Ui.Styling.Animator.Compact(System.ReadOnlySpan<int> remap) -> void
 Vixen.Ui.Styling.Animator.IsIdle.get -> bool
 Vixen.Ui.Styling.Animator.Observe(Vixen.Ui.Styling.StyleNodeId element, Vixen.Ui.Styling.ComputedStyle? before, Vixen.Ui.Styling.ComputedStyle after, float now) -> void
+Vixen.Ui.Styling.Animator.ReduceMotion.get -> bool
+Vixen.Ui.Styling.Animator.ReduceMotion.set -> bool
 Vixen.Ui.Styling.Animator.RunningCount.get -> int
 Vixen.Ui.Styling.Animator.TryGetAnimated(Vixen.Ui.Styling.StyleNodeId element, int property, float now, out Vixen.Ui.Styling.StyleValue value) -> bool
 Vixen.Ui.Styling.Animator.TryGetCurrent(Vixen.Ui.Styling.StyleNodeId element, int property, float now, out Vixen.Ui.Styling.StyleValue value) -> bool
@@ -160,6 +162,12 @@ Vixen.Ui.Styling.ContainerVerdicts.ContainerVerdicts() -> void
 Vixen.Ui.Styling.ContainerVerdicts.Equals(Vixen.Ui.Styling.ContainerVerdicts other) -> bool
 Vixen.Ui.Styling.ContainerVerdicts.Holds(int group) -> bool
 Vixen.Ui.Styling.ContainerVerdicts.Revision.get -> int
+Vixen.Ui.Styling.ContrastPreference -> enum : byte
+Vixen.Ui.Styling.ContrastPreference.ContrastPreference() -> void
+Vixen.Ui.Styling.ContrastPreference.Custom = 3 -> Vixen.Ui.Styling.ContrastPreference
+Vixen.Ui.Styling.ContrastPreference.Less = 2 -> Vixen.Ui.Styling.ContrastPreference
+Vixen.Ui.Styling.ContrastPreference.More = 1 -> Vixen.Ui.Styling.ContrastPreference
+Vixen.Ui.Styling.ContrastPreference.NoPreference = 0 -> Vixen.Ui.Styling.ContrastPreference
 Vixen.Ui.Styling.Declaration -> readonly struct
 Vixen.Ui.Styling.Declaration : System.IEquatable<Vixen.Ui.Styling.Declaration>
 Vixen.Ui.Styling.Declaration.Declaration() -> void
@@ -256,11 +264,31 @@ Vixen.Ui.Styling.MediaContext.Gamut.init -> Vixen.Core.Mathematics.ColorGamut
 Vixen.Ui.Styling.MediaContext.Height.get -> float
 Vixen.Ui.Styling.MediaContext.Height.init -> float
 Vixen.Ui.Styling.MediaContext.MediaContext() -> void
-Vixen.Ui.Styling.MediaContext.MediaContext(float Width, float Height, float Resolution = 1, Vixen.Ui.Styling.ColorSchemePreference ColorScheme = Vixen.Ui.Styling.ColorSchemePreference.NoPreference, Vixen.Core.Mathematics.ColorGamut Gamut = Vixen.Core.Mathematics.ColorGamut.Srgb) -> void
+Vixen.Ui.Styling.MediaContext.MediaContext(float Width, float Height, float Resolution = 1, Vixen.Ui.Styling.ColorSchemePreference ColorScheme = Vixen.Ui.Styling.ColorSchemePreference.NoPreference, Vixen.Core.Mathematics.ColorGamut Gamut = Vixen.Core.Mathematics.ColorGamut.Srgb, Vixen.Ui.Styling.MediaPreferences Preferences = default(Vixen.Ui.Styling.MediaPreferences)) -> void
+Vixen.Ui.Styling.MediaContext.Preferences.get -> Vixen.Ui.Styling.MediaPreferences
+Vixen.Ui.Styling.MediaContext.Preferences.init -> Vixen.Ui.Styling.MediaPreferences
 Vixen.Ui.Styling.MediaContext.Resolution.get -> float
 Vixen.Ui.Styling.MediaContext.Resolution.init -> float
 Vixen.Ui.Styling.MediaContext.Width.get -> float
 Vixen.Ui.Styling.MediaContext.Width.init -> float
+Vixen.Ui.Styling.MediaPreferences -> readonly struct
+Vixen.Ui.Styling.MediaPreferences : System.IEquatable<Vixen.Ui.Styling.MediaPreferences>
+Vixen.Ui.Styling.MediaPreferences.AnyPointer.get -> Vixen.Ui.Styling.PointerCapability
+Vixen.Ui.Styling.MediaPreferences.AnyPointer.init -> Vixen.Ui.Styling.PointerCapability
+Vixen.Ui.Styling.MediaPreferences.AnyPointerOrPrimary.get -> Vixen.Ui.Styling.PointerCapability
+Vixen.Ui.Styling.MediaPreferences.Contrast.get -> Vixen.Ui.Styling.ContrastPreference
+Vixen.Ui.Styling.MediaPreferences.Contrast.init -> Vixen.Ui.Styling.ContrastPreference
+Vixen.Ui.Styling.MediaPreferences.ForcedColors.get -> bool
+Vixen.Ui.Styling.MediaPreferences.ForcedColors.init -> bool
+Vixen.Ui.Styling.MediaPreferences.InvertedColors.get -> bool
+Vixen.Ui.Styling.MediaPreferences.InvertedColors.init -> bool
+Vixen.Ui.Styling.MediaPreferences.MediaPreferences() -> void
+Vixen.Ui.Styling.MediaPreferences.MediaPreferences(Vixen.Ui.Styling.MotionPreference Motion = Vixen.Ui.Styling.MotionPreference.NoPreference, Vixen.Ui.Styling.ContrastPreference Contrast = Vixen.Ui.Styling.ContrastPreference.NoPreference, bool ForcedColors = false, bool InvertedColors = false, Vixen.Ui.Styling.PointerCapability Pointer = Vixen.Ui.Styling.PointerCapability.Unspecified, Vixen.Ui.Styling.PointerCapability AnyPointer = Vixen.Ui.Styling.PointerCapability.Unspecified) -> void
+Vixen.Ui.Styling.MediaPreferences.Motion.get -> Vixen.Ui.Styling.MotionPreference
+Vixen.Ui.Styling.MediaPreferences.Motion.init -> Vixen.Ui.Styling.MotionPreference
+Vixen.Ui.Styling.MediaPreferences.Pointer.get -> Vixen.Ui.Styling.PointerCapability
+Vixen.Ui.Styling.MediaPreferences.Pointer.init -> Vixen.Ui.Styling.PointerCapability
+Vixen.Ui.Styling.MediaPreferences.PrimaryPointer.get -> Vixen.Ui.Styling.PointerCapability
 Vixen.Ui.Styling.MediaQuery -> static class
 Vixen.Ui.Styling.MediaScopes -> sealed class
 Vixen.Ui.Styling.MediaScopes.ContextOf(int scope) -> Vixen.Ui.Styling.MediaContext
@@ -276,6 +304,10 @@ Vixen.Ui.Styling.MediaVerdicts.Equals(Vixen.Ui.Styling.MediaVerdicts other) -> b
 Vixen.Ui.Styling.MediaVerdicts.Holds(int group) -> bool
 Vixen.Ui.Styling.MediaVerdicts.MediaVerdicts() -> void
 Vixen.Ui.Styling.MediaVerdicts.Revision.get -> int
+Vixen.Ui.Styling.MotionPreference -> enum : byte
+Vixen.Ui.Styling.MotionPreference.MotionPreference() -> void
+Vixen.Ui.Styling.MotionPreference.NoPreference = 0 -> Vixen.Ui.Styling.MotionPreference
+Vixen.Ui.Styling.MotionPreference.Reduce = 1 -> Vixen.Ui.Styling.MotionPreference
 Vixen.Ui.Styling.NameTable -> sealed class
 Vixen.Ui.Styling.NameTable.Count.get -> int
 Vixen.Ui.Styling.NameTable.Intern(string name) -> int
@@ -283,12 +315,23 @@ Vixen.Ui.Styling.NameTable.Lookup(string name) -> int
 Vixen.Ui.Styling.NameTable.NameOf(int id) -> string
 Vixen.Ui.Styling.NameTable.NameTable() -> void
 Vixen.Ui.Styling.NamedColors -> static class
+Vixen.Ui.Styling.PointerCapability -> enum : byte
+Vixen.Ui.Styling.PointerCapability.Coarse = 1 -> Vixen.Ui.Styling.PointerCapability
+Vixen.Ui.Styling.PointerCapability.Fine = 2 -> Vixen.Ui.Styling.PointerCapability
+Vixen.Ui.Styling.PointerCapability.NoDevice = 4 -> Vixen.Ui.Styling.PointerCapability
+Vixen.Ui.Styling.PointerCapability.PointerCapability() -> void
+Vixen.Ui.Styling.PointerCapability.Unspecified = 0 -> Vixen.Ui.Styling.PointerCapability
 Vixen.Ui.Styling.PositionTest -> enum : byte
 Vixen.Ui.Styling.PositionTest.First = 0 -> Vixen.Ui.Styling.PositionTest
+Vixen.Ui.Styling.PositionTest.FirstOfType = 5 -> Vixen.Ui.Styling.PositionTest
 Vixen.Ui.Styling.PositionTest.Last = 1 -> Vixen.Ui.Styling.PositionTest
+Vixen.Ui.Styling.PositionTest.LastOfType = 6 -> Vixen.Ui.Styling.PositionTest
 Vixen.Ui.Styling.PositionTest.Nth = 3 -> Vixen.Ui.Styling.PositionTest
 Vixen.Ui.Styling.PositionTest.NthLast = 4 -> Vixen.Ui.Styling.PositionTest
+Vixen.Ui.Styling.PositionTest.NthLastOfType = 9 -> Vixen.Ui.Styling.PositionTest
+Vixen.Ui.Styling.PositionTest.NthOfType = 8 -> Vixen.Ui.Styling.PositionTest
 Vixen.Ui.Styling.PositionTest.Only = 2 -> Vixen.Ui.Styling.PositionTest
+Vixen.Ui.Styling.PositionTest.OnlyOfType = 7 -> Vixen.Ui.Styling.PositionTest
 Vixen.Ui.Styling.PositionTest.PositionTest() -> void
 Vixen.Ui.Styling.RuleIndex -> sealed class
 Vixen.Ui.Styling.RuleIndex.Add(Vixen.Ui.Styling.Selector selector) -> int
@@ -360,8 +403,10 @@ Vixen.Ui.Styling.SimpleSelectorKind -> enum : byte
 Vixen.Ui.Styling.SimpleSelectorKind.Attribute = 4 -> Vixen.Ui.Styling.SimpleSelectorKind
 Vixen.Ui.Styling.SimpleSelectorKind.Class = 3 -> Vixen.Ui.Styling.SimpleSelectorKind
 Vixen.Ui.Styling.SimpleSelectorKind.Empty = 9 -> Vixen.Ui.Styling.SimpleSelectorKind
+Vixen.Ui.Styling.SimpleSelectorKind.Has = 11 -> Vixen.Ui.Styling.SimpleSelectorKind
 Vixen.Ui.Styling.SimpleSelectorKind.Id = 2 -> Vixen.Ui.Styling.SimpleSelectorKind
 Vixen.Ui.Styling.SimpleSelectorKind.Is = 8 -> Vixen.Ui.Styling.SimpleSelectorKind
+Vixen.Ui.Styling.SimpleSelectorKind.Lang = 10 -> Vixen.Ui.Styling.SimpleSelectorKind
 Vixen.Ui.Styling.SimpleSelectorKind.Not = 7 -> Vixen.Ui.Styling.SimpleSelectorKind
 Vixen.Ui.Styling.SimpleSelectorKind.Position = 6 -> Vixen.Ui.Styling.SimpleSelectorKind
 Vixen.Ui.Styling.SimpleSelectorKind.SimpleSelectorKind() -> void
@@ -419,6 +464,7 @@ Vixen.Ui.Styling.StyleEngine.Values.get -> Vixen.Ui.Styling.NameTable
 Vixen.Ui.Styling.StyleInvalidator -> sealed class
 Vixen.Ui.Styling.StyleInvalidator.Collect(Vixen.Ui.Styling.StyleTree tree, Vixen.Ui.Styling.StyleNodeId element, System.ReadOnlySpan<int> changed, bool stateChanged, System.Collections.Generic.List<Vixen.Ui.Styling.StyleNodeId> roots) -> void
 Vixen.Ui.Styling.StyleInvalidator.Read(Vixen.Ui.Styling.StyleRuleSet rules) -> void
+Vixen.Ui.Styling.StyleInvalidator.StateReachesAncestors.get -> bool
 Vixen.Ui.Styling.StyleInvalidator.StateReachesDescendants.get -> bool
 Vixen.Ui.Styling.StyleInvalidator.StateReachesEverything.get -> bool
 Vixen.Ui.Styling.StyleInvalidator.StateReachesSiblings.get -> bool
@@ -529,6 +575,8 @@ Vixen.Ui.Styling.StyleTree.HasClass(Vixen.Ui.Styling.StyleNodeId element, string
 Vixen.Ui.Styling.StyleTree.HasText(Vixen.Ui.Styling.StyleNodeId element) -> bool
 Vixen.Ui.Styling.StyleTree.InlineAt(int index) -> Vixen.Ui.Styling.InlineStyleId?
 Vixen.Ui.Styling.StyleTree.IsAlive(Vixen.Ui.Styling.StyleNodeId element) -> bool
+Vixen.Ui.Styling.StyleTree.Language.get -> string
+Vixen.Ui.Styling.StyleTree.Language.set -> string
 Vixen.Ui.Styling.StyleTree.LiveCount.get -> int
 Vixen.Ui.Styling.StyleTree.Move(Vixen.Ui.Styling.StyleNodeId element, int index) -> void
 Vixen.Ui.Styling.StyleTree.Names.get -> Vixen.Ui.Styling.NameTable
@@ -546,6 +594,7 @@ Vixen.Ui.Styling.StyleTree.StyleTree(Vixen.Ui.Styling.NameTable names) -> void
 Vixen.Ui.Styling.StyleUnit -> enum : byte
 Vixen.Ui.Styling.StyleUnit.Degrees = 4 -> Vixen.Ui.Styling.StyleUnit
 Vixen.Ui.Styling.StyleUnit.Em = 5 -> Vixen.Ui.Styling.StyleUnit
+Vixen.Ui.Styling.StyleUnit.LineHeight = 11 -> Vixen.Ui.Styling.StyleUnit
 Vixen.Ui.Styling.StyleUnit.None = 0 -> Vixen.Ui.Styling.StyleUnit
 Vixen.Ui.Styling.StyleUnit.Percent = 2 -> Vixen.Ui.Styling.StyleUnit
 Vixen.Ui.Styling.StyleUnit.Pixels = 1 -> Vixen.Ui.Styling.StyleUnit

@@ -120,6 +120,37 @@ public sealed class Animator {
         transitionTiming = properties.Intern("transition-timing-function");
     }
 
+    /// <summary>Whether the user has asked for less movement, and everything therefore snaps.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Set from <see cref="MediaPreferences.Motion" /> by
+    ///         <see cref="StyleEngine.SetMedia(MediaContext)" />, and false until something says
+    ///         otherwise.</b> A transition is not started and a <c>@keyframes</c> animation is not
+    ///         run, so a property arrives at its new value the instant the cascade decides it — which
+    ///         is exactly what <c>transition-duration: 0s</c> already meant here, on the path
+    ///         <see cref="Observe" /> already had.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A framework switch <i>and</i> a media feature, because neither alone is
+    ///         honest.</b> The web's answer is the query alone, and it is right that an author who
+    ///         writes <c>@media (prefers-reduced-motion: reduce)</c> should be able to say what
+    ///         happens; but a toolkit whose default is "animate anyway" makes every application that
+    ///         did not think about it an application that ignores the preference, and this framework
+    ///         ships transitions, keyframes and springs that an author gets without asking. AppKit's
+    ///         <c>accessibilityDisplayShouldReduceMotion</c> is honoured by the toolkit for the same
+    ///         reason. An author who wants a reduced-but-present motion writes it in the media block
+    ///         and turns this off.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A transition already in flight when this is turned on finishes; a keyframe
+    ///         animation does not, and the asymmetry is the two being different things.</b> A
+    ///         transition has an end — cutting it short freezes a panel at whatever opacity it had
+    ///         reached, which is the one state no stylesheet asked for. An animation may loop
+    ///         forever, so there is no end to let it reach and a spinner would go on spinning.
+    ///     </para>
+    /// </remarks>
+    public bool ReduceMotion { get; set; }
+
     /// <summary>How many transitions are running.</summary>
     public int RunningCount => running.Count;
 
@@ -159,7 +190,7 @@ public sealed class Animator {
 
         StartAnimations(element, after, now);
 
-        if (before is null || ReferenceEquals(before, after)) {
+        if (before is null || ReferenceEquals(before, after) || ReduceMotion) {
             return;
         }
 
@@ -223,6 +254,17 @@ public sealed class Animator {
     ///     </para>
     /// </remarks>
     void StartAnimations(StyleNodeId element, ComputedStyle style, float now) {
+        if (ReduceMotion) {
+            // ⚠ Removed rather than left alone, unlike a transition. An animation with
+            // `animation-iteration-count: infinite` — which is every spinner, pulse and shimmer a
+            // stylesheet writes — has no end to run out to, so leaving one in place would mean the
+            // preference stopped exactly the motion that stops by itself and none of the motion that
+            // does not.
+            animations.Remove(element.Index);
+
+            return;
+        }
+
         if (!ReadAnimations(style)) {
             animations.Remove(element.Index);
             return;

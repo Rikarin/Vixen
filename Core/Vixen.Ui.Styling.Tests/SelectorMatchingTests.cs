@@ -139,6 +139,65 @@ public class SelectorMatchingTests {
     }
 
     [Fact]
+    public void The_of_type_pseudo_classes_index_the_siblings_that_share_a_tag() {
+        // ⚠ Mixed tags, and that is the whole design of this fixture. Every element in the test
+        // above is an `li`, and in a run of one tag `:nth-of-type(n)` and `:nth-child(n)` select the
+        // same element for every n — so an of-type test compiled into a child test, or answered by a
+        // matcher that ignored the tag, passes an all-`li` scene completely. The sequence here is
+        // `div p div p div`, chosen so that each `p`'s of-type index and child index differ.
+        var fixture = new StyleFixture();
+        var list = fixture.Tree.CreateElement("section");
+        var first = fixture.Tree.CreateElement("div", list);
+        var one = fixture.Tree.CreateElement("p", list);
+        var second = fixture.Tree.CreateElement("div", list);
+        var two = fixture.Tree.CreateElement("p", list);
+        var third = fixture.Tree.CreateElement("div", list);
+
+        Assert.True(fixture.Matches(":first-of-type", one));
+        Assert.False(fixture.Matches(":first-of-type", two));
+        Assert.True(fixture.Matches(":last-of-type", two));
+        Assert.False(fixture.Matches(":last-of-type", one));
+
+        // ⚠ The first `div` is first-of-type *and* first-child, and the first `p` is first-of-type
+        // and is not — so the pair below is what separates the two tests rather than the pair above.
+        Assert.True(fixture.Matches(":first-of-type", first));
+        Assert.True(fixture.Matches(":first-child", first));
+        Assert.False(fixture.Matches(":first-child", one));
+
+        // `two` is the second `p` and the fourth child; `third` is the third `div` and the fifth.
+        Assert.True(fixture.Matches(":nth-of-type(1)", one));
+        Assert.True(fixture.Matches(":nth-of-type(2)", two));
+        Assert.False(fixture.Matches(":nth-child(2)", two));
+        Assert.True(fixture.Matches(":nth-of-type(2)", second));
+        Assert.True(fixture.Matches(":nth-of-type(3)", third));
+        Assert.False(fixture.Matches(":nth-child(3)", third));
+
+        // Counted from the end of the tag's own run: the last `div` is `third` and the last `p` is
+        // `two`, so one selector answers about two different sequences in the same parent.
+        Assert.True(fixture.Matches(":nth-last-of-type(1)", third));
+        Assert.True(fixture.Matches(":nth-last-of-type(1)", two));
+        Assert.True(fixture.Matches(":nth-last-of-type(2)", second));
+        Assert.True(fixture.Matches(":nth-last-of-type(2)", one));
+        Assert.False(fixture.Matches(":nth-last-of-type(2)", two));
+
+        // `2n+1` over the of-type sequence: the first and third `div`, and the first `p`.
+        Assert.True(fixture.Matches(":nth-of-type(2n+1)", first));
+        Assert.False(fixture.Matches(":nth-of-type(2n+1)", second));
+        Assert.True(fixture.Matches(":nth-of-type(2n+1)", third));
+        Assert.True(fixture.Matches(":nth-of-type(2n+1)", one));
+
+        // `:only-of-type` is `:only-child` restricted to a tag, so the one `span` in a box that also
+        // holds a `div` is only-of-type and is not only-child.
+        var box = fixture.Tree.CreateElement("aside");
+        var lone = fixture.Tree.CreateElement("span", box);
+        fixture.Tree.CreateElement("div", box);
+
+        Assert.True(fixture.Matches(":only-of-type", lone));
+        Assert.False(fixture.Matches(":only-child", lone));
+        Assert.False(fixture.Matches(":only-of-type", one));
+    }
+
+    [Fact]
     public void The_state_pseudo_classes_read_the_element_state() {
         var fixture = new StyleFixture();
         var button = fixture.Tree.CreateElement("button");
@@ -344,8 +403,16 @@ public class SelectorMatchingTests {
     public void A_selector_Vixen_does_not_support_is_dropped_with_a_diagnostic() {
         // Dropped rather than approximated. A rule that silently matches more than it says produces
         // a UI that is wrong everywhere nobody looked; a rule that does not load produces a message.
+        //
+        // ⚠ This used to be written against `:has(.x)`, which now compiles. The refusal it stands on
+        // is the *argument* restriction instead, and that is a stricter example rather than a
+        // weaker one: `:has(.a .b)` is a selector this compiler could very nearly answer, and the
+        // reason it does not is precisely that "nearly" would be a rule matching more than it says.
+        // CSS anchors a `:has()` argument at the element, so the `.a` has to be inside the subtree
+        // too — and testing the nested selector against every descendant also says yes when the
+        // `.a` is an ancestor of the element the rule is about.
         var fixture = new StyleFixture();
-        var compiled = fixture.Load(".ok { color: red } .bad:has(.x) { color: blue } .also-ok { color: green }");
+        var compiled = fixture.Load(".ok { color: red } .bad:has(.a .b) { color: blue } .also-ok { color: green }");
 
         Assert.Equal(2, compiled.Count);
         Assert.Single(fixture.Compiler.Diagnostics);
@@ -355,7 +422,50 @@ public class SelectorMatchingTests {
         // name "HasSelector" both contain it, and the message said the second one.
         var diagnostic = fixture.Compiler.Diagnostics[0];
 
-        Assert.Contains(":has(.x)", diagnostic.Reason, StringComparison.Ordinal);
+        Assert.Contains(":has(.a .b)", diagnostic.Reason, StringComparison.Ordinal);
         Assert.DoesNotContain("Selector", diagnostic.Reason, StringComparison.Ordinal);
+
+        // And the pseudo-element refusal, which is the other half of the same rule and is the one
+        // that has to keep working — F6 exists because `p::before` used to compile and style the
+        // paragraph.
+        var second = new StyleFixture();
+
+        Assert.Empty(second.Load("p::before { color: red }"));
+        Assert.Single(second.Compiler.Diagnostics);
+    }
+
+    [Fact]
+    public void A_has_selector_asks_about_the_subtree_and_only_the_subtree() {
+        var fixture = new StyleFixture();
+        var page = fixture.Tree.CreateElement("div", classNames: ["page"]);
+        var card = fixture.Tree.CreateElement("div", page, classNames: ["card"]);
+        var body = fixture.Tree.CreateElement("div", card, classNames: ["body"]);
+        var field = fixture.Tree.CreateElement("input", body, classNames: ["field"]);
+        var plain = fixture.Tree.CreateElement("div", page, classNames: ["card"]);
+
+        Assert.False(fixture.Matches(".card:has(.error)", card));
+
+        fixture.Tree.AddClass(field, "error");
+
+        // ⚠ Any depth, not just a child. The whole subtree is the question `:has()` asks, and an
+        // implementation that only looked one level down passes every fixture whose interesting
+        // element happens to be a direct child — which is most of them.
+        Assert.True(fixture.Matches(".card:has(.error)", card));
+        Assert.True(fixture.Matches(".page:has(.error)", page));
+        Assert.False(fixture.Matches(".card:has(.error)", plain));
+
+        // ⚠ And not the element itself, which is the boundary CSS draws and the easy one to cross:
+        // `:has()` is about descendants, so a card that *is* the error does not have one.
+        Assert.False(fixture.Matches(".field:has(.error)", field));
+
+        // State, so that `has-checked:` composes over the same table `hover:` does.
+        fixture.Tree.SetState(field, ElementState.Checked);
+
+        Assert.True(fixture.Matches(".card:has(:checked)", card));
+        Assert.False(fixture.Matches(".card:has(:hover)", card));
+
+        // A list argument is a disjunction, exactly as `:is()`'s is.
+        Assert.True(fixture.Matches(".card:has(.missing, .error)", card));
+        Assert.False(fixture.Matches(".card:has(.missing, .absent)", card));
     }
 }

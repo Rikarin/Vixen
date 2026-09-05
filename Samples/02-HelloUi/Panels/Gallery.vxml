@@ -18,8 +18,10 @@
 @component Gallery
 @namespace Vixen.Samples.HelloUi.Panels
 @tag gallery-panel
+@using Vixen.Core.Mathematics
 @using Vixen.Ui
 @using Vixen.Ui.Controls
+@using Vixen.Ui.Controls.Advanced
 @using Vixen.Ui.Reactive
 
 <!--
@@ -82,6 +84,14 @@
             <card-heading class="text-lg font-semibold">Fields</card-heading>
 
             <TextBox Placeholder="Name" bind:Value="@Model.Name.Value" />
+
+            <!--
+                ⚠ **Bound two-way like any other field, and that is the point of it being a field
+                rather than a mode.** The value is the real string — a form has to be able to submit
+                it — and the bullets exist only in what is drawn and in what the accessibility tree
+                is told. There is no reveal button and its absence is deliberate.
+            -->
+            <SecureTextBox Placeholder="Password" bind:Value="@Model.Secret.Value" />
             <SearchBox Placeholder="Filter assets" bind:Value="@Model.Filter.Value" />
             <NumericInput Minimum="0" Maximum="64" bind:Number="@Model.Samples.Value" />
 
@@ -96,6 +106,22 @@
                 <Option Value="cutout" Label="Cutout" />
                 <Option Value="blend" Label="Blend" />
             </Select>
+
+            <!--
+                ⚠ **A combo box is not a select with a text field on it — the value need not be one
+                of the options**, which is why the two are separate types and why this one is here.
+                An `<Option>` nested in it is a *suggestion*: picking one fills the field, and typing
+                something nobody suggested is allowed and is the case a select cannot express.
+
+                It routes its nested options into its popover the same way `Select` does — see
+                `ComboBox.ContentHost` — so the nesting below reads as the tree it is and is not
+                where the elements end up.
+            -->
+            <ComboBox>
+                <Option Value="Standard" Label="Standard" />
+                <Option Value="Unlit" Label="Unlit" />
+                <Option Value="Subsurface" Label="Subsurface" />
+            </ComboBox>
 
             <Slider bind:Value="@Model.Detail.Value" />
             <RangeSlider Low="0.2" High="0.8" />
@@ -119,6 +145,58 @@
             <Alert Variant="Danger"
                    Title="Shader failed to compile"
                    Message="Ui/Msdf.rvn(42): expected ';'" />
+        </Card>
+
+        <!--
+            ⚠ **The four small display controls, and the reason they are worth a card is that until
+            this one existed nothing outside their own unit tests constructed any of them.** A
+            control with no consumer is a control whose markup surface has never been exercised — the
+            tests reach for `Add<Avatar>()` in C# and would go on passing if the tag, the attribute
+            names or the theme rule were wrong.
+        -->
+        <Card>
+            <card-heading class="text-lg font-semibold">Identity</card-heading>
+
+            <identity-row class="flex flex-row items-center gap-2">
+                <!--
+                    ⚠ `Name` and not `Initials`: setting the name *derives* the initials, and the
+                    name is also what a screen reader is given. Two letters read out loud have told
+                    nobody anything. `Avatar.Initials` is the override for when there is no name.
+                -->
+                <Avatar Name="Ada Lovelace" />
+
+                <!--
+                    ⚠ And the other way round, which is the case the derivation cannot serve: a
+                    contributor known by two letters and not by a name. `Initials` is `Text` under
+                    another name, so setting it writes the circle directly — and the accessible name
+                    falls back to it, which is the "nobody said who it is" branch of
+                    `Avatar.NativeAccessibleName` and the only honest answer available.
+                -->
+                <Avatar Initials="JS" />
+
+                <identity-text class="flex flex-col">
+                    <!--
+                        ⚠ A `Href` that nothing here follows, deliberately: a link raises a click and
+                        carries an address, and what that means — open a browser, reveal an asset,
+                        switch document — is the application's. A control set that shelled out to a
+                        system browser would be one that opens arbitrary URLs on behalf of content.
+                    -->
+                    <Link Label="vixenengine.org/docs/ui"
+                          Href="https://vixenengine.org/docs/ui"
+                          on:click="@Followed" />
+
+                    <Badge Variant="Primary" Text="3 unread" />
+                </identity-text>
+            </identity-row>
+
+            <!--
+                What content that has not arrived looks like. Two bars rather than one, because a
+                single grey rectangle reads as a divider and a stack of them reads as a paragraph.
+            -->
+            <skeleton-stack class="flex flex-col gap-2">
+                <Skeleton class="w-full" />
+                <Skeleton class="w-1/2" />
+            </skeleton-stack>
         </Card>
 
         <Tabs>
@@ -154,8 +232,59 @@
             button the next rebuild throws away.
         -->
         <Pagination PageCount="12" />
+
+        <!--
+            ⚠ **The one advanced control in this panel, and it is here because
+            `Vixen.Ui.Controls.Advanced/README.md` names it as one of the eleven that prove the
+            framework — while nothing outside its own unit tests constructed one.** It needs no
+            attributes and no children: the rails, the bar, the space select and the picker are all
+            parts it makes, and an application that wants its own picker hides this one and listens
+            to `SelectionChanged`.
+        -->
+        <Card>
+            <card-heading class="text-lg font-semibold">Gradient</card-heading>
+            <GradientEditor ref="@gradient" />
+        </Card>
+
+        <!--
+            ⚠ **`slot="second"` and nothing at all for the first**, which is `SplitView`'s whole
+            authoring surface. A split is two things and `ContentHost` can only be one of them, so
+            unmarked children go into the near pane — a sidebar's own markup — and the far one is
+            named. This is the only file in the repository that writes the far slot, which is what
+            makes it the check that `NamedHost` is wired at all.
+
+            The height is the sample's rather than the control's: a split has no size of its own and
+            a scroll column would give it none.
+        -->
+        <Card>
+            <card-heading class="text-lg font-semibold">Split</card-heading>
+
+            <SplitView Ratio="0.3" MinimumRatio="0.2" class="h-24">
+                <split-note class="text-xs text-slate-400 p-2">Sidebar</split-note>
+                <split-note slot="second" class="text-xs text-slate-400 p-2">Detail</split-note>
+            </SplitView>
+        </Card>
+
+        <!--
+            ⚠ **A drawer is opened, not assigned.** `IsOpen` is deliberately not a `[UiProperty]` —
+            opening measures, places, moves the focus and may take a modal scope, so `Open` and
+            `Close` are the whole interface and a settable property would be an invitation to do
+            half of it. That is why this is a button and a `ref` rather than a `bind:`.
+        -->
+        <Button Label="Show filters" on:click="@ShowFilters" />
     </scroll-column>
 </ScrollView>
+
+<!--
+    Outside the scroller, for `ToastHost`'s reason in `Shell.vxml`: a surface that covers the window
+    must not be laid out by — or clipped to — the column it was opened from.
+
+    ⚠ **Its content is filled in `OnComposed` rather than nested here, and that is a gap rather than
+    a style.** `Drawer` (and `Dialog`) never override `UiElement.ContentHost`, so a tag written
+    inside one lands on the drawer element beside its backdrop and its surface — which the theme
+    lays out across the whole viewport — instead of in `Body`. See issue #676.
+-->
+<Drawer ref="@filters" Side="Right" />
 
 @code {
     /// <summary>The five appearances a button has.</summary>
@@ -173,6 +302,9 @@
     ];
 
     readonly Signal<ShellModel> model = new(new());
+
+    GradientEditor gradient = null!;
+    Drawer filters = null!;
 
     /// <summary>What it is showing.</summary>
     /// <remarks>
@@ -196,7 +328,27 @@
     /// </remarks>
     string Detail => Model.Detail.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
 
-    partial void OnComposed() => Root.Document.Ticked += Advance;
+    partial void OnComposed() {
+        Root.Document.Ticked += Advance;
+
+        // Three stops and one alpha stop, so that the rails have something on them and a reader can
+        // see what the two of them are for. A `GradientEditor` left at its default is a black-to-white
+        // strip with one stop on each rail, which is the state that looks like it did not load.
+        var ramp = new Gradient();
+        ramp.AddColorStop(0f, new(0.05f, 0.10f, 0.35f, 1f));
+        ramp.AddColorStop(0.5f, new(0.85f, 0.35f, 0.15f, 1f));
+        ramp.AddColorStop(1f, new(1f, 0.95f, 0.70f, 1f));
+        ramp.AddAlphaStop(0.25f, 0.4f);
+
+        gradient.Gradient = ramp;
+        gradient.GradientChanged += _ => Model.Notify("Gradient edited", ControlVariant.Default);
+
+        // ⚠ The one piece of C# this panel would rather not have. See the `<Drawer>` above: nested
+        // markup cannot reach `Drawer.Body` yet, so the content is added where the control says it
+        // goes rather than where an author would write it.
+        filters.Body.Add<TextBlock>().Text = "A secondary surface you can leave open.";
+        filters.Body.Add<CheckBox>().Label = "Only modified";
+    }
 
     /// <inheritdoc />
     protected override void OnUnmounted() {
@@ -215,6 +367,16 @@
         Model.Phase.Value = seconds % 1f;
         Model.Progress.Value = (MathF.Sin(seconds) * 0.5f) + 0.5f;
     }
+
+    /// <summary>What an application does with a <see cref="Link" />'s address.</summary>
+    /// <remarks>
+    ///     Reported rather than opened, and that is the sample making the control's point: a link
+    ///     carries a <c>Href</c> and raises a click, and deciding that the address is safe to hand to
+    ///     a browser is a judgement no widget is in a position to make.
+    /// </remarks>
+    void Followed() => Model.Notify("Would open the guide", ControlVariant.Default);
+
+    void ShowFilters() => filters.Open();
 
     void Pressed(ControlVariant variant) =>
         Model.Notify(

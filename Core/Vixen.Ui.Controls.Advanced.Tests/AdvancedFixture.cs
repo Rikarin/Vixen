@@ -25,6 +25,14 @@ sealed class AdvancedFixture : IDisposable {
         ControlTheme.Install(Document);
         AdvancedTheme.Install(Document);
 
+        // ⚠ **Pinned rather than left to the machine.** `EditingCommands.Current` is macOS on a
+        // Mac and Windows everywhere else, so a suite that took the default would assert one
+        // keyboard on a developer's laptop and another in CI — a red build whose cause is in neither
+        // the diff nor the test. `EditingKeymapTests` drives both tables directly, which is where
+        // the platform question belongs.
+        Document.EditingKeymap = EditingKeymap.Windows;
+
+
         Document.Load($"root {{ width: {width}px; height: {height}px; }}");
 
         if (css is not null) {

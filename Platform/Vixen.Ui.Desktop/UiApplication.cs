@@ -110,6 +110,7 @@ public sealed class UiApplication : IDisposable {
     readonly IPlatform platform;
     readonly IWindow window;
     readonly PlatformWindowHost windows;
+    readonly PlatformTextInput textInput;
 
     /// <summary>One shared atlas, because a glyph rasterised for one window is the same glyph in the next.</summary>
     readonly GlyphFieldCache glyphs = new(new GlyphAtlas(1024, 1024));
@@ -166,6 +167,16 @@ public sealed class UiApplication : IDisposable {
             SystemFonts.Install(Document);
         }
 
+        // ⚠ **Installed rather than offered, because "no manager" is what a text field checks and a
+        // default of none is a ⌘Z that does nothing.** `CodeBuffer` is right that undo belongs to the
+        // application and not to the control — but AppKit's window supplies one anyway, and that is
+        // what makes a dialog's text box undoable in a program that has no documents at all.
+        //
+        // ⚠ Before `Configure`, so an application with its own stack replaces this rather than being
+        // replaced by it. The clipboard and the window host below are the head's own wiring and go
+        // after; this one is a default.
+        Document.UndoManager = new UndoManager();
+
         // ⚠ After the sheets and the font, before the content. A component's `Build` reads class
         // names against the cascade as it goes and measures text against whatever face is registered,
         // so mounting first would resolve the first frame against an empty stylesheet and a
@@ -177,6 +188,14 @@ public sealed class UiApplication : IDisposable {
         // type: the docking host asks the document, the document asks `IUiWindowHost`, and this
         // assembly is the only one in the chain allowed to know what a window is.
         windows = new PlatformWindowHost(platform, Document, window);
+        textInput = new PlatformTextInput(platform.TextInput);
+
+        // ⚠ **The same shape as the line above, and its absence was why ⌘C did nothing.**
+        // `IClipboard` has had real backends on three desktops since Phase 1 and nothing above
+        // `Vixen.Platform` ever called one, so a text field in any application but the editor had
+        // cut, copy and paste that silently were not there. A platform without the capability
+        // leaves `Document.Clipboard` null and the three verbs grey out, which is the truth.
+        PlatformClipboard.Install(Document, platform);
 
         // ⚠ `Mount` first and `Content` second, because a development build supplies the first to
         // put its components under a `HotReloadHost` — see `UiApplicationOptions.Mount`, which is
@@ -323,6 +342,51 @@ public sealed class UiApplication : IDisposable {
     /// <summary>The window the application was opened on.</summary>
     public IWindow Window => window;
 
+    /// <summary>Everything the operating system does for this application.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Its absence is what made three finished, six-platform capabilities unreachable
+    ///         from application code.</b> <see cref="Run(UiApplicationOptions)" /> is the only public
+    ///         way to start an application and the constructor is internal by design, so a caller had
+    ///         <see cref="Window" /> and <see cref="Document" /> and no route at all to
+    ///         <see cref="IPlatform.Clipboard" />, <see cref="IPlatform.Dialogs" />,
+    ///         <see cref="IPlatform.Displays" /> or <see cref="IPlatform.Lifecycle" /> — none of which
+    ///         a UI framework can offer from <c>Core/</c>, because <c>Vixen.Platform</c> sits above
+    ///         it. No file dialogs, no display list, and nothing in the framework to point at as the
+    ///         reason.
+    ///     </para>
+    ///     <para>
+    ///         Two of the four the host now does on the application's behalf and does not wait to be
+    ///         asked for: <c>PlatformClipboard.Install</c> puts the pasteboard behind
+    ///         <see cref="UiDocument.Clipboard" /> so every text box has ⌘C with nothing wired, and
+    ///         the quit veto turns the lifecycle's terminate into a
+    ///         <see cref="Vixen.Ui.CloseRequestEvent" />. Everything else here is the
+    ///         application's.
+    ///     </para>
+    ///     <para>
+    ///         <b>Where an application reaches it is <see cref="UiApplicationOptions.Started" />,</b>
+    ///         which is handed this object and runs after the interface is built and before the first
+    ///         frame — <see cref="UiApplicationOptions.Configure" /> is offered the document alone
+    ///         and deliberately stays that way, because what it is for is loading sheets and
+    ///         registering types before the content mounts.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read <see cref="IPlatform.Capabilities" /> before using most of it.</b> A
+    ///         headless build has no displays and no pickers, and a Linux session may have no picker
+    ///         either — <c>PlatformExtensions.Pickers()</c> is that question for the one service
+    ///         where the "nothing chosen" answer is indistinguishable from a cancellation.
+    ///     </para>
+    ///     <para>
+    ///         <b>Threading.</b> The platform is owned by the loop thread. Every member of it must be
+    ///         called from there, which for an application using this loop means from
+    ///         <see cref="Started" />, <see cref="Frame" />, <see cref="Stopping" /> or an event
+    ///         handler — not from a continuation that resumed on a pool thread. See
+    ///         <see cref="IPlatform" />, which says why that is the operating systems' restriction
+    ///         rather than one of ours.
+    ///     </para>
+    /// </remarks>
+    public IPlatform Platform => platform;
+
     /// <summary>How many frames have been drawn.</summary>
     public int FrameCount { get; private set; }
 
@@ -436,6 +500,35 @@ public sealed class UiApplication : IDisposable {
     /// </remarks>
     public void Stop() => running = false;
 
+    /// <summary>Asks whether the application may close, and stops the loop if nothing refuses.</summary>
+    /// <param name="reason">What prompted it. The default is the one a Quit menu item wants.</param>
+    /// <returns>Whether the loop was told to stop.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one modal every desktop application has, and this host had no way to write
+    ///         it.</b> <c>Pump</c> set <c>running = false</c> outright on a platform Quit and on an
+    ///         unclaimed window close, so Save / Don't Save / Cancel was not merely unimplemented —
+    ///         it was unreachable, in every <c>Vixen.Ui</c> application. The editor's own host has
+    ///         done this correctly since save-on-close was built; the framework host was the copy
+    ///         that still had the bug, one assembly over.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A refusal is "not now", not "never".</b> A prompt is a dialog and a dialog is
+    ///         answered frames later, so a handler that needs to ask cancels the request, opens the
+    ///         prompt and calls this again when it has an answer. <see cref="Stop" /> is the
+    ///         unconditional form for the handler that has finished asking.
+    ///     </para>
+    /// </remarks>
+    public bool Quit(UiCloseReason reason = UiCloseReason.Quit) {
+        if (!Document.RequestClose(reason)) {
+            return false;
+        }
+
+        running = false;
+
+        return true;
+    }
+
     /// <summary>Runs until the window closes, or for <see cref="UiApplicationOptions.Frames" /> frames.</summary>
     /// <returns>A process exit code.</returns>
     /// <remarks>
@@ -470,6 +563,12 @@ public sealed class UiApplication : IDisposable {
     int Loop() {
         var clock = Stopwatch.StartNew();
         var previous = TimeSpan.Zero;
+
+        // ⚠ Before `Started` and therefore before the first frame. The platform posts no event for
+        // the appearance it already had at boot — there is nothing to notice — so a host that only
+        // handled `SystemColorSchemeChanged` would draw every frame of a session against the wrong
+        // palette on a machine whose appearance never changed, which is most of them.
+        PlatformInput.ApplyColorScheme(Document, platform.ColorScheme);
 
         Started?.Invoke(this);
 
@@ -526,6 +625,13 @@ public sealed class UiApplication : IDisposable {
             // `cursor-*` class in every theme resolves correctly and shows nothing.
             PlatformCursor.Apply(windows);
 
+            // ⚠ Beside the cursor and for the same reason: the focus moves between frames and the
+            // caret moves within one, so neither has an event to hang on that is not "the frame".
+            // Until this line existed nothing in the framework ever called `ITextInput.Activate`, so
+            // a focused field on the web or a phone received nothing at all — and desktop only
+            // worked because SDL leaves text input running.
+            textInput.Apply(windows);
+
             Document.Draw();
 
             Sync();
@@ -537,6 +643,11 @@ public sealed class UiApplication : IDisposable {
 
         device?.WaitIdle();
 
+        // ⚠ Text input is process state, not window state: SDL leaves it running after the window
+        // that asked for it has gone, and a second application started in the same process would
+        // find the keyboard already handed to an input method.
+        textInput.Deactivate();
+
         Stopping?.Invoke(this);
 
         return 0;
@@ -546,7 +657,15 @@ public sealed class UiApplication : IDisposable {
         foreach (var platformEvent in platform.PumpEvents()) {
             switch (platformEvent.Kind) {
                 case PlatformEventKind.Quit:
-                    running = false;
+                    // ⚠ Asked rather than obeyed, and the platform's own latch is cleared when the
+                    // answer is no. `DesktopLifecycle` holds `IsQuitRequested` once it has been set,
+                    // so a host that refused the quit and left the flag would be one where the
+                    // *next* quit is already half-answered. `EditorHost` has carried these four
+                    // lines since save-on-close was built; this host had none of them, which is why
+                    // ⌘Q threw away unsaved work in every application that was not the editor.
+                    if (!Quit()) {
+                        platform.Lifecycle.CancelQuit();
+                    }
 
                     // ⚠ Not `return`. The rest of this pump is the frame's input — a click, a
                     // keystroke, the resize that arrived with it — and dropping it is what makes a
@@ -562,7 +681,10 @@ public sealed class UiApplication : IDisposable {
                         break;
                     }
 
-                    running = false;
+                    // ⚠ A request, not a close. Backing out of the prompt has to leave the window
+                    // open, and there is no lifecycle flag to clear here — the platform has asked
+                    // rather than latched.
+                    Quit(UiCloseReason.WindowClosed);
                     break;
 
                 case PlatformEventKind.WindowResized:
@@ -583,6 +705,14 @@ public sealed class UiApplication : IDisposable {
 
                 case PlatformEventKind.Suspending:
                     Release();
+                    break;
+
+                case PlatformEventKind.SystemColorSchemeChanged:
+                    // ⚠ Not routed by window id, because it names none. The appearance is a setting
+                    // of the machine and every surface of the document answers `@media
+                    // (prefers-color-scheme: …)` with it — falling through to the default branch
+                    // would resolve window 0, find nothing, and drop the change silently.
+                    PlatformInput.ApplyColorScheme(Document, platform.ColorScheme);
                     break;
 
                 default:

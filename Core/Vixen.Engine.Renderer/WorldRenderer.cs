@@ -13,6 +13,7 @@ using Vixen.Rendering.Lighting;
 using Vixen.Rendering.Materials;
 using Vixen.Rendering.Vfx;
 using Vixen.Shaders;
+using Vixen.Ui.Renderer;
 
 namespace Vixen.Engine.Renderer;
 
@@ -332,6 +333,25 @@ public sealed class WorldRenderer : IDisposable {
         Particles.Add(ParticleMaterials);
         Host.System.AddFeature(Particles);
 
+        // ⚠ The feature nothing constructed, and the reason a game could not draw its own interface
+        // over its own world. `UiRenderFeature` has been the adapter between a `UiDocument` and
+        // somebody else's renderer since it was written, and the somebody else never existed:
+        // `Vixen.Ui.Desktop` paints a document through `UiRenderer` directly, which is what a
+        // UI-only application and the editor's chrome take, and no path put one in a scene's frame.
+        //
+        // Registered whether or not the application has an interface, on TerrainExtraction's terms
+        // above: a feature with no `Renderer` and no mounted surface draws nothing and costs one
+        // feature index, and a host that gained a HUD halfway through a session must not need the
+        // renderer rebuilt. Nothing here supplies the shaders — that is `Ui.Renderer`'s, and it
+        // needs the formats of the pass the interface is drawn in, which is the compositor's answer
+        // and not this constructor's.
+        //
+        // ⚠ And this is the whole of the two-renderers rule for it, unusually: `EditorWorldRenderer`
+        // does not assemble features of its own, it *owns* a `WorldRenderer` — so the editor's
+        // viewport gets the feature from here rather than from a second registration that could
+        // drift from this one.
+        Host.System.AddFeature(Ui);
+
         if (device.Features.HasBindless) {
             // ⚠ The capacity is stated rather than left to the device, and it is stated as the same
             // constant `EffectLoader.BindlessCapacity` defaults to. The set this table allocates is
@@ -506,6 +526,33 @@ public sealed class WorldRenderer : IDisposable {
     ///     </para>
     /// </remarks>
     public ParticleRenderFeature Particles { get; }
+
+    /// <summary>The interfaces drawn inside this frame, and where a game mounts its HUD.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Registered by the constructor and inert until a host uses it</b>, which is the
+    ///         same arrangement <see cref="Particles" /> is in and for the same reason: a feature
+    ///         with no surface mounted is walked over, and a host that decides it wants an interface
+    ///         two scenes in must not have to rebuild the renderer to get one.
+    ///     </para>
+    ///     <para>
+    ///         Three things are the host's, in this order. <see cref="UiRenderFeature.Renderer" />,
+    ///         because building a <c>UiRenderer</c> needs the shader modules and the formats of the
+    ///         pass the interface is drawn in, and neither is knowable here — see that assembly's
+    ///         README on why the shaders are handed over rather than compiled. Then
+    ///         <see cref="UiRenderFeature.Mount" />, once, with the stages that draw it. Then
+    ///         <see cref="UiRenderFeature.Set" /> every frame, with the geometry the document's
+    ///         builder produced — the geometry holds the builder's own lists and is valid for one
+    ///         frame, which is why it is pushed per frame rather than held.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The stage has to sort <c>ByGroup</c>.</b> Every other mode puts depth in the key
+    ///         and an interface has none, so two surfaces at the same distance would sort by object
+    ///         id — whichever was created first — and a tooltip would appear under the modal it
+    ///         belongs to as often as over it.
+    ///     </para>
+    /// </remarks>
+    public UiRenderFeature Ui { get; } = new();
 
     /// <summary>
     ///     The materials <see cref="Particles" /> is drawn with, which are not <see cref="Materials" />.

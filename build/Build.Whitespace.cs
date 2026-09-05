@@ -67,8 +67,13 @@ partial class Build {
         // exits 2 whenever *anything* would be reformatted, which on this tree is always, because the
         // exempt files are still there. The output is the measurement; the exit code carries no
         // information this gate can use.
+        // ⚠ `.claude/worktrees` holds a whole checkout per agent, and `--folder` walks whatever it is
+        // given — so without this the gate reports another session's files, by their worktree path,
+        // and a developer is asked to reformat code that is not in this tree and may not be theirs.
+        // It is the same trap the golden walk hit: a repo-walking check has to be told where the
+        // repository stops.
         var output = DotNet(
-            $"format whitespace \"{RootDirectory}\" --folder --verify-no-changes",
+            $"format whitespace \"{RootDirectory}\" --folder --verify-no-changes --exclude .claude/",
             logOutput: false,
             logInvocation: false,
             exitHandler: _ => null

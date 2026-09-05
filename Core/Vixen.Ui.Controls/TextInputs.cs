@@ -21,6 +21,60 @@ public partial class TextBox : TextField {
     protected override string TagName => "textbox";
 }
 
+/// <summary>A field whose characters are not shown.</summary>
+/// <remarks>
+///     <para>
+///         <b>Any login screen needs one and this control set had nothing to offer.</b> An
+///         application asked for a password with a <see cref="TextBox" />, in front of whoever was
+///         standing behind the user.
+///     </para>
+///     <para>
+///         ⚠ <b>What makes it secure here is smaller than it would be on the web, and the reason is
+///         an absence: there is no clipboard in <c>Vixen.Ui</c> at all.</b> Nothing copies, nothing
+///         cuts and nothing pastes, so the selection a field allows cannot carry anything out of it
+///         — which is why <see cref="TextField.SelectedText" /> is left alone here rather than
+///         blanked. When a clipboard arrives, this is the type it has to ask before it reads.
+///     </para>
+///     <para>
+///         <b>Masked at the last moment and nowhere else.</b> The value is the real string — a form
+///         has to be able to submit it — and the bullets exist only in the text part and in what the
+///         accessibility tree is told, which is what a platform's own secure field reports too. The
+///         pre-edit is masked with it: an input method's intermediate reading of a password is the
+///         password.
+///     </para>
+///     <para>
+///         ⚠ <b>There is no "reveal" button and its absence is a decision.</b> Showing the value is
+///         one assignment away for an application that wants it — swap the field, or read
+///         <c>Value</c> into a <see cref="TextBox" /> — and a reveal built in here would be a control
+///         that can be made to display a secret by anything that can reach a property on it.
+///     </para>
+/// </remarks>
+public sealed partial class SecureTextBox : TextField {
+    /// <summary>What each character is drawn as.</summary>
+    /// <remarks>
+    ///     U+2022 BULLET, which is what macOS and every browser but one use. A character rather than
+    ///     a drawing, so it goes through the same shaping, the same font fallback and the same
+    ///     measurement as any other glyph — a field that painted circles itself would put the caret
+    ///     in the wrong place the first time somebody changed the font size.
+    /// </remarks>
+    public const char Bullet = '•';
+
+    /// <inheritdoc />
+    protected override string TagName => "secure-textbox";
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The mask rather than the value, and <i>not</i> <c>null</c>.</b> Reporting nothing
+    ///     would tell a screen-reader user that an empty field is the same as a full one, which is
+    ///     how somebody typing blind loses track of whether their keystrokes are arriving at all. A
+    ///     platform's secure field reports the bullets for exactly that reason.
+    /// </remarks>
+    protected override string? NativeAccessibleValue => Shown(Value);
+
+    /// <inheritdoc />
+    protected override string? Shown(string? value) => value is null ? null : new string(Bullet, value.Length);
+}
+
 /// <summary>A field for several lines of text.</summary>
 /// <remarks>
 ///     <para>

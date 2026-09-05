@@ -1928,7 +1928,7 @@ public sealed class DrawListBuilder {
     /// <summary>Reads one shadow's lengths and colour, appending it to <see cref="shadows" />.</summary>
     /// <returns>Whether it read. A refusal is recorded on the way out.</returns>
     bool TryShadow(UiDocument document, UiElement element, StyleValue value, int id) {
-        var context = document.Viewport.WithFontSize(element.FontSize);
+        var context = document.Viewport.WithFontSize(element.FontSize).WithLineHeight(element.LineHeight);
         Span<float> lengths = [0f, 0f, 0f, 0f];
         var count = 0;
         Color4? shade = null;
@@ -2028,6 +2028,17 @@ public sealed class DrawListBuilder {
         float radius,
         float alpha
     ) {
+        // ⚠ <b>A fully transparent shadow is dropped, and it is a composition slot rather than an
+        // author who makes this worth a branch.</b> `UtilityComposition.Shadows` puts a ring and an
+        // elevation shadow in one list on every element carrying either class, so the one the author
+        // did not write arrives here as its initial — `0 0 transparent` — and would otherwise become
+        // a second `Shadow` command per element for a picture nobody can see. Sound in general: CSS
+        // Backgrounds 3 gives an `rgba(…, 0)` shadow no rendering, so this is the same picture with
+        // one command fewer, not an approximation.
+        if (Fade(shadow.Colour, alpha).A <= 0f) {
+            return;
+        }
+
         // The spread grows the box in every direction, and the corner radius with it: a spread that
         // kept the original corner would give a shadow visibly squarer than the thing casting it.
         var spread = shadow.Spread;
@@ -2495,7 +2506,10 @@ public sealed class DrawListBuilder {
             // `filter` was silently the identity. `ToLength` makes it the refusal it always should
             // have been, which takes the declaration with it and is therefore visible. A bare `0` is
             // still a length and only that one — `blur(0)` is the identity somebody wrote on purpose.
-            var length = document.Viewport.WithFontSize(element.FontSize).ToLength(argument);
+            var length = document.Viewport
+                .WithFontSize(element.FontSize)
+                .WithLineHeight(element.LineHeight)
+                .ToLength(argument);
             var pixels = length.Unit == LayoutUnit.Point ? length.Value : float.NaN;
 
             if (float.IsNaN(pixels) || pixels < 0f || !float.IsFinite(pixels)) {
@@ -2604,7 +2618,7 @@ public sealed class DrawListBuilder {
             return null;
         }
 
-        var context = document.Viewport.WithFontSize(element.FontSize);
+        var context = document.Viewport.WithFontSize(element.FontSize).WithLineHeight(element.LineHeight);
         Span<float> lengths = [0f, 0f, 0f];
         var count = 0;
         Color4? shade = null;

@@ -15,17 +15,24 @@ engine's own UI framework, and is the primary proof that the framework is genera
 ```
 
 The SDK version is pinned in [`global.json`](global.json); nothing else is required to build the
-solution. `./build.sh` is the entry point CI and developers share. There are thirty-three targets:
-`Clean Restore RestoreNativeDeps Compile CompileRelease Test Pack CheckPackages GoldenImages Benchmark
-CheckBenchmarks CheckArchitecture CheckApi CheckFormat CheckWhitespace CheckAttribution CheckStrings
-CheckShaders CheckDocs Docs CheckAot CheckAotIos CompileMobile CompileWeb PublishWeb BrowserSmoke
-PublishEditor Release ContentBytes RemeshBytes SampleFrame AffectedProjects AffectedTests` — with
+solution. `./build.sh` is the entry point CI and developers share. There are thirty-eight targets:
+`Clean Restore RestoreNativeDeps Compile CompileRelease Test Coverage Pack CheckPackages CheckTemplates
+GoldenImages Benchmark CheckBenchmarks CheckArchitecture CheckApi CheckFormat CheckWhitespace
+CheckAttribution CheckStrings CheckShaders CheckDocs CheckDocsCoverage Docs CheckAot CheckAotIos
+CompileMobile CompileWeb PublishWeb BrowserSmoke PublishEditor Release ContentBytes RemeshBytes
+SampleFrame AffectedProjects AffectedTests TestOrder PruneWorktrees` — with
 [`docs/plan/12`](docs/plan/12-build-ci-and-testing.md) saying what each does and which are gates.
 
 `--workers <n>` bounds how many projects compile and how many test assemblies run at once. It
 defaults to 4 locally and to unbounded in CI, which has the machine to itself; `--workers 0` asks for
 unbounded anywhere. The cap costs about five minutes on a whole-solution `Test` and is what keeps the
 run from taking the machine away from everything else on it.
+
+Agent worktrees under `.claude/worktrees` are never cleaned up by anything, and each carries its own
+`bin`/`obj` — about 25 GB apiece once the solution has been built in both configurations.
+`./build.sh PruneWorktrees` lists which of them are merged into master, clean and unlocked, and
+`--remove-merged` removes those and only those; anything failing one of the three conditions, and any
+directory in there that is not a registered worktree at all, is reported and left alone.
 
 Some backends need a native binary that no package ships. `./build.sh RestoreNativeDeps` fetches each
 one pinned and SHA-256-verified from [`build/native-dependencies.json`](build/native-dependencies.json),

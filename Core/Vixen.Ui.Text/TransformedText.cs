@@ -96,19 +96,44 @@ public sealed class TransformedText {
     /// <summary>Applies a transform, and builds the map if it moved anything.</summary>
     /// <param name="source">The element's own text.</param>
     /// <param name="transform">What to do to it.</param>
+    /// <param name="language">
+    ///     The content language as a BCP-47 tag — <c>UiElement.ResolvedLanguage</c>. Empty is
+    ///     undetermined and takes the language-independent mapping.
+    /// </param>
     /// <returns>The drawn text and the map between the two.</returns>
     /// <remarks>
-    ///     ⚠ <b>The identity test is "did any character change length", not "did the string
-    ///     change".</b> <c>hello</c> uppercased is a different string of the same shape, and every
-    ///     index in it still means what it meant — so it needs no arrays, and paying for them would
-    ///     put an allocation and two indirections on every uppercased label in an interface.
+    ///     <para>
+    ///         ⚠ <b>The identity test is "did any character change length", not "did the string
+    ///         change".</b> <c>hello</c> uppercased is a different string of the same shape, and every
+    ///         index in it still means what it meant — so it needs no arrays, and paying for them would
+    ///         put an allocation and two indirections on every uppercased label in an interface.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Casing is language-dependent for one alphabet and the difference is a word, not a
+    ///         glyph.</b> In Turkish and Azerbaijani <c>i</c> uppercases to <c>İ</c> and <c>I</c>
+    ///         lowercases to <c>ı</c>, because the dotted and dotless letters are two different
+    ///         letters rather than two cases of one. <c>ISPARTA</c> lowercased with the
+    ///         language-independent table is <c>isparta</c>, which is a different word in Turkish and
+    ///         is what every interface here drew until this parameter existed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>No <c>CultureInfo</c>, deliberately and not merely incidentally.</b> The tag is
+    ///         read from the element, so the same document uppercases the same way on a Turkish
+    ///         laptop and on CI — the property <c>TextShaper</c> protects for shaping, held here for
+    ///         casing, which changes a string's <i>length</i> and therefore its measured width. It is
+    ///         also what makes this testable at all: these assemblies run in globalization-invariant
+    ///         mode, where <c>CultureInfo.GetCultureInfo("tr-TR")</c> throws, so an implementation
+    ///         routed through .NET's culture casing could not be shown to work.
+    ///     </para>
     /// </remarks>
-    public static TransformedText Of(string? source, TextTransform transform) {
+    public static TransformedText Of(string? source, TextTransform transform, string? language = null) {
         source ??= string.Empty;
 
         if (transform == TextTransform.None || source.Length == 0) {
             return new TransformedText(source, source, null, null);
         }
+
+        var turkic = IsTurkic(language);
 
         var text = new StringBuilder(source.Length);
 
@@ -140,10 +165,27 @@ public sealed class TransformedText {
 
             var length = rune.Utf16SequenceLength;
 
+            // ⚠ SpecialCasing.txt's one Turkic row that consumes two characters, and it is here
+            // rather than in `Lower` because it is the only mapping in this walk whose *input* is
+            // longer than one scalar. `I` followed by COMBINING DOT ABOVE is a dotted capital
+            // written the long way, so it lowercases to a plain `i` and the mark goes with it —
+            // leaving the mark behind would put a stray dot over the letter that already has one.
+            if (turkic
+                && transform == TextTransform.Lowercase
+                && rune.Value == 'I'
+                && at + 1 < source.Length
+                && source[at + 1] == CombiningDotAbove) {
+                Record(sourceOf, drawnOf, at, 2, text.Length, 1);
+                moved = true;
+                text.Append('i');
+                at += 2;
+                continue;
+            }
+
             var mapped = transform switch {
-                TextTransform.Uppercase => Upper(rune),
-                TextTransform.Lowercase => Lower(rune),
-                _ => starts!.Contains(at) ? Title(rune) : rune.ToString()
+                TextTransform.Uppercase => Upper(rune, turkic),
+                TextTransform.Lowercase => Lower(rune, turkic),
+                _ => starts!.Contains(at) ? Title(rune, turkic) : rune.ToString()
             };
 
             Record(sourceOf, drawnOf, at, length, text.Length, mapped.Length);
@@ -199,13 +241,61 @@ public sealed class TransformedText {
         }
     }
 
+    /// <summary>COMBINING DOT ABOVE, U+0307.</summary>
+    const char CombiningDotAbove = '\u0307';
+
+    /// <summary>LATIN CAPITAL LETTER I WITH DOT ABOVE, U+0130.</summary>
+    const string DottedCapitalI = "\u0130";
+
+    /// <summary>LATIN SMALL LETTER DOTLESS I, U+0131.</summary>
+    const string DotlessSmallI = "\u0131";
+
+    /// <summary>Whether a language tag selects the Turkish and Azerbaijani case mappings.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The primary subtag alone, which is what SpecialCasing.txt keys these rows on:
+    ///         <c>tr</c> and <c>az</c>, so <c>tr-TR</c>, <c>az-Latn-AZ</c> and a bare <c>tr</c> all
+    ///         take them. ⚠ <c>az-Cyrl</c> takes them too and should not, strictly — Cyrillic
+    ///         Azerbaijani has no dotless i — but the Unicode data does not distinguish the scripts
+    ///         either, and inventing a narrower rule here would disagree with every other
+    ///         implementation.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Ordinal and ASCII-cased rather than <c>StringComparison.CurrentCulture</c>: a
+    ///         culture-sensitive comparison of the string <c>"tr"</c> is precisely the joke this
+    ///         function exists inside, and in Turkish it is not even a joke — <c>"TR"</c> and
+    ///         <c>"tr"</c> compare differently under the very mapping being selected.
+    ///     </para>
+    /// </remarks>
+    /// <param name="language">The BCP-47 tag.</param>
+    /// <returns>Whether Turkic casing applies.</returns>
+    static bool IsTurkic(string? language) {
+        if (language is null || language.Length < 2) {
+            return false;
+        }
+
+        var primary = language.AsSpan(0, 2);
+
+        if (language.Length > 2 && language[2] != '-') {
+            return false;
+        }
+
+        return primary.Equals("tr", StringComparison.OrdinalIgnoreCase)
+            || primary.Equals("az", StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>The full uppercase mapping, which is not always one code point.</summary>
-    static string Upper(Rune rune) =>
-        SpecialCasingTable.TryUpper(rune.Value, out var mapping) ? mapping : Rune.ToUpperInvariant(rune).ToString();
+    static string Upper(Rune rune, bool turkic) =>
+        turkic && rune.Value == 'i' ? DottedCapitalI :
+        SpecialCasingTable.TryUpper(rune.Value, out var mapping) ? mapping :
+        Rune.ToUpperInvariant(rune).ToString();
 
     /// <summary>The full lowercase mapping.</summary>
-    static string Lower(Rune rune) =>
-        SpecialCasingTable.TryLower(rune.Value, out var mapping) ? mapping : Rune.ToLowerInvariant(rune).ToString();
+    static string Lower(Rune rune, bool turkic) =>
+        turkic && rune.Value == 'I' ? DotlessSmallI :
+        turkic && rune.Value == 0x0130 ? "i" :
+        SpecialCasingTable.TryLower(rune.Value, out var mapping) ? mapping :
+        Rune.ToLowerInvariant(rune).ToString();
 
     /// <summary>The full titlecase mapping.</summary>
     /// <remarks>
@@ -224,7 +314,8 @@ public sealed class TransformedText {
     ///         why the fallback is <see cref="Rune.ToUpperInvariant" /> and not a gap.
     ///     </para>
     /// </remarks>
-    static string Title(Rune rune) =>
+    static string Title(Rune rune, bool turkic) =>
+        turkic && rune.Value == 'i' ? DottedCapitalI :
         SpecialCasingTable.TryTitle(rune.Value, out var mapping) ? mapping :
         Digraph(rune.Value) is { } digraph ? digraph :
         Rune.ToUpperInvariant(rune).ToString();

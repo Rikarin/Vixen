@@ -19,6 +19,16 @@ sealed class InvalidationEntry {
     /// <summary>Whether a rule with this name can match a later sibling.</summary>
     public bool ReachesSiblings { get; set; }
 
+    /// <summary>Whether this name appears inside a <c>:has()</c>, so a rule above can notice it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The fourth direction, and the only one that goes up.</b> Every other entry here
+    ///     describes a rule reaching from a name downward or rightward; this one says the opposite —
+    ///     that adding <c>.error</c> to a field can restyle the <c>.card</c> containing it. It is
+    ///     what <c>:has()</c> costs, and it is why doc 09 deferred the selector rather than the
+    ///     matcher: matching one is a subtree walk, but invalidating one is a change of shape.
+    /// </remarks>
+    public bool ReachesAncestors { get; set; }
+
     /// <summary>
     ///     Whether anything it reaches has to be restyled regardless of what it is called.
     /// </summary>
@@ -54,11 +64,24 @@ sealed class InvalidationEntry {
 ///         <c>.cell</c>s in the subtree".
 ///     </para>
 ///     <para>
-///         Nothing needs to look <i>upward</i>. A selector can only reach downward and rightward,
-///         because Vixen does not support <c>:has()</c> — the P2 decision in
-///         [doc 09](../../docs/plan/09-ui-framework.md), and this is the second thing it buys after
-///         match cost. <c>:focus-within</c> is the apparent exception and is not one: it is stored as
+///         ⚠ <b>This used to say that nothing needs to look upward, and <c>:has()</c> is what
+///         changed it.</b> The old reasoning was sound and its premise expired: a selector could only
+///         reach downward and rightward because Vixen refused <c>:has()</c> — doc 09's P2 decision,
+///         and invalidation was the second thing that refusal bought after match cost. It is
+///         supported now, so a name that appears inside a <c>:has()</c> argument carries
+///         <see cref="InvalidationEntry.ReachesAncestors" /> and a change to it walks up.
+///         <c>:focus-within</c> remains the apparent exception that is not one: it is stored as
 ///         element state and set explicitly, so it arrives as a change like any other.
+///     </para>
+///     <para>
+///         ⚠ <b>The upward direction is narrowed by name but not by depth, and that asymmetry is
+///         deliberate.</b> A downward reach can be cut at the changed element's subtree; an upward
+///         one cannot, because the <c>:has()</c> may sit on the document root and every rule hanging
+///         off it reaches back down. So a change to a <c>:has()</c>-mentioned name walks to the top
+///         and then collects by feature from there — which is a pass over the document with a
+///         set-membership test per element, on the changes that touch such a name and no others.
+///         That is the cost doc 09 named, made explicit rather than hidden: see
+///         <c>HasInvalidationTests</c>, which measures it as elements resolved.
 ///     </para>
 /// </remarks>
 public sealed class StyleInvalidator {
@@ -89,6 +112,20 @@ public sealed class StyleInvalidator {
 
     /// <summary>Whether what a state change reaches cannot be narrowed by name.</summary>
     public bool StateReachesEverything { get; private set; }
+
+    /// <summary>Whether a state change can be noticed by a <c>:has()</c> above it.</summary>
+    /// <remarks>
+    ///     What <c>.card:has(:checked)</c> produces. A state is not a name, so it cannot be looked up
+    ///     in the map — the same reason <see cref="StateReachesDescendants" /> exists one direction
+    ///     over.
+    /// </remarks>
+    public bool StateReachesAncestors { get; private set; }
+
+    /// <summary>Whether what a <c>:has()</c> reaches back down cannot be narrowed by name.</summary>
+    bool AncestorReachesEverything { get; set; }
+
+    /// <summary>The names the far end of a <c>:has()</c>-carrying rule tests.</summary>
+    HashSet<int> AncestorFeatures { get; } = [];
 
     /// <summary>The names the far end of a state-carrying rule tests.</summary>
     /// <remarks>
@@ -142,6 +179,7 @@ public sealed class StyleInvalidator {
         var descendants = stateChanged && StateReachesDescendants;
         var siblings = stateChanged && StateReachesSiblings;
         var everything = stateChanged && StateReachesEverything;
+        var ancestors = stateChanged && StateReachesAncestors;
         var features = new HashSet<int>();
 
         if (stateChanged) {
@@ -156,6 +194,7 @@ public sealed class StyleInvalidator {
             descendants |= entry.ReachesDescendants;
             siblings |= entry.ReachesSiblings;
             everything |= entry.ReachesEverything;
+            ancestors |= entry.ReachesAncestors;
             features.UnionWith(entry.Features);
         }
 
@@ -171,7 +210,42 @@ public sealed class StyleInvalidator {
             }
         }
 
+        if (ancestors) {
+            // ⚠ Every ancestor, and then the whole document narrowed by the far end's names. The
+            // first half is the `:has()` itself — only an ancestor can carry one that this element
+            // satisfies. The second half is everything hanging off such an ancestor: a rule like
+            // `.card:has(.error) .title` restyles a title that is a *sibling* of the changed field,
+            // and no walk rooted at the change can reach it. Sabotage-tested by deleting this second
+            // half: the restyle oracle and `HasInvalidationTests` both go red, which is the
+            // arrangement worth having — the count says what the walk costs and the oracle says it
+            // is right, and neither alone would notice a change that made the other one wrong.
+            var top = index;
+
+            for (var ancestor = tree.ParentOf(index); ancestor >= 0; ancestor = tree.ParentOf(ancestor)) {
+                roots.Add(new StyleNodeId(ancestor));
+                top = ancestor;
+            }
+
+            if (top != index) {
+                CollectSubtree(tree, top, AncestorFeatures, AncestorReachesEverything, roots, includeSelf: true);
+            }
+        }
+
         roots.Sort((left, right) => left.Index.CompareTo(right.Index));
+
+        // ⚠ The ancestor walk and the collection below it can name the same element twice, and the
+        // contract this method has always published is "without duplicates". `StyleUpdater` dedupes
+        // anyway, so the alternative was a promise that was quietly false for one caller and true
+        // for the tests that read the list directly.
+        var unique = 0;
+
+        for (var i = 0; i < roots.Count; i++) {
+            if (i == 0 || roots[i] != roots[i - 1]) {
+                roots[unique++] = roots[i];
+            }
+        }
+
+        roots.RemoveRange(unique, roots.Count - unique);
     }
 
     static void CollectSubtree(
@@ -271,6 +345,39 @@ public sealed class StyleInvalidator {
                     entry.ReachesDescendants = true;
                 }
             });
+        }
+
+        // ⚠ The upward direction, and it is read off the *argument* of every `:has()` rather than off
+        // a combinator. A name inside `:has(.error)` is not a name the rule tests against the
+        // element or against anything below it: it is a name that, when it appears anywhere in a
+        // subtree, changes what the element above computes. `ForEachName` above has already recorded
+        // it as `MatchesSelf`, which is true and is not enough.
+        for (var c = selector.Start; c <= rightmost; c++) {
+            var compound = table.Compound(c);
+
+            for (var i = 0; i < compound.Count; i++) {
+                var simple = table.Simple(compound.Start + i);
+
+                if (simple.Kind != SimpleSelectorKind.Has) {
+                    continue;
+                }
+
+                for (var n = 0; n < simple.NestedCount; n++) {
+                    var nested = table.Nested(simple.NestedStart + n);
+
+                    for (var inner = 0; inner < nested.Count; inner++) {
+                        var argument = table.Compound(nested.Start + inner);
+                        ForEachName(argument, name => Entry(name).ReachesAncestors = true);
+                        StateReachesAncestors |= HasStateTest(argument);
+                    }
+                }
+
+                if (far.Count == 0) {
+                    AncestorReachesEverything = true;
+                } else {
+                    AncestorFeatures.UnionWith(far);
+                }
+            }
         }
 
         // A state test anywhere but the rightmost compound means a `:hover` on an ancestor can

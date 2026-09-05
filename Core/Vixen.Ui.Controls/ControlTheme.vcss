@@ -228,6 +228,7 @@ toggle-button:checked {
 button:focus-visible, icon-button:focus-visible, toggle-button:focus-visible,
 checkbox:focus-visible, switch:focus-visible, radio:focus-visible,
 textbox:focus-visible, textarea:focus-visible, search-box:focus-visible,
+secure-textbox:focus-visible,
 numeric-input:focus-visible, select:focus-visible, multi-select:focus-visible,
 slider:focus-visible, range-slider:focus-visible, tab:focus-visible,
 menu-item:focus-visible, option:focus-visible, link:focus-visible,
@@ -271,7 +272,16 @@ page-button:focus-visible, breadcrumb-item:focus-visible, expander-header:focus-
     color: var(--text-muted);
 }
 
-/* ── Toggles ────────────────────────────────────────────────────────── */
+/* ── Toggles ──────────────────────────────────────────────────────────
+   ⚠ Every indicator below carries `flex-shrink: 0`, and it is not
+   decoration. A tick box, a radio dot and a switch track are square or
+   fixed by construction — a squashed one reads as a rendering fault, not
+   as a tight layout — and they sit in a row beside a label that will
+   happily take the whole width. Until #628 the engine's own initial
+   `flex-shrink` was Yoga's 0, so this said itself; now that a `.vcss`
+   means what CSS means, the ones that must not shrink have to say so.
+   Measured: without it a `radio { width: 24px }` beside its label comes
+   back as a 6×16 ellipse. */
 checkbox, radio, switch {
     flex-direction: row;
     align-items: center;
@@ -283,6 +293,7 @@ checkbox, radio, switch {
 checkbox box {
     width: 16px;
     height: 16px;
+    flex-shrink: 0;
     align-items: center;
     justify-content: center;
     border-width: 1px;
@@ -291,13 +302,14 @@ checkbox box {
     background-color: var(--surface);
 }
 
-checkbox box icon { width: 12px; height: 12px; display: none; }
+checkbox box icon { width: 12px; height: 12px; flex-shrink: 0; display: none; }
 checkbox:checked box, checkbox.indeterminate box { background-color: var(--accent); border-color: var(--accent); }
 checkbox:checked box icon, checkbox.indeterminate box icon { display: flex; color: var(--accent-text); }
 
 radio box {
     width: 16px;
     height: 16px;
+    flex-shrink: 0;
     align-items: center;
     justify-content: center;
     border-width: 1px;
@@ -306,7 +318,7 @@ radio box {
     background-color: var(--surface);
 }
 
-radio box dot { width: 8px; height: 8px; border-radius: 4px; display: none; }
+radio box dot { width: 8px; height: 8px; flex-shrink: 0; border-radius: 4px; display: none; }
 radio:checked box { border-color: var(--accent); }
 radio:checked box dot { display: flex; background-color: var(--accent); }
 
@@ -315,6 +327,7 @@ radio-group { flex-direction: column; gap: 6px; }
 switch track {
     width: 34px;
     height: 18px;
+    flex-shrink: 0;
     flex-direction: row;
     align-items: center;
     padding: 2px;
@@ -325,6 +338,7 @@ switch track {
 switch track knob {
     width: 14px;
     height: 14px;
+    flex-shrink: 0;
     border-radius: 7px;
     background-color: var(--thumb-color);
     margin-left: 0px;
@@ -334,7 +348,7 @@ switch:checked track { background-color: var(--accent); }
 switch:checked track knob { margin-left: 16px; }
 
 /* ── Fields ─────────────────────────────────────────────────────────── */
-textbox, textarea, search-box, numeric-input {
+textbox, textarea, search-box, secure-textbox, numeric-input {
     flex-direction: row;
     align-items: center;
     gap: 6px;
@@ -465,6 +479,22 @@ card-header { padding: 10px 14px; border-width: 0px 0px 1px 0px; border-color: v
 card-body { flex-direction: column; padding: 14px; }
 card-footer { padding: 10px 14px; flex-direction: row; justify-content: flex-end; gap: 8px; }
 
+/* ⚠ `min-width: 0px` on the panes and not only on the split. A flex item's automatic minimum is
+   its content, so a pane holding anything that does not wrap — a long path, a wide table — refuses
+   to shrink below it, and the bar stops dead well before the ratio says it should. The pane is also
+   where `overflow: hidden` belongs: the ratio decides the size and the contents are what has to give
+   way, which is the opposite of what an auto minimum arranges. */
+split-view { flex-direction: row; align-items: stretch; min-width: 0px; min-height: 0px; }
+split-view.vertical { flex-direction: column; }
+
+split-pane { flex-direction: column; min-width: 0px; min-height: 0px; overflow: hidden; }
+
+/* No `flex-grow` and no `flex-basis` here, for `dock-group`'s reason: both are written inline by
+   `SplitView.Apply`, where they are set together or not at all. */
+split-bar { flex-grow: 0; flex-shrink: 0; width: 6px; background-color: var(--border); }
+split-view.vertical > split-bar { width: auto; height: 6px; }
+split-bar:hover { background-color: var(--accent); }
+
 separator.horizontal { height: 1px; background-color: var(--border); margin: 6px 0px; }
 separator.vertical { width: 1px; align-self: stretch; background-color: var(--border); margin: 0px 6px; }
 
@@ -580,7 +610,7 @@ key-value-row.heading key-value-key, key-value-row.heading key-value-value { col
    stretching one across a settings panel is how a tick box ends up eight
    inches from its label. Same list and same argument as `property-editor`. */
 key-value-value textbox, key-value-value textarea, key-value-value numeric-input,
-key-value-value search-box, key-value-value select, key-value-value multi-select,
+key-value-value secure-textbox, key-value-value search-box, key-value-value select, key-value-value multi-select,
 key-value-value combo-box, key-value-value slider, key-value-value progress-bar {
     flex-grow: 1;
     min-width: 0px;

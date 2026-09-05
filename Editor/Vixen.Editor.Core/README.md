@@ -64,6 +64,21 @@ different *content*. The saved point is on a branch that no longer exists, so it
 than counted, and the document stays dirty. A dirty flag that only counted entries would call that
 state clean and lose the file.
 
+⚠ **This is the only document model in the repository, and a `Vixen.Ui` application cannot use it —
+but not for the reason that is usually given.** The claim that it lives "in an assembly no application
+can reference" is not right: `Vixen.Editor.Core` is packable, ships as a package, and references only
+`Vixen.Core*` and `Vixen.Ui.Reactive` — not `Vixen.Ui`, and nothing editor-shaped in the build graph.
+An application may reference it today.
+
+What it cannot do is *construct* one. `EditorDocument`'s only constructor takes an `EditorProject` and
+an `AssetId`, and it calls `project.Register(this)` from the base constructor — so a document does not
+exist outside a project, and a project is a directory on disk with an asset database and a
+reverse-reference index in it. A text editor with one file open would have to invent a project to hold
+it. That coupling is right for the editor and is exactly what a framework-level model must not have:
+the `Vixen.Ui` shape is a dirty signal, save and revert as commands answered through the responder
+chain, and a window title bound to the two, with the *file* as the only thing it knows about. Both of
+those dependencies are unbuilt, and that is what actually blocks it.
+
 ## One editing pipeline, and it is not the object model
 
 `EditTarget` is what is being edited — some objects, the document they record into, and an

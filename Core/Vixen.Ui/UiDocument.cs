@@ -37,6 +37,7 @@ namespace Vixen.Ui;
 public sealed partial class UiDocument : IDisposable {
     readonly DrawListBuilder drawings;
     readonly int pointerEvents;
+    readonly int display;
     readonly int visibility;
     readonly int visibilityHidden;
     readonly int visibilityCollapse;
@@ -142,6 +143,7 @@ public sealed partial class UiDocument : IDisposable {
         reader = new StyleValueParser(Styles.Values, Styles.Names);
 
         pointerEvents = Styles.Properties.Intern("pointer-events");
+        display = Styles.Properties.Intern("display");
         visibility = Styles.Properties.Intern("visibility");
         visibilityHidden = Styles.Values.Intern("hidden");
         visibilityCollapse = Styles.Values.Intern("collapse");
@@ -203,7 +205,8 @@ public sealed partial class UiDocument : IDisposable {
             height,
             1f,
             Drawing,
-            ColorSchemePreference.NoPreference
+            ColorSchemePreference.NoPreference,
+            default
         ) {
             Scope = MediaScopes.Document
         };
@@ -761,7 +764,12 @@ public sealed partial class UiDocument : IDisposable {
     void Release(UiElement element) {
         for (var focused = Focused; focused is not null; focused = focused.Parent) {
             if (ReferenceEquals(focused, element)) {
-                Focus(null);
+                // ⚠ Forced, and it is the reason `force` exists. A removal is not a move the user
+                // asked for, so a field refusing to resign while its value is invalid must not be
+                // able to refuse being deleted — the alternative is a document holding a focus that
+                // points into a subtree it has just detached, which every read of `Focused` after
+                // that would throw on.
+                Focus(null, force: true);
                 break;
             }
         }
@@ -1385,12 +1393,27 @@ public sealed partial class UiDocument : IDisposable {
         // declarations did not change still needs rebuilding if an ancestor's font size did, because
         // every `em` on it measures against a different number now.
         //
-        if (!ReferenceEquals(element.AppliedStyle, style) || !element.AppliedFontSize.Equals(element.FontSize)) {
+        // ⚠ And the line height, for exactly that reason one unit later. `lh` measures the element's
+        // own line box, `line-height` is inherited outside the cascade, and a child of an element
+        // that changed it has an unchanged `ComputedStyle` — so without this a `max-h-lh` would be
+        // built once against the line height it happened to have and keep that box for ever. Read
+        // before the block below writes `AppliedLineHeight`, which is what makes one field serve both
+        // tests; `.Equals` because NaN is a legitimate value for it and `NaN == NaN` is false.
+        if (!ReferenceEquals(element.AppliedStyle, style)
+            || !element.AppliedFontSize.Equals(element.FontSize)
+            || !element.AppliedLineHeight.Equals(element.LineHeight)) {
             element.AppliedStyle = style;
             element.AppliedFontSize = element.FontSize;
             StylesApplied++;
 
-            var layoutStyle = Builder.Build(style, metrics.WithFontSize(element.FontSize));
+            // ⚠ The line height goes in as well as the font size, and it can only go in here: `lh`
+            // is a length that measures the element's own line box, and the line box is resolved
+            // eleven lines up. A context built before that — the one `metrics` still is — answers
+            // every `1lh` against the stand-in rather than against the declaration.
+            var layoutStyle = Builder.Build(
+                style,
+                metrics.WithFontSize(element.FontSize).WithLineHeight(element.LineHeight)
+            );
 
             Layout.SetStyle(element.LayoutNode, layoutStyle);
 
@@ -1879,6 +1902,24 @@ public sealed partial class UiDocument : IDisposable {
     internal bool Invisible(ComputedStyle style) =>
         style.TryGet(visibility, out var value) && (value == visibilityHidden || value == visibilityCollapse);
 
+    /// <summary>Whether <c>display</c> takes this element and everything inside it out of the tree.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read off the declared style rather than off the zero box layout gives it</b>, which is
+    ///     the other way round from <c>AccessKeys.Collect</c>. The box is the same answer once layout
+    ///     has run and a different one before it has: an element that is merely <i>not laid out yet</i>
+    ///     also measures zero, and so does a legitimately empty one — a focusable box collapsed to
+    ///     nothing by its flex line is still a control the user can Tab to, and reading the box would
+    ///     silently take it out of the order. The property says what was meant; the rectangle says
+    ///     what happened.
+    ///     <para>
+    ///         Not inherited, unlike <see cref="Invisible" />, so a walk that wants a hidden subtree
+    ///         gone has to stop descending here rather than test each descendant — a child of a
+    ///         <c>display: none</c> parent has its own computed <c>display</c> and it is not
+    ///         <c>none</c>.
+    ///     </para>
+    /// </remarks>
+    internal bool Undisplayed(ComputedStyle style) => style.TryGet(display, out var value) && value == none;
+
     /// <summary>The base bidi level an element's text is laid out at, from its <c>direction</c>.</summary>
     /// <remarks>
     ///     <para>
@@ -2116,6 +2157,13 @@ public sealed partial class UiDocument : IDisposable {
             }
 
             language = value;
+
+            // ⚠ Mirrored into the style tree because `:lang()` climbs to it, and the climb has to
+            // end where `UiElement.ResolvedLanguage`'s does or a rule would select on one answer
+            // while the shaper was given another. It is a field on the tree rather than the root
+            // element's `lang` attribute, because `lang` on the root must beat this and cannot if
+            // the two share a slot.
+            Styles.Tree.Language = value;
 
             Remeasure(Root);
             Invalidate();

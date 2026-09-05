@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using Vixen.Ui;
+using Vixen.Ui.Styling;
 using PointerButton = Vixen.Ui.PointerButton;
 
 namespace Vixen.Platform.Ui;
@@ -41,6 +42,51 @@ public static class PlatformInput {
     ///     public so an application that knows better can pass its own.
     /// </remarks>
     public const float WheelLineHeight = 48f;
+
+    /// <summary>Tells every one of a document's surfaces what the system's appearance is now.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="scheme">What <see cref="IPlatform.ColorScheme" /> says.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The wire <c>@media (prefers-color-scheme: …)</c> was built without.</b> The query
+    ///         has been evaluated per surface since doc 43's F11, and every writer of
+    ///         <see cref="UiSurface.ColorScheme" /> in the tree was a test — so an application shipped
+    ///         its light palette to a dark system and nothing anywhere reported it. F11 fed width,
+    ///         height, resolution and gamut and left this one behind.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every surface, not <c>UiDocument.ColorScheme</c>.</b> That property is the
+    ///         primary surface's, and a torn-off panel is a second surface with its own media
+    ///         context — it inherits the scheme when it is created and would keep the old one for
+    ///         ever after. An appearance is a setting of the machine, so all of them move together;
+    ///         a gamut is negotiated per swapchain, and that one deliberately does not.
+    ///     </para>
+    ///     <para>
+    ///         Called once before the first frame with <see cref="IPlatform.ColorScheme" />, and
+    ///         again on each <see cref="PlatformEventKind.SystemColorSchemeChanged" />. A host that
+    ///         only did the second would draw every frame of a session against the wrong palette on
+    ///         a machine whose appearance never changed.
+    ///     </para>
+    /// </remarks>
+    public static void ApplyColorScheme(UiDocument document, SystemColorScheme scheme) {
+        ArgumentNullException.ThrowIfNull(document);
+
+        var preference = scheme switch {
+            SystemColorScheme.Dark => ColorSchemePreference.Dark,
+            SystemColorScheme.Light => ColorSchemePreference.Light,
+
+            // ⚠ `NoPreference`, and this is the line that has to stay honest. CSS says both
+            // `(prefers-color-scheme: dark)` and `(prefers-color-scheme: light)` are false when the
+            // user has expressed nothing, so a platform that could not read an appearance must not
+            // be flattened into light — that would make the light block apply on a machine that
+            // never asked for it.
+            _ => ColorSchemePreference.NoPreference
+        };
+
+        foreach (var surface in document.Surfaces) {
+            surface.ColorScheme = preference;
+        }
+    }
 
     /// <summary>Sends one platform event to a document's primary surface.</summary>
     /// <param name="document">The document.</param>
@@ -205,6 +251,52 @@ public static class PlatformInput {
                         Text = platformEvent.Text,
                         Start = platformEvent.SelectionStart,
                         Length = platformEvent.SelectionLength,
+                        Timestamp = when
+                    }
+                );
+
+                return true;
+
+            // ⚠ <b>Two more arms that were missing, and their absence was invisible for the reason
+            // `TextEditing`'s was.</b> Every backend produces these — `DesktopPlatform` from SDL,
+            // `WebPlatform` from focus/blur on the canvas, `HeadlessWindow` from its own harness —
+            // and this bridge dropped both through the `default` below, so no assembly above
+            // `Vixen.Platform` had ever been told which window the user is in. The symptom is not an
+            // error either: keys with nothing focused went to the *primary* surface's root, so a
+            // keystroke aimed at a torn-off inspector ran against the main window.
+            //
+            // ⚠ Gained sets it and Lost only clears it *if this surface still holds it*. The two
+            // events do not arrive in a guaranteed order — a window manager that raises B's gained
+            // before A's lost is ordinary — and an unconditional clear on Lost would take the key
+            // status away from the window that had just been given it.
+            case PlatformEventKind.WindowFocusGained:
+                document.KeySurface = surface;
+                return true;
+
+            case PlatformEventKind.WindowFocusLost:
+                if (ReferenceEquals(document.KeySurface, surface)) {
+                    document.KeySurface = null;
+                }
+
+                return true;
+
+            // ⚠ <b>The second pair of arms this bridge was missing, and the same shape as the
+            // first.</b> `DropFile` and `DropText` are produced by SDL (`DesktopPlatform`) and by
+            // the browser (`WebPlatform`), are asserted by both backends' own tests, and fell
+            // through the `default` below — so dragging a file onto the window was inert on every
+            // platform this engine runs on. As with `TextEditing`, both halves were tested and the
+            // join was neither, because a producer with no consumer has nothing to disagree with.
+            case PlatformEventKind.DropFile:
+            case PlatformEventKind.DropText:
+                document.Dispatch(
+                    surface,
+                    new DropEvent {
+                        X = platformEvent.Position.X,
+                        Y = platformEvent.Position.Y,
+                        Files = platformEvent.Kind == PlatformEventKind.DropFile
+                            ? [platformEvent.Text]
+                            : [],
+                        Text = platformEvent.Kind == PlatformEventKind.DropText ? platformEvent.Text : null,
                         Timestamp = when
                     }
                 );

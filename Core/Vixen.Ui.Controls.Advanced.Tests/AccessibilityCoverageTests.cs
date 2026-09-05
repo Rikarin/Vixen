@@ -25,14 +25,16 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///         coverage stops at a base class is worse than no sweep, because it is quoted as one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>One of the pointer-only sub-parts doc 46 owes is still exempted here with a
-///         pointer to its issue rather than reported as a failure</b>, because giving it a role
-///         before giving it a keyboard would be worse than not: a screen reader would announce a
-///         widget that cannot be operated. <c>ColorField</c>, <c>ColorStrip</c>, <c>ColorSwatch</c>,
-///         <c>GradientRail</c> and <c>NodeItem</c> have left the table, and the order they left it
-///         in is the point — the arrows, the roving tab stop and the canvas's active descendant
-///         landed in the same change as the roles, never before. The
-///         name doc 46 lists that was never in the table is <c>TimelineTrack</c>: it is not a
+///         ⚠ <b>Doc 46's owed list has left this table, and the last name on it left by being
+///         refuted rather than fixed.</b> Five of the six were given a keyboard first and a role
+///         second, in that order and in one change each — <c>ColorField</c>, <c>ColorStrip</c>,
+///         <c>ColorSwatch</c>, <c>GradientRail</c>, <c>NodeItem</c>; for the last of those the
+///         keyboard is the canvas's, because the arrows step between nodes and the item is the
+///         canvas's active descendant rather than a tab stop in a pool. The sixth,
+///         <c>ViewportGizmo</c>, is not a manipulator: it draws three lines from the camera's basis
+///         and answers no pointer event at all, so there is no gesture for a keyboard to be the
+///         equal of. It is exempted below with the structure rather than with the debt. The name
+///         doc 46 lists that was never in this table is <c>TimelineTrack</c>: it is not a
 ///         <see cref="UiElement" /> at all, so it can never have a role and this sweep cannot see it.
 ///     </para>
 /// </remarks>
@@ -40,20 +42,22 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 public class AccessibilityCoverageTests {
     /// <summary>The elements that answer <c>None</c>, and why each of them does.</summary>
     /// <remarks>
-    ///     ⚠ <b>Two categories, and the reasons say which.</b> Most of these are structure — a paint
-    ///     layer, a lane, a row, a container whose children carry the roles — and are correct
-    ///     forever. One is owed: the pointer-only sub-part of a canvas that still needs a keyboard
-    ///     before it can be given a role, and whose reason names the issue that owes it.
+    ///     ⚠ <b>One category now, and that is the news.</b> Every reason below is structure — a paint
+    ///     layer, a lane, a row, a picture, a container whose children carry the roles — and every one
+    ///     of them is correct for ever. Nothing here is waiting on work: the pointer-only sub-parts
+    ///     doc 46 § A2 owed were given a keyboard and then a role, and the one that turned out not to
+    ///     be a control at all is exempted as the picture it is.
     /// </remarks>
     static readonly Dictionary<string, string> Exempt = new(StringComparer.Ordinal) {
-        // Owed, in the order doc 46 § A2 lists them. Keyboard first, role second — see #420. The
-        // colour picker's three left this table by being given a keyboard, `GradientRail` left it
-        // the same way, and `NodeItem` has now left it by the canvas gaining one — the arrows step
-        // between nodes and the item is the canvas's active descendant, which is a keyboard reaching
-        // a node without a tab stop ever landing in a pool. One is still waiting.
-        ["ViewportGizmo"] = "pointer-only: a manipulator handle with no keyboard yet — #420",
-
         // Structure. A role on any of these would announce a picture as a widget.
+        //
+        // ⚠ `ViewportGizmo` is in this half rather than in an owed one, and it is the correction
+        // #420 needed: its table files it under "a manipulator over a 3-D scene", and the class
+        // (`Viewport.cs`) is an `OnDraw` and nothing else — no press, no capture, no hit test, and
+        // nothing anywhere reads it. The editor's manipulator is `TransformGizmo`, which is a
+        // different type in a different assembly and is not an element. A keyboard for this one
+        // would be a keyboard for a picture of an axis cross.
+        ["ViewportGizmo"] = "a drawn axis cross showing the camera's basis; it answers no pointer event either",
         ["GradientBar"] = "the painted preview of the gradient; it refuses focus and there is nothing to operate",
         ["DockingHost"] = "the docking layout itself; `DockTab` is `tab` and `DockPanel` is `tabpanel`",
         ["DockGroupView"] = "a split of the docking layout; the tabs and panels inside it carry the roles",
@@ -83,9 +87,9 @@ public class AccessibilityCoverageTests {
 
     /// <summary>And how many of them are expected to answer with a role.</summary>
     /// <remarks>
-    ///     Twenty-one today, which is what stops the first floor being met by exempted types. It
-    ///     goes up as the table below shrinks, and it is the half of the pair that a control given
-    ///     a role would fail if it were quietly dropped again.
+    ///     Twenty today, which is what stops the first floor being met by exempted types. It goes
+    ///     up as the table below shrinks, and it is the half of the pair that a control given a
+    ///     role would fail if it were quietly dropped again.
     /// </remarks>
     const int Roled = 20;
 

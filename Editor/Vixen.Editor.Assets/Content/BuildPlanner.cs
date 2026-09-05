@@ -180,7 +180,8 @@ public static class BuildPlanner {
                     diagnostics.Add(new(
                         ImportSeverity.Error,
                         $"'{entry.Path}' is addressable as '{address}' and has not been imported, so there is no "
-                        + "chunk to pack. Import before building, or remove its address."
+                        + "chunk to pack. Import before building, or remove its address.",
+                        entry.Path
                     ));
                 }
 
@@ -261,7 +262,8 @@ public static class BuildPlanner {
                 diagnostics.Add(new(
                     ImportSeverity.Error,
                     $"'{entry.Path}' is in group '{group}', which no .vxgroup defines. Either the group file was "
-                    + "deleted or the sidecar names a group that has not been created."
+                    + "deleted or the sidecar names a group that has not been created.",
+                    entry.Path
                 ));
 
                 continue;
@@ -457,7 +459,8 @@ public static class BuildPlanner {
             if (severity == ImportSeverity.Error) {
                 diagnostics.Add(new(
                     ImportSeverity.Error,
-                    $"'{entry.Path}' is addressable as '{address}' and its importer produced nothing."
+                    $"'{entry.Path}' is addressable as '{address}' and its importer produced nothing.",
+                    entry.Path
                 ));
             }
 
@@ -481,7 +484,8 @@ public static class BuildPlanner {
                 diagnostics.Add(new(
                     severity,
                     $"'{entry.Path}' imported to two chunks for sub-asset {artifact.SubAsset}, so an address would "
-                    + "name both. Its importer writes one of them twice."
+                    + "name both. Its importer writes one of them twice.",
+                    entry.Path
                 ));
 
                 complete = false;
@@ -497,7 +501,8 @@ public static class BuildPlanner {
                 diagnostics.Add(new(
                     severity,
                     $"'{entry.Path}' imported to a chunk for sub-asset {artifact.SubAsset}, which its .meta does not "
-                    + "name, so nothing can address it. Re-import it."
+                    + "name, so nothing can address it. Re-import it.",
+                    entry.Path
                 ));
 
                 complete = false;
@@ -513,7 +518,8 @@ public static class BuildPlanner {
                 diagnostics.Add(new(
                     severity,
                     $"'{entry.Path}' contains a {already.Type} and a {declared.Type} both called '{declared.Name}', "
-                    + $"so both would be addressed '{subAddress}'. Rename one of them."
+                    + $"so both would be addressed '{subAddress}'. Rename one of them.",
+                    entry.Path
                 ));
 
                 complete = false;
@@ -536,7 +542,8 @@ public static class BuildPlanner {
                 diagnostics.Add(new(
                     ImportSeverity.Error,
                     $"'{entry.Path}' is addressable as '{address}' and its importer wrote no main object, only "
-                    + $"{subAssets.Count} sub-asset(s), so that address names nothing."
+                    + $"{subAssets.Count} sub-asset(s), so that address names nothing.",
+                    entry.Path
                 ));
             }
 
@@ -568,7 +575,8 @@ public static class BuildPlanner {
             } else {
                 diagnostics.Add(new(
                     ImportSeverity.Warning,
-                    $"'{entry.Path}' has no readable sidecar, so it cannot be addressed or grouped."
+                    $"'{entry.Path}' has no readable sidecar, so it cannot be addressed or grouped.",
+                    entry.Path
                 ));
             }
         }
@@ -643,7 +651,8 @@ public static class BuildPlanner {
                     $"'{entry.Path}' is addressable as '{address}' and depends on asset {dependency}, which is in "
                     + $"group '{strippedGroup}' — a group this project says a dedicated server does not need. A "
                     + "server build cannot both ship this asset and leave that one out. Either move this asset into "
-                    + $"'{strippedGroup}' as well, or set includeInServerBuild: true on it."
+                    + $"'{strippedGroup}' as well, or set includeInServerBuild: true on it.",
+                    entry.Path
                 ));
 
                 complete = false;
@@ -652,7 +661,8 @@ public static class BuildPlanner {
                     ImportSeverity.Error,
                     $"'{entry.Path}' is addressable as '{address}' and depends on asset {dependency}, which has no "
                     + "address. The catalog records dependencies by address, so that chunk would not be packed and "
-                    + "the load would fail on a device rather than here."
+                    + "the load would fail on a device rather than here.",
+                    entry.Path
                 ));
 
                 complete = false;

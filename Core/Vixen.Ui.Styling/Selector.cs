@@ -49,11 +49,48 @@ public enum SimpleSelectorKind : byte {
     /// <summary><c>:not()</c> — none of the nested selectors may match.</summary>
     Not,
 
-    /// <summary><c>:is()</c> or <c>:where()</c> — one of the nested selectors must match.</summary>
+    /// <summary><c>:is()</c> — one of the nested selectors must match.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <c>:where()</c>, which this used to name too.</b> ExCSS 4.3.2 does not parse
+    ///     <c>:where()</c> — the whole selector arrives as one unknown and the rule is refused — so
+    ///     nothing ever compiles to this kind through that spelling, and a reader who took the old
+    ///     summary at its word would look for a specificity charge that is not there. See
+    ///     <c>Vixen.Ui.Styling.Tests</c>' <c>WhereSelectorTests</c>.
+    /// </remarks>
     Is,
 
     /// <summary><c>:empty</c> — the element has neither children nor text.</summary>
-    Empty
+    Empty,
+
+    /// <summary><c>:lang()</c> — the element's content language matches a BCP-47 range.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not a spelling of <c>[lang|="de"]</c>, which is what it looks like and what
+    ///         everyone repeats.</b> The two agree on the <i>comparison</i> — Selectors 4 defines
+    ///         both as a BCP-47 range match, so <c>de-AT</c> matches and <c>den</c> does not — and
+    ///         disagree on the <i>subject</i>. An attribute selector asks what this element declares;
+    ///         <c>:lang()</c> asks what language this element's content is <i>in</i>, which inherits
+    ///         from the nearest ancestor that declared one. A German paragraph's spans are German,
+    ///         and only this kind knows it.
+    ///     </para>
+    ///     <para>
+    ///         So it climbs, which is what makes it the only simple selector here whose answer
+    ///         depends on an ancestor. <c>AncestorBloom</c> cannot filter on it and does not try —
+    ///         the bloom holds names, and this is a value comparison against an inherited one.
+    ///     </para>
+    /// </remarks>
+    Lang,
+
+    /// <summary><c>:has()</c> — one of the nested selectors must match some descendant.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The only kind that looks <i>downward</i>, which is what made it a subsystem change
+    ///     rather than a case in a switch.</b> Every other simple selector is a question about the
+    ///     element or about what is above and before it, and <c>StyleInvalidator</c>'s whole design
+    ///     rested on that — its own remarks used to say "nothing needs to look upward". A
+    ///     <c>:has()</c> makes an element's style depend on its subtree, so a class added deep in a
+    ///     panel can restyle the panel, and the invalidator had to learn a fourth direction.
+    /// </remarks>
+    Has
 }
 
 /// <summary>How an attribute selector compares.</summary>
@@ -95,7 +132,31 @@ public enum PositionTest : byte {
     Nth,
 
     /// <summary><c>:nth-last-child(an+b)</c>.</summary>
-    NthLast
+    NthLast,
+
+    /// <summary><c>:first-of-type</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The five of-type tests count a different sequence from the five above them, and that
+    ///     is the whole reason they are separate members rather than a flag.</b> A child index is a
+    ///     position in the parent's child list, which <see cref="StyleTree" /> already stores; an
+    ///     of-type index is a position in the subsequence of siblings sharing this element's tag,
+    ///     which nothing stores and which has to be counted. Folding them together would have made
+    ///     <c>:nth-of-type(2)</c> answer <c>:nth-child(2)</c>'s question — the two agree on every
+    ///     document whose children all have one tag, which is most fixtures and no real panel.
+    /// </remarks>
+    FirstOfType,
+
+    /// <summary><c>:last-of-type</c>.</summary>
+    LastOfType,
+
+    /// <summary><c>:only-of-type</c>.</summary>
+    OnlyOfType,
+
+    /// <summary><c>:nth-of-type(an+b)</c>.</summary>
+    NthOfType,
+
+    /// <summary><c>:nth-last-of-type(an+b)</c>.</summary>
+    NthLastOfType
 }
 
 /// <summary>One test inside a compound selector.</summary>

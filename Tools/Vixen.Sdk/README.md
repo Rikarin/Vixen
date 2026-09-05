@@ -108,10 +108,15 @@ summary, rather than prose from a subprocess that scrolled past. The codes are r
 The path is absolute because a relative one is resolved against whatever directory the build happens
 to be running in, which is not the project's, so the IDE opens nothing.
 
-**A build-plan diagnostic has no file.** Those messages name the asset inside their text, so a person
-can act on them; only the IDE's jump-to-file loses. Fixing it means carrying a path on
-`ImportDiagnostic`, which is a change to a type the planner and every importer share, and it is owed
-rather than done here.
+⚠ **A build-plan diagnostic used to have no file, and now it has one.** The planner walks every asset
+in the project and named the one it was talking about only inside its sentence — which serves a person
+reading a log and serves an error list nothing: MSBuild attributed those lines to the project, so
+double-clicking one opened the `.csproj`. `ImportDiagnostic.Path` is what closed it, defaulted and
+last so that an importer never supplies one — an importer is already running *on* an asset and the
+executor knows which. What stays path-less is deliberate and stated on the type: the invented default
+group, the server profile's summary, and the collision in which several assets claim one address —
+that last one *because* it holds several, and naming one would decide the question the message says
+cannot be decided.
 
 ⚠ **The pre-compile import is passed `--advisory`, and does not put anything in that list.** It runs
 `BeforeTargets=CoreCompile`, so on a clean build the game assembly does not exist and a level naming
@@ -215,6 +220,68 @@ entry point would and would not buy. Dropping `Vixen.Live.Cluster` and `Vixen.Co
 native, Assimp belongs to the model importer the content build exists to run, and the text stack is
 reached by font import. So a second entry point is worth doing for what it removes from the graph and
 should not be expected to halve the download on its own.
+
+⚠ **One exception is taken, and it is the only lever that changes neither the reference graph nor the
+RID coverage.** `Ultz.Native.Assimp` 6.0.2 ships **two majors** of the native in every Linux and macOS
+RID — `libassimp.so.5` beside `libassimp.so.6`, `libassimp.5.dylib` beside `libassimp.6.dylib` — and
+opens one of them. Windows ships a single unversioned `Assimp64.dll` and has no pair. The 6 is not
+packed: **44 251 540 bytes** across the five RIDs that carry a pair, about a quarter of the unpacked
+package.
+
+⚠ **Which major is the dead one was filed the wrong way round, and the cost of getting it wrong is a
+package that installs and then throws.** [#624](https://github.com/Rikarin/Vixen/issues/624) names the
+**5** as the copy nothing loads; the binding's own `AssimpLibraryNameContainer` says otherwise —
+`libassimp.so.5` on Linux and Android, `libassimp.5.dylib` on macOS, the unversioned Windows names,
+and `__Internal` on iOS. `Silk.NET.Assimp` 2.23.0 binds Assimp 5's C ABI, which `ci.yml` already said
+in a comment when it installs Ubuntu's `libassimp5` and warns that a 6 there "would load and then be
+wrong in ways a signature cannot catch". Dropping the 5 would produce a package that restores,
+installs, runs, and throws `FileNotFoundException` out of `Assimp.GetApi()` the first time anybody
+imported a model — a failure no pack test that only checked the 6 was absent could have caught.
+
+So the exclusion is held to the binding rather than to this paragraph.
+`Vixen.Editor.Assets.Tests.AssimpSonameTests` reads the names the binding asks for and fails if
+`Vixen.Sdk.csproj` excludes any of them, and `PackagedToolTests.OnlyTheAssimpSonameTheBindingOpensIsPacked`
+asserts both halves against a real `.nupkg`. The day the binding moves to Assimp 6, the first goes red
+and names the soname to keep.
+
+### Where the weight actually is, measured rather than apportioned
+
+Over `Tools/Vixen.Cli/bin/Debug/net10.0`, `.pdb` and `.xml` excluded:
+
+| | Bytes | Share of the total |
+|---|---:|---:|
+| **Total** | 181 035 043 | |
+| `runtimes/` | 151 174 288 | **83.5 %** |
+| everything outside it | 29 860 755 | 16.5 % |
+| — inside `runtimes/`: HarfBuzz, every RID | 46 324 264 | 25.6 % |
+| — inside `runtimes/`: Assimp major 5, plus Windows' unversioned pair | 59 620 532 | 32.9 % |
+| — inside `runtimes/`: Assimp major 6 (**not packed**) | 44 251 540 | 24.4 % |
+| — outside it: Roslyn, Orleans and Newtonsoft together | ~10 000 000 | ~5.5 % |
+
+⚠ **[#433](https://github.com/Rikarin/Vixen/issues/433)'s three options are aimed at the 16.5 %.** A
+second entry point that shed `Vixen.Live.Cluster`, `Vixen.ContentServer` and `Vixen.Editor.Core` drops
+Orleans, ASP.NET and Roslyn — about 10 MB of a 172 MB package — and a trimmed publish trims IL, which
+is the same 16.5 %. Neither touches a native. RID pruning is the only listed option aimed at the 83.5 %
+and it is rejected above for a reason that has not changed.
+
+⚠ **But the fourth lever is real, and it is not a smaller entry point — it is one reference.**
+HarfBuzz's 46 MB reaches the CLI through the *importers*, by this chain, read off `vixen.deps.json`:
+
+```
+vixen → Vixen.Editor.Assets → Vixen.Editor.ShaderGraph  ┐
+                            → Vixen.Editor.VfxGraph     ┴→ Vixen.Editor.NodeGraph
+     → Vixen.Editor.Inspector → Vixen.Ui.Controls.Advanced → Vixen.Ui → Vixen.Ui.Text → HarfBuzzSharp
+```
+
+`Vixen.Editor.Assets` needs the two graph assemblies for real work — `ShaderGraphImporter` compiles a
+`.vxshadergraph` through `NodeTypeRegistry`, which is content-build work and belongs in the SDK. What
+it does not need is that those two also reference `Vixen.Editor.NodeGraph`, the *editor*, which drags
+the whole UI framework and its shaper behind it. Splitting each graph's document-and-compiler half from
+its editor half sheds 46 324 264 bytes — more than a quarter of the package — without a new entry
+point, without changing the RID coverage, and without asking anything of the trimmer.
+
+That is the measurement #433 wants before it decides, and it says its own option list is aimed at the
+wrong half.
 
 ⚠ **The apphosts are not packed.** `vixen`, `vixen-content-server` and `Vixen.AssetCompiler` sit in
 the build output beside the assemblies with no extension: they are native launchers built for

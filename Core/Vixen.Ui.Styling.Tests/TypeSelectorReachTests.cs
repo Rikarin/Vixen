@@ -22,11 +22,18 @@ namespace Vixen.Ui.Styling.Tests;
 ///     <para>
 ///         ⚠ <b>The assertion is deliberately narrower than "every tag matches some rule".</b> A tag
 ///         that no rule names is usually fine — a plain container styled entirely by classes is the
-///         normal case, and there are hundreds of them. Nor is "every rule has a tag" assertable: the
-///         sheets carry well over a hundred type selectors nothing currently creates, and most are a
-///         control's parts written ahead of a panel that will use them. Either of those as a gate
-///         would be a wall of failures nobody could keep green, and a gate nobody keeps green is a
-///         gate nobody reads.
+///         normal case, and there are hundreds of them. A gate on that direction would be a wall of
+///         failures nobody could keep green, and a gate nobody keeps green is a gate nobody reads.
+///     </para>
+///     <para>
+///         ⚠ <b>This paragraph used to go on to refuse the mirror direction for the same reason —
+///         "the sheets carry well over a hundred type selectors nothing currently creates" — and that
+///         number was wrong by two orders of magnitude.</b> Measured through this file's own scan on
+///         2026-09-05: <b>six</b>, out of 634. It could not have been a hundred while
+///         <see cref="A_type_selector_names_a_tag_rather_than_a_class" /> was green, because a
+///         declared name that is not a tag is, by that theory passing, a name written nowhere at all.
+///         So <see cref="Every_type_selector_names_a_tag_the_repository_writes" /> asks the question
+///         the paragraph declined to, against a committed census of the six.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The mirror direction — a rule with no tag — is two questions and not one, and only
@@ -320,6 +327,113 @@ public partial class TypeSelectorReachTests {
     }
 
     /// <summary>
+    ///     Every type selector in every sheet names a tag the repository writes, and the ones that do
+    ///     not are the committed census below — exactly, in both directions.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the question this file's own remarks said could not be asked, and the
+    ///         premise for that turned out to be false.</b> The header above still reads "the sheets
+    ///         carry well over a hundred type selectors nothing currently creates … a wall of failures
+    ///         nobody could keep green". Measured on 2026-09-05 through this file's own scan, the wall
+    ///         is <b>six</b> names out of 634. It is not a hundred because
+    ///         <see cref="A_type_selector_names_a_tag_rather_than_a_class" /> has been green for as
+    ///         long as it has existed: a name that is declared and is not a tag is *by that theory's
+    ///         passing* a name written nowhere at all, and there are six of those.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What the other two theories let through, and why that is a gap rather than a
+    ///         decision.</b> Both discriminate on a name being <i>written</i> — one as a class, the
+    ///         other with the hyphens moved — so a selector nobody ever wrote anywhere is the one
+    ///         shape neither can see, and it is the shape a whole abandoned feature leaves behind. The
+    ///         census holds five rules' worth of <c>notification-*</c>: a Notifications section in
+    ///         <c>EditorTheme.vcss</c> styling elements no view creates.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Committed and compared exactly rather than counted</b>, which is
+    ///         <c>RefusalExpiry.txt</c>'s bargain and for its reason. A floor — "no more than six" —
+    ///         is the guard this repository has twice had eaten by success: it cannot say that a name
+    ///         came back to life, so a census row would outlive the rule it excuses and the next dead
+    ///         selector would take the seat it vacated. Equality fails in both directions: a name that
+    ///         starts being created must leave the file, and a new one cannot arrive without a line
+    ///         naming the issue that will close it.
+    ///     </para>
+    ///     <para>
+    ///         The census is read off disk and its absence throws rather than emptying the expected
+    ///         set — the answer to "what does this print on the day it does not run" is a failure,
+    ///         not a pass on a comparison of two empty lists.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_type_selector_names_a_tag_the_repository_writes() {
+        var written = Written;
+
+        var unreached = Declared
+            .Where(candidate => !written.Tags.ContainsKey(candidate.Name))
+            .Select(candidate => candidate.Name)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        var census = Census();
+
+        var arrived = unreached.Where(name => !census.ContainsKey(name)).ToList();
+        var departed = census.Keys.Where(name => !unreached.Contains(name)).Order(StringComparer.Ordinal).ToList();
+
+        Assert.True(
+            arrived.Count == 0 && departed.Count == 0,
+            $"""
+             The census of type selectors nothing creates is out of date.
+
+             Named by a sheet and created by nothing, and not in {CensusFile}:
+             {Lines(arrived.Select(name => $"{name}  — declared in {Declared.First(d => d.Name == name).Sheet}"))}
+
+             In {CensusFile}, and now created after all — delete the row:
+             {Lines(departed)}
+
+             A rule whose type selector names a tag no C# and no markup ever creates fires on
+             nothing, silently. If the element was renamed, the rule wants the new name; if the
+             feature went away, the rule goes with it; if the tag is composed at run time and this
+             scan cannot see it, the census wants a line saying so and the issue that will close it.
+             """
+        );
+    }
+
+    /// <summary>Where the census lives, relative to the repository root.</summary>
+    const string CensusFile = "Core/Vixen.Ui.Styling.Tests/UnreachedSelectors.txt";
+
+    /// <summary>The committed census: a name, the issue that will close it, and the reason.</summary>
+    static Dictionary<string, string> Census() {
+        var rows = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var line in File.ReadAllLines(Path.Combine(RepositoryRoot(), CensusFile))) {
+            var text = line.Trim();
+
+            if (text.Length == 0 || text.StartsWith('#')) {
+                continue;
+            }
+
+            var parts = text.Split('\t', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            Assert.True(
+                parts.Length >= 3 && parts[1].StartsWith('#'),
+                $"{CensusFile} is malformed at '{text}'. Each row is `name<TAB>#issue<TAB>reason`."
+            );
+
+            rows[parts[0]] = parts[2];
+        }
+
+        Assert.NotEmpty(rows);
+
+        return rows;
+    }
+
+    static string Lines(IEnumerable<string> names) {
+        var joined = string.Join("\n", names.Select(name => $"  {name}"));
+
+        return joined.Length == 0 ? "  (none)" : joined;
+    }
+
+    /// <summary>
     ///     The premise <see cref="A_type_selector_is_hyphenated_the_way_the_tag_is" /> rests on.
     /// </summary>
     /// <remarks>
@@ -479,6 +593,22 @@ public partial class TypeSelectorReachTests {
                              )) {
                         Note(literals, name, path, line);
                     }
+                }
+
+                // ⚠ A `.vxml` carries C# as well as markup, and until this line the scan read only
+                // its markup. `Fields.Add("input-title")` in `InputActionsView.vxml` creates a tag
+                // no lower-case element and no `.cs` file mentions, so `input-title` and
+                // `vocab-error` — both live, both styled — counted as names the repository never
+                // writes. That was invisible while the only consumer was
+                // `A_type_selector_names_a_tag_rather_than_a_class`, which lets an unwritten name
+                // through; it is a false accusation the moment
+                // `Every_type_selector_names_a_tag_the_repository_writes` reads the same table.
+                // `TagLiteral` rather than the line-local rule the `.cs` sweep uses, because a
+                // markup line's quoted values are attributes and taking all of them would call
+                // every class on a line that also says `Add(` a tag.
+                foreach (Match match in TagLiteral.Matches(text)) {
+                    Note(tags, match.Groups["tag"].Value, path, line);
+                    Note(literals, match.Groups["tag"].Value, path, line);
                 }
             }
         }

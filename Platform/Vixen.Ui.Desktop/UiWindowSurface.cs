@@ -144,7 +144,7 @@ public sealed class UiWindowSurface : IDisposable {
         // precision behind it stays in sRGB — and telling the builder to map to P3 for a surface
         // that stayed sRGB over-saturates every colour on an ordinary display. Per window, because
         // two windows of one application can be on two monitors and only one of them wide.
-        Geometry.Gamut = SwapChain.Gamut;
+        Adopt();
         Publish();
 
         return true;
@@ -207,7 +207,7 @@ public sealed class UiWindowSurface : IDisposable {
         // A resize renegotiates the surface format, so the granted gamut can move — dragging a
         // window onto a wide display is exactly a resize-and-recreate — and a builder still holding
         // the old one would map to a gamut the surface no longer has.
-        Geometry.Gamut = SwapChain.Gamut;
+        Adopt();
         Publish();
 
         built = target;
@@ -244,6 +244,28 @@ public sealed class UiWindowSurface : IDisposable {
         }
 
         return status is not SwapChainStatus.OutOfDate;
+    }
+
+    /// <summary>BT.2408's reference white: what an SDR interface is worth in an HDR frame.</summary>
+    const float ReferenceWhite = 203f;
+
+    /// <summary>Hands the geometry builder what the swapchain granted — its gamut and its white.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The white level is stated here rather than left at its default, and one is a
+    ///     statement.</b> A swapchain's white <i>is</i> the display's, so an authored 0–1 colour is
+    ///     already in the units this surface wants; a float target is scene-referred and in cd/m²,
+    ///     where that same white is about one candela — black beside anything the renderer lit, and
+    ///     pixel-identical to a pass that never ran. See <c>UiGeometryBuilder.WhiteLevel</c> and
+    ///     #670. Both callers renegotiate the surface format, which is why this is one method: a
+    ///     resize onto another display can move the gamut, and it can move the format with it.
+    /// </remarks>
+    void Adopt() {
+        Geometry.Gamut = SwapChain!.Gamut;
+
+        Geometry.WhiteLevel =
+            SwapChain.Format is PixelFormat.Rgba16Float or PixelFormat.Rgba32Float or PixelFormat.Rg11B10Float
+                ? ReferenceWhite
+                : 1f;
     }
 
     /// <summary>Tells the cascade what this surface was granted, so <c>@media</c> can ask.</summary>

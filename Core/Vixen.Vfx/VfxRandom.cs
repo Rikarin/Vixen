@@ -50,6 +50,15 @@ public static class VfxRandom {
     public const uint FirstSalt = 0;
 
     /// <summary>Mixes a value into a well-distributed 32-bit hash.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Deliberately not the shader library's <c>Random.Hash</c>, which is PCG's output
+    ///     stage.</b> This one is lowbias32, and the half that has to agree with it is
+    ///     <c>VfxShaderEmitter.Hash</c>, which transcribes these constants into the generated shader
+    ///     — the pair doc 06's parity is really about. `Raven/Library/Core/Random.rvn` claimed that
+    ///     role in its own header for a while and never held it: its multiplier appears in no other
+    ///     file. Calling into it instead would change every existing effect's noise, so the two
+    ///     mixers coexist on purpose until somebody decides otherwise (#639).
+    /// </remarks>
     /// <param name="value">The value to mix.</param>
     /// <returns>The hash.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

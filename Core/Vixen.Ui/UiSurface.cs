@@ -48,6 +48,7 @@ namespace Vixen.Ui;
 public sealed class UiSurface {
     ColorGamut gamut = ColorGamut.Srgb;
     ColorSchemePreference colorScheme = ColorSchemePreference.NoPreference;
+    MediaPreferences preferences;
 
     internal UiSurface(
         UiDocument document,
@@ -57,7 +58,8 @@ public sealed class UiSurface {
         float height,
         float dpiScale,
         DrawList drawing,
-        ColorSchemePreference colorScheme
+        ColorSchemePreference colorScheme,
+        MediaPreferences preferences
     ) {
         Document = document;
         Id = id;
@@ -68,6 +70,7 @@ public sealed class UiSurface {
         Height = height;
         DpiScale = dpiScale;
         this.colorScheme = colorScheme;
+        this.preferences = preferences;
     }
 
     /// <summary>What tells the surfaces of one document apart.</summary>
@@ -161,8 +164,37 @@ public sealed class UiSurface {
         }
     }
 
+    /// <summary>The platform's accessibility settings, as this window's <c>@media</c> answers them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         What <c>motion-reduce:</c>, <c>contrast-more:</c>, <c>forced-colors:</c>,
+    ///         <c>inverted-colors:</c> and the two pointer families ask. Set as one value, because
+    ///         all six come out of the same platform read — see <see cref="MediaPreferences" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing in this repository sets it yet, and that is a gap in the platform layer
+    ///         rather than in the cascade.</b> <see cref="ColorScheme" /> has been in exactly the
+    ///         same position since it was added — <c>Vixen.Ui.Desktop</c> reads the swapchain's gamut
+    ///         and has never read the system appearance — so a query about either is answered
+    ///         truthfully from what the host has said, which so far is nothing. Left settable and
+    ///         defaulted to "nothing unusual" rather than guessed at, which is the bargain
+    ///         <see cref="Gamut" /> makes one property up.
+    ///     </para>
+    /// </remarks>
+    public MediaPreferences Preferences {
+        get => preferences;
+        set {
+            if (preferences == value) {
+                return;
+            }
+
+            preferences = value;
+            Document.Remedia(this);
+        }
+    }
+
     /// <summary>What <c>@media</c> is answered against in this window.</summary>
-    public MediaContext Media => new(Width, Height, DpiScale, ColorScheme, Gamut);
+    public MediaContext Media => new(Width, Height, DpiScale, ColorScheme, Gamut, Preferences);
 
     /// <summary>Its entry in the document's <see cref="MediaScopes" />.</summary>
     /// <remarks>

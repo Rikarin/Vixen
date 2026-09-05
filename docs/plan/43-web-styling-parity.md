@@ -84,10 +84,10 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **332** | 283 families |
+| Utility **roots** (the unit of this table) | **332** | 287 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
-| Variant keys | **88** | **25** |
+| Variant keys | **88** | **51** |
 
 ⚠ **The family figure moves every week, which is why it is no longer typed here.** It has been quoted
 as 43 (the helper calls in one region of `UtilityFamilies`' static constructor), then as 98 (the
@@ -107,10 +107,10 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **228** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **29** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **234** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **27** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **71** |
+| **absent** | not emitted at all | **67** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 
 ⚠ **There was a sixth, `unknown`, and it described a row rather than a state.** Exactly one row held
@@ -451,10 +451,19 @@ from `UiMask`, which is an analytic ramp over a box and has no way to express a 
 needs a pass that binds `ui-text.frag` with the colour forced to white, a surface to put it in, and a
 `UiLayer` that names a *coverage* source separately from its colour source.
 
-Two further things are absent and would be needed for the general form, and both are recorded against
-their own rows: an ordered filter list on `UiLayer` (today it carries a `Blur`, a `Filter` and a
-`Mask` as discrete fields, which is enough because their order is fixed by the specification), and
-`mask-composite`, without which two mask sources cannot be intersected.
+One further thing is absent and would be needed for the general form, and it is recorded against its
+own row: an ordered filter list on `UiLayer` (today it carries a `Blur`, a `Filter` and a `Mask` as
+discrete fields, which is enough because their order is fixed by the specification).
+
+⚠ **This paragraph named a second absence, `mask-composite`, and that half is refuted — it landed
+with the mask list and the generated row has read `works` since.** `mask-add`, `mask-subtract`,
+`mask-intersect` and `mask-exclude` are registered families writing the property,
+`DrawListBuilder.MasksFor` reads it as a *list* — `mask-composite: add, intersect` is one operator
+per layer — and `UiMask.Coverage` folds that list bottom-up through `UiMask.Compose`, which is the
+Porter-Duff step both executors run at the composite draw. So two mask sources **can** be
+intersected, and `bg-clip-text` is blocked on the text-coverage surface alone.
+The lesson is the one this document keeps re-learning one section up: a count or a state repeated in
+prose beside a generated table is a copy nothing checks, and it outlives the thing it described.
 
 **Recommendation stands, with the blocker now named rather than implied: `bg-clip-text` is absent
 until a text-coverage surface exists.** It is not a `mask-*` root, `bg-clip` is not a registered
@@ -466,26 +475,26 @@ refusal block, which already says so for the same reason.
 
 | Category | roots | works | partial | inert | absent | composed |
 |---|--:|--:|--:|--:|--:|--:|
-| Layout | 51 | 29 | 5 | 0 | 14 | 3 |
+| Layout | 51 | 30 | 4 | 0 | 14 | 3 |
 | Interactivity | 40 | 30 | 0 | 1 | 9 | 0 |
 | Borders | 34 | 28 | 2 | 0 | 4 | 0 |
 | Effects | 34 | 27 | 1 | 0 | 6 | 0 |
 | Flexbox and Grid | 34 | 30 | 2 | 0 | 2 | 0 |
-| Typography | 34 | 20 | 5 | 0 | 9 | 0 |
+| Typography | 34 | 21 | 4 | 0 | 9 | 0 |
 | Spacing | 24 | 22 | 0 | 0 | 2 | 0 |
-| Transforms | 23 | 7 | 2 | 0 | 14 | 0 |
+| Transforms | 23 | 10 | 3 | 0 | 10 | 0 |
 | Filters | 20 | 10 | 10 | 0 | 0 | 0 |
-| Sizing | 15 | 12 | 1 | 0 | 2 | 0 |
+| Sizing | 15 | 13 | 0 | 0 | 2 | 0 |
 | Backgrounds | 11 | 6 | 1 | 0 | 4 | 0 |
 | Transitions and Animation | 6 | 4 | 0 | 0 | 2 | 0 |
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 |
-| **Total** | **332** | **228** | **29** | **1** | **71** | **3** |
+| **Total** | **332** | **234** | **27** | **1** | **67** | **3** |
 
-Flexbox and Grid leads at 29 of 34, with only two absent roots left and both of those refused on
-policy rather than owed; then Effects at 27 of 34, Interactivity at 27 of 39, Borders at 26 of 34,
-and Layout at 26 of 49. Tables and Accessibility still have **no working root at all**.
+Flexbox and Grid leads at 30 of 34, with only two absent roots left and both of those refused on
+policy rather than owed; then Interactivity at 30 of 40, Layout at 30 of 51, Borders at 28 of 34,
+and Effects at 27 of 34. Tables and Accessibility still have **no working root at all**.
 
 ⚠ **No category is `complete`, and SVG — which this section called the first one to be — is 2 of 3.**
 `stroke-none` is `absent`, refused on the same policy `inset-shadow-*` is: `stroke` is read, but only
@@ -522,7 +531,10 @@ written, and asking the standard `caret-color` first is the whole of `caret-*`. 
 ⚠ **And the twelve still absent are not twelve of the same thing.** Six are refusals with a named
 blocker in their own row — `accent-*` (the three controls CSS means are drawn from a stylesheet, and
 `var()` cannot read a standard property), `will-change-*` (no element-keyed retained surface),
-`touch` (touch events never reach `UiDocument` at all), `resize`, `appearance` and `field-sizing`.
+`touch` (⚠ *not* "touch events never reach `UiDocument`", which is what this line said and what the
+row said with it: `PlatformInput` routes them and has since — what is missing is the UA behaviour
+`touch-action` would suppress, a touch pan in `ScrollView` and a pinch anything consumes),
+`resize`, `appearance` and `field-sizing`.
 ✅ `snap` and `snap (keywords)` were the two sized-and-not-started ones, and both read `works` now —
 with a third row, `snap (align)`, that this file had no entry for at all. The remaining four are
 the scrollbar cluster, which is one feature and is owned elsewhere.
@@ -597,15 +609,34 @@ scene outside the panel that asked for it. Closing the radius needs a rounded-re
 three shipped fragment modules and their software transcription. A second, smaller divergence rides in
 the same column: an element that paints nothing of its own opens no group and so gets no backdrop.
 
+⛔ **The third divergence is permanent and is stated here as one, 2026-09-05.** A group carrying a
+`transform` is refused the backdrop outright rather than given an approximation of it, in
+`UiGeometryBuilder.Layer`. ⚠ **Every other thing a group does survives a transform for free** — a
+blur convolves the surface, a colour matrix is per pixel, a mask is read from the composite's own
+untransformed coordinate, and a drop shadow displaces in local space and is carried along — because
+each of them happens in the surface's own space and the matrix is spent afterwards on the composite
+quad. CSS orders them the same way, filter then mask then transform, so all four come out right
+without being told. The backdrop is the one surface holding something the group *did not draw*:
+`UiRenderer.Capture` replays the draw-list prefix into a surface and both executors read it at the
+coordinates the quad covers, so a rotated backdrop quad would have to sample a rotated window of a
+captured picture — four texture coordinates that are no longer an axis-aligned rectangle, a capture
+region that is no longer `BackdropBounds`, and a border-box clip that is no longer a rectangle
+either. Sampling the untransformed patch instead shows the scene from where the element *was* rather
+than from where it is, which under a rotation is not an approximation but a different picture. So it
+is dropped once, beside where a degenerate drop shadow and an empty group are already dropped, and
+neither executor learns that a backdrop can be missing for a new reason. This is a refusal with its
+reason, not an owed item; the two divergences above it are the owed half of A8's remainder.
+
 ⚠ **Vixen emits only `backdrop-filter` where Tailwind emits `-webkit-backdrop-filter` beside it.**
 That copy is for Safari and there is no Safari here; emitting it would put a declaration into every
 generated sheet that nothing could ever read, which is the exact shape of debt `InertProperties.txt`
 exists to record — and one nobody could ever close. The ledger's `css` column still lists both,
 because that column is about what Tailwind emits.
 
-⚠ **Sizing was `0 works, 7 partial, 8 absent`, then `0 works, 13 partial, 2 absent`; it is now
-`12 works, 1 partial, 2 absent`.** Three separate things happened to it, in three revisions, and the
-headline number was the least informative thing on the row for two of them.
+⚠ **Sizing was `0 works, 7 partial, 8 absent`, then `0 works, 13 partial, 2 absent`, then
+`12 works, 1 partial, 2 absent`; it is now `13 works, 0 partial, 2 absent`.** Four separate things
+happened to it, in four revisions, and the headline number was the least informative thing on the row
+for three of them.
 
 **The seven partials were one rule, and the rule is closed.** The previous revision of this paragraph
 said Sizing read worse than it was because the mechanism, not the roots, had moved: `w-*`, `h-*`,
@@ -713,11 +744,25 @@ same prefix, and `UtilityFamilies.Register` keeps the first family registered un
 registration that holds both: the empty keyword answers the bare class and the value kind answers the
 rest, which is the shape `flex` has had all along for the same reason.
 
-**`max-block-*` is the one row in the category still `partial`, and it is `partial` on something of
-its own.** `max-block-lh` is one line box, and `lh` is a unit `StyleValueParser` does not read and
-`LengthContext` could not resolve if it did — the context carries a font size and no line height.
-Nothing in its `value_gap` says so: the demotion comes from the measurement, because the `classes`
-column lists a class that does not resolve.
+**`max-block-*` was the one row in the category still `partial`, and it was `partial` on something
+of its own.** `max-block-lh` is one line box, and `lh` was a unit `StyleValueParser` did not read and
+`LengthContext` could not have resolved if it did — the context carried a font size and no line
+height. ⚠ **Nothing in its `value_gap` said so**: the demotion came from the *measurement*, because
+the `classes` column lists a class that does not resolve. That is the arrangement worth keeping in
+mind when a row's prose and its state disagree — the state is the half that was measured.
+
+✅ **Closed 2026-09-05, and it was three stages rather than a unit.** `StyleUnit.LineHeight` is
+parsed, `LengthContext` carries the element's own line height, and `UiDocument.Apply` hands it in
+beside the font size — a parser that read `lh` and stopped would have left every box the wrong size
+with the class resolving perfectly, which is this row's own failure shape one level down.
+⚠ **`line-height: normal` is the one approximation.** CSS settles it from the font's ascender,
+descender and line gap — `TextRun.Height` does exactly that — and nothing that resolves a length has a
+font, so `LengthContext` answers 1.2 times the font size and says so. It is never zero: a length unit
+whose scale is zero would make `max-h-lh` a box of no height, which is `PixelsPer`'s own documented
+trap. ⚠ **And `lh` had to be named in `NotNegatable` in the same change**, because `1lh` begins with a
+digit exactly as `100%` and `100vh` do, so `-max-block-lh` would otherwise have emitted minus one line
+box on the strength of that character — the third time that trap has been laid by a value becoming
+resolvable.
 
 ⚠ **`basis-min`, `basis-max` and `basis-fit` are refused rather than swept in, and the `basis-*` row
 now says why.** `TrySize` answers all three, but a flex basis is a size on the *container's* main
@@ -1254,8 +1299,13 @@ does mirror that one.
    **This paragraph used to end "and there is no `<transform-function>` parser here, so they are a
    parser away rather than a renderer away", and that was false when it was written** — see A7 and
    #585. `TransformReader.Functions` reads `matrix`, `translate/X/Y`, `scale/X/Y`, `rotate`,
-   `rotateZ` and `skew/X/Y`, composed right to left and pinned in `TransformTests`. `skew-*` is a
-   family registration away (#227). The three-dimensional four are a *vertex* away and not a parser
+   `rotateZ` and `skew/X/Y`, composed right to left and pinned in `TransformTests`. ⚠ **`skew-*`,
+   `skew-x-*` and `skew-y-*` closed on 2026-09-05 (#227) and the registration is all they ever
+   needed** — an angle fragment apiece and `skewX(…)`/`skewY(…)` in
+   `UtilityComposition.Transform`, which is `rotate-z-*`'s mechanism unchanged. Second family in a
+   row to close on a premise that had already expired, and this one is worse than `rotate-z-*`'s:
+   those rows carried no note at all, so there was no refusal to expire and nothing for
+   `RefusalExpiryTests` to catch. The three-dimensional four are a *vertex* away and not a parser
    away: `UiVertex` has nowhere to put a `w`, so a projective quad would be rasterised with affine
    barycentrics (#548) — which is what their own ledger rows now say, and this taxonomy is the half
    that had not caught up.
@@ -1277,7 +1327,12 @@ does mirror that one.
    fourth item ends in a comma. Both drew nothing, so which one it was never mattered until it did.
    ⚠ **`calc()` has since gone the same way** — `StyleValueParser` folds one, on the fold-or-refuse
    rule that keeps `calc(100% - 10px)` `Unknown` because a `StyleValue` is one number and one unit —
-   so what still blocks the root is the five-fragment composition alone. `stroke-none` is the same
+   so what still blocks the root is the composition alone — and ⚠ **that is now a narrower thing than
+   "the five-fragment composition"**. `shadow-*` and `ring-*` share one assembled `box-shadow` and
+   `shadow-lg ring-2` on one element paints both, so the collision the five slots were wanted for is
+   closed with two; what `ring-offset-*` is still missing is its own `--tw-ring-offset-width` fragment
+   and the second shadow that reads it, which is why the row's anchor names that and not the count.
+   `stroke-none` is the same
    shape one file over — `stroke` is read only as a colour, and `Icon.Resolve` falls back to the
    foreground for anything that is not one.
 4. *The class is v4 compatibility surface, and § D5 already says not to implement it.*
@@ -1332,7 +1387,7 @@ all twelve scenes and at every value the family could emit, rather than argued f
 | --- | --- | --- |
 | `space-x/y-*` | **written** | `margin-inline-end` and `margin-bottom` are read; the family needed a compound selector, not a reader |
 | `divide-x/y-*`, `divide-<color>` | **written** | `border-inline-end-width`, `border-bottom-width` and the four `border-color` longhands are read |
-| `mix-blend-*` | **refused** | `mix-blend-mode` moves no channel. `DrawCommand` has no blend channel and there is no offscreen target to blend into — the same compositor `rotate`/`scale` wait on under **#23** |
+| `mix-blend-*` | **refused** | `mix-blend-mode` moves no channel. ⚠ Half of the reason as written here has expired and the other half named the wrong seam: the offscreen target arrived with the compositor, and the channel a blend mode needs is on `UiLayer` beside `Alpha`, not on `DrawCommand`. See Part 9, Bucket 2 |
 | `origin-*` | **written** ✅ | ⚠ Refused here as *unobservable*, and the last clause of that refusal — "`scale` and `rotate` are refused under **#23**" — was its expiry condition. Both are implemented now, `TransformReader` reads `transform-origin` into the point they turn about, and the family is registered. The refusal also needed a *scene*: the property is invisible without a transform whose fixed point matters, so `translated` could never have seen it and the new `turned` scene is what does — the seventh entry on `UtilityConsumptionProbe`'s list of arrangements that were missing |
 | `scroll-*` | **22 of 32 written** ✅ | Part 8 § 3, discharged by **A18**. `ScrollView` reads `scroll-margin-*`, `scroll-padding-*`, `scroll-behavior` and `overscroll-behavior*` now, so the roots are registered against real readers rather than as properties on a box. The four block roots stay absent (`space-y`'s reason); `snap-*` is registered now against the snapping behaviour A18 could not have used, and of `scrollbar-*` only `scrollbar` is written — see Part 8 § 3 |
 
@@ -1361,11 +1416,20 @@ was filed as a reason not to look again.
 `-inline-start` and `-inline-end` and no block pair, so v4's spelling measures inert — and it is not
 an approximation to substitute the physical one, because `Vixen.Ui.Layout` has no writing mode for the
 two to differ in. And the scope is emitted bare rather than inside `:where()`: v4 wraps it to keep the
-rule at one class of specificity so a child's own `mb-0` still wins, and `SelectorCompiler` charges a
-class for `:where()` exactly as it does for `:is()`, so no spelling available here reaches zero. The
-rule lands at `(0,2,0)` and beats a child's single-class utility — which is what v3 did for four major
-versions. Closing it is three lines in `SelectorCompiler`, and the test that pins the current
-behaviour fails the day they land.
+rule at one class of specificity so a child's own `mb-0` still wins, and no spelling available here
+reaches zero. The rule lands at `(0,2,0)` and beats a child's single-class utility — which is what v3
+did for four major versions.
+
+⚠ **The sizing this paragraph carried was wrong, and wrong about which stage the gap is in.** It said
+`SelectorCompiler` "charges a class for `:where()` exactly as it does for `:is()`" and that closing it
+was three lines there. Measured 2026-09-05 in
+`Core/Vixen.Ui.Styling.Tests/WhereSelectorTests.cs`: **ExCSS 4.3.2 has no `:where()` at all.** A
+selector containing one comes back as a single `UnknownSelector` covering the *whole* selector — not a
+complex selector with one unknown part — so `SelectorCompiler` never sees a `MatchesSelector` to
+charge anything for, and refuses the rule entire with a diagnostic. There is nothing at that site to
+subtract a class from. Closing it means teaching the front end a selector ExCSS does not parse, which
+is a different job from a specificity tweak; filed separately. The tests in that file pin the refusal
+and go red the day it lands.
 
 **What is absent inside the two families, and why.** `space-x-reverse`, `space-y-reverse`,
 `divide-x-reverse` and `divide-y-reverse` need `calc()` to multiply an edge by a `--tw-*-reverse`
@@ -1481,7 +1545,9 @@ asserted the opposite and was wrong. The `primed` scene — a duration and a tim
 property the mutation does not touch — is where injecting `all` finally changes a frame. Same lesson
 as `gridded` and `inlined`: a green gate is a claim about the scenes as much as about the engine.
 
-⚠ **Two limitations found while proving it, both real and neither fixed here.**
+⚠ **Three limitations found while proving it — the header said two and the list has always had
+three, which is the smaller of the two things wrong with this paragraph.** All three were real; one is
+closed.
 
 - **A transition only runs where the previous computed style *also held the property*.** `Observe`
   reads the displayed value out of `before`, and a cascade with no computed-value stage has nothing
@@ -1489,10 +1555,17 @@ as `gridded` and `inlined`: a green gate is a claim about the scenes as much as 
   implicit `0` does not happen, while fading it from a declared `0px` does. That is why the three
   rows come back as `paint` consumers and not `layout` ones: the probe's mutation adds a `margin-left`
   that was not there before, and only its `background-color` change had both ends.
-- **The `transition` utility still does nothing on its own.** Vixen's family emits
-  `transition-property` and stops; Tailwind's also emits a 150 ms duration and a timing function. The
-  property is read, so the row belongs in `Supported`; the class needs a `duration-*` beside it. A
-  family gap rather than a property gap, recorded on the `Supported` table.
+- ✅ **The `transition` utility did nothing on its own — closed.** Vixen's family emitted
+  `transition-property` and stopped; Tailwind's also emits a 150 ms duration and a timing function.
+  ⚠ **The consumption gate could not have caught it and it is worth being exact about why**: that gate
+  is per-*property*, `transition-property` measured `read` throughout off a scene that supplies a
+  duration of its own, so the family could score `works` on everything it emitted and still be a class
+  that moves nothing when written alone. It reads `var(--tw-duration, 150ms)` now rather than a
+  literal, because `UtilityGenerator` orders rules by ordinal class name and `duration-1000` sorts
+  before `transition` — a literal would have made `transition duration-1000` a 150 ms transition.
+  ⚠ **Only the duration was missing**: CSS's initial timing function is already `ease`, so emitting
+  one would buy nothing and would overwrite the `ease-*` beside it for the same ordering reason.
+  `TransitionUtilityTests` holds all three claims, reading the width between the endpoints.
 - **A fading inherited value does not reach the children.** The animator is a tier over the finished
   cascade, so `StyleUpdater` inherits from the parent's *cascaded* style and the overlay is applied
   per element afterwards — a panel fading its `color` hands its descendants the destination on the
@@ -1538,10 +1611,20 @@ somebody else's compound and invalidated the wrong subtree, and one that produce
 end and threw — reachable through `UiDocument.ReloadStyles` and therefore through every hot edit of a
 stylesheet, and invisible only because a hot edit rarely changes the rule count much. A breakpoint
 being crossed turned a dropped block into rules, which adds selectors by construction, so the first
-`@media` re-evaluation found it immediately. ⚠ **The fix is still needed and the finder is gone:**
-crossing a breakpoint no longer reloads anything, so `StyleUpdater.Refresh` is now exercised only by
-`StyleEngine.Replace` — a hot edit of a stylesheet — which is where the latent crash lived all along
-and where it would have gone on living unnoticed.
+`@media` re-evaluation found it immediately. ⚠ **The finder is gone:** crossing a breakpoint no
+longer reloads anything, so `StyleUpdater.Refresh` is now exercised only by `StyleEngine.Replace` —
+a hot edit of a stylesheet — which is where the latent crash lived all along and where it would have
+gone on living unnoticed.
+
+✅ **Closed 2026-09-05.** `StyleUpdater.Refresh` landed with `47151dfe` and rebuilds the invalidator
+whenever the engine has replaced its `SelectorTable`, which resets the rule cursor with it. ⚠ What
+was still missing was anything that could tell you so: no test anywhere drove a `StyleUpdater` across
+a `StyleEngine.Replace`, and the paragraph above went on saying the fix was owed.
+`Core/Vixen.Ui.Styling.Tests/StyleUpdaterReloadTests.cs` now replaces a sheet in **both** directions,
+and the two are not one test twice — the growing case throws out of `SelectorTable.Compound`, and the
+shrinking case leaves the cursor past the end of the new rule set, so the read loop never runs, the
+map still describes the sheet that is gone, and the element that should have restyled silently keeps
+the style it had. Sabotage (`Refresh` returning unconditionally) is red on both, one per failure mode.
 
 **Sized at 0.3 EM and landed with A20**, because it is the same shape of bug and the same seam.
 
@@ -1613,7 +1696,7 @@ glyph advances and the glyph comparison catches it, so this is a note and not a 
 
 | | Tailwind v4 | Vixen | |
 |---|---|---|---|
-| Registered variant keys | 88 | 25 | 28 % |
+| Registered variant keys | 88 | 51 | 58 % |
 | Arbitrary variant `[&>*]:` | ✅ | ✅ | |
 | Arbitrary value `w-[37px]` | ✅ | ✅ | |
 | Arbitrary property `[mask-type:luminance]` | ✅ | ✅ | F7 *closed* |
@@ -1624,25 +1707,45 @@ glyph advances and the glyph comparison catches it, so this is a note and not a 
 | Prefix (`tw:flex`) | ✅ | ⛔ | |
 | Two media variants on one utility | nests | ✅ nests | A15 |
 
-The 25 Vixen covers: `hover focus focus-visible focus-within active disabled enabled checked first
-last only odd even dark ltr rtl group peer data aria` plus the five breakpoint names when the theme
-declares them.
+The 51 Vixen covers: `hover focus focus-visible focus-within active disabled enabled checked first
+last only odd even empty first-of-type last-of-type only-of-type dark ltr rtl group peer data aria
+not nth nth-last nth-of-type nth-last-of-type motion-safe motion-reduce contrast-more contrast-less
+forced-colors inverted-colors portrait landscape print noscript pointer-none pointer-coarse
+pointer-fine any-pointer-none any-pointer-coarse any-pointer-fine has` plus the five breakpoint names
+when the theme declares them. ⚠ It was 25 until A13's structural half and A14 landed; this figure is
+hand-kept and nothing checks it, so it is spelled out as a list rather than as a number for the
+reason two paragraphs of Part 0 give about the family count — a bare figure beside a table nobody
+regenerates is the copy that rots.
 
-The 63 it does not fall into three quite different buckets, and lumping them together is how this
-gets mis-sized:
+⚠ **The bucket sizes below do not add up to the difference, and forcing them to would be the
+dishonest arithmetic rather than the honest one.** The 88 is a count of Tailwind's variant
+*families* and this is a count of registered *keys*: `pointer-*` is one line in v4's documentation
+and three keys here. Each bucket says what it is about; none of them is a share of a total.
 
-- **Twenty-two are a table entry each**, because the selector already compiles: `empty`, `not-*`,
-  `nth-*`, `nth-last-*`, `*-of-type`, `target`, `open`, `required`, `optional`, `valid`, `invalid`,
-  `read-only`, `placeholder-shown`, `indeterminate`, `default`, `autofill`, `in-range`,
-  `out-of-range`, `visited`, `inert`, `user-valid`, `user-invalid`. Some need an element-state bit
-  set by the control library; none needs a matcher change.
+What is left falls into three quite different kinds, and lumping them together is how this gets
+mis-sized:
+
+- **Seventeen are a table entry plus an element-state bit** the control library has to set:
+  `target`, `open`, `required`, `optional`, `valid`, `invalid`, `read-only`, `placeholder-shown`,
+  `indeterminate`, `default`, `autofill`, `in-range`, `out-of-range`, `visited`, `inert`,
+  `user-valid`, `user-invalid`. ⚠ **This bucket said twenty-two and "none needs a matcher change",
+  and both halves were wrong.** Five of the twenty-two — `empty`, `not-*`, `nth-*`, `nth-last-*` and
+  `*-of-type` — are structural and are registered now, and the of-type family was precisely the one
+  that *did* need a matcher change: a child index is stored on every element and an of-type index is
+  a position among the siblings sharing a tag, which nothing stored. It reads as a table entry
+  because `:nth-of-type(n)` and `:nth-child(n)` agree on every document whose children all carry one
+  tag. ⚠ Two of the seventeen want **refusing** rather than building — `visited` and `target` are
+  about a navigation model Vixen does not have — and `open` needs the CSS parser before it needs a
+  bit, since ExCSS 4.3.2 returns `:open` as an `UnknownSelector`.
 - **Seven need pseudo-elements to mean something** — F6.
-- **Thirteen are media features** (`motion-safe`, `motion-reduce`, `contrast-more`, `contrast-less`,
-  `forced-colors`, `inverted-colors`, `portrait`, `landscape`, `print`, `noscript`, `pointer-*`,
-  `any-pointer-*`), each one condition in `MediaQuery`.
-- **The rest are engine features**: `has-*` (doc 09 defers it to P2 on incremental-match cost),
-  `supports-*`, `starting` (`@starting-style`), `in-*`, `*`/`**`, and the whole container-query
-  family `@`/`@min`/`@max` — Part 2.
+- **The media features are done** — A14. ⚠ The bucket said "thirteen … each one condition in
+  `MediaQuery`" and it listed twelve, of which **two needed no condition at all**: `portrait` and
+  `landscape` are `(orientation: …)`, which has been answered from the surface's own width and
+  height since media queries existed here, so they were a table entry and nothing more. The other
+  ten are sixteen keys, because `pointer-*` and `any-pointer-*` are three each.
+- **The rest are engine features**: `supports-*`, `starting` (`@starting-style`), `in-*`, `*`/`**`,
+  and the whole container-query family `@`/`@min`/`@max` — Part 2. ⚠ `has-*` was the head of this
+  list on doc 09's P2 deferral and is registered now — A17.
 
 ---
 
@@ -2740,7 +2843,7 @@ of each other.
 **B · Layout modes.** `display` is `{ Flex, None }`. Block, grid and inline formatting are three
 algorithms over the existing store.
 
-**C · Families.** The 329 roots.
+**C · Families.** The 332 roots.
 
 ⚠ **C depends on A and B, and inverting that is how the present state came about.** `grid-cols-3`
 exists as a family and emits `grid-template-columns` because a family is a line of a table and the
@@ -2809,20 +2912,20 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A4 🟢 | `order` | `LayoutStyleBuilder` + flex line ordering | **#22** | 0.1 |
 | A5 ✅ | `overflow-x`/`overflow-y`, and `auto` in the layout keyword table | `OverflowReader`, `LayoutStyleBuilder` | done | — |
 | A6 🟡 | **Three of the four landed, in three different ways, and the fourth is refused.** `fill`/`stroke` were the honest case: the emission was already v4's and the renderer had had the channel all along — `IconPath` carries a fill paint and a stroke paint and `IconPaintKind.Foreground` is SVG's `currentColor` marker — so it was two `ColorOf` reads in `Icon.Resolve`, plus the two names in `InheritedProperties` without which the class only works written on the icon itself. `outline` is **gone rather than done**: `ring-*` emitted `outline-color`, a property no Tailwind has ever emitted for it (see § D5, corrected), and under v4's box-shadow shape the existing spread path paints it with no new rendering. That needed `currentcolor` in `EmitShadow`. ⚠ **`user-select` stays inert and is not waiting for a reader.** A selection model exists — `TextField` has `CaretIndex`/`SelectionAnchor`/`SelectWord` and drag-to-select, `CodeEditor` has its own — but both are per-control: each captures the pointer for its own drag and hit-tests only its own `TextLayout`. The *document-wide* selection `user-select` governs does not exist, so `select-none` on a button, which is what the class is for, has nothing to suppress. Teaching `TextField` to honour it would expire the allow-list line and leave that promise unkept. ⚠ `overflow-clip` is closed, and **refused in the shape this row asked for**: `clip` maps onto `Overflow.Hidden` rather than adding a member, because CSS separates the two by a scroll container and by programmatic scrolling and this engine grants `hidden` neither — see F3. The defect it was hiding was the layout half, not the clip. ⚠ And the parity gate could not see `fill`/`stroke` until `UtilityConsumptionProbe` could build an `Icon` — `grid-cols-3`'s missing grid again | `Icon`, `DrawListBuilder`, `InheritedProperties` | **#24** | 0.05 of 0.25 |
-| A7 🟢 | **Transforms — the three independent properties are all read now.** `translate-x-*` and `translate-y-*` are composed (a `--tw-*` fragment per axis, one `translate` between them, both classes assemblers) and read by `TranslationReader` in `UiDocument.Accumulate` — the same sum that already carried `OffsetX`, so the draw list, the hit test and arrow navigation all read one translated position and *cannot* disagree. Lengths and percentages, percentages against the element's own border box per Transforms 1 §8; not layout, so siblings do not move; the subtree comes along; a translated clip moves with the box and is still a rectangle. Interpolatable for free, because `StyleValue` already lerps a two-part list. ⚠ **`scale` and `rotate` are read now, and the refusal that used to be here is the most useful thing in this row.** It said: a `DrawCommand` is an axis-aligned rectangle and the clip stack intersects rectangles, so a rotated box and a rotated clip cannot be represented; scale can scale the box and not the picture, because glyph advances are shaped at `run.Size` during *layout*. Every clause is still true. Its last sentence — "both need the offscreen compositor `DrawListBuilder`'s opacity remark already owes" — is the one that mattered, and that compositor landed with `opacity` and was extended four more times before anybody re-read this. ⚠ **A refusal whose premise names another feature has an expiry date, and until #288 nothing in the repository checked it**: `InertProperties.txt`'s expiry only fires once someone has already written the reader. `RefusalExpiryTests` is the half that fires before that — see Part 0 § *The `note` column carries the expiry*. **What it took:** a transform is the fifth thing to open a group, `TransformReader` composes `rotate`, `scale` and `transform-origin` into one `UiTransform` in `UiDocument.Accumulate`, and the matrix is spent on the composite quad's four vertex positions — so no `DrawCommand` was rotated, no clip stopped being a rectangle, and no glyph was re-shaped. It cost **no shader and no vertex format**: both executors already interpolate a quad's texture coordinate linearly, and an affine map is exactly the class for which that is exact. The hit test maps the pointer through the inverse at the top of the walk, one line, and nested transforms compose because the recursion does. ⚠ **And the `<transform-function>` parser this row records as owed has been written the whole time.** `TransformReader.Functions` reads `matrix`, `translate`, `translateX/Y`, `scale`, `scaleX/Y`, `rotate`, `rotateZ`, `skew` and `skewX/Y`, composed right to left, refusing the whole list if any function in it is unreadable, and pinned against pixels in `TransformTests` — including a `skewX(45deg)` probe. So `rotate-z-*` was never a parser away: it is registered now as an angle fragment assembled into one `transform`, and it measures `works`. ⚠ **The row's own expiry clause could not say so**, because it named `StyleValueKind.Function` and the parser was built over the declaration's *text* instead — a refusal can be satisfied without its named symbol ever arriving, which is one level worse than #288's finding and is the first time it has happened here. **Owed:** `skew-*` and the `transform-*` keywords, which are a family registration away and not a parser away (#227); the 3D family, on which see below; and `backdrop-filter` on a transformed group, refused in `UiGeometryBuilder.Layer` rather than approximated (#229).
+| A7 🟢 | **Transforms — the three independent properties are all read now.** `translate-x-*` and `translate-y-*` are composed (a `--tw-*` fragment per axis, one `translate` between them, both classes assemblers) and read by `TranslationReader` in `UiDocument.Accumulate` — the same sum that already carried `OffsetX`, so the draw list, the hit test and arrow navigation all read one translated position and *cannot* disagree. Lengths and percentages, percentages against the element's own border box per Transforms 1 §8; not layout, so siblings do not move; the subtree comes along; a translated clip moves with the box and is still a rectangle. Interpolatable for free, because `StyleValue` already lerps a two-part list. ⚠ **`scale` and `rotate` are read now, and the refusal that used to be here is the most useful thing in this row.** It said: a `DrawCommand` is an axis-aligned rectangle and the clip stack intersects rectangles, so a rotated box and a rotated clip cannot be represented; scale can scale the box and not the picture, because glyph advances are shaped at `run.Size` during *layout*. Every clause is still true. Its last sentence — "both need the offscreen compositor `DrawListBuilder`'s opacity remark already owes" — is the one that mattered, and that compositor landed with `opacity` and was extended four more times before anybody re-read this. ⚠ **A refusal whose premise names another feature has an expiry date, and until #288 nothing in the repository checked it**: `InertProperties.txt`'s expiry only fires once someone has already written the reader. `RefusalExpiryTests` is the half that fires before that — see Part 0 § *The `note` column carries the expiry*. **What it took:** a transform is the fifth thing to open a group, `TransformReader` composes `rotate`, `scale` and `transform-origin` into one `UiTransform` in `UiDocument.Accumulate`, and the matrix is spent on the composite quad's four vertex positions — so no `DrawCommand` was rotated, no clip stopped being a rectangle, and no glyph was re-shaped. It cost **no shader and no vertex format**: both executors already interpolate a quad's texture coordinate linearly, and an affine map is exactly the class for which that is exact. The hit test maps the pointer through the inverse at the top of the walk, one line, and nested transforms compose because the recursion does. ⚠ **And the `<transform-function>` parser this row records as owed has been written the whole time.** `TransformReader.Functions` reads `matrix`, `translate`, `translateX/Y`, `scale`, `scaleX/Y`, `rotate`, `rotateZ`, `skew` and `skewX/Y`, composed right to left, refusing the whole list if any function in it is unreadable, and pinned against pixels in `TransformTests` — including a `skewX(45deg)` probe. So `rotate-z-*` was never a parser away: it is registered now as an angle fragment assembled into one `transform`, and it measures `works`. ⚠ **The row's own expiry clause could not say so**, because it named `StyleValueKind.Function` and the parser was built over the declaration's *text* instead — a refusal can be satisfied without its named symbol ever arriving, which is one level worse than #288's finding and is the first time it has happened here. ⚠ **The three `skew` roots closed the same way on 2026-09-05 (#227), and they were worse off than `rotate-z-*` was**: `rotate-z-*` at least carried a refusal naming a condition, while `skew-*`, `skew-x-*` and `skew-y-*` sat `absent` with an **empty** note — nothing to expire, nothing for `RefusalExpiryTests` to fire on, and the only record that they were owed was this row's own sizing. Each is an angle fragment (`--tw-skew-x`, `--tw-skew-y`) with `skewX(…)`/`skewY(…)` in `UtilityComposition.Transform`; the bare `skew-*` writes **both** fragments rather than emitting CSS's two-argument `skew(a, b)`, because that is v4's own reading and because a `skew(…)` slot and a `skewY(…)` slot are different slots — the shorthand would otherwise take a whole axis with it when a `skew-y-*` was written beside it. `transform-none` is registered beside them and reads. ⛔ **`transform-cpu` and `transform-gpu` are refused rather than owed**: they are compositing hints with nothing to hint at, `will-change-*`'s argument one property over — and emitting what v4 emits would be *worse* than absent, since its `transform-gpu` prepends `translateZ(0)`, which `TransformReader` cannot read and which makes it refuse the list **whole**, silently unrotating anything beside it. `transform-flat`/`transform-3d` (`transform-style`) and the five `transform-box` keywords are different properties and are refused with the 3D family (#228). **Owed:** the 3D family, on which see below; and `backdrop-filter` on a transformed group, refused in `UiGeometryBuilder.Layer` rather than approximated (#229).
 
-⚠ **The 3D family: decided 2026-09-04, and the decision is to build it.** The refusal was that `UiTransform` is a 2D affine and a perspective divide is projective — see `UiTransform.Apply`, whose whole argument is that the composite quad's texture coordinates are interpolated linearly, which is exact for an affine map and an approximation for a projective one. That argument is correct and it is not a reason to stop, because *a planar element under a 3D transform and a perspective is exactly a 2D homography*: the four corners project to four points with four `w`s, and a rasteriser that carries a `w` divides by it for nothing. So the type grows from six floats to a 3×3 and the shape of the change is known. ⚠ **The matrix landed on 2026-09-04 (#547).** `UiTransform` is a 3×3 with a `Project` that returns the homogeneous point, and the whole of the third column is still read by nothing outside the type — `UiVertex` is position, texture, colour and shape with nowhere to put a `w`, so `UiGeometryBuilder.Quad` calls `Apply` and drops it. All four ledger rows that named `UiTransform.M33` as their expiry came due the same day and not one of them closed, which is the distinction this table exists to keep: a premise expiring is not a refusal ending. They name `UiVertex.W` (#548) and each other now. ⚠ **And the parser is a shape change and not a table of nine more function names, which is what #550 reads as all that is left.** Checked 2026-09-05: reducing a 4×4 to a `UiTransform` keeps rows `x`,`y`,`w` against columns `x`,`y`,`1` and throws the `z` row and the `z` column away, so `R(A·B) = R(A)·R(B)` holds only where `A` has no `z` column or `B` no `z` row — and a `perspective()` is nothing *but* a `z` column while a `rotateX()` is nothing but a `z` row, which is the one pair a card flip is written from. `perspective(200px) rotateX(60deg)` sends a point 100 points below the origin to `y = 88.19` composed in 4×4 and reduced once, and to `y = 50` with `w = 1` reduced per function and composed — which is `rotateX` on its own, because `R(perspective)` **is** the identity on a plane at `z = 0`. So `TransformReader` has to compose the whole list in four dimensions and reduce once at the end; a `Function` that returns a `UiTransform` each is the plausible arrangement and it makes every `perspective()` silently do nothing. ⚠ **The bill is not the matrix.** It is perspective-correct barycentrics in `SoftwareUiRasterizer`, which `UiCompositingTests` compares against the device exactly, so every reference image in that suite moves; ⚠ **and #548 cannot be landed in two instalments at the vertex field**, checked 2026-09-05: `UiVertex.W` is what `perspective-*` expires *on*, and `RefusalExpiryTests.Every_clause_is_anchored_on_something_that_is_really_there` wants the member absent while the row is refused, so a vertex format that arrives ahead of the two executors turns that suite red on a `W` nothing reads. Either both executors move together or the row is re-anchored in the same change. ⚠ Nor can the two be held together by `CheckShaders`: that suite's executor is hand-written GLSL in `Platform/Vixen.Graphics.Golden.Tests/Shaders/` with its `.spv` committed beside it and no Raven in it, so the gate never recompiles a line of it and a divergence is a golden comparison or nothing; <s>a projective inverse in the hit test that has to answer for points behind the eye</s> — **landed (#549, 2026-09-05)**: `UiDocument.HitTest` reads `UiTransform.Project` and refuses a non-positive `w` before the divide. ⚠ The failure it closes is not that the inverse blows up — it does not. A point on the half of the plane behind the eye inverts to a *finite* coordinate inside the border box, so the card was clickable in a band of the screen where nothing is drawn, at numbers nothing in the picture disputed; sabotage-tested against the old `Apply`, which returns the card for a pixel 133 points below it. The affine path is bit-identical, because on an affine that `w` is exactly `1f`; and `backface-visibility`, which needs the sign the flattening throws away. `transform-style: preserve-3d` is *not* in this decision and is the one part that is not a matrix change at all — children in a shared 3D space cannot be flattened per element, so it is a rendering model with its own sorting. Tracked as #228's follow-on issues | `TransformReader`, `UiTransform`, `UiDocument`, `UiGeometryBuilder` | **#23** | 0.35 |
+⚠ **The 3D family: decided 2026-09-04, and the decision is to build it.** The refusal was that `UiTransform` is a 2D affine and a perspective divide is projective — see `UiTransform.Apply`, whose whole argument is that the composite quad's texture coordinates are interpolated linearly, which is exact for an affine map and an approximation for a projective one. That argument is correct and it is not a reason to stop, because *a planar element under a 3D transform and a perspective is exactly a 2D homography*: the four corners project to four points with four `w`s, and a rasteriser that carries a `w` divides by it for nothing. So the type grows from six floats to a 3×3 and the shape of the change is known. ⚠ **The matrix landed on 2026-09-04 (#547).** `UiTransform` is a 3×3 with a `Project` that returns the homogeneous point, and the whole of the third column is still read by nothing outside the type — `UiVertex` is position, texture, colour and shape with nowhere to put a `w`, so `UiGeometryBuilder.Quad` calls `Apply` and drops it. All four ledger rows that named `UiTransform.M33` as their expiry came due the same day and not one of them closed, which is the distinction this table exists to keep: a premise expiring is not a refusal ending. They name `UiVertex.W` (#548) and each other now. ⚠ **And the parser is a shape change and not a table of nine more function names, which is what #550 reads as all that is left.** Checked 2026-09-05: reducing a 4×4 to a `UiTransform` keeps rows `x`,`y`,`w` against columns `x`,`y`,`1` and throws the `z` row and the `z` column away, so `R(A·B) = R(A)·R(B)` holds only where `A` has no `z` column or `B` no `z` row — and a `perspective()` is nothing *but* a `z` column while a `rotateX()` is nothing but a `z` row, which is the one pair a card flip is written from. `perspective(200px) rotateX(60deg)` sends a point 100 points below the origin to `y = 88.19` composed in 4×4 and reduced once, and to `y = 50` with `w = 1` reduced per function and composed — which is `rotateX` on its own, because `R(perspective)` **is** the identity on a plane at `z = 0`. So `TransformReader` has to compose the whole list in four dimensions and reduce once at the end; a `Function` that returns a `UiTransform` each is the plausible arrangement and it makes every `perspective()` silently do nothing. ⚠ **The bill is not the matrix.** It is perspective-correct barycentrics in `SoftwareUiRasterizer`, which `UiCompositingTests` compares against the device exactly, so every reference image in that suite moves; ⚠ **and #548 cannot be landed in two instalments at the vertex field**, checked 2026-09-05: `UiVertex.W` is what `perspective-*` expires *on*, and `RefusalExpiryTests.Every_clause_is_anchored_on_something_that_is_really_there` wants the member absent while the row is refused, so a vertex format that arrives ahead of the two executors turns that suite red on a `W` nothing reads. Either both executors move together or the row is re-anchored in the same change. ⚠ Nor can the two be held together by `CheckShaders`: that suite's executor is hand-written GLSL in `Platform/Vixen.Graphics.Golden.Tests/Shaders/` with its `.spv` committed beside it and no Raven in it, so the gate never recompiles a line of it and a divergence is a golden comparison or nothing — though `UiRavenAgreementTests` does render one frame through each and compare them exactly on a device, so the blind spot is narrower than "golden or nothing" and covers the box path already. ⚠ **And the device half is smaller than both this row and #548 say: it touches no fragment stage.** Checked 2026-09-05: `UiImage`, `UiColour` and `UiMask` read the `uv`, `colour` and `shape` *streams* and no vertex attribute, and `StageInterface.MustBeFlat` decorates a varying `flat` only for an integer type — so a `float` stream already takes SPIR-V's default interpolation, which is the perspective-correct one. Hand the vertex stage `float4(xy · w, 0, w)` and the hardware divides for nothing, with the seven committed `.frag.spv` unchanged. What moves is `UiVertex`'s attribute list and its one returned line, `UiVertex.vert.spv` and its reflection, `UiRenderer`'s stride and fifth attribute, `Vixen.Ui.Rendering.UiVertex`, and the hand-written GLSL twin `Shaders/ui.vert` with its `.spv` and its `modules.sha256` row — that fifth place being the one an audit that names only "the three compositing stages" would leave behind; <s>a projective inverse in the hit test that has to answer for points behind the eye</s> — **landed (#549, 2026-09-05)**: `UiDocument.HitTest` reads `UiTransform.Project` and refuses a non-positive `w` before the divide. ⚠ The failure it closes is not that the inverse blows up — it does not. A point on the half of the plane behind the eye inverts to a *finite* coordinate inside the border box, so the card was clickable in a band of the screen where nothing is drawn, at numbers nothing in the picture disputed; sabotage-tested against the old `Apply`, which returns the card for a pixel 133 points below it. The affine path is bit-identical, because on an affine that `w` is exactly `1f`; and `backface-visibility`, which needs the sign the flattening throws away. `transform-style: preserve-3d` is *not* in this decision and is the one part that is not a matrix change at all — children in a shared 3D space cannot be flattened per element, so it is a rendering model with its own sorting. Tracked as #228's follow-on issues | `TransformReader`, `UiTransform`, `UiDocument`, `UiGeometryBuilder` | **#23** | 0.35 |
 | A8 🟢 | **`filter: blur()` is done and the rest of A8 is not.** `blur-*` emits a `--tw-blur` fragment assembled into a real `filter`, closing the `--blur` placeholder the same way the translations closed theirs; `DrawListBuilder` opens a composited group for it — *and never collapses one*, since the single-command peephole is an identity for opacity and nonsense for a filter — `UiGeometryBuilder` outsets the group's bounds by three sigma before the clip narrows them, and both executors convolve the finished surface with the same kernel from `UiLayer.KernelRadius`. On the device that is two extra passes and **one** shared scratch target for the whole frame, not one per blurred group. Measured at 1920×1080: the twelve composited groups an editor frame already had cost **1.10 ms**, and a blurred group adds 0.17 ms at σ=4 — ⚠ **the surfaces are the expensive part of this design and the blur is not**, which is the finding worth carrying into any future work here. ⚠ **Owed:** the rest of `filter` (`brightness`, `contrast`, `saturate`, `grayscale`, …), all of which are *absent* roots rather than inert ones and each of which is a constant, an initial and a slot in `UtilityComposition.Filter`; <s>`backdrop-filter`, which needs the frame *under* a group and the compositor does not keep it</s> — **landed**: the frame under a group is not kept, it is *re-rendered*, so `UiRenderer.Submit` took a `stop`, `Compose`'s walk became post-order and the host hands over what it had already painted; <s>and `Vixen.Editor.Host`, which supplies no blur stage because Raven's `[PushConstant]` cannot place a block at a byte offset</s> — **landed (#230)**, and ⚠ **both halves of that sentence were wrong**: the attribute *can* place a block at 16, by declaring a leading `reserved: float4` that is the vertex stage's projection, which `Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn` had been doing all along; and the editor's real blocker was a **duplicate `Ui.rvn`** carrying five of that file's eight shaders, hand-rolled into a five-module table beside a `UiShaderLibrary` the project already referenced. The copy is deleted, `EditorHost` calls `UiShaderLibrary.Load`, and `EditorUiCompositingDeviceTests` renders a blurred, a filtered and a masked group through the editor's table against the same table with the three stages cleared — see `Vixen.Ui.Renderer/README.md` | `DrawListBuilder`, `UiGeometryBuilder`, `UiRenderer`, `SoftwareUiRasterizer` | **#28** | 0.35 of 0.75 |
 | A9 ✅ | `color-mix()` in `StyleValueParser` — four interpolation spaces (`srgb`, `srgb-linear`, `oklab`, `oklch`) with the four hue methods, premultiplied alpha, and the CSS Values 5 percentage normalisation. `UtilityFamilies.TryColor` emits one for `/opacity`, which retires **#12**'s colour half: an opacity on a token that is not a hex triple used to be dropped silently, and every token in the editor's palette is a `var()`. **Owed:** the interim out-of-gamut behaviour is *carry it unclamped* — see § D4 | `Vixen.Ui.Styling`, `ColorFunctions` | done | — |
 | A10 ✅ | `oklch()`/`oklab()` colour syntax, both notations, `none`, and every angle unit | `Vixen.Ui.Styling` | done | — |
 | A11 🟢 | Backgrounds. **`linear-gradient()`, `radial-gradient()` and `conic-gradient()` all paint**: `background-image` is parsed into `BoxStyle`, all eight direction keywords with CSS's corner rule, all four angle units, both colour notations, two or three stops, arbitrary stop positions inside or outside the box, `in srgb` / `in srgb-linear` / `in oklab`, and it layers over `background-color` as CSS does. `bg-radial` and `bg-conic` are assemblers now, and every assembler emits `in oklab` for v4 parity. Everything else is *refused loudly* rather than approximated — see `GradientRefusal`. `UiShape` grew 80 → 112 bytes; `UiShapeLayoutTests` and `CheckShaders` are what keep its four files in step. **Owed:** an explicit radial/conic centre, `bg-conic-<angle>` (the parser and shader do `from <angle>`; the *utility* needs a numeric family), `background-position`/`-size`/`-repeat`, and gradient text — see [what a third stop cost](#what-a-third-stop-cost) | `DrawListBuilder`, `BackgroundGradient`, `UiShape`, `Ui.rvn` | **#43** | 0.15 |
 | A12 🟡 | Pseudo-elements materialised — `::before`/`::after` with `content` | `StyleRuleSet`, `UiDocument` | — | 0.5 |
-| A13 🟢 | The 22 selector-only variants (`empty`, `nth-*`, `*-of-type`, form states) | `Variants`, `ElementState` | — | 0.3 |
-| A14 🟢 | The 13 media-feature variants | `MediaQuery` | — | 0.2 |
+| A13 🟡 | **The five structural ones landed and the seventeen form states did not, and that split is the shape of the item rather than how far it got.** `empty`, `not-*`, `nth-*`, `nth-last-*` and the whole `*-of-type` family are registered, each with a positive and a negative computed-value scene. ⚠ **The item's own claim that "none needs a matcher change" was wrong, and wrong about exactly the family that looks most like a table entry**: an of-type index is a position among the siblings *sharing a tag*, which nothing stored, so `PositionTest` grew five members and `StyleTree` learned to count them. The trap it hides behind is that `:nth-of-type(n)` and `:nth-child(n)` pick the same element out of any run of one tag — so a fixture of five `li` proves nothing, and the scenes here mix `p` and `div` for that reason. ⚠ **`not-*` is a bare-suffix negation only**: `not-sm:` is an at-rule in v4 and `not-group-hover:` an ancestor, and negating either is a different production, so both are *not variants* rather than variants meaning something else. **Owed**: the seventeen that need an element-state bit — and two of those (`visited`, `target`) want refusing rather than building, since Vixen has no navigation model to make either true. ⚠ And `:open` is a *parser* problem before it is a state bit: ExCSS 4.3.2 hands it back as an `UnknownSelector`, so a state flag for it would reach a compiler that never sees the pseudo-class | `Variants`, `ElementState` | — | 0.15 of 0.3 |
+| A14 ✅ | **Done, as sixteen keys rather than thirteen conditions, and two of them were already answerable.** `portrait` and `landscape` are `(orientation: …)`, which `MediaQuery` has always derived from the surface's own width and height — a table entry and no condition. The rest brought five axes onto a new `MediaPreferences` value: reduced motion, contrast (⚠ four values, because `custom` is neither more nor less and collapsing it would apply every high-contrast rule to a palette the user chose), forced colours, inverted colours, and the two pointer families. ⚠ **`PointerCapability` needed a fourth member for a reason that is this repository's commonest bug in a new disguise**: CSS's `pointer: none` is the empty capability set, and the empty set is also what a field nobody assigned holds — so a zero meaning "no pointing device" would make `pointer-none:` the rule that always applies under `default(MediaContext)`. Zero is `Unspecified` and reads as a mouse; `NoDevice` carries a bit so the stated emptiness can be told from the unstated one. ⚠ **`print:` and `noscript:` resolve and can never match, deliberately** — paged media is out of scope for good (Part 8 § 1) and a Vixen document always scripts — so the gate names them as the two entries that must have a negative scene and must *not* have a positive one, and a separate test proves the class is still generated, which is what tells "always false" from "not a variant". ⚠ **Owed, and filed separately: nothing sets any of it.** `UiSurface.Preferences` is exposed and defaults to "nothing unusual", exactly as `UiSurface.ColorScheme` has since it was added — and `Vixen.Ui.Desktop` reads the swapchain's gamut and has never read the system appearance, so `dark:` under the media strategy has never been true in a real application either. That is one hole in the platform layer with two victims | `MediaQuery`, `MediaPreferences`, `UiSurface` | — | 0.2 |
 | A15 ✅ | **Nested conditional-group rules — done, and for a tenth of the estimate, because the cascade already did it.** `StyleSheetLoader.LoadMedia` has always recursed into the rule it matched, so `@media A { @media B { … } }` loaded and conjoined; the thing that could not nest was `UtilityGenerator`, carrying one `string?` for the whole variant stack. It carries an ordered, deduplicated chain now and emits a trie over those chains, so `sm:md:p-4` and `dark:md:p-4` nest and share their outer wrapper with the shallower utilities. **Nesting cost the rule representation nothing at the time** — though a `StyleRule` carries a
 conditional-group id since per-surface media landed; see F11. ⚠ The real finding was next door: see § D6 | cascade | — | done |
 | A16 🟡 | Container queries. ⚠ **The cascade half landed** — `ContainerConditions`, `ContainerScopes`, `ContainerQuery`, a second group id on `StyleRule`, two scope slots on `StyleTree`, one integer test in the cascade, 34 computed-value tests. ⚠ **And it closed a silent drop**: ExCSS parses `@container` into a `ContainerRule`, so it never reached `LoadUnknown` and was discarded with no diagnostic, while two docs said it warned. ⚠ **And the `@sm:` variants were never gated on the wiring**: a pure variant emits no property, so the consumption gate never sees one — the blocker was that `--container-*` did not exist, and `Screens` under the same names means numbers two-thirds too big. They are registered now, off `ThemeTokens.Containers`. **Owed**: the layout coercion for containers sized by their contents, the `@container` marker family (which *does* face the gate, and wants a fifteenth probe scene), and the `cq*` units. Containment is *free* for a normal-flow block, whose inline size is already `SizingMode.StretchFit`. See § D3 | cascade + layout | 0.15 | 0.6 |
-| A17 🟢 | `has-*` | `SelectorMatcher` + invalidation | doc 09 P2 | 0.4 |
+| A17 ✅ | **Done, and the P2 deferral's premise was right about where the cost is and wrong that it was prohibitive.** Matching is a subtree walk with no bloom to shorten it — the ancestor bloom answers "could this name be above me", and a descendant bloom would have to be rebuilt on every insertion rather than inherited once at creation. Invalidation is the half doc 09 actually deferred on, and it is a *fourth direction*: `StyleInvalidator`'s own remarks said "nothing needs to look upward", and a name inside a `:has()` argument now carries `ReachesAncestors`, walks to the top of the tree and collects by the far end's names from there. ⚠ **The measurement, in work rather than milliseconds** (`HasInvalidationTests`): on a page of ten cards with ten cells each, `.card:has(.error) .cell` costs **103** elements resolved for one class added to one cell, against **11** for the same rule written `.card.flagged .cell` and driven from the card. The upward walk is narrowed by name and cannot be narrowed by depth, because the `:has()` may sit on the root. ⚠ **Two things the obvious implementation gets wrong and both were sabotage-tested.** The argument is restricted to a single compound: CSS anchors it at the element, so `:has(.a .b)` needs the `.a` inside the subtree, and testing the nested selector against every descendant also accepts an `.a` that is an *ancestor* — a rule matching more than it says, which is what F6 is about. And `:has()` blocks the style-sharing cache for `:empty`'s reason one level worse: a sharing key is parent, tag, classes and state, and two identical sibling cards can still differ in what their subtrees hold. ⚠ **`has-[>_.x]` is refused in `Variants` and not in the compiler, because ExCSS 4.3.2 parses `:has(> .x)` into the same node as `:has(.x)`** — the combinator is gone before any Vixen code sees it, so the variant table is the last place the text is intact. A hand-written `.vcss` rule is unguarded and is filed as **#711** | `SelectorMatcher`, `StyleInvalidator`, `StyleRuleSet` | doc 09 P2 — spent | 0.4 |
 | A18 ✅ | **Scroll properties as `ScrollView` inputs rather than CSS — done, and the control it was waiting for had been there the whole time.** The deferral's premise was that "scrolling in this engine is `ScrollView`" and that the behaviour had to land first; `ScrollView` was already 397 lines with bars, wheel, keyboard, a focus hook and a `ScrollIntoView`, used by `TreeView`, `DataGrid`, `CodeEditor`, both virtualisers and six editor panels. What was absent was not the feature but the four *readers*, and they are four now: `scroll-margin-*` off the target and `scroll-padding-*` off the container (CSS Scroll Snap §6 — the two come off different elements, and a reader that took both off one passes every test where the numbers match), `scroll-behavior` as an exponential ease off `UiDocument.Ticked`, and `overscroll-behavior*` as the one thing that decides whether a wheel at the stop chains outwards. **22 roots, all `works`**; the four block roots (`scroll-mbs/mbe`, `scroll-pbs/pbe`) stay absent for `space-y`'s reason, and `snap-*` and `scrollbar-*` are still deferred. ⚠ **Two findings worth more than the families.** The insets emit four longhands where `m-*` emits one shorthand, because ExCSS expands `margin` while parsing and has never heard of `scroll-margin` — v4's spelling would have resolved, computed and moved nothing, which is `inset`'s hole and would have been invisible from the class. And the gate could not see any of it until the probe grew a `scrolled` scene with *nested* views and three driven phases: one scroll container measures half the properties inert because the declaration only lands on `#probe`, and one approach direction measures half the edges inert because `ScrollIntoView` moves the minimum and the other branch never runs | `ScrollView`, `UtilityFamilies` | — | done |
 | A19 🟡 | **`text-decoration` is done and the other three are not.** Five properties, all five read: `text-decoration-line` (`underline`, `overline`, `line-through`, `no-underline`, and the space-separated list, so `underline overline` is one declaration and two bars), `-color`, `-style`, `-thickness` and `text-underline-offset`. ⚠ **Every position and every thickness comes out of the face**, through `FontFace.Decoration` and HarfBuzz's `hb_ot_metrics` — which was the point: across the twenty-two fonts this repository ships the underline thickness runs from 20 design units per em-square of 2048 to 184, a factor of nine, so any constant is wrong for one of two faces a document could mix. A zeroed `post` table is synthesised from rather than believed (`TestGSUBOne.otf` states 0 and 0), an `auto` thickness under one pixel is floored and an authored one is not, and an underline offset is the *centre* of the stem — FreeType's and Skia's reading of `post.underlinePosition`, which is the one the fonts were drawn against. ⚠ **It needed no command kind, no shader and no second executor**: a bar is a `DrawCommandKind.Rectangle` with a zero radius, so it batches as `Geometry` and the device and the software rasteriser draw it because they are drawing the same quad. One bar per *line* rather than per run — spanning `TextLine.Width`, so it follows the alignment and covers the gaps between faces — and it moves nothing that was measured, which is both CSS's rule and the only behaviour compatible with `TextLayout.Measure` reporting whole device pixels. ⚠ **The five properties are in `InheritedProperties` although CSS inherits none of them**, for `text-overflow`'s reason one step stronger: CSS *propagates* a decoration from the block box across its line boxes, one node produces one box here, and a `.vxml` interpolation emits its text as a child — so `<div class="underline">{Label}</div>` decorates nothing without it. ⚠ **`decoration-dotted` and `-dashed` were absent under the finding `divide-solid` was — there was no dash pattern in `Vixen.Ui` and `border-style` was read by nothing — and A3 closed both halves, so all four of CSS's drawable styles are registered.** A bar is the *easy* consumer of that pattern and it is easy structurally: an axis-aligned rectangle with no corner radius, so breaking it up is breaking up a length, and the marks batch as `Geometry` like the whole bar did. ⚠ `-wavy` stays absent under a reason the dash pattern does not touch: a wave is a stroked path where every other decoration is a rectangle, and CSS states neither its amplitude nor its period. ⚠ **Two things the gate could not see.** The consumption probe needed a `decorated` scene: `text-decoration-line` is observable everywhere there is text, and the four properties that *modify* a bar are observable nowhere, because the injected declaration is the only declaration and a thickness on undecorated text correctly moves nothing — four readers and a green gate that would have called them dead. And "the draw list changed" is satisfied by a bar in the wrong place, so the relations are asserted on pixels the software rasteriser produced, each chosen to fail for the neighbouring case; that is what caught the overline, which an earlier draft put with its top edge on the ascent and which therefore landed on the capitals of a face whose ascent (1556) barely clears its cap height (1493). ⚠ **Owed: `text-transform`, and it is not a keyword table.** It is a *shaping-time* transform, so it changes the measured width — but the blocker is narrower and worse: `straße` uppercases to `STRASSE` and `ﬁne` to `FINE`, so a case mapping changes the UTF-16 length, and `TextRun.Start`, `CaretOffset`, `CaretIndexAt`, `TextLine.Start`/`Length`, `Ellipsized` and `TextField`'s selection are all indices into the element's own string. Without a mapping between the two, `uppercase` on an editable field puts the caret in the wrong place silently. The property is already interned as inherited and waiting. Also owed: `font-variant-numeric` and `font-stretch` | `Vixen.Ui.Text`, `DrawListBuilder`, `TextRun`, `InheritedProperties` | — | 0.2 of 0.4 |
 | A20 ✅ | **Run the `Animator`** — built on the style engine, `Observe` from the updater, `Advance` on the tick, `Apply` before the consumers read (F10). **Landed with F11**, which the same seam turned up: `UiDocument` never handed the cascade a `MediaContext` either, so every breakpoint, every `dark:` under the media strategy and every `color-gamut` query was dead | `StyleEngine`, `UiDocument` | **#46** | done |
@@ -2834,7 +2937,7 @@ conditional-group id since per-surface media landed; see F11. ⚠ The real findi
 |---|---|---|--:|
 | B0 ✅ | **`Tools/Vixen.TaffyTestGen`** — XML vetter and consolidator, the attribute map, and the Ahem measure. **Landed with 5 524 fixtures, not 5 272**: 884 block, 2 040 grid, 2 352 flex, 84 float, 56 leaf and 108 across three hybrid categories the estimate missed. Flex result: **2 002 of 2 208 runnable pass** | — | done |
 | B1 🟢 | **`display: block` — landed.** Block formatting over the existing store: stacking, the inline-axis fill, CSS 2.1 §8.3.1 margin collapsing in full, auto margins, the intrinsic-width probe, RTL, relative insets, `align-content` over the stack. **All 912 `block`+`blockflex` fixtures pass; none fails and none is refused.** The last 72 refusals went in three batches: `scrollbar-width` (64), then `text-align`/`flow-root`/`safe` (24, of which 4 changed bucket rather than converting), then the final 8 with floats. ⚠ That was 768 with 124 refused across four causes, and three of the four are closed: legacy `text-align` (`LegacyTextAlign`, 16), `display: flow-root` (a `Display.FlowRoot` member and one clause in `EstablishesBlockFormattingContext`, 4 of 8) and `align-content: safe end` (`OverflowAlignment`, 4). All 24 pass. The 20 failures that used to be here were in the shared *absolute* path (`aspect-ratio` re-applied after clamping) rather than in block formatting, and closed with CSS Grid §9's auto margins. ⚠ **Still owed under B1**: `sticky`. `inline-block` landed with B3. Floats landed too — all 92 fixtures, including the 4 `block_flow_root_contains_float` families that had joined the bucket when `flow-root` landed — but only for block-level content: **no fixture in the float corpus has a line box in it**, so a paragraph beside a float still runs under it, and that half is filed in `InlineKnownGaps.txt` with no oracle anywhere in the 5 524. See Bucket 4 below. | **#25** | 0.35 |
-| B2 🔴 | **CSS Grid** — a separate algorithm; `grid-template-*`, `fr`, `minmax`, `repeat`, `auto-flow`, named lines and areas, placement, `justify/align-items/self`. Judged by B0's **2 040** plus WPT's 510 `check-layout` grid tests. ⚠ B0's corpus does **not** cover `grid-template-areas`: Taffy's own XML harness leaves it `Default::default()` and no fixture sets it, so named areas need their own oracle | **#27** | 3.5 |
+| B2 🟡 | ⚠ **Grid landed and this row said 🔴 for months after it did.** `Vixen.Ui.Layout`'s README is the state: 2 038 of the 2 120 `grid`, `blockgrid` and `gridflex` fixtures pass, 40 are refused and 42 fail in named buckets, with placement, the bulk of track sizing, baseline alignment, the out-of-flow containing block and `grid-template-areas` all done. 🟡 rather than 🟢 because **named lines written into a track list** are still owed, which is the one part the README also names. The estimate below is what it cost, not what is left. **CSS Grid** — a separate algorithm; `grid-template-*`, `fr`, `minmax`, `repeat`, `auto-flow`, named lines and areas, placement, `justify/align-items/self`. Judged by B0's **2 040** plus WPT's 510 `check-layout` grid tests. ⚠ B0's corpus does **not** cover `grid-template-areas`: Taffy's own XML harness leaves it `Default::default()` and no fixture sets it, so named areas need their own oracle | **#27** | 3.5 |
 | B3 🟡 | **Inline formatting — partially landed.** Line boxes over the existing store: atomic inlines (`inline`, `inline-block`, `inline-flex`), §10.3.9 shrink-to-fit, §9.4.2 line breaking, §10.8.1 baselines including the last-line-box and `overflow` clauses, three of `vertical-align`'s eight values, and **fragmentation**. ⚠ **The boundary used to be one invariant** — every algorithm in the store preserved *one node produces one box*, and a non-replaced `inline` box crossing a line break is fragmented into several. **That invariant has now been relaxed for one arena and three ints** (offset, count and capacity, addressed exactly as `ChildArena` and `TrackArena` are). `FragmentArena` is variable-length *output*, the shape `TrackArena` is on the input side; `FragmentCount == 0` still means "one box, and it is `Position`", so `GetLeft`, the absolute walk and all four of `UiElement`'s rectangle properties were untouched, and a fragmented node's own rectangle is the **union** — which is CSS 2.1 §10.1's containing block for an abspos descendant of an inline box, so the absolute walk needed nothing. The zero-allocation gate holds with a span re-fragmenting every frame. ⚠ **Still owed under B3**: fragmentation of *nested* spans and of spans with an out-of-flow child (both producer scope, not representation); anonymous block boxes and generated boxes — which are the **opposite** direction, a box with *no node*, and are **not** unblocked by the arena; the strut and therefore the five font-relative `vertical-align` values; `text-align`, `white-space`, `text-overflow: ellipsis`, `line-clamp`. ⚠ **Zero fixtures**, confirmed by enumeration — Taffy's `display` attribute takes five values across all eight files and none is inline. Oracle fetched from WPT (`css-flexbox/inline-flex.html`); fragmentation is arithmetic over explicitly sized boxes in `InlineFragmentationTests`. See `InlineKnownGaps.txt`. | **#26** | 2.3 of 3.0 |
 | B3a 🟡 | The inline oracle: ICU4X's CSS line-break tailorings, Parley's 2 048 Chrome break cases, and Gecko's 68 `text-overflow` reftests transcribed | — | 0.5 |
 | B4 🟡 | `display: table` and the four table utilities | — | 1.0 |
@@ -2873,6 +2976,12 @@ mixed-content paragraph sit behind it.
 
 ⚠ **Two thirds of that is B2 and B3.** Everything else together is about six engineer-months, and it
 is the two thirds that decides whether this is a year or a quarter.
+
+⚠ **This table is what the work was estimated at, not what is left, and the difference is now most of
+it.** B1, B2 and B3 have all landed since it was written — block whole, grid to its named-lines gap,
+inline to nested spans, anonymous boxes and the strut — so 18.8 is a figure about a plan rather than
+about a remainder, and quoting it as owed work overstates by the size of track B. Re-cost it against
+the per-row markers before it is quoted again (#674).
 
 ⚠ **B0 was the highest-leverage 0.4 EM in the document and it has landed.** It was the same bet
 ADR-006 made and won, and it paid the same way. 2 002 of the 2 208 runnable flex fixtures passed
@@ -3102,14 +3211,32 @@ computes a value and moves no channel in any scene — the defect this document 
 `ElementFilter.Any` remark justifies departing from CSS for an identity filter with "the engine has
 no other observable that depends on the isolation", which is the same argument reached
 independently. But the *older* refusal of `mix-blend-mode` is justified partly with "there is no
-offscreen target to blend into", and that half is no longer true — the compositor has them. The
-surviving half ("no blend channel on a `DrawCommand`") is the whole reason, and it is worth
-correcting the record: the blocker moved from the compositor to the command.
+offscreen target to blend into", and that half is no longer true — the compositor has them.
 
-**Cost to close:** not `isolation` — `mix-blend-mode` first, and it is a channel through four
-layers (a field on `DrawCommand` and `UiLayer`, a batching key, a shader variant in the composite,
-matching arithmetic in `SoftwareUiRasterizer.Composite`) plus the separable/non-separable blend
-formulae. `isolation` is then perhaps twenty lines on top and cannot sensibly precede it.
+⚠ **And the surviving half names the wrong seam, which matters because it is what the expiry clause
+watches.** "No blend channel on a `DrawCommand`" reads as though the fix were a field on the command,
+and a per-command blend would be a *defect* of exactly the shape `LayerPush`'s own remark already
+warns about for opacity: CSS Compositing 1 § 5.1 blends an element's **rendered result** with its
+backdrop, so an element's background, its border and its text must first composite source-over with
+each other and with its children, and only the finished group blends. Blending each command
+separately gives a different picture the moment two of them overlap — and every bordered element has
+two. So `mix-blend-mode` is a sixth reason to open a group, and the channel belongs on `UiLayer`
+beside `Alpha`, `Blur`, `Filter` and `MaskCount`, which is the seam every other group-wide effect
+already occupies. The clause moved with it.
+
+⚠ **The sizing also missed the half that is not like `Alpha`: the composite has to READ its
+destination.** Fading a surface in is a source-over draw that never looks at what is under it, which
+is why `Alpha` cost one field and no new capability. A blend mode is a function of both operands, so
+the composite needs the backdrop under its own quad — free in `SoftwareUiRasterizer`, which already
+has the destination buffer in hand, and on the GPU a subpass input, a framebuffer fetch or a copy of
+the target, none of which the UI pass has today. `isolation` then bounds *which* backdrop, so a
+faithful pair is nested surfaces rather than one.
+
+**Cost to close:** not `isolation` — `mix-blend-mode` first, and it is a channel through four layers
+(a field on `UiLayer`, a batching key, a shader variant in the composite that can sample its
+destination, matching arithmetic in `SoftwareUiRasterizer.Composite`) plus the separable and
+non-separable blend formulae. `isolation` is then perhaps twenty lines on top and cannot sensibly
+precede it.
 
 ### Bucket 3 — the code exists and an *input* does not. `object-fit`, `object-position`, `contain`.
 
@@ -3131,16 +3258,33 @@ it in, not a property registration. **Sized: small once the intrinsic size exist
 size is the actual work.** Note a video is an `Image` here, so this covers the classic
 non-matching-aspect case.
 
+⚠ **`object-position` is behind `object-fit` and carries one half of its own**, which is worth
+knowing before the pair is sized as one item. It is refused for `object-fit`'s reason first — a
+position says where the sampled rectangle sits in the box, and with no intrinsic size there is never
+anything left over to place — but four of Tailwind's nine position classes are *two-word* values
+(`object-left-top`), and `UiDocument.KeywordOf` answers `null` to a two-word value by construction.
+So that root also wants a `<position>` reading beside the four `StyleAccess` has, where `object-fit`
+wants none. Both rows now carry the measurement in the ledger, and the pair is tripwired:
+`object` expires on `Image.IntrinsicSize` and `object-*` expires with `object`.
+
 `contain` is refused for a related reason and a worse one: **there is no containment concept in the
-layout store at all**, and no vocabulary to express the interesting half. Size containment means a
-box sizes as if it had no contents — which needs intrinsic-size keywords the store does not
-implement. ⚠ **Correcting a claim made in passing during the container-query work:**
-`LayoutUnit.Stretch` is *not* an enum member nothing references — it is referenced by two generated
-Yoga fixtures and by `Vixen.YogaTestGen`. It is, however, unimplemented, and so are
-`LayoutUnit.MaxContent` and `LayoutUnit.FitContent`: `StyleLength.IsResolvable` admits only `Point`
-and `Percent`, and `Resolve` returns `NaN` for the other four. So those two fixtures pass with the
-keyword behaving as "undefined", which is a thing worth knowing before anybody builds on it. Three
-unimplemented sizing keywords is the prerequisite, and `contain` is behind them.
+layout store at all** — no property, no style slot, no branch — and no vocabulary to express the
+interesting half. Size containment means a box sizes as if it had no contents. ⚠ **Correcting a claim
+made in passing during the container-query work:** `LayoutUnit.Stretch` is *not* an enum member
+nothing references — `Tools/Vixen.YogaTestGen` emits it and two generated fixtures set it. It is one
+nothing *resolves*: `StyleLength.IsResolvable` admits only `Point` and `Percent`, so both fixtures
+pass with the keyword behaving as "undefined", and the two disagree about what it should mean
+(`Stretch_width` wants the containing block's width, `Stretch_flex_basis_column` wants its own
+content's height) — so resolving it closes one by opening the other.
+
+⚠ **And the paragraph that used to sit here said three keywords were unimplemented, which stopped
+being true when the intrinsic pre-pass landed.** `MinContent`, `MaxContent` and `FitContent` *are*
+resolved — `IsResolvable` is not the predicate that settles them, `StyleLength.IsContentBased` is,
+and `LayoutTree.Intrinsic.cs`'s whole-tree bottom-up pre-pass measures the node and substitutes a
+`Point` before the algorithm reads the slot. Reading a `NaN` out of `Resolve` as "unimplemented" is
+the mistake, and it is one this file made about its own store. **`Stretch` is the one left**, and
+`contain` is not behind it: containment is a concept the store does not have at all, which is a
+larger and separate item. This is also the layout half of the container-query coercion.
 
 ### Bucket 4 — the algorithm was never written. `columns`, the three `break-*`, `box-decoration-break`, `float`, `clear`.
 
@@ -3561,7 +3705,7 @@ ask is not "where is this read" but "what else reads the number it changes".**
 
 ## Exit criteria (measured)
 
-1. **Every one of the 329 roots is `works`, or carries an open task number, or is one of the four
+1. **Every one of the 332 roots is `works`, or carries an open task number, or is one of the four
    exclusions in Part 8.** Checked by regenerating the TSV; the states are computed, not asserted.
 2. ✅ **No family emits a property no consumer *acts on***, except entries on the allow-list, each of
    which names a task this document contains. `UtilityConsumptionGateTests` fails otherwise — a test
@@ -3602,7 +3746,7 @@ ask is not "where is this read" but "what else reads the number it changes".**
 being matched is Tailwind's utility index, which is a much smaller and better-defined thing than CSS.
 
 **A second styling language.** Every gap here closes by making the *existing* property bridge wider.
-There is no case in the 329 rows for a Vixen-specific styling concept, and adding one would be the
+There is no case in the 332 rows for a Vixen-specific styling concept, and adding one would be the
 third version of the mistake in the README.
 
 **A promise that a Tailwind stylesheet drops in.** Class names and semantics match; the generator is

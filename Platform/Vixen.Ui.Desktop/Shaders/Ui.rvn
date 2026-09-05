@@ -100,6 +100,26 @@ struct Ui {
 }
 
 /// The one vertex stage all four interface pipelines share.
+///
+/// ⚠ **The `1f` in the returned `float4` is the whole of what #548's device half changes, and no
+/// fragment stage moves with it.** A perspective on a planar element is a homography, so the composite
+/// quad's four corners arrive with four `w`s; a rasteriser that is handed `float4(xy * w, 0f, w)`
+/// divides by them for nothing, and every stream this stage writes is then interpolated
+/// perspective-correctly by the hardware. Checked 2026-09-05 rather than assumed: `UiImage`, `UiColour`
+/// and `UiMask` read `uv`, `colour` and `shape` and no vertex attribute, and `StageInterface.MustBeFlat`
+/// decorates a varying `flat` only when its type is an integer — so a `float` stream takes SPIR-V's
+/// default interpolation, which is the perspective-correct one. #548 and the audits on it read as
+/// though the three compositing stages consume the `w`; they do not, and the seven committed `.frag.spv`
+/// beside this file do not change.
+///
+/// ⚠ **What does move is five places, and one of them is in another project.** A `float` attribute
+/// here and the return above; `UiVertex.vert.spv` and `UiVertex.reflect.json` regenerated;
+/// `UiRenderer`'s vertex stride and a fifth attribute; `Vixen.Ui.Rendering.UiVertex` itself; and
+/// `Platform/Vixen.Graphics.Golden.Tests/Shaders/ui.vert`, the hand-written GLSL twin, with its
+/// `.spv` and its `modules.sha256` row. Leaving the twin behind is not silent: `UiRavenAgreementTests`
+/// renders one frame through each and compares them exactly, on a device — so the divergence that is
+/// invisible to `CheckShaders` is visible to that suite, which is a smaller blind spot than the
+/// golden-comparison-or-nothing the issue describes.
 shader UiVertex {
     // A push constant rather than a uniform block: it is four floats that change once a frame, and a
     // descriptor set for that would be a set to allocate, bind and invalidate everything above.

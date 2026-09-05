@@ -294,6 +294,34 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
                 compiled = Attribute(contains.Attribute, contains.Value, AttributeOperator.Substring);
                 return true;
 
+            // ⚠ Before the two child cases, and deliberately so. ExCSS spells `:nth-of-type` with a
+            // type of its own, but a pattern match is a runtime test and an of-type node that ever
+            // derived from a child node would be silently answered by the case below — which is the
+            // failure this pair is hardest to see: `:nth-of-type(2)` and `:nth-child(2)` agree on
+            // every document whose children all carry one tag, so a fixture would have to mix tags
+            // before the difference showed. `SelectorMatchingTests` mixes them for that reason.
+            case FirstTypeSelector nthType:
+                specificity = specificity with { Classes = specificity.Classes + 1 };
+                compiled = new SimpleSelector(
+                    SimpleSelectorKind.Position,
+                    Position: PositionTest.NthOfType,
+                    Step: nthType.Step,
+                    Offset: nthType.Offset
+                );
+
+                return true;
+
+            case LastTypeSelector nthLastType:
+                specificity = specificity with { Classes = specificity.Classes + 1 };
+                compiled = new SimpleSelector(
+                    SimpleSelectorKind.Position,
+                    Position: PositionTest.NthLastOfType,
+                    Step: nthLastType.Step,
+                    Offset: nthLastType.Offset
+                );
+
+                return true;
+
             case FirstChildSelector nth:
                 specificity = specificity with { Classes = specificity.Classes + 1 };
                 compiled = new SimpleSelector(
@@ -323,6 +351,37 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             case MatchesSelector matches:
                 specificity = specificity with { Classes = specificity.Classes + 1 };
                 return TryCompileNested(matches.Inner, SimpleSelectorKind.Is, matches.Text, out compiled);
+
+            // ⚠ Compiled, and its argument is restricted to a single compound rather than merely
+            // being compiled and hoped for. `:has(.a .b)` does not mean "some descendant matches
+            // `.a .b`": CSS anchors the argument at the element, so the `.a` has to be inside the
+            // subtree too — and the obvious implementation, matching the nested selector against
+            // every descendant, would also say yes when the `.a` is an *ancestor* of the element.
+            // That is a rule matching more than it says, which is what this compiler refuses rather
+            // than approximates. Every Tailwind `has-*` is a single compound.
+            case HasSelector has: {
+                specificity = specificity with { Classes = specificity.Classes + 1 };
+
+                if (!TryCompileNested(has.Inner, SimpleSelectorKind.Has, has.Text, out compiled)) {
+                    return false;
+                }
+
+                for (var n = 0; n < compiled.NestedCount; n++) {
+                    if (table.Nested(compiled.NestedStart + n).Count == 1) {
+                        continue;
+                    }
+
+                    Refuse(
+                        has.Text,
+                        $"'{has.Text}' has a combinator in its argument, and such an argument is anchored at the element — Vixen matches a single compound only"
+                    );
+
+                    compiled = default;
+                    return false;
+                }
+
+                return true;
+            }
 
             // ⚠ Refused, and the refusal is the whole of doc 43's F6. `::before` used to compile:
             // the name was interned onto `Selector.PseudoElement`, the compound carried on without
@@ -381,6 +440,15 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             "first-child" => PositionTest.First,
             "last-child" => PositionTest.Last,
             "only-child" => PositionTest.Only,
+
+            // ⚠ These three arrive as a plain pseudo-class and their `:nth-of-type(…)` siblings do
+            // not — ExCSS gives the functional forms nodes of their own and leaves the keyword forms
+            // here, exactly as it does for `:first-child` against `:nth-child(…)`. Verified against
+            // the parser rather than assumed, because a name this switch does not know is refused
+            // and a refused variant is one nobody notices is missing.
+            "first-of-type" => PositionTest.FirstOfType,
+            "last-of-type" => PositionTest.LastOfType,
+            "only-of-type" => PositionTest.OnlyOfType,
             _ => (PositionTest?) null
         };
 
@@ -396,6 +464,10 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             return true;
         }
 
+        if (name.StartsWith("lang(", StringComparison.Ordinal) && name.EndsWith(')')) {
+            return TryCompileLang(pseudo.Text, name[5..^1].Trim(), ref specificity, out compiled);
+        }
+
         if (name == "enabled") {
             // The absence of a state rather than a state of its own, which is what CSS means by it.
             specificity = specificity with { Classes = specificity.Classes + 1 };
@@ -406,6 +478,46 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
 
         Refuse(pseudo.Text, $":{name} is not supported");
         return false;
+    }
+
+    /// <summary>Compiles <c>:lang(&lt;tag&gt;)</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Selectors 4 allows more here than can ever arrive, and the reason is one
+    ///         dependency out.</b> The specification takes a comma-separated list and allows <c>*</c>
+    ///         as a subtag wildcard — <c>:lang(de, fr)</c>, <c>:lang("*-CH")</c>. ExCSS 4.3.2 parses
+    ///         neither: measured, both come back as an <c>UnknownSelector</c> carrying the whole
+    ///         compound, along with <c>:lang()</c> with an empty argument. So they are refused with a
+    ///         diagnostic by the <c>default</c> arm of <see cref="TryCompileSimple" /> before this is
+    ///         ever called, and no branch is written here to handle a wildcard that cannot be
+    ///         delivered. A parser feature is what those forms wait on, not a matcher one.
+    ///     </para>
+    ///     <para>
+    ///         The tag is kept verbatim rather than folded to lower case. BCP-47 is
+    ///         case-insensitive, and the matcher compares that way; folding here would only move the
+    ///         work and would lose the author's spelling from a diagnostic.
+    ///     </para>
+    /// </remarks>
+    /// <param name="text">The whole pseudo-class, for a diagnostic.</param>
+    /// <param name="tag">Its argument.</param>
+    /// <param name="specificity">The specificity being accumulated.</param>
+    /// <param name="compiled">The compiled selector.</param>
+    /// <returns>Whether it compiled.</returns>
+    bool TryCompileLang(string text, string tag, ref Specificity specificity, out SimpleSelector compiled) {
+        compiled = default;
+
+        if (tag.Length == 0 || !tag.All(character => char.IsAsciiLetterOrDigit(character) || character == '-')) {
+            Refuse(text, $"'{tag}' is not a language range Vixen supports");
+            return false;
+        }
+
+        specificity = specificity with { Classes = specificity.Classes + 1 };
+
+        // The attribute name is interned here so that matching never has to look it up: `:lang()`
+        // reads the same `lang` attribute the tree already stores, and the walk is over ancestors,
+        // so a dictionary probe per level would be paid on the hottest half of this selector.
+        compiled = new SimpleSelector(SimpleSelectorKind.Lang, names.Intern("lang"), names.Intern(tag));
+        return true;
     }
 
     Selector NegatedState(ElementState state) {

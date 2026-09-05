@@ -4,8 +4,8 @@ slug: ui/desktop-application
 kind: guide
 area: Platform
 summary: UiApplication.Run(options) is the whole of a Vixen interface's Main — a window, a device and the four steps of a frame — and this is what the options say, when the three events fire relative to the layout, and why the loop redraws every frame instead of when something changed.
-api: [T:Vixen.Ui.Desktop.UiApplication, T:Vixen.Ui.Desktop.UiApplicationOptions, T:Vixen.Ui.Desktop.UiFrame]
-tags: [ui, desktop, hosting, windowing, application, entry-point]
+api: [T:Vixen.Ui.Desktop.UiApplication, T:Vixen.Ui.Desktop.UiApplicationOptions, T:Vixen.Ui.Desktop.UiFrame, T:Vixen.Ui.CloseRequestEvent, T:Vixen.Ui.UiCloseReason]
+tags: [ui, desktop, hosting, windowing, application, entry-point, quit, lifecycle]
 since: 0.2
 status: preview
 related: [ui/markup-project-setup, ui/background-tasks]
@@ -112,11 +112,58 @@ with long work to report does not need a timer of its own; see
 application understands before starting, of which the one that matters here is `--frames N` — which
 sets `Frames`, and is what makes a screenshot run or a smoke test terminate.
 
+**`Platform` is how an application reaches the operating system.** The clipboard, the native file
+pickers, the displays and the process lifecycle live on `IPlatform`, which `Vixen.Ui` is not allowed
+to name — so this property is the only route to them from application code, and `Started` is where
+to read it.
+
+⚠ **Ask `Capabilities` before using most of it.** A headless run has no displays; a Linux session
+with no `zenity` or `kdialog` has no file picker; and a picker that is not there answers "nothing
+chosen", which is exactly what the user pressing Cancel answers. `platform.Pickers()` is that
+question spelled once: it hands back `INativeDialogs` when `PlatformCapabilities.NativeDialogs` is
+present and `null` otherwise, which is what an `Open…` menu item's enablement should read.
+`ShowMessageAsync` is the exception and is always safe to call.
+
+⚠ **Everything on it belongs to the loop thread**, so call it from `Started`, `Frame`, `Stopping` or
+an event handler — never from a continuation that resumed on a pool thread. Win32 delivers messages
+to the thread that made the window and AppKit refuses to be touched from anywhere else; that is the
+operating systems' rule, not the framework's.
+
 ⚠ **Hot reload arrives by reference and there is no flag.** A `Debug`-only reference to
 `Vixen.Ui.Desktop.HotReload` is the whole of turning it on: `UiApplication`'s static constructor
 loads that assembly by name and runs its module initializer, so a Release build does not resolve it
 and nothing in `Main` changes. `Mount` exists for the same reason — it lets the reload host own the
 mounting without `Vixen.Ui.HotReload` being linked into a shipped application.
+
+## Quitting, and refusing to
+
+`UiApplication.Quit()` asks before it stops. The request is routed from the focus outwards as a
+`CloseRequestEvent`, and anything on the route may `Cancel()` it; `UiDocument.CloseRequested` fires
+afterwards for a head that is not in the element tree.
+
+```csharp no-compile="a fragment; `document` is the application's own"
+document.Root.AddHandler<CloseRequestEvent>((_, args) => {
+    if (!project.IsDirty) {
+        return;
+    }
+
+    args.Cancel();
+    dialogs.SaveChanges(project, onAnswered: () => application.Quit());
+});
+```
+
+⚠ **A refusal is "not now", not "never".** A Save / Don't Save / Cancel prompt is a dialog and a
+dialog is answered frames later, so a synchronous veto cannot wait for one without blocking the loop
+that draws it. The handler cancels, opens the prompt, and calls `Quit()` again when it has an
+answer — which is the shape `EditorHost` has used since save-on-close was built.
+
+⚠ **`Cancel()` is not `Handled`.** They are two questions. A document that saved silently has dealt
+with the request and is content to go, and a handler forced to say so by leaving `Handled` false
+could not be told apart from one that had refused.
+
+`Stop()` is the unconditional form, for the handler that has finished asking. `Platform` is the
+platform the application is running on — the clipboard, the native dialogs, the lifecycle and the
+display list all hang off it.
 
 ## Examples
 

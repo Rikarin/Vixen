@@ -463,9 +463,13 @@ public class TextTests {
         // ⚠ The padding is uneven on purpose. Centring against the border box puts the run half the
         // padding difference out — which looks exactly like a padding mistake, and is the reason
         // this test measures against a box whose two paddings differ.
+        //
+        // ⚠ `flex-shrink: 0` says out loud what the three assertions below already assume: three
+        // 240-wide labels in a 400-wide row overflow it, and a CSS-initial `flex-shrink: 1` would
+        // squeeze each one to 133⅓ — which is right, and is not what this test is about.
         using var document = Documented("""
             root { width: 400px; height: 200px; align-items: flex-start; }
-            label { font-family: Test; width: 200px; padding-left: 40px; padding-right: 0px; }
+            label { font-family: Test; width: 200px; padding-left: 40px; padding-right: 0px; flex-shrink: 0; }
             .middle { text-align: center; }
             .far { text-align: right; }
         """);

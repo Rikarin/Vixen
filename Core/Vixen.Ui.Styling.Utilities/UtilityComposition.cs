@@ -320,20 +320,28 @@ public static class UtilityComposition {
 
     // ── The transform list ──────────────────────────────────────────────────────────────────
     //
-    // ⚠ <b>A fragment for a family that is currently alone, and the reason is the <i>next</i> two
-    // functions rather than this one</b> — the argument <see cref="Blur" /> makes one property over.
-    // CSS's `transform` is an ordered list, so `rotate-z-45 skew-x-6` has to come out as one
-    // declaration holding both functions; two families each writing a whole `transform` would let
-    // the cascade pick one and drop the other, silently, which is the failure `translate-x`/
+    // ── The transform list's fragments ──────────────────────────────────────────────────────
+    //
+    // ⚠ <b>Three fragments and one assembler, and the arrangement is the reason a second family
+    // could join without touching the first</b> — the argument <see cref="Blur" /> makes one
+    // property over. CSS's `transform` is an ordered list, so `rotate-z-45 skew-x-6` has to come out
+    // as one declaration holding both functions; two families each writing a whole `transform` would
+    // let the cascade pick one and drop the other, silently, which is the failure `translate-x`/
     // `translate-y` had.
     //
-    // ⚠ <b>And it is a list this engine can only partly spell, which is why the assembler names one
-    // slot rather than v4's five.</b> `TransformReader.Functions` refuses a list outright if any one
-    // function in it is unreadable — deliberately, because a card flip read as the two flat halves
-    // of a `rotateX rotateY` pair is a picture, and a wrong one. So writing v4's whole
+    // ⚠ <b>And it is a list this engine can only partly spell, which is why the assembler names
+    // three slots rather than v4's five.</b> `TransformReader.Functions` refuses a list outright if
+    // any one function in it is unreadable — deliberately, because a card flip read as the two flat
+    // halves of a `rotateX rotateY` pair is a picture, and a wrong one. So writing v4's whole
     // `rotateX(…) rotateY(…) rotateZ(…) skewX(…) skewY(…)` today would make `rotate-z-45` emit a
     // declaration the engine drops *whole*: the family would resolve, cascade and do nothing. A slot
     // joins this assembler when its function parses, and not before.
+    //
+    // ⚠ <b>Which is a condition and not a verdict, and the two skews are the case that proves it —
+    // for the second time on this feature.</b> `skewX` and `skewY` have parsed since
+    // `TransformReader.Functions` was written, so the sentence above was already satisfied for them
+    // when it was written; the ledger, `InertProperties.txt` and #227's own body all went on saying
+    // the shorthand was "a parser away" instead. `rotate-z-*` sat `absent` over the same reading.
 
     /// <summary>How far a <c>transform</c> spins the box about the axis normal to the screen.</summary>
     /// <remarks>
@@ -358,6 +366,31 @@ public static class UtilityComposition {
     ///     </para>
     /// </remarks>
     public const string RotateZ = Prefix + "rotate-z";
+
+    /// <summary>How far a <c>transform</c> slants the box along x, as an angle.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="RotateZ" />'s arrangement exactly — the angle in the fragment and
+    ///         <c>skewX(…)</c> in the assembler — and for its reason: <c>UtilityFamilies.TryNegate</c>
+    ///         refuses a value that does not begin with a digit, so a fragment holding
+    ///         <c>skewX(6deg)</c> could never spell <c>-skew-x-6</c>, and a negative skew is half of
+    ///         what the family is written for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two fragments and not one, although CSS's own <c>skew(a, b)</c> takes both
+    ///         angles.</b> The pair is the translations' situation and not the rotation's:
+    ///         <c>skew-x-6 skew-y-3</c> is two classes that have to arrive as one <c>transform</c>,
+    ///         and a single fragment holding <c>6deg 3deg</c> would let whichever rule the cascade
+    ///         picked last zero the other axis silently. ⚠ It is also why <c>skew-*</c> writes
+    ///         <i>both</i> fragments rather than emitting <c>skew(…)</c>: v4's <c>skew-6</c> is
+    ///         <c>skewX(6deg) skewY(6deg)</c>, so a later <c>skew-y-0</c> beside it has somewhere to
+    ///         land.
+    ///     </para>
+    /// </remarks>
+    public const string SkewX = Prefix + "skew-x";
+
+    /// <summary>And along y.</summary>
+    public const string SkewY = Prefix + "skew-y";
 
     // ── The numeric figures ─────────────────────────────────────────────────────────────────
     //
@@ -430,6 +463,27 @@ public static class UtilityComposition {
     ///     § 6.2 gives it, and the same one an icon's <c>IconPaintKind.Foreground</c> already got.
     /// </remarks>
     public const string RingColor = Prefix + "ring-color";
+
+    /// <summary>The <c>shadow-*</c> token, held as a fragment so a ring can be layered over it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one fragment here that exists for a <i>collision</i> rather than for an
+    ///         ordered list.</b> Every other entry in this table is a slot in a value CSS builds out
+    ///         of parts — a transform's functions, a filter's, a gradient's stops. This one is a whole
+    ///         shadow, and <c>shadow-lg</c> could perfectly well have gone on emitting
+    ///         <c>box-shadow</c> directly. What it could not do is share the property with
+    ///         <c>ring-*</c>: two families writing one longhand means the cascade picks one and the
+    ///         other silently does not apply, which is <c>filter</c>'s failure in a different suit and
+    ///         is what `Rikarin/Vixen#279` item 4 names.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The initial is a transparent shadow rather than the <c>none</c> keyword</b>, for
+    ///         `DropShadow`'s reason one table down: an unset slot is substituted into the middle of a
+    ///         comma list, and <c>none</c> there is not a shadow — it is a keyword that refuses the
+    ///         whole declaration, so a bare <c>ring-2</c> would cascade perfectly and paint nothing.
+    ///     </para>
+    /// </remarks>
+    public const string Shadow = Prefix + "shadow";
 
     // ── The filter ──────────────────────────────────────────────────────────────────────────
     //
@@ -634,6 +688,13 @@ public static class UtilityComposition {
         // initial is substituted inside `rotateZ(…)` and a bare zero makes the whole list invalid.
         [RotateZ] = "0deg",
 
+        // The same unit for the same reason one slot over, with one extra edge: a zero skew is the
+        // *common* case, since an element carrying only `rotate-z-45` still substitutes both of these
+        // — so `skewX(0)`, which `TransformReader`'s angle parser refuses, would take the rotation
+        // down with it rather than merely dropping itself.
+        [SkewX] = "0deg",
+        [SkewY] = "0deg",
+
         // ⚠ <b>One, and this is the pair where the identity is not zero — which is the whole reason
         // these are separate fragments rather than a second use of the translations'.</b> A missing
         // translation is no movement, which is zero; a missing scale is no growth, which is one. A
@@ -656,6 +717,14 @@ public static class UtilityComposition {
         // `ring-accent` draw a ring nobody asked for.
         [RingWidth] = "0px",
         [RingColor] = "currentcolor",
+
+        // ⚠ <b>A transparent shadow and not <c>none</c></b>, which is the same trap `DropShadow`'s
+        // initial is written up under and is sharper here, because this slot is one item of a comma
+        // list rather than one function of a filter: `box-shadow: 0 0 0 2px currentcolor, none` is
+        // not a two-item list with an empty second item, it is a declaration `EmitShadow` refuses
+        // whole. A bare `ring-2` would then cascade perfectly and paint nothing — the failure this
+        // table exists to make impossible.
+        [Shadow] = "0 0 transparent",
         [Blur] = "0px",
 
         // ⚠ <b>Each initial is the identity of <i>its own</i> function, which is one for four of
@@ -927,16 +996,26 @@ public static class UtilityComposition {
     ///         beside it, so one class works alone and several compose.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>One function, where v4 writes five — and the missing four are missing on purpose,
-    ///         not pending.</b> See the block above <see cref="RotateZ" />: a <c>transform</c> naming
-    ///         a function <c>TransformReader</c> cannot read is refused whole, so a slot added before
-    ///         its parser would take the working rotation down with it. <c>rotateX</c>,
-    ///         <c>rotateY</c>, <c>skewX</c> and <c>skewY</c> each join this string on the day the
-    ///         reader accepts them; <c>skew</c> already parses, so its two are a family away rather
-    ///         than a parser away.
+    ///         ⚠ <b>Three functions, where v4 writes five — and the missing two are missing on
+    ///         purpose, not pending.</b> See the block above <see cref="RotateZ" />: a
+    ///         <c>transform</c> naming a function <c>TransformReader</c> cannot read is refused
+    ///         whole, so a slot added before its parser would take the working rotation down with it.
+    ///         <c>skewX</c> and <c>skewY</c> joined on the day somebody read the parser rather than
+    ///         the note about it — both have parsed since <c>TransformReader.Functions</c> was
+    ///         written. <c>rotateX</c> and <c>rotateY</c> are the two still outside, and they are not
+    ///         waiting on a parser either: <c>UiTransform</c> is affine and cannot express the
+    ///         projective composite they need, which is #228.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every slot is substituted on every element that fills any of them</b>, so the
+    ///         initials in <see cref="Initials" /> are load-bearing three times over rather than
+    ///         once: a lone <c>skew-x-6</c> emits a <c>rotateZ</c> and a <c>skewY</c> as well, and
+    ///         either of them spelled without its unit would make <c>TransformReader</c> refuse the
+    ///         list and the class do nothing.
     ///     </para>
     /// </remarks>
-    public static string Transform() => $"rotateZ({Reference(RotateZ)})";
+    public static string Transform() =>
+        $"rotateZ({Reference(RotateZ)}) skewX({Reference(SkewX)}) skewY({Reference(SkewY)})";
 
     /// <summary>The <c>box-shadow</c> a ring is.</summary>
     /// <returns>The assembled value.</returns>
@@ -956,19 +1035,45 @@ public static class UtilityComposition {
     ///         absence looked exactly like the utility being broken.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A ring and a <c>shadow-*</c> on one element is still the known limit, and it is
-    ///         this mechanism's now rather than the draw list's.</b> It used to be both: CSS layers
-    ///         them by comma and <c>EmitShadow</c> refused a list outright. ⚠ <b>It does not any
-    ///         more</b> — a list is a command each, painted last to first, and a hand-written
-    ///         <c>box-shadow: a, b</c> in a <c>.vcss</c> draws both (`Rikarin/Vixen#279`). What is
-    ///         left is here: the two families write the same property, so the cascade picks one and
-    ///         the other is not applied. Composing them is v4's five-fragment shape —
-    ///         <c>--tw-shadow</c>, <c>--tw-inset-shadow</c>, <c>--tw-ring-shadow</c>,
-    ///         <c>--tw-inset-ring-shadow</c> and <c>--tw-ring-offset-shadow</c> assembled into one
-    ///         comma list — which is a fragment table and no longer a draw path.
+    ///         ⚠ <b>A ring and a <c>shadow-*</c> on one element used to be the known limit and is not
+    ///         any more.</b> It was two defects wearing one symptom: CSS layers them by comma and
+    ///         <c>EmitShadow</c> refused a list outright, so even a hand-written
+    ///         <c>box-shadow: a, b</c> in a <c>.vcss</c> drew nothing. The list landed first
+    ///         (`Rikarin/Vixen#279` item 1); what was left was here, and is <see cref="Shadows" />.
     ///     </para>
     /// </remarks>
     public static string Ring() => $"0 0 0 {Reference(RingWidth)} {Reference(RingColor)}";
+
+    /// <summary>The one <c>box-shadow</c> that <c>ring-*</c> and <c>shadow-*</c> both emit.</summary>
+    /// <returns>The assembled comma list.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The ring is written inline and the shadow is a fragment, which is deliberately
+    ///         not v4's arrangement.</b> v4 keeps five <c>--tw-*-shadow</c> slots and assembles all
+    ///         five; four of them belong to families this engine does not register —
+    ///         <c>inset-shadow-*</c>, <c>inset-ring-*</c> and <c>ring-offset-*</c>, which are blocked
+    ///         on an inner-shadow draw path and on an offset fragment that does not exist. A slot for
+    ///         a family nobody can write is a lane reserved for a guess, and it is not free: every
+    ///         unset slot substitutes a transparent shadow into this list on every element that
+    ///         carries either class. Each of the four joins this string on the day its family is
+    ///         registered, exactly as <see cref="Transform" />'s four missing functions do.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The ring comes first because a draw list paints later commands over earlier ones
+    ///         and <c>EmitShadow</c> therefore emits a list backwards.</b> CSS Backgrounds 3 § 7.1.1
+    ///         paints a shadow list front to back in the order written, so the ring being item one is
+    ///         what puts it *over* the elevation shadow — which is v4's order too, and is the way
+    ///         round anybody writing <c>shadow-lg ring-2</c> on a focused card means.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both items are always present, and the transparent one costs nothing only because
+    ///         <c>EmitOneShadow</c> drops a shadow whose colour is fully transparent.</b> Without that
+    ///         drop this composition would put a second, invisible <c>Shadow</c> command under every
+    ///         shadowed and every ringed element in the editor — a real cost for a picture nobody can
+    ///         see, and the kind of thing that is only ever noticed in a profile.
+    ///     </para>
+    /// </remarks>
+    public static string Shadows() => $"{Ring()}, {Reference(Shadow)}";
 
     /// <summary>The <c>filter</c> declaration the eight filter families assemble into.</summary>
     /// <returns>The assembled value.</returns>

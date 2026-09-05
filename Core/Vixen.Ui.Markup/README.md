@@ -41,7 +41,7 @@ SourceText
 @code {
     private readonly Signal<int> _count = new(0);
     private UiElement _body = null!;
-    [Parameter] public required string Title { get; init; }
+    public required string Title { get; init; }
     private void Increment() => _count.Value++;
     partial void OnComposed() => _body.AddClass("ready");
 }
@@ -66,6 +66,12 @@ SourceText
 <style scoped>.flex { display: flex; }</style>
 ```
 
+⚠ **A parameter is an ordinary settable property and carries no attribute.** This example used to
+write `[Parameter]` on `Title`, borrowed from Blazor; there is no `ParameterAttribute` in this tree
+and there is deliberately nothing for one to do. The emitter writes the attribute name where a
+property name goes, so `<Counter Title="x" />` is an object initialiser and C# is what rejects a
+misspelt one — see *The binder has no semantic model* below.
+
 A lowercase tag is an intrinsic element and an uppercase one is a component — the React and Blazor
 rule, chosen because it is decidable from the characters. A parser cannot consult a registry of
 component types: the types it would look up are being compiled beside it.
@@ -82,6 +88,16 @@ the markup language it is meant to be written in.
 has properties that are objects and there is no flat name for them. Nothing here checks that the
 path exists — the binder's rule is only that it will parse as C#, which is the same bargain the tag
 name is emitted under.
+
+⚠ **And on a lowercase tag a parameter is not an assignment at all.** It emits
+`ctx.Attribute(n1, "AccessibleName", "Save")`, which reaches `StyleTree.SetAttribute` as data a
+selector can match and nothing reads — so `<div AccessibleName="Save" Focusable="true">` compiled,
+ran and set nothing, in silence, for as long as the case split has existed. `VXML2020` warns on it.
+The rule reads the *case* of the attribute name rather than looking the property up: there is no list
+of `[UiProperty]` names available here, because the generator never touches the compilation, and the
+convention that separates the two intents is exactly the case — a property is PascalCase and a
+selector attribute is `data-state`. A warning and not an error, and the attribute is kept, because a
+capitalised name genuinely is matchable by an `[AccessibleName]` selector.
 
 ⚠ **Three attribute names are universal**, meaning they mean the same on a component tag as on an
 element and are never assigned as properties: `class`, `style`, and `binding-path`. The last is doc
@@ -831,6 +847,14 @@ is a real limitation and the diagnostics are a guard rail over it. The alternati
 body for a surviving key — would throw away the elements and therefore the focus, scroll offset and
 animation state that keys exist to preserve, so it is not a fix, it is the other trade.
 
+⚠ **It is also why `@for` has no index variable, which is a refusal rather than an omission.** A
+second name bound to the item's position would be captured in a body a surviving key never re-runs,
+so after a reorder every row would report the index it had when its key first appeared —
+`VXML2011`'s mistake with no key to blame it on and nothing syntactic to warn about. An index that
+behaves has to be a per-row signal the reconciler writes when it repositions, which is a different
+feature from the one the spelling suggests. See `BuildContext.For`, whose `live`/`kept` pass is where
+such a signal would be set.
+
 ### ⚠ The same rule governs `@if`, where nothing diagnoses it
 
 **`@for` and `@if` are one mechanism** — `Switch` and `For` are deliberately the same construct, for
@@ -901,9 +925,9 @@ Two things about its timing are load-bearing and neither is a defect:
 - **It re-runs after a hot reload,** deliberately: it is emitted *inside* `Build`, and
   `BuildContext.Rebuild` re-enters `Build`. That is right for wiring, which has to point at the new
   elements, and it means anything expensive or non-idempotent does not belong in it.
-- ⚠ **It runs before the panel's caller has configured it,** and this is the one that has bitten.
-  A parent assigns a component's parameters *after* `Child<T>` returns, and a host assigns them after
-  `BuildContext.Build<T>` returns — so a hook here cannot see them. `MemoryView.Take()` was moved to
+- ⚠ **It runs before the panel's *host* has configured it,** and this is the one that has bitten.
+  A host assigns a component's properties after `BuildContext.Build<T>` returns — so a hook here
+  cannot see them. `MemoryView.Take()` was moved to
   `DiagnosticsModule` for this reason, and moving it fixed a real bug: `Control.OnCreated` called it
   and the host called it again after assigning `Providers`, so the panel took two readings and threw
   away the one that had them. **No build-time hook could have fixed that**, because the moment it
@@ -911,6 +935,20 @@ Two things about its timing are load-bearing and neither is a defect:
   The two answers that do work are the ones the panels use: a signal-backed parameter, which handles
   re-assignment as well as the first one, or the host saying so — which for a reading somebody takes
   once is the honest shape.
+- ⚠ **A markup parameter, though, now lands *before* the build**, and it used not to. `Child<T>`
+  constructs, mounts — which runs `Build` — and returns, so for as long as that was the only call the
+  emitter made, `<Panel Model="@Model" />` assigned `Model` after every effect inside the panel had
+  already read it once at its default. A plain C# property assigned then notifies nobody and the
+  panel drew the default for ever, in silence; every prop had to be signal-backed by convention, with
+  nothing enforcing it. Where a tag carries a parameter the emitter now writes `Create` …
+  assignments … `Compose` instead, so the child builds with the caller's values — SwiftUI's
+  arrangement, where a view is initialised with them. ⚠ **A dynamic parameter is assigned twice**,
+  once as a statement and once inside the `Bind` that keeps it current, because an `Effect` *queues*
+  its first run and a `Bind` alone therefore lands after the whole tree is built.
+- ⚠ **Signal-backing is still what makes a prop *track*.** The split fixes the value the child is
+  built with; it does not make a plain property something an effect inside the child can subscribe
+  to, so a prop that has to keep following its source is signal-backed for the same reason it always
+  was.
 
 ## What `Component` has and an element-flavoured class has
 

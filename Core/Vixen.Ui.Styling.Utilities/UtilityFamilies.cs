@@ -153,6 +153,45 @@ enum ValueKind : byte {
     GradientStop
 }
 
+/// <summary>What a top-level slash means to a family.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>A slash is not one thing, and reading it as one was a silent wrong answer rather
+///         than a missing feature.</b> <see cref="UtilityParser" /> has always kept both readings —
+///         <see cref="UtilityCandidate.Opacity" /> and <see cref="UtilityCandidate.SlashSuffix" /> —
+///         and its own remark says which one a slash means is the utility's to decide. Nothing
+///         decided: a family that did not look at the suffix simply resolved the head and dropped
+///         it, so <c>aspect-16/9</c> emitted <c>aspect-ratio: 16</c> and <c>text-lg/7</c> emitted
+///         the theme's line height. Both are valid CSS with a value nobody asked for, which is worse
+///         than an unrecognised class.
+///     </para>
+///     <para>
+///         <b>So every family says which reading it takes, and <see cref="None" /> is a refusal.</b>
+///         A slash on a family that has no modifier means the class was misspelt, and the honest
+///         answer is no rule at all — the same answer <c>TryArbitraryProperty</c> already gave
+///         <c>[color:red]/50</c> for exactly this reason.
+///     </para>
+/// </remarks>
+enum SlashMeaning : byte {
+    /// <summary>No modifier. A slash is a misspelling and the class is refused.</summary>
+    None,
+
+    /// <summary>An alpha on the colour: <c>bg-accent/50</c>.</summary>
+    Opacity,
+
+    /// <summary>A denominator: <c>w-2/3</c> is two thirds wide.</summary>
+    Fraction,
+
+    /// <summary>The other half of a ratio: <c>aspect-16/9</c>.</summary>
+    Ratio,
+
+    /// <summary>
+    ///     A line height beside a font size — <c>text-lg/7</c> — or an alpha when the value read as
+    ///     a colour instead, which is the one family whose slash means two things.
+    /// </summary>
+    Leading
+}
+
 /// <summary>The utilities a class name can name, and what each one emits.</summary>
 /// <remarks>
 ///     <para>
@@ -266,7 +305,25 @@ public static class UtilityFamilies {
         Dictionary<string, UtilityDeclaration[]>? ValueAlongside = null,
         string? Template = null,
         string? Scope = null
-    );
+    ) {
+        /// <summary>Which reading of a top-level slash this family takes.</summary>
+        /// <remarks>
+        ///     ⚠ <b>Defaulted from <see cref="Kind" /> rather than written on every registration,
+        ///     because a family that forgot to say would then quietly take the permissive reading
+        ///     — and permissive is the bug.</b> Two hundred registrations and one omission is all
+        ///     it takes to put a silently-dropped modifier back. The kinds that take one are the
+        ///     kinds that resolve a colour (an alpha) and the sizing kind (a fraction); everything
+        ///     else refuses, and the two families whose slash the kind cannot predict —
+        ///     <c>aspect</c> and <c>text</c> — say so themselves.
+        /// </remarks>
+        public SlashMeaning Slash { get; init; } = Kind switch {
+            ValueKind.Color or ValueKind.BorderEdge or ValueKind.Shadow or ValueKind.DropShadow
+                or ValueKind.GradientStop => SlashMeaning.Opacity,
+            ValueKind.Size => SlashMeaning.Fraction,
+            ValueKind.FontSize => SlashMeaning.Leading,
+            _ => SlashMeaning.None
+        };
+    }
 
     static readonly Dictionary<string, Family> Registry = new(StringComparer.Ordinal);
     static readonly List<string> Names = [];
@@ -1195,12 +1252,20 @@ public static class UtilityFamilies {
 
         // ── Hyphens ─────────────────────────────────────────────────────────────────────────
         // ⚠ <b>Two of Tailwind's three, and the third is left unregistered on purpose.</b>
-        // `hyphens-auto` needs a per-language Liang pattern set AND a language to pick one with, and
-        // `TextShaper` leaves HarfBuzz's language unset so that shaping does not depend on the
-        // machine's locale — so the input is missing as well as the algorithm. Registering it would
-        // put a class in the table that resolves, computes a value and hyphenates nothing, which is
-        // the exact state `UtilityConsumptionGateTests` exists to keep out. The root stays `partial`
-        // with the reason named, which is the honest state rather than the flattering one.
+        // `hyphens-auto` needs a per-language Liang pattern set. Registering it would put a class in
+        // the table that resolves, computes a value and hyphenates nothing, which is the exact state
+        // `UtilityConsumptionGateTests` exists to keep out. The root stays `partial` with the reason
+        // named, which is the honest state rather than the flattering one.
+        //
+        // ⚠ <b>Half of the reason this comment used to give has expired, and it expired without
+        // anything noticing — which is the finding worth more than the sentence.</b> It said the
+        // refusal also rested on there being no language to pick a pattern set with, `TextShaper`
+        // leaving HarfBuzz's language unset. `UiElement.ResolvedLanguage` carries a BCP-47 tag that
+        // inherits by tree and reaches `TextShaper.ShapeRun`, so that half is false. It went stale
+        // in prose because `RefusalExpiry` could not reach it: this root is `partial`, and until now
+        // only an `expires-when-read` clause was allowed on a `partial` row. The remaining half now
+        // carries `[expires-on Vixen.Ui.Text.HyphenMode.Auto]` in the ledger, so the arrival of the
+        // pattern set reddens a test instead of leaving a paragraph standing.
         //
         // ⚠ <b>`hyphens-manual` is the initial value, and it is registered anyway.</b> Normally a
         // class whose only effect is "write nothing" earns no place — `normal-case` is the exception
@@ -1310,7 +1375,7 @@ public static class UtilityFamilies {
             ValueKind.BorderEdge,
             [UtilityComposition.RingWidth],
             ColorProperties: [UtilityComposition.RingColor],
-            Alongside: [new UtilityDeclaration("box-shadow", UtilityComposition.Ring())]
+            Alongside: [new UtilityDeclaration("box-shadow", UtilityComposition.Shadows())]
         ));
 
         // ── Gradients: the composed families ────────────────────────────────────────────────
@@ -1963,9 +2028,26 @@ public static class UtilityFamilies {
         // thing: its offset, blur and alpha are chosen together to read as one height above the
         // surface. `shadow-none` is here rather than in the theme so that turning one off never
         // depends on somebody having remembered to define it.
-        Register(new Family("shadow", ValueKind.Shadow, ["box-shadow"], new Dictionary<string, string>(StringComparer.Ordinal) {
-            ["none"] = "box-shadow:none"
-        }));
+        //
+        // ⚠ <b>Composed, and the fragment is the whole shadow.</b> This family wrote `box-shadow`
+        // directly until `Rikarin/Vixen#279` item 4, and so does `ring-*` — two families, one
+        // longhand, so `shadow-lg ring-2` on one element resolved to whichever rule the cascade
+        // picked and the other class silently did not apply. Nothing about *this* family needed a
+        // fragment; sharing the property with the ring did. See `UtilityComposition.Shadows`.
+        //
+        // ⚠ <b>`shadow-none` is now a transparent shadow rather than the `none` keyword</b>, and the
+        // change is not cosmetic: `none` substituted into the middle of a comma list is not an empty
+        // item, it is a keyword `EmitShadow` refuses the whole declaration over — so the old spelling
+        // would have made `shadow-none ring-2` paint no ring either.
+        Register(new Family(
+            "shadow",
+            ValueKind.Shadow,
+            [UtilityComposition.Shadow],
+            new Dictionary<string, string>(StringComparer.Ordinal) {
+                ["none"] = UtilityComposition.Shadow + ":0 0 transparent"
+            },
+            Alongside: [new UtilityDeclaration("box-shadow", UtilityComposition.Shadows())]
+        ));
 
         // ── Transforms ──────────────────────────────────────────────────────────────────────
         //
@@ -1992,11 +2074,20 @@ public static class UtilityFamilies {
         Translate("translate-y", UtilityComposition.TranslateY);
 
         // ⚠ <b>The root that moves BOTH axes, and it is not a third fragment.</b> v4's `translate-4`
-        // writes the same two `--tw-*` slots the two axis families write and assembles the same
-        // `translate`, so it is one family over both fragments rather than a new slot — which is
-        // what makes `translate-4 translate-x-8` compose the way the cascade says it should, last
-        // declaration winning per slot with one assembly either way. Registering it as its own
-        // property would have made the two spellings of the same movement fight.
+        // is `translate: 1rem 1rem` — one class moving a box on the diagonal — so it writes the same
+        // two `--tw-*` slots the two axis families write and assembles the same `translate`. One
+        // family over both fragments rather than a new slot is what makes `translate-4
+        // translate-x-8` compose the way the cascade says it should, last declaration winning per
+        // slot with one assembly either way. Registering it as a single-property family beside the
+        // two axes would have made `translate-4` a `translate-x-4` under a different spelling with y
+        // left at its initial, which reads as the class half-working — the worse of the two
+        // failures — and registering it against a `translate` of its own would have had the two
+        // spellings of one movement fight.
+        //
+        // ⚠ Its own root and not a value on `translate-x`, and `SplitName`'s longest-prefix rule is
+        // what keeps that safe: `translate-x-4` still reaches the axis family above and `translate-4`
+        // reaches this one. `ShadowedFamilyTests` holds the rule; `rotate-z` beside `rotate` is the
+        // same arrangement two sections down.
         //
         // ⚠ <b><see cref="ValueKind.Size" /> for `Translate`'s reason, and it is what closes the
         // three values the ledger recorded as missing on this root</b>: `translate-full` is a
@@ -2025,6 +2116,15 @@ public static class UtilityFamilies {
         // `TranslationReader.Of` compares the interned value against `none` before it parses
         // anything, so this is refusal shape 3's opposite — a reader that already distinguishes the
         // value, and no family able to emit it.
+        //
+        // ⚠ <b>This was written up as a REFUSAL on a parallel branch, and the refusal was wrong on
+        // its second premise rather than its first.</b> That reading had `Family.Alongside` belongs
+        // to the family and not to the value — which is true and is exactly the paragraph above —
+        // and concluded from it that the class cannot be registered at all. It concluded that
+        // because it only considered `Keywords("translate", …)` on the functional root; a separate
+        // registered name is not a keyword on that family and never reaches its `Alongside`. The
+        // ledger's `partial` on this row, and `mask-circle`'s neighbouring refusal, are the two
+        // places that reading also reached.
         Static("translate-none", "translate", "none");
 
         // ⚠ <b>A percentage, because Tailwind's scale runs in hundredths.</b> `scale-150` is one and
@@ -2070,11 +2170,13 @@ public static class UtilityFamilies {
         // "no `matrix()`, no `rotate()`, no list of functions in `StyleValue`" — and
         // `TransformReader.Functions` reads exactly that list: `matrix`, `translate`, `translateX/Y`,
         // `scale`, `scaleX/Y`, `rotate`, `rotateZ`, `skew` and `skewX/Y`, asserted against pixels in
-        // `Vixen.Ui.Tests.TransformTests`. The refusal even declared its own expiry condition —
-        // `[expires-on Vixen.Ui.Styling.StyleValueKind.Function]` — and that condition is *still* not
-        // met, because the parser was built in `TransformReader` over the declaration's text rather
-        // than as a value kind. ⚠ <b>A refusal can be satisfied without its named symbol arriving,
-        // and `RefusalExpiryTests` cannot see that</b>; this is the first row it happened to.
+        // `Vixen.Ui.Tests.TransformTests`. The refusal even declared its own expiry condition — an
+        // `expires-on` clause naming `Vixen.Ui.Styling.StyleValueKind.Function`, written here without
+        // its brackets because the sweep reads prose now and a quotation in brackets would be
+        // recorded as a declaration — and that condition is *still* not met, because the parser was
+        // built in `TransformReader` over the declaration's text rather than as a value kind.
+        // ⚠ <b>A refusal can be satisfied without its named symbol arriving, and `RefusalExpiryTests`
+        // cannot see that</b>; this is the first row it happened to.
         //
         // ⚠ <b>Registered as its own root rather than folded into `rotate`, and `SplitName` is why
         // that is safe:</b> the longest registered prefix wins, so `rotate-z-45` reaches here and
@@ -2099,6 +2201,43 @@ public static class UtilityFamilies {
             Template: "{0}",
             Alongside: [new UtilityDeclaration("transform", UtilityComposition.Transform())]
         ));
+
+        // ⚠ <b>The two skews, and they were never a parser away either — which makes this the second
+        // family to close on a refusal whose premise had already expired.</b> `rotate-z-*`'s note
+        // said the shorthand waited on a `<transform-function>` grammar; `TransformReader.Functions`
+        // has read `skew`, `skewX` and `skewY` since it was written, and `Vixen.Ui.Tests.TransformTests`
+        // has asserted `transform: skewX(45deg)` against pixels for as long. The rows sat `absent`
+        // with an empty note, so nothing recorded a reason and nothing could expire — worse than
+        // `rotate-z-*`, whose refusal at least named a condition. See #227, which corrected itself.
+        //
+        // ⚠ <b><see cref="ValueKind.Angle" /> and the angle in the fragment, for `rotate-z-*`'s two
+        // reasons</b>: zero is a real value here — `skew-x-0` means the identity — and `TryNegate`
+        // refuses a value that does not begin with a digit, so `-skew-x-6` is spellable only while
+        // the fragment holds `6deg` and the assembler holds `skewX(…)`.
+        Skew("skew-x", [UtilityComposition.SkewX]);
+        Skew("skew-y", [UtilityComposition.SkewY]);
+
+        // ⚠ <b>Both fragments from one class, which is v4's own reading and not a shorthand for it.</b>
+        // Tailwind's `skew-6` emits `skewX(6deg) skewY(6deg)` — two functions — rather than CSS's
+        // two-argument `skew(6deg, 6deg)`. Writing the CSS spelling instead would resolve and paint
+        // the same box today and would silently drop the axis of any `skew-y-*` written beside it,
+        // because a `skew(…)` slot and a `skewY(…)` slot are different slots. The pair is the
+        // translations' arrangement, arrived at from the other direction.
+        Skew("skew", [UtilityComposition.SkewX, UtilityComposition.SkewY]);
+
+        // ⚠ <b>`transform-none` is a keyword this engine already read, and the three classes v4
+        // spells beside it are refused rather than absent.</b> `TransformReader` answers `none` with
+        // the identity, so this row is a registration and nothing else. `transform-cpu` and
+        // `transform-gpu` are compositing hints — v4's `transform-gpu` prepends `translateZ(0)` to
+        // force a layer — and this engine has no layer to force: `DrawListBuilder` rebuilds the whole
+        // draw list every frame and promotion is decided by what the element does, not by what its
+        // classes ask for, which is `will-change-*`'s refusal one property over. Emitting the
+        // `translateZ(0)` v4 emits would be worse than nothing: `TransformReader` cannot read it and
+        // refuses the whole list, so `transform-gpu` beside a `rotate-z-45` would silently unrotate
+        // the box. `transform-flat`/`transform-3d` are `transform-style` and `transform-content` and
+        // its four siblings are `transform-box` — different properties, both refused with the 3D
+        // family under #228 rather than here.
+        Keywords("transform", "transform", new() { ["none"] = "none" });
 
         // ⚠ <b>The third refusal this section retired, and the only one that was refused as
         // <i>unobservable</i> rather than merely unread.</b> Doc 43 § C6 struck `origin-*` because
@@ -2231,14 +2370,20 @@ public static class UtilityFamilies {
             ["auto"] = "10px", ["thin"] = "6px", ["none"] = "0px"
         });
 
-        // The ratio keywords have to be pairs rather than numbers: the layout reads `16 / 9` with a
-        // parser of its own, and `aspect-16/9` cannot be written as a class because the parser reads
-        // a top-level slash as an opacity long before the family sees it.
+        // The ratio keywords are pairs rather than numbers because the layout reads `16 / 9` with a
+        // parser of its own — `LayoutStyleBuilder.TryRatio`, beside the bare-number form.
+        //
+        // ⚠ <b>`aspect-16/9` was said to be unspellable because the parser read a top-level slash as
+        // an opacity, and that was never true.</b> `UtilityParser` keeps the suffix as written in
+        // `SlashSuffix` as well as reading it as an alpha, and says in its own remark that which one
+        // it means is the family's to decide. What was missing is the deciding: this family did not
+        // look, so `aspect-16/9` resolved its head and emitted `aspect-ratio: 16`. A wrong ratio,
+        // silently, rather than a class that could not be written.
         Register(new Family("aspect", ValueKind.Number, ["aspect-ratio"], new Dictionary<string, string>(StringComparer.Ordinal) {
             ["square"] = "aspect-ratio:1 / 1",
             ["video"] = "aspect-ratio:16 / 9",
             ["auto"] = "aspect-ratio:auto"
-        }));
+        }) { Slash = SlashMeaning.Ratio });
 
         // ── The eighteen roots that are deliberately NOT here ───────────────────────────────
         //
@@ -2649,6 +2794,13 @@ public static class UtilityFamilies {
             return false;
         }
 
+        // ⚠ A modifier a family does not read must be a refusal and not a shrug. `p-4/2` used to
+        // emit `padding: 16px` — the head resolved, the suffix went nowhere, and the author got a
+        // rule that looks like the one they wrote. See `SlashMeaning`.
+        if (candidate.SlashSuffix is not null && family.Slash == SlashMeaning.None) {
+            return false;
+        }
+
         // Negation is applied to the result rather than threaded through every branch below, because
         // `-mt-4` sets exactly what `mt-4` sets and the only difference is the sign of the number.
         if (!Resolve(family, candidate, tokens, declarations)
@@ -2763,8 +2915,25 @@ public static class UtilityFamilies {
             return Emit(family, arbitrary, declarations);
         }
 
+        // ⚠ A ratio before the keywords, because the keyword table is keyed on the whole value and
+        // `16` is not in it — but `aspect-square/9` would otherwise take the keyword branch and
+        // drop the denominator, which is the failure this whole mechanism exists to stop. A ratio
+        // family reaching here with a suffix means the pair is the value.
+        if (family.Slash == SlashMeaning.Ratio && candidate.SlashSuffix is { } denominator) {
+            return TryRatioPart(candidate.Value, out var antecedent)
+                && TryRatioPart(denominator, out var consequent)
+                && Emit(family, antecedent + " / " + consequent, declarations);
+        }
+
         // Keywords first, because `text-center` has to beat any colour or size named `center`.
         if (family.Keywords is not null && family.Keywords.TryGetValue(candidate.Value, out var keyword)) {
+            // ⚠ A keyword takes no modifier even on a family that has one. `text-center/50` is not
+            // a translucent alignment and `bg-cover/50` is not a translucent size; both used to
+            // resolve and quietly lose the suffix.
+            if (candidate.SlashSuffix is not null) {
+                return false;
+            }
+
             return keyword.Contains(':', StringComparison.Ordinal)
                 ? EmitPair(keyword, declarations)
                 : Emit(family, keyword, declarations);
@@ -2849,10 +3018,16 @@ public static class UtilityFamilies {
     ///         "minus one viewport tall" any more than <c>-w-full</c> is minus one hundred per
     ///         cent wide.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>lh</c> joined them the day it resolved, and it is the same trap a third
+    ///         time.</b> It comes out as <c>1lh</c> — a digit again — so <c>-max-block-lh</c> would
+    ///         have been "minus one line box tall" rather than a refusal. A value that stops being
+    ///         unresolvable has to be looked at here as well as in <see cref="TrySize" />.
+    ///     </para>
     /// </remarks>
     static readonly HashSet<string> NotNegatable = new(StringComparer.Ordinal) {
         "auto", "full", "screen", "min", "max", "fit",
-        "svw", "lvw", "dvw", "svh", "lvh", "dvh"
+        "svw", "lvw", "dvw", "svh", "lvh", "dvh", "lh"
     };
 
     /// <summary>Flips the sign of everything a utility resolved to.</summary>
@@ -3134,13 +3309,69 @@ public static class UtilityFamilies {
         }
     }
 
+    /// <summary>Resolves the <c>/7</c> of <c>text-lg/7</c> through the family that owns line heights.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Delegated to <c>leading</c>'s own table rather than reimplemented, because the two
+    ///     spellings have to mean the same thing.</b> <c>text-lg/7</c> and
+    ///     <c>text-lg leading-7</c> are the same declaration written twice in Tailwind v4, and a
+    ///     second copy of the scale here is a pair that agrees until one of them is edited. The
+    ///     keyword half matters as much as the count: <c>leading-none</c> is the ratio <c>1</c> and
+    ///     not a length, so <c>text-lg/none</c> has to be the ratio too.
+    ///     <para>
+    ///         The arbitrary form <c>text-lg/[1.5]</c> goes through verbatim, which is what the
+    ///         brackets are for everywhere else.
+    ///     </para>
+    /// </remarks>
+    static bool TryLeading(string suffix, ThemeTokens tokens, out string result) {
+        result = string.Empty;
+
+        if (suffix.Length == 0) {
+            return false;
+        }
+
+        if (suffix[0] == '[' && suffix[^1] == ']') {
+            var inside = suffix[1..^1].Replace('_', ' ');
+
+            if (!IsPlausibleValue(inside)) {
+                return false;
+            }
+
+            result = inside;
+            return true;
+        }
+
+        if (Registry.TryGetValue("leading", out var leading)
+            && leading.Keywords is { } keywords
+            && keywords.TryGetValue(suffix, out var keyword)) {
+            // The keyword table holds whole pairs — `line-height:1.25` — and only the value half is
+            // wanted here, because the property is already known.
+            result = keyword[(keyword.IndexOf(':', StringComparison.Ordinal) + 1)..];
+            return true;
+        }
+
+        return TrySpacing(suffix, tokens, out result);
+    }
+
     static bool TryFontSizeOrColor(UtilityCandidate candidate, ThemeTokens tokens, List<UtilityDeclaration> declarations) {
         // The documented resolution order for `text-`: keyword (already tried), then font size,
         // then colour. A colour named `lg` would be unreachable, which is the price of one prefix
         // meaning three things and is worth paying — `text-lg` and `text-accent` both read right.
         if (tokens.FontSize.TryGetValue(candidate.Value, out var size)) {
+            var height = Px(size.LineHeight);
+
+            // ⚠ <b>`text-lg/7` is v4's spelling for a size with a line height, and the slash here
+            // is not the alpha it is one line below.</b> The same prefix takes both readings and
+            // the value decides which: a font-size token takes a leading, a colour takes an alpha.
+            // That is why the suffix is kept as written — a leading of `7` read as an opacity is
+            // seven per cent.
+            if (candidate.SlashSuffix is { } leading) {
+                if (!TryLeading(leading, tokens, out height)) {
+                    return false;
+                }
+            }
+
             declarations.Add(new UtilityDeclaration("font-size", Px(size.Size)));
-            declarations.Add(new UtilityDeclaration("line-height", Px(size.LineHeight)));
+            declarations.Add(new UtilityDeclaration("line-height", height));
             return true;
         }
 
@@ -3252,6 +3483,13 @@ public static class UtilityFamilies {
     static bool TrySize(UtilityCandidate candidate, ThemeTokens tokens, out string result) {
         result = string.Empty;
 
+        // ⚠ A denominator is only a denominator to a numerator, so the keyword arm below is not
+        // reachable with one. `w-full/2` used to be `width: 100%` — the suffix went nowhere, and
+        // half of a full width is not something the class can be read as meaning.
+        if (candidate.SlashSuffix is not null) {
+            return TryFractionOf(candidate, out result);
+        }
+
         switch (candidate.Value) {
             case "full":
                 result = "100%";
@@ -3286,12 +3524,27 @@ public static class UtilityFamilies {
             case "dvh":
                 result = "100vh";
                 return true;
+
+            // ⚠ <b>One line box, and the only sizing value whose unit the engine had to learn.</b>
+            // Every other keyword above resolves to a unit the parser already read; `lh` did not
+            // exist, so `max-block-lh` emitted text `StyleValueParser` refused and the class was the
+            // ledger's one Sizing `partial`. It is answered by every family for the reason the
+            // viewport trios are — Tailwind names it after what is measured, not after the property.
+            case "lh":
+                result = "1lh";
+                return true;
             default:
                 break;
         }
 
-        // `w-1/2` — the slash is a fraction here and not an opacity, which is why the suffix is kept
-        // as written as well as read as one.
+        return TrySpacing(candidate.Value, tokens, out result);
+    }
+
+    /// <summary>
+    ///     <c>w-1/2</c> — the slash is a fraction here and not an opacity, which is why the suffix is
+    ///     kept as written as well as read as one.
+    /// </summary>
+    static bool TryFractionOf(UtilityCandidate candidate, out string result) {
         if (candidate.SlashSuffix is { } denominator
             && float.TryParse(candidate.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var numerator)
             && float.TryParse(denominator, NumberStyles.Float, CultureInfo.InvariantCulture, out var divisor)
@@ -3300,7 +3553,8 @@ public static class UtilityFamilies {
             return true;
         }
 
-        return TrySpacing(candidate.Value, tokens, out result);
+        result = string.Empty;
+        return false;
     }
 
     /// <summary>Resolves a <c>rounded-*</c> against the theme.</summary>
@@ -3351,6 +3605,25 @@ public static class UtilityFamilies {
     static bool TryFraction(string value, out string result) {
         if (float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var percent)) {
             result = (percent / 100f).ToString("0.####", CultureInfo.InvariantCulture);
+            return true;
+        }
+
+        result = string.Empty;
+        return false;
+    }
+
+    /// <summary>One half of a written ratio.</summary>
+    /// <remarks>
+    ///     ⚠ Strictly positive, which <see cref="TryNumber" /> is not. CSS Sizing 4 § 4.1 makes a
+    ///     <c>&lt;ratio&gt;</c> two positive numbers, and <c>aspect-16/0</c> is a box with no height
+    ///     at any width — a declaration the layout would honour into a zero-area element rather than
+    ///     one it would refuse. A class that cannot mean anything is better reported as unknown.
+    /// </remarks>
+    static bool TryRatioPart(string value, out string result) {
+        if (float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number)
+            && number > 0f
+            && float.IsFinite(number)) {
+            result = number.ToString("0.####", CultureInfo.InvariantCulture);
             return true;
         }
 
@@ -3580,11 +3853,17 @@ public static class UtilityFamilies {
     ///     nesting, which the loader does not do, so the emitted form is the flattened one — proved
     ///     rather than assumed, in <c>ChildScopedFamilyTests</c>. The <c>:where()</c> is v4's way of
     ///     keeping the rule at one class of specificity so that a child's own <c>me-0</c> still
-    ///     wins; here <c>SelectorCompiler</c> counts <c>:where()</c> like <c>:is()</c> and adds a
-    ///     class either way, so the rule lands at <c>(0,2,0)</c> and beats a child's own single-class
-    ///     utility. That is exactly what Tailwind v3 did for four major versions, it is written down
-    ///     in the guide rather than left to be discovered, and the fix is three lines in a file this
-    ///     project does not own.
+    ///     wins; the rule lands at <c>(0,2,0)</c> here and beats a child's own single-class utility.
+    ///     That is exactly what Tailwind v3 did for four major versions, and it is written down in
+    ///     the guide rather than left to be discovered.
+    ///     <para>
+    ///         ⚠ <b>This remark used to say the fix was "three lines in a file this project does not
+    ///         own" — that <c>SelectorCompiler</c> counts <c>:where()</c> like <c>:is()</c> and a
+    ///         charge could simply be dropped. It does not.</b> ExCSS 4.3.2 does not parse
+    ///         <c>:where()</c> at all, so the whole selector arrives as one unknown and the rule is
+    ///         refused rather than compiled at the wrong specificity. Measured in
+    ///         <c>Vixen.Ui.Styling.Tests</c>' <c>WhereSelectorTests</c>.
+    ///     </para>
     /// </remarks>
     static void Between(string name, ValueKind kind, string[] properties) =>
         Register(new Family(name, kind, properties, Scope: BetweenChildren));
@@ -3653,6 +3932,18 @@ public static class UtilityFamilies {
             [fragment],
             Template: "{0}%",
             Alongside: [new UtilityDeclaration("scale", UtilityComposition.Scaling())]
+        ));
+
+    /// <summary>Registers a skew axis as an angle fragment plus the <c>transform</c> it assembles into.</summary>
+    /// <param name="name">The utility prefix.</param>
+    /// <param name="fragments">The fragments it writes — one per axis, both for the bare root.</param>
+    static void Skew(string name, string[] fragments) =>
+        Register(new Family(
+            name,
+            ValueKind.Angle,
+            fragments,
+            Template: "{0}",
+            Alongside: [new UtilityDeclaration("transform", UtilityComposition.Transform())]
         ));
 
     static void Number(string name, params string[] properties) =>

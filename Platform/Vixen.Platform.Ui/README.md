@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Vixen.Platform.Ui
 
-The join between `Vixen.Platform` and `Vixen.Ui`. Two files, and neither of them could live on
+The join between `Vixen.Platform` and `Vixen.Ui`. Four files, and none of them could live on
 either side.
 
 `Vixen.Ui` is a `Core/` assembly and a window is not: doc 00's layering says `Core` may not reference
@@ -52,6 +52,23 @@ Three things it deliberately does not do:
 placed the windows knows where each starts — so this is what lets a tab be dragged out of one window
 and dropped into another. A platform without `WindowPositioning` answers `false`, and docking degrades
 to working within each window rather than to dropping panels somewhere arbitrary.
+
+## `PlatformCursor` and `PlatformClipboard`
+
+The two small ones, and both are the same story: a capability implemented on every desktop that
+nothing above the platform layer ever called.
+
+`PlatformCursor.Apply` turns what the cascade resolved for the hovered element into the window's
+stock cursor. `UiDocument.Cursor` answered `cursor: pointer` correctly for a year with no reader, so
+every `cursor-*` utility scored *works* against a probe that asked the document.
+
+⚠ `PlatformClipboard` fills `IUiClipboard`, and its absence was worse: `IClipboard` has had real
+backends on macOS, Windows and Linux since Phase 1 and **no caller above `Vixen.Platform` at all**,
+so ⌘C in a Vixen text box put nothing anywhere — in every application including the editor, whose
+`PropertyClipboard` is an in-process object store that never touches the OS pasteboard.
+`Install(document, platform)` is the one line a head calls, and both heads — `UiApplication` and
+`EditorHost` — call it. A platform without `PlatformCapabilities.Clipboard` leaves the document's
+clipboard null, which greys the three verbs out rather than pretending.
 
 ## Multi-window and DPI
 

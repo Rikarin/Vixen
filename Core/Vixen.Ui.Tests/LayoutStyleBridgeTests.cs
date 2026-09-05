@@ -15,13 +15,20 @@ public class LayoutStyleBridgeTests {
     public void An_element_with_no_declarations_gets_CSS_initial_values_and_not_Yoga_s() {
         var style = new BridgeFixture().Build("color: red");
 
-        // ⚠ All four of these differ between the two specifications, and Vixen.Ui.Layout is right to
+        // ⚠ All five of these differ between the two specifications, and Vixen.Ui.Layout is right to
         // start from Yoga's — it is judged by Yoga's conformance suite. The bridge is where a VCSS
         // author's expectations take over.
         Assert.Equal(FlexDirection.Row, style.FlexDirection);
         Assert.Equal(Align.Stretch, style.AlignContent);
         Assert.Equal(PositionType.Static, style.PositionType);
         Assert.Equal(BoxSizing.ContentBox, style.BoxSizing);
+
+        // ⚠ The fifth arrived last and was the one that changed what documents looked like rather
+        // than only what an author had to type. `StyleResolution.ResolveFlexShrink` reads an unset
+        // shrink as Yoga's 0, so this has to be a written 1 rather than a NaN. See #628, and
+        // `FlexShrinkFromCssTests` for the geometry it buys.
+        Assert.Equal(1f, style.FlexShrink);
+        Assert.True(float.IsNaN(LayoutStyle.Default.FlexShrink));
 
         Assert.NotEqual(LayoutStyle.Default.FlexDirection, style.FlexDirection);
         Assert.NotEqual(LayoutStyle.Default.PositionType, style.PositionType);
@@ -381,5 +388,52 @@ public class LayoutStyleBridgeTests {
         var two = new BridgeFixture().Build("inset: 5px 6px");
         Assert.Equal(5f, two.Position[(int) Edge.Vertical].Value, Tolerance);
         Assert.Equal(6f, two.Position[(int) Edge.Horizontal].Value, Tolerance);
+    }
+
+    /// <summary>A <c>calc()</c> folds on the way through, so layout is handed a number.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The folding is asserted in <c>CalcTests</c> against the parser; this asserts the
+    ///         wire, which is the half that could have been missing.</b> Doc 43 § D1 and #240 ask for
+    ///         <c>calc()</c> "resolved in the cascade", and a parser that folds it is not by itself
+    ///         that: the bridge reads declarations through its own
+    ///         <c>StyleValueParser</c> instance, and a second reader that did not — an edge shorthand
+    ///         split by hand, a size read as text — would leave the class computing correctly and the
+    ///         box the wrong size. Nothing else in this file goes through <c>calc()</c>.
+    ///     </para>
+    ///     <para>
+    ///         The relative cases are here rather than in <c>CalcTests</c> for the reason the whole
+    ///         file exists: <c>1rem + 4px</c> cannot fold in the parser, which has no idea what a
+    ///         <c>rem</c> is worth, so <c>calc(1rem + 4px)</c> is a mixed-unit sum and correctly
+    ///         refused — while <c>calc(1rem * 2)</c> folds to <c>2rem</c> and is only then measured.
+    ///         Both are asserted so that a widened evaluator, which would answer the first with a
+    ///         plausible wrong pixel count, goes red here.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_calc_is_folded_before_layout_sees_it() {
+        // 2 + 2 in pixels, and the sum is not either operand — a bridge that took the first number it
+        // found would answer 2.
+        Assert.Equal(4f, Width("width: calc(2px + 2px)"), Tolerance);
+
+        // Folded to `2rem` in the parser and measured against the 16px root here, which is the two
+        // stages in one declaration.
+        Assert.Equal(32f, Width("width: calc(1rem * 2)"), Tolerance);
+
+        // ⚠ And a mixed-unit sum is refused rather than guessed at, so the width keeps CSS's initial
+        // `auto` instead of arriving as a plausible number. `calc(100% - 10px)` is the same refusal
+        // and the one a stylesheet author is likeliest to write.
+        //
+        // ⚠ `auto` and not undefined, which is worth being exact about: `Set` writes nothing when a
+        // declaration is not understood, so what survives is the initial value the bridge already
+        // put there — asserting `IsDefined` is false here would be asserting that the bridge has no
+        // initial values, and it does.
+        Assert.Equal(
+            LayoutUnit.Auto,
+            new BridgeFixture().Build("width: calc(1rem + 4px)").Dimensions[(int) Dimension.Width].Unit
+        );
+
+        static float Width(string css) =>
+            new BridgeFixture().Build(css).Dimensions[(int) Dimension.Width].Value;
     }
 }

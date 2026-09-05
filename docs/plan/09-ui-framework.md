@@ -329,15 +329,22 @@ accept both**. Cheap to know before the property system is written; expensive to
 
 Supported: type/class/id/universal selectors, descendant/child/sibling combinators, attribute
 selectors, `:hover`/`:active`/`:focus`/`:focus-visible`/`:disabled`/`:checked`/`:first-child`/
-`:last-child`/`:nth-child()`/`:empty`/`:not()`/`:is()`/`:where()`,
+`:last-child`/`:nth-child()`/`:empty`/`:not()`/`:is()` (⚠ **not** `:where()` — ExCSS 4.3.2 does not
+parse it, so a rule containing one is refused whole; `WhereSelectorTests` measures that),
 custom properties (`--x`) with `var()` and fallbacks, `@media` (width/height/orientation/
 prefers-color-scheme/dpi), `@supports`, `@keyframes`, `@font-face`, `@import`, `@layer` (cascade
 layers — worth having, it is how the utility system and component styles coexist cleanly).
 
 Not supported, and documented: floats, tables, `position: fixed` relative to viewport (there is no
 viewport in a game overlay), CSS filters beyond a curated set, `calc()` beyond `+ - * /` on
-compatible units, container queries (P2), `:has()` (P2 — expensive to match incrementally),
-pseudo-elements.
+compatible units, container queries (P2), pseudo-elements.
+
+⚠ **`:has()` was in that list as P2 — "expensive to match incrementally" — and it landed under doc
+43's A17.** The estimate was right about where the cost is and wrong that it was prohibitive:
+matching one is a subtree walk, and invalidating one is an upward walk narrowed by the far end's
+names, measured in `HasInvalidationTests` as elements resolved. Its argument is restricted to a
+single compound, because a relative argument is anchored at the element and matching the nested
+selector against every descendant would also accept an ancestor.
 
 ⚠ **`::before` and `::after` were in the supported list above and were never supported — corrected
 here rather than left standing.** This is [doc 43](43-web-styling-parity.md)'s finding **F6**, and
@@ -417,9 +424,11 @@ The performance-critical part. Naive selector matching is O(elements × rules).
   inherited one. The second is not a failure of invalidation — every cell's inherited colour
   genuinely did change.
 
-  Nothing has to look *upward*, and that is the second thing the `:has()` P2 decision buys after
-  match cost. `:focus-within` looks like an exception and is not: it is stored as element state and
-  set explicitly, so it arrives as an ordinary change.
+  ⚠ **This said nothing has to look *upward*, which was the second thing the `:has()` P2 decision
+  bought after match cost — and A17 spent it.** A name inside a `:has()` argument now carries a
+  fourth direction, so a class added deep in a panel walks to the top of the tree and collects by
+  the far end's names from there. `:focus-within` still looks like an exception and is not: it is
+  stored as element state and set explicitly, so it arrives as an ordinary change.
 - **`ComputedStyle` is immutable, interned, and reference-compared.** Layout reads it and only marks
   itself dirty when the reference changed *and* a layout-affecting property differs.
 
@@ -538,8 +547,10 @@ needed the generator to emit a compound selector rather than a bare class. It do
 `ChildScopedFamilyTests`: `space-y-*` emits the physical `margin-bottom` where v4 emits
 `margin-block-end`, because the block pair is interned by nobody and this engine has no writing mode
 for them to differ in; and the scope is not wrapped in `:where()`, which v4 uses to keep the rule at
-one class of specificity, because `SelectorCompiler` charges a class for `:where()` as it does for
-`:is()`. The second is v3's behaviour and shipped for four major versions. `space-x-reverse` and
+one class of specificity, because ⚠ **`:where()` is not a selector this front end reads** — ExCSS
+4.3.2 hands the whole selector back as one unknown and `SelectorCompiler` refuses the rule, so there
+is no charge to remove and the fix is not a specificity tweak. The second is v3's behaviour and
+shipped for four major versions. `space-x-reverse` and
 `divide-*-reverse` are absent — ⚠ **and neither reason originally given for them is the reason any
 more.** `StyleValueParser` folds `+ - * /` on compatible units, and `ReverseFlagTests` measures that
 the `--tw-*-reverse` flag *is* read: written by one class, read by another class's declaration,

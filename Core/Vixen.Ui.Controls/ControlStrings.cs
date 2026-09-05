@@ -166,6 +166,15 @@ public static class ControlStrings {
     public static StringId GradientEditorAlphaStops { get; } =
         new("ui.control.gradient-editor.alpha-stops", "Opacity stops");
 
+    /// <summary>The set of nodes on a graph canvas.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The set, not the canvas.</b> A <c>NodeCanvas</c> is deliberately unnamed — what it
+    ///     is a view of is the application's sentence, usually the panel title above it — but the
+    ///     surface inside it is the <c>listbox</c> the nodes are <c>option</c>s of, and a set with
+    ///     no name is one a reader cannot tell from the next canvas along in a split view.
+    /// </remarks>
+    public static StringId NodeCanvasNodes { get; } = new("ui.control.node-canvas.nodes", "Nodes");
+
     /// <summary>Every string above, for a translator to start from.</summary>
     /// <remarks>
     ///     ⚠ <b>Spelled out rather than reflected over</b>, for the reason <c>Strings.Template</c>
@@ -199,6 +208,7 @@ public static class ControlStrings {
         GradientEditorSpace,
         GradientEditorOpacity,
         GradientEditorColorStops,
-        GradientEditorAlphaStops
+        GradientEditorAlphaStops,
+        NodeCanvasNodes
     ];
 }

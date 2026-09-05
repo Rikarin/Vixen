@@ -81,14 +81,24 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         by its reciprocal. Same rotation, and no comparison of numbers can see through it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>That exception is gone because the GLSL was respelled, and the list it was the only
-///         entry on is gone with it.</b> The alternative — keeping an allow-list of one against the
-///         day a second reciprocal appears — is the shape this file's own remark warns about, since an
-///         allow-list that survives its reason is a hole and an empty one is a hole waiting. So
-///         <c>ui-mask.frag</c> now multiplies by <c>0.15915494309189535</c> exactly as
-///         <c>Ui.rvn</c> does, which is arithmetically a no-op and cost a <c>glslc</c> run, a
-///         recommitted module and a rewritten ledger. The containment is unconditional again: every
-///         number the copy holds is one the Raven holds.
+///         ⚠ <b>That particular exception is gone because the GLSL was respelled rather than the
+///         check widened.</b> The alternative — keeping an allow-list entry against the day a second
+///         reciprocal appears — is the shape this file's own remark warns about, since an allow-list
+///         that survives its reason is a hole. So <c>ui-mask.frag</c> now multiplies by
+///         <c>0.15915494309189535</c> exactly as <c>Ui.rvn</c> does, which is arithmetically a no-op
+///         and cost a <c>glslc</c> run, a recommitted module and a rewritten ledger.
+///     </para>
+///     <para>
+///         ⚠ <b>And it compared each copy with <c>Ui.rvn</c> whole, which is a weaker claim than it
+///         reads as.</b> Eight shaders' numbers in one pool means a threshold only the box path uses
+///         excuses the same number turning up in the text copy, and those two shaders have nothing to
+///         do with each other. It is now per shader — <c>Transcribes</c> names the pairing, and the
+///         file's declarations outside every shader block go in the pool because a copy is entitled
+///         to them. ⚠ Narrowing it found two more legitimate spellings, of the reciprocal's kind:
+///         <c>clamp(x, 0.0, 1.0)</c> is <c>saturate(x)</c>, so two copies write a <c>1</c> their
+///         shader folds into an operation's name. That is what <c>Spelled</c> holds now — the
+///         reciprocal's row is gone, and the two that replaced it are a different finding and not
+///         that one returning.
 ///     </para>
 ///     <para>
 ///         So what stays here is the half that applies to one copy: every committed module is the one
@@ -424,14 +434,86 @@ public partial class SharedUiShaderTests {
     ///         find one named coefficient it is impossible to be right without.
     ///     </para>
     /// </remarks>
-    /// <summary>Every number each GLSL copy holds is a number the Raven it transcribes holds too.</summary>
+    /// <summary>The numbers a copy spells differently, and why none of them is drift.</summary>
     /// <remarks>
-    ///     ⚠ <b>All eight, where this was <c>ui-box.frag</c> alone.</b> The record's layout is what
-    ///     <c>ui-box.frag</c> is special about — it is the file <c>UiShapeLayoutTests</c> parses — and
-    ///     nothing made it special about <i>constants</i>: the other seven transcribe the same Raven
-    ///     out of the same specification, and <c>ui-mask.frag</c> alone holds ten of them. A check
-    ///     that compared one file of eight was answering a narrower question than the one this class
-    ///     exists to ask.
+    ///     <para>
+    ///         ⚠ <b>These are the cases this whole check's own remark predicted it could not see: one
+    ///         expression rearranged around numbers the other file never writes.</b> Admitting a class
+    ///         of rearrangement generally would be the wrong fix — it would weaken every file's
+    ///         containment to catch a handful of legitimate differences, and this repository's own
+    ///         history is of allow-lists that rot into holes. So each row is one file and one number,
+    ///         carrying its reason.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The list can only shrink, which is what stops it being a hiding place.</b> An
+    ///         entry that is no longer missing fails, so the day somebody rewrites either expression
+    ///         to match the other, this says so instead of quietly excusing a number that is now
+    ///         present.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Its founding row is gone and these two are not it coming back.</b>
+    ///         <c>ui-mask.frag</c> normalised a conic sweep as <c>angle / 6.28318531</c> where the
+    ///         Raven multiplies by the reciprocal, and that one was retired by respelling the copy —
+    ///         a <c>glslc</c> run, a recommitted module and a rewritten ledger — rather than by
+    ///         leaving a row here. These two arrived with the narrowing below and are one finding,
+    ///         not two: GLSL writes <c>clamp(x, 0.0, 1.0)</c> where the Raven writes
+    ///         <c>saturate(x)</c> — the same operation with both bounds folded into its name — so the
+    ///         copy spells a <c>1</c> that its shader's Raven never writes. Respelling is not open
+    ///         here the way it was for the reciprocal: <c>saturate</c> is not GLSL. The <c>0.0</c> is
+    ///         not excused because the Raven happens to write one elsewhere in the file; that it
+    ///         slips through on a coincidence is worth knowing and is not worth an entry.
+    ///     </para>
+    /// </remarks>
+    static readonly Dictionary<string, float[]> Spelled = new(StringComparer.Ordinal) {
+        ["ui-solid.frag"] = [1f],
+        ["ui-text.frag"] = [1f]
+    };
+
+    /// <summary>Which Raven shader each GLSL copy transcribes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the narrowing, and it is the whole of what it buys: a constant that belongs
+    ///     to <i>another</i> shader in the same file no longer excuses one here.</b> The comparison
+    ///     used to be against <c>Ui.rvn</c> whole — eight shaders' worth of numbers, so
+    ///     <c>ui-text.frag</c> could hold a threshold only the blur has and be contained. Every one
+    ///     of these eight is a transcription of one named shader, and the pairing is stated rather
+    ///     than derived from the file name so that a rename fails here rather than quietly widening
+    ///     the comparison back out.
+    /// </remarks>
+    static readonly Dictionary<string, string> Transcribes = new(StringComparer.Ordinal) {
+        ["ui-blur.frag"] = "UiBlur",
+        ["ui-box.frag"] = "UiBox",
+        ["ui-colour.frag"] = "UiColour",
+        ["ui-image.frag"] = "UiImage",
+        ["ui-mask.frag"] = "UiMask",
+        ["ui-solid.frag"] = "UiSolid",
+        ["ui-text.frag"] = "UiText",
+        ["ui.vert"] = "UiVertex"
+    };
+
+    /// <summary>Every number each GLSL copy holds is a number the shader it transcribes holds too.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>All eight, where this was <c>ui-box.frag</c> alone.</b> The record's layout is what
+    ///         <c>ui-box.frag</c> is special about — it is the file <c>UiShapeLayoutTests</c> parses —
+    ///         and nothing made it special about <i>constants</i>: the other seven transcribe the same
+    ///         Raven out of the same specification, and <c>ui-mask.frag</c> alone holds ten of them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And against one shader, where this was against <c>Ui.rvn</c> whole.</b> Containment
+    ///         in a file holding eight shaders is a weaker claim than it reads as: any number the box
+    ///         path uses excuses the same number appearing in the text copy, and the two shaders have
+    ///         nothing to do with each other. Narrowing it to <see cref="Transcribes" />' named block —
+    ///         plus the file's declarations outside every block, which a copy is entitled to — is the
+    ///         same check asked of the right set.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Narrowing it turned up one more spelling and it is the same kind as
+    ///         <c>ui-mask.frag</c>'s reciprocal.</b> <c>ui-solid.frag</c> and <c>ui-text.frag</c> both
+    ///         write <c>clamp(x, 0.0, 1.0)</c> where their shaders write <c>saturate(x)</c>, so the
+    ///         copy spells a <c>1</c> the Raven folds into an operation's name. Not drift, and
+    ///         recorded in <see cref="Spelled" /> as an exception that has to be needed before it is
+    ///         applied.
+    ///     </para>
     /// </remarks>
     [Theory]
     [InlineData("ui-blur.frag")]
@@ -451,15 +533,36 @@ public partial class SharedUiShaderTests {
         Assert.True(File.Exists(raven), $"'{Relative(root, raven)}' is missing, and it is what every application draws through.");
 
         var text = File.ReadAllText(glsl);
+        var ravenText = File.ReadAllText(raven);
 
         var copy = Constants(text);
-        var source = Constants(File.ReadAllText(raven));
 
         // ⚠ The instrument's own check, and it runs before the comparison rather than after it. This
         // is the first coefficient of Ottosson's linear-to-LMS matrix: no correct version of the
         // Raven can be without it, so a sweep that does not find it has stopped reading rather than
-        // found agreement.
-        Assert.Contains(0.4122214708f, source);
+        // found agreement. Against the whole file, deliberately — it is a question about the
+        // extractor and not about this shader.
+        Assert.Contains(0.4122214708f, Constants(ravenText));
+
+        var (bodies, outside) = Partition(ravenText);
+        var shader = Transcribes[name];
+
+        Assert.True(
+            bodies.TryGetValue(shader, out var body),
+            $"'{Relative(root, raven)}' declares no `shader {shader}`, which is what '{name}' transcribes. "
+            + $"If it was renamed, rename it in `{nameof(Transcribes)}` — a pairing that silently stopped "
+            + "matching would widen this comparison back out to the whole file."
+        );
+
+        // ⚠ The shader's own numbers *and* the file's declarations outside every shader block. The
+        // second half is not slack: `Ui.rvn` puts structs, helper functions and the shared composite
+        // block between the shaders, and a copy is entitled to every number in them.
+        var source = Constants(body!);
+        source.UnionWith(Constants(outside));
+
+        // ⚠ And that there was a shader to read. An empty body is contained in everything, which is
+        // the same failure the per-file anchor below is about one level up.
+        Assert.NotEqual(0, Code(body!).Trim().Length);
 
         // ⚠ <b>And the per-file anchor is that the file was READ, not that it held a number.</b>
         // `ui-image.frag` samples a texture and holds no arithmetic constant at all once the
@@ -469,15 +572,31 @@ public partial class SharedUiShaderTests {
         // What separates the two is whether there was any code to read.
         Assert.NotEqual(0, Code(text).Trim().Length);
 
-        // ⚠ Unconditional, with no exception list to consult. There was one, of one entry, and it
-        // was retired by respelling the copy rather than by widening the comparison — an allow-list
-        // outliving its reason is this repository's own recurring hole, and an empty one is a hole
-        // waiting for the next person who would rather add a line than run `glslc`.
+        // ⚠ Almost unconditional, and the exceptions are respellings and not tolerances. The
+        // reciprocal that founded this list was retired by respelling the copy rather than by
+        // widening the comparison — an allow-list outliving its reason is this repository's own
+        // recurring hole — and what is left is `clamp` against `saturate`, which cannot be respelled
+        // because `saturate` is not GLSL.
+        var spelled = Spelled.TryGetValue(name, out var known) ? known : [];
         var missing = copy.Where(value => !source.Contains(value)).Order().ToList();
+
+        // ⚠ Before the comparison, so the list can only shrink: an exception whose number the Raven
+        // now holds is an exception that has outlived its reason.
+        foreach (var value in spelled) {
+            Assert.True(
+                missing.Contains(value),
+                $"'{name}' is excused {value.ToString("R", CultureInfo.InvariantCulture)} and no longer needs to be — "
+                + $"`shader {shader}` holds it now, or the copy has stopped holding it. Drop the entry from "
+                + $"`{nameof(Spelled)}`; that list is allowed to shrink and never to grow quietly."
+            );
+        }
+
+        missing.RemoveAll(spelled.Contains);
 
         Assert.True(
             missing.Count == 0,
-            $"'{Relative(root, glsl)}' holds {missing.Count} number(s) that '{Relative(root, raven)}' does not: "
+            $"'{Relative(root, glsl)}' holds {missing.Count} number(s) that `shader {shader}` in "
+            + $"'{Relative(root, raven)}' does not: "
             + string.Join(", ", missing.Select(value => value.ToString("R", CultureInfo.InvariantCulture)))
             + ". They are two implementations of one specification, and a constant in one and not the "
             + "other is drift between them — which is what the reference images in this suite would "
@@ -542,6 +661,158 @@ public partial class SharedUiShaderTests {
     [GeneratedRegex(@"layout\s*\([^)]*\)")]
     private static partial Regex Qualifier();
 
+    /// <summary>The GLSL sources that are deliberately identical to another, and why each is.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A pair here is a debt, not a design.</b> Each of these is a file somebody has to
+    ///         keep equal by hand, and the entry says what it would take to stop having to — the
+    ///         list is expected to shrink to nothing and is a bad place to add a row.
+    ///     </para>
+    ///     <para>
+    ///         Repository-relative, with <c>/</c> separators, exactly as the walk reports them.
+    ///     </para>
+    /// </remarks>
+    static readonly (string Reason, string[] Files)[] Twins = [
+        // ⚠ The debug line pair used to be the first two rows here, and they are gone because the
+        // debt was paid rather than because the check was relaxed: this suite carried its own copy
+        // of `line.{vert,frag}` and both modules beside `Vixen.Rendering`'s embedded ones, and the
+        // fixture now calls `LineShaders.Default` and reads the embedded bytes (#637). The rows said
+        // the fix "needs a device run to accept"; it got one. The list shrinking is the point of it.
+        (
+            "01-HelloTriangle's triangle and this suite's fixture for the same picture. The sample "
+            + "may not reference a test project and the direction cannot be reversed either, so this "
+            + "one is a copy until somebody moves the pair somewhere both can read.",
+            ["Platform/Vixen.Graphics.Golden.Tests/Shaders/triangle.frag", "Samples/01-HelloTriangle/Shaders/triangle.frag"]
+        ),
+        (
+            "the same pair's vertex stage, and the same answer.",
+            ["Platform/Vixen.Graphics.Golden.Tests/Shaders/triangle.vert", "Samples/01-HelloTriangle/Shaders/triangle.vert"]
+        )
+    ];
+
+    /// <summary>Two GLSL sources that are the same file are still the same file.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The failure class this file exists for, in the one language where nothing was
+    ///         watching it.</b> <see cref="EveryRavenCopyAgreesAboutTheShadersItShares" /> holds the
+    ///         Raven copies to each other and
+    ///         <see cref="EveryCommittedModuleMatchesTheSourceItWasBuiltFrom" /> holds each source to
+    ///         the module beside it — and neither can say anything about two <i>sources</i> that are
+    ///         supposed to be the same, because each is internally consistent on its own. Edit one
+    ///         <c>line.frag</c>, recompile it, and both halves stay green while the two pictures
+    ///         diverge. That is exactly how <c>ui-box.frag</c> lost the shadow path on two of three
+    ///         copies.
+    ///     </para>
+    ///     <para>
+    ///         <b>Both directions, which is what makes it a check rather than a list.</b> A declared
+    ///         pair that has drifted fails, which is the drift this is for; and a duplicate the walk
+    ///         finds that nobody declared fails too, so a fifth copy cannot be added quietly. The
+    ///         reason is prose because a boolean would let a copy be waved through by somebody who
+    ///         did not have to say what it would take to remove it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It says nothing about whether either copy is right</b>, and that is not a
+    ///         weakness to fix here: whether the GLSL agrees with the Raven every application draws
+    ///         through is #286's, and it needs a golden rendered through each.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Comments are <i>not</i> stripped, unlike
+    ///         <see cref="EveryCommittedModuleMatchesTheSourceItWasBuiltFrom" />'s digest.</b> There
+    ///         the question is whether a module is stale, and a comment cannot make it stale. Here
+    ///         the question is whether two files somebody maintains by hand are the same file, and
+    ///         a warning added to one copy and not the other is precisely the divergence a reader
+    ///         relies on not existing. <c>scene.frag</c> and <c>mesh.frag</c> in this directory are
+    ///         what that looks like — the issue that asked for this recorded them as
+    ///         byte-identical, and they now differ by three lines of comment.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the walk skips any dot directory.</b> <c>.claude/worktrees</c> holds a whole
+    ///         checkout per parallel agent, so a walk from the root compares old versions of these
+    ///         files with each other and reports drift that is not in the tree under test — see
+    ///         <see cref="EveryRavenCopyAgreesAboutTheShadersItShares" />, which failed exactly that
+    ///         way.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void EveryDuplicateGlslSourceIsADeclaredPair() {
+        var root = RepositoryRoot();
+
+        var sources = Directory
+            .EnumerateFiles(root, "*", SearchOption.AllDirectories)
+            .Where(path => Extensions.Contains(Path.GetExtension(path), StringComparer.Ordinal))
+            .Where(path => !Relative(root, path)
+                .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Any(segment => segment.StartsWith('.') || segment is "bin" or "obj" or "artifacts"))
+            .Select(path => Relative(root, path).Replace('\\', '/'))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToList();
+
+        // ⚠ The instrument, before anything is compared. A walk that matched nothing finds no
+        // duplicates and agrees with an empty table perfectly, which is this suite's own recurring
+        // mistake. Forty today; a floor rather than an equality so that adding a shader is not a
+        // failure.
+        Assert.True(
+            sources.Count >= 30,
+            $"only {sources.Count} GLSL sources were found under '{root}', so this compared almost nothing"
+        );
+
+        Assert.Contains("Core/Vixen.Rendering/Shaders/line.frag", sources);
+
+        var declared = Twins
+            .Select(twin => string.Join(", ", twin.Files.Order(StringComparer.Ordinal)))
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        var offenders = new List<string>();
+
+        foreach (var (reason, files) in Twins) {
+            foreach (var file in files) {
+                if (!sources.Contains(file, StringComparer.Ordinal)) {
+                    offenders.Add(
+                        $"'{file}' is declared as one of a deliberate pair and the walk did not find it. "
+                        + "If it went away, so should the entry."
+                    );
+                }
+            }
+
+            Assert.False(string.IsNullOrWhiteSpace(reason), $"'{files[0]}' is declared as a pair with no reason");
+        }
+
+        var found = sources
+            .Where(path => File.Exists(Path.Combine(root, path)))
+            .GroupBy(path => Digest(File.ReadAllBytes(Path.Combine(root, path))), StringComparer.Ordinal)
+            .Where(group => group.Count() > 1)
+            .Select(group => string.Join(", ", group.Order(StringComparer.Ordinal)))
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        foreach (var group in found.Except(declared, StringComparer.Ordinal)) {
+            offenders.Add(
+                $"{group} are byte-identical and nothing declares them a pair. Two files somebody has to "
+                + "keep equal by hand is how `ui-box.frag` lost the shadow path on two of three copies — "
+                + "either delete one, or add it to `Twins` with what it would take to."
+            );
+        }
+
+        foreach (var group in declared.Except(found, StringComparer.Ordinal)) {
+            offenders.Add(
+                $"{group} are declared identical and are not. One of them has been edited and the other "
+                + "has not, which is the drift this exists to catch — and each half is internally "
+                + "consistent, so nothing else in this file would say so."
+            );
+        }
+
+        Assert.Empty(offenders);
+    }
+
+    /// <summary>What counts as a GLSL source for the walk above.</summary>
+    /// <remarks>
+    ///     ⚠ <c>.glsl</c> is in the list for the include headers, which are the copy nobody would
+    ///     think to look for: a shared <c>.h.glsl</c> duplicated beside two shaders is the same
+    ///     debt one level down.
+    /// </remarks>
+    static readonly string[] Extensions = [".frag", ".vert", ".comp", ".glsl"];
+
     /// <summary>Every <c>shader Name { … }</c> block in a Raven source, by name.</summary>
     /// <remarks>
     ///     Brace counting rather than a regular expression over the whole block: a shader body
@@ -573,6 +844,50 @@ public partial class SharedUiShaderTests {
 
             yield return (name, Squeezed(source[brace..Math.Min(end + 1, source.Length)]));
         }
+    }
+
+    /// <summary>A Raven source split into its shader bodies and everything between them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Raw text, and not what <see cref="Blocks" /> returns.</b> That one squeezes a body
+    ///     onto one line so a reformat is not a failure, which is right for comparing two bodies and
+    ///     wrong for anything downstream of <see cref="Code" />: a <c>//</c> comment on a squeezed
+    ///     body swallows the rest of the shader. Two extractions of the same shape rather than one
+    ///     that has to serve both.
+    /// </remarks>
+    static (Dictionary<string, string> Bodies, string Outside) Partition(string source) {
+        const string keyword = "\nshader ";
+
+        var bodies = new Dictionary<string, string>(StringComparer.Ordinal);
+        var outside = new StringBuilder();
+        var last = 0;
+
+        for (var at = source.IndexOf(keyword, StringComparison.Ordinal); at >= 0; at = source.IndexOf(keyword, last, StringComparison.Ordinal)) {
+            var nameAt = at + keyword.Length;
+            var brace = source.IndexOf('{', nameAt);
+
+            if (brace < 0) {
+                break;
+            }
+
+            var depth = 0;
+            var end = brace;
+
+            for (; end < source.Length; end++) {
+                if (source[end] == '{') {
+                    depth++;
+                } else if (source[end] == '}' && --depth == 0) {
+                    break;
+                }
+            }
+
+            outside.Append(source[last..at]).Append('\n');
+            bodies[source[nameAt..brace].Trim()] = source[brace..Math.Min(end + 1, source.Length)];
+            last = Math.Min(end + 1, source.Length);
+        }
+
+        outside.Append(source[last..]);
+
+        return (bodies, outside.ToString());
     }
 
     /// <summary>A body with every run of whitespace collapsed to one space.</summary>
