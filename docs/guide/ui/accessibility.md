@@ -23,7 +23,7 @@ Six things on `UiElement`, and one event on `UiDocument`.
 | `AccessibleValue` | `NativeAccessibleValue`: a field's text, the label of the option a `Select` is showing. `null` for anything that is an action rather than a value |
 | `AccessibleState` | `NativeAccessibleState` from the control, `DeclaredAccessibleState` from the application, and `Disabled`, `Focused` and `Focusable` added by the framework from what it already knows |
 | Relations | `AddAccessibleRelation(relation, target)` — the pairings the tree cannot show |
-| `UiDocument.AccessibilityInvalidated` | Raised at most once a frame, from `Tick`, when anything above may have changed |
+| `UiDocument.AccessibilityInvalidated` | Raised at most once a frame, from `Tick`, when anything above may have changed — structure, focus, an explicit assignment, or a change to `ElementState.Checked` or `.Disabled` |
 
 The role tokens are [WAI-ARIA 1.2](https://www.w3.org/TR/wai-aria-1.2/#role_definitions)'s, PascalCased
 and nothing else — `tablist` is `TabList`, `menuitemcheckbox` is `MenuItemCheckBox`, and `img` is

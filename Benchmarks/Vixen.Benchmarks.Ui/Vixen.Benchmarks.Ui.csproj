@@ -35,6 +35,23 @@
             number is about.
         -->
         <ProjectReference Include="..\..\Core\Vixen.Ui.Controls\Vixen.Ui.Controls.csproj" />
+
+        <!--
+            And the advanced set, for EditorShellBenchmarks. Doc 09's Perf row names a docking host,
+            a viewport, a node canvas and a data grid by name; every one of them lives here.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ The scene is the gate's own source file, linked rather than copied. A benchmark and a
+            gate that build "the same" editor shell from two files stop describing the same shell
+            within a month, and nothing goes red when they do — both keep passing and only one of
+            them is measuring what the row says.
+        -->
+        <Compile Include="..\..\Core\Vixen.Ui.Controls.Advanced.Tests\EditorShellScene.cs"
+                 Link="EditorShellScene.cs" />
     </ItemGroup>
 
 </Project>

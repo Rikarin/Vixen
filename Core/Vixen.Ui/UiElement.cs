@@ -540,16 +540,52 @@ public partial class UiElement : Composition.IComposable {
         Document.Invalidate();
     }
 
+    /// <summary>The state bits whose changing is something a screen reader would announce.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two of the seven, and the narrowness is the design.</b> A control's accessible
+    ///         view is computed and never stored, so nothing here mirrors a state — this only decides
+    ///         whether the coalesced <see cref="UiDocument.AccessibilityInvalidated" /> flag is worth
+    ///         setting, and a bridge that caches and diffs re-reads the computed answer itself.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="ElementState.Checked" /> is the carrier for three different announced
+    ///         states</b>, which is why one bit covers so much: a toggle is ticked with it, a tab, an
+    ///         option, a tree row, a grid row and a docked tab are <i>selected</i> with it, and an
+    ///         expander header is <i>open</i> with it. Each control says which of the three its flag
+    ///         means, in its own <see cref="NativeAccessibleState" />; what they share is the write.
+    ///     </para>
+    ///     <para>
+    ///         <b><see cref="ElementState.Hover" /> and <see cref="ElementState.Active" /> are
+    ///         excluded because they are not announced</b>, and including them would set the flag on
+    ///         every frame the pointer moves — which is a bridge diffing its whole cached tree for
+    ///         the mouse crossing a button. The three focus bits are excluded for the opposite
+    ///         reason: <c>UiDocument.Focus</c> already invalidates, and a second raise from the
+    ///         restate it performs would be the same frame's work done twice.
+    ///     </para>
+    /// </remarks>
+    const ElementState AnnouncedStates = ElementState.Checked | ElementState.Disabled;
+
     /// <summary>Its interaction state — hover, focus, active — which selectors match on.</summary>
     public ElementState State {
         get => Document.Styles.Tree.GetState(StyleNode);
         set {
-            if (Document.Styles.Tree.GetState(StyleNode) == value) {
+            var previous = Document.Styles.Tree.GetState(StyleNode);
+
+            if (previous == value) {
                 return;
             }
 
             Document.Styles.Tree.SetState(StyleNode, value);
             Document.InvalidateState(StyleNode);
+
+            // ⚠ The one thing a restyle does *not* already tell a bridge. The claim that a computed
+            // state reaches one "through the restyle it already causes" was false: a restyle is a
+            // cascade invalidation and touches nothing accessible, so a consumer that re-read only
+            // when told missed every tick of every checkbox in the document.
+            if (((previous ^ value) & AnnouncedStates) != 0) {
+                Document.InvalidateAccessibility();
+            }
         }
     }
 
