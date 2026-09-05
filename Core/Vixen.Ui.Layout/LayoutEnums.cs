@@ -287,7 +287,24 @@ public enum FloatSide : byte {
     Left,
 
     /// <summary><c>float: right</c> — against the right content edge, or the last right float's left edge.</summary>
-    Right
+    Right,
+
+    /// <summary><c>float: inline-start</c> — <see cref="Left" /> in LTR and <see cref="Right" /> in RTL.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A flow-relative float is a <see cref="Direction" /> question, not a writing-mode
+    ///     one, and reading it as the latter is what kept it out of this enum.</b> CSS Logical
+    ///     Properties defines <c>inline-start</c> against the writing mode <i>and</i> the direction —
+    ///     and with no vertical writing mode the inline axis is horizontal in every configuration
+    ///     this engine can be in, so the whole of the resolution is the one this line states. It does
+    ///     not make <see cref="Left" /> flip: §9.5's physical keywords stay physical, which is what
+    ///     the ten <c>float_bfc_*</c> families assert by shipping RTL variants with expectations
+    ///     identical to their LTR twins. The two answers coexist, which is the point of them being
+    ///     four values rather than two.
+    /// </remarks>
+    InlineStart,
+
+    /// <summary><c>float: inline-end</c> — <see cref="Right" /> in LTR and <see cref="Left" /> in RTL.</summary>
+    InlineEnd
 }
 
 /// <summary>Which floats a box refuses to sit beside, per CSS 2.1 §9.5.2.</summary>
@@ -300,9 +317,11 @@ public enum FloatSide : byte {
 ///         spent rather than carried forward.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Physical, and they do not flip with <see cref="Direction" />.</b> §9.5.2's keywords
-///         name the same two sides <see cref="FloatSide" /> does, and neither pair is
-///         writing-mode-relative in CSS 2.1.
+///         ⚠ <b><see cref="Left" /> and <see cref="Right" /> are physical and do not flip with
+///         <see cref="Direction" />.</b> §9.5.2's keywords name the same two sides
+///         <see cref="FloatSide" /> does, and neither pair is writing-mode-relative in CSS 2.1.
+///         <see cref="InlineStart" /> and <see cref="InlineEnd" /> are the flow-relative pair CSS
+///         Logical Properties adds beside them, and they exist <i>because</i> the first two do not.
 ///     </para>
 /// </remarks>
 public enum Clear : byte {
@@ -316,7 +335,13 @@ public enum Clear : byte {
     Right,
 
     /// <summary><c>clear: both</c> — below every earlier float on either side.</summary>
-    Both
+    Both,
+
+    /// <summary><c>clear: inline-start</c> — <see cref="Left" /> in LTR and <see cref="Right" /> in RTL.</summary>
+    InlineStart,
+
+    /// <summary><c>clear: inline-end</c> — <see cref="Right" /> in LTR and <see cref="Left" /> in RTL.</summary>
+    InlineEnd
 }
 
 /// <summary>How a node is positioned relative to its parent.</summary>

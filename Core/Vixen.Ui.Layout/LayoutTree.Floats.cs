@@ -91,6 +91,40 @@ public sealed partial class LayoutTree {
         }
     }
 
+    /// <summary>Which physical side a <c>float</c> keyword names, once the direction is known.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the whole of what CSS Logical Properties' <c>inline-start</c> costs here, and
+    ///     the reason it is one line is that a flow-relative float is a <see cref="Direction" />
+    ///     question rather than a writing-mode one.</b> The two were conflated: doc 43's ledger,
+    ///     <c>UtilityFamilies</c> and <c>LayoutStyleBuilder</c> all recorded <c>float-start</c> as
+    ///     waiting on a writing mode this store had decided never to gain (#282), and then reasoned
+    ///     that the only choices left were to alias it onto <see cref="FloatSide.Left" /> — right in
+    ///     LTR, wrong in RTL, inside one declaration — or to accept it and drop it. There was a
+    ///     fourth: resolve it, which needs the direction and nothing else, because with no vertical
+    ///     writing mode the inline axis is horizontal in every configuration the engine can be in.
+    ///     <para>
+    ///         ⚠ <b>The resolved side is what goes into the exclusion list, not the authored one.</b>
+    ///         Everything downstream — <see cref="ClearancePoint" />, <see cref="FloatBandAt" />,
+    ///         <see cref="AvoidFloats" /> — reasons about physical left and right, and a
+    ///         <see cref="FloatSide.InlineStart" /> stored raw would fall down the <c>else</c> of
+    ///         every one of them and be treated as a right float.
+    ///     </para>
+    /// </remarks>
+    static FloatSide ResolveFloatSide(FloatSide side, Direction direction) =>
+        side switch {
+            FloatSide.InlineStart => direction == Direction.Rtl ? FloatSide.Right : FloatSide.Left,
+            FloatSide.InlineEnd => direction == Direction.Rtl ? FloatSide.Left : FloatSide.Right,
+            _ => side
+        };
+
+    /// <summary>Which physical sides a <c>clear</c> keyword names, once the direction is known.</summary>
+    static Clear ResolveClear(Clear clear, Direction direction) =>
+        clear switch {
+            Clear.InlineStart => direction == Direction.Rtl ? Clear.Right : Clear.Left,
+            Clear.InlineEnd => direction == Direction.Rtl ? Clear.Left : Clear.Right,
+            _ => clear
+        };
+
     /// <summary>What a formatting context root saved on the way in.</summary>
     readonly record struct FloatScope(int Start, float OriginX, float OriginY, float ContextWidth);
 
@@ -195,11 +229,16 @@ public sealed partial class LayoutTree {
     ///     context itself never fits, and the loop ends when no float crosses the slice any more —
     ///     which is the overflow §9.5.1 explicitly permits rather than a failure.
     /// </remarks>
-    float FirstFloatBandFitting(float top, float width, float height) {
+    /// <param name="top">Where to start looking, in context coordinates.</param>
+    /// <param name="width">The margin-box width that has to fit.</param>
+    /// <param name="height">The margin-box height the slice is measured over.</param>
+    /// <param name="clampLeft">The float's own containing block's content left, in context coordinates.</param>
+    /// <param name="clampRight">Its content right.</param>
+    float FirstFloatBandFitting(float top, float width, float height, float clampLeft, float clampRight) {
         var y = top;
 
         while (true) {
-            var (left, right) = FloatBandAt(y, height);
+            var (left, right) = ClampedFloatBandAt(y, height, clampLeft, clampRight);
 
             if (right - left >= width) {
                 return y;
@@ -213,6 +252,25 @@ public sealed partial class LayoutTree {
 
             y = next;
         }
+    }
+
+    /// <summary>
+    ///     The band a slice leaves, narrowed to the containing block the box being placed lives in.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>CSS 2.1 §9.5.1's rules 1 and 7 name the float's <i>containing block</i>, and the
+    ///     exclusion list is expressed in the <i>formatting context root's</i> coordinates — which are
+    ///     the same edges only when the float's parent chain adds no inset.</b> Every fixture in
+    ///     <c>Corpus/float.xml</c> is that case: <c>float_bfc_avoids_float_from_sibling_subtree</c> is
+    ///     the only one that nests a float at all, and the box it nests it in has no margin, no
+    ///     padding and no width of its own. So a float in a container with a left margin was placed at
+    ///     the ROOT's content edge and reported at a negative offset from its own parent, and 84
+    ///     browser-recorded fixtures could not see it.
+    /// </remarks>
+    (float Left, float Right) ClampedFloatBandAt(float top, float height, float clampLeft, float clampRight) {
+        var (left, right) = FloatBandAt(top, height);
+
+        return (MathF.Max(left, clampLeft), MathF.Min(right, clampRight));
     }
 
     /// <summary>How far down a box has to start to have cleared what it named, or NaN for nothing.</summary>
@@ -274,6 +332,11 @@ public sealed partial class LayoutTree {
     /// <param name="innerWidth">The container's content-box width.</param>
     /// <param name="innerHeightForPercentages">Its definite content height, or NaN.</param>
     /// <param name="flowTop">Where the box would have gone in flow, container-relative.</param>
+    /// <param name="insetLeft">
+    ///     The container's own left border-plus-padding, which is what turns
+    ///     <see cref="floatOriginX" /> — a border-box edge — into the content edge §9.5.1's rules 1
+    ///     and 7 are stated against.
+    /// </param>
     /// <param name="performLayout">Whether positions are being written.</param>
     /// <param name="currentDepth">The recursion guard's counter.</param>
     void PlaceFloatChild(
@@ -282,6 +345,7 @@ public sealed partial class LayoutTree {
         float innerWidth,
         float innerHeightForPercentages,
         float flowTop,
+        float insetLeft,
         bool performLayout,
         int currentDepth
     ) {
@@ -337,7 +401,8 @@ public sealed partial class LayoutTree {
 
         // Container-relative to context-relative, then §9.5.2 and §9.5.1 rule 3 raise the floor.
         var top = floatOriginY + flowTop;
-        var clearance = ClearancePoint(styles[child].Clear);
+        var side = ResolveFloatSide(styles[child].Float, direction);
+        var clearance = ClearancePoint(ResolveClear(styles[child].Clear, direction));
 
         if (!float.IsNaN(clearance)) {
             top = MathF.Max(top, floatOriginY + clearance);
@@ -349,15 +414,20 @@ public sealed partial class LayoutTree {
             top = MathF.Max(top, permitted);
         }
 
-        top = FirstFloatBandFitting(top, marginWidth, marginHeight);
+        // ⚠ §9.5.1's rules 1 and 7 are stated against the float's CONTAINING BLOCK — its parent box —
+        // and the band is stated against the formatting context root. A float in a container with a
+        // left margin, a left padding or a width narrower than the root's would otherwise be placed
+        // at the root's content edge, which is not where its own parent's content begins.
+        var clampLeft = floatOriginX + insetLeft;
+        var clampRight = clampLeft + innerWidth;
 
-        var (bandLeft, bandRight) = FloatBandAt(top, marginHeight);
+        top = FirstFloatBandFitting(top, marginWidth, marginHeight, clampLeft, clampRight);
 
-        var marginLeft = styles[child].Float == FloatSide.Left ? bandLeft : bandRight - marginWidth;
+        var (bandLeft, bandRight) = ClampedFloatBandAt(top, marginHeight, clampLeft, clampRight);
 
-        floatExclusions.Add(
-            new PlacedFloat(styles[child].Float, marginLeft, marginLeft + marginWidth, top, top + marginHeight)
-        );
+        var marginLeft = side == FloatSide.Left ? bandLeft : bandRight - marginWidth;
+
+        floatExclusions.Add(new PlacedFloat(side, marginLeft, marginLeft + marginWidth, top, top + marginHeight));
 
         if (!performLayout) {
             return;

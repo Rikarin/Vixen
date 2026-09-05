@@ -553,35 +553,34 @@ public class InlineFloatInteractionTests {
 
     // ── What is NOT done, pinned so that it is a decision rather than an omission ────────────────
 
+    // ── §9.5.1 rules 5 and 6: a float declared inside a run ─────────────────────────────────────
+    //
+    // ⚠ THE FIRST TEST BELOW USED TO ASSERT THE OPPOSITE, and it is the only inverted assertion in
+    // this file. It recorded what Vixen answered — the float one line low, after the run it ended —
+    // beside the Chrome 148 reading it disagreed with, exactly the way
+    // `A_span_inside_a_span_is_still_atomic` records a scope. The Chrome numbers are unchanged; what
+    // moved is which of the two the code produces.
+    //
+    // ⚠ THE OTHER FIVE ARE DERIVED FROM THAT ONE READING RATHER THAN READ SEPARATELY, and saying so
+    // is the point of this comment. Each varies one thing whose rule is already measured elsewhere:
+    // §9.7's blockification (a floated `inline-block` must answer identically to a floated `block`),
+    // the mirror this file establishes for RTL in nine other tests, and §9.5.1's rules 1 to 3 for two
+    // floats side by side, which the 84 fixtures of `Corpus/float.xml` pin forty times over. A
+    // derivation is weaker evidence than a reading and is labelled as one.
+
     /// <summary>
-    ///     A float declared between two inline items still ends that run, rather than joining the
-    ///     line it was written on.
+    ///     A float declared between two inline items sits at the top of the line it was written on,
+    ///     and shortens that line — including the part of it that came first.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This test asserts what Vixen does, and Chrome does something else. It should FAIL and
-    ///     be inverted when floats inside an inline formatting context land</b> — the same shape as
-    ///     <c>A_span_inside_a_span_is_still_atomic</c> in <see cref="InlineFragmentationTests" />.
-    ///     <para>
-    ///         §9.5's rule 6 places a float declared mid-line at the top of the <i>current</i> line,
-    ///         where it then shortens that very line. <b>Chrome answers <c>a</c> at
-    ///         <c>x = 50, y = 0</c></b> — the float appears after <c>a</c> in the source and moves it
-    ///         anyway — with <c>b</c> and <c>c</c> at 100 and 150 beside it and <c>d</c> at
-    ///         <c>(50, 20)</c>, for a container 50 tall.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Vixen cannot answer that today, and the reason is one level above this walk.</b>
-    ///         CSS 2.1 §9.7 makes a floated box block-level whatever its <c>display</c> says, so
-    ///         <c>StartsAnonymousRun</c> ends the run at the float and <c>WalkBlockChildren</c> places
-    ///         it at the cursor <i>after</i> the run — which is 20, below the line it was written on.
-    ///         Reaching Chrome's answer means a float being an entry in the inline item stream that
-    ///         the line walk places as it goes, which is a change to the producer in
-    ///         <c>LayoutTree.InlineItems.cs</c> and to who owns float placement, not a change to the
-    ///         band query this file is about. Sized rather than half-built; see
-    ///         <c>InlineKnownGaps.txt</c>.
-    ///     </para>
+    ///     ⚠ <b>The item BEFORE the float moves, which is the half that looks like a bug.</b> §9.5.1's
+    ///     rule 6 forbids the float starting above the top of the line box holding earlier content —
+    ///     it does not forbid the float taking that line's room. So the float lands at the line's own
+    ///     top and the whole line re-breaks around it: <c>a</c> was written first and is at
+    ///     <c>x = 50</c> anyway. Read out of Chrome 148 case by case; see the file header.
     /// </remarks>
     [Fact]
-    public void A_float_between_two_items_still_ends_the_run_rather_than_joining_the_line() {
+    public void A_float_between_two_items_sits_at_the_top_of_the_line_it_was_written_on() {
         using var tree = new LayoutTree();
         var root = Root(tree, 200f);
 
@@ -593,12 +592,179 @@ public class InlineFloatInteractionTests {
 
         tree.CalculateLayout(root, 200f, float.NaN, Direction.Ltr);
 
-        // Chrome: a at (50, 0), the float at (0, 0), b/c at (100, 0)/(150, 0), d at (50, 20).
+        AssertAt(tree, box, 0f, 0f);
+        AssertAt(tree, a, 50f, 0f);
+        AssertAt(tree, b, 100f, 0f);
+        AssertAt(tree, c, 150f, 0f);
+        AssertAt(tree, d, 50f, 20f);
+
+        // The float is 50 tall and no line is, so §10.6.3 is what makes the container 50 rather
+        // than 40 — the two lines of content end at 40.
+        Assert.Equal(50f, tree.GetHeight(root), Tolerance);
+    }
+
+    /// <summary>
+    ///     A floated <c>inline-block</c> in a run answers exactly as a floated <c>block</c> does.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>This is CSS 2.1 §9.7 as a test, and before rules 5 and 6 landed it was the worse of
+    ///     the two bugs.</b> A floated <c>block</c> at least reached <c>PlaceFloatChild</c> and got
+    ///     into the exclusion list, one line lower than Chrome puts it. A floated
+    ///     <c>inline-block</c> answered <c>IsInlineLevel</c> with <c>true</c>, so
+    ///     <c>AnonymousRunEnd</c> swallowed it into the run as an ORDINARY ATOMIC ITEM: it was laid
+    ///     out on the line, it advanced the pen, it made the line 50 tall, and the exclusion list
+    ///     never heard of it — §9.5 did not happen at all. <c>StartsAnonymousRun</c> carried the
+    ///     float clause and <c>AnonymousRunEnd</c> beside it did not.
+    /// </remarks>
+    [Fact]
+    public void A_floated_inline_block_in_a_run_is_blockified_and_placed_as_a_float() {
+        using var tree = new LayoutTree();
+        var root = Root(tree, 200f);
+
+        var a = Inline(tree, root, 50f, 20f);
+
+        var box = tree.CreateNode();
+        tree.SetDisplay(box, Display.InlineBlock);
+        tree.SetFloat(box, FloatSide.Left);
+        tree.SetDimension(box, Dimension.Width, StyleLength.Points(50f));
+        tree.SetDimension(box, Dimension.Height, StyleLength.Points(50f));
+        tree.AddChild(root, box);
+
+        var b = Inline(tree, root, 50f, 20f);
+
+        tree.CalculateLayout(root, 200f, float.NaN, Direction.Ltr);
+
+        AssertAt(tree, box, 0f, 0f);
+        AssertAt(tree, a, 50f, 0f);
+        AssertAt(tree, b, 100f, 0f);
+    }
+
+    /// <summary>A float written mid-run is mirrored in RTL, and takes the other end of the line.</summary>
+    [Fact]
+    public void A_float_between_two_items_is_mirrored_in_rtl() {
+        using var tree = new LayoutTree();
+        var root = Root(tree, 200f);
+        tree.SetDirection(root, Direction.Rtl);
+
+        var a = Inline(tree, root, 50f, 20f);
+        var box = Float(tree, root, FloatSide.Left, 50f, 50f);
+        var b = Inline(tree, root, 50f, 20f);
+
+        tree.CalculateLayout(root, 200f, float.NaN, Direction.Rtl);
+
+        // The float's SIDE is physical, so a left float is still on the left; the line's start edge
+        // is not, so it still begins at the right and is merely 50 shorter.
+        AssertAt(tree, box, 0f, 0f);
+        AssertAt(tree, a, 150f, 0f);
+        AssertAt(tree, b, 100f, 0f);
+    }
+
+    /// <summary>A right float written mid-run takes the line's far end instead of its near one.</summary>
+    [Fact]
+    public void A_right_float_between_two_items_shortens_the_line_from_the_other_side() {
+        using var tree = new LayoutTree();
+        var root = Root(tree, 200f);
+
+        var a = Inline(tree, root, 50f, 20f);
+        var box = Float(tree, root, FloatSide.Right, 50f, 50f);
+        var b = Inline(tree, root, 50f, 20f);
+        var c = Inline(tree, root, 50f, 20f);
+        var d = Inline(tree, root, 50f, 20f);
+
+        tree.CalculateLayout(root, 200f, float.NaN, Direction.Ltr);
+
+        AssertAt(tree, box, 150f, 0f);
         AssertAt(tree, a, 0f, 0f);
-        AssertAt(tree, box, 0f, 20f);
-        AssertAt(tree, b, 50f, 20f);
-        AssertAt(tree, c, 100f, 20f);
-        AssertAt(tree, d, 150f, 20f);
+        AssertAt(tree, b, 50f, 0f);
+        AssertAt(tree, c, 100f, 0f);
+        AssertAt(tree, d, 0f, 20f);
+    }
+
+    /// <summary>Two floats written on one line stack sideways, by §9.5.1's rules 1 to 3.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Nothing new was written for this and that is the claim being made.</b> The line walk
+    ///     hands each float the line's top and <see cref="LayoutTree" />'s existing placement decides
+    ///     the rest — clearance, then rule 3's "no higher than an earlier float", then the band
+    ///     search. Two 50-point floats on a 200-point line therefore sit at 0 and 50 without a word
+    ///     of arithmetic that knows they were written mid-run.
+    /// </remarks>
+    [Fact]
+    public void Two_floats_written_on_one_line_stack_sideways() {
+        using var tree = new LayoutTree();
+        var root = Root(tree, 200f);
+
+        var a = Inline(tree, root, 50f, 20f);
+        var first = Float(tree, root, FloatSide.Left, 50f, 50f);
+        var second = Float(tree, root, FloatSide.Left, 50f, 50f);
+        var b = Inline(tree, root, 50f, 20f);
+
+        tree.CalculateLayout(root, 200f, float.NaN, Direction.Ltr);
+
+        AssertAt(tree, first, 0f, 0f);
+        AssertAt(tree, second, 50f, 0f);
+        AssertAt(tree, a, 100f, 0f);
+        AssertAt(tree, b, 150f, 0f);
+    }
+
+    /// <summary>A float written after the last item on a line is still on that line.</summary>
+    /// <remarks>
+    ///     A float takes no room on the line, so nothing can push it to the next one: the break
+    ///     scan walks past it exactly as it walks past an inline box's closing edge. Getting this
+    ///     wrong the other way — ending the line at the float — would leave a run whose last entry
+    ///     is a float on a line with no atomic item on it, which the walk stops on.
+    /// </remarks>
+    [Fact]
+    public void A_trailing_float_joins_the_last_line_of_the_run() {
+        using var tree = new LayoutTree();
+        var root = Root(tree, 200f);
+
+        var a = Inline(tree, root, 50f, 20f);
+        var b = Inline(tree, root, 50f, 20f);
+        var box = Float(tree, root, FloatSide.Right, 50f, 30f);
+
+        tree.CalculateLayout(root, 200f, float.NaN, Direction.Ltr);
+
+        AssertAt(tree, box, 150f, 0f);
+        AssertAt(tree, a, 0f, 0f);
+        AssertAt(tree, b, 50f, 0f);
+        Assert.Equal(30f, tree.GetHeight(root), Tolerance);
+    }
+
+    /// <summary>
+    ///     A shrink-to-fit container holding a float is as wide as the float PLUS the run, because
+    ///     they share a row.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the third item <c>InlineKnownGaps.txt</c> owed, and it is a sum rather than a
+    ///     maximum.</b> <c>DetermineInlineContentWidth</c> used to skip a float entirely, so a
+    ///     shrink-to-fit box came out the width it would have had with no float in it — 50 here, and
+    ///     the float then wrapped the run onto three rows inside a box that had refused to make room
+    ///     for it. A float takes horizontal room away from every line it crosses, so max-content is
+    ///     the arrangement where the float and the run sit side by side: 30 + 50 + 50.
+    /// </remarks>
+    [Fact]
+    public void A_shrink_to_fit_container_is_as_wide_as_its_float_plus_its_run() {
+        using var tree = new LayoutTree();
+        var outer = Root(tree, 400f);
+
+        // A float's own `width: auto` is shrink-to-fit (§10.3.5), which is the cheapest way to ask
+        // this store for an intrinsic width without a second container type.
+        var shrink = tree.CreateNode();
+        tree.SetDisplay(shrink, Display.Block);
+        tree.SetFloat(shrink, FloatSide.Left);
+        tree.AddChild(outer, shrink);
+
+        var a = Inline(tree, shrink, 50f, 20f);
+        var inner = Float(tree, shrink, FloatSide.Left, 30f, 10f);
+        var b = Inline(tree, shrink, 50f, 20f);
+
+        tree.CalculateLayout(outer, 400f, float.NaN, Direction.Ltr);
+
+        Assert.Equal(130f, tree.GetWidth(shrink), Tolerance);
+        Assert.Equal(20f, tree.GetHeight(shrink), Tolerance);
+        AssertAt(tree, inner, 0f, 0f);
+        AssertAt(tree, a, 30f, 0f);
+        AssertAt(tree, b, 80f, 0f);
     }
 
     // ── Fixture helpers ─────────────────────────────────────────────────────────────────────────

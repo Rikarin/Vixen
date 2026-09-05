@@ -475,7 +475,7 @@ refusal block, which already says so for the same reason.
 
 | Category | roots | works | partial | inert | absent | composed |
 |---|--:|--:|--:|--:|--:|--:|
-| Layout | 51 | 30 | 4 | 0 | 14 | 3 |
+| Layout | 51 | 32 | 2 | 0 | 14 | 3 |
 | Interactivity | 40 | 30 | 0 | 1 | 9 | 0 |
 | Borders | 34 | 28 | 2 | 0 | 4 | 0 |
 | Effects | 34 | 27 | 1 | 0 | 6 | 0 |
