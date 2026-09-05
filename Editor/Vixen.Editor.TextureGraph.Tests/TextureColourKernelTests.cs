@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Reflection;
 using System.Text.RegularExpressions;
 using Vixen.Core.Curves;
 using Vixen.Editor.TextureGraph;
@@ -64,14 +65,51 @@ public class TextureColourKernelTests {
             Assert.Contains(kernel, TextureKernels.Names);
         }
 
-        var registered = TextureColourKernels.All
-            .Concat(TextureSources.All.Select(op => op.Kernel))
-            .Concat(Existing)
-            .Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal)
-            .ToArray();
+        var registered = Declared().Concat(Existing).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
 
         Assert.Equal(registered, TextureKernels.Names.Order(StringComparer.Ordinal).ToArray());
+    }
+
+    /// <summary>Every kernel name any slice of this assembly declares, found rather than listed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The convention this reads is one line long: a slice declares its kernels in a static
+    ///         <c>All</c> on a type of its own.</b> <c>TextureColourKernels.All</c> is a list of names,
+    ///         <c>TextureSources.All</c> is a list of ops that carry one — both are answered here, and
+    ///         a slice that adds a third surface needs no edit to this file.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Written by hand first, and that version was wrong in a way only a merge could
+    ///         show.</b> Naming the surfaces in this method's own text made the roll call green on
+    ///         every branch and red the moment two of them landed together, because the folder is
+    ///         shared and the declarations are not. Enumerating them is the same move this repository
+    ///         already makes for shader slots and for the pairing inventory: read the thing, do not
+    ///         keep a second list of it.
+    ///     </para>
+    /// </remarks>
+    static IEnumerable<string> Declared() {
+        foreach (var type in typeof(TextureKernels).Assembly.GetTypes()) {
+            if (type.GetProperty("All", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static) is not
+                { } all) {
+                continue;
+            }
+
+            switch (all.GetValue(null)) {
+                case IEnumerable<string> names:
+                    foreach (var name in names) {
+                        yield return name;
+                    }
+
+                    break;
+
+                case IEnumerable<TextureOp> ops:
+                    foreach (var op in ops) {
+                        yield return op.Kernel;
+                    }
+
+                    break;
+            }
+        }
     }
 
     /// <summary>
