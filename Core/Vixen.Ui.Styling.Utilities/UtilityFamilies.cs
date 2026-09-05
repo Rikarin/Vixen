@@ -1726,9 +1726,19 @@ public static class UtilityFamilies {
         // different ellipse from the `farthest-corner` one this engine computes, so
         // `GradientReader` refuses them as `GradientRefusal.Extent` — and a refused layer is not a
         // slightly wrong mask, it is *no mask at all*, so registering them would make the class
-        // delete the masking it was written to shape. They land when `UiMask` carries a stated pair
-        // of radii; the centre could land without them because moving a farthest-corner ellipse
-        // leaves it one.
+        // delete the masking it was written to shape. The centre could land without them because
+        // moving a farthest-corner ellipse leaves it one.
+        //
+        // ⚠ <b>"They land when `UiMask` carries a stated pair of radii" stood here and is false —
+        // re-measured 2026-09-05 (`Rikarin/Vixen#545`).</b> `UiShape.Paint.zw` <i>is</i> a stated
+        // pair, honoured as an arbitrary pair by all three rasterisers (`Ui.rvn`, `ui-box.frag`,
+        // `SoftwareUiRasterizer`), and `RampFrame` already writes one for a moved centre. Nothing is
+        // waiting on a lane or on a shader. What is missing is a place on `BackgroundGradient` to
+        // record which of the six endings was written and the other four closed forms in
+        // `RampFrame` — so this is unbuilt work with a stated conversion, not a blocked design. The
+        // refusal itself stands either way, and `GradientPaintTests.
+        // A_radial_gradient_ends_at_the_corner_and_not_at_the_edge` is the pixel oracle that says
+        // why: approximating one of these is a ramp that finishes in the wrong place.
         Keywords("mask-radial-at", UtilityComposition.MaskRadialPosition, new() {
             ["top"] = "top", ["top-left"] = "top left", ["top-right"] = "top right",
             ["left"] = "left", ["center"] = "center", ["right"] = "right",

@@ -86,9 +86,33 @@ enum GradientRefusal : byte {
     ///         entirely, and an explicit <c>80px 40px</c> states them outright — four different
     ///         ellipses, none of which is the <c>farthest-corner</c> one this engine computes. Drawing
     ///         any of them as farthest-corner is a ramp that finishes in the wrong place, which is the
-    ///         failure that looks like a design choice. <b>The centre could land without them because
+    ///         failure that looks like a design choice, and
+    ///         <c>GradientPaintTests.A_radial_gradient_ends_at_the_corner_and_not_at_the_edge</c> is
+    ///         the pixel oracle that would catch it. <b>The centre could land without them because
     ///         moving a farthest-corner ellipse's centre is still a farthest-corner ellipse</b> — the
     ///         radii change, and <c>DrawListBuilder.RampFrame</c> is the closed form for how.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The reason this refusal used to give — "the record has no lanes for it" — is
+    ///         false, and re-measured on 2026-09-05 (`Rikarin/Vixen#545`).</b> <c>UiShape.Paint.zw</c>
+    ///         <i>is</i> a stated pair of radii, and it is honoured as an arbitrary pair by all three
+    ///         rasterisers: <c>Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn</c> (<c>box.paint.z > 0 &amp;&amp;
+    ///         box.paint.w > 0</c>), <c>ui-box.frag</c>'s <c>main</c>, and
+    ///         <c>SoftwareUiRasterizer</c>. So closing this needs no new lane and no shader change at
+    ///         all. What it needs is two things that do not exist: somewhere on
+    ///         <see cref="BackgroundGradient" /> to record <i>which</i> of the six endings was
+    ///         written, and the other four closed forms in <c>RampFrame</c>, which computes only
+    ///         <c>farthest-corner</c> today.
+    ///     </para>
+    ///     <para>
+    ///         <b>The conversion, written down so the next pass does not rederive it.</b> The shader's
+    ///         parameter is <c>length(offset / reach) / √2</c>, so a boundary at radii <c>r</c> means
+    ///         <c>reach = r / √2</c>. With <c>fs = max(c, extent − c)</c> and <c>cs = min(c, extent − c)</c>
+    ///         per axis, the ellipse endings are <c>r = cs</c>, <c>r = fs</c>, <c>r = √2·cs</c> and
+    ///         <c>r = √2·fs</c> for closest-side, farthest-side, closest-corner and farthest-corner —
+    ///         which is why today's <c>reach = fs</c> is right and why nothing had to learn a second
+    ///         convention. The circle endings are the same four with <c>r</c> the scalar distance to
+    ///         the nearest or farthest side or corner, written into both axes.
     ///     </para>
     /// </remarks>
     Extent,

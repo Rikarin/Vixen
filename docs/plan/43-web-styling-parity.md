@@ -133,7 +133,12 @@ moved it out of `composed`: it was buildable all along and the flattering state 
 `--tw-mask-radial-position` fragment defaulting to `center` — CSS's own default — feeds an
 `at <position>` that `DrawListBuilder.MaskFrame` resolves, so an unmoved radial mask reaches the
 shader as the record it always had. Its sibling `mask-radial-*` stays `absent` and is now a refusal
-with a named blocker rather than an unregistered family; see its row.
+with a named blocker rather than an unregistered family; see its row. ⚠ **That blocker was named
+wrong until 2026-09-05 (#545): it is a reader, not a lane.** `UiShape.Paint.zw` is a stated pair of
+radii and all three rasterisers already honour an arbitrary pair, so nothing is waiting on a shader —
+what is missing is a place on `BackgroundGradient` to record which of the six endings was written and
+four more closed forms in `RampFrame`. The refusal itself stands; `GradientPaintTests.
+A_radial_gradient_ends_at_the_corner_and_not_at_the_edge` is the pixel oracle that says why.
 
 ### The composition mechanism
 
