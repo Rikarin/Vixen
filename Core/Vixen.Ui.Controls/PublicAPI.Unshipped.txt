@@ -1134,6 +1134,7 @@ override Vixen.Ui.Controls.SplitView.ContentHost.get -> Vixen.Ui.UiElement
 override Vixen.Ui.Controls.SplitView.NamedHost(string name) -> Vixen.Ui.UiElement?
 override Vixen.Ui.Controls.SplitView.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.SplitView.OnCreated() -> void
+override Vixen.Ui.Controls.SplitView.OnPropertyChanged(Vixen.Ui.UiPropertyKey key) -> void
 override Vixen.Ui.Controls.SplitView.TagName.get -> string
 override Vixen.Ui.Controls.StatusBar.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.StatusBar.ContentHost.get -> Vixen.Ui.UiElement
@@ -1237,6 +1238,7 @@ static Vixen.Ui.Controls.ControlStrings.PropertyGridSearch.get -> Vixen.Ui.Strin
 static Vixen.Ui.Controls.ControlStrings.ScrollBarHorizontal.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.ScrollBarVertical.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.SelectSuggestions.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.SplitViewDivider.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.TextInputClear.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.ToastDismiss.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlTheme.Css.get -> string

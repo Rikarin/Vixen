@@ -516,6 +516,12 @@ split-bar { flex-grow: 0; flex-shrink: 0; width: 6px; background-color: var(--bo
 split-view.vertical > split-bar { width: auto; height: 6px; }
 split-bar:hover { background-color: var(--accent); }
 
+/* ⚠ The focus ring is the background here rather than the border the rest of the set uses, because
+   a six-pixel bar has no border to colour — the one rule above sets `border-color` on twenty-odd
+   controls and would have done nothing at all to this one. Same accent, so a bar the keyboard has
+   landed on looks exactly like a bar the pointer is over, which is the affordance either way. */
+split-bar:focus-visible { background-color: var(--accent); }
+
 /* ── Application bars ───────────────────────────────────────────────── */
 
 /* ⚠ `flex-shrink: 0` beside the height, and it is not redundant since flex-shrink's CSS initial
