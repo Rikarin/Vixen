@@ -47,7 +47,7 @@ Vixen.Ui.Markup.Binding.BoundCase.Pattern.get -> Vixen.Ui.Markup.Binding.BoundEx
 Vixen.Ui.Markup.Binding.BoundCase.Pattern.init -> Vixen.Ui.Markup.Binding.BoundExpression?
 Vixen.Ui.Markup.Binding.BoundComponent -> sealed record
 Vixen.Ui.Markup.Binding.BoundComponent : System.IEquatable<Vixen.Ui.Markup.Binding.BoundComponent>
-Vixen.Ui.Markup.Binding.BoundComponent.BoundComponent(string Name, string? Namespace, string? Tag, Vixen.Ui.Markup.Binding.BoundExpression? Inherits, System.Collections.Immutable.ImmutableArray<string> Usings, System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundExpression> Code, System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode> Content, string? Css, bool CssIsScoped) -> void
+Vixen.Ui.Markup.Binding.BoundComponent.BoundComponent(string Name, string? Namespace, string? Tag, Vixen.Ui.Markup.Binding.BoundExpression? Inherits, System.Collections.Immutable.ImmutableArray<string> Usings, System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundInject> Injects, System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundExpression> Code, System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode> Content, string? Css, bool CssIsScoped) -> void
 Vixen.Ui.Markup.Binding.BoundComponent.Code.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundExpression>
 Vixen.Ui.Markup.Binding.BoundComponent.Code.init -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundExpression>
 Vixen.Ui.Markup.Binding.BoundComponent.Content.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
@@ -58,6 +58,8 @@ Vixen.Ui.Markup.Binding.BoundComponent.CssIsScoped.get -> bool
 Vixen.Ui.Markup.Binding.BoundComponent.CssIsScoped.init -> bool
 Vixen.Ui.Markup.Binding.BoundComponent.Inherits.get -> Vixen.Ui.Markup.Binding.BoundExpression?
 Vixen.Ui.Markup.Binding.BoundComponent.Inherits.init -> Vixen.Ui.Markup.Binding.BoundExpression?
+Vixen.Ui.Markup.Binding.BoundComponent.Injects.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundInject>
+Vixen.Ui.Markup.Binding.BoundComponent.Injects.init -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundInject>
 Vixen.Ui.Markup.Binding.BoundComponent.Name.get -> string
 Vixen.Ui.Markup.Binding.BoundComponent.Name.init -> string
 Vixen.Ui.Markup.Binding.BoundComponent.Namespace.get -> string?
@@ -123,6 +125,13 @@ Vixen.Ui.Markup.Binding.BoundIf.Branches.get -> System.Collections.Immutable.Imm
 Vixen.Ui.Markup.Binding.BoundIf.Branches.init -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundBranch>
 Vixen.Ui.Markup.Binding.BoundIf.Else.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
 Vixen.Ui.Markup.Binding.BoundIf.Else.init -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
+Vixen.Ui.Markup.Binding.BoundInject -> sealed record
+Vixen.Ui.Markup.Binding.BoundInject : System.IEquatable<Vixen.Ui.Markup.Binding.BoundInject>
+Vixen.Ui.Markup.Binding.BoundInject.BoundInject(Vixen.Ui.Markup.Binding.BoundExpression Type, string Name) -> void
+Vixen.Ui.Markup.Binding.BoundInject.Name.get -> string
+Vixen.Ui.Markup.Binding.BoundInject.Name.init -> string
+Vixen.Ui.Markup.Binding.BoundInject.Type.get -> Vixen.Ui.Markup.Binding.BoundExpression
+Vixen.Ui.Markup.Binding.BoundInject.Type.init -> Vixen.Ui.Markup.Binding.BoundExpression
 Vixen.Ui.Markup.Binding.BoundInterpolation -> sealed record
 Vixen.Ui.Markup.Binding.BoundInterpolation : System.IEquatable<Vixen.Ui.Markup.Binding.BoundInterpolation>
 Vixen.Ui.Markup.Binding.BoundInterpolation : Vixen.Ui.Markup.Binding.BoundNode
@@ -209,6 +218,7 @@ Vixen.Ui.Markup.Syntax.DocumentSyntax.Content.get -> Vixen.Core.Syntax.SyntaxLis
 Vixen.Ui.Markup.Syntax.DocumentSyntax.Directives.get -> Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.DirectiveSyntax>
 Vixen.Ui.Markup.Syntax.DocumentSyntax.EndOfFileToken.get -> Vixen.Core.Syntax.SyntaxToken
 Vixen.Ui.Markup.Syntax.DocumentSyntax.Inherits.get -> Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax?
+Vixen.Ui.Markup.Syntax.DocumentSyntax.Injects.get -> System.Collections.Generic.IEnumerable<Vixen.Ui.Markup.Syntax.InjectDirectiveSyntax>
 Vixen.Ui.Markup.Syntax.DocumentSyntax.Namespace.get -> Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax?
 Vixen.Ui.Markup.Syntax.DocumentSyntax.Tag.get -> Vixen.Ui.Markup.Syntax.TagDirectiveSyntax?
 Vixen.Ui.Markup.Syntax.DocumentSyntax.Update(Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.DirectiveSyntax> directives, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content, Vixen.Core.Syntax.SyntaxToken endOfFileToken) -> Vixen.Ui.Markup.Syntax.DocumentSyntax
@@ -291,6 +301,15 @@ Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax.Name.get -> Vixen.Core.Syntax.Syn
 Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax.Update(Vixen.Core.Syntax.SyntaxToken inheritsKeyword, Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax
 Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax.WithInheritsKeyword(Vixen.Core.Syntax.SyntaxToken inheritsKeyword) -> Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax
 Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax.WithName(Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax
+Vixen.Ui.Markup.Syntax.InjectDirectiveSyntax -> sealed class
+Vixen.Ui.Markup.Syntax.InjectDirectiveSyntax : Vixen.Ui.Markup.Syntax.DirectiveSyntax
+Vixen.Ui.Markup.Syntax.InjectDirectiveSyntax.InjectKeyword.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.InjectDirectiveSyntax.Name.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.InjectDirectiveSyntax.Type.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.InjectDirectiveSyntax.Update(Vixen.Core.Syntax.SyntaxToken injectKeyword, Vixen.Core.Syntax.SyntaxToken type, Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.InjectDirectiveSyntax
+Vixen.Ui.Markup.Syntax.InjectDirectiveSyntax.WithInjectKeyword(Vixen.Core.Syntax.SyntaxToken injectKeyword) -> Vixen.Ui.Markup.Syntax.InjectDirectiveSyntax
+Vixen.Ui.Markup.Syntax.InjectDirectiveSyntax.WithName(Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.InjectDirectiveSyntax
+Vixen.Ui.Markup.Syntax.InjectDirectiveSyntax.WithType(Vixen.Core.Syntax.SyntaxToken type) -> Vixen.Ui.Markup.Syntax.InjectDirectiveSyntax
 Vixen.Ui.Markup.Syntax.InterpolationSyntax -> sealed class
 Vixen.Ui.Markup.Syntax.InterpolationSyntax : Vixen.Ui.Markup.Syntax.MarkupSyntax
 Vixen.Ui.Markup.Syntax.InterpolationSyntax.AtToken.get -> Vixen.Core.Syntax.SyntaxToken
@@ -409,6 +428,8 @@ Vixen.Ui.Markup.Syntax.SyntaxKind.IfKeyword = 31 -> Vixen.Ui.Markup.Syntax.Synta
 Vixen.Ui.Markup.Syntax.SyntaxKind.InKeyword = 35 -> Vixen.Ui.Markup.Syntax.SyntaxKind
 Vixen.Ui.Markup.Syntax.SyntaxKind.InheritsDirective = 7 -> Vixen.Ui.Markup.Syntax.SyntaxKind
 Vixen.Ui.Markup.Syntax.SyntaxKind.InheritsKeyword = 29 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.InjectDirective = 62 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.InjectKeyword = 63 -> Vixen.Ui.Markup.Syntax.SyntaxKind
 Vixen.Ui.Markup.Syntax.SyntaxKind.Interpolation = 18 -> Vixen.Ui.Markup.Syntax.SyntaxKind
 Vixen.Ui.Markup.Syntax.SyntaxKind.LessThanSlashToken = 40 -> Vixen.Ui.Markup.Syntax.SyntaxKind
 Vixen.Ui.Markup.Syntax.SyntaxKind.LessThanToken = 39 -> Vixen.Ui.Markup.Syntax.SyntaxKind
@@ -526,6 +547,9 @@ override Vixen.Ui.Markup.Syntax.IfSyntax.GetSlot(int index) -> Vixen.Core.Syntax
 override Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
 override Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
 override Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+override Vixen.Ui.Markup.Syntax.InjectDirectiveSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
+override Vixen.Ui.Markup.Syntax.InjectDirectiveSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
+override Vixen.Ui.Markup.Syntax.InjectDirectiveSyntax.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
 override Vixen.Ui.Markup.Syntax.InterpolationSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
 override Vixen.Ui.Markup.Syntax.InterpolationSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
 override Vixen.Ui.Markup.Syntax.InterpolationSyntax.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
@@ -561,6 +585,7 @@ override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitExpressionAttributeValue(Vix
 override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitFor(Vixen.Ui.Markup.Syntax.ForSyntax node) -> Vixen.Core.Syntax.SyntaxNode
 override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitIf(Vixen.Ui.Markup.Syntax.IfSyntax node) -> Vixen.Core.Syntax.SyntaxNode
 override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitInheritsDirective(Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax node) -> Vixen.Core.Syntax.SyntaxNode
+override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitInjectDirective(Vixen.Ui.Markup.Syntax.InjectDirectiveSyntax node) -> Vixen.Core.Syntax.SyntaxNode
 override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitInterpolation(Vixen.Ui.Markup.Syntax.InterpolationSyntax node) -> Vixen.Core.Syntax.SyntaxNode
 override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitMarkupBlock(Vixen.Ui.Markup.Syntax.MarkupBlockSyntax node) -> Vixen.Core.Syntax.SyntaxNode
 override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitNamespaceDirective(Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax node) -> Vixen.Core.Syntax.SyntaxNode
@@ -594,6 +619,7 @@ static Vixen.Ui.Markup.Syntax.SyntaxFactory.ExpressionAttributeValue(Vixen.Ui.Ma
 static Vixen.Ui.Markup.Syntax.SyntaxFactory.For(Vixen.Core.Syntax.SyntaxToken forKeyword, Vixen.Core.Syntax.SyntaxToken openParenToken, Vixen.Core.Syntax.SyntaxToken varKeyword, Vixen.Core.Syntax.SyntaxToken identifier, Vixen.Core.Syntax.SyntaxToken? commaToken, Vixen.Core.Syntax.SyntaxToken? index, Vixen.Core.Syntax.SyntaxToken inKeyword, Vixen.Core.Syntax.SyntaxToken sequence, Vixen.Core.Syntax.SyntaxToken closeParenToken, Vixen.Ui.Markup.Syntax.MarkupBlockSyntax body) -> Vixen.Ui.Markup.Syntax.ForSyntax
 static Vixen.Ui.Markup.Syntax.SyntaxFactory.If(Vixen.Core.Syntax.SyntaxToken ifKeyword, Vixen.Core.Syntax.SyntaxToken openParenToken, Vixen.Core.Syntax.SyntaxToken condition, Vixen.Core.Syntax.SyntaxToken closeParenToken, Vixen.Ui.Markup.Syntax.MarkupBlockSyntax body, Vixen.Ui.Markup.Syntax.ElseClauseSyntax? else) -> Vixen.Ui.Markup.Syntax.IfSyntax
 static Vixen.Ui.Markup.Syntax.SyntaxFactory.InheritsDirective(Vixen.Core.Syntax.SyntaxToken inheritsKeyword, Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.InjectDirective(Vixen.Core.Syntax.SyntaxToken injectKeyword, Vixen.Core.Syntax.SyntaxToken type, Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.InjectDirectiveSyntax
 static Vixen.Ui.Markup.Syntax.SyntaxFactory.Interpolation(Vixen.Core.Syntax.SyntaxToken atToken, Vixen.Core.Syntax.SyntaxToken expression) -> Vixen.Ui.Markup.Syntax.InterpolationSyntax
 static Vixen.Ui.Markup.Syntax.SyntaxFactory.MarkupBlock(Vixen.Core.Syntax.SyntaxToken openBraceToken, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content, Vixen.Core.Syntax.SyntaxToken closeBraceToken) -> Vixen.Ui.Markup.Syntax.MarkupBlockSyntax
 static Vixen.Ui.Markup.Syntax.SyntaxFactory.NamespaceDirective(Vixen.Core.Syntax.SyntaxToken namespaceKeyword, Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax
@@ -654,6 +680,7 @@ virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitExpressionAttributeValue(Vixen
 virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitFor(Vixen.Ui.Markup.Syntax.ForSyntax node) -> void
 virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitIf(Vixen.Ui.Markup.Syntax.IfSyntax node) -> void
 virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitInheritsDirective(Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax node) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitInjectDirective(Vixen.Ui.Markup.Syntax.InjectDirectiveSyntax node) -> void
 virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitInterpolation(Vixen.Ui.Markup.Syntax.InterpolationSyntax node) -> void
 virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitMarkupBlock(Vixen.Ui.Markup.Syntax.MarkupBlockSyntax node) -> void
 virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitNamespaceDirective(Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax node) -> void
@@ -679,6 +706,7 @@ virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitExpressionAttributeVa
 virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitFor(Vixen.Ui.Markup.Syntax.ForSyntax node) -> TResult?
 virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitIf(Vixen.Ui.Markup.Syntax.IfSyntax node) -> TResult?
 virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitInheritsDirective(Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax node) -> TResult?
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitInjectDirective(Vixen.Ui.Markup.Syntax.InjectDirectiveSyntax node) -> TResult?
 virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitInterpolation(Vixen.Ui.Markup.Syntax.InterpolationSyntax node) -> TResult?
 virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitMarkupBlock(Vixen.Ui.Markup.Syntax.MarkupBlockSyntax node) -> TResult?
 virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitNamespaceDirective(Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax node) -> TResult?

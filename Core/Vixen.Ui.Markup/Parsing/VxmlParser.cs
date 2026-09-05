@@ -265,7 +265,16 @@ sealed class VxmlParser : SyntaxParser {
         // to the content parser and gets the same "unexpected" diagnostic every other stray
         // directive does — and, like them, survives in the tree as trivia.
         while (At(VxmlTokenKind.UsingKeyword) || At(VxmlTokenKind.NamespaceKeyword) || At(VxmlTokenKind.TagKeyword)
-               || At(VxmlTokenKind.InheritsKeyword)) {
+               || At(VxmlTokenKind.InheritsKeyword) || At(VxmlTokenKind.InjectKeyword)) {
+            // ⚠ Repeatable, and therefore no `seen` flag: `@inject` is the second header a file may
+            // write more than once, because the shape it exists for is a file reading three ambient
+            // values. Two of the same type is a duplicate member and Roslyn's complaint, on the
+            // characters that declared it.
+            if (At(VxmlTokenKind.InjectKeyword)) {
+                directives.Add(ParseInjectDirective());
+                continue;
+            }
+
             if (At(VxmlTokenKind.NamespaceKeyword)) {
                 if (seenNamespace) {
                     break;
@@ -365,6 +374,18 @@ sealed class VxmlParser : SyntaxParser {
         var keyword = Take(SyntaxKind.InheritsKeyword);
         var name = Expect(VxmlTokenKind.Name, SyntaxKind.NameToken);
         return SyntaxFactory.InheritsDirective(keyword, name);
+    }
+
+    /// <remarks>
+    ///     Both halves are one lexer name; the second becomes an <c>IdentifierToken</c> because it
+    ///     is a C# member name and the first a <c>NameToken</c> because it is a dotted type — the
+    ///     same pair <c>@component</c> and <c>@inherits</c> make separately.
+    /// </remarks>
+    InjectDirectiveSyntax ParseInjectDirective() {
+        var keyword = Take(SyntaxKind.InjectKeyword);
+        var type = Expect(VxmlTokenKind.Name, SyntaxKind.NameToken);
+        var name = Expect(VxmlTokenKind.Name, SyntaxKind.IdentifierToken);
+        return SyntaxFactory.InjectDirective(keyword, type, name);
     }
 
     // ================================================================== Content

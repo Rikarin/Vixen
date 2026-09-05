@@ -57,6 +57,29 @@ namespace Vixen.Ui.Generators;
 ///         missed — and put the severity back afterwards.
 ///     </para>
 ///     <para>
+///         ⚠ <b>Two further reasons a sweep reads zero, and together they say the promotion should
+///         not happen at all.</b> First, <b>a parameter declared in a <c>.vxml</c>'s <c>@code</c>
+///         block is invisible here</b>: the block is copied into a file whose first line is
+///         <c>// &lt;auto-generated /&gt;</c>, and <see cref="GeneratedCodeAnalysisFlags.None" />
+///         means such a declaration is neither analyzed nor reported — whether the class is wholly
+///         generated or is a partial with a code-behind half.
+///         <c>ComponentParameterTests.A_parameter_declared_in_generated_code_is_not_reported</c>
+///         pins it. That is where this repository's markup components put their parameters:
+///         <c>Samples/02-HelloUi/Panels/Inspector.vxml</c>'s <c>Model</c> is one, and it is the
+///         property the issue behind this rule was filed about.
+///     </para>
+///     <para>
+///         ⚠ <b>Second, the rule fires on the shape its own message asks for.</b>
+///         <see cref="IsReactive" /> tests the <i>property's type</i>, so
+///         <c>public ShellModel Model { get =&gt; model.Value; set =&gt; model.Value = value; }</c>
+///         over a <c>readonly Signal&lt;ShellModel&gt;</c> is reported — and that is exactly "back
+///         it with a <c>Signal&lt;T&gt;</c>", the remedy the message names. Such a property
+///         <i>does</i> track: an effect reading it reads <c>model.Value</c> and subscribes. Under
+///         <c>TreatWarningsAsErrors</c>, promoting this to a warning would therefore make the
+///         recommended pattern a build error. The rule as written answers "is this property
+///         obviously reactive from its type", which is a useful suggestion and is not a gate.
+///     </para>
+///     <para>
 ///         <b>What is deliberately not reported.</b> A read-only or computed property is not a
 ///         parameter — a caller cannot assign it — and neither is a delegate: a callback parameter is
 ///         invoked rather than read, so nothing about it needs to be subscribable. A property whose

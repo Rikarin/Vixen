@@ -1088,6 +1088,126 @@ public class EmitterTests {
         return ((Component)built, built, document);
     }
 
+    // ================================================================== @inject
+
+    /// <summary>
+    ///     ⚠ <b>Read every time rather than captured once, and that is the whole of what the
+    ///     generated property has to get right.</b> A directive that produced a field assigned
+    ///     during <c>Build</c> would pass any test that only asks what the markup drew, because at
+    ///     build time the two are the same value — so this changes the provider afterwards and asks
+    ///     again. An ambient value has no reactivity of its own, so the <i>text</i> stays what it
+    ///     was; the property does not.
+    /// </summary>
+    [Fact]
+    public void An_injected_property_reads_the_provider_again_every_time_it_is_asked() {
+        const string Source = """
+                              @component Greeter
+                              @inject string Theme
+                              <span>@Theme</span>
+                              """;
+
+        var type = Load(Source, "Greeter");
+        var document = new UiDocument(400f, 400f);
+        document.Root.Provide("dark");
+
+        var greeter = Build(type, document);
+
+        // An `@expr` is an effect and an effect queues its first run, so the text is not there
+        // until the flush — the trap the `<provide>` tests beside this one were rewritten over.
+        document.Effects.Flush();
+        Assert.Equal("dark", Text(Descendants(document.Root).Single(child => child.Tag == "span")));
+
+        document.Root.Provide("light");
+        Assert.Equal("light", Injected(greeter, "Theme"));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Null is an ordinary answer, not a failure.</b> A leaf has to work in a document that
+    ///     provides nothing, which is why the generated property is nullable and why the directive
+    ///     saves a line rather than replacing the <c>?? Default</c> a consumer writes for itself.
+    /// </summary>
+    [Fact]
+    public void An_injected_property_is_null_when_nothing_up_the_tree_provided_it() {
+        const string Source = """
+                              @component Greeter
+                              @inject string Theme
+                              <span>@(Theme ?? "none")</span>
+                              """;
+
+        var type = Load(Source, "Greeter");
+        var document = new UiDocument(400f, 400f);
+        var greeter = Build(type, document);
+        document.Effects.Flush();
+
+        Assert.Equal("none", Text(Descendants(document.Root).Single(child => child.Tag == "span")));
+        Assert.Null(Injected(greeter, "Theme"));
+    }
+
+    /// <summary>
+    ///     Two headers, two independent keys — the shape the directive exists for, and the reason
+    ///     it is repeatable where <c>@namespace</c> and <c>@tag</c> are not.
+    /// </summary>
+    [Fact]
+    public void A_file_injecting_two_values_gets_a_property_for_each() {
+        const string Source = """
+                              @component Greeter
+                              @inject string Theme
+                              @inject System.Uri Where
+                              <span>@Theme</span>
+                              """;
+
+        var type = Load(Source, "Greeter");
+        var document = new UiDocument(400f, 400f);
+        document.Root.Provide("dark");
+        document.Root.Provide(new Uri("https://vixen/"));
+
+        var greeter = Build(type, document);
+
+        Assert.Equal("dark", Injected(greeter, "Theme"));
+        Assert.Equal(new Uri("https://vixen/"), Injected(greeter, "Where"));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The element flavour reaches a different <c>Inject</c>, and the generated line is the
+    ///     same one.</b> <c>Component.Inject&lt;T&gt;</c> forwards to <c>Root</c>; an
+    ///     <c>@inherits</c> class <i>is</i> the element, so the call binds to
+    ///     <c>UiElement.Inject&lt;T&gt;</c> instead. Both are found by the same unqualified name,
+    ///     which is what lets the emitter write one line for both flavours — worth pinning, because
+    ///     a version that qualified the call would compile in one flavour and not the other.
+    /// </summary>
+    [Fact]
+    public void An_inherits_class_injects_through_its_own_walk() {
+        const string Source = """
+                              @component Meter
+                              @inherits Panel
+                              @tag meter
+                              @inject string Theme
+                              <span>@Theme</span>
+                              """;
+
+        using var document = new UiDocument(400f, 400f);
+        document.Root.Provide("dark");
+
+        var meter = (UiElement)Add(document, Source);
+        document.Effects.Flush();
+
+        Assert.Equal("dark", Text(Descendants(meter).Single(child => child.Tag == "span")));
+    }
+
+    static object Build(Type type, UiDocument document) =>
+        typeof(BuildContext).GetMethod(nameof(BuildContext.Build))!
+            .MakeGenericMethod(type)
+            .Invoke(null, [document, document.Root])!;
+
+    /// <summary>
+    ///     The generated property is <c>private</c> — an injected value is the file's own reading,
+    ///     not a surface — so a test reads it the way nothing else does.
+    /// </summary>
+    static object? Injected(object instance, string name) =>
+        instance.GetType()
+            .GetProperty(name, BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(instance);
+
     // ================================================================== The @for key rule
 
     /// <summary>

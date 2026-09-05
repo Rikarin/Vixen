@@ -91,6 +91,9 @@ enum VxmlTokenKind {
     /// <summary><c>@inherits</c>.</summary>
     InheritsKeyword,
 
+    /// <summary><c>@inject</c>.</summary>
+    InjectKeyword,
+
     /// <summary><c>@code</c>.</summary>
     CodeKeyword,
 

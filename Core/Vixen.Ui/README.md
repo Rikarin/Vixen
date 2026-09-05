@@ -1701,11 +1701,14 @@ and nothing else. What it costs today is a real move per element on a list that 
 — a rotation by one changes nearly every index — and each of those is a layout remove-and-insert
 plus a style-tree move.
 
-Also owed: **an ambient value — anything a descendant can read without being handed it**. A theme, an
-edit target, a document scale: today each of them is a parameter repeated on every tag that needs one,
-which `Samples/02-HelloUi/Shell.vxml` shows at three `Model="@Model"`s and an editor multiplies by
-forty panels. ⚠ **Three ancestor walks exist and not one of them generalises**, which is worth writing
-down because each looks from a distance as if it might:
+*(An ambient value used to be owed here and is not: `UiElement.Provide`/`Inject`, `Component.OnProvide`,
+the `<provide>` tag and the `@inject` header are all built — see the table at the top of this file and
+[the guide](../../docs/guide/ui/ambient-values.md). What is still unported is the consumer side of the
+example below: `Samples/02-HelloUi/Shell.vxml` does still repeat `Model="@Model"` on three panels.)*
+
+⚠ **Three ancestor walks existed before it and not one of them generalises**, which stays written down
+because each looks from a distance as if it might, and each keeps being mistaken for the thing that
+was missing:
 
 - `[UiProperty(Inherits = true)]` emits a walk that matches only ancestors **of the declaring type**
   (`Vixen.Ui.Generators/UiPropertyGenerator.cs`, the `ancestor is <Owner> owner` test), so it inherits
@@ -1715,8 +1718,9 @@ down because each looks from a distance as if it might:
 - `UiDocument.ComponentAt` is a dictionary keyed on the exact host element, not a walk: there is no
   "nearest ancestor component of type T" to ask.
 
-What is wanted is a provide/inject keyed by type over the `Parent` walk — the same walk the responder
-chain makes, and worth sharing one implementation with it rather than growing a fourth.
+What was wanted, and what `Provide`/`Inject` is, is a lookup keyed by type over the `Parent` walk —
+the same walk `FindUndoManager` and `FindEditedDocument` make, shared rather than grown into a
+fourth.
 
 Also owed: **fallback content in a `<slot>`**. `<slot name="footer">Nothing yet</slot>` is how every
 other framework spells a default, and it is `VXML2017` here — refused rather than supported, because

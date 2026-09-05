@@ -169,6 +169,51 @@ error text a form shows is a label in the layout and pointing at it is one
 `field.AddAccessibleRelation(AccessibleRelation.DescribedBy, message)`. Folding the string into
 `AccessibleDescription` from inside the control would overwrite whatever the application put there.
 
+## What a number looks like, and in which locale
+
+`NumericInput` printed `F{Decimals}` in the invariant culture and parsed the same way, with no
+opening for a locale, a currency, a percentage or a group separator. `Format` and `Culture` are that
+opening:
+
+```csharp no-compile="a fragment; `field` is a NumericInput"
+field.Culture = CultureInfo.GetCultureInfo("de-DE");
+field.Format = "N2";        // 1.234,50
+field.Format = "C2";        // a currency amount, symbol and all
+field.Format = "P0";        // a percentage, stored as a fraction
+```
+
+`Format` is a .NET numeric format string and `Culture` is the locale it is applied in; `null` for
+either means what the field did before — `F{Decimals}`, invariant. `Decimals` is still the simple
+path and still decides what a drag quantizes to.
+
+⚠ **One culture property and not two, because printing and parsing are one decision.** A field that
+wrote `1.234,50` and read it back under the invariant rules would swallow the user's own text on the
+next commit: the parse fails, the reread is silent by design, and the number quietly stops following
+the field. Two properties would have made that arrangement expressible.
+
+⚠ **Invariant is the default rather than `CurrentCulture`.** A control that quietly followed the
+thread's culture would change what every existing field prints on a machine setting nobody in the
+application chose — and on an English-speaking developer's machine it looks identical, which is the
+kind of change that is found by a user rather than by a suite. An application that wants the user's
+locale says so, once.
+
+⚠ **The character filter is what actually made this missing, and a formatter added without it would
+have looked implemented.** A numeric field coerces its text through an allow-list, and that list was
+ASCII digits plus `-+.,eE` — so a field that formatted `€12,50` refused its own output and showed
+the previous text. The list now follows the format and the culture: the separators and signs always,
+the currency or percent symbols when a format asks for them, and whitespace for those two formats
+alone, because the space between a number and its symbol lives in the *pattern* rather than in any
+symbol string.
+
+⚠ **Percent is the one .NET can write and cannot read.** `ToString("P")` multiplies by a hundred and
+appends the symbol, and no `NumberStyles` undoes either — so the field strips the symbol and divides.
+Without that, a percentage field multiplies its own value by a hundred on every commit, visibly, and
+only after the first blur.
+
+⚠ **A custom format containing a bare `%` scales the same way and the control cannot tell.** The
+handling keys on the standard `P` specifier, so `"#0.0 %"` prints a hundredfold value that reads back
+as itself. Write `"P1"`, or put the sign in a label beside a plain format.
+
 ## The editing keymap
 
 A chord is not a verb. `EditingCommands.Resolve(key, modifiers, keymap)` turns one into an

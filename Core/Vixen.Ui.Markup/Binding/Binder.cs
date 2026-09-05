@@ -199,6 +199,18 @@ public sealed class Binder {
             );
         }
 
+        // A half-written `@inject` is dropped rather than half-emitted, on `@using`'s terms: the
+        // parser has already reported the missing token, and a property with no name or no type is
+        // a second complaint about one mistake — in generated code the author cannot edit.
+        var injects = ImmutableArray.CreateBuilder<BoundInject>();
+        foreach (var inject in document.Injects) {
+            if (inject.Type.IsMissing || inject.Name.IsMissing) {
+                continue;
+            }
+
+            injects.Add(new(Expression(inject.Type), inject.Name.Text));
+        }
+
         var code = ImmutableArray.CreateBuilder<BoundExpression>();
         string? css = null;
         var cssIsScoped = false;
@@ -255,6 +267,7 @@ public sealed class Binder {
             tag,
             inherits,
             usings.ToImmutable(),
+            injects.ToImmutable(),
             code.ToImmutable(),
             content,
             css,

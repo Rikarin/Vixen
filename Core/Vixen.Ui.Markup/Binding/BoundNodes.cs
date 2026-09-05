@@ -343,6 +343,21 @@ public sealed record BoundSlot(string Name) : BoundNode;
 /// </remarks>
 public sealed record BoundProvide(string Type, BoundExpression Value) : BoundNode;
 
+/// <summary>An <c>@inject</c> header: the property that reads an ambient value.</summary>
+/// <param name="Type">
+///     The key, as the author wrote it, carried as an expression for its span alone — the emitter
+///     writes it where a type goes, under its own <c>#line</c>.
+/// </param>
+/// <param name="Name">What the generated property is called.</param>
+/// <remarks>
+///     ⚠ <b>Not a <see cref="BoundNode" />, because it builds nothing.</b> <c>&lt;provide&gt;</c> is
+///     a statement in <c>Build</c> and belongs in the content; its mirror is a <i>member</i>, so it
+///     travels beside <c>Usings</c> where the other file-level headers are. That is also why the
+///     two cannot be checked against each other: a provide happens at a place in a tree and an
+///     inject happens at a moment in a run.
+/// </remarks>
+public sealed record BoundInject(BoundExpression Type, string Name);
+
 /// <summary>One arm of an <c>@if</c> chain.</summary>
 /// <param name="Condition">The C# the arm tests.</param>
 /// <param name="Body">What it builds.</param>
@@ -431,6 +446,7 @@ public sealed record BoundSwitch(BoundExpression Subject, ImmutableArray<BoundCa
 ///     What the generated class derives from, or null for <c>Component</c>.
 /// </param>
 /// <param name="Usings">Namespaces to import, in source order.</param>
+/// <param name="Injects">The <c>@inject</c> headers, in source order; one generated property each.</param>
 /// <param name="Code">Every <c>@code</c> body, in source order. Multiple blocks concatenate.</param>
 /// <param name="Content">The markup.</param>
 /// <param name="Css">The <c>&lt;style&gt;</c> body, if there is one.</param>
@@ -441,6 +457,7 @@ public sealed record BoundComponent(
     string? Tag,
     BoundExpression? Inherits,
     ImmutableArray<string> Usings,
+    ImmutableArray<BoundInject> Injects,
     ImmutableArray<BoundExpression> Code,
     ImmutableArray<BoundNode> Content,
     string? Css,

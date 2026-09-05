@@ -131,6 +131,7 @@ public sealed class ComponentEmitter {
 
         EmitTag();
         EmitStyle();
+        EmitInjects();
         EmitHooks();
         EmitCode();
 
@@ -298,6 +299,42 @@ public sealed class ComponentEmitter {
 
         if (component.CssIsScoped) {
             Line("protected override bool StyleIsScoped => true;");
+        }
+    }
+
+    /// <summary>The <c>@inject</c> headers, as the properties they are sugar for.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Nullable, always, and that is the honest half of the sugar.</b>
+    ///         <c>Inject&lt;T&gt;</c> answers <see langword="null" /> when nothing up the tree
+    ///         provided the type, which is an ordinary case rather than an error — a leaf has to
+    ///         work in a document that provides nothing. A consumer wanting a fallback still writes
+    ///         <c>?? Default</c> in <c>@code</c>, which is why this directive saves a line rather
+    ///         than replacing the seam.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>private</c>, so it is a reading rather than a surface.</b> An injected value
+    ///         is the file's own business: publishing it would let a caller set nothing and read
+    ///         something, and would put a member on a public type that the <c>.vxml</c>'s author
+    ///         never declared.
+    ///     </para>
+    ///     <para>
+    ///         The type is written twice on one mapped line — once as the property's and once as
+    ///         the generic argument — and both land on the same <c>.vxml</c> characters, because a
+    ///         span directive clamps anything past its end to its end. So a key that is not a type
+    ///         is Roslyn's error on what the author wrote after <c>@inject</c>, which is the same
+    ///         bargain <c>@inherits</c> takes.
+    ///     </para>
+    /// </remarks>
+    void EmitInjects() {
+        foreach (var inject in component.Injects) {
+            Line();
+            MappedText(
+                inject.Type.Position,
+                "private ",
+                inject.Type.Text,
+                $"? {inject.Name} => Inject<{inject.Type.Text}>();"
+            );
         }
     }
 
@@ -971,10 +1008,12 @@ public sealed class ComponentEmitter {
     ///     being it.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>One caller, and it is the right-hand side of a <c>ref</c>.</b> A failed conversion is
-    ///     reported by Roslyn at the value rather than at the target, so a <c>ref</c> whose member is
-    ///     of the wrong type would squiggle <c>n3</c> — a name the author has never seen. Mapping that
-    ///     name to the member's own span puts the error where the mistake is.
+    ///     ⚠ <b>Two callers, and both are text about a name the author wrote rather than the name
+    ///     itself.</b> The <c>ref</c> case: a failed conversion is reported by Roslyn at the value
+    ///     rather than at the target, so a <c>ref</c> whose member is of the wrong type would
+    ///     squiggle <c>n3</c> — a name the author has never seen. The <c>@inject</c> case: the
+    ///     property it generates mentions the key twice, so the whole line has to map to the one
+    ///     span the key occupies in the <c>.vxml</c>.
     /// </remarks>
     void MappedText(LinePositionSpan position, string prefix, string text, string suffix) {
         var indent = new string(' ', depth * 4);

@@ -204,6 +204,8 @@ public partial class NumericInput : TextField {
     double offset;
     double rate;
     double origin;
+    CultureInfo? culture;
+    string? format;
 
     /// <inheritdoc />
     protected override string TagName => "numeric-input";
@@ -264,8 +266,71 @@ public partial class NumericInput : TextField {
     public partial double RelativeStep { get; set; }
 
     /// <summary>How many decimal places the text shows.</summary>
+    /// <remarks>
+    ///     The simple half of <see cref="Format" />: with no format written this is <c>F{Decimals}</c>,
+    ///     and with one it decides nothing. It is still what <see cref="Quantize" /> reads, because a
+    ///     field showing no decimals is a count whatever it is formatted as.
+    /// </remarks>
     [UiProperty(Changed = nameof(OnDecimalsChanged))]
     public partial int Decimals { get; set; }
+
+    /// <summary>Which locale the number is written and read in. <c>null</c> is invariant.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One property for both directions, because printing and parsing are one
+    ///         decision.</b> A field that wrote <c>1 234,50</c> and then read it back under the
+    ///         invariant rules would eat the user's own text on the next commit — the parse fails,
+    ///         <see cref="Reread" /> is silent by design, and the number silently stops following the
+    ///         field. Two properties would have made that arrangement expressible.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Invariant is the default rather than <see cref="CultureInfo.CurrentCulture" />.</b>
+    ///         A control that quietly followed the thread's culture would change what every existing
+    ///         field in every application prints, on a machine setting nobody in the application
+    ///         chose, and a scene value written to disk is not a locale-dependent quantity. An
+    ///         application that wants the user's locale says so, once.
+    ///     </para>
+    /// </remarks>
+    public CultureInfo? Culture {
+        get => culture;
+        set {
+            culture = value;
+            Reformat();
+        }
+    }
+
+    /// <summary>
+    ///     A .NET numeric format string — <c>"N0"</c>, <c>"C2"</c>, <c>"P1"</c>, <c>"#,##0.###"</c>.
+    ///     <c>null</c> is <c>F{Decimals}</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         This is the locale, currency, percent and grouping the field had none of. Grouping and
+    ///         currency read back because <see cref="Reread" /> widens its
+    ///         <see cref="NumberStyles" /> to match what was printed, and percent reads back because
+    ///         the symbol is stripped and the value divided — .NET can write a percentage and has
+    ///         never been able to parse one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A custom format containing a bare <c>%</c> scales by a hundred exactly as
+    ///         <c>"P"</c> does, and this control cannot tell.</b> The percent handling keys on the
+    ///         standard specifier, so <c>"#0.0 %"</c> prints a hundredfold value that reads back as
+    ///         itself: the field then multiplies by a hundred again on every commit. Write
+    ///         <c>"P1"</c>, or put the sign in a label beside a plain format.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Assigning one rewrites the text immediately</b>, on <c>TextField.Validator</c>'s
+    ///         terms — a format attached to a field that already holds a number should not wait for
+    ///         the next keystroke to be visible.
+    ///     </para>
+    /// </remarks>
+    public string? Format {
+        get => format;
+        set {
+            format = value;
+            Reformat();
+        }
+    }
 
     /// <summary>Raised when the number changes.</summary>
     public event Action<NumericInput, double>? NumberChanged;
@@ -348,13 +413,70 @@ public partial class NumericInput : TextField {
         }
 
         foreach (var character in value) {
-            if (!char.IsAsciiDigit(character) && character is not ('-' or '+' or '.' or ',' or 'e' or 'E')) {
+            if (!Typeable(character)) {
                 return Value;
             }
         }
 
         return value;
     }
+
+    /// <summary>Whether a character may appear in this field's text at all.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The alphabet follows <see cref="Format" /> and <see cref="Culture" />, and until
+    ///         it did, the formatting seam above did nothing at all.</b> This filter is what
+    ///         <c>Value</c> is coerced through, so a field that formatted <c>€12,50</c> and then
+    ///         refused the <c>€</c> discarded its own output and showed the previous text — the
+    ///         formatter looked implemented and the field printed <c>0</c>. A format seam that does
+    ///         not widen the input filter is not a format seam.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The ASCII set is unconditional, so an unformatted field's alphabet has not
+    ///         changed.</b> The invariant separators and signs are all inside it, and the currency
+    ///         and percent symbols are reached only when a format asks for them — so a plain field
+    ///         still refuses a <c>¤</c> exactly as it did.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Whitespace is allowed for those two formats and for no other reason.</b> A
+    ///         currency and a percent pattern put a space between the number and the symbol in most
+    ///         locales, and that space is in the <i>pattern</i> rather than in any symbol string, so
+    ///         nothing in <see cref="NumberFormatInfo" /> can be consulted for it. It is the one
+    ///         character here that is admitted by argument rather than by lookup.
+    ///     </para>
+    /// </remarks>
+    bool Typeable(char character) {
+        if (char.IsAsciiDigit(character) || character is '-' or '+' or '.' or ',' or 'e' or 'E') {
+            return true;
+        }
+
+        var info = Locale.NumberFormat;
+
+        if (Has(info.NumberDecimalSeparator, character)
+            || Has(info.NumberGroupSeparator, character)
+            || Has(info.NegativeSign, character)
+            || Has(info.PositiveSign, character)) {
+            return true;
+        }
+
+        if (format is ['C' or 'c', ..]) {
+            return char.IsWhiteSpace(character)
+                || Has(info.CurrencySymbol, character)
+                || Has(info.CurrencyDecimalSeparator, character)
+                || Has(info.CurrencyGroupSeparator, character);
+        }
+
+        if (IsPercent) {
+            return char.IsWhiteSpace(character)
+                || Has(info.PercentSymbol, character)
+                || Has(info.PercentDecimalSeparator, character)
+                || Has(info.PercentGroupSeparator, character);
+        }
+
+        return false;
+    }
+
+    static bool Has(string symbol, char character) => symbol.Contains(character, StringComparison.Ordinal);
 
     /// <inheritdoc />
     /// <remarks>
@@ -398,7 +520,7 @@ public partial class NumericInput : TextField {
     /// </remarks>
     void Commit() {
         Reread();
-        Format();
+        Reformat();
     }
 
     void Blurred(FocusEvent args) {
@@ -460,9 +582,9 @@ public partial class NumericInput : TextField {
 
     void OnNumberChanged(double previous, double current) {
         Rerange();
-        Format();
+        Reformat();
 
-        // ⚠ Explicitly, because `Format` only reaches `Revalidate` when the *text* moved. A field
+        // ⚠ Explicitly, because `Reformat` only reaches `Revalidate` when the *text* moved. A field
         // showing whole numbers that is pushed from ten to ten and a half formats to "10" both
         // times, so the number left the range and nothing would have said so.
         Revalidate();
@@ -494,19 +616,58 @@ public partial class NumericInput : TextField {
     void Rerange() =>
         State = IsInRange ? State & ~ElementState.OutOfRange : State | ElementState.OutOfRange;
 
-    void OnDecimalsChanged(int previous, int current) => Format();
+    void OnDecimalsChanged(int previous, int current) => Reformat();
 
-    void Format() => Value = Number.ToString("F" + Decimals.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+    /// <summary>The locale the field prints and parses in.</summary>
+    CultureInfo Locale => culture ?? CultureInfo.InvariantCulture;
+
+    /// <summary>Whether the format is the standard percent specifier, which scales by a hundred.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The standard specifier only, and a custom format with a <c>%</c> in it is invisible
+    ///     here.</b> Both scale, so both would need the same treatment, and telling them apart means
+    ///     reading a custom format for an unescaped, unquoted <c>%</c> — a small parser for one
+    ///     character, which is a worse trade than saying plainly in <see cref="Format" /> that the
+    ///     custom spelling does not round-trip.
+    /// </remarks>
+    bool IsPercent => format is ['P' or 'p', ..];
+
+    void Reformat() =>
+        Value = Number.ToString(format ?? "F" + Decimals.ToString(CultureInfo.InvariantCulture), Locale);
 
     /// <summary>Reads the number back out of the text after a keystroke.</summary>
     /// <remarks>
-    ///     ⚠ Silent on text that does not parse. A field mid-edit holds <c>-</c> and <c>1.</c> for as
-    ///     long as somebody is typing them, and a control that reset the number to zero on every one
-    ///     of those would fight every negative number ever entered.
+    ///     <para>
+    ///         ⚠ Silent on text that does not parse. A field mid-edit holds <c>-</c> and <c>1.</c> for
+    ///         as long as somebody is typing them, and a control that reset the number to zero on
+    ///         every one of those would fight every negative number ever entered.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The styles are widened to match what was printed, and that is the whole of what
+    ///         makes a format usable.</b> <c>NumberStyles.Float</c> alone rejects the group separators
+    ///         and the currency symbol this field may have written itself, so the silence above would
+    ///         turn into a field that discards every commit — the failure mode of a format seam that
+    ///         only formats.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Percent is handled here rather than by a style, because .NET has none.</b>
+    ///         <c>ToString("P")</c> multiplies by a hundred and appends the symbol; no
+    ///         <see cref="NumberStyles" /> undoes either, so the symbol is stripped and the number
+    ///         divided. Without it a percentage field multiplies its own value by a hundred on every
+    ///         commit — visibly, and only after the first blur.
+    ///     </para>
     /// </remarks>
     void Reread() {
-        if (double.TryParse(Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)) {
-            Number = parsed;
+        var text = Value;
+        var styles = NumberStyles.Float | NumberStyles.AllowThousands;
+
+        if (format is ['C' or 'c', ..]) {
+            styles = NumberStyles.Currency;
+        } else if (IsPercent) {
+            text = text?.Replace(Locale.NumberFormat.PercentSymbol, string.Empty, StringComparison.Ordinal);
+        }
+
+        if (double.TryParse(text, styles, Locale, out var parsed)) {
+            Number = IsPercent ? parsed / 100.0 : parsed;
         }
     }
 

@@ -381,8 +381,12 @@ Vixen.Ui.Controls.NumericInput.ClearMinimum() -> void
 Vixen.Ui.Controls.NumericInput.ClearNumber() -> void
 Vixen.Ui.Controls.NumericInput.ClearRelativeStep() -> void
 Vixen.Ui.Controls.NumericInput.ClearStep() -> void
+Vixen.Ui.Controls.NumericInput.Culture.get -> System.Globalization.CultureInfo?
+Vixen.Ui.Controls.NumericInput.Culture.set -> System.Globalization.CultureInfo?
 Vixen.Ui.Controls.NumericInput.Decimals.get -> int
 Vixen.Ui.Controls.NumericInput.Decimals.set -> int
+Vixen.Ui.Controls.NumericInput.Format.get -> string?
+Vixen.Ui.Controls.NumericInput.Format.set -> string?
 Vixen.Ui.Controls.NumericInput.IsInRange.get -> bool
 Vixen.Ui.Controls.NumericInput.Maximum.get -> double
 Vixen.Ui.Controls.NumericInput.Maximum.set -> double

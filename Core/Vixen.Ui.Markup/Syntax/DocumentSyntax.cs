@@ -59,6 +59,22 @@ public sealed partial class DocumentSyntax {
         }
     }
 
+    /// <summary>The <c>@inject</c> headers, in source order.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The second header a file may write more than once</b>, and the reason the summary
+    ///     above says five questions rather than four: an ambient value is read one type at a time,
+    ///     so a panel that wants a theme and a selection writes two.
+    /// </remarks>
+    public IEnumerable<InjectDirectiveSyntax> Injects {
+        get {
+            foreach (var directive in Directives) {
+                if (directive is InjectDirectiveSyntax inject) {
+                    yield return inject;
+                }
+            }
+        }
+    }
+
     T? First<T>() where T : DirectiveSyntax {
         foreach (var directive in Directives) {
             if (directive is T found) {

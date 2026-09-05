@@ -375,6 +375,17 @@ sealed class VxmlLexer {
             return;
         }
 
+        // Two names: the ambient key, dotted for `@inherits`' reason, and the member the generated
+        // property is called. Both are lexed as names — the parser is what says which kind each
+        // becomes, because a name token that is a plain identifier is still a name to the lexer.
+        if (AtDirective("inject")) {
+            Emit(tokens, VxmlTokenKind.InjectKeyword, 7);
+            SkipWhitespace(tokens);
+            LexName(tokens);
+            LexInjectName(tokens);
+            return;
+        }
+
         if (AtDirective("code")) {
             Emit(tokens, VxmlTokenKind.CodeKeyword, 5);
             LexCodeBody(tokens);
@@ -448,6 +459,29 @@ sealed class VxmlLexer {
 
         SkipWhitespace(tokens);
         Emit(tokens, VxmlTokenKind.Equals, 1);
+        SkipWhitespace(tokens);
+        LexName(tokens);
+    }
+
+    /// <summary>The <c>Theme</c> of <c>@inject ITheme Theme</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The gap is measured before anything is consumed</b>, for <see cref="LexUsingAlias" />'s
+    ///     reason. A directive hands the lexer straight back to content, where a whitespace run is
+    ///     <i>text</i> — so skipping ahead unconditionally would swallow the line break after a
+    ///     half-written <c>@inject ITheme</c> and read the next line's tag name as the member name.
+    ///     Stopping at the break is what makes the missing half a diagnostic on the directive rather
+    ///     than a silently accepted file that generates the wrong property.
+    /// </remarks>
+    void LexInjectName(List<LexedToken> tokens) {
+        var gap = 0;
+        while (IsWhitespace(window.Peek(gap)) && !IsNewLine(window.Peek(gap))) {
+            gap++;
+        }
+
+        if (!IsNameStart(window.Peek(gap))) {
+            return;
+        }
+
         SkipWhitespace(tokens);
         LexName(tokens);
     }
