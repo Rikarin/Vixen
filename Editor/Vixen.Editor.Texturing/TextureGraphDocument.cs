@@ -32,8 +32,9 @@ namespace Vixen.Editor.Texturing;
 ///         <c>internal</c>", and that claim is false.</b> It was true when it was written and
 ///         <a href="https://github.com/Rikarin/Vixen/issues/738">#738</a> closed by making the
 ///         compiler <c>public sealed</c>; the sentence outlived the fix, in this file and in the
-///         panel's own status line, where an author reads it. <see cref="Compile" /> is the method
-///         it said could not exist.
+///         panel's own status line, where an author still reads it —
+///         <a href="https://github.com/Rikarin/Vixen/issues/816">#816</a>. <see cref="Compile" /> is
+///         the method it said could not exist.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The registry carries published node types and the compilation carries the source
