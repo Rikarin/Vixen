@@ -58,6 +58,20 @@
           `CheckShaders`' inventory asks for an entry only where one exists.
         -->
         <EmbeddedResource Include="Shaders\*.rvn" />
+
+        <!--
+          And doc 48 § D5's other half: the compounds. § 4.9's catalogue is content rather than code,
+          so a `Histogram Scan` is a `.vxtexgraph` beside the kernels rather than a node class — and
+          it is embedded for the same reason they are, which is that there is then nothing a
+          deployment can leave behind and no folder anybody has to find. `TextureCompoundLibrary`
+          reads them; its `Root` is this folder's name, so a file that moves out of it stops shipping
+          rather than shipping under a wrong path.
+
+          ⚠ A shipped compound's file name may not contain a dot. A manifest resource name has no way
+          to tell a folder separator from one, so `Grunge v2.vxtexgraph` would publish under
+          `Grunge v2` with a phantom folder in it. `TextureCompoundLibraryTests` holds that.
+        -->
+        <EmbeddedResource Include="Compounds\**\*.vxtexgraph" />
     </ItemGroup>
 
     <ItemGroup>
@@ -94,6 +108,21 @@
           not become a new encoder.
         -->
         <ProjectReference Include="..\..\Core\Vixen.Core.Imaging\Vixen.Core.Imaging.csproj" />
+
+        <!--
+          ⚠ **And the YAML reader, which this assembly deliberately did not have.**
+          `NodeGraphDocument`'s own remarks say the node-graph framework "does not choose a file
+          format" — its asset records are `[DataContract]`s a caller may write as YAML or bake with
+          the binary serializer — and that argument holds for a *document*, which some host owns.
+          It does not hold for the compounds of § 4.9: those are files this assembly **ships**, so
+          this assembly is the caller, and something here has to read them.
+
+          Measured rather than assumed: `Vixen.Core.Yaml.dll` was already in `bin/` before this line,
+          arriving through `Vixen.Editor.NodeGraph` → `Vixen.Editor.Core`. So it adds **zero** files
+          to the output directory and only widens what this compilation may spell, which is what
+          `DisableTransitiveProjectReferences` above otherwise hides.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
 
         <!--
           ⚠ Named rather than inherited, and that is what `DisableTransitiveProjectReferences` above
