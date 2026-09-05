@@ -1137,23 +1137,34 @@ public abstract partial class TextField : Control {
             return;
         }
 
+        // ⚠ **The chord is decided once, in one table, for both text controls.** This was a
+        // `switch (args.Key)` with `var word = Control || Meta` and a comment saying the assembly
+        // could not know which platform it was on — while `CodeEditor` had a second copy of the same
+        // switch that took Control *only*, so ⌘← moved by a word here and by one character there.
+        // Neither could ever grow the AppKit emacs bindings, because ⌃A cannot be Select All and the
+        // start of the line in the same table. See `EditingCommands`.
         var shift = args.Modifiers.HasFlag(ModifierKeys.Shift);
+        var command = EditingCommands.Resolve(args.Key, args.Modifiers, Document.EditingKeymap);
 
-        // ⚠ Ctrl on Windows and Linux, Meta on macOS — and this assembly cannot know which it is on,
-        // so it takes either. The cost is that Meta-Left also moves by word on Windows, where
-        // nothing else claims it; the alternative is a text field that does not respond to the
-        // shortcuts of whichever platform the author did not think of.
-        var word = args.Modifiers.HasFlag(ModifierKeys.Control) || args.Modifiers.HasFlag(ModifierKeys.Meta);
-
-        switch (args.Key) {
-            case InputKey.Left:
-                var back = word ? WordBefore(CaretIndex) : Step(CaretIndex, -1);
+        switch (command) {
+            case EditingCommand.MoveLeft:
+                var back = Step(CaretIndex, -1);
                 MoveCaret(back.Index, back.Affinity, shift);
                 break;
 
-            case InputKey.Right:
-                var forward = word ? WordAfter(CaretIndex) : Step(CaretIndex, 1);
+            case EditingCommand.MoveWordLeft:
+                var wordBack = WordBefore(CaretIndex);
+                MoveCaret(wordBack.Index, wordBack.Affinity, shift);
+                break;
+
+            case EditingCommand.MoveRight:
+                var forward = Step(CaretIndex, 1);
                 MoveCaret(forward.Index, forward.Affinity, shift);
+                break;
+
+            case EditingCommand.MoveWordRight:
+                var wordForward = WordAfter(CaretIndex);
+                MoveCaret(wordForward.Index, wordForward.Affinity, shift);
                 break;
 
             // ⚠ To the end of the *line* in a field that has more than one, and to the end of the
@@ -1163,33 +1174,61 @@ public abstract partial class TextField : Control {
             // are the same two indices. Home downstream is the head of the row the caret is on;
             // upstream would be the tail of the row above, so Home would appear to jump up a line.
             // End upstream is that row's own tail rather than the head of the next.
-            case InputKey.Home:
+            case EditingCommand.MoveLineStart:
                 MoveCaret(AcceptsNewlines ? LineStart(CaretIndex) : 0, CaretAffinity.Downstream, shift);
                 break;
 
-            case InputKey.End:
+            case EditingCommand.MoveLineEnd:
                 MoveCaret(AcceptsNewlines ? LineEnd(CaretIndex) : Value?.Length ?? 0, CaretAffinity.Upstream, shift);
                 break;
 
-            case InputKey.Up when AcceptsNewlines:
+            case EditingCommand.MoveDocumentStart:
+                MoveCaret(0, CaretAffinity.Downstream, shift);
+                break;
+
+            case EditingCommand.MoveDocumentEnd:
+                MoveCaret(Value?.Length ?? 0, CaretAffinity.Upstream, shift);
+                break;
+
+            case EditingCommand.MoveUp when AcceptsNewlines:
                 var movedUp = Vertically(-1);
                 MoveCaret(movedUp.Index, movedUp.Affinity, shift);
                 break;
 
-            case InputKey.Down when AcceptsNewlines:
+            case EditingCommand.MoveDown when AcceptsNewlines:
                 var movedDown = Vertically(1);
                 MoveCaret(movedDown.Index, movedDown.Affinity, shift);
                 break;
 
-            case InputKey.Backspace:
+            case EditingCommand.DeleteBackward:
                 Backspace();
                 break;
 
-            case InputKey.Delete:
+            case EditingCommand.DeleteForward:
                 Forward();
                 break;
 
-            case InputKey.A when word:
+            // ⚠ Written as *select, then replace with nothing*, which is what makes the whole family
+            // one mutation. `Replace` is where `MaxLength`, the change notification and the caret
+            // arithmetic live, so a delete that reached round it would be the second place any of
+            // the three could be wrong.
+            case EditingCommand.DeleteWordBackward:
+                DeleteTo(WordBefore(CaretIndex).Index);
+                break;
+
+            case EditingCommand.DeleteWordForward:
+                DeleteTo(WordAfter(CaretIndex).Index);
+                break;
+
+            case EditingCommand.DeleteToLineStart:
+                DeleteTo(AcceptsNewlines ? LineStart(CaretIndex) : 0);
+                break;
+
+            case EditingCommand.DeleteToLineEnd:
+                DeleteTo(AcceptsNewlines ? LineEnd(CaretIndex) : Value?.Length ?? 0);
+                break;
+
+            case EditingCommand.SelectAll:
                 SelectAll();
                 break;
 
@@ -1197,21 +1236,21 @@ public abstract partial class TextField : Control {
             // ⌘C climbs to whatever else was listening — a list that wanted to copy its selection,
             // a document that wanted to copy the whole thing. Marking the chord handled on a field
             // with no selection is how a text box silently eats the application's Copy.
-            case InputKey.C when word:
+            case EditingCommand.Copy:
                 if (!Copy()) {
                     return;
                 }
 
                 break;
 
-            case InputKey.X when word:
+            case EditingCommand.Cut:
                 if (!Cut()) {
                     return;
                 }
 
                 break;
 
-            case InputKey.V when word:
+            case EditingCommand.Paste:
                 if (!Paste()) {
                     return;
                 }
@@ -1229,15 +1268,15 @@ public abstract partial class TextField : Control {
             //     is `Submitted`, which is what `DialogService.Prompt` binds. A `TextBox` gives it
             //     the plain key; a text area cannot.
             //
-            // Ctrl-Enter is the field's answer: the modified chord submits, the plain one breaks the
-            // line. ⚠ `word` is Control *or* Meta, so Cmd-Enter submits too — which is what a Mac
-            // expects and costs nothing on Windows, where nothing else claims it.
+            // So the plain chord breaks the line and the modified one submits — Ctrl-Enter on
+            // Windows, ⌘-Enter on a Mac, which is `EditingCommand.Submit` in either table. A
+            // single-line field has no line to break and submits on both.
             //
             // ⚠ `CodeEditor` deliberately does not join this, and it is not an oversight: Ctrl-Enter
             // there inserts a newline like any other Enter, because nothing in this tree puts a code
             // editor inside a form and the second consumer therefore does not exist for it. The day
             // one does, it raises `SubmitEvent` on the chord and this comment is why.
-            case InputKey.Enter or InputKey.KeypadEnter when AcceptsNewlines && !word:
+            case EditingCommand.InsertNewline when AcceptsNewlines:
                 Replace("\n");
                 break;
 
@@ -1247,20 +1286,42 @@ public abstract partial class TextField : Control {
             // The routed event is raised last because it is the one an ancestor can see, and an
             // ancestor seeing the submission before the field's own handler has is a form whose
             // default button fires on a value the field has not finished with.
-            case InputKey.Enter or InputKey.KeypadEnter:
+            case EditingCommand.InsertNewline or EditingCommand.Submit:
                 OnSubmit();
                 Submitted?.Invoke(this);
                 Raise(new SubmitEvent());
                 break;
 
             default:
-                // Everything else, including every key that produces a character. Those arrive as
-                // TextInputEvent and must not be handled here, or the field would consume Escape,
-                // the function keys and every shortcut an ancestor was listening for.
+                // Everything else, including every key that produces a character, and every verb
+                // this control has no reading of — Tab, which is focus navigation; Escape, which a
+                // dialog wants; the completion chords, which are the code editor's. Those must not
+                // be handled here, or the field would consume every shortcut an ancestor was
+                // listening for.
                 return;
         }
 
         args.Handled = true;
+    }
+
+    /// <summary>Selects from the caret to an index and deletes what that covers.</summary>
+    /// <param name="index">The other end.</param>
+    /// <remarks>
+    ///     ⚠ <b>Leaves the selection alone and does nothing when there is one.</b> Every desktop's
+    ///     delete-by-word deletes the <i>selection</i> when there is one rather than the word beyond
+    ///     it, and a field that reached past a highlighted range would delete text the user could
+    ///     see was not selected.
+    /// </remarks>
+    void DeleteTo(int index) {
+        if (!HasSelection) {
+            if (index == CaretIndex) {
+                return;
+            }
+
+            SelectionAnchor = index;
+        }
+
+        Replace(string.Empty);
     }
 
     void Backspace() {

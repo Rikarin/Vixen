@@ -425,6 +425,41 @@ Vixen.Ui.DrawListBuilder.Compositing.get -> bool
 Vixen.Ui.DrawListBuilder.Compositing.set -> bool
 Vixen.Ui.DrawListBuilder.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Styling.SelectorDiagnostic>
 Vixen.Ui.DrawListBuilder.DrawListBuilder(Vixen.Ui.Styling.NameTable properties, Vixen.Ui.Styling.NameTable values, Vixen.Ui.Styling.NameTable keywords) -> void
+Vixen.Ui.EditingCommand -> enum : byte
+Vixen.Ui.EditingCommand.Cancel = 27 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.Copy = 23 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.Cut = 22 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.DeleteBackward = 13 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.DeleteForward = 14 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.DeleteToLineEnd = 18 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.DeleteToLineStart = 17 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.DeleteWordBackward = 15 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.DeleteWordForward = 16 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.EditingCommand() -> void
+Vixen.Ui.EditingCommand.InsertNewline = 19 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.InsertTab = 20 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MoveDocumentEnd = 12 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MoveDocumentStart = 11 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MoveDown = 4 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MoveLeft = 1 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MoveLineEnd = 8 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MoveLineStart = 7 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MovePageDown = 10 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MovePageUp = 9 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MoveRight = 2 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MoveUp = 3 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MoveWordLeft = 5 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MoveWordRight = 6 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.None = 0 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.Paste = 24 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.SelectAll = 21 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.ShowCompletion = 26 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.Submit = 25 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommands -> static class
+Vixen.Ui.EditingKeymap -> enum : byte
+Vixen.Ui.EditingKeymap.EditingKeymap() -> void
+Vixen.Ui.EditingKeymap.MacOs = 1 -> Vixen.Ui.EditingKeymap
+Vixen.Ui.EditingKeymap.Windows = 0 -> Vixen.Ui.EditingKeymap
 Vixen.Ui.EventRouter -> static class
 Vixen.Ui.FocusDirection -> enum : byte
 Vixen.Ui.FocusDirection.FocusDirection() -> void
@@ -1195,6 +1230,8 @@ Vixen.Ui.UiDocument.Dispose() -> void
 Vixen.Ui.UiDocument.Draw() -> bool
 Vixen.Ui.UiDocument.Draw(Vixen.Ui.UiSurface surface) -> bool
 Vixen.Ui.UiDocument.Drawing.get -> Vixen.Ui.DrawList
+Vixen.Ui.UiDocument.EditingKeymap.get -> Vixen.Ui.EditingKeymap
+Vixen.Ui.UiDocument.EditingKeymap.set -> Vixen.Ui.EditingKeymap
 Vixen.Ui.UiDocument.Effects.get -> Vixen.Ui.Reactive.EffectScheduler
 Vixen.Ui.UiDocument.FindInDirection(Vixen.Ui.UiElement origin, Vixen.Ui.NavigationDirection direction) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Focus(Vixen.Ui.UiElement? element) -> bool
@@ -1497,6 +1534,9 @@ static Vixen.Ui.Composition.ScopedStyles.ScopeOf(System.Type component) -> strin
 static Vixen.Ui.CornerRadii.Circular(float topLeft, float topRight, float bottomRight, float bottomLeft) -> Vixen.Ui.CornerRadii
 static Vixen.Ui.CornerRadii.Uniform(float radius) -> Vixen.Ui.CornerRadii
 static Vixen.Ui.DrawBatcher.Build(System.Collections.Generic.IReadOnlyList<Vixen.Ui.DrawCommand> commands, System.Collections.Generic.List<Vixen.Ui.DrawBatch> into) -> void
+static Vixen.Ui.EditingCommands.Current.get -> Vixen.Ui.EditingKeymap
+static Vixen.Ui.EditingCommands.Id(Vixen.Ui.EditingCommand command) -> string?
+static Vixen.Ui.EditingCommands.Resolve(Vixen.Input.InputKey key, Vixen.Ui.ModifierKeys modifiers, Vixen.Ui.EditingKeymap keymap) -> Vixen.Ui.EditingCommand
 static Vixen.Ui.EventRouter.Direct<T>(Vixen.Ui.UiElement target, T args) -> void
 static Vixen.Ui.EventRouter.Raise<T>(Vixen.Ui.UiElement target, T args) -> void
 static Vixen.Ui.FontRegistry.Cover(string text, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Text.FontFace> chain, System.Collections.Generic.List<Vixen.Ui.FontSpan> into) -> void

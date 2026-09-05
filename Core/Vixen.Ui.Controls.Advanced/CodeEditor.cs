@@ -1418,98 +1418,139 @@ public sealed partial class CodeEditor : Control {
             return;
         }
 
+        // ⚠ **The same table `TextField` reads, which is the whole point of there being one.** This
+        // was a second hand-maintained `switch (args.Key)` over the same vocabulary, and it had
+        // already diverged: `var word = Control` here against `Control || Meta` there, so ⌘← moved by
+        // a word in a text box and by a single character in the code editor on the platform ⌘ exists
+        // on. See `EditingCommands`.
         var extend = args.Modifiers.HasFlag(ModifierKeys.Shift);
-        var word = args.Modifiers.HasFlag(ModifierKeys.Control);
+        var command = EditingCommands.Resolve(args.Key, args.Modifiers, Document.EditingKeymap);
 
-        switch (args.Key) {
-            case InputKey.Left:
-                Move(word ? buffer.WordStart(Caret) : buffer.Back(Caret), extend);
+        switch (command) {
+            case EditingCommand.MoveLeft:
+                Move(buffer.Back(Caret), extend);
                 break;
 
-            case InputKey.Right:
-                Move(word ? buffer.WordEnd(Caret) : buffer.Forward(Caret), extend);
+            case EditingCommand.MoveWordLeft:
+                Move(buffer.WordStart(Caret), extend);
                 break;
 
-            case InputKey.Up:
+            case EditingCommand.MoveRight:
+                Move(buffer.Forward(Caret), extend);
+                break;
+
+            case EditingCommand.MoveWordRight:
+                Move(buffer.WordEnd(Caret), extend);
+                break;
+
+            case EditingCommand.MoveUp:
                 Step(-1, extend);
                 break;
 
-            case InputKey.Down:
+            case EditingCommand.MoveDown:
                 Step(1, extend);
                 break;
 
-            case InputKey.PageUp:
+            case EditingCommand.MovePageUp:
                 Step(-VisibleRows, extend);
                 break;
 
-            case InputKey.PageDown:
+            case EditingCommand.MovePageDown:
                 Step(VisibleRows, extend);
                 break;
 
-            case InputKey.Home:
-                Move(word ? default : Home(), extend);
+            case EditingCommand.MoveLineStart:
+                Move(Home(), extend);
                 break;
 
-            case InputKey.End:
-                Move(word ? buffer.End : Caret with { Column = buffer[Caret.Line].Length }, extend);
+            case EditingCommand.MoveLineEnd:
+                Move(Caret with { Column = buffer[Caret.Line].Length }, extend);
                 break;
 
-            case InputKey.Backspace:
+            case EditingCommand.MoveDocumentStart:
+                Move(default, extend);
+                break;
+
+            case EditingCommand.MoveDocumentEnd:
+                Move(buffer.End, extend);
+                break;
+
+            case EditingCommand.DeleteBackward:
                 Erase(false);
                 break;
 
-            case InputKey.Delete:
+            case EditingCommand.DeleteForward:
                 Erase(true);
                 break;
 
-            // ⚠ Whatever is held. `TextArea` gives Ctrl-Enter to submission so a form's default
-            // button stays reachable from a field that took the plain key; this control does not,
-            // and that is a decision rather than an omission. Nothing in this tree puts a code
+            // ⚠ Selecting to the boundary and erasing the selection, rather than a second delete
+            // path: `Erase` already owns the collapse, the refresh and the caret, and a delete that
+            // reached round it would be a second place all three could be wrong. Nothing happens
+            // when the boundary is where the caret already is.
+            case EditingCommand.DeleteWordBackward:
+                EraseTo(buffer.WordStart(Caret));
+                break;
+
+            case EditingCommand.DeleteWordForward:
+                EraseTo(buffer.WordEnd(Caret));
+                break;
+
+            case EditingCommand.DeleteToLineStart:
+                EraseTo(Caret with { Column = 0 });
+                break;
+
+            case EditingCommand.DeleteToLineEnd:
+                EraseTo(Caret with { Column = buffer[Caret.Line].Length });
+                break;
+
+            // ⚠ Whatever is held. `TextArea` gives the modified chord to submission so a form's
+            // default button stays reachable from a field that took the plain key; this control does
+            // not, and that is a decision rather than an omission. Nothing in this tree puts a code
             // editor inside a form, so the second claimant on the chord does not exist here — and a
             // chord that silently stopped inserting a newline would be a worse surprise than one
-            // that does nothing. The day a code editor lives in a dialog, it raises `SubmitEvent`
-            // on Ctrl-Enter and `TextField.Keyed`'s comment says why.
-            case InputKey.Enter or InputKey.KeypadEnter:
+            // that does nothing. The day a code editor lives in a dialog, it raises `SubmitEvent` on
+            // `EditingCommand.Submit` and `TextField.Keyed`'s comment says why.
+            case EditingCommand.InsertNewline or EditingCommand.Submit:
                 Insert(AutoIndent ? "\n" + buffer[Caret.Line][..buffer.IndentOf(Caret.Line)] : "\n");
                 break;
 
-            case InputKey.Tab:
+            case EditingCommand.InsertTab:
                 Indent(!extend);
                 break;
 
-            case InputKey.A when word:
+            case EditingCommand.SelectAll:
                 SelectAll();
                 break;
 
             // Returning rather than breaking when there is nothing to do, for the reason
             // `TextField.Keyed` states: an editor with no selection must not eat the application's
             // Copy.
-            case InputKey.C when word:
+            case EditingCommand.Copy:
                 if (!Copy()) {
                     return;
                 }
 
                 break;
 
-            case InputKey.X when word:
+            case EditingCommand.Cut:
                 if (!Cut()) {
                     return;
                 }
 
                 break;
 
-            case InputKey.V when word:
+            case EditingCommand.Paste:
                 if (!Paste()) {
                     return;
                 }
 
                 break;
 
-            case InputKey.Space when word:
+            case EditingCommand.ShowCompletion:
                 ShowCompletion();
                 break;
 
-            case InputKey.Escape when IsCompleting:
+            case EditingCommand.Cancel when IsCompleting:
                 HideCompletion();
                 break;
 
@@ -1518,6 +1559,25 @@ public sealed partial class CodeEditor : Control {
         }
 
         args.Handled = true;
+    }
+
+    /// <summary>Selects from the caret to a position and erases what that covers.</summary>
+    /// <param name="position">The other end.</param>
+    /// <remarks>
+    ///     ⚠ <b>A selection wins.</b> Every desktop's delete-by-word deletes the selection when there
+    ///     is one rather than the word past it, and an editor that reached beyond a highlighted range
+    ///     would delete lines the user could see were not selected.
+    /// </remarks>
+    void EraseTo(TextPosition position) {
+        if (!HasSelection) {
+            if (position == Caret) {
+                return;
+            }
+
+            Move(position, extend: true);
+        }
+
+        Erase(false);
     }
 
     int VisibleRows => Math.Max(1, (int) (Scroller.Height / MathF.Max(1f, RowHeight)) - 1);
