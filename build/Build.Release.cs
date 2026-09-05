@@ -40,21 +40,17 @@ partial class Build {
 
     Target Release => definition => definition
         .Description("Folds the API baselines, archives the graph and emits the release's table")
-        .DependsOn(Restore)
+        // Release, for the reason CheckApi gives: the public surface is a promise about a packed
+        // assembly, and Debug's `#if DEBUG` feature flags are not that promise. ⚠ This built the
+        // solution itself and Docs, which it triggers, then built it again — so a release run paid
+        // the 166 s twice over, and its own copy passed no `-m:` so it ignored `--workers` as well.
+        .DependsOn(CompileRelease)
         .Requires(() => ReleaseVersion)
         .Executes(() => {
                 var version = ReleaseVersion.TrimStart('v');
                 var projects = ApiCheckedProjects();
 
                 Assert.True(projects.Count > 0, "Found no packable projects to fold — the glob is wrong.");
-
-                // Release, for the reason CheckApi gives: the public surface is a promise about a
-                // packed assembly, and Debug's `#if DEBUG` feature flags are not that promise.
-                DotNetBuild(settings => settings
-                    .SetProjectFile(Solution)
-                    .SetConfiguration(Configuration.Release)
-                    .EnableNoRestore()
-                );
 
                 var arguments = new List<string> { "--fold" };
 

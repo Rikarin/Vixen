@@ -55,7 +55,7 @@ partial class Build {
 
     Target Docs => definition => definition
         .Description("Emits the documentation graph the site is rendered from")
-        .DependsOn(Restore)
+        .DependsOn(CompileRelease)
         .Produces(DocsDirectory / "graph.json")
         .Executes(() => Emit(false));
 
@@ -76,13 +76,8 @@ partial class Build {
     ///     </para>
     /// </remarks>
     void Emit(bool gate) {
-        DotNetBuild(settings => settings
-            .SetProjectFile(Solution)
-            .SetConfiguration(Configuration.Release)
-            .EnableNoRestore()
-            .AddProcessAdditionalArguments(WorkerArguments)
-        );
-
+        // The solution is built by CompileRelease, which both callers depend on — a warm build of it
+        // is 166 s of finding nothing to do, and this used to pay for its own (#555).
         var arguments = new List<string> {
             RootDirectory / "Vixen.slnx",
             "--output", DocsDirectory,
@@ -182,7 +177,7 @@ partial class Build {
     /// </remarks>
     Target CheckDocs => definition => definition
         .Description("Fails on a type with no page, a page that breaks its contract, or an example that does not compile")
-        .DependsOn(Restore)
+        .DependsOn(CompileRelease)
         .Produces(DocsDirectory / "graph.json")
         .Executes(() => Emit(true));
 }

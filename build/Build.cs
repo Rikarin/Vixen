@@ -75,19 +75,6 @@ partial class Build : NukeBuild {
     [Solution(GenerateProjects = false)]
     readonly Solution Solution;
 
-    /// <summary>This build's own project — outside the solution, and deliberately so.</summary>
-    /// <remarks>
-    ///     ⚠ <b>A Nuke build project inside the solution it builds is an ordering question nobody
-    ///     needs to answer</b>, and adding it would also hand it the packing, documentation and
-    ///     API-baseline obligations of a shipped library. What it was costing instead was coverage:
-    ///     no target reads it, so <c>build/</c> was the only C# in the tree that nothing checked
-    ///     (#584). <see cref="FormatWorkspaces" /> points the two format passes at it directly —
-    ///     <c>dotnet format</c> takes a project as a workspace — which buys the check without the
-    ///     membership. ⚠ Only the unscoped run: <c>--since</c> narrows to solution projects, so an
-    ///     edit here is still checked by the gate and not by the inner loop.
-    /// </remarks>
-    AbsolutePath BuildProjectFile => RootDirectory / "build" / "_build.csproj";
-
     AbsolutePath ArtifactsDirectory => RootDirectory / "artifacts";
 
     AbsolutePath TestResultsDirectory => ArtifactsDirectory / "test-results";
@@ -121,6 +108,45 @@ partial class Build : NukeBuild {
             DotNetBuild(settings => settings
                 .SetProjectFile(Solution)
                 .SetConfiguration(Configuration)
+                .EnableNoRestore()
+                .AddProcessAdditionalArguments(WorkerArguments)
+            )
+        );
+
+    /// <summary>
+    ///     The solution in Release, built once for every gate whose subject is a shipped assembly.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Release whatever <c>--configuration</c> says, and that is the point of the target
+    ///         rather than a detail of it.</b> <see cref="CheckApi" /> records why — the engine has
+    ///         <c>public const bool</c> feature flags whose values are <c>#if DEBUG</c>, so a
+    ///         surface baselined against Debug is a promise about a package nobody ships. Reading
+    ///         <see cref="Configuration" /> here would make the gate change subject on a developer
+    ///         machine, silently, because <c>Configuration</c> defaults to Debug locally and Release
+    ///         in CI.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A warm, up-to-date solution build costs 166 s on a ten-core Mac</b> — that is
+    ///         the price of walking 395 projects and finding nothing to do, and it is the floor under
+    ///         every target that builds. <c>CheckApi</c>, <c>Docs</c> and <c>Release</c> each paid it
+    ///         separately inside their own <c>Executes</c>, so a sweep paid it three times where two
+    ///         will do (once here, once for <see cref="Compile" />'s Debug). Nuke runs a dependency
+    ///         once per invocation, which is the whole mechanism.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not <c>CheckShaders</c>, and #555 said it was.</b> That target builds
+    ///         <c>Raven/Vixen.Raven.Cli</c> and nothing else (<c>Build.Shaders.cs</c>), so it never
+    ///         paid this cost and adding the dependency would hand it one.
+    ///     </para>
+    /// </remarks>
+    Target CompileRelease => definition => definition
+        .Description("Builds the solution in Release — the subject every shipped-assembly gate reads")
+        .DependsOn(Restore)
+        .Executes(() =>
+            DotNetBuild(settings => settings
+                .SetProjectFile(Solution)
+                .SetConfiguration(Configuration.Release)
                 .EnableNoRestore()
                 .AddProcessAdditionalArguments(WorkerArguments)
             )
@@ -276,10 +302,22 @@ partial class Build : NukeBuild {
     /// </remarks>
     IReadOnlyList<AbsolutePath> FormatWorkspaces() {
         if (Since is null) {
-            // ⚠ And the build itself, which every target here reads the solution to find and which
-            // is therefore not in it. Twenty-odd files defining every gate in this repository were
-            // the only C# no gate looked at (#584) — a directory checked by nothing is where a rule
-            // rots quietest, because the code that decides what "checked" means lives in it.
+            // ⚠ And the build itself. Every target here finds its subject through the solution, and
+            // `build/_build.csproj` is not in it — so the twenty files that define every gate in
+            // this repository were the only C# no gate looked at (#584). A directory checked by
+            // nothing is where a rule rots quietest, because the code deciding what "checked" means
+            // lives in it.
+            //
+            // Pointed at rather than added to Vixen.slnx: a Nuke build project inside the solution
+            // it builds is an ordering question nobody needs to answer, and membership would hand it
+            // the packing, documentation and API-baseline obligations of a shipped library.
+            // `dotnet format` takes a project as a workspace, which buys the check without either.
+            // ⚠ `BuildProjectFile` is NukeBuild's own — this file declared a second one and got
+            // CS0108 for it.
+            //
+            // The unscoped run only: --since narrows to solution projects, so an edit under build/
+            // is checked by the gate and not by the inner loop, which is recorded in
+            // `SolutionProjects`.
             return [Solution.Path, BuildProjectFile];
         }
 
