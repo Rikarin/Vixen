@@ -271,6 +271,67 @@ public class TexturePlacementDeviceTests(ITestOutputHelper output) {
         );
     }
 
+    /// <summary>
+    ///     ⚠ A fully jittered grid still tiles the image, because the cell index wraps before it is
+    ///     hashed.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Written because a sabotage left the entire suite green.</b> Deleting the body of
+    ///         <c>TileSampler.Fold</c> — the two modulos that fold a cell index into the grid — changed
+    ///         nothing in 441 assertions. Every closed form above is a <em>total</em>, and a total
+    ///         cannot see the fold: without it each cell still holds exactly one instance and still
+    ///         contributes exactly its own area. What the fold decides is <em>which</em> instance the
+    ///         cells outside the grid hold, and that is only visible where one of them overlaps the
+    ///         image.
+    ///     </para>
+    ///     <para>
+    ///         So the property is asserted where it bites, and ⚠ <b>the grid has to be one cell</b>.
+    ///         The first version of this test used a 2×2 grid and went red against the honest kernel:
+    ///         a fully jittered grid does <em>not</em> cover its interior, because two adjacent cells
+    ///         draw independently-jittered squares that do not abut and the gap between them is real.
+    ///         The fold is not about neighbours; it is about the <em>period</em>. With one cell, every
+    ///         neighbour <em>is</em> the period, so the fold makes them the same instance, the copies
+    ///         abut exactly, and the image is white. Without it the cell beyond the border is a
+    ///         differently-jittered copy and the gap it leaves is black.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Max and not add.</b> Under <c>add</c> this is white either way — the sum over a
+    ///         cell is one instance's area whether the copies line up or not, which is exactly the
+    ///         blindness this test exists to cover.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_fully_jittered_grid_still_tiles_because_the_cell_index_wraps() {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
+        var plan = new TexturePlan {
+            BaseWidth = Side,
+            BaseHeight = Side,
+            Seed = 3301u,
+            Images = [new(TextureFormat.Rgba16Float), new(TextureFormat.Rgba8)],
+            Ops = [
+                TextureSources.Uniform(0, 1f),
+                TexturePlacement.TileSampler(1, 0, gridX: 1, gridY: 1, scale: 1f, positionJitter: 1f)
+            ],
+            Outputs = [1]
+        };
+
+        Assert.Empty(plan.Validate());
+
+        using var evaluator = new TexturePlanEvaluator(device);
+        using var bake = evaluator.Evaluate(plan, new Dictionary<int, TextureHandle>());
+
+        TextureKernelHarness.AssertSame(
+            new(Side, Side, TextureKernelHarness.Solid(Side, 255, 255, 255, 255)),
+            bake.Read(1),
+            3,
+            $"a jittered 1x1 grid at full scale on {TextureKernelHarness.Adapter(device)}"
+        );
+    }
+
     /// <summary>The three accumulation modes give three numbers, and each is only its own.</summary>
     /// <remarks>
     ///     ⚠ <b>Two instances at full scale cover every texel twice</b>, because the field wraps — so
