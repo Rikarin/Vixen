@@ -25,12 +25,13 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///         coverage stops at a base class is worse than no sweep, because it is quoted as one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Three of the pointer-only sub-parts doc 46 owes are still exempted here with a
-///         pointer to their issue rather than reported as failures</b>, because giving them a role
-///         before giving them a keyboard would be worse than not: a screen reader would announce a
-///         set of widgets that cannot be operated. <c>ColorField</c>, <c>ColorStrip</c> and
-///         <c>ColorSwatch</c> have left the table, and the order they left it in is the point — the
-///         arrows and the roving tab stop landed in the same change as the roles, never before. The
+///         ⚠ <b>One of the pointer-only sub-parts doc 46 owes is still exempted here with a
+///         pointer to its issue rather than reported as a failure</b>, because giving it a role
+///         before giving it a keyboard would be worse than not: a screen reader would announce a
+///         widget that cannot be operated. <c>ColorField</c>, <c>ColorStrip</c>, <c>ColorSwatch</c>,
+///         <c>GradientRail</c> and <c>NodeItem</c> have left the table, and the order they left it
+///         in is the point — the arrows, the roving tab stop and the canvas's active descendant
+///         landed in the same change as the roles, never before. The
 ///         name doc 46 lists that was never in the table is <c>TimelineTrack</c>: it is not a
 ///         <see cref="UiElement" /> at all, so it can never have a role and this sweep cannot see it.
 ///     </para>
@@ -41,15 +42,15 @@ public class AccessibilityCoverageTests {
     /// <remarks>
     ///     ⚠ <b>Two categories, and the reasons say which.</b> Most of these are structure — a paint
     ///     layer, a lane, a row, a container whose children carry the roles — and are correct
-    ///     forever. Three are owed: the pointer-only sub-parts of the canvases, which need a
-    ///     keyboard before they can be given a role, and whose reason names the issue that owes it.
+    ///     forever. One is owed: the pointer-only sub-part of a canvas that still needs a keyboard
+    ///     before it can be given a role, and whose reason names the issue that owes it.
     /// </remarks>
     static readonly Dictionary<string, string> Exempt = new(StringComparer.Ordinal) {
         // Owed, in the order doc 46 § A2 lists them. Keyboard first, role second — see #420. The
-        // colour picker's three left this table by being given a keyboard, not by being given a
-        // role, and `GradientRail` has now left it the same way; the two below are the ones still
-        // waiting for one.
-        ["NodeItem"] = "pointer-only: a node is dragged and has no keyboard yet — #420",
+        // colour picker's three left this table by being given a keyboard, `GradientRail` left it
+        // the same way, and `NodeItem` has now left it by the canvas gaining one — the arrows step
+        // between nodes and the item is the canvas's active descendant, which is a keyboard reaching
+        // a node without a tab stop ever landing in a pool. One is still waiting.
         ["ViewportGizmo"] = "pointer-only: a manipulator handle with no keyboard yet — #420",
 
         // Structure. A role on any of these would announce a picture as a widget.
@@ -81,8 +82,12 @@ public class AccessibilityCoverageTests {
     const int Elements = 37;
 
     /// <summary>And how many of them are expected to answer with a role.</summary>
-    /// <remarks>Twenty today, which is what stops the first floor being met by exempted types.</remarks>
-    const int Roled = 19;
+    /// <remarks>
+    ///     Twenty-one today, which is what stops the first floor being met by exempted types. It
+    ///     goes up as the table below shrinks, and it is the half of the pair that a control given
+    ///     a role would fail if it were quietly dropped again.
+    /// </remarks>
+    const int Roled = 20;
 
     [Fact]
     public void Every_element_type_has_a_role_or_a_written_reason_for_not() {
