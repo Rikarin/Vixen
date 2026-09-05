@@ -95,8 +95,8 @@ public class TextureUploadTests {
     ///     here instead would make this test the second place the answer is kept, which is the
     ///     arrangement the declaration exists to remove: what has to be true is that the two readers
     ///     of <c>UploadUsage</c> are the creation and the declaration, and
-    ///     <see cref="An_upload_is_created_with_everything_a_plan_may_do_to_it" /> is what pins the
-    ///     bits themselves.
+    ///     <see cref="An_uploaded_bitmap_can_be_read_by_a_cpu_op" /> is what pins what the bits have
+    ///     to be.
     /// </remarks>
     [Fact]
     public void The_externals_map_is_keyed_by_the_image_index() {
