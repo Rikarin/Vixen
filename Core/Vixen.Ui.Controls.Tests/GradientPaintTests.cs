@@ -301,6 +301,67 @@ public class GradientPaintTests {
         Assert.Equal(bitmap.Pixels[bitmap.Offset(20, 4) + 2], bitmap.Pixels[bitmap.Offset(4, 20) + 2]);
     }
 
+    /// <summary>⚠ A <c>circle</c> ending is round on a box that is not, and an <c>ellipse</c> is not.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The box is 80 by 40 and that is the whole test.</b> On a square box every ending
+    ///         keyword this pass added draws a circle, so a square probe cannot tell <c>circle</c>
+    ///         from <c>ellipse</c> at all — and the implementation that fails here is the plausible
+    ///         one: treating <c>circle</c> as a spelling of <c>ellipse</c>, which passes every
+    ///         assertion in <c>GradientTests</c> that names an ellipse and every picture on a square.
+    ///     </para>
+    ///     <para>
+    ///         The oracle is closed form rather than eyeballed. Fifteen pixels out along each axis is
+    ///         the same distance, so on a circle it is the same colour; on the ellipse the horizontal
+    ///         reach is twice the vertical, so the same fifteen pixels is half as far along the ramp.
+    ///         With <c>closest-side</c> on this box the ellipse's reaches are (28.28, 14.14) and the
+    ///         circle's are (14.14, 14.14) — so the two vertical readings agree and the two horizontal
+    ///         ones must not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the pair is asserted against the default as well, because "it is round" is
+    ///         true of the ending that was already there.</b> A <c>closest-side</c> that quietly
+    ///         painted <c>farthest-corner</c> — which is what a refused layer used to become one
+    ///         family up — is round too, and reaches the same colour at both points. What separates
+    ///         it is that its ramp is a factor of root two shorter everywhere inside the box.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_circle_ending_is_round_on_a_box_that_is_not() {
+        using var round = Painted(
+            ".probe { background-image: radial-gradient(circle closest-side, #ff0000, #0000ff); }",
+            80f,
+            40f
+        );
+
+        using var oval = Painted(
+            ".probe { background-image: radial-gradient(ellipse closest-side, #ff0000, #0000ff); }",
+            80f,
+            40f
+        );
+
+        using var wide = Painted(".probe { background-image: radial-gradient(#ff0000, #0000ff); }", 80f, 40f);
+
+        static int Blue(UiTest ui, int x, int y) {
+            var bitmap = ui.Capture();
+            return bitmap.Pixels[bitmap.Offset(x, y) + 2];
+        }
+
+        // Fifteen out along each axis, from a centre at (40, 20).
+        Assert.InRange(Blue(round, 55, 20) - Blue(round, 40, 35), -3, 3);
+
+        Assert.True(
+            Blue(oval, 40, 35) - Blue(oval, 55, 20) > 40,
+            $"the ellipse is round: {Blue(oval, 55, 20)} across and {Blue(oval, 40, 35)} down"
+        );
+
+        // And neither is the default ending, whose ramp reaches the corner rather than the near side.
+        Assert.True(
+            Blue(oval, 40, 35) - Blue(wide, 40, 35) > 40,
+            $"closest-side is painting farthest-corner: {Blue(oval, 40, 35)} against {Blue(wide, 40, 35)}"
+        );
+    }
+
     /// <summary>A conic gradient sweeps clockwise from twelve o'clock, which is CSS's convention.</summary>
     /// <remarks>
     ///     ⚠ <b>Four points around the box, because every wrong convention passes fewer than four.</b>

@@ -86,6 +86,18 @@ public sealed partial class ScrollBar : Control {
     /// <summary>Raised when a drag on the thumb moves it.</summary>
     public event Action<ScrollBar, float>? Scrolled;
 
+    /// <summary>Raised when a drag on the thumb is let go of.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The end of a gesture, which is the thing this control had no way to say and the
+    ///     reason <c>scroll-snap-type</c> could not be read before it existed.</b>
+    ///     <see cref="Scrolled" /> is a stream of positions with no terminator — it says where the
+    ///     thumb is, never that the hand has come off it — so a scroll container listening to it
+    ///     alone can know everything about where the content went and nothing about when it stopped.
+    ///     "Comes to rest" is not derivable from a position stream, and a snap is defined at exactly
+    ///     that moment.
+    /// </remarks>
+    public event Action<ScrollBar>? ScrollEnded;
+
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
@@ -174,6 +186,8 @@ public sealed partial class ScrollBar : Control {
                 dragging = false;
                 Document.ReleasePointer();
 
+                ScrollEnded?.Invoke(this);
+
                 args.Handled = true;
                 break;
 
@@ -223,6 +237,48 @@ public enum OverscrollBehavior : byte {
 
     /// <summary>It does not. The scroll stops at this box's edge.</summary>
     Contain
+}
+
+/// <summary>Which axes a scroll container snaps on.</summary>
+/// <remarks>
+///     CSS Scroll Snap's <c>scroll-snap-type</c>, minus the two axes this engine has no writing mode
+///     to distinguish — <c>block</c> and <c>inline</c> would mean <c>y</c> and <c>x</c> in every
+///     configuration <c>Vixen.Ui.Layout</c> can be in, which is <c>scroll-mbs-*</c>'s argument one
+///     property over.
+/// </remarks>
+public enum ScrollSnapAxis : byte {
+    /// <summary>It does not. The initial value, and what every scroll did before this was read.</summary>
+    None,
+
+    /// <summary>Horizontally.</summary>
+    X,
+
+    /// <summary>Vertically.</summary>
+    Y,
+
+    /// <summary>Both, independently — a scroll can be snapped on one axis and loose on the other.</summary>
+    Both
+}
+
+/// <summary>Where a snap candidate lines up inside the container it snaps in.</summary>
+/// <remarks>
+///     <c>scroll-snap-align</c>, per axis. The edges are the <i>snapport's</i> — the viewport as
+///     <c>scroll-padding</c> leaves it — and the candidate's are its own as <c>scroll-margin</c>
+///     leaves it, which is the same pair of elements <see cref="ScrollView.ScrollIntoView" /> reads
+///     and for the same reason.
+/// </remarks>
+public enum ScrollSnapAlign : byte {
+    /// <summary>Not a candidate at all. The initial value.</summary>
+    None,
+
+    /// <summary>Its near edge meets the snapport's near edge.</summary>
+    Start,
+
+    /// <summary>Its middle meets the snapport's middle.</summary>
+    Center,
+
+    /// <summary>Its far edge meets the snapport's far edge.</summary>
+    End
 }
 
 /// <summary>A window onto content that is bigger than it is.</summary>
@@ -315,11 +371,13 @@ public sealed partial class ScrollView : Control {
         // itself — the thumb is under the finger and must stay there.
         VerticalBar = Part<ScrollBar>();
         VerticalBar.Orientation = Orientation.Vertical;
-        VerticalBar.Scrolled += (_, value) => { Settle(); ScrollTop = value; };
+        VerticalBar.Scrolled += (_, value) => { Began(); Settle(); ScrollTop = value; };
+        VerticalBar.ScrollEnded += _ => Ended();
 
         HorizontalBar = Part<ScrollBar>();
         HorizontalBar.Orientation = Orientation.Horizontal;
-        HorizontalBar.Scrolled += (_, value) => { Settle(); ScrollLeft = value; };
+        HorizontalBar.Scrolled += (_, value) => { Began(); Settle(); ScrollLeft = value; };
+        HorizontalBar.ScrollEnded += _ => Ended();
 
         AddHandler<WheelEvent>(static (element, args) => ((ScrollView) element).Wheeled(args));
         AddHandler<KeyEvent>(static (element, args) => ((ScrollView) element).Keyed(args));
@@ -408,6 +466,26 @@ public sealed partial class ScrollView : Control {
     ///     it reach.
     /// </remarks>
     public void ScrollTo(float top, float left) {
+        var (snappedTop, snappedLeft) = SnapPositions(
+            Math.Clamp(top, 0f, MaximumTop),
+            Math.Clamp(left, 0f, MaximumLeft),
+            ScrollTop,
+            ScrollLeft
+        );
+
+        Move(snappedTop, snappedLeft);
+    }
+
+    /// <summary>Goes to an offset the way <c>scroll-behavior</c> says to, snapping nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half of <see cref="ScrollTo" /> that is not the snap, split out because the snap
+    ///     would otherwise recurse.</b> A gesture ending computes where it should come to rest and
+    ///     then has to <i>get</i> there, and getting there through <see cref="ScrollTo" /> would ask
+    ///     the snap where a snap position snaps to. That is idempotent for the nearest-candidate rule
+    ///     and is <i>not</i> for <c>scroll-snap-stop: always</c>, which is a claim about what a scroll
+    ///     passed over — so a second pass would see the trip to the snap position as its own gesture.
+    /// </remarks>
+    void Move(float top, float left) {
         if (Behaviour() != ScrollBehavior.Smooth) {
             Settle();
 
@@ -441,6 +519,12 @@ public sealed partial class ScrollView : Control {
     void Advance(TimeSpan now) {
         var elapsed = (float) (now - last).TotalSeconds;
         last = now;
+
+        // ⚠ Before the easing rather than after it, and outside the `IsScrolling` guard: the whole
+        // point of the terminator is that it fires on a view that is doing nothing at all.
+        if (gesturing && (float) (now - gestureAt).TotalSeconds >= SnapIdleSeconds) {
+            Ended();
+        }
 
         if (!IsScrolling || elapsed <= 0f) {
             return;
@@ -476,6 +560,334 @@ public sealed partial class ScrollView : Control {
         IsScrolling = false;
         wantedTop = ScrollTop;
         wantedLeft = ScrollLeft;
+    }
+
+    // ── Scroll snapping ─────────────────────────────────────────────────────────────────────
+    //
+    // ⚠ <b>This is the one family in doc 43 § Part 8 § 3 whose deferral premise was true.</b> The
+    // other twenty-two were four property reads inside a control that already scrolled; this one is
+    // an algorithm and a gesture. The algorithm is the easy half — a snap position is one
+    // subtraction per candidate per axis, below — and the gesture is the half that had nothing to
+    // build on: neither the wheel nor a drag on the bar had an *end*, and "comes to rest" is the
+    // only moment at which a snap is defined. `ScrollBar.ScrollEnded` is the drag's terminator and
+    // `SnapIdleSeconds` is the wheel's.
+
+    /// <summary>How long the wheel has to be still before the scroll is deemed to have come to rest.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Wall-clock, and it has to be — a wheel is a stream of deltas with no terminator
+    ///         in it.</b> A finger leaving a trackpad, a wheel that stops turning and a hand that
+    ///         paused mid-flick are the same silence, and no amount of counting frames or deltas
+    ///         tells them apart; every browser answers this with an idle timeout for the same reason.
+    ///         What is <i>not</i> wall-clock is anything that asserts on it: the clock is
+    ///         <see cref="UiDocument.Ticked" />'s, which a test drives by hand, so "after 125 ms of
+    ///         stillness" is a statement about frames the test delivered rather than about how busy
+    ///         the machine was.
+    ///     </para>
+    ///     <para>
+    ///         Measured against the last <i>tick</i> rather than against the wheel event's own
+    ///         timestamp, because the two need not be the same clock — a platform head is free to
+    ///         stamp input from a monotonic source the frame loop never reads, and a mismatch there
+    ///         would either snap during a gesture or never snap at all.
+    ///     </para>
+    /// </remarks>
+    public const float SnapIdleSeconds = 0.125f;
+
+    /// <summary>How near a candidate has to be for <c>proximity</c> to snap to it, as a fraction of the viewport.</summary>
+    /// <remarks>
+    ///     ⚠ <b>CSS leaves this to the implementation, so it is a number rather than a reading.</b>
+    ///     The whole difference between the two strictnesses is that <c>mandatory</c> always lands on
+    ///     a candidate and <c>proximity</c> only does so when one is close enough to be what the
+    ///     reader plainly meant — a threshold of one makes the two identical, and a threshold of zero
+    ///     makes <c>proximity</c> the inert half of a family this table is not allowed to register.
+    /// </remarks>
+    public const float SnapProximity = 0.25f;
+
+    bool gesturing;
+    TimeSpan gestureAt;
+    float gestureTop;
+    float gestureLeft;
+
+    readonly List<UiElement> candidates = [];
+
+    /// <summary>Notes that a direct scroll has started, and where from.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Where from is the part <c>scroll-snap-stop: always</c> cannot be read without.</b>
+    ///     <c>always</c> is not a claim about where a scroll ended; it is a claim about what it went
+    ///     <i>past</i> on the way, so the origin has to survive the whole gesture. Re-entrant on
+    ///     purpose: every wheel notch and every move of the thumb calls this, and only the first of
+    ///     them is the start.
+    /// </remarks>
+    void Began() {
+        if (gesturing) {
+            return;
+        }
+
+        gesturing = true;
+        gestureTop = ScrollTop;
+        gestureLeft = ScrollLeft;
+    }
+
+    /// <summary>The gesture is over: come to rest wherever <c>scroll-snap-type</c> says to.</summary>
+    void Ended() {
+        if (!gesturing) {
+            return;
+        }
+
+        gesturing = false;
+
+        var (top, left) = SnapPositions(ScrollTop, ScrollLeft, gestureTop, gestureLeft);
+        if (!top.Equals(ScrollTop) || !left.Equals(ScrollLeft)) {
+            Move(top, left);
+        }
+    }
+
+    /// <summary>Where a scroll that wanted to end at an offset actually ends.</summary>
+    /// <param name="top">The offset wanted, already clamped.</param>
+    /// <param name="left">Ditto, horizontally.</param>
+    /// <param name="fromTop">Where the scroll started, for <c>scroll-snap-stop</c>.</param>
+    /// <param name="fromLeft">Ditto.</param>
+    /// <returns>The offsets to come to rest at, which are the arguments when nothing snaps.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The candidates' bounds are read at the offset the view is at <i>now</i>, not at
+    ///         <paramref name="top" />.</b> A snap position is therefore
+    ///         <c>ScrollTop + (candidate edge − snapport edge)</c> — an absolute offset that does not
+    ///         depend on where the scroll wanted to go, which is what lets one walk answer both "the
+    ///         nearest one to here" and "the first one between here and there".
+    ///     </para>
+    ///     <para>
+    ///         Pure but for the walk: it writes nothing, so <see cref="ScrollTo" /> can ask it where
+    ///         a destination would land before deciding how to get there.
+    ///     </para>
+    /// </remarks>
+    (float Top, float Left) SnapPositions(float top, float left, float fromTop, float fromLeft) {
+        var (axis, mandatory) = SnapType();
+        if (axis == ScrollSnapAxis.None) {
+            return (top, left);
+        }
+
+        var vertical = axis is ScrollSnapAxis.Y or ScrollSnapAxis.Both;
+        var horizontal = axis is ScrollSnapAxis.X or ScrollSnapAxis.Both;
+
+        candidates.Clear();
+        Gather(Content);
+
+        if (candidates.Count == 0) {
+            return (top, left);
+        }
+
+        var padding = InsetOf(this);
+        var viewport = Bounds;
+
+        var nearTop = viewport.Top + padding.Top;
+        var farBottom = viewport.Bottom - padding.Bottom;
+        var nearLeft = viewport.Left + padding.Left;
+        var farRight = viewport.Right - padding.Right;
+
+        var choiceY = default(SnapChoice);
+        var choiceX = default(SnapChoice);
+
+        foreach (var candidate in candidates) {
+            var (block, inline) = AlignOf(candidate);
+
+            var margin = InsetOf(candidate);
+            var area = candidate.Bounds;
+            var always = candidate.Style.TryGet(names.SnapStop, out var stop) && stop == names.Always;
+
+            if (vertical && block != ScrollSnapAlign.None) {
+                var position = block switch {
+                    ScrollSnapAlign.Start => ScrollTop + (area.Top - margin.Top) - nearTop,
+                    ScrollSnapAlign.End => ScrollTop + area.Bottom + margin.Bottom - farBottom,
+                    _ => ScrollTop
+                        + (((area.Top - margin.Top) + area.Bottom + margin.Bottom) * 0.5f)
+                        - ((nearTop + farBottom) * 0.5f)
+                };
+
+                Consider(ref choiceY, Math.Clamp(position, 0f, MaximumTop), fromTop, top, always);
+            }
+
+            if (horizontal && inline != ScrollSnapAlign.None) {
+                var position = inline switch {
+                    ScrollSnapAlign.Start => ScrollLeft + (area.Left - margin.Left) - nearLeft,
+                    ScrollSnapAlign.End => ScrollLeft + area.Right + margin.Right - farRight,
+                    _ => ScrollLeft
+                        + (((area.Left - margin.Left) + area.Right + margin.Right) * 0.5f)
+                        - ((nearLeft + farRight) * 0.5f)
+                };
+
+                Consider(ref choiceX, Math.Clamp(position, 0f, MaximumLeft), fromLeft, left, always);
+            }
+        }
+
+        candidates.Clear();
+
+        return (
+            Resolve(choiceY, top, mandatory, viewport.Height * SnapProximity),
+            Resolve(choiceX, left, mandatory, viewport.Width * SnapProximity)
+        );
+    }
+
+    /// <summary>What one candidate is worth on one axis: the nearest, and whether it may be skipped.</summary>
+    struct SnapChoice {
+        public bool Any;
+        public float Nearest;
+        public float Distance;
+
+        public bool Blocked;
+        public float Stop;
+        public float Travelled;
+    }
+
+    /// <summary>Folds one candidate's snap position into an axis's answer.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The two halves answer different questions and the second is not a tie-break of the
+    ///     first.</b> "Nearest" is measured from where the scroll <i>ended</i>; a
+    ///     <c>scroll-snap-stop: always</c> candidate is chosen by how little was travelled to reach
+    ///     it, because the rule is that a scroll may not pass one — so of two that were both passed
+    ///     over, the one that stops the scroll is the earlier, which is very often the further from
+    ///     where it wanted to end up.
+    /// </remarks>
+    static void Consider(ref SnapChoice choice, float position, float from, float to, bool always) {
+        var distance = MathF.Abs(position - to);
+
+        if (!choice.Any || distance < choice.Distance) {
+            choice.Any = true;
+            choice.Nearest = position;
+            choice.Distance = distance;
+        }
+
+        if (!always) {
+            return;
+        }
+
+        // Strictly past the origin and no further than the destination, which is what "passed over"
+        // means — and which makes a scroll that went nowhere (`from == to`, every programmatic call
+        // that is not a page or a key) pass over nothing at all rather than everything.
+        var low = MathF.Min(from, to);
+        var high = MathF.Max(from, to);
+
+        if (position <= low || position > high) {
+            return;
+        }
+
+        var travelled = MathF.Abs(position - from);
+        if (!choice.Blocked || travelled < choice.Travelled) {
+            choice.Blocked = true;
+            choice.Stop = position;
+            choice.Travelled = travelled;
+        }
+    }
+
+    /// <summary>What an axis comes to rest at, given everything considered on it.</summary>
+    static float Resolve(SnapChoice choice, float wanted, bool mandatory, float proximity) {
+        if (choice.Blocked) {
+            return choice.Stop;
+        }
+
+        if (!choice.Any) {
+            return wanted;
+        }
+
+        return mandatory || choice.Distance <= proximity ? choice.Nearest : wanted;
+    }
+
+    /// <summary>Collects every element under this view that declares itself a snap candidate.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It does not descend into another <see cref="ScrollView" />, and that is the rule
+    ///     rather than an optimisation.</b> A snap area belongs to its <i>nearest</i> scroll
+    ///     container, so a row inside an inner list is the inner list's candidate and not this one's
+    ///     — an outer view that gathered them would snap to a position the inner view is about to
+    ///     move out from under it. The inner view itself may still carry a
+    ///     <c>scroll-snap-align</c> of its own, which is why the test comes after the check and not
+    ///     before it.
+    /// </remarks>
+    void Gather(UiElement element) {
+        foreach (var child in element.Children) {
+            if (AlignOf(child) is not (ScrollSnapAlign.None, ScrollSnapAlign.None)) {
+                candidates.Add(child);
+            }
+
+            if (child is not ScrollView) {
+                Gather(child);
+            }
+        }
+    }
+
+    /// <summary>What <c>scroll-snap-type</c> says on this view.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read as text rather than through <see cref="UiDocument.KeywordOf" />, because the
+    ///     value is legally two words.</b> <c>scroll-snap-type: y mandatory</c> is one declaration
+    ///     carrying an axis and a strictness, and every accessor on <c>StyleAccess</c> answers
+    ///     <c>null</c> to a two-word value by design. The two keywords are order-independent in this
+    ///     reading, which is laxer than the grammar and is the right way round: the strictness
+    ///     reaches this through a <c>var()</c> substitution — <c>snap-y</c> and <c>snap-mandatory</c>
+    ///     are two classes and the fragment is what joins them — so what arrives here is a string
+    ///     assembled by the cascade rather than one a person typed.
+    /// </remarks>
+    (ScrollSnapAxis Axis, bool Mandatory) SnapType() {
+        if (!Style.TryGet(names.SnapType, out var id)) {
+            return (ScrollSnapAxis.None, false);
+        }
+
+        var text = Document.Styles.Values.NameOf(id);
+
+        var axis = Mentions(text, "both") ? ScrollSnapAxis.Both
+            : Mentions(text, "x") ? ScrollSnapAxis.X
+            : Mentions(text, "y") ? ScrollSnapAxis.Y
+            : ScrollSnapAxis.None;
+
+        return (axis, Mentions(text, "mandatory"));
+    }
+
+    /// <summary>What <c>scroll-snap-align</c> says on one element, per axis.</summary>
+    /// <remarks>
+    ///     Block first and inline second, which is the CSS order, and one word means both — so
+    ///     <c>scroll-snap-align: start</c> is a candidate on whichever axis the container snaps and
+    ///     <c>start none</c> is one vertically only.
+    /// </remarks>
+    (ScrollSnapAlign Block, ScrollSnapAlign Inline) AlignOf(UiElement element) {
+        if (!element.Style.TryGet(names.SnapAlign, out var id)) {
+            return (ScrollSnapAlign.None, ScrollSnapAlign.None);
+        }
+
+        var text = Document.Styles.Values.NameOf(id);
+        var space = text.IndexOf(' ');
+
+        if (space < 0) {
+            var both = Alignment(text.AsSpan());
+            return (both, both);
+        }
+
+        return (Alignment(text.AsSpan(0, space)), Alignment(text.AsSpan(space + 1).Trim()));
+    }
+
+    static ScrollSnapAlign Alignment(ReadOnlySpan<char> word) =>
+        word switch {
+            "start" => ScrollSnapAlign.Start,
+            "center" => ScrollSnapAlign.Center,
+            "end" => ScrollSnapAlign.End,
+            _ => ScrollSnapAlign.None
+        };
+
+    /// <summary>Whether a value's word list contains one whole word.</summary>
+    /// <remarks>
+    ///     ⚠ Whole words, or <c>x</c> matches inside <c>both</c> and every container that snaps on
+    ///     both axes snaps on one.
+    /// </remarks>
+    static bool Mentions(string text, string word) {
+        for (var index = text.IndexOf(word, StringComparison.Ordinal); index >= 0;) {
+            var opens = index == 0 || text[index - 1] == ' ';
+            var closes = index + word.Length == text.Length || text[index + word.Length] == ' ';
+
+            if (opens && closes) {
+                return true;
+            }
+
+            index = text.IndexOf(word, index + word.Length, StringComparison.Ordinal);
+        }
+
+        return false;
     }
 
     /// <summary>The four scroll insets an element declares, resolved to physical edges.</summary>
@@ -561,6 +973,10 @@ public sealed partial class ScrollView : Control {
             Margin = EdgeIds.For(properties, "scroll-margin");
             Padding = EdgeIds.For(properties, "scroll-padding");
 
+            SnapType = properties.Intern("scroll-snap-type");
+            SnapAlign = properties.Intern("scroll-snap-align");
+            SnapStop = properties.Intern("scroll-snap-stop");
+
             Behavior = properties.Intern("scroll-behavior");
             Overscroll = properties.Intern("overscroll-behavior");
             OverscrollX = properties.Intern("overscroll-behavior-x");
@@ -570,12 +986,16 @@ public sealed partial class ScrollView : Control {
             Smooth = values.Intern("smooth");
             Auto = values.Intern("auto");
             Rtl = values.Intern("rtl");
+            Always = values.Intern("always");
         }
 
         public static ScrollNames Of(UiDocument document) => Cache.GetValue(document, static key => new ScrollNames(key));
 
         public EdgeIds Margin { get; }
         public EdgeIds Padding { get; }
+        public int SnapType { get; }
+        public int SnapAlign { get; }
+        public int SnapStop { get; }
         public int Behavior { get; }
         public int Overscroll { get; }
         public int OverscrollX { get; }
@@ -584,6 +1004,7 @@ public sealed partial class ScrollView : Control {
         public int Smooth { get; }
         public int Auto { get; }
         public int Rtl { get; }
+        public int Always { get; }
     }
 
     /// <summary>The six longhands of one scroll-inset family, interned.</summary>
@@ -635,6 +1056,27 @@ public sealed partial class ScrollView : Control {
         // scroll offset at all.
         ScrollTop = CoerceTop(ScrollTop);
         ScrollLeft = CoerceLeft(ScrollLeft);
+
+        // ⚠ A `mandatory` container is snapped at rest and not merely on the way to rest, which is
+        // the half of CSS Scroll Snap that is not about gestures at all: content inserted above the
+        // viewport, or a resize, moves every candidate out from under an offset nobody touched. Only
+        // `mandatory`, because `proximity` explicitly permits resting between candidates; and never
+        // during a gesture or an easing, which own the offset while they run.
+        if (gesturing || IsScrolling) {
+            return;
+        }
+
+        var (axis, mandatory) = SnapType();
+        if (!mandatory || axis == ScrollSnapAxis.None) {
+            return;
+        }
+
+        // Assigned rather than routed through `Move`: a smooth re-snap would set `IsScrolling` from
+        // inside the layout pass that will run again next frame, and the two would take turns.
+        var (top, left) = SnapPositions(ScrollTop, ScrollLeft, ScrollTop, ScrollLeft);
+
+        ScrollTop = top;
+        ScrollLeft = left;
     }
 
     float CoerceTop(float value) => Math.Clamp(value, 0f, MaximumTop);
@@ -659,7 +1101,14 @@ public sealed partial class ScrollView : Control {
     void Wheeled(WheelEvent args) {
         // A hand on the wheel takes the content off any easing still running, and the wheel itself is
         // never smoothed — see `ScrollBehavior`.
+        Began();
         Settle();
+
+        // ⚠ The tick clock, not `args.Timestamp` — see `SnapIdleSeconds`. Stamped before the scroll
+        // rather than after it so that a wheel a fully-scrolled view chains outwards still counts as
+        // this view's gesture continuing: an idle timer that only advanced when the offset moved
+        // would fire mid-flick at every stop.
+        gestureAt = last;
 
         var top = ScrollTop;
         var left = ScrollLeft;

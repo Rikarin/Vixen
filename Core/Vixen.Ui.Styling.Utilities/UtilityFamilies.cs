@@ -1785,25 +1785,30 @@ public static class UtilityFamilies {
         // `mask-image`, which is what the fragments exist for. Tailwind's own spelling: `at` is part
         // of the class name, not of the value.
         //
-        // ⚠ <b>`mask-radial-*`'s other half — the ending shapes, `mask-circle`, `mask-ellipse`,
-        // `mask-radial-closest-side` and its three siblings — is deliberately NOT registered, and
-        // that is a refusal with a named blocker rather than an omission.</b> Each of those names a
-        // different ellipse from the `farthest-corner` one this engine computes, so
-        // `GradientReader` refuses them as `GradientRefusal.Extent` — and a refused layer is not a
-        // slightly wrong mask, it is *no mask at all*, so registering them would make the class
-        // delete the masking it was written to shape. The centre could land without them because
-        // moving a farthest-corner ellipse leaves it one.
+        // ⚠ <b>`mask-radial-*`'s other half — the ending sizes — is registered now, and the refusal
+        // that stood here was right about the trade and wrong about the blocker.</b> It read "they
+        // land when `UiMask` carries a stated pair of radii", and `UiShape.Paint.zw` <i>is</i> a
+        // stated pair, honoured as an arbitrary pair by every rasteriser. Nothing was waiting on a
+        // lane or on a shader: what was missing was somewhere on `BackgroundGradient` to record
+        // which ending was written and the other closed forms in `RampFrame`, both of which #545
+        // built. The trade the refusal named still stands and is what made it worth keeping until
+        // then — a refused mask layer is *no mask at all* rather than a slightly wrong one, so a
+        // family registered against an ending the reader declines deletes the masking it was
+        // written to shape.
         //
-        // ⚠ <b>"They land when `UiMask` carries a stated pair of radii" stood here and is false —
-        // re-measured 2026-09-05 (`Rikarin/Vixen#545`).</b> `UiShape.Paint.zw` <i>is</i> a stated
-        // pair, honoured as an arbitrary pair by all three rasterisers (`Ui.rvn`, `ui-box.frag`,
-        // `SoftwareUiRasterizer`), and `RampFrame` already writes one for a moved centre. Nothing is
-        // waiting on a lane or on a shader. What is missing is a place on `BackgroundGradient` to
-        // record which of the six endings was written and the other four closed forms in
-        // `RampFrame` — so this is unbuilt work with a stated conversion, not a blocked design. The
-        // refusal itself stands either way, and `GradientPaintTests.
-        // A_radial_gradient_ends_at_the_corner_and_not_at_the_edge` is the pixel oracle that says
-        // why: approximating one of these is a ramp that finishes in the wrong place.
+        // ⚠ <b>`mask-circle` and `mask-ellipse` are still not here, and for a reason that has
+        // nothing to do with gradients.</b> The shape fragment exists and is read; the obstacle is
+        // this table's own shape — `Alongside` belongs to a family and not to a value, and the
+        // `mask` prefix is already the `mask-repeat` family, whose values must not emit a mask
+        // layer. Filed rather than worked around, because the workaround is a second family under a
+        // name `Register` would silently discard.
+        Keywords("mask-radial", UtilityComposition.MaskRadialSize, new() {
+            ["closest-side"] = "closest-side",
+            ["closest-corner"] = "closest-corner",
+            ["farthest-side"] = "farthest-side",
+            ["farthest-corner"] = "farthest-corner"
+        }, [.. MaskAlongside(UtilityComposition.MaskRadial, Radial)]);
+
         Keywords("mask-radial-at", UtilityComposition.MaskRadialPosition, new() {
             ["top"] = "top", ["top-left"] = "top left", ["top-right"] = "top right",
             ["left"] = "left", ["center"] = "center", ["right"] = "right",
@@ -3558,8 +3563,19 @@ public static class UtilityFamilies {
     ///     <c>at</c> only from <c>mask-radial-at-*</c>, would need that class to win the cascade
     ///     against every other <c>mask-radial-*</c> on the element, and it does not.
     /// </remarks>
+    /// <remarks>
+    ///     ⚠ <b>The ending size is written unconditionally too, for the <c>at</c>'s reason and with
+    ///     the same consequence.</b> Its fragment defaults to CSS's own <c>farthest-corner</c>, so a
+    ///     mask that names no ending says exactly what "no geometry at all" said before — and
+    ///     <c>BackgroundGradient.IsDefaultEnding</c> is what keeps that on the shader's fast path
+    ///     rather than merely arriving at the same picture by a longer route.
+    /// </remarks>
     static string Radial =>
-        UtilityComposition.MaskImage("radial", $"at {UtilityComposition.Reference(UtilityComposition.MaskRadialPosition)}");
+        UtilityComposition.MaskImage(
+            "radial",
+            $"{UtilityComposition.Reference(UtilityComposition.MaskRadialSize)} "
+            + $"at {UtilityComposition.Reference(UtilityComposition.MaskRadialPosition)}"
+        );
 
     /// <summary>A swept mask, started by <c>--tw-mask-conic-angle</c>.</summary>
     static string Conic => UtilityComposition.MaskImage("conic", $"from {UtilityComposition.Reference(UtilityComposition.MaskConicAngle)}");

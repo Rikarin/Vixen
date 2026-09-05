@@ -3356,6 +3356,8 @@ T:Vixen.Ui.Controls.RangeSlider sweep-pending
 T:Vixen.Ui.Controls.ScrollBehavior sweep-with-ScrollView — ditto; it governs programmatic scrolls only, and the reason the wheel and a bar drag are exempt from it is on the same README section and in docs/guide/editor/utility-styles.md
 T:Vixen.Ui.Controls.ScrollBar sweep-pending
 T:Vixen.Ui.Controls.ScrollView sweep-pending
+T:Vixen.Ui.Controls.ScrollSnapAlign sweep-with-ScrollView — ditto; the per-axis value of `scroll-snap-align`, and which edge of a candidate meets which edge of the snapport is in Vixen.Ui.Controls/README.md § What ScrollView reads out of the cascade
+T:Vixen.Ui.Controls.ScrollSnapAxis sweep-with-ScrollView — ditto; the axis half of `scroll-snap-type`, whose strictness half is a bool rather than a type because CSS spells the two in one declaration
 T:Vixen.Ui.Controls.SearchBox sweep-pending
 T:Vixen.Ui.Controls.Select sweep-pending
 T:Vixen.Ui.Controls.SelectBase sweep-pending

@@ -558,6 +558,7 @@ Vixen.Ui.Controls.ScrollBar.Orientation.get -> Vixen.Ui.Controls.Orientation
 Vixen.Ui.Controls.ScrollBar.Orientation.set -> Vixen.Ui.Controls.Orientation
 Vixen.Ui.Controls.ScrollBar.Range.get -> float
 Vixen.Ui.Controls.ScrollBar.ScrollBar() -> void
+Vixen.Ui.Controls.ScrollBar.ScrollEnded -> System.Action<Vixen.Ui.Controls.ScrollBar>?
 Vixen.Ui.Controls.ScrollBar.Scrolled -> System.Action<Vixen.Ui.Controls.ScrollBar, float>?
 Vixen.Ui.Controls.ScrollBar.Value.get -> float
 Vixen.Ui.Controls.ScrollBar.Value.set -> float
@@ -567,6 +568,18 @@ Vixen.Ui.Controls.ScrollBehavior -> enum : byte
 Vixen.Ui.Controls.ScrollBehavior.Instant = 0 -> Vixen.Ui.Controls.ScrollBehavior
 Vixen.Ui.Controls.ScrollBehavior.ScrollBehavior() -> void
 Vixen.Ui.Controls.ScrollBehavior.Smooth = 1 -> Vixen.Ui.Controls.ScrollBehavior
+Vixen.Ui.Controls.ScrollSnapAlign -> enum : byte
+Vixen.Ui.Controls.ScrollSnapAlign.Center = 2 -> Vixen.Ui.Controls.ScrollSnapAlign
+Vixen.Ui.Controls.ScrollSnapAlign.End = 3 -> Vixen.Ui.Controls.ScrollSnapAlign
+Vixen.Ui.Controls.ScrollSnapAlign.None = 0 -> Vixen.Ui.Controls.ScrollSnapAlign
+Vixen.Ui.Controls.ScrollSnapAlign.ScrollSnapAlign() -> void
+Vixen.Ui.Controls.ScrollSnapAlign.Start = 1 -> Vixen.Ui.Controls.ScrollSnapAlign
+Vixen.Ui.Controls.ScrollSnapAxis -> enum : byte
+Vixen.Ui.Controls.ScrollSnapAxis.Both = 3 -> Vixen.Ui.Controls.ScrollSnapAxis
+Vixen.Ui.Controls.ScrollSnapAxis.None = 0 -> Vixen.Ui.Controls.ScrollSnapAxis
+Vixen.Ui.Controls.ScrollSnapAxis.ScrollSnapAxis() -> void
+Vixen.Ui.Controls.ScrollSnapAxis.X = 1 -> Vixen.Ui.Controls.ScrollSnapAxis
+Vixen.Ui.Controls.ScrollSnapAxis.Y = 2 -> Vixen.Ui.Controls.ScrollSnapAxis
 Vixen.Ui.Controls.ScrollView -> sealed class
 Vixen.Ui.Controls.ScrollView : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.ScrollView.ClearScrollLeft() -> void
@@ -807,6 +820,8 @@ Vixen.Ui.Controls.VirtualizingPanel.VirtualizingPanel() -> void
 abstract Vixen.Ui.Controls.SelectBase.OnOptionChosen(Vixen.Ui.Controls.Option option) -> void
 const Vixen.Ui.Controls.Expander.HeaderSlot = "header" -> string
 const Vixen.Ui.Controls.ScrollView.SmoothingConstant = 0.075 -> float
+const Vixen.Ui.Controls.ScrollView.SnapIdleSeconds = 0.125 -> float
+const Vixen.Ui.Controls.ScrollView.SnapProximity = 0.25 -> float
 const Vixen.Ui.Controls.VirtualizingGrid.Overscan = 2 -> int
 const Vixen.Ui.Controls.VirtualizingPanel.Overscan = 2 -> int
 override Vixen.Ui.Controls.Accordion.AcceptsFocus.get -> bool

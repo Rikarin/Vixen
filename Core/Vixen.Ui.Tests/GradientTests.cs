@@ -532,14 +532,20 @@ public class GradientTests {
     [InlineData("linear-gradient(in oklch, #ff0000, #0000ff)")]
     [InlineData("linear-gradient(in hsl longer hue, #ff0000, #0000ff)")]
     [InlineData("linear-gradient(to right in lab, #ff0000, #0000ff)")]
-    // An explicit ending *shape* or size on a round gradient. ⚠ The centre is no longer here — see
-    // `An_explicit_centre_moves_the_ramp_and_not_the_box` — and these four are refused for a reason
-    // the centre never had: each names a different ellipse from the `farthest-corner` one this engine
-    // computes, so drawing them as farthest-corner is a ramp that finishes in the wrong place.
-    [InlineData("radial-gradient(circle, #ff0000, #0000ff)")]
-    [InlineData("radial-gradient(closest-side, #ff0000, #0000ff)")]
+    // An explicit ending *size in lengths*. ⚠ Two rows shorter than it was, and the six keyword
+    // endings left it rather than the refusal being lifted: `circle`, `ellipse` and the four
+    // closest/farthest pairs are computed now — see `An_ending_shape_names_a_different_ellipse` —
+    // and what is still refused is a size stated as `<length>{1,2}`, which needs two more lanes to
+    // carry a pair of `<length-percentage>`s the record has no room for. The keywords needed none,
+    // which is #545's finding.
     [InlineData("radial-gradient(80px, #ff0000, #0000ff)")]
     [InlineData("radial-gradient(50% 30%, #ff0000, #0000ff)")]
+    // ⚠ A misspelt ending is still refused rather than read as the one it resembles. `Ending` matches
+    // whole words, so this falls through to the bare-size branch.
+    [InlineData("radial-gradient(closest-corners, #ff0000, #0000ff)")]
+    // And on a conic, where none of them is CSS at all.
+    [InlineData("conic-gradient(circle, #ff0000, #0000ff)")]
+    [InlineData("conic-gradient(closest-side, #ff0000, #0000ff)")]
     // `at` is a round gradient's word; on a linear one it is a typo rather than a form declined.
     [InlineData("linear-gradient(at 20% 80%, #ff0000, #0000ff)")]
     // A position with one axis named twice, and one with three components — the three-value syntax
@@ -612,6 +618,101 @@ public class GradientTests {
         Assert.Equal(GradientShape.Conic, swept.Shape);
         Assert.Equal(new Vector2(-20f, -10f), swept.PaintCentre);
         Assert.Equal(new Vector2(20f, 10f), swept.PaintExtent);
+    }
+
+    /// <summary>Each ending keyword names a different ellipse, and the reach says which.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The probe is 40 by 20 and the two cases are centred and off-centre <i>on
+    ///         purpose</i>, because a centred box cannot tell <c>closest</c> from <c>farthest</c>.</b>
+    ///         Centred, the near and far side distances are both the half size, so
+    ///         <c>closest-side</c> and <c>farthest-side</c> are the same ellipse — and a test written
+    ///         only on a centred box passes against an implementation that read the two keywords as
+    ///         one. <see cref="A_moved_centre_is_what_separates_closest_from_farthest" /> is the half
+    ///         that separates them.
+    ///     </para>
+    ///     <para>
+    ///         The numbers are <c>reach = r / root two</c>, the shader's own parameterisation, derived
+    ///         on <c>BackgroundGradient.Reach</c>. An ellipse through the farthest corner has radii
+    ///         <c>root two × fs</c> and therefore a reach of <c>fs</c> — which is why the default row
+    ///         is the box's half size, and why nothing in any shader had to change for the other seven.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A circle is not an ellipse with equal radii read off the box.</b> Its radius is one
+    ///         scalar written into both lanes — the smaller or larger side distance, or the length of
+    ///         the corner vector — so on a 40 by 20 box a <c>circle closest-side</c> reaches 7.07 on
+    ///         both axes where an <c>ellipse closest-side</c> reaches (14.14, 7.07). An implementation
+    ///         treating <c>circle</c> as a spelling of <c>ellipse</c> passes every row here that names
+    ///         an ellipse.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    // Centred: the corner endings and the side endings differ, and closest and farthest do not.
+    // ⚠ `ellipse farthest-corner` is deliberately not a row — it is CSS's own default, so it writes
+    // no lane at all and its reach is zero rather than the box's half size. That is
+    // `A_stated_ending_leaves_the_fast_path_and_the_default_stays_on_it`, and a row here expecting
+    // (20, 10) for it would be asserting that the fast path is gone.
+    [InlineData("ellipse closest-corner", 20f, 10f)]
+    [InlineData("ellipse farthest-side", 14.142136f, 7.071068f)]
+    [InlineData("ellipse closest-side", 14.142136f, 7.071068f)]
+    [InlineData("circle farthest-corner", 15.811388f, 15.811388f)]
+    [InlineData("circle farthest-side", 14.142136f, 14.142136f)]
+    [InlineData("circle closest-side", 7.0710678f, 7.0710678f)]
+    // The bare shape keyword, whose size is CSS's default. ⚠ `circle` alone is not the default
+    // ending, so unlike `ellipse` alone it does write a lane.
+    [InlineData("circle", 15.811388f, 15.811388f)]
+    // And the bare size keyword, whose shape is CSS's default.
+    [InlineData("closest-side", 14.142136f, 7.071068f)]
+    public void An_ending_shape_names_a_different_ellipse(string ending, float x, float y) {
+        using var document = Drawn($".probe {{ background-image: radial-gradient({ending}, #ff0000, #0000ff); }}");
+
+        var round = Assert.Single(Gradients(document));
+
+        Assert.Equal(GradientShape.Radial, round.Shape);
+        Assert.Equal(x, round.PaintExtent.X, 3);
+        Assert.Equal(y, round.PaintExtent.Y, 3);
+    }
+
+    /// <summary>Off centre, where the four sizes are four different answers.</summary>
+    /// <remarks>
+    ///     <c>at 25% 75%</c> on the 40 by 20 probe is (-10, 5) from the centre, so the far side
+    ///     distances are (30, 15) and the near ones (10, 5). ⚠ The <c>farthest-corner</c> row is the
+    ///     same pair <see cref="An_explicit_centre_moves_the_ramp_and_not_the_box" /> already asserted,
+    ///     kept here so that the four appear together: the whole claim is that they are four, and a
+    ///     row that agrees with the old behaviour is what says the default did not move.
+    /// </remarks>
+    [Theory]
+    [InlineData("farthest-corner", 30f, 15f)]
+    [InlineData("farthest-side", 21.213203f, 10.606602f)]
+    [InlineData("closest-corner", 10f, 5f)]
+    [InlineData("closest-side", 7.0710678f, 3.5355339f)]
+    public void A_moved_centre_is_what_separates_closest_from_farthest(string ending, float x, float y) {
+        using var document = Drawn(
+            $".probe {{ background-image: radial-gradient({ending} at 25% 75%, #ff0000, #0000ff); }}"
+        );
+
+        var round = Assert.Single(Gradients(document));
+
+        Assert.Equal(new Vector2(-10f, 5f), round.PaintCentre);
+        Assert.Equal(x, round.PaintExtent.X, 3);
+        Assert.Equal(y, round.PaintExtent.Y, 3);
+    }
+
+    /// <summary>A stated ending writes its lane even when nothing moved.</summary>
+    /// <remarks>
+    ///     ⚠ <c>UiShape.Paint</c>'s zero means "the ramp is the box", which <i>is</i> a farthest-corner
+    ///     ellipse centred in it — so a <c>closest-side</c> that took the same fast path as an unstated
+    ///     ending would resolve, cascade, compute, and paint the very ending it was written to replace.
+    ///     That is the inert-family failure one layer down, and it is what this exists for; the default
+    ///     still takes the path, which is the other half and is why both are asserted.
+    /// </remarks>
+    [Fact]
+    public void A_stated_ending_leaves_the_fast_path_and_the_default_stays_on_it() {
+        using var stated = Drawn(".probe { background-image: radial-gradient(closest-side, #ff0000, #0000ff); }");
+        using var silent = Drawn(".probe { background-image: radial-gradient(farthest-corner, #ff0000, #0000ff); }");
+
+        Assert.NotEqual(Vector2.Zero, Assert.Single(Gradients(stated)).PaintExtent);
+        Assert.Equal(Vector2.Zero, Assert.Single(Gradients(silent)).PaintExtent);
     }
 
     /// <summary>A centred <c>at</c> writes no lane at all, which is what the shader's fast path needs.</summary>

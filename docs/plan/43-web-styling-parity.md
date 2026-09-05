@@ -132,13 +132,18 @@ fragments with a working assembler.
 moved it out of `composed`: it was buildable all along and the flattering state was what hid it. A
 `--tw-mask-radial-position` fragment defaulting to `center` — CSS's own default — feeds an
 `at <position>` that `DrawListBuilder.MaskFrame` resolves, so an unmoved radial mask reaches the
-shader as the record it always had. Its sibling `mask-radial-*` stays `absent` and is now a refusal
-with a named blocker rather than an unregistered family; see its row. ⚠ **That blocker was named
-wrong until 2026-09-05 (#545): it is a reader, not a lane.** `UiShape.Paint.zw` is a stated pair of
-radii and all three rasterisers already honour an arbitrary pair, so nothing is waiting on a shader —
-what is missing is a place on `BackgroundGradient` to record which of the six endings was written and
-four more closed forms in `RampFrame`. The refusal itself stands; `GradientPaintTests.
-A_radial_gradient_ends_at_the_corner_and_not_at_the_edge` is the pixel oracle that says why.
+shader as the record it always had. ⚠ **Its sibling `mask-radial-*` reads `partial` now, and the two
+halves of that row are blocked on entirely different things.** The four ending *sizes* are registered
+and read: `GradientReader` takes all four keywords, `BackgroundGradient.Reach` is the closed form for
+each, and `GradientPaintTests.A_circle_ending_is_round_on_a_box_that_is_not` is the pixel oracle — on
+an 80×40 box, because on a square one every ending draws the same circle. ⚠ **The blocker the row
+named was wrong twice**, and the second time it was named "they land when `UiMask` carries a stated
+pair of radii": `UiShape.Paint.zw` *is* a stated pair and every rasteriser already honoured an
+arbitrary one, so nothing was ever waiting on a shader. What is still out is the two ending *shapes*,
+`mask-circle` and `mask-ellipse`, and their obstacle is this layer rather than the engine — Tailwind
+spells them with the bare `mask` prefix, which is already the `mask-repeat` family, and
+`Family.Alongside` belongs to a family rather than to a value, so those two values cannot carry the
+mask layer their siblings do.
 
 ### The composition mechanism
 
@@ -453,7 +458,7 @@ refusal block, which already says so for the same reason.
 
 | Category | roots | works | partial | inert | absent | composed | unknown |
 |---|--:|--:|--:|--:|--:|--:|--:|
-| Layout | 49 | 28 | 5 | 0 | 12 | 3 | 1 |
+| Layout | 49 | 28 | 6 | 0 | 11 | 3 | 1 |
 | Interactivity | 39 | 27 | 0 | 1 | 11 | 0 | 0 |
 | Borders | 34 | 28 | 2 | 0 | 4 | 0 | 0 |
 | Effects | 34 | 27 | 1 | 0 | 6 | 0 | 0 |
@@ -2957,10 +2962,20 @@ dependency.
   `space-y-*`'s reason (§ F9): nothing interns a `-block-start`/`-block-end` longhand, and
   `Vixen.Ui.Layout` has no writing mode for one to differ from `-top`/`-bottom` in. The *inline* pair
   is in, because `ScrollView.InsetOf` folds it against `direction` itself.
-- **`snap-*`** — `scroll-snap-type`, `scroll-snap-align` and `scroll-snap-stop` need a snapping
+- **`snap-*`** — `scroll-snap-type`, `scroll-snap-align` and `scroll-snap-stop` needed a snapping
   algorithm, which is a feature rather than a read: a scroll that comes to rest has to choose a
-  snap position among the candidates in its subtree, and nothing computes candidates. ⚠ This one
-  really is "the behaviour comes first", and it is the only one of the four that is.
+  snap position among the candidates in its subtree, and nothing computed candidates. ⚠ This one
+  really was "the behaviour comes first", and it is the only one of the four that was.
+  ✅ **The behaviour has landed** — `ScrollView` walks its subtree for `scroll-snap-align`, aligns
+  against the snapport `scroll-padding` leaves, and honours mandatory/proximity, `scroll-snap-stop:
+  always` and a re-snap after layout. ⚠ **And the algorithm was the easy half.** A snap is defined at
+  the moment a scroll *comes to rest*, and neither gesture had an end: `ScrollBar` raised nothing when
+  a thumb was released (`ScrollEnded` now does) and a wheel is a stream of deltas with no terminator
+  in it at all (`ScrollView.SnapIdleSeconds`, on the tick clock — not the event's, which a platform
+  head is free to stamp from a source the frame loop never reads). **The four roots are still
+  unregistered**, and deliberately in that order: they need `UtilityConsumptionProbe`'s `scrolled`
+  scene to grow candidates and a driven gesture end, or they measure inert and the gate is right to
+  say so.
 - **`scrollbar-color` / `scrollbar-gutter`** — `ScrollBar` is a child element this control creates
   and themes through `scrollbar { … }`, `--track-color` and `--thumb-color`. A CSS property that
   restyled it would be a second way to say what the theme already says, so `scrollbar-thumb-*` and
@@ -2994,8 +3009,9 @@ absence.** Sixteen roots in the `Layout` category read `absent` *when this was w
 twelve now, and the four below are why the headline is left at sixteen — it is the triage's own
 denominator and rewriting it would falsify what was triaged. Four of them belong to work in
 flight elsewhere — `mask-radial-*`, `mask-radial-at-*`, `ring-offset-*` and `@container-*`; ⚠ of
-those, **`mask-radial-at-*` has since landed and reads `works`**, and `mask-radial-*` is now a
-refusal with a named blocker (`GradientRefusal.Extent`) rather than an unregistered family. The
+those, **`mask-radial-at-*` has since landed and reads `works`**, and `mask-radial-*` reads
+`partial`: its four ending sizes are registered and read, and its two ending shapes are held up by
+this table's own shape rather than by `GradientRefusal.Extent`, which no longer refuses them. The
 other twelve were triaged together, and they fall into four buckets that want four different
 answers. **Only one bucket was buildable, and the other three are refusals with a measurement
 behind each.** The costs below are the deliverable; the one implementation is the small part.

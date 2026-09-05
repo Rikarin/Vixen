@@ -129,14 +129,14 @@ them:
 
 ## What `ScrollView` reads out of the cascade
 
-⚠ **It reads no `overflow`, and it does read four scroll families.** The distinction is the whole of
+⚠ **It reads no `overflow`, and it does read seven scroll families.** The distinction is the whole of
 doc 43 A18 and is worth stating here rather than only in the source. `overflow` on a box is what
 *conjures* a scrollbar in CSS; here the bars are children this control creates, so which bars a view
 offers is a property of the control and `overflow-x` on some other element is a clip and nothing more.
 The consequence is blunt: `overflow-y: auto` on a plain `div` cuts its content off and offers no way
 to reach it. Put a `ScrollView` there.
 
-The four it does read say nothing about *whether* something scrolls — only where a scroll lands, how
+The ones it does read say nothing about *whether* something scrolls — only where a scroll lands, how
 it gets there and what happens at the end, which are questions that presuppose a scroll container:
 
 | Property | Read off | What it does |
@@ -145,6 +145,9 @@ it gets there and what happens at the end, which are questions that presuppose a
 | `scroll-padding-*` | the **view** | insets the viewport the same scroll is measured against |
 | `scroll-behavior` | the view | `smooth` eases programmatic scrolls off `UiDocument.Ticked` |
 | `overscroll-behavior`, `-x`, `-y` | the view | whether a wheel at the stop chains to what contains it |
+| `scroll-snap-type` | the view | which axes snap, and whether `mandatory` or `proximity` |
+| `scroll-snap-align` | any **descendant** | that it is a candidate at all, and which edge of it lines up |
+| `scroll-snap-stop` | a candidate | `always`, meaning a scroll may not pass over it |
 
 ⚠ **The first two come off different elements and that is CSS, not a shortcut** (Scroll Snap §6). A
 reader that took both off one element passes every test in which the two happen to be equal. The
@@ -154,6 +157,18 @@ is not a layout pass and no pass ever sees them; `ScrollViewTests` asserts the `
 ⚠ **`scroll-behavior: smooth` is not applied to the wheel or to a drag on the bar**, and both of those
 call `Settle()` to abandon an easing already in flight. Direct manipulation that lags the finger by a
 time constant reads as a dropped frame, which is why browsers exempt it too.
+
+⚠ **The snap families are the only ones here that needed a feature rather than a reader, and the
+feature was mostly the *gesture*.** Doc 43 § Part 8 § 3 deferred the whole scroll block on "the
+behaviour comes first" and was wrong about twenty-two of the twenty-three roots — those were property
+reads inside a control that already scrolled. It was right about this one, and the hard half was not
+the arithmetic: a snap position is one subtraction per candidate per axis, but a snap is defined at
+the moment a scroll *comes to rest*, and neither of the two gestures had an end. `ScrollBar` raised
+nothing when a thumb was released — it has `ScrollEnded` now — and a wheel is a stream of deltas with
+no terminator in it at all, which `ScrollView.SnapIdleSeconds` answers with an idle measured on the
+tick clock. ⚠ **Snapping on every wheel notch instead would pass every arithmetic test and be
+unusable**, so `ScrollSnapTests` spends half its assertions watching a view stay unsnapped while a
+flick is still running.
 
 ⚠ **`overscroll-contain` and `overscroll-none` do the same thing here.** In CSS they differ only over
 the rubber-band and pull-to-refresh at the boundary, and this engine has neither, so there is nothing

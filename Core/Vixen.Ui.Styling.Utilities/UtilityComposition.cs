@@ -172,6 +172,27 @@ public static class UtilityComposition {
     /// </remarks>
     public const string MaskRadialPosition = Prefix + "mask-radial-position";
 
+    /// <summary>Which ellipse a radial mask's ramp ends on.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The <i>size</i> half of CSS's ending shape. <c>GradientReader</c> reads all four
+    ///         keywords and <c>BackgroundGradient.Reach</c> is the closed form for each.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>There is deliberately no companion fragment for the ending <i>shape</i>, and the
+    ///         obstacle is this layer rather than the engine.</b> <c>circle</c> and <c>ellipse</c> are
+    ///         independent of the size in CSS and would want their own fragment for
+    ///         <see cref="TranslateX" />'s reason — but a fragment nothing emits fails
+    ///         <c>UtilityConsumptionGateTests</c>, correctly, and no family can emit it: Tailwind
+    ///         spells them <c>mask-circle</c> and <c>mask-ellipse</c>, the <c>mask</c> prefix is
+    ///         already the <c>mask-repeat</c> family, and <c>Family.Alongside</c> belongs to a family
+    ///         rather than to a value — so the two values cannot carry the mask layer their siblings
+    ///         do. The shape is therefore CSS's own default everywhere, which is what
+    ///         <c>mask-radial-*</c> already meant.
+    ///     </para>
+    /// </remarks>
+    public const string MaskRadialSize = Prefix + "mask-radial-size";
+
     // ── The mask layers ─────────────────────────────────────────────────────────────────────
     //
     // ⚠ <b>A `mask-image` is a list, and these are the slots the utilities fill it from.</b> Every
@@ -510,6 +531,12 @@ public static class UtilityComposition {
         [MaskLinearAngle] = "180deg",
         [MaskConicAngle] = "0deg",
         [MaskRadialPosition] = "center",
+
+        // ⚠ CSS's own default, so a radial mask that names no ending reaches `GradientReader` as the
+        // one it already had — and `BackgroundGradient.IsDefaultEnding` then keeps it on the fast
+        // path where `UiShape.Paint` stays zero. A different value here would put every radial mask
+        // in the interface on the stated-ending branch to arrive exactly where it started.
+        [MaskRadialSize] = "farthest-corner",
 
         // ⚠ v4's own number, and that is the whole of why it is this one. A different default would
         // make `class="transition"` mean a different animation in the two systems, which is a
