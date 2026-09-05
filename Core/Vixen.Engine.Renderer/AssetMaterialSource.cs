@@ -6,6 +6,7 @@ using Vixen.Core;
 using Vixen.Graphics;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
+using Vixen.Rendering.Features;
 using Vixen.Rendering.Materials;
 using Vixen.Shaders;
 
@@ -88,6 +89,37 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
 
     /// <summary>Where the textures a material assigns come from.</summary>
     public AssetTextureSource? Textures { get; }
+
+    /// <summary>
+    ///     The feature whose pairing a graph-authored material's textures have to be added to, or null.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every hand-written sampling feature's pairing is a constant a host writes once, and
+    ///         a graph's cannot be.</b> <c>WorldRenderer.Paired</c> names
+    ///         <c>TexturedMetalRoughnessFeature.BaseColorIndexParameter</c> and friends because those
+    ///         shaders are files somebody committed; a graph's slots are <em>data</em>, read off a
+    ///         <c>.vxshadergraph</c> the host has never seen, so no host can name them ahead of time.
+    ///         Until this existed nothing paired them: the index stayed at zero, zero is a valid slot
+    ///         holding the table's fallback, and a graph with a <c>Texture/Sample 2D</c> node compiled,
+    ///         composed, drew — and sampled the checker. No error on any device. See
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/493">#493</a>.
+    ///     </para>
+    ///     <para>
+    ///         Here rather than on the host, because this is where the two halves are both in hand: the
+    ///         content carries <c>GraphSurfaceFeature.Maps</c> and the compilation has just decided the
+    ///         composition path. A host holds neither.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The entries are never removed</b>, which is
+    ///         <c>MaterialRenderFeature.TextureIndices</c>' shape rather than a leak: the pairing is a
+    ///         fact about a shader and a shader does not stop existing. It does mean the dictionary
+    ///         grows with the number of distinct graphs a session has loaded, and <c>Index</c> walks it
+    ///         once per material per frame — a cost worth watching in a project with many graphs, and
+    ///         one the hand-written six do not have.
+    ///     </para>
+    /// </remarks>
+    public MaterialRenderFeature? Materials { get; init; }
 
     /// <summary>
     ///     Slot fillers the project decides rather than the material, by their qualified names.
@@ -433,6 +465,8 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
 
         entry.Material = material;
 
+        Pair(material, content);
+
         var textures = new List<AssetReference>(content.Textures.Length);
 
         foreach (var texture in content.Textures) {
@@ -447,6 +481,44 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
         }
 
         return true;
+    }
+
+    /// <summary>Adds a graph-authored surface's own texture pairings to the host's table.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The composed path is built the way the compiler builds it — the pass, the chain shader,
+    ///         then the feature's own shader — because <see cref="GraphSurfaceFeature.IndexParameter" />
+    ///         takes a path and only the compilation knows it. A graph's shader name is its own, so two
+    ///         graphs never collide and neither collides with a hand-written feature.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Keyed by the graph's <em>slot</em> and valued by the material's <em>texture name</em>,
+    ///         which is the pairing <see cref="GraphSurfaceMap" /> carries both halves of precisely
+    ///         because they are two names for different things. Deriving one from the other is the
+    ///         guess this engine refuses everywhere else.
+    ///     </para>
+    /// </remarks>
+    void Pair(Material material, MaterialContent content) {
+        if (Materials is not { } host) {
+            return;
+        }
+
+        foreach (var feature in content.Features) {
+            if (feature is not GraphSurfaceFeature graph || graph.Shader.Length == 0) {
+                continue;
+            }
+
+            var path = $"{material.ShaderName}.{MaterialCompiler.ChainShader}.{graph.Shader}.";
+
+            foreach (var map in graph.Maps) {
+                if (map.Slot.Length == 0 || map.Texture.Length == 0) {
+                    continue;
+                }
+
+                host.TextureIndices[ParameterKeys.New<uint>(GraphSurfaceFeature.IndexParameter(path, map.Slot))] =
+                    ParameterKeys.New<TextureViewHandle>(map.Texture);
+            }
+        }
     }
 
     /// <inheritdoc />

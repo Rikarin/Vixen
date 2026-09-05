@@ -8,6 +8,7 @@ using Vixen.Core.Serialization;
 using Vixen.Core.Serialization.Storage;
 using Vixen.Engine.Renderer;
 using Vixen.Rendering;
+using Vixen.Rendering.Features;
 using Vixen.Rendering.Materials;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
@@ -318,6 +319,87 @@ public sealed class AssetMaterialSourceTests {
     ///         would wait on it for ever and turn a defect into a hang.
     ///     </para>
     /// </remarks>
+    /// <summary>
+    ///     A graph-authored material's textures reach the host's pairing, which nothing did before.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The failure is silent and draws.</b> <c>WorldRenderer.Paired</c> can name only the
+    ///         hand-written features, because a graph's slots are data; unpaired, the index stays at
+    ///         zero, zero is a valid slot holding the table's fallback, and the material samples a real
+    ///         texture that is not its own. No device reports anything — <a
+    ///         href="https://github.com/Rikarin/Vixen/issues/493">#493</a>.
+    ///     </para>
+    ///     <para>
+    ///         Both halves are asserted, because they are two names for different things: the key is
+    ///         the shader's composed <c>uint</c>, under the path the compiler chose, and the value is
+    ///         what the material calls its texture. A pairing with the two swapped is as silent as none.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AGraphAuthoredMaterialsTexturesReachThePairing() {
+        using var materials = new MaterialRenderFeature();
+
+        using var source = new AssetMaterialSource(
+            Content(
+                new MaterialContent {
+                    Shader = "ForwardPlus",
+                    Features = [
+                        new GraphSurfaceFeature {
+                            Shader = "BarkGraphSurface",
+                            Maps = [new("bark", "albedoIndex")]
+                        }
+                    ]
+                }
+            )
+        ) {
+            Materials = materials
+        };
+
+        Settles(source, out _);
+
+        var slot = ParameterKeys.New<uint>("ForwardPlus.CompositeSurface.BarkGraphSurface.albedoIndex");
+
+        Assert.True(
+            materials.TextureIndices.TryGetValue(slot, out var texture),
+            "nothing paired the graph's slot, so its index stays zero and it samples the table's fallback"
+        );
+
+        Assert.Equal("bark", texture.Name);
+
+        // And the compiler wrote the parameter the pairing names, which is what makes the key real
+        // rather than a string this test and the source agree on.
+        Assert.True(source.TryGet(Hero, out var material));
+        Assert.True(material.Parameters.Has(slot));
+    }
+
+    /// <summary>And a host that gave it no feature is not an error, which is the non-bindless path.</summary>
+    /// <remarks>
+    ///     A project on GL, on WebGL2 or on MoltenVK below argument-buffer tier 2 has no table, so
+    ///     <c>WorldRenderer</c> builds none and hands none here. Compiling has to go on working —
+    ///     ADR-011's fork, and the same one <c>TexturedMetalRoughnessFeature</c> describes.
+    /// </remarks>
+    [Fact]
+    public void AGraphMaterialCompilesWithNoPairingToAddTo() {
+        using var source = new AssetMaterialSource(
+            Content(
+                new MaterialContent {
+                    Shader = "ForwardPlus",
+                    Features = [
+                        new GraphSurfaceFeature {
+                            Shader = "BarkGraphSurface",
+                            Maps = [new("bark", "albedoIndex")]
+                        }
+                    ]
+                }
+            )
+        );
+
+        Settles(source, out var material);
+
+        Assert.Equal("ForwardPlus", material.ShaderName);
+    }
+
     static void Settles(AssetMaterialSource source, out Material material) {
         Material found = null!;
 

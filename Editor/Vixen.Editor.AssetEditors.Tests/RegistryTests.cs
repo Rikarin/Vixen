@@ -37,7 +37,9 @@ public class AssetEditorRegistryTests {
     /// <summary>⚠ Two editors claiming one extension is an error naming both, not last-one-wins.</summary>
     [Fact]
     public void TwoClaimantsAreRefused() {
-        var registry = new AssetEditorRegistry().Add(new MaterialEditorFactory());
+        var registry = new AssetEditorRegistry();
+
+        registry.Add(new MaterialEditorFactory());
 
         var failure = Assert.Throws<InvalidOperationException>(() => registry.Add(new ClashingFactory()));
 
@@ -47,7 +49,9 @@ public class AssetEditorRegistryTests {
     /// <summary>And so is one name used twice.</summary>
     [Fact]
     public void TwoEditorsCannotShareAName() {
-        var registry = new AssetEditorRegistry().Add(new MaterialEditorFactory());
+        var registry = new AssetEditorRegistry();
+
+        registry.Add(new MaterialEditorFactory());
 
         Assert.Throws<InvalidOperationException>(() => registry.Add(new SameNameFactory()));
     }
@@ -166,6 +170,67 @@ public class AssetEditorRegistryTests {
         using var fixture = new EditorFixture();
 
         Assert.False(StandardEditors.CreateWorldless().TryOpen(fixture.Project, AssetId.New(), out _));
+    }
+
+    /// <summary>⚠ #739: disposing what <c>Add</c> returned frees the name <b>and</b> the extension.</summary>
+    /// <remarks>
+    ///     Both halves in one test, because either alone leaves the second registration throwing —
+    ///     "the name is free but something still claims <c>.vxmat</c>" is the state a reload lands in
+    ///     when the removal forgets one of them, and it is reported against the plugin doing the
+    ///     reloading rather than against whatever forgot.
+    /// </remarks>
+    [Fact]
+    public void DisposingARegistrationGivesBackTheNameAndTheExtension() {
+        var registry = new AssetEditorRegistry();
+        var registration = registry.Add(new MaterialEditorFactory());
+
+        Assert.Equal(1, registry.Count);
+
+        registration.Dispose();
+
+        Assert.Equal(0, registry.Count);
+        Assert.False(registry.TryGetForFile("Assets/hero.vxmat", out _));
+        Assert.False(registry.TryGetByName("Material", out _));
+
+        // The claim a plugin's reload rests on: what was given up can be taken again.
+        registry.Add(new MaterialEditorFactory());
+
+        Assert.True(registry.TryGetForFile("Assets/hero.vxmat", out _));
+    }
+
+    /// <summary>Disposing twice is a no-op, not a second removal.</summary>
+    /// <remarks>
+    ///     ⚠ A plugin that releases its own registration <i>and</i> hands it to
+    ///     <c>PluginContext.Owns</c> is doing the right thing twice, and the second dispose lands
+    ///     after a reload has re-registered the same name.
+    /// </remarks>
+    [Fact]
+    public void DisposingTwiceDoesNotTakeOutAReplacement() {
+        var registry = new AssetEditorRegistry();
+        var registration = registry.Add(new MaterialEditorFactory());
+
+        registration.Dispose();
+        registry.Add(new MaterialEditorFactory());
+        registration.Dispose();
+
+        Assert.True(registry.TryGetForFile("Assets/hero.vxmat", out _));
+    }
+
+    /// <summary>⚠ A refused registration leaves nothing of itself behind, name included.</summary>
+    /// <remarks>
+    ///     The extension clash throws after the name has already been taken, so without the rollback
+    ///     the <i>next</i> attempt fails on the name — a message about two editors called "Other"
+    ///     when neither is registered.
+    /// </remarks>
+    [Fact]
+    public void ARefusedRegistrationLeavesNoName() {
+        var registry = new AssetEditorRegistry();
+
+        registry.Add(new MaterialEditorFactory());
+
+        Assert.Throws<InvalidOperationException>(() => registry.Add(new ClashingFactory()));
+        Assert.False(registry.TryGetByName("Other", out _));
+        Assert.Equal(1, registry.Count);
     }
 
     sealed class ClashingFactory : IAssetEditorFactory {

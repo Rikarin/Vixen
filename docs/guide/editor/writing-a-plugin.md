@@ -4,7 +4,7 @@ slug: editor/writing-a-plugin
 kind: guide
 area: Editor
 summary: What a plugin can contribute to the editor, how it registers, and how everything it added is taken back out when it unloads.
-api: [T:Vixen.Editor.Plugin.PluginHost, T:Vixen.Editor.Blockout.BlockoutModule, T:Vixen.Editor.Terrain.TerrainModule, T:Vixen.Editor.Diagnostics.DiagnosticsModule, T:Vixen.Editor.AssetEditors.AssetEditorsModule, T:Vixen.Editor.SceneView.IActiveScene, T:Vixen.Editor.Debugger.IDeviceDeploy, T:Vixen.Rendering.Terrain.ITerrainScene, T:Vixen.Editor.Core.EditorRegistry, T:Vixen.Editor.Core.IEditorRegistry, T:Vixen.Editor.Core.NewAssetKind, T:Vixen.Editor.Inspector.CustomInspector, T:Vixen.Editor.SceneView.SceneTool, T:Vixen.Editor.Ui.TypeIcon, T:Vixen.Editor.Ui.AssetIcon, T:Vixen.Editor.Ui.EditorArt, T:Vixen.Editor.Core.AuthoringAssembly, T:Vixen.Editor.SceneView.AuthoringKind, T:Vixen.Editor.Plugin.IEditorPlugin, T:Vixen.Editor.Plugin.PluginContext, T:Vixen.Editor.Plugin.PluginServices, T:Vixen.Editor.Assets.ImporterContributions, T:Vixen.Editor.Assets.ImporterRegistry, T:Vixen.Editor.Assets.ImporterAttribute, T:Vixen.Editor.Plugin.IContributionScanner, T:Vixen.Editor.Inspector.CustomInspectorAttribute, T:Vixen.Editor.Inspector.CustomDrawerAttribute, T:Vixen.Editor.SceneView.EditorToolAttribute, T:Vixen.Editor.Core.CreateAssetMenuAttribute, T:Vixen.Editor.SceneView.OverlayAttribute, T:Vixen.Editor.SceneView.DrawGizmoAttribute, T:Vixen.Editor.SceneView.SceneOverlay, T:Vixen.Editor.SceneView.ComponentGizmo, T:Vixen.Editor.SceneView.GizmoDraw, T:Vixen.Editor.SceneView.GizmoPlacement, T:Vixen.Editor.SceneView.OverlayCorner]
+api: [T:Vixen.Editor.Plugin.PluginHost, T:Vixen.Editor.Blockout.BlockoutModule, T:Vixen.Editor.Terrain.TerrainModule, T:Vixen.Editor.Diagnostics.DiagnosticsModule, T:Vixen.Editor.AssetEditors.AssetEditorsModule, T:Vixen.Editor.SceneView.IActiveScene, T:Vixen.Editor.Debugger.IDeviceDeploy, T:Vixen.Rendering.Terrain.ITerrainScene, T:Vixen.Editor.Core.EditorRegistry, T:Vixen.Editor.Core.IEditorRegistry, T:Vixen.Editor.Core.NewAssetKind, T:Vixen.Editor.Inspector.CustomInspector, T:Vixen.Editor.SceneView.SceneTool, T:Vixen.Editor.Ui.TypeIcon, T:Vixen.Editor.Ui.AssetIcon, T:Vixen.Editor.Ui.EditorArt, T:Vixen.Editor.Core.AuthoringAssembly, T:Vixen.Editor.SceneView.AuthoringKind, T:Vixen.Editor.Plugin.IEditorPlugin, T:Vixen.Editor.Plugin.PluginContext, T:Vixen.Editor.Plugin.PluginServices, T:Vixen.Editor.Plugin.IEditorGraphics, T:Vixen.Editor.Plugin.IEditorImage, T:Vixen.Editor.AssetEditors.AssetEditorRegistry, T:Vixen.Editor.AssetEditors.IAssetEditorFactory, T:Vixen.Editor.Assets.ImporterContributions, T:Vixen.Editor.Assets.ImporterRegistry, T:Vixen.Editor.Assets.ImporterAttribute, T:Vixen.Editor.Plugin.IContributionScanner, T:Vixen.Editor.Inspector.CustomInspectorAttribute, T:Vixen.Editor.Inspector.CustomDrawerAttribute, T:Vixen.Editor.SceneView.EditorToolAttribute, T:Vixen.Editor.Core.CreateAssetMenuAttribute, T:Vixen.Editor.SceneView.OverlayAttribute, T:Vixen.Editor.SceneView.DrawGizmoAttribute, T:Vixen.Editor.SceneView.SceneOverlay, T:Vixen.Editor.SceneView.ComponentGizmo, T:Vixen.Editor.SceneView.GizmoDraw, T:Vixen.Editor.SceneView.GizmoPlacement, T:Vixen.Editor.SceneView.OverlayCorner]
 tags: [editor, plugins, extensibility, registry]
 since: 0.1
 status: preview
@@ -95,6 +95,63 @@ to a process global whatever the host intended; asking for the published one mea
 editors, or a test running two plugins, gets two answers instead of one shared one. `Require` fails
 with a sentence naming what was missing, caught by the loader and reported as a diagnostic — rather
 than as a null reference from inside the plugin's own `Activate`.
+
+## Drawing, and claiming a file extension
+
+Two extension points a plugin could not reach until doc 48's texture graph tried, both found by the
+first plugin that draws.
+
+**A device comes through `IEditorGraphics`**, not as an `IGraphicsDevice` of its own. It is a live
+view: `Device` is `null` in a headless host, before the window comes up, and after the device is
+released, so a plugin asks each time rather than reading it once at activation.
+
+```csharp no-compile="a plugin's own Activate, over a preview type of its own"
+public void Activate(PluginContext context) {
+    if (context.Services.TryGet<IEditorGraphics>(out var graphics)) {
+        // The evaluator holds the device: a pipeline cache is why the contract lends one rather
+        // than lending a call.
+        preview = new MyPreview(graphics);
+        context.OnUnload(preview.Dispose);
+    }
+}
+```
+
+⚠ **The device is the host's.** Disposing it, or calling `BeginFrame`, `EndFrame` or
+`CreateSwapChain` on it, takes the editor down; nothing in the contract can prevent that, which is
+why the loan is what a plugin asks for by name. ⚠ **And GPU work belongs outside the host's frame** —
+a command handler, a panel build or `OnUpdate`, all of which run from the application's update rather
+than from inside the frame the editor is recording.
+
+⚠ **`Upload` takes pixels, not a texture view**, and the narrowing is deliberate: a plugin's own
+image is created for what it dispatches into, and a view registered straight from a storage image is
+missing `Sampled` and is in the wrong layout — which MoltenVK forgives and a discrete card does not.
+The host owns the staging buffer, the copy and the two barriers, and does them once.
+
+```csharp no-compile="a fragment, against a caller's own evaluator and an ImageView it holds"
+using var bake = evaluator.Evaluate(plan);
+
+var picture = bake.Read(0);
+
+// The removal comes back with the number, so `Owns` is the whole of the bookkeeping — and an image
+// left behind is a texture and a descriptor set the editor holds for the rest of the session.
+var image = graphics.Upload(picture.Width, picture.Height, picture.Pixels);
+
+view.Image = image?.Image ?? 0;
+```
+
+**A file extension comes through `AssetEditorRegistry`**, whose `Add` hands back the removal the way
+`IEditorRegistry.Add` does — the editor's name and every extension it claimed, given up together, so
+a reload finds both free.
+
+```csharp no-compile="a plugin's own Activate, over an editor factory of its own"
+if (context.Services.TryGet<AssetEditorRegistry>(out var editors)) {
+    context.Owns(editors.Add(new MyEditorFactory()));
+}
+```
+
+⚠ **`TryGet`, not `Require`, for both.** A module that demanded either would refuse to start in every
+host that is not the editor — which includes every test of everything else it does — and the honest
+answer to "this host has none" is to carry on and say so on screen.
 
 ## Declaring instead of registering
 

@@ -506,6 +506,17 @@
     <Project Path="Editor/Vixen.Editor.NodeGraph.Tests/Vixen.Editor.NodeGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.ShaderGraph/Vixen.Editor.ShaderGraph.csproj" />
     <Project Path="Editor/Vixen.Editor.ShaderGraph.Tests/Vixen.Editor.ShaderGraph.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.TextureGraph/Vixen.Editor.TextureGraph.csproj" />
+    <Project Path="Editor/Vixen.Editor.TextureGraph.Tests/Vixen.Editor.TextureGraph.Tests.csproj" />
+
+    <!--
+      Doc 48 § D14: the texture graph's plugin. It is a separate project from
+      Vixen.Editor.TextureGraph and not a folder inside it, because the property being claimed is a
+      reference set — the evaluator holds a device and knows nothing about a project, and this holds
+      a document and a panel and does not reference Vixen.Editor.App.
+    -->
+    <Project Path="Editor/Vixen.Editor.Texturing/Vixen.Editor.Texturing.csproj" />
+    <Project Path="Editor/Vixen.Editor.Texturing.Tests/Vixen.Editor.Texturing.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.VfxGraph/Vixen.Editor.VfxGraph.csproj" />
     <Project Path="Editor/Vixen.Editor.VfxGraph.Tests/Vixen.Editor.VfxGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.AnimationGraph/Vixen.Editor.AnimationGraph.csproj" />

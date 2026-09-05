@@ -1,0 +1,62 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.TextureGraph.Tests</RootNamespace>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Editor.TextureGraph\Vixen.Editor.TextureGraph.csproj" />
+
+        <!-- The Raven front end, so a test can put the source a node generated through the same
+             compiler the compiler used and read the diagnostics back as objects. -->
+        <ProjectReference Include="..\..\Raven\Vixen.Raven\Vixen.Raven.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Syntax\Vixen.Core.Syntax.csproj" />
+
+        <!-- The evaluator dispatches, so the tests that say what came out need a real backend. They
+             skip loudly without one, they name the adapter they ran on, and VIXEN_REQUIRE_VULKAN=1
+             turns the skip into a failure. ⚠ Half of this suite needs no device at all — the plan,
+             the pool and the kernel compilations are asserted with nothing open. -->
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+
+        <!-- ⚠ And the Null backend, for exactly one question a real adapter cannot answer: which
+             queue a bake submits to. `NullDevice` builds three distinct submitters — "unlike every
+             real device the tree runs on", as it says itself — while MoltenVK, and every unified
+             adapter, collapses compute onto the graphics family, so #617's cross-queue access was
+             invisible on the machine it was written on. Nothing in `TextureQueueTests` looks at a
+             pixel; a Null-device test that did would be proving that a black image equals a black
+             image. -->
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ **A face, because doc 48 § 4.1's `Text` cannot be asserted without one and the machine
+            must not be asked for it.** `TextShaper` deliberately reads no `CultureInfo` and takes no
+            default from the process; a test that loaded "the system's sans-serif" would be shaping a
+            different outline on every developer's laptop and on CI, which is the failure
+            `Vixen.Ui.Text`'s own suite committed twenty-two fonts to avoid.
+
+            The editor's own UI font, linked rather than copied: a second checked-in binary of the
+            same face is a thing that can drift, and this one is already in the tree with its licence
+            beside it.
+        -->
+        <EmbeddedResource Include="..\Vixen.Editor.App\Fonts\OpenSans-Regular.ttf"
+                          Link="Fonts\OpenSans-Regular.ttf"
+                          LogicalName="Fonts.OpenSans-Regular.ttf" />
+    </ItemGroup>
+</Project>

@@ -1,0 +1,112 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// One axis of a gaussian blur — doc 48 § 4.4's `Blur HQ`. Two ops make a round one.
+//
+// ⚠ **This is the one kernel in § 4.4 whose answer can be asserted exactly rather than by eye, and
+// the test was written before the kernel.** A gaussian's impulse response is a closed form: blur a
+// single lit texel in a black field and the result along the axis is `w(d) / Σw`, with
+// `w(d) = exp(-d² / 2σ²)`. `TextureFilterDeviceTests` computes that series in C# and requires the
+// picture to match it texel for texel — which no box blur, and no gaussian with a different sigma,
+// can pass. Every other filter here is asserted by an invariant; this one is asserted by its value.
+//
+// ⚠ **The closed form is the *truncated* gaussian, renormalised — and that is not a detail.** The
+// tail is cut at 3σ and the weights that remain are divided by their own sum, so the series the test
+// evaluates has to be cut at the same place. A test that normalised by the analytic `σ√(2π)` instead
+// would be asserting a slightly different filter and would drift with the truncation radius; the
+// renormalised form is exact for any radius, which is what makes "a blur of a constant is that
+// constant" hold as an equality here as well.
+//
+// **Separable, and the plan is what separates it** — the same arrangement as `Blur`, for the same
+// reason: 2·(3σ)+1 taps per axis rather than the square of it. `stepX`/`stepY` swapped between two
+// ops is a round blur; left as they are it is a gaussian smear along one axis.
+//
+// ⚠ **`sigma` arrives in the texels of the image being written.** Doc 48 § D8's scaling is
+// `TexturePlan.Resolve`'s and has already happened. The kernel never sees the base resolution.
+
+shader BlurHq {
+    var source: Texture2D
+
+    /// The standard deviation, in texels of the image being written.
+    var sigma: float = 1f
+
+    /// Which way the taps run: (1, 0) horizontal, (0, 1) vertical.
+    var stepX: int = 1
+
+    var stepY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The furthest a tap may reach, whatever the sigma says.
+    ///
+    /// ⚠ **A ceiling rather than a runtime loop bound, and a correctness property rather than a
+    /// performance one** — `Blur`'s reason, unchanged: a sigma arriving as a NaN, or as a number an
+    /// artist typed four zeros into, is a loop no invocation leaves, which on a GPU is a device loss
+    /// rather than a slow bake.
+    ///
+    /// ⚠ **And the clamp is not silent.** `TextureFilters.Verify` walks a plan and reports every op
+    /// whose radius, *resolved at the bake's own resolution*, is past this — because the number that
+    /// matters is the resolved one and a plan that fits at 1K does not fit at 4K.
+    const val MaxRadius: int = 64
+
+    /// How many sigmas of tail are kept. Beyond three the weight is under 1.2 % and the 8-bit
+    /// quantisation of a bake cannot represent it anyway.
+    const val Tail: float = 3f
+
+    /// One texel, clamped to the **source's** edge.
+    ///
+    /// ⚠ The clamp is to the source's dimensions and never the target's. A kernel that clamped to
+    /// its target reads out of bounds the moment it writes an image larger than it reads — which is
+    /// what #618 was.
+    func Tap(x: int, y: int): float4 {
+        val size = source.GetDimensions(0)
+
+        return source.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val wide = clamp(sigma, 0f, float(MaxRadius) / Tail)
+
+        // A sigma under a tenth of a texel is a filter narrower than the grid it is sampled on, so
+        // the only honest answer is the texel itself. Falling through to the loop would give the
+        // same picture at a hundred times the cost, but it would also divide by a weight sum that is
+        // one plus a handful of denormals.
+        if (wide < 0.05f) {
+            target.Store(coord, Tap(coord.x, coord.y))
+
+            return
+        }
+
+        val reach = clamp(int(ceil(wide * Tail)), 1, MaxRadius)
+        val denominator = 2f * wide * wide
+
+        var sum = Tap(coord.x, coord.y)
+        var weight = 1f
+
+        for (i in 1 .. MaxRadius) {
+            if (i > reach) {
+                break
+            }
+
+            val d = float(i)
+            val w = exp(-(d * d) / denominator)
+
+            // ⚠ One statement per line. `sum = sum + w * Tap(…)` continued onto a second line is two
+            // statements here and the second is discarded, silently.
+            sum = sum + w * Tap(coord.x + stepX * i, coord.y + stepY * i)
+            sum = sum + w * Tap(coord.x - stepX * i, coord.y - stepY * i)
+            weight = weight + 2f * w
+        }
+
+        // Renormalising by the weights actually taken is what makes a blur of a constant that
+        // constant, exactly, at every sigma and every truncation radius.
+        target.Store(coord, sum / weight)
+    }
+}

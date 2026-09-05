@@ -1,0 +1,76 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § 4.5's `Edge Detect`: a Sobel magnitude with a tap spacing and a soft threshold.
+//
+// **The width is the spacing between the two halves of the operator, not a blur.** A Sobel over
+// neighbouring texels finds a one-texel edge; over a spacing of eight it finds the edge of a shape
+// whose boundary is eight texels of gradient. That is what makes the node useful on a blurred mask
+// and it is also what makes it resolution-independent: `width` is a `TexelsAtBase` length, so at a
+// bake two levels up the operator straddles four times as many texels of a picture with four times
+// as many, and a step edge comes back at the same magnitude.
+//
+// ⚠ **Normalised so that a step of one is a magnitude of one**, which is the whole of what makes the
+// threshold mean anything. The two halves of the operator sum to four, so the raw gradient of a
+// black-to-white step is four and the division by four is not a taste. Without it the threshold
+// would be a number between zero and four and every preset would carry the operator's weights in it.
+//
+// **Grey is the red channel, for `MinMaxReduce.rvn`'s reason**: § 4.2 gives `Grayscale Conversion` a
+// node of its own so that "which weights" is answered once, by an artist, upstream.
+
+shader EdgeDetect {
+    var source: Texture2D
+
+    /// The spacing between the operator's two halves, in texels of the image being written.
+    var width: float = 1f
+
+    /// Magnitudes at or below this are black; the rest are stretched back onto the full range.
+    ///
+    /// A soft floor rather than a binary test: a hard one turns a gradient into a stair, and the
+    /// binary edge an artist wants is this followed by `Levels` with the two input handles together.
+    var threshold: float = 0f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The furthest the operator may reach, whatever the width says.
+    ///
+    /// ⚠ `Blur.rvn`'s argument: a width arriving as a NaN or as a number with four extra zeros in it
+    /// is a tap far outside the image, which is a clamp to the border and a picture with no edges in
+    /// it rather than a device loss — but the ceiling costs nothing and says what the node will do.
+    const val MaxWidth: int = 256
+
+    /// One tap's grey, clamped to the source's own edge.
+    func Grey(x: int, y: int): float {
+        val extent = source.GetDimensions(0)
+
+        return source.Load(int3(clamp(x, 0, extent.x - 1), clamp(y, 0, extent.y - 1), 0)).x
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val spacing = clamp(int(max(width, 1f)), 1, MaxWidth)
+
+        val topLeft = Grey(coord.x - spacing, coord.y - spacing)
+        val top = Grey(coord.x, coord.y - spacing)
+        val topRight = Grey(coord.x + spacing, coord.y - spacing)
+        val left = Grey(coord.x - spacing, coord.y)
+        val right = Grey(coord.x + spacing, coord.y)
+        val bottomLeft = Grey(coord.x - spacing, coord.y + spacing)
+        val bottom = Grey(coord.x, coord.y + spacing)
+        val bottomRight = Grey(coord.x + spacing, coord.y + spacing)
+
+        val gx = (topRight + 2f * right + bottomRight) - (topLeft + 2f * left + bottomLeft)
+        val gy = (bottomLeft + 2f * bottom + bottomRight) - (topLeft + 2f * top + topRight)
+
+        val magnitude = sqrt(gx * gx + gy * gy) * 0.25f
+        val value = saturate((magnitude - threshold) / max(1f - threshold, 0.000001f))
+
+        target.Store(coord, float4(value, value, value, 1f))
+    }
+}

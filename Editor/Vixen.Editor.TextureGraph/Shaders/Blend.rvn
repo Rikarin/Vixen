@@ -1,0 +1,194 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Two images composited into one, under a mode and an opacity.
+//
+// ⚠ **The mode is a uniform and not a `[Permutation]`, and that is a measured trade rather than
+// laziness.** A permutation would specialise the branch away and cost one compiled variant per mode
+// per output format — sixteen modes times three formats is forty-eight modules for a kernel whose
+// whole body is eight instructions. A texture bake is bandwidth-bound on the loads and the store, so
+// the branch is free and the compilations are not.
+//
+// **No mask input, deliberately.** A layer's mask is doc 48 § M7's, and a mask is not a third texture
+// bolted onto a blend: it has a stack of its own, generators under it and anchor points into other
+// layers. Adding an input here that a plan has to fill with a white 1×1 image would be a shape M7
+// then has to undo.
+
+shader Blend {
+    /// What is underneath — the layer below, in a stack, or the first wire into the node.
+    var background: Texture2D
+
+    /// What is on top.
+    ///
+    /// ⚠ Its own resolution is whatever image the plan bound; the loop reads by *this* image's
+    /// coordinate clamped into the source, so blending a half-resolution layer over a full one is a
+    /// point sample rather than a filtered one. Doc 48 § D8 says every node is relative to the base,
+    /// and a plan that wants a resampled read puts a resample op in front of this.
+    var foreground: Texture2D
+
+    /// 0 copy · 1 multiply · 2 screen · 3 overlay · 4 add · 5 subtract · 6 darken · 7 lighten ·
+    /// 8 divide · 9 hard light · 10 soft light · 11 difference · 12 exclusion · 13 colour dodge ·
+    /// 14 colour burn · 15 signed add.
+    ///
+    /// ⚠ **The numbers are appended rather than reordered into doc 48 § 4.2's own listing order**,
+    /// which is a choice this comment has to record because nothing in the compilation would notice.
+    /// § 4.2 names them Copy · Add · Subtract · Multiply · Divide · …, and the eight that shipped in
+    /// M1 are numbered in a different order from that. Renumbering to match the prose would have
+    /// silently changed what every plan already written means — `TexturePlanDeviceTests` asks for
+    /// mode 1 and gets a multiply — and a plan is a *file*. `TextureBlendMode` is the C# name for
+    /// each of these, and its values are this list.
+    var mode: int = 0
+
+    /// How much of the result is the foreground's, before the foreground's own alpha.
+    var opacity: float = 1f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// One texel of a source, clamped to its edge rather than wrapped.
+    ///
+    /// Clamping is what a compositing operator has to do at a border: a wrap would make the top row
+    /// of a blend read the bottom row of the layer under it, which is a seam nobody authored.
+    func Under(x: int, y: int): float4 {
+        val size = background.GetDimensions(0)
+
+        return background.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+    }
+
+    func Over(x: int, y: int): float4 {
+        val size = foreground.GetDimensions(0)
+
+        return foreground.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+    }
+
+    /// The mode applied to two colours, alpha left alone.
+    ///
+    /// **Every mode has a neutral foreground, and that is what the suite reads them off.** Copy has
+    /// none by construction; multiply and divide are neutral at white, screen, add, subtract,
+    /// difference, exclusion and colour dodge at black, darken at white, lighten at black, colour
+    /// burn at white, overlay, hard light, soft light and signed add at mid-grey. ⚠ A mode
+    /// implemented with an operand swapped, a factor dropped or a `1 −` missing generally *keeps*
+    /// its distinguishing value at some point and loses its neutral, or the reverse — which is why
+    /// `TextureBlendDeviceTests` asserts both and not either.
+    func Combine(a: float4, b: float4): float4 {
+        val one = float4(1f, 1f, 1f, 1f)
+        val epsilon = float4(0.0001f, 0.0001f, 0.0001f, 0.0001f)
+
+        if (mode == 1) {
+            return a * b
+        }
+
+        if (mode == 2) {
+            return one - (one - a) * (one - b)
+        }
+
+        if (mode == 3) {
+            // Per channel, and written branchlessly because the four lanes disagree about which half
+            // of the curve they are on. `step` is 0 below the edge and 1 at or above it, so `lerp`
+            // picks the screen form exactly where the backdrop is already light.
+            val low = 2f * a * b
+            val high = one - 2f * (one - a) * (one - b)
+
+            return lerp(low, high, step(float4(0.5f, 0.5f, 0.5f, 0.5f), a))
+        }
+
+        if (mode == 4) {
+            return a + b
+        }
+
+        if (mode == 5) {
+            return a - b
+        }
+
+        if (mode == 6) {
+            return min(a, b)
+        }
+
+        if (mode == 7) {
+            return max(a, b)
+        }
+
+        if (mode == 8) {
+            // The backdrop divided by the layer over it, capped at white. ⚠ The `max` is a floor on
+            // the *divisor*, not a `saturate` afterwards: a foreground of zero is a division by zero,
+            // which is an infinity in one target and a NaN in the other, and a NaN stored into an
+            // `rgba16f` intermediate survives every later op unchanged.
+            return min(a / max(b, epsilon), one)
+        }
+
+        if (mode == 9) {
+            // ⚠ Hard light is overlay with the operands **swapped** — `ComputeColor.rvn:42` says so
+            // in one line — and the whole of the swap is which operand the `step` reads. The two
+            // halves are symmetric in a and b, so a hard light written by copying the overlay case
+            // and forgetting to move the selector is *exactly* overlay, on every image, with no
+            // artefact to notice.
+            val low = 2f * a * b
+            val high = one - 2f * (one - a) * (one - b)
+
+            return lerp(low, high, step(float4(0.5f, 0.5f, 0.5f, 0.5f), b))
+        }
+
+        if (mode == 10) {
+            // `ComputeColor.SoftLight`, transcribed — the Photoshop form, where the light half
+            // reaches for `sqrt(a)` rather than the W3C's cubic. The two differ visibly on a dark
+            // backdrop, and an artist who matches a soft light in the shader graph and sees it shift
+            // here has found a bug, which is the same argument `Hsl` makes about its hue rotation.
+            val darken = a - (one - 2f * b) * a * (one - a)
+            val lighten = a + (2f * b - one) * (sqrt(max(a, float4(0f, 0f, 0f, 0f))) - a)
+
+            return lerp(darken, lighten, step(float4(0.5f, 0.5f, 0.5f, 0.5f), b))
+        }
+
+        if (mode == 11) {
+            return abs(a - b)
+        }
+
+        if (mode == 12) {
+            // Difference's smooth twin: the same endpoints, no derivative discontinuity at a == b.
+            return a + b - 2f * a * b
+        }
+
+        if (mode == 13) {
+            return min(a / max(one - b, epsilon), one)
+        }
+
+        if (mode == 14) {
+            return one - min((one - a) / max(b, epsilon), one)
+        }
+
+        if (mode == 15) {
+            // ⚠ **Times two, and that factor is the whole point of the mode.** A signed quantity in
+            // an unorm map is carried as `v * 0.5 + 0.5`, so decoding it is `v * 2 - 1` — doc 48
+            // § 4.4 names exactly this pair as the encoding "the two conventions differ by a factor
+            // of two and a sign" over. Without the two, a mid-grey foreground is still neutral and
+            // every offset is half the height the map says, which looks like a weak effect rather
+            // than a wrong one.
+            return a + (b - float4(0.5f, 0.5f, 0.5f, 0.5f)) * 2f
+        }
+
+        return b
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        // The dispatch is rounded up to whole groups, so the tail invocations have no texel of their
+        // own. Storing outside a storage image is undefined in both targets.
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val a = Under(coord.x, coord.y)
+        val b = Over(coord.x, coord.y)
+        val blended = Combine(a, b)
+
+        // ⚠ The blend's own alpha is what makes an unwritten region of the foreground leave the
+        // backdrop alone. Multiplying the opacity by it here rather than in `Combine` is what keeps
+        // every mode agreeing about what a transparent foreground texel means.
+        val amount = saturate(opacity) * saturate(b.w)
+        val colour = lerp(a.xyz, blended.xyz, float3(amount, amount, amount))
+        val alpha = a.w + (1f - a.w) * amount
+
+        target.Store(coord, float4(colour.x, colour.y, colour.z, alpha))
+    }
+}

@@ -486,6 +486,69 @@ shader EmissiveSurface : IMaterialSurface {
     }
 }
 
+/// Adds emitted radiance from a map.
+///
+/// What `EmissiveSurface` above could not be: that one carries a single colour, so a sign, a screen
+/// or a strip of windows emits over its whole surface rather than where the glowing part is. Masking
+/// that with geometry is what a project does instead, and it is the reason an emissive map exists.
+///
+/// ⚠ **The colour's default is white here and black there, and the two are not inconsistent.**
+/// `EmissiveSurface.emissiveColor` *is* the emission, so its zero means "no emission" and is the right
+/// default for a feature nobody has authored. This one multiplies a map, so a zero would sample a
+/// texture and emit nothing — a map that never arrived, which is the failure this library spends its
+/// fallback checker on making visible.
+///
+/// ⚠ The renderer works in cd/m². A 0..1 map at intensity 1 emits about what a sheet of paper does and
+/// is pixel-identical to a feature that never ran; a sign that reads as emitting wants four orders of
+/// magnitude in `intensity`.
+shader TexturedEmissiveSurface : MaterialTextures, IMaterialSurface {
+    /// Which slot of the frame's table holds this material's emissive map.
+    var emissiveIndex: uint = 0u
+
+    /// Multiplied into the map, so a shared map can be tinted per material.
+    var emissiveColor: float3 = float3(1f, 1f, 1f)
+
+    /// What it is multiplied by, so colour and brightness are authored apart.
+    var intensity: float = 1f
+
+    func Compute(inout d: MaterialData) {
+        val sampled = SampleSurface(emissiveIndex, d)
+
+        // Added rather than assigned, on `EmissiveSurface`'s terms: emission is a contribution, and a
+        // material may carry a constant emissive and a masked one at once.
+        d.emissive = d.emissive + emissiveColor * sampled.rgb * intensity
+    }
+}
+
+/// Coverage from a map: a mask, a fade, a dissolve.
+///
+/// ⚠ **It reads the map's red channel and not its alpha**, and that is the whole decision in this
+/// shader. An opacity mask is authored as one channel — BC4, or R8 — and a one-channel texture samples
+/// alpha as 1, so reading `.a` would make every mask fully opaque and every cutout material solid. The
+/// case where coverage *is* a base-colour map's alpha is already covered by
+/// `TexturedMetalRoughnessSurface`, which multiplies the sampled alpha into `alpha` itself. This
+/// shader is for the mask that is its own texture.
+///
+/// Multiplied into whatever coverage is already there rather than replacing it, on `OcclusionSurface`'s
+/// argument: a base colour's alpha and a separate mask compose without either knowing about the other.
+///
+/// ⚠ Writing coverage is not the same as the material being transparent. Whether `alpha` reaches a
+/// blend or a cutout is the pass's, so a material with this feature and an opaque blend state draws
+/// exactly as it did.
+shader TexturedOpacitySurface : MaterialTextures, IMaterialSurface {
+    /// Which slot of the frame's table holds this material's opacity mask.
+    var opacityIndex: uint = 0u
+
+    /// What the map is scaled by, so a whole surface can be faded. One is the map exactly.
+    var opacity: float = 1f
+
+    func Compute(inout d: MaterialData) {
+        val sampled = SampleSurface(opacityIndex, d)
+
+        d.alpha = d.alpha * saturate(sampled.r * opacity)
+    }
+}
+
 /// Applies ambient occlusion.
 ///
 /// Multiplies into whatever is already there rather than overwriting, so two occlusion sources —

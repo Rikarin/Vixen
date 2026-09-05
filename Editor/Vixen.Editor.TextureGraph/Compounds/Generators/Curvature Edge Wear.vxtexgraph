@@ -1,0 +1,67 @@
+version: 1
+name: Curvature Edge Wear
+nodes:
+  - id: 1
+    type: Source/Mesh Map
+    x: -640
+    y: 0
+    values: {}
+    texts: { Map: curvature }
+  - id: 2
+    type: Utility/Histogram Scan
+    x: -320
+    y: 0
+    values:
+      Black: [0.55]
+      White: [0.72]
+    texts: {}
+  - id: 3
+    type: Source/Noise
+    x: -640
+    y: 220
+    values:
+      Scale: [12]
+      Octaves: [4]
+    texts: { Basis: Gradient }
+  - id: 4
+    type: Colour/Levels
+    x: -320
+    y: 220
+    values:
+      Input Black: [0.35]
+      Input White: [0.9]
+    texts: {}
+  - id: 5
+    type: Colour/Blend
+    x: 0
+    y: 0
+    values: {}
+    texts: { Mode: Multiply }
+  - id: 6
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - fromNode: 2
+    fromPort: Out
+    toNode: 5
+    toPort: Background
+  - fromNode: 4
+    fromPort: Out
+    toNode: 5
+    toPort: Foreground
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The wear mask.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters: []

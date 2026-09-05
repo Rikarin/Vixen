@@ -1,0 +1,67 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Grey through a colour ramp — doc 48 § 4.2's `Gradient Map`, and § 4.1's note that this is
+// **`GradientEditor`'s first production consumer**: `overview.md:270` records that the control has
+// none, and a grep confirms it — the control, its tests and a string table.
+//
+// ⚠ **The ramp arrives as a baked table and not as a list of stops**, for the reason `Curve.rvn`
+// spells out at length: `Vixen.Ui.Controls.Advanced`'s `Gradient` already decides what a stop list
+// means, including which of three spaces the colours are mixed in — sRGB, linear or Oklab, which
+// *disagree visibly*, blue-to-yellow passing through grey in one and green in another. A kernel that
+// re-mixed stops itself would be a fourth opinion. `TextureRamp.FromRamp` takes `Gradient.Evaluate`
+// and bakes the row, which is also what keeps this assembly from referencing a UI control.
+//
+// ⚠ **The input is grey, and grey here is the red channel.** Not a luminance: doc 48 § 4.2 lists
+// `Grayscale Conversion` as its own node precisely so that "which weights" is answered once, in one
+// place, by an artist. Taking a luminance here would mean a grey `R16Float` image — whose `Load`
+// hands back `(r, 0, 0, 1)` — came out at 0.2126 of what it said, which is a picture that looks
+// plausible and is wrong by a factor nobody would guess.
+
+shader GradientMap {
+    var source: Texture2D
+
+    /// The baked ramp: width entries across, one row, RGBA.
+    var ramp: Texture2D
+
+    /// Non-zero keeps the input's alpha; zero takes the ramp's.
+    var keepAlpha: int = 1
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The ramp at a position in 0…1, interpolated between the two entries either side.
+    func Sample(position: float): float4 {
+        val extent = ramp.GetDimensions(0)
+        val last = max(extent.x - 1, 0)
+        val at = saturate(position) * float(last)
+        val low = clamp(int(floor(at)), 0, last)
+        val high = clamp(low + 1, 0, last)
+        val t = at - float(low)
+
+        val a = ramp.Load(int3(low, 0, 0))
+        val b = ramp.Load(int3(high, 0, 0))
+
+        return lerp(a, b, float4(t, t, t, t))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val texel = source.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+        val mapped = Sample(texel.x)
+
+        var alpha = mapped.w
+
+        if (keepAlpha != 0) {
+            alpha = texel.w
+        }
+
+        target.Store(coord, float4(mapped.x, mapped.y, mapped.z, alpha))
+    }
+}

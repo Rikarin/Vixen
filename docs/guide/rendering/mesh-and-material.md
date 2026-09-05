@@ -4,7 +4,7 @@ slug: rendering/mesh-and-material
 kind: concept
 area: Rendering
 summary: Neither word names a type — each names a chain of them, one per stage, plus four subsystems that borrowed the same word.
-api: [T:Vixen.Rendering.MeshData, T:Vixen.Rendering.MeshDraw, T:Vixen.Rendering.Material, T:Vixen.Rendering.MeshPrimitives, T:Vixen.Rendering.MeshRenderer, T:Vixen.Rendering.MeshInstanceRenderer, T:Vixen.Rendering.MaterialRecords, T:Vixen.Rendering.Materials.MaterialDescriptor, T:Vixen.Rendering.Materials.MaterialContent, T:Vixen.Rendering.Materials.MaterialTexture, T:Vixen.Rendering.Materials.MaterialCompiler, T:Vixen.Rendering.Materials.MaterialCompilation, T:Vixen.Rendering.Materials.IMaterialFeature, T:Vixen.Rendering.Materials.TexturedNormalMapFeature, T:Vixen.Rendering.Materials.TexturedOrmFeature, T:Vixen.Rendering.Materials.GraphSurfaceFeature, T:Vixen.Rendering.Materials.GraphSurfaceNumber, T:Vixen.Rendering.Materials.GraphSurfaceVector, T:Vixen.Rendering.Materials.GraphSurfaceMap, T:Vixen.Rendering.Materials.IMaterialShading, T:Vixen.Rendering.Materials.MaterialShading, T:Vixen.Rendering.Materials.MaterialSurface, T:Vixen.Rendering.Ecs.MeshRenderable, T:Vixen.Rendering.Ecs.MeshRenderables, T:Vixen.Rendering.Ecs.PrimitiveShape, T:Vixen.Rendering.Ecs.MeshExtractionSystem, T:Vixen.Rendering.Ecs.IMeshSource, T:Vixen.Rendering.Ecs.IMaterialSource, T:Vixen.Rendering.Ecs.ISurfaceSource, T:Vixen.Rendering.Features.MeshRenderFeature, T:Vixen.Rendering.Features.MaterialRenderFeature, T:Vixen.Engine.Renderer.AssetMeshSource, T:Vixen.Engine.Renderer.AssetMaterialSource, T:Vixen.Editor.Assets.Content.ProjectMeshSource, T:Vixen.Editor.Assets.Content.ProjectSurfaceSource, T:Vixen.Editor.Assets.Materials.MaterialImporter, T:Vixen.Editor.AssetEditors.Materials.MaterialAsset]
+api: [T:Vixen.Rendering.MeshData, T:Vixen.Rendering.MeshDraw, T:Vixen.Rendering.Material, T:Vixen.Rendering.MeshPrimitives, T:Vixen.Rendering.MeshRenderer, T:Vixen.Rendering.MeshInstanceRenderer, T:Vixen.Rendering.MaterialRecords, T:Vixen.Rendering.Materials.MaterialDescriptor, T:Vixen.Rendering.Materials.MaterialContent, T:Vixen.Rendering.Materials.MaterialTexture, T:Vixen.Rendering.Materials.MaterialCompiler, T:Vixen.Rendering.Materials.MaterialCompilation, T:Vixen.Rendering.Materials.IMaterialFeature, T:Vixen.Rendering.Materials.TexturedNormalMapFeature, T:Vixen.Rendering.Materials.TexturedOrmFeature, T:Vixen.Rendering.Materials.TexturedEmissiveFeature, T:Vixen.Rendering.Materials.TexturedOpacityFeature, T:Vixen.Rendering.Materials.TexturedMaterialLayersFeature, T:Vixen.Rendering.Materials.GraphSurfaceFeature, T:Vixen.Rendering.Materials.GraphSurfaceNumber, T:Vixen.Rendering.Materials.GraphSurfaceVector, T:Vixen.Rendering.Materials.GraphSurfaceMap, T:Vixen.Rendering.Materials.IMaterialShading, T:Vixen.Rendering.Materials.MaterialShading, T:Vixen.Rendering.Materials.MaterialSurface, T:Vixen.Rendering.Ecs.MeshRenderable, T:Vixen.Rendering.Ecs.MeshRenderables, T:Vixen.Rendering.Ecs.PrimitiveShape, T:Vixen.Rendering.Ecs.MeshExtractionSystem, T:Vixen.Rendering.Ecs.IMeshSource, T:Vixen.Rendering.Ecs.IMaterialSource, T:Vixen.Rendering.Ecs.ISurfaceSource, T:Vixen.Rendering.Features.MeshRenderFeature, T:Vixen.Rendering.Features.MaterialRenderFeature, T:Vixen.Rendering.Features.PermutationKeyDictionary, T:Vixen.Engine.Renderer.AssetMeshSource, T:Vixen.Engine.Renderer.AssetMaterialSource, T:Vixen.Editor.Assets.Content.ProjectMeshSource, T:Vixen.Editor.Assets.Content.ProjectSurfaceSource, T:Vixen.Editor.Assets.Materials.MaterialImporter, T:Vixen.Editor.AssetEditors.Materials.MaterialAsset]
 tags: [rendering, materials, meshes, assets, naming]
 since: 0.1
 status: stable
@@ -135,7 +135,11 @@ looking for "the vertex buffer my mesh lives in", it is not in a file with `Mesh
 | `TexturedNormalMapFeature` | `Vixen.Rendering.Materials` | A tangent-space normal read from a **map**, where `NormalMapFeature` carries one constant vector. Needs a table and a pairing, exactly as the textured base colour does |
 | `TexturedOrmFeature` | `Vixen.Rendering.Materials` | Occlusion, roughness and metalness from one packed map — R, G, B. ⚠ Reads the base albedo back out of the surface, so the base feature must be authored at metalness 0 |
 | `GraphSurfaceFeature`, `GraphSurfaceNumber`, `GraphSurfaceVector`, `GraphSurfaceMap` | `Vixen.Rendering.Materials` | A surface authored as a shader graph rather than chosen from the library. ⚠ The only feature whose `ShaderName` is **data** — every other one names a file somebody committed, this names a shader a build generated from a `.vxshadergraph` |
+| `TexturedEmissiveFeature` | `Vixen.Rendering.Materials` | Emission from a **map**, where `EmissiveFeature` emits over the whole surface. ⚠ Its colour defaults to white rather than black, because here the colour tints the map instead of being the emission |
+| `TexturedOpacityFeature` | `Vixen.Rendering.Materials` | Coverage from a mask. ⚠ Reads the map's **red** channel: a one-channel mask samples alpha as 1, so reading alpha would make every mask opaque. A base colour's own alpha already reaches coverage through `TexturedMetalRoughnessFeature` |
 | `MaterialLayersFeature`, `MaterialLayerValue`, `BlendFeature` | `Vixen.Rendering.Materials` | Layering and mixing: rock under moss under snow; two surfaces by a weight |
+| `TexturedMaterialLayersFeature` | `Vixen.Rendering.Materials` | The same stack with its weights **painted**: one splat map, R G B A as layers 0 to 3. ⚠ `MaterialLayerValue.Weight` becomes a *scale* on the painted channel; one is the map exactly |
+| ⤷ `PaintedChannels` | same | ⚠ How many channels that map really has, **three by default**. A one- or three-channel texture samples alpha as 1, so a fourth layer read from `.a` would weigh 1 at every texel and, normalised, be the whole surface. A four-channel map says so and gets its fourth layer; a stack deeper than the count is a compiler warning and an unpainted layer |
 | `IMaterialShading` | `Vixen.Rendering.Materials` | What the material does with light. The second slot on a shading pass |
 | `StandardShading`, `AnisotropicShading`, `ClearCoatShading`, `SheenShading`, `SubsurfaceShading`, `HairShading`, `CelShading` | `Vixen.Rendering.Materials` | The seven models |
 | `MaterialShading` | `Vixen.Rendering.Materials` | The name → model table, so a document can name one |
@@ -163,15 +167,37 @@ The shader half lives in Raven rather than in C#:
 |---|---|---|
 | `MaterialData` | `Raven/Library/Material/MaterialSurface.rvn` | Everything a lighting model needs about a point on a surface |
 | `IMaterialSurface` | same | The protocol a feature satisfies. `inout`, so a feature contributes rather than replaces |
-| `MetalRoughnessSurface`, `TexturedMetalRoughnessSurface`, `SpecularGlossinessSurface`, `NormalMapSurface`, `TexturedNormalMapSurface`, `TexturedOrmSurface`, `EmissiveSurface`, `OcclusionSurface` | same | The base and always-available features |
+| `MetalRoughnessSurface`, `TexturedMetalRoughnessSurface`, `SpecularGlossinessSurface`, `NormalMapSurface`, `TexturedNormalMapSurface`, `TexturedOrmSurface`, `EmissiveSurface`, `TexturedEmissiveSurface`, `TexturedOpacitySurface`, `OcclusionSurface` | same | The base and always-available features |
 | `MaterialTextures` | same | The sampling the textured workflow inherits |
-| `AnisotropySurface`, `ClearCoatSurface`, `ClearCoatNormalMapSurface`, `SheenSurface`, `SubsurfaceSurface`, `MaterialLayersSurface`, `BlendSurface` | `MaterialFeatures.rvn` | The optional features |
+| `AnisotropySurface`, `ClearCoatSurface`, `ClearCoatNormalMapSurface`, `SheenSurface`, `SubsurfaceSurface`, `MaterialLayersSurface`, `TexturedMaterialLayersSurface`, `BlendSurface` | `MaterialFeatures.rvn` | The optional features |
 | `CompositeSurface` | `MaterialFeatures.rvn` | The eight-slot chain a material's features are composed into |
 | `IdentitySurface` | `MaterialFeatures.rvn` | What an unfilled slot takes. Raven rejects an empty slot, so every slot is always bound |
 | `IShadingModel` and its seven shaders | `ShadingModels.rvn` | The C# shading models' counterparts, one per name |
 
 ⚠ **A feature writes channels; a shading model reads them.** That split is what keeps both sets small,
 and it is why the C# and Raven sides have the same seven names on one axis and thirteen on the other.
+
+#### Which permutations a variant is selected by, and the one key a host cannot drop
+
+`MaterialRenderFeature.PermutationKeys` is a `PermutationKeyDictionary`: shader name → the keys that
+shader's effect key is built from. A host states a pass's set in one line, with the array the shader's
+own reflection produced:
+
+```csharp no-compile="one line of a host's own setup, against a renderer it has already built"
+renderer.Materials.PermutationKeys["ForwardPlus"] = ForwardPlusKeys.UsedPermutationKeys;
+```
+
+⚠ **A key set under a name that list does not carry reaches no compiler at all** — the variant resolves
+to whatever the `.rvn` declares as its default, an effect resolves, a pipeline binds and a frame draws.
+That is the trap the whole type exists around.
+
+⚠ **And a *composed* surface's permutation is in no pass's reflection.** `LayerCount` is declared by
+`TexturedMaterialLayersSurface`, not by `ForwardPlus`, so the generated array above cannot carry it and
+a host assigning that array is not making a mistake by leaving it out. The engine registers it with
+`PermutationKeys.Register(shader, key)` when the renderer is built — and **a later assignment cannot
+take a registered key away**, which is the reason this is a type of its own rather than a
+`Dictionary`. It was a dictionary once, the host line ran after the engine's, and every host that drew
+compiled three-layer materials as two-layer ones without a word.
 
 ### Types called Mesh or Material that are not on either chain
 
