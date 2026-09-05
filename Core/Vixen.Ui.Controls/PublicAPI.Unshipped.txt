@@ -902,6 +902,7 @@ override Vixen.Ui.Controls.ComboBox.TagName.get -> string
 override Vixen.Ui.Controls.ContextMenu.TagName.get -> string
 override Vixen.Ui.Controls.Control.OnCreated() -> void
 override Vixen.Ui.Controls.Control.OnRemoved() -> void
+override Vixen.Ui.Controls.Dialog.ContentHost.get -> Vixen.Ui.UiElement
 override Vixen.Ui.Controls.Dialog.NativeAccessibleName.get -> string?
 override Vixen.Ui.Controls.Dialog.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
 override Vixen.Ui.Controls.Dialog.NativeRole.get -> Vixen.Ui.AccessibleRole
@@ -909,6 +910,7 @@ override Vixen.Ui.Controls.Dialog.OnClosed(Vixen.Ui.Controls.CloseReason reason)
 override Vixen.Ui.Controls.Dialog.OnCreated() -> void
 override Vixen.Ui.Controls.Dialog.OnOpened() -> void
 override Vixen.Ui.Controls.Dialog.TagName.get -> string
+override Vixen.Ui.Controls.Drawer.ContentHost.get -> Vixen.Ui.UiElement
 override Vixen.Ui.Controls.Drawer.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Drawer.OnCreated() -> void
 override Vixen.Ui.Controls.Drawer.TagName.get -> string

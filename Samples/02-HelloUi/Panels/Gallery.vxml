@@ -279,12 +279,15 @@
     Outside the scroller, for `ToastHost`'s reason in `Shell.vxml`: a surface that covers the window
     must not be laid out by — or clipped to — the column it was opened from.
 
-    ⚠ **Its content is filled in `OnComposed` rather than nested here, and that is a gap rather than
-    a style.** `Drawer` (and `Dialog`) never override `UiElement.ContentHost`, so a tag written
-    inside one lands on the drawer element beside its backdrop and its surface — which the theme
-    lays out across the whole viewport — instead of in `Body`. See issue #676.
+    Its content is nested, which it could not be until `Drawer` and `Dialog` pointed
+    `UiElement.ContentHost` at their `Body`: before that a tag written here landed on the drawer
+    element beside its backdrop and its surface — which the theme lays out across the whole viewport
+    — rather than in the panel that slides in.
 -->
-<Drawer ref="@filters" Side="Right" />
+<Drawer ref="@filters" Side="Right">
+    <TextBlock>A secondary surface you can leave open.</TextBlock>
+    <CheckBox Label="Only modified" />
+</Drawer>
 
 @code {
     /// <summary>The five appearances a button has.</summary>
@@ -342,12 +345,6 @@
 
         gradient.Gradient = ramp;
         gradient.GradientChanged += _ => Model.Notify("Gradient edited", ControlVariant.Default);
-
-        // ⚠ The one piece of C# this panel would rather not have. See the `<Drawer>` above: nested
-        // markup cannot reach `Drawer.Body` yet, so the content is added where the control says it
-        // goes rather than where an author would write it.
-        filters.Body.Add<TextBlock>().Text = "A secondary surface you can leave open.";
-        filters.Body.Add<CheckBox>().Label = "Only modified";
     }
 
     /// <inheritdoc />
