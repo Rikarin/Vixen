@@ -333,6 +333,17 @@ jobs:
       - name: Install Assimp
         run: sudo apt-get update && sudo apt-get install -y libassimp5
 
+      # ⚠ The one thing on this leg that CI does not otherwise exercise at all. `build.sh` turns the
+      # build lock off under CI — a runner owns its machine and has nothing to serialise — so
+      # build/lock.py is the only file in the repository that every gate depends on and no gate
+      # runs. It shipped holding a descriptor that MSBuild's node-reuse daemons inherited and kept
+      # after the build exited, which queued the next developer's gate behind a run that had
+      # finished; this is the twelve seconds that says so. It needs python3 and /bin/sh and nothing
+      # else, and it never touches the machine's own lock file.
+      - name: The build lock
+        run: python3 build/lock_test.py
+        shell: bash
+
       # CheckApi builds — it reads the assemblies rather than the source — which is why this leg
       # takes longer than the other two checks put together and why it is worth having: the diff it
       # fails on is the one nobody would have looked at otherwise.

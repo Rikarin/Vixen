@@ -4,6 +4,7 @@ set -euo pipefail
 
 root="$(cd "$(dirname "$0")" && pwd)"
 
+# --- lock scope: build/lock_test.py sources exactly this range and calls needs_lock ---
 # The targets that take the whole machine rather than a share of it. Everything else — CheckStrings,
 # CheckAttribution, AffectedProjects — reads files and finishes in milliseconds, and queueing those
 # behind a test sweep would only teach people to bypass the lock.
@@ -12,23 +13,47 @@ root="$(cd "$(dirname "$0")" && pwd)"
 # runs Nuke's default target, which is `Test` (build/Build.cs).
 expensive=" compile test checkapi docs checkshaders checkformat affectedtests goldenimages pack "
 
+# ⚠ Not ${argument,,}: macOS still ships bash 3.2 as /bin/bash, where that expansion is a syntax
+# error — and a syntax error here takes out the entry point for every target, not just the lock.
+lower() {
+    printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
 needs_lock() {
     if [ $# -eq 0 ]; then
         return 0
     fi
 
-    local argument lowered
+    # Which arguments are *targets*. Leading positional ones are, which is how everybody writes it;
+    # a switch ends that run, so `--skip Test` — ci.yml's pack leg writes exactly that — does not
+    # read as a request to run Test.
+    #
+    # ⚠ Except `--target`, which is Nuke's own switch for the same list and takes it as values, so
+    # `./build.sh --target Test` is a whole test sweep. The first version of this function walked
+    # straight past it: it stopped at the first switch and never looked again, so the one spelling
+    # that names a target *after* a switch was the one spelling that never queued. Confirmed against
+    # `--help`, where `--target` sits beside `--skip` and `--continue`.
+    local argument lowered targeting
+    targeting=1
+
     for argument in "$@"; do
-        # Targets come first and parameters follow, so the first switch ends the target list. A
-        # parameter *value* that happens to spell a target name is then not mistaken for one.
         case "${argument}" in
-            -*) break ;;
+            -*)
+                if [ "$(lower "${argument}")" = "--target" ]; then
+                    targeting=1
+                else
+                    targeting=0
+                fi
+
+                continue
+                ;;
         esac
 
-        # ⚠ Not ${argument,,}: macOS still ships bash 3.2 as /bin/bash, where that expansion is a
-        # syntax error — and a syntax error here takes out the entry point for every target, not
-        # just the lock.
-        lowered="$(printf '%s' "${argument}" | tr '[:upper:]' '[:lower:]')"
+        if [ "${targeting}" -eq 0 ]; then
+            continue
+        fi
+
+        lowered="$(lower "${argument}")"
 
         case "${expensive}" in
             *" ${lowered} "*) return 0 ;;
@@ -37,6 +62,7 @@ needs_lock() {
 
     return 1
 }
+# --- end lock scope ---
 
 # Off in CI, where a leg owns its runner and there is nothing for a lock to protect — the same
 # distinction `NukeBuild.IsLocalBuild` makes inside the build. VIXEN_NO_BUILD_LOCK is the escape
