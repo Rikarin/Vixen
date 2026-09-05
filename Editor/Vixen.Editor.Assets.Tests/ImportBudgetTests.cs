@@ -7,6 +7,7 @@ using Vixen.Core.IO;
 using Vixen.Core.Serialization.Storage;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Core;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.Editor.Assets.Tests;
@@ -73,10 +74,10 @@ public sealed class ImportBudgetTests : IDisposable {
 
     /// <summary>How many source files the synthetic project has.</summary>
     /// <remarks>
-    ///     ⚠ <b>Read once into a static, not per call.</b> <see cref="Folders" /> and
-    ///     <see cref="Entries" /> are derived from it and are read by assertions in three phases of
-    ///     one test; a property re-reading the environment would let the fixture and the expectation
-    ///     disagree if anything ever set the variable mid-run.
+    ///     ⚠ <b>Read once into a static, not per call.</b> The fixture is written from it and
+    ///     <see cref="Edited" /> is derived from it, and both are read in three phases of one test;
+    ///     a property re-reading the environment would let the fixture and the expectation disagree
+    ///     if anything ever set the variable mid-run.
     /// </remarks>
     static readonly int Files =
         int.TryParse(
@@ -87,12 +88,6 @@ public sealed class ImportBudgetTests : IDisposable {
         ) && asked >= 100
             ? asked
             : 10_000;
-
-    /// <summary>How many folders they are spread over, plus the one containing those.</summary>
-    static readonly int Folders = (Files / 100) + 1;
-
-    /// <summary>Every entry the scan finds: the files, and the folders, which import too.</summary>
-    static readonly int Entries = Files + Folders;
 
     /// <summary>The index of the one asset the incremental phase edits.</summary>
     /// <remarks>
@@ -126,9 +121,9 @@ public sealed class ImportBudgetTests : IDisposable {
     ///         other two mean anything. A counter that reported zero imports would pass "only one
     ///         asset was imported" forever; a counter wired to the entry count would pass the cold
     ///         phase forever. Asked for all three readings in one run, the same counter has to say
-    ///         <see cref="Entries" /> — 10 101 at the default size — then 0, then 1, so it is shown to
-    ///         move, in both directions, before it is believed. That is this test's own anti-vacuity
-    ///         control and it is why the phases are not separable.
+    ///         the fixture's own entry count — 10 101 at the default size — then 0, then 1, so it is
+    ///         shown to move, in both directions, before it is believed. That is this test's own
+    ///         anti-vacuity control and it is why the phases are not separable.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A new workspace per phase.</b> Reusing one keeps the import cache in memory and
@@ -139,13 +134,14 @@ public sealed class ImportBudgetTests : IDisposable {
     /// </remarks>
     [Fact]
     public async Task EveryAssetImportsOnceThenNothingThenOnlyTheOneThatChanged() {
-        var paths = Project();
+        var project = Project();
+        var paths = new ProjectPaths(project.Root);
 
         var cold = await ImportAsync(paths);
 
         // Nothing has been imported before, so everything is imported now — and the fact that this
         // number is the entry count rather than zero is what proves the counter is connected at all.
-        Assert.Equal(Entries, cold.Imported);
+        Assert.Equal(project.Entries, cold.Imported);
         Assert.Equal(0, cold.Cached);
         Assert.Equal(0, cold.Failed);
 
@@ -155,14 +151,9 @@ public sealed class ImportBudgetTests : IDisposable {
         // through: a second import of an untouched project runs no importer at all. If the artefact
         // key stops covering something, or the cache stops being written, this is 10 101 again.
         Assert.Equal(0, warm.Imported);
-        Assert.Equal(Entries, warm.Cached);
+        Assert.Equal(project.Entries, warm.Cached);
 
-        var edited = Path.Combine(
-            paths.Assets,
-            "Bulk",
-            (Edited / 100).ToString(CultureInfo.InvariantCulture),
-            string.Create(CultureInfo.InvariantCulture, $"asset{Edited}.bin")
-        );
+        var edited = project.Blob(Edited);
 
         // ⚠ Asserted to exist before it is written. A path that had gone stale would be created by
         // the write, which is still exactly one import — so this phase would pass while measuring an
@@ -178,7 +169,7 @@ public sealed class ImportBudgetTests : IDisposable {
         // one-second budget was standing in for, and unlike the second it is the same number on
         // every machine.
         Assert.Equal(1, incremental.Imported);
-        Assert.Equal(Entries - 1, incremental.Cached);
+        Assert.Equal(project.Entries - 1, incremental.Cached);
         Assert.Equal(0, incremental.Failed);
 
         // ⚠ Reported, never compared. Three Stopwatch readings dominated by one shared disk are not
@@ -246,33 +237,23 @@ public sealed class ImportBudgetTests : IDisposable {
         Assert.True(broken > 2.5, report);
     }
 
-    /// <summary>Writes the synthetic project and returns its paths.</summary>
+    /// <summary>Writes the synthetic project and says how big it turned out.</summary>
     /// <remarks>
-    ///     Sources only. The sidecars are the scan's to mint — that is what a project written by hand
-    ///     or checked out for the first time looks like, and it is the case a CI content build runs.
+    ///     <para>
+    ///         Sources only. The sidecars are the scan's to mint — that is what a project written by
+    ///         hand or checked out for the first time looks like, and it is the case a CI content
+    ///         build runs.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The counts come back from the fixture rather than being computed a second time
+    ///         here</b>, which is what this suite got out of <see cref="FixtureProject" />: the entry
+    ///         count used to be <c>Files + (Files / 100) + 1</c>, written beside the loop that made
+    ///         the folders it is counting, and the two would have drifted the first time either
+    ///         moved. <see cref="FixtureProject.Written.Entries" /> is read off the disk the fixture
+    ///         just wrote.
+    ///     </para>
     /// </remarks>
-    ProjectPaths Project() {
-        var paths = new ProjectPaths(root);
-
-        for (var folder = 0; folder < Files / 100; folder++) {
-            Directory.CreateDirectory(Path.Combine(paths.Assets, "Bulk", folder.ToString(CultureInfo.InvariantCulture)));
-        }
-
-        for (var index = 0; index < Files; index++) {
-            File.WriteAllText(
-                Path.Combine(
-                    paths.Assets,
-                    "Bulk",
-                    (index / 100).ToString(CultureInfo.InvariantCulture),
-                    string.Create(CultureInfo.InvariantCulture, $"asset{index}.bin")
-                ),
-                string.Create(CultureInfo.InvariantCulture, $"asset {index}"),
-                Encoding.UTF8
-            );
-        }
-
-        return paths;
-    }
+    FixtureProject.Written Project() => new FixtureProject { Root = root, Blobs = Files }.Write();
 
     /// <summary>Imports the project through the call the CLI and the editor both make.</summary>
     static async Task<ImportSummary> ImportAsync(ProjectPaths paths) {
@@ -292,18 +273,13 @@ public sealed class ImportBudgetTests : IDisposable {
     /// <param name="peerReading">Whether the importer walks every other asset — the defect, for the control.</param>
     async Task<int> Opens(int assets, bool peerReading) {
         var directory = Path.Combine(root, "ratio", (peerReading ? "peers-" : "linear-") + assets);
+
+        // Flat and .pal, because this half is about PaletteImporter rather than about a project: the
+        // ratio is over the opens those files cause, so a folder that also imports would be a
+        // constant added to both readings and to neither's meaning.
+        new FixtureProject { Root = directory, Blobs = assets, BlobExtension = ".pal", BlobsPerFolder = 0 }.Write();
+
         var paths = new ProjectPaths(directory);
-
-        Directory.CreateDirectory(paths.Assets);
-
-        for (var index = 0; index < assets; index++) {
-            File.WriteAllText(
-                Path.Combine(paths.Assets, string.Create(CultureInfo.InvariantCulture, $"asset{index}.pal")),
-                string.Create(CultureInfo.InvariantCulture, $"palette {index}"),
-                Encoding.UTF8
-            );
-        }
-
         var database = new AssetDatabase(paths);
 
         database.Scan();

@@ -67,6 +67,12 @@
                           ReferenceOutputAssembly="false" />
     </ItemGroup>
 
+    <!--
+      The synthetic project generator of docs/plan/12, which ImportBudgetTests and
+      FixtureProjectTests both drive. Linked rather than referenced; the props file says why.
+    -->
+    <Import Project="..\..\Testing\Vixen.Testing.FixtureProject.props" />
+
     <ItemGroup>
         <!--
           The first .vxwaves in the tree, read by WaterSceneRunsTests. A file rather than a string in

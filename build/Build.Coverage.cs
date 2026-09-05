@@ -131,6 +131,26 @@ partial class Build {
             + "that reported 0 % here would be the failure this one exists to avoid."
         );
 
+        // ⚠ The instrument, checked against the document's own arithmetic before any number is read
+        // out of it. A cobertura header carries the totals over its packages, so a reading that
+        // agrees with them is reading the file the way the collector wrote it. This is not
+        // hypothetical: the first version of the reader walked `Descendants("line")` and counted
+        // every line twice, because a class lists its lines once per method and once more in its
+        // own list — 8 444 of 11 318 for a package of 4 221 of 5 658, at a rate that was right to
+        // three decimal places, which is the kind of wrong nobody finds by looking at the table.
+        foreach (var document in documents) {
+            var summed = CoverageReport.AllLines(document);
+            var header = CoverageReport.DocumentLines(document);
+
+            Assert.True(
+                summed == header,
+                $"{project}'s {document} sums to {summed.Covered}/{summed.Total} lines over its "
+                + $"packages and its own header says {header.Covered}/{header.Total}. The reader and "
+                + "the collector disagree about what the file says, so every number below it is "
+                + "unsafe — including the ones that would look plausible."
+            );
+        }
+
         var subject = CoverageReport.Subject(project);
         var (covered, total) = CoverageReport.SubjectLines(documents.Select(path => path.ToString()), subject);
 

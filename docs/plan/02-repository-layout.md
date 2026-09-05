@@ -561,8 +561,10 @@ both do it.
 
 Top level rather than under `Core/` because every folder there is one library plus its sibling test
 project, and this is neither. It is where the shared test infrastructure of
-[12](12-build-ci-and-testing.md) § "Test infrastructure worth building early" — `TestApp`,
-`RecordingBackend`, `GoldenFile`, `FixtureProject` — belongs when it is written.
+[12](12-build-ci-and-testing.md) § "Test infrastructure worth building early" lives — `TestApp`,
+`RecordingBackend`, `GoldenFile` and `FixtureProject` are all there now, each beside its own props
+file, because what a linked file needs differs per file and a helper compiled into forty assemblies
+that never call it is the shape this repository keeps having to delete.
 
 ## Shared MSBuild
 

@@ -29,10 +29,24 @@ static class CoverageReport {
     /// <param name="documents">Paths of the cobertura documents.</param>
     /// <param name="subject">The assembly to count, as cobertura names a package.</param>
     /// <remarks>
-    ///     ⚠ One assembly and not the document's own <c>line-rate</c>. A suite's report carries every
-    ///     assembly the run loaded, so the document-wide figure moves with a dependency's size and
-    ///     says nothing about either project — measured here, 32.6 % across the run against 80.8 %
-    ///     of the assembly the suite is named after.
+    ///     <para>
+    ///         ⚠ One assembly and not the document's own <c>line-rate</c>. A suite's report carries
+    ///         every assembly the run loaded, so the document-wide figure moves with a dependency's
+    ///         size and says nothing about either project — measured here, 32.6 % across the run
+    ///         against 80.8 % of the assembly the suite is named after.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every line in a cobertura document is written twice, and counting the descendants
+    ///         counts both.</b> A <c>&lt;class&gt;</c> lists its lines once inside each
+    ///         <c>&lt;method&gt;</c> and once more in its own <c>&lt;lines&gt;</c>, so
+    ///         <c>package.Descendants("line")</c> reports an assembly at about double its size —
+    ///         measured on <c>Vixen.Core.Mathematics</c>, 8 444 of 11 318 for a package that is 4 221
+    ///         of 5 658. The <i>rate</i> survives that almost intact, which is exactly why it would
+    ///         not have been noticed: the two sets are near-identical copies, so the ratio is right
+    ///         to three decimal places while both counts are wrong by a factor. This walks each
+    ///         class's own list, which is the complete one; the method lists are not the same set,
+    ///         and hold seven lines the class lists do not.
+    ///     </para>
     /// </remarks>
     public static (int Covered, int Total) SubjectLines(IEnumerable<string> documents, string subject) {
         ArgumentNullException.ThrowIfNull(documents);
@@ -47,13 +61,65 @@ static class CoverageReport {
                     continue;
                 }
 
-                foreach (var line in package.Descendants("line")) {
-                    total++;
+                var (packageCovered, packageTotal) = Lines(package);
 
-                    if ((int?)line.Attribute("hits") > 0) {
-                        covered++;
-                    }
-                }
+                covered += packageCovered;
+                total += packageTotal;
+            }
+        }
+
+        return (covered, total);
+    }
+
+    /// <summary>What a document says about itself, in the header the collector wrote.</summary>
+    /// <param name="document">Path of the cobertura document.</param>
+    /// <returns>Its <c>lines-covered</c> and <c>lines-valid</c>, or −1 for either it does not carry.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The oracle for the reading above, which is why it is a method rather than a comment.</b>
+    ///     A cobertura document carries its own totals and they are the sum over its packages, so a
+    ///     parse that agrees with them is reading the file the way the collector wrote it and one
+    ///     that does not is off by whatever it double-counted or skipped. It is closed-form, it is in
+    ///     every document, and it is what would have caught the descendants walk on the first
+    ///     document anybody parsed.
+    /// </remarks>
+    public static (int Covered, int Total) DocumentLines(string document) {
+        ArgumentNullException.ThrowIfNull(document);
+
+        var root = XDocument.Load(document).Root;
+
+        return ((int?)root?.Attribute("lines-covered") ?? -1, (int?)root?.Attribute("lines-valid") ?? -1);
+    }
+
+    /// <summary>Covered and total lines of every package in a document, read the same way.</summary>
+    /// <param name="document">Path of the cobertura document.</param>
+    /// <returns>The sum over its packages, which is what <see cref="DocumentLines" /> should say.</returns>
+    public static (int Covered, int Total) AllLines(string document) {
+        ArgumentNullException.ThrowIfNull(document);
+
+        var covered = 0;
+        var total = 0;
+
+        foreach (var package in XDocument.Load(document).Descendants("package")) {
+            var (packageCovered, packageTotal) = Lines(package);
+
+            covered += packageCovered;
+            total += packageTotal;
+        }
+
+        return (covered, total);
+    }
+
+    /// <summary>The lines of one package, taken from each class's own list rather than its methods'.</summary>
+    /// <param name="package">A <c>&lt;package&gt;</c> element.</param>
+    static (int Covered, int Total) Lines(XElement package) {
+        var covered = 0;
+        var total = 0;
+
+        foreach (var line in package.Descendants("class").Elements("lines").Elements("line")) {
+            total++;
+
+            if ((int?)line.Attribute("hits") > 0) {
+                covered++;
             }
         }
 

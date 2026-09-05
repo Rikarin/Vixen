@@ -133,9 +133,22 @@ BenchmarkDotNet's own `HostEnvironmentInfo`, plus the commit and the moment — 
 indistinguishable from a guess within a month, and this file is asked to be a gate. The comparison
 reads the processor back out, which is what makes the paragraph above enforceable rather than advisory.
 
+⚠️ **And the route to that baseline was broken, in a way only running the target could show.**
+`Benchmark` built BenchmarkDotNet's command line as one interpolated string and handed it to
+`SetApplicationArguments`. Nuke quotes *each element* of that list — every other `DotNetRun` in
+`build/` passes a `List<string>`, and `Build.ContentBytes.cs` says so in a comment — so the whole line
+arrived as a single argv entry, `-- "--filter * --artifacts … --exporters json"`. Measured against
+BenchmarkDotNet 0.15.8's own `ConfigParser`: that argv parses **false** and the element-per-argument
+form parses **true**. So the target would have run no benchmark at all, and
+`--update-baseline` would have failed with *"no reports to write a baseline from"* — a message naming
+the symptom and not the cause. Five rounds of this issue recorded the baseline as blocked on hardware;
+it was also blocked on this.
+
 **Still owed** ([#339](https://github.com/Rikarin/Vixen/issues/339)): the baseline itself, taken on
-hardware that will run the suite again; and the `benchmark` CI job, which has to follow it — a job
-added first would fail every pull request for want of the file it compares against.
+hardware that will run the suite again — and now, first, one real `Benchmark` run to confirm the
+arguments reach BenchmarkDotNet end to end, which needs `build.sh`; and the `benchmark` CI job, which
+has to follow it — a job added first would fail every pull request for want of the file it compares
+against.
 
 ## NuGet package layout
 
@@ -332,10 +345,27 @@ no cobertura document did not measure zero — it did not measure — so a missi
 a `--coverage-project` matching nothing fails, and a suite whose report does not name its own subject
 assembly fails. That last one is a finding about the suite rather than a number about the assembly.
 
+⚠️ **The reader counted every line twice, and running it once is how that was found.** The target has
+never been executed through `build.sh` by any session that wrote it, so its invocation was run by hand
+instead — `dotnet test Core/Vixen.Core.Mathematics.Tests --settings .runsettings --results-directory
+artifacts/coverage/<project> --collect "Code Coverage;Format=cobertura"`, which is what the fluent
+`DotNetTest` settings build, and the attachment landed exactly where `Measure` globs for it. Over that
+real document the reader said `Vixen.Core.Mathematics` was **8 444 of 11 318** lines. It is **4 221 of
+5 658**: a cobertura `<class>` lists its lines once inside each `<method>` and once more in its own
+`<lines>`, so `Descendants("line")` counts both. ⚠️ **The rate was right to three decimal places
+while both counts were doubled**, which is the kind of wrong a table of percentages cannot show you —
+and the fix carries its own oracle, because a document's header states the totals over its packages:
+`Measure` now sums every package and fails when that disagrees with `lines-covered`/`lines-valid`, so
+a reader and a collector that disagree about what the file says stop the run before a plausible number
+is printed. Restoring the descendants walk turns the sum into 14 092 of 21 139 against a header of
+7 045 of 10 566.
+
 ⚠️ **The number reported is the subject assembly's, not the run's, and that is most of what makes it
 worth reading.** Measured on this machine: `Vixen.Graphics.Null.Tests` covers **80.8 %** of
-`Vixen.Graphics.Null` (2 960 of 3 664 lines) and **32.6 %** of everything the run loaded, because the
-same document carries `Vixen.Core` at 0.1 % — a figure that describes neither project and moves
+`Vixen.Graphics.Null` (740 of 916 lines — this paragraph said *"2 960 of 3 664"*, which is that same
+measurement read by the double-counting walk above, twice over) and **32.6 %** of everything the run
+loaded (3 689 of 11 322), because the same document carries `Vixen.Core` at 0.1 % — a figure that
+describes neither project and moves
 whenever an unrelated dependency grows. A "per-project coverage" table built from a document's own
 `line-rate` would be that second number.
 
@@ -512,13 +542,14 @@ afford.
 
 ### Test infrastructure worth building early
 
-⚠️ **Two of the five are still unwritten, and the sequencing this section used to state is refuted by
-the tree.** `TestApp` was specified as a Phase 1 item that *"every later phase depends on"*. Every
-later phase shipped without it: 178 test projects, twenty-three suites of allocation gates and the golden
-suite exist, and nothing anywhere named the type until it landed. So the dependency was never real —
-what the remaining two would buy is arrangement code deleted, not tests made possible, and they are
-worth building on that argument rather than on a blocking one. They are tracked as
-[#336](https://github.com/Rikarin/Vixen/issues/336).
+⚠️ **All five are written now, and the sequencing this section used to state is refuted by the tree.**
+`TestApp` was specified as a Phase 1 item that *"every later phase depends on"*. Every later phase
+shipped without it: 178 test projects, twenty-three suites of allocation gates and the golden suite
+exist, and nothing anywhere named the type until it landed. So the dependency was never real — what
+each of the five bought when it arrived was arrangement code deleted and a refusal added, not tests
+made possible. (This paragraph said *"two of the five are still unwritten"* while `GoldenFile` was
+already ✅ two bullets below it, and then one, which is the arithmetic a count written in prose
+always loses.) Tracked as [#336](https://github.com/Rikarin/Vixen/issues/336).
 
 - **`TestApp`** — ✅ an in-process engine host with the Null backend, an in-memory VFS, a fake clock and
   a synthetic input source, in [`Testing/TestApp.cs`](../../Testing/TestApp.cs), linked into a test
@@ -602,10 +633,33 @@ worth building on that argument rather than on a blocking one. They are tracked 
   the comparison is exact rather than perceptual because no driver is involved. It does not replace
   the golden-image suite: it cannot see below `UiGeometry`, which is where descriptor bindings and
   vertex layouts live. `Ticked` is the per-frame seam a real `TestApp` would drive it through.
-- **`FixtureProject`** — a synthetic Vixen project generator (N textures, M models, K scenes) for asset
-  pipeline scale tests. ⚠️ The scale test it was meant to serve was written without it:
-  `Vixen.Editor.Assets.Tests/ImportBudgetTests` builds its own fixture and scales it from
-  `VIXEN_IMPORT_SCALE`. So this one is a generalisation of a working thing rather than a hole.
+- **`FixtureProject`** — ✅ the synthetic project generator, in
+  [`Testing/FixtureProject.cs`](../../Testing/FixtureProject.cs), adopted by
+  `Vixen.Editor.Assets.Tests/ImportBudgetTests`, which is the scale test that had been written
+  without it.
+
+  **What the generalisation turned out to buy is the kinds, and that was not the argument for it.**
+  The prediction here was that this one was *"a generalisation of a working thing rather than a
+  hole"*, because `ImportBudgetTests` already built its own fixture and scaled it from
+  `VIXEN_IMPORT_SCALE`. True as far as it went: what that fixture wrote was ten thousand `.bin`
+  files, which reach exactly one importer — the `RawImporter` fallback. ⚠️ **A fixture of the wrong
+  kinds is green.** `RawImporter` takes whatever nothing else claimed, succeeds and is counted, so a
+  "texture" no importer claims imports, passes and is indistinguishable from a texture unless
+  something asks *which importer claimed it* — the shape of the `.vxwaves` that became a byte blob
+  no runtime reader resolves, and of the five attributed importers found missing from
+  `BuiltInImporters` after it. So the textures are real PNGs through `PngCodec`, the models are
+  Wavefront OBJ and the scenes are `.vxscene` YAML, and `FixtureProjectTests` asserts the importer
+  name per extension rather than the count.
+
+  **Its three refusals are the same standard the other four are held to.** A fixture asked for
+  nothing writes an empty project, over which *"everything imported"* and *"nothing failed"* are
+  both true — refused. A second fixture written over the first returns counts short by whatever was
+  already there, and short in the direction that still passes — refused. And what it wrote is
+  counted **off the disk** and compared against what it computed, so a kind whose loop never ran is
+  a smaller project that satisfies every assertion derived from it — refused. ⚠️ The counts are the
+  product rather than the files: `ImportBudgetTests` used to compute `Files + (Files / 100) + 1`
+  beside the loop that made the folders it was counting, which is two derivations of one number in
+  one file.
 - **Fuzzers** — ✅ **all five of the parsers this line asked for are fuzzed**: VXML, VCSS (as
   `stylevalue` and `layerrule`), Raven, the `.meta` reader and the bundle reader, among twenty targets
   in [`Core/Vixen.Fuzz`](../../Core/Vixen.Fuzz), replayed nightly over a committed corpus by

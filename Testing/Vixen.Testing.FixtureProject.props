@@ -1,0 +1,22 @@
+<Project>
+
+  <!--
+    Vixen — the synthetic project generator of docs/plan/12 § "Test infrastructure worth building
+    early", linked rather than referenced, on the same argument as Vixen.Testing.props beside it.
+
+    ITS OWN FILE, like GoldenFile's and TestApp's, and here the reason is what the file NEEDS rather
+    than only what it is for: FixtureProject writes real assets, so it names PngCodec out of
+    Vixen.Core.Imaging. Linking it into a test project with no imaging reference is a build error in
+    return for nothing.
+
+    Consumers need a `using Vixen.Testing;` and a reference that brings in Vixen.Core.Imaging —
+    which anything importing a texture already has. Unlike the other three it names no test
+    framework at all: a fixture on disk is a fixture on disk, and its refusals are exceptions rather
+    than assertions so that the failure arrives before the test does.
+  -->
+
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)FixtureProject.cs" Link="Testing\FixtureProject.cs" />
+  </ItemGroup>
+
+</Project>
