@@ -23,30 +23,40 @@ and `Vixen.Editor.TextureGraph`, and it **does not reference `Vixen.Editor.App`*
 | `TextureGraphDocument` | A `.vxtexgraph`: a `NodeGraphAsset`, exactly as a `.vxshadergraph` is. |
 | `TextureGraphView` | The panel: `NodeGraphView` over the graph, `ImageView` beside it. |
 | `TextureNodeLibrary` | One line over the generated `NodeTypes.Register`. |
-| `TexturePreview` | Why the preview pane is empty, as a value a test can assert. |
+| `TexturePreview` | Whether the preview pane can show anything, as a value a test can assert. |
+| `TextureGraphPreview` | Evaluates a plan on the host's device and hands the pane a picture. |
+| `TextureGraphEditorFactory` | Claims `.vxtexgraph`, inside the module's registration scope. |
 
-## The three things a plugin cannot do today
+## The three things a plugin could not do. Two of them it can now
 
-Doc 48 § D14 predicted two, "and finding out is the point". Both are confirmed, and there is a third
-it did not name. **None of them is worked around here**, because a panel that worked by cheating
-would make all three invisible.
+Doc 48 § D14 predicted two, "and finding out is the point". Both were confirmed, and there was a
+third it did not name. Two are closed, in the editor rather than here; the third is not, and **it is
+not worked around**, because a panel that worked by cheating would make it invisible.
 
-### 1. No plugin can get a graphics device ⛔ [#737](https://github.com/Rikarin/Vixen/issues/737)
+### 1. A graphics device ✅ [#737](https://github.com/Rikarin/Vixen/issues/737)
 
-`EditorApplication.PluginPoints` publishes `EditorProject`, `SceneDocument`, `DrawerRegistry`,
-`ImporterContributions`, `IEditorRegistry`, the editing state, the work plane, `IMeshBaker`,
-`IMeshMapBaker`, `IMeshSource`, `IActiveScene`, `IActiveView`, `IDeviceDeploy`,
-`AssetEditorRegistry`, `HotReloadHost` and the `PluginHost` itself. There is **no `IGraphicsDevice`**,
-and there is no other route: `Vixen.Editor.Ui` has none, `Vixen.Editor.Core` has none, and the
-contract's only channel is `PluginServices`.
+`EditorApplication.PluginPoints` now publishes `IEditorGraphics`: the editor's device to allocate on
+and dispatch over, and an upload that turns pixels into the number an `ImageView` draws. The preview
+pane runs a kernel on it.
 
-So doc 48's own sentence stands as written: *either a device is published through `PluginServices`
-or a third party cannot write anything that draws.* **The smallest honest fix is one line** —
-`.Add(device)` in `PluginPoints`, under the interface rather than the implementation, for the reason
-the `IMeshSource` line beside it already states. What it costs is a decision this slice cannot make
-for the editor: a plugin holding a device can destroy resources the frame is using, and whether that
-is a `IGraphicsDevice` or a narrower "make me an image" contract is a design question, not an
-omission.
+⚠ **#737's "smallest honest fix is one line" was wrong, and finding out is the useful half.**
+`.Add(device)` in `PluginPoints` cannot work: that method runs from `EditorApplication`'s
+constructor, the host sets `GraphicsDevice` afterwards — when the window can present — and sets it
+back to `null` on the way down, and `PluginServices.Add` throws on a second publish of a type. So
+there is no moment at which a device could be added. What a plugin can be handed is a **live view**,
+which is the shape `IActiveScene` and `IActiveView` beside it already take.
+
+⚠ **And a narrower "lend me the device for one call" was the intended answer and is refuted by the
+evaluator.** `TexturePlanEvaluator` caches one compiled pipeline per kernel and output format across
+evaluations; a borrow-per-call would recompile every kernel a plan touches on every preview. A plugin
+that dispatches its own work needs a device it can *hold*. What is narrowed instead is the way back
+to the screen: `Upload` takes **pixels**, not a texture view, because a plugin's image is created for
+what it dispatches into — `Storage` — and a view registered from one is missing `Sampled` and is in
+the wrong layout, which MoltenVK forgives and a discrete card does not.
+
+⚠ **This module also had the claim wrong.** It read the answer once, at activation, "because a host
+does not start publishing a device halfway through a session". The editor does exactly that. The
+question is now asked on every show.
 
 ### 2. `TextureGraphCompiler` is `internal` ⛔ *not predicted* — [#738](https://github.com/Rikarin/Vixen/issues/738)
 
@@ -55,36 +65,33 @@ omission.
 generated `NodeTypes.Register` is `public` — the generator emits it that way — so the node *library*
 crosses the boundary and the thing that turns a graph into a `TexturePlan` does not.
 
-⚠ **This is the more interesting of the two, because it survives the first fix.** Publishing a device
-would still leave this panel unable to compile what an author wires. Making
-`TextureGraphCompiler` public is the change; this slice does not own that file.
+⚠ **This is the more interesting of the two, because it survived the first fix.** The device is
+published and this panel still cannot compile what an author wires, so what it evaluates is the
+graph's **base layer** — one real dispatch at the document's own resolution — and the line under the
+pane says so. Making `TextureGraphCompiler` public is the change; this slice does not own that file.
 
-### 3. An asset-editor registration cannot be undone ⛔ *not predicted* — [#739](https://github.com/Rikarin/Vixen/issues/739)
+### 3. An asset-editor registration could not be undone ✅ *not predicted* — [#739](https://github.com/Rikarin/Vixen/issues/739)
 
-`AssetEditorRegistry` has `Add` and **no `Remove`**. Registering an `IAssetEditorFactory` from a
-plugin is therefore a registration with no matching `OnUnload`, which is rule 2 of [the four that
-make unloading work](../Vixen.Editor.Plugin/README.md#the-four-rules-that-make-unloading-work): the
-factory is a reference from the editor into the plugin's assembly, and one left behind leaks the
-whole assembly permanently with no error anywhere.
+`AssetEditorRegistry.Add` hands back an `IDisposable` now, the way `IEditorRegistry.Add` already did.
+So `TextureGraphEditorFactory` claims `.vxtexgraph` inside this module's registration scope and gives
+it back — the name **and** the extension, together — when the module unloads.
 
-So a `.vxtexgraph` **cannot get a double-click** from a plugin today, and this module does not
-pretend otherwise:
+Before that, registering an `IAssetEditorFactory` from a plugin was a registration with no matching
+`OnUnload`, which is rule 2 of [the four that make unloading
+work](../Vixen.Editor.Plugin/README.md#the-four-rules-that-make-unloading-work): the factory is a
+reference from the editor into the plugin's assembly, and one left behind leaks the whole assembly
+permanently with no error anywhere.
 
-* the Create ▸ entry is `Opens: false`, because a kind that opens needs an editor claiming the
-  extension;
-* the way into the panel is a command, `texturing.open-graph`, which opens whatever `.vxtexgraph` is
-  selected in the Project panel.
-
-Adding `AssetEditorRegistry.Remove` — returning an `IDisposable` from `Add`, the way
-`IEditorRegistry` already does — is the fix, and it is a change to `Vixen.Editor.AssetEditors`.
+The Create ▸ entry's `Opens` is now **derived**: true exactly when the host published a registry to
+claim the extension in. The command, `texturing.open-graph`, stays — it is what a host with no
+asset-editor registry offers.
 
 ### And `AddPreview` still does not exist
 
 Doc 36 § D4's last two rows are `AddSettingsPage` and `AddPreview`, and doc 48 predicts *"this plugin
 is the consumer that makes them worth building"*. Confirmed absent: `AddPreview`, `AddSettingsPage`
-and `AssetPreview` appear nowhere in the tree outside plan documents. It is not the blocker here,
-though — a thumbnail registry with nothing able to render a thumbnail would be the second half of a
-feature whose first half is § 1 above. [#400](https://github.com/Rikarin/Vixen/issues/400).
+and `AssetPreview` appear nowhere in the tree outside plan documents.
+[#400](https://github.com/Rikarin/Vixen/issues/400).
 
 ## What the panel does show
 
@@ -92,10 +99,20 @@ The canvas is real: `NodeGraphView` over the document's graph and the document's
 the whole node library in the search popup, so authoring a graph and saving it works end to end.
 
 The preview pane is an `ImageView` — **its first production caller**; batch 1 built it for this panel
-and nothing in the editor had constructed one — carrying the graph's extent and no texture handle.
-That draws the chequerboard at the resolution a bake would write, with the zoom, the fit and the
-pointer readout all in texels, and a line underneath naming which of § 1 and § 2 the host is stopped
-by. It is not a picture and does not pretend to be one.
+and nothing in the editor had constructed one. In a host with a device it carries a real picture:
+`TextureGraphPreview` builds a one-op `TexturePlan` at the document's resolution, `TexturePlanEvaluator`
+dispatches it, and the pixels go back through `IEditorGraphics.Upload`. The extent is the document's
+either way, so the zoom, the fit and the pointer readout are in the texels an author is authoring.
+
+⚠ **What it is not is the wired graph** — see § 2 — and the line under the pane says so rather than
+letting a picture imply it. In a host with no device the pane is empty and the same line says which
+of the two reasons it is.
+
+⚠ **Every route into the evaluation is outside the host's own frame**, and that is a constraint
+rather than an accident: `TexturePlanEvaluator.Evaluate` drives `BeginFrame`, `EndFrame` and
+`WaitIdle` on the device itself, so a call from inside `EditorHost.Present`'s pair would reset a
+command pool with work still executing in it. A command handler and a panel build both run from
+`EditorApplication.Update`, which is where `ThumbnailCache.Pump` runs and for the same reason.
 
 ## What is not here
 

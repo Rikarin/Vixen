@@ -49,12 +49,12 @@ public class TextureGraphPanelTests {
         Assert.Equal(0, image.ImageHeight);
     }
 
-    /// <summary>The verb doc 48 § D14 says a plugin cannot express as a double-click.</summary>
+    /// <summary>The verb, which is one of the two ways into the panel.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is what stands in for an asset-editor registration</b>, because
-    ///     <c>AssetEditorRegistry.Add</c> has no matching removal and a plugin that used it could
-    ///     never be unloaded. Running the command is therefore the only path into the panel that a
-    ///     plugin can offer today, which makes it the path worth asserting.
+    ///     ⚠ <b>It used to be the only one</b>, because <c>AssetEditorRegistry.Add</c> had no
+    ///     matching removal and a plugin that claimed an extension could never give it back. The
+    ///     other is now the double-click — see <c>TexturingClaimTests</c> — and this one stays,
+    ///     because it is what a host with no asset-editor registry offers.
     /// </remarks>
     [Fact]
     public void The_open_command_puts_the_selected_graph_on_the_canvas() {
@@ -78,10 +78,10 @@ public class TextureGraphPanelTests {
         // The document is on the canvas, and it is the starter graph read out of the empty file.
         Assert.Contains(canvas.Graph.Nodes, node => node.Type == "Output/Output");
 
-        // ⚠ And the preview pane is showing that graph's extent rather than a constant. There is no
-        // handle — see `TexturePreviewBlocker` — so this is the whole of what "wired to the document"
-        // can mean in this host, and a pane hard-coded to 1024 would look identical until somebody
-        // changed the resolution.
+        // ⚠ And the preview pane is showing that graph's extent rather than a constant. This fixture
+        // publishes no graphics, so there is no handle — see `TexturePreviewBlocker` — and a pane
+        // hard-coded to 1024 would look identical until somebody changed the resolution, which is
+        // what the test below does.
         Assert.Equal(1024, image.ImageWidth);
         Assert.Equal(1024, image.ImageHeight);
     }
@@ -102,9 +102,9 @@ public class TextureGraphPanelTests {
         ) { BaseWidth = 512, BaseHeight = 256 };
 
         var host = fixture.Shell.Document.Root.Add<UiElement>();
-        var view = new TextureGraphView(host, TexturePreviewBlocker.NoDevice);
+        var view = new TextureGraphView(host);
 
-        view.Show(document);
+        view.Show(document, TexturePreviewBlocker.NoDevice);
 
         Assert.Equal(512, view.Preview.ImageWidth);
         Assert.Equal(256, view.Preview.ImageHeight);
@@ -112,7 +112,7 @@ public class TextureGraphPanelTests {
 
         // And the status line names what is in the way, so a reader of the empty pane is told rather
         // than left to guess.
-        Assert.Contains("IGraphicsDevice", view.Status, StringComparison.Ordinal);
+        Assert.Contains("no graphics device", view.Status, StringComparison.Ordinal);
     }
 
     static T? Find<T>(UiElement element) where T : UiElement {

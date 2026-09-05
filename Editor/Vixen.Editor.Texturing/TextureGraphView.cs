@@ -3,6 +3,7 @@
 
 using System.Globalization;
 using Vixen.Editor.NodeGraph;
+using Vixen.Editor.Plugin;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
 
@@ -18,14 +19,15 @@ namespace Vixen.Editor.Texturing;
 ///         built for exactly this, which until now nothing in the editor constructed.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The preview pane is empty and says why, rather than being absent.</b> Two things
-///         stand between this panel and a picture and neither is this panel's to fix — see
-///         <see cref="TexturePreviewBlocker" />. A pane that were simply left out would make the two
-///         gaps invisible in the one place a person would notice them; a pane that faked a thumbnail
-///         would make them invisible for ever. What it shows is what an empty layer at this graph's
-///         base resolution looks like — the chequerboard, at the extent a bake would write — which is
-///         also the cheapest proof that the control is wired to the document rather than to a
-///         constant.
+///         ⚠ <b>The preview pane draws what the device produced, and the line under it says what
+///         that is.</b> Two things used to stand between this panel and a picture; one of them —
+///         no device published to plugins — is closed, so the pane now shows a real dispatch at the
+///         document's own resolution (<see cref="TextureGraphPreview" />). The other is not, so the
+///         line says the picture is the graph's <i>base layer</i> rather than the wired graph. A
+///         pane that claimed otherwise would hide the remaining gap in the one place a person would
+///         notice it; a pane left empty would hide whether the first half works at all. On a host
+///         with no device, the pane stays empty and the same line says which of the two reasons it
+///         is — see <see cref="TexturePreviewBlocker" />.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Built in C# rather than in <c>.vxml</c>, and that is a debt rather than a
@@ -42,9 +44,8 @@ sealed class TextureGraphView {
 
     /// <summary>Builds the view into a host element.</summary>
     /// <param name="host">Where it goes. A <c>DockPanel</c>, or anything inside one.</param>
-    /// <param name="blocker">What stands between this host and a picture.</param>
     /// <exception cref="ArgumentNullException"><paramref name="host" /> is null.</exception>
-    public TextureGraphView(UiElement host, TexturePreviewBlocker blocker) {
+    public TextureGraphView(UiElement host) {
         ArgumentNullException.ThrowIfNull(host);
 
         // ⚠ A node canvas pans and zooms in a space of its own and converts a pointer through its own
@@ -82,7 +83,6 @@ sealed class TextureGraphView {
         Preview.SetStyle("flex-grow", "1");
 
         status = right.Add("texture-graph-status");
-        status.Text = TexturePreview.Describe(blocker);
 
         // ⚠ A sibling of the layout rather than a child of it, because the empty state is shown by
         // hiding that layout — a message inside the thing being hidden is a message nobody ever sees.
@@ -90,6 +90,9 @@ sealed class TextureGraphView {
         Empty.Text = "No texture graph is open. Select a .vxtexgraph in the Project panel and run Open Texture Graph.";
         Empty.SetStyle("display", "none");
     }
+
+    /// <summary>Everything this view built, for a caller that has to hand a root back.</summary>
+    public UiElement Root => root;
 
     /// <summary>The canvas the graph is edited on.</summary>
     public NodeGraphView Canvas { get; }
@@ -105,16 +108,32 @@ sealed class TextureGraphView {
 
     /// <summary>Puts a graph on the canvas, or takes the last one off.</summary>
     /// <param name="document">The graph, or <see langword="null" /> for none.</param>
+    /// <param name="blocker">What stands between this host and a picture, if anything.</param>
+    /// <param name="result">The evaluated picture, or <see langword="null" /> for none.</param>
     /// <remarks>
-    ///     ⚠ <b>Null is an ordinary state and not a failure.</b> A panel's factory runs when the panel
-    ///     is opened, which for a restored layout is before anybody has opened a graph — so a view
-    ///     that demanded one would be a panel the editor could not show at start-up.
+    ///     <para>
+    ///         ⚠ <b>Null is an ordinary state and not a failure.</b> A panel's factory runs when the
+    ///         panel is opened, which for a restored layout is before anybody has opened a graph — so
+    ///         a view that demanded one would be a panel the editor could not show at start-up.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The status line is written on every show, not once in the constructor.</b> It
+    ///         used to be set when the view was built, from an answer the module had read at
+    ///         activation — and the editor acquires its device <i>after</i> it builds its plugin
+    ///         host, so a pane built that way said "no device" for the whole session on a host that
+    ///         had one by the time anybody looked.
+    ///     </para>
     /// </remarks>
-    public void Show(TextureGraphDocument? document) {
+    public void Show(
+        TextureGraphDocument? document,
+        TexturePreviewBlocker blocker,
+        IEditorImage? result = null
+    ) {
         Document = document;
 
         Empty.SetStyle("display", document is null ? "flex" : "none");
         root.SetStyle("display", document is null ? "none" : "flex");
+        status.Text = TexturePreview.Describe(blocker);
 
         if (document is null) {
             title.Text = "Result";
@@ -136,11 +155,12 @@ sealed class TextureGraphView {
         Canvas.Stack = document.Stack;
         Canvas.EditedDocument = document;
 
-        // ⚠ The extent a bake would write, and no handle. `ImageView.Image` is a texture the renderer
-        // knows; zero draws the chequerboard and nothing else, which is the honest picture of a graph
-        // this host cannot evaluate. Setting the extent anyway is what makes the zoom, the fit and the
-        // pointer readout mean the texels an author is authoring.
-        Preview.Image = 0;
+        // ⚠ The extent comes from the *document* even when there is a picture, and the two agree only
+        // because the plan is built at the document's resolution. `ImageView.Image` is a number the
+        // renderer resolves; zero draws the chequerboard and nothing else, which is the honest picture
+        // of a graph this host cannot evaluate. The extent is what makes the zoom, the fit and the
+        // pointer readout mean the texels an author is authoring, so it is set either way.
+        Preview.Image = result?.Image ?? 0;
         Preview.ImageWidth = document.BaseWidth;
         Preview.ImageHeight = document.BaseHeight;
         Preview.Fit();

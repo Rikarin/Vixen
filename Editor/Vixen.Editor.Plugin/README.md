@@ -160,8 +160,25 @@ in the build of every plugin that only wanted to add a menu item. A plugin that 
 importer references that assembly itself, gets the real `IAssetImporter`, and hands the typed
 registry to `Require<T>` — one weakly-typed line at the top of `Activate` and nothing after it.
 
-What `Vixen.Editor.App` publishes today is `EditorProject`, `SceneDocument`, `DrawerRegistry` and
-`IEditorRegistry`.
+**`IEditorGraphics` is the one exception, and it is declared here.** A plugin that draws needs a
+device, and a device has no feature assembly that owns it: it belongs to the host, is created by
+`Vixen.Editor.App` before any project is open, and no plugin may reference `Vixen.Editor.App`. So
+there is nowhere below this contract for the type to live, and `Vixen.Graphics` — the abstraction,
+not a backend, with three references of its own — is named in this project. `IEditorGraphics.Device`
+is `null` in a host that has none, which is an ordinary state rather than a failure.
+
+⚠ **The device is lent, not given.** `IGraphicsDevice` is `IDisposable`, so a plugin that disposed it
+would take the editor down, and one that called `BeginFrame`, `EndFrame` or `CreateSwapChain` would
+corrupt the frame the editor is recording. Nothing here can prevent that; what the type does is make
+the loan the thing a plugin asks for by name. Do GPU work from a command, a panel build or
+`OnUpdate` — all outside the host's own frame — and hand the pixels back through `Upload`, which
+takes bytes rather than a texture view so that the host's staging buffer, copy and two barriers are
+written once rather than once per plugin.
+
+What `Vixen.Editor.App` publishes today is `EditorProject`, `SceneDocument`, `DrawerRegistry`,
+`ImporterContributions`, `IEditorRegistry`, the editing state, the work plane, `IMeshBaker`,
+`IMeshMapBaker`, `IMeshSource`, `IActiveScene`, `IActiveView`, `IDeviceDeploy`,
+`AssetEditorRegistry`, `HotReloadHost`, `IEditorGraphics` and the `PluginHost` itself.
 **Importers and build steps are not published**, and the reason is upstream rather than here:
 `ContentPipeline` builds its `ImporterRegistry` per run, deliberately, so that the editor and the CLI
 and the compiler workers cannot disagree about the set. A registry that outlives a run is a change to

@@ -48,33 +48,35 @@ public static class StandardEditors {
         ArgumentNullException.ThrowIfNull(scenes);
         ArgumentNullException.ThrowIfNull(prefabs);
 
-        return new AssetEditorRegistry()
-            .Add(new TextureEditorFactory())
-            .Add(new ModelEditorFactory())
-            .Add(new MaterialEditorFactory())
-            .Add(new SceneEditorFactory(scenes))
-            .Add(new PrefabEditorFactory(prefabs))
-            .Add(new ShaderEditorFactory())
-            .Add(new MarkupEditorFactory())
-            .Add(new AddressableGroupEditorFactory())
-            .Add(new CompositorEditorFactory())
-            .Add(new StandardFrameEditorFactory())
-            .Add(new ShaderGraphEditorFactory())
-            .Add(new VfxEditorFactory())
-            .Add(new AnimationClipEditorFactory())
-            .Add(new AnimationGraphEditorFactory())
-            .Add(new BehaviorTreeEditorFactory())
-            .Add(new UtilitySetEditorFactory())
-            .Add(new GoapDomainEditorFactory())
-            .Add(new QueryEditorFactory())
-            .Add(new MoveSetEditorFactory())
-            .Add(new ProxyShapeEditorFactory())
-            .Add(new HarnessEditorFactory())
-            .Add(new ShapeVocabularyEditorFactory())
-            .Add(new SequenceEditorFactory())
-            .Add(new AudioMixerEditorFactory())
-            .Add(new InputActionsEditorFactory())
-            .Add(new FontEditorFactory());
+        return Fill(
+            new AssetEditorRegistry(),
+            new TextureEditorFactory(),
+            new ModelEditorFactory(),
+            new MaterialEditorFactory(),
+            new SceneEditorFactory(scenes),
+            new PrefabEditorFactory(prefabs),
+            new ShaderEditorFactory(),
+            new MarkupEditorFactory(),
+            new AddressableGroupEditorFactory(),
+            new CompositorEditorFactory(),
+            new StandardFrameEditorFactory(),
+            new ShaderGraphEditorFactory(),
+            new VfxEditorFactory(),
+            new AnimationClipEditorFactory(),
+            new AnimationGraphEditorFactory(),
+            new BehaviorTreeEditorFactory(),
+            new UtilitySetEditorFactory(),
+            new GoapDomainEditorFactory(),
+            new QueryEditorFactory(),
+            new MoveSetEditorFactory(),
+            new ProxyShapeEditorFactory(),
+            new HarnessEditorFactory(),
+            new ShapeVocabularyEditorFactory(),
+            new SequenceEditorFactory(),
+            new AudioMixerEditorFactory(),
+            new InputActionsEditorFactory(),
+            new FontEditorFactory()
+        );
     }
 
     /// <summary>The editors that need nothing from the host, for a test or a headless tool.</summary>
@@ -85,29 +87,50 @@ public static class StandardEditors {
     ///     registry testable without one.
     /// </remarks>
     public static AssetEditorRegistry CreateWorldless() =>
-        new AssetEditorRegistry()
-            .Add(new TextureEditorFactory())
-            .Add(new ModelEditorFactory())
-            .Add(new MaterialEditorFactory())
-            .Add(new ShaderEditorFactory())
-            .Add(new MarkupEditorFactory())
-            .Add(new AddressableGroupEditorFactory())
-            .Add(new CompositorEditorFactory())
-            .Add(new StandardFrameEditorFactory())
-            .Add(new ShaderGraphEditorFactory())
-            .Add(new VfxEditorFactory())
-            .Add(new AnimationClipEditorFactory())
-            .Add(new AnimationGraphEditorFactory())
-            .Add(new BehaviorTreeEditorFactory())
-            .Add(new UtilitySetEditorFactory())
-            .Add(new GoapDomainEditorFactory())
-            .Add(new QueryEditorFactory())
-            .Add(new MoveSetEditorFactory())
-            .Add(new ProxyShapeEditorFactory())
-            .Add(new HarnessEditorFactory())
-            .Add(new ShapeVocabularyEditorFactory())
-            .Add(new SequenceEditorFactory())
-            .Add(new AudioMixerEditorFactory())
-            .Add(new InputActionsEditorFactory())
-            .Add(new FontEditorFactory());
+        Fill(
+            new AssetEditorRegistry(),
+            new TextureEditorFactory(),
+            new ModelEditorFactory(),
+            new MaterialEditorFactory(),
+            new ShaderEditorFactory(),
+            new MarkupEditorFactory(),
+            new AddressableGroupEditorFactory(),
+            new CompositorEditorFactory(),
+            new StandardFrameEditorFactory(),
+            new ShaderGraphEditorFactory(),
+            new VfxEditorFactory(),
+            new AnimationClipEditorFactory(),
+            new AnimationGraphEditorFactory(),
+            new BehaviorTreeEditorFactory(),
+            new UtilitySetEditorFactory(),
+            new GoapDomainEditorFactory(),
+            new QueryEditorFactory(),
+            new MoveSetEditorFactory(),
+            new ProxyShapeEditorFactory(),
+            new HarnessEditorFactory(),
+            new ShapeVocabularyEditorFactory(),
+            new SequenceEditorFactory(),
+            new AudioMixerEditorFactory(),
+            new InputActionsEditorFactory(),
+            new FontEditorFactory()
+        );
+
+    /// <summary>Registers a set into a registry and hands it back.</summary>
+    /// <param name="registry">Where they go.</param>
+    /// <param name="editors">The editors.</param>
+    /// <returns>The registry.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A loop rather than a chain, because <see cref="AssetEditorRegistry.Add" /> now hands
+    ///     back the removal instead of itself</b> — <a href="https://github.com/Rikarin/Vixen/issues/739">#739</a>.
+    ///     The removals are dropped here on purpose and only here: this is the set the build ships,
+    ///     registered once into a registry that lives as long as the process. The case that keeps
+    ///     them is a plugin's, which is what the change was for.
+    /// </remarks>
+    static AssetEditorRegistry Fill(AssetEditorRegistry registry, params IAssetEditorFactory[] editors) {
+        foreach (var editor in editors) {
+            registry.Add(editor);
+        }
+
+        return registry;
+    }
 }

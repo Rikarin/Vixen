@@ -30,5 +30,14 @@
             change nobody has made.
         -->
         <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
+
+        <!--
+            ⚠ And the real backend, because the preview suite dispatches a kernel and reads the
+            texels back. The Null device would make every one of those assertions a claim that a
+            black image equals a black image — `TextureKernelHarness` says the same thing one
+            assembly along. The device tests skip loudly without an adapter, and
+            VIXEN_REQUIRE_VULKAN=1 turns the skip into a failure.
+        -->
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
     </ItemGroup>
 </Project>

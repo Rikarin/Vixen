@@ -56,6 +56,14 @@
         <ProjectReference Include="..\Vixen.Editor.TextureGraph\Vixen.Editor.TextureGraph.csproj" />
 
         <!--
+            ⚠ And the asset editors, because this plugin claims a file extension — which is what
+            `PluginServices` says a plugin that wants an extension point outside the shell does: it
+            references the assembly that owns the registry and hands the typed thing to `Require` or
+            `TryGet`. It is the heaviest reference here, and it is the price of a double-click.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.AssetEditors\Vixen.Editor.AssetEditors.csproj" />
+
+        <!--
             ⚠ Named for one type and one question: `IGraphicsDevice`, so that
             `TexturePreview.Blocking` can ask the host for one and say precisely what is missing when
             there is none. Doc 48 § D14 predicted a plugin would need a device and that the contract

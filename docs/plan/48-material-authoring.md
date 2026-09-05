@@ -538,6 +538,38 @@ and unloading cleanly with `PluginHost.WaitForCollection` reporting no leak.
    published through `PluginServices` or a third party cannot write anything that draws**, which is a
    real gap in the extensibility claim and is exactly the kind doc 36 § F2 was written to find.
 
+   ✅ **Closed, and three of the sentences around it were wrong.** `PluginServices` now publishes
+   `IEditorGraphics` and the texture panel evaluates a plan on the editor's device
+   ([#737](https://github.com/Rikarin/Vixen/issues/737)).
+
+   - ⚠ **"One `.Add(device)` line" could not have worked.** `EditorApplication.PluginPoints` runs
+     from the constructor and the host sets `GraphicsDevice` afterwards, when the window can
+     present — and back to `null` on the way down. `PluginServices.Add` throws on a second publish
+     of a type, so there was no moment at which a device could be added. What a plugin can be
+     handed is a **live view**, the shape `IActiveScene` and `IActiveView` beside it already take.
+   - ⚠ **A narrower "lend me a surface and run this on it" was the intended answer and the
+     evaluator refutes it.** `TexturePlanEvaluator` caches one compiled pipeline per kernel and
+     output format across evaluations, so a borrow-per-call would recompile every kernel a plan
+     touches on every preview. A plugin that dispatches its own work needs a device it can *hold*,
+     and nothing narrower expresses that. What is narrowed instead is the way **back** to the
+     screen: `Upload` takes pixels rather than a texture view, because a plugin's image is created
+     for what it dispatches into and a view registered from a storage image is missing `Sampled`
+     and in the wrong layout — which MoltenVK forgives and a discrete card does not.
+   - ⚠ **And a device does not by itself make a plugin able to draw.** `ImageView.Image` is a
+     number the *interface renderer* resolves, and nothing in `IGraphicsDevice` mints one. The
+     upload half is the second member of the contract, and leaving it out would have published a
+     device through which nothing could reach the screen.
+
+3. **A file extension.** ⚠ Not predicted here, and the reason `.vxtexgraph` had no double-click:
+   `AssetEditorRegistry.Add` had no `Remove`, so a plugin claiming an extension could never give it
+   back and its assembly was pinned for the session with no error anywhere. ✅ Closed — `Add` hands
+   back an `IDisposable`, the way `IEditorRegistry.Add` already did
+   ([#739](https://github.com/Rikarin/Vixen/issues/739)).
+
+   ⚠ **And `TextureGraphCompiler` is still `internal`**, which survived both fixes exactly as § D14
+   would have predicted had it named it: the panel evaluates the graph's *base layer* and says so
+   ([#738](https://github.com/Rikarin/Vixen/issues/738)).
+
 ### D15. What is deliberately taken from each reference, and what is not
 
 | | Taken | Refused |

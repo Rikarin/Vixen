@@ -2531,6 +2531,15 @@ sealed partial class EditorApplication : IDisposable {
             // And what Deploy means, for the half of the editor that can build a player.
             .Add<IDeviceDeploy>(new PlayerDeploy(this))
 
+            // ⚠ And the graphics, which until now were the one thing a plugin could not get at all —
+            // doc 36 § F2's gap, found by the first plugin that draws, and #737.
+            // ⚠ A *view* of the device rather than the device, and #737's own "smallest honest fix is
+            // one line" is refuted by the line above it: this method runs from the constructor and
+            // `GraphicsDevice` is set by the host afterwards, so `.Add(device)` here would publish
+            // null for the life of the process — and `PluginServices.Add` throws on a second publish,
+            // so there is no later moment to correct it in. See `PluginGraphics`.
+            .Add<IEditorGraphics>(new PluginGraphics(this))
+
             // ⚠ And the asset-editor registry, so a module can hear that a document was opened. That
             // used to be `Bound`, a line in this class — see `AssetEditorsModule`.
             .Add(editors)
