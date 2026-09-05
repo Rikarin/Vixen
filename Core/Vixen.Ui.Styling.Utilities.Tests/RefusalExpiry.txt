@@ -66,16 +66,9 @@ border-spacing-x-*	expires-with	border-spacing-*
 border-spacing-y-*	expires-with	border-spacing-*
 hyphens	expires-on	Vixen.Ui.Text.HyphenMode.Auto
 inset-ring-*	expires-with	inset-shadow-*
-<<<<<<< HEAD
-=======
-isolation	expires-with	mix-blend
 list-*	expires-on	Vixen.Ui.Styling.Selector.PseudoElement
 list-image-*	expires-with	list-*
 list-style-position	expires-with	list-*
-mix-blend	expires-on	Vixen.Ui.Rendering.UiLayer.Blend
-object	expires-on	Vixen.Ui.Controls.Image.IntrinsicSize
-object-*	expires-with	object
->>>>>>> worktree-wf_7c633162-8a1-15
 perspective-*	expires-on	Vixen.Ui.Rendering.UiVertex.W
 perspective-origin-*	expires-with	perspective-*
 placeholder-*	expires-on	Vixen.Ui.Styling.Selector.PseudoElement
@@ -84,7 +77,6 @@ rotate-x-*	expires-with	perspective-*
 rotate-y-*	expires-with	rotate-x-*
 scale-z-*	expires-with	perspective-*
 scrollbar-gutter	expires-on	Vixen.Ui.Layout.Overflow.Auto
-select	expires-on	Vixen.Ui.UiDocument.Selection
 select	expires-when-read	user-select
 touch	expires-on	Vixen.Ui.UiDocument.TouchActionOf
 translate-z-*	expires-with	perspective-*
