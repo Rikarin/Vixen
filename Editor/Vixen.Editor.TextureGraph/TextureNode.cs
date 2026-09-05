@@ -98,6 +98,16 @@ sealed class TextureEmitter {
     ///     default read as a colour is "and the same again", not "and then black".
     /// </remarks>
     public float Number(string port, int lane) {
+        // ⚠ Before the port's own value, and only for the first lane. Doc 48 § Part 4's second rule —
+        // every scalar parameter accepts a Raven expression over the graph's exposed parameters — is
+        // implemented entirely here and in `TextureGraphCompiler.Bind`: a node asks for its number
+        // the way it always did, and a port with an expression on it answers with what Raven folded.
+        // A vector port's lanes are four fields and an expression is one number, so an expression on
+        // one of those fills lane 0 and leaves the rest as authored rather than splatting silently.
+        if (lane == 0 && compiler.Expression(node, port) is { } expression) {
+            return expression;
+        }
+
         var lanes = binding.Value(port);
 
         return lanes.Length == 0 ? 0f : lanes[Math.Min(lane, lanes.Length - 1)];
@@ -188,6 +198,16 @@ sealed class TextureEmitter {
         }
     }
 
+    /// <summary>Records a kernel this node authored, so a host can find its source.</summary>
+    /// <param name="kernel">The shader's name, which is what the op running it names.</param>
+    /// <param name="source">The Raven.</param>
+    /// <remarks>
+    ///     For doc 48 § D6's Pixel Processor, and for nothing else so far: every other node in the
+    ///     catalogue runs a kernel this assembly ships. See <c>TextureGraphKernel</c> for what a plan
+    ///     holding one can and cannot do today.
+    /// </remarks>
+    public void Declare(string kernel, string source) => compiler.Declare(node, kernel, source);
+
     /// <summary>Keeps an image past the evaluation, under a usage a bake writes it by.</summary>
     /// <param name="image">Its index in the plan's image table.</param>
     /// <param name="usage">What the map is — <c>baseColor</c>, <c>normal</c>, <c>roughness</c>.</param>
@@ -198,8 +218,18 @@ sealed class TextureEmitter {
     /// <param name="message">What is wrong, as a person would say it.</param>
     /// <param name="port">Which of its ports, when it is about one.</param>
     /// <param name="severity">How much it matters.</param>
-    public void Report(string id, string message, string port = "", NodeSeverity severity = NodeSeverity.Error) =>
-        compiler.Say(new(id, message, node.Id, port, severity));
+    /// <param name="span">
+    ///     Which lines of a generated file it is about — for a node that <em>writes</em> one, which
+    ///     so far is only the Pixel Processor. Empty for a complaint about the graph.
+    /// </param>
+    public void Report(
+        string id,
+        string message,
+        string port = "",
+        NodeSeverity severity = NodeSeverity.Error,
+        NodeSpan span = default
+    ) =>
+        compiler.Say(new(id, message, node.Id, port, severity, span));
 }
 
 /// <summary>

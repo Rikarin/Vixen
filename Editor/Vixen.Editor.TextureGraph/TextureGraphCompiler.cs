@@ -24,6 +24,37 @@ namespace Vixen.Editor.TextureGraph;
 /// </remarks>
 readonly record struct TextureGraphOutput(string Usage, int Image, NodeId Node);
 
+/// <summary>Which image one node's output port wrote.</summary>
+/// <param name="Node">
+///     The node an author can select — put back through <see cref="NodeGraphInlining" />, so a node
+///     that came out of a sub-graph is named by the sub-graph node in the open document.
+/// </param>
+/// <param name="Port">Its output port.</param>
+/// <param name="Image">Its index in <see cref="TexturePlan.Images" />.</param>
+/// <remarks>
+///     ⚠ <b>Only useful with <see cref="TextureGraphCompiler.PreviewEveryNode" /> set, and that is
+///     not a convenience.</b> An image a plan does not keep is freed the moment its last reader has
+///     run and its texture is handed to the next image that needs one — that is what makes the pool
+///     cheap — so reading one back after the bake gives whatever was written into it afterwards,
+///     which is a picture, of the wrong node, with nothing anywhere saying so.
+/// </remarks>
+readonly record struct TextureGraphNodeImage(NodeId Node, string Port, int Image);
+
+/// <summary>One kernel a graph authored, rather than one this assembly ships.</summary>
+/// <param name="Kernel">The shader's name, which is what the op that runs it names.</param>
+/// <param name="Source">Its Raven, ready for <c>TextureKernels.Variant</c>'s format rewrite.</param>
+/// <param name="Node">The node that wrote it.</param>
+/// <remarks>
+///     ⚠ <b>Carried by the compiler rather than by the plan, and — exactly as with
+///     <see cref="TextureGraphOutput" /> — that is a gap rather than a design.</b> A plan's op names
+///     a kernel and <c>TexturePlanEvaluator</c> resolves that name through the assembly's embedded
+///     sources, so a plan holding one of these <em>does not evaluate</em>: it throws naming a kernel
+///     nothing has. Doc 48 § D6's node is landed to the point the section is actually about — the
+///     real Raven compiler, and diagnostics mapped back to the node — and the last wire is
+///     <a href="https://github.com/Rikarin/Vixen/issues/729">#729</a>.
+/// </remarks>
+readonly record struct TextureGraphKernel(string Kernel, string Source, NodeId Node);
+
 /// <summary>
 ///     A texture graph, as a <see cref="TexturePlan" />.
 /// </summary>
@@ -66,6 +97,15 @@ sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
 
     /// <summary>The splat inserted for one grey image, so two colour ports fed by it share one op.</summary>
     readonly Dictionary<int, int> promotions = [];
+
+    /// <summary>What each port whose value was written as an expression folded to.</summary>
+    readonly Dictionary<(NodeId Node, string Port), float> folded = [];
+
+    /// <summary>Which image each node's output port wrote, in the order they were allocated.</summary>
+    readonly List<TextureGraphNodeImage> nodeImages = [];
+
+    /// <summary>The kernels the graph's own nodes wrote, by the name their op gives.</summary>
+    readonly List<TextureGraphKernel> kernels = [];
 
     TextureEmitter emitter = null!;
 
@@ -110,6 +150,71 @@ sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     /// </remarks>
     public ImmutableArray<TextureGraphOutput> Outputs { get; private set; } = [];
 
+    /// <summary>The graph's exposed parameters: doc 48 § D9's knobs.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A property of the compiler for <see cref="BaseWidth" />'s reason</b> —
+    ///         <c>NodeGraphModel</c> carries a name, a node list and an interface, and a parameter
+    ///         list fits in none of them
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/719">#719</a>). A host sets it, and
+    ///         <see cref="TextureGraphParameters.Definition" /> is what turns the same list into the
+    ///         settings a <em>containing</em> graph's node shows.
+    ///     </para>
+    ///     <para>
+    ///         What reads it is <see cref="TextureGraphExpressions" />: every scalar port may carry an
+    ///         expression over these instead of a number, which is doc 48 § D6's answer to Designer's
+    ///         function graphs.
+    ///     </para>
+    /// </remarks>
+    public List<TextureGraphParameter> Parameters { get; } = [];
+
+    /// <summary>What an author or a <c>.vxsmartmat</c> overrode a parameter to, by name.</summary>
+    /// <remarks>
+    ///     The shape a sub-graph node's <see cref="GraphNode.Texts" /> already has, so overriding a
+    ///     published graph's knobs is handing this the node's own texts. A key naming no parameter is
+    ///     ignored; a value that does not parse, or falls outside the declared range, is a
+    ///     <c>TG0015</c> and the parameter keeps its default.
+    /// </remarks>
+    public IReadOnlyDictionary<string, string>? Arguments { get; set; }
+
+    /// <summary>What each parameter was worth in the last compilation.</summary>
+    public IReadOnlyDictionary<string, float> ParameterValues { get; private set; } =
+        new Dictionary<string, float>(StringComparer.Ordinal);
+
+    /// <summary>Whether every node's output is kept, so each can be looked at.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is what a per-node preview needs, and it is the whole of what it needs from
+    ///         the evaluator.</b> Batch 4 recorded that previews would want a device-side path split
+    ///         out of <c>Evaluate</c>; they do not. An image the plan keeps is not pooled over, so a
+    ///         plan compiled with this set and evaluated once holds <em>every</em> node's picture at
+    ///         the end of one bake, and <c>TextureBake.Read</c> already reads any of them back on the
+    ///         queue that wrote it. See <see cref="NodeImages" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It also stops <c>TG0005</c> refusing a graph with no <c>Output</c> node</b>,
+    ///         because a graph an author is halfway through building is exactly when they want to see
+    ///         what a node is producing, and demanding a terminal node first would make previews
+    ///         useless in the half hour the graph is being made.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it costs a texture per node.</b> Nothing is pooled, so a preview compilation
+    ///         is emphatically not the compilation a bake runs — which is why it is a flag on the
+    ///         compiler rather than something the evaluator decides.
+    ///     </para>
+    /// </remarks>
+    public bool PreviewEveryNode { get; set; }
+
+    /// <summary>Which image each node's output port wrote in the last compilation.</summary>
+    public ImmutableArray<TextureGraphNodeImage> NodeImages { get; private set; } = [];
+
+    /// <summary>The kernels the last compilation's own nodes authored.</summary>
+    /// <remarks>
+    ///     Empty for every graph containing no <c>Pixel Processor</c>. See
+    ///     <see cref="TextureGraphKernel" /> for why a plan holding one does not yet evaluate.
+    /// </remarks>
+    public ImmutableArray<TextureGraphKernel> Kernels { get; private set; } = [];
+
     /// <inheritdoc />
     protected override void Begin(NodeGraphModel graph) {
         this.graph = graph;
@@ -119,9 +224,152 @@ sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         outputs.Clear();
         imageOf.Clear();
         promotions.Clear();
+        folded.Clear();
+        nodeImages.Clear();
+        kernels.Clear();
         Outputs = [];
+        NodeImages = [];
+        Kernels = [];
 
         emitter = new(this);
+
+        Bind(graph);
+    }
+
+    /// <summary>Resolves the graph's parameters, and every expression written over them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Before the walk and not during it, because one compilation folds every expression at
+    ///     once.</b> Raven is asked once per <em>graph</em> — one source holding one <c>const val</c>
+    ///     per parameter and one per expression — so a graph of forty expression fields costs one
+    ///     parse and one bind rather than forty, and every expression is bound against the same
+    ///     parameter declarations in the same order. Folding them node by node during the walk would
+    ///     be forty compilations of forty nearly identical files.
+    /// </remarks>
+    void Bind(NodeGraphModel graph) {
+        foreach (var problem in TextureGraphParameters.Check(Parameters)) {
+            // Against no node, because a parameter belongs to the graph rather than to any node in
+            // it. There is nothing to select and saying so is better than picking one at random.
+            Report(new("TG0011", "This graph's parameters do not hold together: " + problem, NodeId.None));
+        }
+
+        ParameterValues = TextureGraphParameters.Read(Parameters, Arguments, out var refused);
+
+        foreach (var problem in refused) {
+            Report(new("TG0015", problem, NodeId.None, "", NodeSeverity.Warning));
+        }
+
+        foreach (var (scope, expressions) in Collect(graph)) {
+            var parameters = scope.Length == 0
+                ? Parameters
+                : (SubGraphSource as ITextureGraphLibrary)?.ParametersOf(scope) ?? [];
+
+            var values = scope.Length == 0
+                ? ParameterValues
+                : TextureGraphParameters.Read(parameters, null, out _);
+
+            var results = TextureGraphExpressions.Fold(parameters, values, expressions, out var diagnostics);
+
+            foreach (var diagnostic in diagnostics) {
+                Report(diagnostic);
+            }
+
+            foreach (var result in results) {
+                if (result.Folded) {
+                    folded[(result.Node, result.Port)] = result.Value;
+                }
+            }
+        }
+    }
+
+    /// <summary>Every port of the graph whose value was written as an expression, by scope.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Walked in <c>Ordered</c>'s order and each node's keys sorted</b>, because the
+    ///         order decides which line of the generated source each expression lands on — and a line
+    ///         number is what a Raven complaint is mapped back through. A dictionary's own order
+    ///         would make the mapping depend on hashing, which is stable within a run and not across
+    ///         them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Grouped by which graph each node was <em>written</em> in, not by which graph is
+    ///         being compiled.</b> An inlined node's expression was authored against the sub-graph's
+    ///         own parameters, and after <see cref="SubGraphs.Flatten" /> it sits in a graph whose
+    ///         parameters are somebody else's — so binding the whole flattened graph against one
+    ///         parameter list would report "undefined name" for every published graph that has a knob,
+    ///         or, worse, silently bind to a containing parameter of the same name and produce a
+    ///         picture. <see cref="NodeGraphInlining" /> already says which graph each node came out
+    ///         of; the scope is that path, and the empty string is the author's own graph.
+    ///     </para>
+    /// </remarks>
+    List<(string Scope, List<TextureExpression> Expressions)> Collect(NodeGraphModel graph) {
+        List<(string Scope, List<TextureExpression> Expressions)> scopes = [];
+
+        List<TextureExpression> For(string scope) {
+            foreach (var (name, expressions) in scopes) {
+                if (string.Equals(name, scope, StringComparison.Ordinal)) {
+                    return expressions;
+                }
+            }
+
+            List<TextureExpression> made = [];
+
+            scopes.Add((scope, made));
+
+            return made;
+        }
+
+        foreach (var node in graph.Ordered()) {
+            if (!Registry.TryGet(node.Type, out var definition)) {
+                continue;
+            }
+
+            foreach (var key in node.Texts.Keys.Order(StringComparer.Ordinal)) {
+                if (!TextureGraphExpressions.IsExpression(key, out var port)) {
+                    continue;
+                }
+
+                if (definition.Port(port, PortDirection.Input) is not { } declared) {
+                    Report(new(
+                        "TG0016",
+                        $"An expression is stored for '{port}', which this node has no input called. It was "
+                        + "written against a version of the node type that had one.",
+                        node.Id,
+                        port
+                    ));
+
+                    continue;
+                }
+
+                if (declared.Kind is PortKind.Image or PortKind.Flow or PortKind.Texture or PortKind.Sampler) {
+                    // ⚠ Refused rather than folded and thrown away. An expression is one float, and
+                    // there is no number an image port could take — see `Constant`. Accepting it here
+                    // would produce a field an author can type into whose value nothing ever reads.
+                    Report(new(
+                        "TG0016",
+                        $"'{port}' carries a {declared.Kind} and an expression is one number. A node's image "
+                        + "inputs are wired, not computed.",
+                        node.Id,
+                        port
+                    ));
+
+                    continue;
+                }
+
+                // ⚠ An empty field is *not* an expression, and this is where that is decided. Clearing
+                // the box is how an author goes back to the number typed on the port, and a UI that
+                // wrote the empty string back would otherwise turn every cleared field into a
+                // diagnostic — which is a refusal an author cannot act on, because the thing it asks
+                // them to do is what they just did.
+                if (string.IsNullOrWhiteSpace(node.Texts[key])) {
+                    continue;
+                }
+
+                For(Inlining.TryGet(node.Id, out var origin) ? origin.Type : "")
+                    .Add(new(node.Id, port, node.Texts[key]));
+            }
+        }
+
+        return scopes;
     }
 
     /// <inheritdoc />
@@ -130,10 +378,19 @@ sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         ArgumentNullException.ThrowIfNull(definition);
 
         if (instance is not TextureNode texture) {
+            // ⚠ A sub-graph node that reaches the walk is a sub-graph that was not inlined, and
+            // saying "it is not a texture node" of one is true and useless: it is a published graph,
+            // it is exactly the right thing to have on the canvas, and what is missing is the
+            // library. That is a host's mistake rather than an author's, and it is worth its own
+            // sentence — this is the failure a compiler with no `SubGraphSource` produces for every
+            // sub-graph in every graph, all at once.
             Report(new(
                 "TG0001",
-                $"'{definition.Path}' is in this graph's library but is not a texture node, so there is "
-                + "nothing it could dispatch.",
+                instance is SubGraphNode
+                    ? $"'{definition.Path}' is a published graph, and nothing inlined it. The compiler was "
+                      + "given no library to resolve sub-graphs through, so its contents never reached this plan."
+                    : $"'{definition.Path}' is in this graph's library but is not a texture node, so there is "
+                      + "nothing it could dispatch.",
                 node.Id
             ));
 
@@ -146,7 +403,7 @@ sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
 
     /// <inheritdoc />
     protected override TexturePlan? Finish(NodeGraphModel graph) {
-        if (outputs.Count == 0) {
+        if (outputs.Count == 0 && !PreviewEveryNode) {
             Report(new(
                 "TG0005",
                 "This graph has no Output node, so everything it computes is freed before anything can "
@@ -157,6 +414,24 @@ sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             return null;
         }
 
+        // Deduplicated and in one order, because `Outputs` is what the pool reads as "never reuse
+        // this slot" and an image named twice would be a second entry saying the same thing.
+        List<int> kept = [];
+
+        foreach (var output in outputs) {
+            if (!kept.Contains(output.Image)) {
+                kept.Add(output.Image);
+            }
+        }
+
+        if (PreviewEveryNode) {
+            foreach (var written in nodeImages) {
+                if (!kept.Contains(written.Image)) {
+                    kept.Add(written.Image);
+                }
+            }
+        }
+
         var plan = new TexturePlan {
             BaseWidth = BaseWidth,
             BaseHeight = BaseHeight,
@@ -164,7 +439,7 @@ sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             Seed = Seed,
             Images = images.ToImmutable(),
             Ops = ops.ToImmutable(),
-            Outputs = [.. outputs.Select(output => output.Image)]
+            Outputs = [.. kept]
         };
 
         // ⚠ The plan's own refusals, said as diagnostics rather than left for the evaluator to throw
@@ -184,6 +459,8 @@ sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         }
 
         Outputs = [.. outputs];
+        NodeImages = [.. nodeImages];
+        Kernels = [.. kernels];
 
         return plan;
     }
@@ -298,7 +575,46 @@ sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
 
         imageOf[Variable(node, port)] = image;
 
+        // ⚠ The identity put back through the inlining, because this is read by something showing a
+        // picture *beside a node on a canvas* — and a node that came out of a sub-graph is in no
+        // document. `Report` does the same for every diagnostic, and this is the same question.
+        nodeImages.Add(new(Inlining.Resolve(node.Id), port, image));
+
         return image;
+    }
+
+    /// <summary>What one port's expression folded to, or null when it carries no expression.</summary>
+    /// <param name="node">The node.</param>
+    /// <param name="port">The port's name.</param>
+    /// <returns>The number, or null.</returns>
+    /// <remarks>
+    ///     <b>Read by <see cref="TextureEmitter.Number(string,int)" /> before it reads the port's own
+    ///     value</b>, so doc 48 § Part 4's "every scalar parameter accepts a Raven expression" costs a
+    ///     node nothing and a node library nothing: a node asks for its number the way it always did.
+    /// </remarks>
+    internal float? Expression(GraphNode node, string port) =>
+        node is not null && folded.TryGetValue((node.Id, port), out var value) ? value : null;
+
+    /// <summary>Records a kernel a node authored, so a host can find its source.</summary>
+    /// <param name="node">The node that wrote it.</param>
+    /// <param name="kernel">The shader's name, which its op names.</param>
+    /// <param name="source">The Raven.</param>
+    /// <remarks>
+    ///     ⚠ <b>Two nodes whose expressions are identical write one kernel, because the name is
+    ///     derived from the source.</b> That is what stops a graph with eight identical Pixel
+    ///     Processors compiling eight identical modules, and it is why this is a set rather than a
+    ///     list keyed by node.
+    /// </remarks>
+    internal void Declare(GraphNode node, string kernel, string source) {
+        ArgumentNullException.ThrowIfNull(node);
+
+        foreach (var existing in kernels) {
+            if (string.Equals(existing.Kernel, kernel, StringComparison.Ordinal)) {
+                return;
+            }
+        }
+
+        kernels.Add(new(kernel, source, Inlining.Resolve(node.Id)));
     }
 
     /// <summary>Allocates an image no port names.</summary>
