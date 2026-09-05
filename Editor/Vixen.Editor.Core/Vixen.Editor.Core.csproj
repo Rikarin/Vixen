@@ -75,6 +75,27 @@
           a layer of its own rather than inside Vixen.Ui.
         -->
         <ProjectReference Include="..\..\Core\Vixen.Ui.Reactive\Vixen.Ui.Reactive.csproj" />
+
+        <!--
+            ⚠ **For one six-member interface, and the decision is worth stating.** `IUndoManager` is
+            four bools and two delegates with nothing UI-shaped in it, but the *lookup* that finds one
+            — `UiElement.FindUndoManager`, walking the responder chain — can only live where elements
+            do, so the interface lives with the walk. Without this reference `CommandStack` cannot be
+            that interface, and the consequence is concrete: a text field anywhere in the editor,
+            including a dialog's, has no ⌘Z at all, because it finds no manager and correctly
+            registers nothing (#647).
+
+            The alternative considered and rejected: an adapter in whichever assembly joins the two.
+            `Vixen.Editor.Ui` deliberately does not reference this one, so the join is
+            `Vixen.Editor.AssetEditors` or `Vixen.Editor.App` — and an adapter there would be a
+            second object wrapping the stack, which every caller holding a `CommandStack` would then
+            have to know how to obtain. The stack IS the editor's undo manager; saying so in one
+            place is cheaper than a wrapper everybody has to find.
+
+            ⚠ Not a new coupling in kind: this project already references `Vixen.Ui.Reactive`, and
+            `CommandStack`'s entire public surface is signals from it.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui\Vixen.Ui.csproj" />
     </ItemGroup>
 
     <ItemGroup>

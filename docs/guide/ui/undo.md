@@ -68,10 +68,18 @@ user to re-select what came back is an undo that only half happened.
 
 ## What is still owed
 
-`Editor/Vixen.Editor.Core/CommandStack.cs` is the editor's own undo stack and does **not** implement
-`IUndoManager` yet, so the editor's document installs no manager and its text fields still leave ⌘Z to
-the editor's global `edit.undo`. That is the correct behaviour today and not the end state: the stack
-should implement the interface, and the panel that owns a document should host it.
+`Editor/Vixen.Editor.Core/CommandStack.cs` **is** an `IUndoManager` now, so an edit a control
+registered and an edit a command made are one history and ⌘Z steps back through both in the order
+they happened. ⚠ `Register` is the opposite of `Execute`: the edit has already been applied, so it is
+recorded and not run — and it is ignored inside a transaction, whose entry is built out of commands
+the transaction ran itself.
+
+⚠ **What is still owed is the install.** Nothing sets `UiDocument.UndoManager` or
+`UiElement.UndoManager` to a document's stack, so a text field in the editor still finds nothing and
+still leaves ⌘Z to the editor's global `edit.undo`. That wants the panel hosting the active document
+to set its own `UndoManager` — which is a real feature rather than a line, because the active
+document changes as the user switches tabs. `CodeEditor` registers nothing either: it has the
+`CodeBuffer.Changed` seam and a consumer in `CodeDocument`, so wiring it is that document's call.
 
 ## See also
 
