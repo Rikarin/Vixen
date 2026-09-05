@@ -160,5 +160,7 @@ MyTool --frames 4
 * [Making a project compile markup](markup-project-setup.md) — where `VixenUtilityStyles.Css` and
   the `.vxml` classes come from.
 * [Background tasks](background-tasks.md) — what `UiApplication.Tasks` is pumping.
+* [Docking panels](docking-panels.md) — the arrangement an editor-shaped application puts inside the
+  window, and the scrolling contract a panel keeps to.
 * [`UiDocument`](/docs/api/vixen.ui/uidocument) — the tree the loop lays out, draws and dispatches
   into.

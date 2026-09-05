@@ -36,8 +36,15 @@ public sealed partial class UiDocument {
     /// </remarks>
     bool cold = true;
 
-    /// <summary>How many elements the last pass cascaded.</summary>
+    /// <summary>How many elements the last <see cref="Update" /> cascaded.</summary>
     /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Per frame and not per pass, which is what makes zero readable.</b> A settled
+    ///         document reports nought here, because <see cref="Update" />'s early return clears this
+    ///         beside <see cref="StylesApplied" /> — it did not, once, and a no-op frame then reported
+    ///         the last real pass's number for ever. See #596: the assertion the name invites was red
+    ///         against a document doing nothing whatever.
+    ///     </para>
     ///     <para>
     ///         ⚠ <b>The number Phase 4b's invalidation-minimality gate is about, finally readable from
     ///         the thing an application drives.</b> That gate — toggling one class on a 100×100 grid

@@ -105,15 +105,25 @@ public sealed partial class UiDocument {
 
     /// <summary>How many extra chains the last <see cref="Update" /> interned, across all its passes.</summary>
     /// <remarks>
-    ///     ⚠ <b>Per <see cref="Update" /> and not per <see cref="Arrange" />, which is the difference
-    ///     between a number that means something and one that is always nought.</b> The settle loop
-    ///     arranges again, and the second arrange of a converged frame interns nothing by
-    ///     construction — so a per-arrange counter would report the last pass rather than the frame,
-    ///     and a document that interned a chain per element on its first pass would read as zero.
+    ///     <para>
+    ///         ⚠ <b>Per <see cref="Update" /> and not per <see cref="Arrange" />, which is the
+    ///         difference between a number that means something and one that is always nought.</b>
+    ///         The settle loop arranges again, and the second arrange of a converged frame interns
+    ///         nothing by construction — so a per-arrange counter would report the last pass rather
+    ///         than the frame, and a document that interned a chain per element on its first pass
+    ///         would read as zero.
+    ///     </para>
     ///     <para>
     ///         Nought on a settled frame is the property worth asserting: a document whose boxes are
     ///         not moving must not be interning, or the ceiling above would be reached by standing
     ///         still.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And that includes an <see cref="Update" /> that ran no pass at all, which is the
+    ///         half that was missing.</b> The early return clears this beside
+    ///         <see cref="StylesApplied" />; until #596 it did not, so "nought on a settled frame"
+    ///         held only for a frame that had done work and found none — a document standing still
+    ///         reported whatever it had last interned, on every frame, for the life of the session.
     ///     </para>
     /// </remarks>
     public int ContainerScopesEntered { get; private set; }

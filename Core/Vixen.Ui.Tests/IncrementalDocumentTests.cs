@@ -167,6 +167,68 @@ public class IncrementalDocumentTests {
         Assert.Equal(-40f, box.AbsoluteTop, 0.001f);
     }
 
+    /// <summary>And a frame that runs no pass at all reports nought, rather than the last one's number.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The counters are about the frame, and on the early-return path two of the three
+    ///         used to be about whichever earlier frame had last done work.</b>
+    ///         <see cref="UiDocument.Update" /> returns before it touches anything when nothing is
+    ///         dirty, and cleared <c>StylesApplied</c> there and neither <c>StylesResolved</c> nor
+    ///         <c>ContainerScopesEntered</c> — so a settled document reported a few hundred elements
+    ///         cascaded on every frame of standing still, for the life of the session. #596.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What makes it worth a test rather than a tidy-up is that these are read by
+    ///         gates.</b> A diagnostic that reads as work on a frame that did none is the shape of
+    ///         fault this repository keeps meeting, and this one had already cost a gate its natural
+    ///         assertion: <c>EditorShellBudgetTests</c> wanted "a settled shell cascades nothing" —
+    ///         <c>StylesResolved == 0</c> — found it red against a correct implementation, and had to
+    ///         be written round it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves, because a counter stuck at nought would pass the second one.</b> The
+    ///         first pass has to be shown non-zero on the same document, or "reads zero" is a
+    ///         statement about a field nothing ever writes.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_frame_that_runs_no_pass_reports_no_work() {
+        using var document = new UiDocument(400f, 300f);
+        document.Load("""
+            root { width: 400px; height: 300px; }
+            .box { width: 100px; height: 100px; }
+            @container (min-width: 50px) { .inner { height: 10px; } }
+            .box { container-type: inline-size; }
+            """);
+
+        document.Root.Add("div", classNames: "box").Add("div", classNames: "inner");
+
+        // The floor, and it has to be the *first* pass. A later `Invalidate` re-cascades and reads
+        // `StylesResolved > 0` but `StylesApplied == 0`, because the computed styles intern to the
+        // same objects and nothing's layout style is rebuilt — which is the distinction between the
+        // two counters that `Restyle.cs` spends a paragraph on.
+        Assert.True(document.Update(), "the document was clean before it had ever been laid out");
+        Assert.True(document.StylesResolved > 0, "the cold pass cascaded no elements");
+        Assert.True(document.StylesApplied > 0, "the cold pass wrote no layout style");
+        Assert.True(document.ContainerScopesEntered > 0, "the cold pass interned no container chain");
+
+        // Settled, with a ceiling that is a hang check and not a budget.
+        var settled = 0;
+
+        for (var i = 0; i < 10 && document.Update(); i++) {
+            settled = i + 1;
+        }
+
+        Assert.True(settled < 10, "the document never stopped dirtying itself");
+
+        // And then the frame an application spends most of its time in.
+        Assert.False(document.Update(), "a settled document reported work to do");
+
+        Assert.Equal(0, document.StylesResolved);
+        Assert.Equal(0, document.StylesApplied);
+        Assert.Equal(0, document.ContainerScopesEntered);
+    }
+
     [Fact]
     public void An_inline_style_survives_an_incremental_pass() {
         // The bug wiring this up found. `StyleUpdater.Resolve` did not pass the element's inline

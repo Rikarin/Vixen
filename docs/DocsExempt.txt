@@ -3251,12 +3251,10 @@ T:Vixen.Ui.Controls.Advanced.DockGroupNode sweep-pending
 T:Vixen.Ui.Controls.Advanced.DockGroupView sweep-pending
 T:Vixen.Ui.Controls.Advanced.DockLayout sweep-pending
 T:Vixen.Ui.Controls.Advanced.DockNode sweep-pending
-T:Vixen.Ui.Controls.Advanced.DockPanel sweep-pending
 T:Vixen.Ui.Controls.Advanced.DockSplitNode sweep-pending
 T:Vixen.Ui.Controls.Advanced.DockSplitterView sweep-pending
 T:Vixen.Ui.Controls.Advanced.DockTab sweep-pending
 T:Vixen.Ui.Controls.Advanced.DockZone sweep-pending
-T:Vixen.Ui.Controls.Advanced.DockingHost sweep-pending
 T:Vixen.Ui.Controls.Advanced.DropPosition sweep-pending
 T:Vixen.Ui.Controls.Advanced.Gradient sweep-pending
 T:Vixen.Ui.Controls.Advanced.GradientAlphaStop sweep-pending

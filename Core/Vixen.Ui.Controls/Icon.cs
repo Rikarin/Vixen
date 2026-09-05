@@ -298,7 +298,16 @@ public sealed partial class Icon : Control {
 
         scaled.Clear();
 
-        foreach (var segment in geometry.Segments) {
+        // ⚠ Indexed rather than a `foreach`, and the difference is the whole of an icon's per-frame
+        // allocation. `PathBuilder.Segments` is typed `IReadOnlyList<PathSegment>`, so a `foreach`
+        // over it boxes a `List<PathSegment>.Enumerator` — 64 bytes, once per icon, on every frame
+        // including the ones where nothing changed. That is the same defect written on
+        // `UiElement.PaintOrder`, one interface away, and it is why a settled editor shell allocated
+        // where a settled document of plain controls allocated nothing.
+        var segments = geometry.Segments;
+
+        for (var i = 0; i < segments.Count; i++) {
+            var segment = segments[i];
             var p0 = new Vector2((segment.P0.X * scale) + offsetX, (segment.P0.Y * scale) + offsetY);
             var p1 = new Vector2((segment.P1.X * scale) + offsetX, (segment.P1.Y * scale) + offsetY);
             var p2 = new Vector2((segment.P2.X * scale) + offsetX, (segment.P2.Y * scale) + offsetY);

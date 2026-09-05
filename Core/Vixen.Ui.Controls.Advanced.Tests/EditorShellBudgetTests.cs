@@ -83,13 +83,13 @@ public class EditorShellBudgetTests {
     /// <summary>A settled shell does no work at all, and draws the same frame again.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The property is <c>Update</c> returning <c>false</c>, which is not the same claim
-    ///         as <c>StylesResolved == 0</c> and is the one that is true.</b> On a no-op frame
-    ///         <c>UiDocument.Update</c> returns before it touches anything and clears
-    ///         <c>StylesApplied</c> — but leaves <c>StylesResolved</c> holding whatever the last
-    ///         <i>real</i> pass resolved. So a settled shell reads a few hundred there for ever, and a
-    ///         test asserting zero would be red against a document that is doing nothing whatever.
-    ///         Filed as #596; asserted here as it behaves rather than as it reads.
+    ///         ⚠ <b>Both claims, and for a while only the first of them was true.</b> <c>Update</c>
+    ///         returning <c>false</c> is the behaviour; <c>StylesResolved == 0</c> is the counter
+    ///         reading, and it used to be red against a document doing nothing whatever — the early
+    ///         return in <c>UiDocument.Update</c> cleared <c>StylesApplied</c> and left
+    ///         <c>StylesResolved</c> holding whatever the last <i>real</i> pass resolved, so a settled
+    ///         shell reported a few hundred elements cascaded for ever. Fixed under #596, and asserted
+    ///         here now that the reading and the behaviour agree.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A count of work and not a millisecond, for the reason this whole file exists.</b>
@@ -117,6 +117,8 @@ public class EditorShellBudgetTests {
 
         Assert.False(Shell.Document.Update(), "a settled shell reported work to do");
         Assert.Equal(0, Shell.Document.StylesApplied);
+        Assert.Equal(0, Shell.Document.StylesResolved);
+        Assert.Equal(0, Shell.Document.ContainerScopesEntered);
 
         Shell.Document.Draw();
         Assert.Equal(commands, Shell.Document.Drawing.Commands.Count);
@@ -180,7 +182,7 @@ public class EditorShellBudgetTests {
         Assert.True(elements < 10_000, $"the shell holds {elements} elements for {EditorShellScene.Rows} rows");
     }
 
-    /// <summary>A settled frame's allocation, which is a work measure and not a timing.</summary>
+    /// <summary>A settled frame allocates nothing at all — the advanced set included.</summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Bytes are deterministic where microseconds are not</b>, so this is the one part of
@@ -191,21 +193,39 @@ public class EditorShellBudgetTests {
     ///         timing would have separated from noise.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The ceiling is per <i>frame</i> and is deliberately not zero.</b> The editor shell
-    ///         settles at about 500 bytes a frame where a document of plain controls settles at none,
-    ///         and that difference is real and is filed as #597. What this gate holds is the property
-    ///         that matters either way: the number does not scale with the million rows, the five
-    ///         hundred nodes or the five panels — it is a constant, and a frame that started
-    ///         allocating per item would clear this ceiling by four orders of magnitude.
+    ///         ⚠ <b>Zero, and it used to be a ceiling of eight kilobytes because the shell settled at
+    ///         504 bytes.</b> #597 filed that gap as "a settled editor-shell frame allocates where a
+    ///         plain document does not", and the answer was three more boxed enumerators of exactly
+    ///         <c>UiElement.PaintOrder</c>'s kind: an icon walking <c>PathBuilder.Segments</c>, the
+    ///         node minimap walking <c>NodeGraph.Nodes</c> twice, and the wire layer walking
+    ///         <c>NodeGraph.Wires</c> — 64, 80 and 40 bytes, once per element per frame, on a document
+    ///         nothing had changed in. Every one of those collections is typed
+    ///         <c>IReadOnlyList&lt;T&gt;</c>, which is what makes a <c>foreach</c> over it box.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A ceiling would not have caught any of them, and that is the argument for the
+    ///         zero.</b> 504 bytes is four per cent of an eight-kilobyte bound; the gate that held
+    ///         that bound was green for the whole time the defect existed. Nothing between "the frame
+    ///         asked the allocator for something" and "the frame asked for a lot" is a property worth
+    ///         stating — a settled frame doing no work has no reason to allocate a single byte, so
+    ///         the honest bound is the one that goes red the first time it does.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The floor under it is <see cref="A_settled_shell_does_nothing_and_draws_the_same_frame" />,
+    ///         and without it this is met by a shell that draws nothing.</b> Zero bytes is what a
+    ///         broken document reports too; that test is what says this one is measuring a frame that
+    ///         emits several hundred draw commands.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void A_settled_frame_allocates_a_constant_and_not_a_document() {
+    public void A_settled_frame_allocates_nothing() {
         while (Shell.Document.Update()) {
             Shell.Document.Draw();
         }
 
-        // Ten frames, so a one-off allocation on the first is divided away rather than measured.
+        // Ten frames, because a per-frame allocation of one object would otherwise be a number small
+        // enough to read as measurement noise — which, being a count of bytes rather than of
+        // microseconds, it never is.
         const int Frames = 10;
 
         var before = GC.GetAllocatedBytesForCurrentThread();
@@ -215,12 +235,13 @@ public class EditorShellBudgetTests {
             Shell.Document.Draw();
         }
 
-        var perFrame = (GC.GetAllocatedBytesForCurrentThread() - before) / Frames;
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
         Assert.True(
-            perFrame < 8192,
-            $"a settled frame of the shell allocated {perFrame} bytes, which is not independent of "
-            + $"{EditorShellScene.Rows} rows and {EditorShellScene.Nodes} nodes"
+            allocated == 0,
+            $"{Frames} settled frames of the shell allocated {allocated} bytes between them, so "
+            + "something on the draw walk is asking the allocator for a per-frame object — a boxed "
+            + "enumerator over a collection typed as an interface is what it has been every time"
         );
     }
 

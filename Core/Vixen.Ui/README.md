@@ -1532,3 +1532,62 @@ host. `Region.Clear` disposes subscriptions before it removes elements, so the o
 scroll offset or a selection needs its elements to still be there. It is where a component gives
 back what the runtime did not give it — a handler on a model, which nothing else knows exists. An
 unmount is not a dispose: the object survives, because a hot reload re-mounts the same instance.
+
+## Diagnostics: what a debug overlay could read today, and what it cannot
+
+Doc 13 calls a UI-debug overlay — *element bounds, layout boxes, style origin for a hovered element,
+dirty-region highlight* — "the single most valuable tool for anyone building a UI in this framework",
+and adds that it is nearly free because the styling engine already tracks rule provenance. Every
+other overlay in doc 13's table is drawn ([#158](https://github.com/Rikarin/Vixen/issues/158)); this
+one is not, and [#461](https://github.com/Rikarin/Vixen/issues/461) is where the reason is being
+argued out. Two claims that have been made about it are wrong, and stating what *is* here is most of
+the design.
+
+⚠ **The assembly seam is not the blocker.** Nobody ever proposed `Vixen.Ui` → `Vixen.Engine`; the
+legal direction is Engine → Ui, which [doc 02](../../docs/plan/02-repository-layout.md) prescribes and
+`build/Build.ArchitectureRules.cs` permits — the ban is keyed on the *referencing* project's name.
+`Vixen.Engine.Renderer` already joins `Vixen.Engine`, `Vixen.Rendering` and `Vixen.Assets` and is
+where `GpuOverlay` and `StreamingOverlay` live, so an overlay has a home already built.
+
+⚠ **And "`Vixen.Ui` exposes no statistics, counters or instrumentation surface at all" is not true
+either.** What is true is narrower and more useful: the material exists and is *scattered*, one
+property at a time, across the `UiDocument` partials that produce it.
+
+| Doc 13 asks for | What is here | Where |
+|---|---|---|
+| layout-node count | `LayoutTree.NodeCount` | `Vixen.Ui.Layout/LayoutTree.cs:81` |
+| the frame's work | `StylesResolved`, `StylesApplied`, `ContainerScopesEntered`, `StyleCompactions`, `SettlingPasses`, `Settled`, `LastPassWasCold` | `Restyle.cs:63`, `UiDocument.cs:387`, `Containers.cs:129`, `UiDocument.cs:821`, `UiDocument.cs:1088` |
+| element bounds, box model | `UiElement.AbsoluteLeft`/`Top`/`Width`/`Height`, and the layout node behind them | `UiElement.cs` |
+| the hovered element | `UiDocument.HitTest(x, y)`, and `HitTest(surface, x, y)` | `UiDocument.cs` |
+| style origin for it | `StyleOrigin`, `CascadePrecedence`, `StyleRuleSet.Origin` — the cascade carries provenance because it needs it | `Vixen.Ui.Styling` |
+| refused declarations | the four diagnostic producers and their drains, already routed to the log | `StyleDiagnostics.cs` |
+| dirty-region highlight | **nothing survives the invalidation paths.** `Layout.MarkDirty` and `RaiseCommandsInvalidated` record that something changed, never what or where | — |
+
+So the shape that is owed is an **aggregator, not an instrument**: one read-only view that gathers
+what the passes already publish, plus exactly one new recording — the dirty regions, which is the
+only row above with no raw material behind it.
+
+Three constraints decide the shape, and each of them rules something out.
+
+**It reads, it does not sample.** `DiagnosticOverlays`' own remark is the rule — *"nothing here polls
+or samples; an overlay reads what its subsystem already published"* — and it matters more here than
+anywhere else, because `Vixen.Ui`'s reactive graph is single-threaded by contract. A panel that could
+touch a signal to answer a question would be able to perturb the document it is describing.
+
+**The read path allocates nothing.** A UI-debug overlay is on for minutes at a time in the frame it is
+diagnosing, and a surface that allocated per read would be measuring itself — the trap
+[#597](https://github.com/Rikarin/Vixen/issues/597) is about, one level up. That rules out returning
+lists or strings from the read path: the matched rules for one element want a span or a caller-filled
+buffer, not an `IReadOnlyList<T>` (which is also how the last three per-frame allocations got in).
+
+**Only the dirty regions cost anything when nobody is looking.** Recording a region per invalidation
+is work on a frame that has a debugger attached and waste on every other one, so it belongs behind the
+same shape `VIXEN_ECS_EVENTS` uses in `Vixen.Ecs` — `[Conditional]`, so the call site is gone in a
+build that did not ask for it — rather than behind a runtime `if`. The rest is already being computed
+and merely has no reader.
+
+⚠ **And the last step is the one that is usually skipped.** `AppGraphics.BuildOverlays` is where a
+host registers a panel, and its rule is written there: an overlay is registered only where the host
+holds the object its numbers come from. An aggregator with no `IDiagnosticOverlay` over it and no
+registration is this repository's commonest defect wearing a diagnostics badge — a finished thing
+nothing calls.
