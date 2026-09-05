@@ -82,6 +82,28 @@ anonymous block boxes (§9.2.1.1)  a block container holding both kinds of child
 # passes, so `LayoutPassTests`'s zero-byte gate still holds with a span re-fragmenting every frame.
 # `A_fragmenting_span_re_laid_every_frame_allocates_nothing` is that gate for this path.
 #
+# ⚠ AND NOTHING OUTSIDE THIS ASSEMBLY READS A FRAGMENT, which is a bigger hole than any row below.
+# `GetFragment` and `GetFragmentCount` have no caller anywhere in the tree except
+# `InlineFragmentationTests`: no painter, no hit test, no consumer of any kind. `DrawListBuilder.
+# EmitBody` takes ONE rectangle from `UiElement.Width`/`Height`, which for a fragmented node is the
+# UNION of its fragments — the right answer to §10.1's containing-block question and the wrong one
+# for a background. On a ragged second line that is a visible block of colour where there is no
+# content, and the hit test agrees with it, so a click lands there too.
+#
+# The two halves are pinned as they stand in `Core/Vixen.Ui.Tests/InlineFragmentPaintingTests.cs`,
+# which asserts what Vixen does and records what Chrome does beside it — a span of 30 + 60 then 60 in
+# a 100-point line is painted (0, 0, 90, 40) here and (0, 0, 90, 20) plus (0, 20, 60, 20) there.
+# ⚠ Those tests SHOULD FAIL and be inverted when a fragment-walking draw list lands, and the hit test
+# has to move with the painter rather than after it: `DrawListBuilder`'s own remark makes paint order
+# and hit-test order agreeing the guarantee that a click lands on what is drawn, so walking fragments
+# in one and not the other breaks it on exactly the wrapped inline the feature is for.
+#
+# ⚠ Worth knowing before writing that fixture: a `display: inline` element only fragments when its
+# CONTAINER runs the block or inline algorithm. This store's default display is flex, so a plain
+# wrapper makes the span a flex item, stretches it, and it never fragments at all — the pin above
+# needs `display: block` on the wrapper and looks for a while as though `display: inline` were being
+# dropped by the bridge, which it is not.
+#
 # Covered by `InlineFragmentationTests`. What remains is SCOPE — a limit of the producer, not of the
 # representation, which holds any number of fragments for any node:
 
