@@ -94,6 +94,16 @@ simply a handler on the root, which always responds — so nothing changes for o
 handler still answers while the focus is nowhere. With something focused the root is on the walk
 anyway.
 
+⚠ **What runs a command is here; what a keystroke means is not.** There is no chord table in
+`Vixen.Ui` and no `.vxml` spelling of a shortcut — `MenuItem.ShowShortcut(key, modifiers)` *draws* one
+and registers nothing, which is why `Samples/02-HelloUi/Shell.vxml` says in as many words that a menu
+claiming ⌘S would be lying. The half that is missing is only the table, though, and it is not
+missing from the tree: `Editor/Vixen.Editor.Ui/Commands/CommandDispatcher.cs` attaches to any
+`UiDocument`, turns a `KeyEvent` into a platform-adapted `KeyChord`, resolves it against a `KeyMap` in
+the focused context and executes — falling through rather than refusing when the chord belongs
+somewhere the user is not. So an application that is not the editor has the route and not the chords,
+and what it lacks is a home for that dispatcher below `Vixen.Editor.Ui`, not the dispatcher.
+
 ### Past the root: responders that are not elements
 
 The walk does not stop at the root. Past the last parent it asks `UiDocument.CommandResponder` and
