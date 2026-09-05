@@ -97,7 +97,7 @@ public class TexturePreviewDeviceTests {
         }
 
         Assert.True(
-            values.SetEquals([(byte) 0, (byte) 255]),
+            values.SetEquals([(byte)0, (byte)255]),
             $"the base layer on {Adapter(device)} holds {values.Count} distinct reds: "
             + string.Join(", ", values.Order())
         );

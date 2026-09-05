@@ -36,7 +36,7 @@ sealed class RecordingGraphics(IGraphicsDevice? device) : IEditorGraphics {
     public IEditorImage? Upload(int width, int height, ReadOnlySpan<byte> rgba) {
         // ⚠ Copied, because the caller owns the span. A recorder holding a reference to somebody
         // else's buffer would assert against whatever was in it by the time the test looked.
-        var uploaded = new Uploaded((ulong) Uploads.Count + 1, width, height, rgba.ToArray());
+        var uploaded = new Uploaded((ulong)Uploads.Count + 1, width, height, rgba.ToArray());
 
         Uploads.Add(uploaded);
 

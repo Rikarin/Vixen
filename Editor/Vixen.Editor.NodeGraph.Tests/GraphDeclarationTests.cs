@@ -179,7 +179,7 @@ public class GraphDeclarationTests {
 
         var headers = NodePortEditProvider.For(graph, definition, NodeId.None)
             .Descriptor.Members
-            .Select(member => ((InspectorMember) member).Header ?? "·")
+            .Select(member => ((InspectorMember)member).Header ?? "·")
             .ToArray();
 
         Assert.Equal(["Wear", "·", "Layout", "·"], headers);

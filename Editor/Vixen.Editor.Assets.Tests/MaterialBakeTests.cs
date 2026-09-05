@@ -322,7 +322,8 @@ public sealed class MaterialBakeTests {
         var failure = Assert.Throws<ArgumentException>(
             () => MaterialBake.Encode(
                 new Dictionary<MaterialMapUsage, Bitmap> {
-                    [MaterialMapUsage.BaseColor] = Flat(8, 1), [MaterialMapUsage.Roughness] = Flat(4, 1)
+                    [MaterialMapUsage.BaseColor] = Flat(8, 1),
+                    [MaterialMapUsage.Roughness] = Flat(4, 1)
                 }
             )
         );

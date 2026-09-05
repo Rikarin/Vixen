@@ -128,7 +128,7 @@ public class TexturingCollectionTests {
         // `Vixen.Editor.Plugin` to the default context on purpose — while the implementation is this
         // context's. A cast that failed here would be the classic "cannot cast IEditorPlugin to
         // IEditorPlugin", and it passing is what proves the sharing rule works for this assembly.
-        var module = (IEditorPlugin) Activator.CreateInstance(type)!;
+        var module = (IEditorPlugin)Activator.CreateInstance(type)!;
 
         // ⚠ The line that makes this suite mean anything, and it is not implied by the two above.
         // A context that has *loaded* an assembly nothing instantiates from is collected the instant
