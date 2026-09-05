@@ -548,9 +548,15 @@ public class StyleDiagnosticDrainTests {
     ///         like it worked in any test that happened to draw afterwards.
     ///     </para>
     /// </remarks>
+    /// <remarks>
+    ///     ⚠ <b>The plain two-shadow list used to be a row here and is not one any more</b>: a list is
+    ///     painted, a command each, since `Rikarin/Vixen#279`. What replaces it is the case that is
+    ///     newly worth a warning — a list one of whose items cannot be read, where CSS refuses the
+    ///     *whole* declaration and the perfectly good shadow beside it paints nothing either.
+    /// </remarks>
     [Theory]
     [InlineData("box-shadow: 90deg 2px #000000")]
-    [InlineData("box-shadow: 0px 4px 12px #000000, 0px 8px 24px #ff0000")]
+    [InlineData("box-shadow: 0px 4px 12px #000000, 0 0 0 calc(2px + 2px) #ff0000")]
     [InlineData("box-shadow: inset 0px 4px 12px #000000")]
     public void A_shadow_the_draw_list_cannot_paint_reaches_the_log(string declaration) {
         var (document, sink) = Watched();

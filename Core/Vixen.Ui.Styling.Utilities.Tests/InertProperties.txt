@@ -49,6 +49,13 @@
 # because of this paragraph: a refusal in the parity ledger can now name the root it waits on or the
 # symbol whose arrival reverses it, and `RefusalExpiryTests` fails the run in which either comes due.
 #
+# ⚠ And the return edge, which is this file's own citations read backwards: a ledger note whose refusal
+# rests on a line *here* ends with `[expires-when-read <property>]`, so the run in which the property
+# gains a reader fails that note as well as this line. `border-s-*` and `border-e-*` name the two
+# colours below under #21 and `select` names `user-select` under #24 — the three that had been citing
+# this file in English since they were written. That is #288's "one dependency edge out", in the
+# direction this file is the dependency.
+#
 # What it took, and every clause survives inside it. A transform opens a composited group — the fifth
 # thing that does, after opacity, filter, mask and backdrop, and CSS agrees that this is the seam:
 # Transforms 1 §3 makes any transform other than `none` a stacking context, in the sentence shape

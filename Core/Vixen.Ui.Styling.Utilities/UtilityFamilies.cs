@@ -596,6 +596,27 @@ public static class UtilityFamilies {
         Spacing("ms", "margin-inline-start");
         Spacing("me", "margin-inline-end");
 
+        // ⚠ <b>The block pair is physical where the inline pair above is logical, and it is the same
+        // asymmetry `scroll-mbs-*`, `inset-bs-*` and `border-bs-*` already carry.</b> Nothing interns
+        // `margin-block-start`: `LayoutStyleBuilder.EdgeNames.For` interns the four physical edges and
+        // the two *inline* logical ones, because those two are the pair `direction` mirrors and the
+        // store resolves them per element. So the block spelling would resolve, compute a value and
+        // move nothing — the inert family the consumption gate exists to keep out.
+        //
+        // The physical spelling is not an approximation of it. `Vixen.Ui.Layout` has no writing mode,
+        // so the block axis is top-to-bottom in every configuration this engine can be in, and
+        // `margin-block-start` *is* `margin-top` on every element that could ever resolve it. ⚠ The
+        // contrast worth keeping is `rounded-ss-*`, which is deliberately not done this way: a corner
+        // is named on the inline axis too, and that axis really does mirror.
+        //
+        // ⚠ <b>`mbs` shadows nothing, though it reads as if it should.</b> `SplitName` takes the
+        // longest registered prefix, so `mbs-4` reaches here and `mb-4` still reaches `mb` —
+        // `ShadowedFamilyTests` holds that rule, and it is the same one `scroll-mbs` relies on.
+        Spacing("mbs", "margin-top");
+        Spacing("mbe", "margin-bottom");
+        Spacing("pbs", "padding-top");
+        Spacing("pbe", "padding-bottom");
+
         // ── Scroll insets ───────────────────────────────────────────────────────────────────
         //
         // ⚠ <b>Four longhands where `m-*` emits one shorthand, and the difference is ExCSS.</b>
@@ -2046,10 +2067,15 @@ public static class UtilityFamilies {
         //   by hand because no per-property measurement can. `inset-shadow-*` and `inset-ring-*`
         //   emit `box-shadow`, which is read — but `DrawListBuilder.EmitShadow` refuses the `inset`
         //   keyword outright and says why, and `box-shadow: inset 0 2px 4px #000` moves no channel
-        //   in any scene while `box-shadow: 0 2px 4px #000` moves paint. `ring-offset-*` is worse
-        //   than inert: an offset ring is a two-shadow *list*, `EmitShadow` refuses lists for the
-        //   same stated reason, and a `ring-offset-2` beside a `ring-2` would stop the ring painting
-        //   at all. ⚠ <b>`stroke-none` was the third example here and is now closed, which is worth
+        //   in any scene while `box-shadow: 0 2px 4px #000` moves paint. ⚠ <b>`ring-offset-*` used to
+        //   be worse than inert and is not any more, and the half that changed is worth reading.</b>
+        //   An offset ring is a two-shadow *list*, and `EmitShadow` refused lists — so a
+        //   `ring-offset-2` beside a `ring-2` would have stopped the ring painting at all. Lists are
+        //   painted now, a command each, last to first (`Rikarin/Vixen#279`). What still blocks the
+        //   root is the other two thirds of that issue: v4 writes the outer ring's spread as
+        //   `calc(var(--tw-ring-offset-width) + var(--tw-ring-width))` and `StyleValueParser` reads
+        //   no `calc`, and the five-fragment composition is what makes `shadow-lg ring-2` stop being
+        //   "the cascade picks one". ⚠ <b>`stroke-none` was the third example here and is now closed, which is worth
         //   keeping because of *how*: not by a registration but by a reading.</b> `Icon.Resolve`
         //   asked `ColorOf` for the slot and fell back to the foreground for anything that was not
         //   a colour, so `stroke: none` stroked. `UiDocument.KeywordOf` — the fourth reading beside

@@ -52,6 +52,17 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         root is the one to name.
 ///     </para>
 ///     <para>
+///         <b><c>[expires-when-read &lt;css-property&gt;]</c> — exact, and it is the other file #288
+///         names.</b> The refusal stands only while nothing in the engine reads that property. Its
+///         condition is the <i>same measurement</i> <c>InertProperties.txt</c> expires on — the probe
+///         runs the frame and reports which properties moved a channel — so a ledger note resting on an
+///         allow-list line is now one dependency edge out from that line's own expiry rather than
+///         prose beside it. <c>border-s-*</c> is the worked case: its width is read, its logical colour
+///         is not, and its note has cited <c>InertProperties.txt #21</c> in words since the row was
+///         written. ⚠ A row carrying this clause may be <c>partial</c>, unlike the two kinds above —
+///         see <see cref="RefusalExpiry.Gapped" />, where the difference is argued.
+///     </para>
+///     <para>
 ///         ⚠ <b>And the typo, which is how a check like this normally dies.</b> An anchor is a string
 ///         in a document, and the failure mode of "assert this symbol is absent" is that a misspelt
 ///         symbol is absent too — green for ever, for the wrong reason. This repository has shipped
@@ -145,6 +156,21 @@ public class RefusalExpiryTests {
                 continue;
             }
 
+            if (clause.Kind == ExpiryKind.WhenRead) {
+                // The typo guard for this kind. A property no family emits cannot be read by anything
+                // — the probe only measures what is emitted — so a misspelt one would be a condition
+                // that can never come due, which is the exact failure the `expires-on` half is split
+                // in two to avoid.
+                Assert.True(
+                    UtilityConsumptionProbe.Take().Emitted.Contains(clause.Anchor),
+                    $"{clause.Root} expires when '{clause.Anchor}' is read, and no utility family emits "
+                    + "that property. Either it is misspelt, or the family that emitted it is gone — in "
+                    + "which case the refusal resting on it wants re-reading anyway."
+                );
+
+                continue;
+            }
+
             var (type, member) = RefusalExpiry.Resolve(clause.Anchor);
 
             Assert.True(
@@ -172,11 +198,27 @@ public class RefusalExpiryTests {
         var state = rows.ToDictionary(row => row.Root, row => row.State, StringComparer.Ordinal);
 
         foreach (var clause in RefusalExpiry.Declared(rows)) {
+            var standing = clause.Kind == ExpiryKind.WhenRead ? RefusalExpiry.Gapped : RefusalExpiry.Refusing;
+
             Assert.True(
-                RefusalExpiry.Refusing.Contains(state[clause.Root]),
+                standing.Contains(state[clause.Root]),
                 $"{clause.Root} is '{state[clause.Root]}' and still declares an expiry clause. It is not "
                 + "refused any more, so the clause and the sentence it formalises both want deleting."
             );
+
+            if (clause.Kind == ExpiryKind.WhenRead) {
+                var read = UtilityConsumptionProbe.Take().Consumers.TryGetValue(clause.Anchor, out var consumers);
+
+                Assert.False(
+                    read,
+                    $"{clause.Root}'s gap rests on nothing reading '{clause.Anchor}', and "
+                    + $"{string.Join(", ", consumers ?? [])} reads it now. Re-read {clause.Root}'s note "
+                    + "and re-measure the row: the allow-list line it cites has expired, and this is the "
+                    + "sentence one dependency edge out from it."
+                );
+
+                continue;
+            }
 
             if (clause.Kind == ExpiryKind.With) {
                 Assert.True(

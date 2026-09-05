@@ -84,7 +84,7 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **329** | 274 families |
+| Utility **roots** (the unit of this table) | **329** | 278 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
 | Variant keys | **88** | **25** |
@@ -107,10 +107,10 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **207** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **40** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **219** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **32** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **77** |
+| **absent** | not emitted at all | **73** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -177,6 +177,19 @@ no registered custom properties. Two things registration would still buy, neithe
 for an unregistered custom property, and a divergence from Tailwind, which registers them precisely to
 stop the leak; and a *type*, which is what would let a gradient be transitioned. Both are refinements
 to a mechanism that works without them, so neither is a prerequisite task.
+
+⚠ **Both divergences stand as of 2026-09-05, and both are now measured rather than asserted (#291).**
+A paragraph saying a thing is a known quantity is the shape a stale note takes, so each half is a test:
+`CompositionTests.A_fragment_set_on_a_box_is_visible_to_its_descendants` puts `from-accent` on a parent
+and `bg-linear-to-r` on a child that carries no `from-*`, and the child paints the parent's colour —
+with the unparented control beside it, because without that half the assertion would pass against an
+engine that inherited nothing. `A_gradient_is_a_discrete_swap_rather_than_an_interpolation` pins the
+second: a transitioned gradient does not fail, it **snaps at the halfway mark**, which is CSS's
+discrete path for a value with no magnitude — and the colour either gradient is built from
+interpolates perfectly well, so what is missing is a *type* saying a fragment holds one, not any
+ability to blend. Both go red the day registration lands, which is what makes them this note's expiry
+rather than a restatement of it. `InheritedProperties.IsCustomProperty` is the single line either
+would change.
 
 **What it gates, and the first thing it gated.** v4 uses the identical pattern for transforms (A7 /
 #23), `box-shadow` and filters (A8 / #28). The five `--` placeholders the table counted — `--blur`,
@@ -265,9 +278,9 @@ maths and not the layout — it was the *census*:
 | 3 | `UiBox.frag.spv` / `UiBox.reflect.json` | the whole layout | `UiShapeLayoutTests`, `CheckShaders` |
 | 4 | `SoftwareUiRasterizer` | the whole layout | the UI suite's own pixel tests |
 | 5 | **`UiRenderer`** | only the **size**, spelled `80` three times | `Vixen.Graphics.Golden.Tests` |
-| 6 | **`Platform/Vixen.Graphics.Golden.Tests/Shaders/ui-box.frag`** | the whole layout, in GLSL | itself |
-| 7 | **`Samples/02-HelloUi/Shaders/ui-box.frag`** | ditto | nothing |
-| 8 | **`Tools/Vixen.Templates/.../Shaders/ui-box.frag`** | ditto | nothing |
+| 6 | **`Platform/Vixen.Graphics.Golden.Tests/Shaders/ui-box.frag`** | the whole layout, in GLSL | `UiShapeLayoutTests` (2026-09-05), and itself on a device |
+| 7 | ~~`Samples/02-HelloUi/Shaders/ui-box.frag`~~ | — | **gone** |
+| 8 | ~~`Tools/Vixen.Templates/.../Shaders/ui-box.frag`~~ | — | **gone** |
 
 Five, six, seven and eight are invisible to a search for the type: number five spells the literal
 `80` and mentions no type at all, and the three GLSL copies call the struct `Shape`. The host wrote
@@ -278,12 +291,26 @@ with the wrong radii, which is the failure `UiShape`'s remark predicts almost wo
 ⚠ **What actually caught it was `Vixen.Graphics.Golden.Tests` on a real device, not either new test.**
 `UiShapeLayoutTests` pins the record's *shape* against the shader's reflection and has nothing to say
 about how a host sizes a buffer around it; `CheckShaders` compiles Raven and the GLSL copies are not
-Raven. Nothing compiles those three `.frag` files, and nothing should be made to — `TestShaders.cs`
+Raven. Nothing compiles those `.frag` files, and nothing should be made to — `TestShaders.cs`
 records the decision not to require `glslc` on every CI leg. `UiRenderer` now derives its stride from
-`Marshal.SizeOf<UiShape>()`, which removes number five from the list permanently; six, seven and eight
-remain, and the honest answer to them is
-[`Core/Vixen.Ui.Renderer/README.md`](../../Core/Vixen.Ui.Renderer/README.md)'s standing point that
-three hand-maintained copies of one shader is not a design anybody chose.
+`Marshal.SizeOf<UiShape>()`, which removes number five from the list permanently.
+
+⚠ **Three of the eight are gone and the last GLSL copy is measured now (2026-09-05, #286).** Seven
+and eight were deleted — the sample and the `vixen-app` template draw through
+`Vixen.Ui.Desktop.UiShaderLibrary` and carry no shaders at all — and number six is kept on purpose,
+because the reference images beside it were rendered with it. What closes the gap for it is not a
+compiler: `UiShapeLayoutTests.The_one_hand_written_GLSL_copy_declares_the_same_record` **parses** its
+`struct Shape` and holds the lanes to `UiShape`'s, in order and by type, so a lane added on one side
+is a red test on a laptop rather than a wrong picture caught on a device. ⚠ Compiling it was never
+the property to test for anyway — desktop GLSL forgives what `#version 300 es` rejects, and a file
+that compiles can still disagree with the record it indexes, which is precisely what happened.
+
+⚠ **What is still uncovered, and no text comparison can reach it:** nothing compares that GLSL with
+the Raven every application draws through. They are two implementations of one specification in two
+languages, so the only real check is a golden image rendered through each — which regenerates every
+reference image in the suite and belongs on its own. `SharedUiShaderTests` says so in its own remark,
+and `EveryRavenCopyAgreesAboutTheShadersItShares` covers the half that is comparable: every `Ui.rvn`
+in the tree, per shader rather than per file.
 
 ⚠ **`Gradient.rvn` and `RoundedRect.rvn` are not the shader to edit, and both look like it.**
 `Raven/Library/Ui/Gradient.rvn` already has radial and conic modes and a perceptual interpolation
@@ -410,13 +437,13 @@ refusal block, which already says so for the same reason.
 
 | Category | roots | works | partial | inert | absent | composed | unknown |
 |---|--:|--:|--:|--:|--:|--:|--:|
-| Layout | 49 | 26 | 7 | 0 | 12 | 3 | 1 |
+| Layout | 49 | 28 | 5 | 0 | 12 | 3 | 1 |
 | Interactivity | 39 | 27 | 0 | 1 | 11 | 0 | 0 |
-| Borders | 34 | 26 | 4 | 0 | 4 | 0 | 0 |
+| Borders | 34 | 28 | 2 | 0 | 4 | 0 | 0 |
 | Effects | 34 | 27 | 1 | 0 | 6 | 0 | 0 |
 | Flexbox and Grid | 34 | 29 | 3 | 0 | 2 | 0 | 0 |
 | Typography | 34 | 17 | 7 | 0 | 10 | 0 | 0 |
-| Spacing | 24 | 14 | 4 | 0 | 6 | 0 | 0 |
+| Spacing | 24 | 22 | 0 | 0 | 2 | 0 | 0 |
 | Transforms | 23 | 6 | 2 | 0 | 15 | 0 | 0 |
 | Filters | 20 | 10 | 10 | 0 | 0 | 0 | 0 |
 | Sizing | 15 | 12 | 1 | 0 | 2 | 0 | 0 |
@@ -425,7 +452,7 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **329** | **207** | **40** | **1** | **77** | **3** | **1** |
+| **Total** | **329** | **219** | **32** | **1** | **73** | **3** | **1** |
 
 Flexbox and Grid leads at 29 of 34, with only two absent roots left and both of those refused on
 policy rather than owed; then Effects at 27 of 34, Interactivity at 27 of 39, Borders at 26 of 34,
@@ -700,9 +727,35 @@ exist — `rounded-tl-lg` used to reach the family `rounded` with the value `tl-
 table answered, so the utility was dropped with no diagnostic. That was `absent` with a trap in it
 rather than plain absence. The eight per-corner families have since landed and the column is empty for
 them; it still holds for the rest. **`value_gap`** is the column for a root that emits and is read and
-*still* does not do what it says — the flow-relative spellings where Vixen emits physical edges
-(`mx-*` is `margin-left` + `margin-right`, not `margin-inline`, which is identical in LTR and wrong in
-RTL). This paragraph has now cited two Sizing gaps that were closed after it named them: first the six
+*still* does not do what it says.
+
+⚠ **This paragraph used to give `mx-*` as its example — "`margin-left` + `margin-right`, not
+`margin-inline`, identical in LTR and wrong in RTL" — and that example was false (2026-09-05, #282).**
+An axis utility sets **both** ends of the axis to one value, and `direction` decides only which end
+is called the start; `margin-inline: 8px` and `margin-left: 8px; margin-right: 8px` are the same
+computed margins under `rtl` as under `ltr`. What could distinguish the two spellings is a *vertical
+writing mode*, where the inline axis is the vertical one — and `Vixen.Ui.Layout` has none, which is
+`inset-bs-*`'s argument one axis over. Eight rows carried that claim (`inset-x/y-*`, `mx-*`, `my-*`,
+`px-*`, `py-*`, `border-x/y-*`) and all eight measure `works` now, with the reasoning moved to `note`
+where a substitution belongs. ⚠ The refutation is a test rather than a paragraph:
+`UtilityFamilyTests.An_axis_utility_sets_both_ends_so_no_direction_can_tell_it_from_the_logical_spelling`
+asserts the pair differs in property and not in value, and pins the contrast — `ms-*` and `inset-s-*`
+name a single *end*, keep v4's logical spelling and are mirrored by `LayoutStyleBuilder.EdgeNames`,
+and must never be flattened the same way.
+
+⚠ **The four rows that really were missing are registered in the same change**, which is what was
+left of #282 once the eight above were re-measured: `mbs-*`, `mbe-*`, `pbs-*` and `pbe-*` emit
+`margin-top`, `margin-bottom`, `padding-top` and `padding-bottom` — the fourth outing of the
+`scroll-mbs-*` argument, and `SplitName`'s longest-prefix rule is what keeps `mbs-2` from eating
+`mb-2`. **So the answer to "does `Vixen.Ui.Layout` gain a writing mode?" is no, and nothing in the
+fourteen roots needed one.** What still does is a shorter list than this issue's, and it splits in
+two: `float-start`/`float-end` and `clear-start`/`clear-end` want `FloatSide` and `Clear` to become
+*direction*-relative — CSS 2.1 §9.5's keywords do not flip, and the whole `float_bfc_*` corpus ships
+RTL variants with identical expectations, so this is a `direction` question and not a writing-mode
+one — while grid's `grid_relayout_vertical_text` is the only fixture in the tree that asks for a real
+`writing-mode` field.
+
+This paragraph has now cited two Sizing gaps that were closed after it named them: first the six
 viewport keywords `w-*` lacked, and then the content keywords every sizing root listed and none of
 them honoured — `w-min` resolved to `width: min-content` and the bridge dropped it on the floor. Both
 were invisible to every gate in the tree, both were written down here, and both were fixed from this
@@ -753,7 +806,7 @@ and `StyleGen`, whose entire stated reason had evaporated.
 mattered** — a reason no test can see is a reason that expires unobserved.
 
 **The mechanism, which is a clause in the note rather than a fifteenth column.** A refusal may end its
-note with one of two bracketed clauses, and `Core/Vixen.Ui.Styling.Utilities.Tests/RefusalExpiryTests`
+note with one of three bracketed clauses, and `Core/Vixen.Ui.Styling.Utilities.Tests/RefusalExpiryTests`
 holds it to them:
 
 - `[expires-with <root>]` — this refusal stands only while that ledger root is itself refused
@@ -766,6 +819,16 @@ holds it to them:
   different name leaves the clause green for ever. It is here because some refusals have no root to
   hang on — `mix-blend`'s surviving half is a fact about a struct — and where both are available the
   root is the one to name.
+- `[expires-when-read <css-property>]` — this refusal stands only while **nothing in the engine reads
+  that property**. Exact, like the first, and for the same reason: its condition is the *same
+  measurement* `InertProperties.txt` expires on, taken by `UtilityConsumptionProbe` from a real frame.
+  ⚠ **This is the second file #288 names, and it is the half the mechanism was missing.** A note
+  saying *"the width is read; the logical colour is not — InertProperties.txt #21"* is a refusal
+  resting on an allow-list line, and nothing carried that line's verdict one dependency edge out — so
+  the run that deleted the exemption would leave the ledger's sentence standing, which is exactly how
+  `will-change-*` came to cite an `InertProperties.txt` block that closed with A7. ⚠ A row carrying
+  this clause may be `partial`, unlike the two above: a half-read longhand *is* what a `partial` row
+  usually is, and there are 29 of them.
 
 **Why a clause in the prose and not another column.** The failure being prevented is that nobody
 writes the condition down *as* a condition. Anything that makes recording one a separate act loses to
@@ -795,7 +858,11 @@ misspelt-key bug three times this year in a navmesh, a security policy and a sha
 
 **Seeded with nine clauses over eight refusals**, two of which — `mix-blend` and `isolation`, the two
 this finding leads with — had an **entirely empty `note` column** until now, which is why neither was
-ever re-read. Three of the nine share one anchor: `rotate-x-*`, `rotate-z-*` and `scale-z-*` are all
+ever re-read. ⚠ **Three more followed on 2026-09-05 with the `expires-when-read` kind**, and they are
+the citations that were already written in English: `border-s-*` and `border-e-*` name the two logical
+colours `InertProperties.txt` exempts under #21, and `select` names `user-select` under #24. A fourth
+went on `ring-offset-*` the same day, when the refusal it carried lost one of its three blockers and
+kept the other two. Three of the nine share one anchor: `rotate-x-*`, `rotate-z-*` and `scale-z-*` are all
 waiting on a representation for transform functions, and a refusal that is one of several resting on a
 single premise is the one most likely to be read as settled.
 
@@ -1160,12 +1227,21 @@ does mirror that one.
    over a class that paints nothing.* The dangerous shape, and no per-property measurement can catch
    it. `inset-shadow-*` and `inset-ring-*` emit `box-shadow`, which is read — but
    `DrawListBuilder.EmitShadow` refuses the `inset` keyword outright, and `box-shadow: inset 0 2px
-   4px #000` moves no channel where the outer form moves paint. `ring-offset-*` is worse than inert:
-   an offset ring is a two-shadow *list*, `EmitShadow` refuses lists on the stated argument that
-   painting the first and dropping the rest looks like it worked, so a `ring-offset-2` beside a
-   `ring-2` would stop the ring painting. `stroke-none` is the same shape one file over — `stroke` is
-   read only as a colour, and `Icon.Resolve` falls back to the foreground for anything that is not
-   one.
+   4px #000` moves no channel where the outer form moves paint. ⚠ **`ring-offset-*` was worse than
+   inert and is not any more (2026-09-05, #279).** An offset ring is a two-shadow *list*, and
+   `EmitShadow` refused lists — so a `ring-offset-2` beside a `ring-2` would have stopped the ring
+   painting altogether. `EmitShadow` paints a list now, a command each, **last to first** because CSS
+   paints the first shadow on top and this draw list paints later commands over earlier ones, and it
+   refuses the *whole* declaration if any item fails, which is CSS's own rule and what stops half a
+   list looking like it worked. ⚠ **The refusal was never the branch its own remark described**: the
+   split had to be added over the declaration's text, counting parentheses, because
+   `StyleValueParser` splits on top-level *whitespace* — and ⚠ **not even the note on that was right**:
+   with hex colours a list did arrive as `Unknown`, but the cascade normalises `#000` to
+   `rgb(0, 0, 0)` and the same declaration then parses as a perfectly ordinary eight-item list whose
+   fourth item ends in a comma. Both drew nothing, so which one it was never mattered until it did.
+   What still blocks the root is `calc()` and the five-fragment composition. `stroke-none` is the same
+   shape one file over — `stroke` is read only as a colour, and `Icon.Resolve` falls back to the
+   foreground for anything that is not one.
 4. *The class is v4 compatibility surface, and § D5 already says not to implement it.*
    `flex-shrink-*`, `flex-grow-*` and `max-w-screen-*` are in `compat/legacy-utilities.ts`:
    registered, undocumented, superseded by `shrink-*`, `grow-*` and the sizing scale, all of which

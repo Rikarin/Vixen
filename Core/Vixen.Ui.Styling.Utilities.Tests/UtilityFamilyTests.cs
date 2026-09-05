@@ -411,6 +411,70 @@ public class UtilityFamilyTests {
     }
 
     [Fact]
+    public void The_block_flow_spacing_roots_are_the_physical_longhands() {
+        // ⚠ The `scroll-mbs-*` argument, arriving for the fourth time and for the pair that had been
+        // left `absent`: nothing interns `margin-block-start` — `LayoutStyleBuilder.EdgeNames.For`
+        // interns the four physical edges and the two *inline* logical ones, because those are the
+        // pair `direction` mirrors — and with no writing mode the block axis is top-to-bottom in
+        // every configuration this engine can be in. So the block longhand *is* the physical one on
+        // every element that could resolve it, and emitting v4's spelling would have registered four
+        // families that resolve, compute a value and move nothing.
+        var fixture = new UtilityFixture();
+
+        Assert.Equal(["margin-top: 8px"], fixture.Emits("mbs-2"));
+        Assert.Equal(["margin-bottom: 8px"], fixture.Emits("mbe-2"));
+        Assert.Equal(["padding-top: 4px"], fixture.Emits("pbs-1"));
+        Assert.Equal(["padding-bottom: 4px"], fixture.Emits("pbe-1"));
+
+        // `auto` and `px` are the two spellings the ledger lists for these roots, and a margin is the
+        // only one of the two that takes `auto`.
+        Assert.Equal(["margin-top: auto"], fixture.Emits("mbs-auto"));
+        Assert.Equal(["padding-bottom: 1px"], fixture.Emits("pbe-px"));
+
+        // ⚠ And the shadow that does not happen. `mbs` is `mb` plus a letter, so registering it could
+        // have eaten `mb-2`; `SplitName` takes the longest registered prefix, which is the rule
+        // `scroll-mbs` already relies on.
+        Assert.Equal(["margin-bottom: 8px"], fixture.Emits("mb-2"));
+        Assert.Equal(["padding-bottom: 8px"], fixture.Emits("pb-2"));
+    }
+
+    [Fact]
+    public void An_axis_utility_sets_both_ends_so_no_direction_can_tell_it_from_the_logical_spelling() {
+        // ⚠ <b>The refutation this test exists for.</b> The ledger recorded `mx-*`, `my-*`, `px-*`,
+        // `py-*`, `inset-x/y-*` and `border-x/y-*` as "identical in LTR, wrong in RTL" — physical
+        // edges where v4 emits `margin-inline` and its siblings. That is false, and the reason is
+        // one line: an axis utility sets **both** ends of the axis to one value, and `direction`
+        // only decides which end is called the start. `margin-inline: 8px` and
+        // `margin-left: 8px; margin-right: 8px` are the same computed margins under `ltr` and under
+        // `rtl` alike.
+        //
+        // What could distinguish them is a *vertical writing mode*, where the inline axis is the
+        // vertical one — and `Vixen.Ui.Layout` has none, which is `mbs-*`'s argument one axis over.
+        var fixture = new UtilityFixture();
+
+        foreach (var candidate in (string[]) ["mx-2", "my-2", "px-2", "py-2", "inset-x-2", "inset-y-2"]) {
+            var emitted = fixture.Emits(candidate);
+
+            Assert.Equal(2, emitted.Length);
+
+            // The property differs and the value does not, which is the whole of the argument: a
+            // mirror swaps the two properties and leaves the pair of declarations identical.
+            Assert.NotEqual(Property(emitted[0]), Property(emitted[1]));
+            Assert.Equal(Value(emitted[0]), Value(emitted[1]));
+        }
+
+        // ⚠ The contrast, and the half that would break if this reasoning were applied one step too
+        // far: a utility naming a single *end* keeps v4's logical spelling, because that is the one
+        // shape `direction: rtl` really does mirror. `ms-*` is not `ml-*` and must never become it.
+        Assert.Equal(["margin-inline-start: 8px"], fixture.Emits("ms-2"));
+        Assert.Equal(["inset-inline-start: 0px"], fixture.Emits("inset-s-0"));
+
+        static string Property(string declaration) => declaration[..declaration.IndexOf(':', StringComparison.Ordinal)];
+
+        static string Value(string declaration) => declaration[(declaration.IndexOf(':', StringComparison.Ordinal) + 1)..];
+    }
+
+    [Fact]
     public void A_fraction_is_a_percentage_and_not_an_opacity() {
         // `w-2/3` and `bg-accent/50` use the same character for completely different things, which
         // is why the parser keeps the suffix as written as well as reading it as an opacity.

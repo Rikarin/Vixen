@@ -110,6 +110,52 @@ public class UiShapeLayoutTests {
         Assert.Equal(Lanes.Length * 16, Marshal.SizeOf<UiShape>());
     }
 
+    /// <summary>The one hand-written GLSL copy declares the same record, lane for lane and in order.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The copy this file's own remark says it does not cover, and it is the copy the
+    ///         defect shipped in.</b> When the record grew 80 → 112 the host wrote 112-byte records
+    ///         into a buffer sized for 80 and each shader indexed at the old stride, so every box
+    ///         after the first read the previous record's tail — plausible rounded rectangles with
+    ///         the wrong radii. What caught it was <c>Vixen.Graphics.Golden.Tests</c> on a real
+    ///         device, which is the most expensive instrument in the tree and the one that does not
+    ///         run on most machines.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is invisible to a search for the type, because it calls the struct
+    ///         <c>Shape</c>.</b> That is why a census by grep kept reporting the GLSL copies as
+    ///         missing, and it is why this is a parse rather than a name lookup.
+    ///     </para>
+    ///     <para>
+    ///         <b>What this is not.</b> It does not compile the file — <c>TestShaders.cs</c> records
+    ///         the decision not to require <c>glslc</c> on every CI leg, and compiling would prove
+    ///         only that the text is legal GLSL, not that it agrees with this record. Nor does it
+    ///         compare the GLSL with the Raven the shipping application draws through: those are two
+    ///         implementations of one specification in two languages and only a picture rendered
+    ///         through each can compare them, which regenerates every reference image in that suite
+    ///         and belongs on its own (#286). What it pins is the one claim a text comparison can
+    ///         make exactly — the <i>record</i> the two sides index — and it is the claim that broke.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Ordered, not a set.</b> An <c>std430</c> lane's offset is its position, so two
+    ///         lanes swapped is the same struct to any comparison by name and a different byte at
+    ///         every read. And the type of each lane is asserted rather than assumed from the count:
+    ///         a <c>float</c> where a <c>vec4</c> belongs is the specific mistake the packing rules
+    ///         make invisible.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_one_hand_written_GLSL_copy_declares_the_same_record() {
+        var path = GoldenBoxShaderPath();
+        var declared = GlslLanes(File.ReadAllText(path), "Shape");
+
+        // Ordered and whole: a missing lane, an extra one, a rename or a swap is all one failure
+        // here, and an empty parse — a renamed struct, a moved file, a rewritten declaration — fails
+        // as loudly as any of them rather than agreeing with itself.
+        Assert.Equal(Lanes.Select(lane => lane.Field), declared);
+        Assert.Equal(Lanes.Length * 16, Marshal.SizeOf<UiShape>());
+    }
+
     /// <summary>
     ///     The bytes a shape actually serialises to, read back the way the shader indexes them.
     /// </summary>
@@ -270,6 +316,67 @@ public class UiShapeLayoutTests {
         throw new FileNotFoundException(
             $"Platform/Vixen.Ui.Desktop/Shaders/UiBox.reflect.json was not found above "
             + $"'{AppContext.BaseDirectory}'."
+        );
+    }
+
+    /// <summary>The <c>vec4</c> lanes a GLSL struct declares, in declaration order.</summary>
+    /// <param name="source">The shader text.</param>
+    /// <param name="name">The struct's name in that file, which is not the C# type's.</param>
+    /// <returns>The lane names, in order.</returns>
+    /// <remarks>
+    ///     ⚠ A lane that is not a <c>vec4</c> throws rather than being skipped, for the reason the
+    ///     size assertion above exists: a skipped lane is a shorter list, and a shorter list read as
+    ///     "this side has fewer lanes" is a true failure reported as the wrong one.
+    /// </remarks>
+    static List<string> GlslLanes(string source, string name) {
+        var lanes = new List<string>();
+        var at = source.IndexOf($"struct {name} {{", StringComparison.Ordinal);
+
+        if (at < 0) {
+            return lanes;
+        }
+
+        var body = source[(source.IndexOf('{', at) + 1)..];
+        body = body[..body.IndexOf('}', StringComparison.Ordinal)];
+
+        foreach (var line in body.Split('\n')) {
+            // Everything after `//` is prose, and every lane in this struct carries some.
+            var comment = line.IndexOf("//", StringComparison.Ordinal);
+            var declaration = (comment < 0 ? line : line[..comment]).Trim().TrimEnd(';').Trim();
+
+            if (declaration.Length == 0) {
+                continue;
+            }
+
+            var parts = declaration.Split((char[]?) null, StringSplitOptions.RemoveEmptyEntries);
+
+            Assert.Equal(2, parts.Length);
+            Assert.Equal("vec4", parts[0]);
+
+            lanes.Add(parts[1]);
+        }
+
+        return lanes;
+    }
+
+    /// <summary>The golden suite's hand-written copy of the box shader.</summary>
+    static string GoldenBoxShaderPath() {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
+            var candidate = Path.Combine(
+                directory.FullName, "Platform", "Vixen.Graphics.Golden.Tests", "Shaders", "ui-box.frag"
+            );
+
+            if (File.Exists(candidate)) {
+                return candidate;
+            }
+        }
+
+        throw new FileNotFoundException(
+            "Platform/Vixen.Graphics.Golden.Tests/Shaders/ui-box.frag was not found above "
+            + $"'{AppContext.BaseDirectory}'. It is the last hand-maintained copy of this record, and "
+            + "a test that cannot find it must say so rather than pass."
         );
     }
 

@@ -35,7 +35,26 @@ public sealed class DrawListBuilder {
     /// </remarks>
     internal const float UnboundedClip = 1_000_000f;
 
+    /// <summary>How many shadows one <c>box-shadow</c> may list.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Five is the number that has to fit and eight is what is allowed.</b> Tailwind v4
+    ///     assembles <c>--tw-shadow</c>, <c>--tw-inset-shadow</c>, <c>--tw-ring-shadow</c>,
+    ///     <c>--tw-inset-ring-shadow</c> and <c>--tw-ring-offset-shadow</c> into one comma list, so a
+    ///     cap below five would refuse the arrangement this engine is heading for. A longer list is
+    ///     refused whole rather than cut short — see <see cref="Split" />, which returns nothing
+    ///     rather than a prefix.
+    /// </remarks>
+    internal const int MostShadows = 8;
+
     readonly List<PositionedGlyph> placed = [];
+
+    /// <summary>Scratch for one element's shadows, reused so a shadowed frame allocates nothing.</summary>
+    /// <remarks>
+    ///     ⚠ It is also what makes "refuse the whole declaration" expressible: every item is read
+    ///     before any is drawn, so a list whose third shadow is a <c>calc()</c> paints none of them
+    ///     rather than two.
+    /// </remarks>
+    readonly List<ResolvedShadow> shadows = [];
     readonly StyleValueParser parser;
 
     /// <summary>The two tables a refusal needs to name the declaration it refused.</summary>
@@ -1746,11 +1765,29 @@ public sealed class DrawListBuilder {
     ///         which is why a shadow needs no fields on <c>DrawCommand</c> that a box does not have.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>One shadow, and an outer one.</b> CSS takes a comma-separated list and an
-    ///         <c>inset</c> keyword; a list would be a command each, which is easy, and <c>inset</c>
-    ///         is a different distance field, which is not. Both are refused rather than
-    ///         half-applied — the first shadow of a list being drawn and the rest silently dropped
-    ///         is worse than nothing being drawn, because it looks like it worked.
+    ///         <b>A list is a command each, painted last to first.</b> CSS paints the earlier
+    ///         shadows of a list over the later ones, and this draw list paints later commands over
+    ///         earlier ones, so the walk runs backwards. ⚠ <b>The whole declaration is refused if any
+    ///         one item cannot be read</b>, which is CSS's own rule for an invalid declaration and is
+    ///         the half that matters here: painting the first shadow and dropping the rest is worse
+    ///         than painting none, because it looks like it worked.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The list is split here, over the declaration's text, and it must not be done in
+    ///         <see cref="StyleValueParser" />.</b> That parser splits a value on top-level
+    ///         <i>whitespace</i>, which every other property in this file depends on — so in
+    ///         <c>0 4px 12px #000, 0 8px 24px #f00</c> the token <c>#000,</c> is not a colour and the
+    ///         whole value arrives here as <see cref="StyleValueKind.Unknown" />. That is why this
+    ///         reads as adding a split rather than as relaxing a check, and why the split has to
+    ///         count parentheses: <c>rgba(0, 0, 0, 0.3)</c> is one shadow's colour and holds three
+    ///         commas of its own, and the shipped theme's <c>--shadow</c> is written exactly that way.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>inset</c> is still refused, and it is a different distance field rather than a
+    ///         missing branch.</b> An inner shadow's coverage is the complement of the outer one's,
+    ///         masked to the box, and there is no lane left in <c>UiShape</c> to say which a record
+    ///         is — see #279, where the two unsound sentinels are argued out. An inset shadow drawn
+    ///         as an outer one is not a near miss; it is a shadow on the wrong side of the box.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And it is not clipped to outside the border box.</b> CSS punches the box out of
@@ -1775,29 +1812,93 @@ public sealed class DrawListBuilder {
             return;
         }
 
-        var value = parser.Parse(id);
+        // ⚠ <b>The comma split runs first, and reading the value to decide whether it is a list does
+        // not work.</b> `StyleValueParser` splits on top-level whitespace, and it counts parentheses
+        // while doing it — so `0 4px 12px rgb(255, 0, 0), 0 8px 24px rgb(0, 0, 255)`, which is what
+        // the cascade stores once ExCSS has normalised the hex colours, comes back as a perfectly
+        // ordinary eight-item `List` whose fourth item happens to end in a comma. It is only with a
+        // *hex* colour that a list reaches here as `Unknown`. Both drew nothing, so which one it was
+        // never mattered — until it did.
+        var text = valueNames.NameOf(id).AsSpan();
+        Span<Range> parts = stackalloc Range[MostShadows];
+        var count = Split(text, parts);
 
-        // A shadow is at least two lengths and a colour, so anything that is not a list of values is
-        // `none`, `inset` on its own, or a mistake — all of which draw nothing.
-        if (value.Kind != StyleValueKind.List) {
-            // ⚠ <b>Only <see cref="StyleValueKind.Unknown" /> is worth a word, and that is the
-            // narrower half of this branch on purpose.</b> `box-shadow: none` is a keyword and is how
-            // the property is switched off; reporting it would put a warning in the log for every
-            // control that turns a theme's shadow back off. `Unknown` is the parser saying it had no
-            // reading at all — a comma-separated list of two shadows, or a `calc()` — which is a
-            // refusal of exactly the kind this list exists to stop being invisible.
-            if (value.Kind == StyleValueKind.Unknown) {
-                Refuse(
-                    boxShadow,
-                    id,
-                    "this shadow could not be read — a list of shadows and `calc()` are both still "
-                    + "refused whole"
-                );
-            }
+        shadows.Clear();
 
+        if (count == 0) {
+            Refuse(boxShadow, id, $"a list of more than {MostShadows} shadows is refused whole rather than cut short");
             return;
         }
 
+        if (count == 1) {
+            // The single shadow every control writes, read through the cache rather than off a span.
+            var value = parser.Parse(id);
+
+            if (value.Kind != StyleValueKind.List) {
+                // ⚠ <b>Only <see cref="StyleValueKind.Unknown" /> is worth a word here.</b>
+                // `box-shadow: none` is a keyword and is how the property is switched off; reporting
+                // it would put a warning in the log for every control that turns a theme's shadow
+                // back off. `Unknown` is the parser saying it had no reading at all — today that is
+                // `calc()` — which is a refusal that has to stay visible.
+                if (value.Kind == StyleValueKind.Unknown) {
+                    Refuse(boxShadow, id, "this shadow could not be read — `calc()` is still refused whole");
+                }
+
+                return;
+            }
+
+            if (!TryShadow(document, element, value, id)) {
+                return;
+            }
+        } else if (!TryShadowList(document, element, id, text, parts[..count])) {
+            return;
+        }
+
+        // ⚠ <b>Backwards, and it is not a detail.</b> CSS Backgrounds 3 § 7.1.1 paints the shadows of
+        // a list front to back in the order written, and this draw list paints later commands over
+        // earlier ones — so the first shadow has to be added last. Emitting them in order gives a
+        // picture that is right whenever the shadows do not overlap and quietly wrong the moment they
+        // do, which is the commonest thing a two-shadow list is written to do.
+        for (var index = shadows.Count - 1; index >= 0; index--) {
+            EmitOneShadow(into, shadows[index], x, y, width, height, corners, radius, alpha);
+        }
+    }
+
+    /// <summary>Reads every shadow of an already-split list.</summary>
+    /// <returns>Whether all of them read; nothing is emitted unless they did.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The split that produced <paramref name="parts" /> is depth-aware, because a shadow's
+    ///     colour carries commas.</b> The shipped theme's <c>--shadow</c> is
+    ///     <c>0px 1px 2px rgba(0, 0, 0, 0.3)</c>: a naive split makes four items of one shadow, none
+    ///     of them readable, and refuses a declaration this engine has drawn for as long as it has
+    ///     had a theme — with a diagnostic blaming the author.
+    /// </remarks>
+    bool TryShadowList(UiDocument document, UiElement element, int id, ReadOnlySpan<char> text, ReadOnlySpan<Range> parts) {
+        foreach (var part in parts) {
+            var item = parser.Parse(text[part]);
+
+            if (item.Kind != StyleValueKind.List) {
+                Refuse(
+                    boxShadow,
+                    id,
+                    "one shadow of this list could not be read, so the whole declaration is refused — "
+                    + "which is what CSS does, and what stops half a list looking like it worked"
+                );
+
+                return false;
+            }
+
+            if (!TryShadow(document, element, item, id)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Reads one shadow's lengths and colour, appending it to <see cref="shadows" />.</summary>
+    /// <returns>Whether it read. A refusal is recorded on the way out.</returns>
+    bool TryShadow(UiDocument document, UiElement element, StyleValue value, int id) {
         var context = document.Viewport.WithFontSize(element.FontSize);
         Span<float> lengths = [0f, 0f, 0f, 0f];
         var count = 0;
@@ -1833,7 +1934,7 @@ public sealed class DrawListBuilder {
                         + "engine cannot draw"
                     );
 
-                    return;
+                    return false;
 
                 // ⚠ <b><see cref="LengthContext.ToLength" /> and not
                 // <see cref="LengthContext.PixelsPer" />, which is the trap this method was in.</b>
@@ -1863,24 +1964,44 @@ public sealed class DrawListBuilder {
                         + "value that is not one"
                     );
 
-                    return;
+                    return false;
             }
         }
 
         if (count < 2 || shade is not { } colour) {
             Refuse(boxShadow, id, "a shadow needs at least two lengths and a colour");
-            return;
+            return false;
         }
 
         // ⚠ Half the CSS blur radius. CSS's blur is the *total* distance the edge fades over, and the
         // shader's is the half-extent either side of the boundary — passing the whole radius makes
         // every shadow twice as soft as it was asked to be, which reads as a blurry renderer rather
         // than as a unit mistake.
-        var falloff = lengths[2] / 2f;
+        shadows.Add(new ResolvedShadow(lengths[0], lengths[1], lengths[2] / 2f, lengths[3], colour));
 
+        return true;
+    }
+
+    /// <summary>Turns one read shadow into the command that draws it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A shadow whose spread has eaten the box is dropped and the rest of the list is not.</b>
+    ///     A negative spread larger than half the box is a legal declaration meaning "no shadow", so
+    ///     it is not a refusal — and treating it as one would take a sibling shadow down with it.
+    /// </remarks>
+    static void EmitOneShadow(
+        DrawList into,
+        ResolvedShadow shadow,
+        float x,
+        float y,
+        float width,
+        float height,
+        CornerRadii corners,
+        float radius,
+        float alpha
+    ) {
         // The spread grows the box in every direction, and the corner radius with it: a spread that
         // kept the original corner would give a shadow visibly squarer than the thing casting it.
-        var spread = lengths[3];
+        var spread = shadow.Spread;
         var wide = width + (spread * 2f);
         var tall = height + (spread * 2f);
 
@@ -1892,19 +2013,71 @@ public sealed class DrawListBuilder {
             Styled(
                 new DrawCommand(
                     DrawCommandKind.Shadow,
-                    x + lengths[0] - spread,
-                    y + lengths[1] - spread,
+                    x + shadow.X - spread,
+                    y + shadow.Y - spread,
                     wide,
                     tall,
-                    Fade(colour, alpha),
+                    Fade(shadow.Colour, alpha),
                     MathF.Max(radius + spread, 0f),
-                    falloff
+                    shadow.Falloff
                 ),
                 into,
                 Grow(corners, spread)
             )
         );
     }
+
+    /// <summary>Splits a value on its top-level commas.</summary>
+    /// <param name="text">The declaration text.</param>
+    /// <param name="parts">Where to write the ranges. At least <see cref="MostShadows" /> long.</param>
+    /// <returns>How many parts were written, or zero if there are more than <paramref name="parts" /> holds.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Zero rather than a truncated list when there are too many</b>, so the caller refuses
+    ///     the declaration instead of drawing a prefix of it. A cut-short list is the same failure as
+    ///     a dropped tail, arriving through the guard written to prevent it.
+    /// </remarks>
+    static int Split(ReadOnlySpan<char> text, Span<Range> parts) {
+        var depth = 0;
+        var start = 0;
+        var count = 0;
+
+        for (var index = 0; index <= text.Length; index++) {
+            if (index != text.Length) {
+                switch (text[index]) {
+                    case '(':
+                        depth++;
+                        continue;
+
+                    case ')':
+                        depth--;
+                        continue;
+
+                    case ',' when depth == 0:
+                        break;
+
+                    default:
+                        continue;
+                }
+            }
+
+            if (count == parts.Length) {
+                return 0;
+            }
+
+            parts[count++] = new Range(start, index);
+            start = index + 1;
+        }
+
+        return count;
+    }
+
+    /// <summary>One shadow of a <c>box-shadow</c>, read and resolved to pixels.</summary>
+    /// <param name="X">The horizontal offset.</param>
+    /// <param name="Y">The vertical offset.</param>
+    /// <param name="Falloff">Half the CSS blur radius, which is what the shader takes.</param>
+    /// <param name="Spread">How far the box grows in every direction.</param>
+    /// <param name="Colour">The shadow's colour, before the element's own opacity.</param>
+    readonly record struct ResolvedShadow(float X, float Y, float Falloff, float Spread, Color4 Colour);
 
     /// <summary>Every corner grown by a shadow's spread, never below square.</summary>
     /// <remarks>
