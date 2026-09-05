@@ -188,9 +188,17 @@ public class LayerStackCompileTests {
         Assert.Equal(0, Count(compilation.Plan, "Blend"));
     }
 
-    /// <summary>A constant mask is a real image and a real shuffle, not a folded number.</summary>
+    /// <summary>A constant mask is a real image and real shuffles, not a folded number.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The mask reaches the blend as the foreground's alpha <em>times</em> what it already
+    ///     was</b> — <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a> · 1. Two coverages
+    ///     compose by multiplication, and the product has to be computed in a colour lane because
+    ///     <c>Blend</c>'s alpha rule only ever raises alpha. So a masked layer is a shuffle that lifts
+    ///     the content's alpha into grey, a shuffle that lifts the mask's red into grey, a
+    ///     <c>Multiply</c> between them, and the shuffle that puts the answer back into alpha.
+    /// </remarks>
     [Fact]
-    public void A_mask_reaches_the_blend_as_the_foregrounds_alpha() {
+    public void A_mask_multiplies_into_the_foregrounds_alpha() {
         var stack = One(new() {
             Id = "l",
             Kind = LayerKind.Fill,
@@ -201,15 +209,30 @@ public class LayerStackCompileTests {
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
         Assert.NotNull(compilation.Plan);
-        Assert.Equal(1, Count(compilation.Plan, "ChannelShuffle"));
+        Assert.Equal(3, Count(compilation.Plan, "ChannelShuffle"));
 
-        var shuffle = Find(compilation.Plan, "ChannelShuffle");
+        var shuffle = Last(compilation.Plan, "ChannelShuffle");
 
-        // 3 is FirstAlpha and 4 is SecondRed: the mask, and only the mask, moves into alpha.
+        // 0…2 are the first input's red, green and blue and 4 is the second's red: the product, and
+        // only the product, moves into alpha.
         Assert.Equal(4f, shuffle.Find("sourceA")!.Value.Value);
         Assert.Equal(0f, shuffle.Find("sourceR")!.Value.Value);
 
-        var blend = Find(compilation.Plan, "Blend");
+        // 3 is FirstAlpha and 9 is a constant one: the content's own coverage, as an opaque grey.
+        var carried = Find(compilation.Plan, "ChannelShuffle");
+
+        Assert.Equal(3f, carried.Find("sourceR")!.Value.Value);
+        Assert.Equal(9f, carried.Find("sourceA")!.Value.Value);
+
+        // The Multiply of the two greys is what the last shuffle reads, and the layer's own blend is
+        // what reads the shuffle.
+        var product = Find(compilation.Plan, "Blend");
+
+        Assert.Equal((float)(int)LayerBlendMode.Multiply, product.Find("mode")!.Value.Value);
+        Assert.Equal(carried.Output, product.Inputs[0]);
+        Assert.Equal(product.Output, shuffle.Inputs[1]);
+
+        var blend = Last(compilation.Plan, "Blend");
 
         Assert.Equal(shuffle.Output, blend.Inputs[1]);
     }
@@ -228,7 +251,10 @@ public class LayerStackCompileTests {
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
         Assert.NotNull(compilation.Plan);
-        Assert.Equal(0.2f, Find(compilation.Plan, "Blend").Find("opacity")!.Value.Value, 6);
+
+        // ⚠ The *last* blend, because a masked layer's first one is the Multiply that composes the
+        // two coverages and its opacity is 1 by construction.
+        Assert.Equal(0.2f, Last(compilation.Plan, "Blend").Find("opacity")!.Value.Value, 6);
     }
 
     /// <summary>An anchor onto a layer beneath is an edge, and it compiles.</summary>
@@ -249,11 +275,18 @@ public class LayerStackCompileTests {
         Assert.Empty(compilation.Problems);
         Assert.NotNull(compilation.Plan);
 
-        // The shuffle reads the lower layer's *composite*, which is the first blend.
-        var shuffle = Find(compilation.Plan, "ChannelShuffle");
+        // The anchor reads the lower layer's *composite*, which is the first blend, and it arrives at
+        // the shuffle that lifts a mask's red into an opaque grey — selector 0 into red, 9 into
+        // alpha. ⚠ Found by what it does rather than by its position: a masked layer emits three
+        // shuffles and only this one reads the mask.
         var under = Find(compilation.Plan, "Blend");
+        var opaque = Only(
+            compilation.Plan,
+            "ChannelShuffle",
+            op => op.Find("sourceR")!.Value.Value == 0f && op.Find("sourceA")!.Value.Value == 9f
+        );
 
-        Assert.Equal(under.Output, shuffle.Inputs[1]);
+        Assert.Equal(under.Output, opaque.Inputs[0]);
     }
 
     /// <summary>An anchor onto a layer above it is refused, by the graph model.</summary>
@@ -540,5 +573,36 @@ public class LayerStackCompileTests {
         Assert.Fail($"no '{kernel}' op in this plan");
 
         throw new InvalidOperationException("unreachable");
+    }
+
+    static TextureOp Last(TexturePlan plan, string kernel) {
+        for (var index = plan.Ops.Length - 1; index >= 0; index--) {
+            if (string.Equals(plan.Ops[index].Kernel, kernel, StringComparison.Ordinal)) {
+                return plan.Ops[index];
+            }
+        }
+
+        Assert.Fail($"no '{kernel}' op in this plan");
+
+        throw new InvalidOperationException("unreachable");
+    }
+
+    /// <summary>The one op of a kernel that answers a predicate, and a failure if there are two.</summary>
+    static TextureOp Only(TexturePlan plan, string kernel, Func<TextureOp, bool> predicate) {
+        TextureOp? found = null;
+
+        foreach (var op in plan.Ops) {
+            if (!string.Equals(op.Kernel, kernel, StringComparison.Ordinal) || !predicate(op)) {
+                continue;
+            }
+
+            Assert.Null(found);
+
+            found = op;
+        }
+
+        Assert.NotNull(found);
+
+        return found;
     }
 }
