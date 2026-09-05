@@ -86,26 +86,49 @@ public class TextWindowRoutingTests {
         Assert.Equal(1, seen.Length);
     }
 
-    /// <summary>The focus still outranks the window, for both, as it does for a key.</summary>
+    /// <summary>Text goes to the focus in the window it was delivered to, for both, as a key does.</summary>
     /// <remarks>
-    ///     ⚠ <b>The half that must not change, and the half a "route it by surface" fix breaks.</b>
-    ///     <c>UiSurface.Focused</c> does not exist — the focus is one document-global element — so a
-    ///     character typed while a field in another window holds the focus goes to that field. The
-    ///     surface is the fallback, not the rule, and an overload that reversed the two would take
-    ///     every keystroke away from the control the user is in.
+    ///     <para>
+    ///         ⚠ <b>This test used to assert the opposite, and its premise expired rather than its
+    ///         intent.</b> It read "<c>UiSurface.Focused</c> does not exist — the focus is one
+    ///         document-global element", which was true when it was written and false the moment a
+    ///         window gained its own first responder. Under the old model, routing by surface really
+    ///         would have taken a character away from the control the user was in; under this one it
+    ///         is what puts it there.
+    ///     </para>
+    ///     <para>
+    ///         So the rule is the same rule and the subject moved: text follows the focus, and the
+    ///         focus is the one belonging to the surface the event was delivered to. A field focused
+    ///         in another window does not catch what is typed into this one — which is the half a
+    ///         document-global read got wrong, and the half that matters, because the two halves of
+    ///         one keystroke must not part company: the key already routes this way.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void The_focus_still_outranks_the_window_it_was_delivered_to() {
+    public void Text_goes_to_the_focus_in_the_window_it_was_delivered_to() {
         using var document = new UiDocument(200f, 100f);
         var second = document.CreateSurface(120f, 80f);
 
-        var focused = document.Create("div", document.Root);
-        focused.Focusable = true;
+        var elsewhere = document.Create("div", document.Root);
+        elsewhere.Focusable = true;
 
-        Assert.True(document.Focus(focused));
+        var here = document.Create("div", second.Root);
+        here.Focusable = true;
 
-        Assert.Same(focused, document.Dispatch(second, new TextInputEvent { Text = "a" }));
-        Assert.Same(focused, document.Dispatch(second, new TextCompositionEvent { Text = "に" }));
+        Assert.True(document.Focus(elsewhere));
+
+        // Nothing is focused in `second`, so its own root takes it — not the field focused in the
+        // window the user is not typing into.
+        Assert.Same(second.Root, document.Dispatch(second, new TextInputEvent { Text = "a" }));
+        Assert.Same(second.Root, document.Dispatch(second, new TextCompositionEvent { Text = "に" }));
+
+        Assert.True(document.Focus(here));
+
+        Assert.Same(here, document.Dispatch(second, new TextInputEvent { Text = "b" }));
+        Assert.Same(here, document.Dispatch(second, new TextCompositionEvent { Text = "ほ" }));
+
+        // And the other window still answers for its own.
+        Assert.Same(elsewhere, document.Dispatch(document.Primary, new TextInputEvent { Text = "c" }));
     }
 
     /// <summary>A surface from another document is refused rather than quietly routed to the primary.</summary>

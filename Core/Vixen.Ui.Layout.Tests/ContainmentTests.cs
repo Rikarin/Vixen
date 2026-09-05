@@ -89,7 +89,7 @@ public class ContainmentTests {
     public void Size_containment_sizes_the_box_as_if_it_were_empty(Display display) {
         var (tree, root, box, child) = Fixture(display);
 
-        foreach (var edge in (Edge[]) [Edge.Left, Edge.Right, Edge.Top, Edge.Bottom]) {
+        foreach (var edge in (Edge[])[Edge.Left, Edge.Right, Edge.Top, Edge.Bottom]) {
             tree.SetPadding(box, edge, StyleLength.Points(5f));
         }
 

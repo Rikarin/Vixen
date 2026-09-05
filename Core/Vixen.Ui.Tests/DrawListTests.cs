@@ -1062,7 +1062,7 @@ public class DrawListTests {
     static void Emit(DrawList list, PathBuilder path, int frame) {
         list.BeginFrame();
 
-        list.AddGlyphs([new PositionedGlyph((ushort) frame, 0f, 0f)]);
+        list.AddGlyphs([new PositionedGlyph((ushort)frame, 0f, 0f)]);
         list.AddBox(new BoxStyle(default, default, new Vector2(frame, 0f)));
         list.AddMasks([default(UiMask) with { Centre = new Vector2(frame, 0f) }]);
 

@@ -489,7 +489,7 @@ public sealed partial class UiDocument {
         // rather than answering. So a panel rebuilt mid-drag (an undo, a reload, a virtualised row
         // scrolled out of its pool) left a session naming a dead element, and the exception landed
         // in the *target's* drop handler, which had done nothing wrong.
-        for (var source = (UiElement?) session.Source; source is not null; source = source.Parent) {
+        for (var source = (UiElement?)session.Source; source is not null; source = source.Parent) {
             if (ReferenceEquals(source, element)) {
                 CancelDrag();
                 return;

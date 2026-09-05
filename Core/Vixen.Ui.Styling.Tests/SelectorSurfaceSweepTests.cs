@@ -198,7 +198,7 @@ public class SelectorSurfaceSweepTests {
 
         var missing = new List<string>();
 
-        foreach (var kind in (Type[]) [
+        foreach (var kind in (Type[])[
                      typeof(Combinator), typeof(SimpleSelectorKind), typeof(AttributeOperator), typeof(PositionTest)
                  ]) {
             missing.AddRange(
