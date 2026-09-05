@@ -108,8 +108,15 @@ static class Program {
 
         // ⚠ The one table whose version is read from its <i>own</i> file rather than from
         // GraphemeBreakTest.txt, because it is also the one that can be regenerated alone — see the
-        // `only` argument above. Two headers disagreeing about the Unicode version is the point:
-        // it is visible in a diff, where a silently stale table is not.
+        // `only` argument above.
+        //
+        // ⚠ This comment used to end "two headers disagreeing about the Unicode version is the
+        // point: it is visible in a diff, where a silently stale table is not", and a diff turned
+        // out to be nobody's job. #544 was a header saying 13.0.0 beside nine saying 17.0.0, found
+        // by eye long after the fact, and the table's bytes had been right the whole time. What
+        // reads the headers now is `Vixen.Ui.Text.Tests.GeneratedUnicodeVersionTests`, which holds
+        // all fourteen generated artefacts to one release and holds this list to the directory as
+        // well — so a table added here without a line there is red rather than ungated.
         WriteSpecialCasingTable(
             Path.Combine(tables, "SpecialCasingTable.g.cs"),
             Path.Combine(ucd, "SpecialCasing.txt")
