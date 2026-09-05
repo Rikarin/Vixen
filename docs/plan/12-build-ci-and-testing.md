@@ -167,21 +167,41 @@ files.
 
 These are ordinary tests, which is the point — the non-negotiables are executable.
 
+⚠️ **This block used to be written as `TestApp.Create(GraphicsBackend.Null)` / `app.RunFrames(10_000)`
+— against a type that has never existed** (see § Test infrastructure worth building early). The gates
+were written regardless, in twenty-three suites, each driving the subsystem it measures rather than a
+whole frame: `Measured.NothingAllocated` is the shared half, and the arrangement is the test's own.
+That turned out to be the better shape and not a workaround. A whole-engine frame that allocates
+forty-eight bytes names none of the forty systems that could have done it, and every one of these
+suites would still have had to construct its own subject inside the harness to say anything sharper.
+
 ```csharp
-[Fact, Trait("Category","Perf")]
-public void EmptyScene_TenThousandFrames_AllocatesNothing()
-{
-    using var app = TestApp.Create(GraphicsBackend.Null);
-    app.RunFrames(100);                                  // warm up: JIT, caches, pools
-    var before = GC.CollectionCount(0);
-    var bytes  = GC.GetAllocatedBytesForCurrentThread();
+const int WarmUpFrames = 200;
+const int MeasuredFrames = 2_000;
 
-    app.RunFrames(10_000);
+static readonly TimeSpan Sixtieth = TimeSpan.FromTicks(TimeSpan.TicksPerSecond / 60);
 
-    GC.CollectionCount(0).ShouldBe(before);
-    (GC.GetAllocatedBytesForCurrentThread() - bytes).ShouldBe(0);
+[Fact]
+public void ALoopingCoroutineAllocatesNothingPerFrame() {
+    var scheduler = new CoroutineScheduler();
+    var time = GameTime.Zero;
+
+    scheduler.BeginFrame(time = time.Advance(Sixtieth));
+    scheduler.Run(Body());
+
+    Measured.NothingAllocated(Frame, WarmUpFrames, MeasuredFrames);
+    return;
+
+    void Frame() {
+        scheduler.BeginFrame(time = time.Advance(Sixtieth));
+        scheduler.Drain(ResumePoint.Update);
+    }
 }
 ```
+
+— [`Core/Vixen.Engine.Tests/CoroutineAllocationTests.cs`](../../Core/Vixen.Engine.Tests/CoroutineAllocationTests.cs),
+abridged. `Measured` itself is linked test-only source rather than a package; the reasons are in
+[`Testing/Vixen.Testing.props`](../../Testing/Vixen.Testing.props).
 
 Equivalents exist for: a 10 k-entity scene, a steady-state UI frame, a signal-update storm, a layout
 pass over an unchanged tree, and an asset-load/release cycle. When one of these fails,
@@ -214,13 +234,32 @@ afford.
 
 ### Test infrastructure worth building early
 
+⚠️ **Four of the five are still unwritten, and the sequencing this section used to state is refuted by
+the tree.** `TestApp` was specified as a Phase 1 item that *"every later phase depends on"*. Every
+later phase shipped without it: 178 test projects, twenty-three suites of allocation gates and the golden
+suite exist, and nothing anywhere names the type. So the dependency was never real — what these four
+would buy is arrangement code deleted, not tests made possible, and they are worth building on that
+argument rather than on a blocking one. They are tracked as
+[#336](https://github.com/Rikarin/Vixen/issues/336).
+
 - **`TestApp`** — an in-process engine host with the Null backend, an in-memory VFS, a fake clock, and a
-  synthetic input source. Makes almost every "integration" test a fast unit test. Build this in Phase 1;
-  every later phase depends on it.
+  synthetic input source. Would make almost every "integration" test a fast unit test. ⚠️ **Whatever
+  lands has to answer the question the Null device already taught this repository once**: a host that
+  quietly falls back to a backend drawing nothing reports a healthy frame count and proves nothing —
+  the same failure as `--vixen-capture`'s, one layer up. `Vixen.App.Hosting`'s `AppBuilder` is the
+  precedent to copy: an `AppBuilder` with no backend installed **refuses to build, by name**, rather
+  than falling back to a headless one.
 - **`RecordingBackend`** — the Null backend's structured command log with a fluent assertion API
-  (`log.ShouldContainDrawIndexed(count: 36).AfterBinding(pipeline: "Opaque"))`.
+  (`log.ShouldContainDrawIndexed(count: 36).AfterBinding(pipeline: "Opaque"))`. ⚠️ The log itself is
+  built and heavily used — `Vixen.Graphics.Null` has `CommandRecorder` and `RecordedCommand`, and
+  sixty-nine test files read them. What is missing is only the assertion vocabulary, so each of those
+  sixty-nine spells out its own LINQ over the command list.
 - **`GoldenFile`** — the snapshot helper: reads/writes under `__golden__/`, honours `--update-golden`,
-  produces a readable unified diff on mismatch.
+  produces a readable unified diff on mismatch. ⚠️ Nothing writes `__golden__/`, and the suites that
+  need the behaviour each grew their own: `VIXEN_UPDATE_GOLDEN` in
+  [`Vixen.Graphics.Golden.Tests`](../../Platform/Vixen.Graphics.Golden.Tests), `VIXEN_REGENERATE` in
+  `LibraryReflectionTests` and `GeneratedBindingsTests`, `__wire__/` in the two `Vixen.Net` suites.
+  Three switches for one behaviour is the cost being paid.
 - **`Vixen.Ui.Testing`** — ✅ the interface half of `TestApp`, built ahead of it because it needs
   nothing from the engine: a real `UiDocument`, a clock the test owns, a synthetic pointer and
   keyboard, and a frame pump. Commands retry **in frames rather than in seconds**, which is what
@@ -232,7 +271,9 @@ afford.
   the golden-image suite: it cannot see below `UiGeometry`, which is where descriptor bindings and
   vertex layouts live. `Ticked` is the per-frame seam a real `TestApp` would drive it through.
 - **`FixtureProject`** — a synthetic Vixen project generator (N textures, M models, K scenes) for asset
-  pipeline scale tests.
+  pipeline scale tests. ⚠️ The scale test it was meant to serve was written without it:
+  `Vixen.Editor.Assets.Tests/ImportBudgetTests` builds its own fixture and scales it from
+  `VIXEN_IMPORT_SCALE`. So this one is a generalisation of a working thing rather than a hole.
 - **Fuzzers** — ✅ **all five of the parsers this line asked for are fuzzed**: VXML, VCSS (as
   `stylevalue` and `layerrule`), Raven, the `.meta` reader and the bundle reader, among twenty targets
   in [`Core/Vixen.Fuzz`](../../Core/Vixen.Fuzz), replayed nightly over a committed corpus by
