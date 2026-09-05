@@ -26,6 +26,15 @@ namespace Tests;
 ///         <c>TextureValidationDeviceTests</c> is the other half: it puts the layers themselves behind
 ///         the same requirement, on a device, and it is the half that a wrong declaration slips past.
 ///     </para>
+///     <para>
+///         ⚠ <b>And what a Null-device test cannot do is decide what the requirement <em>is</em></b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/745">#745</a>. A case here asserted that an
+///         image only a CPU op reads needs no <c>Sampled</c>; it passed, because the Null device makes
+///         no image views and issues no barriers, and on a real adapter the layers reported three
+///         errors for the same plan. A rule this file states has to come from the specification and
+///         from what the evaluator's own code does, and the accepted cases below are only evidence
+///         that the rule is not "refuse everything".
+///     </para>
 /// </remarks>
 public class TextureExternalUsageTests {
     static TexturePlan CopiedThenSampled() =>
@@ -169,17 +178,36 @@ public class TextureExternalUsageTests {
     }
 
     /// <summary>
-    ///     An external only a CPU op reads is not asked for Sampled, because nothing binds it.
+    ///     ⚠ An external only a CPU op reads is asked for Sampled anyway, because the evaluator views
+    ///     it and holds it readable whatever the plan does with it.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A guard that demanded every usage of every external would be satisfied by the defect
-    ///     it was written for</b> and refuse a legal plan besides. The requirement is computed from
-    ///     what the plan does to each image, so an image that is only ever copied out of needs only
-    ///     <see cref="TextureUsage.CopySource" /> — this passes a declaration with no
-    ///     <see cref="TextureUsage.Sampled" /> in it at all.
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/745">#745</a>, and this test used
+    ///         to assert the opposite.</b> It was called
+    ///         <c>An_external_only_a_cpu_op_reads_needs_no_Sampled</c>, it passed, and what it proved
+    ///         was that the Null device validates nothing: <c>ExternalViews</c> creates a view over
+    ///         every external before any op runs, and <c>OnCpu</c> names
+    ///         <c>SHADER_READ_ONLY_OPTIMAL</c> on both sides of its copy. All three of those are
+    ///         invalid on an image created for transfers alone.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Measured rather than reasoned, on an Apple M1 Max with the validation layers
+    ///         on</b>: the plan below, run against a <c>CopySource | CopyDestination</c> texture
+    ///         through the permissive rule, produced <c>VUID-VkImageViewCreateInfo-image-04441</c>
+    ///         once and <c>VUID-VkImageMemoryBarrier-oldLayout-01211</c> twice — and a correct
+    ///         picture, which is why nothing in this suite could see it. This assertion is what the
+    ///         specification says; the previous one was what MoltenVK tolerates.
+    ///     </para>
+    ///     <para>
+    ///         <b>The narrower requirement is still available and still worth having</b> — it is why
+    ///         the base is <em>Sampled</em> rather than <em>everything</em>. A dispatch adds nothing,
+    ///         and only a <see cref="TextureOp.Cpu" /> op adds <see cref="TextureUsage.CopySource" />,
+    ///         so a caller who never copies is never asked for <c>TransferSrc</c>.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void An_external_only_a_cpu_op_reads_needs_no_Sampled() {
+    public void An_external_only_a_cpu_op_reads_is_refused_without_Sampled() {
         using var device = new NullDevice(new());
 
         var source = Source(device, TextureUsage.CopySource);
@@ -194,13 +222,29 @@ public class TextureExternalUsageTests {
 
         using var evaluator = new TexturePlanEvaluator(device);
 
-        using var bake = evaluator.Evaluate(
-            plan,
-            new Dictionary<int, TextureExternal> { [0] = new(source, TextureUsage.CopySource) }
+        var refusal = Assert.Throws<ArgumentException>(
+            () => evaluator.Evaluate(
+                plan,
+                new Dictionary<int, TextureExternal> { [0] = new(source, TextureUsage.CopySource) }
+            )
         );
 
-        Assert.Equal(0, bake.Dispatches);
+        Assert.Contains("Sampled", refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("04441", refusal.Message, StringComparison.Ordinal);
 
+        // And the same plan runs the moment the image is one a view may be made over.
+        var viewable = Source(device, TextureUsage.Sampled | TextureUsage.CopySource);
+
+        using (var bake = evaluator.Evaluate(
+            plan,
+            new Dictionary<int, TextureExternal> {
+                [0] = new(viewable, TextureUsage.Sampled | TextureUsage.CopySource)
+            }
+        )) {
+            Assert.Equal(0, bake.Dispatches);
+        }
+
+        device.Destroy(viewable);
         device.Destroy(source);
     }
 }

@@ -427,22 +427,50 @@ public sealed class TexturePlanEvaluator : IDisposable {
     ///         device test, because a unified adapter reads it anyway.
     ///     </para>
     ///     <para>
-    ///         <b>Read by a dispatch and read by a CPU op are different requirements</b>, so they are
-    ///         computed per image rather than demanded of every external: a plan whose only reader of
-    ///         an image is a <see cref="TextureOp.Cpu" /> op never binds it to a sampler, and asking
-    ///         for <see cref="TextureUsage.Sampled" /> there would refuse something legal.
+    ///         ⚠ <b><see cref="TextureUsage.Sampled" /> is required of <em>every</em> external image
+    ///         and not only of one a dispatch reads</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/745">#745</a>, which was this method's
+    ///         own defect reproduced inside its fix. The first version computed the requirement from
+    ///         what the plan does to each image, so an image only a <see cref="TextureOp.Cpu" /> op
+    ///         reads was asked for <c>CopySource</c> alone — while <see cref="ExternalViews" /> makes
+    ///         a view over every external unconditionally and <see cref="OnCpu" /> names
+    ///         <c>SHADER_READ_ONLY_OPTIMAL</c> on both sides of its copy. The test that asserted the
+    ///         permissive rule was legal ran on the Null device, which validates nothing.
+    ///     </para>
+    ///     <para>
+    ///         <b>Measured on an Apple M1 Max with the validation layers on</b>, a CPU-op-only plan
+    ///         over an image created <c>CopySource | CopyDestination</c> produced three errors and a
+    ///         correct picture: <c>VUID-VkImageViewCreateInfo-image-04441</c> for the view, and
+    ///         <c>VUID-VkImageMemoryBarrier-oldLayout-01211</c> twice for the barriers either side of
+    ///         the copy. So the honest requirement is the one the evaluator's own behaviour states —
+    ///         every external is viewed and held readable for the whole bake — and a
+    ///         <see cref="TextureOp.Cpu" /> op adds <see cref="TextureUsage.CopySource" /> on top of
+    ///         it. <c>TextureValidationDeviceTests</c> holds the layers' own word for the view half.
     ///     </para>
     /// </remarks>
     static void CheckExternalUsage(TexturePlan plan, IReadOnlyDictionary<int, TextureExternal> externals) {
         var required = new TextureUsage[plan.Images.Length];
 
+        // The base requirement is a property of being external, because ExternalViews below loops
+        // over exactly this predicate. Deriving both from `plan.Images[i].External` is what stops the
+        // check and the thing it is checking from drifting apart, which is the whole of #745.
+        for (var image = 0; image < plan.Images.Length; image++) {
+            if (plan.Images[image].External) {
+                required[image] = TextureExternal.Sampled;
+            }
+        }
+
         foreach (var op in plan.Ops) {
+            if (op.Cpu is null) {
+                continue;
+            }
+
             foreach (var input in op.Inputs) {
                 if (input < 0 || input >= plan.Images.Length || !plan.Images[input].External) {
                     continue;
                 }
 
-                required[input] |= op.Cpu is null ? TextureExternal.Sampled : TextureExternal.ReadBack;
+                required[input] |= TextureExternal.ReadBack;
             }
         }
 
@@ -457,22 +485,43 @@ public sealed class TexturePlanEvaluator : IDisposable {
                 continue;
             }
 
-            var why = (missing & TextureExternal.ReadBack) != TextureUsage.None
-                ? "it is read by a CPU op, which copies out of it and transitions it through "
-                + "CopySource either side of that copy — and a Vulkan image may only be either if it "
-                + "was created with TransferSrc. ⚠ A unified adapter does it anyway, so the wrong "
-                + "answer here belongs to a discrete card and not to this machine."
-                : "it is read by a dispatch, which binds it as a sampled image.";
+            List<string> why = [];
+
+            if ((missing & TextureExternal.Sampled) != TextureUsage.None) {
+                why.Add(
+                    "every external image is viewed and held in ShaderRead for the whole bake, and a "
+                    + "Vulkan image may be neither without Sampled — VUID-VkImageViewCreateInfo-image-04441 "
+                    + "for the view and VUID-VkImageMemoryBarrier-oldLayout-01211 for the layout"
+                );
+            }
+
+            if ((missing & TextureExternal.ReadBack) != TextureUsage.None) {
+                why.Add(
+                    "it is read by a CPU op, which copies out of it and transitions it through "
+                    + "CopySource either side of that copy — and a Vulkan image may only be either if it "
+                    + "was created with TransferSrc"
+                );
+            }
 
             throw new ArgumentException(
                 $"Image {image} is external and the texture supplied for it was declared "
-                + $"{supplied.Usage}, which is missing {missing}: {why}",
+                + $"{supplied.Usage}, which is missing {missing}: {string.Join("; and ", why)}. "
+                + "⚠ A unified adapter does all of it anyway, so the wrong answer here belongs to a "
+                + "discrete card and not to this machine.",
                 nameof(externals)
             );
         }
     }
 
     /// <summary>A view onto each external image, made once and destroyed with the bake.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Unconditional, which is why <see cref="CheckExternalUsage" /> asks every external for
+    ///     <see cref="TextureUsage.Sampled" />.</b> A view over an image created for transfers alone
+    ///     is invalid — VUID-VkImageViewCreateInfo-image-04441 — and this loop runs before any op
+    ///     does, so "no dispatch reads it" is not a reason it does not happen.
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/745">#745</a>: the two were written from
+    ///     different pictures of what the evaluator does, and only the strict one is true.
+    /// </remarks>
     Dictionary<int, TextureViewHandle> ExternalViews(
         TexturePlan plan,
         IReadOnlyDictionary<int, TextureHandle>? externals,
