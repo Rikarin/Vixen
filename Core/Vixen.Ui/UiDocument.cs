@@ -515,6 +515,10 @@ public sealed partial class UiDocument : IDisposable {
     public void Invalidate() {
         dirty = true;
         ForgetChanges();
+
+        // The one invalidation with no element behind it, so the region it records is the document's
+        // own — which is the truth about a cold pass and is what a highlight should paint.
+        RecordDirty(Root, UiInvalidationKind.Document);
     }
 
     /// <summary>Marks every element as needing its layout style rebuilt.</summary>
@@ -940,6 +944,11 @@ public sealed partial class UiDocument : IDisposable {
                 StylesApplied = 0;
                 StylesResolved = 0;
                 ContainerScopesEntered = 0;
+
+                // ⚠ And the regions with them, for the reason the paragraph above gives: a frame
+                // that did no work was invalidated by nothing, and a highlight left showing the last
+                // real pass's boxes is the same lie one row along. See `Diagnostics.cs`.
+                TurnRegions();
             }
 
             return false;
@@ -947,6 +956,7 @@ public sealed partial class UiDocument : IDisposable {
 
         updating = true;
         dirty = false;
+        TurnRegions();
         StylesApplied = 0;
         StylesResolved = 0;
 

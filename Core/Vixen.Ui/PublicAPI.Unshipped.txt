@@ -1131,6 +1131,18 @@ Vixen.Ui.TransformStage.Completed = 2 -> Vixen.Ui.TransformStage
 Vixen.Ui.TransformStage.Started = 0 -> Vixen.Ui.TransformStage
 Vixen.Ui.TransformStage.TransformStage() -> void
 Vixen.Ui.TransformStage.Updated = 1 -> Vixen.Ui.TransformStage
+Vixen.Ui.UiBoxModel -> readonly struct
+Vixen.Ui.UiBoxModel : System.IEquatable<Vixen.Ui.UiBoxModel>
+Vixen.Ui.UiBoxModel.Border.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.UiBoxModel.Border.init -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.UiBoxModel.Content.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.UiBoxModel.Content.init -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.UiBoxModel.Margin.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.UiBoxModel.Margin.init -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.UiBoxModel.Padding.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.UiBoxModel.Padding.init -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.UiBoxModel.UiBoxModel() -> void
+Vixen.Ui.UiBoxModel.UiBoxModel(Vixen.Core.Mathematics.Rectangle Margin, Vixen.Core.Mathematics.Rectangle Border, Vixen.Core.Mathematics.Rectangle Padding, Vixen.Core.Mathematics.Rectangle Content) -> void
 Vixen.Ui.UiCursor -> enum : byte
 Vixen.Ui.UiCursor.Auto = 0 -> Vixen.Ui.UiCursor
 Vixen.Ui.UiCursor.ColumnResize = 12 -> Vixen.Ui.UiCursor
@@ -1150,6 +1162,29 @@ Vixen.Ui.UiCursor.RowResize = 13 -> Vixen.Ui.UiCursor
 Vixen.Ui.UiCursor.Text = 4 -> Vixen.Ui.UiCursor
 Vixen.Ui.UiCursor.UiCursor() -> void
 Vixen.Ui.UiCursor.Wait = 10 -> Vixen.Ui.UiCursor
+Vixen.Ui.UiDiagnostics -> readonly struct
+Vixen.Ui.UiDiagnostics.BoxOf(Vixen.Ui.UiElement element) -> Vixen.Ui.UiBoxModel
+Vixen.Ui.UiDiagnostics.ContainerScopesEntered.get -> int
+Vixen.Ui.UiDiagnostics.DirtyRegions.get -> System.ReadOnlySpan<Vixen.Ui.UiDirtyRegion>
+Vixen.Ui.UiDiagnostics.LastPassWasCold.get -> bool
+Vixen.Ui.UiDiagnostics.LayoutNodes.get -> int
+Vixen.Ui.UiDiagnostics.RegionsRecorded.get -> int
+Vixen.Ui.UiDiagnostics.Settled.get -> bool
+Vixen.Ui.UiDiagnostics.SettlingPasses.get -> int
+Vixen.Ui.UiDiagnostics.StyleCompactions.get -> int
+Vixen.Ui.UiDiagnostics.StylesApplied.get -> int
+Vixen.Ui.UiDiagnostics.StylesResolved.get -> int
+Vixen.Ui.UiDiagnostics.TryDescribe(float x, float y, out Vixen.Ui.UiElement? element, out Vixen.Ui.UiBoxModel box) -> bool
+Vixen.Ui.UiDiagnostics.UiDiagnostics() -> void
+Vixen.Ui.UiDiagnostics.UiDiagnostics(Vixen.Ui.UiDocument document) -> void
+Vixen.Ui.UiDirtyRegion -> readonly struct
+Vixen.Ui.UiDirtyRegion : System.IEquatable<Vixen.Ui.UiDirtyRegion>
+Vixen.Ui.UiDirtyRegion.Bounds.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.UiDirtyRegion.Bounds.init -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.UiDirtyRegion.Kind.get -> Vixen.Ui.UiInvalidationKind
+Vixen.Ui.UiDirtyRegion.Kind.init -> Vixen.Ui.UiInvalidationKind
+Vixen.Ui.UiDirtyRegion.UiDirtyRegion() -> void
+Vixen.Ui.UiDirtyRegion.UiDirtyRegion(Vixen.Core.Mathematics.Rectangle Bounds, Vixen.Ui.UiInvalidationKind Kind) -> void
 Vixen.Ui.UiDocument -> sealed class
 Vixen.Ui.UiDocument : System.IDisposable
 Vixen.Ui.UiDocument.AccessibilityInvalidated -> System.Action<Vixen.Ui.UiDocument>?
@@ -1178,6 +1213,7 @@ Vixen.Ui.UiDocument.Create<T>(string? tag, Vixen.Ui.UiElement? parent, string? i
 Vixen.Ui.UiDocument.CreateSurface(float width, float height, float dpiScale = 1, Vixen.Ui.UiElement? owner = null) -> Vixen.Ui.UiSurface
 Vixen.Ui.UiDocument.Cursor.get -> Vixen.Ui.UiCursor
 Vixen.Ui.UiDocument.CursorOf(Vixen.Ui.Styling.ComputedStyle style) -> Vixen.Ui.UiCursor
+Vixen.Ui.UiDocument.Diagnostics.get -> Vixen.Ui.UiDiagnostics
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.KeyEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.PointerEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.TextCompositionEvent args) -> Vixen.Ui.UiElement?
@@ -1366,6 +1402,12 @@ Vixen.Ui.UiEvent.Handled.set -> bool
 Vixen.Ui.UiEvent.Phase.get -> Vixen.Ui.RoutingPhase
 Vixen.Ui.UiEvent.Source.get -> Vixen.Ui.UiElement?
 Vixen.Ui.UiEvent.UiEvent() -> void
+Vixen.Ui.UiInvalidationKind -> enum : byte
+Vixen.Ui.UiInvalidationKind.Class = 0 -> Vixen.Ui.UiInvalidationKind
+Vixen.Ui.UiInvalidationKind.Document = 3 -> Vixen.Ui.UiInvalidationKind
+Vixen.Ui.UiInvalidationKind.Inline = 2 -> Vixen.Ui.UiInvalidationKind
+Vixen.Ui.UiInvalidationKind.State = 1 -> Vixen.Ui.UiInvalidationKind
+Vixen.Ui.UiInvalidationKind.UiInvalidationKind() -> void
 Vixen.Ui.UiPropertyAttribute -> sealed class
 Vixen.Ui.UiPropertyAttribute : System.Attribute
 Vixen.Ui.UiPropertyAttribute.Changed.get -> string?
@@ -1446,6 +1488,7 @@ const Vixen.Ui.FontRegistry.RegularWeight = 400 -> int
 const Vixen.Ui.LengthContext.InitialFontSize = 16 -> float
 const Vixen.Ui.Rendering.PathTessellator.DefaultMiterLimit = 4 -> float
 const Vixen.Ui.Rendering.UiLayer.MaximumKernel = 64 -> int
+const Vixen.Ui.UiDiagnostics.RecordsRegions = true -> bool
 const Vixen.Ui.UiDocument.ContainerScopeCeiling = 4096 -> int
 const Vixen.Ui.UiDocument.SettlePasses = 3 -> int
 override Vixen.Ui.CommandHandler.Equals(object? obj) -> bool

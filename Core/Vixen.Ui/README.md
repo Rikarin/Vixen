@@ -1567,6 +1567,39 @@ So the shape that is owed is an **aggregator, not an instrument**: one read-only
 what the passes already publish, plus exactly one new recording — the dirty regions, which is the
 only row above with no raw material behind it.
 
+### Landed: `UiDocument.Diagnostics`
+
+`UiDiagnostics` is that view — `Diagnostics.cs`, and
+[the guide page](../../docs/guide/ui/document-diagnostics.md) is written from it. It carries the
+counters above, `LayoutTree.NodeCount`, `TryDescribe(x, y, …)` for the element under a point, and
+`UiBoxModel` — the four boxes CSS names, because four nested outlines is what an overlay draws and
+turning twelve edges into them is the arithmetic that is easy to get wrong once per overlay.
+
+**And the dirty regions are recorded now**, at the four invalidation entry points that know which
+element they are about: `AddClass`, `RemoveClass`, the state setter and `InlineStyle.Commit`, plus
+`UiDocument.Invalidate` for the cold one, which has no element and records the root. Behind
+`[Conditional("DEBUG")]` and `[Conditional("VIXEN_UI_DIAGNOSTICS")]`, so a build that did not ask has
+no call site — `World.RaiseCreated`'s shape, chosen because this sits in the path a virtualised list
+walks two dozen times a frame.
+
+⚠ **`UiDiagnostics.RecordsRegions` exists because empty has two meanings**, and a panel that cannot
+tell "nothing was invalidated" from "nobody was recording" is a panel that reports success on the day
+it does not run. ⚠ **And a frame that finds nothing to do empties the regions** rather than leaving
+the last real pass's boxes up — the same lie `Update`'s own counters told for a year, and the reason
+the ring is turned on *both* of `Update`'s exits.
+
+### Still owed: the overlay, and the reason it is not written here
+
+⚠ **There is no host today that holds a `UiDocument` *and* a `DiagnosticOverlays`**, which is a
+sharper statement of what #461 calls "a decision, not a constraint". `AppGraphics.BuildOverlays`
+holds the overlays and no document; `UiApplication` holds the document and may not reference
+`Vixen.Engine` — `CheckArchitecture` bans it by the referencing project's name, and
+`Vixen.Ui.Desktop` starts with `Vixen.Ui`. So an `IDiagnosticOverlay` written today would be
+registered nowhere, which is this repository's commonest defect wearing a diagnostics badge. The two
+honest homes are the editor's panel system, which already has somewhere to put a view, and a game
+host that mounts a document through `UiRenderFeature` — and ⚠ that feature has no registration
+anywhere in the tree either, so the second one is a claim about a path nothing currently takes.
+
 Three constraints decide the shape, and each of them rules something out.
 
 **It reads, it does not sample.** `DiagnosticOverlays`' own remark is the rule — *"nothing here polls
