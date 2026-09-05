@@ -257,6 +257,16 @@ forty-four more tuples.** M1 makes that half read its folders, which is
 [#512](https://github.com/Rikarin/Vixen/issues/512)'s shape a third time, and exit criterion 3 is the
 same assertion one layer up.
 
+✅ **Landed ahead of M1, and the kernels can be written against it.** `EditorSources` is gone:
+`Build.Shaders.cs`'s `DiscoverEditorSources` walks the tree and compiles every `.rvn` with a `.spv`
+for one of its shaders committed beside it, so a kernel dropped into
+`Editor/Vixen.Editor.Host/Shaders` is gated by the next run with no edit to the build
+([#564](https://github.com/Rikarin/Vixen/issues/564)). Two things a kernel author should know: a
+kernel that `import`s a library package is **refused by name**, not skipped — it is not standalone,
+and belongs in `EditorShaders` with its `--source` closure — and the walk's floor is
+`EditorSourceFloor`, which exists so a walk that has gone blind fails rather than deriving an empty
+list and printing success.
+
 ⚠ **The mesh-map bakers are the exception and they stay in `Core/`** — `MapBaker` is already there, it
 is CPU arithmetic with no device in it, and its own guide says it runs at import time inside a content
 build. Moving it out to keep this document tidy would be the wrong direction.
@@ -728,9 +738,11 @@ behave.** No graph, no UI, no node classes.
 ### M1 — `Vixen.Editor.TextureGraph`: the plan, the evaluator and its shader gate · 1.25 EM
 
 `TexturePlan`, `TextureOp`, the image pool with liveness-based reuse, the dispatcher, the format rules
-(R8 / RG8 / RGBA8 / R16F / RGBA16F), the resolution rules of D8, and the seed — **plus turning
-`CheckShaders`' `EditorSources` from a hand-kept list into a folder read**, per D1. Tests are device
-tests that name their adapter and skip loudly without one.
+(R8 / RG8 / RGBA8 / R16F / RGBA16F), the resolution rules of D8, and the seed. ✅ The shader-gate half
+of this milestone — **turning `CheckShaders`' `EditorSources` from a hand-kept list into a folder
+read**, per D1 — landed ahead of it under
+[#564](https://github.com/Rikarin/Vixen/issues/564), so a kernel added here is gated without a build
+edit. Tests are device tests that name their adapter and skip loudly without one.
 
 ### M2 — The atomic kernels, part I · 1.5 EM
 
