@@ -1,8 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Android.Content;
+using Android.Content.Res;
 using AndroidBuild = Android.OS.Build;
 using AndroidUri = Android.Net.Uri;
 
@@ -50,6 +52,11 @@ public sealed class AndroidPlatform : IPlatform {
         Clipboard = new AndroidClipboard(context);
         TextInput = new AndroidTextInput(context);
         Power = new AndroidPower(context);
+
+        // Seeded here and not left to the first pump: a host reads this to choose a palette before
+        // it draws a frame, and a first frame drawn against `Unknown` is a visible flash of the
+        // wrong theme on a device that has always been in dark mode.
+        ColorScheme = ReadColorScheme();
     }
 
     /// <inheritdoc />
@@ -75,6 +82,27 @@ public sealed class AndroidPlatform : IPlatform {
 
     /// <inheritdoc />
     public IDisplayInfo Displays { get; }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         <c>uiMode</c>'s night mask, off the activity's own resources rather than the
+    ///         application's — an activity can carry a per-activity night mode override, and the
+    ///         override is the one whose palette is on screen.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>UiModeNightUndefined</c> is a real third value and is reported as
+    ///         <see cref="SystemColorScheme.Unknown" />.</b> It is what a configuration that has
+    ///         never resolved says, and mapping it to light is how an application picks a palette on
+    ///         a device that has not answered yet.
+    ///     </para>
+    ///     <para>
+    ///         Polled in <see cref="PumpEvents" />: a night-mode change arrives as a configuration
+    ///         change, which recreates the activity by default and is therefore not an event this
+    ///         platform can see from where it sits.
+    ///     </para>
+    /// </remarks>
+    public SystemColorScheme ColorScheme { get; private set; }
 
     /// <inheritdoc />
     public IFileSystemHost FileSystem { get; }
@@ -148,6 +176,16 @@ public sealed class AndroidPlatform : IPlatform {
             window = null;
         }
 
+        var scheme = ReadColorScheme();
+
+        if (scheme != ColorScheme) {
+            ColorScheme = scheme;
+
+            events.Post(
+                PlatformEvent.Application(PlatformEventKind.SystemColorSchemeChanged, Stopwatch.GetTimestamp())
+            );
+        }
+
         return events.Drain();
     }
 
@@ -169,6 +207,13 @@ public sealed class AndroidPlatform : IPlatform {
             return false;
         }
     }
+
+    SystemColorScheme ReadColorScheme() =>
+        (context.Resources?.Configuration?.UiMode & UiMode.NightMask) switch {
+            UiMode.NightYes => SystemColorScheme.Dark,
+            UiMode.NightNo => SystemColorScheme.Light,
+            _ => SystemColorScheme.Unknown
+        };
 
     /// <summary>Posts an event as though the system had raised it.</summary>
     /// <param name="platformEvent">The event.</param>

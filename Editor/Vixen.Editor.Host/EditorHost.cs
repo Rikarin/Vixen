@@ -264,6 +264,10 @@ sealed class EditorHost : IDisposable {
         var previous = TimeSpan.Zero;
         var drawn = 0;
 
+        // The appearance the machine already had. No event is posted for it — there is nothing to
+        // notice — so a host that only handled the change would never see the first one.
+        PlatformInput.ApplyColorScheme(editor.Shell.Document, platform.ColorScheme);
+
         while (running && (frames == 0 || drawn < frames)) {
             var now = clock.Elapsed;
             var delta = now - previous;
@@ -445,6 +449,15 @@ sealed class EditorHost : IDisposable {
 
                 case PlatformEventKind.Suspending:
                     Release();
+                    break;
+
+                case PlatformEventKind.SystemColorSchemeChanged:
+                    // ⚠ Wired here even though the editor's theme is the *class* dark-mode strategy
+                    // and does not read the media query — the second host is where a wire added to
+                    // one of the two silently does nothing, and this repository has that defect
+                    // often enough to spend two lines on. A panel or plug-in loading a sheet whose
+                    // theme uses the `media` strategy gets the same answer the framework host gives.
+                    PlatformInput.ApplyColorScheme(editor.Shell.Document, platform.ColorScheme);
                     break;
 
                 default:

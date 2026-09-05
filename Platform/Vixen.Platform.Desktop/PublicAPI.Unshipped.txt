@@ -48,6 +48,7 @@ Vixen.Platform.Desktop.DesktopPlatform : System.IDisposable
 Vixen.Platform.Desktop.DesktopPlatform : Vixen.Platform.IPlatform
 Vixen.Platform.Desktop.DesktopPlatform.Capabilities.get -> Vixen.Platform.PlatformCapabilities
 Vixen.Platform.Desktop.DesktopPlatform.Clipboard.get -> Vixen.Platform.IClipboard
+Vixen.Platform.Desktop.DesktopPlatform.ColorScheme.get -> Vixen.Platform.SystemColorScheme
 Vixen.Platform.Desktop.DesktopPlatform.CreateWindow(in Vixen.Platform.WindowOptions options) -> Vixen.Platform.IWindow
 Vixen.Platform.Desktop.DesktopPlatform.DesktopPlatform() -> void
 Vixen.Platform.Desktop.DesktopPlatform.DesktopPlatform(Vixen.Platform.Desktop.DesktopPlatformOptions options) -> void

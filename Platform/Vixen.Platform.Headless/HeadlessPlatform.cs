@@ -93,6 +93,38 @@ public sealed class HeadlessPlatform : IPlatform {
     /// <inheritdoc />
     public IDisplayInfo Displays { get; } = new HeadlessDisplays();
 
+    /// <summary>The appearance a headless run reports, and the seam a test drives it through.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="SystemColorScheme.Unknown" /> by default, because a headless run has
+    ///         no operating-system appearance to report.</b> A test that wants one sets it, and
+    ///         setting it queues a <see cref="PlatformEventKind.SystemColorSchemeChanged" /> exactly
+    ///         as a desktop's poll would — so a host wired to the event is exercised by the same
+    ///         code path the real platform takes, and a host wired to nothing fails the test rather
+    ///         than passing it because the value happened to be readable.
+    ///     </para>
+    ///     <para>
+    ///         Setting it to what it already is queues nothing. That is the desktop's rule too, and
+    ///         it is what stops a test asserting on an event it caused by writing the same value
+    ///         twice.
+    ///     </para>
+    /// </remarks>
+    public SystemColorScheme ColorScheme {
+        get;
+
+        set {
+            if (field == value) {
+                return;
+            }
+
+            field = value;
+
+            events.Post(
+                PlatformEvent.Application(PlatformEventKind.SystemColorSchemeChanged, Stopwatch.GetTimestamp())
+            );
+        }
+    }
+
     /// <inheritdoc />
     public IFileSystemHost FileSystem { get; }
 

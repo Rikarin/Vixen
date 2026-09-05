@@ -126,6 +126,7 @@ public sealed unsafe class DesktopPlatform : IPlatform {
     readonly bool requestGpuSurface;
     readonly bool requestGlContext;
     readonly IPlatformSupplement? supplement;
+    readonly DesktopAppearance appearance;
 
     bool disposed;
 
@@ -202,6 +203,11 @@ public sealed unsafe class DesktopPlatform : IPlatform {
             services = supplement.Augment(services);
         }
 
+        // ⚠ Last, and read once here rather than lazily on the first `ColorScheme`. The whole point
+        // of the property is that a host can seed its document from it before the first frame, and a
+        // lazy first read would put a `gsettings` subprocess in the middle of one.
+        appearance = new DesktopAppearance();
+
         Clipboard = services.Clipboard;
         Dialogs = services.Dialogs;
         Power = services.Power;
@@ -241,6 +247,9 @@ public sealed unsafe class DesktopPlatform : IPlatform {
 
     /// <inheritdoc />
     public IDisplayInfo Displays { get; }
+
+    /// <inheritdoc />
+    public SystemColorScheme ColorScheme => appearance.Current;
 
     /// <inheritdoc />
     public IFileSystemHost FileSystem { get; }
@@ -371,6 +380,16 @@ public sealed unsafe class DesktopPlatform : IPlatform {
 
         while (sdl.PollEvent(&sdlEvent) != 0) {
             Translate(&sdlEvent);
+        }
+
+        // ⚠ After the SDL drain and before `Drain`, so the appearance change is in the same batch as
+        // whatever else happened this frame. Posting it after the span was taken would hold it until
+        // the next pump — one frame late on every theme switch, and on a host that pumps only on
+        // input, indefinitely.
+        if (appearance.Pump()) {
+            events.Post(
+                PlatformEvent.Application(PlatformEventKind.SystemColorSchemeChanged, TimestampOf(sdl.GetTicks()))
+            );
         }
 
         return events.Drain();

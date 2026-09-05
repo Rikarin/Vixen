@@ -61,6 +61,9 @@ internal static partial class WebInterop {
     [JSImport("now", ModuleName)]
     public static partial double Now();
 
+    [JSImport("colorScheme", ModuleName)]
+    public static partial int ColorScheme();
+
     [JSImport("takeString", ModuleName)]
     public static partial string TakeString(int handle);
 

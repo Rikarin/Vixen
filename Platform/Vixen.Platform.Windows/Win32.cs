@@ -182,6 +182,29 @@ static unsafe partial class Win32 {
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool GetSystemPowerStatus(out SystemPowerStatus status);
 
+    /// <summary><c>RRF_RT_REG_DWORD</c> — refuse anything but a <c>REG_DWORD</c>.</summary>
+    public const uint RrfRtRegDword = 0x00000010;
+
+    /// <summary><c>HKEY_CURRENT_USER</c>.</summary>
+    public static readonly nint HkeyCurrentUser = unchecked((nint)(int)0x80000001);
+
+    /// <remarks>
+    ///     ⚠ <b><c>RegGetValueW</c> rather than <c>Microsoft.Win32.Registry</c>.</b> This assembly
+    ///     targets <c>net10.0</c> and not <c>net10.0-windows</c> — deliberately, see the project file
+    ///     — so the registry types are not in its reference set. One import is cheaper than moving
+    ///     the whole assembly out of <c>CheckApi</c>'s reach for a four-byte read.
+    /// </remarks>
+    [LibraryImport("advapi32.dll", EntryPoint = "RegGetValueW", StringMarshalling = StringMarshalling.Utf16)]
+    public static partial int RegGetValue(
+        nint key,
+        string subKey,
+        string value,
+        uint flags,
+        out uint type,
+        out uint data,
+        ref uint size
+    );
+
     [LibraryImport("ole32.dll")]
     public static partial int CoInitializeEx(void* reserved, uint model);
 

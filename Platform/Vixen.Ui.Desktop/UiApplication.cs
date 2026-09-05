@@ -471,6 +471,12 @@ public sealed class UiApplication : IDisposable {
         var clock = Stopwatch.StartNew();
         var previous = TimeSpan.Zero;
 
+        // ⚠ Before `Started` and therefore before the first frame. The platform posts no event for
+        // the appearance it already had at boot — there is nothing to notice — so a host that only
+        // handled `SystemColorSchemeChanged` would draw every frame of a session against the wrong
+        // palette on a machine whose appearance never changed, which is most of them.
+        PlatformInput.ApplyColorScheme(Document, platform.ColorScheme);
+
         Started?.Invoke(this);
 
         while (running && (options.Frames == 0 || FrameCount < options.Frames)) {
@@ -583,6 +589,14 @@ public sealed class UiApplication : IDisposable {
 
                 case PlatformEventKind.Suspending:
                     Release();
+                    break;
+
+                case PlatformEventKind.SystemColorSchemeChanged:
+                    // ⚠ Not routed by window id, because it names none. The appearance is a setting
+                    // of the machine and every surface of the document answers `@media
+                    // (prefers-color-scheme: …)` with it — falling through to the default branch
+                    // would resolve window 0, find nothing, and drop the change silently.
+                    PlatformInput.ApplyColorScheme(Document, platform.ColorScheme);
                     break;
 
                 default:
