@@ -4,7 +4,7 @@ slug: editor/texture-graph-evaluation
 kind: guide
 area: Editor
 summary: The plan of compute kernels a texture graph and a layer stack both compile to, the image pool that runs it, and the resolution rule that keeps a graph the same material at every size.
-api: [T:Vixen.Editor.TextureGraph.TexturePlan, T:Vixen.Editor.TextureGraph.TextureOp, T:Vixen.Editor.TextureGraph.TextureImage, T:Vixen.Editor.TextureGraph.TextureParameter, T:Vixen.Editor.TextureGraph.TextureParameterUnit, T:Vixen.Editor.TextureGraph.TextureFormat, T:Vixen.Editor.TextureGraph.TextureFormats, T:Vixen.Editor.TextureGraph.TexturePoolSlot, T:Vixen.Editor.TextureGraph.TexturePoolSchedule, T:Vixen.Editor.TextureGraph.TextureKernels, T:Vixen.Editor.TextureGraph.TexturePlanEvaluator, T:Vixen.Editor.TextureGraph.TextureBake]
+api: [T:Vixen.Editor.TextureGraph.TexturePlan, T:Vixen.Editor.TextureGraph.TextureOp, T:Vixen.Editor.TextureGraph.TextureImage, T:Vixen.Editor.TextureGraph.TextureParameter, T:Vixen.Editor.TextureGraph.TextureParameterUnit, T:Vixen.Editor.TextureGraph.TextureFormat, T:Vixen.Editor.TextureGraph.TextureFormats, T:Vixen.Editor.TextureGraph.TexturePoolSlot, T:Vixen.Editor.TextureGraph.TexturePoolSchedule, T:Vixen.Editor.TextureGraph.TextureKernels, T:Vixen.Editor.TextureGraph.TexturePlanEvaluator, T:Vixen.Editor.TextureGraph.TextureBake, T:Vixen.Editor.TextureGraph.TextureProblem, T:Vixen.Editor.TextureGraph.TextureProblemSeverity, T:Vixen.Editor.TextureGraph.ITextureCpuOperation, T:Vixen.Editor.TextureGraph.TextureCpuImage, T:Vixen.Editor.TextureGraph.TextureCpuInvocation]
 tags: [editor, texture-graph, material-authoring, compute, raven, baking]
 since: 0.1
 status: preview
@@ -138,6 +138,16 @@ every image at a size no level names. Bake at the next power of two and resample
 > 4096×2048 out of a 1024² graph, and then a radius would be either four times wider in x and twice in
 > y — a filter that is no longer round — or wrong in one axis.
 
+> ⚠ **Copying `Ops` like this is right for nearly every plan and wrong for three nodes.** `Distance`,
+> `Flood Fill` and `Auto Levels` are *chains* whose op **count** is a function of the baked extent — a
+> jump flood is `log2(n)` ping-ponged dispatches, a reduction is one per level down to 1×1 — so their
+> ops are emitted for one resolution and re-using them at another leaves too few of them. Every op of
+> such a chain carries `TextureOp.EmittedForExtent`, and `Validate` refuses the plan rather than baking
+> a distance field that is wrong at long range and looks merely soft
+> ([#689](https://github.com/Rikarin/Vixen/issues/689)). The fix is to re-emit the chain from the
+> front end for the bake you want; a plan is a compiled artefact, and only the *graph* bakes at any
+> size.
+
 ## The image pool
 
 An image is written by exactly one op, so it is live from that op until the last op that reads it. The
@@ -157,6 +167,47 @@ Assert.Equal(2, schedule.Allocations);
 > texture it is about to read, and a dispatch has no ordering between its own invocations — so what
 > comes out is half the old image and half the new one, on some drivers, some of the time.
 
+## What a plan refuses, and what it only warns about
+
+`Check()` is the whole answer and returns a `TextureProblem` per problem, each with a
+`TextureProblemSeverity`. `Validate()` is the refusals as sentences — `Evaluate` throws on any of them
+— and `Warnings()` is the other half, which a bake carries on `TextureBake.Warnings`:
+
+```csharp no-compile="a plan authored at 256 with a sharpen of 4 texels, baked at 4×"
+foreach (var problem in plan.Check()) {
+    Console.WriteLine($"{problem.Severity}: {problem.Message}");
+}
+
+// Warning: Op 0 runs 'Sharpen' with radius 4, which is 16 at the resolution it writes — past the 8
+// the kernel loops to. It would be clamped, silently, …
+```
+
+> ⚠ **A plan validated its shape and never its numbers, and that is
+> [#692](https://github.com/Rikarin/Vixen/issues/692).** Indices, formats, write-once and liveness all
+> held while a resolved radius past a kernel's own loop was clipped by the shader with no message
+> anywhere — so the same graph was a different material at a larger bake. The number that has to be
+> checked is the **resolved** one, which exists only once a bake resolution has been chosen, and the
+> plan is the only layer that can see both it and the kernel's ceiling.
+
+> ⚠ **Refusing would have been wrong**, which is why there is a third state. The larger bake is what
+> the artist asked for and the clip may be acceptable; what was missing was anywhere for a bake to
+> *say* it clipped something. Put `TextureBake.Warnings` in front of whoever chose the resolution.
+
+## An op that is not a dispatch
+
+`TextureOp.Cpu` holds an `ITextureCpuOperation`, and the evaluator ends the list in flight, waits,
+reads its inputs back as raw texels, runs it, uploads the answer and opens a new list. The pool, the
+liveness and the barriers are unchanged around it — a CPU op writes one image, reads by index, and is
+written to once.
+
+> ⚠ **This is doc 48 § 4.6's one stated exception to § D3's "no CPU implementation of any node", and it
+> is not an escape hatch from writing a kernel.** It exists for `Normal → Height`, a Poisson solve over
+> `Vixen.Geometry.Uv/Solving/ConjugateGradient.cs`, because there is no GPU formulation of that worth
+> having — low frequencies converge in O(n²) Jacobi sweeps, so the shader version is thousands of
+> dispatches. The test of whether a node belongs here is "is there a GPU formulation at all", never
+> "would this be easier in C#": each of these costs two full pipeline drains in the middle of a bake.
+> An implementation here that reproduces what a `.rvn` already does is exactly what § D3 bans.
+
 ## Formats
 
 `R8` · `Rg8` · `Rgba8` · `R16Float` · `Rgba16Float`. 32-bit float is deliberately absent.
@@ -165,6 +216,13 @@ Assert.Equal(2, schedule.Allocations);
 > and Vulkan requires storage support for neither, so a kernel writing one fails at pipeline creation.
 > `TexturePlan.Validate` refuses it where the plan is built; compute in one of the three storable
 > formats and narrow at the encode.
+
+> ⚠ **The 32-bit absence is a decision about material maps, not a capability.** Raven admits `r32f`,
+> `rg32f` and `rgba32f`, the RHI maps all three, and `HiZPyramid` already dispatches into an
+> `R32Float` storage image — so the argument is the memory, and it is larger than it looks: an
+> `Rgba16Float` intermediate at 4K is 128 MiB and `Rgba32Float` is 256 MiB. § 4.5's two
+> position-carrying records are the case for widening it to `rgba32f`
+> ([#690](https://github.com/Rikarin/Vixen/issues/690)); a colour never is.
 
 ## The seed
 
@@ -180,8 +238,9 @@ phase's, over `Vixen.Core.Imaging`. What lands today is one image per output, as
 
 ## Testing it
 
-`TexturePlanTests`, `TexturePoolTests` and `TextureKernelTests` need no device at all — the resolution
-rule, the pool bound and every kernel's compilation in every format are asserted on any machine.
+`TexturePlanTests`, `TexturePlanCheckTests`, `TexturePoolTests` and `TextureKernelTests` need no device
+at all — the resolution rule, what a bake clips, the pool bound and every kernel's compilation in every
+format are asserted on any machine.
 
 `TexturePlanDeviceTests` needs one, and **names its adapter in every message**.
 
@@ -200,6 +259,14 @@ and a 9-texel bar at half of it.
 `BakeLevelOffset` 0 and −2 over a step edge, box-downsamples the larger 4:1, and requires the two
 profiles to agree. On an M1 Max the worst column differs by 4/255 against a tolerance of 8; a radius
 that did not scale parts them by 92.
+
+`TextureCpuOpDeviceTests` is the round trip through a `TextureOp.Cpu` op: `invert → transpose →
+invert`, whose closed form is the transpose of the source, exactly, in every channel. ⚠ Its second
+test's name claims the two pictures and **not** the layout barrier that hands an external image back
+readable — deleting that barrier leaves both assertions green on an M1 Max, because a unified-memory
+adapter reads an image left in a transfer layout perfectly well. The validation layers are the only
+witness for a layout, and this suite cannot use them: `VulkanDiagnostics` is process-wide and every
+device class here opens its own device in parallel.
 
 > ⚠ **`TextureQueueTests` opens a Null device on purpose**, and it is the only file here that does. A
 > unified adapter cannot tell the compute queue from the graphics one — which is why

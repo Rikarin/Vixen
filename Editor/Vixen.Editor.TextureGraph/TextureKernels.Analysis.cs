@@ -104,9 +104,13 @@ internal static class TextureAnalysisKernels {
 ///         dispatch at 1K and one at 4K with a wider radius; a jump flood is eleven dispatches at 1K
 ///         and thirteen at 4K, because the number of halvings is <c>log2</c> of the baked extent. So a
 ///         plan holding one of these is built for a <see cref="TexturePlan.BakeLevelOffset" /> and
-///         cannot simply be re-baked at another — the ops themselves would have to be re-emitted.
-///         Nothing on <see cref="TexturePlan" /> records that, the same way nothing records that
-///         <c>AutoLevels</c> cannot be tiled; both are reported rather than worked around.
+///         cannot simply be re-baked at another — the ops themselves have to be re-emitted. ⚠ Every
+///         op of both chains therefore carries <see cref="TextureOp.EmittedForExtent" />, which is
+///         <a href="https://github.com/Rikarin/Vixen/issues/689">#689</a>: without it the re-bake
+///         was silent, and <c>TexturePlan.Validate</c> now refuses the list at any other extent
+///         rather than emitting too few halvings. (<c>AutoLevels</c>' reduction has the same
+///         property and its chain is built at call sites, which owe the same stamp; that it cannot
+///         be <em>tiled</em> is a different property and is still recorded nowhere.)
 ///     </para>
 ///     <para>
 ///         <b>Every builder emits the complete parameter set its kernel declares</b>, for
@@ -225,6 +229,9 @@ internal static class TextureAnalysis {
                     Kernel = TextureAnalysisKernels.JumpFlood,
                     Output = scratch[pass],
                     Inputs = [pass == 0 ? mask : scratch[pass - 1]],
+                    // ⚠ #689: how many of these there are is log2 of the extent, so the list is
+                    // emitted for one bake and TexturePlan.Validate refuses it at another.
+                    EmittedForExtent = Math.Max(width, height),
                     Parameters = [
                         new("first", pass == 0 ? 1f : 0f),
                         new("step", Math.Max(step, 1)),
@@ -330,6 +337,10 @@ internal static class TextureAnalysis {
                     Kernel = TextureAnalysisKernels.FloodBounds,
                     Output = scratch[pass],
                     Inputs = [pass == 0 ? mask : scratch[pass - 1]],
+                    // ⚠ #689: the budget is chosen against the mask's size in texels, and the
+                    // half-float record's ceiling below is a property of this bake's extent too — so
+                    // this list, like the jump flood's, is emitted for one resolution.
+                    EmittedForExtent = extent,
                     Parameters = [
                         new("first", pass == 0 ? 1f : 0f),
                         new("threshold", threshold),

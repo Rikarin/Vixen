@@ -423,6 +423,17 @@ questions have one answer.
 them to agree within a small tolerance. A node that fails that has a resolution bug and no other test
 in this plan would have found it.
 
+⚠ **Two nodes do not keep this promise, and the plan now says so rather than baking them wrong.** A
+node whose op *count* depends on the baked extent — [4.5](#45-analysis--3-kernels)'s `Distance`
+(`log2(n)` ping-ponged dispatches) and `Flood Fill` (a budget chosen against the mask's size), plus
+`Auto Levels`' reduction — is compiled *for one bake*. Re-baking is expressed by building a plan with
+the same `Ops` and a different `BakeLevelOffset`, and doing that to one of these chains leaves too few
+halvings: a distance field wrong at long range, which looks like a soft field rather than like a bug.
+Every op of such a chain therefore carries `TextureOp.EmittedForExtent`, and `TexturePlan.Validate`
+refuses the list at any other extent — [#689](https://github.com/Rikarin/Vixen/issues/689). **The
+honest reading is that a plan is a compiled artefact**: the front end re-emits, and the promise above
+is a promise about the *graph*.
+
 ### D9. A published graph is a node, and its parameters are its ports
 
 A `.vxtexgraph` with `Input` and `Output` nodes is usable inside another graph, as a node, with its
@@ -629,7 +640,7 @@ generator turns, and they are three files rather than three kernels.
 | Node | Parameters | |
 |---|---|---|
 | **Height → Normal** | intensity, format | ⚠ **The green convention** is whatever `TexturedNormalMapSurface` samples, asserted by a test against a known ramp rather than claimed by a comment. A flipped green is the defect that survives every review because it looks like lighting |
-| **Normal → Height** | iterations | The Poisson solve doc 40 named. ⚠ **The solver exists**: doc 42 § B1 recorded that there was no sparse linear solver anywhere in the repository and then built one — `Vixen.Geometry.Uv/Solving/ConjugateGradient.cs`, warm-started, with a *fixed iteration budget because a residual test is not deterministic*. A grid Poisson is the easiest client it will ever have. ⚠ It is also the one entry here that is **not** a compute kernel: it runs on the CPU, which is a deliberate exception to D3 and carries a comment saying so |
+| **Normal → Height** | iterations | ✅ The seam exists: `TextureOp.Cpu` / `ITextureCpuOperation`, [#688](https://github.com/Rikarin/Vixen/issues/688) — the solve itself is still owed. The Poisson solve doc 40 named. ⚠ **The solver exists**: doc 42 § B1 recorded that there was no sparse linear solver anywhere in the repository and then built one — `Vixen.Geometry.Uv/Solving/ConjugateGradient.cs`, warm-started, with a *fixed iteration budget because a residual test is not deterministic*. A grid Poisson is the easiest client it will ever have. ⚠ It is also the one entry here that is **not** a compute kernel: it runs on the CPU, which is a deliberate exception to D3 and carries a comment saying so |
 | **Normal Combine** | mode | ⚠ Reoriented normal mapping, not whiteout. Whiteout is cheaper and wrong at grazing detail, and the two **agree on the flat case a lazy test would use** |
 | **Normal Transform** | flip green, rotate, renormalise | |
 | **Curvature from Normal** | radius | ⚠ The cheap one, from a height field. **Not** § D12's mesh bake, and the node's own inspector says which a generator should prefer |
@@ -749,7 +760,25 @@ behave.** No graph, no UI, no node classes.
 ### M1 — `Vixen.Editor.TextureGraph`: the plan, the evaluator and its shader gate · 1.25 EM
 
 `TexturePlan`, `TextureOp`, the image pool with liveness-based reuse, the dispatcher, the format rules
-(R8 / RG8 / RGBA8 / R16F / RGBA16F), the resolution rules of D8, and the seed. ✅ The shader-gate half
+(R8 / RG8 / RGBA8 / R16F / RGBA16F), the resolution rules of D8, and the seed.
+
+⚠ **Two of those five format rows were wrong and the ban on 32-bit float is narrower than it reads.**
+R8 and RG8 cannot be *written*: `Raven/Vixen.Raven/Symbols/ImageFormats.cs` admits sixteen
+storage-image formats and neither is among them, and Vulkan requires neither for `STORAGE_IMAGE`
+either — so `TextureFormats.IsStorable` admits three, and a plan takes an R8 bitmap **in** and
+computes in one of the three. And the 32-bit exclusion is a decision about *material maps* rather than
+a capability: Raven admits `r32f`, `rg32f` and `rgba32f`, the RHI maps all three
+(`Platform/Vixen.Graphics.Vulkan/VulkanFormats.cs`), and `Core/Vixen.Rendering/HiZPyramid.cs` already
+dispatches into an `R32Float` storage image in production. ⚠ [#690](https://github.com/Rikarin/Vixen/issues/690)
+asks for it on behalf of the two § 4.5 kernels that carry a *position* rather than a colour, and its
+own remedy is refuted: both records are **four** channels — `JumpFlood.rvn` stores
+`float4(inside.xy, outside.xy)` and `FloodBounds` stores a min and a max — so the format they want is
+`rgba32f`, not the `r32f` / `rg32f` the issue names. That is a widening with a stated reason (a scratch
+record is never an output and never a material map), and it is **not free**: the memory figure this
+document and the assembly's README both quote is understated by 8×, because an `Rgba16Float`
+intermediate at 4K is 128 MiB and its `Rgba32Float` twin is 256 MiB, and a jump flood ping-pongs two of
+them. So it is admitted with the slice that lifts `TextureAnalysis.ExactExtent`, measured, rather than
+by widening `TextureFormats.Storable` for all forty-six kernels first. ✅ The shader-gate half
 of this milestone — **turning `CheckShaders`' `EditorSources` from a hand-kept list into a folder
 read**, per D1 — landed ahead of it under
 [#564](https://github.com/Rikarin/Vixen/issues/564), so a kernel added here is gated without a build
@@ -930,7 +959,7 @@ forgotten.
 | Output **usages** | ✅ | ✅ | ✅ | ● M5 — § 4.8 |
 | System variables (`$outputsize`, `$randomseed`) | ✅ | — | ✅ | ● M1 — resolution and seed are plan inputs |
 | Absolute vs relative-to-parent resolution | ✅ | — | ✅ | ● § D8 — relative only, with `Crop` and `Resample` as the two exits |
-| 8 / 16 / 32-bit and float formats | ✅ | ✅ | ✅ | ◐ M1 — R8…RGBA16F. **32-bit float is not planned** |
+| 8 / 16 / 32-bit and float formats | ✅ | ✅ | ✅ | ◐ M1 — R8…RGBA16F, of which three can be written. **32-bit float is not a material-map format**; ⚠ it is available in Raven and the RHI today and `rgba32f` is owed to § 4.5's two position-carrying records — [#690](https://github.com/Rikarin/Vixen/issues/690) |
 | Physical size metadata | ✅ | — | ? | 🕓 |
 | A cooked, runtime-parameterised material (`.sbsar`) | ✅ | consumes | ◐ | ✖ § What this does not become |
 | Importing `.sbs` / `.sbsar` | ✅ | ✅ | ✅ | ✖ same — and an importer over the vendor's own tooling is a third-party plugin's business |

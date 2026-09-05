@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Immutable;
 using System.Globalization;
 using Vixen.Graphics;
 using Vixen.ShaderCompiler;
@@ -53,6 +54,17 @@ public sealed class TextureBake : IDisposable {
 
     /// <summary>What was evaluated.</summary>
     public TexturePlan Plan { get; }
+
+    /// <summary>What this bake drew differently from the graph, and drew anyway.</summary>
+    /// <remarks>
+    ///     ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/692">#692</a>: the middle state
+    ///     between "fine" and "refused", and the case that needed it is a clipped radius.</b> A blur
+    ///     authored at 20 texels on a 1K graph resolves to 80 at a 4× bake and the kernel loops to
+    ///     64 — so the bake succeeds and is a different material, which before this was silent
+    ///     everywhere. A caller showing a bake to an artist shows these beside the resolution they
+    ///     chose, which is the decision that caused it.
+    /// </remarks>
+    public ImmutableArray<string> Warnings { get; internal set; } = [];
 
     /// <summary>Where each image ended up.</summary>
     public TexturePoolSchedule Schedule { get; }
@@ -271,11 +283,15 @@ public sealed class TexturePlanEvaluator : IDisposable {
         ObjectDisposedException.ThrowIf(disposed, this);
         ArgumentNullException.ThrowIfNull(plan);
 
-        var problems = plan.Validate();
+        var problems = plan.Check();
+        var refusals = problems
+            .Where(problem => problem.Severity == TextureProblemSeverity.Error)
+            .Select(problem => problem.Message)
+            .ToArray();
 
-        if (!problems.IsEmpty) {
+        if (refusals.Length > 0) {
             throw new ArgumentException(
-                "This plan cannot be evaluated:" + Environment.NewLine + string.Join(Environment.NewLine, problems),
+                "This plan cannot be evaluated:" + Environment.NewLine + string.Join(Environment.NewLine, refusals),
                 nameof(plan)
             );
         }
@@ -293,10 +309,15 @@ public sealed class TexturePlanEvaluator : IDisposable {
                     TextureFormats.Pixel(shape.Format),
                     shape.Width,
                     shape.Height,
-                    // Storage to be written by a kernel, Sampled to be read by the next one, and
-                    // CopySource so a bake can become a file. All three at creation, because a
-                    // backend wants the full set then and an image's role changes between ops.
-                    TextureUsage.Storage | TextureUsage.Sampled | TextureUsage.CopySource,
+                    // Storage to be written by a kernel, Sampled to be read by the next one,
+                    // CopySource so a bake can become a file, and CopyDestination because a
+                    // TextureOp.Cpu op is written by a buffer copy rather than by a dispatch. All
+                    // four at creation, because a backend wants the full set then and an image's
+                    // role changes between ops.
+                    TextureUsage.Storage
+                    | TextureUsage.Sampled
+                    | TextureUsage.CopySource
+                    | TextureUsage.CopyDestination,
                     Name: string.Create(CultureInfo.InvariantCulture, $"texture graph slot {slot}")
                 )
             );
@@ -305,10 +326,16 @@ public sealed class TexturePlanEvaluator : IDisposable {
             owned.Add(slotViews[slot]);
         }
 
-        var bake = new TextureBake(device, device.ComputeQueue, plan, schedule, textures, owned);
+        var bake = new TextureBake(device, device.ComputeQueue, plan, schedule, textures, owned) {
+            Warnings = [
+                .. problems
+                    .Where(problem => problem.Severity == TextureProblemSeverity.Warning)
+                    .Select(problem => problem.Message)
+            ]
+        };
 
         try {
-            Run(plan, schedule, bake, slotViews, ExternalViews(plan, externals, owned));
+            Run(plan, schedule, bake, slotViews, ExternalViews(plan, externals, owned), externals);
         } catch {
             bake.Dispose();
 
@@ -370,21 +397,32 @@ public sealed class TexturePlanEvaluator : IDisposable {
         TexturePoolSchedule schedule,
         TextureBake bake,
         TextureViewHandle[] slotViews,
-        Dictionary<int, TextureViewHandle> externals
+        Dictionary<int, TextureViewHandle> externals,
+        IReadOnlyDictionary<int, TextureHandle>? externalTextures
     ) {
         var state = new ResourceState[schedule.Allocations];
         List<BufferHandle> constants = [];
+        List<BufferHandle> staging = [];
         List<DescriptorSetHandle> sets = [];
 
         Array.Fill(state, ResourceState.Undefined);
 
         device.BeginFrame();
 
-        using (var commands = device.BeginCommandList(bake.Queue.Kind, "texture graph")) {
+        var commands = device.BeginCommandList(bake.Queue.Kind, "texture graph");
+
+        try {
             for (var index = 0; index < plan.Ops.Length; index++) {
                 var op = plan.Ops[index];
                 var image = op.Output;
                 var slot = schedule.SlotOf[image];
+
+                if (op.Cpu is not null) {
+                    commands = OnCpu(plan, schedule, bake, index, state, externalTextures, staging, commands);
+
+                    continue;
+                }
+
                 var variant = VariantFor(op.Kernel, plan.Images[image].Format);
 
                 sets.Add(Bind(plan, schedule, index, variant, slotViews, externals, constants));
@@ -421,14 +459,17 @@ public sealed class TexturePlanEvaluator : IDisposable {
             }
 
             // Everything the caller may look at ends readable, so a read-back does not have to know
-            // which state the last op left each image in.
+            // which state the last op left each image in. ⚠ Anything that is not already readable,
+            // rather than only what a dispatch wrote: a CPU op leaves its inputs in CopySource and
+            // its output in CopyDestination, and an image left in either would be transitioned from
+            // ShaderRead by TextureBake.Read — a barrier whose source state is a lie.
             List<TextureBarrier> settle = [];
 
             for (var image = 0; image < plan.Images.Length; image++) {
                 var at = schedule.SlotOf[image];
 
-                if (at >= 0 && state[at] == ResourceState.ShaderWrite) {
-                    settle.Add(new(bake.TextureOf(image), ResourceState.ShaderWrite, ResourceState.ShaderRead));
+                if (at >= 0 && state[at] is not (ResourceState.ShaderRead or ResourceState.Undefined)) {
+                    settle.Add(new(bake.TextureOf(image), state[at], ResourceState.ShaderRead));
                     state[at] = ResourceState.ShaderRead;
                 }
             }
@@ -439,6 +480,8 @@ public sealed class TexturePlanEvaluator : IDisposable {
 
             commands.Finish();
             bake.Queue.Submit([commands]);
+        } finally {
+            commands.Dispose();
         }
 
         device.EndFrame();
@@ -448,10 +491,175 @@ public sealed class TexturePlanEvaluator : IDisposable {
             device.Destroy(buffer);
         }
 
+        foreach (var buffer in staging) {
+            device.Destroy(buffer);
+        }
+
         foreach (var set in sets) {
             device.Destroy(set);
         }
     }
+
+    /// <summary>Runs one <see cref="TextureOp.Cpu" /> op: read back, compute, upload.</summary>
+    /// <returns>The command list the rest of the plan carries on recording into.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 48 § 4.6's exception to § D3, and the whole of what makes it an exception is
+    ///         here.</b> A dispatch is appended to the list already in flight and costs nothing but
+    ///         its own time; this closes that list, ends the frame, waits for the device, maps every
+    ///         input into host memory, runs, writes the answer back and opens a new frame. Two full
+    ///         drains and the bandwidth of every image involved — so a chain of these serialises the
+    ///         bake, which is exactly the property that stops <see cref="ITextureCpuOperation" />
+    ///         becoming the easy way to add a node.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A frame of its own rather than more lists inside one frame.</b> The read-back has
+    ///         to complete before the bytes are mapped, and the pattern that is proved on this
+    ///         repository's devices — <see cref="TextureBake.Read" /> — is begin, record, submit,
+    ///         end, wait, map. Doing it inside the bake's frame would be a second arrangement of the
+    ///         same four calls whose failure mode is reading whatever the allocator left.
+    ///     </para>
+    ///     <para>
+    ///         <b>Both barriers are recorded and both directions matter.</b> The inputs go to
+    ///         <see cref="ResourceState.CopySource" /> and the output to
+    ///         <see cref="ResourceState.CopyDestination" />; the pooled ones are left in those states
+    ///         for the ordinary per-op barrier loop to pick up, and an <em>external</em> image is put
+    ///         back to <see cref="ResourceState.ShaderRead" /> here, because the plan's contract is
+    ///         that the caller's textures arrive and stay readable and nothing tracks their state.
+    ///     </para>
+    /// </remarks>
+    ICommandList OnCpu(
+        TexturePlan plan,
+        TexturePoolSchedule schedule,
+        TextureBake bake,
+        int index,
+        ResourceState[] state,
+        IReadOnlyDictionary<int, TextureHandle>? externalTextures,
+        List<BufferHandle> staging,
+        ICommandList commands
+    ) {
+        var op = plan.Ops[index];
+        var cpu = op.Cpu!;
+        var outputSlot = schedule.SlotOf[op.Output];
+        var outputSize = plan.SizeOf(op.Output);
+        var outputFormat = plan.Images[op.Output].Format;
+        List<TextureBarrier> barriers = [];
+        List<(int Image, BufferHandle Buffer)> reads = [];
+
+        foreach (var input in op.Inputs) {
+            var at = schedule.SlotOf[input];
+            var from = at >= 0 ? state[at] : ResourceState.ShaderRead;
+
+            if (from == ResourceState.CopySource) {
+                continue;
+            }
+
+            barriers.Add(new(TextureFor(schedule, bake, externalTextures, input), from, ResourceState.CopySource));
+
+            if (at >= 0) {
+                state[at] = ResourceState.CopySource;
+            }
+        }
+
+        if (state[outputSlot] != ResourceState.CopyDestination) {
+            barriers.Add(new(bake.TextureOf(op.Output), state[outputSlot], ResourceState.CopyDestination));
+            state[outputSlot] = ResourceState.CopyDestination;
+        }
+
+        if (barriers.Count > 0) {
+            commands.Barrier(new BarrierGroup([], [.. barriers]));
+        }
+
+        foreach (var input in op.Inputs) {
+            var size = plan.SizeOf(input);
+            var bytes = size.X * size.Y * TextureFormats.BytesPerTexel(plan.Images[input].Format);
+            var buffer = device.CreateBuffer(
+                new(bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, $"{op.Kernel} read-back")
+            );
+
+            staging.Add(buffer);
+            reads.Add((input, buffer));
+
+            commands.CopyTextureToBuffer(
+                new TextureRegion(TextureFor(schedule, bake, externalTextures, input)),
+                new(size.X, size.Y, 1),
+                buffer,
+                0
+            );
+        }
+
+        commands.Finish();
+        bake.Queue.Submit([commands]);
+        commands.Dispose();
+
+        device.EndFrame();
+        device.WaitIdle();
+
+        var inputs = ImmutableArray.CreateBuilder<TextureCpuImage>(reads.Count);
+
+        foreach (var (image, buffer) in reads) {
+            var size = plan.SizeOf(image);
+            var format = plan.Images[image].Format;
+            var raw = new byte[size.X * size.Y * TextureFormats.BytesPerTexel(format)];
+
+            device.Read(buffer, 0, raw);
+            inputs.Add(new(format, size.X, size.Y, raw));
+        }
+
+        var produced = new byte[outputSize.X * outputSize.Y * TextureFormats.BytesPerTexel(outputFormat)];
+        var output = new TextureCpuImage(outputFormat, outputSize.X, outputSize.Y, produced);
+
+        cpu.Run(new(plan, index, inputs.ToImmutable(), output));
+
+        var upload = device.CreateBuffer(
+            new(produced.Length, BufferUsage.CopySource, MemoryAccess.HostUpload, $"{op.Kernel} upload")
+        );
+
+        staging.Add(upload);
+        device.Write(upload, 0, produced);
+        device.BeginFrame();
+
+        var next = device.BeginCommandList(bake.Queue.Kind, "texture graph");
+
+        next.CopyBufferToTexture(upload, 0, new(bake.TextureOf(op.Output)), new(outputSize.X, outputSize.Y, 1));
+
+        // The caller's own textures are handed back the way they arrived: nothing tracks an external
+        // image's state, so leaving one in CopySource would make the next op's read a lie.
+        List<TextureBarrier> restore = [];
+
+        foreach (var input in op.Inputs) {
+            if (plan.Images[input].External) {
+                restore.Add(
+                    new(
+                        TextureFor(schedule, bake, externalTextures, input),
+                        ResourceState.CopySource,
+                        ResourceState.ShaderRead
+                    )
+                );
+            }
+        }
+
+        if (restore.Count > 0) {
+            next.Barrier(new BarrierGroup([], [.. restore]));
+        }
+
+        return next;
+    }
+
+    /// <summary>The texture behind one image, whether the pool made it or the caller supplied it.</summary>
+    static TextureHandle TextureFor(
+        TexturePoolSchedule schedule,
+        TextureBake bake,
+        IReadOnlyDictionary<int, TextureHandle>? externals,
+        int image
+    ) =>
+        schedule.SlotOf[image] >= 0
+            ? bake.TextureOf(image)
+            : externals?[image]
+            ?? throw new ArgumentException(
+                $"Image {image} is external and no texture was supplied for it.",
+                nameof(externals)
+            );
 
     static int Groups(int extent) => (extent + GroupSize - 1) / GroupSize;
 

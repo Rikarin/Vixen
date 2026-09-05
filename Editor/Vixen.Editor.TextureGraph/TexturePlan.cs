@@ -54,7 +54,7 @@ public readonly record struct TextureParameter(
     TextureParameterUnit Unit = TextureParameterUnit.Scalar
 );
 
-/// <summary>One kernel dispatch: what it runs, what it reads, what it writes, and with what.</summary>
+/// <summary>One operation: what it runs, what it reads, what it writes, and with what.</summary>
 /// <remarks>
 ///     <para>
 ///         <b>An op has no resolution of its own, and that is deliberate.</b> Its resolution is the
@@ -69,8 +69,66 @@ public readonly record struct TextureParameter(
 ///     </para>
 /// </remarks>
 public sealed record TextureOp {
-    /// <summary>The kernel's shader name — <c>Blend</c>, <c>Blur</c>, <c>Levels</c>.</summary>
+    /// <summary>The op's name — <c>Blend</c>, <c>Blur</c>, <c>Levels</c>.</summary>
+    /// <remarks>
+    ///     For a dispatch it is the shader's name, which is also its <c>.rvn</c>'s file name. For a
+    ///     <see cref="Cpu" /> op it names the node the same way and nothing looks for a shader:
+    ///     carrying the name in one field rather than two is what lets every message in this
+    ///     assembly say "op 3 runs 'NormalToHeight'" without asking which kind it was.
+    /// </remarks>
     public required string Kernel { get; init; }
+
+    /// <summary>The operation to run on the CPU, or <see langword="null" /> for a compute dispatch.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 48 § 4.6's stated exception to § D3, and until
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/688">#688</a> a plan had no way to
+    ///         hold one.</b> Every op went through <c>VariantFor</c>, which compiles
+    ///         <see cref="Kernel" /> as Raven — so an op naming no <c>.rvn</c> was an exception about
+    ///         an embedded resource. <c>Normal → Height</c> is a Poisson solve over doc 42 § B1's
+    ///         conjugate-gradient solver and there is no GPU formulation of it worth having; see
+    ///         <see cref="ITextureCpuOperation" /> for why that is the whole of the exception and not
+    ///         the start of a second evaluator.
+    ///     </para>
+    ///     <para>
+    ///         <b>The plan's shape does not change around it.</b> A CPU op writes one image, reads
+    ///         its inputs by index, is written to exactly once and dies when its last reader has run
+    ///         — so <see cref="TexturePoolSchedule" /> pools it like any other op and needs to know
+    ///         nothing about it.
+    ///     </para>
+    /// </remarks>
+    public ITextureCpuOperation? Cpu { get; init; }
+
+    /// <summary>
+    ///     The longer side, in texels, of the image this op was emitted for — set only when the op's
+    ///     <em>existence in the list</em> is a function of the bake resolution.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/689">#689</a>: doc 48 § D8
+    ///         promises one graph bakes at any resolution, and two nodes in the catalogue quietly do
+    ///         not.</b> Nearly every node is one dispatch whatever the bake — a blur at 4K is the
+    ///         same op with a radius <see cref="TexturePlan.Resolve" /> scaled — and those ops leave
+    ///         this <see langword="null" />. A jump flood is <c>log2(n)</c> ping-ponged dispatches in
+    ///         the <em>baked</em> extent, an <c>AutoLevels</c> reduction is one dispatch per level
+    ///         down to 1×1, and a flood fill's budget is chosen against the mask's size: their op
+    ///         <em>count</em> is part of the answer. Re-baking such a plan by copying its
+    ///         <see cref="TexturePlan.Ops" /> under a different
+    ///         <see cref="TexturePlan.BakeLevelOffset" /> — which is exactly how a re-bake is
+    ///         expressed, since the plan is a class and the field is <c>init</c>-only — leaves too
+    ///         few halvings, and the distance field is wrong at long range in a way that looks like a
+    ///         soft field rather than like a bug.
+    ///     </para>
+    ///     <para>
+    ///         <b>An extent rather than a bake level, because the extent is what the builder has.</b>
+    ///         A chain builder is handed the width and height of the image it is emitting for and
+    ///         never sees the plan; asking it for a level would mean giving it the plan, or storing
+    ///         the number it does not have. <see cref="TexturePlan.Validate" /> compares this with
+    ///         the longer side of <see cref="Output" /> <em>at this bake</em> and refuses the
+    ///         mismatch, which is the same comparison whatever the two levels were.
+    ///     </para>
+    /// </remarks>
+    public int? EmittedForExtent { get; init; }
 
     /// <summary>The image it writes, as an index into <see cref="TexturePlan.Images" />.</summary>
     public required int Output { get; init; }
@@ -313,7 +371,7 @@ public sealed class TexturePlan {
     }
 
     /// <summary>Everything about this plan that would make an evaluation meaningless.</summary>
-    /// <returns>One message per problem; empty when the plan is sound.</returns>
+    /// <returns>One message per refusal; empty when nothing here stops a bake.</returns>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>An evaluator that refuses is worth much more than one that copes.</b> Every
@@ -322,12 +380,66 @@ public sealed class TexturePlan {
     ///         output fails at pipeline creation with a message about a format nobody chose by hand.
     ///         Naming them here means the failure is about the plan.
     ///     </para>
+    ///     <para>
+    ///         <b>The refusals only.</b> <see cref="Check" /> is the whole answer, and the half this
+    ///         one drops is the warnings — a plan whose blur is wider than its kernel's loop bakes,
+    ///         and bakes a different material. A caller that wants to put those in front of an artist
+    ///         reads <see cref="Check" /> or <see cref="TextureBake.Warnings" />.
+    ///     </para>
     /// </remarks>
-    public ImmutableArray<string> Validate() {
-        var problems = ImmutableArray.CreateBuilder<string>();
+    public ImmutableArray<string> Validate() => Messages(Check(), TextureProblemSeverity.Error);
 
+    /// <summary>Everything this plan bakes differently from the graph it came from.</summary>
+    /// <returns>One message per warning; empty when the bake draws what the graph says.</returns>
+    public ImmutableArray<string> Warnings() => Messages(Check(), TextureProblemSeverity.Warning);
+
+    /// <summary>Everything wrong with this plan, refusals and warnings together.</summary>
+    /// <returns>One entry per problem, in the order the plan is read.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The numbers as well as the shape, which
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/692">#692</a> is the finding that
+    ///         they were not.</b> Everything this checked before was structural — indices, formats,
+    ///         write-once, liveness — and a plan whose numbers were absurd passed and drew a picture
+    ///         nothing described. The layer that can see a resolved number is this one and only this
+    ///         one: a kernel's loop bound is known on the CPU and a kernel cannot raise, while the
+    ///         number that has to be checked is the one <see cref="Resolve" /> produces, which
+    ///         depends on <see cref="BakeLevelOffset" /> and on the image the op writes.
+    ///     </para>
+    ///     <para>
+    ///         <b><c>TextureFilters.Verify</c> is called rather than copied.</b> Its ceilings are the
+    ///         constants in the <c>.rvn</c> files, maintained beside them; a second table here would
+    ///         be a second thing to keep in step with a shader, which is the failure that produces a
+    ///         check reporting the wrong number with total confidence. What #692 asked for is that
+    ///         the walk have a production caller — this is it, and a kernel slice that gives one of
+    ///         its filters a tap budget deletes a line there and nothing here changes.
+    ///     </para>
+    /// </remarks>
+    public ImmutableArray<TextureProblem> Check() {
+        var problems = ImmutableArray.CreateBuilder<TextureProblem>();
+
+        Shape(problems);
+
+        // ⚠ Only over a plan whose shape holds. Resolving a parameter reads the image an op writes,
+        // so asking what a radius is worth on an op whose output index is out of range would throw
+        // out of the method whose whole job is to report rather than throw.
+        if (problems.All(problem => problem.Severity != TextureProblemSeverity.Error)) {
+            foreach (var clipped in TextureFilters.Verify(this)) {
+                problems.Add(TextureProblem.Caution(clipped));
+            }
+        }
+
+        return problems.ToImmutable();
+    }
+
+    /// <summary>The structural half: indices, formats, write-once, liveness and the level arithmetic.</summary>
+    void Shape(ImmutableArray<TextureProblem>.Builder problems) {
         if (BaseWidth <= 0 || BaseHeight <= 0) {
-            problems.Add($"The base resolution is {BaseWidth}×{BaseHeight}, and both axes have to be positive.");
+            problems.Add(
+                TextureProblem.Refusal(
+                    $"The base resolution is {BaseWidth}×{BaseHeight}, and both axes have to be positive."
+                )
+            );
         } else {
             for (var image = 0; image < Images.Length; image++) {
                 // An external image's size is the caller's — the plan's level for it is nominal and
@@ -345,9 +457,11 @@ public sealed class TexturePlan {
                 // ask for; only the doubling direction can run away.
                 if (level < 0 && (Math.Max(BaseWidth, BaseHeight) > MaxExtent >> -Math.Max(level, -31))) {
                     problems.Add(
-                        $"Image {image} is at level {level} of a {BaseWidth}×{BaseHeight} base — "
-                        + $"{Images[image].LevelOffset} of its own plus a bake offset of {BakeLevelOffset} — "
-                        + $"which is past the {MaxExtent}-texel ceiling."
+                        TextureProblem.Refusal(
+                            $"Image {image} is at level {level} of a {BaseWidth}×{BaseHeight} base — "
+                            + $"{Images[image].LevelOffset} of its own plus a bake offset of {BakeLevelOffset} — "
+                            + $"which is past the {MaxExtent}-texel ceiling."
+                        )
                     );
                 }
             }
@@ -361,11 +475,15 @@ public sealed class TexturePlan {
             var op = Ops[index];
 
             if (string.IsNullOrEmpty(op.Kernel)) {
-                problems.Add($"Op {index} names no kernel.");
+                problems.Add(TextureProblem.Refusal($"Op {index} names no kernel."));
             }
 
             if (op.Output < 0 || op.Output >= Images.Length) {
-                problems.Add($"Op {index} writes image {op.Output}, and the table holds {Images.Length}.");
+                problems.Add(
+                    TextureProblem.Refusal(
+                        $"Op {index} writes image {op.Output}, and the table holds {Images.Length}."
+                    )
+                );
 
                 continue;
             }
@@ -374,23 +492,47 @@ public sealed class TexturePlan {
 
             if (target.External) {
                 problems.Add(
-                    $"Op {index} writes image {op.Output}, which the caller supplies. An external image is an "
-                    + "input and is never written."
+                    TextureProblem.Refusal(
+                        $"Op {index} writes image {op.Output}, which the caller supplies. An external image is an "
+                        + "input and is never written."
+                    )
                 );
             }
 
+            // ⚠ A CPU op is written to through a buffer copy and needs no storage image, and it is
+            // still held to this. Every pooled texture is created with TextureUsage.Storage whatever
+            // writes it — one description for one image — so an R8 slot would fail at creation on a
+            // device without shaderStorageImageExtendedFormats rather than at the op that filled it.
             if (!TextureFormats.IsStorable(target.Format)) {
                 problems.Add(
-                    $"Op {index} writes image {op.Output}, which is {target.Format}. Raven declares no storage "
-                    + "image of that format and Vulkan requires none, so no kernel can write it — compute in "
-                    + "Rgba8, R16Float or Rgba16Float and narrow at the encode."
+                    TextureProblem.Refusal(
+                        $"Op {index} writes image {op.Output}, which is {target.Format}. Raven declares no storage "
+                        + "image of that format and Vulkan requires none, so no kernel can write it — compute in "
+                        + "Rgba8, R16Float or Rgba16Float and narrow at the encode."
+                    )
+                );
+            }
+
+            var size = SizeOf(op.Output);
+
+            if (op.EmittedForExtent is { } extent && Math.Max(size.X, size.Y) != extent) {
+                problems.Add(
+                    TextureProblem.Refusal(
+                        $"Op {index} runs '{op.Kernel}' and was emitted for an image {extent} texels on its longer "
+                        + $"side, which at this bake is {size.X}×{size.Y}. Its chain's *length* is a function of "
+                        + "that extent — a jump flood is one dispatch per halving and a reduction is one per level "
+                        + "— so the op list has to be emitted again for this bake rather than re-used with a "
+                        + $"different BakeLevelOffset (this plan's is {BakeLevelOffset})."
+                    )
                 );
             }
 
             if (written[op.Output] >= 0) {
                 problems.Add(
-                    $"Op {index} writes image {op.Output}, which op {written[op.Output]} already wrote. An image "
-                    + "is written once, which is what makes its liveness the op order."
+                    TextureProblem.Refusal(
+                        $"Op {index} writes image {op.Output}, which op {written[op.Output]} already wrote. An image "
+                        + "is written once, which is what makes its liveness the op order."
+                    )
                 );
             } else {
                 written[op.Output] = index;
@@ -398,23 +540,31 @@ public sealed class TexturePlan {
 
             foreach (var input in op.Inputs) {
                 if (input < 0 || input >= Images.Length) {
-                    problems.Add($"Op {index} reads image {input}, and the table holds {Images.Length}.");
+                    problems.Add(
+                        TextureProblem.Refusal(
+                            $"Op {index} reads image {input}, and the table holds {Images.Length}."
+                        )
+                    );
 
                     continue;
                 }
 
                 if (input == op.Output) {
                     problems.Add(
-                        $"Op {index} reads and writes image {input}. A dispatch has no ordering between its own "
-                        + "invocations, so a kernel reading the image it is writing reads whichever half of it "
-                        + "has already run."
+                        TextureProblem.Refusal(
+                            $"Op {index} reads and writes image {input}. A dispatch has no ordering between its own "
+                            + "invocations, so a kernel reading the image it is writing reads whichever half of it "
+                            + "has already run."
+                        )
                     );
                 }
 
                 if (!Images[input].External && written[input] < 0) {
                     problems.Add(
-                        $"Op {index} reads image {input}, which nothing has written yet. An intermediate is "
-                        + "written by an earlier op or supplied by the caller."
+                        TextureProblem.Refusal(
+                            $"Op {index} reads image {input}, which nothing has written yet. An intermediate is "
+                            + "written by an earlier op or supplied by the caller."
+                        )
                     );
                 }
             }
@@ -422,17 +572,32 @@ public sealed class TexturePlan {
 
         foreach (var output in Outputs) {
             if (output < 0 || output >= Images.Length) {
-                problems.Add($"Output {output} is not in a table of {Images.Length}.");
+                problems.Add(TextureProblem.Refusal($"Output {output} is not in a table of {Images.Length}."));
             } else if (!Images[output].External && written[output] < 0) {
-                problems.Add($"Image {output} is an output and nothing writes it.");
+                problems.Add(TextureProblem.Refusal($"Image {output} is an output and nothing writes it."));
             }
         }
 
         if (Outputs.IsDefaultOrEmpty && Ops.Length > 0) {
-            problems.Add("The plan names no outputs, so everything it computes is freed before it is read.");
+            problems.Add(
+                TextureProblem.Refusal(
+                    "The plan names no outputs, so everything it computes is freed before it is read."
+                )
+            );
+        }
+    }
+
+    /// <summary>The messages of one severity, in the order they were found.</summary>
+    static ImmutableArray<string> Messages(ImmutableArray<TextureProblem> problems, TextureProblemSeverity severity) {
+        var messages = ImmutableArray.CreateBuilder<string>();
+
+        foreach (var problem in problems) {
+            if (problem.Severity == severity) {
+                messages.Add(problem.Message);
+            }
         }
 
-        return problems.ToImmutable();
+        return messages.ToImmutable();
     }
 
     /// <summary>One axis at a level, saturating rather than wrapping at either end.</summary>
