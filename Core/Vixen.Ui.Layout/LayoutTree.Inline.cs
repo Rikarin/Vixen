@@ -397,6 +397,14 @@ public sealed partial class LayoutTree {
             var cursor = streamBase;
             var open = OpenInlineBox.None;
 
+            // ⚠ Monotone, and that is the whole of what stops a float being placed twice. A line is
+            // re-broken up to three times and a narrower band can move its end backwards, so "the
+            // floats on this line" is not a stable range — but every float in the stream must reach
+            // the exclusion list exactly once, and a second entry for the same box is an exclusion
+            // that never goes away. So placement is driven by a watermark over the stream rather than
+            // by the line's range: everything below it has been placed, and nothing is placed twice.
+            var floatsPlacedThrough = streamBase;
+
             while (cursor < streamEnd) {
                 var lineStart = cursor;
                 var lineTop = y;
@@ -433,7 +441,13 @@ public sealed partial class LayoutTree {
                     var needed = FirstChunkWidth(lineStart, streamEnd, direction, innerWidth);
                     var probeHeight = 0f;
 
-                    for (var attempt = 0; attempt < 3; attempt++) {
+                    // ⚠ Five rather than three, and the two extra are the float-in-a-run case rather
+                    // than slack. Placing a float mid-line invalidates every measurement taken so far
+                    // — the band moved, so the break, the shift and the height all have to be asked
+                    // again from scratch — and a line can legitimately do that twice, once for a
+                    // left float and once for a right one written beside it. Three attempts is still
+                    // the cap on the height search itself; see `InlineKnownGaps.txt`.
+                    for (var attempt = 0; attempt < 5; attempt++) {
                         lineTop = ShiftLinePastFloats(lineTop, probeHeight, needed, innerWidth, insetLeft);
 
                         var (start, available) = InlineBandForLine(lineTop, probeHeight, innerWidth, insetLeft, direction);
@@ -445,7 +459,32 @@ public sealed partial class LayoutTree {
                             break;
                         }
 
+                        // ⚠ Measured BEFORE the floats are placed, so that the cap-exhaustion path
+                        // still leaves a height belonging to the range `lineEnd` names. Placing a
+                        // float cannot change what is on the line without a re-break, and a re-break
+                        // measures again.
                         metrics = MeasureLine(lineStart, lineEnd, direction, innerWidth);
+
+                        // ── §9.5.1's rules 5 and 6 ──────────────────────────────────────────────
+                        // A float written between two items may not start above the top of the line
+                        // box holding what came before it, which for this walk is `lineTop` exactly.
+                        // Placing it here rather than in `WalkBlockChildren` is what lets it shorten
+                        // the line it is on — including the items ahead of it, which is the half
+                        // that looks wrong and is what Chrome does.
+                        if (PlaceFloatsOnLine(
+                                ref floatsPlacedThrough,
+                                lineEnd,
+                                direction,
+                                innerWidth,
+                                innerHeightForPercentages,
+                                lineTop,
+                                performLayout,
+                                currentDepth
+                            )) {
+                            probeHeight = 0f;
+
+                            continue;
+                        }
 
                         if (metrics.Height <= probeHeight) {
                             break;
@@ -563,6 +602,77 @@ public sealed partial class LayoutTree {
         }
     }
 
+    /// <summary>
+    ///     Places every float the stream carries up to <paramref name="lineEnd" />, at this line's top.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>CSS 2.1 §9.5.1 rules 5 and 6, and the only thing this adds to
+    ///         <see cref="PlaceFloatChild" /> is <i>which</i> vertical position it starts the search
+    ///         from.</b> The block walk hands it the flow cursor; this hands it the top of the line the
+    ///         float was written on. Everything after that — clearance, rule 3's "no higher than an
+    ///         earlier float", the band search of rules 1, 2 and 7 — is the same code, which is why
+    ///         two floats written on one line stack sideways and a third drops below them without a
+    ///         word of new arithmetic.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What is deliberately <i>not</i> here: the float is not pushed below the line when
+    ///         the items already on that line leave it no room.</b> The search consults the exclusion
+    ///         list only, so a float wider than the band left by earlier floats drops, and a float
+    ///         wider than the space left by earlier <i>text</i> does not — it takes the space and the
+    ///         line re-breaks around it. Chrome keeps the earlier items and pushes the float down. No
+    ///         oracle was read for it; <c>InlineKnownGaps.txt</c> carries it rather than a guess.
+    ///     </para>
+    /// </remarks>
+    /// <param name="floatsPlacedThrough">
+    ///     The watermark: everything below it is already in the exclusion list. Advanced past
+    ///     <paramref name="lineEnd" /> on the way out, so a re-break cannot place a float twice.
+    /// </param>
+    /// <param name="lineEnd">One past the last stream entry this line took.</param>
+    /// <param name="direction">The container's inline direction.</param>
+    /// <param name="innerWidth">The container's content-box width.</param>
+    /// <param name="innerHeightForPercentages">What a percentage height resolves against, or NaN.</param>
+    /// <param name="lineTop">The line box's top edge, in the container's coordinates.</param>
+    /// <param name="performLayout">Whether positions are being written.</param>
+    /// <param name="currentDepth">The recursion guard's depth.</param>
+    /// <returns>Whether anything was placed, which is whether the band the line saw has moved.</returns>
+    bool PlaceFloatsOnLine(
+        ref int floatsPlacedThrough,
+        int lineEnd,
+        Direction direction,
+        float innerWidth,
+        float innerHeightForPercentages,
+        float lineTop,
+        bool performLayout,
+        int currentDepth
+    ) {
+        var any = false;
+
+        for (var i = floatsPlacedThrough; i < lineEnd; i++) {
+            if (inlineItems[i].Kind != InlineItemKind.Float) {
+                continue;
+            }
+
+            PlaceFloatChild(
+                inlineItems[i].Node,
+                direction,
+                innerWidth,
+                innerHeightForPercentages,
+                lineTop,
+                performLayout,
+                currentDepth
+            );
+
+            any = true;
+        }
+
+        if (lineEnd > floatsPlacedThrough) {
+            floatsPlacedThrough = lineEnd;
+        }
+
+        return any;
+    }
+
     /// <summary>Whether a child takes part in the line-breaking walk at all.</summary>
     bool ParticipatesInLine(int child) =>
         styles[child].Display != Display.None && styles[child].PositionType != PositionType.Absolute;
@@ -656,10 +766,15 @@ public sealed partial class LayoutTree {
 
             if (item.Kind != InlineItemKind.Atomic) {
                 // An inline box's edge is not a break opportunity and cannot start a line on its own;
-                // it just costs its border, padding and margin wherever it falls.
-                lineWidth += item.Kind == InlineItemKind.Open
-                    ? InlineBoxStartEdge(item.Node, direction, innerWidth)
-                    : InlineBoxEndEdge(item.Node, direction, innerWidth);
+                // it just costs its border, padding and margin wherever it falls. A float costs the
+                // line nothing at all — it is out of flow, and what it takes from the line it takes
+                // by narrowing the band rather than by advancing the pen.
+                if (item.Kind != InlineItemKind.Float) {
+                    lineWidth += item.Kind == InlineItemKind.Open
+                        ? InlineBoxStartEdge(item.Node, direction, innerWidth)
+                        : InlineBoxEndEdge(item.Node, direction, innerWidth);
+                }
+
                 cursor++;
 
                 continue;
@@ -696,9 +811,11 @@ public sealed partial class LayoutTree {
             var item = inlineItems[i];
 
             if (item.Kind != InlineItemKind.Atomic) {
-                width += item.Kind == InlineItemKind.Open
-                    ? InlineBoxStartEdge(item.Node, direction, innerWidth)
-                    : InlineBoxEndEdge(item.Node, direction, innerWidth);
+                if (item.Kind != InlineItemKind.Float) {
+                    width += item.Kind == InlineItemKind.Open
+                        ? InlineBoxStartEdge(item.Node, direction, innerWidth)
+                        : InlineBoxEndEdge(item.Node, direction, innerWidth);
+                }
 
                 continue;
             }
@@ -926,6 +1043,12 @@ public sealed partial class LayoutTree {
         for (var i = lineStart; i < lineEnd; i++) {
             var item = inlineItems[i];
 
+            // Already placed against the exclusion list, in the container's coordinates and not the
+            // line's. It advances no pen and belongs to no fragment.
+            if (item.Kind == InlineItemKind.Float) {
+                continue;
+            }
+
             if (item.Kind == InlineItemKind.Open) {
                 open.Node = item.Node;
                 open.Start = x;
@@ -1143,13 +1266,23 @@ public sealed partial class LayoutTree {
                 // what is in it — but they are not a *minimum*, because they cannot be alone on a
                 // line. Charging them to `preferred` and not to `minimum` is what keeps a heavily
                 // padded span from refusing to wrap.
-                if (item.Kind != InlineItemKind.Atomic) {
+                if (item.Kind is InlineItemKind.Open or InlineItemKind.Close) {
                     preferred += item.Kind == InlineItemKind.Open
                         ? InlineBoxStartEdge(item.Node, direction, availableInnerWidth.OrZero())
                         : InlineBoxEndEdge(item.Node, direction, availableInnerWidth.OrZero());
 
                     continue;
                 }
+
+                // ⚠ <b>A float in a run contributes exactly as an atomic item does, and the reason is
+                // not that it sits on the line — it is that it sits BESIDE it.</b> A float takes
+                // horizontal room away from every line it crosses, so the widest arrangement is the
+                // one where the run and the float share a row: their sum, which is the same
+                // accumulator an atomic feeds. The min-content side is the same too — the widest
+                // single unbreakable thing — because the narrowest useful arrangement is the float
+                // alone on a row with the run wrapped under it. This is the sum
+                // `DetermineBlockContentWidth` already keeps for a float that is a block-level
+                // sibling, moved to where a float in a run can reach it.
 
                 var width = InlineItemContentWidth(
                     item.Node,

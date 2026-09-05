@@ -236,22 +236,68 @@ generated boxes (::before/after)  doc 43's A12. ⚠ ITS PRECONDITION IS NOW MET 
 # the second probe reddens 17, dropping the shift-down reddens 4, dropping the line's start inset
 # reddens 11, and dropping the formatting-context scope reddens exactly the one test that is about it.
 #
+# ══ A FLOAT DECLARED INSIDE A RUN — §9.5.1 RULES 5 AND 6, LANDED ════════════════════════════════
+#
+# ⚠ THIS SECTION USED TO BE TWO ENTRIES SAYING THIS WAS NOT HERE, and the smaller of the two turned
+# out to be the more damaging one. The row said a float between two items ends the run and is placed
+# one line low by `WalkBlockChildren` — true of a floated `block`. A floated `inline-block` did
+# something else entirely: `IsInlineLevel` answers `true` for it, `StartsAnonymousRun` carried the
+# float clause and `AnonymousRunEnd` beside it did NOT, so such a float was swallowed into the run as
+# an ORDINARY ATOMIC ITEM. It sat on the line, advanced the pen, set the line's height, and never
+# reached the exclusion list at all — §9.5 did not happen to it in any form. One clause on the run's
+# start with no matching clause on the run's end.
+#
+# What landed:
+#
+#   · `InlineItemKind.Float`. A float is an entry in the flattened stream, which is what lets the
+#     line walk own its placement. `BuildInlineItems` emits it ahead of the flattening test, so a
+#     floated `inline-block` and a floated `block` take the same path — §9.7's blockification.
+#   · `AnonymousRunEnd` no longer ends a run at a float, so the anonymous block box contains it and
+#     the line walk sees it. `StartsAnonymousRun` still refuses to START one at a float, which keeps
+#     `WalkBlockChildren`'s float branch reachable for a float with no line to sit on — and the two
+#     answers agree there, because the flow cursor and the line top are the same number.
+#   · `PlaceFloatsOnLine`, which is rule 6 and nothing else: the float's placement search starts at
+#     the top of the line it was written on instead of at the flow cursor. Everything after that —
+#     clearance, rule 3, the band search of rules 1, 2 and 7 — is `PlaceFloatChild` unchanged, which
+#     is why two floats on one line stack sideways without new arithmetic.
+#   · A re-break. Placing a float mid-line moves the band, so the line is broken again against it —
+#     which moves the items written BEFORE the float. That is the half that looks wrong and is what
+#     Chrome does: `a` · float · `b` `c` `d` puts `a` at x=50.
+#   · A watermark over the stream rather than a range, because a re-break can move the line's end
+#     backwards and a float placed twice is an exclusion that never goes away.
+#   · `DetermineInlineContentWidth` charges a float to `preferred` and to `minimum` exactly as an
+#     atomic item, which is the third owed row closed. A float takes room from every line it crosses,
+#     so max-content is the arrangement where the float and the run share a row: a shrink-to-fit box
+#     holding a 30-point float and two 50-point items is 130 wide and one line tall, where it used to
+#     be 50 wide and three lines tall — it had refused to make room for a float it contained.
+#
+# The attempt cap went from three to five, and the two extra are for this: placing a float
+# invalidates the break, the shift AND the height, so the search restarts rather than continuing.
+#
 # ⚠ WHAT IS *NOT* HERE, sized rather than half-built:
 #
-#   · A float declared INSIDE a run — §9.5.1's rules 5 and 6. Its own row is in the list below.
+#   · A float is not pushed below the line when the ITEMS already on that line leave it no room.
+#     `PlaceFloatChild`'s search consults the exclusion list only, so a float too wide for the band
+#     left by earlier FLOATS drops and one too wide for the space left by earlier CONTENT does not —
+#     it takes the space and the line re-breaks around it. No Chrome reading was taken for it.
+#   · A float inside a non-atomic inline box. `IsNonAtomicInline` refuses to flatten a span with a
+#     floated child, so such a span stays atomic and its float is an ordinary block-level one placed
+#     against the span itself. Flattening it would rebase the float's position by the span's origin a
+#     second time, because the line walk writes a float in the CONTAINER's coordinates. It is the
+#     fifth restriction in that method's list and has the same shape as the fourth.
 #   · Text wrapping around a float's staircase. A text leaf is one atomic item here and this walk
 #     never breaks inside one, so a paragraph beside a float re-flows as whole leaves. Shortening a
 #     leaf's first line is the fragmentation item three rows down, and it is the same blocker: there
-#     must not be a second text wrapper disagreeing with `TextLayout` about UAX #14.
+#     must not be a second text wrapper disagreeing with `TextLayout` about UAX #14. ⚠ THIS IS THE
+#     ONE ITEM OF THE THREE THAT IS STRUCTURAL RATHER THAN UNWRITTEN, and it does not become
+#     available by trying harder here: `Vixen.Ui.Layout` has no font, no font size and no
+#     `FontRegistry`, which is the same wall the strut is behind.
 #   · `clear` on a line box, which is NOT owed and was measured rather than argued. §9.5.2 applies
 #     `clear` to floating and block-level elements only, and Chrome 148 agrees: `clear: left` on an
 #     `inline-block` beside a left float leaves it exactly where it was, on the same line. A `clear`
 #     on a BLOCK child after an inline run already works, in `WalkBlockChildren`.
 #   · The static position of an absolutely positioned child of an inline run is still the container's
 #     content edge, not the band. §10.3.7's hypothetical box beside a float; no oracle consulted.
-#   · `DetermineInlineContentWidth` ignores floats entirely, so a shrink-to-fit container's intrinsic
-#     width is what it would be with no float in it. CSS Sizing leaves this under-defined and no
-#     fixture in either corpus asks; it is stated here rather than reasoned about.
 
 
 # ══ DELIBERATELY ABSENT — the store still cannot represent it ═══════════════════════════════════
@@ -345,28 +391,15 @@ text-overflow: ellipsis           ⚠ Parley was proposed for this and REFUTED �
                                   directory up: `layout/layout_text.cc` and its siblings are LGPL.
 line-clamp                        the same, one level up
 bidirectional reordering          `Vixen.Ui.Text` has `BidiAlgorithm` and this walk does not call it
-a float inside an inline          ⚠ **§9.5'S MAIN CLAUSE IS DONE — SEE THE FLOAT SECTION ABOVE —
-formatting context                AND THIS IS THE PART THAT IS NOT.** §9.5.1's rules 5 and 6 place a
-                                  float declared *between two items* at the top of the line it was
-                                  written on, where it then shortens that very line. Vixen ends the
-                                  run at the float instead: §9.7 makes a floated box block-level
-                                  whatever its `display` says, so `StartsAnonymousRun` stops there
-                                  and `WalkBlockChildren` places the float at the cursor AFTER the
-                                  run — one line lower than Chrome puts it.
-                                  Measured, not inferred. Chrome 148 on `a` · float · `b` `c` `d`,
-                                  all 50x20 beside a 50x50 left float in a 200-wide box, answers
-                                  a=(50,0) b=(100,0) c=(150,0) d=(50,20) with the float at (0,0).
-                                  Vixen answers a=(0,0), float=(0,20), b=(50,20) c=(100,20)
-                                  d=(150,20). Both are recorded in
-                                  `A_float_between_two_items_still_ends_the_run_rather_than_joining
-                                  _the_line`, which SHOULD FAIL and be inverted when this lands —
-                                  the same shape as `A_span_inside_a_span_is_still_atomic`.
-                                  What it needs, and why it is a separate item rather than more of
-                                  the same one: a float would have to become an entry in the inline
-                                  item stream that the line walk places as it goes, which moves
-                                  float placement out of `WalkBlockChildren`. That is a change to
-                                  the producer in `LayoutTree.InlineItems.cs` and to who owns
-                                  placement — not to the band query, which is finished.
+a float inside an inline          ⚠ **LANDED — see the §9.5.1 RULES 5 AND 6 section above, which
+formatting context                also records what a floated `inline-block` used to do here, which
+                                  was worse than what this row used to claim.** Chrome 148 on `a` ·
+                                  float · `b` `c` `d`, all 50x20 beside a 50x50 left float in a
+                                  200-wide box, answers a=(50,0) b=(100,0) c=(150,0) d=(50,20) with
+                                  the float at (0,0), and that is now Vixen's answer too:
+                                  `A_float_between_two_items_sits_at_the_top_of_the_line_it_was
+                                  _written_on`. The row is kept rather than deleted because the
+                                  reading is the evidence and the inversion is the history.
 `inline-grid`                     would be an alias today, which is what B3 exists to avoid
 `ComputeMinContentSizeUncached`   ⚠ has no inline branch, exactly as it has no grid branch — a
                                   container asked for its min-content size sums its children along

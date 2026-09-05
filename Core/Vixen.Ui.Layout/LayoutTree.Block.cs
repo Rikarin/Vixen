@@ -420,6 +420,18 @@ public sealed partial class LayoutTree {
                 continue;
             }
 
+            // ⚠ A float does not end a run either, and this is CSS 2.1 §9.5.1's rules 5 and 6 rather
+            // than a convenience. §9.7 makes a floated box block-level, which reads like "block-level
+            // content ends the run" — but rules 5 and 6 place such a float at the top of the LINE it
+            // was written on, not below the run that precedes it, and it then shortens that line. So
+            // it belongs to the anonymous block box, and `WalkInlineLines` places it. The run's END
+            // is allowed to be a float for the same reason: a trailing float sits on the last line.
+            if (styles[child].Float != FloatSide.None) {
+                end = i + 1;
+
+                continue;
+            }
+
             if (!IsInlineLevel(styles[child].Display)) {
                 break;
             }
@@ -432,11 +444,15 @@ public sealed partial class LayoutTree {
 
     /// <summary>Whether this child begins a run that §9.2.1.1 wraps in an anonymous block box.</summary>
     /// <remarks>
-    ///     ⚠ A floated child never does, however it is displayed: §9.7 makes it block-level, and the
-    ///     anonymous-run path would hand it to <c>WalkInlineLines</c>, which knows nothing about
-    ///     exclusions and would put it on a line. The float branch in <see cref="WalkBlockChildren" />
-    ///     is the only correct destination, and this test is what leaves it reachable. The same clause
-    ///     is in <c>EstablishesInlineFormattingContext</c> one file over, for the same reason.
+    ///     ⚠ <b>A floated child never <i>starts</i> one, and — since §9.5.1's rules 5 and 6 landed —
+    ///     it does not end one either.</b> The two are not in tension. A float written between two
+    ///     inline-level boxes is placed by <see cref="WalkInlineLines" /> at the top of the line it was
+    ///     written on, which is what rule 6 says and what <c>InlineItemKind.Float</c> exists for; a
+    ///     float with no inline-level box before it has no line to sit on, so the float branch in
+    ///     <see cref="WalkBlockChildren" /> places it where the flow cursor is, which is the same
+    ///     answer. What this test buys is that the second case stays reachable at all. The clause in
+    ///     <c>EstablishesInlineFormattingContext</c> one file over is still absolute for a different
+    ///     reason: that path has no float scope of its own to place one into.
     /// </remarks>
     bool StartsAnonymousRun(int child) =>
         ParticipatesInLine(child) && IsInlineLevel(styles[child].Display) && styles[child].Float == FloatSide.None;

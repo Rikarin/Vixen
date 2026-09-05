@@ -42,9 +42,13 @@
 #
 # float-beside-inline-content     §9.5's main event, above. CLOSED against a Chrome-built oracle
 #                                 rather than against anything in this corpus; `InlineKnownGaps.txt`
-#                                 owns what is left, which is a float declared INSIDE a run, the
-#                                 staircase a broken text leaf would wrap around, and the intrinsic
-#                                 width of a shrink-to-fit container that holds a float.
+#                                 owns what is left. ⚠ TWO OF THE THREE THINGS THAT ROW USED TO NAME
+#                                 HAVE SINCE CLOSED TOO — a float declared INSIDE a run (§9.5.1's
+#                                 rules 5 and 6) and the intrinsic width of a shrink-to-fit container
+#                                 that holds one. What is left is the staircase a broken text leaf
+#                                 would wrap around, and that one is structural rather than
+#                                 unwritten: it needs a text wrapper below `Vixen.Ui`, which is the
+#                                 same wall §10.8's strut is behind.
 #
 # float-in-auto-centred-block     `LayoutTree.Block`'s float origin reads an `auto` inline margin as
 #                                 its stated value rather than its resolved one, because resolving
