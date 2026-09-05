@@ -150,6 +150,24 @@ public class TextureExternalUsageTests {
         device.Destroy(source);
     }
 
+    /// <summary>A plan with an external image and no externals at all is still refused by image.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The path the two overloads share, and the one a null could have fallen through.</b>
+    ///     Omitting the argument reaches the declaring overload as an empty map rather than as a null,
+    ///     so the refusal has to come from the plan's own external images and not from the map being
+    ///     absent — a check written the other way round would pass a plan whose bitmap input was
+    ///     simply never supplied.
+    /// </remarks>
+    [Fact]
+    public void A_plan_with_an_external_image_and_no_externals_is_refused() {
+        using var device = new NullDevice(new());
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        var refusal = Assert.Throws<ArgumentException>(() => evaluator.Evaluate(Sampled()));
+
+        Assert.Contains("Image 0 is external", refusal.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>
     ///     An external only a CPU op reads is not asked for Sampled, because nothing binds it.
     /// </summary>
