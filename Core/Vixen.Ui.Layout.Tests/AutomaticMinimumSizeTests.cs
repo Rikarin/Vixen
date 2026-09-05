@@ -411,6 +411,94 @@ public class AutomaticMinimumSizeTests {
     ///     the same width under every measure mode, so what the tests observe is the floor rather
     ///     than the measurer being clever.
     /// </remarks>
+    /// <summary>
+    ///     A text leaf's block-axis floor is the height it takes at the width it will be given, and
+    ///     the box between it and its container declares no width at all.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is <c>Rikarin/Vixen#623</c>, and the number it used to produce was not
+    ///         merely wrong but unbounded.</b> §4.5's floor for the row is its min-content height,
+    ///         which is a question about the text inside it — and the recursion handed the text the
+    ///         row's <i>percentage basis</i>, which CSS Sizing §5.2.1 makes zero for a box with no
+    ///         definite width. So the run was measured in a width of nothing, reported a line per
+    ///         point of ink, and the item was floored sixty times too tall.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The declared <c>flex-basis</c> on the row is what makes this observable at all,
+    ///         and it is the whole reason this test is shaped the way it is.</b>
+    ///         <c>ComputeAutoMinMainSize</c> caps the floor at the item's own flex basis whenever
+    ///         that basis was MEASURED — an inequality that hides every over-reported floor in this
+    ///         method, and which is still load-bearing for #265's second defect. A declaration is
+    ///         not a measurement, so this row's floor reaches the algorithm unclamped and the defect
+    ///         becomes a number. The corpus fixtures that name the same bug — <c>blitz_issue_88</c>
+    ///         and the two <c>bevy_issue_9530</c> families — are all measured leaves and are all
+    ///         green either way, which is what kept this open.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(600f, 10f)]
+    [InlineData(300f, 20f)]
+    [InlineData(150f, 40f)]
+    public void A_leaf_below_a_box_that_declares_no_width_is_measured_at_the_width_it_will_have(
+        float width,
+        float height
+    ) {
+        using var tree = new LayoutTree();
+
+        // Five points tall, so the row cannot fit its content and its §4.5 floor is what decides
+        // the answer rather than the space available.
+        var root = tree.CreateNode();
+        tree.SetFlexDirection(root, FlexDirection.Column);
+        tree.SetDimension(root, Dimension.Width, StyleLength.Points(width));
+        tree.SetDimension(root, Dimension.Height, StyleLength.Points(5f));
+
+        var row = tree.CreateNode();
+        tree.SetFlexDirection(row, FlexDirection.Row);
+        tree.SetFlexGrow(row, 1f);
+        tree.SetFlexShrink(row, 1f);
+        tree.SetFlexBasis(row, StyleLength.Points(0f));
+        tree.AddChild(root, row);
+
+        var text = tree.CreateNode();
+        tree.SetFlexGrow(text, 1f);
+        tree.SetFlexShrink(text, 1f);
+        tree.SetFlexBasis(text, StyleLength.Points(0f));
+        tree.SetMeasureFunction(text, MeasureWrappedRun);
+        tree.AddChild(row, text);
+
+        tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
+
+        // The run fills the width it is given and the height is the ink over that width, so halving
+        // the container doubles the height exactly. Both numbers are arithmetic, not a recording.
+        Assert.Equal(width, tree.GetWidth(text), Tolerance);
+        Assert.Equal(height, tree.GetHeight(row), Tolerance);
+        Assert.Equal(height, tree.GetHeight(text), Tolerance);
+    }
+
     static LayoutSize MeasureFixedContent(in MeasureRequest request) =>
         new((float) (request.Context ?? 0f), 20f);
+
+    /// <summary>Six hundred points of run that breaks anywhere, ten points to the line.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Area-preserving on purpose, so every expectation below is arithmetic rather than a
+    ///     recorded number.</b> The run has a fixed amount of ink and no unbreakable piece, so the
+    ///     height it takes is the ink over the room it is given — halve the width and the height
+    ///     doubles, exactly. A measurer that answered a remembered pair of numbers could be
+    ///     satisfied by a probe measuring at any width at all.
+    /// </remarks>
+    static LayoutSize MeasureWrappedRun(in MeasureRequest request) {
+        const float ink = 600f;
+        const float line = 10f;
+
+        var available = request.WidthMode == MeasureMode.Undefined || float.IsNaN(request.AvailableWidth)
+            ? ink
+            : MathF.Max(0f, request.AvailableWidth);
+
+        // A room of nothing is a line per point rather than a division by zero — which is what the
+        // probe used to ask for, and why the floor it computed was sixty times too tall.
+        var lines = available <= 0f ? ink : MathF.Ceiling(ink / available);
+
+        return new LayoutSize(MathF.Min(available, ink), lines * line);
+    }
 }

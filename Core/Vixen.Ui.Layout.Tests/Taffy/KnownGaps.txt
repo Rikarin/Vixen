@@ -139,6 +139,27 @@
 # defects above, and bevy_issue_9530 — which the §9.7 heading expected the cap to be holding back —
 # was not waiting on it either.
 #
+# ⚠ A THIRD PROBE DEFECT CLOSED, AND THE CAP STILL CANNOT GO. The block-axis probe measured a text
+# leaf at whatever `ownerWidth` the recursion happened to be carrying, and that number is the
+# PERCENTAGE BASIS — which §5.2.1 makes ZERO under a box with no definite width of its own. So a
+# paragraph below such a box was measured in a width of nothing and reported a line per breakable
+# piece. `probeWidth` is now threaded beside `ownerWidth` as a separate quantity meaning "how much
+# room the text will really have"; see LayoutTree.ProbeInlineSize, and
+# AutomaticMinimumSizeTests.A_leaf_below_a_box_that_declares_no_width_is_measured_at_the_width_it_
+# will_have for the witness — which needs a DECLARED flex-basis on the intervening row, because the
+# cap below hides the defect on every measured one.
+#
+# ⚠ Measured on a full Vixen.Ui.Layout.Tests run, 6 342 tests, before and after, cap on and cap off:
+#     cap on,  probe old:   0 failed        cap off, probe old:  22 failed
+#     cap on,  probe new:   0 failed        cap off, probe new:  14 failed
+# The eight that the probe fix buys are all four blitz_issue_88 and all four bevy_issue_9530_reduced.
+# ⚠ So #623's headline — "the last thing standing between the cap and its removal", and "deleting the
+# cap turns exactly these sixteen red and nothing else, now that #265's grid half is closed" — is
+# REFUTED on both halves. #265's grid half is NOT closed (there is still no grid branch in
+# ComputeMinContentSizeUncached), the four gridflex_row_integration variants are among the 22, and
+# four bevy_issue_9530 and four measure_child_with_min_size_greater_than_available_space still fail
+# with the cap off. The cap comes out when the grid branch lands, not before.
+#
 # ⚠ percentage_flex_basis_cross_min_height CLOSED with §9.2's unclamped flex base, which is written up
 # under §9.7 below. It sat here rather than there because its symptom is a cross-axis minimum, and it
 # is the one fixture in this bucket that the base/hypothetical split reached.

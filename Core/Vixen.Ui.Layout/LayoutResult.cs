@@ -168,6 +168,16 @@ public struct LayoutResult {
     /// <summary>The owner height <see cref="MinContentSizes" /> was computed against.</summary>
     public float MinContentOwnerHeight;
 
+    /// <summary>The inline size a text leaf below was measured at for <see cref="MinContentSizes" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A third key, because the probe width and the owner width are two numbers.</b> The
+    ///     owner width is what a descendant's percentages resolve against, and CSS Sizing §5.2.1
+    ///     makes it zero below a box with no definite width; the probe width is how much room the
+    ///     text will really have. Keying only on the first hands back a height measured in a
+    ///     different width. See <c>LayoutTree.ProbeInlineSize</c>.
+    /// </remarks>
+    public float MinContentProbeWidth;
+
     /// <summary>
     ///     The vertical margins that escaped past this node's top edge, per CSS 2.1 §8.3.1.
     /// </summary>

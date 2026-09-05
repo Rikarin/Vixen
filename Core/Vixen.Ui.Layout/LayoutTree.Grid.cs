@@ -1339,7 +1339,10 @@ public sealed partial class LayoutTree {
 
         var margin = StyleResolution.MarginForAxis(in styles[child], FlexDirection.Row, ownerWidth);
 
-        var minContent = MinContentContribution(child, FlexDirection.Row, direction, ownerWidth, ownerHeight) + margin;
+        // The probe width is the owner width here for the same reason the block path above uses it:
+        // a grid item's inline size is the track's, which is what this measurement is being taken to
+        // decide, so the containing block's inline size is the nearest honest bound.
+        var minContent = MinContentContribution(child, FlexDirection.Row, direction, ownerWidth, ownerHeight, ownerWidth) + margin;
 
         // ⚠ <b>The owner size handed to the max-content probe is NaN, and passing the real one is a
         // bug that looks like a track-sizing bug.</b> CSS Sizing §5.2.1: while an intrinsic
