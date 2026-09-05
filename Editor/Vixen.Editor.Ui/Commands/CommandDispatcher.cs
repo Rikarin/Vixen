@@ -26,6 +26,15 @@ namespace Vixen.Editor.Ui;
 ///         <b>Auto-repeat is ignored.</b> Holding Ctrl+S must save once; the platform reports a
 ///         stream of presses and <see cref="KeyEvent.IsRepeat" /> is what tells them apart.
 ///     </para>
+///     <para>
+///         ⚠ <b>The chord goes through <see cref="CommandRoute" /> before the table, and it used not
+///         to.</b> A chord resolved to an id and then went straight to <see cref="CommandRegistry" />
+///         — a flat lookup — so an element that had registered a handler for that id answered the
+///         menu item and not the shortcut printed beside it. The same verb reached two different
+///         handlers depending on how it was invoked, and the difference was invisible because both
+///         did *something*. Now the element walk runs first: a caret in a text box means ⌘C copies
+///         the text, exactly as clicking Edit ▸ Copy already did.
+///     </para>
 /// </remarks>
 public sealed class CommandDispatcher {
     readonly CommandRegistry commands;
@@ -82,8 +91,15 @@ public sealed class CommandDispatcher {
         // ⚠ Resolved against the context that has the focus, which is what lets the outliner and the
         // content browser both answer Delete. A chord with no binding in that context falls back to
         // the global one — see `KeyMap.CommandFor` — so nothing has to re-declare Ctrl+S per panel.
-        if (keys.CommandFor(chord, commands.FocusedContext?.Invoke()) is not { } id
-            || !commands.TryGet(id, out var command)) {
+        if (keys.CommandFor(chord, commands.FocusedContext?.Invoke()) is not { } id) {
+            return false;
+        }
+
+        if (Focused(document, id) is { } focused) {
+            return Run(focused, id, args);
+        }
+
+        if (!commands.TryGet(id, out var command)) {
             return false;
         }
 
@@ -108,6 +124,46 @@ public sealed class CommandDispatcher {
         args.Handled = true;
 
         return true;
+    }
+
+    /// <summary>The element leg of <see cref="CommandRoute" />, or <c>null</c> when nothing in the
+    ///     tree answers.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The whole route and not an element-only walk, filtered on
+    ///         <see cref="CommandHandler.Element" />.</b> The tail of the chain is
+    ///         <see cref="CommandRegistry" /> itself — <see cref="EditorShell" /> installs it as the
+    ///         document's <see cref="UiDocument.ApplicationCommandResponder" /> — so a resolve that
+    ///         reached the end would hand back the very command this method exists to fall through
+    ///         to, and running it here would skip the scope gate below. A non-element answer means
+    ///         "the tree was silent", which is the same thing <c>null</c> means.
+    ///     </para>
+    /// </remarks>
+    static CommandHandler? Focused(UiDocument document, string id) =>
+        CommandRoute.Resolve(document, id) is { Element: not null } handler ? handler : null;
+
+    /// <summary>Runs what the focused element answered with, or reports that it refused.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A refusal here does not fall through to the editor's command of the same id.</b>
+    ///     <c>Commands.cs</c>'s defining rule is that the nearest responder that answers wins and its
+    ///     <see cref="CommandHandler.CanExecute" /> is the only one asked; an empty text box saying
+    ///     no to <c>edit.select-all</c> must not then select every entity in the scene.
+    /// </remarks>
+    bool Run(CommandHandler handler, string id, KeyEvent args) {
+        args.Handled = true;
+
+        if (handler.CanExecute) {
+            handler.Run();
+            return true;
+        }
+
+        // The editor's command is what names the verb on screen, so a refusal reports it when there
+        // is one. A control answering an id the registry never heard of refuses in silence.
+        if (commands.TryGet(id, out var named)) {
+            Refused?.Invoke(named);
+        }
+
+        return false;
     }
 
     /// <summary>Whether a chord may be taken given where the focus is.</summary>
