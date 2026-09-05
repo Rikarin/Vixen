@@ -432,6 +432,8 @@ Vixen.Ui.FocusDirection.Next = 0 -> Vixen.Ui.FocusDirection
 Vixen.Ui.FocusDirection.Previous = 1 -> Vixen.Ui.FocusDirection
 Vixen.Ui.FocusEvent -> sealed class
 Vixen.Ui.FocusEvent : Vixen.Ui.UiEvent
+Vixen.Ui.FocusEvent.Cancel.get -> bool
+Vixen.Ui.FocusEvent.Cancel.set -> bool
 Vixen.Ui.FocusEvent.FocusEvent() -> void
 Vixen.Ui.FocusEvent.Gained.get -> bool
 Vixen.Ui.FocusEvent.Gained.init -> bool
@@ -1227,7 +1229,7 @@ Vixen.Ui.UiDocument.Draw(Vixen.Ui.UiSurface surface) -> bool
 Vixen.Ui.UiDocument.Drawing.get -> Vixen.Ui.DrawList
 Vixen.Ui.UiDocument.Effects.get -> Vixen.Ui.Reactive.EffectScheduler
 Vixen.Ui.UiDocument.FindInDirection(Vixen.Ui.UiElement origin, Vixen.Ui.NavigationDirection direction) -> Vixen.Ui.UiElement?
-Vixen.Ui.UiDocument.Focus(Vixen.Ui.UiElement? element) -> bool
+Vixen.Ui.UiDocument.Focus(Vixen.Ui.UiElement? element, bool force = false) -> bool
 Vixen.Ui.UiDocument.Focused.get -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Fonts.get -> Vixen.Ui.FontRegistry
 Vixen.Ui.UiDocument.ForegroundOf(Vixen.Ui.UiElement element) -> Vixen.Core.Mathematics.Color4
@@ -1242,6 +1244,8 @@ Vixen.Ui.UiDocument.Invalidate() -> void
 Vixen.Ui.UiDocument.InvalidateAccessibility() -> void
 Vixen.Ui.UiDocument.InvalidateCommands() -> void
 Vixen.Ui.UiDocument.InvokeAccessKey(char key) -> bool
+Vixen.Ui.UiDocument.KeySurface.get -> Vixen.Ui.UiSurface?
+Vixen.Ui.UiDocument.KeySurface.set -> Vixen.Ui.UiSurface?
 Vixen.Ui.UiDocument.KeyboardMode.get -> bool
 Vixen.Ui.UiDocument.KeywordOf(Vixen.Ui.Styling.ComputedStyle style, int property) -> string?
 Vixen.Ui.UiDocument.Language.get -> string

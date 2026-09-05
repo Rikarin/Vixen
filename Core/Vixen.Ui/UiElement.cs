@@ -1893,6 +1893,20 @@ public partial class UiElement : Composition.IComposable {
     /// </remarks>
     public bool IsHitTestVisible => !Document.PointerEventsNone(Style) && !Document.Invisible(Style);
 
+    /// <summary>Whether <c>display: none</c> has taken this element and its subtree out of the tree.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Reads the private field rather than <see cref="Document" />, so a detached element
+    ///     answers false instead of throwing.</b> <see cref="UiDocument.TabOrder" /> is public, static
+    ///     and takes any element, and it has never needed a document; making it throw on one that was
+    ///     built but not yet added would be a new failure in a method that used to be a tree walk.
+    ///     An unbound element's <see cref="Style" /> is <c>ComputedStyle.Empty</c>, which declares
+    ///     nothing, so the answer would be false either way.
+    /// </remarks>
+    internal bool IsUndisplayed => document is not null && document.Undisplayed(Style);
+
+    /// <summary>Whether <c>visibility</c> hides this element. Inherited, so it is a per-element read.</summary>
+    internal bool IsStyleHidden => document is not null && document.Invisible(Style);
+
     /// <summary>Listens for an event on its way through this element.</summary>
     /// <typeparam name="T">The event type.</typeparam>
     /// <param name="handler">What to run.</param>

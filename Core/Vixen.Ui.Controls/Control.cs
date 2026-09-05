@@ -229,8 +229,13 @@ public abstract partial class Control : UiElement {
             // Before the focus is refused rather than after. A control disabled while it has the
             // focus keeps it otherwise, and the keyboard then talks to something that will not
             // answer — with no way out, because Tab starts from wherever the focus is.
+            //
+            // ⚠ Forced, and it is the third path that is not a user's decision — beside removal and
+            // teardown. A control that can refuse to resign the focus could otherwise refuse to be
+            // disabled, and the sentence above says what that costs: the keyboard is left talking to
+            // something that will not answer, with no way out, because Tab starts from the focus.
             if (IsFocused) {
-                Document.Focus(null);
+                Document.Focus(null, force: true);
             }
         } else {
             State &= ~ElementState.Disabled;

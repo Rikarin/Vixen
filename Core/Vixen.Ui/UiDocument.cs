@@ -37,6 +37,7 @@ namespace Vixen.Ui;
 public sealed partial class UiDocument : IDisposable {
     readonly DrawListBuilder drawings;
     readonly int pointerEvents;
+    readonly int display;
     readonly int visibility;
     readonly int visibilityHidden;
     readonly int visibilityCollapse;
@@ -142,6 +143,7 @@ public sealed partial class UiDocument : IDisposable {
         reader = new StyleValueParser(Styles.Values, Styles.Names);
 
         pointerEvents = Styles.Properties.Intern("pointer-events");
+        display = Styles.Properties.Intern("display");
         visibility = Styles.Properties.Intern("visibility");
         visibilityHidden = Styles.Values.Intern("hidden");
         visibilityCollapse = Styles.Values.Intern("collapse");
@@ -761,7 +763,12 @@ public sealed partial class UiDocument : IDisposable {
     void Release(UiElement element) {
         for (var focused = Focused; focused is not null; focused = focused.Parent) {
             if (ReferenceEquals(focused, element)) {
-                Focus(null);
+                // ⚠ Forced, and it is the reason `force` exists. A removal is not a move the user
+                // asked for, so a field refusing to resign while its value is invalid must not be
+                // able to refuse being deleted — the alternative is a document holding a focus that
+                // points into a subtree it has just detached, which every read of `Focused` after
+                // that would throw on.
+                Focus(null, force: true);
                 break;
             }
         }
@@ -1878,6 +1885,24 @@ public sealed partial class UiDocument : IDisposable {
     /// </remarks>
     internal bool Invisible(ComputedStyle style) =>
         style.TryGet(visibility, out var value) && (value == visibilityHidden || value == visibilityCollapse);
+
+    /// <summary>Whether <c>display</c> takes this element and everything inside it out of the tree.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read off the declared style rather than off the zero box layout gives it</b>, which is
+    ///     the other way round from <c>AccessKeys.Collect</c>. The box is the same answer once layout
+    ///     has run and a different one before it has: an element that is merely <i>not laid out yet</i>
+    ///     also measures zero, and so does a legitimately empty one — a focusable box collapsed to
+    ///     nothing by its flex line is still a control the user can Tab to, and reading the box would
+    ///     silently take it out of the order. The property says what was meant; the rectangle says
+    ///     what happened.
+    ///     <para>
+    ///         Not inherited, unlike <see cref="Invisible" />, so a walk that wants a hidden subtree
+    ///         gone has to stop descending here rather than test each descendant — a child of a
+    ///         <c>display: none</c> parent has its own computed <c>display</c> and it is not
+    ///         <c>none</c>.
+    ///     </para>
+    /// </remarks>
+    internal bool Undisplayed(ComputedStyle style) => style.TryGet(display, out var value) && value == none;
 
     /// <summary>The base bidi level an element's text is laid out at, from its <c>direction</c>.</summary>
     /// <remarks>

@@ -16,6 +16,8 @@ public sealed partial class UiDocument {
     /// </remarks>
     int nextSurface = 1;
 
+    UiSurface? keySurface;
+
     /// <summary>Everywhere this document is shown, the primary one first.</summary>
     public IReadOnlyList<UiSurface> Surfaces => surfaces;
 
@@ -25,6 +27,52 @@ public sealed partial class UiDocument {
     ///     which is what keeps a single-window application from having to know surfaces exist.
     /// </remarks>
     public UiSurface Primary => surfaces[0];
+
+    /// <summary>The surface the window manager says the user is in, or <c>null</c> if none is.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><c>NSApp.keyWindow</c>, and until this existed there was no answer to the
+    ///         question.</b> Keys are not routed by surface — <see cref="Dispatch(KeyEvent)" /> takes
+    ///         none, unlike the pointer and the wheel, because the focus is the document's — so with
+    ///         nothing focused every keystroke landed on <see cref="Primary" />'s root. In a
+    ///         one-window application that is right by construction; in one that has torn a panel off
+    ///         it means a key pressed in the inspector ran against the main window.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Written by whoever bridges the platform, and it was being thrown away.</b>
+    ///         <c>PlatformEventKind.WindowFocusGained</c> and <c>WindowFocusLost</c> are produced by
+    ///         every backend the engine has and the UI bridge had no arm for either, so they fell to
+    ///         its <c>default</c> and were dropped — a producer with no consumer, which is this
+    ///         repository's standing defect with the ends swapped.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It does not move the focus and must not.</b> <see cref="Focused" /> stays a single
+    ///         document-global element: this is the fallback for when there is none, not a second
+    ///         focus. A per-surface <c>Focused</c> is the larger change and is owed; what this buys is
+    ///         that the fallback is the window the user is looking at rather than the first one the
+    ///         application happened to open.
+    ///     </para>
+    /// </remarks>
+    /// <exception cref="ArgumentException">The surface belongs to another document.</exception>
+    public UiSurface? KeySurface {
+        get => keySurface;
+        set {
+            if (value is not null && !ReferenceEquals(value.Document, this)) {
+                throw new ArgumentException("that surface belongs to another document.", nameof(value));
+            }
+
+            keySurface = value;
+        }
+    }
+
+    /// <summary>Where a keystroke goes when nothing holds the focus.</summary>
+    /// <remarks>
+    ///     ⚠ Three <c>Dispatch</c> overloads and <see cref="CommandRoute.Origin" /> all wrote
+    ///     <c>Focused ?? Root</c> independently, which is four places that had to agree about a rule
+    ///     none of them stated. They are one expression now, and the key surface slots into the middle
+    ///     of it rather than into four.
+    /// </remarks>
+    internal UiElement KeyTarget => Focused ?? keySurface?.Root ?? Root;
 
     /// <summary>Raised when a surface is added or taken away.</summary>
     /// <remarks>
@@ -132,6 +180,14 @@ public sealed partial class UiDocument {
 
         if (surface.IsPrimary || !ReferenceEquals(surface.Document, this) || !surfaces.Remove(surface)) {
             return false;
+        }
+
+        // ⚠ Before `Retire`, and it is not tidiness: a closed window that stayed the key surface
+        // would leave `KeyTarget` pointing into a subtree that has been removed from the document,
+        // and `UiElement.Document` throws on one of those. The window manager will name the next key
+        // window in its own time; until it does, the answer is the primary surface again.
+        if (ReferenceEquals(keySurface, surface)) {
+            keySurface = null;
         }
 
         surface.Root.MarkSurface(null);

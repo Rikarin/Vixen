@@ -283,6 +283,22 @@ public abstract partial class TextField : Control {
         caretColor = Document.PropertyId("--caret-color");
         caretColorStandard = Document.PropertyId("caret-color");
 
+        // ⚠ The first thing in this repository ever to register an element command handler, and that
+        // is the point of it rather than a side effect. `CommandRoute`'s rule — the nearest responder
+        // that answers wins, all the way out — had no production responders at all, so the element
+        // leg of the walk always found nothing and the whole design was unfalsifiable outside its own
+        // tests. A focused field answering Select All is the smallest true instance of it: a menu
+        // item now means "select this field's text" while the caret is here and whatever the shell
+        // says when it is not, with nothing shell-shaped in the control.
+        //
+        // ⚠ Select All and no other editing verb, and the absence is not an oversight. Cut, Copy and
+        // Paste cannot be registered honestly because nothing above `Vixen.Platform` can reach
+        // `IClipboard`, and Undo and Redo cannot because no undo manager exists below the editor's
+        // `CommandStack`. A handler that ran and did nothing would be worse than none — the route
+        // would report the verb as available and the menu item would go live.
+
+        AddCommandHandler("edit.select-all", SelectAll, () => !Disabled && !string.IsNullOrEmpty(Value));
+
         AddHandler<KeyEvent>(static (element, args) => ((TextField) element).Keyed(args));
         AddHandler<TextInputEvent>(static (element, args) => ((TextField) element).Typed(args));
         AddHandler<TextCompositionEvent>(static (element, args) => ((TextField) element).Composing(args));
