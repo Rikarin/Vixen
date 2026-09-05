@@ -18,9 +18,8 @@ Clean ──► Restore ──► Compile ──┬─► Test ─────�
         GenerateApiBaseline ────┤                     ├─► Benchmark
                                 │                     │
         CheckArchitecture ──────┤                     ├─► GoldenImages
-        CheckApi ───────────────┤                     ├─► AotSmoke
-        CheckFormat ────────────┘                     └─► Coverage
-                                                          │
+        CheckApi ───────────────┤                     └─► AotSmoke
+        CheckFormat ────────────┘                         │
                                                      Docs ─┴─► Release (tag-triggered)
 ```
 
@@ -36,7 +35,7 @@ Clean ──► Restore ──► Compile ──┬─► Test ─────�
 | `CheckArchitecture` | walks the project reference graph and asserts the layer rules from [00](00-vision-and-principles.md) — most importantly that `Vixen.Ui` does not reference `Vixen.Engine`, and that no `Core/*` project references a `Platform/*` implementation. Also enforces **ADR-002**: fails if `Mono.Cecil`, `dnlib`, `ILRepack`, `Fody`, or any IL-rewriting `AfterCompile`/`AfterBuild` target appears in the restore graph or the evaluated MSBuild target graph of any project. And **ADR-015**: fails if an authoring-format importer reaches a runtime (non-editor, non-tooling) assembly, and if any `Silk.NET.Vulkan` type appears in `Vixen.Graphics`' public surface (ADR-001, keeping D3D12 mappable). ⚠️ **This row used to name `SixLabors.ImageSharp` as the package the rule guards.** It no longer does — nothing in the repository references ImageSharp, it has no `PackageVersion` to reference, and a rule naming it read as though it were still a dependency. `Silk.NET.Assimp` is what the rule now carries. |
 | `CheckApi` | ✅ `Tools/Vixen.ApiCheck` reads the public surface of every packable assembly out of the built binary and diffs it against `PublicAPI.Shipped.txt` + `PublicAPI.Unshipped.txt` beside the project. Unapproved additions fail, and so do removals — a deleted `public` method compiles perfectly and breaks every consumer, and nothing else in the build would notice. `--update-api` rewrites the unshipped half; shipped API is only ever withdrawn through a `*REMOVED*` line, so a break is a line somebody wrote rather than an absence nobody looked for. Coverage is the RUNTIME profile: `Core/**` and `Platform/**`, non-test, non-generator, packable, `net10.0`. The subject is always the **Release** build, whatever `--configuration` says — a surface is a promise about a shipped package, and the two configurations disagree wherever a `public const` is `#if DEBUG`. See [Tools/Vixen.ApiCheck](../../Tools/Vixen.ApiCheck/README.md) |
 | `CheckFormat` | `dotnet format style` and `dotnet format analyzers`, both `--verify-no-changes`. **Not `whitespace`**: the repository indents a lambda body passed as an argument one level further than `dotnet format` does — uniformly, in every file — and no `.editorconfig` key expresses that, so the whitespace pass reports ~900 violations against code that is entirely self-consistent. The brace and spacing rules the config *can* express are written down in `.editorconfig § Layout`, which took that number down from roughly forty thousand. The narrowing is real and reversible: the alternative is to reformat twenty-eight files against the tool that actually formats them. |
-| `Test` | `dotnet test` with xunit v3, collecting coverage; enforces per-project coverage floors and the allocation gates. Passes `.runsettings`, which exists solely to set environment that has to be in place *before* the process starts (see below) |
+| `Test` | xunit v3 over every test project, and the allocation gates run inside it as ordinary tests. Passes `.runsettings`, which exists solely to set environment that has to be in place *before* the process starts (see below). ⚠️ **Collects no coverage and enforces no floor, and this row used to say it did both** — see § Coverage below for why `Coverage` is off the graph rather than owed |
 | `GoldenImages` | ✅ renders the fixture suite on the local backend — lavapipe on the Linux leg, MoltenVK on macOS — and compares it with the committed references; writes the rendering, the reference and a diff into `artifacts/golden-diff/` on failure, which CI uploads. `--update-golden` rewrites the references. The fixtures also run under `Test`, so a wrong picture fails an ordinary build; the separate target exists for the diffs and the switch. |
 | `AotSmoke` | `PublishAot` + `PublishTrimmed` of `Samples/01` and `Samples/02` per RID; **any IL2xxx/IL3xxx warning fails** |
 | `Benchmark` | BenchmarkDotNet over `Benchmarks/*`; compares against a committed baseline JSON; fails on > 10 % regression or any allocation-count increase |
@@ -165,6 +164,37 @@ files.
   whichever finished last. The build still fails on a red test — the exit code does not go through
   the file — but the report a human opens to find out *which* test is the entire point of producing
   one.
+
+### Coverage, and why there is no `Coverage` target
+
+⚠️ **Dropped from the target graph deliberately, not left owed.** This document used to put `Coverage`
+on the graph after `Test` and to say the `Test` row *"enforces per-project coverage floors"*. Neither
+was ever built: nothing in the repository references a collector, `.runsettings` configures none, and
+there is no such target. What follows is the decision that replaces those two sentences, so that the
+absence is a choice somebody can argue with rather than a hole nobody noticed.
+
+A percentage gate over ~180 projects fails all three of this repository's tests for an instrument:
+
+- **Ask what it prints on the day it does not run.** A collector that fails to attach reports 0 % or
+  100 % depending on which one it is — a number that fails the build for the wrong reason, or passes
+  it for the wrong reason, and in neither case says the instrument is dead. That is the Null-device
+  failure and the never-skipped-golden failure again, in a third costume.
+- **A floor set at today's number is a ratchet, and a ratchet is what people route around.** A test
+  written to raise a percentage rather than to catch a defect passes the gate and helps nobody, and
+  it is indistinguishable at review from one that does both.
+- **A per-project table goes stale the day a project is added**, which is the drift
+  `FuzzGateTests.TheNightlyMatrixIsTheRegistry` exists one document over to stop.
+
+So coverage is not a gate here. The gates that carry the same weight are the ones that are *executable
+claims* rather than metrics — the allocation gates above, the conformance suites, `CheckApi`,
+`CheckStrings`, the golden images — each of which fails on a described defect rather than on a number
+drifting downwards.
+
+What is still worth having, and is owed rather than refused, is coverage **reported** per project with
+no gate attached, plus a floor in the two or three places where "is this line reached" is a real
+question rather than a metric — `Vixen.Ecs`'s query surface, the serializers, and the cascade
+([#338](https://github.com/Rikarin/Vixen/issues/338)). A report cannot pass for the wrong reason,
+because nothing passes on it.
 
 ### Coverage of the pyramid
 
