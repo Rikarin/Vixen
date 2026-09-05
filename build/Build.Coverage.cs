@@ -67,44 +67,44 @@ partial class Build {
         .DependsOn(Compile)
         .Produces(CoverageDirectory / "coverage.md")
         .Executes(() => {
-                var projects = OrderedTestProjects()
-                    .Where(project => string.IsNullOrEmpty(CoverageProject)
-                        || project.NameWithoutExtension.Contains(CoverageProject, StringComparison.OrdinalIgnoreCase)
-                    )
-                    .OrderBy(project => project.NameWithoutExtension, StringComparer.Ordinal)
-                    .ToList();
+            var projects = OrderedTestProjects()
+                .Where(project => string.IsNullOrEmpty(CoverageProject)
+                    || project.NameWithoutExtension.Contains(CoverageProject, StringComparison.OrdinalIgnoreCase)
+                )
+                .OrderBy(project => project.NameWithoutExtension, StringComparer.Ordinal)
+                .ToList();
 
-                Assert.True(
-                    projects.Count > 0,
-                    $"--coverage-project '{CoverageProject}' matched no test project, so this run "
-                    + "would have measured nothing and said so in green."
+            Assert.True(
+                projects.Count > 0,
+                $"--coverage-project '{CoverageProject}' matched no test project, so this run "
+                + "would have measured nothing and said so in green."
+            );
+
+            CoverageDirectory.CreateOrCleanDirectory();
+
+            var rows = new List<(string Project, string Subject, double Rate, int Covered, int Total)>();
+
+            foreach (var project in projects) {
+                var results = CoverageDirectory / project.NameWithoutExtension;
+
+                DotNetTest(settings => settings
+                    .SetProjectFile(project.ToString())
+                    .SetConfiguration(Configuration)
+                    .EnableNoRestore()
+                    .EnableNoBuild()
+                    .SetSettingsFile(RootDirectory / ".runsettings")
+                    .SetResultsDirectory(results)
+                    // The collector `Microsoft.NET.Test.Sdk` already carries, asked for by the
+                    // name `dotnet test --collect` takes. Cobertura rather than the default
+                    // `.coverage`, which is a binary needing a second tool to read.
+                    .SetDataCollector("Code Coverage;Format=cobertura")
                 );
 
-                CoverageDirectory.CreateOrCleanDirectory();
-
-                var rows = new List<(string Project, string Subject, double Rate, int Covered, int Total)>();
-
-                foreach (var project in projects) {
-                    var results = CoverageDirectory / project.NameWithoutExtension;
-
-                    DotNetTest(settings => settings
-                        .SetProjectFile(project.ToString())
-                        .SetConfiguration(Configuration)
-                        .EnableNoRestore()
-                        .EnableNoBuild()
-                        .SetSettingsFile(RootDirectory / ".runsettings")
-                        .SetResultsDirectory(results)
-                        // The collector `Microsoft.NET.Test.Sdk` already carries, asked for by the
-                        // name `dotnet test --collect` takes. Cobertura rather than the default
-                        // `.coverage`, which is a binary needing a second tool to read.
-                        .SetDataCollector("Code Coverage;Format=cobertura")
-                    );
-
-                    rows.Add(Measure(project.NameWithoutExtension, results));
-                }
-
-                WriteCoverageSummary(rows);
+                rows.Add(Measure(project.NameWithoutExtension, results));
             }
+
+            WriteCoverageSummary(rows);
+        }
         );
 
     /// <summary>Reads one project's cobertura document and picks its subject assembly out of it.</summary>
