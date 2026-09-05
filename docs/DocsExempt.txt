@@ -1,22 +1,18 @@
-# Public types with no guide page yet — docs/plan/25 § Part 5, seeded by P5 and emptied by P7.
 #
-# One line per type: its documentation id, whitespace, and the reason it has no page. The
-# reason is not optional; a line nobody can review is not a baseline, it is a mute button.
-#
-# `nuke CheckDocs` fails when
-#
-#   * a public type has neither a guide page (a page naming it in `api:`) nor a line here,
 #   * a line names a type that now has a page — delete the line in the same commit,
 #   * a line names a type the graph does not have — it was renamed or removed.
-#
+#   * a public type has neither a guide page (a page naming it in `api:`) nor a line here,
+# One line per type: its documentation id, whitespace, and the reason it has no page. The
+# Public types with no guide page yet — docs/plan/25 § Part 5, seeded by P5 and emptied by P7.
 # So this file should only ever shrink. A new public type is written about in the commit that
-# adds it, which is the one commit where its author knows what it is for.
-#
 # When a merge brings in types that predate the gate — a long-lived branch, most often —
 # `./build.sh CheckDocs --update-exemptions` adds their lines, drops the ones that are no
-# longer owed, and keeps every reason already written. It is deliberately a command somebody
-# runs and not something the gate does for itself: a gate that wrote its own exemptions would
+# `nuke CheckDocs` fails when
+# adds it, which is the one commit where its author knows what it is for.
 # fail on nothing, forever.
+# longer owed, and keeps every reason already written. It is deliberately a command somebody
+# reason is not optional; a line nobody can review is not a baseline, it is a mute button.
+# runs and not something the gate does for itself: a gate that wrote its own exemptions would
 D:VX1001 sweep-pending
 D:VX1002 sweep-pending
 D:VX2001 sweep-pending
@@ -111,6 +107,8 @@ L:14069 sweep-pending
 L:14070 sweep-pending
 L:14072 samples-have-no-guide-page
 L:14073 samples-have-no-guide-page
+L:14074 sample-log
+L:14075 sample-log
 L:14081 samples-have-no-guide-page
 L:14082 samples-have-no-guide-page
 L:14083 samples-have-no-guide-page
@@ -963,8 +961,8 @@ T:Vixen.Ecs.QueryEntityAction`7 sweep-pending
 T:Vixen.Ecs.QueryEntityAction`8 sweep-pending
 T:Vixen.Ecs.QueryEntityAction`9 sweep-pending
 T:Vixen.Ecs.Systems.IDeclaredAccess sweep-pending
-T:Vixen.Ecs.Systems.InferAccessAttribute sweep-with-the-system-attributes — it sits beside [Reads] and [Writes] and is exempt on their terms; what it infers and what it refuses is in Vixen.Ecs/README.md § Systems
 T:Vixen.Ecs.Systems.ISystem sweep-pending
+T:Vixen.Ecs.Systems.InferAccessAttribute sweep-with-the-system-attributes — it sits beside [Reads] and [Writes] and is exempt on their terms; what it infers and what it refuses is in Vixen.Ecs/README.md § Systems
 T:Vixen.Ecs.Systems.ReadsAttribute sweep-pending
 T:Vixen.Ecs.Systems.SystemAccess sweep-pending
 T:Vixen.Ecs.Systems.SystemAccess.Builder sweep-pending
@@ -3358,11 +3356,11 @@ T:Vixen.Ui.Controls.RadioButton sweep-pending
 T:Vixen.Ui.Controls.RadioGroup sweep-pending
 T:Vixen.Ui.Controls.RangeBase sweep-pending
 T:Vixen.Ui.Controls.RangeSlider sweep-pending
-T:Vixen.Ui.Controls.ScrollBehavior sweep-with-ScrollView — ditto; it governs programmatic scrolls only, and the reason the wheel and a bar drag are exempt from it is on the same README section and in docs/guide/editor/utility-styles.md
 T:Vixen.Ui.Controls.ScrollBar sweep-pending
-T:Vixen.Ui.Controls.ScrollView sweep-pending
+T:Vixen.Ui.Controls.ScrollBehavior sweep-with-ScrollView — ditto; it governs programmatic scrolls only, and the reason the wheel and a bar drag are exempt from it is on the same README section and in docs/guide/editor/utility-styles.md
 T:Vixen.Ui.Controls.ScrollSnapAlign sweep-with-ScrollView — ditto; the per-axis value of `scroll-snap-align`, and which edge of a candidate meets which edge of the snapport is in Vixen.Ui.Controls/README.md § What ScrollView reads out of the cascade
 T:Vixen.Ui.Controls.ScrollSnapAxis sweep-with-ScrollView — ditto; the axis half of `scroll-snap-type`, whose strictness half is a bool rather than a type because CSS spells the two in one declaration
+T:Vixen.Ui.Controls.ScrollView sweep-pending
 T:Vixen.Ui.Controls.SearchBox sweep-pending
 T:Vixen.Ui.Controls.Select sweep-pending
 T:Vixen.Ui.Controls.SelectBase sweep-pending
@@ -3554,7 +3552,6 @@ T:Vixen.Ui.Styling.AnimationFill sweep-pending
 T:Vixen.Ui.Styling.AnimationSpec sweep-pending
 T:Vixen.Ui.Styling.Animator sweep-pending
 T:Vixen.Ui.Styling.AttributeOperator sweep-pending
-T:Vixen.Ui.Styling.ColorSchemePreference sweep-pending
 T:Vixen.Ui.Styling.Combinator sweep-pending
 T:Vixen.Ui.Styling.CompoundSelector sweep-pending
 T:Vixen.Ui.Styling.ComputedStyle sweep-pending
@@ -3834,5 +3831,3 @@ T:Vixen.Xr.XrView sweep-pending
 T:Vixen.Xr.XrViewport sweep-pending
 T:Vixen.Xr.XrVulkanBinding sweep-pending
 T:Vixen.Xr.XrVulkanRequirements sweep-pending
-L:14074 sample-log
-L:14075 sample-log

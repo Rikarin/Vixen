@@ -18,7 +18,14 @@ public enum ColorSchemePreference : byte {
     Dark
 }
 
-/// <summary>Whether the user has asked for less animation.</summary>
+/// <summary>Whether the user has asked for less movement on screen.</summary>
+/// <remarks>
+///     ⚠ <b>Two values and not three, unlike <see cref="ColorSchemePreference" />.</b> CSS Media
+///     Queries 5 § 6.2 gives <c>prefers-reduced-motion</c> exactly <c>no-preference</c> and
+///     <c>reduce</c>: there is no way for a user to ask for <i>more</i> motion, so an
+///     <c>Increase</c> here would be a member no operating system can ever produce and every
+///     <c>switch</c> over it would need an arm nothing reaches.
+/// </remarks>
 public enum MotionPreference : byte {
     /// <summary>No preference expressed — CSS's <c>no-preference</c>.</summary>
     NoPreference,
@@ -310,7 +317,13 @@ public static class MediaQuery {
                 out matches,
                 out reason,
                 ("no-preference", context.Preferences.Motion == MotionPreference.NoPreference),
-                ("reduce", context.Preferences.Motion == MotionPreference.Reduce)
+                ("reduce", context.Preferences.Motion == MotionPreference.Reduce),
+
+                // ⚠ The boolean form, spelled the way `forced-colors` and `inverted-colors` already
+                // spell it. Media Queries 5 § 6.2 makes `no-preference` the feature's false value, so
+                // `@media (prefers-reduced-motion)` means `reduce` — and it is the idiomatic spelling,
+                // so refusing it made a correct stylesheet a diagnostic.
+                ("", context.Preferences.Motion == MotionPreference.Reduce)
             );
         }
 
@@ -328,6 +341,10 @@ public static class MediaQuery {
                 ("more", context.Preferences.Contrast == ContrastPreference.More),
                 ("less", context.Preferences.Contrast == ContrastPreference.Less),
                 ("custom", context.Preferences.Contrast == ContrastPreference.Custom),
+
+                // The boolean form the remark above describes: any stated preference, `custom`
+                // included, and therefore not a synonym for `more`.
+                ("", context.Preferences.Contrast != ContrastPreference.NoPreference),
                 ("", context.Preferences.Contrast != ContrastPreference.NoPreference)
             );
         }
