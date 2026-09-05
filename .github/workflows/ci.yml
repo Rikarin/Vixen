@@ -333,6 +333,17 @@ jobs:
       - name: Install Assimp
         run: sudo apt-get update && sudo apt-get install -y libassimp5
 
+      # ⚠ The one thing on this leg that CI does not otherwise exercise at all. `build.sh` turns the
+      # build lock off under CI — a runner owns its machine and has nothing to serialise — so
+      # build/lock.py is the only file in the repository that every gate depends on and no gate
+      # runs. It shipped holding a descriptor that MSBuild's node-reuse daemons inherited and kept
+      # after the build exited, which queued the next developer's gate behind a run that had
+      # finished; this is the twelve seconds that says so. It needs python3 and /bin/sh and nothing
+      # else, and it never touches the machine's own lock file.
+      - name: The build lock
+        run: python3 build/lock_test.py
+        shell: bash
+
       # CheckApi builds — it reads the assemblies rather than the source — which is why this leg
       # takes longer than the other two checks put together and why it is worth having: the diff it
       # fails on is the one nobody would have looked at otherwise.
@@ -531,8 +542,23 @@ jobs:
       # Restore "because of Compile", and Pack then ran with nothing built. Naming them puts them back
       # in as invoked targets. Compile is what DotNetPack's --no-build needs, and Restore is what
       # Compile's --no-restore needs.
-      - name: Pack
-        run: ./build.sh Restore Compile Pack --configuration Release --skip Test
+      # ⚠ CheckTemplates is on this line rather than in a step of its own, and that is not tidiness:
+      # Pack cleans artifacts/packages before it writes, so a second `./build.sh` invocation would
+      # rebuild the feed CheckTemplates is supposed to consume. One invocation, one feed.
+      #
+      # This is the runner half of #114. The templates were verified through the real `dotnet new`
+      # engine — packed, installed into a private hive, instantiated outside the repository — and
+      # none of the six was ever restored or built, because a restore needs a feed and no feed
+      # existed. artifacts/packages, one step earlier in this same run, is that feed.
+      #
+      # ⚠ And the assertion that makes it worth running is the negative control rather than the six
+      # builds. A scaffolded project restores fine on a developer's machine from a directory outside
+      # the repository — not because the repository is on disk, but because the global NuGet cache
+      # holds ~57 Vixen.* packages at 0.1.0 from an earlier Pack — so "it restored" is green on any
+      # machine that has ever packed, and says nothing. CheckTemplates therefore first requires a
+      # restore to FAIL with the feed unwired, and stops if it does not.
+      - name: Pack, and scaffold every template from what it packed
+        run: ./build.sh Restore Compile Pack CheckTemplates --configuration Release --skip Test
         shell: bash
 
       - name: Upload packages
@@ -578,6 +604,12 @@ jobs:
   # workload and Xcode on top of RestoreNativeDeps for MoltenVK, none of which could be tried from
   # the machine this leg was written on — no workload is installed there, so the step would have been
   # committed unverified. #327 carries it.
+  #
+  # ⚠ AND WIRING IT UP WOULD NOT YET BUY WHAT THIS JOB BUYS. CheckAotIos is a DotNetPublish and
+  # nothing else: its only assertion is the exit code, which is exactly the state CheckAot was in
+  # before the paragraph above — where a publish with PublishAot edited out succeeded in 17 seconds
+  # having written 51 managed assemblies. AssertAotOutput is called by the desktop target and by
+  # nothing else. So the iOS leg needs the assertions before it needs the runner. #634.
   aot:
     name: aot-${{ matrix.os }}
     runs-on: ${{ matrix.os }}
