@@ -128,11 +128,32 @@ give way.
 
 ## Accessibility
 
-The split reports ARIA `group` and the bar reports `separator`. ⚠ Not the *focusable* kind of
-separator: the bar cannot be reached by Tab and there is no keyboard resize, so a screen-reader user
-learns where one pane ends and the next begins and cannot yet move the boundary. That is a real gap
-and it is stated rather than papered over — a focusable separator carries a value and a naming
-obligation, and giving it the role without the behaviour would be a promise the control does not keep.
+The split reports ARIA `group` and the bar reports `separator` — the **focusable** kind. The bar is a
+tab stop, it carries a name (`ControlStrings.SplitViewDivider`, because a shape with no caption has no
+other words), and it reports the ratio as its value on every change, so a reader says where the
+boundary went rather than saying "separator" again.
+
+| Key | What it does |
+|---|---|
+| Left / Right | Moves the bar 8 px, in a horizontal split |
+| Up / Down | Moves the bar 8 px, in a vertical one |
+| Page Up / Page Down | Moves it 64 px, either way round |
+| Home / End | Takes it to `MinimumRatio` and to `1 - MinimumRatio` |
+
+⚠ **Only the arrow pair along the split's own axis is answered**, and that is deliberate: a split view
+has a whole application in its two panes, and the focus lands on the bar after every drag — a control
+that answered all four would take Up and Down away from a list sitting right beside it.
+
+⚠ **The step is in pixels, in the one control that argues for fractions everywhere else.**
+`MinimumRatio` is a fraction because it is re-applied on every resize and nothing tells the control
+when one happens; a step is consumed at the instant of the press, against the span the split has right
+then. A fractional step is what feels wrong at both ends — a hundredth of a 2000-pixel window is a
+twenty-pixel jump and a hundredth of a 200-pixel one is two.
+
+**What is deliberately not here.** ARIA's window splitter also names Enter as collapse-and-restore, and
+this control cannot represent a collapsed pane: `MinimumRatio` is a floor with no exception in it, so
+Enter would land on the minimum and report a key that overshot. Adding the exception is a different
+decision from adding a keystroke.
 
 ## See also
 

@@ -4,7 +4,7 @@ slug: ui/documents
 kind: guide
 area: Core
 summary: A document below the editor — dirty, name and location as signals, save and revert answered through the command route by the nearest panel that hosts one, and a window title that follows both.
-api: [T:Vixen.Ui.IEditableDocument, T:Vixen.Ui.EditableDocument, T:Vixen.Ui.DocumentCommands, T:Vixen.Ui.UiWindowTitle]
+api: [T:Vixen.Ui.IEditableDocument, T:Vixen.Ui.EditableDocument, T:Vixen.Ui.DocumentCommands, T:Vixen.Ui.UiWindowTitle, T:Vixen.Ui.Controls.DocumentClosePrompt, T:Vixen.Ui.Controls.DocumentCloseAnswer]
 tags: [ui, documents, commands, save, windows]
 since: 0.2
 status: preview
@@ -122,6 +122,32 @@ binding stops it following, which is what a closing window does.
 running there, so the title is whatever the window was opened with until the next flush — one frame
 in an application, an explicit `Update` in a test.
 
+## The prompt on close
+
+```csharp no-compile="a fragment; `application` is a UiApplication and `dialogs` its DialogService"
+using var prompt = DocumentClosePrompt.Install(
+    application.Document.Root,
+    dialogs,
+    () => application.Quit()
+);
+```
+
+A close request that reaches a dirty document is refused, and Save / Don't Save / Cancel goes up in
+its place. Saving writes and then calls `close`; discarding calls it without writing; cancelling and
+backing out both leave the application exactly where it was. A `Save` that returns `false` — a full
+disk, a read-only file — answers `DocumentCloseAnswer.SaveFailed` and does **not** close, which is
+what the bool on `Save` is for.
+
+⚠ **The document asked about is the one under the focus**, because a close request is raised there
+and this walks up from `Source`. In a window with two panels and two documents, quitting asks about
+the one being worked in.
+
+⚠ **The retry re-enters the handler and "Don't Save" leaves the document dirty.** A prompt is
+answered frames later, so `close` is the second ask — and the second ask meets the same dirty
+document. `DocumentClosePrompt` latches over it; a hand-rolled version that does not is an
+application whose Quit reopens the prompt for ever. Marking the document clean instead would be a lie
+told to the window title and to `document.save`, which read the same signal.
+
 ## Examples
 
 **Finding the document a control is inside.** The nearest one on the way up wins, so two panels
@@ -140,9 +166,10 @@ pane.HostedDocument = note;
 
 ## What is deliberately not here yet
 
-**A close prompt.** Save / Don't Save / Cancel on closing a dirty document needs `DialogService` and
-`IUiWindow.CloseRequested` joined up in the application head, and nothing does it yet;
-`UiApplication.Pump` still ends the loop outright.
+**Closing one document out of several.** `DocumentClosePrompt` asks about the document under the
+focus and then hands the close to its caller, which in every host today means the application. A tab
+that shuts on its own — asking about *its* document while the rest stay open — is the same three
+buttons in front of a different action, and nothing offers it yet.
 
 **A proxy icon and a recent-documents list.** Both are platform seams with no interface here.
 

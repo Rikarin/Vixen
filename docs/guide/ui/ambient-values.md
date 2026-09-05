@@ -69,9 +69,38 @@ partial class Inspector {
 <inspector-name>@Selection.Name</inspector-name>
 ```
 
-**That is the whole markup spelling and it needs nothing new in the language.** A provider overrides
-`OnProvide` in its code-behind; a consumer exposes a property that injects, and the markup reads it
-as it reads any other expression.
+A provider overrides `OnProvide` in its code-behind; a consumer exposes a property that injects, and
+the markup reads it as it reads any other expression.
+
+### `<provide>`, for a value the markup already has
+
+A component that is providing something it can name in an expression writes it as a tag instead:
+
+```xml no-compile="a fragment"
+<workspace>
+    <provide type="ISelection" value="@Selection" />
+    <Inspector />
+    <Timeline />
+</workspace>
+```
+
+That becomes `workspace.Provide<ISelection>(Selection)` — on the element the tag is *written in*, not
+on the component's own root, so a sibling of `<workspace>` does not see it.
+
+⚠ **The key is written out because it cannot be inferred, and that is a fact about `Provide<T>` and
+not about the tag.** The runtime keys on the type argument so that an interface is the useful key and
+a subclass cannot shadow its base; an inferred key would be the concrete class every time, and
+`Inject<ISelection>` would find nothing. The binder could not infer it in any case — it never touches
+the compilation, which is what keeps a C# edit from re-running the markup generator.
+
+⚠ **Document order is the rule.** The emitter writes nodes in the order they appear, so a component
+written *above* the `<provide>` is built before the value exists and injects null. That is the same
+reading an author already has of every other tag, and it is why the conventional place for a
+`<provide>` is the first line inside its element.
+
+`OnProvide` is still the hook to use when the value has to be *computed* — it runs after this
+component's parameters are assigned and before any child of it exists, which no tag position can
+express.
 
 ⚠ **`OnProvide` is the one hook that runs after this component's parameters are assigned and before
 any child of it exists**, and both halves matter. Earlier — at attach time — and the value would be
@@ -110,9 +139,16 @@ ISelection Selection => Inject<ISelection>() ?? Selection.None;
 
 ## What is deliberately not here yet
 
-**A `<provide value="@theme" />` tag and a typed `@inject` directive.** Both are sugar over what is
-above and both are real work in the binder and the emitter; the runtime is reachable from markup
-today without them, which is the difference between sugar and a missing feature.
+**A typed `@inject` directive.** `<provide>` exists; its mirror does not. `@inject ITheme Theme` at
+the top of a `.vxml` would generate the property a consumer writes by hand today — which is one line
+of code-behind, not a missing capability, and unlike `<provide>` it needs a new directive in the
+lexer and the parser rather than a branch in the binder and the emitter. Worth doing when a file
+injects three values rather than one.
+
+**Three diagnostics and no fourth.** `VXML2021`, `VXML2022` and `VXML2023` are about the tag's own
+shape. Nothing checks that the `type` names a real type, or that anything ever provides what a
+consumer injects — the first is Roslyn's, reported at the `type` attribute through the `#line`, and
+the second is not decidable at compile time in a tree that is assembled at run time.
 
 **No reactivity of its own.** An ambient value is read where it is read; a value that has to *change*
 is a signal put into the ambient slot, and the consumer's `@expr` subscribes to it as it would to

@@ -621,6 +621,65 @@ public class BinderTests {
         Assert.Equal("AccessibleName", attribute.Name);
     }
 
+    /// <summary>
+    ///     ⚠ <b>The key is written out because it cannot be inferred, and that is a fact about
+    ///     <c>Provide&lt;T&gt;</c> rather than about this tag.</b> The runtime keys on the type
+    ///     argument so that an interface is the useful key; an inferred key would be the concrete
+    ///     class every time, and <c>Inject&lt;ITheme&gt;</c> would find nothing that
+    ///     <c>&lt;provide value="@theme" /&gt;</c> had put there.
+    /// </summary>
+    [Fact]
+    public void A_provide_carries_the_key_it_was_given_and_the_value_expression() {
+        var provide = Assert.IsType<BoundProvide>(
+            Assert.Single(BindClean("@component A\n<provide type=\"ITheme\" value=\"@theme\" />").Content)
+        );
+
+        Assert.Equal("ITheme", provide.Type);
+        Assert.Equal("theme", provide.Value.Text);
+    }
+
+    /// <summary>
+    ///     A constant is spelled the way every other attribute in the language spells one. Refusing
+    ///     it would mean writing <c>value="@(&quot;dark&quot;)"</c> for a string.
+    /// </summary>
+    [Fact]
+    public void A_literal_value_becomes_a_quoted_one() {
+        var provide = Assert.IsType<BoundProvide>(
+            Assert.Single(BindClean("@component A\n<provide type=\"string\" value=\"dark\" />").Content)
+        );
+
+        Assert.Equal("\"dark\"", provide.Value.Text);
+    }
+
+    [Fact]
+    public void A_provide_missing_either_half_is_refused() {
+        Assert.Equal(["VXML2021"], Ids("@component A\n<provide value=\"@theme\" />\n<div />"));
+        Assert.Equal(["VXML2021"], Ids("@component A\n<provide type=\"ITheme\" />\n<div />"));
+    }
+
+    /// <summary>
+    ///     ⚠ The key becomes a generic argument, so it is decided when the file is compiled. There
+    ///     is no C# for <c>Provide&lt;{whatever this string says}&gt;</c>.
+    /// </summary>
+    [Fact]
+    public void An_interpolated_key_is_refused() {
+        Assert.Equal(["VXML2022"], Ids("@component A\n<provide type=\"@Key\" value=\"@theme\" />\n<div />"));
+    }
+
+    /// <summary>
+    ///     ⚠ Children read as a narrower scope and there is none — a provide reaches everything after
+    ///     it in the element it was written in. Building them where the tag is would be a layout the
+    ///     author did not ask for, and dropping them silently is the defect <c>VXML2017</c> exists
+    ///     for one tag over.
+    /// </summary>
+    [Fact]
+    public void A_provide_with_children_is_refused_rather_than_having_them_dropped() {
+        Assert.Equal(
+            ["VXML2023"],
+            Ids("@component A\n<provide type=\"ITheme\" value=\"@theme\"><div /></provide>\n<div />")
+        );
+    }
+
     static BoundComponent BindClean(string source) {
         var component = Binder.Bind(Vxml.Parse(source), out var diagnostics);
 

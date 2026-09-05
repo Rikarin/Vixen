@@ -995,6 +995,86 @@ public class EmitterTests {
         return Assembly.Load(image.ToArray()).GetType(name)!;
     }
 
+    // ================================================================== <provide>
+
+    /// <summary>
+    ///     ⚠ <b>Run rather than read, because what the tag has to get right is a walk and not a
+    ///     string.</b> Asserting on <c>.Provide&lt;string&gt;(</c> in the generated text would pass
+    ///     against a version that wrote the call on the wrong element — which is the whole of what
+    ///     an ambient value is — so this builds the tree and asks a descendant.
+    ///     <para>
+    ///         ⚠ <b>The uncle is the assertion that has teeth, and the first version had only the
+    ///         nephew.</b> Emitting the call on the component's own <c>Root</c> instead of on the
+    ///         element the tag was written in left the suite green: the span is inside both, and
+    ///         <c>document.Root</c> is above both, so neither of those two questions could tell them
+    ///         apart. A sibling of the <c>&lt;div&gt;</c> is inside the component's root and outside
+    ///         the tag's element, which is exactly the pair that differs.
+    ///     </para>
+    /// </summary>
+    [Fact]
+    public void A_provided_value_is_found_by_everything_inside_the_element_it_was_written_in() {
+        const string Source = """
+                              @component Greeter
+                              @code {
+                                  public string Theme = "dark";
+                              }
+                              <div>
+                                  <provide type="string" value="@Theme" />
+                                  <span />
+                              </div>
+                              <label />
+                              """;
+
+        var (_, _, document) = Run(Source);
+
+        var span = Descendants(document.Root).Single(child => child.Tag == "span");
+        Assert.Equal("dark", span.Inject<string>());
+
+        var label = Descendants(document.Root).Single(child => child.Tag == "label");
+        Assert.Null(label.Inject<string>());
+
+        Assert.Null(document.Root.Inject<string>());
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Document order is the rule, and a component written above the provide really does
+    ///     not see it.</b> Worth pinning rather than leaving implicit: the emitter writes nodes in
+    ///     the order they appear, so where the tag sits in the file is where the value starts
+    ///     existing — the reading an author already has of every other tag.
+    ///     <para>
+    ///         ⚠ <b>Asked from a component's own <c>Build</c>, and the first attempt used
+    ///         <c>use="@(e =&gt; … e.Inject&lt;string&gt;())"</c> instead — which proved nothing.</b>
+    ///         <c>BuildContext.Use</c> goes through <c>Bind</c>, and an <c>Effect</c> queues its
+    ///         first run, so both callbacks were still unrun when the assertion read them: the test
+    ///         passed on one half and failed on the other for the same reason, and neither half was
+    ///         about ordering. A component's <c>Build</c> runs synchronously, in place.
+    ///     </para>
+    /// </summary>
+    [Fact]
+    public void A_component_above_the_provide_was_built_before_the_value_existed() {
+        const string Source = """
+                              @component Greeter
+                              @code {
+                                  public string Theme = "dark";
+                              }
+                              <div>
+                                  <Ambient Which="early" />
+                                  <provide type="string" value="@Theme" />
+                                  <Ambient Which="late" />
+                              </div>
+                              """;
+
+        var (_, instance, _) = Run(Source);
+
+        var seen = (IDictionary<string, string?>)instance.GetType()
+            .Assembly.GetType("Ambient")!
+            .GetField("Seen")!
+            .GetValue(null)!;
+
+        Assert.Null(seen["early"]);
+        Assert.Equal("dark", seen["late"]);
+    }
+
     /// <summary>Emits, compiles, loads and builds — the whole pipeline, end to end.</summary>
     static (Component Component, object Instance, UiDocument Document) Run(string source) {
         var type = Load(source, "Greeter");

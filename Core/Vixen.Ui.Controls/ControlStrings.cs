@@ -185,6 +185,39 @@ public static class ControlStrings {
     /// </remarks>
     public static StringId NodeCanvasNodes { get; } = new("ui.control.node-canvas.nodes", "Nodes");
 
+    /// <summary>The bar between a split view's two panes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The same kind as the scrollbars above — a shape with no caption — and it became
+    ///     necessary the moment the bar became focusable.</b> A separator nobody can reach is a
+    ///     line; a separator the Tab key lands on is a control, and a control a reader announces
+    ///     as nothing at all is one a keyboard user has no way to identify. Named for what it is
+    ///     rather than for what it divides, because what it divides is the application's sentence.
+    /// </remarks>
+    public static StringId SplitViewDivider { get; } = new("ui.control.split-view.divider", "Divider");
+
+    /// <summary>What the prompt on closing a dirty document asks.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The document's name is the dialog's <i>message</i> rather than part of this
+    ///     sentence, and that is a translation decision.</b> A title of "Save the changes to
+    ///     “Untitled”?" needs a placeholder, and a placeholder in the middle of a sentence is the
+    ///     construction a translator cannot always move — several languages want the name first.
+    ///     A question with the name on its own line underneath says the same thing and translates
+    ///     as one whole sentence.
+    /// </remarks>
+    public static StringId DocumentSavePrompt { get; } =
+        new("ui.control.document.save-prompt", "Save the changes before closing?");
+
+    /// <summary>The prompt's confirming button.</summary>
+    /// <remarks>
+    ///     ⚠ A third and fourth "Close"-shaped pair, on this class's own two-Closes rule: the word
+    ///     on this button is about writing a file, not about the generic confirmation
+    ///     <see cref="DialogConfirm" /> covers, and a language that says those differently needs to.
+    /// </remarks>
+    public static StringId DocumentSave { get; } = new("ui.control.document.save", "Save");
+
+    /// <summary>The button that throws the changes away.</summary>
+    public static StringId DocumentDiscard { get; } = new("ui.control.document.discard", "Don't Save");
+
     /// <summary>Every string above, for a translator to start from.</summary>
     /// <remarks>
     ///     ⚠ <b>Spelled out rather than reflected over</b>, for the reason <c>Strings.Template</c>
@@ -220,6 +253,10 @@ public static class ControlStrings {
         GradientEditorOpacity,
         GradientEditorColorStops,
         GradientEditorAlphaStops,
-        NodeCanvasNodes
+        NodeCanvasNodes,
+        SplitViewDivider,
+        DocumentSavePrompt,
+        DocumentSave,
+        DocumentDiscard
     ];
 }

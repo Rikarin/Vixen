@@ -168,6 +168,13 @@ Vixen.Ui.Controls.DialogSession<TResult>.Body.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.DialogSession<TResult>.Dialog.get -> Vixen.Ui.Controls.Dialog
 Vixen.Ui.Controls.DialogSession<TResult>.Footer.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.DialogSession<TResult>.IsAnswered.get -> bool
+Vixen.Ui.Controls.DocumentCloseAnswer -> enum : byte
+Vixen.Ui.Controls.DocumentCloseAnswer.Cancel = 0 -> Vixen.Ui.Controls.DocumentCloseAnswer
+Vixen.Ui.Controls.DocumentCloseAnswer.Discarded = 2 -> Vixen.Ui.Controls.DocumentCloseAnswer
+Vixen.Ui.Controls.DocumentCloseAnswer.DocumentCloseAnswer() -> void
+Vixen.Ui.Controls.DocumentCloseAnswer.SaveFailed = 3 -> Vixen.Ui.Controls.DocumentCloseAnswer
+Vixen.Ui.Controls.DocumentCloseAnswer.Saved = 1 -> Vixen.Ui.Controls.DocumentCloseAnswer
+Vixen.Ui.Controls.DocumentClosePrompt -> static class
 Vixen.Ui.Controls.Drawer -> sealed class
 Vixen.Ui.Controls.Drawer : Vixen.Ui.Controls.Overlay
 Vixen.Ui.Controls.Drawer.Backdrop.get -> Vixen.Ui.UiElement
@@ -1134,6 +1141,7 @@ override Vixen.Ui.Controls.SplitView.ContentHost.get -> Vixen.Ui.UiElement
 override Vixen.Ui.Controls.SplitView.NamedHost(string name) -> Vixen.Ui.UiElement?
 override Vixen.Ui.Controls.SplitView.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.SplitView.OnCreated() -> void
+override Vixen.Ui.Controls.SplitView.OnPropertyChanged(Vixen.Ui.UiPropertyKey key) -> void
 override Vixen.Ui.Controls.SplitView.TagName.get -> string
 override Vixen.Ui.Controls.StatusBar.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.StatusBar.ContentHost.get -> Vixen.Ui.UiElement
@@ -1224,6 +1232,9 @@ static Vixen.Ui.Controls.ControlStrings.DialogConfirm.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.DockClose.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.DockNextTab.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.DockPreviousTab.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.DocumentDiscard.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.DocumentSave.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.DocumentSavePrompt.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.FieldRequired.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.GradientEditorAlphaStops.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.GradientEditorColorStops.get -> Vixen.Ui.StringId
@@ -1237,10 +1248,12 @@ static Vixen.Ui.Controls.ControlStrings.PropertyGridSearch.get -> Vixen.Ui.Strin
 static Vixen.Ui.Controls.ControlStrings.ScrollBarHorizontal.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.ScrollBarVertical.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.SelectSuggestions.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.SplitViewDivider.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.TextInputClear.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.ToastDismiss.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlTheme.Css.get -> string
 static Vixen.Ui.Controls.ControlTheme.Install(Vixen.Ui.UiDocument document) -> int
+static Vixen.Ui.Controls.DocumentClosePrompt.Install(Vixen.Ui.UiElement element, Vixen.Ui.Controls.DialogService dialogs, System.Action close, System.Action<Vixen.Ui.Controls.DocumentCloseAnswer>? answered = null) -> System.IDisposable
 static Vixen.Ui.Controls.IconArt.Of(Vixen.Ui.PathBuilder geometry, Vixen.Core.Mathematics.Color4 tint, Vixen.Ui.PathFillRule rule = Vixen.Ui.PathFillRule.NonZero) -> Vixen.Ui.Controls.IconArt
 static Vixen.Ui.Controls.IconArt.Of(Vixen.Ui.PathBuilder geometry, Vixen.Ui.PathFillRule rule = Vixen.Ui.PathFillRule.NonZero) -> Vixen.Ui.Controls.IconArt
 static Vixen.Ui.Controls.IconPaint.Foreground.get -> Vixen.Ui.Controls.IconPaint

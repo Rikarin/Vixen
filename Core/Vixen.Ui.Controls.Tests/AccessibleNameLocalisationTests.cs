@@ -144,6 +144,12 @@ public class AccessibleNameLocalisationTests {
             // could see to report.
             root.Add<ScrollView>();
 
+            // And the split bar, for the same reason one step further on: it is a six-pixel line
+            // with nothing written on it, and it only needed a name at all once it became a tab
+            // stop. ⚠ Added after `Strings.Use` like everything else here — the name is read in
+            // `OnCreated`, so a split built above this line would carry the English one.
+            root.Add<SplitView>();
+
             fixture.Update();
 
             // ⚠ **First, and for A2's reason: a check over a tree can be satisfied by an empty
@@ -184,7 +190,8 @@ public class AccessibleNameLocalisationTests {
         ControlStrings.PaginationPrevious,
         ControlStrings.PaginationNext,
         ControlStrings.ScrollBarVertical,
-        ControlStrings.ScrollBarHorizontal
+        ControlStrings.ScrollBarHorizontal,
+        ControlStrings.SplitViewDivider
     ];
 
     /// <summary>Words beside a field, which is the only thing a field's name is ever made of.</summary>

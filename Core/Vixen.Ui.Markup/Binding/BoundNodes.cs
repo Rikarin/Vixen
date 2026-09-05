@@ -283,6 +283,27 @@ public sealed record BoundElement(
 /// <param name="Name">The slot's name; the default slot is named <c>default</c>.</param>
 public sealed record BoundSlot(string Name) : BoundNode;
 
+/// <summary>An ambient value put on the element the tag was written in.</summary>
+/// <param name="Type">The key, as the author wrote it. Verbatim C#; the binder does not resolve it.</param>
+/// <param name="Value">What is provided.</param>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The key is written out and cannot be inferred, and that is not a limitation of this
+///         tag.</b> <c>Provide&lt;T&gt;</c> keys on the type argument rather than on the value's
+///         runtime type — deliberately, so an interface is the useful key and a subclass cannot
+///         shadow its base — so an inferred key would be the concrete class every time and
+///         <c>Inject&lt;ITheme&gt;</c> would find nothing. The binder could not infer it in any case:
+///         it never touches the compilation.
+///     </para>
+///     <para>
+///         ⚠ <b>Provided in document order, which is what makes the ordering readable rather than
+///         magic.</b> The emitter writes nodes in the order they are written, so a
+///         <c>&lt;provide&gt;</c> above its siblings is in place before any of them is built and one
+///         written below them is not. That is the same rule an author already reads the file by.
+///     </para>
+/// </remarks>
+public sealed record BoundProvide(string Type, BoundExpression Value) : BoundNode;
+
 /// <summary>One arm of an <c>@if</c> chain.</summary>
 /// <param name="Condition">The C# the arm tests.</param>
 /// <param name="Body">What it builds.</param>
