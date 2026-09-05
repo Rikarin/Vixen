@@ -30,16 +30,51 @@ namespace Tests;
 ///     </para>
 /// </remarks>
 public class TextureGraphCompilerTests {
-    /// <summary>The eight node types of this batch, by menu path.</summary>
+    /// <summary>Every node type the assembly declares, by menu path.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The eight this file exercises are the eight § M4 built the compiler against; the rest
+    ///     are the library § M4's second half added, and they are listed here because the assertion
+    ///     below is about the <em>generator</em> rather than about this file's graphs.</b> What
+    ///     covers the library's own correspondence with the kernels is
+    ///     <c>TextureNodeLibraryTests</c>, which wires all of them into one graph.
+    /// </remarks>
     static readonly string[] Paths = [
         "Analysis/Distance",
+        "Analysis/Edge Detect",
+        "Analysis/Flood Fill",
         "Colour/Blend",
+        "Colour/Channel Shuffle",
+        "Colour/Grayscale",
+        "Colour/HSL",
+        "Colour/Invert",
         "Colour/Levels",
         "Filters/Blur",
+        "Filters/Blur HQ",
+        "Filters/Directional Blur",
+        "Filters/Directional Warp",
+        "Filters/Emboss",
+        "Filters/Non-Uniform Blur",
+        "Filters/Radial Blur",
+        "Filters/Sharpen",
+        "Filters/Slope Blur",
+        "Filters/Vector Warp",
+        "Filters/Warp",
         "Output/Output",
+        "Placement/Splatter",
+        "Placement/Tile Sampler",
+        "Source/Checker",
         "Source/Noise",
+        "Source/Shape",
         "Source/Uniform",
-        "Space/Transform 2D"
+        "Space/Crop",
+        "Space/Mirror",
+        "Space/Tile",
+        "Space/Transform 2D",
+        "Surface/Ambient Occlusion",
+        "Surface/Curvature",
+        "Surface/Height to Normal",
+        "Surface/Normal Combine",
+        "Surface/Normal Transform"
     ];
 
     static NodeTypeRegistry Registry() {
