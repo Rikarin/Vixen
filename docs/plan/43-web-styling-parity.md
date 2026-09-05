@@ -3149,6 +3149,15 @@ it in, not a property registration. **Sized: small once the intrinsic size exist
 size is the actual work.** Note a video is an `Image` here, so this covers the classic
 non-matching-aspect case.
 
+⚠ **`object-position` is behind `object-fit` and carries one half of its own**, which is worth
+knowing before the pair is sized as one item. It is refused for `object-fit`'s reason first — a
+position says where the sampled rectangle sits in the box, and with no intrinsic size there is never
+anything left over to place — but four of Tailwind's nine position classes are *two-word* values
+(`object-left-top`), and `UiDocument.KeywordOf` answers `null` to a two-word value by construction.
+So that root also wants a `<position>` reading beside the four `StyleAccess` has, where `object-fit`
+wants none. Both rows now carry the measurement in the ledger, and the pair is tripwired:
+`object` expires on `Image.IntrinsicSize` and `object-*` expires with `object`.
+
 `contain` is refused for a related reason and a worse one: **there is no containment concept in the
 layout store at all**, and no vocabulary to express the interesting half. Size containment means a
 box sizes as if it had no contents — which needs intrinsic-size keywords the store does not
