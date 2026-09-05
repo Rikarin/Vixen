@@ -233,6 +233,18 @@ public sealed partial class UiDocument {
 
         KeyboardMode = true;
 
+        // ⚠ <b>Before the route, and it is the only key that is.</b> `CancelDrag`'s own remarks said
+        // "Escape does this" and nothing anywhere called it — the whole in-app drag had no way out
+        // but a release, so a drag begun by accident had to be finished somewhere harmless. A drag
+        // is a modal gesture: while one is running the pointer is captured by its source and the
+        // application is showing feedback for it, so Escape belongs to the drag and not to whatever
+        // holds the focus. Offered after the route instead, a text field or an open menu would eat
+        // it and the drag would still be running underneath.
+        if (args is { Action: KeyAction.Pressed, Key: InputKey.Escape } && CancelDrag()) {
+            args.Handled = true;
+            return target;
+        }
+
         target.Raise(args);
 
         // ⚠ The one place a non-element responder can see a key, and until this existed there was
