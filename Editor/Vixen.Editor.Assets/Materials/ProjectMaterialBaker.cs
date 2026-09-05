@@ -309,13 +309,18 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
                 continue;
             }
 
-            File.Delete(file);
-            File.Delete(AssetMetaFile.PathFor(file));
-
+            // ⚠ REPORTED, NOT DELETED, and the deletion is not coming back without an ownership
+            // check in front of it. Nothing here establishes that the file this bake is about to
+            // remove was written by a previous run of this bake: the name is derived from the
+            // material's name alone, so the FIRST bake of a material called `Rock` would delete a
+            // hand-authored `Rock_basecolor.png` and its `.meta` — which destroys an AssetId every
+            // scene referencing that texture resolves through. See #714. The two files differ in
+            // extension and coexist happily until then; an orphan an artist can see and delete is a
+            // strictly better failure than one this code deletes for them.
             warnings.Add(
-                $"The {MaterialMapNaming.Suffix(image.Target)} map was {extension} and is now {image.Extension}, "
-                + "so the old file and its id are gone. Anything that referenced it by GUID rather than through "
-                + "this material has to be re-pointed."
+                $"The {MaterialMapNaming.Suffix(image.Target)} map was {extension} and is now {image.Extension}. "
+                + $"The older {Path.GetFileName(file)} was LEFT IN PLACE, because nothing here can tell a file this "
+                + "bake wrote from one somebody authored. Delete it yourself once you have checked which it is."
             );
         }
     }

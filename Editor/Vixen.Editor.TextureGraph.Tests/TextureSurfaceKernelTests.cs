@@ -162,23 +162,28 @@ public class TextureSurfaceKernelTests {
     ///         member that could carry code, no kind discriminator, and nothing the evaluator could
     ///         branch on; and the plan's own <see cref="TexturePlan.Validate" /> has no opinion about
     ///         what a kernel name means, which is what says every op is resolved the one way. ⚠ This
-    ///         goes red exactly when <see cref="TextureOp" /> grows a fifth member — which is the
-    ///         change § 4.6's sixth node is owed, so a failure here is the finding being answered
-    ///         rather than a test rotting.
+    ///         went red exactly when <see cref="TextureOp" /> grew its fifth member, which is what
+    ///         the canary was for — and the member it grew is the one § 4.6's sixth node was owed.
+    ///         ⚠ <b>So this test now asserts the opposite of the name it was born with</b>: a plan
+    ///         expresses exactly ONE operation that is not a dispatch, and the set below is what
+    ///         keeps that "exactly one" honest. A second executable member arriving without this
+    ///         assertion being reconsidered is the thing to catch.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void A_plan_cannot_express_an_operation_that_is_not_a_dispatch() {
+    public void A_plan_expresses_exactly_one_operation_that_is_not_a_dispatch() {
         var members = typeof(TextureOp)
             .GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
             .Select(member => member.Name)
             .Order(StringComparer.Ordinal)
             .ToArray();
 
-        Assert.Equal(["Inputs", "Kernel", "Output", "Parameters"], members);
+        Assert.Equal(["Cpu", "EmittedForExtent", "Inputs", "Kernel", "Output", "Parameters"], members);
 
-        // Every one of them is inert data — a string, an image index, indices, scalars. Nothing an op
-        // holds can be executed, which is the whole of "the plan cannot express a CPU operation".
+        // Every one of them but Cpu is inert data — a string, an image index, indices, scalars. Cpu is
+        // the single exception doc 48 § 4.6 argues for and #688 built, and it is nullable: an op that
+        // does not carry one is a dispatch, which is what makes the exception countable rather than a
+        // second execution model.
         Assert.Equal(typeof(string), typeof(TextureOp).GetProperty("Kernel")!.PropertyType);
         Assert.Equal(typeof(int), typeof(TextureOp).GetProperty("Output")!.PropertyType);
         Assert.Equal(typeof(ImmutableArray<int>), typeof(TextureOp).GetProperty("Inputs")!.PropertyType);

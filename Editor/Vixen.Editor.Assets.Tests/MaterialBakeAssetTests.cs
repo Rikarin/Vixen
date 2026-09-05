@@ -305,14 +305,26 @@ public sealed class MaterialBakeAssetTests : IDisposable {
         }
     }
 
-    /// <summary>A set that crosses the container limit does not leave the old file behind.</summary>
+    /// <summary>A set that crosses the container limit reports the old file and does not delete it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The copy that stays behind is a project asset holding the previous bake's pixels under
-    ///     a name that says it is this one's</b>, which is exactly what a generator or a second
-    ///     material picks up by accident.
+    ///     <para>
+    ///         The copy that stays behind is a project asset holding the previous bake's pixels under
+    ///         a name that says it is this one's, which is what a generator or a second material picks
+    ///         up by accident. It is still a hazard and it is still named in a warning.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is no longer deleted, and this test asserted the deletion.</b> Nothing here
+    ///         establishes that the file being removed was written by a previous run of this bake —
+    ///         the name comes from the material's name alone — so the first bake of a material called
+    ///         <c>Rock</c> deleted a hand-authored <c>Rock_basecolor.png</c> <em>and its
+    ///         <c>.meta</c></em>, destroying the id every scene resolved that texture through. See
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/715" />. An orphan an artist can see
+    ///         is a strictly better failure than one this code deletes for them, so the assertion is
+    ///         inverted rather than removed: the file survives, and the warning has to say so.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void A_map_that_grew_past_the_limit_leaves_no_png_behind() {
+    public void A_map_that_grew_past_the_limit_reports_the_old_file_and_keeps_it() {
         var project = Project();
         var baker = new ProjectMaterialBaker(project);
 
@@ -330,9 +342,9 @@ public sealed class MaterialBakeAssetTests : IDisposable {
             Record()
         );
 
-        Assert.False(File.Exists(before), "the PNG under the old extension is still there");
-        Assert.False(File.Exists(AssetMetaFile.PathFor(before)));
+        Assert.True(File.Exists(before), "the PNG under the old extension was deleted");
         Assert.Contains(set.Warnings, warning => warning.Contains(".ktx2", StringComparison.Ordinal));
+        Assert.Contains(set.Warnings, warning => warning.Contains("LEFT IN PLACE", StringComparison.Ordinal));
     }
 
     static string Vxmat(EditorProject project, string name) =>
