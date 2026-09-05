@@ -153,6 +153,17 @@ sampling feature anybody writes shades a surface with a checker and says nothing
 material's textures never reach the table at all,
 [#493](https://github.com/Rikarin/Vixen/issues/493).
 
+> ⚠ **Landed.** [M11](#m11--the-runtime-layering-gap--075-em--optional-and-separable) closed all of
+> that except height: `TexturedMaterialLayersFeature` takes its weights from a splat map,
+> `TexturedEmissiveFeature` and `TexturedOpacityFeature` exist, `MaterialPairingInventoryTests` reads
+> `Raven/Library` for every shader inheriting `MaterialTextures` and asserts a pairing entry for each,
+> and `AssetMaterialSource.Pair` adds a graph's own `Maps`. **Height is deliberately not built** —
+> parallax, height-blending and true displacement are three different features wearing one name and
+> only the middle one is small, [#615](https://github.com/Rikarin/Vixen/issues/615). ⚠ And a second
+> defect came out with it: nothing registered `MaterialKeys.LayerCount` in
+> `MaterialRenderFeature.PermutationKeys`, so a three-layer material had always resolved the variant
+> compiled for two.
+
 **None of that blocks the authoring tool**, because the tool writes files. It blocks the *optional*
 last phase, [M11](#m11--the-runtime-layering-gap--075-em--optional-and-separable), and it is named
 here so nobody discovers it in the middle of M7.
@@ -801,6 +812,9 @@ weights come from a splat map; the completeness test for `WorldRenderer.Paired` 
 [#371](https://github.com/Rikarin/Vixen/issues/371) asks for; and
 [#493](https://github.com/Rikarin/Vixen/issues/493)'s missing wiring. ⚠ **This is owed by doc 06 and
 doc 23 rather than by this document**, it belongs to the renderer, and nothing above it depends on it.
+
+⚠ **Landed, less height** — see the note under [B1](#b1-a-layer-stack-cannot-ship-as-a-live-layered-material--for-the-runtime-path-only).
+Height is [#615](https://github.com/Rikarin/Vixen/issues/615) and is a decision before it is work.
 
 ### Cost
 

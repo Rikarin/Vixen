@@ -1171,6 +1171,80 @@ public class LibraryTreeTests {
         Assert.DoesNotContain("Steps", composed.Permutations.Select(permutation => permutation.Name));
     }
 
+    /// <summary>
+    ///     The three sampling features added for doc 48 § B1 lower into a shading pass that samples.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Lowered rather than bound, because binding is not the claim.</b> A feature that binds
+    ///         and does not lower is a material that refuses at load; a feature that lowers without a
+    ///         <c>texture(</c> in the emitted unit is one whose sample was folded away, which is the
+    ///         same picture as a feature nobody composed. Both have happened in this library.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The emissive one is worth the assertion twice over: the renderer works in cd/m², so a
+    ///         feature that sampled and multiplied by an authored 0..1 map is pixel-identical to a
+    ///         feature that never ran, and no counter distinguishes them.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("TexturedEmissiveSurface")]
+    [InlineData("TexturedOpacitySurface")]
+    [InlineData("TexturedMaterialLayersSurface")]
+    public void A_sampling_feature_reaches_the_forward_pass_as_a_sample(string feature) {
+        var source = ForwardPlusSource(LowerTree(composition: [("surface", feature)]));
+
+        Assert.Contains("texture(", source, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     And the layered surface's <c>LayerCount</c> is a permutation the compilation honours.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Asserted on the array the count sizes</b>, which is the half that is this compiler's
+    ///         and not a driver's. ⚠ A permutation whose value reaches no compiler leaves the variant at
+    ///         the shader's declared default with nothing reported, and the material then writes
+    ///         <c>layers[2]</c> and <c>layers[3]</c> into a block that holds two — the unregistered
+    ///         permutation trap, whose whole difficulty is that every counter stays healthy.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it refutes the library's own comment.</b> Both layered shaders say the loop
+    ///         "unrolls at compile time"; it does not — the emitted unit is a <c>while</c> with a
+    ///         constant bound, and unrolling one is the backend compiler's business. What the
+    ///         permutation genuinely buys is the array: a two-layer material's block holds two layers,
+    ///         which is the cost that mattered and the one asserted here. An earlier version of this
+    ///         test compared emitted lengths on the strength of that comment and was green for the
+    ///         wrong reason — the two units differ by one character.
+    ///     </para>
+    ///     <para>
+    ///         Four rather than three because four is the ceiling a splat map's channels impose, so the
+    ///         widest variant anybody composes is the one asserted.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_layered_surfaces_count_is_a_permutation_the_compilation_honours() {
+        var two = ForwardPlusSource(
+            LowerTree(
+                PermutationValues.Parse(["LayerCount=2"]),
+                ("surface", "TexturedMaterialLayersSurface")
+            )
+        );
+
+        var four = ForwardPlusSource(
+            LowerTree(
+                PermutationValues.Parse(["LayerCount=4"]),
+                ("surface", "TexturedMaterialLayersSurface")
+            )
+        );
+
+        Assert.Contains("layers[2]", two, StringComparison.Ordinal);
+        Assert.DoesNotContain("layers[4]", two, StringComparison.Ordinal);
+
+        Assert.Contains("layers[4]", four, StringComparison.Ordinal);
+        Assert.DoesNotContain("layers[2]", four, StringComparison.Ordinal);
+    }
+
     /// <summary>The resolve's compute unit, as GLSL.</summary>
     static string ResolveSource(IrModule module) {
         var bag = new DiagnosticBag();

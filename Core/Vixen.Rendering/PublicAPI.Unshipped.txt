@@ -3597,6 +3597,28 @@ Vixen.Rendering.Materials.SubsurfaceShading.TransmissionPower.get -> float
 Vixen.Rendering.Materials.SubsurfaceShading.TransmissionPower.init -> float
 Vixen.Rendering.Materials.SubsurfaceShading.Wrap.get -> float
 Vixen.Rendering.Materials.SubsurfaceShading.Wrap.init -> float
+Vixen.Rendering.Materials.TexturedEmissiveFeature -> sealed record
+Vixen.Rendering.Materials.TexturedEmissiveFeature : System.IEquatable<Vixen.Rendering.Materials.TexturedEmissiveFeature>
+Vixen.Rendering.Materials.TexturedEmissiveFeature : Vixen.Rendering.Materials.IMaterialFeature
+Vixen.Rendering.Materials.TexturedEmissiveFeature.Compile(Vixen.Rendering.Materials.MaterialCompilationContext context) -> void
+Vixen.Rendering.Materials.TexturedEmissiveFeature.EmissiveColor.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Materials.TexturedEmissiveFeature.EmissiveColor.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Materials.TexturedEmissiveFeature.EmissiveMap.get -> string
+Vixen.Rendering.Materials.TexturedEmissiveFeature.EmissiveMap.init -> string
+Vixen.Rendering.Materials.TexturedEmissiveFeature.Intensity.get -> float
+Vixen.Rendering.Materials.TexturedEmissiveFeature.Intensity.init -> float
+Vixen.Rendering.Materials.TexturedEmissiveFeature.ShaderName.get -> string
+Vixen.Rendering.Materials.TexturedEmissiveFeature.TexturedEmissiveFeature() -> void
+Vixen.Rendering.Materials.TexturedMaterialLayersFeature -> sealed record
+Vixen.Rendering.Materials.TexturedMaterialLayersFeature : System.IEquatable<Vixen.Rendering.Materials.TexturedMaterialLayersFeature>
+Vixen.Rendering.Materials.TexturedMaterialLayersFeature : Vixen.Rendering.Materials.IMaterialFeature
+Vixen.Rendering.Materials.TexturedMaterialLayersFeature.Compile(Vixen.Rendering.Materials.MaterialCompilationContext context) -> void
+Vixen.Rendering.Materials.TexturedMaterialLayersFeature.Layers.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Materials.MaterialLayerValue>
+Vixen.Rendering.Materials.TexturedMaterialLayersFeature.Layers.init -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Materials.MaterialLayerValue>
+Vixen.Rendering.Materials.TexturedMaterialLayersFeature.ShaderName.get -> string
+Vixen.Rendering.Materials.TexturedMaterialLayersFeature.SplatMap.get -> string
+Vixen.Rendering.Materials.TexturedMaterialLayersFeature.SplatMap.init -> string
+Vixen.Rendering.Materials.TexturedMaterialLayersFeature.TexturedMaterialLayersFeature() -> void
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature -> sealed record
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature : System.IEquatable<Vixen.Rendering.Materials.TexturedMetalRoughnessFeature>
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature : Vixen.Rendering.Materials.IMaterialFeature
@@ -3621,6 +3643,16 @@ Vixen.Rendering.Materials.TexturedNormalMapFeature.ShaderName.get -> string
 Vixen.Rendering.Materials.TexturedNormalMapFeature.Strength.get -> float
 Vixen.Rendering.Materials.TexturedNormalMapFeature.Strength.init -> float
 Vixen.Rendering.Materials.TexturedNormalMapFeature.TexturedNormalMapFeature() -> void
+Vixen.Rendering.Materials.TexturedOpacityFeature -> sealed record
+Vixen.Rendering.Materials.TexturedOpacityFeature : System.IEquatable<Vixen.Rendering.Materials.TexturedOpacityFeature>
+Vixen.Rendering.Materials.TexturedOpacityFeature : Vixen.Rendering.Materials.IMaterialFeature
+Vixen.Rendering.Materials.TexturedOpacityFeature.Compile(Vixen.Rendering.Materials.MaterialCompilationContext context) -> void
+Vixen.Rendering.Materials.TexturedOpacityFeature.Opacity.get -> float
+Vixen.Rendering.Materials.TexturedOpacityFeature.Opacity.init -> float
+Vixen.Rendering.Materials.TexturedOpacityFeature.OpacityMap.get -> string
+Vixen.Rendering.Materials.TexturedOpacityFeature.OpacityMap.init -> string
+Vixen.Rendering.Materials.TexturedOpacityFeature.ShaderName.get -> string
+Vixen.Rendering.Materials.TexturedOpacityFeature.TexturedOpacityFeature() -> void
 Vixen.Rendering.Materials.TexturedOrmFeature -> sealed record
 Vixen.Rendering.Materials.TexturedOrmFeature : System.IEquatable<Vixen.Rendering.Materials.TexturedOrmFeature>
 Vixen.Rendering.Materials.TexturedOrmFeature : Vixen.Rendering.Materials.IMaterialFeature
@@ -6640,8 +6672,11 @@ static Vixen.Rendering.Materials.MaterialShading.TryResolve(string? name, out Vi
 static Vixen.Rendering.Materials.MaterialSurface.Default.get -> Vixen.Rendering.Materials.MaterialSurface
 static Vixen.Rendering.Materials.MaterialSurface.Of(System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Materials.IMaterialFeature>? features) -> Vixen.Rendering.Materials.MaterialSurface
 static Vixen.Rendering.Materials.MaterialSurface.Of(Vixen.Rendering.Materials.MaterialContent? content) -> Vixen.Rendering.Materials.MaterialSurface
+static Vixen.Rendering.Materials.TexturedEmissiveFeature.EmissiveIndexParameter(string path) -> string
+static Vixen.Rendering.Materials.TexturedMaterialLayersFeature.SplatIndexParameter(string path) -> string
 static Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.BaseColorIndexParameter(string path) -> string
 static Vixen.Rendering.Materials.TexturedNormalMapFeature.NormalIndexParameter(string path) -> string
+static Vixen.Rendering.Materials.TexturedOpacityFeature.OpacityIndexParameter(string path) -> string
 static Vixen.Rendering.Materials.TexturedOrmFeature.OrmIndexParameter(string path) -> string
 static Vixen.Rendering.MeshInstance.NormalMatrix(in Vixen.Core.Mathematics.Matrix4x4 transform) -> Vixen.Core.Mathematics.Matrix4x4
 static Vixen.Rendering.MeshInstance.Of(in Vixen.Core.Mathematics.Matrix4x4 transform, Vixen.Core.Mathematics.Color4 colour, Vixen.Core.Mathematics.Vector4 style = default(Vixen.Core.Mathematics.Vector4), Vixen.Rendering.Materials.MaterialSurface? surface = null, float checker = 0, float tint = 0) -> Vixen.Rendering.MeshInstance
