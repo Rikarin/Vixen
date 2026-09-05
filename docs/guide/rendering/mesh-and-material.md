@@ -4,7 +4,7 @@ slug: rendering/mesh-and-material
 kind: concept
 area: Rendering
 summary: Neither word names a type — each names a chain of them, one per stage, plus four subsystems that borrowed the same word.
-api: [T:Vixen.Rendering.MeshData, T:Vixen.Rendering.MeshDraw, T:Vixen.Rendering.Material, T:Vixen.Rendering.MeshPrimitives, T:Vixen.Rendering.MeshRenderer, T:Vixen.Rendering.MeshInstanceRenderer, T:Vixen.Rendering.MaterialRecords, T:Vixen.Rendering.Materials.MaterialDescriptor, T:Vixen.Rendering.Materials.MaterialContent, T:Vixen.Rendering.Materials.MaterialTexture, T:Vixen.Rendering.Materials.MaterialCompiler, T:Vixen.Rendering.Materials.MaterialCompilation, T:Vixen.Rendering.Materials.IMaterialFeature, T:Vixen.Rendering.Materials.TexturedNormalMapFeature, T:Vixen.Rendering.Materials.TexturedOrmFeature, T:Vixen.Rendering.Materials.TexturedEmissiveFeature, T:Vixen.Rendering.Materials.TexturedOpacityFeature, T:Vixen.Rendering.Materials.TexturedMaterialLayersFeature, T:Vixen.Rendering.Materials.GraphSurfaceFeature, T:Vixen.Rendering.Materials.GraphSurfaceNumber, T:Vixen.Rendering.Materials.GraphSurfaceVector, T:Vixen.Rendering.Materials.GraphSurfaceMap, T:Vixen.Rendering.Materials.IMaterialShading, T:Vixen.Rendering.Materials.MaterialShading, T:Vixen.Rendering.Materials.MaterialSurface, T:Vixen.Rendering.Ecs.MeshRenderable, T:Vixen.Rendering.Ecs.MeshRenderables, T:Vixen.Rendering.Ecs.PrimitiveShape, T:Vixen.Rendering.Ecs.MeshExtractionSystem, T:Vixen.Rendering.Ecs.IMeshSource, T:Vixen.Rendering.Ecs.IMaterialSource, T:Vixen.Rendering.Ecs.ISurfaceSource, T:Vixen.Rendering.Features.MeshRenderFeature, T:Vixen.Rendering.Features.MaterialRenderFeature, T:Vixen.Engine.Renderer.AssetMeshSource, T:Vixen.Engine.Renderer.AssetMaterialSource, T:Vixen.Editor.Assets.Content.ProjectMeshSource, T:Vixen.Editor.Assets.Content.ProjectSurfaceSource, T:Vixen.Editor.Assets.Materials.MaterialImporter, T:Vixen.Editor.AssetEditors.Materials.MaterialAsset]
+api: [T:Vixen.Rendering.MeshData, T:Vixen.Rendering.MeshDraw, T:Vixen.Rendering.Material, T:Vixen.Rendering.MeshPrimitives, T:Vixen.Rendering.MeshRenderer, T:Vixen.Rendering.MeshInstanceRenderer, T:Vixen.Rendering.MaterialRecords, T:Vixen.Rendering.Materials.MaterialDescriptor, T:Vixen.Rendering.Materials.MaterialContent, T:Vixen.Rendering.Materials.MaterialTexture, T:Vixen.Rendering.Materials.MaterialCompiler, T:Vixen.Rendering.Materials.MaterialCompilation, T:Vixen.Rendering.Materials.IMaterialFeature, T:Vixen.Rendering.Materials.TexturedNormalMapFeature, T:Vixen.Rendering.Materials.TexturedOrmFeature, T:Vixen.Rendering.Materials.TexturedEmissiveFeature, T:Vixen.Rendering.Materials.TexturedOpacityFeature, T:Vixen.Rendering.Materials.TexturedMaterialLayersFeature, T:Vixen.Rendering.Materials.GraphSurfaceFeature, T:Vixen.Rendering.Materials.GraphSurfaceNumber, T:Vixen.Rendering.Materials.GraphSurfaceVector, T:Vixen.Rendering.Materials.GraphSurfaceMap, T:Vixen.Rendering.Materials.IMaterialShading, T:Vixen.Rendering.Materials.MaterialShading, T:Vixen.Rendering.Materials.MaterialSurface, T:Vixen.Rendering.Ecs.MeshRenderable, T:Vixen.Rendering.Ecs.MeshRenderables, T:Vixen.Rendering.Ecs.PrimitiveShape, T:Vixen.Rendering.Ecs.MeshExtractionSystem, T:Vixen.Rendering.Ecs.IMeshSource, T:Vixen.Rendering.Ecs.IMaterialSource, T:Vixen.Rendering.Ecs.ISurfaceSource, T:Vixen.Rendering.Features.MeshRenderFeature, T:Vixen.Rendering.Features.MaterialRenderFeature, T:Vixen.Rendering.Features.PermutationKeyDictionary, T:Vixen.Engine.Renderer.AssetMeshSource, T:Vixen.Engine.Renderer.AssetMaterialSource, T:Vixen.Editor.Assets.Content.ProjectMeshSource, T:Vixen.Editor.Assets.Content.ProjectSurfaceSource, T:Vixen.Editor.Assets.Materials.MaterialImporter, T:Vixen.Editor.AssetEditors.Materials.MaterialAsset]
 tags: [rendering, materials, meshes, assets, naming]
 since: 0.1
 status: stable
@@ -175,6 +175,28 @@ The shader half lives in Raven rather than in C#:
 
 ⚠ **A feature writes channels; a shading model reads them.** That split is what keeps both sets small,
 and it is why the C# and Raven sides have the same seven names on one axis and thirteen on the other.
+
+#### Which permutations a variant is selected by, and the one key a host cannot drop
+
+`MaterialRenderFeature.PermutationKeys` is a `PermutationKeyDictionary`: shader name → the keys that
+shader's effect key is built from. A host states a pass's set in one line, with the array the shader's
+own reflection produced:
+
+```csharp
+renderer.Materials.PermutationKeys["ForwardPlus"] = ForwardPlusKeys.UsedPermutationKeys;
+```
+
+⚠ **A key set under a name that list does not carry reaches no compiler at all** — the variant resolves
+to whatever the `.rvn` declares as its default, an effect resolves, a pipeline binds and a frame draws.
+That is the trap the whole type exists around.
+
+⚠ **And a *composed* surface's permutation is in no pass's reflection.** `LayerCount` is declared by
+`TexturedMaterialLayersSurface`, not by `ForwardPlus`, so the generated array above cannot carry it and
+a host assigning that array is not making a mistake by leaving it out. The engine registers it with
+`PermutationKeys.Register(shader, key)` when the renderer is built — and **a later assignment cannot
+take a registered key away**, which is the reason this is a type of its own rather than a
+`Dictionary`. It was a dictionary once, the host line ran after the engine's, and every host that drew
+compiled three-layer materials as two-layer ones without a word.
 
 ### Types called Mesh or Material that are not on either chain
 

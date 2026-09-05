@@ -1109,19 +1109,20 @@ public sealed class WorldRenderer : IDisposable {
     ///         material is the one shape that must not go through it: every material would resolve the
     ///         frame's value instead of its own.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Registering it here was not enough on its own, and the reason is an ordering
+    ///         nothing about this call site shows.</b> This runs in the constructor; both shipping
+    ///         samples and five golden device suites then assign
+    ///         <c>Materials.PermutationKeys["ForwardPlus"] = ForwardPlusKeys.UsedPermutationKeys</c>
+    ///         afterwards — correctly, because that array is what the pass's own reflection reports,
+    ///         and <c>LayerCount</c> is a <em>composed</em> surface's permutation that no pass
+    ///         reflection can carry. So the registration was discarded in every host that drew.
+    ///         <c>PermutationKeyDictionary.Register</c> is what makes it survive that line, rather than a
+    ///         sixth host being asked to remember to append.
+    ///     </para>
     /// </remarks>
-    internal static void Permuted(MaterialRenderFeature materials, string shader) {
-        var key = MaterialKeys.LayerCount(shader);
-
-        if (!materials.PermutationKeys.TryGetValue(shader, out var keys)) {
-            materials.PermutationKeys[shader] = [key];
-            return;
-        }
-
-        if (!keys.Contains(key)) {
-            materials.PermutationKeys[shader] = [.. keys, key];
-        }
-    }
+    internal static void Permuted(MaterialRenderFeature materials, string shader) =>
+        materials.PermutationKeys.Register(shader, MaterialKeys.LayerCount(shader));
 
     /// <summary>
     ///     Fills the one per-frame binding the material table's shader half declares.

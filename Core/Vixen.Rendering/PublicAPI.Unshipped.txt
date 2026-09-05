@@ -1921,7 +1921,7 @@ Vixen.Rendering.Features.MaterialRenderFeature.IndexedTextureCount.get -> int
 Vixen.Rendering.Features.MaterialRenderFeature.MaterialIndex.get -> Vixen.Rendering.RenderDataKey<int>
 Vixen.Rendering.Features.MaterialRenderFeature.MaterialRenderFeature() -> void
 Vixen.Rendering.Features.MaterialRenderFeature.Materials.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Material>
-Vixen.Rendering.Features.MaterialRenderFeature.PermutationKeys.get -> System.Collections.Generic.Dictionary<string, System.Collections.Generic.IReadOnlyList<Vixen.Shaders.ParameterKey>>
+Vixen.Rendering.Features.MaterialRenderFeature.PermutationKeys.get -> Vixen.Rendering.Features.PermutationKeyDictionary
 Vixen.Rendering.Features.MaterialRenderFeature.PermutationSources.get -> System.Collections.Generic.Dictionary<Vixen.Shaders.PermutationKey<bool>, Vixen.Shaders.PermutationKey<bool>>
 Vixen.Rendering.Features.MaterialRenderFeature.Permutations.get -> Vixen.Shaders.ParameterCollection
 Vixen.Rendering.Features.MaterialRenderFeature.RecordOf(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, Vixen.Rendering.RenderStage? stage = null) -> (uint Group, int Index)?
@@ -2056,6 +2056,21 @@ Vixen.Rendering.Features.ParticleRenderFeature.VertexLayout.get -> int
 Vixen.Rendering.Features.ParticleRenderFeature.VertexLayout.set -> int
 Vixen.Rendering.Features.ParticleRenderFeature.View.get -> Vixen.Rendering.RenderView?
 Vixen.Rendering.Features.ParticleRenderFeature.View.set -> Vixen.Rendering.RenderView?
+Vixen.Rendering.Features.PermutationKeyDictionary -> sealed class
+Vixen.Rendering.Features.PermutationKeyDictionary : System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string, System.Collections.Generic.IReadOnlyList<Vixen.Shaders.ParameterKey>>>
+Vixen.Rendering.Features.PermutationKeyDictionary : System.Collections.Generic.IReadOnlyCollection<System.Collections.Generic.KeyValuePair<string, System.Collections.Generic.IReadOnlyList<Vixen.Shaders.ParameterKey>>>
+Vixen.Rendering.Features.PermutationKeyDictionary : System.Collections.Generic.IReadOnlyDictionary<string, System.Collections.Generic.IReadOnlyList<Vixen.Shaders.ParameterKey>>
+Vixen.Rendering.Features.PermutationKeyDictionary : System.Collections.IEnumerable
+Vixen.Rendering.Features.PermutationKeyDictionary.ContainsKey(string shaderName) -> bool
+Vixen.Rendering.Features.PermutationKeyDictionary.Count.get -> int
+Vixen.Rendering.Features.PermutationKeyDictionary.GetEnumerator() -> System.Collections.Generic.IEnumerator<System.Collections.Generic.KeyValuePair<string, System.Collections.Generic.IReadOnlyList<Vixen.Shaders.ParameterKey>>>
+Vixen.Rendering.Features.PermutationKeyDictionary.Keys.get -> System.Collections.Generic.IEnumerable<string>
+Vixen.Rendering.Features.PermutationKeyDictionary.PermutationKeyDictionary() -> void
+Vixen.Rendering.Features.PermutationKeyDictionary.Register(string shaderName, Vixen.Shaders.ParameterKey key) -> void
+Vixen.Rendering.Features.PermutationKeyDictionary.TryGetValue(string shaderName, out System.Collections.Generic.IReadOnlyList<Vixen.Shaders.ParameterKey> value) -> bool
+Vixen.Rendering.Features.PermutationKeyDictionary.Values.get -> System.Collections.Generic.IEnumerable<System.Collections.Generic.IReadOnlyList<Vixen.Shaders.ParameterKey>>
+Vixen.Rendering.Features.PermutationKeyDictionary.this[string shaderName].get -> System.Collections.Generic.IReadOnlyList<Vixen.Shaders.ParameterKey>
+Vixen.Rendering.Features.PermutationKeyDictionary.this[string shaderName].set -> System.Collections.Generic.IReadOnlyList<Vixen.Shaders.ParameterKey>
 Vixen.Rendering.Features.SkinningRenderFeature -> sealed class
 Vixen.Rendering.Features.SkinningRenderFeature : System.IDisposable
 Vixen.Rendering.Features.SkinningRenderFeature : Vixen.Rendering.Features.IDrawSubFeature
