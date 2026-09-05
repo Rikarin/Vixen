@@ -64,6 +64,17 @@
         <ProjectReference Include="..\Vixen.Editor.AssetEditors\Vixen.Editor.AssetEditors.csproj" />
 
         <!--
+            ⚠ And the image decoders, named here rather than taken through the reference above.
+            `LayerStackPreview` resolves a texture-fill layer's imported picture — #818 — which means
+            reading a file the asset database points at and decoding it to Rgba8, and the decoder set
+            an importer already uses is `ImageDecoders.BuiltIn`. It arrives transitively through
+            `Vixen.Editor.AssetEditors` either way; a reference this assembly *uses* is written down,
+            because the day somebody narrows that one is the day this file stops compiling for a
+            reason nothing states.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Assets\Vixen.Editor.Assets.csproj" />
+
+        <!--
             ⚠ Named for one type and one question: `IGraphicsDevice`, so that
             `TexturePreview.Blocking` can ask the host for one and say precisely what is missing when
             there is none. Doc 48 § D14 predicted a plugin would need a device and that the contract

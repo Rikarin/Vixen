@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Imaging;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Graphics.Vulkan;
 using Vixen.Ui;
@@ -234,6 +235,131 @@ public class LayerStackPanelDeviceTests {
         };
 
         Assert.DoesNotContain("⚠", preview.Evaluate(plain).Status, StringComparison.Ordinal);
+    }
+
+    /// <summary>A texture-fill layer's imported picture is read out of the project and drawn.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/818">#818</a>: the commonest
+    ///         stack there is, and the pane used to answer it with a sentence.</b> A compiler must
+    ///         not touch an <c>AssetDatabase</c> — it runs on every edit — so what crossed was the
+    ///         reference, and nothing on the panel's side read it. Skipping the entry was never an
+    ///         option: <c>TexturePlanEvaluator.Evaluate</c> refuses a plan whose external nothing
+    ///         supplied, by throwing about an image index out of a panel build.
+    ///     </para>
+    ///     <para>
+    ///         <b>The picture is asymmetric on purpose.</b> A flat fill would be drawn identically by
+    ///         a pane that resolved the asset, one that uploaded a blank texture and one that filled
+    ///         the image with a constant; the four corners of this one differ, so what is asserted is
+    ///         that the <em>file's own</em> texels came back.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_texture_fill_layer_reads_the_picture_the_project_holds() {
+        using var device = Open();
+        using var fixture = new TexturingFixture(device);
+
+        using LayerStackPreview preview = new(fixture.Graphics!);
+
+        // A 2×2 whose top-left is red and whose bottom-right is blue, written as a real PNG through
+        // the project's own codec and scanned in as an asset the database can resolve by path.
+        Bitmap picture = new(2, 2, [
+            255, 0, 0, 255, 0, 255, 0, 255,
+            0, 0, 255, 255, 255, 255, 255, 255
+        ]);
+
+        Directory.CreateDirectory(Path.Combine(fixture.Paths.Assets, "Textures"));
+        File.WriteAllBytes(
+            Path.Combine(fixture.Paths.Assets, "Textures", "corners.png"),
+            PngCodec.Encode(picture)
+        );
+
+        fixture.Project.Assets.Scan();
+
+        var stack = Painted(2);
+
+        stack.Sets[0].Layers[0] = stack.Sets[0].Layers[0] with {
+            Fill = LayerFillSource.Texture,
+
+            // ⚠ Restricted, because an empty channel list means *every* channel — so a texture fill
+            // that named one picture would be refused six times for the six it did not.
+            Channels = ["baseColor"],
+            Textures = new Dictionary<string, string> { ["baseColor"] = "Assets/Textures/corners.png" }
+        };
+
+        var document = new LayerStackDocument(
+            fixture.Project,
+            LayerStackPanelTests.AddStack(fixture, "Hull"),
+            fixture.Paths.Absolute("Assets/Hull" + LayerStackDocument.Extension)
+        ) {
+            Document = stack
+        };
+
+        // The instrument: the document really is the texture-fill stack, so a green run below is
+        // about the resolution rather than about a constant fill that never needed one.
+        Assert.Equal(LayerFillSource.Texture, document.Document.Sets[0].Layers[0].Fill);
+        Assert.Single(document.Document.Sets[0].Layers[0].Textures);
+
+        var shown = preview.Evaluate(document);
+
+        Assert.True(shown.Image is not null, shown.Status);
+        Assert.DoesNotContain("818", shown.Status, StringComparison.Ordinal);
+
+        var uploaded = fixture.Graphics!.Uploads[^1];
+
+        Assert.Equal(2, uploaded.Width);
+        Assert.Equal(2, uploaded.Height);
+
+        // The file's own corners, which is what separates "the asset was read" from "something drew
+        // a picture". Bilinear at matching extents lands each texel on its own centre.
+        Assert.True(
+            uploaded.Pixels[0] > 200 && uploaded.Pixels[1] < 60,
+            $"{Adapter(device)}: the first texel is ({uploaded.Pixels[0]}, {uploaded.Pixels[1]}, "
+            + $"{uploaded.Pixels[2]}) and the imported picture's is red."
+        );
+
+        Assert.True(
+            uploaded.Pixels[10] > 200 && uploaded.Pixels[8] < 60,
+            $"{Adapter(device)}: the third texel is ({uploaded.Pixels[8]}, {uploaded.Pixels[9]}, "
+            + $"{uploaded.Pixels[10]}) and the imported picture's is blue."
+        );
+    }
+
+    /// <summary>A layer naming a picture the project has not got is a sentence, not a throw.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The failure mode the resolution had to keep.</b> A preview runs on every edit, so
+    ///     every way of not reading a file — deleted, never imported, a format nothing decodes — has
+    ///     to come back as text under the pane. A throw here is a throw out of a panel build, which
+    ///     is <a href="https://github.com/Rikarin/Vixen/issues/805">#805</a> one layer out.
+    /// </remarks>
+    [Fact]
+    public void A_texture_fill_naming_nothing_the_project_holds_says_so_and_does_not_throw() {
+        using var device = Open();
+        using var fixture = new TexturingFixture(device);
+
+        using LayerStackPreview preview = new(fixture.Graphics!);
+
+        var stack = Painted(8);
+
+        stack.Sets[0].Layers[0] = stack.Sets[0].Layers[0] with {
+            Fill = LayerFillSource.Texture,
+            Channels = ["baseColor"],
+            Textures = new Dictionary<string, string> { ["baseColor"] = "Assets/Textures/nothing-here.png" }
+        };
+
+        var document = new LayerStackDocument(
+            fixture.Project,
+            LayerStackPanelTests.AddStack(fixture, "Hull"),
+            fixture.Paths.Absolute("Assets/Hull" + LayerStackDocument.Extension)
+        ) {
+            Document = stack
+        };
+
+        var shown = preview.Evaluate(document);
+
+        Assert.Null(shown.Image);
+        Assert.Contains("nothing-here.png", shown.Status, StringComparison.Ordinal);
+        Assert.Contains("not in this project's assets", shown.Status, StringComparison.Ordinal);
     }
 
     static LayerStackAsset Painted(int side) {

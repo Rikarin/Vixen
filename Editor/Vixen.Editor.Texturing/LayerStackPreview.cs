@@ -1,9 +1,13 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Imaging;
+using Vixen.Editor.Assets.Textures;
+using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.TextureGraph;
 using Vixen.Editor.Texturing.Layers;
+using Vixen.Graphics;
 
 namespace Vixen.Editor.Texturing;
 
@@ -42,12 +46,22 @@ sealed record LayerStackPicture(IEditorImage? Image, string Usage, int Width, in
 ///         slice's.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An imported image is the one thing this cannot fill, and it is reported rather than
-///         skipped.</b> <c>TextureGraphExternals.Upload</c> hands back the entries naming an asset,
-///         and an evaluation missing exactly one texture throws about an image index rather than
-///         drawing a map with a hole in it. Resolving them wants an <c>AssetDatabase</c> read on the
-///         panel's thread, which is <a href="https://github.com/Rikarin/Vixen/issues/818">#818</a>;
-///         until then the pane says which layer's picture it is short of.
+///         ⚠ <b>An imported image is read here, on the panel's thread, and a picture that will not
+///         read is a sentence rather than an exception —
+///         <a href="https://github.com/Rikarin/Vixen/issues/818">#818</a>.</b>
+///         <c>TextureGraphExternals.Upload</c> fills the externals whose bytes the compilation
+///         carries — a ramp, a curve table — and hands back the ones naming an asset, because a
+///         compiler that ran on every edit must not touch an <c>AssetDatabase</c>. This is the host
+///         half: the database resolves the reference, <c>ImageDecoders</c> reads the file, and the
+///         texels go up through the same <c>TextureUploads</c>. Skipping one was never an option —
+///         <c>TexturePlanEvaluator.Evaluate</c> refuses a plan with an external nothing supplied,
+///         and it refuses it by throwing about an image index out of a panel build.
+///     </para>
+///     <para>
+///         ⚠ <b>A mesh map is not a file and is refused as one.</b> A <c>Source/Mesh Map</c> crosses
+///         as <c>meshmap:curvature</c> rather than as a path, because what it names is a measurement
+///         of a mesh this pane has not been told about; resolving it as a project path would be a
+///         missing-file message about a file nobody named.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Never called from inside the host's own frame</b>, for
@@ -59,6 +73,16 @@ sealed record LayerStackPicture(IEditorImage? Image, string Usage, int Width, in
 sealed class LayerStackPreview : IDisposable {
     /// <summary>Which map the pane shows when nothing else is asked for.</summary>
     public const string DefaultUsage = "baseColor";
+
+    /// <summary>What a mesh map's reference starts with, rather than a path.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Duplicated from <c>TextureMeshMaps.Scheme</c>, which is <c>internal</c> to
+    ///     <c>Vixen.Editor.TextureGraph</c> and visible to its own tests alone.</b> The alternative
+    ///     is resolving <c>meshmap:curvature</c> as a project path and telling an artist that a file
+    ///     of that name is missing. <c>LayerStackPanelDeviceTests</c> asserts a mesh-map layer still
+    ///     gets the sentence, which is the only thing that can catch the two drifting apart.
+    /// </remarks>
+    const string TextureMeshMapScheme = "meshmap:";
 
     readonly IEditorGraphics graphics;
 
@@ -144,15 +168,24 @@ sealed class LayerStackPreview : IDisposable {
         using TextureUploads uploads = new(device);
 
         var owed = TextureGraphExternals.Upload(uploads, plan, compilation.Externals);
+        List<string> unresolved = [];
 
-        if (owed.Length > 0) {
+        foreach (var entry in owed) {
+            if (Resolve(document.Project, uploads, plan, entry) is { } why) {
+                unresolved.Add(why);
+            }
+        }
+
+        // ⚠ Every one of them, and only then the refusal. A pane that returned at the first would
+        // send an artist round the loop once per missing picture, which for a stack that has been
+        // moved between projects is once per layer.
+        if (unresolved.Count > 0) {
             return new(
                 null,
                 usage,
                 width,
                 height,
-                $"No preview: {owed.Length} layer(s) read an imported image — {string.Join(", ", owed.Select(entry => entry.Asset))} "
-                + "— and this pane resolves no assets yet (#818). Every other layer compiled."
+                "No preview: " + string.Join(" · ", unresolved) + " Every other layer compiled."
             );
         }
 
@@ -197,6 +230,80 @@ sealed class LayerStackPreview : IDisposable {
     ///     compiler's or a builder's fault. A pane that showed only the first would be silent on
     ///     every failure of the second.
     /// </remarks>
+    /// <summary>Reads one external image out of the project and uploads it.</summary>
+    /// <param name="project">Whose asset database resolves the reference.</param>
+    /// <param name="uploads">Where the texture is made, and what owns it.</param>
+    /// <param name="plan">The plan the image belongs to, which says what format and size it is.</param>
+    /// <param name="entry">The external the compilation could not fill.</param>
+    /// <returns>Null when it was uploaded, or the sentence saying why it was not.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every failure is a returned sentence and none is an exception, including the ones
+    ///         that are this build's fault.</b> A preview runs on every edit and a throw out of one
+    ///         takes the editor's frame with it — so a file that has been deleted, a format nothing
+    ///         decodes, and a decoder that read the file and produced nothing are all the same kind
+    ///         of answer here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Rgba8 only, and it is a real limit rather than an oversight.</b> The plan's
+    ///         external image for a <c>Source/Bitmap</c> is <c>Rgba8</c> —
+    ///         <c>BitmapNode</c> says why — so a KTX2 or DDS asset that decodes to a block-compressed
+    ///         format has the wrong byte count for the image it would fill, and
+    ///         <c>TextureUploads.Add</c> would refuse it with a message about a byte count rather
+    ///         than about a file. Named here instead.
+    ///     </para>
+    /// </remarks>
+    static string? Resolve(
+        EditorProject project,
+        TextureUploads uploads,
+        TexturePlan plan,
+        TextureGraphExternal entry
+    ) {
+        var reference = entry.Asset.Trim();
+
+        // A mesh map names a measurement rather than a file — see the type's remarks.
+        if (reference.StartsWith(TextureMeshMapScheme, StringComparison.Ordinal)) {
+            return $"a layer reads '{reference}', which is a measurement of a mesh this pane has not been "
+                + "told about rather than a file it can open.";
+        }
+
+        if (!project.Assets.TryGetByPath(reference, out var asset)) {
+            return $"'{reference}' is not in this project's assets, so there is nothing to read.";
+        }
+
+        var file = project.Paths.Absolute(asset.Path);
+        var extension = Path.GetExtension(file);
+
+        if (ImageDecoders.For(ImageDecoders.BuiltIn, extension) is not { } decoder) {
+            return $"nothing here decodes '{extension}', so '{reference}' cannot be read.";
+        }
+
+        TextureData decoded;
+
+        try {
+            using var stream = File.OpenRead(file);
+
+            decoded = decoder.Decode(stream, extension);
+        } catch (Exception failure) when (failure is IOException
+            or InvalidDataException or NotSupportedException or ArgumentException
+            or UnauthorizedAccessException) {
+            return $"'{reference}' would not read: {failure.Message}";
+        }
+
+        if (decoded.Format != PixelFormat.Rgba8UNorm) {
+            return $"'{reference}' decoded as {decoded.Format} and a graph's imported image is Rgba8, so this "
+                + "pane cannot upload it. Import it as an uncompressed 8-bit picture.";
+        }
+
+        try {
+            uploads.Add(plan, entry.Image, decoded.Width, decoded.Height, decoded.Level(0));
+        } catch (ArgumentException failure) {
+            return $"'{reference}' could not be uploaded: {failure.Message}";
+        }
+
+        return null;
+    }
+
     static string Refused(LayerStackCompilation compilation) {
         var problems = compilation.Problems.Select(problem => problem.Message)
             .Concat(compilation.Diagnostics.Where(one => one.Severity == NodeGraph.NodeSeverity.Error)
