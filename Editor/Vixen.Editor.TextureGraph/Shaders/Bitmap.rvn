@@ -1,0 +1,114 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// An imported image, resampled to the resolution of the op that writes it, and decoded on the way in.
+// Doc 48 § 4.1's second source, and the plan's only absolute size (§ D8: "only a Bitmap input is
+// absolute").
+//
+// ## Where the sRGB decode belongs, and why here
+//
+// ⚠ § 4.1: *"an sRGB texture decoded as linear and then blended is the commonest wrong-looking graph
+// there is."* There are three places the decode could live and only one of them is right:
+//
+//   1. **On the texture's view**, by uploading the asset as an `…Srgb` pixel format and letting the
+//      hardware decode on every read. This is free and it is what a renderer does — but a texture
+//      graph reads its inputs with `Load`, not through a sampler, and more importantly the plan's
+//      image table carries a `TextureFormat` and *not* a colour space. Making it carry one would put
+//      the question on every intermediate, where it has no answer: what colour space is the output of
+//      a blur of a mask?
+//   2. **At the blend**, wherever two images meet. This is the wrong-looking graph § 4.1 names, in
+//      its other form: every kernel would have to ask, and the ones that forgot would be the ones
+//      that looked plausible.
+//   3. **Here, once, at the only node that touches an asset.** Every image *inside* a graph is then
+//      linear by construction, no downstream kernel has to ask, and the plan needs no colour-space
+//      field. That is what this kernel does, and `srgb` is the asset's declared space arriving as a
+//      number.
+//
+// ⚠ **And the decode happens before the filter, not after.** Four taps averaged and then decoded is
+// not the same picture as four taps decoded and then averaged: an edge between 0 and 255 lands at
+// 0.5 in linear light one way and at 0.214 the other. Filtering encoded values is the second half of
+// the same bug and it is the half that survives a code review, because the decode *is* there — just
+// one line too late. `TextureSourceDeviceTests` pins the midpoint of that edge at 0.5.
+//
+// ## What it does not do
+//
+// **No mip-correct minification.** A 4K source into a 512 image is undersampled by this kernel and
+// will alias. Doc 48 § 4.3's `Transform 2D` and `Resample` are where that is answered, and answering
+// it here would mean this kernel needed a mip chain the plan does not build. A bitmap larger than the
+// image it is resampled into is worth a diagnostic from the node in M4; it is not worth a wrong
+// filter here.
+
+shader Bitmap {
+    /// The imported image. An external entry in the plan's table — the caller supplies the texture.
+    var source: Texture2D
+
+    /// Non-zero when the asset's declared colour space is sRGB and its values need decoding.
+    ///
+    /// Alpha is never decoded whatever this says: an sRGB image's alpha channel is linear coverage in
+    /// every format that has one, and running the curve over it is a transparency change nobody asked
+    /// for.
+    var srgb: int = 0
+
+    /// 0 nearest · 1 bilinear.
+    var filter: int = 1
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// One channel of the sRGB EOTF, exactly as IEC 61966-2-1 writes it.
+    ///
+    /// The linear segment below 0.04045 is not a rounding of the curve — the pure power function has
+    /// an infinite derivative at zero, and a two-piece definition is what the standard says.
+    func Decode(value: float): float {
+        if (value <= 0.04045f) {
+            return value / 12.92f
+        }
+
+        return pow((value + 0.055f) / 1.055f, 2.4f)
+    }
+
+    /// One texel of the source, clamped to its edge and already in linear light.
+    func Tap(x: int, y: int): float4 {
+        val size = source.GetDimensions(0)
+        val texel = source.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+
+        if (srgb == 0) {
+            return texel
+        }
+
+        return float4(Decode(texel.x), Decode(texel.y), Decode(texel.z), texel.w)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val from = source.GetDimensions(0)
+        val uv = float2((float(coord.x) + 0.5f) / float(size.x), (float(coord.y) + 0.5f) / float(size.y))
+
+        // Texel centres, not corners. `uv * n - 0.5` is the position of the sample in the source's
+        // own texel-index space, and forgetting the half is a half-texel shift that reads as a
+        // slightly soft image rather than as a bug.
+        val at = float2(uv.x * float(from.x) - 0.5f, uv.y * float(from.y) - 0.5f)
+
+        if (filter == 0) {
+            target.Store(coord, Tap(int(floor(at.x + 0.5f)), int(floor(at.y + 0.5f))))
+
+            return
+        }
+
+        val low = float2(floor(at.x), floor(at.y))
+        val fx = at.x - low.x
+        val fy = at.y - low.y
+        val x0 = int(low.x)
+        val y0 = int(low.y)
+
+        val top = Tap(x0, y0) + (Tap(x0 + 1, y0) - Tap(x0, y0)) * fx
+        val bottom = Tap(x0, y0 + 1) + (Tap(x0 + 1, y0 + 1) - Tap(x0, y0 + 1)) * fx
+
+        target.Store(coord, top + (bottom - top) * fy)
+    }
+}

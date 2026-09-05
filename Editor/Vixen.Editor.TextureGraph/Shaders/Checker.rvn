@@ -1,0 +1,51 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// A checkerboard, with a scale, a rotation and an offset. Doc 48 § 4.1.
+//
+// ⚠ **`ComputeColor.rvn:169` already has one, and this is not a call to it.** A texture-graph kernel
+// is compiled on its own — `TexturePlanEvaluator.VariantFor` hands `RavenEffectCompiler.FromSources`
+// exactly one tree and no `.rvnlib` references — and a package's declarations are visible to another
+// file only within one compilation. So `import Vixen.Shaders.Material` here does not resolve, and the
+// two lines of arithmetic are written out. See `Shaders/Sources.md` for what it would take to close
+// that, and `TextureSourceKernelTests` for the tripwire that goes red the day it is closed.
+//
+// **Like `Shape`, nothing here is in texels**, so a checker is the same picture at every resolution
+// by construction — with the caveat that a checker's edges are hard, so a 1K bake and a downsampled
+// 4K bake differ along every cell boundary and agree everywhere else.
+
+shader Checker {
+    /// How many cells across the image, horizontally.
+    var scaleX: float = 8f
+
+    var scaleY: float = 8f
+
+    /// Clockwise on screen, in radians, about the image centre.
+    var rotation: float = 0f
+
+    /// A shift, in cells. 0.5 is the checker's own inverse.
+    var offsetX: float = 0f
+
+    var offsetY: float = 0f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val uv = float2((float(coord.x) + 0.5f) / float(size.x), (float(coord.y) + 0.5f) / float(size.y))
+        val centred = uv - float2(0.5f, 0.5f)
+        val c = cos(rotation)
+        val s = sin(rotation)
+        val turned = float2(centred.x * c + centred.y * s, -centred.x * s + centred.y * c) + float2(0.5f, 0.5f)
+        val cell = floor(float2(turned.x * scaleX + offsetX, turned.y * scaleY + offsetY))
+        val value = mod(cell.x + cell.y, 2f)
+
+        target.Store(coord, float4(value, value, value, 1f))
+    }
+}

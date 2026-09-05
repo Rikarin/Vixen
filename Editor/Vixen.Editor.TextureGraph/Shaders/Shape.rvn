@@ -1,0 +1,134 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § 4.1's eight shapes: disc · square · triangle · paraboloid · gaussian · cone · half-bell ·
+// gradation, under a scale, a rotation and a falloff. The splatter's usual pattern input.
+//
+// **Analytic rather than rasterised**, which is what § 4.1's table asks for and what makes this the
+// cheapest kernel in the catalogue to prove scale-invariant: the value of a texel is a closed-form
+// function of its *normalised* position, so the same authored shape is the same picture at 1K and at
+// 4K without the evaluator scaling anything. Nothing here is in texels, so nothing here is a
+// `TexelsAtBase` parameter.
+//
+// ⚠ **A hard-edged analytic shape still cannot pass doc 48's exit criterion 3 as written.** Bake a
+// falloff-zero disc at 1K and at 4K, downsample the second, and the two disagree by up to a full step
+// all the way round the boundary — the 4K one is anti-aliased by the downsample and the 1K one is
+// not. That is not a resolution bug in the kernel; it is what "exact at every resolution" means for a
+// function with a discontinuity in it. The comparison is meaningful for a shape whose falloff spans
+// more than a texel at the *lower* resolution, and `TextureSourceDeviceTests` asserts it there.
+//
+// **The coordinate frame.** `uv` is the texel centre in 0..1, y increasing *downwards*, which is the
+// engine's UV convention. The triangle and the gradation are the two kinds that can tell, and both
+// flip y into a y-up frame first so that a triangle at rotation zero points up on screen.
+
+shader Shape {
+    /// 0 disc · 1 square · 2 triangle · 3 paraboloid · 4 gaussian · 5 cone · 6 half-bell · 7 gradation.
+    ///
+    /// ⚠ **A uniform and not a `[Permutation]`, for the reason `Shaders/README.md` gives about the
+    /// blend mode** — and with more force here, because a permutation cannot be selected at all
+    /// through the evaluator M1 built: `TexturePlanEvaluator.VariantFor` caches on
+    /// `(kernel, output format)` and compiles `EffectKey.Of(kernel)` with no defines, so every
+    /// permutation in a texture-graph kernel would silently take its `.rvn` default.
+    var kind: int = 0
+
+    /// The shape's diameter as a fraction of the image. 1 inscribes it; 0.5 quarters its area.
+    var scale: float = 1f
+
+    /// Clockwise on screen, in radians.
+    var rotation: float = 0f
+
+    /// The width of the soft edge, in units of the shape's radius.
+    ///
+    /// ⚠ **It applies to the three *boundary* kinds — disc, square, triangle — and to nothing else.**
+    /// The other five are profiles that are continuous everywhere and carry their own falloff in
+    /// their formula; there is no meaning of "edge width" for a gaussian that is not just a second
+    /// spelling of `scale`. A test asserts the paraboloid ignores it, so the exception is written
+    /// down rather than discovered.
+    var falloff: float = 0.01f
+
+    var centreX: float = 0.5f
+
+    var centreY: float = 0.5f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// Half the width of an equilateral triangle's incircle when its circumradius is one.
+    ///
+    /// The three edge planes of that triangle satisfy `dot(p, n) = 0.5` on the boundary, so twice the
+    /// largest of the three dots is a normalised distance that is 1 on every edge *and* at every
+    /// vertex.
+    const val TriangleEdge: float = 0.5f
+
+    /// cos 30°, which is where the two lower edge normals point.
+    const val Cos30: float = 0.8660254f
+
+    /// −ln(1/1000). The gaussian is worth exactly one part in a thousand at the boundary, which is
+    /// what pins its width to `scale` rather than leaving it a taste.
+    const val GaussianDecay: float = 6.907755f
+
+    /// How far out the shape's own boundary the point is: 0 at the centre, 1 on the boundary.
+    func Reach(p: float2, shape: int): float {
+        if (shape == 1) {
+            return max(abs(p.x), abs(p.y))
+        }
+
+        if (shape == 2) {
+            val q = float2(p.x, -p.y)
+            val bottom = -q.y
+            val right = q.x * Cos30 + q.y * TriangleEdge
+            val left = -q.x * Cos30 + q.y * TriangleEdge
+
+            return max(bottom, max(right, left)) / TriangleEdge
+        }
+
+        return length(p)
+    }
+
+    /// The reach turned into a value.
+    func Profile(reach: float, axis: float, shape: int): float {
+        if (shape == 3) {
+            return saturate(1f - reach * reach)
+        }
+
+        if (shape == 4) {
+            return exp(-reach * reach * GaussianDecay)
+        }
+
+        if (shape == 5) {
+            return saturate(1f - reach)
+        }
+
+        if (shape == 6) {
+            val t = saturate(reach)
+
+            return 1f - t * t * (3f - 2f * t)
+        }
+
+        if (shape == 7) {
+            return saturate(axis * 0.5f + 0.5f)
+        }
+
+        // Disc, square and triangle: a hard boundary softened over `falloff` of the radius. The max
+        // is what keeps a falloff of zero a step rather than a division by zero written into a file.
+        return saturate((1f - reach) / max(falloff, 0.00001f))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val uv = float2((float(coord.x) + 0.5f) / float(size.x), (float(coord.y) + 0.5f) / float(size.y))
+        val centred = uv - float2(centreX, centreY)
+        val c = cos(rotation)
+        val s = sin(rotation)
+        val turned = float2(centred.x * c + centred.y * s, -centred.x * s + centred.y * c)
+        val p = turned * (2f / max(scale, 0.00001f))
+        val value = Profile(Reach(p, kind), p.x, kind)
+
+        target.Store(coord, float4(value, value, value, 1f))
+    }
+}
