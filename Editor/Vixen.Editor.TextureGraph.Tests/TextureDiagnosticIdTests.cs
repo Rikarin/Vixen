@@ -236,8 +236,14 @@ public class TextureDiagnosticIdTests {
 
         var diagnostics = compiler.Compile(graph).Diagnostics;
 
-        var setting = Assert.Single(diagnostics, one => string.Equals(one.Port, "Iterations", StringComparison.Ordinal));
-        var expression = Assert.Single(diagnostics, one => string.Equals(one.Port, "Radius", StringComparison.Ordinal));
+        var setting = Assert.Single(
+            diagnostics,
+            one => string.Equals(one.Port, "Iterations", StringComparison.Ordinal)
+        );
+        var expression = Assert.Single(
+            diagnostics,
+            one => string.Equals(one.Port, "Radius", StringComparison.Ordinal)
+        );
 
         Assert.NotEqual(setting.Id, expression.Id);
 

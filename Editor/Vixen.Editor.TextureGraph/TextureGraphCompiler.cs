@@ -405,7 +405,11 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         foreach (var problem in TextureGraphParameters.Check(declared)) {
             // Against no node, because a parameter belongs to the graph rather than to any node in
             // it. There is nothing to select and saying so is better than picking one at random.
-            Report(new(TextureDiagnostics.BuilderRefusedTheNumbers, "This graph's parameters do not hold together: " + problem, NodeId.None));
+            Report(new(
+                TextureDiagnostics.BuilderRefusedTheNumbers,
+                "This graph's parameters do not hold together: " + problem,
+                NodeId.None
+            ));
         }
 
         ParameterValues = TextureGraphParameters.Read(declared, Arguments, out var refused);
@@ -619,7 +623,11 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
 
         if (problems.Length > 0) {
             foreach (var problem in problems) {
-                Report(new(TextureDiagnostics.PlanDoesNotHoldTogether, "The compiler produced a plan that does not hold together: " + problem, NodeId.None));
+                Report(new(
+                    TextureDiagnostics.PlanDoesNotHoldTogether,
+                    "The compiler produced a plan that does not hold together: " + problem,
+                    NodeId.None
+                ));
             }
 
             return null;
