@@ -141,21 +141,37 @@ mounting without `Vixen.Ui.HotReload` being linked into a shipped application.
 `CloseRequestEvent`, and anything on the route may `Cancel()` it; `UiDocument.CloseRequested` fires
 afterwards for a head that is not in the element tree.
 
-```csharp no-compile="a fragment; `document` is the application's own"
+The prompt an application with a document wants is written already — it is
+`DocumentClosePrompt.Install`, and one line is the whole of it:
+
+```csharp no-compile="a fragment; `application` and `dialogs` are the application's own"
+using var prompt = DocumentClosePrompt.Install(
+    application.Document.Root,
+    dialogs,
+    () => application.Quit()
+);
+```
+
+Something that is not a document — an unfinished upload, a running job — answers the request itself:
+
+```csharp no-compile="a fragment; `document` and `job` are the application's own"
 document.Root.AddHandler<CloseRequestEvent>((_, args) => {
-    if (!project.IsDirty) {
+    if (job.IsFinished) {
         return;
     }
 
     args.Cancel();
-    dialogs.SaveChanges(project, onAnswered: () => application.Quit());
+    job.Cancelled += () => application.Quit();
 });
 ```
 
 ⚠ **A refusal is "not now", not "never".** A Save / Don't Save / Cancel prompt is a dialog and a
 dialog is answered frames later, so a synchronous veto cannot wait for one without blocking the loop
 that draws it. The handler cancels, opens the prompt, and calls `Quit()` again when it has an
-answer — which is the shape `EditorHost` has used since save-on-close was built.
+answer — which is the shape `EditorHost` has used since save-on-close was built, and the shape
+`DocumentClosePrompt` packages. ⚠ Calling `Quit()` again runs every handler again, so a handler that
+refuses on a condition its own answer did not change has to latch over the second pass or the
+application cannot be quit at all.
 
 ⚠ **`Cancel()` is not `Handled`.** They are two questions. A document that saved silently has dealt
 with the request and is content to go, and a handler forced to say so by leaving `Handled` false
