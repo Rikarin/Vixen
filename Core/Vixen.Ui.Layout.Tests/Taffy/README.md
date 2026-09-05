@@ -27,10 +27,10 @@ Doc 43 § B0. Licence: MIT — see the repository `NOTICE` and ADR-015.
 | `block` | 884 | 884 | 0 | 0 |
 | `blockflex` | 28 | 28 | 0 | 0 |
 | `blockgrid` | 56 | 56 | 0 | 0 |
-| `grid` | 2 040 | 1 998 | 42 | 0 |
+| `grid` | 2 040 | 2 000 | 40 | 0 |
 | `gridflex` | 24 | 24 | 0 | 0 |
 | `float` | 84 | 84 | 0 | 0 |
-| | **5 524** | **5 478** | **46** | **0** |
+| | **5 524** | **5 480** | **44** | **0** |
 
 Every one of those numbers is asserted — the pass and fail columns by the four conformance suites,
 the refused column additionally by `TaffyUnsupportedCensusTests`, which requires the census to match
@@ -58,8 +58,9 @@ are about 1 381 distinct cases run four ways.
 
 **2 002 of the 2 208 runnable flex fixtures passed on the first run**, on a store built entirely
 against a *different* browser-derived corpus. 176 more are refused for a property this store has no
-field for, and 206 disagreed. **192 of those are now closed and 2 354 of the 2 408 pass** — 36 are
-still refused and 18 disagree, which is what the table above counts.
+field for, and 206 disagreed. **202 of those are now closed and 2 404 of the 2 408 pass** — nothing
+is refused any longer and 4 disagree, which is what the table above counts. ⚠ This paragraph is the
+one that drifted: it read 2 354, 36 and 18 while the suites had already moved twice.
 
 That number was the point. Flexbox already had an oracle — Yoga's 534, green — so the flex corpus is
 a **known-good target**: if the harness were wrong, it would be visibly wrong here, where the answer
