@@ -81,6 +81,20 @@ enum ValueKind : byte {
     /// </remarks>
     Placement,
 
+    /// <summary>An OpenType feature list, which is arbitrary-only: <c>font-features-["onum"_1]</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="Placement" />'s shape and the objection <see cref="Placement" />'s remark
+    ///     raises against it, met rather than restated.</b> v4 has no named step for this root — the
+    ///     value is always arbitrary — so like a placement it would contribute nothing to
+    ///     <c>UtilityFamilies.Surface</c> without a probe of its own, and a family with no surface is one the
+    ///     consumption gate never meets: it passes vacuously, for ever, while the ledger reads
+    ///     <c>absent</c>. The thing that kept it out was the <i>class name</i>: every value of
+    ///     <c>font-feature-settings</c> that does anything contains quotes, by CSS's grammar. That is
+    ///     a question about <c>UtilityGenerator.Escape</c> and about the selector matcher, not
+    ///     about the property — which is read end to end — and it is answered rather than avoided.
+    /// </remarks>
+    FontFeatures,
+
     /// <summary>One of a fixed set of keywords: <c>items-center</c>.</summary>
     Keyword,
 
@@ -914,22 +928,27 @@ public static class UtilityFamilies {
         NumericFigure("diagonal-fractions", UtilityComposition.NumericFraction, "diagonal-fractions");
         NumericFigure("stacked-fractions", UtilityComposition.NumericFraction, "stacked-fractions");
 
-        // ⚠ <b>`font-features-*` is deliberately NOT registered, and the reason changed on this pass.</b>
-        // The blocker it shared with the nine families above is gone: `font-feature-settings` is read
-        // end to end — `UiDocument.ResolveText` parses the list, `TextShaper` hands it to HarfBuzz and
-        // `ShapingCache` is keyed on it — and it is reachable today through the arbitrary-property
-        // hatch, `[font-feature-settings:"tnum"_1]`. What stops the *family* is the instrument rather
-        // than the engine, and it is worth writing down because it looks like laziness.
+        // ⚠ <b>`font-features-*` is registered, and the blocker it was held behind was the
+        // <i>class name</i> rather than anything about the property.</b> `font-feature-settings` has
+        // been read end to end since the shaper learnt to take a set — `UiDocument.ResolveText`
+        // parses the list, `TextShaper` hands it to HarfBuzz, `ShapingCache` is keyed on it — and it
+        // has always been reachable through the arbitrary-property hatch,
+        // `[font-feature-settings:"tnum"_1]`. What was missing was the family's *own* spelling.
         //
-        // v4's family is arbitrary-only: there is no `font-features-tnum`, so it contributes nothing
-        // to `UtilityFamilies.Surface`, which enumerates a family's keywords and its theme scale.
-        // A family with no surface is one `UtilityConsumptionGateTests` never meets — it would pass
-        // vacuously, for ever, and the parity ledger's emission column would stay empty while the
-        // family worked. Adding one arbitrary probe to the surface was tried and does not close it:
-        // the only values of this property that *do* anything contain quotes, by CSS's own grammar,
-        // and a generated rule whose selector is `.font-features-\["onum"_1\]` does not match the
-        // element the probe puts the class on. So the gap is class-name escaping in the probe, which
-        // is a change to the measuring instrument and not to this table. Recorded on the row.
+        // ⚠ <b>Arbitrary-only, which is why it needs a probe of its own and why it could not simply
+        // be left out.</b> v4 has no `font-features-tnum`, so the family enumerates nothing into
+        // `UtilityFamilies.Surface` — and a family with no surface is one
+        // `UtilityConsumptionGateTests` never meets: it would pass vacuously, for ever, while the
+        // parity ledger's emission column stayed empty and the row read `absent`. `ValueKind`'s
+        // `FontFeatures` carries the probe.
+        //
+        // ⚠ <b>And every value of this property that does anything contains quotes, by CSS's own
+        // grammar</b>, which is the one part that touched real code: `UtilityGenerator.Escape`
+        // already backslashes them and `SelectorCompiler` already unescapes them, so
+        // `.font-features-\[\"onum\"_1\]` matches — measured in
+        // `ArbitraryPropertyTests`, because "it should" is exactly the reasoning that left this
+        // family unregistered.
+        Register(new Family("font-features", ValueKind.FontFeatures, ["font-feature-settings"]));
 
         // ── Wrapping ────────────────────────────────────────────────────────────────────────
         // ⚠ <b>`overflow-wrap` and `word-break` are two properties and two families, and the two are
@@ -2324,6 +2343,15 @@ public static class UtilityFamilies {
                 yield return "[25%_75%]";
                 break;
 
+            // ⚠ The second arbitrary probe, and the one whose class name has quotes in it. `onum`
+            // rather than `tnum` because the probe's face already draws lining tabular figures, so
+            // `tnum` is what it does anyway and the probe would measure the property inert — the
+            // same trap `bg-conic-0` is written up under, arriving through a font instead of a
+            // default.
+            case ValueKind.FontFeatures:
+                yield return "[\"onum\"_1]";
+                break;
+
             case ValueKind.Duration:
                 yield return "300";
                 break;
@@ -2576,6 +2604,7 @@ public static class UtilityFamilies {
             // The arbitrary branch above has already answered every value this kind takes; a bare one
             // is a class v4 does not have, and inventing it here is what this kind's remark refuses.
             ValueKind.Placement => false,
+            ValueKind.FontFeatures => false,
             ValueKind.Duration => TryNumber(candidate.Value, out var ms) && Emit(family, ms + "ms", declarations),
             ValueKind.Fraction => TryFraction(candidate.Value, out var fraction) && Emit(family, fraction, declarations),
             ValueKind.Radius => TryRadius(candidate.Value, tokens, out var radius) && Emit(family, radius, declarations),

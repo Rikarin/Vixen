@@ -120,8 +120,23 @@ public static class LayerRuleParser {
     /// <param name="open">The index of the opening brace.</param>
     /// <returns>The index of the closing brace, or -1 if there is none.</returns>
     /// <remarks>
-    ///     Strings and comments are skipped rather than counted. A body containing
-    ///     <c>content: "}"</c> is the whole reason this is not <c>IndexOf('}')</c>.
+    ///     <para>
+    ///         Strings and comments are skipped rather than counted. A body containing
+    ///         <c>content: "}"</c> is the whole reason this is not <c>IndexOf('}')</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And an escape outside a string is stepped over, which is what a generated
+    ///         utility sheet is full of.</b> CSS Syntax 3 § 4.3.7 lets any character be escaped
+    ///         anywhere an identifier may appear, and a class name is where that actually happens
+    ///         here: <c>font-features-["onum"_1]</c> escapes to the selector
+    ///         <c>.font-features-\[\"onum\"_1\]</c>. Read without this branch the first <c>\"</c>
+    ///         opens a string that runs to the <c>"onum"</c> in the declaration, the braces after it
+    ///         are counted inside a string that does not exist, and the layer is cut in the wrong
+    ///         place — so the rule survives with an empty value rather than failing, which is the
+    ///         shape of wrongness nothing reports. Every arbitrary value carrying a quoted string
+    ///         was affected, not only this family: <c>content-['x']</c> and
+    ///         <c>bg-[url("a.png")]</c> are the same selector.
+    ///     </para>
     /// </remarks>
     static int FindMatchingBrace(ReadOnlySpan<char> span, int open) {
         var depth = 0;
@@ -130,6 +145,11 @@ public static class LayerRuleParser {
             var c = span[i];
 
             switch (c) {
+                // An escaped character is one character of an identifier and never a delimiter.
+                case '\\':
+                    i++;
+                    break;
+
                 case '"' or '\'': {
                     i = SkipString(span, i);
                     if (i < 0) {

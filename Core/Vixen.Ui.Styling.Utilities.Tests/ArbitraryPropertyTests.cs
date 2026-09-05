@@ -24,6 +24,54 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 public class ArbitraryPropertyTests {
     static readonly ThemeTokens Tokens = ThemeTokens.Parse(UtilityFixture.Theme);
 
+    /// <summary>⚠ A quoted class name reaches the element, which is what kept <c>font-features-*</c> out.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The family was left unregistered on the belief that a quoted class name could not
+    ///         be measured, and the belief named the wrong culprit.</b> Two things were said to be
+    ///         owed: escaping in the generator's selector, and escaping in
+    ///         <c>UtilityConsumptionProbe</c>. Neither was: <c>UtilityGenerator.Escape</c> already
+    ///         backslashes a quote, the probe puts the class on the element directly rather than
+    ///         through markup, and the same selector matches perfectly well when its rule is not
+    ///         inside a cascade layer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The blocker was <c>LayerRuleParser.FindMatchingBrace</c>, one assembly down.</b>
+    ///         It skipped strings so that a <c>content: "}"</c> could not cut a layer in half, and
+    ///         did not know that a backslash escapes the character after it <i>outside</i> a string
+    ///         — so the <c>\"</c> in the selector opened a string that ran to the quote in the
+    ///         declaration and the layer was cut in the wrong place. The rule survived with an empty
+    ///         value, which is why nothing reported it. Every arbitrary value carrying a quoted
+    ///         string was affected and not only this family.
+    ///     </para>
+    ///     <para>
+    ///         Asserted end to end rather than on the emitted text, because the escaping happens in
+    ///         the generator and the un-escaping two assemblies away — a comparison of the generated
+    ///         string would prove only that the first half agrees with itself, which is exactly the
+    ///         shape of test that let the belief stand.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_quoted_arbitrary_value_reaches_the_element_that_carries_the_class() {
+        var fixture = new UtilityFixture();
+
+        Assert.Equal(
+            "\"onum\" 1",
+            fixture.Computed(["font-features-[\"onum\"_1]"], "font-feature-settings")
+        );
+
+        // The same value through the arbitrary-property hatch, which doc 43 recorded as already
+        // reachable — and which was broken in exactly the same way, for the same reason.
+        Assert.Equal(
+            "\"onum\" 1",
+            fixture.Computed(["[font-feature-settings:\"onum\"_1]"], "font-feature-settings")
+        );
+
+        // ⚠ A bare `font-features` is not a class v4 has, and inventing one is what
+        // `ValueKind.Placement`'s remark refuses. It must produce no rule rather than an empty one.
+        Assert.Null(fixture.Computed(["font-features"], "font-feature-settings"));
+    }
+
     static List<UtilityDeclaration> Resolve(string candidate) {
         Assert.True(UtilityParser.TryParse(candidate, out var parsed), $"'{candidate}' did not parse");
 

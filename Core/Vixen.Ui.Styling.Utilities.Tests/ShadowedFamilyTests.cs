@@ -260,24 +260,40 @@ public class ShadowedFamilyTests {
         Assert.NotEmpty(UtilityConsumptionProbe.Channels(property, value));
     }
 
-    /// <summary>The one the ledger calls shadowed that is not: the bracket comes before the split.</summary>
+    /// <summary>The one the ledger called shadowed that never was: the bracket comes before the split.</summary>
     /// <remarks>
-    ///     ⚠ <b>An arbitrary value is decided in <c>UtilityParser</c> before
-    ///     <see cref="UtilityFamilies.SplitName" /> is consulted at all</b> — see the parser's remark
-    ///     on the three escape hatches — so <c>font-features-[normal]</c> parses to the name
-    ///     <c>font-features</c> and not to <c>font</c> with a value of <c>features-[normal]</c>. It is
-    ///     an unknown family rather than a shadowed one, which is the opposite diagnostic and
-    ///     therefore the opposite fix. The ledger's note said "swallowed by the family <c>font</c>".
+    ///     <para>
+    ///         ⚠ <b>An arbitrary value is decided in <c>UtilityParser</c> before
+    ///         <see cref="UtilityFamilies.SplitName" /> is consulted at all</b> — see the parser's
+    ///         remark on the three escape hatches — so <c>font-features-[normal]</c> parses to the
+    ///         name <c>font-features</c> and not to <c>font</c> with a value of
+    ///         <c>features-[normal]</c>. The ledger's note said "swallowed by the family
+    ///         <c>font</c>", which was the opposite diagnostic and therefore pointed at the opposite
+    ///         fix. ⚠ <see cref="UtilityFamilies.SplitName" /> would agree today — the family is
+    ///         registered, so the longest registered prefix <i>is</i> <c>font-features</c> — which
+    ///         is why the claim has to be made on the parser's answer and not on the splitter's.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This row used to assert the family was <i>unregistered</i>, and that was the
+    ///         accident it was standing in for rather than the claim.</b> The family is registered
+    ///         now; what is worth keeping is the parse order, which is what made registering it
+    ///         possible at all — a family whose name the parser refused to produce could not have
+    ///         been reached however it was registered. The bare <c>font</c> family, which is the one
+    ///         a hyphen-first split would have found, is asserted beside it so the two names stay
+    ///         distinct.
+    ///     </para>
     /// </remarks>
     [Theory]
     [InlineData("font-features-[normal]", "font-features")]
-    public void An_arbitrary_value_is_not_shadowed_it_is_unknown(string whole, string name) {
+    public void An_arbitrary_value_is_split_at_the_bracket_and_not_at_the_first_hyphen(string whole, string name) {
         Assert.True(UtilityParser.TryParse(whole, out var parsed));
         Assert.Equal(name, parsed.Name);
-        Assert.False(UtilityFamilies.IsRegistered(parsed.Name));
+        Assert.True(UtilityFamilies.IsRegistered(parsed.Name));
 
-        // And the shorter name it is *not* split to is registered, which is why it looked shadowed.
-        Assert.True(UtilityFamilies.IsRegistered(UtilityFamilies.SplitName(whole).Name));
+        // And the shorter name it read as shadowed by is a different family that still exists:
+        // `font-*` is the weight scale, and it would have taken `features-[normal]` as a value.
+        Assert.True(UtilityFamilies.IsRegistered("font"));
+        Assert.NotEqual("font", parsed.Name);
     }
 
     /// <summary>The two that were unknown and are now registered still parse to the longer name.</summary>
@@ -301,6 +317,7 @@ public class ShadowedFamilyTests {
     [Theory]
     [InlineData("bg-size-[50%_50%]", "bg-size", "background-size", "50% 50%")]
     [InlineData("bg-position-[center]", "bg-position", "background-position", "center")]
+    [InlineData("font-features-[\"onum\"_1]", "font-features", "font-feature-settings", "\"onum\" 1")]
     public void An_arbitrary_placement_reaches_its_own_family(string whole, string name, string property, string value) {
         var declarations = new List<UtilityDeclaration>();
 

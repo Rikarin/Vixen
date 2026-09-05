@@ -38,6 +38,51 @@ public class StyleSheetLoadingTests {
         Assert.Contains("color: red", rule.Body!, StringComparison.Ordinal);
     }
 
+    /// <summary>⚠ And an escaped quote in a <i>selector</i> does not open a string at all.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The mirror of the row above, and the half it was missing.</b> That one says a quote
+    ///         inside a string is content; this one says a quote that is <i>escaped</i> is not a
+    ///         string delimiter in the first place. CSS Syntax 3 § 4.3.7 lets any character be
+    ///         escaped wherever an identifier may appear, and the place that actually happens in
+    ///         this engine is a generated class name: <c>font-features-["onum"_1]</c> is emitted as
+    ///         the selector <c>.font-features-\[\"onum\"_1\]</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The failure was silent and looked like a missing feature.</b> Read without the
+    ///         escape rule the first <c>\"</c> opened a string that ran to the quote in the
+    ///         declaration, the braces after it were counted inside a string that was not there, and
+    ///         the body was cut in the wrong place — leaving a rule that matched with an <i>empty</i>
+    ///         value rather than one that failed. Every arbitrary value carrying a quoted string went
+    ///         through this: <c>content-['x']</c> and <c>bg-[url("a.png")]</c> as much as the
+    ///         <c>font-features-*</c> family that found it, which was left unregistered for a year on
+    ///         the belief that the generator's escaping was at fault.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_escaped_quote_in_a_selector_does_not_open_a_string() {
+        Assert.True(
+            LayerRuleParser.TryParse(
+                """@layer utilities { .f-\[\"onum\"_1\] { font-feature-settings: "onum" 1; } }""",
+                out var rule
+            )
+        );
+
+        // The whole body, not the part before the mis-read string swallowed it.
+        Assert.Contains("font-feature-settings: \"onum\" 1;", rule.Body!, StringComparison.Ordinal);
+
+        // ⚠ And a second rule after it, which is what the mis-cut actually loses: the body ended
+        // early, so everything past the first quoted selector fell out of the layer silently.
+        Assert.True(
+            LayerRuleParser.TryParse(
+                """@layer utilities { .a\"b { color: red } .c { color: blue } }""",
+                out var pair
+            )
+        );
+
+        Assert.Contains("color: blue", pair.Body!, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void An_at_rule_that_merely_starts_with_the_word_layer_is_not_one() {
         Assert.False(LayerRuleParser.IsLayerRule("@layered { }"));

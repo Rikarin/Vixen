@@ -84,7 +84,7 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **329** | 278 families |
+| Utility **roots** (the unit of this table) | **329** | 279 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
 | Variant keys | **88** | **25** |
@@ -107,10 +107,10 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **220** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **221** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **31** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **73** |
+| **absent** | not emitted at all | **72** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -459,7 +459,7 @@ refusal block, which already says so for the same reason.
 | Borders | 34 | 28 | 2 | 0 | 4 | 0 | 0 |
 | Effects | 34 | 27 | 1 | 0 | 6 | 0 | 0 |
 | Flexbox and Grid | 34 | 29 | 3 | 0 | 2 | 0 | 0 |
-| Typography | 34 | 18 | 6 | 0 | 10 | 0 | 0 |
+| Typography | 34 | 19 | 6 | 0 | 9 | 0 | 0 |
 | Spacing | 24 | 22 | 0 | 0 | 2 | 0 | 0 |
 | Transforms | 23 | 6 | 2 | 0 | 15 | 0 | 0 |
 | Filters | 20 | 10 | 10 | 0 | 0 | 0 | 0 |
@@ -469,7 +469,7 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **329** | **220** | **31** | **1** | **73** | **3** | **1** |
+| **Total** | **329** | **221** | **31** | **1** | **72** | **3** | **1** |
 
 Flexbox and Grid leads at 29 of 34, with only two absent roots left and both of those refused on
 policy rather than owed; then Effects at 27 of 34, Interactivity at 27 of 39, Borders at 26 of 34,
@@ -1201,8 +1201,9 @@ are 19 of the 38. The other 19 are `border-bs/be-*`, `font-stretch-*`, `text-sha
 keyword sets (`bg-clip`, `bg-origin`, `bg-blend`, `bg-repeat`), `stroke-none` and `content-none`.
 Three of those 38 the column *calls* shadowed are not: `bg-size-[auto]`, `bg-position-[center]` and
 `font-features-[normal]` carry an arbitrary value, and `UtilityParser` sets `Arbitrary` before
-`SplitName` is consulted at all — so they parse to the unregistered names `bg-size`, `bg-position`
-and `font-features` and are unknown families rather than shadowed ones. Their notes are corrected in
+`SplitName` is consulted at all — so they parse to the names `bg-size`, `bg-position` and
+`font-features`, which were unknown families rather than shadowed ones and are registered families
+now. Their notes are corrected in
 the `.tsv`, which leaves the column at **35**.
 
 ⚠ **Worked 2026-08-22, and "35 registrations" was the fourth wrong count in this section. It is six
@@ -3328,7 +3329,7 @@ missed the consumers downstream of it.
   reports N lines, so the budget reaches `TextLayout.Measure` and `Block`'s cache key, and it would
   be the first thing in this engine whose measured height is not its content's.
 
-### Bucket 4 — one missing input, shared. `font-variant-numeric` ✅ **closed**; `font-features-*` 🟡 **re-sized, and the blocker moved.**
+### Bucket 4 — one missing input, shared. `font-variant-numeric` ✅ **closed and composed**; `font-features-*` ✅ **closed, and the blocker was in neither place this bucket named.**
 
 ⚠ **The blocker was one argument in one call and it is gone.** `TextShaper.ShapeRun` ended
 `font.Shaper.Shape(buffer, [])`; it takes a `FontFeatureSet` now, resolved once per style pass in
@@ -3374,24 +3375,36 @@ be corrected: the invariant that makes a reference safe is the comma, never the 
 `normal-nums` stays a whole declaration, because `normal` is the one keyword CSS forbids beside any
 other.
 
-**`font-features-*` is left unregistered, and its sizing is now about the instrument rather than the
-engine.** The property is read end to end and reachable today through the arbitrary-property hatch,
-`[font-feature-settings:"tnum"_1]`. What stops the family is that v4's root is *arbitrary-only* —
-there is no `font-features-tnum` — so it contributes nothing to `UtilityFamilies.Surface`, which
-enumerates a family's keywords and its theme scale. ⚠ **A family with no surface is one
-`UtilityConsumptionGateTests` never meets**: it would pass vacuously, for ever, while the ledger's
-emission column stayed empty and the row read `absent`. Adding one arbitrary probe to the surface was
-tried and does not close it — every value of this property that does anything contains quotes, by
-CSS's grammar, and the generated rule `.font-features-\["onum"_1\]` does not match the element the
-probe puts the class on. The remaining cost is class-name escaping in
-`UtilityConsumptionProbe.Emissions` and in the generator's selector, plus the one-line registration:
-half a day, and it is a change to the measuring instrument.
+**✅ `font-features-*` is registered, and the reason it was not turned out to be in neither of the
+two places this section named.** The row said the remaining cost was "class-name escaping in
+`UtilityConsumptionProbe.Emissions` and in the generator's selector, plus the one-line registration".
+Both escaping claims are **refuted, measured**: `UtilityGenerator.Escape` already backslashes a
+quote, the probe puts the class on the element directly rather than through markup, and the very same
+selector matches perfectly well when its rule is not inside a cascade layer.
 
-⚠ The earlier note said the family "cannot be spelled" because `UtilityParser` decides the arbitrary
-value before `SplitName` is consulted. That is true and is **not** the obstacle: the parser hands the
-whole prefix over as the name and looks it up verbatim, so a family registered as `font-features`
-resolves it — measured. What was missing was the registration, and the registration is the thing the
-gate cannot check.
+⚠ **The blocker was `LayerRuleParser.FindMatchingBrace`, two assemblies away and nothing to do with
+this family.** It skips strings so that a `content: "}"` cannot cut a layer in half, and it did not
+know that a backslash escapes the character after it *outside* a string — which is exactly what a
+generated class name is made of. So the `\"` in `.font-features-\["onum"_1\]` opened a string that
+ran to the quote in the declaration, the braces after it were counted inside a string that was not
+there, and the layer body was cut in the wrong place. ⚠ **The rule survived with an empty value
+rather than failing**, which is why nothing reported it in a year — and every arbitrary value
+carrying a quoted string went through it, `content-['x']` and `bg-[url("a.png")]` as much as this
+family.
+
+**What was true is the instrument half.** v4's root is arbitrary-only — there is no
+`font-features-tnum` — so the family enumerates nothing into `UtilityFamilies.Surface`, and ⚠ **a
+family with no surface is one `UtilityConsumptionGateTests` never meets**: it would pass vacuously,
+for ever, while the ledger's emission column stayed empty and the row read `absent`. `ValueKind`
+carries a `FontFeatures` kind whose probe is `["onum"_1]`, exactly as `Placement`'s is `[25%_75%]`.
+⚠ `onum` and not `tnum`, because the probe's face already draws tabular figures — the probe would
+have measured a read property inert, which is `bg-conic-0`'s trap arriving through a font.
+
+⚠ **And the earlier note that the family "cannot be spelled" was already known to be wrong**: the
+parser hands the whole prefix over as the name and looks it up verbatim. That is now asserted rather
+than measured once, and asserted on the *parser's* answer — `SplitName` would agree today for the
+uninteresting reason that the family is registered.
+
 
 ### Bucket 5 — no channel to point a reader at. `font-smoothing`, `scheme`. ⛔ **Refused.**
 
