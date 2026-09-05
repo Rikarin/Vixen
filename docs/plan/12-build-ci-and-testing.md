@@ -298,11 +298,29 @@ same document carries `Vixen.Core` at 0.1 % — a figure that describes neither 
 whenever an unrelated dependency grows. A "per-project coverage" table built from a document's own
 `line-rate` would be that second number.
 
-Still owed and deliberately not attempted here: a floor in the two or three places where "is this line
-reached" is a real question rather than a metric — `Vixen.Ecs`'s query surface, the serializers, and
-the cascade ([#338](https://github.com/Rikarin/Vixen/issues/338)). ⚠️ Whatever lands there should
-almost certainly not be a percentage: the shape that survives this section's own argument is an
-executable claim that a named path is exercised, which is a test, not a threshold.
+**The first of the three places is now an executable claim rather than a number.** ✅
+`Vixen.Ecs.Tests.QueryAritySurfaceTests` drives every arity of the generated query surface and checks
+the arithmetic it leaves behind. ⚠️ **What made it worth writing is what the grep found**:
+`QueryArityGenerator` emits **256** methods — four description builders and four iteration families,
+sixteen arities each — and the whole tree called **ten** of them. `Query` at arities 1, 2 and 4,
+`QueryWithEntity` and `ForEach` at arity 1, `WithAll` at 1, 2 and 4, `WithAny` at 2, `WithNone` at 1 —
+and `ForEachWithEntity`, all sixteen arities of it, by nothing at all. A coverage percentage would
+have reported that as one number against `Vixen.Ecs` and left the reader to guess which lines it was
+about.
+
+The claim is a drive and a census together, because either alone is green on the day it stops
+measuring: the drive runs all sixty-four iteration methods and all sixty-four builders over three
+entities and asserts a closed form — slot *i* is a column of every arity above *i*, in each of four
+families, so it ends worth `seed + i + 4 × (16 − i)` — and the census asserts by reflection that the
+generator emits **no arity beyond** the ones the drive covers, so raising `MaxArity` without extending
+the drive fails rather than silently leaving the new arities untouched. Sabotage-proved both ways: a
+row offset made wrong only above arity 4 fails the drive and **nothing else in the 127-test suite**,
+which is the measurement of the gap; raising `MaxArity` to 17 fails the census.
+
+Still owed, and deliberately not attempted here: the same treatment for the other two places
+([#338](https://github.com/Rikarin/Vixen/issues/338)) — the serializers and the cascade. ⚠️ Whatever
+lands there should not be a percentage either: the shape that survives this section's own argument is
+an executable claim that a named path is exercised, which is a test, not a threshold.
 
 ### Coverage of the pyramid
 
