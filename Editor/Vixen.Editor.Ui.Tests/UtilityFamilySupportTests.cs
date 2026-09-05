@@ -854,6 +854,14 @@ public class UtilityFamilySupportTests {
         // Overflow, all three properties and all four keywords. ⚠ `auto` is here because the layout
         // maps it onto `Overflow.Scroll` — the two differ only over whether the gutter is reserved
         // when there is nothing to scroll, and no member of `Overflow` carries that distinction.
+        // ⚠ `sr-only` is eight declarations and the row names the one that does the hiding. It takes
+        // an element out of sight and leaves it in the accessibility tree, which only works because
+        // `UiElement.IsInAccessibilityTree` asks the role and never the geometry — nothing subtracts
+        // an element for being one point wide or clipped. `not-sr-only` is the same family undoing
+        // itself, which is why it is a root of its own rather than a value.
+        { "sr-only", "position", "absolute" },
+        { "not-sr-only", "position", "static" },
+
         { "truncate", "overflow", "hidden" },
         { "overflow-scroll", "overflow", "scroll" },
         { "overflow-auto", "overflow", "auto" },
