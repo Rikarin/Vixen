@@ -1,0 +1,120 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § 4.4's `Directional Blur`: a box smear along one authored direction.
+//
+// **Not `Blur` with a diagonal step, and the difference is the whole node.** `Blur`'s `stepX`/`stepY`
+// are integers, so the only directions it reaches are the eight a lattice has; at 30° it either
+// staircases or does nothing. This one walks a unit vector and interpolates each tap, so `angle` is
+// continuous.
+//
+// **`angle` is in radians, measured from +x towards +y — and +y is *down* the image**, because a
+// texel's y is a row index. So π/2 smears vertically and the sign of the smear is not observable
+// anyway: the filter is symmetric about the texel, which is what makes it a blur rather than a
+// motion trail.
+//
+// **The closed form is the one an axis gives away.** A pattern that is constant along the smear
+// direction is unchanged by it — exactly, because at integer offsets along an axis every tap lands
+// on a texel centre and the bilinear weights collapse. So a horizontal smear leaves horizontal
+// stripes alone and takes vertical ones to their mean, and swapping the angle to π/2 swaps which.
+// Two patterns and two angles is a 2×2 that no kernel ignoring `angle` can pass.
+//
+// ⚠ **`length` arrives in the texels of the image being written** — `TexturePlan.Resolve` has
+// already applied doc 48 § D8's scaling. It is a half-length: the smear reaches `length` texels each
+// way, so the footprint is `2·length + 1`.
+
+shader DirectionalBlur {
+    var source: Texture2D
+
+    /// Radians from +x towards +y, and +y is down the image.
+    var angle: float = 0f
+
+    /// How far the smear reaches **each way**, in texels of the image being written.
+    var length: float = 4f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The furthest a tap may reach, whatever the length says.
+    ///
+    /// ⚠ A ceiling rather than a runtime bound — `Blur`'s reason. A length arriving as a NaN is a
+    /// loop no invocation leaves, which is a device loss. `TextureFilters.Verify` reports a plan
+    /// whose resolved length is past it rather than letting the clamp be silent.
+    const val MaxSteps: int = 64
+
+    /// One texel, clamped to the source's edge — never the target's, and never wrapped.
+    func Tap(x: int, y: int): float4 {
+        val size = source.GetDimensions(0)
+
+        return source.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+    }
+
+    /// The source at a position in **target texels**, bilinearly.
+    ///
+    /// The two grids are the same when a filter writes what it reads, which is every plan a filter
+    /// appears in; the ratio is carried anyway so that a smear over a differently-sized input is a
+    /// smear of the same physical width rather than of the same texel count.
+    func At(x: float, y: float): float4 {
+        val extent = source.GetDimensions(0)
+        val size = target.GetDimensions()
+        val px = (x + 0.5f) * float(extent.x) / float(size.x) - 0.5f
+        val py = (y + 0.5f) * float(extent.y) / float(size.y) - 0.5f
+
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Tap(x0, y0), Tap(x0 + 1, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Tap(x0, y0 + 1), Tap(x0 + 1, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val reach = clamp(length, 0f, float(MaxSteps))
+        val whole = int(floor(reach))
+        val partial = reach - float(whole)
+
+        val dx = cos(angle)
+        val dy = sin(angle)
+
+        val here = float2(float(coord.x), float(coord.y))
+
+        var sum = At(here.x, here.y)
+        var weight = 1f
+
+        // ⚠ The outermost pair is weighted by the fractional part rather than dropped, for `Blur`'s
+        // reason: without it a length sweeping from 3.0 to 4.0 does nothing and then jumps, which
+        // reads as a slider with steps in it.
+        for (i in 1 .. MaxSteps) {
+            if (i > whole + 1) {
+                break
+            }
+
+            var w = 1f
+
+            if (i > whole) {
+                w = partial
+            }
+
+            if (w <= 0f) {
+                break
+            }
+
+            val t = float(i)
+
+            sum = sum + w * At(here.x + dx * t, here.y + dy * t)
+            sum = sum + w * At(here.x - dx * t, here.y - dy * t)
+            weight = weight + 2f * w
+        }
+
+        target.Store(coord, sum / weight)
+    }
+}

@@ -1,0 +1,194 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § 4.4's `Slope Blur` — **the one everybody gets subtly wrong**.
+//
+// ## ⚠ It is iterative, and a single pass is a different node
+//
+// A slope blur takes `samples` **successive** steps down a slope field, re-reading the gradient at
+// each new position, and accumulates the source along the path. The obvious cheap version — one step
+// of the full intensity along the gradient at the starting texel, or `samples` samples spread evenly
+// along that one straight line — is a **different operator**, and the difference is invisible on the
+// thing a spike tests it with. On a blob the field is smooth and nearly linear, so a straight step
+// lands where the path would have; on an **edge**, which is the only place a slope blur is ever
+// used, the field turns under the walker and the two part company immediately.
+//
+// **The property that separates them is asserted directly, as a pair, because either half alone is
+// satisfied by the wrong implementation:**
+//
+// - Over a slope field with a **constant** gradient the path is a straight line, so the endpoint —
+//   and therefore the answer in `Max` mode over a monotone source — is the **same at 4 samples and
+//   at 16**. A kernel that merely sampled more densely along one line passes this, and so does the
+//   correct one.
+// - Over a slope field whose gradient **grows along the path** — a quadratic ramp — the endpoint is
+//   `x₀·(1 + c·intensity/N)^N`, which is a different place at 4 samples and at 16 and converges to
+//   `x₀·e^(c·intensity)`. Only re-reading the gradient inside the loop produces that. This is the
+//   assertion that a hoisted gradient turns red.
+//
+// Together they say: the sample count changes the answer **exactly when the field curves**, which is
+// the definition of an iterative walk and is not a property any single-pass approximation has.
+//
+// ## The modes
+//
+// `Blend` averages every sample including the starting texel — a smear along the path. `Min` and
+// `Max` take the extreme along it, which is what makes a slope blur erode or dilate along a grain
+// rather than soften across it. Nothing about the walk changes between them.
+//
+// ## Conventions
+//
+// **Down the slope**: the step is `−∇h`, so the walk runs from bright to dark and a slope blur drags
+// the picture into the valleys. ⚠ The mirror is equally plausible and produces a correct-looking
+// image, so the direction is asserted rather than described.
+//
+// ⚠ **The gradient is per unit of image width, not per texel** — doc 48 § D8, the same arithmetic
+// `Warp` and `Emboss` carry. Without it the walk is a quarter as long at 4K.
+//
+// ⚠ **The slope field is read as its red channel and never as a luminance**, because a mask here is
+// an `R8` image and `Load` gives `(r, 0, 0, 1)` for one.
+//
+// ⚠ **`intensity` arrives in the texels of the image being written**; `samples` and `mode` are plain
+// numbers. `TexturePlan.Resolve` has already applied § D8's scaling to the first and must never
+// apply it to the others.
+
+shader SlopeBlur {
+    var source: Texture2D
+
+    /// The slope field. Its **red** channel is the height the walk descends.
+    var slope: Texture2D
+
+    /// The whole distance walked, in texels of the image being written, over all the steps together.
+    var intensity: float = 4f
+
+    /// How many steps the walk is cut into. **0 is a copy**; the answer depends on this number
+    /// wherever the field curves, and that is the node rather than a quality setting.
+    var samples: int = 8
+
+    /// 0 blend · 1 min · 2 max.
+    var mode: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The most steps a plan can ask for. A ceiling rather than a runtime bound — `Blur`'s reason:
+    /// a sample count arriving as a NaN is a loop no invocation leaves.
+    const val MaxSamples: int = 32
+
+    /// One texel of the source, clamped to the **source's** edge — never the target's.
+    func Tap(x: int, y: int): float4 {
+        val size = source.GetDimensions(0)
+
+        return source.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+    }
+
+    /// The source at a position in **target texels**, bilinearly.
+    func At(x: float, y: float): float4 {
+        val extent = source.GetDimensions(0)
+        val size = target.GetDimensions()
+        val px = (x + 0.5f) * float(extent.x) / float(size.x) - 0.5f
+        val py = (y + 0.5f) * float(extent.y) / float(size.y) - 0.5f
+
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Tap(x0, y0), Tap(x0 + 1, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Tap(x0, y0 + 1), Tap(x0 + 1, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    /// One texel of the slope field, clamped to its own edge.
+    func Field(x: int, y: int): float {
+        val extent = slope.GetDimensions(0)
+
+        return slope.Load(int3(clamp(x, 0, extent.x - 1), clamp(y, 0, extent.y - 1), 0)).x
+    }
+
+    /// The slope field's height at a position in **target texels**, bilinearly.
+    ///
+    /// Bilinear rather than nearest because the walk stands between texels after its first step, and
+    /// a gradient read off a step function would make the path a staircase — which looks like an
+    /// artefact of the field rather than of the filter.
+    func Height(x: float, y: float): float {
+        val extent = slope.GetDimensions(0)
+        val size = target.GetDimensions()
+        val px = (x + 0.5f) * float(extent.x) / float(size.x) - 0.5f
+        val py = (y + 0.5f) * float(extent.y) / float(size.y) - 0.5f
+
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Field(x0, y0), Field(x0 + 1, y0), tx)
+        val bottom = lerp(Field(x0, y0 + 1), Field(x0 + 1, y0 + 1), tx)
+
+        return lerp(top, bottom, ty)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val here = Tap(coord.x, coord.y)
+        val count = clamp(samples, 0, MaxSamples)
+
+        // ⚠ Zero steps is a copy, taken here so that it is a copy **exactly**. It is also the
+        // cheapest assertion in the suite and the one that would catch a walk that stepped before
+        // it looked.
+        if (count == 0) {
+            target.Store(coord, here)
+
+            return
+        }
+
+        val step = intensity / float(count)
+
+        var x = float(coord.x)
+        var y = float(coord.y)
+
+        var sum = here
+        var lowest = here
+        var highest = here
+
+        for (k in 1 .. MaxSamples) {
+            if (k > count) {
+                break
+            }
+
+            // ⚠ The gradient is read **inside** the loop, at the position the walk has reached. That
+            // single line is the difference between this node and the single-pass approximation of
+            // it, and the quadratic-field test above is what turns red when it is hoisted out.
+            val dhdx = (Height(x + 1f, y) - Height(x - 1f, y)) * 0.5f * float(size.x)
+            val dhdy = (Height(x, y + 1f) - Height(x, y - 1f)) * 0.5f * float(size.y)
+
+            // Down the slope. See the header: the sign is a convention and is asserted.
+            x = x - dhdx * step
+            y = y - dhdy * step
+
+            val v = At(x, y)
+
+            sum = sum + v
+            lowest = min(lowest, v)
+            highest = max(highest, v)
+        }
+
+        if (mode == 1) {
+            target.Store(coord, lowest)
+
+            return
+        }
+
+        if (mode == 2) {
+            target.Store(coord, highest)
+
+            return
+        }
+
+        target.Store(coord, sum / float(count + 1))
+    }
+}

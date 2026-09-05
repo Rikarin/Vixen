@@ -173,11 +173,19 @@ public class TextureKernelTests {
     }
 
     /// <summary>A name no kernel has is an argument failure rather than a null reference later.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This used to name <c>Warp</c>, and doc 48 § 4.4 then shipped a kernel called that</b>
+    ///     — so the test went red for the best possible reason and the name had to become one no
+    ///     catalogue entry can ever take. A node name is not a safe stand-in for "does not exist"
+    ///     when forty-four of them are still to be written.
+    /// </remarks>
     [Fact]
     public void An_unknown_kernel_is_refused_by_name() {
-        var failure = Assert.Throws<ArgumentException>(() => TextureKernels.Variant("Warp", TextureFormat.Rgba8));
+        var failure = Assert.Throws<ArgumentException>(
+            () => TextureKernels.Variant("NoKernelIsCalledThis", TextureFormat.Rgba8)
+        );
 
-        Assert.Contains("Warp", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("NoKernelIsCalledThis", failure.Message, StringComparison.Ordinal);
     }
 
     /// <summary>A format no kernel can write is refused where the variant is asked for.</summary>

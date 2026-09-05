@@ -1,0 +1,114 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § 4.4's `Radial Blur`: a smear **along the ray from a centre**, which is the zoom of the two
+// things "radial" is used to mean.
+//
+// ⚠ **The other one — a spin about the centre — is a different node and is deliberately not this
+// one.** Both are called "radial blur" by some tool, both leave the centre texel alone, and the two
+// are told apart only by what they do to a picture with structure in it. So the choice is written
+// here rather than left to whoever reads the code next: **the samples lie on the ray through the
+// texel and the centre**, spanning `amount` of the distance to it, which is the smear a zoom leaves.
+// A spin is a compound of `Transform2D` and a blend and does not need a kernel.
+//
+// **Two closed forms, and the second is what pins the centre.**
+//
+// - At the centre the ray has no length, so every sample lands on the same texel: the centre is a
+//   fixed point, **exactly**, and moving `centreX`/`centreY` moves which texel is fixed. A kernel
+//   that ignored the centre would have a fixed point in the middle of the image whatever the plan
+//   said.
+// - An image that is **constant along every ray from that centre** is unchanged — and there is one
+//   to hand: `Gradient`'s angular sweep about the same point. Every sample of a zoom lies on the
+//   ray, so it reads the same value. That is an invariant no straight-line smear satisfies, and it
+//   fails the moment the two centres disagree.
+//
+// **Nothing here is a length in texels**, so doc 48 § D8's scaling never touches it: `amount` is a
+// fraction of the distance to the centre and the centre is a fraction of the image, both
+// resolution-independent by construction.
+
+shader RadialBlur {
+    var source: Texture2D
+
+    /// Where the rays meet, in 0..1 of the image.
+    var centreX: float = 0.5f
+
+    var centreY: float = 0.5f
+
+    /// How much of the distance to the centre the samples span, centred on the texel itself.
+    /// 0 is a copy; 0.2 spans from 0.9 to 1.1 of the radius.
+    var amount: float = 0.2f
+
+    /// How many samples the span is cut into. 1 is a copy at any amount.
+    var samples: int = 16
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The most samples a plan can ask for. A ceiling rather than a runtime bound — `Blur`'s reason.
+    const val MaxSamples: int = 32
+
+    /// One texel, clamped to the source's edge — never the target's.
+    func Tap(x: int, y: int): float4 {
+        val size = source.GetDimensions(0)
+
+        return source.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+    }
+
+    /// The source at a normalised position, bilinearly.
+    func At(u: float, v: float): float4 {
+        val extent = source.GetDimensions(0)
+        val px = u * float(extent.x) - 0.5f
+        val py = v * float(extent.y) - 0.5f
+
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Tap(x0, y0), Tap(x0 + 1, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Tap(x0, y0 + 1), Tap(x0 + 1, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val count = clamp(samples, 1, MaxSamples)
+
+        val u = (float(coord.x) + 0.5f) / float(size.x)
+        val v = (float(coord.y) + 0.5f) / float(size.y)
+
+        val ru = u - centreX
+        val rv = v - centreY
+
+        // ⚠ One sample is a copy at any amount, and the guard is what keeps it one: with a single
+        // sample the span has no interior and `count - 1` is a division by zero.
+        if (count == 1) {
+            target.Store(coord, At(u, v))
+
+            return
+        }
+
+        var sum = float4(0f, 0f, 0f, 0f)
+
+        for (i in 0 .. MaxSamples) {
+            if (i >= count) {
+                break
+            }
+
+            // -0.5 … +0.5 of the amount, so the texel's own radius is the middle of the span and
+            // an amount of zero collapses every sample onto it.
+            val t = float(i) / float(count - 1) - 0.5f
+            val scale = 1f + amount * t
+
+            sum = sum + At(centreX + ru * scale, centreY + rv * scale)
+        }
+
+        target.Store(coord, sum / float(count))
+    }
+}
