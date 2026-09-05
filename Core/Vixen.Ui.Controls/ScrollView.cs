@@ -998,6 +998,154 @@ public sealed partial class ScrollView : Control {
         Content.OffsetX = -(ScrollLeft + OverscrollLeft);
     }
 
+    // ── Scroll anchoring: the offset that follows content growing above the reader ───────────
+
+    UiElement? anchored;
+    float anchoredAt;
+    float anchoredScroll;
+
+    /// <summary>How far an anchor has to have moved before the offset follows it, in pixels.</summary>
+    /// <remarks>
+    ///     A guard against float noise and nothing more. It is not a threshold below which movement is
+    ///     ignored on purpose: a correction that fires is exact, so growth smaller than this simply
+    ///     stays in the baseline and is paid for by the next one that clears it.
+    /// </remarks>
+    public const float AnchorEpsilon = 0.01f;
+
+    /// <summary>Keeps the topmost visible element where it is when what is above it changes size.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The rule is one subtraction, and every hard part is deciding when it may run.</b>
+    ///         An element's position in <i>content</i> space — <c>Bounds.Top</c> minus
+    ///         <see cref="Content" />'s — is independent of the scroll, because scrolling is an
+    ///         <see cref="UiElement.OffsetY" /> on the content that both terms carry equally. So the
+    ///         difference between one frame's content position and the last's is exactly what
+    ///         appeared or vanished above it, and adding that to <see cref="ScrollTop" /> puts the
+    ///         reader back where they were reading.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is also why the baseline may be taken from stale bounds.</b> A correction
+    ///         writes <see cref="ScrollTop" /> and the accumulated positions are a pass old until the
+    ///         document re-runs; that shifts both terms of the subtraction by the same amount, so the
+    ///         number recorded for the next frame is right anyway. The port is expressed in the same
+    ///         coordinates for the same reason — <c>[ScrollTop, ScrollTop + Height]</c> rather than
+    ///         anything read off the screen.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Suppressed on any frame the offset itself moved, which is what makes a recycler
+    ///         safe.</b> `Core/Vixen.Ui.Controls/README.md` recorded this as the obstacle that stopped
+    ///         anchoring landing, and it named the mechanism exactly: a virtualiser reuses one element
+    ///         for a different row, so the anchor's content position changes for a reason that is not
+    ///         growth, and the correction cancels the scroll that caused it
+    ///         (<c>EditorShellBudgetTests.Scrolling_one_row_restyles_the_rows_it_rebound_and_not_the_shell</c>
+    ///         catches that exactly). The discriminator is not a property of the children at all: a
+    ///         recycler only re-lays a row <i>because</i> the offset moved, and anchoring exists for
+    ///         movement the reader did not ask for. So a frame whose offset changed is re-baselined
+    ///         and never corrected — no child count, no content height, no recycler protocol.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And a pool slot is still never the anchor</b>, because that is true whatever the
+    ///         offset did: <see cref="VirtualizingPanel" /> and <see cref="VirtualizingGrid" />
+    ///         document their rows as pool order rather than item order, so the walk stops at the
+    ///         panel and anchors on the panel's own box, which does move with the content. A nested
+    ///         <see cref="ScrollView" /> is excluded the same way and for a nearer reason: its
+    ///         children move when <i>it</i> scrolls, which says nothing about this view's content.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Out-of-flow and stuck boxes are excluded, and that is a correctness guard rather
+    ///         than tidiness.</b> A <c>position: sticky</c> header pinned to the top of the port sits
+    ///         at the scroll offset by definition, so anchoring on it reports zero movement for ever —
+    ///         a feature that silently does nothing — and one pinned to the <i>bottom</i> would report
+    ///         movement equal to the correction and chase itself around the settle loop.
+    ///     </para>
+    ///     <para>
+    ///         At the start edge nothing is anchored, which is what a browser does and what a reader
+    ///         means: content arriving above a view already at the top is content the reader wants to
+    ///         see, not content to be scrolled away from.
+    ///     </para>
+    /// </remarks>
+    void Anchor() {
+        // The gestures own the offset while they run, as they do for the snap in `Refresh` — and a
+        // stretch means the content is not where `ScrollTop` says, which the port arithmetic assumes.
+        var refused = Style.TryGet(names.OverflowAnchor, out var declared) && declared == names.None;
+
+        if (ScrollTop <= 0f || gesturing || IsScrolling || IsRubberBanding || refused) {
+            anchored = null;
+            return;
+        }
+
+        if (anchored is not null && ScrollTop.Equals(anchoredScroll) && Holds(anchored)) {
+            var moved = Position(anchored) - anchoredAt;
+
+            if (MathF.Abs(moved) >= AnchorEpsilon) {
+                // Through the property, so the coercion, the bars and `Displace` all run: an anchor
+                // correction is a scroll like any other, and a reader watching the bar would see it
+                // freeze against a moving thumb otherwise.
+                ScrollTop += moved;
+            }
+        }
+
+        anchored = Select(Content, ScrollTop, ScrollTop + Height);
+        anchoredAt = anchored is null ? 0f : Position(anchored);
+        anchoredScroll = ScrollTop;
+    }
+
+    /// <summary>Where an element's top edge is in the content's own coordinates.</summary>
+    float Position(UiElement element) => element.Bounds.Top - Content.Bounds.Top;
+
+    /// <summary>Whether an element is still somewhere under <see cref="Content" />.</summary>
+    /// <remarks>
+    ///     Walked rather than remembered, because the anchor is held across a frame in which anything
+    ///     may have happened to it — including being reparented into a different view, which a
+    ///     remembered depth or index would not notice.
+    /// </remarks>
+    bool Holds(UiElement element) {
+        for (var node = element.Parent; node is not null; node = node.Parent) {
+            if (ReferenceEquals(node, Content)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>The anchor, by CSS Scroll Anchoring's own descent: the deepest box the port can see.</summary>
+    /// <remarks>
+    ///     A child wholly inside the port is the answer and the walk stops; a child straddling an edge
+    ///     is descended into, and is itself the answer when nothing inside it qualifies. Both bounds
+    ///     are content-space, so this asks the same question at any scroll offset.
+    /// </remarks>
+    UiElement? Select(UiElement parent, float portTop, float portBottom) {
+        foreach (var child in parent.Children) {
+            if (child.Height <= 0f || Suppressed(child)) {
+                continue;
+            }
+
+            var top = Position(child);
+            var bottom = top + child.Height;
+
+            if (bottom <= portTop || top >= portBottom) {
+                continue;
+            }
+
+            if (top >= portTop && bottom <= portBottom) {
+                return child;
+            }
+
+            return child is ScrollView or VirtualizingPanel or VirtualizingGrid
+                ? child
+                : Select(child, portTop, portBottom) ?? child;
+        }
+
+        return null;
+    }
+
+    /// <summary>Whether an element refuses to be an anchor, by declaration or by not moving with the content.</summary>
+    bool Suppressed(UiElement element) =>
+        (element.Style.TryGet(names.OverflowAnchor, out var anchor) && anchor == names.None)
+        || (element.Style.TryGet(names.Position, out var position)
+            && (position == names.Sticky || position == names.Fixed || position == names.Absolute));
+
     /// <summary>Abandons any smooth scroll in flight, leaving the offset where it got to.</summary>
     /// <remarks>
     ///     ⚠ Called by everything that is a <i>direct</i> scroll — the wheel, a drag on the bar — so
@@ -1413,10 +1561,13 @@ public sealed partial class ScrollView : Control {
     /// <summary>The property and keyword ids one document interns for scrolling.</summary>
     /// <remarks>
     ///     ⚠ <b>One instance per document rather than a field per view, and the reason is the count.</b>
-    ///     Sixteen ids interned per <see cref="ScrollView" /> would be sixteen dictionary probes for
+    ///     Thirty ids interned per <see cref="ScrollView" /> would be thirty dictionary probes for
     ///     every tree, grid, code editor and panel in an editor frame — and every one of them would
     ///     answer the same number, because <c>Intern</c> is idempotent within a document. Cached
     ///     against the document, as <see cref="UiDocument.PropertyId" />'s own remark requires.
+    ///     ⚠ The count in this remark said sixteen and had said so through two families being added;
+    ///     it is written out here because it is the whole of the argument, and an argument resting on
+    ///     a number that drifts is one nobody re-checks.
     /// </remarks>
     sealed class ScrollNames {
         static readonly ConditionalWeakTable<UiDocument, ScrollNames> Cache = [];
@@ -1436,6 +1587,8 @@ public sealed partial class ScrollView : Control {
             Overscroll = properties.Intern("overscroll-behavior");
             OverscrollX = properties.Intern("overscroll-behavior-x");
             OverscrollY = properties.Intern("overscroll-behavior-y");
+            OverflowAnchor = properties.Intern("overflow-anchor");
+            Position = properties.Intern("position");
             Direction = properties.Intern("direction");
 
             Smooth = values.Intern("smooth");
@@ -1443,6 +1596,9 @@ public sealed partial class ScrollView : Control {
             None = values.Intern("none");
             Rtl = values.Intern("rtl");
             Always = values.Intern("always");
+            Sticky = values.Intern("sticky");
+            Fixed = values.Intern("fixed");
+            Absolute = values.Intern("absolute");
         }
 
         public static ScrollNames Of(UiDocument document) => Cache.GetValue(document, static key => new ScrollNames(key));
@@ -1456,12 +1612,17 @@ public sealed partial class ScrollView : Control {
         public int Overscroll { get; }
         public int OverscrollX { get; }
         public int OverscrollY { get; }
+        public int OverflowAnchor { get; }
+        public int Position { get; }
         public int Direction { get; }
         public int Smooth { get; }
         public int Auto { get; }
         public int None { get; }
         public int Rtl { get; }
         public int Always { get; }
+        public int Sticky { get; }
+        public int Fixed { get; }
+        public int Absolute { get; }
     }
 
     /// <summary>The six longhands of one scroll-inset family, interned.</summary>
@@ -1500,6 +1661,12 @@ public sealed partial class ScrollView : Control {
     ///     </para>
     /// </remarks>
     public void Refresh() {
+        // ⚠ First, and before the bars are told anything. The anchor correction goes through
+        // `ScrollTop`, so `OnScrolled` brings the bars up to date with the corrected offset; doing it
+        // the other way round would show the thumb a value one correction stale on exactly the frames
+        // the correction happened.
+        Anchor();
+
         VerticalBar.ViewportSize = Height;
         VerticalBar.ContentSize = Content.Height;
         VerticalBar.Value = ScrollTop;
