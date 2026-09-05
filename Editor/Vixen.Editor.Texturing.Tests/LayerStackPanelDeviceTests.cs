@@ -166,9 +166,6 @@ public class LayerStackPanelDeviceTests {
         Assert.Equal(fixture.Graphics.Uploads.Count, fixture.Graphics.Released);
     }
 
-    /// <summary>A stack whose one fill authors an ordered colour no default matches.</summary>
-    /// <param name="side">How big to bake it.</param>
-    /// <returns>The stack.</returns>
     /// <summary>A plan's caution reaches the pane's sentence rather than stopping at the bake.</summary>
     /// <remarks>
     ///     <para>
@@ -362,6 +359,9 @@ public class LayerStackPanelDeviceTests {
         Assert.Contains("not in this project's assets", shown.Status, StringComparison.Ordinal);
     }
 
+    /// <summary>A stack whose one fill authors an ordered colour no default matches.</summary>
+    /// <param name="side">How big to bake it.</param>
+    /// <returns>The stack.</returns>
     static LayerStackAsset Painted(int side) {
         var stack = LayerStackDocument.Starter("Hull");
 

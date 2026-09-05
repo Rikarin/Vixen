@@ -218,19 +218,21 @@ public class LayerStackCompileTests {
         Assert.Equal(4f, shuffle.Find("sourceA")!.Value.Value);
         Assert.Equal(0f, shuffle.Find("sourceR")!.Value.Value);
 
-        // 3 is FirstAlpha and 9 is a constant one: the content's own coverage, as an opaque grey.
-        var carried = Find(compilation.Plan, "ChannelShuffle");
-
-        Assert.Equal(3f, carried.Find("sourceR")!.Value.Value);
-        Assert.Equal(9f, carried.Find("sourceA")!.Value.Value);
-
         // The Multiply of the two greys is what the last shuffle reads, and the layer's own blend is
         // what reads the shuffle.
         var product = Find(compilation.Plan, "Blend");
 
         Assert.Equal((float)(int)LayerBlendMode.Multiply, product.Find("mode")!.Value.Value);
-        Assert.Equal(carried.Output, product.Inputs[0]);
         Assert.Equal(product.Output, shuffle.Inputs[1]);
+
+        // 3 is FirstAlpha and 9 is a constant one: the content's own coverage, as an opaque grey.
+        // ⚠ Pinned by what reads it rather than by where it sits. The content's grey and the mask's
+        // grey are graph siblings and nothing orders one before the other, so `Find` — first in op
+        // order — would have named whichever the topological walk happened to emit first.
+        var carried = Only(compilation.Plan, "ChannelShuffle", op => op.Output == product.Inputs[0]);
+
+        Assert.Equal(3f, carried.Find("sourceR")!.Value.Value);
+        Assert.Equal(9f, carried.Find("sourceA")!.Value.Value);
 
         var blend = Last(compilation.Plan, "Blend");
 

@@ -158,7 +158,21 @@ sealed class PaintCanvas {
         for (var channel = 0; channel < count; channel++) {
             var usage = reader.ReadString();
             var image = canvas.Channel(usage);
-            var read = reader.Read(image.Texels, 0, image.Texels.Length);
+            // ⚠ A loop, because `BinaryReader.Read(byte[], int, int)` forwards to a single
+            // `Stream.Read` and a stream is entitled to return fewer bytes than asked for. A 4K
+            // channel is 67 MB, and over a decompressing or a network stream the first read is a
+            // chunk — so the single-read form refuses a complete file as a truncated one.
+            var read = 0;
+
+            while (read < image.Texels.Length) {
+                var got = reader.Read(image.Texels, read, image.Texels.Length - read);
+
+                if (got <= 0) {
+                    break;
+                }
+
+                read += got;
+            }
 
             if (read != image.Texels.Length) {
                 throw new InvalidDataException(

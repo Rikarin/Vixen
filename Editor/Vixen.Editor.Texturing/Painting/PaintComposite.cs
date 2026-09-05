@@ -75,9 +75,8 @@ sealed class PaintComposite {
 
         this.layer = layer;
 
-        Below = Sized(stack.Evaluate(PaintStackSlice.Below), layer, PaintStackSlice.Below);
-        Above = Sized(stack.Evaluate(PaintStackSlice.Above), layer, PaintStackSlice.Above);
-        Evaluations = 2;
+        Below = Evaluated(stack, layer, PaintStackSlice.Below);
+        Above = Evaluated(stack, layer, PaintStackSlice.Above);
         Result = new(layer.Width, layer.Height);
 
         Resolve(layer.Bounds);
@@ -93,7 +92,13 @@ sealed class PaintComposite {
     public PaintImage Result { get; }
 
     /// <summary>How many slice evaluations this composite has asked for, over its whole life.</summary>
-    public int Evaluations { get; }
+    /// <remarks>
+    ///     ⚠ <b>Counted where the call is made rather than assigned the number the constructor
+    ///     intends to reach.</b> It was a literal <c>2</c>, which made the test asserting it two an
+    ///     assertion that could not fail — a third evaluation added anywhere below would have left
+    ///     it reading two.
+    /// </remarks>
+    public int Evaluations { get; private set; }
 
     /// <summary>How many texels have been recomposited, over the composite's whole life.</summary>
     /// <remarks>
@@ -155,6 +160,19 @@ sealed class PaintComposite {
         ((PaintImage.Channel(over, channel) * alpha)
             + (PaintImage.Channel(under, channel) * backdrop * (1f - alpha)))
         / result;
+
+    /// <summary>Asks the stack for one slice, and counts having asked.</summary>
+    /// <param name="stack">Whom to ask.</param>
+    /// <param name="layer">The painted layer, whose size the slice must match.</param>
+    /// <param name="which">Which half.</param>
+    /// <returns>The slice.</returns>
+    PaintImage Evaluated(IPaintStack stack, PaintImage layer, PaintStackSlice which) {
+        var slice = Sized(stack.Evaluate(which), layer, which);
+
+        Evaluations++;
+
+        return slice;
+    }
 
     static PaintImage Sized(PaintImage slice, PaintImage layer, PaintStackSlice which) {
         ArgumentNullException.ThrowIfNull(slice);
