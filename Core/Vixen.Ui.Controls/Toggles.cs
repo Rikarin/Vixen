@@ -164,6 +164,12 @@ public sealed partial class CheckBox : ToggleBase {
         } else {
             RemoveClass("indeterminate");
         }
+
+        // ⚠ The class is the wrong half to rely on. `NativeAccessibleState` above swaps `Checked`
+        // for `Mixed` from this flag alone, and a class change is a cascade invalidation that
+        // touches nothing a bridge reads — so without this line a screen reader kept announcing a
+        // half-ticked box as ticked, or as unticked, for the rest of the session.
+        InvalidateAccessibility();
     }
 }
 

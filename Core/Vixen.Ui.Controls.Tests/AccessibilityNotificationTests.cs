@@ -109,34 +109,101 @@ public class AccessibilityNotificationTests {
         Assert.Equal(quiet, bridge.Republished);
     }
 
-    /// <summary>The states that still reach nobody, named so that the residue is a fact rather than a hope.</summary>
+    /// <summary>The residue #593 named, now that it is closed: a state read off a control's own field.</summary>
     /// <remarks>
-    ///     ⚠ <b>A test that asserts a known gap, and it is deliberately written to fail on the day
-    ///     the gap closes.</b> <c>CheckBox.IsIndeterminate</c> changes the announced state from
-    ///     <c>checked</c> to <c>mixed</c> with no style-state write beside it, so the framework
-    ///     cannot see it and the coalesced flag is never set. Recording it here is what stops the
-    ///     first test above being read as "computed states now notify"; when the residue is fixed
-    ///     this goes red and is deleted, which is the point of writing it down in code rather than
-    ///     in a comment. The residue is #593.
+    ///     ⚠ <b>This replaces a test that asserted the opposite.</b>
+    ///     <c>A_state_computed_from_a_control_field_alone_still_reaches_nobody</c> stood here and
+    ///     recorded the gap as a fact rather than a hope, written to go red the day it closed; this
+    ///     is that day. <c>CheckBox.IsIndeterminate</c> swaps the announced <c>checked</c> for
+    ///     <c>mixed</c> with no style-state write beside it, so the framework still cannot see it —
+    ///     what changed is that the control says so, on the line that writes the field.
     /// </remarks>
     [Fact]
-    public void A_state_computed_from_a_control_field_alone_still_reaches_nobody() {
+    public void A_half_ticked_box_tells_the_bridge_it_is_mixed_and_tells_it_again_when_it_is_not() {
         using var fixture = new ControlFixture();
 
         var box = fixture.Add<CheckBox>();
         box.Label = "Shadows";
+        box.IsChecked = true;
 
         var bridge = new Bridge(fixture.Document, box);
         fixture.Advance(TimeSpan.FromMilliseconds(16));
 
-        var quiet = bridge.Republished;
+        Assert.Equal("checkbox \"Shadows\" [checked]", bridge.Cached);
 
         box.IsIndeterminate = true;
         fixture.Advance(TimeSpan.FromMilliseconds(16));
 
-        // The tree is right the instant the field changes; nothing told the bridge to look.
-        Assert.Equal(AccessibleStates.Mixed, box.AccessibleState & AccessibleStates.Mixed);
-        Assert.Equal(quiet, bridge.Republished);
-        Assert.Equal("checkbox \"Shadows\"", bridge.Cached);
+        Assert.Equal("checkbox \"Shadows\" [mixed]", bridge.Cached);
+
+        // ⚠ And back, which is the half a one-way notification leaves wrong forever: `Mixed`
+        // *replaces* `Checked` rather than joining it, so a bridge that was never told the flag
+        // cleared announces a fully ticked box as half ticked for the rest of the session.
+        box.IsIndeterminate = false;
+        fixture.Advance(TimeSpan.FromMilliseconds(16));
+
+        Assert.Equal("checkbox \"Shadows\" [checked]", bridge.Cached);
+    }
+
+    /// <summary>A menu item's <c>expanded</c>, which is read off the submenu and not off the item.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The element that changed and the element that is announced are not the same one</b>,
+    ///     which is why no per-element mechanism would have caught this: <c>MenuItem</c> reads
+    ///     <c>Submenu.IsOpen</c>, and the submenu is a sibling overlay that knows nothing about the
+    ///     item. The invalidation is a document-wide flag, so <c>Overlay.Restate</c> — the one method
+    ///     both <c>Open</c> and <c>Close</c> pass through — is where it belongs.
+    /// </remarks>
+    [Fact]
+    public void Opening_a_submenu_tells_the_bridge_the_item_is_expanded() {
+        using var fixture = new ControlFixture();
+
+        var menu = fixture.Add<Menu>();
+        var item = menu.AddItem("Open Recent");
+        var submenu = fixture.Document.Root.Add<Menu>();
+
+        item.Submenu = submenu;
+        menu.Open();
+
+        var bridge = new Bridge(fixture.Document, item);
+        fixture.Advance(TimeSpan.FromMilliseconds(16));
+
+        Assert.Equal("menuitem \"Open Recent\" [expandable]", bridge.Cached);
+
+        submenu.Open(item);
+        fixture.Advance(TimeSpan.FromMilliseconds(16));
+
+        Assert.Equal("menuitem \"Open Recent\" [expandable expanded]", bridge.Cached);
+
+        submenu.Close();
+        fixture.Advance(TimeSpan.FromMilliseconds(16));
+
+        Assert.Equal("menuitem \"Open Recent\" [expandable]", bridge.Cached);
+    }
+
+    /// <summary>A slider's value, which changes on every arrow press and writes no style state at all.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Driven by the keyboard rather than by the setter</b>, because a value a screen-reader
+    ///     user changes is a value they changed with the keyboard — and the press is what proves the
+    ///     notification survives the whole path rather than only the property.
+    /// </remarks>
+    [Fact]
+    public void Arrowing_a_slider_tells_the_bridge_its_value_moved() {
+        using var fixture = new ControlFixture();
+
+        var slider = fixture.Add<Slider>();
+        slider.Step = 0.25f;
+        slider.AccessibleName = "Volume";
+
+        fixture.Document.Focus(slider);
+
+        var bridge = new Bridge(fixture.Document, slider);
+        fixture.Advance(TimeSpan.FromMilliseconds(16));
+
+        Assert.Equal("slider \"Volume\" = \"0\"", bridge.Cached);
+
+        fixture.Type(InputKey.Right);
+        fixture.Advance(TimeSpan.FromMilliseconds(16));
+
+        Assert.Equal("slider \"Volume\" = \"0.25\"", bridge.Cached);
     }
 }

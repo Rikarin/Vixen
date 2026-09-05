@@ -1301,6 +1301,7 @@ Vixen.Ui.UiElement.HasClass(string className) -> bool
 Vixen.Ui.UiElement.HasInlineStyle.get -> bool
 Vixen.Ui.UiElement.Height.get -> float
 Vixen.Ui.UiElement.IndexInParent.get -> int
+Vixen.Ui.UiElement.InvalidateAccessibility() -> void
 Vixen.Ui.UiElement.IsCommandTransparent.get -> bool
 Vixen.Ui.UiElement.IsCommandTransparent.set -> bool
 Vixen.Ui.UiElement.IsFocusScope.get -> bool

@@ -309,10 +309,19 @@ consumer that re-read only when told missed every tick of every checkbox. The wh
 carries those three meanings on `ElementState.Checked` and greys with `ElementState.Disabled`, so
 masking the setter to those two bits closes it framework-side with nothing stored and no per-control
 callback. `Hover` and `Active` are excluded because they are not announced and would set the flag on
-every frame a pointer moves; the focus bits because `UiDocument.Focus` already raises. ⚠ What is
-still owed is a state computed from a control's *own* field with no style write beside it — a
-half-ticked `CheckBox`, a `MenuItem` whose submenu opened — which calls `InvalidateAccessibility()`
-itself, in one line.
+every frame a pointer moves; the focus bits because `UiDocument.Focus` already raises.
+
+⚠ **And a state computed from a control's *own* field calls `InvalidateAccessibility()` itself**,
+which is a protected method on `UiElement` for exactly this. The framework cannot see those: a
+half-ticked `CheckBox`, an `Overlay` opening under a `MenuItem` or a `Select`, a `TreeNode`
+expanding, a `Slider` arrowed one step. Each says so on the line that writes the field — a
+notification and not a mirror, since nothing is stored and the `Native*` override is still read on
+demand. ⚠ Two of them are worth knowing about: the announced element and the changed element are
+**not the same object** for an overlay — `MenuItem` reads `Submenu.IsOpen` — which is why the raise
+belongs in `Overlay.Restate` and works only because the flag is per document rather than per node;
+and a `TreeView` was *half* covered before this, because expanding inserts a row and a structural
+edit already raises, while collapsing parks a pooled row and raises nothing. Half a notification is
+the worse half.
 
 The gate is `Vixen.Ui.Testing.AccessibilitySnapshot`: `Render` for the tree as comparable text, and
 `Unnamed` for the assertion a snapshot cannot make. ⚠ Assert `Unnamed` first — a snapshot of a

@@ -355,6 +355,11 @@ public sealed partial class Slider : RangeBase {
     float CoerceValue(float value) => Snap(value);
 
     void OnValueChanged(float previous, float current) {
+        // A slider dragged with the keyboard changes `aria-valuenow` on every press and writes no
+        // style state at all — the thumb is drawn from the number rather than selected on. See
+        // `NativeAccessibleValue` above, which is the thing nobody was being told about.
+        InvalidateAccessibility();
+
         Raise(new ValueChangedEvent<float> { Previous = previous, Value = current });
         ValueChanged?.Invoke(this, current);
     }
@@ -500,7 +505,13 @@ public sealed partial class RangeSlider : RangeBase {
 
     float CoerceHigh(float value) => MathF.Max(Snap(value), Low);
 
-    void OnSpanChanged(float previous, float current) => SpanChanged?.Invoke(this, Low, High);
+    void OnSpanChanged(float previous, float current) {
+        // Both ends are one announced value here — see `NativeAccessibleValue` above — so either
+        // moving is a change a bridge has to be told about, on `Slider.OnValueChanged`'s terms.
+        InvalidateAccessibility();
+
+        SpanChanged?.Invoke(this, Low, High);
+    }
 
     void Pointed(PointerEvent args) {
         switch (args.Action) {
@@ -618,7 +629,7 @@ public sealed partial class ProgressBar : RangeBase {
         IsIndeterminate ? AccessibleStates.Busy : AccessibleStates.None;
 
     /// <summary>How far along.</summary>
-    [UiProperty(Coerce = nameof(CoerceValue))]
+    [UiProperty(Coerce = nameof(CoerceValue), Changed = nameof(OnValueChanged))]
     public partial float Value { get; set; }
 
     /// <summary>Whether the length of the job is unknown.</summary>
@@ -687,12 +698,19 @@ public sealed partial class ProgressBar : RangeBase {
     /// <inheritdoc cref="RangeBase.Snap" />
     float CoerceValue(float value) => Snap(value);
 
+    void OnValueChanged(float previous, float current) => InvalidateAccessibility();
+
     void OnIndeterminateChanged(bool previous, bool current) {
         if (current) {
             AddClass("indeterminate");
         } else {
             RemoveClass("indeterminate");
         }
+
+        // ⚠ This flag moves two announced things at once — `Busy` arrives and `aria-valuenow`
+        // *departs* — and neither is a style state. A bar that finished a job of unknown length
+        // would otherwise still be announced as busy with no number.
+        InvalidateAccessibility();
     }
 }
 
