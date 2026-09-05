@@ -94,5 +94,7 @@ sealed class BakeBuffers {
     /// <param name="maps">What was asked for.</param>
     /// <returns>Whether to spend the rays.</returns>
     public static bool NeedsRays(MeshMaps maps) =>
-        maps.HasFlag(MeshMaps.AmbientOcclusion) || maps.HasFlag(MeshMaps.BentNormal) || maps.HasFlag(MeshMaps.Thickness);
+        maps.HasFlag(MeshMaps.AmbientOcclusion)
+        || maps.HasFlag(MeshMaps.BentNormal)
+        || maps.HasFlag(MeshMaps.Thickness);
 }

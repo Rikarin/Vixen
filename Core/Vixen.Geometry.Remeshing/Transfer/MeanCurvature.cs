@@ -136,7 +136,12 @@ static class MeanCurvature {
     }
 
     /// <summary>The Voronoi area a non-obtuse triangle gives one of its corners.</summary>
-    static float Voronoi(ReadOnlySpan<Vector3> positions, ReadOnlySpan<int> slots, ReadOnlySpan<float> cotangents, int corner) {
+    static float Voronoi(
+        ReadOnlySpan<Vector3> positions,
+        ReadOnlySpan<int> slots,
+        ReadOnlySpan<float> cotangents,
+        int corner
+    ) {
         var next = (corner + 1) % 3;
         var previous = (corner + 2) % 3;
 

@@ -66,18 +66,25 @@ public class MeshMapTests {
     /// <summary>A convex surface occludes nothing, which is the hemisphere's analytic value.</summary>
     /// <remarks>
     ///     ⚠ <b>The sharp half of this is the self-hit, not the geometry.</b> Every ray starts on the
-    ///     sphere and every ray is aimed away from it, so the analytic answer is one everywhere and a
-    ///     bake that starts its rays exactly on the surface reads about a half instead — the same
-    ///     defect this repository has already paid for in a screen-space march. The shortfall left is
-    ///     the fixture's own: the source is a polyhedron carrying smooth normals, so a direction
-    ///     within a facet's half-angle of the horizon can graze the facet next door. Measured, that
-    ///     costs under a percent.
+    ///     sphere and every ray is aimed away from it, so the analytic answer is one at every texel —
+    ///     and a bake that starts its rays exactly on the surface reads a few percent short instead,
+    ///     the same defect this repository has already paid for in a screen-space march. Measured
+    ///     with the bias removed: 0.969 at the worst texel, which is what "a few percent" buys and
+    ///     why the assertion is exact rather than close.
+    /// </remarks>
+    /// <remarks>
+    ///     ⚠ <b>Exact rather than nearly, and the sample count is why it can be.</b> The source is a
+    ///     polyhedron carrying smooth normals, so a direction close enough to the horizon dips below
+    ///     the facet next door and grazes it — but the widest of 64 cosine-weighted samples leaves at
+    ///     84.9°, and an icosphere at this subdivision bends about 2° per facet, so no sample in the
+    ///     set can reach. Measured minimum over 392 covered texels: 1. Raise the sample count far
+    ///     enough and this becomes a tolerance rather than an equality, which is a fact about the
+    ///     fixture and not about the bake.
     /// </remarks>
     [Fact]
     public void Ambient_occlusion_on_a_convex_sphere_is_the_open_hemisphere() {
         var maps = Sphere(MeshMaps.AmbientOcclusion);
         var occlusion = Assert.IsAssignableFrom<IReadOnlyList<float>>(maps.AmbientOcclusion);
-        var mean = 0f;
         var seen = 0;
 
         for (var index = 0; index < occlusion.Count; index++) {
@@ -85,17 +92,11 @@ public class MeshMapTests {
                 continue;
             }
 
-            Assert.True(
-                occlusion[index] > 0.97f,
-                $"Texel {index} on a convex sphere reads {occlusion[index]}, and nothing can occlude it."
-            );
-
-            mean += occlusion[index];
+            Assert.Equal(1f, occlusion[index]);
             seen++;
         }
 
         Assert.True(seen > 0, string.Join(" · ", maps.Warnings));
-        Assert.True(mean / seen > 0.995f, $"The cap's mean occlusion is {mean / seen} rather than about one.");
     }
 
     /// <summary>A sheet under an overhanging ceiling reads no ambient occlusion at all.</summary>
@@ -349,7 +350,7 @@ public class MeshMapTests {
         Assert.True(maps.Covered > 0, string.Join(" · ", maps.Warnings));
         Assert.True(maps.Dilated > 0, "Nothing was dilated, so the test proves nothing about the gutter.");
 
-        var dilated = 0;
+        var straddling = 0;
 
         for (var index = 0; index < ids.Count; index++) {
             Assert.True(
@@ -357,13 +358,32 @@ public class MeshMapTests {
                 $"Texel {index} carries id {ids[index]}, which belongs to no chart in the source."
             );
 
-            if (!maps.Coverage[index] && ids[index] >= 0) {
-                dilated++;
+            var column = index % maps.Resolution;
+
+            if (maps.Coverage[index] || column == 0 || column + 1 == maps.Resolution) {
+                continue;
+            }
+
+            var before = ids[index - 1];
+            var after = ids[index + 1];
+
+            if (before >= 0 && after >= 0 && before != after) {
+                straddling++;
+
+                Assert.True(
+                    ids[index] == before || ids[index] == after,
+                    $"Gutter texel {index} sits between ids {before} and {after} and carries "
+                    + $"{ids[index]}, which is neither of them."
+                );
             }
         }
 
-        // ⚠ Without this the assertion above is satisfied by an id map that is entirely −1.
-        Assert.True(dilated > 0, "No gutter texel carried an id, so the copy was never exercised.");
+        // ⚠ Without this the assertions above are satisfied by an id map that never had the case in
+        // it — which is not hypothetical: the first version of this fixture left an even number of
+        // texels between the charts, the two gutter fronts passed without meeting, and averaging the
+        // four neighbours was green. A gutter texel with a different id on either side is the only
+        // place the two rules differ, so the test has to prove one existed.
+        Assert.True(straddling > 0, "No gutter texel had a different id on each side, so nothing was proved.");
     }
 
     /// <summary>Every material index gets a colour of its own.</summary>
@@ -596,6 +616,13 @@ public class MeshMapTests {
         // ⚠ Each half is normalised against its own extent, not against the mesh's. Sharing one
         // denominator puts the two charts a third of the atlas apart, the gutter never reaches
         // across, and the id test then passes without the case it exists to cover ever arising.
+        //
+        // ⚠ And the halves are placed to leave exactly *one* empty column between them, which is a
+        // parity argument rather than a tidiness one. A four-neighbour flood fills a texel at its L1
+        // distance from the nearest chart and commits the round afterwards, so across an even gap the
+        // two fronts pass without ever seeing each other: every gutter texel has neighbours from one
+        // chart only, an averaging dilation is indistinguishable from a copying one, and the id test
+        // goes green under the sabotage it exists to catch. Measured — it did.
         var (left, right) = Halves(mesh, split);
 
         for (var face = 0; face < mesh.FaceCount; face++) {
@@ -618,7 +645,7 @@ public class MeshMapTests {
                 var along = (point.X - side.X) / (side.Y - side.X);
 
                 coordinates[entry.Start + index] = new(
-                    point.X > split ? 0.54f + (along * 0.44f) : 0.02f + (along * 0.44f),
+                    point.X > split ? 0.505f + (along * 0.475f) : 0.02f + (along * 0.45f),
                     v
                 );
             }
