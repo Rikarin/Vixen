@@ -49,12 +49,12 @@ public sealed class ComponentsViewDumpTests {
 
         Assert.Equal(
             """
-            <expander-header .variant-default .size-md> 0,1 320×36
-              <icon .variant-default .size-md> 6,12 12×12
+            <expander-header .size-md .variant-default> 0,1 320×36
+              <icon .size-md .variant-default> 6,12 12×12
               <label> 54,7 117×22 "Primitive Shape"
-              <icon .variant-default .size-md .component-icon> 26,10 16×16
-              <icon-button .remove-component .variant-subtle .size-sm> 294,7 20×20
-                <icon .variant-default .size-md> 4,4 12×12
+              <icon .component-icon .size-md .variant-default> 26,10 16×16
+              <icon-button .remove-component .size-sm .variant-subtle> 294,7 20×20
+                <icon .size-md .variant-default> 4,4 12×12
                 <label> 0,0 0×0 "Remove Component"
             """,
             editor.Ui.Tree(components.Sections[0].Header)
@@ -248,203 +248,203 @@ public sealed class ComponentsViewDumpTests {
     /// <summary>The state the panel opens in: two foldouts, both open, nothing focused.</summary>
     const string Open =
         """
-        <expander .variant-default .size-md .component .open> IsExpanded=True Label="Primitive Shape"
-        <expander-header .variant-default .size-md> State=Checked Label="Primitive Shape"
-        <icon-button .remove-component .variant-subtle .size-sm> Label="Remove Component"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <select .variant-default .size-md> Value="Cube"
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <icon-button .variant-subtle .size-sm> Label="Pick"
-        <icon-button .variant-subtle .size-sm> Label="Clear"
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <expander .variant-default .size-md .component .open> IsExpanded=True Label="Light"
-        <expander-header .variant-default .size-md> State=Checked Label="Light"
-        <icon-button .remove-component .variant-subtle .size-sm> Label="Remove Component"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <select .variant-default .size-md> Value="Point"
-        <icon-button .variant-subtle .size-sm> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <color-input .variant-default .size-md> Value=(1, 1, 1, 1)
-        <icon-button .variant-subtle .size-sm> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="127.324" Number=127.324
-        <icon-button .variant-subtle .size-sm> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <select .variant-default .size-md> Value="Candela"
-        <icon-button .variant-subtle .size-sm> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="0.000" Number=0
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="10.000" Number=10
-        <icon-button .variant-subtle .size-sm> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="0.000" Number=0
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="0.000" Number=0
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="0.000" Number=0
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="0.000" Number=0
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <button .variant-default .size-md .add-component> Label="Add Component"
+        <expander .component .open .size-md .variant-default> IsExpanded=True Label="Primitive Shape"
+        <expander-header .size-md .variant-default> State=Checked Label="Primitive Shape"
+        <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <select .size-md .variant-default> Value="Cube"
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <icon-button .size-sm .variant-subtle> Label="Pick"
+        <icon-button .size-sm .variant-subtle> Label="Clear"
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <expander .component .open .size-md .variant-default> IsExpanded=True Label="Light"
+        <expander-header .size-md .variant-default> State=Checked Label="Light"
+        <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <select .size-md .variant-default> Value="Point"
+        <icon-button .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <color-input .size-md .variant-default> Value=(1, 1, 1, 1)
+        <icon-button .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="127.324" Number=127.324
+        <icon-button .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <select .size-md .variant-default> Value="Candela"
+        <icon-button .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="10.000" Number=10
+        <icon-button .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <button .add-component .size-md .variant-default> Label="Add Component"
         """;
 
     /// <summary>The first one collapsed, and the header that took the click has the focus.</summary>
     const string Shut =
         """
-        <components .variant-default .size-md> State=FocusWithin
+        <components .size-md .variant-default> State=FocusWithin
         <component-list> State=FocusWithin
-        <expander .variant-default .size-md .component> State=FocusWithin Label="Primitive Shape"
-        <expander-header .variant-default .size-md> State=Focus, FocusWithin Label="Primitive Shape"
-        <icon-button .remove-component .variant-subtle .size-sm> Label="Remove Component"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <select .variant-default .size-md> Value="Cube"
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <icon-button .variant-subtle .size-sm> Label="Pick"
-        <icon-button .variant-subtle .size-sm> Label="Clear"
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <expander .variant-default .size-md .component .open> IsExpanded=True Label="Light"
-        <expander-header .variant-default .size-md> State=Checked Label="Light"
-        <icon-button .remove-component .variant-subtle .size-sm> Label="Remove Component"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <select .variant-default .size-md> Value="Point"
-        <icon-button .variant-subtle .size-sm> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <color-input .variant-default .size-md> Value=(1, 1, 1, 1)
-        <icon-button .variant-subtle .size-sm> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="127.324" Number=127.324
-        <icon-button .variant-subtle .size-sm> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <select .variant-default .size-md> Value="Candela"
-        <icon-button .variant-subtle .size-sm> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="0.000" Number=0
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="10.000" Number=10
-        <icon-button .variant-subtle .size-sm> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="0.000" Number=0
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="0.000" Number=0
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="0.000" Number=0
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="0.000" Number=0
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <button .variant-default .size-md .add-component> Label="Add Component"
+        <expander .component .size-md .variant-default> State=FocusWithin Label="Primitive Shape"
+        <expander-header .size-md .variant-default> State=Focus, FocusWithin Label="Primitive Shape"
+        <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <select .size-md .variant-default> Value="Cube"
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <icon-button .size-sm .variant-subtle> Label="Pick"
+        <icon-button .size-sm .variant-subtle> Label="Clear"
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <expander .component .open .size-md .variant-default> IsExpanded=True Label="Light"
+        <expander-header .size-md .variant-default> State=Checked Label="Light"
+        <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <select .size-md .variant-default> Value="Point"
+        <icon-button .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <color-input .size-md .variant-default> Value=(1, 1, 1, 1)
+        <icon-button .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="127.324" Number=127.324
+        <icon-button .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <select .size-md .variant-default> Value="Candela"
+        <icon-button .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="10.000" Number=10
+        <icon-button .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <button .add-component .size-md .variant-default> Label="Add Component"
         """;
 
     /// <summary>Open again. Not byte-identical with the first state, and must not be.</summary>
     const string Reopened =
         """
-        <components .variant-default .size-md> State=FocusWithin
+        <components .size-md .variant-default> State=FocusWithin
         <component-list> State=FocusWithin
-        <expander .variant-default .size-md .component .open> State=FocusWithin IsExpanded=True Label="Primitive Shape"
-        <expander-header .variant-default .size-md> State=Focus, Checked, FocusWithin Label="Primitive Shape"
-        <icon-button .remove-component .variant-subtle .size-sm> Label="Remove Component"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <select .variant-default .size-md> Value="Cube"
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <icon-button .variant-subtle .size-sm> Label="Pick"
-        <icon-button .variant-subtle .size-sm> Label="Clear"
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <expander .variant-default .size-md .component .open> IsExpanded=True Label="Light"
-        <expander-header .variant-default .size-md> State=Checked Label="Light"
-        <icon-button .remove-component .variant-subtle .size-sm> Label="Remove Component"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <select .variant-default .size-md> Value="Point"
-        <icon-button .variant-subtle .size-sm> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <color-input .variant-default .size-md> Value=(1, 1, 1, 1)
-        <icon-button .variant-subtle .size-sm> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="127.324" Number=127.324
-        <icon-button .variant-subtle .size-sm> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <select .variant-default .size-md> Value="Candela"
-        <icon-button .variant-subtle .size-sm> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="0.000" Number=0
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="10.000" Number=10
-        <icon-button .variant-subtle .size-sm> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="0.000" Number=0
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="0.000" Number=0
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="0.000" Number=0
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="0.000" Number=0
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <button .variant-default .size-md .add-component> Label="Add Component"
+        <expander .component .open .size-md .variant-default> State=FocusWithin IsExpanded=True Label="Primitive Shape"
+        <expander-header .size-md .variant-default> State=Focus, Checked, FocusWithin Label="Primitive Shape"
+        <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <select .size-md .variant-default> Value="Cube"
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <icon-button .size-sm .variant-subtle> Label="Pick"
+        <icon-button .size-sm .variant-subtle> Label="Clear"
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <expander .component .open .size-md .variant-default> IsExpanded=True Label="Light"
+        <expander-header .size-md .variant-default> State=Checked Label="Light"
+        <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <select .size-md .variant-default> Value="Point"
+        <icon-button .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <color-input .size-md .variant-default> Value=(1, 1, 1, 1)
+        <icon-button .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="127.324" Number=127.324
+        <icon-button .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <select .size-md .variant-default> Value="Candela"
+        <icon-button .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="10.000" Number=10
+        <icon-button .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <button .add-component .size-md .variant-default> Label="Add Component"
         """;
 
     /// <summary>After the drag. The focus moved with the element rather than staying at index 0.</summary>
     const string Swapped =
         """
-        <components .variant-default .size-md> State=FocusWithin
+        <components .size-md .variant-default> State=FocusWithin
         <component-list> State=FocusWithin
-        <expander .variant-default .size-md .component .open> State=FocusWithin IsExpanded=True Label="Light"
-        <expander-header .variant-default .size-md> State=Focus, Checked, FocusWithin Label="Light"
-        <icon-button .remove-component .variant-subtle .size-sm> Label="Remove Component"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <select .variant-default .size-md> Value="Point"
-        <icon-button .variant-subtle .size-sm> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <color-input .variant-default .size-md> Value=(1, 1, 1, 1)
-        <icon-button .variant-subtle .size-sm> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="127.324" Number=127.324
-        <icon-button .variant-subtle .size-sm> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <select .variant-default .size-md> Value="Candela"
-        <icon-button .variant-subtle .size-sm> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="0.000" Number=0
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="10.000" Number=10
-        <icon-button .variant-subtle .size-sm> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="0.000" Number=0
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="0.000" Number=0
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="0.000" Number=0
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <numeric-input .variant-default .size-md> Value="0.000" Number=0
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <expander .variant-default .size-md .component .open> IsExpanded=True Label="Primitive Shape"
-        <expander-header .variant-default .size-md> State=Checked Label="Primitive Shape"
-        <icon-button .remove-component .variant-subtle .size-sm> Label="Remove Component"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <select .variant-default .size-md> Value="Cube"
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <inspector-row .variant-default .size-md> Label=Vixen.Ui.UiElement
-        <icon-button .variant-subtle .size-sm> Label="Pick"
-        <icon-button .variant-subtle .size-sm> Label="Clear"
-        <icon-button .variant-subtle .size-sm .hidden> Label="Reset"
-        <button .variant-default .size-md .add-component> Label="Add Component"
+        <expander .component .open .size-md .variant-default> State=FocusWithin IsExpanded=True Label="Light"
+        <expander-header .size-md .variant-default> State=Focus, Checked, FocusWithin Label="Light"
+        <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <select .size-md .variant-default> Value="Point"
+        <icon-button .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <color-input .size-md .variant-default> Value=(1, 1, 1, 1)
+        <icon-button .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="127.324" Number=127.324
+        <icon-button .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <select .size-md .variant-default> Value="Candela"
+        <icon-button .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="10.000" Number=10
+        <icon-button .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <numeric-input .size-md .variant-default> Value="0.000" Number=0
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <expander .component .open .size-md .variant-default> IsExpanded=True Label="Primitive Shape"
+        <expander-header .size-md .variant-default> State=Checked Label="Primitive Shape"
+        <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <select .size-md .variant-default> Value="Cube"
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+        <icon-button .size-sm .variant-subtle> Label="Pick"
+        <icon-button .size-sm .variant-subtle> Label="Clear"
+        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+        <button .add-component .size-md .variant-default> Label="Add Component"
         """;
     /// <summary>The panel's flags, with the pointer parked first.</summary>
     /// <remarks>

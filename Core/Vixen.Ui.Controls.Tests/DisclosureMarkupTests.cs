@@ -119,12 +119,12 @@ public class DisclosureMarkupTests {
 
         Assert.Equal(
             """
-            <expander .variant-default .size-md .open> IsExpanded=True Label="Transform"
-            <expander-header .variant-default .size-md> State=Checked Label="Transform"
-            <icon-button .variant-default .size-md .section-remove> Label="Remove"
-            <expander .variant-default .size-md .open> IsExpanded=True Label="Light"
-            <expander-header .variant-default .size-md> State=Checked Label="Light"
-            <icon-button .variant-default .size-md .section-remove> Label="Remove"
+            <expander .open .size-md .variant-default> IsExpanded=True Label="Transform"
+            <expander-header .size-md .variant-default> State=Checked Label="Transform"
+            <icon-button .section-remove .size-md .variant-default> Label="Remove"
+            <expander .open .size-md .variant-default> IsExpanded=True Label="Light"
+            <expander-header .size-md .variant-default> State=Checked Label="Light"
+            <icon-button .section-remove .size-md .variant-default> Label="Remove"
             """,
             ui.Flags(sheet.Root)
         );
@@ -144,24 +144,24 @@ public class DisclosureMarkupTests {
             """
             <foldoutsheet> 0,0 289×400
               <expander-host> 0,0 289×400
-                <expander .variant-default .size-md .open> 0,0 167×400
-                  <expander-header .variant-default .size-md> 0,0 167×44
-                    <icon .variant-default .size-md> 4,16 12×12
+                <expander .open .size-md .variant-default> 0,0 167×400
+                  <expander-header .size-md .variant-default> 0,0 167×44
+                    <icon .size-md .variant-default> 4,16 12×12
                     <label> 24,8 87×28 "Transform"
-                    <icon .variant-default .size-md .section-icon> 119,16 12×12
-                    <icon-button .variant-default .size-md .section-remove> 139,8 24×24
-                      <icon .variant-default .size-md> 6,6 12×12
+                    <icon .section-icon .size-md .variant-default> 119,16 12×12
+                    <icon-button .section-remove .size-md .variant-default> 139,8 24×24
+                      <icon .size-md .variant-default> 6,6 12×12
                       <label> 0,0 0×0 "Remove"
                   <expander-content> 0,44 167×44
                     <section-body> 20,4 143×28
                       <text> 0,0 51×28 "0, 0, 0"
-                <expander .variant-default .size-md .open> 167,0 122×400
-                  <expander-header .variant-default .size-md> 0,0 122×44
-                    <icon .variant-default .size-md> 4,16 12×12
+                <expander .open .size-md .variant-default> 167,0 122×400
+                  <expander-header .size-md .variant-default> 0,0 122×44
+                    <icon .size-md .variant-default> 4,16 12×12
                     <label> 24,8 42×28 "Light"
-                    <icon .variant-default .size-md .section-icon> 74,16 12×12
-                    <icon-button .variant-default .size-md .section-remove> 94,8 24×24
-                      <icon .variant-default .size-md> 6,6 12×12
+                    <icon .section-icon .size-md .variant-default> 74,16 12×12
+                    <icon-button .section-remove .size-md .variant-default> 94,8 24×24
+                      <icon .size-md .variant-default> 6,6 12×12
                       <label> 0,0 0×0 "Remove"
                   <expander-content> 0,44 122×44
                     <section-body> 20,4 98×28
@@ -187,12 +187,12 @@ public class DisclosureMarkupTests {
 
         Assert.Equal(
             """
-            <expander-header .variant-default .size-md> 0,0 167×44
-              <icon .variant-default .size-md> 4,16 12×12
+            <expander-header .size-md .variant-default> 0,0 167×44
+              <icon .size-md .variant-default> 4,16 12×12
               <label> 24,8 87×28 "Transform"
-              <icon .variant-default .size-md .section-icon> 119,16 12×12
-              <icon-button .variant-default .size-md .section-remove> 139,8 24×24
-                <icon .variant-default .size-md> 6,6 12×12
+              <icon .section-icon .size-md .variant-default> 119,16 12×12
+              <icon-button .section-remove .size-md .variant-default> 139,8 24×24
+                <icon .size-md .variant-default> 6,6 12×12
                 <label> 0,0 0×0 "Remove"
             """,
             ui.Tree(Folds(sheet)[0].Header)
