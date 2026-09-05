@@ -139,12 +139,12 @@ partial class Build {
             var bytes = Directory
                 .EnumerateFiles(directory, "*", SearchOption.AllDirectories)
                 .Sum(file => {
-                        try {
-                            return new FileInfo(file).Length;
-                        } catch (IOException) {
-                            return 0L;
-                        }
+                    try {
+                        return new FileInfo(file).Length;
+                    } catch (IOException) {
+                        return 0L;
                     }
+                }
                 );
 
             return $"{bytes / 1024.0 / 1024.0 / 1024.0:0.0} GB";
@@ -158,89 +158,89 @@ partial class Build {
     Target PruneWorktrees => definition => definition
         .Description("Reports the agent worktrees under .claude/worktrees that are merged, clean and unlocked — and removes them with --remove-merged")
         .Executes(() => {
-                var registered = RegisteredWorktrees();
-                var main = registered[0].Path;
-                var directory = main / ".claude" / "worktrees";
+            var registered = RegisteredWorktrees();
+            var main = registered[0].Path;
+            var directory = main / ".claude" / "worktrees";
 
-                if (!directory.DirectoryExists()) {
-                    Log.Information("{Directory} does not exist; nothing to prune.", directory);
+            if (!directory.DirectoryExists()) {
+                Log.Information("{Directory} does not exist; nothing to prune.", directory);
 
-                    return;
-                }
+                return;
+            }
 
-                var byPath = registered.ToDictionary(worktree => worktree.Path.ToString(), StringComparer.Ordinal);
-                var removable = new List<Worktree>();
+            var byPath = registered.ToDictionary(worktree => worktree.Path.ToString(), StringComparer.Ordinal);
+            var removable = new List<Worktree>();
 
-                // Every directory entry, not every registered worktree, because the two disagreeing
-                // is the failure this target exists for.
-                foreach (var entry in directory.GlobDirectories("*").OrderBy(path => path.ToString(), StringComparer.Ordinal)) {
-                    if (!byPath.TryGetValue(entry.ToString(), out var worktree)) {
-                        Log.Warning(
-                            "  ⚠ not a worktree  {Name}  {Size} — git does not know about this directory, so "
-                            + "`git worktree prune` will never touch it and git run from inside it answers about "
-                            + "the parent repository. Look at it by hand.",
-                            entry.Name,
-                            Gigabytes(entry)
-                        );
-
-                        continue;
-                    }
-
-                    // Never the checkout this target is running in, whatever its state says. Nuke's
-                    // own assemblies are loaded out of it.
-                    if (entry == RootDirectory) {
-                        Log.Information("  in use          {Name} — this is the checkout PruneWorktrees is running in.", entry.Name);
-
-                        continue;
-                    }
-
-                    var reasons = new List<string>();
-
-                    if (worktree.Locked is not null) {
-                        reasons.Add($"locked ({worktree.Locked})");
-                    }
-
-                    if (!IsMergedIntoMaster(worktree.Head)) {
-                        reasons.Add("has commits master does not");
-                    }
-
-                    if (!IsClean(entry)) {
-                        reasons.Add("has uncommitted changes");
-                    }
-
-                    if (reasons.Count > 0) {
-                        Log.Information("  keep            {Name}  {Size} — {Reasons}.", entry.Name, Gigabytes(entry), string.Join("; ", reasons));
-
-                        continue;
-                    }
-
-                    Log.Information("  removable       {Name}  {Size} — merged into master, clean, unlocked.", entry.Name, Gigabytes(entry));
-                    removable.Add(worktree);
-                }
-
-                if (removable.Count == 0) {
-                    Log.Information("Nothing is safe to remove.");
-
-                    return;
-                }
-
-                if (!RemoveMerged) {
-                    Log.Information(
-                        "{Count} worktree(s) are safe to remove. Rerun with --remove-merged to remove them.",
-                        removable.Count
+            // Every directory entry, not every registered worktree, because the two disagreeing
+            // is the failure this target exists for.
+            foreach (var entry in directory.GlobDirectories("*").OrderBy(path => path.ToString(), StringComparer.Ordinal)) {
+                if (!byPath.TryGetValue(entry.ToString(), out var worktree)) {
+                    Log.Warning(
+                        "  ⚠ not a worktree  {Name}  {Size} — git does not know about this directory, so "
+                        + "`git worktree prune` will never touch it and git run from inside it answers about "
+                        + "the parent repository. Look at it by hand.",
+                        entry.Name,
+                        Gigabytes(entry)
                     );
 
-                    return;
+                    continue;
                 }
 
-                foreach (var worktree in removable) {
-                    // ⚠ `git worktree remove` and not a directory delete: it re-checks dirtiness
-                    // itself and refuses, so the decision above is a filter in front of git's own
-                    // guard rather than a replacement for it. It also unregisters the worktree,
-                    // which a delete would leave for `prune` to notice later.
-                    GitTasks.Git($"worktree remove \"{worktree.Path}\"", RootDirectory);
-                    Log.Information("Removed {Name}.", worktree.Path.Name);
+                // Never the checkout this target is running in, whatever its state says. Nuke's
+                // own assemblies are loaded out of it.
+                if (entry == RootDirectory) {
+                    Log.Information("  in use          {Name} — this is the checkout PruneWorktrees is running in.", entry.Name);
+
+                    continue;
                 }
+
+                var reasons = new List<string>();
+
+                if (worktree.Locked is not null) {
+                    reasons.Add($"locked ({worktree.Locked})");
+                }
+
+                if (!IsMergedIntoMaster(worktree.Head)) {
+                    reasons.Add("has commits master does not");
+                }
+
+                if (!IsClean(entry)) {
+                    reasons.Add("has uncommitted changes");
+                }
+
+                if (reasons.Count > 0) {
+                    Log.Information("  keep            {Name}  {Size} — {Reasons}.", entry.Name, Gigabytes(entry), string.Join("; ", reasons));
+
+                    continue;
+                }
+
+                Log.Information("  removable       {Name}  {Size} — merged into master, clean, unlocked.", entry.Name, Gigabytes(entry));
+                removable.Add(worktree);
             }
+
+            if (removable.Count == 0) {
+                Log.Information("Nothing is safe to remove.");
+
+                return;
+            }
+
+            if (!RemoveMerged) {
+                Log.Information(
+                    "{Count} worktree(s) are safe to remove. Rerun with --remove-merged to remove them.",
+                    removable.Count
+                );
+
+                return;
+            }
+
+            foreach (var worktree in removable) {
+                // ⚠ `git worktree remove` and not a directory delete: it re-checks dirtiness
+                // itself and refuses, so the decision above is a filter in front of git's own
+                // guard rather than a replacement for it. It also unregisters the worktree,
+                // which a delete would leave for `prune` to notice later.
+                GitTasks.Git($"worktree remove \"{worktree.Path}\"", RootDirectory);
+                Log.Information("Removed {Name}.", worktree.Path.Name);
+            }
+        }
         );
 }

@@ -243,11 +243,11 @@ partial class Build {
     Target TestOrder => definition => definition
         .Description("Prints the order Test starts the test assemblies in, or rewrites the cost list from the last run")
         .Executes(() => {
-                if (UpdateTestCost) {
-                    var measured = MeasuredTestCosts();
+            if (UpdateTestCost) {
+                var measured = MeasuredTestCosts();
 
-                    TestCostFile.WriteAllLines([
-                        "# The wall of each test assembly in seconds, longest first, read out of the TRX",
+                TestCostFile.WriteAllLines([
+                    "# The wall of each test assembly in seconds, longest first, read out of the TRX",
                         "# `Times` of a local Test run. This is a schedule and not a budget: nothing fails",
                         "# because a number here is wrong, the run is merely packed worse. Regenerate with",
                         "# `./build.sh TestOrder --update-test-cost` after a full local Test run.",
@@ -258,27 +258,27 @@ partial class Build {
                         .. measured.Select(measurement =>
                             $"{measurement.Seconds.ToString("0.0", CultureInfo.InvariantCulture),-8} {measurement.Project}"
                         )
-                    ]);
+                ]);
 
-                    Log.Information("Wrote {Count} measurement(s) to {File}.", measured.Count, TestCostFile);
+                Log.Information("Wrote {Count} measurement(s) to {File}.", measured.Count, TestCostFile);
 
-                    return;
-                }
-
-                var order = OrderedTestProjects();
-                var costs = TestCosts();
-
-                Log.Information("{Count} test assembly(ies), longest first:", order.Count);
-
-                foreach (var project in order) {
-                    Log.Information(
-                        "  {Seconds,8} {Project}",
-                        costs.TryGetValue(project.NameWithoutExtension, out var seconds)
-                            ? seconds.ToString("0.0", CultureInfo.InvariantCulture)
-                            : "?",
-                        RootDirectory.GetRelativePathTo(project).ToUnixRelativePath()
-                    );
-                }
+                return;
             }
+
+            var order = OrderedTestProjects();
+            var costs = TestCosts();
+
+            Log.Information("{Count} test assembly(ies), longest first:", order.Count);
+
+            foreach (var project in order) {
+                Log.Information(
+                    "  {Seconds,8} {Project}",
+                    costs.TryGetValue(project.NameWithoutExtension, out var seconds)
+                        ? seconds.ToString("0.0", CultureInfo.InvariantCulture)
+                        : "?",
+                    RootDirectory.GetRelativePathTo(project).ToUnixRelativePath()
+                );
+            }
+        }
         );
 }

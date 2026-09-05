@@ -129,29 +129,29 @@ partial class Build {
     Target CheckDocsCoverage => definition => definition
         .Description("Fails, without building anything, when a type in a PublicAPI baseline has no guide page and no DocsExempt.txt line")
         .Executes(() => {
-                var baselined = BaselinedTypes();
-                var documented = DocumentedTypes();
+            var baselined = BaselinedTypes();
+            var documented = DocumentedTypes();
 
-                var uncovered = baselined
-                    .Where(type => !documented.Contains(type))
-                    .OrderBy(type => type, StringComparer.Ordinal)
-                    .ToList();
+            var uncovered = baselined
+                .Where(type => !documented.Contains(type))
+                .OrderBy(type => type, StringComparer.Ordinal)
+                .ToList();
 
-                Log.Information(
-                    "{Baselined} baselined type(s) against {Documented} with a page or an exemption.",
-                    baselined.Count,
-                    documented.Count
-                );
+            Log.Information(
+                "{Baselined} baselined type(s) against {Documented} with a page or an exemption.",
+                baselined.Count,
+                documented.Count
+            );
 
-                Assert.True(
-                    uncovered.Count == 0,
-                    $"{uncovered.Count} public type(s) have neither a guide page naming them in `api:` "
-                    + $"nor a line in docs/DocsExempt.txt:{Environment.NewLine}  T:"
-                    + string.Join($"{Environment.NewLine}  T:", uncovered)
-                    + $"{Environment.NewLine}Write the page in this commit — its author is the one person "
-                    + "who knows what the type is for — or add a line with a reason. CheckDocs is the "
-                    + "gate and will say the same thing eleven minutes later."
-                );
-            }
+            Assert.True(
+                uncovered.Count == 0,
+                $"{uncovered.Count} public type(s) have neither a guide page naming them in `api:` "
+                + $"nor a line in docs/DocsExempt.txt:{Environment.NewLine}  T:"
+                + string.Join($"{Environment.NewLine}  T:", uncovered)
+                + $"{Environment.NewLine}Write the page in this commit — its author is the one person "
+                + "who knows what the type is for — or add a line with a reason. CheckDocs is the "
+                + "gate and will say the same thing eleven minutes later."
+            );
+        }
         );
 }
