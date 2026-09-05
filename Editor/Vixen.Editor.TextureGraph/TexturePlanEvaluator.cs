@@ -269,19 +269,70 @@ public sealed class TexturePlanEvaluator : IDisposable {
     /// <summary>How many dispatches have been recorded, across every evaluation.</summary>
     public int Dispatches { get; private set; }
 
-    /// <summary>Evaluates a plan.</summary>
+    /// <summary>Evaluates a plan whose external images are only ever sampled.</summary>
     /// <param name="plan">What to run.</param>
     /// <param name="externals">
     ///     The textures behind the plan's external images, by image index. Every external image an op
-    ///     reads has to be in here, already in <see cref="ResourceState.ShaderRead" />.
+    ///     reads has to be in here, created with <see cref="TextureUsage.Sampled" /> and already in
+    ///     <see cref="ResourceState.ShaderRead" />.
     /// </param>
     /// <returns>The bake, which owns the textures until it is disposed.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="plan" /> is null.</exception>
     /// <exception cref="ArgumentException">The plan is unsound, or an external image was not supplied.</exception>
     /// <exception cref="ObjectDisposedException">The evaluator has been disposed.</exception>
-    public TextureBake Evaluate(TexturePlan plan, IReadOnlyDictionary<int, TextureHandle>? externals = null) {
+    /// <remarks>
+    ///     ⚠ <b>A bare handle declares <see cref="TextureUsage.Sampled" /> and nothing else</b>, which
+    ///     is the whole of what a dispatch needs and is <em>not</em> enough for a
+    ///     <see cref="TextureOp.Cpu" /> op, which copies out of the image it reads. A plan with one of
+    ///     those over an external image is refused here rather than run — pass
+    ///     <see cref="Evaluate(TexturePlan, IReadOnlyDictionary{int, TextureExternal})" /> and say what
+    ///     the texture was created with.
+    /// </remarks>
+    public TextureBake Evaluate(TexturePlan plan, IReadOnlyDictionary<int, TextureHandle>? externals = null) =>
+        Evaluate(
+            plan,
+            externals?.ToDictionary(
+                supplied => supplied.Key,
+                supplied => new TextureExternal(supplied.Value, TextureExternal.Sampled)
+            ) ?? []
+        );
+
+    /// <summary>Evaluates a plan, with the caller declaring what its own textures can be used for.</summary>
+    /// <param name="plan">What to run.</param>
+    /// <param name="externals">
+    ///     The textures behind the plan's external images, by image index, each with the
+    ///     <see cref="TextureUsage" /> it was created with. Every external image an op reads has to be
+    ///     in here, already in <see cref="ResourceState.ShaderRead" />.
+    /// </param>
+    /// <returns>The bake, which owns the textures until it is disposed.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="plan" /> is null.</exception>
+    /// <exception cref="ArgumentException">
+    ///     The plan is unsound, an external image was not supplied, or one was supplied without the
+    ///     usage the plan needs from it.
+    /// </exception>
+    /// <exception cref="ObjectDisposedException">The evaluator has been disposed.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What the plan needs from a caller's texture, and where it comes from.</b> Every
+    ///         external image a dispatch reads is bound as a sampled image, so it needs
+    ///         <see cref="TextureUsage.Sampled" />; an external image a <see cref="TextureOp.Cpu" /> op
+    ///         reads is <em>copied out of</em>, so it needs <see cref="TextureUsage.CopySource" /> as
+    ///         well. The second is the one that gets forgotten, because the pooled textures this class
+    ///         creates for itself have always had it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The declaration is checked against the plan, not against the texture</b> — see
+    ///         <see cref="TextureExternal" />. Nothing in <see cref="IGraphicsDevice" /> can describe a
+    ///         handle back, so a caller who declares a usage the image does not have gets the
+    ///         undefined behaviour they would have got anyway. What this stops is the caller who
+    ///         forgot, which is <a href="https://github.com/Rikarin/Vixen/issues/722">#722</a> and the
+    ///         two before it.
+    ///     </para>
+    /// </remarks>
+    public TextureBake Evaluate(TexturePlan plan, IReadOnlyDictionary<int, TextureExternal> externals) {
         ObjectDisposedException.ThrowIf(disposed, this);
         ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(externals);
 
         var problems = plan.Check();
         var refusals = problems
@@ -296,6 +347,9 @@ public sealed class TexturePlanEvaluator : IDisposable {
             );
         }
 
+        CheckExternalUsage(plan, externals);
+
+        var handles = externals.ToDictionary(supplied => supplied.Key, supplied => supplied.Value.Texture);
         var schedule = TexturePoolSchedule.For(plan);
         var textures = new TextureHandle[schedule.Allocations];
         var slotViews = new TextureViewHandle[schedule.Allocations];
@@ -335,7 +389,7 @@ public sealed class TexturePlanEvaluator : IDisposable {
         };
 
         try {
-            Run(plan, schedule, bake, slotViews, ExternalViews(plan, externals, owned), externals);
+            Run(plan, schedule, bake, slotViews, ExternalViews(plan, handles, owned), handles);
         } catch {
             bake.Dispose();
 
@@ -360,6 +414,62 @@ public sealed class TexturePlanEvaluator : IDisposable {
         }
 
         variants.Clear();
+    }
+
+    /// <summary>Refuses a caller's texture that was not created for what the plan does to it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The usage bits a Vulkan image was created with are part of what its commands are
+    ///         allowed to be, and MoltenVK enforces none of them</b> — so this refusal is the whole of
+    ///         the enforcement on the machine this is developed on.
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/722">#722</a>: the CPU-op seam copied
+    ///         out of a caller's image for a whole batch with no <c>TRANSFER_SRC</c> on it, past a
+    ///         device test, because a unified adapter reads it anyway.
+    ///     </para>
+    ///     <para>
+    ///         <b>Read by a dispatch and read by a CPU op are different requirements</b>, so they are
+    ///         computed per image rather than demanded of every external: a plan whose only reader of
+    ///         an image is a <see cref="TextureOp.Cpu" /> op never binds it to a sampler, and asking
+    ///         for <see cref="TextureUsage.Sampled" /> there would refuse something legal.
+    ///     </para>
+    /// </remarks>
+    static void CheckExternalUsage(TexturePlan plan, IReadOnlyDictionary<int, TextureExternal> externals) {
+        var required = new TextureUsage[plan.Images.Length];
+
+        foreach (var op in plan.Ops) {
+            foreach (var input in op.Inputs) {
+                if (input < 0 || input >= plan.Images.Length || !plan.Images[input].External) {
+                    continue;
+                }
+
+                required[input] |= op.Cpu is null ? TextureExternal.Sampled : TextureExternal.ReadBack;
+            }
+        }
+
+        for (var image = 0; image < required.Length; image++) {
+            if (required[image] == TextureUsage.None || !externals.TryGetValue(image, out var supplied)) {
+                continue;
+            }
+
+            var missing = required[image] & ~supplied.Usage;
+
+            if (missing == TextureUsage.None) {
+                continue;
+            }
+
+            var why = (missing & TextureExternal.ReadBack) != TextureUsage.None
+                ? "it is read by a CPU op, which copies out of it and transitions it through "
+                + "CopySource either side of that copy — and a Vulkan image may only be either if it "
+                + "was created with TransferSrc. ⚠ A unified adapter does it anyway, so the wrong "
+                + "answer here belongs to a discrete card and not to this machine."
+                : "it is read by a dispatch, which binds it as a sampled image.";
+
+            throw new ArgumentException(
+                $"Image {image} is external and the texture supplied for it was declared "
+                + $"{supplied.Usage}, which is missing {missing}: {why}",
+                nameof(externals)
+            );
+        }
     }
 
     /// <summary>A view onto each external image, made once and destroyed with the bake.</summary>

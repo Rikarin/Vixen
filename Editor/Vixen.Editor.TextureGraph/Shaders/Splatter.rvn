@@ -26,6 +26,14 @@ package Vixen.Editor.TextureGraph.Shaders
 // `count · scale² · (the pattern's own mean)` — a closed form with no statistics in it, because the
 // sum of `count` identical stamps has no variance however they landed.
 //
+// ⚠ **Seamless takes two wraps here and the second was missing** —
+// [#709](https://github.com/Rikarin/Vixen/issues/709). The geometry wraps, and the *map lookups* have
+// to wrap too: `placementAmount` can push an instance's centre outside 0..1, the instance is then
+// drawn at `frac(centre)` by the fold, and the mask, size and rotation maps were read at the
+// unwrapped centre where `At` clamps to the border. So an instance moved off the right of the image
+// was modulated by the map's right-hand edge rather than by the map where it actually lands. It is
+// `frac` in `Gather`, and no total can see it: a mean cannot tell *which* instances were drawn.
+//
 // ## Nothing here is a length in texels
 //
 // `scale` is a fraction of the image and every jitter is a fraction of a turn or of itself, so doc 48
@@ -247,9 +255,20 @@ shader Splatter {
             val push = At(placement, placed.x, placed.y)
             val centre = placed + (float2(push.x, push.y) * 2f - float2(1f, 1f)) * placementAmount
 
-            if (Coverage(At(mask, centre.x, centre.y)) >= maskThreshold) {
-                val sized = At(sizeMap, centre.x, centre.y).x
-                val turned = At(rotationMap, centre.x, centre.y).x
+            // The maps are read at the instance's centre, in the image's own space — and **wrapped**,
+            // because the geometry below is.
+            //
+            // ⚠ `placementAmount` can push a centre outside 0..1 while the field it draws into is
+            // toroidal, so the instance appears at `frac(centre)` and the lookup read the map's
+            // clamped edge instead. That is #709 in `TileSampler.rvn` one file over, arriving here by
+            // a different route: there a cell outside the grid, here an instance pushed out of the
+            // image. An instance whose mask, size or rotation came from the border is not a wrong
+            // picture anywhere a total can see — a mean cannot tell which instances were drawn.
+            val at = float2(frac(centre.x), frac(centre.y))
+
+            if (Coverage(At(mask, at.x, at.y)) >= maskThreshold) {
+                val sized = At(sizeMap, at.x, at.y).x
+                val turned = At(rotationMap, at.x, at.y).x
 
                 // Both modulations shrink and never grow, so an instance's footprint never exceeds
                 // `scale` and the cost of the loop stays what the header claims.

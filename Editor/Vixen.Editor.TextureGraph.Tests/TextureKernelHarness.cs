@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Imaging;
+using Vixen.Editor.TextureGraph;
 using Vixen.Graphics;
 using Vixen.Graphics.Vulkan;
 using Xunit;
@@ -47,9 +48,47 @@ static class TextureKernelHarness {
         throw new InvalidOperationException("unreachable");
     }
 
+    /// <summary>Refuses to let a validation-layer assertion pass on a device that has no layers.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A skip rather than a green test, for the reason the whole batch is about</b>: an
+    ///     instrument that reports success on the day it did not run is worse than none. A device
+    ///     without the layer says nothing whatever the command stream does, so "the layers reported
+    ///     nothing" would be true of a bake full of errors. <c>VIXEN_REQUIRE_VULKAN=1</c> — the same
+    ///     switch <see cref="Open" /> reads — turns this skip into a failure too, so a CI leg that is
+    ///     meant to be watching cannot quietly stop.
+    /// </remarks>
+    public static void RequireValidation(VulkanDevice device) {
+        if (device.ValidationEnabled) {
+            return;
+        }
+
+        const string Reason = "the instance came up without the validation layers, so a bake that "
+            + "violated the specification would look identical to one that did not";
+
+        if (Environment.GetEnvironmentVariable("VIXEN_REQUIRE_VULKAN") is "1" or "true" or "TRUE") {
+            Assert.Fail($"VIXEN_REQUIRE_VULKAN is set and {Reason}.");
+        }
+
+        Assert.Skip(Reason);
+    }
+
     /// <summary>What ran, said in every message so a number is never anonymous.</summary>
     public static string Adapter(VulkanDevice device) =>
         $"{device.Adapter.Name} ({device.Adapter.Kind}, {device.Adapter.DriverVersion})";
+
+    /// <summary>What <see cref="Upload" /> creates its texture with, and what it therefore declares.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One expression, read twice, because the two spellings drifting apart is
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/722">#722</a> itself.</b>
+    ///     <see cref="TextureExternal" /> is a declaration the evaluator believes; a helper that
+    ///     created an image with one set of bits and declared another would put the undefined
+    ///     behaviour back and add a refusal that never fires to hide it.
+    ///     <see cref="TextureUsage.CopySource" /> is here because a <see cref="TextureOp.Cpu" /> op
+    ///     reads the caller's image by copying out of it, which needs <c>TRANSFER_SRC</c> — the
+    ///     validation layers say so, and MoltenVK does not.
+    /// </remarks>
+    public const TextureUsage SourceUsage =
+        TextureUsage.Sampled | TextureUsage.CopyDestination | TextureUsage.CopySource;
 
     /// <summary>Uploads RGBA8 texels as a texture a plan can read.</summary>
     /// <remarks>
@@ -83,7 +122,7 @@ static class TextureKernelHarness {
                 PixelFormat.Rgba8UNorm,
                 width,
                 height,
-                TextureUsage.Sampled | TextureUsage.CopyDestination,
+                SourceUsage,
                 Name: "kernel test source"
             )
         );
@@ -130,6 +169,16 @@ static class TextureKernelHarness {
 
         return (texture, staging);
     }
+
+    /// <summary>What a texture <see cref="Upload" /> made is declared as, for one external image.</summary>
+    /// <remarks>
+    ///     The plain <c>TextureHandle</c> overload of <c>Evaluate</c> declares
+    ///     <see cref="TextureUsage.Sampled" /> only, which is right for the dozens of suites that
+    ///     dispatch over an external image and wrong for the one that copies out of it. This is what
+    ///     the second kind passes.
+    /// </remarks>
+    public static Dictionary<int, TextureExternal> Externals(int image, TextureHandle texture) =>
+        new() { [image] = new(texture, SourceUsage) };
 
     /// <summary>One channel of one texel of a read-back picture.</summary>
     public static byte At(Bitmap picture, int x, int y, int channel) =>
