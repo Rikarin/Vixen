@@ -422,6 +422,60 @@ public class ThemeAndScannerTests {
     }
 
     /// <summary>
+    ///     ⚠ <b><c>@</c> is admitted as a candidate character and the at-keywords are still refused,
+    ///     by grammar rather than by a list of names.</b> A container variant is the only class name
+    ///     with an <c>@</c> in it and it always carries a colon — the colon is what makes it a
+    ///     variant — where an at-keyword never does. So the rule is "an <c>@</c> without a
+    ///     <c>:</c> is not a class name", and nobody has to remember to add <c>@custom-variant</c>
+    ///     to a list the day it is invented.
+    /// </summary>
+    [Fact]
+    public void An_at_keyword_is_not_a_candidate_and_a_container_variant_is() {
+        var found = new HashSet<string>(StringComparer.Ordinal);
+
+        CandidateScanner.ScanStyleSheet(
+            """
+            @layer components {
+                .card { @apply @sm:p-4 flex; }
+                @container (min-width: 400px) { .card { color: red; } }
+            }
+            """,
+            found
+        );
+
+        Assert.Contains("@sm:p-4", found);
+        Assert.Contains("flex", found);
+
+        Assert.DoesNotContain("@apply", found);
+        Assert.DoesNotContain("@layer", found);
+        Assert.DoesNotContain("@container", found);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The doubled sigil is <c>.vxml</c>'s, not the class list's, and this is where it is
+    ///     undone.</b> <c>@</c> opens an interpolation inside a markup attribute value, so
+    ///     <c>class="@sm:p-4"</c> interpolates an expression called <c>sm</c> and the author has to
+    ///     write <c>@@sm:p-4</c> — which the binder decodes, leaving the element carrying v4's own
+    ///     spelling. This scanner reads the <i>file</i> and would otherwise generate a rule for a
+    ///     class name no element ever has.
+    /// </summary>
+    [Fact]
+    public void The_vxml_escape_for_an_at_sign_is_folded_back_before_a_rule_is_generated() {
+        var found = new HashSet<string>(StringComparer.Ordinal);
+        CandidateScanner.Scan("""<Panel class="@@sm:p-4 @@max-lg/main:m-2" />""", found);
+
+        Assert.Contains("@sm:p-4", found);
+        Assert.Contains("@max-lg/main:m-2", found);
+        Assert.DoesNotContain("@@sm:p-4", found);
+
+        // And the rule that comes out selects the class the binder will actually put on the element.
+        var css = new UtilityFixture("").Generate([.. found]);
+
+        Assert.Contains(@".\@sm\:p-4", css, StringComparison.Ordinal);
+        Assert.DoesNotContain(@"\@\@", css, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     ⚠ <b><c>@apply p-4 flex;</c> is a statement inside a block whose value <i>is</i> a list of
     ///     class names, and it is the exception the exclusion has to get right.</b> The test is
     ///     written against a variant, because that is the form with a colon in it — sabotage the rule

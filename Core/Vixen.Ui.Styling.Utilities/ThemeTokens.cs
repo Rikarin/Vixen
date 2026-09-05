@@ -150,6 +150,38 @@ public sealed class ThemeTokens {
     /// <summary>Breakpoint widths in pixels, keyed by variant name.</summary>
     public Dictionary<string, float> Screens { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>Blur radii in pixels, keyed by suffix — <c>sm</c>, <c>2xl</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A named scale where this engine had only an arithmetic one, and the difference is
+    ///     which classes a Tailwind user can write.</b> <c>blur-*</c> resolved through the spacing
+    ///     base, so <c>blur-8</c> worked and <c>blur-md</c> — the spelling v4 has and the only one
+    ///     v4 has — resolved to nothing at all. That is not the v3-to-v4 step shift doc 43 § C2
+    ///     went looking for; it is a namespace that was never shipped, and the shift is what makes
+    ///     the numbers here <i>look</i> like an off-by-one against v3's.
+    ///     <para>
+    ///         The arithmetic form is kept beside it rather than replaced: <c>blur-2</c> is not a
+    ///         class v4 has, but it is one this engine's own documentation writes and it costs
+    ///         nothing to answer. The named step wins where both could.
+    ///     </para>
+    /// </remarks>
+    public Dictionary<string, float> Blur { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Container-query widths in pixels, keyed by variant name.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A different set of numbers under the same names as <see cref="Screens" />, and that
+    ///     is the whole reason the namespace has to exist rather than <c>@sm:</c> reading the
+    ///     breakpoints.</b> <c>sm</c> is a 40 rem <i>window</i> and <c>@sm</c> is a 24 rem
+    ///     <i>box</i>; a dockable panel is a few hundred pixels wide, so every container variant
+    ///     driven off the breakpoint scale would be correct CSS with a threshold nothing in an
+    ///     editor ever reaches — a query that never matches, which nothing warns about.
+    ///     <para>
+    ///         The scale runs the other way round from the breakpoints too: it starts at
+    ///         <c>3xs</c> and there is no <c>2xl</c> window to anchor it, because the sizes a
+    ///         <i>card</i> comes in are not the sizes a screen comes in.
+    ///     </para>
+    /// </remarks>
+    public Dictionary<string, float> Containers { get; } = new(StringComparer.Ordinal);
+
     /// <summary>Every custom property the theme declares, by full name, as it should be emitted.</summary>
     /// <remarks>
     ///     What <see cref="RootRuleFor" /> writes out, and the half of <c>@theme</c> the typed
@@ -433,6 +465,16 @@ public sealed class ThemeTokens {
             return;
         }
 
+        if (Suffix(name, "--container-") is { } container) {
+            Length(name, value, Containers, container);
+            return;
+        }
+
+        if (Suffix(name, "--blur-") is { } blur) {
+            Length(name, value, Blur, blur);
+            return;
+        }
+
         if (name.Equals("--spacing", StringComparison.Ordinal)) {
             if (Length(value, out var spacing)) {
                 SpacingBase = spacing;
@@ -534,6 +576,8 @@ public sealed class ThemeTokens {
         Drop(FontWeight, "--font-weight-");
         Drop(FontFamily, "--font-");
         Drop(Screens, "--breakpoint-");
+        Drop(Containers, "--container-");
+        Drop(Blur, "--blur-");
         Drop(FontSize, "--text-");
         Drop(sizes, "--text-");
         Drop(heights, "--text-");

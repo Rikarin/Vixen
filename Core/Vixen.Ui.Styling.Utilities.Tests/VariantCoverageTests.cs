@@ -376,6 +376,151 @@ public class VariantCoverageTests {
     }
 
     [Fact]
+    public void The_themes_container_sizes_have_no_untested_entry() {
+        // ⚠ The gate that says the scale is a *container's* and not a window's. The two namespaces
+        // spell `sm` alike and mean numbers two-thirds apart, so the one assertion that catches a
+        // `@sm:` resolved against `Screens` is that the same name is a smaller number here — and
+        // the enumeration is what stops a fourteenth step from joining the untested.
+        var fixture = new UtilityFixture("");
+        var sizes = fixture.Tokens.Containers;
+
+        Assert.True(sizes.ContainsKey("sm"), "the shipped theme is expected to declare a container sm");
+
+        Assert.True(
+            sizes["sm"] < fixture.Tokens.Screens["sm"],
+            "the container scale's sm is not smaller than the breakpoint's, so it is a window's number"
+        );
+
+        foreach (var (name, width) in sizes) {
+            var candidate = $"@{name}:p-4";
+
+            Assert.Equal(
+                "16px",
+                fixture.Computed(
+                    [candidate],
+                    "padding-left",
+                    container: new ContainerBox(width + 1f, 0f, ContainerKind.InlineSize)
+                )
+            );
+
+            Assert.Null(
+                fixture.Computed(
+                    [candidate],
+                    "padding-left",
+                    container: new ContainerBox(width - 1f, 0f, ContainerKind.InlineSize)
+                )
+            );
+        }
+    }
+
+    [Fact]
+    public void A_container_variant_reads_the_box_it_is_inside_and_not_the_window() {
+        // ⚠ The row `@media` structurally cannot pass: the surface is enormous and the box is small,
+        // so a `@sm:` that had been wired to the breakpoints — or to nothing — would apply here.
+        var fixture = new UtilityFixture("");
+
+        Assert.Null(
+            fixture.Computed(
+                ["@sm:p-4"],
+                "padding-left",
+                media: new MediaContext(4000f, 3000f),
+                container: new ContainerBox(200f, 0f, ContainerKind.InlineSize)
+            )
+        );
+
+        // And with no container above it at all there is no eligible container, which CSS says
+        // resolves false rather than to the viewport.
+        Assert.Null(fixture.Computed(["@sm:p-4"], "padding-left", media: new MediaContext(4000f, 3000f)));
+    }
+
+    [Fact]
+    public void The_container_range_forms_bracket_the_threshold_from_both_sides() {
+        var fixture = new UtilityFixture("");
+
+        // `@max-*` is the mirror of `@sm:`, so the pair has to disagree about the same box or one of
+        // them is emitting the other's feature.
+        Assert.Equal(
+            "16px",
+            fixture.Computed(["@max-md:p-4"], "padding-left", container: new ContainerBox(300f, 0f, ContainerKind.InlineSize))
+        );
+
+        Assert.Null(
+            fixture.Computed(["@max-md:p-4"], "padding-left", container: new ContainerBox(900f, 0f, ContainerKind.InlineSize))
+        );
+
+        // The arbitrary form, which is the only one that can name a width the scale has no step for.
+        Assert.Equal(
+            "16px",
+            fixture.Computed(["@min-[500px]:p-4"], "padding-left", container: new ContainerBox(600f, 0f, ContainerKind.InlineSize))
+        );
+
+        Assert.Null(
+            fixture.Computed(["@min-[500px]:p-4"], "padding-left", container: new ContainerBox(400f, 0f, ContainerKind.InlineSize))
+        );
+    }
+
+    [Fact]
+    public void A_named_container_variant_asks_the_container_with_that_name() {
+        // ⚠ The name is not part of the condition — it chooses *which* box the condition is asked of
+        // — so the discriminating scene is a box that satisfies the size and carries another name.
+        // A variant that dropped its name would pass both positive rows and fail this one.
+        var fixture = new UtilityFixture("");
+
+        Assert.Equal(
+            "16px",
+            fixture.Computed(
+                ["@sm/main:p-4"],
+                "padding-left",
+                container: new ContainerBox(900f, 0f, ContainerKind.InlineSize),
+                containerName: "main"
+            )
+        );
+
+        Assert.Null(
+            fixture.Computed(
+                ["@sm/main:p-4"],
+                "padding-left",
+                container: new ContainerBox(900f, 0f, ContainerKind.InlineSize),
+                containerName: "aside"
+            )
+        );
+
+        // And the unnamed form must still take the nearest container whatever it is called, or the
+        // name would be silently required.
+        Assert.Equal(
+            "16px",
+            fixture.Computed(
+                ["@sm:p-4"],
+                "padding-left",
+                container: new ContainerBox(900f, 0f, ContainerKind.InlineSize),
+                containerName: "aside"
+            )
+        );
+    }
+
+    [Fact]
+    public void Two_container_variants_on_one_class_conjoin() {
+        // A stacked range — wider than `@sm` and narrower than `@lg` — which is two nested
+        // `@container` wrappers and the reason `BuildSelector` carries a list rather than a string.
+        var fixture = new UtilityFixture("");
+
+        Assert.Equal(
+            "16px",
+            fixture.Computed(["@sm:@max-lg:p-4"], "padding-left", container: new ContainerBox(450f, 0f, ContainerKind.InlineSize))
+        );
+
+        // Too narrow for the first half.
+        Assert.Null(
+            fixture.Computed(["@sm:@max-lg:p-4"], "padding-left", container: new ContainerBox(300f, 0f, ContainerKind.InlineSize))
+        );
+
+        // Too wide for the second.
+        Assert.Null(
+            fixture.Computed(["@sm:@max-lg:p-4"], "padding-left", container: new ContainerBox(900f, 0f, ContainerKind.InlineSize))
+        );
+    }
+
+    [Fact]
     public void An_arbitrary_variant_reaches_a_child_and_not_the_element_carrying_it() {
         // Already covered in `UtilityGenerationTests`; restated through this file's one assertion
         // shape so that the enumerations above and this test together account for every shape in

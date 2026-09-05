@@ -298,6 +298,39 @@ public static class UtilityComposition {
     /// </remarks>
     public const string RotateZ = Prefix + "rotate-z";
 
+    // ── The numeric figures ─────────────────────────────────────────────────────────────────
+    //
+    // ⚠ <b>Five fragments for nine classes, and the grouping is CSS's rather than a compression.</b>
+    // CSS Fonts 4 § 6.6 makes <c>font-variant-numeric</c> a list of *at most one keyword from each
+    // of four independent sets* plus the two flags — a figure may be lining or oldstyle and cannot
+    // be both, so <c>lining-nums oldstyle-nums</c> is not a thing an author can mean. A fragment per
+    // class would let them both be set and would emit an invalid declaration; a fragment per set
+    // makes the later class win *within* its set and leave the others alone, which is exactly what
+    // the property's own grammar says. It is also what v4 emits, for the same reason.
+    //
+    // ⚠ <b>Their initial is the empty string, which is the first of these that resolves to nothing
+    // rather than to an identity.</b> A translation unset is <c>0px</c> and a scale unset is
+    // <c>1</c>, because those properties need a value; this one needs a *shorter list*, and CSS's
+    // way of writing "no tokens at all" is the empty fallback — <c>var(--tw-ordinal,)</c>, which
+    // `VarSubstitution` already distinguishes from a missing fallback. So an element carrying only
+    // `tabular-nums` computes `font-variant-numeric` as one keyword with four empty slots around
+    // it, and `UiDocument.NumericFeatures` splits on spaces and finds one keyword.
+
+    /// <summary>The <c>ordinal</c> flag, which is on or absent.</summary>
+    public const string Ordinal = Prefix + "ordinal";
+
+    /// <summary>The <c>slashed-zero</c> flag, which is on or absent.</summary>
+    public const string SlashedZero = Prefix + "slashed-zero";
+
+    /// <summary>Whichever of <c>lining-nums</c> and <c>oldstyle-nums</c> was written last.</summary>
+    public const string NumericFigure = Prefix + "numeric-figure";
+
+    /// <summary>Whichever of <c>proportional-nums</c> and <c>tabular-nums</c> was written last.</summary>
+    public const string NumericSpacing = Prefix + "numeric-spacing";
+
+    /// <summary>Whichever of <c>diagonal-fractions</c> and <c>stacked-fractions</c> was written last.</summary>
+    public const string NumericFraction = Prefix + "numeric-fraction";
+
     // ── The ring ────────────────────────────────────────────────────────────────────────────
     //
     // ⚠ <b>A ring is a <c>box-shadow</c>, not an outline, and Vixen emitted <c>outline-color</c> for
@@ -506,6 +539,19 @@ public static class UtilityComposition {
         // load-bearing has the answer here instead of the argument.
         [TranslateX] = "0px",
         [TranslateY] = "0px",
+
+        // ⚠ <b>The empty token stream, and it is a value rather than the absence of one.</b>
+        // `var(--tw-ordinal,)` with an empty fallback is legal CSS and is what
+        // `VarSubstitution.Substitute` distinguishes from `var(--tw-ordinal)` — the second is
+        // invalid at computed-value time and would throw the whole assembled declaration away the
+        // moment an element set four of the five slots, which is every element that uses this
+        // family. Nothing else in this table needs it, because nothing else assembles a *list whose
+        // length varies*.
+        [Ordinal] = string.Empty,
+        [SlashedZero] = string.Empty,
+        [NumericFigure] = string.Empty,
+        [NumericSpacing] = string.Empty,
+        [NumericFraction] = string.Empty,
 
         // See `RotateZ`: the unit is load-bearing here rather than merely legible, because the
         // initial is substituted inside `rotateZ(…)` and a bare zero makes the whole list invalid.
@@ -772,6 +818,29 @@ public static class UtilityComposition {
     ///     <c>scale-x-150</c> would stretch both axes and be exactly the bug the fragment is for.
     /// </remarks>
     public static string Scaling() => $"{Reference(ScaleX)} {Reference(ScaleY)}";
+
+    /// <summary>The keyword list a <c>font-variant-numeric</c> declaration takes.</summary>
+    /// <returns>The assembled value.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="Translation" />'s arrangement, with one difference that is the whole reason
+    ///         the family needed the mechanism: <b>the assembled value is a list whose <i>length</i>
+    ///         varies</b>, so the slots nobody filled have to contribute no tokens at all rather than
+    ///         an identity. Four empty <c>var()</c> fallbacks and one keyword is what
+    ///         <c>tabular-nums</c> alone computes to, and `UiDocument.NumericFeatures` splits on
+    ///         spaces, so the empties cost nothing downstream.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The order is CSS Fonts 4 § 6.6's order and not the classes' or the alphabet's</b>,
+    ///         which matters only because a generated sheet is read by people: the property is
+    ///         order-independent to a parser — every keyword names a different set — so this is the
+    ///         one place in this file where the order is legibility rather than correctness. Contrast
+    ///         <see cref="Transform" />, where the order is the composition.
+    ///     </para>
+    /// </remarks>
+    public static string NumericFigures() =>
+        $"{Reference(Ordinal)} {Reference(SlashedZero)} {Reference(NumericFigure)} "
+        + $"{Reference(NumericSpacing)} {Reference(NumericFraction)}";
 
     /// <summary>The function list a <c>transform</c> declaration takes.</summary>
     /// <returns>The assembled value.</returns>

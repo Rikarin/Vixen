@@ -214,6 +214,7 @@ static class UtilityConsumptionProbe {
             --text-probe--line-height: 20px;
             --font-weight-probe: 700;
             --breakpoint-probe: 640px;
+            --blur-probe: 6px;
             --shadow-probe: 0px 3px 6px rgba(0, 0, 0, 0.5);
             --drop-shadow-probe: 0px 3px 4px rgba(0, 0, 0, 0.4);
             --dark-mode: media;

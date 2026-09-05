@@ -307,8 +307,17 @@ public class CompositionTests {
         foreach (var fragment in UtilityComposition.Fragments) {
             Assert.StartsWith(UtilityComposition.Prefix, fragment, StringComparison.Ordinal);
             Assert.True(UtilityComposition.IsFragment(fragment));
-            Assert.NotEmpty(UtilityComposition.InitialValueOf(fragment));
             Assert.Equal($"var({fragment}, {UtilityComposition.InitialValueOf(fragment)})", UtilityComposition.Reference(fragment));
+
+            // ⚠ <b>The invariant is the <i>comma</i> and never a non-empty initial, and this row
+            // used to assert the second.</b> What makes a reference safe is that a fallback exists
+            // at all: `var(--x)` unset is invalid at computed-value time and takes the whole
+            // declaration with it, and `var(--x,)` unset is legally the empty token stream. The
+            // five `font-variant-numeric` slots are worth exactly that empty stream, because the
+            // assembled value is a list whose *length* varies — the first fragments in this table
+            // with no identity to fall back to. Asserting non-empty would have refused them for
+            // being correct.
+            Assert.Contains(',', UtilityComposition.Reference(fragment));
         }
 
         // ⚠ <b>The unprefixed `--` placeholders, which are *not* fragments and must not be mistaken

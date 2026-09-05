@@ -81,6 +81,32 @@ enum ValueKind : byte {
     /// </remarks>
     Placement,
 
+    /// <summary>An OpenType feature list, which is arbitrary-only: <c>font-features-["onum"_1]</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="Placement" />'s shape and the objection <see cref="Placement" />'s remark
+    ///     raises against it, met rather than restated.</b> v4 has no named step for this root — the
+    ///     value is always arbitrary — so like a placement it would contribute nothing to
+    ///     <c>UtilityFamilies.Surface</c> without a probe of its own, and a family with no surface is one the
+    ///     consumption gate never meets: it passes vacuously, for ever, while the ledger reads
+    ///     <c>absent</c>. The thing that kept it out was the <i>class name</i>: every value of
+    ///     <c>font-feature-settings</c> that does anything contains quotes, by CSS's grammar. That is
+    ///     a question about <c>UtilityGenerator.Escape</c> and about the selector matcher, not
+    ///     about the property — which is read end to end — and it is answered rather than avoided.
+    /// </remarks>
+    FontFeatures,
+
+    /// <summary>A blur radius: a named step, or a spacing count: <c>blur-md</c>, <c>blur-8</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two scales under one prefix, and the named one wins — which is the opposite of the
+    ///     arrangement <see cref="Radius" /> has and is deliberate.</b> A radius has only a named
+    ///     scale, so <c>rounded-4</c> is not a class. A blur here has both: v4's spellings are
+    ///     <c>blur-xs</c>…<c>blur-3xl</c> and nothing else, and this engine answered a spacing count
+    ///     and nothing else — so keeping the count is a superset that costs a line, while dropping
+    ///     it would break <c>backdrop-blur-8</c> in this repository's own remarks. Named first,
+    ///     because the two cannot collide: a theme key is not a number.
+    /// </remarks>
+    Blur,
+
     /// <summary>One of a fixed set of keywords: <c>items-center</c>.</summary>
     Keyword,
 
@@ -901,38 +927,56 @@ public static class UtilityFamilies {
         // words</b> — `tabular-nums`, not `nums-tabular`. Inventing the second spelling is the
         // failure `bg-conic-<angle>` is recorded under.
         //
-        // ⚠ <b>What this does not do, stated rather than left to be found: two of them on one element
-        // keep the last.</b> Tailwind composes these through nine `--tw-*` fragments, so
-        // `class="tabular-nums slashed-zero"` gets both; here each class emits the whole property and
-        // the cascade keeps the later declaration. CSS's own grammar takes a list, so
-        // `[font-variant-numeric:tabular-nums_slashed-zero]` does get both — the gap is in the
-        // composition, not in the reader. Recorded as a value gap on the row rather than papered over.
-        Static("normal-nums", "font-variant-numeric", "normal");
-        Static("ordinal", "font-variant-numeric", "ordinal");
-        Static("slashed-zero", "font-variant-numeric", "slashed-zero");
-        Static("lining-nums", "font-variant-numeric", "lining-nums");
-        Static("oldstyle-nums", "font-variant-numeric", "oldstyle-nums");
-        Static("proportional-nums", "font-variant-numeric", "proportional-nums");
-        Static("tabular-nums", "font-variant-numeric", "tabular-nums");
-        Static("diagonal-fractions", "font-variant-numeric", "diagonal-fractions");
-        Static("stacked-fractions", "font-variant-numeric", "stacked-fractions");
-
-        // ⚠ <b>`font-features-*` is deliberately NOT registered, and the reason changed on this pass.</b>
-        // The blocker it shared with the nine families above is gone: `font-feature-settings` is read
-        // end to end — `UiDocument.ResolveText` parses the list, `TextShaper` hands it to HarfBuzz and
-        // `ShapingCache` is keyed on it — and it is reachable today through the arbitrary-property
-        // hatch, `[font-feature-settings:"tnum"_1]`. What stops the *family* is the instrument rather
-        // than the engine, and it is worth writing down because it looks like laziness.
+        // ⚠ <b>Composed, and the row this section used to carry — "two of them on one element keep
+        // the last" — is closed.</b> Each class emitted the whole property, so
+        // `class="tabular-nums slashed-zero"` kept whichever declaration the cascade picked second
+        // and the other silently did nothing: a *wrong answer* rather than a refusal, which is worse
+        // than an unregistered class because there is nothing to look up. The eight keywords write
+        // `--tw-*` fragments now and every one of them emits the same assembled
+        // `font-variant-numeric` beside it, so any combination of them composes.
         //
-        // v4's family is arbitrary-only: there is no `font-features-tnum`, so it contributes nothing
-        // to `UtilityFamilies.Surface`, which enumerates a family's keywords and its theme scale.
-        // A family with no surface is one `UtilityConsumptionGateTests` never meets — it would pass
-        // vacuously, for ever, and the parity ledger's emission column would stay empty while the
-        // family worked. Adding one arbitrary probe to the surface was tried and does not close it:
-        // the only values of this property that *do* anything contain quotes, by CSS's own grammar,
-        // and a generated rule whose selector is `.font-features-\["onum"_1\]` does not match the
-        // element the probe puts the class on. So the gap is class-name escaping in the probe, which
-        // is a change to the measuring instrument and not to this table. Recorded on the row.
+        // ⚠ <b>Five fragments and not nine, which is CSS's grammar rather than a compression.</b>
+        // CSS Fonts 4 § 6.6 takes at most one keyword from each of three sets — figure, spacing,
+        // fraction — plus the two independent flags, so `lining-nums oldstyle-nums` is not something
+        // an author can mean. A fragment per class would let both be set and would emit an invalid
+        // declaration; a fragment per *set* makes the later class win within its set and leave the
+        // rest alone, which is what the property says and what v4 emits.
+        //
+        // ⚠ <b>`normal-nums` stays a whole declaration, and it has to.</b> `normal` is the one
+        // keyword CSS forbids beside any other, so composing it would produce
+        // `normal tabular-nums` — invalid — where writing the property outright makes it the
+        // override it is meant to be. v4 does the same.
+        Static("normal-nums", "font-variant-numeric", "normal");
+        NumericFigure("ordinal", UtilityComposition.Ordinal, "ordinal");
+        NumericFigure("slashed-zero", UtilityComposition.SlashedZero, "slashed-zero");
+        NumericFigure("lining-nums", UtilityComposition.NumericFigure, "lining-nums");
+        NumericFigure("oldstyle-nums", UtilityComposition.NumericFigure, "oldstyle-nums");
+        NumericFigure("proportional-nums", UtilityComposition.NumericSpacing, "proportional-nums");
+        NumericFigure("tabular-nums", UtilityComposition.NumericSpacing, "tabular-nums");
+        NumericFigure("diagonal-fractions", UtilityComposition.NumericFraction, "diagonal-fractions");
+        NumericFigure("stacked-fractions", UtilityComposition.NumericFraction, "stacked-fractions");
+
+        // ⚠ <b>`font-features-*` is registered, and the blocker it was held behind was the
+        // <i>class name</i> rather than anything about the property.</b> `font-feature-settings` has
+        // been read end to end since the shaper learnt to take a set — `UiDocument.ResolveText`
+        // parses the list, `TextShaper` hands it to HarfBuzz, `ShapingCache` is keyed on it — and it
+        // has always been reachable through the arbitrary-property hatch,
+        // `[font-feature-settings:"tnum"_1]`. What was missing was the family's *own* spelling.
+        //
+        // ⚠ <b>Arbitrary-only, which is why it needs a probe of its own and why it could not simply
+        // be left out.</b> v4 has no `font-features-tnum`, so the family enumerates nothing into
+        // `UtilityFamilies.Surface` — and a family with no surface is one
+        // `UtilityConsumptionGateTests` never meets: it would pass vacuously, for ever, while the
+        // parity ledger's emission column stayed empty and the row read `absent`. `ValueKind`'s
+        // `FontFeatures` carries the probe.
+        //
+        // ⚠ <b>And every value of this property that does anything contains quotes, by CSS's own
+        // grammar</b>, which is the one part that touched real code: `UtilityGenerator.Escape`
+        // already backslashes them and `SelectorCompiler` already unescapes them, so
+        // `.font-features-\[\"onum\"_1\]` matches — measured in
+        // `ArbitraryPropertyTests`, because "it should" is exactly the reasoning that left this
+        // family unregistered.
+        Register(new Family("font-features", ValueKind.FontFeatures, ["font-feature-settings"]));
 
         // ── Wrapping ────────────────────────────────────────────────────────────────────────
         // ⚠ <b>`overflow-wrap` and `word-break` are two properties and two families, and the two are
@@ -1540,7 +1584,7 @@ public static class UtilityFamilies {
         // `filter` declaration, which `DrawListBuilder` now reads. See `UtilityComposition.Filter`.
         Register(new Family(
             "blur",
-            ValueKind.Spacing,
+            ValueKind.Blur,
             [UtilityComposition.Blur],
             Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
         ));
@@ -1652,7 +1696,7 @@ public static class UtilityFamilies {
         // refuses `drop-shadow()` inside a `backdrop-filter` for that reason.
         Register(new Family(
             "backdrop-blur",
-            ValueKind.Spacing,
+            ValueKind.Blur,
             [UtilityComposition.BackdropBlur],
             Alongside: BackdropAlongside
         ));
@@ -2349,6 +2393,15 @@ public static class UtilityFamilies {
                 yield return "[25%_75%]";
                 break;
 
+            // ⚠ The second arbitrary probe, and the one whose class name has quotes in it. `onum`
+            // rather than `tnum` because the probe's face already draws lining tabular figures, so
+            // `tnum` is what it does anyway and the probe would measure the property inert — the
+            // same trap `bg-conic-0` is written up under, arriving through a font instead of a
+            // default.
+            case ValueKind.FontFeatures:
+                yield return "[\"onum\"_1]";
+                break;
+
             case ValueKind.Duration:
                 yield return "300";
                 break;
@@ -2369,6 +2422,16 @@ public static class UtilityFamilies {
                     yield return radius;
                 }
 
+                break;
+
+            // Both halves of the prefix, because they take different paths through `TryBlur` and a
+            // probe of one says nothing about the other.
+            case ValueKind.Blur:
+                foreach (var blur in First(tokens.Blur.Keys)) {
+                    yield return blur;
+                }
+
+                yield return "2";
                 break;
 
             case ValueKind.FontWeight:
@@ -2601,9 +2664,11 @@ public static class UtilityFamilies {
             // The arbitrary branch above has already answered every value this kind takes; a bare one
             // is a class v4 does not have, and inventing it here is what this kind's remark refuses.
             ValueKind.Placement => false,
+            ValueKind.FontFeatures => false,
             ValueKind.Duration => TryNumber(candidate.Value, out var ms) && Emit(family, ms + "ms", declarations),
             ValueKind.Fraction => TryFraction(candidate.Value, out var fraction) && Emit(family, fraction, declarations),
             ValueKind.Radius => TryRadius(candidate.Value, tokens, out var radius) && Emit(family, radius, declarations),
+            ValueKind.Blur => TryBlur(candidate.Value, tokens, out var blur) && Emit(family, blur, declarations),
             ValueKind.FontWeight => TryFontWeight(candidate.Value, tokens, out var weight) && Emit(family, weight, declarations),
             ValueKind.FontSize => TryFontSizeOrColor(candidate, tokens, declarations),
             ValueKind.Color => TryColor(candidate, tokens, out var colour) && Emit(family, colour, declarations),
@@ -3127,6 +3192,23 @@ public static class UtilityFamilies {
         return false;
     }
 
+    /// <summary>Resolves a <c>blur-*</c>: a named step of the scale, or a count of the spacing unit.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The named step is tried first and the fall-through is what keeps the old spelling
+    ///     alive.</b> `blur-md` is v4's and was unresolvable here until the `--blur-*` namespace
+    ///     shipped; `blur-8` is this engine's and is written in its own remarks. They cannot
+    ///     collide — a theme key is not a number — so answering both costs one lookup and loses
+    ///     nothing.
+    /// </remarks>
+    static bool TryBlur(string value, ThemeTokens tokens, out string result) {
+        if (tokens.Blur.TryGetValue(value, out var blur)) {
+            result = Px(blur);
+            return true;
+        }
+
+        return TrySpacing(value, tokens, out result);
+    }
+
     static bool TryFontWeight(string value, ThemeTokens tokens, out string result) {
         if (tokens.FontWeight.TryGetValue(value, out var weight)) {
             result = weight.ToString("0.###", CultureInfo.InvariantCulture);
@@ -3214,6 +3296,27 @@ public static class UtilityFamilies {
 
         Registry[family.Name] = existing with { Keywords = merged };
     }
+
+    /// <summary>Registers one <c>font-variant-numeric</c> keyword as a fragment plus the assembly.</summary>
+    /// <param name="name">The class, which is also the keyword — v4 spells these as bare words.</param>
+    /// <param name="fragment">The <c>--tw-*</c> slot it writes, one per CSS keyword *set*.</param>
+    /// <param name="keyword">The keyword it writes there.</param>
+    /// <remarks>
+    ///     ⚠ <see cref="Translate" />'s shape with the fragment named per call rather than derived
+    ///     from the class, because two classes share a slot: <c>lining-nums</c> and
+    ///     <c>oldstyle-nums</c> are the two values of one set and must overwrite each other. A helper
+    ///     that derived the slot from the name would give them one each and let both apply.
+    /// </remarks>
+    static void NumericFigure(string name, string fragment, string keyword) =>
+        Register(new Family(
+            name,
+            ValueKind.Static,
+            [fragment],
+            new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = $"{fragment}:{keyword}" },
+            Alongside: [
+                new UtilityDeclaration("font-variant-numeric", UtilityComposition.NumericFigures())
+            ]
+        ));
 
     static void Static(string name, string property, string value) =>
         Register(new Family(name, ValueKind.Static, [property], new Dictionary<string, string>(StringComparer.Ordinal) {

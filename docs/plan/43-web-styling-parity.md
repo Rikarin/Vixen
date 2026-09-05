@@ -84,7 +84,7 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **329** | 278 families |
+| Utility **roots** (the unit of this table) | **329** | 279 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
 | Variant keys | **88** | **25** |
@@ -110,7 +110,7 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 | **works** | Vixen emits it, and a consumer acts on every property it sets | **222** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **29** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **73** |
+| **absent** | not emitted at all | **72** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -1200,8 +1200,9 @@ are 19 of the 38. The other 19 are `border-bs/be-*`, `font-stretch-*`, `text-sha
 keyword sets (`bg-clip`, `bg-origin`, `bg-blend`, `bg-repeat`), `stroke-none` and `content-none`.
 Three of those 38 the column *calls* shadowed are not: `bg-size-[auto]`, `bg-position-[center]` and
 `font-features-[normal]` carry an arbitrary value, and `UtilityParser` sets `Arbitrary` before
-`SplitName` is consulted at all — so they parse to the unregistered names `bg-size`, `bg-position`
-and `font-features` and are unknown families rather than shadowed ones. Their notes are corrected in
+`SplitName` is consulted at all — so they parse to the names `bg-size`, `bg-position` and
+`font-features`, which were unknown families rather than shadowed ones and are registered families
+now. Their notes are corrected in
 the `.tsv`, which leaves the column at **35**.
 
 ⚠ **Worked 2026-08-22, and "35 registrations" was the fourth wrong count in this section. It is six
@@ -1965,6 +1966,17 @@ so `UiDocument.ContainerScopeCeiling` rebuilds the table wholesale at 4096 chain
 `Reset` is documented as safe in: reset, re-assign, re-cascade. `ContainerScopesEntered` reports the
 churn, and is nought on a settled frame.
 
+⚠ **That branch had never been executed by anything**, which is the state this document's own § F
+calls a finished thing nothing calls: reaching the ceiling takes about a minute of continuous
+dragging, so every test and every document in the tree took the branch beside it.
+`The_scope_table_is_rebuilt_at_the_ceiling_and_the_document_still_answers` drags a window a pixel a
+frame until it fires, and measuring it corrected two things the prose had asserted. The frame costs
+**two** extra settle passes and not one — one for the drag and one for the rebuild. And the
+re-assign inside the branch is an **optimisation rather than a correctness requirement**: removing it
+leaves the document correct, because the settle loop's next pass re-assigns every scope anyway, and
+what it costs is a third pass. Which is why the assertion is the pass count and not the computed
+width — a test asserting the width alone passes that sabotage.
+
 #### What is owed, and what it costs
 
 **1. The containment coercion — ~0.15 EM, in `Vixen.Ui.Layout`.** Force `SizingMode.StretchFit` on a
@@ -1972,52 +1984,58 @@ churn, and is nought on a settled frame.
 diagnostic. Until then a container sized by its contents can oscillate — and `Settled` already reports
 that, so the failure is visible rather than silent, which is why the interim is tolerable.
 
-**2. ⚠ The variants — and the wiring was never their only blocker.** `@sm:`…`@7xl:`, `@max-*`,
-`@min-[…]`, `@container/main`, `@sm/main`, stacked ranges. The claim above — "the emitter needs
-nothing" — is true and was read as "nothing else needs anything", which it is not. A query can be
-true now, and the variants are still **not registered**, for three reasons found by trying:
+**2. ✅ The variants — and all three blockers turned out to be one decision and two small ones.**
+`@sm:`…`@7xl:`, `@max-*`, `@min-[…]`, `@sm/main`, and stacked ranges are registered. What each of the
+three reasons this section used to give was actually worth:
 
-- ⚠ **`@` is `.vxml`'s interpolation marker inside an attribute value, and that is the hard one.**
-  `VxmlLexer.StepAttributeValue` (`Core/Vixen.Ui.Markup/Parsing/VxmlLexer.cs:631`) sends `@` to
-  `LexInterpolation`, whose implicit form is a name and its member accesses — so `class="@sm:p-4"`
-  interpolates a C# expression named `sm` and leaves `:p-4` as text. The only spelling that reaches
-  the class list is `@@sm:p-4`, the escape that `The_escape_for_a_literal_at_sign_is_decoded` pins.
-  **`.vxml` is the intended authoring path**, so a variant whose markup spelling is a doubled sigil
-  is not v4 parity, it is a new dialect — and choosing one is a decision for the lexer's owner, not a
-  detail of registering a variant. The corroborating symptom is already in the tree:
-  `StylesheetTests.Written` (`Editor/Vixen.Editor.Ui.Tests/StylesheetTests.cs:53`) skips every class
-  name starting with `@` *because* they are bindings, so container variants in editor markup would
-  fall out of the misspelt-utility gate as well as out of the binder.
-- ⚠ **`@` is not a candidate character.** `CandidateScanner.IsCandidateChar`
-  (`Core/Vixen.Ui.Styling.Utilities/CandidateScanner.cs:251`) omits it deliberately, and the scanner's
-  own remarks explain why: `@` not being an identifier character is what stops `@apply p-4
-  hover:bg-accent flex;` being mistaken for a declaration. Widening it is not a one-character change,
-  because `@media`, `@theme` and `@apply` would then be taken as candidate runs and land in
-  `Unrecognised`, which `StylesheetTests.cs:88` asserts is empty for the editor. The shape that works
-  is to admit `@` and have `Take` reject a `@`-run with no `:` in it — at-keywords never have one
-  attached, container variants always do — but that is a change to the scanner's contract and wants
-  its own sabotage pass.
-- **There is no `--container-*` namespace.** `ThemeTokens` parses `--breakpoint-*` into `Screens`;
-  v4's container scale is a *different set of numbers under the same names* (`sm` is a 40 rem window,
-  `@sm` is a 24 rem box). Driving `@sm:` off `Screens` would give every container variant a threshold
-  no dockable panel reaches — correct CSS that never matches, this document's recurring defect,
-  arriving through a shared dictionary. The file's own header already records `--container-*` as
-  deliberately absent "until its family arrives".
+- ⚠ **`@` is `.vxml`'s interpolation marker, and the doubled sigil is that dialect's own escape
+  rather than a new one.** `VxmlLexer.StepAttributeValue` sends `@` to `LexInterpolation`, so
+  `class="@sm:p-4"` interpolates an expression called `sm` — true, and unchanged. What was wrong is
+  the conclusion: `@@` is not a spelling this family invented, it is the escape
+  `MarkupDiagnostics` has always told authors to write, and the **binder decodes it**, so the
+  element at run time carries `@sm:p-4` and the class name is v4's exactly. The friction is one
+  doubled sigil in `.vxml` and nothing at all in `.vcss`, C# or a `class` set from code. What that
+  costs is one line in `CandidateScanner.Take`, which reads the *file* rather than the tree and so
+  has to fold `@@` back before it generates a rule for a class no element will ever carry.
+  `StylesheetTests.Written` folds it for the same reason, so the family is inside the
+  misspelt-utility gate rather than outside it.
+- ✅ **`@` is a candidate character now, and the at-keywords are still refused by grammar rather
+  than by a list.** An at-keyword never carries a colon and a container variant always does — the
+  colon is what makes it a variant — so `Take` refuses a run containing `@` and no `:`, and
+  `@apply`, `@theme`, `@layer` and `@container` stay out of `Unrecognised` without anybody
+  enumerating them. Sabotage-verified: reading the run's first character instead of its colon lets
+  `@apply` through.
+- ✅ **`--container-*` exists, with v4's own scale.** This was the real blocker and the only one that
+  was a *decision*: `sm` is a 40 rem window and `@sm` is a 24 rem box, so `Screens` could never have
+  answered a container variant — every rule would have been valid CSS with a threshold no dockable
+  panel reaches. `ThemeTokens.Containers` is the second dictionary, `vixen.default.vcss` ships the
+  thirteen steps, and `VariantCoverageTests.The_themes_container_sizes_have_no_untested_entry`
+  enumerates them end to end against a sized box. ⚠ The sabotage that matters here is pointing
+  `TryContainer` at `Screens`: it turns every positive row of that enumeration red, which is the
+  precise defect the namespace exists to prevent.
 
-The consumption gate turns out **not** to be the obstacle it was assumed to be: `UtilityFamilies.Surface`
+⚠ **One divergence, stated rather than left to be found.** `@max-*` emits `max-width`, which is
+`<=`, where v4's `(width < 24rem)` is `<`; the two differ on exactly the threshold width.
+`ContainerQuery` reads the `min-`/`max-` prefix forms and has no range syntax, which is the same
+inclusive reading `Screens` already gives every breakpoint.
+
+The consumption gate turned out **not** to be the obstacle it was assumed to be: `UtilityFamilies.Surface`
 enumerates the family registry, and a pure variant emits no new property, so `@sm:` is invisible to it.
-The arrangement that has to exist first is in `UtilityFixture.Computed`, which needs a sized container
-ancestor the way it grew `Probe` for `group-*` — the styling project's `CascadeFixture.Contain` is the
-shape. A `@container`/`@container/main` *marker* family is the part that would face the gate, and it
-would need a fifteenth probe scene, because `container-type` moves none of the four channels unless
-the scene contains a query that reacts to it.
+`UtilityFixture.Computed` grew the sized container ancestor the way it grew `Probe` for `group-*`,
+modelled on the styling project's `CascadeFixture.Contain`, and the scope goes on the *parent* —
+putting it on the element under test would make every one of those rows pass and would hide the
+family's commonest real defect.
 
-**3. `cqw`/`cqi`/`cqb` units and `style()` queries** — not started, not costed, and not needed by the
+**3. The `@container` *marker* family is still owed**, and it is the part that faces the gate: it
+would need a fifteenth probe scene, because `container-type` moves none of the four channels unless
+the scene contains a query that reacts to it. Until it lands a query container is declared in
+hand-written CSS or from `EditorTheme`, which is where every container in this tree is declared today.
+
+**4. `cqw`/`cqi`/`cqb` units and `style()` queries** — not started, not costed, and not needed by the
 editor's case.
 
-**Size: 0.4 EM remaining**, from 0.6. The wiring came in under estimate and answered the convergence
-question with a measured pass count; the variants are unchanged in size but have moved from "gated on
-the wiring" to "gated on a decision about `.vxml`'s sigil", which is a different owner.
+**Size: 0.25 EM remaining**, from 0.4. The variants landed; the coercion, the marker family and the
+units are what is left.
 
 ### D6. The variants had almost no end-to-end coverage, and that was worth more than A15 ✅ *closed — and it has now found a second bug*
 
@@ -2231,8 +2249,30 @@ documented name and not the compatibility one.
 v3 `shadow-sm` is v4 `shadow-xs`, v3 `shadow` is v4 `shadow-sm`, and the same for `blur-*`,
 `backdrop-blur-*`, `drop-shadow-*` and `rounded-*`. Also `outline-none` → `outline-hidden` (with
 `outline-none` re-taking the literal meaning), `ring` → `ring-3`, `bg-gradient-*` → `bg-linear-*`.
-**Vixen's `rounded` token scale and the editor's `--radius-*` names must be re-pegged to v4's**, or
-every `rounded-sm` in the tree means something one step off what a Tailwind user expects.
+
+✅ **Closed, and the sentence that used to end this paragraph is refuted.** It said *"Vixen's
+`rounded` token scale and the editor's `--radius-*` names must be re-pegged to v4's, or every
+`rounded-sm` in the tree means something one step off what a Tailwind user expects"*, and it added
+that this is the one item in the plan that moves pixels in existing markup. **Measured, and nothing
+had to move.**
+
+- ⚠ **The scales were pegged already, by C3 rather than by C2.** Transcribing v4.3.3's own `@theme`
+  whole brought its *names* with its values, so `--radius-xs` is 2px, `--shadow-xs` is the one-pixel
+  shadow v3 called `shadow-sm`, and the `2xs` and `4xl` ends v3 never had are both present.
+  `UtilityFamilyTests.The_shipped_radius_and_shadow_scales_are_v4s_and_not_v3s` asserts the ends
+  rather than the middle, because the ends are what tell the two vintages apart.
+- ⚠ **The editor's `--radius-*` names are a different namespace, not a competing peg.**
+  `--radius-panel`, `--radius-control` and `--radius-row` are *semantic*; they collide with none of
+  v4's steps and clear none of them, and `vixen.ui.vcss` says so in its own comment. There was
+  nothing to re-peg and no picture to re-record.
+- ⚠ **`ring` is already 1px** (v3's three-pixel ring is `ring-3`), `outline-none` and
+  `outline-hidden` are both registered with v4's meanings, and `bg-gradient-to-*` is kept as the
+  alias v4 itself keeps in `compat/legacy-utilities.ts`.
+- ⚠ **The one real gap was not a shift at all: `blur-*` had no named scale.** It resolved through
+  `--spacing`, so `blur-8` worked and `blur-md` — the only shape v4 has for this family, and the one
+  `UiGeometry`'s own remarks call canonical beside `rounded-2xl` — produced no rule. The `--blur-*`
+  namespace ships now, `blur-*` and `backdrop-blur-*` both read it, and the arithmetic form is kept
+  beside it because nothing v4 has can collide with a number. Additive, so still no picture moves.
 
 ⚠ **`ring-*` is not a rename but a change of meaning — and the correction below is a correction to
 this document.** ✅ **Closed by A6.** What this paragraph used to say was that Vixen emitted
@@ -2759,7 +2799,7 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A14 🟢 | The 13 media-feature variants | `MediaQuery` | — | 0.2 |
 | A15 ✅ | **Nested conditional-group rules — done, and for a tenth of the estimate, because the cascade already did it.** `StyleSheetLoader.LoadMedia` has always recursed into the rule it matched, so `@media A { @media B { … } }` loaded and conjoined; the thing that could not nest was `UtilityGenerator`, carrying one `string?` for the whole variant stack. It carries an ordered, deduplicated chain now and emits a trie over those chains, so `sm:md:p-4` and `dark:md:p-4` nest and share their outer wrapper with the shallower utilities. **Nesting cost the rule representation nothing at the time** — though a `StyleRule` carries a
 conditional-group id since per-surface media landed; see F11. ⚠ The real finding was next door: see § D6 | cascade | — | done |
-| A16 🟡 | Container queries. ⚠ **The cascade half landed** — `ContainerConditions`, `ContainerScopes`, `ContainerQuery`, a second group id on `StyleRule`, two scope slots on `StyleTree`, one integer test in the cascade, 34 computed-value tests. ⚠ **And it closed a silent drop**: ExCSS parses `@container` into a `ContainerRule`, so it never reached `LoadUnknown` and was discarded with no diagnostic, while two docs said it warned. **Owed**: the `UiDocument` wiring (nothing calls `ContainerScopes.Enter`, so every query is false in a live document), the layout coercion for containers sized by their contents, and the `@sm:` variants — gated on the first two so the consumption gate has something that observes them. Containment is *free* for a normal-flow block, whose inline size is already `SizingMode.StretchFit`. See § D3 | cascade + layout | 0.15 | 0.6 |
+| A16 🟡 | Container queries. ⚠ **The cascade half landed** — `ContainerConditions`, `ContainerScopes`, `ContainerQuery`, a second group id on `StyleRule`, two scope slots on `StyleTree`, one integer test in the cascade, 34 computed-value tests. ⚠ **And it closed a silent drop**: ExCSS parses `@container` into a `ContainerRule`, so it never reached `LoadUnknown` and was discarded with no diagnostic, while two docs said it warned. ⚠ **And the `@sm:` variants were never gated on the wiring**: a pure variant emits no property, so the consumption gate never sees one — the blocker was that `--container-*` did not exist, and `Screens` under the same names means numbers two-thirds too big. They are registered now, off `ThemeTokens.Containers`. **Owed**: the layout coercion for containers sized by their contents, the `@container` marker family (which *does* face the gate, and wants a fifteenth probe scene), and the `cq*` units. Containment is *free* for a normal-flow block, whose inline size is already `SizingMode.StretchFit`. See § D3 | cascade + layout | 0.15 | 0.6 |
 | A17 🟢 | `has-*` | `SelectorMatcher` + invalidation | doc 09 P2 | 0.4 |
 | A18 ✅ | **Scroll properties as `ScrollView` inputs rather than CSS — done, and the control it was waiting for had been there the whole time.** The deferral's premise was that "scrolling in this engine is `ScrollView`" and that the behaviour had to land first; `ScrollView` was already 397 lines with bars, wheel, keyboard, a focus hook and a `ScrollIntoView`, used by `TreeView`, `DataGrid`, `CodeEditor`, both virtualisers and six editor panels. What was absent was not the feature but the four *readers*, and they are four now: `scroll-margin-*` off the target and `scroll-padding-*` off the container (CSS Scroll Snap §6 — the two come off different elements, and a reader that took both off one passes every test where the numbers match), `scroll-behavior` as an exponential ease off `UiDocument.Ticked`, and `overscroll-behavior*` as the one thing that decides whether a wheel at the stop chains outwards. **22 roots, all `works`**; the four block roots (`scroll-mbs/mbe`, `scroll-pbs/pbe`) stay absent for `space-y`'s reason, and `snap-*` and `scrollbar-*` are still deferred. ⚠ **Two findings worth more than the families.** The insets emit four longhands where `m-*` emits one shorthand, because ExCSS expands `margin` while parsing and has never heard of `scroll-margin` — v4's spelling would have resolved, computed and moved nothing, which is `inset`'s hole and would have been invisible from the class. And the gate could not see any of it until the probe grew a `scrolled` scene with *nested* views and three driven phases: one scroll container measures half the properties inert because the declaration only lands on `#probe`, and one approach direction measures half the edges inert because `ScrollIntoView` moves the minimum and the other branch never runs | `ScrollView`, `UtilityFamilies` | — | done |
 | A19 🟡 | **`text-decoration` is done and the other three are not.** Five properties, all five read: `text-decoration-line` (`underline`, `overline`, `line-through`, `no-underline`, and the space-separated list, so `underline overline` is one declaration and two bars), `-color`, `-style`, `-thickness` and `text-underline-offset`. ⚠ **Every position and every thickness comes out of the face**, through `FontFace.Decoration` and HarfBuzz's `hb_ot_metrics` — which was the point: across the twenty-two fonts this repository ships the underline thickness runs from 20 design units per em-square of 2048 to 184, a factor of nine, so any constant is wrong for one of two faces a document could mix. A zeroed `post` table is synthesised from rather than believed (`TestGSUBOne.otf` states 0 and 0), an `auto` thickness under one pixel is floored and an authored one is not, and an underline offset is the *centre* of the stem — FreeType's and Skia's reading of `post.underlinePosition`, which is the one the fonts were drawn against. ⚠ **It needed no command kind, no shader and no second executor**: a bar is a `DrawCommandKind.Rectangle` with a zero radius, so it batches as `Geometry` and the device and the software rasteriser draw it because they are drawing the same quad. One bar per *line* rather than per run — spanning `TextLine.Width`, so it follows the alignment and covers the gaps between faces — and it moves nothing that was measured, which is both CSS's rule and the only behaviour compatible with `TextLayout.Measure` reporting whole device pixels. ⚠ **The five properties are in `InheritedProperties` although CSS inherits none of them**, for `text-overflow`'s reason one step stronger: CSS *propagates* a decoration from the block box across its line boxes, one node produces one box here, and a `.vxml` interpolation emits its text as a child — so `<div class="underline">{Label}</div>` decorates nothing without it. ⚠ **`decoration-dotted` and `-dashed` were absent under the finding `divide-solid` was — there was no dash pattern in `Vixen.Ui` and `border-style` was read by nothing — and A3 closed both halves, so all four of CSS's drawable styles are registered.** A bar is the *easy* consumer of that pattern and it is easy structurally: an axis-aligned rectangle with no corner radius, so breaking it up is breaking up a length, and the marks batch as `Geometry` like the whole bar did. ⚠ `-wavy` stays absent under a reason the dash pattern does not touch: a wave is a stroked path where every other decoration is a rectangle, and CSS states neither its amplitude nor its period. ⚠ **Two things the gate could not see.** The consumption probe needed a `decorated` scene: `text-decoration-line` is observable everywhere there is text, and the four properties that *modify* a bar are observable nowhere, because the injected declaration is the only declaration and a thickness on undecorated text correctly moves nothing — four readers and a green gate that would have called them dead. And "the draw list changed" is satisfied by a bar in the wrong place, so the relations are asserted on pixels the software rasteriser produced, each chosen to fail for the neighbouring case; that is what caught the overline, which an earlier draft put with its top edge on the ascent and which therefore landed on the capitals of a face whose ascent (1556) barely clears its cap height (1493). ⚠ **Owed: `text-transform`, and it is not a keyword table.** It is a *shaping-time* transform, so it changes the measured width — but the blocker is narrower and worse: `straße` uppercases to `STRASSE` and `ﬁne` to `FINE`, so a case mapping changes the UTF-16 length, and `TextRun.Start`, `CaretOffset`, `CaretIndexAt`, `TextLine.Start`/`Length`, `Ellipsized` and `TextField`'s selection are all indices into the element's own string. Without a mapping between the two, `uppercase` on an editable field puts the caret in the wrong place silently. The property is already interned as inherited and waiting. Also owed: `font-variant-numeric` and `font-stretch` | `Vixen.Ui.Text`, `DrawListBuilder`, `TextRun`, `InheritedProperties` | — | 0.2 of 0.4 |
@@ -2791,7 +2831,7 @@ mixed-content paragraph sit behind it.
 |---|---|--:|
 | C0 ✅ | **The `SplitName` fallback (F8) — refused, measured, and replaced by the diagnostic it was standing in for.** A retry rescues zero classes over every nesting pair in the registry against both shipped themes, and every shadowed root has exactly one registered prefix, so there is nothing to fall back *to*; `ShadowedFamilyTests.A_shorter_prefix_would_rescue_nothing` re-measures that on each build. What was real is that "no such family" and "that family has no such value" were one `false` and one report list of 7 103 entries: `UtilityGenerator.Unresolved` splits them, and the `.unrecognised.txt` report is sectioned. ⛔ The 35 shadowed rows still want 35 registrations, which is C7 | 0.1 |
 | C1 🟢 | Arbitrary properties, and v4's `bg-(--var)` shorthand | 0.15 |
-| C2 🟢 | Re-peg the `shadow`/`blur`/`rounded` scales to v4's names (D5) | 0.1 |
+| C2 ✅ | Re-peg the `shadow`/`blur`/`rounded` scales to v4's names (D5). ⚠ **Refuted and closed**: C3's transcription brought v4's names with its values, the editor's `--radius-*` are a semantic namespace that collides with none of them, and no picture moved. The real gap was a `--blur-*` namespace that had never shipped, so `blur-md` produced no rule — additive, and it ships now | 0.1 |
 | C3 ✅ | `@theme` replaces `vixen.ui.yaml`; `ThemeTokens` reads a stylesheet, and v4.3.3's palette ships as the engine default in oklch (D1, D4) | 0.5 |
 | C4 ✅ | Cross-assembly token sharing, shape C (Part 3) — `VixenStyleTokens` names another project's `@theme`; `Vixen.Editor.Ui.Styling.targets` makes joining the editor's theme one `Import`; guarded by `SharedThemeTests`, which is cross-assembly because no per-project suite can be | 0.3 |
 | C5 🟡 | The gate: a family emitting a property no consumer **acts on** fails the build (#11) — ✅ landed as `UtilityConsumptionGateTests` with its expiring allow-list. ⛔ Still owed: `Tools/Vixen.TailwindParity` regenerating the TSV from a committed registry snapshot, which is the half that needs the Tailwind registry and cannot be a test | 0.2 |
@@ -3320,7 +3360,7 @@ missed the consumers downstream of it.
   reports N lines, so the budget reaches `TextLayout.Measure` and `Block`'s cache key, and it would
   be the first thing in this engine whose measured height is not its content's.
 
-### Bucket 4 — one missing input, shared. `font-variant-numeric` ✅ **closed**; `font-features-*` 🟡 **re-sized, and the blocker moved.**
+### Bucket 4 — one missing input, shared. `font-variant-numeric` ✅ **closed and composed**; `font-features-*` ✅ **closed, and the blocker was in neither place this bucket named.**
 
 ⚠ **The blocker was one argument in one call and it is gone.** `TextShaper.ShapeRun` ended
 `font.Shaper.Shape(buffer, [])`; it takes a `FontFeatureSet` now, resolved once per style pass in
@@ -3344,30 +3384,58 @@ digit — so the family would have measured inert with the reader finished, the 
 HarfBuzz correctly ignoring a tag the face has never heard of. The `figured` scene registers Open
 Sans, linked from where the editor already ships it, and gives it `0123456789` to apply them to.
 
-**What the nine classes do not do, recorded as a value gap rather than papered over:** two of them on
-one element keep the last. Tailwind composes all nine through `--tw-*` fragments; here each class
-emits the whole property. CSS's own grammar takes a list, so
-`[font-variant-numeric:tabular-nums_slashed-zero]` does get both — the gap is in the composition, not
-in the reader, and the root is `partial` because of it.
+**✅ The value gap this section recorded — two of them on one element keep the last — is closed, and
+it was a silent wrong answer rather than a refusal.** Each class emitted the whole property, so
+`class="tabular-nums slashed-zero"` kept whichever declaration the cascade picked second and the
+other did nothing: no diagnostic, no unrecognised candidate, nothing for an author to look up. The
+eight write `--tw-*` fragments now and each emits the same assembled `font-variant-numeric` beside
+it.
 
-**`font-features-*` is left unregistered, and its sizing is now about the instrument rather than the
-engine.** The property is read end to end and reachable today through the arbitrary-property hatch,
-`[font-feature-settings:"tnum"_1]`. What stops the family is that v4's root is *arbitrary-only* —
-there is no `font-features-tnum` — so it contributes nothing to `UtilityFamilies.Surface`, which
-enumerates a family's keywords and its theme scale. ⚠ **A family with no surface is one
-`UtilityConsumptionGateTests` never meets**: it would pass vacuously, for ever, while the ledger's
-emission column stayed empty and the row read `absent`. Adding one arbitrary probe to the surface was
-tried and does not close it — every value of this property that does anything contains quotes, by
-CSS's grammar, and the generated rule `.font-features-\["onum"_1\]` does not match the element the
-probe puts the class on. The remaining cost is class-name escaping in
-`UtilityConsumptionProbe.Emissions` and in the generator's selector, plus the one-line registration:
-half a day, and it is a change to the measuring instrument.
+⚠ **Five fragments for eight classes, which is CSS's grammar rather than a compression.** CSS
+Fonts 4 § 6.6 takes at most one keyword from each of the figure, spacing and fraction sets, plus the
+two independent flags — so `lining-nums oldstyle-nums` is not something an author can mean, and a
+fragment per class would let both be set and emit an invalid declaration. A fragment per *set* makes
+the later class win inside its set and leave the others alone. v4 does the same, for the same reason.
 
-⚠ The earlier note said the family "cannot be spelled" because `UtilityParser` decides the arbitrary
-value before `SplitName` is consulted. That is true and is **not** the obstacle: the parser hands the
-whole prefix over as the name and looks it up verbatim, so a family registered as `font-features`
-resolves it — measured. What was missing was the registration, and the registration is the thing the
-gate cannot check.
+⚠ **And their initial value is the empty string, the first in `UtilityComposition` with no identity
+to fall back to.** A translation unset is `0px` and a scale unset is `1`, because those properties
+need a value; this one needs a *shorter list*, and CSS's spelling of "no tokens at all" is the empty
+fallback `var(--tw-ordinal,)` — which `VarSubstitution` already distinguishes from a missing one.
+`CompositionTests.Every_fragment_carries_an_initial_value` asserted a non-*empty* initial and had to
+be corrected: the invariant that makes a reference safe is the comma, never the text after it.
+`normal-nums` stays a whole declaration, because `normal` is the one keyword CSS forbids beside any
+other.
+
+**✅ `font-features-*` is registered, and the reason it was not turned out to be in neither of the
+two places this section named.** The row said the remaining cost was "class-name escaping in
+`UtilityConsumptionProbe.Emissions` and in the generator's selector, plus the one-line registration".
+Both escaping claims are **refuted, measured**: `UtilityGenerator.Escape` already backslashes a
+quote, the probe puts the class on the element directly rather than through markup, and the very same
+selector matches perfectly well when its rule is not inside a cascade layer.
+
+⚠ **The blocker was `LayerRuleParser.FindMatchingBrace`, two assemblies away and nothing to do with
+this family.** It skips strings so that a `content: "}"` cannot cut a layer in half, and it did not
+know that a backslash escapes the character after it *outside* a string — which is exactly what a
+generated class name is made of. So the `\"` in `.font-features-\["onum"_1\]` opened a string that
+ran to the quote in the declaration, the braces after it were counted inside a string that was not
+there, and the layer body was cut in the wrong place. ⚠ **The rule survived with an empty value
+rather than failing**, which is why nothing reported it in a year — and every arbitrary value
+carrying a quoted string went through it, `content-['x']` and `bg-[url("a.png")]` as much as this
+family.
+
+**What was true is the instrument half.** v4's root is arbitrary-only — there is no
+`font-features-tnum` — so the family enumerates nothing into `UtilityFamilies.Surface`, and ⚠ **a
+family with no surface is one `UtilityConsumptionGateTests` never meets**: it would pass vacuously,
+for ever, while the ledger's emission column stayed empty and the row read `absent`. `ValueKind`
+carries a `FontFeatures` kind whose probe is `["onum"_1]`, exactly as `Placement`'s is `[25%_75%]`.
+⚠ `onum` and not `tnum`, because the probe's face already draws tabular figures — the probe would
+have measured a read property inert, which is `bg-conic-0`'s trap arriving through a font.
+
+⚠ **And the earlier note that the family "cannot be spelled" was already known to be wrong**: the
+parser hands the whole prefix over as the name and looks it up verbatim. That is now asserted rather
+than measured once, and asserted on the *parser's* answer — `SplitName` would agree today for the
+uninteresting reason that the family is registered.
+
 
 ### Bucket 5 — no channel to point a reader at. `font-smoothing`, `scheme`. ⛔ **Refused.**
 

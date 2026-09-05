@@ -323,15 +323,14 @@ public class UtilityFamilySupportTests {
         // resolves. ⚠ Only four of the nine are *visible* even in a face that has them all — Open
         // Sans already draws lining proportional figures, so `lining-nums` and `proportional-nums`
         // are correctly invisible in it, and no embedded face implements `afrc` at all.
+        // ⚠ <b>Only `normal-nums` is a row here now, and the other eight moved to
+        // <see cref="NumericFigures" /> below because their emission stopped being a string.</b>
+        // They compose through `--tw-*` fragments, so the value this table would compare against is
+        // an assembled list with four empty slots in it — `   tabular-nums ` — and pinning that text
+        // would be pinning the *mechanism* rather than the answer. What the engine reads is the
+        // OpenType tag, so that is what the replacement asserts, and it is a stronger row than the
+        // one it replaces.
         { "normal-nums", "font-variant-numeric", "normal" },
-        { "ordinal", "font-variant-numeric", "ordinal" },
-        { "slashed-zero", "font-variant-numeric", "slashed-zero" },
-        { "lining-nums", "font-variant-numeric", "lining-nums" },
-        { "oldstyle-nums", "font-variant-numeric", "oldstyle-nums" },
-        { "proportional-nums", "font-variant-numeric", "proportional-nums" },
-        { "tabular-nums", "font-variant-numeric", "tabular-nums" },
-        { "diagonal-fractions", "font-variant-numeric", "diagonal-fractions" },
-        { "stacked-fractions", "font-variant-numeric", "stacked-fractions" },
 
         { "whitespace-nowrap", "white-space", "nowrap" },
 
@@ -942,6 +941,88 @@ public class UtilityFamilySupportTests {
 
         Assert.Equal(expected, ui.StyleOf(element, property));
     }
+
+    /// <summary>The eight composable <c>font-variant-numeric</c> keywords and the tag each becomes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Tags rather than the property's text, because the property's text is now an assembly
+    ///     and the tag is what the shaper is handed.</b> The mapping itself is pinned without a font
+    ///     in <c>Vixen.Ui.Tests.FontFeatureStyleTests</c>; these rows are the half that says the
+    ///     <i>class</i> reaches it — through the generator, the cascade, <c>var()</c> substitution
+    ///     and <c>UiDocument.ResolveText</c>, none of which that file exercises.
+    /// </remarks>
+    public static TheoryData<string, string> NumericFigures => new() {
+        { "ordinal", "ordn" },
+        { "slashed-zero", "zero" },
+        { "lining-nums", "lnum" },
+        { "oldstyle-nums", "onum" },
+        { "proportional-nums", "pnum" },
+        { "tabular-nums", "tnum" },
+        { "diagonal-fractions", "frac" },
+        { "stacked-fractions", "afrc" }
+    };
+
+    /// <summary>Each numeric class asks the shaper for its one feature and for nothing else.</summary>
+    /// <param name="utility">The class name.</param>
+    /// <param name="tag">The OpenType tag it should become.</param>
+    /// <remarks>
+    ///     ⚠ <b>"and for nothing else" is the half that catches the composition being wrong in the
+    ///     other direction.</b> Four of the five fragments are unset on an element carrying one
+    ///     class, and an assembler that referred to them without the empty fallback would either
+    ///     drop the whole declaration — no tags at all — or, if the fallback were an identity rather
+    ///     than nothing, ask for four features the author never wrote.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(NumericFigures))]
+    public void A_numeric_class_asks_the_shaper_for_exactly_its_own_feature(string utility, string tag) {
+        using var ui = Sheet(utility);
+
+        var element = ui.Create("probe", ui.Document.Root, null, utility);
+
+        ui.Frame();
+
+        Assert.Equal([tag], Tags(element));
+    }
+
+    /// <summary>⚠ Two of them on one element keep both, which for a year they did not.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The defect this composition was built for, and it was a silent wrong answer rather
+    ///         than a refusal.</b> Every one of these classes emitted the whole property, so
+    ///         <c>class="tabular-nums slashed-zero"</c> resolved to whichever declaration the cascade
+    ///         happened to keep and the other class did nothing at all — no diagnostic, no
+    ///         unrecognised candidate, nothing to look up. An author who wrote both saw one work.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the third row is the one that says the fragments are grouped by CSS's sets
+    ///         rather than one per class.</b> <c>lining-nums</c> and <c>oldstyle-nums</c> are the two
+    ///         values of a single set and cannot both apply; a fragment each would emit both tags,
+    ///         which is a declaration CSS Fonts 4 § 6.6 does not allow and a shaper request nobody
+    ///         meant.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Numeric_classes_compose_within_their_sets_and_overwrite_inside_one() {
+        using var ui = Sheet("tabular-nums", "slashed-zero", "lining-nums", "oldstyle-nums", "ordinal");
+
+        var both = ui.Create("probe", ui.Document.Root, null, "tabular-nums", "slashed-zero");
+        var three = ui.Create("probe", ui.Document.Root, null, "tabular-nums", "slashed-zero", "ordinal");
+        var oneSet = ui.Create("probe", ui.Document.Root, null, "lining-nums", "oldstyle-nums");
+
+        ui.Frame();
+
+        // Tag order is `FontFeatureSet.Of`'s, which sorts, and not the assembly's.
+        Assert.Equal(["tnum", "zero"], Tags(both));
+        Assert.Equal(["ordn", "tnum", "zero"], Tags(three));
+
+        // One set, one keyword: the later class wins the slot and the earlier one is not also asked
+        // for. Which of the two wins is the cascade's business — class order in the attribute does
+        // not decide it — so the assertion is the count and the set, not the member.
+        Assert.Single(Tags(oneSet));
+        Assert.Contains(Tags(oneSet)[0], new[] { "lnum", "onum" });
+    }
+
+    static string[] Tags(UiElement element) =>
+        element.FontFeatures.Features.Select(feature => Vixen.Ui.Text.FontFeature.Unpack(feature.Tag)).ToArray();
 
     /// <summary>Each inert family computes a value too — which is exactly why the list has to exist.</summary>
     /// <param name="utility">The class name.</param>
