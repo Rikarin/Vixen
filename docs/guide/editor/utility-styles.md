@@ -142,9 +142,10 @@ under `ltr` and the top-right under `rtl`, which is what `ps-2` does one propert
 
 ⚠ **`space-*` and `divide-*` are the only families whose rule is about the children**, and the two
 things worth knowing before reaching for them are both divergences from Tailwind v4. The rule is
-`.space-y-4 > :not(:last-child)`, emitted without v4's `:where()` wrapper because Vixen's selector
-compiler charges a class for `:where()` as it does for `:is()` — so the rule is two classes of
-specificity and beats a child's own `mb-0`, exactly as Tailwind v3 did. And `space-y-*` writes
+`.space-y-4 > :not(:last-child)`, emitted without v4's `:where()` wrapper because Vixen's stylesheet
+front end does not read `:where()` at all — a rule containing one is refused with a diagnostic rather
+than compiled at some other specificity. So the rule is two classes of specificity and beats a child's
+own `mb-0`, exactly as Tailwind v3 did. And `space-y-*` writes
 `margin-bottom` where v4 writes `margin-block-end`, because the block longhands are interned by
 nobody here and there is no writing mode for the two to differ in. `@apply space-x-4` is refused, for
 the same reason `@apply hover:bg-accent` is: it is a rule with a selector of its own.

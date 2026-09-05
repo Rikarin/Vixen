@@ -49,7 +49,14 @@ public enum SimpleSelectorKind : byte {
     /// <summary><c>:not()</c> — none of the nested selectors may match.</summary>
     Not,
 
-    /// <summary><c>:is()</c> or <c>:where()</c> — one of the nested selectors must match.</summary>
+    /// <summary><c>:is()</c> — one of the nested selectors must match.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <c>:where()</c>, which this used to name too.</b> ExCSS 4.3.2 does not parse
+    ///     <c>:where()</c> — the whole selector arrives as one unknown and the rule is refused — so
+    ///     nothing ever compiles to this kind through that spelling, and a reader who took the old
+    ///     summary at its word would look for a specificity charge that is not there. See
+    ///     <c>Vixen.Ui.Styling.Tests</c>' <c>WhereSelectorTests</c>.
+    /// </remarks>
     Is,
 
     /// <summary><c>:empty</c> — the element has neither children nor text.</summary>

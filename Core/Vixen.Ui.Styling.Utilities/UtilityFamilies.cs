@@ -3580,11 +3580,17 @@ public static class UtilityFamilies {
     ///     nesting, which the loader does not do, so the emitted form is the flattened one — proved
     ///     rather than assumed, in <c>ChildScopedFamilyTests</c>. The <c>:where()</c> is v4's way of
     ///     keeping the rule at one class of specificity so that a child's own <c>me-0</c> still
-    ///     wins; here <c>SelectorCompiler</c> counts <c>:where()</c> like <c>:is()</c> and adds a
-    ///     class either way, so the rule lands at <c>(0,2,0)</c> and beats a child's own single-class
-    ///     utility. That is exactly what Tailwind v3 did for four major versions, it is written down
-    ///     in the guide rather than left to be discovered, and the fix is three lines in a file this
-    ///     project does not own.
+    ///     wins; the rule lands at <c>(0,2,0)</c> here and beats a child's own single-class utility.
+    ///     That is exactly what Tailwind v3 did for four major versions, and it is written down in
+    ///     the guide rather than left to be discovered.
+    ///     <para>
+    ///         ⚠ <b>This remark used to say the fix was "three lines in a file this project does not
+    ///         own" — that <c>SelectorCompiler</c> counts <c>:where()</c> like <c>:is()</c> and a
+    ///         charge could simply be dropped. It does not.</b> ExCSS 4.3.2 does not parse
+    ///         <c>:where()</c> at all, so the whole selector arrives as one unknown and the rule is
+    ///         refused rather than compiled at the wrong specificity. Measured in
+    ///         <c>Vixen.Ui.Styling.Tests</c>' <c>WhereSelectorTests</c>.
+    ///     </para>
     /// </remarks>
     static void Between(string name, ValueKind kind, string[] properties) =>
         Register(new Family(name, kind, properties, Scope: BetweenChildren));

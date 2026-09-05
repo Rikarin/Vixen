@@ -1361,11 +1361,20 @@ was filed as a reason not to look again.
 `-inline-start` and `-inline-end` and no block pair, so v4's spelling measures inert — and it is not
 an approximation to substitute the physical one, because `Vixen.Ui.Layout` has no writing mode for the
 two to differ in. And the scope is emitted bare rather than inside `:where()`: v4 wraps it to keep the
-rule at one class of specificity so a child's own `mb-0` still wins, and `SelectorCompiler` charges a
-class for `:where()` exactly as it does for `:is()`, so no spelling available here reaches zero. The
-rule lands at `(0,2,0)` and beats a child's single-class utility — which is what v3 did for four major
-versions. Closing it is three lines in `SelectorCompiler`, and the test that pins the current
-behaviour fails the day they land.
+rule at one class of specificity so a child's own `mb-0` still wins, and no spelling available here
+reaches zero. The rule lands at `(0,2,0)` and beats a child's single-class utility — which is what v3
+did for four major versions.
+
+⚠ **The sizing this paragraph carried was wrong, and wrong about which stage the gap is in.** It said
+`SelectorCompiler` "charges a class for `:where()` exactly as it does for `:is()`" and that closing it
+was three lines there. Measured 2026-09-05 in
+`Core/Vixen.Ui.Styling.Tests/WhereSelectorTests.cs`: **ExCSS 4.3.2 has no `:where()` at all.** A
+selector containing one comes back as a single `UnknownSelector` covering the *whole* selector — not a
+complex selector with one unknown part — so `SelectorCompiler` never sees a `MatchesSelector` to
+charge anything for, and refuses the rule entire with a diagnostic. There is nothing at that site to
+subtract a class from. Closing it means teaching the front end a selector ExCSS does not parse, which
+is a different job from a specificity tweak; filed separately. The tests in that file pin the refusal
+and go red the day it lands.
 
 **What is absent inside the two families, and why.** `space-x-reverse`, `space-y-reverse`,
 `divide-x-reverse` and `divide-y-reverse` need `calc()` to multiply an edge by a `--tw-*-reverse`

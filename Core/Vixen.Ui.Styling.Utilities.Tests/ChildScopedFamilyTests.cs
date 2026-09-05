@@ -285,18 +285,24 @@ public class ChildScopedFamilyTests {
     ///         ⚠ <b>v4 wraps the scope in <c>:where()</c> and this cannot, so a container's
     ///         <c>space-y-*</c> beats a child's own margin utility.</b> <c>:where()</c> contributes no
     ///         specificity in CSS, which is precisely why Tailwind adopted it in v4: the rule lands at
-    ///         one class, so <c>&lt;div class="mb-0"&gt;</c> inside <c>space-y-4</c> wins. Vixen's
-    ///         <c>SelectorCompiler</c> compiles <c>:where()</c> as <c>:is()</c> and charges a class for
-    ///         it either way, so there is no spelling available here that reaches zero — the emitted
-    ///         rule is <c>(0,2,0)</c> and the child's <c>.mb-0</c> is <c>(0,1,0)</c>.
+    ///         one class, so <c>&lt;div class="mb-0"&gt;</c> inside <c>space-y-4</c> wins. Here there
+    ///         is no spelling that reaches zero — the emitted rule is <c>(0,2,0)</c> and the child's
+    ///         <c>.mb-0</c> is <c>(0,1,0)</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This remark used to say <c>SelectorCompiler</c> "compiles <c>:where()</c> as
+    ///         <c>:is()</c> and charges a class for it either way", and that closing it was three
+    ///         lines there. Both halves are wrong.</b> ExCSS 4.3.2 does not parse <c>:where()</c> at
+    ///         all: the whole selector arrives as one unknown, the compiler refuses the rule entire,
+    ///         and there is no charge anywhere to remove. <c>Vixen.Ui.Styling.Tests</c>'
+    ///         <c>WhereSelectorTests</c> is the measurement.
     ///     </para>
     ///     <para>
     ///         <b>This is v3's behaviour, and it shipped for four major versions.</b> It is written
     ///         down in the guide and in doc 43 rather than left to be discovered, and the escape is the
     ///         one v3 users used: put the exception on the container, or do not use <c>space-*</c> on a
-    ///         list whose items set their own margins. Closing it is three lines in
-    ///         <c>SelectorCompiler</c> — charge nothing for <c>:where()</c> — and the day that lands
-    ///         this test fails, which is the point of writing it.
+    ///         list whose items set their own margins. The day <c>:where()</c> is understood and the
+    ///         generator wraps the scope in it, this test fails, which is the point of writing it.
     ///     </para>
     /// </remarks>
     [Fact]
