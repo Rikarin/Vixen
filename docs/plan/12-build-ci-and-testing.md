@@ -8,12 +8,13 @@ test, package, or release — CI calls the same targets a developer calls, so "w
 
 ### Target graph
 
-The thirty-three targets, by what they depend on. Only the `DependsOn` edges are drawn; a target with
+The thirty-seven targets, by what they depend on. Only the `DependsOn` edges are drawn; a target with
 no edge into it is reachable on its own, which most of the checks deliberately are.
 
 ```
 Restore ──┬─► Compile ────────┬─► Test ──┬─► Pack
           │                   │          └─► PublishEditor
+          │                   ├─► Coverage
           │                   ├─► GoldenImages
           │                   ├─► ContentBytes
           │                   ├─► RemeshBytes
@@ -29,9 +30,16 @@ Restore ──┬─► Compile ────────┬─► Test ──┬
           └─► CheckAot           CompileWeb ──► PublishWeb ──► BrowserSmoke
 
 Depending on nothing, and run alone:  Clean · Benchmark · CheckArchitecture · CheckAttribution ·
-CheckBenchmarks · CheckPackages · CheckStrings · CheckWhitespace · CompileMobile · CompileWeb ·
-AffectedProjects · AffectedTests
+CheckBenchmarks · CheckDocsCoverage · CheckPackages · CheckStrings · CheckWhitespace · CompileMobile ·
+CompileWeb · AffectedProjects · AffectedTests · TestOrder · PruneWorktrees
 ```
+
+⚠️ **And four targets existed that this ledger did not name, which is #340's defect the other way
+round** — `Coverage`, `CheckDocsCoverage`, `TestOrder` and `PruneWorktrees`, the last two added on
+2026-09-05. A target no document names is one nobody types, and `PruneWorktrees` is the one that
+matters for that: it is the only thing in the repository that reclaims the disk agent worktrees take
+([#561](https://github.com/Rikarin/Vixen/issues/561)), and it deletes checkouts, so it will never be
+put on the graph or in CI. It has to be findable instead.
 
 ⚠️ **`CheckApi`, `Docs`, `CheckDocs` and `Release` hang off `CompileRelease` and not off `Compile`.**
 A public surface and a generated doc site are promises about a *shipped* package, and the two
@@ -47,7 +55,7 @@ Debug, is not a conclusion about them.
 | `CompileShaderLibrary` | `CheckShaders` — recompiles the shaders whose `.spv` is committed, from their import closure, and reports drift |
 | `GenerateApiBaseline` | `--update-api` on `CheckApi` |
 | `AotSmoke` | `CheckAot` and `CheckAotIos` |
-| `Coverage` | ✅ reports line coverage of each test project's own subject assembly and gates on nothing but its own instrument; not on the graph and not in CI. § Coverage below |
+| `Coverage` | ✅ reports line coverage of each test project's own subject assembly and gates on nothing but its own instrument; not in CI. ⚠️ This row used to add "not on the graph", and it is: `Coverage` `DependsOn(Compile)` (`build/Build.Coverage.cs:67`). § Coverage below |
 | `Sign`, `Notarize` | — |
 | `PublishAndroid`, `PublishIos` | — `CompileMobile` builds the assemblies; nothing publishes |
 
@@ -76,6 +84,10 @@ item, and `CheckAttribution` is ADR-015's enforcement.
 | `CheckFormat` | four passes, cheapest first: the SPDX licence header on every file, `CheckAttributionManifest`, `CheckWhitespaceFormatting`, and then `dotnet format style` and `dotnet format analyzers` with `--verify-no-changes`. ⚠️ **This row used to say the whitespace pass was refused outright.** It is not: the lambda-indentation argument that refused it covers 551 files out of 4 842, and using it to skip the other 4 291 left mis-indentation ungated everywhere. `docs/WhitespaceExempt.txt` carries the exceptions and may only shrink, so a file that becomes clean fails until its line is removed |
 | `CheckWhitespace` / `CheckAttribution` / `CheckStrings` | the three of those passes that are also targets of their own, so each can be run — and watched failing — without the two minute-long `dotnet format` passes. `CheckStrings` fails on a declared string id used nowhere and on a call site that rebuilds an id a declaration class already declares; it is what caught the untranslatable Undo menu item. `CheckAttribution` is ADR-015's enforcement over `docs/manual/third-party.md`. `--update-exemptions` rewrites the whitespace list, and the diff is worth reading: a commit that grows it added mis-indented code |
 | `Test` | xunit v3 over every test project, and the allocation gates run inside it as ordinary tests. Passes `.runsettings`, which exists solely to set environment that has to be in place *before* the process starts (see below). ⚠️ **Collects no coverage and enforces no floor, and this row used to say it did both** — the collector lives in the separate `Coverage` target, which reports and does not gate; § Coverage below says why the floor is refused rather than owed |
+| `TestOrder` | prints the order `Test` starts the 178 assemblies in, which is longest first out of `build/test-cost.txt`; `--update-test-cost` rewrites that list from the last run's TRX `Times`. ⚠️ **What used to decide the order was `Vixen.slnx`**, and a solution build of a custom target walks each project's dependencies first — so the assembly referencing the most of the tree was dispatched last, and that assembly is for the same reason the slowest one. `Test` hands MSBuild a generated flat traversal project instead. Measured on the 2026-09-05 runs either side of the change: elapsed 873.3 s → **677.5 s**, with `Vixen.Editor.App.Tests` moving from a 218.4 s start to 0.2 s. The run is now its longest single assembly and cannot be shortened by scheduling at all ([#592](https://github.com/Rikarin/Vixen/issues/592), then [#557](https://github.com/Rikarin/Vixen/issues/557)) |
+| `Coverage` | reports line coverage of each test project against its own subject assembly and gates on nothing but its own instrument; not in CI. `--coverage-project <substring>` narrows it. § Coverage below says why the floor is refused rather than owed |
+| `CheckDocsCoverage` | the half of `CheckDocs` that builds nothing: fails when a type in a `PublicAPI` baseline has no guide page and no `docs/DocsExempt.txt` line. Reachable alone precisely because `CheckDocs` costs a Release build of the solution first |
+| `PruneWorktrees` | reports the agent worktrees under `.claude/worktrees` that are **merged into master, clean and unlocked**, and with `--remove-merged` removes those and only those. ⚠️ **Nothing else in the repository reclaims that disk**: on 2026-09-04 it was 105 GB of a 132 GB tree, ~25 GB per worktree, three of them merged and clean for days. ⚠️ It enumerates *directory entries* and not `git worktree list`, because one 3.8 GB directory in there was not a registered worktree at all — and git run from inside such a directory answers about the parent repository, so it reported itself clean and on master while being neither. Those are warned about and never removed. Removal is `git worktree remove`, so git's own dirtiness refusal stays behind the filter rather than being replaced by it. Not on the graph and never in CI: it deletes checkouts, so it is a target somebody types on purpose ([#561](https://github.com/Rikarin/Vixen/issues/561)) |
 | `GoldenImages` | ✅ renders the fixture suite on the local backend — lavapipe on the Linux leg, MoltenVK on macOS — and compares it with the committed references; writes the rendering, the reference and a diff into `artifacts/golden-diff/` on failure, which CI uploads. `--update-golden` rewrites the references. The fixtures also run under `Test`, so a wrong picture fails an ordinary build; the separate target exists for the diffs and the switch. |
 | `CheckAot` / `CheckAotIos` | `PublishAot` + `PublishTrimmed` of a probe that roots the runtime assemblies; **any IL2xxx/IL3xxx warning fails**. ⚠️ **Two targets and not one `AotSmoke`**, because iOS is the NativeAOT-only platform and `CheckAotIos` `.Requires` macOS — a single target would have been silently half a gate on every other runner. ⚠️ The probe roots 29 of 95 runtime assemblies rather than all of them ([#506](https://github.com/Rikarin/Vixen/issues/506)) |
 | `Benchmark` | BenchmarkDotNet over `Benchmarks/*`, then judged against `Benchmarks/baseline.json`: **any** allocation growth fails, a mean more than 10 % above the baseline fails only under `--gate-timing`, and a benchmark that is in the baseline and did not run fails too. ⚠️ **There is no committed baseline yet, and the target therefore fails rather than passing** — a comparison with nothing to compare against is the shape of a gate that did not run, and this row described one for as long as it had described anything. `--update-baseline` writes the file, stamped with the machine, the runtime, the BenchmarkDotNet version and the commit out of BenchmarkDotNet's own `HostEnvironmentInfo`; `--report-only` asks for numbers without a verdict. The comparison alone, over whatever is already in `artifacts/benchmarks`, is `CheckBenchmarks` |
@@ -87,7 +99,8 @@ item, and `CheckAttribution` is ADR-015's enforcement.
 
 Nuke parameters, all of them: `--configuration`, `--workers <n>`, `--since <ref>`; the four that
 rewrite something a gate then checks — `--update-api`, `--update-golden`, `--update-shaders`,
-`--update-baseline`, `--update-exemptions`; and the per-target ones — `--benchmark-filter`, `--short`,
+`--update-baseline`, `--update-exemptions`, `--update-test-cost`; and the per-target ones —
+`--coverage-project`, `--remove-merged`, `--benchmark-filter`, `--short`,
 `--gate-timing`, `--report-only`, `--verify-docs`, `--all-native-deps`, `--stage-vulkan`,
 `--publish-smoke`, `--frame-sample`, `--frame-count`, `--browser-smoke-checks`,
 `--browser-smoke-timeout`, `--release-version`, `--release-date`.
