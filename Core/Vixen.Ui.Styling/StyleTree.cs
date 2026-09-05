@@ -911,6 +911,56 @@ public sealed class StyleTree {
         return parent < 0 || position == 0 ? NoParent : childArena[links[parent].ChildOffset + position - 1];
     }
 
+    /// <summary>The element's one-based position among the siblings that share its tag.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Counted rather than looked up, and it is the one structural test that cannot be
+    ///     O(1) here.</b> <see cref="IndexInParentOf" /> is stored because a child's position is
+    ///     maintained by every insertion anyway; an of-type position is a position in a subsequence
+    ///     that depends on which tag is being asked about, so a stored copy would be one number per
+    ///     element per tag. Browsers count it too. The walk is over the parent's child list, which
+    ///     is contiguous in the arena, and it runs only for a selector that asked for it.
+    /// </remarks>
+    internal int TypeIndexOf(int index) {
+        var parent = links[index].Parent;
+        if (parent < 0) {
+            return 1;
+        }
+
+        var tag = tags[index];
+        var offset = links[parent].ChildOffset;
+        var position = links[index].IndexInParent;
+        var seen = 0;
+
+        for (var i = 0; i <= position; i++) {
+            if (tags[childArena[offset + i]] == tag) {
+                seen++;
+            }
+        }
+
+        return seen;
+    }
+
+    /// <summary>How many of the element's siblings — itself included — share its tag.</summary>
+    internal int TypeCountOf(int index) {
+        var parent = links[index].Parent;
+        if (parent < 0) {
+            return 1;
+        }
+
+        var tag = tags[index];
+        var offset = links[parent].ChildOffset;
+        var count = links[parent].ChildCount;
+        var seen = 0;
+
+        for (var i = 0; i < count; i++) {
+            if (tags[childArena[offset + i]] == tag) {
+                seen++;
+            }
+        }
+
+        return seen;
+    }
+
     internal AncestorBloom BloomOf(int index) => blooms[index];
 
     internal bool HasClass(int index, int classId) {

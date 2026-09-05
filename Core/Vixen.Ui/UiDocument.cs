@@ -205,7 +205,8 @@ public sealed partial class UiDocument : IDisposable {
             height,
             1f,
             Drawing,
-            ColorSchemePreference.NoPreference
+            ColorSchemePreference.NoPreference,
+            default
         ) {
             Scope = MediaScopes.Document
         };

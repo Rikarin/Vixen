@@ -9,18 +9,30 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 /// <param name="Classes">Its classes.</param>
 /// <param name="State">Its pseudo state.</param>
 /// <param name="Attributes">Its attributes.</param>
+/// <param name="Tag">Its tag name.</param>
 /// <remarks>
-///     ⚠ <b>What half the variant table needs and <see cref="UtilityFixture.Computed" /> could not
-///     express.</b> <c>group-*</c> wants an ancestor in a state, <c>peer-*</c> a preceding sibling in
-///     one, <c>ltr:</c>/<c>rtl:</c> an ancestor carrying <c>dir</c>, <c>dark:</c> under the class
-///     strategy an ancestor carrying <c>.dark</c>, and the structural variants a place among
-///     siblings. A fixture whose only knobs were <c>ElementState</c> and <c>MediaContext</c> could
-///     reach none of them, which is the mechanical reason none of them had an end-to-end test.
+///     <para>
+///         ⚠ <b>What half the variant table needs and <see cref="UtilityFixture.Computed" /> could
+///         not express.</b> <c>group-*</c> wants an ancestor in a state, <c>peer-*</c> a preceding
+///         sibling in one, <c>ltr:</c>/<c>rtl:</c> an ancestor carrying <c>dir</c>, <c>dark:</c>
+///         under the class strategy an ancestor carrying <c>.dark</c>, and the structural variants a
+///         place among siblings. A fixture whose only knobs were <c>ElementState</c> and
+///         <c>MediaContext</c> could reach none of them, which is the mechanical reason none of them
+///         had an end-to-end test.
+///     </para>
+///     <para>
+///         ⚠ <b><paramref name="Tag" /> is the knob the of-type variants needed, and a fixture
+///         without it would have passed them all while proving nothing.</b> Every probe used to be a
+///         <c>div</c>, and in a document of one tag <c>:nth-of-type(2)</c> and <c>:nth-child(2)</c>
+///         select the same element — so a scene built out of identical siblings cannot tell an
+///         of-type test from the child test it must not be.
+///     </para>
 /// </remarks>
 sealed record Probe(
     string[] Classes,
     ElementState State = ElementState.None,
-    (string Name, string Value)[]? Attributes = null
+    (string Name, string Value)[]? Attributes = null,
+    string Tag = "div"
 );
 
 /// <summary>A theme, a generator, and a style engine to load the result into.</summary>
@@ -124,6 +136,8 @@ sealed class UtilityFixture {
     /// <param name="after">Siblings following it.</param>
     /// <param name="container">A box to make the parent a query container of, as layout would.</param>
     /// <param name="containerName">That container's <c>container-name</c>, or empty.</param>
+    /// <param name="tag">The element's own tag name.</param>
+    /// <param name="children">Children to give it, which is what <c>:empty</c> is about.</param>
     /// <returns>The computed value, or null.</returns>
     /// <remarks>
     ///     The end-to-end path, and the only assertion that is worth much: it checks the generator
@@ -142,7 +156,9 @@ sealed class UtilityFixture {
         Probe[]? before = null,
         Probe[]? after = null,
         ContainerBox? container = null,
-        string containerName = ""
+        string containerName = "",
+        string tag = "div",
+        Probe[]? children = null
     ) {
         var engine = new StyleEngine();
         engine.Load(Generator.Generate(classNames), StyleOrigin.Author, media);
@@ -174,7 +190,11 @@ sealed class UtilityFixture {
             Add(engine, sibling, parent);
         }
 
-        var element = Add(engine, new Probe(classNames, state, attributes), parent);
+        var element = Add(engine, new Probe(classNames, state, attributes, tag), parent);
+
+        foreach (var child in children ?? []) {
+            Add(engine, child, element);
+        }
 
         foreach (var sibling in after ?? []) {
             Add(engine, sibling, parent);
@@ -194,7 +214,7 @@ sealed class UtilityFixture {
     }
 
     static StyleNodeId Add(StyleEngine engine, Probe probe, StyleNodeId? parent) {
-        var element = engine.Tree.CreateElement("div", parent, classNames: probe.Classes);
+        var element = engine.Tree.CreateElement(probe.Tag, parent, classNames: probe.Classes);
         engine.Tree.SetState(element, probe.State);
 
         foreach (var (name, value) in probe.Attributes ?? []) {

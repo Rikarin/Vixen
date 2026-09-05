@@ -337,8 +337,14 @@ layers — worth having, it is how the utility system and component styles coexi
 
 Not supported, and documented: floats, tables, `position: fixed` relative to viewport (there is no
 viewport in a game overlay), CSS filters beyond a curated set, `calc()` beyond `+ - * /` on
-compatible units, container queries (P2), `:has()` (P2 — expensive to match incrementally),
-pseudo-elements.
+compatible units, container queries (P2), pseudo-elements.
+
+⚠ **`:has()` was in that list as P2 — "expensive to match incrementally" — and it landed under doc
+43's A17.** The estimate was right about where the cost is and wrong that it was prohibitive:
+matching one is a subtree walk, and invalidating one is an upward walk narrowed by the far end's
+names, measured in `HasInvalidationTests` as elements resolved. Its argument is restricted to a
+single compound, because a relative argument is anchored at the element and matching the nested
+selector against every descendant would also accept an ancestor.
 
 ⚠ **`::before` and `::after` were in the supported list above and were never supported — corrected
 here rather than left standing.** This is [doc 43](43-web-styling-parity.md)'s finding **F6**, and
@@ -418,9 +424,11 @@ The performance-critical part. Naive selector matching is O(elements × rules).
   inherited one. The second is not a failure of invalidation — every cell's inherited colour
   genuinely did change.
 
-  Nothing has to look *upward*, and that is the second thing the `:has()` P2 decision buys after
-  match cost. `:focus-within` looks like an exception and is not: it is stored as element state and
-  set explicitly, so it arrives as an ordinary change.
+  ⚠ **This said nothing has to look *upward*, which was the second thing the `:has()` P2 decision
+  bought after match cost — and A17 spent it.** A name inside a `:has()` argument now carries a
+  fourth direction, so a class added deep in a panel walks to the top of the tree and collects by
+  the far end's names from there. `:focus-within` still looks like an exception and is not: it is
+  stored as element state and set explicitly, so it arrives as an ordinary change.
 - **`ComputedStyle` is immutable, interned, and reference-compared.** Layout reads it and only marks
   itself dirty when the reference changed *and* a layout-affecting property differs.
 

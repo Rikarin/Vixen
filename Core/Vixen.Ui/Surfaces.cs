@@ -144,7 +144,8 @@ public sealed partial class UiDocument {
             height,
             dpiScale,
             new DrawList(),
-            Primary.ColorScheme
+            Primary.ColorScheme,
+            Primary.Preferences
         ) {
             Scope = Styles.Scopes.Create(default)
         };
