@@ -101,6 +101,22 @@ static class ControlMarkup {
             "submit",
             (element, handler, how) => how.Listen<SubmitEvent>(element, (_, args) => handler(args))
         );
+
+        // ⚠ `help` is the accessible description first and the hover box second, which is why the
+        // whole of it is `Tooltip.Attach` rather than a `Text` written somewhere. Attach wires
+        // `AccessibleRelation.DescribedBy`, so the sentence is in `AccessibleDescription` — read on
+        // demand, whether or not anything is hovering — and a markup spelling that drew a box and
+        // told nobody would be the accessibility bug the C# API was careful not to be.
+        //
+        // The tooltip is a root child because every overlay is: the draw list is document order, so
+        // one nested inside the button it describes would be clipped by every `overflow: hidden`
+        // between them.
+        BuildContext.Describes(target => {
+            var tip = target.Document.Root.Add<Tooltip>();
+            tip.Attach(target);
+
+            return tip;
+        });
     }
 
     /// <summary>Whether the activation this tap produced has already been reported to the handler.</summary>

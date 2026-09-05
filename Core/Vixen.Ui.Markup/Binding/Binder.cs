@@ -842,6 +842,15 @@ public sealed class Binder {
             return (BoundAttributeKind.Slot, written, []);
         }
 
+        // ⚠ Universal in `class`'s sense — it means the same on a component tag as on an element, and
+        // is never a property — but it reaches neither the style tree nor an assignment: it emits a
+        // call, because what describes an element is an object somebody has to make. See
+        // `BoundAttributeKind.Help` for why that call goes through a seam rather than naming
+        // `Vixen.Ui.Controls.Tooltip`.
+        if (string.Equals(written, "help", StringComparison.Ordinal)) {
+            return (BoundAttributeKind.Help, written, []);
+        }
+
         var colon = written.IndexOf(':', StringComparison.Ordinal);
 
         if (colon < 0) {

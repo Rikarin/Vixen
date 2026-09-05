@@ -1695,6 +1695,94 @@ public class EmitterTests {
     static Microsoft.CodeAnalysis.SyntaxTree Parse(string text, string path) =>
         CSharpSyntaxTree.ParseText(text, new CSharpParseOptions(LanguageVersion.Latest), path);
 
+    // ================================================================== help
+
+    /// <summary>
+    ///     ⚠ <b>The layering decision <c>help</c> had to make, pinned as a property of the generated
+    ///     text.</b> A <c>Tooltip</c> is <c>Vixen.Ui.Controls</c>' and <c>BuildContext</c> is
+    ///     <c>Vixen.Ui</c>'s, so the three candidate answers were: name the type in the generated
+    ///     file, move the mechanism down, or register a seam. Naming the type resolves in a project
+    ///     that references the controls and produces a generated file that <i>does not compile</i>
+    ///     in one that references only <c>Vixen.Ui</c> — and the generator never touches the
+    ///     compilation, so it could not even refuse. This assembly is exactly that project: it
+    ///     references <c>Vixen.Ui</c> and not the controls, and it compiles the output.
+    /// </summary>
+    [Fact]
+    public void A_help_attribute_compiles_in_a_project_that_has_no_control_library() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui.Reactive
+
+                              @code {
+                                  public Signal<string> Caption { get; } = new("live");
+                              }
+
+                              <Dial help="What it counts" />
+                              <div help="@Caption.Value" />
+                              """;
+
+        var generated = Emit(Source);
+
+        Assert.Equal(2, Occurrences(generated, ".Help("));
+
+        // ⚠ The whole of the decision, in one assertion: nothing in the output names the control
+        // library, so the file compiles wherever `Vixen.Ui` does.
+        Assert.DoesNotContain("Vixen.Ui.Controls", generated, StringComparison.Ordinal);
+        Assert.Empty(Errors(Compile(generated)));
+    }
+
+    /// <summary>
+    ///     A description is made by whatever filled the seam, and removed with the region that asked
+    ///     for it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Tracked rather than left to the element tree, because the thing that describes an
+    ///     element is not under it.</b> An overlay is a root child — the draw list is document
+    ///     order — so clearing the branch that built the target takes the target and leaves the
+    ///     description, which in a <c>@for</c> would be one abandoned tooltip per row per reorder,
+    ///     each holding the element it described alive.
+    /// </remarks>
+    [Fact]
+    public void A_description_leaves_with_the_branch_that_declared_it() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui.Reactive
+
+                              @code {
+                                  public Signal<bool> Shown { get; } = new(true);
+                              }
+
+                              @if (Shown.Value) {
+                                  <hinted help="Only while the arm is live" />
+                              }
+                              """;
+
+        List<UiElement> made = [];
+
+        // What `Vixen.Ui.Controls` registers, minus the tooltip: the seam's contract is "make the
+        // thing that describes this element and hand it back", and a bare element satisfies it.
+        BuildContext.Describes(target => {
+            var note = target.Document.Root.Add<UiElement>("description");
+            made.Add(note);
+
+            return note;
+        });
+
+        var (_, instance, document) = Run(Source);
+
+        using var owned = document;
+        document.Effects.Flush();
+
+        var note = Assert.Single(made);
+        Assert.False(note.IsRemoved);
+        Assert.Equal("Only while the arm is live", note.Text);
+
+        ((Signal<bool>)Property(instance, "Shown")).Value = false;
+        document.Effects.Flush();
+
+        Assert.True(note.IsRemoved);
+    }
+
     // ================================================================== change: and refs
 
     /// <summary>

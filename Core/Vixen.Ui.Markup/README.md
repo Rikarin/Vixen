@@ -550,6 +550,49 @@ tag and reads as a property — so `use` is the general answer rather than the f
 ⚠ **One `use` per tag**, because attribute names are unique on an element. A lambda with a body does
 several things; two `use`s would also have needed an order, which is a rule nobody wants to remember.
 
+## `help`, and where an attach-shaped directive's runtime has to live
+
+```html
+<Button Label="Save" help="Writes the scene to disk" />
+<status-line help="@Hint.Value" />
+```
+
+It attaches a `Tooltip` and wires `AccessibleRelation.DescribedBy`, which is the half that decides
+the shape: the sentence lands in `AccessibleDescription` and is read on demand, so it reaches the
+users who never hover. A directive that drew a box and told nobody would be exactly the accessibility
+bug `Tooltip.Attach` was written not to be — and it is the assertion, rather than the element
+existing, that `HelpMarkupTests` makes.
+
+⚠ **The interesting part is not the attribute, it is where the emitted call lands, and every
+attach-shaped spelling waits on the same answer.** `BuildContext` is in `Vixen.Ui`; `Tooltip` is in
+`Vixen.Ui.Controls`, which references it. Three answers were available and only one is safe:
+
+- **Emit the type name.** `global::Vixen.Ui.Controls.Tooltip.Attach(n1, "…")` resolves in a project
+  that references the controls — and a `.vxml` in a project referencing only `Vixen.Ui` gets a
+  generated file that **does not compile**. That is strictly worse than a directive refused with a
+  diagnostic, and it cannot even be refused: the generator never touches the compilation, so this
+  side cannot know which project it is in.
+- **Move the mechanism down.** Placement, light dismiss and a hover delay would come with it, which
+  is most of what an `Overlay` is. `Vixen.Ui` would gain a control library in all but name.
+- **A registration seam**, which is what this is — and it is not a new idea, it is
+  `BuildContext.Subscribe`'s. `BuildContext.Describes(Func<UiElement, UiElement>)` says *what
+  describes an element*; `ControlMarkup.Register` fills it from the module initializer that already
+  registers what `on:click` means. A project with no controls gets an exception naming the missing
+  registration, at the one call that needed it, rather than a build that fails in generated code.
+
+Two smaller decisions fall out of it:
+
+⚠ **The description is tracked on the region, unlike everything else a tag makes.** An overlay is a
+root child — the draw list is document order, so a tooltip nested inside the button it describes
+would be clipped by every `overflow: hidden` between them — so clearing the branch that built the
+target takes the target and leaves the tooltip. In a `@for` that is one abandoned tooltip per row per
+reorder, each holding the element it described alive. `BuildContext.Help` therefore registers the
+removal with the region, which is the same bookkeeping `refs` does for its entry.
+
+⚠ **Attached once, written many times.** `help="@Hint.Value"` puts only the text inside the effect.
+Re-running the attachment per flush would add a second pointer handler and a second
+`DescribedBy` relation each time — a leak that reads as a tooltip that opens twice.
+
 ## `@inherits`, and the two things a `.vxml` can be
 
 Without it the generated class is a `Component`, which is what a `.vxml` is for and is still the

@@ -111,7 +111,28 @@ public enum BoundAttributeKind {
     ///         that is a throw rather than a silent drop.
     ///     </para>
     /// </remarks>
-    Slot
+    Slot,
+
+    /// <summary>A sentence describing this element, from <c>help="Save the scene"</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An accessible description first and a hover box second</b>, which is the whole
+    ///         reason it is a directive rather than a parameter. <c>Tooltip.Attach</c> wires
+    ///         <c>AccessibleRelation.DescribedBy</c>, so the sentence is in
+    ///         <c>AccessibleDescription</c> and is read on demand — a tooltip that was only a hover
+    ///         behaviour is a sentence written for one kind of user and withheld from another.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Universal in <see cref="Tag" />'s sense and emitted through a seam rather than
+    ///         by naming a type.</b> A <c>Tooltip</c> is <c>Vixen.Ui.Controls</c>' and the generated
+    ///         file cannot name it: a project referencing only <c>Vixen.Ui</c> would get generated
+    ///         code that does not compile, which is worse than a refusal and cannot be refused here,
+    ///         since the binder never sees the compilation. So the emitter writes
+    ///         <c>ctx.Help(…)</c> and the controls fill the seam from their module initializer, the
+    ///         same route <c>on:click</c> already takes.
+    ///     </para>
+    /// </remarks>
+    Help
 }
 
 /// <summary>One piece of an attribute's value.</summary>

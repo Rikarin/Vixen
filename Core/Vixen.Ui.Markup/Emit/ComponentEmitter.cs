@@ -612,6 +612,22 @@ public sealed class ComponentEmitter {
                 Mapped(action, $"{context}.Use({name}, ", ");");
                 break;
 
+            // ⚠ `Target(element, name)` and not the tag object, which is `class`'s choice rather than
+            // `use`'s: what is being described is the element a screen reader reaches, and for a
+            // capitalised tag that is the element the component drew. A `Component` is not in the
+            // tree at all, so describing one would be describing nothing.
+            case BoundAttributeKind.Help when attribute.IsDynamic:
+                Mapped2(attribute.Value, $"{context}.Help({Target(element, name)}, () => ", ");");
+                break;
+
+            case BoundAttributeKind.Help:
+                Line(
+                    $"{context}.Help({Target(element, name)}, "
+                    + $"{Quote(attribute.Literal ?? string.Empty)});"
+                );
+
+                break;
+
             case BoundAttributeKind.Ref when attribute.Expression is { } member:
                 // ⚠ The whole element and not `Target(element, name)`. A `ref` hands back the thing
                 // the tag named — a `<Callout ref="@callout" />` gives the component, whose methods

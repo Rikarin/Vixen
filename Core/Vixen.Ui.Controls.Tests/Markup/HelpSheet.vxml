@@ -1,0 +1,34 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component HelpSheet
+@namespace Vixen.Ui.Controls.Tests
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<help-sheet>
+    <!--
+        The sentence a hand-written panel could only reach through `use="@(b => tip.Attach(b))"`
+        with the `Tooltip` held in `@code`.
+    -->
+    <Button ref="@save" Label="Save" help="Writes the scene to disk" />
+
+    <!-- And on a lowercase tag, where the text follows a signal rather than being fixed. -->
+    <status-line ref="@status" help="@Hint.Value" />
+</help-sheet>
+
+@code {
+    Button save = null!;
+    UiElement status = null!;
+
+    /// <summary>What the second element's description says, so a test can change it.</summary>
+    public Signal<string> Hint { get; } = new("Nothing has happened yet");
+
+    /// <summary>The control carrying a fixed description.</summary>
+    public Button Save => save;
+
+    /// <summary>The element carrying one that follows <see cref="Hint" />.</summary>
+    public UiElement Status => status;
+}

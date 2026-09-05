@@ -865,6 +865,99 @@ public sealed class BuildContext {
         Bind(() => action(target));
     }
 
+    // ================================================================== Attachments
+
+    /// <summary>
+    ///     How a <c>help="…"</c> is realised: given the element being described, make the thing that
+    ///     describes it and hand it back.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The layering answer for every attach-shaped directive, and it is
+    ///     <see cref="Subscribe" />'s answer rather than a new one.</b> A tooltip is
+    ///     <c>Vixen.Ui.Controls.Tooltip</c>, and the controls reference this assembly rather than the
+    ///     other way round — so <c>Help</c> cannot name the type it needs. The two alternatives were
+    ///     both worse. Emitting <c>global::Vixen.Ui.Controls.Tooltip.Attach(…)</c> from the generator
+    ///     resolves in a project that references the controls and produces a generated file that does
+    ///     <i>not compile</i> in one that references only <c>Vixen.Ui</c> — which is strictly worse
+    ///     than a directive refused with a diagnostic, and cannot be refused, because the generator
+    ///     never touches the compilation and so cannot know which project it is in. Moving the
+    ///     mechanism down here would bring an overlay's placement, its light dismiss and its hover
+    ///     delay with it, which is most of what a <c>Tooltip</c> is.
+    /// </remarks>
+    static Func<UiElement, UiElement>? describes;
+
+    /// <summary>Says what describes an element, for markup's <c>help</c>.</summary>
+    /// <param name="attach">
+    ///     Makes something that describes the element it is given, attaches it, and returns it. The
+    ///     text is written to the returned element's <see cref="UiElement.Text" /> afterwards, and
+    ///     the element is removed when the region that asked for it goes.
+    /// </param>
+    /// <remarks>
+    ///     Called from <c>Vixen.Ui.Controls</c>' module initializer, exactly as <see cref="Subscribe" />
+    ///     is, so a project that uses a control gets <c>help</c> without knowing this exists.
+    /// </remarks>
+    public static void Describes(Func<UiElement, UiElement> attach) {
+        ArgumentNullException.ThrowIfNull(attach);
+        describes = attach;
+    }
+
+    /// <summary>Describes an element with fixed text, which is markup's <c>help="Save the scene"</c>.</summary>
+    /// <param name="target">The element being described.</param>
+    /// <param name="text">What it says.</param>
+    /// <exception cref="InvalidOperationException">Nothing has registered an attachment.</exception>
+    /// <remarks>
+    ///     ⚠ <b>A description and not only a hover behaviour.</b> What is registered attaches a
+    ///     tooltip <i>and</i> an <c>AccessibleRelation.DescribedBy</c>, so the sentence reaches a
+    ///     screen reader — which is the half a box that appears on hover withholds from the users
+    ///     who never hover.
+    /// </remarks>
+    public void Help(UiElement target, string text) {
+        ArgumentNullException.ThrowIfNull(text);
+        Described(target).Text = text;
+    }
+
+    /// <summary>Describes an element with text that follows an expression.</summary>
+    /// <param name="target">The element being described.</param>
+    /// <param name="text">What it says. Re-read whenever something it read changes.</param>
+    /// <remarks>
+    ///     ⚠ <b>Attached once, written many times.</b> The attachment is a subscription and an
+    ///     accessible relation; re-attaching on every change would add a second handler and a second
+    ///     relation per flush. So only the text is inside the effect.
+    /// </remarks>
+    public void Help(UiElement target, Func<object?> text) {
+        ArgumentNullException.ThrowIfNull(text);
+
+        var description = Described(target);
+        Bind(() => description.Text = Format(text()));
+    }
+
+    /// <summary>The element that describes a target, made by whatever registered an attachment.</summary>
+    UiElement Described(UiElement target) {
+        ArgumentNullException.ThrowIfNull(target);
+
+        if (describes is not { } attach) {
+            throw new InvalidOperationException(
+                "'help' needs a description implementation, and none is registered. Vixen.Ui.Controls "
+                + "registers one when it is loaded; a project that references only Vixen.Ui has no "
+                + "tooltip for it to make."
+            );
+        }
+
+        var description = attach(target);
+
+        // ⚠ Tracked, because the description is a root child rather than a child of the element it
+        // describes — an overlay is, for painting order — so clearing the region that built the
+        // target does not take it. A row in a `@for` that leaves would otherwise leave a tooltip
+        // behind on every reorder, holding the element it described alive with it.
+        building.Track(new Unsubscribe(() => {
+            if (!description.IsRemoved) {
+                description.Remove();
+            }
+        }));
+
+        return description;
+    }
+
     /// <summary>Subscribes a handler to an event by name.</summary>
     /// <param name="target">The element.</param>
     /// <param name="name">The event name, as written after <c>on:</c>.</param>

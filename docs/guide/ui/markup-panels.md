@@ -130,9 +130,10 @@ now throws out of `Build` rather than being caught and logged by the effect.
 `class`, `style` and `binding-path` mean the same on a component tag as on an element, and are never
 assigned as properties. On a capitalised tag they reach the element the control drew.
 
-(The other two attributes that are never parameters are [`tag`](#tag-for-a-capitalised-tag-under-another-name)
-and [`use`](#use-for-a-control-fed-by-a-method), which are below because neither reaches the style
-tree: one *is* the element's name and the other never touches the document at all.)
+(The other attributes that are never parameters are [`tag`](#tag-for-a-capitalised-tag-under-another-name),
+[`use`](#use-for-a-control-fed-by-a-method) and [`help`](#help-for-a-sentence-a-screen-reader-can-reach),
+which are below because none of them reaches the style tree: one *is* the element's name, one never
+touches the document at all, and one makes something beside it.)
 
 `style` is an *inline style*: a cascade origin that beats every rule, not an attribute a selector can
 match. Use it for the lengths no stylesheet was given.
@@ -510,6 +511,31 @@ its dependencies changes.
 answer whenever it is available — it is checked at the tag, it reads as a property, and it costs
 nothing at run time. `use` is what is left when the control is `sealed`, or when what is needed is a
 call with several arguments rather than one value.
+
+### `help`, for a sentence a screen reader can reach
+
+```xml
+<Button Label="Save" help="Writes the scene to disk" />
+<status-line help="@Hint.Value" />
+```
+
+`help` attaches a `Tooltip` and — this is the half that matters — wires
+`AccessibleRelation.DescribedBy`, so the sentence lands in the element's `AccessibleDescription` and
+is read on demand, whether or not anything is hovering. A tooltip that were only a hover behaviour
+would be a sentence written for one kind of user and withheld from another, since hovering is a
+gesture a screen-reader user does not make.
+
+It means the same on a capitalised tag as on an element, and on a capitalised tag it describes the
+element the control drew. The value may be a bound expression: the attachment happens once and only
+the words follow the signal. The tooltip is removed with the region that asked for it, so a row that
+leaves a `@for` takes its description with it.
+
+⚠ **The call it emits names no control type, and that is deliberate.** `Tooltip` lives in
+`Vixen.Ui.Controls` and the generated file has to compile in a project that references only
+`Vixen.Ui`. So the emitter writes `ctx.Help(…)` and the control library fills the seam
+(`BuildContext.Describes`) from a module initializer, the same route by which `on:click` comes to
+mean a control's activation rather than a tap. A project with no control library gets an exception
+naming the missing registration rather than a generated file that does not compile.
 
 ### Writing an element's own text
 
