@@ -211,7 +211,7 @@ public sealed class UiBoxAgreementTests {
     ///     ⚠ <c>EndFrame</c> is what builds the batches, and a list without it produces geometry with
     ///     no draws in it — a frame both renderers agree perfectly about, having drawn nothing.
     /// </remarks>
-    static DrawList Frame(string fixture, bool blur = true) {
+    internal static DrawList Frame(string fixture, bool blur = true) {
         var list = new DrawList();
         list.BeginFrame();
 

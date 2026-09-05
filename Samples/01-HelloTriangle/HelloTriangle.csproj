@@ -21,7 +21,9 @@
         <!--
             SPIR-V, committed. The RHI never parses shader source and Raven is not wired into the
             build yet (docs/plan/07), so the sample carries the compiled modules and the GLSL beside
-            them. Regenerating is `glslc Shaders/triangle.vert -o Shaders/triangle.vert.spv`.
+            them. Regenerating is `glslc Shaders/triangle.vert -o Shaders/triangle.vert.spv`. The pair is
+            pinned by `CommittedGlslModuleTests`, whose `hand-compiled.sha256` records which source
+            each module was built from — so the run-it-and-forget step is now a red test.
         -->
         <EmbeddedResource Include="Shaders\*.spv" />
     </ItemGroup>

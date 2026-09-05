@@ -33,6 +33,8 @@
             own: this one shader is the sample's - a debug view of the visibility buffer - and Raven
             is the engine's library, not the place for a sample's scratch shader. The GLSL sits
             beside each module. Regenerating is `glslc Shaders/present.frag -o Shaders/present.frag.spv`.
+            The pair is pinned by `CommittedGlslModuleTests`, whose `hand-compiled.sha256` records
+            which source each module was built from — so the run-it-and-forget step is now a red test.
         -->
         <EmbeddedResource Include="Shaders\*.spv" />
     </ItemGroup>

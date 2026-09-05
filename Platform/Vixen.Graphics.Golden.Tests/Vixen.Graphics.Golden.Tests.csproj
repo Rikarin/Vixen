@@ -62,6 +62,17 @@
         <ProjectReference Include="..\..\Core\Vixen.Ui.Renderer\Vixen.Ui.Renderer.csproj" />
 
         <!--
+            ⚠ The Raven modules an application actually draws through, so the hand-written GLSL beside
+            this project can be compared with them rather than only with a picture each was separately
+            measured against. `UiShaderLibrary.Load` is the call every host makes — `UiApplication` and
+            `EditorHost` both — and it carries the vertex attribute locations out of Raven's own
+            reflection, which is the one thing a table assembled by hand here would have got wrong.
+            See `UiRavenAgreementTests`. Referenced for its embedded `.spv` and that one method;
+            nothing here opens a window.
+        -->
+        <ProjectReference Include="..\Vixen.Ui.Desktop\Vixen.Ui.Desktop.csproj" />
+
+        <!--
             The debug geometry's GPU half, for the same reason as the line above it. `DebugGeometry`
             is checked without a device and cannot reach the two things a picture can: whether the
             screen projection maps a pixel to the pixel it names, and whether the stroke font comes

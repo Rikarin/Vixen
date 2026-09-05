@@ -83,12 +83,17 @@ static class ParityLedger {
 
     /// <summary>The states a row can be in.</summary>
     /// <remarks>
-    ///     <c>unknown</c> is the sixth and it is deliberate. One row is an aggregate the original script
-    ///     left behind — eight static classes from unrelated Tailwind roots under one descriptive name —
-    ///     and two of the eight resolve while six do not. No single state is true of it. Recording that
-    ///     is better than picking the state that flatters, and the row says what it would take to fix.
+    ///     ⚠ <b>There were six and there are five, because the sixth described a row rather than a
+    ///     state.</b> <c>unknown</c> existed for one row: an aggregate the original script left behind,
+    ///     eight static classes from unrelated Tailwind roots under one descriptive name, of which two
+    ///     resolved and six did not. Recording that was better than picking the state that flattered —
+    ///     and better still was splitting the row, which its own note asked for. The eight classes now
+    ///     sit on the roots that actually own them: <c>snap-mandatory</c> and <c>snap-proximity</c> on
+    ///     <c>snap</c>, <c>space-x-px</c> and <c>space-y-px</c> on their own families, and the four
+    ///     <c>*-reverse</c> classes on two rows of their own that read <c>absent</c> and say why.
+    ///     Nothing here can produce <c>unknown</c> any more, so nothing here offers it.
     /// </remarks>
-    public static readonly string[] States = ["works", "partial", "inert", "absent", "composed", "unknown"];
+    public static readonly string[] States = ["works", "partial", "inert", "absent", "composed"];
 
     /// <summary>Finds the ledger, walking up from the test binary to the repository root.</summary>
     public static string Locate() {
@@ -238,8 +243,7 @@ static class ParityLedger {
         // that counted the fragment as unread would call a finished family half-done.
         var real = properties.Where(p => Verdict(measured, p) != "composed").ToList();
 
-        var state = Bucket(row) ? "unknown"
-            : properties.Count == 0 ? "absent"
+        var state = properties.Count == 0 ? "absent"
             : real.Count == 0 ? "composed"
             : real.All(p => Verdict(measured, p) == "read") ? "works"
             : reads.Count == 0 ? "inert"
@@ -256,14 +260,6 @@ static class ParityLedger {
 
         return (string.Join(',', properties), string.Join(',', reads), state);
     }
-
-    /// <summary>Whether a row is the leftover aggregate rather than a Tailwind root.</summary>
-    /// <remarks>
-    ///     Read off the data rather than matched by name: a descriptive label with a space in it, and no
-    ///     CSS property of its own. Exactly one row in the file is both.
-    /// </remarks>
-    public static bool Bucket(ParityRow row) =>
-        row.Root.Contains(' ', StringComparison.Ordinal) && row.Css.Trim().Length == 0;
 
     static string Verdict(Measurement measured, string property) =>
         measured.Verdicts.TryGetValue(property, out var verdict) ? verdict : "inert";

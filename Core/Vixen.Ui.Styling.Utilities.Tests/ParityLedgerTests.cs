@@ -378,7 +378,10 @@ public class ParityLedgerTests {
     ///     <para>
     ///         Held in three ways, because the failures are different shapes. The category <i>set</i> is
     ///         an equality against the ledger's own categories, so a category that appears twice, or a
-    ///         category of roots nobody tabulated, is red. Each row's seven numbers are re-derived. And
+    ///         category of roots nobody tabulated, is red. Each row's numbers are re-derived — one per state
+    ///         plus the roots column, counted off `ParityLedger.States` rather than written down, because
+    ///         written down is what the pattern had and it stopped matching the day a state was retired.
+    ///         And
     ///         the <c>**Total**</c> row is checked against the ledger rather than against the column
     ///         sums — summing the columns of a table to check that table is the tautology this file's
     ///         remark on re-syncing warns about, and it would pass a document in which every row was
@@ -389,7 +392,15 @@ public class ParityLedgerTests {
     public void The_by_category_table_is_one_row_per_category_and_adds_up() {
         var (_, rows) = ParityLedger.Read(ParityLedger.Locate());
         var plan = File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "43-web-styling-parity.md"));
-        var shape = new Regex(@"^\|\s*(?<category>[^|*]+?)\s*\|(?<counts>(\s*\d+\s*\|){7})\s*$");
+        // ⚠ The column count is `States` plus the roots column rather than a literal, because the
+        // literal was one: it read 7, the sixth state was retired, and a regex that matches nothing
+        // turns this whole table into an empty list — which is the "sweep that matches nothing" this
+        // method's own header assertion exists to refuse, arriving through the row pattern instead.
+        var shape = new Regex(
+            @"^\|\s*(?<category>[^|*]+?)\s*\|(?<counts>(\s*\d+\s*\|){"
+            + (ParityLedger.States.Length + 1).ToString(CultureInfo.InvariantCulture)
+            + @"})\s*$"
+        );
         var header = Array.FindIndex(
             plan, line => line.StartsWith("| Category | roots | works |", StringComparison.Ordinal)
         );
@@ -464,7 +475,7 @@ public class ParityLedgerTests {
 
                {string.Join("\n  ", wrong)}
 
-             The columns are roots, then works/partial/inert/absent/composed/unknown in that order.
+             The columns are roots, then {string.Join('/', ParityLedger.States)} in that order.
              """
         );
     }

@@ -103,7 +103,7 @@ against the registry and the ledger now, so a family that lands fails the run un
 current number is named in this paragraph on purpose: a figure repeated in prose one line under a
 checked table is a copy nothing checks, and it is exactly how 128 outlived the two counts it replaced.
 
-### The six states, and why the four in the brief were not enough
+### The five states, and why the four in the brief were not enough
 
 | State | Meaning | Roots |
 |---|--:|--:|
@@ -112,13 +112,16 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
 | **absent** | not emitted at all | **70** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
-| **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
-⚠ **`unknown` is the sixth, and it is there because a state that flatters is worse than no state.**
-Exactly one row holds it: an aggregate the original script left behind, eight static classes from
-unrelated Tailwind roots under one descriptive name, of which two resolve and six do not. No single
-state is true of it. The alternative — picking whichever of the five is closest — is how a ledger
-starts lying, and the row instead says what it would take to fix (split it, or drop it).
+⚠ **There was a sixth, `unknown`, and it described a row rather than a state.** Exactly one row held
+it: an aggregate the original script left behind, eight static classes from unrelated Tailwind roots
+under one descriptive name, of which two resolved and six did not. Recording that was better than
+picking whichever of the five flattered — but the row's own note asked to be split or dropped, and
+splitting it is what makes every state true of something. `snap-mandatory` and `snap-proximity` are
+`scroll-snap-type` and belong to the `snap` root; `space-x-px` and `space-y-px` belong to the
+families that already emit them; the four `*-reverse` classes are two roots of their own, `absent`,
+carrying the reason. ⚠ The state is gone from `ParityLedger.States` as well as from the file, because
+a state nothing can produce is a state somebody will find a use for.
 
 ⚠ **`composed` fell from twelve to three, and eight of the nine moved for two different reasons.**
 Five (`space-x/y-*`, `divide-*`, `divide-x/y-*`) were never composition at all: they are child-scoped
