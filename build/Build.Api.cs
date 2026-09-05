@@ -45,26 +45,18 @@ partial class Build {
 
     Target CheckApi => definition => definition
         .Description("Fails if a packable assembly's public surface differs from its committed baseline")
-        .DependsOn(Restore)
+        // Release, whatever `--configuration` says, and this gate is the reason CompileRelease
+        // hard-codes it. A public surface is a promise about a shipped package, `Pack` ships
+        // Release, and the two configurations do not agree: the engine has `public const bool`
+        // feature flags — LeakTracker.IsSupported, JobScheduler.SafetyChecksEnabled — whose values
+        // are `#if DEBUG`, exactly as intended. Baselining Debug would record `IsSupported = true`
+        // as the promise and fail every CI run; baselining Release and checking whatever the
+        // developer last built would fail on their machine instead. So the gate has one subject.
+        .DependsOn(CompileRelease)
         .Executes(() => {
                 var projects = ApiCheckedProjects();
 
                 Assert.True(projects.Count > 0, "Found no packable projects to check — the glob is wrong.");
-
-                // Release, whatever `--configuration` says, and this target is the one place in the
-                // build where ignoring it is right. A public surface is a promise about a shipped
-                // package, `Pack` ships Release, and the two configurations do not agree: the engine
-                // has `public const bool` feature flags — LeakTracker.IsSupported,
-                // JobScheduler.SafetyChecksEnabled — whose values are `#if DEBUG`, exactly as
-                // intended. Baselining Debug would record `IsSupported = true` as the promise and
-                // fail every CI run; baselining Release and checking whatever the developer last
-                // built would fail on their machine instead. So the gate has one subject.
-                DotNetBuild(settings => settings
-                    .SetProjectFile(Solution)
-                    .SetConfiguration(Configuration.Release)
-                    .EnableNoRestore()
-                    .AddProcessAdditionalArguments(WorkerArguments)
-                );
 
                 var arguments = new List<string>();
 

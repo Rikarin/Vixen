@@ -174,12 +174,18 @@ partial class Build {
     /// </summary>
     /// <remarks>
     ///     ⚠ <b>Narrowing has to be a subset of what the unscoped run checks, or it is not a
-    ///     narrowing at all.</b> <c>build/_build.csproj</c> is the proof: it is not in the solution,
-    ///     it carries 25 pre-existing <c>IDE1006</c> violations, and <c>dotnet format style</c>
-    ///     exits 2 on it today — so a <c>--since</c> that mapped an edit in <c>build/</c> to its
-    ///     nearest project would fail a developer for code the gate has never looked at. The
-    ///     mobile and web heads outside the solution are the same case; only
-    ///     <see cref="CheckArchitecture" /> is supposed to see those.
+    ///     narrowing at all.</b> The mobile and web heads outside the solution are the case this
+    ///     exists for: only <see cref="CheckArchitecture" /> is supposed to see those, so a
+    ///     <c>--since</c> that mapped a changed file to its nearest project would fail a developer
+    ///     for code the gate has never looked at.
+    ///     <para>
+    ///         ⚠ <b><c>build/_build.csproj</c> used to be the example here and has stopped being
+    ///         one.</b> The claim on this remark was that it carries pre-existing <c>IDE1006</c>
+    ///         violations and exits 2 — true when written, and #584's answer was to make it a
+    ///         workspace <see cref="CheckFormat" /> points at rather than to leave it uncovered. It
+    ///         is still outside the solution and so still outside a narrowed run, which now makes it
+    ///         the opposite kind of example: something the gate checks and the inner loop does not.
+    ///     </para>
     /// </remarks>
     HashSet<AbsolutePath> SolutionProjects() {
         var projects = Solution.AllProjects.Select(project => project.Path).ToHashSet();

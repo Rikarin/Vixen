@@ -25,6 +25,22 @@
             this starts, which is exactly how a consuming build uses it.
         -->
         <ProjectReference Include="..\Vixen.Cli\Vixen.Cli.csproj" ReferenceOutputAssembly="false" />
+
+        <!--
+            ⚠ And Vixen.Net.Generators, which is the one generator in the tree that packing its own
+            package does not build. Six of the seven Core/ libraries that carry a generator name it
+            as an analyzer ProjectReference, so `dotnet pack` builds it on the way past; Vixen.Net
+            deliberately does not — its own comment says why, NetworkTransformReplicator is
+            hand-written precisely so the engine does not run the generator over its own source — and
+            its packing target therefore asks only for `GetTargetPath`, which does not build. Packing
+            Vixen.Net with the generator unbuilt fails inside NuGet.Build.Tasks.Pack with a missing
+            bin/Debug/netstandard2.1, which reads like nothing to do with this suite.
+
+            Vixen.Net.Tests passes its own PackagedGeneratorTests only because it happens to
+            reference the generator for its own compilation. This says so on purpose instead.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Net.Generators\Vixen.Net.Generators.csproj"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <!--
@@ -41,6 +57,16 @@
         <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
             <_Parameter1>VixenSdkDirectory</_Parameter1>
             <_Parameter2>$(MSBuildThisFileDirectory)../Vixen.Sdk</_Parameter2>
+        </AssemblyAttribute>
+
+        <!--
+            And the repository, for PackagedAnalyzerTests — which packs the Core/ libraries that
+            carry a Roslyn generator and reads the archives. Handed in for the same reason as the
+            two above rather than walked to from AppContext.BaseDirectory.
+        -->
+        <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+            <_Parameter1>VixenRepositoryRoot</_Parameter1>
+            <_Parameter2>$(MSBuildThisFileDirectory)../..</_Parameter2>
         </AssemblyAttribute>
     </ItemGroup>
 </Project>

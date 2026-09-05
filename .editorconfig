@@ -914,3 +914,33 @@ dotnet_diagnostic.CA1716.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Gameplay/Vixen.Gameplay.Combat/DamagePipeline.cs]
 dotnet_diagnostic.CA1051.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# build/*.cs — the Nuke build, whose private fields are a framework contract
+#
+# ⚠ This is the tree's only C# that no gate read, and IDE1006 is why: `dotnet
+# format style` exits 2 on build/_build.csproj with twenty-odd naming violations,
+# every one of them on a member Nuke resolves BY NAME. `[Parameter] readonly bool
+# UpdateGolden` is what makes `--update-golden` exist; `[Solution] readonly
+# Solution Solution` and `[GitRepository] readonly GitRepository DocsRepository`
+# are injected by matching the member. Rename them to camelCase and the switches
+# and the injection stop working — so the repository-wide rule (§ Naming: private
+# state is camelCase, no prefix) is simply the wrong rule here.
+#
+# ⚠ Expressed as a rule rather than as a suppression, which is the difference
+# between covering this directory and excusing it. IDE1006 still runs; what
+# changes is which shape it demands, so a private field named `checkDocsGate` is
+# reported here exactly as `CheckDocsGate` is everywhere else. Turning the
+# diagnostic off would have left the naming pass asserting nothing about the
+# twenty files that define every gate.
+#
+# The style and analyzers passes over this project are wired in
+# `Build.cs § FormatWorkspaces`; before that the project was not in Vixen.slnx
+# and nothing pointed at it (#584).
+# ─────────────────────────────────────────────────────────────────────────────
+[build/*.cs]
+dotnet_naming_rule.private_fields_camel.severity = none
+
+dotnet_naming_rule.nuke_private_fields_pascal.severity = warning
+dotnet_naming_rule.nuke_private_fields_pascal.symbols = private_fields
+dotnet_naming_rule.nuke_private_fields_pascal.style = pascal
