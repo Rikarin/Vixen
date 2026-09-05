@@ -527,7 +527,7 @@ public class ColorPickerTests {
             var chroma = (i + 0.5f) / ColorField.Samples * ColorPicker.MaximumChroma;
 
             for (var j = 0; j < ColorField.Samples; j++) {
-                var top = new OkLch(1f - (j / (float) ColorField.Samples), chroma, picker.Hue).ToSrgb();
+                var top = new OkLch(1f - (j / (float)ColorField.Samples), chroma, picker.Hue).ToSrgb();
                 var bottom = new OkLch(1f - ((j + 1f) / ColorField.Samples), chroma, picker.Hue).ToSrgb();
 
                 Assert.Equal(top, picker.Field.PlaneColour(i, j));

@@ -115,7 +115,9 @@ partial class Build {
         Assert.True(
             unexpected.Count == 0,
             $"{unexpected.Count} file(s) disagree with `dotnet format whitespace` and are not exempt. "
-            + "Run `dotnet format whitespace <the file> --folder` to fix them: "
+            + "Run `dotnet format whitespace . --folder --include <the file>` from the repository "
+            + "root to fix them — ⚠ `--folder` names a DIRECTORY to walk, so passing the file to it "
+            + "instead is the one spelling that cannot work: "
             + string.Join(", ", unexpected.Take(20))
         );
 

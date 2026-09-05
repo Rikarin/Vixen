@@ -452,7 +452,7 @@ public class UtilityFamilyTests {
         // vertical one — and `Vixen.Ui.Layout` has none, which is `mbs-*`'s argument one axis over.
         var fixture = new UtilityFixture();
 
-        foreach (var candidate in (string[]) ["mx-2", "my-2", "px-2", "py-2", "inset-x-2", "inset-y-2"]) {
+        foreach (var candidate in (string[])["mx-2", "my-2", "px-2", "py-2", "inset-x-2", "inset-y-2"]) {
             var emitted = fixture.Emits(candidate);
 
             Assert.Equal(2, emitted.Length);
