@@ -75,6 +75,19 @@ partial class Build : NukeBuild {
     [Solution(GenerateProjects = false)]
     readonly Solution Solution;
 
+    /// <summary>This build's own project — outside the solution, and deliberately so.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A Nuke build project inside the solution it builds is an ordering question nobody
+    ///     needs to answer</b>, and adding it would also hand it the packing, documentation and
+    ///     API-baseline obligations of a shipped library. What it was costing instead was coverage:
+    ///     no target reads it, so <c>build/</c> was the only C# in the tree that nothing checked
+    ///     (#584). <see cref="FormatWorkspaces" /> points the two format passes at it directly —
+    ///     <c>dotnet format</c> takes a project as a workspace — which buys the check without the
+    ///     membership. ⚠ Only the unscoped run: <c>--since</c> narrows to solution projects, so an
+    ///     edit here is still checked by the gate and not by the inner loop.
+    /// </remarks>
+    AbsolutePath BuildProjectFile => RootDirectory / "build" / "_build.csproj";
+
     AbsolutePath ArtifactsDirectory => RootDirectory / "artifacts";
 
     AbsolutePath TestResultsDirectory => ArtifactsDirectory / "test-results";
@@ -263,7 +276,11 @@ partial class Build : NukeBuild {
     /// </remarks>
     IReadOnlyList<AbsolutePath> FormatWorkspaces() {
         if (Since is null) {
-            return [Solution.Path];
+            // ⚠ And the build itself, which every target here reads the solution to find and which
+            // is therefore not in it. Twenty-odd files defining every gate in this repository were
+            // the only C# no gate looked at (#584) — a directory checked by nothing is where a rule
+            // rots quietest, because the code that decides what "checked" means lives in it.
+            return [Solution.Path, BuildProjectFile];
         }
 
         var projects = AffectedProjectsSince(Since);
