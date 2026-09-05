@@ -1041,15 +1041,30 @@ plugin host and the asset write already exist, and every one of them would other
 
 ## Exit criteria (measured)
 
-1. **A forty-node graph at 2048² evaluates in under 250 ms** on the reference machine, and a parameter
-   change re-evaluates only the affected sub-graph.
+1. **A forty-node graph at 2048² is *recorded*, and what is gated is the work rather than the clock.**
+   The milliseconds are measured with the adapter's name against them and asserted only by a hang
+   check; what is asserted is the three deterministic counters that decide whether that number is tens
+   of milliseconds or seconds — a chain of any length pools two textures and no more, one bake is one
+   frame however many dispatches it holds, and forty ops of one kernel compile one variant. ⚠ **This
+   criterion said "under 250 ms" and asserting that would have been the flake this repository warns
+   about**; the reference measurement is 40 ms at 2048² on an Apple M1 Max, six times under. ⚠ **And
+   a parameter change re-evaluates only the affected sub-graph — which is unimplemented, and was read
+   past by six audits in a row** ([#846](https://github.com/Rikarin/Vixen/issues/846)): the first
+   half of this sentence was measurable, so the sentence got measured. A criterion holding two claims
+   joined by an "and" is scored on whichever of them somebody can score.
 2. **Scale invariance.** Every atomic node, baked at 1K and at 4K, agrees within 2/255 after
    downsampling. ⚠ A node that fails this has D8's bug and no other test finds it.
-3. **A golden per node, and the library is read rather than listed.** The test enumerates
-   `Vixen.Editor.TextureGraph/Shaders` and fails on a kernel with no golden — [#512](https://github.com/Rikarin/Vixen/issues/512)'s
-   shape, applied before it can go wrong rather than after.
-4. **A sabotage per node.** Perturb a kernel's constant; the golden goes red. A node whose golden
-   survives is a golden of a black image.
+3. **Every node is covered by an assertion that would notice its picture changing, and the library is
+   read rather than listed.** The enumeration is the shipped surface — the embedded `Shaders/*.rvn`,
+   the assembly's `ITextureCpuOperation` types, and the node registry's own paths — so a node or a
+   kernel that arrives uncovered is red by existing, which is
+   [#512](https://github.com/Rikarin/Vixen/issues/512)'s shape applied before it can go wrong rather
+   than after. ⚠ **This criterion said "a golden per node" and that is the wrong instrument here**;
+   see the correction below.
+4. **A sabotage per shipped op implementation.** Perturb what the kernel stores; the picture must
+   move. A node whose evaluation survives a perturbation of its own source is a golden of a black
+   image — and nothing may ship without one, which is a roll call over the implementations rather
+   than a habit.
 5. **Closed forms where they exist.** A Gaussian's impulse response; a distance transform from one lit
    texel; AO on a sphere against the analytic hemisphere; curvature of a sphere of radius *r* reading
    1/*r*; a levels curve at three points.
@@ -1079,14 +1094,39 @@ nobody updates. What *does* belong here is what the first honest pass over them 
 criteria as written — because four of them cannot fail, and this repository's own rule is that an
 instrument reporting success on the day it did not run is the first thing to fix.
 
-⚠ **Four are properties of the tests with nothing requiring the next test to have them.**
+⚠ **Four were properties of the tests with nothing requiring the next test to have them** — and the
+four resolved four different ways, which is the part worth keeping. 11 was made mechanical as
+written; 4 was made mechanical and its subject set turned out to be wrong; 10 was right and the gate
+was built to match it, and then the gate turned out never to have run; **3 is the one where the
+criterion itself is the defect** and the answer is to amend it rather than to build what it asked
+for.
 
-- **3, a golden per node.** The half that *is* enforced is the half about the library being read
-  rather than listed. "Per node" is not: nothing fails when a node arrives without a golden, so the
-  criterion is satisfied by whatever goldens happen to exist.
-- **4, a sabotage per node.** Sabotage arguments appear across the suites and no mechanism notices a
-  missing one — the same shape as 3, and the more serious of the two, because a golden with no
-  sabotage may be a golden of a black image.
+- **3, a golden per node — ⚠ and the correction is that the instrument was wrong, not that the work
+  was skipped.** The half that *is* enforced is the half about the library being read rather than
+  listed. "Per node" was not: nothing failed when a node arrived without a golden. But a golden per
+  node should not be built, and the reasons are all facts about this repository rather than
+  preferences. A golden is a picture recorded from the code it then guards, so on the day it is
+  written it asserts nothing about whether the picture is *right* — criterion 4's own sentence says
+  as much. The golden suites here are the ones that have actually gone quiet: eighteen files
+  **passed** rather than skipped without a device until 2026-08-21, and they run on one platform,
+  so a golden per node multiplies by thirty-six an instrument whose failure mode is reporting
+  success on the day it did not run. And a committed reference drifts the moment a neighbouring
+  branch changes the renderer, which is the same cross-branch shape as the five roll calls below.
+  What is worth having instead is what a golden was standing in for: **an assertion per node that
+  would notice the picture changing, enumerated from the shipped surface**. That is three derived
+  mechanisms rather than a folder of PNGs — the closed forms of criterion 5 where a node has one,
+  the generated per-implementation sabotage of criterion 4 for sensitivity, and
+  `TextureNodeLibraryTests`' roll calls, which compile *every* node type into one plan and hold each
+  op to its kernel's parameters, input count and defaults in both directions. ⚠ **What none of them
+  covers, said plainly**: a node whose parameters are right and whose picture is merely ugly. A
+  golden would not have caught that either — it would have recorded it.
+- **4, a sabotage per node.** Sabotage arguments appeared across the suites and no mechanism noticed
+  a missing one — the same shape as 3, and the more serious of the two, because a golden with no
+  sabotage may be a golden of a black image. It is now generated from each kernel's own source, and
+  the roll call is taken over the shipped implementations. ⚠ **And the subject set was the second defect**: the
+  roll call read the embedded `.rvn` files, so § 4.6's CPU operations — which ship no shader — were
+  outside it, and it reported complete coverage of a surface it could not see part of. The criterion
+  says "per **node**", and a CPU operation is one.
 - **10, "and it references `Vixen.Editor.App` in no build".** ⚠ **This was recorded here as a
   criterion naming the wrong instrument, and the criterion turns out to have been right — so the gate
   was built to match it.** The finding as written said `CheckArchitecture` did not check this and
@@ -1099,6 +1139,16 @@ instrument reporting success on the day it did not run is the first thing to fix
   the day it is added with no edit to the rule. ⚠ **This is the only one of the four that a later
   batch answered by agreeing with the plan rather than by amending it**, and it is worth leaving
   visible: a design record whose corrections are all in one direction is not being read carefully.
+  ⚠ **And the rule that answered it had never produced an answer.** It lived inside
+  `CheckArchitecture`'s `Executes`, so the only way to see what it said was to run a target that
+  compiles the solution in Release — which the batch that wrote it was not permitted to do. The rule
+  is now a pure function of project files that the gate is one caller of and
+  `PluginReferenceRuleTests` is the other, run over this tree and over a fixture where a plugin
+  reaches the application through an intermediate. Its first answer corrected its own subject set:
+  **eight plugins, not nine** — `Vixen.Editor.App` references the plugin contract because it *hosts*
+  plugins, and was being counted as one of the projects it bans. It could never have produced a
+  violation, which is exactly why nobody saw it: a rule's subject set is the half of it that nothing
+  checks.
 - **11, a device confirmed by name in every GPU test.** Every device file does it, through one
   harness, by convention. Nothing enumerates the device files and requires the next one to.
 
@@ -1111,12 +1161,21 @@ The comparison is meaningful for a field band-limited at the **lower** resolutio
 shape, a gradient, a noise — and that is where the suites make it. The criterion needs a stated scope
 rather than a wider tolerance ([#640](https://github.com/Rikarin/Vixen/issues/640)); widening it to
 2/255-except-at-edges would delete the D8 bug it exists to catch. ⚠ And "every atomic node" is the
-same unenumerated shape as 3, 4 and 11 — it is checked for the nodes somebody wrote a case for.
+same unenumerated shape 3, 4 and 11 had — it is checked for the nodes somebody wrote a case for, and
+it is now the **last** of the four to be, because the other three were made mechanical and this one
+cannot be until its scope is stated. That order is backwards: a criterion that is false as written
+should be fixed before the three that were merely unenforced.
 
-⚠ **And 1 is a threshold nothing gates**: the timing is recorded and printed, and what is asserted is
+⚠ **And 1 was a threshold nothing gates**: the timing is recorded and printed, and what is asserted is
 a hang check. That is the right call for a wall-clock budget in this repository — a number calibrated
-on an idle machine is its single largest flake source — but then the criterion should say *recorded*,
-because "under 250 ms" reads as a gate and is not one.
+on an idle machine is its single largest flake source — so the criterion now says *recorded*, because
+"under 250 ms" read as a gate and was not one. What it gained instead is the gate that a millisecond
+budget is really about: three deterministic counters, each of whose failures **draws exactly the same
+picture** and so is invisible to every golden and every closed form in the area. Forty ops in forty
+textures is 2.6 GB at 4K rather than 128 MB; forty frames rather than one is forty device drains; forty
+compilations rather than one runs the Raven front end once per op for a single image. ⚠ The measurement
+itself has since printed 27 ms and 40 ms at 2048² on the same laptop in two different weeks, which is
+the argument in one line.
 
 **6 and 8 name phases rather than properties**, so they could not be measured before M7 and M9
 existed. That is not a failure of the criteria and it is not a result either; it is why the exit

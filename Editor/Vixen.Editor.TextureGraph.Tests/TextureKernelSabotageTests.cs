@@ -73,21 +73,60 @@ public class TextureKernelSabotageTests(ITestOutputHelper output) {
     const string Suffix = "Sabotaged";
 
     /// <summary>
-    ///     Every kernel the generated sabotage cannot be taken over, and why.
+    ///     Every op implementation the generated sabotage cannot be taken over, and why.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Empty, and it is meant to be readable as a claim rather than as an oversight.</b>
-    ///     Every one of the forty-five kernels this assembly ships is perturbed below and every one
-    ///     of them notices. An entry here would be a kernel whose output is provably insensitive to
-    ///     its own store — which is either a kernel worth deleting or a fixture worth fixing — and
-    ///     the roll call checks the list from both ends, so a name that stopped being exempt is a
-    ///     line to delete rather than a silent allowance.
+    ///     <para>
+    ///         ⚠ <b>Every entry is a CPU operation, and that is the category this roll call was
+    ///         blind to.</b> The subject was <see cref="TextureKernels.Names" /> alone — the embedded
+    ///         <c>.rvn</c> files — so doc 48 § 4.6's exception to § D3 was outside it entirely: a CPU
+    ///         operation ships no shader, and a roll call over shaders reports complete coverage of a
+    ///         surface it cannot see part of. That is the same shape as
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/746">#746</a> one category along, and
+    ///         the criterion's own words are "a sabotage per <em>node</em>" rather than per kernel.
+    ///     </para>
+    ///     <para>
+    ///         <b>The perturbation genuinely cannot reach one.</b> <see cref="Perturb" /> rewrites
+    ///         Raven text and hands it back on the plan; a CPU operation is C# in this assembly and
+    ///         there is no seam that carries an authored one. So what an entry undertakes is that
+    ///         something else perturbs it, named — and the roll call fails when a second CPU
+    ///         operation ships without a line here, which is the half that was missing.
+    ///     </para>
     /// </remarks>
-    static readonly (string Kernel, string Reason)[] Unsabotaged = [];
+    static readonly (string Kernel, string Reason)[] Unsabotaged = [
+        ("NormalToHeightOperation",
+            "A CPU operation: C# in this assembly, not Raven on a plan, so `Perturb`'s rewrite has nothing to "
+            + "rewrite and `TexturePlan.Kernels` has no seam that would carry an authored one. What perturbs it "
+            + "instead is `TextureNormalToHeightTests.A_flipped_axis_does_not_survive_the_round_trip`, which "
+            + "negates one axis of the integration and requires the round trip to stop agreeing — a sabotage of "
+            + "the operation's own arithmetic rather than of its store. ⚠ It is not the generated one and is "
+            + "therefore something a slice can forget; this line is what makes forgetting it red.")
+    ];
+
+    /// <summary>
+    ///     Every op implementation this assembly ships: an embedded kernel, or a CPU operation.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Both halves are read rather than declared, and for the same reason.</b> A kernel
+    ///     exists because a file ships, so <see cref="TextureKernels.Names" /> is the manifest
+    ///     resources; a CPU operation exists because a type ships, so it is the assembly's own
+    ///     implementations of <see cref="ITextureCpuOperation" />. Reading a declaration — a static
+    ///     <c>All</c>, a list here — is what #746 found a kernel already hiding behind.
+    /// </remarks>
+    static string[] Shipped() =>
+        TextureKernels.Names
+            .Concat(
+                typeof(TextureKernels).Assembly.GetTypes()
+                    .Where(type => type is { IsAbstract: false, IsInterface: false })
+                    .Where(typeof(ITextureCpuOperation).IsAssignableFrom)
+                    .Select(type => type.Name)
+            )
+            .Order(StringComparer.Ordinal)
+            .ToArray();
 
     /// <summary>The shipped kernels this file undertakes to perturb, in order.</summary>
     static string[] Covered() =>
-        TextureKernels.Names
+        Shipped()
             .Where(name => !Unsabotaged.Any(entry => string.Equals(entry.Kernel, name, StringComparison.Ordinal)))
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -114,10 +153,17 @@ public class TextureKernelSabotageTests(ITestOutputHelper output) {
     ///         <b>This is the half criterion 4 was missing.</b> A per-kernel sabotage that nothing
     ///         counts is a sabotage for the kernels somebody remembered; the forty-sixth
     ///         <c>.rvn</c> arrives with no perturbation and every test in the assembly stays green.
-    ///         So the roll call is taken over <see cref="TextureKernels.Names" /> — the
-    ///         <em>embedded</em> files, because a kernel exists when a file ships and not when a
-    ///         declaration mentions it, which is <a href="https://github.com/Rikarin/Vixen/issues/746">#746</a>'s
-    ///         lesson — against the theory's own data.
+    ///         So the roll call is taken over <see cref="Shipped" /> — the <em>embedded</em> kernel
+    ///         files and the assembly's own CPU operations, because an op implementation exists when
+    ///         a file or a type ships and not when a declaration mentions it, which is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/746">#746</a>'s lesson — against the
+    ///         theory's own data.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The CPU half was outside the subject set entirely until it was named.</b> The
+    ///         roll call read the shaders, so it reported complete coverage of a surface doc 48
+    ///         § 4.6's exception is not in — and the criterion says "per node", of which a CPU
+    ///         operation is one.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>It cannot pass empty.</b> A <see cref="Kernels" /> that came back with nothing —
@@ -128,12 +174,26 @@ public class TextureKernelSabotageTests(ITestOutputHelper output) {
     /// </remarks>
     [Fact]
     public void Every_shipped_kernel_is_sabotaged_or_has_a_written_reason_not_to() {
-        var shipped = TextureKernels.Names.Order(StringComparer.Ordinal).ToArray();
+        var shipped = Shipped();
         var covered = Covered();
         var excused = Unsabotaged.Select(entry => entry.Kernel).Order(StringComparer.Ordinal).ToArray();
 
         Assert.NotEmpty(shipped);
         Assert.NotEmpty(covered);
+
+        // ⚠ Both categories are in the subject set. A reflection walk that stopped finding CPU
+        // operations would make the union the kernels again, and the roll call would go back to
+        // reporting complete coverage of a surface it cannot see half of — silently, which is the
+        // failure it exists to refuse.
+        Assert.NotEmpty(
+            shipped.Where(name => !TextureKernels.Names.Contains(name, StringComparer.Ordinal)).ToArray()
+        );
+
+        // ⚠ And every name the theory undertakes to perturb is a kernel the generated sabotage can
+        // actually rewrite. Without this, a CPU operation left off the list above is red only inside
+        // the device theory below — which SKIPS on a machine with no adapter, so the roll call would
+        // report success precisely where it had stopped measuring anything.
+        Assert.All(covered, name => Assert.Contains(name, TextureKernels.Names, StringComparer.Ordinal));
 
         Assert.Equal(shipped, covered.Concat(excused).Order(StringComparer.Ordinal).ToArray());
 
