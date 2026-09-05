@@ -854,6 +854,67 @@ public class MaskGradientTests {
         Assert.True(Blue(ui, 20, 22) > Blue(ui, 20, 26), "with a ramp between them");
     }
 
+    /// <summary>The declaration <c>mask-circle</c> generates draws a round mask on a box that is not.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A square probe cannot tell <c>circle</c> from <c>ellipse</c> at all</b> — on a
+    ///         square box every one of CSS's endings draws the same circle — so the box here is
+    ///         32×16 and the reading is taken at the <i>same distance</i> from the centre along each
+    ///         axis. A circle answers the same in both directions by definition; a farthest-corner
+    ///         ellipse on this box has radii 16√2 and 8√2, so the vertical probe sits twice as far
+    ///         along its ramp as the horizontal one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The generated text and not tidy CSS, which is the whole point of this test's
+    ///         existing sibling and one step further.</b> <c>UtilityFamilyTests</c> pins what
+    ///         <c>mask-circle</c> emits, and the shape only reaches the reader through a
+    ///         <c>var(--tw-mask-radial-shape, ellipse)</c> the cascade has to substitute inside an
+    ///         already-assembled <c>radial-gradient</c> prelude. A fragment that failed to
+    ///         substitute would leave a perfectly good <i>elliptical</i> mask — an ending silently
+    ///         replaced by the one it was written to override, which no count and no diagnostic can
+    ///         see.
+    ///     </para>
+    ///     <para>
+    ///         Both classes are painted, because the assertion "the two axes agree" is satisfied by a
+    ///         mask that is not there at all. <c>mask-ellipse</c> is the same declaration with one
+    ///         word changed and it must disagree.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("circle", true)]
+    [InlineData("ellipse", false)]
+    public void The_declaration_mask_circle_generates_is_round_on_a_box_that_is_not(string shape, bool round) {
+        var generated =
+            $"--tw-mask-radial-shape: {shape}; "
+            + "--tw-mask-radial: radial-gradient("
+            + "var(--tw-mask-radial-shape, ellipse) "
+            + "var(--tw-mask-radial-size, farthest-corner) "
+            + "at var(--tw-mask-radial-position, center), "
+            + "var(--tw-mask-from, black) var(--tw-mask-from-position, 0%), "
+            + "var(--tw-mask-to, transparent) var(--tw-mask-to-position, 100%)); "
+            + "mask-image: var(--tw-mask-linear, linear-gradient(#fff, #fff)), "
+            + "var(--tw-mask-radial, linear-gradient(#fff, #fff)), "
+            + "var(--tw-mask-conic, linear-gradient(#fff, #fff)); "
+            + "mask-composite: intersect;";
+
+        // 32×16 at (4, 12), so the centre is (20, 20) and both probes are six pixels from it.
+        using var ui = Square(generated, "left: 4px; top: 12px; width: 32px; height: 16px;");
+
+        var across = Blue(ui, 26, 20);
+        var down = Blue(ui, 20, 26);
+
+        // Non-vacuity: a mask that never reached the element leaves both readings at the unmasked
+        // value, and then "the two agree" is true of nothing at all.
+        var full = Unmasked();
+        Assert.True(across < full - 8, $"the mask reached the element: {across} of {full}");
+
+        if (round) {
+            Assert.True(Math.Abs(across - down) <= 4, $"round in both directions: {across} across, {down} down");
+        } else {
+            Assert.True(across > down + 12, $"and taller than it is wide: {across} across, {down} down");
+        }
+    }
+
     /// <summary>A masked group survives the single-command collapse.</summary>
     /// <remarks>
     ///     The peephole throws the bracket away and multiplies the one command's alpha instead —
