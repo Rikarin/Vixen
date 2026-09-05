@@ -2113,11 +2113,13 @@ public static class UtilityFamilies {
         // "no `matrix()`, no `rotate()`, no list of functions in `StyleValue`" — and
         // `TransformReader.Functions` reads exactly that list: `matrix`, `translate`, `translateX/Y`,
         // `scale`, `scaleX/Y`, `rotate`, `rotateZ`, `skew` and `skewX/Y`, asserted against pixels in
-        // `Vixen.Ui.Tests.TransformTests`. The refusal even declared its own expiry condition —
-        // `[expires-on Vixen.Ui.Styling.StyleValueKind.Function]` — and that condition is *still* not
-        // met, because the parser was built in `TransformReader` over the declaration's text rather
-        // than as a value kind. ⚠ <b>A refusal can be satisfied without its named symbol arriving,
-        // and `RefusalExpiryTests` cannot see that</b>; this is the first row it happened to.
+        // `Vixen.Ui.Tests.TransformTests`. The refusal even declared its own expiry condition — an
+        // `expires-on` clause naming `Vixen.Ui.Styling.StyleValueKind.Function`, written here without
+        // its brackets because the sweep reads prose now and a quotation in brackets would be
+        // recorded as a declaration — and that condition is *still* not met, because the parser was
+        // built in `TransformReader` over the declaration's text rather than as a value kind.
+        // ⚠ <b>A refusal can be satisfied without its named symbol arriving, and `RefusalExpiryTests`
+        // cannot see that</b>; this is the first row it happened to.
         //
         // ⚠ <b>Registered as its own root rather than folded into `rotate`, and `SplitName` is why
         // that is safe:</b> the longest registered prefix wins, so `rotate-z-45` reaches here and

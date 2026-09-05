@@ -253,6 +253,42 @@ public sealed class UiGeometryBuilder {
         }
     } = ColorGamut.Srgb;
 
+    /// <summary>What the interface's white is worth in the units the target is drawn in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The luminance half of the same handover <see cref="Gamut" /> is the chromaticity
+    ///         half of, and until #670 there was no such thing.</b> A <c>DrawCommand.Color</c> is
+    ///         linear and display-referred: <c>#fff</c> is one, meaning <i>as bright as this surface
+    ///         gets</i>. That is the right unit for a swapchain whose white is the display's, which
+    ///         is every window this framework has drawn into so far — so the default is one and one
+    ///         is a no-op, exactly.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is wrong by four orders of magnitude for a scene-referred target, and wrong
+    ///         invisibly.</b> The renderer works in cd/m², where a sunlit surface is tens of
+    ///         thousands; a HUD drawn into that pass with a white of <i>one</i> is one candela, which
+    ///         is not dim, it is black — and a pass that never ran looks the same. Whoever owns the
+    ///         pass sets this: BT.2408's reference white is 203 cd/m², which is what an SDR interface
+    ///         composited into an HDR frame is normally worth.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Applied after the gamut map and never before it.</b> The map's search works in a
+    ///         perceptual space over the unit cube, so it wants the authored 0–1 value; the scale is
+    ///         what carries the repaired colour into the target's units. For the same reason this is
+    ///         not part of the cache key and does not clear the table — the cache stores where a
+    ///         colour <i>lands</i>, which is a fact about the surface's primaries and not about how
+    ///         bright its white is. ⚠ Alpha is untouched: coverage is a fraction, not a luminance.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A layer target has to be able to hold it.</b> An opacity group, a blur or a mask
+    ///         composites through an offscreen surface, and <c>UiRenderer</c> gives that surface the
+    ///         pass's own colour format — so this is safe exactly when the pass is float, and a white
+    ///         level above one into an eight-bit <c>UNORM</c> pass would clamp at the composite
+    ///         rather than at the final blend.
+    ///     </para>
+    /// </remarks>
+    public float WhiteLevel { get; set; } = 1f;
+
     /// <summary>How many of the last frame's colours were outside <see cref="Gamut" /> and repaired.</summary>
     /// <remarks>
     ///     ⚠ <b>The number that says the early-out is working.</b> An interface whose palette is in
@@ -1575,7 +1611,7 @@ public sealed class UiGeometryBuilder {
         var linear = new Vector3(colour.R, colour.G, colour.B);
 
         if (GamutMap.InGamut(linear, Gamut)) {
-            return colour;
+            return Lit(linear, colour.A);
         }
 
         MappedColours++;
@@ -1584,13 +1620,13 @@ public sealed class UiGeometryBuilder {
         ref var first = ref shown[home];
 
         if (first.Occupied && first.Source == linear) {
-            return new Color4(first.Shown.X, first.Shown.Y, first.Shown.Z, colour.A);
+            return Lit(first.Shown, colour.A);
         }
 
         ref var second = ref shown[home + 1 == Slots ? 0 : home + 1];
 
         if (second.Occupied && second.Source == linear) {
-            return new Color4(second.Shown.X, second.Shown.Y, second.Shown.Z, colour.A);
+            return Lit(second.Shown, colour.A);
         }
 
         ColourSearches++;
@@ -1607,8 +1643,21 @@ public sealed class UiGeometryBuilder {
 
         slot = new ShownColour { Source = linear, Shown = mapped, Occupied = true };
 
-        return new Color4(mapped.X, mapped.Y, mapped.Z, colour.A);
+        return Lit(mapped, colour.A);
     }
+
+    /// <summary>Puts a showable colour into the target's units.</summary>
+    /// <remarks>
+    ///     The one place <see cref="WhiteLevel" /> is spent, so that every path out of
+    ///     <see cref="Show" /> — in gamut, remembered, and freshly mapped — scales the same way. ⚠ A
+    ///     scale applied on one of the three is worse than none: the cached path is the one a second
+    ///     frame takes, so the interface would be right until it stopped changing.
+    /// </remarks>
+    /// <param name="shown">The colour, in gamut, still display-referred.</param>
+    /// <param name="alpha">Its coverage, which is not a luminance and is carried through.</param>
+    /// <returns>The colour a vertex carries.</returns>
+    Color4 Lit(Vector3 shown, float alpha) =>
+        new(shown.X * WhiteLevel, shown.Y * WhiteLevel, shown.Z * WhiteLevel, alpha);
 
     /// <summary>The first of the two slots a colour may be remembered in.</summary>
     /// <remarks>

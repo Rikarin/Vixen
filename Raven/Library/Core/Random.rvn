@@ -1,16 +1,27 @@
 package Vixen.Shaders.Core
 
-// A hash-based PRNG that must match the CPU implementation bit-for-bit.
+// The shader library's general-purpose hash-based PRNG.
 //
-// That requirement is doc 06's: the VFX system compiles one particle graph to both a C# job and a
-// Raven compute shader, and a test compares their outputs. So a particle seeded on the CPU and
-// simulated on the GPU has to land in the same place, which makes every operation here a
-// specification rather than an implementation detail.
+// ⚠ This header used to open "must match the CPU implementation bit-for-bit", and there is no CPU
+// implementation of it. `Multiplier` below appears in exactly one file in the tree — this one — so
+// nothing was ever being matched, and a reader who trusted the sentence would edit this file
+// expecting a test to catch a mistake. What reads it are library shaders with no managed twin at
+// all: `Ui/Gradient.rvn`, `PostFx/Vignette.rvn`, `PostFx/Ssao.rvn`, `Material/ComputeColor.rvn`'s
+// value noise and `Vfx/ParticleSimulate.rvn`.
 //
-// What that rules in and out:
+// ⚠ The parity doc 06 asks for is real and is held by a different pair, with a different mixer.
+// `Vixen.Vfx.VfxRandom` is lowbias32 — offset by the golden ratio, then two multiply-xorshift
+// rounds — and `VfxShaderEmitter.Hash` transcribes those same constants into the generated shader
+// rather than calling anything here. That pair is the one function that exists twice, and its own
+// remarks say so; this file is not either half of it. Unifying them is a behaviour change to every
+// existing effect's noise and wants a decision rather than a refactor (#639).
 //
-//   - Only wrapping 32-bit unsigned arithmetic, xor and shifts. All are exactly defined for uint in
-//     both targets and in C#, so there is nothing for a driver to interpret.
+// The exactness rules below therefore stand as the library's own discipline — a value must not
+// depend on which driver compiled it, and a re-simulation must reproduce it — rather than as a
+// contract with managed code. What they rule in and out:
+//
+//   - Only wrapping 32-bit unsigned arithmetic, xor and shifts. All three are defined to the bit
+//     for uint in SPIR-V, so there is nothing for a driver to interpret.
 //   - No floating-point anywhere in the state. A float multiply is allowed to use a wider
 //     intermediate precision, and two conforming implementations may then disagree in the last bit.
 //   - The float conversion is a shift and a multiply by a power of two, never a division. `h >> 8`

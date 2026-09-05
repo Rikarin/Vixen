@@ -36,7 +36,7 @@ top.
 | `DropEvent` | A file or a string dragged in from another application, hit-tested and bubbling like a wheel. ⚠ The OS half only: there is no `DataObject` and no in-app drop model, because the payload an in-app drag negotiates is the half an OS drop cannot fill in. |
 | `UiElement.OnCreated`, `TagName` | The constructor a control cannot have, and the element name a type answers to. |
 | `UiElement.OffsetX/Y` | A translation applied after layout — scrolling, popups and drag previews, at the cost of a walk. |
-| `translate` (CSS) | The declarative half of the same idea, resolved by `TranslationReader` and added into the same sum. Separate from `OffsetX` on purpose: a stylesheet must not be able to erase a scroll position. `scale` and `rotate` are refused — a `DrawCommand` is an axis-aligned rectangle. |
+| `translate` (CSS) | The declarative half of the same idea, resolved by `TranslationReader` and added into the same sum. Separate from `OffsetX` on purpose: a stylesheet must not be able to erase a scroll position. `scale` and `rotate` are *not* refused — `TransformReader` composes them into one `UiTransform` a composited group's four vertices carry and the hit test inverts, because a shape change cannot be folded into a position the way a translation can. |
 | `UiElement.SetStyle` | Declarations written on an element, for the lengths no stylesheet was given: a splitter's ratio, a virtualised row's position. |
 | `UiDocument.Reparent` | Moving a subtree to a different parent: fresh style slots, the same elements. What docking and drag-and-drop between lists are made of. |
 | `UiElement.Role`, `AccessibleName`, `AccessibleState`, relations | What a screen reader is told: a WAI-ARIA role, a name, a value, a state set, and the pairings the tree does not show. Computed from the control, not stored on it. |
@@ -938,7 +938,10 @@ as a unit mistake.
 ⚠ **One shadow, outer only, and not clipped to outside the border box.** CSS takes a comma-separated
 list and an `inset` keyword; a list would be a command each, which is easy, and `inset` is a
 different distance field, which is not — so both are refused rather than half-applied, because the
-first shadow of a list being drawn and the rest silently dropped looks like it worked. And CSS
+first shadow of a list being drawn and the rest silently dropped looks like it worked. The `inset`
+half is the parity ledger's `inset-shadow-*` seen from inside the draw list rather than a second
+decision, so it expires when that row does — `[expires-with inset-shadow-*]`, and
+`RefusalExpiryTests` reads this sentence. And CSS
 punches the box out of its own shadow, where here the blurred box is drawn whole with the background
 on top: visible only under a background that is not opaque.
 
