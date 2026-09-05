@@ -112,16 +112,20 @@
 #      85.36. Fixed for the case where the intervening box has a definite width: see
 #      ProbeContentWidth. A `width: 50%` box still contributes zero, which is CSS Sizing §5.2.1's
 #      answer to the cycle rather than a stopgap.
-#   2. A CHILDLESS box returns zero without its own padding and border, where the leaf-with-measure
-#      branch and the clipping branch beside it both add theirs. Still true and still wrong; it
-#      happens to under-report, so nothing observes it yet.
+#   2. A CHILDLESS box returned zero without its own padding and border, where the leaf-with-measure
+#      branch and the clipping branch beside it both add theirs. FIXED — an empty box is not a
+#      zero-sized box, and it now reports its own edges like every other branch of the method. ⚠ Not
+#      one fixture in any of the eight corpora moved, in either direction, which is exactly what the
+#      "it happens to under-report" note predicted: see AutomaticMinimumSizeTests.
+#      An_empty_descendant_still_contributes_its_own_padding_and_border for the hand-written witness.
 #
 #   A third, in the same probe: it reads a GRID container as a flex row and sums all of its items
 #   along one axis. gridflex_row_integration is four 20-wide boxes in a 2x2 grid — 40 in Chrome, 80
 #   from the probe.
 #
-# ⚠ Because two of those three are still open, the §4.5 floor is CAPPED at the item's own flex basis
-# whenever that basis was MEASURED rather than declared — LayoutResult.FlexBasisFromContent. The
+# ⚠ Because two of those three are still open — the grid one, and the `width: 50%` half of the
+# percentage one — the §4.5 floor is CAPPED at the item's own flex basis whenever that basis was
+# MEASURED rather than declared — LayoutResult.FlexBasisFromContent. The
 # justification is an inequality, not a heuristic: a box's min-content size cannot exceed the size
 # its own contents were just measured at, so a floor that comes out above such a basis is the probe
 # being wrong. A DECLARED basis carries no such guarantee, which is why flex_basis_smaller_than_

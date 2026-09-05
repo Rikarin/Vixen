@@ -819,8 +819,17 @@ public sealed partial class LayoutTree {
             return (wantRow ? size.Width : size.Height) + leafPaddingAndBorder;
         }
 
+        // ⚠ <b>An empty box is not a zero-sized box.</b> Its contents need no room, but its own
+        // padding and border are part of the border-box size every other branch of this method
+        // reports — the leaf-with-measure branch above adds them and the clipping branch further up
+        // returns nothing else. Returning a bare zero here made this the one shape whose min-content
+        // size was a CONTENT-box number while its siblings' were border-box ones, so §4.5's floor for
+        // an empty `padding: 10px` item came out ten points short in each direction.
         if (links[index].ChildCount == 0) {
-            return 0f;
+            var emptyDirection = StyleResolution.ResolveDirection(in styles[index], ownerDirection);
+
+            return StyleResolution.FlexStartContentInset(in styles[index], requestedAxis, emptyDirection, ownerWidth)
+                + StyleResolution.FlexEndContentInset(in styles[index], requestedAxis, emptyDirection, ownerWidth);
         }
 
         var direction = StyleResolution.ResolveDirection(in styles[index], ownerDirection);

@@ -322,6 +322,53 @@ public class AutomaticMinimumSizeTests {
     }
 
     [Fact]
+    public void An_empty_descendant_still_contributes_its_own_padding_and_border() {
+        // ⚠ <b>An empty box is not a zero-sized box, and the probe used to say it was.</b> Every
+        // other branch of ComputeMinContentSizeUncached reports a BORDER box — the leaf-with-measure
+        // branch adds its own padding and border, the clipping branch returns nothing but them — and
+        // the childless branch returned a bare zero. So a `padding: 10px` box with nothing inside it
+        // contributed 0 to its parent's min-content size instead of 20, and §4.5's floor for that
+        // parent came out twenty points short.
+        //
+        // ⚠ <b>All 2 818 Taffy fixtures and all 534 Yoga ones stay green either way</b>, which is
+        // why this is hand-written: the defect UNDER-reports, so it is only visible where the floor
+        // it feeds is the thing being squeezed. A single item with a declared basis of 60 in a
+        // five-point row shrinks to 5 without the floor and freezes at its child's 20 with it.
+        //
+        // The basis is DECLARED on purpose. A measured one sets LayoutResult.FlexBasisFromContent,
+        // and the cap in ComputeAutoMinMainSize would then hold the floor down to the basis and hide
+        // the change — the cap being the thing that has been hiding this defect all along.
+        //
+        // ⚠ ONE item and not two, and the reason is a second defect rather than economy: with two
+        // shrinking siblings and a floor on one of them, §9.7's two passes hand BOTH items their
+        // unshrunk flex bases back for every container width strictly between 10 and 40. The first
+        // pass charges the whole pool to the frozen items, `line.RemainingFreeSpace` comes out zero
+        // or positive, and the second pass then finds no space to shrink into and returns the basis.
+        // That is not this rule's defect and is filed on its own.
+        using var tree = new LayoutTree();
+        var root = tree.CreateNode();
+        tree.SetFlexDirection(root, FlexDirection.Row);
+        tree.SetDimension(root, Dimension.Width, StyleLength.Points(5f));
+        tree.SetDimension(root, Dimension.Height, StyleLength.Points(50f));
+
+        var container = tree.CreateNode();
+        tree.SetFlexShrink(container, 1f);
+        tree.SetFlexBasis(container, StyleLength.Points(60f));
+        tree.AddChild(root, container);
+
+        // No width, no children, nothing to measure — only ten points of padding on each side.
+        var empty = tree.CreateNode();
+        tree.SetPadding(empty, Edge.Left, StyleLength.Points(10f));
+        tree.SetPadding(empty, Edge.Right, StyleLength.Points(10f));
+        tree.AddChild(container, empty);
+
+        tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
+
+        Assert.Equal(20f, tree.GetWidth(container), Tolerance);
+        Assert.Equal(20f, tree.GetWidth(empty), Tolerance);
+    }
+
+    [Fact]
     public void A_minimum_larger_than_the_maximum_wins() {
         // ⚠ CSS Sizing §5.1: "if the max size is less than the min size, the min size wins" — which
         // the specification expresses not as a special case but as the order of two clamps, max
