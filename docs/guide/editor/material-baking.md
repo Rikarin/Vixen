@@ -24,6 +24,42 @@ asset with the existing importer, the existing `.meta`, the existing streaming a
 compression. That is doc 48 § D4, and it is why determinism is a non-question: the artefact is a file
 somebody can open, diff and paint on.
 
+## What it is for
+
+Everything an author makes in the texture tool is a picture in a device's memory until this runs. The
+bake is what turns a set of them into assets the rest of the engine already understands — so that the
+importer, the `.meta` sidecar, streaming, block compression, the bindless material table and the
+`.vxmat` need to learn nothing about texture graphs at all.
+
+Reach for it when you want to:
+
+- **ship** what a graph or a folder of maps produced, as files a build can consume;
+- **re-bake** a set after editing the graph, keeping every GUID so nothing that referenced the
+  material breaks;
+- **know what made a file**, because the provenance block records it and the digest notices when
+  somebody has painted over an output.
+
+It is *not* how a material gets its parameters — that is the `.vxmat` and the shader graph. This
+writes maps.
+
+## Using it
+
+Two entry points over one implementation:
+
+- **`vixen texture bake`**, for a folder of maps named by usage. That is [the command line
+  below](#from-the-command-line), and it is what a build script or a headless machine uses.
+- **`ProjectMaterialBaker`**, for code inside the editor. `MaterialBake.Encode` turns a dictionary of
+  bitmaps keyed by `MaterialMapUsage` into the files to write — that is where the ORM packing and the
+  PNG-or-KTX2 decision happen — and `Write` puts them in the project, mints the identities and writes
+  the `.vxmat` and the provenance.
+
+The seam between the two halves is that dictionary: whatever fills it, the write below it is the same.
+⚠ **There is no material bake panel yet.** `ProjectMaterialBaker`'s only callers are `vixen texture
+bake` and the asset tests — the editor application mentions it in one comment and constructs it
+nowhere — so the button an artist would press is still owed
+([#570](https://github.com/Rikarin/Vixen/issues/570)). The mesh-map bake **does** have one, which is
+the shape it will take.
+
 ## The nine usages and the seven files
 
 An `Output` node declares a **usage**. A bake writes **files**, and the two lists are not the same
@@ -212,10 +248,12 @@ overwrites that set and keeps its GUIDs, which is what re-baking means; baking a
 under the same `--name` writes `<name>_2` and says so on stderr, rather than handing the second folder
 the first one's GUIDs.
 
-⚠ **The verb reads a folder of maps and does not evaluate a graph.** A `.vxtexgraph` is M4's document
-and does not exist yet, so `--graph` would be the flag that parses and then apologises — the same
-reason `remesh` has no `--bake`. Everything below the argument parsing is the code a panel will call,
-so the graph arrives as a second way of filling the same dictionary rather than as a second baker.
+⚠ **The verb reads a folder of maps and does not evaluate a graph.** ⚠ This used to say a
+`.vxtexgraph` did not exist; it does — the texturing plugin registers the document and claims the
+extension — so what is missing is narrower and worth naming exactly: nothing joins a compiled graph's
+outputs to this dictionary, and `--graph` would still be the flag that parses and then apologises.
+Everything below the argument parsing is the code a panel will call, so the graph arrives as a second
+way of filling the same dictionary rather than as a second baker.
 
 ⚠ **The input vocabulary is usages and the output vocabulary is files**, so re-reading a bake's own
 output folder does not round-trip: `hull_roughness.png` is an input and `hull_orm.png` is an output,
@@ -223,10 +261,65 @@ because packing three inputs into one output is the work the verb exists to do.
 
 ## What is not here yet
 
-- **A bake panel.** M5 is the write; the panel that drives it arrives with M4's document.
-- **Evaluating a graph.** The seam is a dictionary of bitmaps by usage, and the evaluator fills it.
+- **A bake panel.** M5 is the write; nothing in the editor calls it
+  ([#570](https://github.com/Rikarin/Vixen/issues/570)).
+- **Evaluating a graph.** The seam is a dictionary of bitmaps by usage, and nothing yet fills it from
+  a compiled graph's outputs.
 - **A height feature.** [#615](https://github.com/Rikarin/Vixen/issues/615).
-- ⚠ **A frame that draws one of these.** What is proved is the chain as far as the asset: the files
-  exist, the database knows them by GUID, and the `.vxmat` compiles. Nothing yet renders a baked
-  material through the real `StandardFrame`, so "it shades correctly on a device" is a claim this
-  guide does not make.
+
+⚠ **"A frame that draws one of these" used to be on that list and has come off it.**
+`BakedMaterialImageTests` renders a material whose maps the evaluator made and this bake packed,
+through the real `StandardFrame` — doc 48's twelfth exit criterion. The oracle is a differential
+rather than an eyeball: flat maps are a constant, and a constant surface is what `MetalRoughnessFeature`
+spells with three numbers, so the whole textured path has to reduce to the untextured one — and a
+second colour that must *not* agree is asserted beside it, because a pass lit by an authored 0–1 tint
+in a cd/m² frame is pixel-identical to a pass that never ran.
+
+⚠ Two caveats the criterion does not cover, and this guide would rather say than imply: the mesh is a
+`TierScene` box rather than an imported asset, and it is photographed at 64 px, which is below the
+threshold where the KTX2 and block-compression path is in the picture at all.
+
+## Examples
+
+Packing a graph's outputs and putting them in the project:
+
+```csharp no-compile="needs an open project and its asset database"
+// Whatever produced the pictures — an evaluator, an importer, a test — the seam is this dictionary.
+var outputs = new Dictionary<MaterialMapUsage, Bitmap> {
+    [MaterialMapUsage.BaseColor] = baseColor,
+    [MaterialMapUsage.Roughness] = roughness,
+    [MaterialMapUsage.Normal] = normal
+};
+
+// Encode packs occlusion/roughness/metalness into one ORM file and picks PNG or KTX2 per size.
+var images = MaterialBake.Encode(outputs);
+
+var baker = new ProjectMaterialBaker(project);
+var set = baker.Write("ShipHull", images, record);
+
+foreach (var warning in set.Warnings) {
+    report(warning);
+}
+```
+
+⚠ Note what is *not* in that dictionary: metalness and occlusion. They are written anyway, from the
+runtime features' own defaults, because zeros in those channels are a fully occluded conductor rather
+than an absence.
+
+Re-baking the same set from a command line, over outputs somebody may have painted:
+
+```bash
+# Refuses, naming the painted files, if any output's bytes are not the ones the last bake wrote.
+vixen texture bake --project . --from authored/ --name ShipHull
+
+# Says "overwrite what I painted" — and never "delete what I painted".
+vixen texture bake --project . --from authored/ --name ShipHull --force
+```
+
+## See also
+
+- [Texture graph evaluation](editor/texture-graph-evaluation) — what makes the pictures this packs.
+- [Mesh map assets](editor/mesh-map-assets) — the other bake that writes into `Assets/`, and the
+  provenance pattern this one follows.
+- [Meshes and materials](rendering/mesh-and-material) — the features whose defaults decide what an
+  absent channel is worth, and the naming rule a renamed map breaks.

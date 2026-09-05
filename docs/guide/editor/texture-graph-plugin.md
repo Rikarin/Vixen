@@ -67,9 +67,10 @@ that could show the problem is only reachable if the document opens.
 
 ## Three things a plugin could not do. Two of them it can now
 
-Doc 48 § D14 predicted two of these and said finding out was the point. All three were confirmed; two
-are closed and the third is not worked around, because a panel that worked by cheating would make it
-invisible.
+Doc 48 § D14 predicted two of these and said finding out was the point. All three were confirmed, and
+none of them was worked around — a panel that reached past the plugin contract would have made the
+gap invisible, which is the one thing this module exists not to do. ⚠ **All three are now closed in
+the editor; the third is not yet *used* here**, and the difference is the section below.
 
 **A graphics device — closed.** `EditorApplication.PluginPoints` publishes `IEditorGraphics`: the
 editor's device to allocate on and dispatch over, and an upload that turns pixels into the number an
@@ -87,12 +88,18 @@ is narrowed is the return path: `Upload` takes pixels rather than a texture view
 image is created for what it dispatches into and a view registered from a storage image is missing
 `Sampled` and in the wrong layout — which MoltenVK forgives and a discrete card does not.
 
-**`TextureGraphCompiler` is `internal`.** `Vixen.Editor.TextureGraph`'s `InternalsVisibleTo` names
-only its own test project, so the generated `NodeTypes.Register` crosses the boundary and the thing
-that turns a graph into a `TexturePlan` does not. ⚠ This one survived the first fix, exactly as
-predicted: the device is published and the panel still cannot compile what an author wires, so what
-the pane shows is the graph's base layer and says so.
-[#738](https://github.com/Rikarin/Vixen/issues/738)
+**`TextureGraphCompiler` was `internal` — the type is public now, and the panel has not caught up.**
+For three batches `Vixen.Editor.TextureGraph`'s `InternalsVisibleTo` named only its own test project,
+so the generated `NodeTypes.Register` crossed the plugin boundary and the thing that turns a graph
+into a `TexturePlan` did not — the panel could draw the node library and not compile it.
+[#738](https://github.com/Rikarin/Vixen/issues/738) made the type `public`.
+
+⚠ **What the pane shows is still the graph's base layer**, and its status line still gives the old
+reason. Nothing in the plugin was changed to use the now-public compiler, so a visibility that is
+fixed and a gap that is closed have come apart — which is worth reading as the more general lesson
+here, because it is this repository's commonest defect wearing the clothes of a fix.
+[#792](https://github.com/Rikarin/Vixen/issues/792) is that, and until it lands the sentence under
+the preview is telling a user something untrue about why.
 
 **An asset-editor registration could not be undone — closed.** `AssetEditorRegistry.Add` hands back
 an `IDisposable` now, the way `IEditorRegistry.Add` already did, and it gives up the editor's name

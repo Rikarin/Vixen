@@ -42,12 +42,19 @@ bake.Save(3, "Assets/Materials/hull-height.png");
 
 ## What this deliberately does not do
 
-- **No node classes, no compiler, no `.vxtexgraph`.** A plan is the artefact; how one is produced is
-  M4's (a graph) and M7's (a layer stack). ⚠ **This used to say the assembly does not reference
-  `Vixen.Editor.NodeGraph` at all, and that has not been true since M4** — a `TextureGraphCompiler`
-  *is* a `NodeGraphCompiler<TexturePlan>`, and the csproj says at length what the reference cost.
-  What replaces the wall is a convention: the compiler suites build their own graphs, the evaluator
-  suites still hand-build their plans, and one differential test compares the two.
+- **No `.vxtexgraph` file, no document, no panel.** A plan is the artefact and a *graph* is one way of
+  producing it; opening a file, drawing it and undoing an edit are
+  [`Vixen.Editor.Texturing`](../Vixen.Editor.Texturing/README.md)'s.
+  ⚠ **This bullet used to read "no node classes, no compiler, no `.vxtexgraph`", and the first two
+  clauses stopped being true at M4** ([#736](https://github.com/Rikarin/Vixen/issues/736)). They are
+  here: `TextureGraphCompiler` *is* a `NodeGraphCompiler<TexturePlan>`, [`Nodes/`](#the-node-library)
+  holds a `[Node]` class per catalogue entry, and the assembly references `Vixen.Editor.NodeGraph` —
+  the csproj says at length what that reference cost and
+  [#720](https://github.com/Rikarin/Vixen/issues/720) is the bill.
+  **What the deleted claim was for is worth keeping, so it is stated as a convention rather than as a
+  wall**: it used to be true *by construction* that every test here tested the evaluator, and it is
+  now true by agreement — the compiler suites build graphs, the evaluator suites hand-build plans, and
+  a differential crosses the line deliberately.
 - **No CPU implementation of any kernel** — [§ D3](../../docs/plan/48-material-authoring.md). ⚠ Which
   is not the same as "no CPU op": `NormalToHeightOperation` is § 4.6's stated exception, and what
   makes it one is that there is no *kernel* it duplicates. `TextureNodeLibraryTests` refuses a CPU
@@ -57,7 +64,9 @@ bake.Save(3, "Assets/Materials/hull-height.png");
   **closed forms**: a box filter's impulse response is `1/(2r+1)` over exactly `2r+1` texels, a levels
   curve maps three known inputs to three known outputs. `TexturePixels` converts half-floats to bytes
   on the way to a file and is an encoder, not a twin — nothing in a graph does it.
-- **No UI, no document, no project.** There is no panel here and none is needed to check any of it.
+- **No UI and no project.** Nothing here draws, and no test here needs a panel to check any of it. ⚠
+  The `Vixen.Editor.NodeGraph` reference above means the *assembly closure* is a UI one even so, which
+  is the difference [#720](https://github.com/Rikarin/Vixen/issues/720) exists to restore.
 - **No frame.** `Evaluate` opens its own, submits one command list and waits. A bake is a modal
   operation; the interactive per-node preview of § M4 will want the recording half split out rather
   than this called sixty times a second.
@@ -197,6 +206,48 @@ none; `VIXEN_REQUIRE_VULKAN=1` turns the skip into a failure.
 because a unified adapter cannot tell the compute queue from the graphics one and that is the whole
 question it asks. It never reads a texel.
 
+## The node library
+
+`Nodes/` is the graph half: a `[Node]` class per catalogue entry, one file per doc 48 group, each
+declaring its ports and settings as fields and emitting ops in `Compile`. The menu path is the
+attribute's first argument and is doc 48's own section name — `Source/Noise`, `Filters/Slope Blur`,
+`Surface/Normal to Height` — so the create menu is the catalogue.
+
+⚠ **The number of them is deliberately not written down here.** `TextureNodeLibraryTests` reads both
+surfaces rather than a list: the kernels come out of the assembly by reflection and the nodes out of a
+plan the whole library actually compiles to, so a kernel added without a node is red and a node added
+without being wired into the fixture is red for a *different* reason and says which. A second list in
+this file would be the thing that drifts, and this README has already been that thing twice
+([#695](https://github.com/Rikarin/Vixen/issues/695),
+[#728](https://github.com/Rikarin/Vixen/issues/728)).
+
+**⚠ Every kernel is reachable from a graph but one, and the exception is not a gap in the library.**
+`FloodResidual` reports whether a flood's last propagation changed anything — one number, and a plan
+output is a picture, so an author has nowhere to read it. Everything else that has no class of its own
+is a *step of a chain* rather than a missing node: `JumpFlood`, `FloodBounds` and `MinMaxReduce` are
+dispatched by `Analysis/Distance`, `Analysis/Flood Fill` and `Colour/Auto Levels`, and the roll call
+counts a kernel as covered when a graph reaches it, never when a class is named after it.
+
+**⚠ A node's default and its kernel's are two answers to one question and nothing makes them agree.**
+The evaluator writes every parameter of every op, so a `.rvn`'s initializer is read only by a person —
+which is the arrangement that drifts silently, because both numbers draw a picture. The
+disagreements that are *meant* are a table in `TextureNodeLibraryTests` with a defence per row
+(`Source/Uniform` is white so an unwired node is visible; `Filters/Blur`'s 8 is a blur you can see);
+everything else has to match.
+
+**Doc 48 § 4.8's five structure nodes are not five classes here, and three of them never will be.**
+`Output` is one — it carries the usage a bake writes it under. `Input` and `Sub-graph` are
+`Vixen.Editor.NodeGraph`'s: `SubGraphs.InputType` / `OutputType` are *boundary* types built per graph
+rather than registered, and `TextureGraphLibrary.Publish` registers a published `.vxtexgraph` as a
+node type through `SubGraphLibrary`. ⚠ **`Material Output` turned out not to be needed at all** — the
+bake takes a dictionary keyed by `MaterialMapUsage` and every `Output` node already carries one, so
+the grouped node would have been a second way to say the same thing. `Mesh Map Input` is § D12's and
+arrives with the mesh-map slice.
+
+⚠ **`Filters/Pixel Processor` is a node with no catalogue row**, because § D6 describes it as a
+decision rather than as a node and Part 4 never lists it. It is the escape hatch, and the section
+below on § D6 is where it is written down.
+
 ## The colour, channel and space kernels — doc 48 § 4.2 and § 4.3
 
 Thirteen `.rvn` files — fifteen in all, counting § M1's `Levels` and `Blend` — and
@@ -213,8 +264,11 @@ operation, and this arrangement guarantees there is only ever one. `Gradient.Eva
 delegate, which is also what keeps this assembly from referencing a UI control.
 
 **⚠ Not one parameter of the thirteen is a length in texels, so § D8's scaling never touches them.**
-A rotation is in turns, a scale is a ratio, an offset is a fraction of the image, a rect is
-normalised and a repeat is a count — they are resolution-independent *by construction* rather than by
+A rotation is in radians, a scale is a ratio, an offset is a fraction of the image, a rect is
+normalised and a repeat is a count — and ⚠ `Hsl`'s `hue` is the one angle-shaped number in this
+folder that is still **turns**, deliberately, because it is a position on a colour wheel rather than a
+direction on the image and `0.5` meaning *opposite* is what every colour picker shows
+([#735](https://github.com/Rikarin/Vixen/issues/735) unified the geometric ones) — they are resolution-independent *by construction* rather than by
 `TexturePlan.Resolve`'s arithmetic, and [#619](https://github.com/Rikarin/Vixen/issues/619)'s rework
 of the base resolution cannot change what any of them does.
 `TextureColourKernelTests.No_kernel_here_takes_a_length_in_texels` is what keeps that true, and
@@ -254,9 +308,22 @@ Eleven `.rvn` files and `TextureKernels.Filters.cs`: `Blur` · `BlurHq` · `Dire
 `RadialBlur` · `NonUniformBlur` · `Sharpen` · `Emboss` · `Warp` · `DirectionalWarp` · `VectorWarp` ·
 `SlopeBlur`.
 
-**⚠ This is the group § D8 is actually about, because it is the only one where every node takes a
-length.** Not one of § 4.2's or § 4.3's thirteen does — a rotation is in turns, a repeat is a count —
-so `TexturePlan.Resolve`'s scaling passes straight through them and does its work here. That also
+**⚠ This is the group § D8 is mostly about: nine of the eleven take a length, against one of § 4.5's
+three and three of § 4.6's six, and none at all in § 4.1, § 4.2, § 4.3 or § 4.7.**
+
+⚠ **This paragraph used to say "the only one where every node takes a length", and both halves were
+wrong** ([#728](https://github.com/Rikarin/Vixen/issues/728)). `Emboss` (`angle`, `elevation`,
+`intensity`) and `RadialBlur` (`centreX`, `centreY`, `amount`, `samples`) take none, and **each says
+so in its own file header** — so the README contradicted two kernels that were already right. It was
+a stale claim of exactly the class this file exists to remove, reintroduced by the rewrite that
+removed the last one, which is why the number is not repeated as a total anywhere: `TextureParameter`
+carries `TexelsAtBase` at the declaration, so a `grep -rn TexelsAtBase Editor/Vixen.Editor.TextureGraph`
+is the count and this sentence is only a reading of it. ⚠ It finds `Blur`'s own radius in
+`Nodes/FilterNodes.cs` rather than in `TextureKernels.Filters.cs`, because § M1 wrote that kernel and
+§ 4.4 only owns it.
+
+`TexturePlan.Resolve`'s scaling therefore passes straight through § 4.2 and § 4.3 and does most of its
+work here. That also
 means this is where a resolved length can outgrow a kernel's own budget: a radius authored as 20 at 1K
 arrives as 80 at a 4× bake, and a kernel that clamped it would make the 4× bake a *narrower filter*
 than the 1× one with no message anywhere ([#678](https://github.com/Rikarin/Vixen/issues/678)).

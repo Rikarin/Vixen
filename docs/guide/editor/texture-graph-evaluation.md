@@ -334,3 +334,52 @@ it exists to catch.
 > other with no ownership transfer, was invisible on every machine this engine has been developed on.
 > `NullDevice` builds three distinct submitters, so the question has an answer there. It asserts a
 > queue and never a texel.
+
+## Examples
+
+**One evaluator, many bakes, and the warnings read every time.** ⚠ `TexturePlan` is a `class` and not
+a record, so there is no `with` — a plan at another size is built field by field, as in
+[the section above](#baking-the-same-graph-at-another-resolution):
+
+```csharp no-compile="a fragment against a caller's own device and an already-built plan"
+using var evaluator = new TexturePlanEvaluator(device);
+
+foreach (var name in outputs.Keys) {
+    using var bake = evaluator.Evaluate(plans[name]);
+
+    // The other half of Check(): what was not refused but was not obeyed either.
+    foreach (var warning in bake.Warnings) {
+        report($"{name}: {warning}");
+    }
+
+    bake.Save(plans[name].Outputs[0], Path.Combine("Assets", "Materials", $"{name}.png"));
+}
+
+// One compiled pipeline per kernel and output format, cached across every bake above.
+report($"{evaluator.Dispatches} dispatches from {evaluator.Compilations} compilations");
+```
+
+⚠ The evaluator is reused deliberately. A second one recompiles every kernel the first already built,
+and `Compilations` is the counter that says whether the cache is doing its job — a number that grows
+with the number of bakes rather than with the number of distinct kernels is the bug.
+
+**Pixels the caller made, as an image the plan reads.** Anything a compute kernel cannot produce — a
+rasterised string, an imported bitmap, a ramp baked from a curve — enters this way:
+
+```csharp no-compile="needs a device and an image the plan declared External"
+using var uploads = new TextureUploads(device);
+
+// Image 0 is the one the plan declared `External: true`. The size is checked against the plan's.
+uploads.Add(plan, image: 0, width: 256, height: 256, texels);
+
+using var bake = evaluator.Evaluate(plan, uploads.Externals);
+```
+
+## See also
+
+- [The texturing plugin](editor/texture-graph-plugin) — the graph, the document and the panel that
+  build a plan for a person rather than in a test.
+- [Baking a material](editor/material-baking) — what turns these pictures into assets.
+- [Mesh map assets](editor/mesh-map-assets) — the baked measurements a graph reads by usage.
+- [Shader graph previews](editor/shader-graph-previews) — the assembly split this one was copied
+  from, and why an evaluator holds a device and knows nothing about a project.
