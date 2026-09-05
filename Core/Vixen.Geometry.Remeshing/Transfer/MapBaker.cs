@@ -231,8 +231,13 @@ public sealed record BakedMaps {
     /// </remarks>
     public IReadOnlyList<Vector3>? WorldNormal { get; init; }
 
-    /// <summary>The source's face group per texel, <c>-1</c> where there is none, or null.</summary>
+    /// <summary>The source's material or island index per texel, <c>-1</c> where there is none, or null.</summary>
     /// <remarks>
+    ///     ⚠ <b>The face group only where somebody assigned it, and the connected shell otherwise.</b>
+    ///     A group id off <c>EditMesh.Regroup</c> is a coplanarity guess, which on a generated or
+    ///     sculpted surface is one group per triangle — baked as ids that is confetti, and it is what
+    ///     <see cref="Warnings" /> says when a bake had to fall back. See <c>MapBaker.Labels</c>.
+    ///     <br />
     ///     ⚠ <b>Nearest, everywhere, including through the gutter.</b> An id is a label and not a
     ///     quantity: dilation copies a neighbour's id rather than averaging four of them, because the
     ///     average of ids 0 and 2 is id 1, which is a material that does not exist — and every
@@ -327,6 +332,10 @@ public static class MapBaker {
             return Assemble(settings, buffers, 0, warnings);
         }
 
+        if (buffers.Ids is not null) {
+            buffers.Labels = Labels(source, warnings);
+        }
+
         var radius = surface.Diagonal * MathF.Max(settings.SearchRadius, 0f);
 
         if (radius <= 0f) {
@@ -368,6 +377,57 @@ public static class MapBaker {
         }
 
         return Assemble(settings, buffers, dilated, warnings);
+    }
+
+    /// <summary>Which id each source face bakes as: the group somebody assigned, or its shell.</summary>
+    /// <param name="source">The mesh being baked from.</param>
+    /// <param name="warnings">What the bake could not do, appended to when the groups are a guess.</param>
+    /// <returns>An id per face.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A face group is a material boundary only where somebody assigned it, and reading it
+    ///         as one otherwise is the § D12 defect at its loudest.</b> <c>EditMesh.FromTriangles</c>
+    ///         ends in <c>Regroup</c>, whose groups are coplanar connected components — on a generated
+    ///         or sculpted blob almost no two adjacent triangles are within half a degree, so every
+    ///         triangle is its own group and 25 439 of them measured 13 965. Baked straight, an id map
+    ///         of that is per-triangle confetti that <see cref="IdColour" /> paints in as many hues,
+    ///         and nothing about it fails: it looks like an id map. <c>FeatureDetector</c>,
+    ///         <c>Charter</c> and <c>SeamGraph</c> all gate on <see cref="MeshGroupSource" /> already;
+    ///         this was the one consumer that did not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Shells rather than a refusal, because § D12 asks for "the source's material
+    ///         <i>or island</i> index" and the island is the half that survives a guess.</b> A
+    ///         connected component is a fact about the mesh whatever its groups mean — two props in
+    ///         one file are two ids, and one closed blob is one id, which is the honest answer for a
+    ///         surface with no material boundaries on it rather than a hole in the output. A caller
+    ///         that knows the real assignment sets <c>EditMesh.GroupSource</c> and gets its own ids.
+    ///     </para>
+    /// </remarks>
+    static int[] Labels(EditMesh source, List<string> warnings) {
+        var labels = new int[source.FaceCount];
+
+        if (source.GroupSource is MeshGroupSource.Assigned) {
+            for (var face = 0; face < labels.Length; face++) {
+                labels[face] = source.Faces[face].Group;
+            }
+
+            return labels;
+        }
+
+        List<int> shells = [];
+        var count = MeshCollision.Shells(source, shells);
+
+        shells.CopyTo(labels);
+
+        warnings.Add(
+            $"The source's face groups came from EditMesh.Regroup's coplanarity guess rather than from "
+            + $"an assignment, so they are not material boundaries — on a faceted surface they are one "
+            + $"group per triangle. The id map holds the {count} connected shell(s) instead. Set "
+            + "EditMesh.GroupSource to Assigned on a mesh whose groups are materials somebody chose."
+        );
+
+        return labels;
     }
 
     /// <summary>A distinct colour for an id, for the caller that has to write pixels rather than ints.</summary>
@@ -521,8 +581,8 @@ public static class MapBaker {
             world[index] = sample.Normal;
         }
 
-        if (buffers.Ids is { } ids && sample.Triangle >= 0) {
-            ids[index] = surface.GroupOf(sample.Triangle);
+        if (buffers.Ids is { } ids && buffers.Labels is { } labels && sample.Triangle >= 0) {
+            ids[index] = labels[surface.FaceOf(sample.Triangle)];
         }
 
         if (curvature is not null && buffers.Curvature is { } curve && sample.Triangle >= 0) {

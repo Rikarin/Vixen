@@ -129,7 +129,7 @@ and "fully occluded" are not the same answer.
 | `Thickness` | The occluded fraction of the same hemisphere, turned through the surface |
 | `Position` | The surface point, each axis `[0, 1]` across the source's bounding box |
 | `WorldNormal` | The source's normal, unrotated and independent of `Space` |
-| `Ids` | The source's face group as an `int`, `-1` where there is none |
+| `Ids` | The source's material or island index as an `int`, `-1` where there is none |
 
 ⚠ **Every one of them is measured at the *source*'s point and about the source's normal, never the
 cage's.** The cage is a few thousand quads that deliberately do not carry the geometry doing the
@@ -163,6 +163,14 @@ four of them, because the average of ids 0 and 2 is id 1 — a material that exi
 — and every generator keyed off the map then grows a hairline of it along every chart border, in a
 colour belonging to nothing. That is also why the channel is an `int`: `MapBaker.IdColour` turns one
 into a distinct colour at the point the pixels are written, where no filter can reach it.
+
+⚠ **And it is the face group only where `EditMesh.GroupSource` says somebody assigned one.** A mesh out
+of `EditMesh.FromTriangles` — every generated or sculpted blob — carries `Regroup`'s coplanarity guess,
+which on a faceted surface is one group per triangle: 13 965 of them on a 25 439-triangle image-to-3D
+mesh. Baked straight that is per-triangle confetti in as many hues, and nothing about the map says so.
+So a bake of a guessed grouping labels the source's **connected shells** instead — two props in one
+file are two ids, one closed blob is one — and says which it did in `BakedMaps.Warnings`. A caller that
+knows the real assignment sets `GroupSource` to `MeshGroupSource.Assigned` and gets its own ids back.
 
 ### Nothing samples randomly
 

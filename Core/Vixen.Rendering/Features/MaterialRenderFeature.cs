@@ -164,9 +164,14 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     ///         a shader that declares no permutations and wrong-but-harmless for one that does — it
     ///         resolves to the default variant rather than to nothing.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Assigning a shader's list cannot drop a key <see cref="PermutationKeyDictionary.Register" />
+    ///         put in it</b>, and that rule is the type rather than a convention: a key contributed by
+    ///         a composed surface is in no pass's reflection, so the host line that assigns the
+    ///         generated array used to unregister it in silence. See <see cref="PermutationKeyDictionary" />.
+    ///     </para>
     /// </remarks>
-    public Dictionary<string, IReadOnlyList<ParameterKey>> PermutationKeys { get; } =
-        new(StringComparer.Ordinal);
+    public PermutationKeyDictionary PermutationKeys { get; } = new();
 
     /// <summary>
     ///     Which contributed flag supplies a shader permutation's value, by the shader's own key.
@@ -366,6 +371,12 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     ///         nothing.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>And it survives a later assignment of that same generated array</b>, which is not
+    ///         the same thing as being additive and is what the ordering above used to hide: the host
+    ///         line runs after the engine's, so an additive-only registration was undone by every host
+    ///         that drew. See <see cref="PermutationKeyDictionary" />.
+    ///     </para>
+    ///     <para>
     ///         ⚠ Call this before the first <see cref="Prepare" />, on <see cref="EnableRecords" />'s
     ///         terms and for its reason: a variant is cached by its effect key, so a permutation
     ///         changed after one was resolved leaves it compiled for the old value.
@@ -377,14 +388,11 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
 
         Permutations.Set(key, value);
 
-        if (!PermutationKeys.TryGetValue(shaderName, out var keys)) {
-            PermutationKeys[shaderName] = [key];
-            return;
-        }
-
-        if (!keys.Contains(key)) {
-            PermutationKeys[shaderName] = [.. keys, key];
-        }
+        // ⚠ Registered rather than appended, so a host that assigns the pass's generated
+        // `UsedPermutationKeys` afterwards cannot take it away again. A value set under a key the
+        // effect key is not built from reaches no compiler — which is this method's whole subject —
+        // and the assignment used to be able to put it back into exactly that state.
+        PermutationKeys.Register(shaderName, key);
     }
 
     /// <summary>The record buffers, one per effect, for a host that binds them.</summary>

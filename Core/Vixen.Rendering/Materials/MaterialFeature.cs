@@ -79,7 +79,17 @@ public enum MaterialDiagnosticId {
     ///     comes back is Raven complaining about a shader called nothing, about a material the
     ///     message cannot name. The zeroed field whose zero looks valid, once more.
     /// </remarks>
-    UnnamedShader
+    UnnamedShader,
+
+    /// <summary>A layered material has more layers than its splat map has painted channels.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A warning rather than an error, and it stands in for a picture nobody could have
+    ///     read.</b> The layer is simply unpainted, which is a stack short of a layer — where the
+    ///     alternative, reading a channel the map does not have, is a fourth layer weighted 1 at every
+    ///     texel and therefore the whole surface after normalisation. See
+    ///     <see cref="TexturedMaterialLayersFeature.PaintedChannels" />.
+    /// </remarks>
+    UnpaintedLayer
 }
 
 /// <summary>One thing the compiler has to say about a material.</summary>
