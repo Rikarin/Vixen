@@ -95,6 +95,18 @@ enum ValueKind : byte {
     /// </remarks>
     FontFeatures,
 
+    /// <summary>A blur radius: a named step, or a spacing count: <c>blur-md</c>, <c>blur-8</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two scales under one prefix, and the named one wins — which is the opposite of the
+    ///     arrangement <see cref="Radius" /> has and is deliberate.</b> A radius has only a named
+    ///     scale, so <c>rounded-4</c> is not a class. A blur here has both: v4's spellings are
+    ///     <c>blur-xs</c>…<c>blur-3xl</c> and nothing else, and this engine answered a spacing count
+    ///     and nothing else — so keeping the count is a superset that costs a line, while dropping
+    ///     it would break <c>backdrop-blur-8</c> in this repository's own remarks. Named first,
+    ///     because the two cannot collide: a theme key is not a number.
+    /// </remarks>
+    Blur,
+
     /// <summary>One of a fixed set of keywords: <c>items-center</c>.</summary>
     Keyword,
 
@@ -1551,7 +1563,7 @@ public static class UtilityFamilies {
         // `filter` declaration, which `DrawListBuilder` now reads. See `UtilityComposition.Filter`.
         Register(new Family(
             "blur",
-            ValueKind.Spacing,
+            ValueKind.Blur,
             [UtilityComposition.Blur],
             Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
         ));
@@ -1663,7 +1675,7 @@ public static class UtilityFamilies {
         // refuses `drop-shadow()` inside a `backdrop-filter` for that reason.
         Register(new Family(
             "backdrop-blur",
-            ValueKind.Spacing,
+            ValueKind.Blur,
             [UtilityComposition.BackdropBlur],
             Alongside: BackdropAlongside
         ));
@@ -2374,6 +2386,16 @@ public static class UtilityFamilies {
 
                 break;
 
+            // Both halves of the prefix, because they take different paths through `TryBlur` and a
+            // probe of one says nothing about the other.
+            case ValueKind.Blur:
+                foreach (var blur in First(tokens.Blur.Keys)) {
+                    yield return blur;
+                }
+
+                yield return "2";
+                break;
+
             case ValueKind.FontWeight:
                 foreach (var weight in First(tokens.FontWeight.Keys)) {
                     yield return weight;
@@ -2608,6 +2630,7 @@ public static class UtilityFamilies {
             ValueKind.Duration => TryNumber(candidate.Value, out var ms) && Emit(family, ms + "ms", declarations),
             ValueKind.Fraction => TryFraction(candidate.Value, out var fraction) && Emit(family, fraction, declarations),
             ValueKind.Radius => TryRadius(candidate.Value, tokens, out var radius) && Emit(family, radius, declarations),
+            ValueKind.Blur => TryBlur(candidate.Value, tokens, out var blur) && Emit(family, blur, declarations),
             ValueKind.FontWeight => TryFontWeight(candidate.Value, tokens, out var weight) && Emit(family, weight, declarations),
             ValueKind.FontSize => TryFontSizeOrColor(candidate, tokens, declarations),
             ValueKind.Color => TryColor(candidate, tokens, out var colour) && Emit(family, colour, declarations),
@@ -3129,6 +3152,23 @@ public static class UtilityFamilies {
 
         result = string.Empty;
         return false;
+    }
+
+    /// <summary>Resolves a <c>blur-*</c>: a named step of the scale, or a count of the spacing unit.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The named step is tried first and the fall-through is what keeps the old spelling
+    ///     alive.</b> `blur-md` is v4's and was unresolvable here until the `--blur-*` namespace
+    ///     shipped; `blur-8` is this engine's and is written in its own remarks. They cannot
+    ///     collide — a theme key is not a number — so answering both costs one lookup and loses
+    ///     nothing.
+    /// </remarks>
+    static bool TryBlur(string value, ThemeTokens tokens, out string result) {
+        if (tokens.Blur.TryGetValue(value, out var blur)) {
+            result = Px(blur);
+            return true;
+        }
+
+        return TrySpacing(value, tokens, out result);
     }
 
     static bool TryFontWeight(string value, ThemeTokens tokens, out string result) {

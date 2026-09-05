@@ -2240,8 +2240,30 @@ documented name and not the compatibility one.
 v3 `shadow-sm` is v4 `shadow-xs`, v3 `shadow` is v4 `shadow-sm`, and the same for `blur-*`,
 `backdrop-blur-*`, `drop-shadow-*` and `rounded-*`. Also `outline-none` → `outline-hidden` (with
 `outline-none` re-taking the literal meaning), `ring` → `ring-3`, `bg-gradient-*` → `bg-linear-*`.
-**Vixen's `rounded` token scale and the editor's `--radius-*` names must be re-pegged to v4's**, or
-every `rounded-sm` in the tree means something one step off what a Tailwind user expects.
+
+✅ **Closed, and the sentence that used to end this paragraph is refuted.** It said *"Vixen's
+`rounded` token scale and the editor's `--radius-*` names must be re-pegged to v4's, or every
+`rounded-sm` in the tree means something one step off what a Tailwind user expects"*, and it added
+that this is the one item in the plan that moves pixels in existing markup. **Measured, and nothing
+had to move.**
+
+- ⚠ **The scales were pegged already, by C3 rather than by C2.** Transcribing v4.3.3's own `@theme`
+  whole brought its *names* with its values, so `--radius-xs` is 2px, `--shadow-xs` is the one-pixel
+  shadow v3 called `shadow-sm`, and the `2xs` and `4xl` ends v3 never had are both present.
+  `UtilityFamilyTests.The_shipped_radius_and_shadow_scales_are_v4s_and_not_v3s` asserts the ends
+  rather than the middle, because the ends are what tell the two vintages apart.
+- ⚠ **The editor's `--radius-*` names are a different namespace, not a competing peg.**
+  `--radius-panel`, `--radius-control` and `--radius-row` are *semantic*; they collide with none of
+  v4's steps and clear none of them, and `vixen.ui.vcss` says so in its own comment. There was
+  nothing to re-peg and no picture to re-record.
+- ⚠ **`ring` is already 1px** (v3's three-pixel ring is `ring-3`), `outline-none` and
+  `outline-hidden` are both registered with v4's meanings, and `bg-gradient-to-*` is kept as the
+  alias v4 itself keeps in `compat/legacy-utilities.ts`.
+- ⚠ **The one real gap was not a shift at all: `blur-*` had no named scale.** It resolved through
+  `--spacing`, so `blur-8` worked and `blur-md` — the only shape v4 has for this family, and the one
+  `UiGeometry`'s own remarks call canonical beside `rounded-2xl` — produced no rule. The `--blur-*`
+  namespace ships now, `blur-*` and `backdrop-blur-*` both read it, and the arithmetic form is kept
+  beside it because nothing v4 has can collide with a number. Additive, so still no picture moves.
 
 ⚠ **`ring-*` is not a rename but a change of meaning — and the correction below is a correction to
 this document.** ✅ **Closed by A6.** What this paragraph used to say was that Vixen emitted
@@ -2800,7 +2822,7 @@ mixed-content paragraph sit behind it.
 |---|---|--:|
 | C0 ✅ | **The `SplitName` fallback (F8) — refused, measured, and replaced by the diagnostic it was standing in for.** A retry rescues zero classes over every nesting pair in the registry against both shipped themes, and every shadowed root has exactly one registered prefix, so there is nothing to fall back *to*; `ShadowedFamilyTests.A_shorter_prefix_would_rescue_nothing` re-measures that on each build. What was real is that "no such family" and "that family has no such value" were one `false` and one report list of 7 103 entries: `UtilityGenerator.Unresolved` splits them, and the `.unrecognised.txt` report is sectioned. ⛔ The 35 shadowed rows still want 35 registrations, which is C7 | 0.1 |
 | C1 🟢 | Arbitrary properties, and v4's `bg-(--var)` shorthand | 0.15 |
-| C2 🟢 | Re-peg the `shadow`/`blur`/`rounded` scales to v4's names (D5) | 0.1 |
+| C2 ✅ | Re-peg the `shadow`/`blur`/`rounded` scales to v4's names (D5). ⚠ **Refuted and closed**: C3's transcription brought v4's names with its values, the editor's `--radius-*` are a semantic namespace that collides with none of them, and no picture moved. The real gap was a `--blur-*` namespace that had never shipped, so `blur-md` produced no rule — additive, and it ships now | 0.1 |
 | C3 ✅ | `@theme` replaces `vixen.ui.yaml`; `ThemeTokens` reads a stylesheet, and v4.3.3's palette ships as the engine default in oklch (D1, D4) | 0.5 |
 | C4 ✅ | Cross-assembly token sharing, shape C (Part 3) — `VixenStyleTokens` names another project's `@theme`; `Vixen.Editor.Ui.Styling.targets` makes joining the editor's theme one `Import`; guarded by `SharedThemeTests`, which is cross-assembly because no per-project suite can be | 0.3 |
 | C5 🟡 | The gate: a family emitting a property no consumer **acts on** fails the build (#11) — ✅ landed as `UtilityConsumptionGateTests` with its expiring allow-list. ⛔ Still owed: `Tools/Vixen.TailwindParity` regenerating the TSV from a committed registry snapshot, which is the half that needs the Tailwind registry and cannot be a test | 0.2 |

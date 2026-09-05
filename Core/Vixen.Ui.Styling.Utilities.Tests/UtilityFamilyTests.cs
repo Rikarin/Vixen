@@ -577,4 +577,90 @@ public class UtilityFamilyTests {
         Assert.Null(fixture.Declarations("p-notanumber"));
         Assert.Null(fixture.Declarations("bg-nosuchcolour"));
     }
+
+    /// <summary>⚠ v4's blur scale is names, and this engine answered only numbers.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 43 § C2 went looking for a scale shifted by one step and this family had no
+    ///         scale at all.</b> <c>blur-*</c> resolved through <c>--spacing</c>, so <c>blur-8</c>
+    ///         worked and <c>blur-md</c> — which is the only kind of spelling v4 has for this
+    ///         family, and the one <c>UiGeometry</c>'s own remarks call canonical beside
+    ///         <c>rounded-2xl</c> — produced no rule at all. A class that produces no rule is
+    ///         reported, so this was findable; nobody had looked, because the row read
+    ///         <c>works</c> off a numeric probe.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both spellings, and the numeric one is asserted too.</b> Keeping it is what
+    ///         makes this additive rather than a re-pegging: no committed picture moves, because
+    ///         nothing in the tree writes either spelling yet and <c>blur-8</c> means today what it
+    ///         meant yesterday.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("blur-xs", "4px")]
+    [InlineData("blur-sm", "8px")]
+    [InlineData("blur-md", "12px")]
+    [InlineData("blur-lg", "16px")]
+    [InlineData("blur-xl", "24px")]
+    [InlineData("blur-2xl", "40px")]
+    [InlineData("blur-3xl", "64px")]
+    [InlineData("blur-2", "8px")]
+    public void A_blur_resolves_a_named_step_and_a_spacing_count_alike(string utility, string expected) {
+        var fixture = new UtilityFixture("");
+
+        Assert.Contains(
+            $"{UtilityComposition.Blur}: {expected}",
+            string.Join("; ", fixture.Emits(utility)),
+            StringComparison.Ordinal
+        );
+    }
+
+    /// <summary>⚠ And the backdrop half reads the same scale, which it did not before either.</summary>
+    [Theory]
+    [InlineData("backdrop-blur-md", "12px")]
+    [InlineData("backdrop-blur-8", "32px")]
+    public void A_backdrop_blur_reads_the_same_scale(string utility, string expected) {
+        var fixture = new UtilityFixture("");
+
+        Assert.Contains(
+            $"{UtilityComposition.BackdropBlur}: {expected}",
+            string.Join("; ", fixture.Emits(utility)),
+            StringComparison.Ordinal
+        );
+    }
+
+    /// <summary>The shipped radius, shadow and drop-shadow scales are v4's own names.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Doc 43 § C2's premise, measured — and it is refuted.</b> The row said Vixen's
+    ///     <c>rounded</c> scale and the editor's <c>--radius-*</c> names "must be re-pegged, or every
+    ///     <c>rounded-sm</c> in the tree means something one step off what a Tailwind user expects".
+    ///     They were pegged already: C3 transcribed v4.3.3's <c>@theme</c> whole, so
+    ///     <c>--radius-xs</c> is 2px and <c>--shadow-xs</c> is the one-pixel shadow v3 called
+    ///     <c>shadow-sm</c>. What the editor adds — <c>--radius-panel</c>, <c>--radius-control</c>,
+    ///     <c>--radius-row</c> — is a <i>semantic</i> namespace that collides with none of them and
+    ///     clears none of them. So no picture moves, which is the one thing § C2 warned this item
+    ///     would do.
+    ///     <para>
+    ///         Written as an assertion rather than as a note, because a note cannot notice the day
+    ///         somebody re-transcribes the theme from v3.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_shipped_radius_and_shadow_scales_are_v4s_and_not_v3s() {
+        var tokens = new UtilityFixture("").Tokens;
+
+        // v4's radius scale starts at `xs` and runs to `4xl`; v3's started at `sm` and stopped at
+        // `3xl`, so the presence of both ends is what tells the two apart.
+        Assert.Equal("2px", tokens.Radius["xs"]);
+        Assert.Equal("4px", tokens.Radius["sm"]);
+        Assert.Equal("32px", tokens.Radius["4xl"]);
+
+        // ⚠ The step that moved. v3's `shadow-sm` was one pixel; v4's `shadow-sm` is the two-layer
+        // shadow v3 called `shadow`, and the one-pixel one is `shadow-xs`.
+        Assert.Contains("0 1px 2px 0", tokens.Shadow["xs"], StringComparison.Ordinal);
+        Assert.Contains("0 1px 3px 0", tokens.Shadow["sm"], StringComparison.Ordinal);
+        Assert.True(tokens.Shadow.ContainsKey("2xs"), "v4's shadow scale has a 2xs and v3's did not");
+
+        Assert.True(tokens.DropShadow.ContainsKey("xs"), "v4's drop-shadow scale has an xs and v3's did not");
+    }
 }

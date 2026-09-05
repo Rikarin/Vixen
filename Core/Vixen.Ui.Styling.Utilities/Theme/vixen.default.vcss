@@ -24,7 +24,7 @@
 
    ⚠ **What is deliberately not here.** `--tracking-*`, `--leading-*`,
    `--inset-shadow-*`, `--text-shadow-*`, `--ease-*`, `--animate-*`,
-   `--blur-*`, `--perspective-*` and `--aspect-*` are v4 namespaces no utility family in this
+   `--perspective-*` and `--aspect-*` are v4 namespaces no utility family in this
    engine reads yet. `--drop-shadow-*` left this list when `drop-shadow-*` arrived, which is what
    the last sentence of this paragraph says happens. Shipping them would emit variables that resolve and utilities that do not,
    which is the failure mode docs/plan/43 spends Part 1 measuring. They arrive with their
@@ -497,4 +497,20 @@
     --drop-shadow-lg: 0 4px 4px rgb(0 0 0 / 0.15);
     --drop-shadow-xl: 0 9px 7px rgb(0 0 0 / 0.1);
     --drop-shadow-2xl: 0 25px 25px rgb(0 0 0 / 0.15);
+
+    /* ── Blur ──────────────────────────────────────────────────────────────
+       ⚠ These are the ONLY spellings v4 has for this family: there is no `blur-4`, and there
+       never was a v3 step this scale is shifted from — which is why doc 43 § C2's "the scale
+       moved by one" search found nothing to re-peg here and the real gap was a namespace that
+       had never shipped. `blur-*` resolved through `--spacing`, so `blur-8` worked and
+       `blur-md` — the class a Tailwind user writes, and the one this engine's own remarks cite
+       as canonical beside `rounded-2xl` — resolved to nothing at all.
+       */
+    --blur-xs: 4px;
+    --blur-sm: 8px;
+    --blur-md: 12px;
+    --blur-lg: 16px;
+    --blur-xl: 24px;
+    --blur-2xl: 40px;
+    --blur-3xl: 64px;
 }

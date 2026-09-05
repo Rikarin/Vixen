@@ -150,6 +150,22 @@ public sealed class ThemeTokens {
     /// <summary>Breakpoint widths in pixels, keyed by variant name.</summary>
     public Dictionary<string, float> Screens { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>Blur radii in pixels, keyed by suffix — <c>sm</c>, <c>2xl</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A named scale where this engine had only an arithmetic one, and the difference is
+    ///     which classes a Tailwind user can write.</b> <c>blur-*</c> resolved through the spacing
+    ///     base, so <c>blur-8</c> worked and <c>blur-md</c> — the spelling v4 has and the only one
+    ///     v4 has — resolved to nothing at all. That is not the v3-to-v4 step shift doc 43 § C2
+    ///     went looking for; it is a namespace that was never shipped, and the shift is what makes
+    ///     the numbers here <i>look</i> like an off-by-one against v3's.
+    ///     <para>
+    ///         The arithmetic form is kept beside it rather than replaced: <c>blur-2</c> is not a
+    ///         class v4 has, but it is one this engine's own documentation writes and it costs
+    ///         nothing to answer. The named step wins where both could.
+    ///     </para>
+    /// </remarks>
+    public Dictionary<string, float> Blur { get; } = new(StringComparer.Ordinal);
+
     /// <summary>Container-query widths in pixels, keyed by variant name.</summary>
     /// <remarks>
     ///     ⚠ <b>A different set of numbers under the same names as <see cref="Screens" />, and that
@@ -454,6 +470,11 @@ public sealed class ThemeTokens {
             return;
         }
 
+        if (Suffix(name, "--blur-") is { } blur) {
+            Length(name, value, Blur, blur);
+            return;
+        }
+
         if (name.Equals("--spacing", StringComparison.Ordinal)) {
             if (Length(value, out var spacing)) {
                 SpacingBase = spacing;
@@ -556,6 +577,7 @@ public sealed class ThemeTokens {
         Drop(FontFamily, "--font-");
         Drop(Screens, "--breakpoint-");
         Drop(Containers, "--container-");
+        Drop(Blur, "--blur-");
         Drop(FontSize, "--text-");
         Drop(sizes, "--text-");
         Drop(heights, "--text-");
