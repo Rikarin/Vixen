@@ -966,6 +966,19 @@ public sealed partial class LayoutTree {
         // their real sizes the hierarchy tree's rows propagated all the way to the shell and the
         // window came out 2 385 points wide inside a 1 100-point root, with the inspector pushed off
         // the side. That is not a control compensating for a bug — it is this rule being missing.
+        //
+        // ⚠ <b>BOTH SENTENCES ABOVE HAVE EXPIRED, AND THE SECOND MAY BE BACKWARDS.</b> Twenty-four
+        // grid fixtures ask for it now — they were refused on `scrollbar-width` when this was
+        // written — and deleting this clause turns exactly those from red to green and moves nothing
+        // else in 6 420 layout tests except `AutomaticMinimumSizeTests.
+        // A_clipping_descendant_contributes_nothing_but_its_own_edges`, which is the editor's chain
+        // in six boxes and whose 50/50 expectation has never been put in front of a browser. A
+        // scroll container's `width: min-content` is not zero in any browser, so this clause is very
+        // likely §5.2.2 applied a second time where §4.5 had already applied it — and there is no
+        // seam to split it on, because `ComputeAutoMinMainSize` returns 0 for an item's own overflow
+        // before it ever reaches here, which makes every firing of this clause a CONTRIBUTION
+        // already. ⚠ The next move is a browser measurement of those six boxes, not a code change:
+        // see `Rikarin/Vixen#259` and the §5.2.2 heading in GridKnownGaps.txt.
         if (OverflowOn(index, FlexAxis.DimensionOf(requestedAxis)) != Overflow.Visible) {
             var clipDirection = StyleResolution.ResolveDirection(in styles[index], ownerDirection);
             return StyleResolution.FlexStartContentInset(in styles[index], requestedAxis, clipDirection, ownerWidth)
