@@ -508,8 +508,19 @@ so anything can animate out). The LIS reorder is #178 / #56.
 work; expressions, method calls and conversions do not. Across every committed `.vxml`: **8 `bind:`**
 against 26 `change:` and 239 `ref`, and **all eight `bind:` attributes are in one file** —
 `Samples/02-HelloUi/Panels/Gallery.vxml`. Two-way binding is nominally present and practically absent.
+(Those three numbers are the audit's, kept as written; the first correction below recounts them.)
 
-Three corrections to the paragraph above, from #663 and `BindReachTests`:
+Four corrections to the paragraph above, from #663 and `BindReachTests`:
+
+- ⚠ **The measurement has moved twice and the conclusion has hardened.** Recounted over the 83
+  committed `.vxml` at this writing: **13 `bind:` attributes in two files** —
+  `Samples/02-HelloUi/Panels/Gallery.vxml` (10) and `Core/Vixen.Ui.Controls.Tests/Markup/BindReachSheet.vxml`
+  (3), a sample and a test fixture — against **26 `change:` attributes in thirteen files** and
+  **274 `ref`/`refs`**. So the earlier figures (8 / 26 / 239, and before that 7 / 29 / 281) are both
+  stale, and the four editor files that a `bind:` grep now hits are hits *in comments* explaining
+  that `change:` is `bind:`'s write-back leg. What the recount says is stronger than the original
+  claim: `change:` has doubled and spread across the editor while `bind:` has not left the two files
+  it was written in, and **no product `.vxml` in the repository binds anything two-way.**
 
 - **`string?` against `string` is not a mismatch.** Nullable annotations on a *reference* type are
   erased, so `typeof(string?)` is `typeof(string)` and the exact-type check never sees them. `int?`
