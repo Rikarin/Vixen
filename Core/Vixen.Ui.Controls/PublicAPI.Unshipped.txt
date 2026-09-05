@@ -158,6 +158,7 @@ Vixen.Ui.Controls.DialogService.DialogService(Vixen.Ui.UiDocument document) -> v
 Vixen.Ui.Controls.DialogService.Dispose() -> void
 Vixen.Ui.Controls.DialogService.IsOpen.get -> bool
 Vixen.Ui.Controls.DialogService.Pending.get -> int
+Vixen.Ui.Controls.DialogService.Present(Vixen.Ui.Controls.Dialog dialog, bool asking) -> void
 Vixen.Ui.Controls.DialogService.PromptAsync(string title, string? message = null, string? initial = null, string? confirm = null, string? cancel = null) -> System.Threading.Tasks.Task<string?>
 Vixen.Ui.Controls.DialogService.Pump() -> void
 Vixen.Ui.Controls.DialogService.ShowAsync<TResult>(string title, System.Action<Vixen.Ui.Controls.DialogSession<TResult>> build, System.Func<TResult?>? dismissed = null) -> System.Threading.Tasks.Task<TResult?>
@@ -429,6 +430,7 @@ Vixen.Ui.Controls.Overlay.Overlay() -> void
 Vixen.Ui.Controls.Overlay.Placement.get -> Vixen.Ui.Controls.Placement
 Vixen.Ui.Controls.Overlay.Placement.set -> Vixen.Ui.Controls.Placement
 Vixen.Ui.Controls.Overlay.Reposition() -> void
+Vixen.Ui.Controls.Overlay.Show(bool open, Vixen.Ui.UiElement? target = null) -> void
 Vixen.Ui.Controls.OverscrollBehavior -> enum : byte
 Vixen.Ui.Controls.OverscrollBehavior.Auto = 0 -> Vixen.Ui.Controls.OverscrollBehavior
 Vixen.Ui.Controls.OverscrollBehavior.Contain = 1 -> Vixen.Ui.Controls.OverscrollBehavior

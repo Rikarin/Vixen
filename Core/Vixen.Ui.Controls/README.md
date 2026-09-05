@@ -128,6 +128,62 @@ them:
   scrolling, popup placement and drag previews are made of, and it costs a walk rather than a cascade
   and a relayout.
 
+## A dialog that is a function of state, beside the one a command awaits
+
+`ConfirmAsync`, `PromptAsync` and `ChooseAsync` are imperative on purpose: a command that has to have
+an answer before it continues is exactly a call that returns one, and that is what every caller in
+this tree does. ⚠ **This is not a replacement for them.** What had no spelling at all was SwiftUI's
+other arrangement — `.alert(isPresented:)`, where the dialog is a function of state, so the panel
+that shows one owns the flag and the presentation survives a rebuild because the flag does.
+
+`DialogService.Present(dialog, asking)` is that, over a `<Dialog>` the panel wrote itself:
+
+```vxml
+<Dialog use="@(overlay => Dialogs.Present(overlay, Asking.Value))"
+        on:openchanged="@((OpenChangedEvent args) => Dismissed(args))">
+    <Button Label="Delete" on:click="@Confirm" />
+</Dialog>
+```
+
+Three things it does that opening the dialog from an effect would not:
+
+- **It takes its turn.** The ask goes into the same queue an awaited one goes into, so a panel's
+  dialog waits behind a command's rather than appearing over it. Two backdrops over each other is a
+  picture with no answer in it, and the lower one still holds the focus scope.
+- **It does not take the element away.** ⚠ The service removes the dialogs it *made* and leaves the
+  ones a panel owns, because a panel's `<Dialog>` belongs to that panel's region — removing it here
+  would leave the `ref` pointing at a corpse and the next rebuild adding a second one beside it.
+- **A withdrawn ask is dropped rather than flashed.** A panel whose state flips twice before its turn
+  comes never sees the dialog at all.
+
+**The answer is the panel's own business**, which is the other half of what makes this a different
+shape: there is no `Task` to complete, so the buttons write the model with an `on:click` and the
+dialog goes away because that signal is what `Present` reads.
+
+## An overlay whose open state is a panel's own state
+
+`Overlay.IsOpen` is deliberately not a `[UiProperty]` — opening measures, places, moves the focus and
+may take a modal scope, so a settable property would be an invitation to write half of it — and that
+is why `bind:IsOpen` does not exist and is not an oversight. What a panel that owns the flag writes
+instead is two attributes:
+
+```vxml
+<Dialog use="@(overlay => overlay.Show(Wanted.Value))"
+        on:openchanged="@((OpenChangedEvent args) => Wanted.Value = args.IsOpen)">
+```
+
+- **`Show(bool)`** is the forward leg. It is a call rather than an assignment, so `Open`'s
+  measure-place-focus sequence is what actually happens, and it is idempotent — which it has to be,
+  because `use` is an effect and re-runs on every change of every signal the expression read.
+- **`on:openchanged`** is the write-back leg, and it is the half a forward-only implementation
+  fails. ⚠ `OpenChangedEvent` was raised all along, by `Overlay.Restate` and by `Disclosure`, and no
+  `.vxml` in the tree could hear it: the name was absent from the markup event table, so `on:` had
+  no entry to bind. Without it an overlay closed by Escape or by a click outside leaves the model
+  still saying `true`, and the effect puts it straight back up — a control the user cannot dismiss.
+
+The two converge rather than chatter: the write-back writes the value the effect just produced, which
+is a no-op, and a dismissal writes the one the effect then agrees with.
+
 ## What `ScrollView` reads out of the cascade
 
 ⚠ **It reads no `overflow`, and it does read seven scroll families.** The distinction is the whole of

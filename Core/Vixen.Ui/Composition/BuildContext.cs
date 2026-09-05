@@ -826,6 +826,68 @@ public sealed class BuildContext {
         building.Track(new Effect(assign, Document.Effects));
     }
 
+    /// <summary>Runs asynchronous work for as long as whatever declared it is in the document.</summary>
+    /// <typeparam name="TRequest">What the work is asked for — the tracked half.</typeparam>
+    /// <typeparam name="T">What it produces.</typeparam>
+    /// <param name="request">What to ask for, as a function of signals. Runs with tracking on.</param>
+    /// <param name="load">The work. Runs untracked, with a token that is cancelled when this leaves.</param>
+    /// <returns>Loading, value or error, as one signal a binding can read.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The arrival hook a panel had no way to write, and the substrate for it was
+    ///         already here with nothing calling it.</b> <c>OnComposed</c> is synchronous and has no
+    ///         token, so a panel that had to load something on appear either blocked the build or
+    ///         started a task whose completion had nowhere safe to land — and whose cancellation on
+    ///         unmount was the author's to remember. <see cref="AsyncComputed{TRequest,T}" /> answers
+    ///         all three (a tracked request, an untracked load, results posted back through the
+    ///         document's scheduler) and had no production caller anywhere in the tree. This is the
+    ///         line that gives it one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What cancels it is what cancels an effect, which answers the harder half of the
+    ///         question.</b> The work is tracked on the region being built, so it is disposed —
+    ///         and its token cancelled — when that region goes. <i>Unmount</i> is the obvious case;
+    ///         <i>rebuild</i> is the one that is easy to miss, and a <c>.vxml</c> save is a rebuild:
+    ///         <see cref="Rebuild" /> clears the component's region before re-entering
+    ///         <c>Build</c>, so the load a reloaded panel started is cancelled by the reload rather
+    ///         than left racing the one that replaces it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A fault is a value here rather than an exception, and that is deliberate.</b>
+    ///         <c>Effect.Run</c> catches, suspends and logs — the arrangement that made a mistyped
+    ///         <c>bind:</c> invisible for months — so a load that threw into an effect would be a
+    ///         panel that silently stopped. Instead the exception arrives as
+    ///         <c>AsyncStatus.Failure</c> on the signal, which is a thing markup can render: a
+    ///         <c>@if</c> over <c>.Status</c> is how a panel says "could not load" at all.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlySignal<AsyncValue<T>> Load<TRequest, T>(
+        Func<TRequest> request,
+        Func<TRequest, CancellationToken, Task<T>> load
+    ) {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(load);
+
+        var computed = new AsyncComputed<TRequest, T>(request, load, Document.Effects);
+
+        building.Track(computed);
+        return computed;
+    }
+
+    /// <summary>The arrival case: work that runs once because it asks for nothing.</summary>
+    /// <typeparam name="T">What it produces.</typeparam>
+    /// <param name="load">The work, with a token that is cancelled when this leaves.</param>
+    /// <returns>Loading, value or error, as one signal a binding can read.</returns>
+    /// <remarks>
+    ///     A request that reads no signal never changes, so the work runs once and is re-run by
+    ///     nothing — which is what "load this when the panel appears" means. Everything else about it
+    ///     is the two-argument form's, including what cancels it.
+    /// </remarks>
+    public IReadOnlySignal<AsyncValue<T>> Load<T>(Func<CancellationToken, Task<T>> load) {
+        ArgumentNullException.ThrowIfNull(load);
+        return Load(static () => 0, (_, token) => load(token));
+    }
+
     /// <summary>Runs an expression against what a tag made, now and again whenever what it read changes.</summary>
     /// <typeparam name="T">What the tag made: a control, an element, or a <see cref="Component" />.</typeparam>
     /// <param name="target">The thing the tag made.</param>
@@ -1538,14 +1600,33 @@ public sealed class BuildContext {
     ///         statement is that this is correct and not yet minimal.
     ///     </para>
     /// </remarks>
+    /// <param name="exit">How long a removed row stays on screen, or null to remove it at once.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><paramref name="exit" /> defaults to null, and that is opt-in on purpose.</b>
+    ///         Deferring every removal would change what "the row is gone" means for every caller in
+    ///         the tree, and the ones it would surprise are the tests: a list that removes an item
+    ///         and asserts on its children in the same breath is correct today and would be reading
+    ///         a document still holding a row nobody asked for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And a leaving row keeps its place in the order, which is what makes a fade look
+    ///         like one.</b> It stays in the region's slot list, so the rows below it are positioned
+    ///         after it and it shrinks or fades where it stood rather than jumping to the end of the
+    ///         list to die. Where it lands is decided by walking back through the previous order for
+    ///         the nearest row that is still there; an index remembered from the old order would put
+    ///         it in the wrong place the moment anything else moved.
+    ///     </para>
+    /// </remarks>
     public void For<T>(
         UiElement? parent,
         Func<IEnumerable<T>> items,
         Func<T, object> key,
-        Action<BuildContext, UiElement, T> build
+        Action<BuildContext, UiElement, T> build,
+        ExitSpec? exit = null
     ) {
         ArgumentNullException.ThrowIfNull(build);
-        Rows(parent, items, key, (context, at, item, _) => build(context, at, item), indexed: false);
+        Rows(parent, items, key, (context, at, item, _) => build(context, at, item), indexed: false, exit);
     }
 
     /// <summary>The same, with each row told where it is.</summary>
@@ -1588,7 +1669,12 @@ public sealed class BuildContext {
             items,
             key,
             (context, at, item, index) => build(context, at, item, index!),
-            indexed: true
+            indexed: true,
+
+            // ⚠ No exit on the indexed spelling yet, and it is a gap rather than a decision: a row
+            // that is leaving has no place in the sequence, so what its index signal should read
+            // while it animates out is a question neither branch answered. Filed rather than guessed.
+            exit: null
         );
     }
 
@@ -1597,7 +1683,8 @@ public sealed class BuildContext {
         Func<IEnumerable<T>> items,
         Func<T, object> key,
         Action<BuildContext, UiElement, T, Signal<int>?> build,
-        bool indexed
+        bool indexed,
+        ExitSpec? exit
     ) {
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(key);
@@ -1605,86 +1692,161 @@ public sealed class BuildContext {
         var target = parent ?? Anchor;
         var region = Open(target);
         var live = new Dictionary<object, Region>();
+        var leaving = new Dictionary<object, Region>();
+
+        // Every row this region holds, live and leaving together and in the order they are drawn in.
+        var order = new List<Region>();
+        var reconciling = false;
 
         // Null unless the loop declared an index, so a loop that does not want one allocates nothing
         // and does no extra work per pass.
         var positions = indexed ? new Dictionary<object, Signal<int>>() : null;
 
-        Bind(() => {
-            var wanted = new List<Region>();
-            var kept = new Dictionary<object, Region>();
-            var order = indexed ? new List<object>() : null;
-            var at = 0;
-
-            foreach (var item in items()) {
-                var identity = key(item);
-                order?.Add(identity);
-
-                if (live.Remove(identity, out var existing)) {
-                    kept[identity] = existing;
-                    wanted.Add(existing);
-                    at++;
-                    continue;
-                }
-
-                Signal<int>? index = null;
-
-                if (positions is not null) {
-                    index = new Signal<int>(at);
-                    positions[identity] = index;
-                }
-
-                var created = new Region(target, null, region);
-                var captured = item;
-                var outer = iteration;
-
-                // ⚠ Saved and restored rather than set and cleared: an `@for` inside an `@for` body
-                // builds while the outer row is still the one a `refs` on an outer element belongs
-                // to, and a nested loop that cleared this on the way out would give the rest of the
-                // outer row no iteration at all.
-                iteration = identity;
-                try {
-                    In(target, created, () => build(this, target, captured, index));
-                } finally {
-                    iteration = outer;
-                }
-
-                kept[identity] = created;
-                wanted.Add(created);
-                at++;
-            }
-
-            // Whatever is left in `live` is what the new sequence does not contain.
-            foreach (var (identity, gone) in live) {
-                gone.Clear();
-                positions?.Remove(identity);
-            }
-
-            live.Clear();
-            foreach (var (identity, item) in kept) {
-                live[identity] = item;
-            }
-
-            // ⚠ After the matching pass and not during it, because a row's new position is not known
-            // until the whole sequence has been walked — and because a row that survived was never
-            // rebuilt, so this write is the only thing that can tell it that it moved.
-            if (order is not null && positions is not null) {
-                for (var i = 0; i < order.Count; i++) {
-                    positions[order[i]].Value = i;
-                }
-            }
-
+        void Settle() {
             // The chain has to be rewritten before anything is repositioned: a region's index comes
             // from what it follows, and after a reorder that is a different region than it was.
             object? predecessor = null;
-            foreach (var item in wanted) {
+            foreach (var item in order) {
                 item.Rebind(predecessor);
                 predecessor = item;
             }
 
-            region.Reorder(wanted);
+            region.Reorder(order);
             region.Reposition();
+        }
+
+        void Ended(object identity, Region ended) {
+            leaving.Remove(identity);
+            order.Remove(ended);
+            positions?.Remove(identity);
+
+            // Nothing to settle from inside a reconciliation: the walk below rebuilds the whole
+            // order and repositions once, and doing it twice is only slower.
+            if (!reconciling) {
+                Settle();
+            }
+        }
+
+        Bind(() => {
+            var wanted = new List<Region>();
+            var kept = new Dictionary<object, Region>();
+            // ⚠ Named `sequence` and not `order`: the outer `order` is the List<Region> this
+            // closure captures, and a second `order` here would shadow it — which the compiler
+            // refuses outright, and which would silently mean the wrong list if it did not.
+            var sequence = indexed ? new List<object>() : null;
+            var at = 0;
+
+            reconciling = true;
+            try {
+                foreach (var item in items()) {
+                    var identity = key(item);
+                    sequence?.Add(identity);
+
+                    if (live.Remove(identity, out var existing)) {
+                        kept[identity] = existing;
+                        wanted.Add(existing);
+                        at++;
+                        continue;
+                    }
+
+                    // ⚠ A key that comes back before its old row has finished leaving ends that row
+                    // now. Reviving it is not available — `Region.Leave` disposed its bindings — and
+                    // letting both stand is the one failure an exit can introduce that the rest of
+                    // the runtime has no defence against: two subtrees under one identity, with
+                    // `refs` and the keyed effect table pointing at whichever was written last.
+                    if (leaving.Remove(identity, out var returning)) {
+                        order.Remove(returning);
+                        returning.Finish();
+                    }
+
+                    Signal<int>? index = null;
+
+                    if (positions is not null) {
+                        index = new Signal<int>(at);
+                        positions[identity] = index;
+                    }
+
+                    var created = new Region(target, null, region);
+                    var captured = item;
+                    var outer = iteration;
+
+                    // ⚠ Saved and restored rather than set and cleared: an `@for` inside an `@for`
+                    // body builds while the outer row is still the one a `refs` on an outer element
+                    // belongs to, and a nested loop that cleared this on the way out would give the
+                    // rest of the outer row no iteration at all.
+                    iteration = identity;
+                    try {
+                        In(target, created, () => build(this, target, captured, index));
+                    } finally {
+                        iteration = outer;
+                    }
+
+                    kept[identity] = created;
+                    wanted.Add(created);
+                    at++;
+                }
+
+                // Whatever is left in `live` is what the new sequence does not contain.
+                foreach (var (identity, gone) in live) {
+                    if (exit is null) {
+                        gone.Clear();
+                        positions?.Remove(identity);
+                        continue;
+                    }
+
+                    var captured = identity;
+                    var row = gone;
+
+                    leaving[identity] = row;
+                    row.Leave(exit, () => Ended(captured, row));
+                }
+
+                live.Clear();
+                foreach (var (identity, item) in kept) {
+                    live[identity] = item;
+                }
+
+                // ⚠ After the matching pass and not during it, because a row's new position is not
+                // known until the whole sequence has been walked — and because a row that survived
+                // was never rebuilt, so this write is the only thing that can tell it that it moved.
+                // A leaving row is not in `sequence`, so it keeps the index it had until it ends.
+                if (sequence is not null && positions is not null) {
+                    for (var i = 0; i < sequence.Count; i++) {
+                        positions[sequence[i]].Value = i;
+                    }
+                }
+
+                var previous = new List<Region>(order);
+
+                order.Clear();
+                order.AddRange(wanted);
+
+                foreach (var stale in previous) {
+                    if (!stale.IsLeaving || order.Contains(stale)) {
+                        continue;
+                    }
+
+                    order.Insert(After(previous, order, stale), stale);
+                }
+            } finally {
+                reconciling = false;
+            }
+
+            Settle();
         });
+    }
+
+    /// <summary>Where a leaving row goes in the new order: after the nearest row still in it.</summary>
+    static int After(List<Region> previous, List<Region> order, Region stale) {
+        for (var i = previous.IndexOf(stale) - 1; i >= 0; i--) {
+            var index = order.IndexOf(previous[i]);
+
+            if (index >= 0) {
+                return index + 1;
+            }
+        }
+
+        return 0;
     }
 
     // ================================================================== Regions

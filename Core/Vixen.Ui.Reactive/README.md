@@ -117,6 +117,13 @@ a caller that `foreach` over the thing yields `KeyValuePair`.
   half its dependencies. Splitting it makes the compiler enforce what the graph can observe. Results
   come back through `EffectScheduler.Post`, so they land on the owning thread at a defined point.
 
+  ⚠ **It had no production caller for as long as it existed, and now it has one.** Every reference to
+  the type outside its own file was its own tests or a `<see cref>`; the expensive half was built and
+  tested and nothing in the framework above it reached for it. `BuildContext.Load` is the line that
+  feeds it — a panel's arrival hook, whose token is cancelled when the region that declared it goes,
+  which covers both an unmount and a `.vxml` reload. That the substrate was already correct is why
+  the wiring is four lines: the questions this type answers are the hard ones.
+
 ## Deliberately not here
 
 **Cross-graph batching of the notification walk.** A write walks its live consumers marking them

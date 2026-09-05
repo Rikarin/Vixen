@@ -192,6 +192,36 @@ public abstract partial class Overlay : Control {
         OnOpened();
     }
 
+    /// <summary>Makes it whichever of the two the caller says, from wherever it is now.</summary>
+    /// <param name="open">Whether it should be showing.</param>
+    /// <param name="target">What to put it beside when it opens, or <c>null</c> to leave it.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What a state binding needs, and the reason <see cref="IsOpen" /> still is not a
+    ///         property.</b> A panel that owns the flag wants to say what the overlay <i>should be</i>
+    ///         and have that be true however many times it is said — which is what an effect does:
+    ///         <c>use="@(o =&gt; o.Show(Wanted.Value))"</c> re-runs on every change of every signal
+    ///         the expression read, and re-running it must not open a second time or close something
+    ///         already closed. A settable <c>IsOpen</c> would look like this and would be an
+    ///         invitation to write half of what opening is; this is a call, so
+    ///         <see cref="Open" />'s measure-place-focus sequence is what actually happens.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The write-back is the other half and it is not here.</b> An overlay closed by
+    ///         Escape or by a click outside has changed its own mind, and a model that is not told
+    ///         reopens it on the next flush — a control the user cannot dismiss. What tells the
+    ///         model is <c>on:openchanged</c>, which is why that name is in the markup event table:
+    ///         a one-way-in binding over this method alone is the arrangement that fails.
+    ///     </para>
+    /// </remarks>
+    public void Show(bool open, UiElement? target = null) {
+        if (open) {
+            Open(target);
+        } else {
+            Close();
+        }
+    }
+
     /// <summary>Hides it.</summary>
     /// <param name="reason">Why.</param>
     public void Close(CloseReason reason = CloseReason.Code) {

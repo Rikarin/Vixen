@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Input;
 using Vixen.Ui.Composition;
 using Vixen.Ui.Testing;
 using Xunit;
@@ -86,6 +87,81 @@ public class OverlayMarkupTests {
 
         Assert.Same(sheet.Filters.Surface, sheet.Filters.Body.Parent);
         Assert.Same(sheet.Question.Surface, sheet.Question.Body.Parent);
+    }
+
+    /// <summary>Flipping the panel's own signal is what opens and closes it.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>IsOpen</c> is not a <c>[UiProperty]</c> and this is not <c>bind:</c>.</b> Opening
+    ///     measures, places and moves the focus, so the forward leg has to be a call — which is what
+    ///     <c>use</c> is, an effect with the control as its subject. What was actually missing was
+    ///     the other leg: see the Escape test below.
+    /// </remarks>
+    [Fact]
+    public void An_overlay_opens_and_closes_with_the_signal_its_panel_owns() {
+        using var ui = Bound(out var sheet);
+
+        Assert.False(sheet.Question.IsOpen);
+
+        sheet.Wanted.Value = true;
+        ui.Frame();
+        Assert.True(sheet.Question.IsOpen);
+
+        sheet.Wanted.Value = false;
+        ui.Frame();
+        Assert.False(sheet.Question.IsOpen);
+    }
+
+    /// <summary>
+    ///     ⚠ The half a forward-only implementation fails: the user dismisses it and the model has
+    ///     to agree, or the next flush reopens what was just closed.
+    /// </summary>
+    [Fact]
+    public void Escape_leaves_the_model_agreeing_with_the_screen() {
+        using var ui = Bound(out var sheet);
+
+        sheet.Wanted.Value = true;
+        ui.Frame();
+        Assert.True(sheet.Question.IsOpen);
+
+        ui.PressKey(InputKey.Escape);
+        ui.Frame();
+
+        // Both halves, and the second is the one that matters: a model still holding `true` is a
+        // dialog the effect puts straight back up.
+        Assert.False(sheet.Question.IsOpen);
+        Assert.False(sheet.Wanted.Value);
+
+        // And it stays down over further frames, which is what "agreeing" means.
+        ui.Frame();
+        ui.Frame();
+        Assert.False(sheet.Question.IsOpen);
+    }
+
+    /// <summary>The write-back does not chatter: an opening reports once and settles.</summary>
+    [Fact]
+    public void A_bound_overlay_reports_each_change_once() {
+        using var ui = Bound(out var sheet);
+
+        var before = sheet.Reports;
+
+        sheet.Wanted.Value = true;
+        ui.Frame();
+        Assert.Equal(before + 1, sheet.Reports);
+
+        ui.Frame();
+        ui.Frame();
+        Assert.Equal(before + 1, sheet.Reports);
+    }
+
+    static UiTest Bound(out BoundOverlaySheet sheet) {
+        var ui = ControlHarness.Open(500f, 400f);
+
+        sheet = new();
+
+        BuildContext.BuildInto(sheet, ui.Document, ui.Document.Root);
+        ui.Frame();
+
+        return ui;
     }
 
     static UiTest Sheet(out OverlaySheet sheet) {

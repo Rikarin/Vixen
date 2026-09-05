@@ -133,6 +133,18 @@ static class ControlMarkup {
 
             context.Attach(target);
         });
+
+        // ⚠ The write-back leg of a bound open state, and its absence is what made `bind:IsOpen`
+        // look like the missing feature. `IsOpen` is deliberately not a `[UiProperty]` — see
+        // `Overlay` — so `change:IsOpen`, which is the ordinary way a control tells a model it
+        // changed its own mind, cannot name it. `OpenChangedEvent` was raised all along, by
+        // `Overlay.Restate` and by `Disclosure`, and no `.vxml` in the tree could hear it: a name
+        // absent from this table is an `on:` the binder rejects. Without it a state binding is
+        // one-way in, which is an overlay the user closes and the model reopens on the next flush.
+        BuildContext.Subscribe(
+            "openchanged",
+            (element, handler, how) => how.Listen<OpenChangedEvent>(element, (_, args) => handler(args))
+        );
     }
 
     /// <summary>Whether the activation this tap produced has already been reported to the handler.</summary>
