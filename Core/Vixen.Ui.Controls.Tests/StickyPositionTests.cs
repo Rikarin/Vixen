@@ -165,6 +165,58 @@ public class StickyPositionTests {
         Assert.Equal(0f, label.AbsoluteTop - view.AbsoluteTop, 1);
     }
 
+    /// <summary>
+    ///     A sticky box is the containing block of its absolutely positioned descendants, and needs
+    ///     no second declaration to be one.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>CSS Position 3 § 2 lists <c>sticky</c> among the <i>positioned</i> values, and
+    ///         this store read it as <c>static</c>.</b> So an absolute child anchored to whatever
+    ///         ancestor happened to be positioned — silently, several levels up — and
+    ///         <c>top: 0; bottom: 0</c> gave a plausible-looking box of the wrong height rather than
+    ///         an error. <c>AdvancedTheme.vcss</c> carried a <c>contain: layout</c> beside the
+    ///         <c>sticky</c> to buy the containing block back; that declaration is gone, and this
+    ///         test is what its absence rests on.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this prints on the day the feature is not there is 300, not zero.</b> The
+    ///         root is a containing block whatever its <c>position</c> says, because it is the
+    ///         outermost box — so the failing answer is a cell as tall as the whole surface, which
+    ///         looks like a layout rather than like a bug. That is why the assertion is the sticky
+    ///         box's own height and not a relation such as "no taller than the root".
+    ///     </para>
+    ///     <para>
+    ///         The last assertion is the one that catches the wrong repair: mapping <c>sticky</c> to
+    ///         <c>relative</c> also makes it a containing block, and reads <c>top</c> as a layout
+    ///         offset besides, so the box itself would move twelve points before anything was ever
+    ///         scrolled.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_sticky_box_is_the_containing_block_of_its_absolute_children() {
+        using var fixture = new ControlFixture(css: """
+            root  { width: 400px; height: 300px; flex-direction: column; }
+            #lead { width: 80px; height: 50px; }
+            #here { width: 80px; height: 20px; position: sticky; top: 12px; }
+            #cell { position: absolute; top: 0px; bottom: 0px; left: 0px; right: 0px; }
+            """);
+
+        fixture.Document.Create("div", fixture.Document.Root, "lead");
+        var here = fixture.Document.Create("div", fixture.Document.Root, "here");
+        var cell = fixture.Document.Create("div", here, "cell");
+        fixture.Update();
+
+        Assert.Equal(20f, cell.Height, 1);
+        Assert.Equal(80f, cell.Width, 1);
+        Assert.Equal(here.AbsoluteTop, cell.AbsoluteTop, 1);
+
+        // ⚠ And the sticky box itself has not moved by its own inset. `top: 12px` is a floor against
+        // a scroll position and there is no scroller here, so twelve points of drift would be the
+        // `relative` repair having been made by mistake.
+        Assert.Equal(50f, here.AbsoluteTop, 1);
+    }
+
     /// <summary>A box with no scrolling ancestor is sticky against nothing and does not move.</summary>
     /// <remarks>
     ///     ⚠ <b>The unbounded scrollport is a real state and not a defensive branch.</b> An element

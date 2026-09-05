@@ -663,6 +663,23 @@ public sealed partial class LayoutTree {
         // wrapped. `TextWrappingPixelTests` is four fixtures of exactly that.
         // `UnclampedMeasuredDimensions` is the offer-measured number the cap always meant — the
         // second, real pass's answer — so the two are taken together and the smaller wins.
+        //
+        // ⚠ <b>MEASURED IN CHROME, AND CHROME DOES NOT DO THIS.</b> One unbreakable word at 28px
+        // monospace, max-content 269.72, in a 120-point container: a `flex-direction: row` item under
+        // `overflow-wrap: break-word` comes back 269.72 wide on ONE line — it keeps the whole word and
+        // overflows, because §4.5's floor is an intrinsic minimum that `break-word` is specified not
+        // to shrink and nothing holds it down to the box. The wrapping picture comes from the CROSS
+        // axis, where there is no §4.5 floor: the item stretches to the container and the overflowing
+        // word breaks at line layout, which is why `display: block` gives the same numbers. So the
+        // second term is not Chrome's mechanism, and the question this cap was left open on is
+        // answered — see `Taffy/KnownGaps.txt` for the whole table.
+        //
+        // ⚠ <b>It still cannot simply go, and the reason is now a DIVERGENCE rather than a gap.</b>
+        // This engine's initial `Display` is `Flex` and its initial `FlexDirection` is `Row`, where a
+        // browser's initial display is `block` — so every plain element here is the first row of that
+        // table and gets the last row's picture. Dropping the term would be right about Chrome and
+        // wrong about the markup an author believes they wrote, which is a framework call and not a
+        // measurement.
         if (results[index].FlexBasisFromContent) {
             var cap = results[index].ComputedFlexBasis;
             var offered = results[index].UnclampedMeasuredDimensions[(int) mainDimension];
@@ -1090,7 +1107,13 @@ public sealed partial class LayoutTree {
 
     float RelativePosition(int index, FlexDirection axis, Direction direction, float axisSize) {
         // position: static ignores inset entirely — https://www.w3.org/TR/css-position-3/#valdef-position-static
-        if (styles[index].PositionType == PositionType.Static) {
+        //
+        // ⚠ And `sticky` ignores it here too, for the opposite reason: its inset is not a layout
+        // offset at all but a floor against a scroll position, applied in `UiDocument.Accumulate`
+        // where the scroll offsets are. Reading it as a relative offset would apply it twice, which
+        // is the trap that kept `sticky` out of `PositionType` until there was a member that could
+        // be a containing block without being one. See `PositionType.Sticky`.
+        if (styles[index].PositionType is PositionType.Static or PositionType.Sticky) {
             return 0f;
         }
 

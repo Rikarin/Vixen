@@ -710,6 +710,15 @@ has no oracle in either corpus, so `InlineTextAlignTests` is closed-form rather 
 CSS property, two fields, because a container can hold both kinds of child and the two answers are
 not the same answer. `justify` is refused at the stylesheet bridge rather than aliased.
 
+⚠ **A legacy keyword writes both fields, and this paragraph used to say it wrote only the block
+one.** `-webkit-center` is not a third alignment: it is `center` *plus* a block-level rule. The
+proof is the element the value exists for — a browser's UA stylesheet puts
+`text-align: -webkit-center` on `<center>` and nothing else, and `<center>` centres its text. So the
+two keyword tables in `LayoutStyleBuilder` are deliberately not disjoint, and the pair of lookups
+that reads them is deliberately not an `else`. ⚠ The Taffy harness still writes only
+`LegacyTextAlign`, because it reproduces Taffy's model rather than CSS's and every fixture in that
+corpus holds block children only.
+
 **Floats** — *done for block-level content, owed for inline.* All 92 fixtures pass. What none of
 them tests, and what is therefore still owed, is a line box narrowing beside a float: there is no
 `<text>` anywhere in the corpus named after the feature. See the block section above.

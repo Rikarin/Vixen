@@ -692,10 +692,24 @@ public static class ShorthandExpansion {
         }
     }
 
+    /// <summary>Whether a component belongs in the width slot.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A sign only starts a number when a digit or a point follows it</b>, which is the same
+    ///     correction <c>StyleValueParser.ParseOne</c> needed and for the same reason — see #823. CSS
+    ///     Syntax §4.3.11 lets an identifier begin with a hyphen, and the ones that do turn up in a
+    ///     border shorthand are colours: <c>-webkit-focus-ring-color</c> and <c>-moz-use-text-color</c>
+    ///     are what an author writes there. Reading one as a width does not merely misfile it — the
+    ///     width slot is then full twice over, <see cref="Border" /> refuses the whole shorthand, and
+    ///     the <c>1px</c> and the <c>solid</c> written beside it are lost with it. One unreadable
+    ///     colour removed a border that had said exactly how to draw itself.
+    /// </remarks>
     static bool IsWidth(string part) =>
         BorderWidths.Contains(part)
         || part.StartsWith("calc(", StringComparison.OrdinalIgnoreCase)
-        || (part.Length > 0 && (char.IsAsciiDigit(part[0]) || part[0] is '.' or '+' or '-'));
+        || (part.Length > 0
+            && (char.IsAsciiDigit(part[0])
+                || part[0] == '.'
+                || (part[0] is '+' or '-' && part.Length > 1 && (part[1] == '.' || char.IsAsciiDigit(part[1])))));
 
     /// <summary>Splits a value on top-level whitespace, so a <c>var()</c> stays in one piece.</summary>
     /// <remarks>

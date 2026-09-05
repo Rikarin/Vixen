@@ -97,6 +97,37 @@ public class ShorthandExpansionTests {
         Assert.False(ShorthandExpansion.TryExpand(property, value, expanded));
     }
 
+    /// <summary>A hyphen-initial keyword is a colour here, not a width, and the sign is the tell.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>IsWidth</c> made the same first-character mistake <c>StyleValueParser.ParseOne</c>
+    ///         made</b> — see #823. A component beginning with <c>-</c> was taken for a signed number,
+    ///         so <c>-webkit-focus-ring-color</c> claimed the width slot, the slot was already full,
+    ///         and <see cref="ShorthandExpansion.TryExpand" /> refused the whole shorthand. The
+    ///         refusal is not the harm: the harm is that the <i>width and the style went with it</i>,
+    ///         because nothing reads the un-expanded <c>border</c> longhand-less declaration the
+    ///         loader keeps. One unreadable colour silently removed a border that had a perfectly good
+    ///         <c>1px</c> and <c>solid</c> written next to it.
+    ///     </para>
+    ///     <para>
+    ///         Classified correctly the colour lands in the colour slot, where it is an identifier no
+    ///         colour table knows and is dropped by the reader that reads it — the ordinary path for
+    ///         an unsupported keyword, one longhand wide instead of three.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("border", "1px solid -webkit-focus-ring-color")]
+    [InlineData("border-top", "-moz-use-text-color dashed 2px")]
+    public void A_hyphen_initial_keyword_does_not_claim_the_width_slot(string property, string value) {
+        List<KeyValuePair<string, string>> expanded = [];
+
+        Assert.True(ShorthandExpansion.TryExpand(property, value, expanded));
+
+        // Whatever the order it was written in, the number is the width and the word is the colour.
+        Assert.Contains(expanded, pair => pair.Key.EndsWith("-width", StringComparison.Ordinal) && pair.Value[0] != '-');
+        Assert.Contains(expanded, pair => pair.Key.EndsWith("-color", StringComparison.Ordinal) && pair.Value[0] == '-');
+    }
+
     /// <summary>The elliptical form is a different shape, and is refused for being one.</summary>
     [Fact]
     public void An_elliptical_radius_is_refused() {

@@ -364,7 +364,36 @@ public enum PositionType : byte {
     Relative,
 
     /// <summary>Out of flow, positioned against the containing block.</summary>
-    Absolute
+    Absolute,
+
+    /// <summary>
+    ///     In flow and <c>inset</c>-ignoring like <see cref="Static" />, and a containing block like
+    ///     <see cref="Relative" />.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Neither of the two obvious spellings works, which is why there is a fourth member
+    ///         rather than an alias.</b> CSS Position 3 § 2 lists <c>sticky</c> among the
+    ///         <i>positioned</i> values, so a sticky box is the containing block of its absolutely
+    ///         positioned descendants — which <see cref="Static" /> is not. But its <c>top</c> is a
+    ///         floor applied against a scroll position, not a layout offset, so
+    ///         <see cref="Relative" /> would read the same inset a second time and put
+    ///         <c>position: sticky; top: 20px</c> twenty points out before it was ever scrolled to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the store holds the keyword and acts on exactly one half of it</b>, and the
+    ///         half it acts on is the half that needs no scroll offset. <c>Sticky</c>'s own remarks
+    ///         used to say a member here "would be a keyword the layout could store and could not act
+    ///         on"; that was true of the <i>offset</i> and not of the box. The offset still lives in
+    ///         <c>UiDocument.Accumulate</c>, where the scroll is, and always will.
+    ///     </para>
+    ///     <para>
+    ///         There is no fixture for this in either corpus — neither Yoga nor Taffy has
+    ///         <c>position: sticky</c> at all — so <c>StickyPositionTests</c> is where it is pinned,
+    ///         against a real <c>ScrollView</c>.
+    ///     </para>
+    /// </remarks>
+    Sticky
 }
 
 /// <summary>Whether items overflow the main axis or move to a new line.</summary>

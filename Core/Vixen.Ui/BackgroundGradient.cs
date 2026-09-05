@@ -741,7 +741,12 @@ sealed class GradientReader {
     ///     typo in the first stop is reported as <see cref="GradientRefusal.Colour" />.
     /// </remarks>
     static bool LooksLikeStop(ReadOnlySpan<char> text) {
-        if (text.Length > 0 && (char.IsAsciiDigit(text[0]) || text[0] is '-' or '+' or '.')) {
+        // ⚠ A sign starts a number only when a digit or a point follows it — #823's correction, here
+        // because `-45deg` is a prelude and `-webkit-anything` is not one. Testing the sign alone put
+        // every hyphen-initial identifier into the prelude, where its refusal came back
+        // `Direction` rather than `Colour`, which is exactly the distinction this method exists to
+        // keep.
+        if (IsNumeric(text)) {
             return false;
         }
 
@@ -1489,8 +1494,16 @@ sealed class GradientReader {
     }
 
     /// <summary>Whether a token is meant to be a number, whatever it turns out to be.</summary>
+    /// <remarks>
+    ///     ⚠ A sign is only the start of a number when a digit or a point follows it. Reading the
+    ///     sign alone made every hyphen-initial identifier look numeric, which is #823's defect in
+    ///     miniature.
+    /// </remarks>
     static bool IsNumeric(ReadOnlySpan<char> text) =>
-        text.Length > 0 && (char.IsAsciiDigit(text[0]) || text[0] is '-' or '+' or '.');
+        text.Length > 0
+        && (char.IsAsciiDigit(text[0])
+            || text[0] == '.'
+            || (text[0] is '+' or '-' && text.Length > 1 && (text[1] == '.' || char.IsAsciiDigit(text[1]))));
 
     /// <summary>Reads a stop position as a fraction, from a percentage or a bare zero.</summary>
     /// <remarks>
