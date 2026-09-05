@@ -934,7 +934,20 @@ gradient-editor {
     color: var(--accent);
 }
 
-gradient-rail { height: 16px; flex-shrink: 0; }
+/* ⚠ The border is declared transparent rather than added on focus, and that is the whole reason it
+   is here at all: `box-sizing` is `border-box`, so a rail that grew a border only when focused would
+   still reflow its own content by a pixel each way as the focus arrived and left, and the markers
+   drawn inside it would twitch. A rail is focusable now — see `GradientRail`'s remarks — and a
+   focusable thing with no visible focus is the keyboard half of #420 done and then hidden. */
+gradient-rail {
+    height: 16px;
+    flex-shrink: 0;
+    border-width: 1px;
+    border-color: transparent;
+    border-radius: 3px;
+}
+
+gradient-rail:focus-visible { border-color: var(--accent); }
 gradient-bar { height: 28px; flex-shrink: 0; border-radius: 3px; }
 
 gradient-editor color-picker {

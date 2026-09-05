@@ -150,6 +150,22 @@ public static class ControlStrings {
     /// <summary>The gradient editor's opacity slider, shown when an alpha stop is chosen.</summary>
     public static StringId GradientEditorOpacity { get; } = new("ui.control.gradient-editor.opacity", "Opacity");
 
+    /// <summary>The rail of colour stops under the bar.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The two rails need names for the one reason a caption cannot supply: they are
+    ///     identical.</b> Both are a horizontal strip of markers over a gradient bar, with nothing
+    ///     written beside either, and which list a rail carries is the only thing that distinguishes
+    ///     them — visually it is the fact that one is above the bar and one below, which is not a
+    ///     fact a screen reader has.
+    /// </remarks>
+    public static StringId GradientEditorColorStops { get; } =
+        new("ui.control.gradient-editor.color-stops", "Colour stops");
+
+    /// <summary>The rail of alpha stops over it.</summary>
+    /// <inheritdoc cref="GradientEditorColorStops" select="remarks" />
+    public static StringId GradientEditorAlphaStops { get; } =
+        new("ui.control.gradient-editor.alpha-stops", "Opacity stops");
+
     /// <summary>Every string above, for a translator to start from.</summary>
     /// <remarks>
     ///     ⚠ <b>Spelled out rather than reflected over</b>, for the reason <c>Strings.Template</c>
@@ -181,6 +197,8 @@ public static class ControlStrings {
         ColorPickerField,
         ColorPickerPalette,
         GradientEditorSpace,
-        GradientEditorOpacity
+        GradientEditorOpacity,
+        GradientEditorColorStops,
+        GradientEditorAlphaStops
     ];
 }

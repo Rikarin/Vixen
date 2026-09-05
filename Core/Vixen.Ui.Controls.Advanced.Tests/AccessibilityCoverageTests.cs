@@ -47,8 +47,8 @@ public class AccessibilityCoverageTests {
     static readonly Dictionary<string, string> Exempt = new(StringComparer.Ordinal) {
         // Owed, in the order doc 46 § A2 lists them. Keyboard first, role second — see #420. The
         // colour picker's three left this table by being given a keyboard, not by being given a
-        // role; the three below are the ones still waiting for one.
-        ["GradientRail"] = "pointer-only: the stop rail is dragged and has no keyboard yet — #420",
+        // role, and `GradientRail` has now left it the same way; the two below are the ones still
+        // waiting for one.
         ["NodeItem"] = "pointer-only: a node is dragged and has no keyboard yet — #420",
         ["ViewportGizmo"] = "pointer-only: a manipulator handle with no keyboard yet — #420",
 
@@ -82,7 +82,7 @@ public class AccessibilityCoverageTests {
 
     /// <summary>And how many of them are expected to answer with a role.</summary>
     /// <remarks>Twenty today, which is what stops the first floor being met by exempted types.</remarks>
-    const int Roled = 18;
+    const int Roled = 19;
 
     [Fact]
     public void Every_element_type_has_a_role_or_a_written_reason_for_not() {
