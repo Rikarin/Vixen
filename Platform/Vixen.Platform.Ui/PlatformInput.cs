@@ -301,8 +301,12 @@ public static class PlatformInput {
 
                 return true;
 
+            // ⚠ By surface, for `KeyDown`'s reason and one event later in the same sentence. A
+            // keystroke and the character it produces arrive separately, and until this passed the
+            // surface the two were routed by different rules — so the key reached the torn-off
+            // window and the letter it typed reached the main one.
             case PlatformEventKind.TextInput:
-                document.Dispatch(new TextInputEvent { Text = platformEvent.Text, Timestamp = when });
+                document.Dispatch(surface, new TextInputEvent { Text = platformEvent.Text, Timestamp = when });
                 return true;
 
             // ⚠ <b>This arm was missing, and its absence was invisible from either end.</b> Two
@@ -315,6 +319,7 @@ public static class PlatformInput {
             // disagree with.
             case PlatformEventKind.TextEditing:
                 document.Dispatch(
+                    surface,
                     new TextCompositionEvent {
                         Text = platformEvent.Text,
                         Start = platformEvent.SelectionStart,

@@ -1427,6 +1427,8 @@ Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.TextInputEvent args) -> Vixen.Ui.UiElement
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.DropEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.KeyEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.PointerEvent args) -> Vixen.Ui.UiElement?
+Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.TextCompositionEvent args) -> Vixen.Ui.UiElement?
+Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.TextInputEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.WheelEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.WheelEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispose() -> void
