@@ -2055,12 +2055,17 @@ public static class UtilityFamilies {
         //   refusal that *cites* another refusal inherits its expiry date, and no test checks either.
         //
         //   What is left of the six is not category 2. `scale-z-*`, `rotate-x/y/z-*` and
-        //   `translate-z-*` are category 4: v4 emits them through `transform: rotateX(45deg)`, and
-        //   there is no `<transform-function>` parser here — no `matrix()`, no `rotate()`, no list of
-        //   functions in `StyleValue` — so they are a parser away rather than a renderer away. The
-        //   three-dimensional ones additionally need an axis and a projective composite that
-        //   `UiTransform` is deliberately unable to express. `skew-*` is in the same position for the
-        //   same reason.
+        //   `translate-z-*` are category 4: v4 emits them through `transform: rotateX(45deg)`.
+        //   ⚠ <b>This used to continue "and there is no `<transform-function>` parser here", and
+        //   that half was false when it was written</b> — `TransformReader.Functions` in
+        //   `Vixen.Ui/Transform.cs` reads `matrix`, `translate/X/Y`, `scale/X/Y`, `rotate`,
+        //   `rotateZ` and `skew/X/Y`, composed right to left, refusing the whole list if one
+        //   function in it is unreadable, and pinned against pixels in `TransformTests` (#585). What
+        //   is true is the clause beside it: `StyleValue` has no function kind, which is why a
+        //   `transform` declaration cannot interpolate — and it is not what holds these back.
+        //   `skew-*` is a family registration away (#227). The three-dimensional four are a *vertex*
+        //   away: `UiVertex` has nowhere to put a `w`, so a projective quad would be rasterised with
+        //   affine barycentrics (#548).
         //
         //   ⚠ <b>3. The property is READ, and the value is refused — so the gate stays green over a
         //   class that paints nothing.</b> The dangerous kind, and the one this table has to catch

@@ -18,13 +18,22 @@
     `order` — which the layout has implemented all along and no stylesheet here was using — is what
     puts it in front. See `BrowserTheme.vcss`; the rule is three lines and the C# is gone.
 
-    ⚠ **The drag is on the foldout and asks where the gesture started, which is the same set of
-    events the header handler saw.** `on:` is an attribute on a tag and the header is a *part*, so
-    markup can fill it and still cannot subscribe to it — a real gap, named in this file rather than
-    worked around silently. `Grabbed` walks up from `DragEvent.Source` and answers "this drag began
-    inside some foldout's header", which is precisely what bubbling to the header meant: a pointer
-    that came down on the icon or the remove button still grabs, and one that came down on a slider
-    in the body still does not.
+    ⚠ **The drag is on the header, and the gap this file used to name is closed.** `on:` is an
+    attribute on a tag and the header is a *part*, so for one wave markup could fill it and still
+    could not subscribe to it: the subscription sat on the whole foldout and an eleven-line `Grabbed`
+    walked up from `DragEvent.Source` to reproduce what bubbling to the header selected.
+    `on:dragstart.slot-header` is the spelling now — it emits
+    `ctx.On(BuildContext.Into(n1, "header"), …)`, which is `fold.Header.AddHandler<DragEvent>(…)` and
+    not a filter that agrees with it — and the handler knows its own row, so nothing derives the
+    section from the event any more. A pointer that comes down on the icon or the remove button is
+    inside the header and still grabs; one that comes down on a slider in the body is not on that
+    route at all, which is the same answer for a simpler reason.
+
+    ⚠ **Every stage of the drag reaches a handler on a part, and that is `Gestures`' doing rather
+    than luck.** Each stage is raised from `Press.Target`, the element the pointer went *down* on,
+    which is fixed for the gesture — so the route never changes under a drag and a header handler
+    still receives the drop wherever the pointer ends up. A gesture re-targeted per move would make
+    `slot-` subscriptions lose everything after the start.
 
     ⚠ **And it is three subscriptions, not one, which cost an afternoon.** `AddHandler<DragEvent>`
     delivers every stage; the runtime's `on:` table splits the same event across three names, and
@@ -55,6 +64,7 @@
 @using Vixen.Editor.SceneView
 @using Vixen.Editor.Ui
 @using Vixen.Ui
+@using Vixen.Ui.Composition
 @using Vixen.Ui.Controls
 @using Vixen.Ui.Reactive
 @using Vixen.Editor.AssetEditors.Prefabs
@@ -62,12 +72,13 @@
 <component-list ref="@host">
     @for (var row in Rows) {
         <Expander key="@row"
+                  refs="@Foldouts"
                   class="component"
                   Label="@row.Bridge.DisplayName"
                   IsExpanded="true"
-                  on:dragstart="@((DragEvent args) => Rearrange(args))"
-                  on:drag="@((DragEvent args) => Rearrange(args))"
-                  on:dragend="@((DragEvent args) => Rearrange(args))">
+                  on:dragstart.slot-header="@((DragEvent args) => Rearrange(row, args))"
+                  on:drag.slot-header="@((DragEvent args) => Rearrange(row, args))"
+                  on:dragend.slot-header="@((DragEvent args) => Rearrange(row, args))">
             <!--
                 ⚠ Every foldout gets one, and until it did the surface was half-implemented in
                 practice: three component types ship a registration, so a header that drew a picture
@@ -197,6 +208,16 @@
 
     /// <summary>The foldout being dragged, or <see langword="null" />.</summary>
     Expander? dragging;
+
+    /// <summary>Each row's foldout, filed under the loop's own key.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The handler is on the header and the drag moves a foldout, so the two have to be
+    ///     joined somewhere</b> — and the loop's key is the exact join. The alternative on offer was
+    ///     the visual index, on the argument that <see cref="Sections" /> and <see cref="Rows" /> are
+    ///     in the same order; they are, and a handle that is right by construction beats one that is
+    ///     right by an agreement two collections keep.
+    /// </remarks>
+    readonly ElementRefs<Expander> Foldouts = new();
 
     Entity entity;
 
@@ -478,39 +499,29 @@
         drawn.Clear();
     }
 
-    /// <summary>Which foldout a drag that started here belongs to, or null.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The markup limitation this file works around, named here so the next port finds
-    ///     it.</b> <c>on:</c> is an attribute on a tag; the grab handle is
-    ///     <c>Expander.Header</c>, which is a <i>part</i>. <c>slot="header"</c> lets markup put
-    ///     children in it and there is still no spelling for a handler <i>on</i> it — so the
-    ///     subscription is on the foldout and this reproduces what bubbling to the header selected:
-    ///     the event's route passed through some foldout's header on its way out. A pointer that
-    ///     came down on the icon or the remove button is inside the header and still grabs, which is
-    ///     what the hand-written version did; one that came down in the body is not, and does not.
-    /// </remarks>
-    Expander? Grabbed(UiElement? source) {
-        for (var element = source; element is not null; element = element.Parent) {
-            if (element is ExpanderHeader { Parent: Expander fold } && ReferenceEquals(fold.Parent, host)) {
-                return fold;
-            }
-
-            if (ReferenceEquals(element, host)) {
-                break;
-            }
-        }
-
-        return null;
-    }
-
     /// <summary>Moves a foldout to where it was dropped.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The dragged section comes from the drag's own start rather than from a hit test
-    ///         under the pointer.</b> A drag does not begin until the pointer has passed the slop
-    ///         threshold, which in a panel of twenty-six-pixel headers is most of the way to the next
-    ///         one — so asking what is under the pointer picks up the neighbour and drags the wrong
-    ///         component. It is the same reason <c>TreeView.Dragged</c> reads the event's source.
+    ///         ⚠ <b>The dragged section is the row this handler belongs to, and is no longer derived
+    ///         from the event at all.</b> This used to be three subscriptions on the whole foldout
+    ///         plus an eleven-line <c>Grabbed</c> walking up from <c>DragEvent.Source</c> to ask
+    ///         "did this gesture begin inside some foldout's header" — because <c>on:</c> is an
+    ///         attribute on a tag and a header is a <i>part</i>. <c>on:dragstart.slot-header</c> is
+    ///         the spelling for that now, and what it emits is
+    ///         <c>ctx.On(BuildContext.Into(n1, "header"), …)</c> — the subscription the hand-written
+    ///         panel made, rather than a filter over the source that agrees with it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The later stages still arrive, and that is a property of the gesture and not a
+    ///         coincidence.</b> <c>Gestures</c> raises every stage from <c>Press.Target</c> — the
+    ///         element the pointer went <i>down</i> on, fixed for the whole drag — so a drag begun in
+    ///         a header keeps bubbling through that header however far the pointer travels. Were the
+    ///         stages re-targeted under the pointer, a handler on a part would lose the drop.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And a drag begun in the body still does not grab</b>, for the same reason and
+    ///         with nothing to check: the body is not under the header, so the header's handler is
+    ///         not on that gesture's route. That is what <c>Grabbed</c> was reproducing by hand.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Nothing is recorded on the undo stack.</b> Rearranging the panel does not change
@@ -518,9 +529,9 @@
     ///         inspector rather than the edit before it would be the worst kind of surprise.
     ///     </para>
     /// </remarks>
-    void Rearrange(DragEvent args) {
+    void Rearrange(Row row, DragEvent args) {
         switch (args.Stage) {
-            case DragStage.Started when Grabbed(args.Source) is { } section:
+            case DragStage.Started when Foldouts.TryGet(row, out var section):
                 dragging = section;
                 section.AddClass("dragging");
 

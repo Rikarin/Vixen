@@ -93,6 +93,9 @@ public enum SyntaxKind : ushort {
     /// <summary><c>@using</c>.</summary>
     UsingKeyword,
 
+    /// <summary><c>static</c>, the one keyword that follows another one rather than an <c>@</c>.</summary>
+    StaticKeyword,
+
     /// <summary><c>@namespace</c>.</summary>
     NamespaceKeyword,
 

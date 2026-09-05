@@ -148,6 +148,32 @@ public sealed partial class ColorStrip : Control {
 public sealed partial class ColorField : Control {
     bool dragging;
 
+    /// <summary>The perceptual plane's colours, or <c>null</c> until one has been drawn.</summary>
+    Color4[]? plane;
+
+    /// <summary>The hue <see cref="plane" /> was built for. <c>NaN</c> so the first draw builds it.</summary>
+    float planeHue = float.NaN;
+
+    /// <summary>
+    ///     How many <c>OkLch.ToSrgb</c> calls the perceptual plane has made since this field was
+    ///     created.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A work counter, not a timer</b> — the same instrument
+    ///     <c>UiGeometryBuilder.ColourSearches</c> is, and for the same reason: most of these
+    ///     colours are outside sRGB on purpose, so most of them are a <c>GamutMap.Map</c> binary
+    ///     search rather than arithmetic, and a count says whether one ran where a millisecond on
+    ///     an idle machine says nothing.
+    /// </remarks>
+    internal int PlaneConversions { get; private set; }
+
+    /// <summary>How many times the perceptual plane has been built.</summary>
+    /// <remarks>
+    ///     Moves only when <see cref="ColorPicker.Hue" /> does. Growing once per draw means the
+    ///     cache key is wrong, which is the failure this counter exists to make visible.
+    /// </remarks>
+    internal int PlaneRebuilds { get; private set; }
+
     /// <inheritdoc />
     protected override string TagName => "color-field";
 
@@ -198,19 +224,17 @@ public sealed partial class ColorField : Control {
                 new BoxStyle(default, Color4.Black, new Vector2(0f, 1f))
             );
         } else {
+            var colours = Plane(owner.Hue);
             var slice = bounds.Width / Samples;
 
             for (var i = 0; i < Samples; i++) {
-                var chroma = (i + 0.5f) / Samples * ColorPicker.MaximumChroma;
+                var column = i * (Samples + 1);
 
                 for (var j = 0; j < Samples; j++) {
-                    var top = 1f - (j / (float) Samples);
-                    var bottom = 1f - ((j + 1f) / Samples);
-
                     context.FillRectangle(
                         new Rectangle(bounds.X + (i * slice), bounds.Y + (j * bounds.Height / Samples), slice + 1f, (bounds.Height / Samples) + 1f),
-                        new OkLch(top, chroma, owner.Hue).ToSrgb(),
-                        new BoxStyle(default, new OkLch(bottom, chroma, owner.Hue).ToSrgb(), new Vector2(0f, 1f))
+                        colours[column + j],
+                        new BoxStyle(default, colours[column + j + 1], new Vector2(0f, 1f))
                     );
                 }
             }
@@ -223,6 +247,55 @@ public sealed partial class ColorField : Control {
 
         context.StrokeRectangle(new Rectangle(centre.X - 6f, centre.Y - 6f, 12f, 12f), Color4.White, 2f, BoxStyle.Rounded(CornerRadii.Uniform(6f)));
         context.StrokeRectangle(new Rectangle(centre.X - 7f, centre.Y - 7f, 14f, 14f), Color4.Black, 1f, BoxStyle.Rounded(CornerRadii.Uniform(7f)));
+    }
+
+    /// <summary>One cached plane colour: the column's chroma at the row's lightness.</summary>
+    /// <param name="column">The column, <c>0</c> to <see cref="Samples" /> exclusive.</param>
+    /// <param name="level">The lightness step, <c>0</c> to <see cref="Samples" /> inclusive — a
+    ///     cell's top stop is <paramref name="level" /> and its bottom stop is the next one.</param>
+    /// <returns>The colour the plane drew there.</returns>
+    internal Color4 PlaneColour(int column, int level) =>
+        plane is null ? default : plane[(column * (Samples + 1)) + level];
+
+    /// <summary>The plane's colours for a hue, building them if that hue is not the cached one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A row's bottom stop is the next row's top stop</b>, so the grid is
+    ///         <see cref="Samples" /> columns of <c>Samples + 1</c> lightnesses — 272 colours, not
+    ///         the 512 conversions a stop-per-cell loop made. Half of the saving is that alone, and
+    ///         it does not depend on anything being cached.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The rest of it is that nothing here depends on the frame.</b> Chroma is the
+    ///         column, lightness is the row and the only other input is the hue, so a plane drawn
+    ///         again with the hue unmoved is the same 272 colours — and it was recomputing them,
+    ///         every draw, most of them through a <c>GamutMap.Map</c> binary search rather than a
+    ///         clamp: at hue 0, 169 of the 272 are outside sRGB by construction, because the plane
+    ///         spans chroma to <see cref="ColorPicker.MaximumChroma" /> and much of that is not a
+    ///         colour a monitor can make.
+    ///     </para>
+    /// </remarks>
+    Color4[] Plane(float hue) {
+        if (plane is { } cached && planeHue == hue) {
+            return cached;
+        }
+
+        plane ??= new Color4[Samples * (Samples + 1)];
+
+        for (var i = 0; i < Samples; i++) {
+            var chroma = (i + 0.5f) / Samples * ColorPicker.MaximumChroma;
+            var column = i * (Samples + 1);
+
+            for (var k = 0; k <= Samples; k++) {
+                plane[column + k] = new OkLch(1f - (k / (float) Samples), chroma, hue).ToSrgb();
+            }
+        }
+
+        PlaneConversions += Samples * (Samples + 1);
+        PlaneRebuilds++;
+        planeHue = hue;
+
+        return plane;
     }
 
     void Pointed(PointerEvent args) {

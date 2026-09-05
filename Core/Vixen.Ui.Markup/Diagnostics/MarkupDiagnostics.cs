@@ -400,4 +400,20 @@ public static class MarkupDiagnostics {
         BindingCategory,
         DiagnosticSeverity.Error
     );
+
+    /// <summary>An <c>@using static</c> was also given an alias, which C# has no spelling for.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Reported here rather than left to Roslyn.</b> Both halves of the directive are copied
+    ///     verbatim, so the two together would reach the generated file as <c>using static X = Y;</c>
+    ///     and be reported against a line the author never wrote — the defect this directive's
+    ///     lexing was fixed for in the first place.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor AliasedStaticImport = new(
+        "VXML2019",
+        "A static import cannot be aliased",
+        "'@using static' imports a type's static members, so it has no name to alias. Drop '{0} =', "
+        + "or drop 'static'.",
+        BindingCategory,
+        DiagnosticSeverity.Error
+    );
 }

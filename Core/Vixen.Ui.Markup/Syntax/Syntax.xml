@@ -91,6 +91,16 @@
         <Field Name="UsingKeyword" Type="SyntaxToken">
             <Kind Name="UsingKeyword"/>
         </Field>
+        <Field Name="StaticKeyword" Type="SyntaxToken" Optional="true">
+            <Kind Name="StaticKeyword"/>
+            <PropertyComment>
+                <summary>
+                    The <c>static</c> in <c>@using static System.Math</c>, which makes
+                    <see cref="Name" /> a type whose static members are imported rather than a
+                    namespace.
+                </summary>
+            </PropertyComment>
+        </Field>
         <Field Name="Alias" Type="SyntaxToken" Optional="true">
             <Kind Name="NameToken"/>
             <PropertyComment>
@@ -115,8 +125,8 @@
         </Field>
         <TypeComment>
             <summary>
-                <c>@using Vixen.Ui.Controls</c>, or <c>@using Prefab = A.B.Prefab</c> — copied
-                verbatim into the generated file.
+                <c>@using Vixen.Ui.Controls</c>, <c>@using Prefab = A.B.Prefab</c> or
+                <c>@using static System.Math</c> — copied verbatim into the generated file.
             </summary>
             <remarks>
                 ⚠ <b>The alias is stored ahead of the name, not instead of it.</b> Held as one

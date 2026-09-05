@@ -48,6 +48,32 @@ public class BinderTests {
         Assert.Empty(component!.Usings);
     }
 
+    /// <summary>
+    ///     The <c>static</c> is joined here for the same reason the alias is: the emitter's one job
+    ///     is to write <c>using {text};</c>.
+    /// </summary>
+    [Fact]
+    public void A_static_import_reaches_the_component_as_one_string() {
+        var component = BindClean("@component A\n@using static System.Math\n<div />");
+        Assert.Equal(["static System.Math"], component.Usings);
+    }
+
+    /// <summary>
+    ///     ⚠ <b><c>using static X = Y;</c> is not C#</b>, so the two together are refused here rather
+    ///     than copied through — a generated file that cannot compile is the outcome this directive
+    ///     is parsed at all to avoid, and what survives is the half that does compile.
+    /// </summary>
+    [Fact]
+    public void A_static_import_with_an_alias_is_refused_rather_than_emitted() {
+        var component = Binder.Bind(
+            Vxml.Parse("@component A\n@using static M = System.Math\n<div />"),
+            out var diagnostics
+        );
+
+        Assert.Contains(diagnostics, d => d.Descriptor.Id == "VXML2019");
+        Assert.Equal(["static System.Math"], component!.Usings);
+    }
+
     [Fact]
     public void A_tag_directive_reaches_the_bound_component_and_its_absence_is_null() {
         Assert.Equal("task-center", BindClean("@component A\n@tag task-center\n<div />").Tag);

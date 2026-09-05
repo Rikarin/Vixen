@@ -459,6 +459,83 @@ public class ColorPickerTests {
         Assert.Equal(1, changes);
     }
 
+    /// <summary>
+    ///     ⚠ <b>The perceptual plane used to be recomputed from scratch on every draw.</b> Sixteen
+    ///     columns times sixteen rows times a stop at each end is 512 <c>OkLch.ToSrgb</c> calls, and
+    ///     at hue 0 exactly 169 of the plane's 272 distinct colours are outside sRGB — so most of
+    ///     them were a <c>GamutMap.Map</c> binary search rather than three clamps, repeated for a
+    ///     picture that had not changed.
+    /// </summary>
+    /// <remarks>
+    ///     The count is the claim, not a duration: a wall-clock budget calibrated on an idle machine
+    ///     is this repository's largest flake source, and 512-versus-0 is the same instrument
+    ///     <c>UiGeometryBuilder.ColourSearches</c> already is.
+    /// </remarks>
+    [Fact]
+    public void The_perceptual_plane_is_converted_once_per_hue_and_not_once_per_draw() {
+        using var fixture = new AdvancedFixture();
+        var picker = Picker(fixture);
+
+        picker.Model = ColorModel.OkLch;
+        fixture.Update();
+
+        // A row's bottom stop is the row below's top stop, so the plane is 16 columns of 17
+        // lightnesses — the 512 stops the loop asked for are 272 colours.
+        Assert.Equal(ColorField.Samples * (ColorField.Samples + 1), picker.Field.PlaneConversions);
+        Assert.Equal(1, picker.Field.PlaneRebuilds);
+
+        fixture.Update();
+        fixture.Update();
+
+        // ⚠ Nothing gates the draw itself: every `Document.Draw()` runs `OnDraw` on the field, and
+        // before this the counter grew by 512 each time.
+        Assert.Equal(ColorField.Samples * (ColorField.Samples + 1), picker.Field.PlaneConversions);
+        Assert.Equal(1, picker.Field.PlaneRebuilds);
+    }
+
+    /// <summary>And the hue is what invalidates it, because it is the only other input.</summary>
+    [Fact]
+    public void Moving_the_hue_rebuilds_the_plane() {
+        using var fixture = new AdvancedFixture();
+        var picker = Picker(fixture);
+
+        picker.Model = ColorModel.OkLch;
+        fixture.Update();
+
+        picker.Value = new Color4(0f, 0.6f, 0.9f, 1f);
+        fixture.Update();
+
+        Assert.NotEqual(0f, picker.Hue);
+        Assert.Equal(2, picker.Field.PlaneRebuilds);
+        Assert.Equal(2 * ColorField.Samples * (ColorField.Samples + 1), picker.Field.PlaneConversions);
+    }
+
+    /// <summary>
+    ///     The cache is only worth having if it holds the colours the uncached loop drew. Chroma is
+    ///     the column and lightness is the row, so the whole grid is a closed form to compare with.
+    /// </summary>
+    [Fact]
+    public void The_cached_plane_holds_the_colours_the_loop_drew() {
+        using var fixture = new AdvancedFixture();
+        var picker = Picker(fixture);
+
+        picker.Model = ColorModel.OkLch;
+        picker.Value = new Color4(0.8f, 0.2f, 0.2f, 1f);
+        fixture.Update();
+
+        for (var i = 0; i < ColorField.Samples; i++) {
+            var chroma = (i + 0.5f) / ColorField.Samples * ColorPicker.MaximumChroma;
+
+            for (var j = 0; j < ColorField.Samples; j++) {
+                var top = new OkLch(1f - (j / (float) ColorField.Samples), chroma, picker.Hue).ToSrgb();
+                var bottom = new OkLch(1f - ((j + 1f) / ColorField.Samples), chroma, picker.Hue).ToSrgb();
+
+                Assert.Equal(top, picker.Field.PlaneColour(i, j));
+                Assert.Equal(bottom, picker.Field.PlaneColour(i, j + 1));
+            }
+        }
+    }
+
     /// <summary>A component that draws nothing, so that a test can hold a real build context.</summary>
     sealed class Nothing : Component {
         protected override void Build(BuildContext ctx) { }

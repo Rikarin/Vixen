@@ -1220,9 +1220,15 @@ does mirror that one.
    refusal that cites another refusal inherits its expiry date and nothing here checks it** — the
    allow-list's own expiry only fires once somebody has already written the reader, which is a
    different and later moment. What is left of the six is shape 4: `skew-*`, `scale-z-*`,
-   `rotate-x/y/z-*` and `translate-z-*` are emitted by v4 through `transform: rotateX(45deg)`, and
-   there is no `<transform-function>` parser here, so they are a parser away rather than a renderer
-   away.
+   `rotate-x/y/z-*` and `translate-z-*` are emitted by v4 through `transform: rotateX(45deg)`. ⚠
+   **This paragraph used to end "and there is no `<transform-function>` parser here, so they are a
+   parser away rather than a renderer away", and that was false when it was written** — see A7 and
+   #585. `TransformReader.Functions` reads `matrix`, `translate/X/Y`, `scale/X/Y`, `rotate`,
+   `rotateZ` and `skew/X/Y`, composed right to left and pinned in `TransformTests`. `skew-*` is a
+   family registration away (#227). The three-dimensional four are a *vertex* away and not a parser
+   away: `UiVertex` has nowhere to put a `w`, so a projective quad would be rasterised with affine
+   barycentrics (#548) — which is what their own ledger rows now say, and this taxonomy is the half
+   that had not caught up.
 3. ⚠ *The property is **read** and the **value** is refused, so a registration keeps the gate green
    over a class that paints nothing.* The dangerous shape, and no per-property measurement can catch
    it. `inset-shadow-*` and `inset-ring-*` emit `box-shadow`, which is read — but

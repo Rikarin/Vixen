@@ -34,6 +34,18 @@ namespace Vixen.Editor.Ui.Tests;
 ///         engine learned it, and moving it was a row in each table and a test that reversed.
 ///     </para>
 ///     <para>
+///         ⚠ <b>There is a third table, and the reason it is not a fourth column of the second is
+///         the finding.</b> <see cref="Refused" /> holds the families whose property <i>is</i> read
+///         and whose <i>value</i> the reader declines. The two are different claims and expire on
+///         different conditions: an inert row can borrow <c>InertProperties.txt</c>'s expiry, which
+///         is <see cref="No_inert_row_outlives_the_allow_list_entry_it_names" /> and is one line —
+///         and a refused-value row cannot, because its property belongs in no exemption list. What
+///         it is held to instead is a named behavioural fact. #532 is what a table with neither
+///         costs: <c>scale-*</c> and <c>rotate-*</c> claimed nothing read them long after the
+///         compositor landed, and <see cref="An_inert_family_still_computes_a_value" /> could not
+///         see it, because a computed value is as true of a family with a reader as of one without.
+///     </para>
+///     <para>
 ///         The two <c>Fact</c>s at the bottom look at what the layout and the draw list did rather
 ///         than at what the cascade stored, which is the only way either question gets a real answer.
 ///         One of them still proves inertness and the other now proves the opposite. They are the
@@ -824,16 +836,11 @@ public class UtilityFamilySupportTests {
         // the value is not null, which is as true of a family with a reader as of one without. That
         // is #532, and the table's missing mechanism is #582.
 
-        // ⚠ <b>`align-middle` stays, and its three siblings left.</b> `vertical-align` is read now,
-        // so this row is no longer "a property with no consumer" — it is a *value* the consumer
-        // refuses. §10.8.1 defines `middle` as the parent's baseline plus half its x-height, and an
-        // x-height is a font metric; `Vixen.Ui.Layout` is geometry and has no font, so
-        // `LayoutStyleBuilder` drops the keyword rather than approximating it. Approximating it is
-        // the tempting mistake: rounding `middle` to `baseline` looks almost right and reads as a
-        // rendering quirk. Task #26, and `InlineKnownGaps.txt` says what it would take —
-        // `align-text-top`, `align-text-bottom`, `align-sub` and `align-super` are the same story if
-        // the families are ever registered.
-        { "align-middle", "vertical-align" },
+        // ⚠ <b>`align-middle` has left this table for <see cref="Refused" />, and it is the first
+        // row to leave without the family changing at all.</b> It was never "a property with no
+        // consumer": `vertical-align` is read. It is a *value* the consumer declines, and the two
+        // are different claims with different expiry dates — which is #582, and is why the one-line
+        // link this table now has could not simply be applied to every row it held.
 
         // ⚠ <b>`select-none` stays, and the reason it used to give was disprovable in five
         // minutes.</b> Both this table and `InertProperties.txt` said "no selection model reads it",
@@ -867,6 +874,49 @@ public class UtilityFamilySupportTests {
         // `InertProperties.txt` for what the gate needed before it could see the third one.
     };
 
+    /// <summary>
+    ///     The families whose property <b>is</b> read and whose <i>value</i> the reader declines —
+    ///     the class name, the longhand, the value it computes, and the fact that proves the refusal
+    ///     is still real.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This table exists because the obvious mechanism for <see cref="Inert" /> does not
+    ///         fit every row it used to hold.</b> #532 is what a refusal list with no mechanism
+    ///         costs: <c>scale-*</c> and <c>rotate-*</c> sat in <see cref="Inert" /> saying "nothing
+    ///         looks at this" while the parity ledger measured both roots <c>partial</c> with
+    ///         <c>engine_reads</c> set. The fix is one line —
+    ///         <see cref="No_inert_row_outlives_the_allow_list_entry_it_names" /> — and applied to
+    ///         <c>align-middle</c> it would have gone red on a row that is correct and deliberate,
+    ///         because <c>vertical-align</c> is not in <c>InertProperties.txt</c> and must not be:
+    ///         it is read. An exemption for the exemption is the anti-pattern this repository has
+    ///         spent a month removing, so the answer is a second table with a second contract.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Ask what this half prints on the day it does not run.</b> A refused-value row
+    ///         whose reader has quietly learnt the value looks <i>identical</i> to one whose reader
+    ///         never will — both compute the value, and neither says anything about what the value
+    ///         did. So a row here owes a named behavioural fact whose assertion is false the day the
+    ///         refusal ends, and <see cref="Every_refused_value_names_a_fact_this_class_declares" />
+    ///         is what stops a row being added without one. A not-null assertion is exactly the
+    ///         instrument that could not see #532, and repeating it here would repeat #532.
+    ///     </para>
+    /// </remarks>
+    public static TheoryData<string, string, string, string> Refused => new() {
+        // ⚠ <b>`align-middle` moved here from `Inert`, and its three siblings are in `Supported`.</b>
+        // §10.8.1 defines `middle` as the parent's baseline plus half its x-height, and an x-height
+        // is a font metric; `Vixen.Ui.Layout` is geometry and has no font, so
+        // `LayoutStyleBuilder.VerticalAligns` maps only `baseline`, `top` and `bottom` and the
+        // keyword never reaches a `LayoutStyle`. Approximating it is the tempting mistake: rounding
+        // `middle` to `baseline` looks almost right and reads as a rendering quirk. Task #26, and
+        // `InlineKnownGaps.txt` says what it would take — `align-text-top`, `align-text-bottom`,
+        // `align-sub` and `align-super` are the same story if the families are ever registered.
+        {
+            "align-middle", "vertical-align", "middle",
+            nameof(The_refused_middle_moves_nothing_while_the_top_beside_it_moves)
+        }
+    };
+
     /// <summary>Each supported family computes what the engine's own consumers go looking for.</summary>
     /// <param name="utility">The class name.</param>
     /// <param name="property">The longhand the cascade should end up holding.</param>
@@ -896,6 +946,177 @@ public class UtilityFamilySupportTests {
         ui.Frame();
 
         Assert.NotNull(ui.StyleOf(element, property));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The mechanism <see cref="Inert" /> was missing, and the reason it took #532 to
+    ///     notice.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>InertProperties.txt</c> expires on its condition — the consumption gate's
+    ///         <c>No_allow_list_entry_outlives_the_gap_it_names</c> fails an exemption the moment
+    ///         something reads the property. This table had no such condition at all, so
+    ///         <c>scale-*</c> and <c>rotate-*</c> went on reading "nothing looks at this" through the
+    ///         landing of the compositor, the closing of that file's Transforms block and the parity
+    ///         ledger measuring both roots <c>partial</c> on a recomputed column. Borrowing the
+    ///         neighbour's expiry costs one assertion and is the whole of the fix.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The paragraph that let #532 happen named this mechanism and named the wrong
+    ///         file.</b> It said "the day a compositor lands, the gate's expiry check on
+    ///         <c>InertProperties.txt</c> is what says so" — and that check governs <i>that file</i>.
+    ///         Nothing carried its verdict here. This is the edge that was missing, written as an
+    ///         assertion rather than as a sentence.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Inert))]
+    public void No_inert_row_outlives_the_allow_list_entry_it_names(string utility, string property) {
+        var path = Path.Combine(AppContext.BaseDirectory, "InertProperties.txt");
+
+        Assert.True(File.Exists(path), $"{path} was not copied beside the test assembly.");
+
+        var exempt = File.ReadAllLines(path)
+            .Select(line => line.Trim())
+            .Where(line => line.Length > 0 && !line.StartsWith('#'))
+            .Select(line => line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)[0])
+            .ToHashSet(StringComparer.Ordinal);
+
+        Assert.True(
+            exempt.Contains(property),
+            $"""
+             '{utility}' is in `Inert`, which claims nothing reads '{property}' — and
+             InertProperties.txt does not exempt it. Either something reads it now, in which case
+             this row belongs in `Supported` or in `Refused`, or the two lists disagree about the
+             same fact. ⚠ `Refused` is the answer when the property is read and the *value* is
+             declined: that is what happened to `align-middle`, and a row like it must not be
+             answered by adding a line to InertProperties.txt for a property that is read.
+             """
+        );
+    }
+
+    /// <summary>
+    ///     A refused-value family computes exactly what it emits, which is more than "not null" and
+    ///     is the half that notices the emission changing under the row.
+    /// </summary>
+    /// <param name="utility">The class name.</param>
+    /// <param name="property">The longhand it sets, which the engine does read.</param>
+    /// <param name="expected">The value the reader declines.</param>
+    /// <param name="fact">The behavioural test that proves the refusal is still real.</param>
+    [Theory]
+    [MemberData(nameof(Refused))]
+    public void A_refused_value_computes_exactly_what_the_family_emits(
+        string utility,
+        string property,
+        string expected,
+        string fact
+    ) {
+        Assert.NotEmpty(fact);
+
+        using var ui = Sheet(utility);
+
+        var element = ui.Create("probe", ui.Document.Root, null, utility);
+
+        ui.Frame();
+
+        Assert.Equal(expected, ui.StyleOf(element, property));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Every <see cref="Refused" /> row owes a behavioural fact, and this is what makes
+    ///     "owes" mean something.</b>
+    /// </summary>
+    /// <remarks>
+    ///     A row here cannot borrow <c>InertProperties.txt</c>'s expiry, because the property it
+    ///     names is read and belongs in no exemption list. What it can be held to is a named test
+    ///     whose assertion is false on the day the reader learns the value — so the contract is that
+    ///     the name in the fourth column resolves to a method on this class. A row added without one
+    ///     fails here rather than passing quietly, which is the failure mode #532 was.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Refused))]
+    public void Every_refused_value_names_a_fact_this_class_declares(
+        string utility,
+        string property,
+        string expected,
+        string fact
+    ) {
+        Assert.NotEmpty(property);
+        Assert.NotEmpty(expected);
+
+        var method = typeof(UtilityFamilySupportTests).GetMethod(fact);
+
+        Assert.True(
+            method is not null,
+            $"'{utility}' names '{fact}' as the fact that keeps its refusal honest, and this class "
+            + "declares no such method."
+        );
+
+        Assert.True(
+            method!.GetCustomAttributes(typeof(FactAttribute), false).Length > 0
+            || method.GetCustomAttributes(typeof(TheoryAttribute), false).Length > 0,
+            $"'{fact}' is not a test, so nothing runs it."
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The refusal, measured on a box rather than believed from a table.</b>
+    ///     <c>align-middle</c> computes <c>vertical-align: middle</c> and moves the box by nothing;
+    ///     <c>align-top</c> beside it, in the same line and on the same run, moves it by the whole
+    ///     height difference.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The <c>align-top</c> half is the instrument and not decoration.</b> "This class
+    ///         changed nothing" is the assertion that passes on a scene where <i>no</i>
+    ///         <c>vertical-align</c> could have changed anything — one line, one box, boxes of equal
+    ///         height, a formatting context that is not inline at all. Asserting in the same frame
+    ///         that a value the bridge <i>does</i> map moves the box by a computed amount is what
+    ///         says the arrangement can see an alignment at all.
+    ///     </para>
+    ///     <para>
+    ///         The amount is closed-form rather than eyeballed: an atomic inline with no in-flow line
+    ///         boxes has its baseline synthesised at its bottom margin edge (§10.8.1), so two
+    ///         baseline-aligned boxes sit bottom to bottom and the short one starts exactly the
+    ///         height difference below the tall one. <c>align-top</c> puts it at the line's top
+    ///         instead, which is that difference higher.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ On the day <c>middle</c> is implemented this goes red on its first assertion — half
+    ///         an x-height is not zero — which is the property a refusal list needs and the one
+    ///         <c>An_inert_family_still_computes_a_value</c> cannot have.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_refused_middle_moves_nothing_while_the_top_beside_it_moves() {
+        using var ui = Sheet("block", "inline-block", "w-8", "h-8", "h-16", "w-48", "align-middle", "align-top");
+
+        var host = ui.Create("probe", ui.Document.Root, null, "block", "w-48");
+
+        var tall = ui.Create("probe", host, null, "inline-block", "w-8", "h-16");
+        var plain = ui.Create("probe", host, null, "inline-block", "w-8", "h-8");
+        var middle = ui.Create("probe", host, null, "inline-block", "w-8", "h-8", "align-middle");
+        var top = ui.Create("probe", host, null, "inline-block", "w-8", "h-8", "align-top");
+
+        ui.Frame();
+
+        Assert.Equal("middle", ui.StyleOf(middle, "vertical-align"));
+        Assert.Equal("top", ui.StyleOf(top, "vertical-align"));
+
+        // All four are on one line, or the tops below are being compared across lines and mean
+        // nothing.
+        Assert.Equal(64f, tall.Height);
+        Assert.Equal(32f, plain.Height);
+        Assert.True(middle.AbsoluteLeft > plain.AbsoluteLeft, "the four boxes share a line");
+        Assert.True(top.AbsoluteLeft > middle.AbsoluteLeft, "the four boxes share a line");
+
+        // The refusal: `middle` lands where the box with no vertical-align at all lands.
+        Assert.Equal(plain.AbsoluteTop, middle.AbsoluteTop);
+
+        // The instrument: a value the bridge does map moves it, by the whole height difference.
+        Assert.Equal(tall.AbsoluteTop, top.AbsoluteTop);
+        Assert.Equal(top.AbsoluteTop + 32f, middle.AbsoluteTop);
     }
 
     /// <summary>

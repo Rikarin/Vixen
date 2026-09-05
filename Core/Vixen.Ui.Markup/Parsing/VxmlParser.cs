@@ -332,14 +332,21 @@ sealed class VxmlParser : SyntaxParser {
     /// </remarks>
     UsingDirectiveSyntax ParseUsingDirective() {
         var keyword = Take(SyntaxKind.UsingKeyword);
+        SyntaxToken? @static = At(VxmlTokenKind.StaticKeyword) ? Take(SyntaxKind.StaticKeyword) : null;
         var first = Expect(VxmlTokenKind.Name, SyntaxKind.NameToken);
 
         if (!At(VxmlTokenKind.Equals)) {
-            return SyntaxFactory.UsingDirective(keyword, null, null, first);
+            return SyntaxFactory.UsingDirective(keyword, @static, null, null, first);
         }
 
         var equals = Take(SyntaxKind.EqualsToken);
-        return SyntaxFactory.UsingDirective(keyword, first, equals, Expect(VxmlTokenKind.Name, SyntaxKind.NameToken));
+        return SyntaxFactory.UsingDirective(
+            keyword,
+            @static,
+            first,
+            equals,
+            Expect(VxmlTokenKind.Name, SyntaxKind.NameToken)
+        );
     }
 
     NamespaceDirectiveSyntax ParseNamespaceDirective() {

@@ -168,6 +168,20 @@ public sealed class Binder {
                 continue;
             }
 
+            // `using static X = Y;` is not C#, so an aliased static import is refused here rather
+            // than copied through into a generated file that cannot compile — the whole reason this
+            // directive is parsed at all.
+            if (@using.StaticKeyword is { IsMissing: false } && @using.Alias is { IsMissing: false } aliased) {
+                Report(MarkupDiagnostics.AliasedStaticImport, @using.Span, aliased.Text);
+                usings.Add($"static {@using.Name.Text}");
+                continue;
+            }
+
+            if (@using.StaticKeyword is { IsMissing: false }) {
+                usings.Add($"static {@using.Name.Text}");
+                continue;
+            }
+
             usings.Add(
                 @using.Alias is { IsMissing: false } alias
                     ? $"{alias.Text} = {@using.Name.Text}"

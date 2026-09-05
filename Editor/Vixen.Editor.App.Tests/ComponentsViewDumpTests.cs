@@ -141,6 +141,110 @@ public sealed class ComponentsViewDumpTests {
         Assert.True(section.IsExpanded, "the surviving foldout shut when its neighbour was removed");
     }
 
+    /// <summary>
+    ///     ⚠ <b>A drag that begins in a foldout's <i>body</i> reorders nothing, which is the half of
+    ///     this gesture that has no visible success.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The subscription is <c>on:dragstart.slot-header</c>, so the handler is on
+    ///         <c>Expander.Header</c> and a gesture begun below it is not on that route at all — it
+    ///         replaces eleven lines that walked up from <c>DragEvent.Source</c> asking the same
+    ///         question. ⚠ <b>Both spellings answer the same way on the day they work</b>, so a test
+    ///         that only dragged headers would pass over a subscription that had quietly gone back to
+    ///         the whole foldout, and the panel would reorder itself whenever anybody dragged a
+    ///         numeric field.
+    ///     </para>
+    ///     <para>
+    ///         The drop indicator is asserted too, because a drag that armed the indicator and then
+    ///         declined to move anything is a third state — a line that appears under a gesture that
+    ///         does nothing, which is the panel lying about what a release will do.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_drag_that_begins_inside_a_body_reorders_nothing() {
+        using var editor = Crate(out var components);
+
+        var before = components.Sections.Select(section => section.Label ?? string.Empty).ToArray();
+
+        Assert.Equal(["Primitive Shape", "Light"], before);
+
+        // A row in the *second* foldout's body — not its header — dragged up over the first one,
+        // which is the movement that reorders when it starts one strip higher.
+        var row = Descendants(components.Sections[1])
+            .First(child => child.Tag == "inspector-row" && !IsInside(child, components.Sections[1].Header));
+
+        var target = components.Sections[0].Header.Bounds;
+
+        editor.Ui
+            .At(row.AbsoluteLeft + (row.Width * 0.5f), row.AbsoluteTop + (row.Height * 0.5f))
+            .DragTo(target.X + (target.Width * 0.5f), target.Y + 2f);
+
+        editor.Settle();
+
+        Assert.Equal(before, components.Sections.Select(section => section.Label ?? string.Empty).ToArray());
+        Assert.True(components.DropIndicator.HasClass("hidden"), "the drop line was armed by a drag that moved nothing");
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The line lands where the drop lands, measured mid-gesture rather than after it.</b>
+    /// </summary>
+    /// <remarks>
+    ///     A drop indicator is the only thing telling somebody where a release will put the foldout,
+    ///     so an indicator that is right most of the time is worse than none — and once the pointer
+    ///     is up there is nothing left to compare it with. This holds the pointer over the first
+    ///     header, reads the line, and then releases and checks the section landed at the line: two
+    ///     readings of one gesture, which is the only arrangement that can catch them disagreeing.
+    /// </remarks>
+    [Fact]
+    public void The_drop_line_is_where_the_release_puts_the_foldout() {
+        using var editor = Crate(out var components);
+
+        var handle = components.Sections[1].Header.Bounds;
+        var top = components.Sections[0].Bounds;
+
+        editor.Ui.MovePointer(handle.X + (handle.Width * 0.5f), handle.Y + (handle.Height * 0.5f));
+        editor.Ui.PressPointer();
+        editor.Ui.Frame();
+
+        // Four steps, because the recogniser decides a drag has begun by watching the pointer move
+        // and one jump gives it a single sample.
+        for (var step = 1; step <= 4; step++) {
+            var t = step / 4f;
+            editor.Ui.MovePointer(
+                handle.X + (handle.Width * 0.5f),
+                handle.Y + (handle.Height * 0.5f) + ((top.Y + 2f - handle.Y - (handle.Height * 0.5f)) * t)
+            );
+
+            editor.Ui.Frame();
+        }
+
+        Assert.False(components.DropIndicator.HasClass("hidden"), "no line was shown for a drag in progress");
+
+        // The gap above the first foldout, so the line sits on its top edge.
+        var line = components.DropIndicator.AbsoluteTop;
+
+        Assert.Equal(top.Y, line, 1);
+
+        editor.Ui.ReleasePointer();
+        editor.Ui.Frame();
+        editor.Settle();
+
+        Assert.Equal(["Light", "Primitive Shape"], components.Sections.Select(section => section.Label ?? string.Empty).ToArray());
+        Assert.Equal(line, components.Sections[0].Bounds.Y, 1);
+        Assert.True(components.DropIndicator.HasClass("hidden"), "the line outlived the drop");
+    }
+
+    static bool IsInside(UiElement element, UiElement ancestor) {
+        for (var walk = element; walk is not null; walk = walk.Parent) {
+            if (ReferenceEquals(walk, ancestor)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>The state the panel opens in: two foldouts, both open, nothing focused.</summary>
     const string Open =
         """

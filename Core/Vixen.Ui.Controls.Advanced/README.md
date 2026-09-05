@@ -294,6 +294,16 @@ move the picker and the chromaticity survives a round trip through a value of fo
 capture permission on macOS and a compositor protocol on Wayland. `EyedropperRequested` asks;
 `Pick` answers.
 
+⚠ **The OkLCh plane is built once per hue, and it used to be built 512 conversions at a time on
+every draw.** Chroma is the column, lightness is the row and the hue is the only other input, so a
+plane drawn again with the hue unmoved is the same colours — and the loop recomputed all of them,
+most through `GamutMap.Map`'s binary search rather than a clamp, because the plane spans chroma to
+`MaximumChroma` and much of that is not a colour a monitor can make: at hue 0, 169 of the plane's
+272 distinct colours are outside sRGB by construction. A row's bottom stop is also the row below's
+top stop, so 512 stops were only ever 272 colours. `PlaneConversions` and `PlaneRebuilds` are what
+say so; they are counts and not milliseconds, because a wall-clock budget calibrated on an idle
+machine is the thing that flakes.
+
 ⚠ **The intensity slider is `LabelledBy` its caption.** The caption is a separate element carrying
 a localised string, and a slider beside words nothing related it to announces nothing — the
 translation was on screen and unreachable. One relation is the whole fix, and because a relation is

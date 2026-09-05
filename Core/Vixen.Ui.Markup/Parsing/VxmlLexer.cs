@@ -344,6 +344,7 @@ sealed class VxmlLexer {
         if (AtDirective("using")) {
             Emit(tokens, VxmlTokenKind.UsingKeyword, 6);
             SkipWhitespace(tokens);
+            LexUsingStatic(tokens);
             LexName(tokens);
             LexUsingAlias(tokens);
             return;
@@ -402,6 +403,25 @@ sealed class VxmlLexer {
         }
 
         LexInterpolation(tokens);
+    }
+
+    /// <summary>
+    ///     The <c>static</c> of <c>@using static System.Math</c>, if this using has one.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The word is only a keyword when whitespace follows it.</b> <c>IsNamePart</c> takes a
+    ///     <c>.</c>, so a bare <c>AtWord</c> would read the <c>static</c> of a hypothetical
+    ///     <c>@using static.Thing</c> as the keyword and leave <c>.Thing</c> as no name at all.
+    ///     Whitespace is also the only thing that separates the keyword from the name it qualifies,
+    ///     which is why nothing else needs to be looked at.
+    /// </remarks>
+    void LexUsingStatic(List<LexedToken> tokens) {
+        if (!AtWord("static") || !IsWhitespace(window.Peek(6))) {
+            return;
+        }
+
+        Emit(tokens, VxmlTokenKind.StaticKeyword, 6);
+        SkipWhitespace(tokens);
     }
 
     /// <summary>
