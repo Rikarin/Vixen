@@ -47,11 +47,11 @@ package Vixen.Editor.TextureGraph.Shaders
 //
 // ## Nothing here is a length in texels
 //
-// `scale` is a fraction of a *cell*, the jitters are fractions of a cell or of a turn, and the grid
-// is a count. Doc 48 § D8's scaling therefore never touches this kernel, exactly as it never touches
-// § 4.1's sources: the same op is the same picture at 1K and at 4K by construction, and the only
-// resolution-dependent number in the file is the sub-sample count, which is an anti-aliasing budget
-// and not a shape.
+// `scale` is a fraction of a *cell*, the jitters are a fraction of a cell or an angle in radians,
+// and the grid is a count. Doc 48 § D8's scaling therefore never touches this kernel, exactly as it
+// never touches § 4.1's sources: the same op is the same picture at 1K and at 4K by construction,
+// and the only resolution-dependent number in the file is the sub-sample count, which is an
+// anti-aliasing budget and not a shape.
 
 shader TileSampler {
     /// The stamp. ⚠ Read as an **atlas of `patternCount` columns**, so one input carries the several

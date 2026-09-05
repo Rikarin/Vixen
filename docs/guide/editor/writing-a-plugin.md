@@ -105,7 +105,7 @@ first plugin that draws.
 view: `Device` is `null` in a headless host, before the window comes up, and after the device is
 released, so a plugin asks each time rather than reading it once at activation.
 
-```csharp
+```csharp no-compile="a plugin's own Activate, over a preview type of its own"
 public void Activate(PluginContext context) {
     if (context.Services.TryGet<IEditorGraphics>(out var graphics)) {
         // The evaluator holds the device: a pipeline cache is why the contract lends one rather
@@ -127,7 +127,7 @@ image is created for what it dispatches into, and a view registered straight fro
 missing `Sampled` and is in the wrong layout — which MoltenVK forgives and a discrete card does not.
 The host owns the staging buffer, the copy and the two barriers, and does them once.
 
-```csharp
+```csharp no-compile="a fragment, against a caller's own evaluator and an ImageView it holds"
 using var bake = evaluator.Evaluate(plan);
 
 var picture = bake.Read(0);
@@ -143,7 +143,7 @@ view.Image = image?.Image ?? 0;
 `IEditorRegistry.Add` does — the editor's name and every extension it claimed, given up together, so
 a reload finds both free.
 
-```csharp
+```csharp no-compile="a plugin's own Activate, over an editor factory of its own"
 if (context.Services.TryGet<AssetEditorRegistry>(out var editors)) {
     context.Owns(editors.Add(new MyEditorFactory()));
 }

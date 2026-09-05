@@ -105,13 +105,13 @@ internal static class TexturePlacement {
     /// <param name="scaleJitter">How much an instance may randomly shrink, 0–1.</param>
     /// <param name="positionJitter">How far it may randomly move inside its cell, 0–1.</param>
     /// <param name="rotation">The rotation every instance starts at, in radians.</param>
-    /// <param name="rotationJitter">How much it may randomly differ, in turns.</param>
+    /// <param name="rotationJitter">How much it may randomly differ, in radians. At 2π it is free.</param>
     /// <param name="colourJitter">How much it may randomly darken, 0–1.</param>
     /// <param name="patternCount">How many equal-width columns the pattern holds.</param>
     /// <param name="alphaCoverage">Whether the pattern's alpha carries its coverage rather than its luminance.</param>
     /// <param name="maskThreshold">The mask value below which an instance is dropped.</param>
     /// <param name="sizeMapAmount">How much of the size map reaches an instance's scale, 0–1.</param>
-    /// <param name="rotationMapAmount">How much of the rotation map is added, in turns.</param>
+    /// <param name="rotationMapAmount">How much of the rotation map is added, in radians.</param>
     /// <param name="accumulation">How overlapping instances combine.</param>
     /// <param name="opacity">How much of each instance reaches the result.</param>
     /// <returns>The op.</returns>
@@ -195,7 +195,7 @@ internal static class TexturePlacement {
     /// <param name="scaleJitter">How much an instance may randomly shrink, 0–1.</param>
     /// <param name="positionJitter">How far it may randomly move inside its cell, 0–1.</param>
     /// <param name="rotation">The rotation every instance starts at, in radians.</param>
-    /// <param name="rotationJitter">How much it may randomly differ, in turns.</param>
+    /// <param name="rotationJitter">How much it may randomly differ, in radians. At 2π it is free.</param>
     /// <param name="colourJitter">How much it may randomly darken, 0–1.</param>
     /// <param name="patternCount">How many equal-width columns the pattern holds.</param>
     /// <param name="alphaCoverage">Whether the pattern's alpha carries its coverage.</param>
@@ -256,13 +256,13 @@ internal static class TexturePlacement {
     /// <param name="scale">An instance's size as a fraction of the image.</param>
     /// <param name="scaleJitter">How much an instance may randomly shrink, 0–1.</param>
     /// <param name="rotation">The rotation every instance starts at, in radians.</param>
-    /// <param name="rotationJitter">How much it may randomly differ, in turns.</param>
+    /// <param name="rotationJitter">How much it may randomly differ, in radians. At 2π it is free.</param>
     /// <param name="colourJitter">How much it may randomly darken, 0–1.</param>
     /// <param name="patternCount">How many equal-width columns the pattern holds.</param>
     /// <param name="alphaCoverage">Whether the pattern's alpha carries its coverage.</param>
     /// <param name="maskThreshold">The mask value below which an instance is dropped.</param>
     /// <param name="sizeMapAmount">How much of the size map reaches an instance's scale, 0–1.</param>
-    /// <param name="rotationMapAmount">How much of the rotation map is added, in turns.</param>
+    /// <param name="rotationMapAmount">How much of the rotation map is added, in radians.</param>
     /// <param name="placementAmount">How far the placement map may move an instance, in fractions of the image.</param>
     /// <param name="accumulation">How overlapping instances combine.</param>
     /// <param name="opacity">How much of each instance reaches the result.</param>
@@ -337,7 +337,7 @@ internal static class TexturePlacement {
     /// <param name="scale">An instance's size as a fraction of the image.</param>
     /// <param name="scaleJitter">How much an instance may randomly shrink, 0–1.</param>
     /// <param name="rotation">The rotation every instance starts at, in radians.</param>
-    /// <param name="rotationJitter">How much it may randomly differ, in turns.</param>
+    /// <param name="rotationJitter">How much it may randomly differ, in radians. At 2π it is free.</param>
     /// <param name="colourJitter">How much it may randomly darken, 0–1.</param>
     /// <param name="patternCount">How many equal-width columns the pattern holds.</param>
     /// <param name="alphaCoverage">Whether the pattern's alpha carries its coverage.</param>

@@ -1,16 +1,23 @@
 # Shaders
 
 The texture graph's atomic kernels, in Raven. **Forty-five `.rvn` files**, which is
-[doc 48 § 4.11](../../../docs/plan/48-material-authoring.md)'s forty-four adjusted three ways — and
-each adjustment is a fact about the catalogue rather than an arithmetic slip:
+[doc 48 § 4.11](../../../docs/plan/48-material-authoring.md)'s forty-one adjusted one way — and the
+adjustment is a fact about the catalogue rather than an arithmetic slip:
 
 | | | |
 |---|---:|---|
-| § 4.11's compute kernels | **44** | |
-| − `Text`, `Svg Path` | −2 | **Not kernels, and cannot be** — [#687](https://github.com/Rikarin/Vixen/issues/687) |
-| − `Normal → Height` | −1 | **A CPU Poisson solve**, by doc 48's own exception — [#688](https://github.com/Rikarin/Vixen/issues/688) |
+| § 4.11's compute kernels | **41** | The catalogue's rows, less the three that are not compute shaders |
 | + `MinMaxReduce`, `JumpFlood`, `FloodBounds`, `FloodResidual` | +4 | **Dispatches, not nodes**: three nodes need a chain |
 | = files in this folder | **45** | `TextureKernels.Names` at run time |
+
+⚠ **This table used to start from forty-four and subtract three, and it double-counted a correction**
+([#728](https://github.com/Rikarin/Vixen/issues/728)). Forty-four was § 4.11's count of catalogue
+*rows*; § 4.11 has since taken `Text`, `Svg Path` and `Normal → Height` off it and states forty-one
+compute kernels, so subtracting them a second time here made the arithmetic reach forty-five by
+cancelling two errors. The three are still worth naming, and this is what they are:
+`Text` and `Svg Path` are **not kernels and cannot be**
+([#687](https://github.com/Rikarin/Vixen/issues/687)), and `Normal → Height` is a **CPU Poisson
+solve** by doc 48's own exception ([#688](https://github.com/Rikarin/Vixen/issues/688)).
 
 **Why the first two cannot be kernels.** A compute shader has no rasteriser, and
 `TexturePlanEvaluator` compiles each kernel alone through `RavenEffectCompiler.FromSources` with no
@@ -53,8 +60,12 @@ hardware mip chain here and no anisotropic tap, so each derives the footprint of
 boxes over it.
 
 **§ 4.4 filters — eleven.** `Blur` · `BlurHq` · `DirectionalBlur` · `RadialBlur` · `NonUniformBlur` ·
-`Sharpen` · `Emboss` · `Warp` · `DirectionalWarp` · `VectorWarp` · `SlopeBlur`. Every one takes a
-length, so this is the group § D8's scaling rule is *about*. ⚠ Two carry a convention rather than a
+`Sharpen` · `Emboss` · `Warp` · `DirectionalWarp` · `VectorWarp` · `SlopeBlur`. ⚠ **Nine of the
+eleven take a length, not all eleven** ([#728](https://github.com/Rikarin/Vixen/issues/728)):
+`Emboss` and `RadialBlur` take none and each says so in its own header, so this file contradicted two
+kernels that were already right. It is still the group § D8's scaling rule is mostly *about* — one of
+§ 4.5's three has a length and three of § 4.6's six, and § 4.1, § 4.2, § 4.3 and § 4.7 have none at
+all. ⚠ Two carry a convention rather than a
 number: `VectorWarp` decodes `(rg · 2 − 1) · intensity`, so **128 is rest** and the one-sided reading
 produces a picture that drifts one way at half the amplitude and looks entirely plausible; and
 `SlopeBlur` is **iterative**, so its sample count changes the answer exactly where the field curves,

@@ -183,7 +183,7 @@ and it is why the C# and Raven sides have the same seven names on one axis and t
 shader's effect key is built from. A host states a pass's set in one line, with the array the shader's
 own reflection produced:
 
-```csharp
+```csharp no-compile="one line of a host's own setup, against a renderer it has already built"
 renderer.Materials.PermutationKeys["ForwardPlus"] = ForwardPlusKeys.UsedPermutationKeys;
 ```
 
