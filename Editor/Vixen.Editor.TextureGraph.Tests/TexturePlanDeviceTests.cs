@@ -546,6 +546,28 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
 
         using var evaluator = new TexturePlanEvaluator(device);
 
+        // ⚠ The kernel is compiled outside the clock, on a plan too small to measure. Leaving it in
+        // would put a Raven front-end run and a pipeline creation inside the first resolution's
+        // number and nowhere else, which is how a measurement comes out saying that 1K costs more per
+        // op than 2K does.
+        var (warm, warmStaging) = Upload(device, Ramp(8), 8);
+
+        using (var _ = evaluator.Evaluate(
+            new TexturePlan {
+                BaseWidth = 8,
+                BaseHeight = 8,
+                Images = [new(TextureFormat.Rgba8, External: true), new(TextureFormat.Rgba8)],
+                Ops = [Blur(1, 0, 1f, 1, 0)],
+                Outputs = [1]
+            },
+            new Dictionary<int, TextureHandle> { [0] = warm }
+        )) {
+            Assert.Equal(1, evaluator.Compilations);
+        }
+
+        device.Destroy(warmStaging);
+        device.Destroy(warm);
+
         foreach (var side in (int[])[1024, 2048, 4096]) {
             var (source, staging) = Upload(device, Ramp(64), 64);
 
