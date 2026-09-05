@@ -114,8 +114,37 @@ that a delegate gets its chance "even though a delegate isn't formally in the re
 
 The gap that closed: **a handler had to hang on a `UiElement`**, so a view-model or a document
 object that wanted to own `edit.copy` had to own a piece of the view tree in order to say so.
-`ICommandResponder` is one method, id to handler; `CommandResponder` is the table almost everything
+`IResponder` is one method, id to handler; `CommandResponder` is the table almost everything
 wants, with the same five arguments and the same duplicate-id throw as `AddCommandHandler`.
+
+⚠ **It was `ICommandResponder`, and the rename is a claim about the number of chains.** AppKit has
+one: the same `NSResponder` receives `keyDown:`, answers `copy:`, validates the menu item that sends
+it and supplies the `undoManager`. Vixen had three that did not meet — routed events, commands, and
+the editor's keymap — and only the middle one had an interface. `IResponder` now carries `OnKey` and
+`UndoManager` as well, both *defaulted*, so a responder that is only a table of verbs is unchanged
+and every existing implementation compiles as it stood.
+
+### The middle of the walk: `UiElement.Responders`
+
+The two `IResponder` slots on `UiDocument` are the chain's two **ends**. AppKit puts a view
+controller, a window controller and a document *between* the views and `NSApp`, and until
+`UiElement.Responders` there was nowhere for any of them: the chain could be extended at its ends
+and nowhere else. An element **appends** a responder at its own position with `AddResponder`, and
+the walk consults it right after that element's own handlers and before moving to `Parent` —
+`CommandRoute.Resolve`, `UiDocument.Dispatch(KeyEvent)` and `FindUndoManager` all walk the same
+links in the same order, which is the point of there being one interface.
+
+⚠ **Deliberately not a settable `nextResponder`.** A mutable next-link is where AppKit's worst chain
+bugs come from: anything holding the pointer can splice itself in ahead of the window, forget to
+restore it, and orphan the root — after which the application stops answering verbs it has always
+answered, with nothing to look at. Appending at a position cannot rewrite the walk, so the invariant
+above holds whatever anybody appends.
+
+⚠ **A key reaches a non-element responder here and nowhere else.** `EventRouter.Raise` is
+`UiElement`-typed end to end and its route is a `List<UiElement>`, so this is not an omission that
+could be fixed inside the router. `Dispatch(KeyEvent)` offers the key to the responder walk *after*
+the bubble leg — a focused control still wins — and *before* the access-key and Tab fallbacks,
+because those are defaults and this is not.
 
 ⚠ **No rule changed, only the length of the walk.** Nearer wins all the way out — leaf, panel, root,
 document, application — the first responder that *answers* wins, and only that one is asked
@@ -128,7 +157,7 @@ preferred the document anyway, and nought lookups is the claim the rule actually
 `true` with a predicate that says no. Returning `false` drops the id out of the chain, and there is
 nothing after the application to catch it.
 
-⚠ **Lifetime: the document holds the responders and never the reverse.** `ICommandResponder` has no
+⚠ **Lifetime: the document holds the responders and never the reverse.** `IResponder` has no
 event and no back-reference by design, so a responder never learns which documents it was installed
 on and a long-lived one cannot pin a closed window's element tree —
 `A_long_lived_responder_does_not_keep_a_closed_document_alive` asserts that against the collector.
@@ -185,7 +214,7 @@ document, and a command becoming executable is not a thing that dirties one.
 **What consumes it.** `Vixen.Ui.Controls`' `ButtonBase.Command` — so `Button`, `IconButton`,
 `MenuItem`, `ToggleButton` and `Link` all bind an id, from markup as readily as from code, and each
 follows the invalidation for as long as it has one bound. The extended chain's consumer is the
-editor: `CommandRegistry` implements `ICommandResponder` over the table it already had, and
+editor: `CommandRegistry` implements `IResponder` over the table it already had, and
 `EditorShell` installs it as its document's `ApplicationCommandResponder`, so a plain `Vixen.Ui`
 control bound to an editor command id resolves, greys and runs it — through the registry's own
 scope-and-enablement gate and raising its `Executed` — with nothing editor-shaped in the control.
@@ -436,7 +465,7 @@ manual gate on purpose.
 
 `BackgroundTaskManager` is the list of long operations an application is running and
 `BackgroundTask` is one of them — a title, a status, a progress fraction, a state and a cancellation
-token. It is here for the same reason `ICommandResponder` is: **it is application-framework
+token. It is here for the same reason `IResponder` is: **it is application-framework
 machinery, and it was reachable only by the editor.** It came out of `Vixen.Editor.Ui/Tasks/` whole;
 what stayed behind is `TaskCenter.vxml`, the panel that shows them, which is the editor's chrome.
 The split cost one `@using` line — the model named nothing editor-shaped, and the centre names

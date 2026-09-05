@@ -187,6 +187,19 @@ public partial class UiElement {
             if (element.UndoManager is { } manager) {
                 return manager;
             }
+
+            // ⚠ The responders appended at this element too, and in the same order the command walk
+            // asks them: this is `NSResponder.undoManager`, and the object that owns a document's
+            // stack is usually a controller rather than a view. An element leg that skipped them
+            // would make a view controller able to answer `edit.undo` and unable to supply the
+            // manager the edit has to be recorded on.
+            var responders = element.Responders;
+
+            for (var i = 0; i < responders.Count; i++) {
+                if (responders[i].UndoManager is { } appended) {
+                    return appended;
+                }
+            }
         }
 
         return document?.UndoManager;

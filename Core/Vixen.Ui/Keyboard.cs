@@ -196,6 +196,17 @@ public sealed partial class UiDocument {
         var target = KeyTarget;
         target.Raise(args);
 
+        // ⚠ The one place a non-element responder can see a key, and until this existed there was
+        // none: `EventRouter.Raise` is `UiElement`-typed end to end and its route is a
+        // `List<UiElement>`, so a view controller or a document object could answer `edit.copy` and
+        // still be structurally unable to see the ⌘C that means it. This walks the same links
+        // `CommandRoute.Resolve` walks, in the same order, so the two chains finally agree about
+        // who is on them — after the bubble leg, because a focused control must still win, and
+        // before the access-key and Tab fallbacks, because those are defaults and this is not.
+        if (!args.Handled) {
+            args.Handled = OfferToResponders(target, args);
+        }
+
         // ⚠ After the route and only if nothing wanted it, exactly like Tab below. A menu that is
         // open has its own idea of what Alt-S means and must be able to take it; a text field that
         // handles Alt-Left for word movement must not lose it to an access key on a button called
@@ -247,6 +258,38 @@ public sealed partial class UiDocument {
         var target = KeyTarget;
         target.Raise(args);
         return target;
+    }
+
+    /// <summary>Offers a key to every responder appended along the walk, nearest first.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The element leg only, and then the document's two slots — the same three legs
+    ///         <see cref="CommandRoute.Resolve" /> has, in the same order. A responder that returns
+    ///         <c>true</c> ends the walk, because "I took the key" and "keep asking" are the two
+    ///         answers and there is no third.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>From the target upwards and not from the root down.</b> A capture leg here would
+    ///         let an appended responder take a key <i>before</i> the control the user is typing
+    ///         into, which is the ordering the editor's keymap deliberately rejects — see
+    ///         <c>CommandDispatcher</c>'s bubble-leg handler and AppKit's
+    ///         <c>performKeyEquivalent:</c>, which Vixen does not copy.
+    ///     </para>
+    /// </remarks>
+    bool OfferToResponders(UiElement target, KeyEvent args) {
+        for (var element = target; element is not null; element = element.Parent) {
+            var responders = element.Responders;
+
+            for (var i = 0; i < responders.Count; i++) {
+                if (responders[i].OnKey(args)) {
+                    return true;
+                }
+            }
+        }
+
+        // Written out rather than looped over an array of two, for the reason `CommandRoute.Resolve`
+        // gives: the order is the rule, and the array would be an allocation on a keystroke path.
+        return (CommandResponder?.OnKey(args) ?? false) || (ApplicationCommandResponder?.OnKey(args) ?? false);
     }
 
     /// <summary>Records that the interaction has gone back to the pointer.</summary>
