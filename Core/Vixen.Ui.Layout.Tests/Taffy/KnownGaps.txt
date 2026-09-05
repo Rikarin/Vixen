@@ -119,9 +119,19 @@
 #      "it happens to under-report" note predicted: see AutomaticMinimumSizeTests.
 #      An_empty_descendant_still_contributes_its_own_padding_and_border for the hand-written witness.
 #
-#   A third, in the same probe: it reads a GRID container as a flex row and sums all of its items
+#   A third, in the same probe: it read a GRID container as a flex row and summed all of its items
 #   along one axis. gridflex_row_integration is four 20-wide boxes in a 2x2 grid — 40 in Chrome, 80
-#   from the probe.
+#   from the probe. ⚠ CLOSED for the INLINE axis: GridMinContentInlineSize places the items, sizes
+#   the columns under GridSizingConstraint.MinContent and sums the columns and their gutters. That
+#   constraint had existed since track sizing landed and NOTHING PRODUCED IT — ConstraintFor emits
+#   only Definite and MaxContent — so §12.5's min-content branch was reachable code no caller could
+#   reach. The BLOCK axis still falls through to the flex reading: it needs each item's used inline
+#   size, which needs the column pass run against the container's real width, which is LayOutGrid in
+#   full rather than a probe. No fixture in the eight corpora names it. See GridBlindSpotTests.
+#   A_grid_item_is_floored_at_its_columns_and_not_at_the_sum_of_its_items, which is hand-written
+#   because the cap hides the defect on every measured item — and which answers 20 rather than 80
+#   without the branch, the same defect landing on the other side of the truth because the grid it
+#   uses states no flex-direction.
 #
 # ⚠ Because two of those three are still open — the grid one, and the `width: 50%` half of the
 # percentage one — the §4.5 floor is CAPPED at the item's own flex basis whenever that basis was
@@ -152,13 +162,16 @@
 # ⚠ Measured on a full Vixen.Ui.Layout.Tests run, 6 342 tests, before and after, cap on and cap off:
 #     cap on,  probe old:   0 failed        cap off, probe old:  22 failed
 #     cap on,  probe new:   0 failed        cap off, probe new:  14 failed
+#     … and with the grid branch as well:    cap off:              9 failed
 # The eight that the probe fix buys are all four blitz_issue_88 and all four bevy_issue_9530_reduced.
 # ⚠ So #623's headline — "the last thing standing between the cap and its removal", and "deleting the
 # cap turns exactly these sixteen red and nothing else, now that #265's grid half is closed" — is
-# REFUTED on both halves. #265's grid half is NOT closed (there is still no grid branch in
-# ComputeMinContentSizeUncached), the four gridflex_row_integration variants are among the 22, and
-# four bevy_issue_9530 and four measure_child_with_min_size_greater_than_available_space still fail
-# with the cap off. The cap comes out when the grid branch lands, not before.
+# REFUTED on both halves. #265's grid half was NOT closed when #623 was written, and the four
+# gridflex_row_integration variants were among the 22. With both landed the cap still cannot go: the
+# nine that remain are four bevy_issue_9530, four measure_child_with_min_size_greater_than_available_
+# space — which this file already files under a DIFFERENT rule, a clamp applied after the measurement
+# — and the flex corpus's pinned count. Two of the three defects the cap's own comment names are now
+# closed; the `width: 50%` percentage half is the one still standing under it.
 #
 # ⚠ percentage_flex_basis_cross_min_height CLOSED with §9.2's unclamped flex base, which is written up
 # under §9.7 below. It sat here rather than there because its symptom is a cross-axis minimum, and it

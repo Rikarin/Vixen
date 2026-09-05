@@ -46,6 +46,75 @@ namespace Vixen.Ui.Layout.Tests;
 public class GridBlindSpotTests {
     const float Tolerance = 0.0001f;
 
+    /// <summary>
+    ///     A grid item's automatic minimum inline size is its COLUMNS, not the sum of everything in
+    ///     it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The intrinsic probe read a grid container as a flex row.</b>
+    ///         <c>ComputeMinContentSizeUncached</c> takes a box's <c>flex-direction</c> and adds its
+    ///         children up along it, which for a grid counts two items in the same column twice.
+    ///         <c>gridflex_row_integration</c> is the corpus's version — four 20-wide texts in a 2×2
+    ///         grid, 40 in Chrome and 80 from the probe — and it is one fixture against a rule that
+    ///         applies to every grid inside every flex container.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The declared <c>flex-basis</c> is load-bearing and is why this is written by
+    ///         hand.</b> <c>ComputeAutoMinMainSize</c> caps the floor at the item's own flex basis
+    ///         whenever that basis was MEASURED, which hides every over-reported floor the probe
+    ///         produces; a DECLARED basis carries no such guarantee, so the number reaches the
+    ///         algorithm. See <c>Rikarin/Vixen#265</c>.
+    ///     </para>
+    ///     <para>
+    ///         The oracle is closed-form rather than recorded: four items of the same width in
+    ///         <i>c</i> columns fill every column for any <i>c</i> up to four, so the smallest the
+    ///         grid can be is exactly <i>c</i> times one item. The item count never enters it —
+    ///         which is precisely what the old answer of 80 got wrong.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The old reading answers <b>20</b> here rather than the corpus's 80, and the two are
+    ///         the same defect: this grid states no <c>flex-direction</c>, so the flex reading takes
+    ///         its cross-axis maximum where the corpus's — which states <c>row</c> on every node —
+    ///         takes the main-axis sum. A number read off a property a grid does not have can land
+    ///         on either side of the truth.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(1, 20f)]
+    [InlineData(2, 40f)]
+    [InlineData(4, 80f)]
+    public void A_grid_item_is_floored_at_its_columns_and_not_at_the_sum_of_its_items(int columns, float expected) {
+        using var tree = new LayoutTree();
+
+        // One point wide, so nothing but §4.5's floor decides how wide the grid comes out.
+        var root = tree.CreateNode();
+        tree.SetFlexDirection(root, FlexDirection.Row);
+        tree.SetDimension(root, Dimension.Width, StyleLength.Points(1f));
+        tree.SetDimension(root, Dimension.Height, StyleLength.Points(40f));
+
+        var template = new GridTrackSize[columns];
+        Array.Fill(template, GridTrackSize.Auto);
+
+        var grid = tree.CreateNode();
+        tree.SetDisplay(grid, Display.Grid);
+        tree.SetGridTemplateColumns(grid, template);
+        tree.SetFlexShrink(grid, 1f);
+        tree.SetFlexBasis(grid, StyleLength.Points(0f));
+        tree.AddChild(root, grid);
+
+        for (var cell = 0; cell < 4; cell++) {
+            var item = tree.CreateNode();
+            tree.SetDimension(item, Dimension.Width, StyleLength.Points(20f));
+            tree.SetDimension(item, Dimension.Height, StyleLength.Points(10f));
+            tree.AddChild(grid, item);
+        }
+
+        tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
+
+        Assert.Equal(expected, tree.GetWidth(grid), Tolerance);
+    }
+
     [Fact]
     public void An_inherited_rtl_reaches_a_grid_item_that_never_states_one() {
         // A two-column grid whose container says nothing about direction. In `rtl` the first item

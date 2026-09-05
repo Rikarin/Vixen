@@ -916,6 +916,15 @@ public sealed partial class LayoutTree {
         }
 
         var direction = StyleResolution.ResolveDirection(in styles[index], ownerDirection);
+
+        // ⚠ <b>A grid is not a flex line and must not be summed like one.</b> Everything below reads
+        // this box's `flex-direction` and adds its children up along it; for a grid that counts two
+        // items in the same column twice. See `GridMinContentInlineSize`, and `Rikarin/Vixen#265` —
+        // the block axis is not covered and still falls through to the flex reading.
+        if (styles[index].Display == Display.Grid && wantRow) {
+            return GridMinContentInlineSize(index, direction, ownerWidth);
+        }
+
         var nodeMainAxis = FlexAxis.Resolve(styles[index].FlexDirection, direction);
         var nodeCrossAxis = FlexAxis.ResolveCross(nodeMainAxis, direction);
 

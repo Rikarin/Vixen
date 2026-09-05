@@ -601,6 +601,91 @@ public sealed partial class LayoutTree {
         return int.Min(stated + (repetitions * template.AutoRepeatCount), LayoutLimits.MaximumGridTracks);
     }
 
+    /// <summary>A grid container's min-content INLINE size, sized as a grid rather than as a flex line.</summary>
+    /// <param name="index">The grid container.</param>
+    /// <param name="direction">Its resolved writing direction.</param>
+    /// <param name="ownerWidth">The containing block's inline size, for percentage resolution.</param>
+    /// <returns>The border-box min-content inline size.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The intrinsic probe read a grid as a flex row and summed every item along one
+    ///         axis.</b> <c>gridflex_row_integration</c> is four 20-wide texts in a 2×2 grid: 40 in
+    ///         Chrome, and 80 from a sum of all four. A grid's min-content inline size is §12's —
+    ///         each COLUMN takes the largest contribution among the items in it, and the container
+    ///         is the sum of the columns and their gutters. Two items in the same column cost one
+    ///         column's width between them, which is the whole difference.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="GridSizingConstraint.MinContent" /> existed and nothing produced
+    ///         it.</b> <c>SizeGridTracks</c> has read it in two places since track sizing landed and
+    ///         <c>ConstraintFor</c> emits only <c>Definite</c> or <c>MaxContent</c>, so §12.5's
+    ///         min-content branch was reachable code no caller could reach. This is the caller.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The inline axis only.</b> A grid's min-content BLOCK size needs the row pass,
+    ///         which needs each item's used inline size, which needs the column pass run against the
+    ///         container's real width — that is <c>LayOutGrid</c> in full rather than a probe, and
+    ///         it is still owed. The block axis therefore keeps the flex-line reading, which is
+    ///         wrong in the same way and which no fixture in the eight corpora names. See
+    ///         <c>Rikarin/Vixen#265</c>.
+    ///     </para>
+    /// </remarks>
+    float GridMinContentInlineSize(int index, Direction direction, float ownerWidth) {
+        var mark = Scratch.Mark;
+
+        try {
+            var columnGap = StyleResolution.GapForAxis(in styles[index], FlexDirection.Row, ownerWidth);
+            var rowGap = StyleResolution.GapForAxis(in styles[index], FlexDirection.Column, ownerWidth);
+
+            // An indefinite available space throughout, which is what a min-content question means:
+            // `ExplicitTrackCount` gives an `auto-fill` repetition exactly one repeat under it and a
+            // percentage track resolves to nothing. Both are §7.2.3.2's own answers rather than this
+            // method's.
+            var templateColumns = ExplicitTrackCount(in styles[index].GridTemplateColumns, float.NaN, columnGap);
+            var templateRows = ExplicitTrackCount(in styles[index].GridTemplateRows, float.NaN, rowGap);
+
+            var explicitColumns = int.Max(templateColumns, AreaTrackCount(index, inline: true));
+            var explicitRows = int.Max(templateRows, AreaTrackCount(index, inline: false));
+
+            var placement = PlaceGridItems(index, explicitColumns, explicitRows);
+
+            var columnsAt = BuildGridTracks(
+                in styles[index].GridTemplateColumns,
+                in styles[index].GridAutoColumns,
+                placement.Columns,
+                placement.ColumnOffset,
+                explicitColumns,
+                templateColumns,
+                float.NaN
+            );
+
+            CollapseAutoFitTracks(in styles[index].GridTemplateColumns, in placement, columnsAt, templateColumns, inline: true);
+
+            var axis = new GridAxis(
+                Inline: true,
+                columnsAt,
+                placement.Columns,
+                placement.ItemsAt,
+                placement.ItemCount,
+                float.NaN,
+                columnGap,
+                GridSizingConstraint.MinContent,
+                StretchesTracks(styles[index].JustifyContent)
+            );
+
+            SizeGridTracks(in axis, direction, ownerWidth, float.NaN, currentDepth: 0);
+
+            return UsedTrackSpace(in axis)
+                + StyleResolution.FlexStartContentInset(in styles[index], FlexDirection.Row, direction, ownerWidth)
+                + StyleResolution.FlexEndContentInset(in styles[index], FlexDirection.Row, direction, ownerWidth);
+        } finally {
+            // The same watermark discipline `CalculateGridLayoutImpl` keeps, and for the same reason:
+            // this runs inside somebody else's layout and has to hand the scratch stack back as it
+            // found it.
+            Scratch.Restore(mark);
+        }
+    }
+
     /// <summary>§7.2.3.2: <c>auto-fit</c> drops the generated tracks that no item landed in.</summary>
     /// <remarks>
     ///     ⚠ <b>Only the tracks the repetition generated, and only the empty ones.</b> An explicit
