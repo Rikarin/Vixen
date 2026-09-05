@@ -34,14 +34,16 @@ namespace Vixen.Editor.Texturing;
 ///                 <b>A graphics device.</b> <c>EditorApplication.PluginPoints</c> publishes the
 ///                 project, the scene, the registries and the plugin host, and no
 ///                 <c>IGraphicsDevice</c> — so no plugin can draw anything. See
-///                 <see cref="TexturePreviewBlocker.NoDevice" />.
+///                 <see cref="TexturePreviewBlocker.NoDevice" /> and
+///                 <a href="https://github.com/Rikarin/Vixen/issues/737">#737</a>.
 ///             </description>
 ///         </item>
 ///         <item>
 ///             <description>
 ///                 <b>The compiler.</b> <c>TextureGraphCompiler</c> is <c>internal</c>, so this
 ///                 plugin can offer an author every node and cannot compile what they wire. See
-///                 <see cref="TexturePreviewBlocker.NoCompiler" />.
+///                 <see cref="TexturePreviewBlocker.NoCompiler" /> and
+///                 <a href="https://github.com/Rikarin/Vixen/issues/738">#738</a>.
 ///             </description>
 ///         </item>
 ///         <item>
@@ -51,7 +53,8 @@ namespace Vixen.Editor.Texturing;
 ///                 it back — which is rule 2 of the four that make unloading work, and a leak with no
 ///                 symptom. So this module registers a <i>command</i> that opens the selected asset,
 ///                 and the Create ▸ entry it contributes has <c>Opens: false</c>. The README says what
-///                 the smallest honest fix would be.
+///                 the smallest honest fix would be —
+///                 <a href="https://github.com/Rikarin/Vixen/issues/739">#739</a>.
 ///             </description>
 ///         </item>
 ///     </list>
@@ -61,7 +64,8 @@ namespace Vixen.Editor.Texturing;
 ///         on <c>Shell.RegisterPanel</c> with no matching <c>UnregisterPanel</c>, which
 ///         <c>EditorShell.UnregisterPanel</c>'s own remarks describe as "a lambda over the plugin's
 ///         own state that keeps its assembly loaded for the session". It survives that because a
-///         built-in is never collected; a plugin loaded from a folder would not.
+///         built-in is never collected; a plugin loaded from a folder would not —
+///         <a href="https://github.com/Rikarin/Vixen/issues/740">#740</a>.
 ///     </para>
 /// </remarks>
 public sealed class TexturingModule : IEditorPlugin {

@@ -31,7 +31,7 @@ Doc 48 § D14 predicted two, "and finding out is the point". Both are confirmed,
 it did not name. **None of them is worked around here**, because a panel that worked by cheating
 would make all three invisible.
 
-### 1. No plugin can get a graphics device ⛔
+### 1. No plugin can get a graphics device ⛔ [#737](https://github.com/Rikarin/Vixen/issues/737)
 
 `EditorApplication.PluginPoints` publishes `EditorProject`, `SceneDocument`, `DrawerRegistry`,
 `ImporterContributions`, `IEditorRegistry`, the editing state, the work plane, `IMeshBaker`,
@@ -48,7 +48,7 @@ for the editor: a plugin holding a device can destroy resources the frame is usi
 is a `IGraphicsDevice` or a narrower "make me an image" contract is a design question, not an
 omission.
 
-### 2. `TextureGraphCompiler` is `internal` ⛔ *not predicted*
+### 2. `TextureGraphCompiler` is `internal` ⛔ *not predicted* — [#738](https://github.com/Rikarin/Vixen/issues/738)
 
 `TextureGraphCompiler`, `TextureNode` and all eight `[Node]` classes are `internal`, and
 `Vixen.Editor.TextureGraph`'s `InternalsVisibleTo` names only `Vixen.Editor.TextureGraph.Tests`. The
@@ -59,7 +59,7 @@ crosses the boundary and the thing that turns a graph into a `TexturePlan` does 
 would still leave this panel unable to compile what an author wires. Making
 `TextureGraphCompiler` public is the change; this slice does not own that file.
 
-### 3. An asset-editor registration cannot be undone ⛔ *not predicted*
+### 3. An asset-editor registration cannot be undone ⛔ *not predicted* — [#739](https://github.com/Rikarin/Vixen/issues/739)
 
 `AssetEditorRegistry` has `Add` and **no `Remove`**. Registering an `IAssetEditorFactory` from a
 plugin is therefore a registration with no matching `OnUnload`, which is rule 2 of [the four that
@@ -84,7 +84,7 @@ Doc 36 § D4's last two rows are `AddSettingsPage` and `AddPreview`, and doc 48 
 is the consumer that makes them worth building"*. Confirmed absent: `AddPreview`, `AddSettingsPage`
 and `AssetPreview` appear nowhere in the tree outside plan documents. It is not the blocker here,
 though — a thumbnail registry with nothing able to render a thumbnail would be the second half of a
-feature whose first half is § 1 above.
+feature whose first half is § 1 above. [#400](https://github.com/Rikarin/Vixen/issues/400).
 
 ## What the panel does show
 

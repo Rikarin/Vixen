@@ -77,22 +77,25 @@ reload host and the plugin host — and no `IGraphicsDevice`. There is no other 
 only channel is `PluginServices`. So doc 48's sentence stands as written — *either a device is
 published through `PluginServices` or a third party cannot write anything that draws.* One
 `.Add(device)` line in `PluginPoints` closes it, under the interface rather than the implementation.
+[#737](https://github.com/Rikarin/Vixen/issues/737)
 
 **`TextureGraphCompiler` is `internal`.** `Vixen.Editor.TextureGraph`'s `InternalsVisibleTo` names
 only its own test project, so the generated `NodeTypes.Register` crosses the boundary and the thing
 that turns a graph into a `TexturePlan` does not. ⚠ This one survives the first fix: a device alone
 would still leave the panel unable to compile what an author wires.
+[#738](https://github.com/Rikarin/Vixen/issues/738)
 
 **An asset-editor registration cannot be undone.** `AssetEditorRegistry` has `Add` and no `Remove`,
 so claiming `.vxtexgraph` from a plugin would be a registration with no matching `OnUnload` — and a
 factory the editor still holds is a reference into the plugin's assembly, which pins it for the
 session with no error anywhere. That is why the Create ▸ entry is `Opens: false` and why the way in
 is a command. Returning an `IDisposable` from `AssetEditorRegistry.Add`, the way `IEditorRegistry`
-already does, closes it.
+already does, closes it. [#739](https://github.com/Rikarin/Vixen/issues/739)
 
 `AddPreview` and `AddSettingsPage` — doc 36 § D4's last two rows — are still unbuilt, so a
 `.vxtexgraph` has no thumbnail. That is downstream of the first item rather than beside it: a
 thumbnail registry with nothing able to render a thumbnail is half a feature.
+[#400](https://github.com/Rikarin/Vixen/issues/400)
 
 ## What the panel shows, and what it does not
 

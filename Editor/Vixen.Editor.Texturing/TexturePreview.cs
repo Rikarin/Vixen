@@ -23,8 +23,9 @@ enum TexturePreviewBlocker {
     ///     publishes the project, the scene, the drawers, the importers, the contribution registry,
     ///     the editing state, the work plane, two mesh services, the mesh-map baker, the shown scene,
     ///     the shown view, the deploy target, the asset-editor registry, the reload host and the
-    ///     plugin host itself — and no device. So a third party cannot write a plugin that draws, which is a real gap in the
-    ///     extensibility claim rather than an oversight in this panel.
+    ///     plugin host itself — and no device. So a third party cannot write a plugin that draws,
+    ///     which is a real gap in the extensibility claim rather than an oversight in this panel —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/737">#737</a>.
     /// </remarks>
     NoDevice,
 
@@ -33,7 +34,7 @@ enum TexturePreviewBlocker {
     ///     <c>TextureGraphCompiler</c> is <c>internal</c> to <c>Vixen.Editor.TextureGraph</c>, whose
     ///     <c>InternalsVisibleTo</c> names its own test project alone. The generated
     ///     <c>NodeTypes.Register</c> is public, so the node <i>library</i> crosses the boundary and
-    ///     the compiler does not.
+    ///     the compiler does not — <a href="https://github.com/Rikarin/Vixen/issues/738">#738</a>.
     /// </remarks>
     NoCompiler
 }
