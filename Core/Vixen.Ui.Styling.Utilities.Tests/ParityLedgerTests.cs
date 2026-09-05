@@ -27,8 +27,8 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///     <para>
 ///         <b>It costs nothing to run.</b> <see cref="UtilityConsumptionProbe.Take" /> is already
 ///         computed once per assembly for <see cref="UtilityConsumptionGateTests" /> and cached, so the
-///         marginal cost here is reading a 328-line file and a few hundred dictionary lookups. The
-///         probe itself is about ten seconds, paid once whether this test exists or not.
+///         marginal cost here is reading one three-hundred-line file and a few hundred dictionary
+///         lookups. The probe itself is about ten seconds, paid once whether this test exists or not.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>What it does not check, stated rather than left to be found.</b> Only three of the
@@ -55,7 +55,7 @@ public class ParityLedgerTests {
 
     /// <summary>Every computed column says what the engine does.</summary>
     /// <remarks>
-    ///     One <c>Fact</c> over all 328 rows rather than a theory, for
+    ///     One <c>Fact</c> over every row rather than a theory, for
     ///     <see cref="UtilityConsumptionGateTests" />' reason: the failure worth reading is the whole
     ///     drift at once — "these twenty roots say absent and the family landed" — and a theory reports
     ///     it as twenty unrelated red rows with no way to see they are one week's work.
@@ -199,6 +199,96 @@ public class ParityLedgerTests {
             bad.Count == 0,
             $"the ledger holds {bad.Count} state(s) outside "
             + $"{string.Join('/', ParityLedger.States)}:\n  {string.Join("\n  ", bad)}"
+        );
+    }
+
+    /// <summary>No Tailwind class is listed by two rows.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the fingerprint of an aggregate row, and an aggregate row is what the
+    ///         ledger cannot otherwise notice</b> (#710). <c>composed (--tw-* only)</c> was eight
+    ///         static classes from unrelated Tailwind roots under one descriptive name; splitting it
+    ///         gave each class the root that owns it, which is what let <c>unknown</c> be retired
+    ///         (<c>b9a7934d</c>). A hand resolution of a merge conflict in this file put the row back
+    ///         (<c>d37e21a3</c>) and <b>every ledger test stayed green</b>: the row is a legal row,
+    ///         <c>absent</c> is a legal state, and the counts add up because they are computed from
+    ///         the rows as they now are. What was observable is that six of its eight classes were
+    ///         suddenly on two rows at once.
+    ///     </para>
+    ///     <para>
+    ///         <b>A class belongs to exactly one root, which is why this can be an equality rather
+    ///         than a heuristic.</b> ⚠ Contrast <c>vixen_family</c>, which several rows may
+    ///         legitimately share — <c>flex</c> is claimed by three — because a Vixen family can
+    ///         answer more than one Tailwind root. The direction that is one-to-one is the class.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both cheaper rules the issue offered are refuted by the file itself.</b> Refusing
+    ///         a root whose <c>vixen_family</c> names no registered family would fail 60 rows, because
+    ///         a deliberately refused root has no family by construction — that is what <c>absent</c>
+    ///         means here. Refusing a root name containing parentheses or the word <c>only</c> would
+    ///         fail 11, including <c>sr-only</c>, <c>not-sr-only</c> and the six <c>… (keywords)</c>
+    ///         rows that are how this file spells a static keyword table. Duplication is the property
+    ///         that actually distinguishes the aggregate, and today it holds with no exceptions to
+    ///         carve out.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And regenerating the file after a merge would not have caught it either</b>, which
+    ///         is worth writing down because that was the other suggested cure. <c>VIXEN_REGENERATE=1</c>
+    ///         rewrites three computed columns of whatever rows it is given; it cannot delete a row that
+    ///         came back or restore the two classes that same resolution dropped off <c>snap</c>. A
+    ///         merge driver cannot either, and a <c>union</c> one would have produced exactly this
+    ///         state automatically. The invariant is the cure; the merge policy is not.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_class_is_listed_by_exactly_one_row() {
+        var (_, rows) = ParityLedger.Read(ParityLedger.Locate());
+        var owners = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+
+        foreach (var row in rows) {
+            foreach (var name in ParityLedger.Split(row.Classes, ' ')) {
+                if (!owners.TryGetValue(name, out var claimants)) {
+                    owners[name] = claimants = [];
+                }
+
+                claimants.Add(row.Root);
+            }
+        }
+
+        var shared = owners
+            .Where(entry => entry.Value.Count > 1)
+            .OrderBy(entry => entry.Key, StringComparer.Ordinal)
+            .Select(entry => $"{entry.Key} is on {entry.Value.Count} rows: {string.Join(", ", entry.Value)}")
+            .ToList();
+
+        // ⚠ The instrument, and the floor alone was NOT enough — that is measured rather than
+        // supposed. A reader that stopped reading the column finds no duplicates and is silently
+        // green for ever, which is this file's own lesson about a pattern matching nothing; but
+        // splitting the cells on `,` instead of ` ` yields one whole cell per row, all distinct, and
+        // 207 of those cleared a floor of 200. So the floor is set against the number of *classes*
+        // (700-odd) rather than the number of rows, and a class every reading must produce is named
+        // outright — with the wrong separator the key is the whole cell and this fails on the spot.
+        Assert.True(
+            owners.Count > 600,
+            $"only {owners.Count} class(es) were read out of the ledger's `classes` column, so this "
+            + "test is passing by reading almost nothing rather than by finding no duplicates."
+        );
+
+        Assert.Contains("snap-mandatory", owners.Keys);
+
+        Assert.True(
+            shared.Count == 0,
+            $"""
+             {shared.Count} Tailwind class(es) are listed by more than one row of
+             docs/plan/43-web-styling-parity.tsv:
+
+               {string.Join("\n  ", shared)}
+
+             A class belongs to exactly one root. Two rows listing one class is either an aggregate —
+             several unrelated roots under one descriptive name, which is not a root and should not
+             occupy a row — or a row that came back through a merge resolution beside the rows it was
+             split into. Give each class to the root that owns it and delete what is left.
+             """
         );
     }
 

@@ -33,9 +33,14 @@ buys nothing at all above six, because the floor is one 412-second assembly and 
 
 Agent worktrees under `.claude/worktrees` are never cleaned up by anything, and each carries its own
 `bin`/`obj` — about 25 GB apiece once the solution has been built in both configurations.
-`./build.sh PruneWorktrees` lists which of them are merged into master, clean and unlocked, and
-`--remove-merged` removes those and only those; anything failing one of the three conditions, and any
-directory in there that is not a registered worktree at all, is reported and left alone.
+`./build.sh PruneWorktrees` lists which of them are merged into master, clean, unlocked and unwritten
+for `--idle-minutes` (30 by default), and `--remove-merged` removes those and only those; anything
+failing one of the four conditions, and any directory in there that is not a registered worktree at
+all, is reported and left alone. ⚠ The fourth condition is there because the lock is the runner's
+habit and not its promise — two of thirteen live agent worktrees carried none on 2026-09-05, and
+merged-and-clean is exactly what a live agent looks like between its branch being merged and its
+process ending. It costs the merge-then-prune sweep nothing but a delay: `--idle-minutes 0` reclaims
+the disk immediately for an operator who knows what else is running.
 
 Some backends need a native binary that no package ships. `./build.sh RestoreNativeDeps` fetches each
 one pinned and SHA-256-verified from [`build/native-dependencies.json`](build/native-dependencies.json),

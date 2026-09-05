@@ -180,7 +180,7 @@ it is bigger than `p-sm` by a little or a lot.
 > [doc 43](../../docs/plan/43-web-styling-parity.md) measures the distance across **328 Tailwind v4
 > roots**. ⚠ The distribution is deliberately not copied here — it was, and it was a week out of date
 > within a week. It is generated from the consumption probe on every test run and lives in
-> [doc 43's Part 0](../../docs/plan/43-web-styling-parity.md#the-six-states-and-why-the-four-in-the-brief-were-not-enough),
+> [doc 43's Part 0](../../docs/plan/43-web-styling-parity.md#the-five-states-and-why-the-four-in-the-brief-were-not-enough),
 > which `ParityLedgerTests` asserts against the table beside it.
 
 What the family set *is* chosen against is order of work. The border edges, the logical edges,

@@ -36,15 +36,65 @@ using Serilog;
 ///         <b>Reports by default and removes only when asked.</b> Two of those six worktrees had
 ///         unmerged commits and uncommitted edits — three commits and fifteen modified files in one
 ///         of them, including shaders and a doc page — and deleting either would have destroyed work
-///         with no way back. So the safety conditions are all three of: the worktree's HEAD is
-///         contained in <c>master</c>, its <c>git status --porcelain</c> is empty, and it is not
-///         locked. Anything that fails one of them, and every directory that is not a registered
-///         worktree, is reported and left alone whatever the flags say.
+///         with no way back. So the safety conditions are all four of: the worktree's HEAD is
+///         contained in <c>master</c>, its <c>git status --porcelain</c> is empty, it is not
+///         locked, and nothing under it has been written in the last <c>--idle-minutes</c>. Anything
+///         that fails one of them, and every directory that is not a registered worktree, is
+///         reported and left alone whatever the flags say.
+///     </para>
+///     <para>
+///         ⚠ <b>The fourth condition is here because the third is not the runner's promise, only its
+///         habit</b> (#770). The lock is what is read as "somebody is still using this", and the
+///         agent runner does set it — but on 2026-09-05, with two batches running, two of thirteen
+///         live agent worktrees carried none. The other two conditions are properties of the
+///         <i>work</i> rather than of the <i>worker</i>: merged and clean is exactly the state an
+///         agent is in for the window between the orchestrator merging its branch and the agent's
+///         process ending, and in that window a missing lock is the only thing between
+///         <c>--remove-merged</c> and a live checkout. ⚠ The failure would not be loud, either:
+///         <c>git worktree remove</c> re-checks dirtiness and a merged, clean worktree passes that
+///         check too.
+///     </para>
+///     <para>
+///         <b>Recency and not the lock's pid.</b> The pid is right there in the lock reason, but a
+///         recycled pid is a worse oracle than a missing lock — and it answers nothing at all for
+///         the worktrees this is about, which are the ones with no lock to read a pid out of. So the
+///         signal is the newest write anywhere under the worktree, which costs nothing: this target
+///         already walks every file of every candidate to report its size, and the walk now returns
+///         both numbers.
+///     </para>
+///     <para>
+///         ⚠ <b>The ordering hazard, named rather than left to be re-derived.</b> Merge-then-prune is
+///         the intended workflow — <c>./build.sh PruneWorktrees --remove-merged</c> straight after a
+///         batch merge — and against a window this now reports "keep, written N minutes ago" for the
+///         worktrees that batch just produced. That is the point rather than a regression: the disk
+///         #561 was about had been held for *days*, so reclaiming it in the next sweep instead of
+///         this one costs nothing, and the sweep that would have deleted a live checkout is the one
+///         it refuses. <c>--idle-minutes 0</c> disables the condition and restores the three-way
+///         behaviour exactly, for an operator who knows what else is running.
+///     </para>
+///     <para>
+///         ⚠ <b>And what it cannot see</b>: an agent that has only been <i>reading</i> for longer
+///         than the window writes nothing, so it looks idle — and an agent that made no commits has
+///         a HEAD master already contains, which is merged and clean. That case is precisely why
+///         this is a fourth condition and not a replacement for the lock: the two are blind in
+///         different directions, and removal needs all of them.
 ///     </para>
 /// </remarks>
 partial class Build {
     [Parameter("Actually remove the agent worktrees PruneWorktrees reports as safe, rather than only listing them")]
     readonly bool RemoveMerged;
+
+    /// <summary>
+    ///     How recently a worktree has to have been written to for <see cref="PruneWorktrees" /> to
+    ///     keep it whatever its other three conditions say.
+    /// </summary>
+    /// <remarks>
+    ///     Thirty minutes because the window it covers — an agent's process outliving the merge of
+    ///     its branch — is seconds to a couple of minutes, and because the disk this reclaims had
+    ///     been held for days when it was worth reclaiming. <c>0</c> turns the condition off.
+    /// </remarks>
+    [Parameter("Keep any agent worktree written to within this many minutes, whatever else says (0 disables)")]
+    readonly int IdleMinutes = 30;
 
     /// <summary>One line of <c>git worktree list --porcelain</c>, parsed.</summary>
     sealed record Worktree(AbsolutePath Path, string Head, string? Locked);
@@ -134,29 +184,95 @@ partial class Build {
             .Git($"-C \"{worktree}\" status --porcelain", RootDirectory, logOutput: false, logInvocation: false)
             .All(output => output.Text.Trim().Length == 0);
 
-    static string Gigabytes(AbsolutePath directory) {
-        try {
-            var bytes = Directory
-                .EnumerateFiles(directory, "*", SearchOption.AllDirectories)
-                .Sum(file => {
-                    try {
-                        return new FileInfo(file).Length;
-                    } catch (IOException) {
-                        return 0L;
-                    }
-                }
-                );
+    /// <summary>What one walk of a directory learns about it.</summary>
+    /// <param name="Size">Its size, already worded for a log line.</param>
+    /// <param name="NewestWrite">
+    ///     The newest last-write time under it, or <see langword="null" /> when the walk could not
+    ///     read the directory at all.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ Two numbers out of one walk deliberately. The size is what a person reads to decide
+    ///     whether a sweep was worth running; the newest write is a safety condition, and a second
+    ///     traversal of ~100 000 files to get it would have made the condition look expensive
+    ///     enough to turn off.
+    /// </remarks>
+    sealed record Footprint(string Size, DateTime? NewestWrite);
 
-            return $"{bytes / 1024.0 / 1024.0 / 1024.0:0.0} GB";
+    /// <summary>
+    ///     Walks <paramref name="directory" /> once for its size and its newest write.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Every file, <c>bin</c> and <c>obj</c> included, and that is the useful half rather than
+    ///     noise: an agent that is compiling or testing is writing there constantly and nowhere
+    ///     else, so excluding them would hide the busiest worker there is.
+    /// </remarks>
+    static Footprint Measure(AbsolutePath directory) {
+        try {
+            var bytes = 0L;
+            DateTime? newest = null;
+
+            foreach (var file in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)) {
+                try {
+                    var info = new FileInfo(file);
+                    bytes += info.Length;
+                    var written = info.LastWriteTimeUtc;
+
+                    if (newest is null || written > newest) {
+                        newest = written;
+                    }
+                } catch (IOException) {
+                    // A file that vanished between the enumeration and the stat — which is what a
+                    // worktree somebody is still building in looks like.
+                }
+            }
+
+            return new Footprint($"{bytes / 1024.0 / 1024.0 / 1024.0:0.0} GB", newest);
         } catch (IOException) {
-            return "size unknown";
+            return new Footprint("size unknown", null);
         } catch (UnauthorizedAccessException) {
-            return "size unknown";
+            return new Footprint("size unknown", null);
         }
     }
 
+    /// <summary>
+    ///     Why a worktree is still in use according to its files, or <see langword="null" /> when
+    ///     nothing under it has been written inside the window.
+    /// </summary>
+    /// <param name="newestWrite">The newest write under it, UTC, or <see langword="null" />.</param>
+    /// <param name="now">The moment to measure against, UTC.</param>
+    /// <param name="idleMinutes">The window; <c>0</c> or less turns the condition off.</param>
+    /// <remarks>
+    ///     ⚠ Its own method and not three lines inside the loop, because it is the one condition
+    ///     here with arithmetic in it and the only one that can be got backwards without anything
+    ///     failing to build: a reversed comparison keeps every busy worktree's neighbour and removes
+    ///     the busy one, and the target would print a plausible-looking table either way.
+    /// </remarks>
+    static string? StillBeingWrittenTo(DateTime? newestWrite, DateTime now, int idleMinutes) {
+        if (idleMinutes <= 0 || newestWrite is not { } written) {
+            return null;
+        }
+
+        var age = now - written;
+
+        return age < TimeSpan.FromMinutes(idleMinutes)
+            ? $"written {Ago(age)} ago, inside --idle-minutes {idleMinutes}"
+            : null;
+    }
+
+    /// <summary>
+    ///     How long ago <paramref name="written" /> was, worded for a log line.
+    /// </summary>
+    static string Ago(TimeSpan written) =>
+        written < TimeSpan.FromMinutes(1)
+            ? "under a minute"
+            : written < TimeSpan.FromHours(1)
+                ? $"{(int)written.TotalMinutes} min"
+                : written < TimeSpan.FromDays(1)
+                    ? $"{written.TotalHours:0.0} h"
+                    : $"{written.TotalDays:0.0} days";
+
     Target PruneWorktrees => definition => definition
-        .Description("Reports the agent worktrees under .claude/worktrees that are merged, clean and unlocked — and removes them with --remove-merged")
+        .Description("Reports the agent worktrees under .claude/worktrees that are merged, clean, unlocked and idle — and removes them with --remove-merged")
         .Executes(() => {
             var registered = RegisteredWorktrees();
             var main = registered[0].Path;
@@ -180,7 +296,7 @@ partial class Build {
                         + "`git worktree prune` will never touch it and git run from inside it answers about "
                         + "the parent repository. Look at it by hand.",
                         entry.Name,
-                        Gigabytes(entry)
+                        Measure(entry).Size
                     );
 
                     continue;
@@ -194,6 +310,11 @@ partial class Build {
                     continue;
                 }
 
+                // One walk, and before the conditions rather than inside them: both branches below
+                // print the size, the fourth condition reads the same walk's other number, and
+                // measuring first means no write this target itself provokes can be mistaken for a
+                // worker's.
+                var footprint = Measure(entry);
                 var reasons = new List<string>();
 
                 if (worktree.Locked is not null) {
@@ -208,13 +329,27 @@ partial class Build {
                     reasons.Add("has uncommitted changes");
                 }
 
+                // ⚠ Fourth, and the only one that is about the worker rather than the work: an
+                // agent whose runner set no lock is invisible to the other three the moment its
+                // branch is merged. Compared against the walk's own clock — the newest write is a
+                // file's UTC timestamp, so the comparison is UTC too and not the local one a log
+                // line would show.
+                if (StillBeingWrittenTo(footprint.NewestWrite, DateTime.UtcNow, IdleMinutes) is { } busy) {
+                    reasons.Add(busy);
+                }
+
                 if (reasons.Count > 0) {
-                    Log.Information("  keep            {Name}  {Size} — {Reasons}.", entry.Name, Gigabytes(entry), string.Join("; ", reasons));
+                    Log.Information("  keep            {Name}  {Size} — {Reasons}.", entry.Name, footprint.Size, string.Join("; ", reasons));
 
                     continue;
                 }
 
-                Log.Information("  removable       {Name}  {Size} — merged into master, clean, unlocked.", entry.Name, Gigabytes(entry));
+                Log.Information(
+                    "  removable       {Name}  {Size} — merged into master, clean, unlocked, {Idle}.",
+                    entry.Name,
+                    footprint.Size,
+                    IdleMinutes > 0 ? $"and unwritten for {IdleMinutes} min" : "and the idle check is off"
+                );
                 removable.Add(worktree);
             }
 
