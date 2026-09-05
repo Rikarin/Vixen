@@ -596,6 +596,27 @@ public static class UtilityFamilies {
         Spacing("ms", "margin-inline-start");
         Spacing("me", "margin-inline-end");
 
+        // ⚠ <b>The block pair is physical where the inline pair above is logical, and it is the same
+        // asymmetry `scroll-mbs-*`, `inset-bs-*` and `border-bs-*` already carry.</b> Nothing interns
+        // `margin-block-start`: `LayoutStyleBuilder.EdgeNames.For` interns the four physical edges and
+        // the two *inline* logical ones, because those two are the pair `direction` mirrors and the
+        // store resolves them per element. So the block spelling would resolve, compute a value and
+        // move nothing — the inert family the consumption gate exists to keep out.
+        //
+        // The physical spelling is not an approximation of it. `Vixen.Ui.Layout` has no writing mode,
+        // so the block axis is top-to-bottom in every configuration this engine can be in, and
+        // `margin-block-start` *is* `margin-top` on every element that could ever resolve it. ⚠ The
+        // contrast worth keeping is `rounded-ss-*`, which is deliberately not done this way: a corner
+        // is named on the inline axis too, and that axis really does mirror.
+        //
+        // ⚠ <b>`mbs` shadows nothing, though it reads as if it should.</b> `SplitName` takes the
+        // longest registered prefix, so `mbs-4` reaches here and `mb-4` still reaches `mb` —
+        // `ShadowedFamilyTests` holds that rule, and it is the same one `scroll-mbs` relies on.
+        Spacing("mbs", "margin-top");
+        Spacing("mbe", "margin-bottom");
+        Spacing("pbs", "padding-top");
+        Spacing("pbe", "padding-bottom");
+
         // ── Scroll insets ───────────────────────────────────────────────────────────────────
         //
         // ⚠ <b>Four longhands where `m-*` emits one shorthand, and the difference is ExCSS.</b>

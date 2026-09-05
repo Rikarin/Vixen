@@ -84,7 +84,7 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **329** | 274 families |
+| Utility **roots** (the unit of this table) | **329** | 278 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
 | Variant keys | **88** | **25** |
@@ -107,10 +107,10 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **207** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **40** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **219** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **32** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **77** |
+| **absent** | not emitted at all | **73** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -437,13 +437,13 @@ refusal block, which already says so for the same reason.
 
 | Category | roots | works | partial | inert | absent | composed | unknown |
 |---|--:|--:|--:|--:|--:|--:|--:|
-| Layout | 49 | 26 | 7 | 0 | 12 | 3 | 1 |
+| Layout | 49 | 28 | 5 | 0 | 12 | 3 | 1 |
 | Interactivity | 39 | 27 | 0 | 1 | 11 | 0 | 0 |
-| Borders | 34 | 26 | 4 | 0 | 4 | 0 | 0 |
+| Borders | 34 | 28 | 2 | 0 | 4 | 0 | 0 |
 | Effects | 34 | 27 | 1 | 0 | 6 | 0 | 0 |
 | Flexbox and Grid | 34 | 29 | 3 | 0 | 2 | 0 | 0 |
 | Typography | 34 | 17 | 7 | 0 | 10 | 0 | 0 |
-| Spacing | 24 | 14 | 4 | 0 | 6 | 0 | 0 |
+| Spacing | 24 | 22 | 0 | 0 | 2 | 0 | 0 |
 | Transforms | 23 | 6 | 2 | 0 | 15 | 0 | 0 |
 | Filters | 20 | 10 | 10 | 0 | 0 | 0 | 0 |
 | Sizing | 15 | 12 | 1 | 0 | 2 | 0 | 0 |
@@ -452,7 +452,7 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **329** | **207** | **40** | **1** | **77** | **3** | **1** |
+| **Total** | **329** | **219** | **32** | **1** | **73** | **3** | **1** |
 
 Flexbox and Grid leads at 29 of 34, with only two absent roots left and both of those refused on
 policy rather than owed; then Effects at 27 of 34, Interactivity at 27 of 39, Borders at 26 of 34,
@@ -727,9 +727,35 @@ exist — `rounded-tl-lg` used to reach the family `rounded` with the value `tl-
 table answered, so the utility was dropped with no diagnostic. That was `absent` with a trap in it
 rather than plain absence. The eight per-corner families have since landed and the column is empty for
 them; it still holds for the rest. **`value_gap`** is the column for a root that emits and is read and
-*still* does not do what it says — the flow-relative spellings where Vixen emits physical edges
-(`mx-*` is `margin-left` + `margin-right`, not `margin-inline`, which is identical in LTR and wrong in
-RTL). This paragraph has now cited two Sizing gaps that were closed after it named them: first the six
+*still* does not do what it says.
+
+⚠ **This paragraph used to give `mx-*` as its example — "`margin-left` + `margin-right`, not
+`margin-inline`, identical in LTR and wrong in RTL" — and that example was false (2026-09-05, #282).**
+An axis utility sets **both** ends of the axis to one value, and `direction` decides only which end
+is called the start; `margin-inline: 8px` and `margin-left: 8px; margin-right: 8px` are the same
+computed margins under `rtl` as under `ltr`. What could distinguish the two spellings is a *vertical
+writing mode*, where the inline axis is the vertical one — and `Vixen.Ui.Layout` has none, which is
+`inset-bs-*`'s argument one axis over. Eight rows carried that claim (`inset-x/y-*`, `mx-*`, `my-*`,
+`px-*`, `py-*`, `border-x/y-*`) and all eight measure `works` now, with the reasoning moved to `note`
+where a substitution belongs. ⚠ The refutation is a test rather than a paragraph:
+`UtilityFamilyTests.An_axis_utility_sets_both_ends_so_no_direction_can_tell_it_from_the_logical_spelling`
+asserts the pair differs in property and not in value, and pins the contrast — `ms-*` and `inset-s-*`
+name a single *end*, keep v4's logical spelling and are mirrored by `LayoutStyleBuilder.EdgeNames`,
+and must never be flattened the same way.
+
+⚠ **The four rows that really were missing are registered in the same change**, which is what was
+left of #282 once the eight above were re-measured: `mbs-*`, `mbe-*`, `pbs-*` and `pbe-*` emit
+`margin-top`, `margin-bottom`, `padding-top` and `padding-bottom` — the fourth outing of the
+`scroll-mbs-*` argument, and `SplitName`'s longest-prefix rule is what keeps `mbs-2` from eating
+`mb-2`. **So the answer to "does `Vixen.Ui.Layout` gain a writing mode?" is no, and nothing in the
+fourteen roots needed one.** What still does is a shorter list than this issue's, and it splits in
+two: `float-start`/`float-end` and `clear-start`/`clear-end` want `FloatSide` and `Clear` to become
+*direction*-relative — CSS 2.1 §9.5's keywords do not flip, and the whole `float_bfc_*` corpus ships
+RTL variants with identical expectations, so this is a `direction` question and not a writing-mode
+one — while grid's `grid_relayout_vertical_text` is the only fixture in the tree that asks for a real
+`writing-mode` field.
+
+This paragraph has now cited two Sizing gaps that were closed after it named them: first the six
 viewport keywords `w-*` lacked, and then the content keywords every sizing root listed and none of
 them honoured — `w-min` resolved to `width: min-content` and the bridge dropped it on the floor. Both
 were invisible to every gate in the tree, both were written down here, and both were fixed from this
