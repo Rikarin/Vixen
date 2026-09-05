@@ -8,12 +8,22 @@ package Vixen.Editor.TextureGraph.Shaders
 // whole image about the line, which is what everybody means when they say "mirror it".
 //
 // **The closed forms are different for the two, and both are exact.**
-//   · `Flip` is **its own inverse**: applied twice with the same axis and offset it is the identity,
-//     bit for bit.
+//   · `Flip` is **its own inverse about the middle of the image**: at `offset` 0.5, applied twice
+//     with the same axis it is the identity, bit for bit.
 //   · `Reflect` is **idempotent** — applied twice it is itself — and its output is *symmetric about
 //     the line*, which is the property the node exists to produce.
 // ⚠ Asserting involution on `Reflect` would be asserting the wrong law, and it happens to hold on a
 // symmetric test image, which is how that mistake survives.
+//
+// ⚠ **The involution above held "for any offset" here until it was measured, and it does not.** The
+// map is `x ↦ round(2ℓ − x)`, which inverts itself wherever it lands inside the image — but the load
+// clamps, and *a clamp is not invertible*. At `offset` 0.5 the map is `x ↦ extent − 1 − x`, a
+// permutation of the texels, so nothing is ever clamped and the law is exact; at any other offset
+// part of the image mirrors outside it, every one of those texels collapses onto the same edge
+// column, and a second application cannot tell them apart. Half a 64² image is unrecoverable at
+// `offset` 0.25 — 2 048 texels, measured. Clamping is still the right answer, because an address
+// outside the image has to resolve to *something* and wrapping would pull the far edge in, which is
+// the artefact a tileable graph is avoiding; what was wrong was the sentence.
 //
 // ⚠ **The address is computed in texels and rounded, not sampled in UV.** `2·line − x` with the line
 // at the middle of an even image is `w − 1 − x`, an exact integer, so a mirror is a permutation of

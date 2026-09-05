@@ -877,4 +877,329 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
         device.Destroy(sourceStaging);
         device.Destroy(source);
     }
+
+    // --- The parameters nothing could see -------------------------------------------------------
+    //
+    // ⚠ Everything below covers a parameter a kernel could have ignored entirely and still passed
+    // every other assertion in this file: `rotation`, `centreX`/`centreY`, `Gradient`'s `scale` and
+    // the noise `octaves` and `lacunarity` were all authored at their defaults, everywhere. A
+    // parameter written into a uniform block and never read is the shape of this repository's
+    // commonest defect — a finished thing nothing calls — and it is invisible to a test that never
+    // gives it a second value.
+
+    /// <summary>The mean step between adjacent texels, which is how much fine detail a field has.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The measurement that separates one octave from four.</b> A fractal sum's <em>range</em>
+    ///     is normalised by the sum of its amplitudes, so octaves barely move the histogram and a
+    ///     min/max or a distinct-value count cannot tell them apart. What each octave adds is
+    ///     frequency, and frequency is visible in what happens between neighbours.
+    /// </remarks>
+    static double Roughness(Bitmap picture) {
+        var total = 0L;
+        var count = 0;
+
+        for (var y = 0; y < picture.Height; y++) {
+            for (var x = 1; x < picture.Width; x++) {
+                total += Math.Abs(At(picture, x, y) - At(picture, x - 1, y));
+                count++;
+            }
+        }
+
+        return total / (double)count;
+    }
+
+    /// <summary>⚠ A triangle rotated half a turn points down, which is what says <c>rotation</c> is read.</summary>
+    /// <remarks>
+    ///     <b>A shape whose own symmetry cannot hide the parameter.</b> A disc rotated by anything is
+    ///     the same picture and a square is the same at every quarter turn, so the two kinds most
+    ///     likely to be reached for prove nothing about rotation at all. The triangle has an apex,
+    ///     and half a turn moves it from the top of the image to the bottom: two probes that swap.
+    /// </remarks>
+    [Fact]
+    public void A_rotated_shape_turns_and_an_unrotated_one_does_not() {
+        using var device = Open();
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        using var upright = evaluator.Evaluate(
+            Procedural(TextureSources.Shape(0, TextureShapeKind.Triangle, falloff: 0.005f), Side)
+        );
+
+        using var turned = evaluator.Evaluate(
+            Procedural(
+                TextureSources.Shape(0, TextureShapeKind.Triangle, rotation: MathF.PI, falloff: 0.005f),
+                Side
+            )
+        );
+
+        var up = upright.Read(0);
+        var down = turned.Read(0);
+
+        output.WriteLine(
+            $"adapter: {Adapter(device)}; upright apex {At(up, 32, 8)}/{At(up, 32, 56)}, "
+            + $"turned {At(down, 32, 8)}/{At(down, 32, 56)}"
+        );
+
+        Assert.True(At(up, 32, 8) > 127, $"an upright triangle's apex row is {At(up, 32, 8)}");
+        Assert.True(At(up, 32, 56) < 127, $"an upright triangle's base row is {At(up, 32, 56)}");
+        Assert.True(At(down, 32, 8) < 127, $"a half-turned triangle's top is {At(down, 32, 8)}");
+        Assert.True(At(down, 32, 56) > 127, $"a half-turned triangle's bottom is {At(down, 32, 56)}");
+
+        // And the area is a turn's invariant, so this is a rotation and not a different shape.
+        Assert.InRange(Covered(down), Covered(up) * 0.97, Covered(up) * 1.03);
+    }
+
+    /// <summary>A shape's centre is where the shape is, and moving it moves the picture.</summary>
+    /// <remarks>
+    ///     A quarter-scale disc at the default centre covers the middle of the image and nothing
+    ///     else; moved to (0.25, 0.25) it covers the middle of the top-left quadrant and <em>not</em>
+    ///     the middle. Both probes have to swap, because a kernel that read only <c>centreX</c> would
+    ///     pass a test that looked along one axis.
+    /// </remarks>
+    [Fact]
+    public void A_shapes_centre_is_where_it_is_drawn() {
+        using var device = Open();
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        using var middle = evaluator.Evaluate(
+            Procedural(TextureSources.Shape(0, scale: 0.25f, falloff: 0.005f), Side)
+        );
+
+        using var corner = evaluator.Evaluate(
+            Procedural(
+                TextureSources.Shape(0, scale: 0.25f, falloff: 0.005f, centreX: 0.25f, centreY: 0.25f),
+                Side
+            )
+        );
+
+        var here = middle.Read(0);
+        var there = corner.Read(0);
+
+        output.WriteLine(
+            $"adapter: {Adapter(device)}; centred {At(here, 32, 32)}/{At(here, 16, 16)}, "
+            + $"moved {At(there, 32, 32)}/{At(there, 16, 16)}"
+        );
+
+        Assert.True(At(here, 32, 32) > 127, "a centred disc does not cover the centre");
+        Assert.True(At(here, 16, 16) < 127, "a centred quarter-scale disc reaches the quadrant centre");
+        Assert.True(At(there, 16, 16) > 127, "a disc moved to (0.25, 0.25) does not cover that point");
+        Assert.True(At(there, 32, 32) < 127, "a disc moved to (0.25, 0.25) still covers the image centre");
+
+        // The same area in both, so the move is a translation and not a rescale.
+        Assert.InRange(Covered(there), Covered(here) * 0.95, Covered(here) * 1.05);
+    }
+
+    /// <summary>
+    ///     ⚠ A quarter turn inverts a two-by-two checker, exactly, and that is what reads its
+    ///     <c>rotation</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <b>The closed form is the parity of the cell.</b> A quarter turn about the centre sends
+    ///     each quadrant to its neighbour, and neighbouring cells of a checker differ — so every one
+    ///     of the four probes flips. Nothing that ignored the parameter could produce that, and
+    ///     nothing that read it as a scale or an offset could produce exactly that.
+    /// </remarks>
+    [Fact]
+    public void A_quarter_turn_inverts_a_two_by_two_checker() {
+        using var device = Open();
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        using var plain = evaluator.Evaluate(Procedural(TextureSources.Checker(0, 2f, 2f), Side));
+
+        using var turned = evaluator.Evaluate(
+            Procedural(TextureSources.Checker(0, 2f, 2f, rotation: MathF.PI / 2f), Side)
+        );
+
+        var flat = plain.Read(0);
+        var round = turned.Read(0);
+
+        output.WriteLine($"adapter: {Adapter(device)}");
+
+        foreach (var (x, y) in new[] { (16, 16), (48, 16), (16, 48), (48, 48) }) {
+            var before = At(flat, x, y);
+            var after = At(round, x, y);
+
+            Assert.True(
+                before > 251 != after > 251,
+                $"the cell at ({x}, {y}) is {before} unturned and {after} at a quarter turn, and a "
+                + $"quarter turn inverts a 2×2 checker ({Adapter(device)})"
+            );
+        }
+    }
+
+    /// <summary>A gradient's angle turns the sweep: at a quarter turn its position <em>is</em> the row.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Through the identity ramp this is an equality and not a resemblance</b>, and it is
+    ///     the same closed form the unrotated sweep is asserted by, read down the image instead of
+    ///     across: <c>(y + 0.5) / height</c>. The second half — that a row is constant — is what
+    ///     refuses a kernel that turned the sweep by some other amount, or that swept diagonally.
+    /// </remarks>
+    [Fact]
+    public void A_gradients_angle_turns_the_sweep() {
+        using var device = Open();
+
+        var (ramp, staging) = Upload(device, IdentityRamp(), 256, 1);
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        using var bake = evaluator.Evaluate(
+            OverExternal(TextureSources.Gradient(1, 0, angle: MathF.PI / 2f), Side),
+            new Dictionary<int, TextureHandle> { [0] = ramp }
+        );
+
+        var picture = bake.Read(1);
+
+        output.WriteLine($"adapter: {Adapter(device)}; ends {At(picture, 32, 0)} and {At(picture, 32, Side - 1)}");
+
+        for (var y = 0; y < Side; y++) {
+            var wanted = (y + 0.5f) / Side * 255f;
+
+            Assert.True(
+                Math.Abs(At(picture, 32, y) - wanted) <= Tolerance,
+                $"row {y} is {At(picture, 32, y)} and (y + 0.5)/{Side} is {wanted:F1} ({Adapter(device)})"
+            );
+
+            // A quarter-turned sweep varies down the image and not across it.
+            Assert.True(
+                Math.Abs(At(picture, 4, y) - At(picture, 60, y)) <= Tolerance,
+                $"row {y} runs from {At(picture, 4, y)} to {At(picture, 60, y)} across, and a sweep "
+                + $"turned a quarter is constant along a row ({Adapter(device)})"
+            );
+        }
+
+        device.Destroy(staging);
+        device.Destroy(ramp);
+    }
+
+    /// <summary>A gradient's centre is where its midpoint is, and its scale is how far it reaches.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Two parameters, one picture each, both read off a position rather than a colour.</b>
+    ///         A linear sweep is <c>dot(offset, direction) / scale + 0.5</c>, so the centre is the
+    ///         texel worth exactly half and the scale is how quickly the ends saturate. Moving the
+    ///         centre to 0.25 moves the half-way texel from column 32 to column 16; halving the scale
+    ///         leaves it at 32 and drives both ends hard against black and white.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The saturation is what makes the scale legible.</b> At scale 1 the ends of the
+    ///         image are 34 and 225 — nowhere near the rails — so a kernel that ignored the parameter
+    ///         cannot produce the 0 and 255 a scale of 0.5 owes.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_gradients_centre_moves_its_midpoint_and_its_scale_sets_its_reach() {
+        using var device = Open();
+
+        var (ramp, staging) = Upload(device, IdentityRamp(), 256, 1);
+        using var evaluator = new TexturePlanEvaluator(device);
+        var externals = new Dictionary<int, TextureHandle> { [0] = ramp };
+
+        using var plain = evaluator.Evaluate(OverExternal(TextureSources.Gradient(1, 0), Side), externals);
+
+        using var moved = evaluator.Evaluate(
+            OverExternal(TextureSources.Gradient(1, 0, centreX: 0.25f), Side),
+            externals
+        );
+
+        using var narrow = evaluator.Evaluate(
+            OverExternal(TextureSources.Gradient(1, 0, scale: 0.5f), Side),
+            externals
+        );
+
+        var wide = plain.Read(1);
+        var shifted = moved.Read(1);
+        var tight = narrow.Read(1);
+
+        output.WriteLine(
+            $"adapter: {Adapter(device)}; column 16 is {At(wide, 16, 32)} plain and "
+            + $"{At(shifted, 16, 32)} moved; a half-scale sweep ends {At(tight, 8, 32)} and "
+            + $"{At(tight, 56, 32)} where a full one is {At(wide, 8, 32)} and {At(wide, 56, 32)}"
+        );
+
+        // The centre. Column 16 is a quarter of the way across, so it is the half-way value of a
+        // sweep centred there and a quarter of the way up one centred in the middle.
+        Assert.InRange(At(shifted, 16, 32), 126, 131);
+        Assert.InRange(At(wide, 16, 32), 62, 68);
+
+        // The scale. A sweep spanning the middle half is already black at column 8 and already white
+        // at column 56; one spanning the whole image is 34 and 225 there.
+        Assert.True(At(tight, 8, 32) < 4, $"a half-scale sweep is {At(tight, 8, 32)} at column 8");
+        Assert.True(At(tight, 56, 32) > 251, $"a half-scale sweep is {At(tight, 56, 32)} at column 56");
+        Assert.InRange(At(wide, 8, 32), 31, 37);
+        Assert.InRange(At(wide, 56, 32), 222, 228);
+
+        device.Destroy(staging);
+        device.Destroy(ramp);
+    }
+
+    /// <summary>
+    ///     ⚠ Octaves and lacunarity add detail, and detail is measured between neighbours rather than
+    ///     in the histogram.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Why not "the two fields differ".</b> They would differ under any change at all,
+    ///         including a kernel that read <c>octaves</c> as a second seed — so a <c>NotEqual</c>
+    ///         here would pass on a defect that made the parameter meaningless. What a fractal sum
+    ///         owes is <em>frequency</em>, and frequency is what the roughness measures.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>But not at the default lacunarity, and that is a finding rather than a choice of
+    ///         constants.</b> One octave and four at a lacunarity of 2 measure 2.17 and 2.25 — a
+    ///         wash. <c>Fractal</c> normalises by the sum of the amplitudes, so adding octaves cuts
+    ///         the base octave's share from all of the range to 53 % of it, and at a lacunarity of 2
+    ///         the finest octave of four is still 16 cells across a 64² image: it gives back about
+    ///         as much detail as the normalisation took away. A test written the obvious way at the
+    ///         default would have been a coin toss dressed as an assertion. At a lacunarity of 4 the
+    ///         fourth octave is 128 cells — finer than a texel — and the same comparison is 2.17
+    ///         against 7.73.
+    ///     </para>
+    ///     <para>
+    ///         Lacunarity is the same claim made at a fixed octave count, where the normalisation is
+    ///         a constant and cannot confound it: three octaves at a lacunarity of 5 reach
+    ///         twenty-five times the base rate where a lacunarity of 2 reaches four, and the field
+    ///         goes from 1.99 to 7.69.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void More_octaves_and_a_wider_lacunarity_both_add_detail() {
+        using var device = Open();
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        using var one = evaluator.Evaluate(
+            Procedural(TextureSources.Noise(0, TextureNoiseBasis.Value, 2f), Side)
+        );
+
+        using var four = evaluator.Evaluate(
+            Procedural(TextureSources.Noise(0, TextureNoiseBasis.Value, 2f, octaves: 4, lacunarity: 4f), Side)
+        );
+
+        using var packed = evaluator.Evaluate(
+            Procedural(TextureSources.Noise(0, TextureNoiseBasis.Value, 2f, octaves: 3), Side)
+        );
+
+        using var spread = evaluator.Evaluate(
+            Procedural(TextureSources.Noise(0, TextureNoiseBasis.Value, 2f, octaves: 3, lacunarity: 5f), Side)
+        );
+
+        var flat = Roughness(one.Read(0));
+        var fractal = Roughness(four.Read(0));
+        var near = Roughness(packed.Read(0));
+        var far = Roughness(spread.Read(0));
+
+        output.WriteLine(
+            $"adapter: {Adapter(device)}; roughness {flat:F2} at one octave and {fractal:F2} at four; "
+            + $"{near:F2} at lacunarity 2 and {far:F2} at 5"
+        );
+
+        Assert.True(
+            fractal > flat * 1.4,
+            $"four octaves are {fractal:F2} rough and one is {flat:F2}, so the octaves added no "
+            + $"detail ({Adapter(device)})"
+        );
+
+        Assert.True(
+            far > near * 1.5,
+            $"a lacunarity of 5 is {far:F2} rough and one of 2 is {near:F2}, so the lacunarity did "
+            + $"nothing ({Adapter(device)})"
+        );
+    }
 }
