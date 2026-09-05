@@ -104,7 +104,11 @@ partial class Build : NukeBuild {
     ///     <para>
     ///         The second multiplier is inside each test host and this parameter cannot reach it:
     ///         see <c>xunit.runner.json</c> at the repository root, which caps xunit's own thread
-    ///         pool per assembly.
+    ///         pool per assembly. ⚠ It splits local from CI the same way this parameter does, and
+    ///         for a sharper reason — a multiplier-style value truncates, so the <c>0.5x</c> that is
+    ///         five threads here is <em>one</em> on the three-core <c>macos-14</c> runner.
+    ///         <c>Directory.Build.props</c> therefore links <c>xunit.runner.ci.json</c> instead
+    ///         under <c>GITHUB_ACTIONS</c>.
     ///     </para>
     /// </remarks>
     [Parameter("How many projects compile or test assemblies run at once — 0 is unbounded (the CI default)")]
