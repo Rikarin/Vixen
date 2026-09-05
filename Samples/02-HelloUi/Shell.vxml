@@ -50,6 +50,22 @@
             <MenuItem Label="Save" ref="@saveItem" />
         </Menu>
 
+        <!--
+            ⚠ **One item, one id, two meanings — and that is the sample.** `Command` binds the item
+            to `edit.copy` and to nothing else: it is enabled, labelled and run by whatever the
+            command route resolves that id to, which is the nearest responder above the focus. With
+            a row selected in the Hierarchy that is the Hierarchy panel; anywhere else it is the
+            shell's own handler below. Nothing here names a panel and no panel names this menu.
+
+            ⚠ It is also the first `Command` binding in any sample. Everywhere else in this file a
+            menu item is `on:click`, and `ShowShortcut` draws a chord that dispatches nothing —
+            because until an element in this tree answered a verb, an item claiming to run one would
+            have been lying about it.
+        -->
+        <Menu Label="Edit">
+            <MenuItem Label="Copy" Command="edit.copy" />
+        </Menu>
+
         <Menu Label="View">
             <!--
                 ⚠ `on:click` on the item rather than one handler for the whole bar, which is what the
@@ -144,6 +160,29 @@
         // about a third thing.
         Model.Notify = (message, variant) => toasts.Show(message, variant);
         Model.Arrangement = () => docking.Save();
+
+        // ⚠ **The far end of the walk, and the reason the Edit menu has one item rather than two.**
+        // This is the answer to `edit.copy` when nothing nearer the focus has one, so Copy always
+        // does *something* and what it does is never in doubt. A panel that wants its own meaning
+        // says so on its own root — see `Panels/Hierarchy.vxml` — and does not have to be known
+        // about here.
+        //
+        // ⚠ `CommandRoute.ScopeOf` is read rather than remembered: it walks up from wherever the
+        // focus is and reports the nearest declared scope, so the message names the panel the user
+        // was in without this handler being told, and without a scope ever being pushed or popped.
+        // Both answers happen — the Inspector declares one, the Gallery declares none — which is
+        // what makes reading it here worth doing rather than a line that can only say one thing.
+        Root.AddCommandHandler(
+            "edit.copy",
+            () => {
+                var scope = CommandRoute.ScopeOf(Root.Document) ?? "outside any panel";
+
+                if (Root.Document.Clipboard?.SetText(Model.Arrangement()) == true) {
+                    toasts.Show($"Copied the layout, from {scope}", ControlVariant.Default);
+                }
+            },
+            () => Root.Document.HasClipboard
+        );
 
         // ⚠ Shown rather than bound. `ShowShortcut` draws the chord on the right of the row and
         // registers nothing — there is no command table in this sample, so a menu that claimed ⌘S

@@ -39,5 +39,13 @@
         TypeRegistry.Register(Material.Describe());
 
         grid.Inspect(Model.Material);
+
+        // ⚠ **A scope and no handlers, which is the case worth having in a sample.** This panel
+        // answers no verb of its own, so Edit ▸ Copy still resolves to the shell — and the shell's
+        // message names this panel anyway, because `CommandRoute.ScopeOf` reads the scope at the
+        // focus rather than at whoever handled the command. Declaring a scope and taking over a verb
+        // are two separate things, and a sample where every scope came with a handler would suggest
+        // they were one.
+        Root.CommandScope = "inspector";
     }
 }
