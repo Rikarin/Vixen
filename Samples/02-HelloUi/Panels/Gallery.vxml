@@ -96,6 +96,21 @@
             <NumericInput Minimum="0" Maximum="64" bind:Number="@Model.Samples.Value" />
 
             <!--
+                ⚠ **The same field with the two arrows on it, and the step it takes is the field's
+                own.** One press is a percentage of whatever the number has reached rather than a
+                fixed amount, so the arrows stay useful on a count of one and on a hundred thousand
+                lux — `RelativeStep` is nought here because a copy count is one of the few values
+                that genuinely wants a fixed step. The arrows are not tab stops: Up and Down already
+                do the same thing in the field they are in.
+            -->
+            <Stepper Minimum="1"
+                     Maximum="99"
+                     Step="1"
+                     RelativeStep="0"
+                     Decimals="0"
+                     bind:Number="@Model.Copies.Value" />
+
+            <!--
                 ⚠ **An `<Option>` nested here lands in the popover and not in the field**, because a
                 dropdown inside the control that opens it is a dropdown clipped by every scrolling
                 ancestor between the two — `SelectBase.ContentHost` is what routes it, and
