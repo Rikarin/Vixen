@@ -133,10 +133,7 @@ public sealed class DebugDrawImageTests {
     static DebugDrawRenderer Renderer(Fixture fixture) =>
         new(
             fixture.Device,
-            new(
-                fixture.Shader("line.vert.spv", ShaderStage.Vertex),
-                fixture.Shader("line.frag.spv", ShaderStage.Fragment)
-            ),
+            fixture.Lines(),
             new RenderOutput([PixelFormat.Rgba8UNorm])
         );
 

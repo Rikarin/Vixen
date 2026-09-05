@@ -82,9 +82,11 @@ public sealed class SurfaceCardCaptureDeviceTests {
             new TracedCardCapture(new HalfFloor(), new Paint()).Capture(traced, reference)
         );
 
+        var lines = owned.Lines();
+
         var pipeline = owned.Pipeline(
-            owned.Shader("line.vert.spv", ShaderStage.Vertex),
-            owned.Shader("line.frag.spv", ShaderStage.Fragment),
+            lines.Vertex,
+            lines.Fragment,
             BlendState.Opaque,
             new DepthStencilState { DepthTest = true, DepthWrite = true, DepthCompare = CompareFunction.Greater },
             [new VertexBufferLayout(Vertex.Stride, [new(0, VertexFormat.Float32X3, 0), new(1, VertexFormat.Float32X4, 12)])],

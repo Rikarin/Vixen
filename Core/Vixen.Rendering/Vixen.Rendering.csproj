@@ -20,14 +20,16 @@
         <!--
           ⚠ The two line modules, embedded rather than left beside the source unbuilt. They were
           committed here and referenced by no project file at all: the only builds that ever loaded a
-          line stage were the golden suite, which keeps a byte-identical copy of its own, and the
+          line stage were the golden suite, which then kept a byte-identical copy of its own, and the
           editor, whose Line.rvn is under Editor/. So LineRenderer — the pipeline DebugDraw's whole
           output goes through — could not be constructed by a game, because a game had nowhere to get
           a LineShaders from.
 
           This is not the assembly growing a compiler, which its own remarks rule out: these are
-          pre-compiled modules read out of the assembly, the same bytes Vixen.Graphics.Golden.Tests
-          renders `debug-world` and `debug-overlay` with.
+          pre-compiled modules read out of the assembly, and they are the bytes
+          Vixen.Graphics.Golden.Tests renders `debug-world` and `debug-overlay` with — that suite
+          used to keep a byte-identical copy of the four files and now reads these (#637), so the
+          resource being embedded is itself under a picture.
 
           ⚠ And a person runs `glslc` to change them, which for a while nothing noticed: an edited
           Shaders/line.frag beside an unrecompiled .spv shipped the old bytes in this assembly and
@@ -39,7 +41,9 @@
           the two pictures diverge — which is exactly how ui-box.frag lost the shadow path on two of
           three copies. SharedUiShaderTests.EveryDuplicateGlslSourceIsADeclaredPair is what says so
           now, in both directions: a declared pair that has drifted fails, and a new undeclared copy
-          fails too. The copy itself is #637, and it can only be removed on a machine with a device.
+          fails too. ⚠ That copy is gone (#637) and its two rows in `Twins` with it, so what holds
+          these bytes under a picture is no longer a hand-maintained pair but the seven fixtures that
+          call LineShaders.Default — which is also the only thing asserting they are embedded at all.
         -->
         <EmbeddedResource Include="Shaders\line.vert.spv" LogicalName="Vixen.Rendering.line.vert.spv" />
         <EmbeddedResource Include="Shaders\line.frag.spv" LogicalName="Vixen.Rendering.line.frag.spv" />

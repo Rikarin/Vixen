@@ -673,18 +673,11 @@ public partial class SharedUiShaderTests {
     ///     </para>
     /// </remarks>
     static readonly (string Reason, string[] Files)[] Twins = [
-        (
-            "the debug line stage. `Vixen.Rendering` embeds its two modules as an `EmbeddedResource` "
-            + "so a game can build a `LineRenderer`; this suite carries its own copy of the source and "
-            + "the module and loads them off disk through `Fixture.Shader`. The committed `.spv` are "
-            + "byte-identical as well, so the fixture could read the embedded bytes and these two "
-            + "files could go — which is the fix, and it needs a device run to accept.",
-            ["Core/Vixen.Rendering/Shaders/line.frag", "Platform/Vixen.Graphics.Golden.Tests/Shaders/line.frag"]
-        ),
-        (
-            "the same pair's vertex stage, and the same answer.",
-            ["Core/Vixen.Rendering/Shaders/line.vert", "Platform/Vixen.Graphics.Golden.Tests/Shaders/line.vert"]
-        ),
+        // ⚠ The debug line pair used to be the first two rows here, and they are gone because the
+        // debt was paid rather than because the check was relaxed: this suite carried its own copy
+        // of `line.{vert,frag}` and both modules beside `Vixen.Rendering`'s embedded ones, and the
+        // fixture now calls `LineShaders.Default` and reads the embedded bytes (#637). The rows said
+        // the fix "needs a device run to accept"; it got one. The list shrinking is the point of it.
         (
             "01-HelloTriangle's triangle and this suite's fixture for the same picture. The sample "
             + "may not reference a test project and the direction cannot be reversed either, so this "
