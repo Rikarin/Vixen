@@ -49,8 +49,63 @@ public static class VixenCommand {
         root.Subcommands.Add(UnwrapCommand(output, error));
         root.Subcommands.Add(Uv(output, error));
         root.Subcommands.Add(Texture(output, error));
+        root.Subcommands.Add(MeshMaps(output, error));
 
         return root;
+    }
+
+    /// <summary>`vixen mesh-maps list` — docs/plan/48 § 4.8's binding, run from a terminal.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A verb because the read side had no caller.</b>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/702">#702</a>: nine files land in
+    ///         <c>Assets/MeshMaps/</c> with a sidecar saying what each measures, and nothing in the
+    ///         repository resolved one by usage. The node that will is § 4.8's Mesh Map Input; this
+    ///         runs the same index, so what the verb prints is what that node would bind.
+    ///     </para>
+    ///     <para>
+    ///         A subcommand rather than a bare verb, for <see cref="Texture" />'s reason: <c>bake</c>
+    ///         belongs beside <c>list</c> the day the mesh-map bake grows a command line, and a
+    ///         promotion later would break every script that typed the shorter name.
+    ///     </para>
+    /// </remarks>
+    static Command MeshMaps(TextWriter? output, TextWriter? error) {
+        var project = ProjectOption();
+
+        var set = new Option<string>("--set") {
+            Description = "Only this set — the stem every file in it is named from.",
+            DefaultValueFactory = _ => string.Empty
+        };
+
+        var usage = new Option<string>("--usage") {
+            Description = "Only this measurement's suffix: normal, height, ao, bent, curvature, thickness, "
+                + "position, world, id.",
+            DefaultValueFactory = _ => string.Empty
+        };
+
+        var list = new Command("list", "Show the baked mesh maps a graph would bind, by usage.") {
+            project,
+            set,
+            usage
+        };
+
+        list.SetAction(parseResult => {
+                if (!Project.TryOpen(parseResult.GetValue(project), out var opened, out var why)) {
+                    (error ?? Console.Error).WriteLine(why);
+                    return (int)ExitCode.UsageError;
+                }
+
+                return (int)MeshMapRunner.List(
+                    opened,
+                    parseResult.GetRequiredValue(set),
+                    parseResult.GetRequiredValue(usage),
+                    output ?? Console.Out,
+                    error ?? Console.Error
+                );
+            }
+        );
+
+        return new Command("mesh-maps", "Work with the maps baked from a mesh's geometry.") { list };
     }
 
     /// <summary>`vixen texture bake` — docs/plan/48 § M5's CLI row.</summary>
