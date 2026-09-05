@@ -46,7 +46,7 @@ namespace Vixen.Editor.Ui;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>A rebuild is owed at the frame, not at the registration.</b> The registry raises one
-///         event per command and the bar is rebuilt whole, so answering each one where it arrives
+///         event per command and the bar is rebuilt whole, so answering each one where it arrived
 ///         made a hundred registrations a hundred bars. See <see cref="Invalidate" />, which is
 ///         where the count and the reason are.
 ///     </para>
@@ -151,12 +151,14 @@ public sealed class MenuPresenter : IDisposable {
     ///         ⚠ <b>A rebuild is the whole bar, and the registry raises one event per command.</b>
     ///         This used to rebuild synchronously from the handler, so standing an editor up rebuilt
     ///         the bar once per command registered — a shipped editor registers about two hundred —
-    ///         and unloading one plugin rebuilt it once per command withdrawn. Blockout alone
-    ///         withdraws about fifty. Measured over <c>EditorSession.Start</c> and the dispose that
-    ///         follows it: 96 removals at teardown, whose handlers cost 0.5–1.1 s between them while
-    ///         the registry's own bookkeeping for all 96 was under 1.1 ms. Nothing about that is
-    ///         particular to a test — it is the same rebuilds in the product, before the window
-    ///         appears.
+    ///         and unloading one plugin rebuilt it once per command withdrawn. Counted over a whole
+    ///         editor — <c>EditorSession.Start</c> and the dispose that follows it — that was
+    ///         <b>590 bars to open one and 687 by the time it closed</b>, the same on every run
+    ///         because it is a count of registrations rather than a timing. It is now 4 and 5. The
+    ///         96 withdrawals at teardown cost 0.52–0.85 s between them while the registry's own
+    ///         bookkeeping for all 96 was under 0.6 ms: the work was entirely in the notification
+    ///         and none of it in the change. Nothing about that is particular to a test — it is the
+    ///         same 590 bars in the product, before the window appears.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Nothing coalesced it below.</b> <c>UiDocument.InvalidateCommands</c> only marks
