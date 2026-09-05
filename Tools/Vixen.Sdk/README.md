@@ -212,6 +212,45 @@ So the exclusion is held to the binding rather than to this paragraph.
 asserts both halves against a real `.nupkg`. The day the binding moves to Assimp 6, the first goes red
 and names the soname to keep.
 
+### Where the weight actually is, measured rather than apportioned
+
+Over `Tools/Vixen.Cli/bin/Debug/net10.0`, `.pdb` and `.xml` excluded:
+
+| | Bytes | Share of the total |
+|---|---:|---:|
+| **Total** | 181 035 043 | |
+| `runtimes/` | 151 174 288 | **83.5 %** |
+| everything outside it | 29 860 755 | 16.5 % |
+| — inside `runtimes/`: HarfBuzz, every RID | 46 324 264 | 25.6 % |
+| — inside `runtimes/`: Assimp major 5, plus Windows' unversioned pair | 59 620 532 | 32.9 % |
+| — inside `runtimes/`: Assimp major 6 (**not packed**) | 44 251 540 | 24.4 % |
+| — outside it: Roslyn, Orleans and Newtonsoft together | ~10 000 000 | ~5.5 % |
+
+⚠ **[#433](https://github.com/Rikarin/Vixen/issues/433)'s three options are aimed at the 16.5 %.** A
+second entry point that shed `Vixen.Live.Cluster`, `Vixen.ContentServer` and `Vixen.Editor.Core` drops
+Orleans, ASP.NET and Roslyn — about 10 MB of a 172 MB package — and a trimmed publish trims IL, which
+is the same 16.5 %. Neither touches a native. RID pruning is the only listed option aimed at the 83.5 %
+and it is rejected above for a reason that has not changed.
+
+⚠ **But the fourth lever is real, and it is not a smaller entry point — it is one reference.**
+HarfBuzz's 46 MB reaches the CLI through the *importers*, by this chain, read off `vixen.deps.json`:
+
+```
+vixen → Vixen.Editor.Assets → Vixen.Editor.ShaderGraph  ┐
+                            → Vixen.Editor.VfxGraph     ┴→ Vixen.Editor.NodeGraph
+     → Vixen.Editor.Inspector → Vixen.Ui.Controls.Advanced → Vixen.Ui → Vixen.Ui.Text → HarfBuzzSharp
+```
+
+`Vixen.Editor.Assets` needs the two graph assemblies for real work — `ShaderGraphImporter` compiles a
+`.vxshadergraph` through `NodeTypeRegistry`, which is content-build work and belongs in the SDK. What
+it does not need is that those two also reference `Vixen.Editor.NodeGraph`, the *editor*, which drags
+the whole UI framework and its shaper behind it. Splitting each graph's document-and-compiler half from
+its editor half sheds 46 324 264 bytes — more than a quarter of the package — without a new entry
+point, without changing the RID coverage, and without asking anything of the trimmer.
+
+That is the measurement #433 wants before it decides, and it says its own option list is aimed at the
+wrong half.
+
 ⚠ **The apphosts are not packed.** `vixen`, `vixen-content-server` and `Vixen.AssetCompiler` sit in
 the build output beside the assemblies with no extension: they are native launchers built for
 whichever machine ran the build. Everything here is started as `dotnet "….dll"` — the targets, and
