@@ -19,6 +19,7 @@ it.
 | Colour | `ColorPicker`, `GradientEditor` |
 | Text | `CodeEditor` |
 | 3D | `Viewport` |
+| 2D | `ImageView` |
 
 ## Four decisions the whole set rests on
 
@@ -334,6 +335,46 @@ the single list ended up here.
 them, linear is what light does, Oklab is what looks like the fade they drew — and they disagree
 visibly, so a gradient that did not record which one it meant could not be reproduced.
 
+### ImageView
+
+A raster at zoom: pan, a zoom about the pointer, fit-to-view, a chequerboard under the alpha, an
+overlay of line segments in image space, and the two toggles that settle an argument — which channels
+and which transfer function.
+
+[doc 48](../../docs/plan/48-material-authoring.md) § B6 is why it is here rather than in the editor:
+`TexturePreview` shows an imported texture at one size and `NodePreview` draws a swatch under a node,
+and the texture graph, the layer stack and the 2D paint view all want the same pane. Three copies of
+this arithmetic is three chances to disagree about which way y goes.
+
+⚠ **The channel and colour-space toggles are a *request*, not a filter, and that is the one thing to
+know before using it.** The draw list's image command carries a tint and a source rectangle: a tint
+multiplies, and neither isolating the alpha as a grey nor applying a transfer function is a multiply.
+So the control does not touch the pixels — it raises `ViewChanged`, and a host that owns the image
+answers by preparing a different texture and writing `Image`. A control that quietly tinted red for
+`Red` and did *nothing* for `Alpha` would be worse than one that does neither, because a reader could
+not tell which of the two they were looking at. It is the bargain `Viewport.RenderTarget` makes and
+the one `TextureImportView.ViewChanged` already makes one assembly up.
+
+⚠ **The chequerboard is in screen pixels and clipped to the visible part of the image.** Fixed-size
+squares are the only thing that reads as transparency at any zoom — ones that scaled with the image
+would be a pattern an author would take for content — and drawing it only where the image is means a
+transparent texture reads as see-through without the pane around it pretending to. Clipping it also
+makes the cost the *pane's*: a 16k texture at 100% draws the same few thousand rectangles a 64-pixel
+one does, where an image-space board would draw a hundred thousand. It is deliberately not
+`ColorStrip.Chequer`, whose five-pixel squares are right for a 200-pixel alpha band and are nineteen
+thousand rectangles over a docked pane.
+
+**The overlay is a list of segments in texels**, which an owner mutates rather than replaces — the
+choice `NodeCanvas.Overlay` makes, for the same reason: a UV island is thousands of edges recomputed
+when a mesh changes and never when a pointer moves. Texels rather than UVs because a paint stroke is
+measured in texels and a fraction would change shape on a non-square image; the thickness is in screen
+pixels, because an island outline is a label on the picture rather than part of it.
+
+⚠ **It has no production caller yet.** The overlay, the channels and the colour space are all seams
+the texture graph's panel and the paint view will use; nothing in the editor builds an `ImageView`
+today. That is stated here rather than discovered, because a finished thing nothing calls is this
+repository's commonest defect.
+
 ### Timeline
 
 Tracks, keyframes, a curve trace, a playhead, a 1-2-5 ruler, frame snapping, drag and marquee.
@@ -389,9 +430,9 @@ All eleven controls carry a role, and it costs each of them a **virtual member**
 | `ColorPicker` | `group` | The hex field, the intensity slider and the eyedropper are all named |
 | `ColorInput` | `button` | Expandable, owning its popup |
 | `CodeEditor` | `textbox` | Editable, multi-line, read-only when it is |
-| `Viewport`, `NodeCanvas`, `CurveEditor`, `GradientEditor`, `Timeline` | `application` | |
+| `Viewport`, `ImageView`, `NodeCanvas`, `CurveEditor`, `GradientEditor`, `Timeline` | `application` | |
 
-⚠ **`application` is a role with a cost, and it is worth paying for exactly those five.** It asks
+⚠ **`application` is a role with a cost, and it is worth paying for exactly those six.** It asks
 assistive technology to stop intercepting the keyboard and pass every key through, which is right for
 a surface with a keyboard model no widget vocabulary describes. ⚠ **`CodeEditor` is deliberately not
 one**: it is a multi-line text field whose keyboard is the one a screen-reader user already has, and

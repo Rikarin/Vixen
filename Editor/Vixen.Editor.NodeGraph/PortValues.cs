@@ -114,6 +114,20 @@ public readonly record struct Sampler(string Expression) : IPortValue {
     public override string ToString() => Expression;
 }
 
+/// <summary>A whole raster. See <see cref="PortKind.Image" />.</summary>
+/// <param name="Expression">The text that reads it.</param>
+/// <remarks>
+///     ⚠ <b>Still an expression, even though nothing samples it in a line of shader source.</b> A
+///     texture graph's compiler emits a dispatch per node rather than an expression per node, so what
+///     this names is the intermediate the upstream kernel wrote — which is exactly what the pool
+///     allocator hands out and frees. Making it something other than a string would make it the one
+///     port field with a different shape, for a target that has not been written yet.
+/// </remarks>
+public readonly record struct Image(string Expression) : IPortValue {
+    /// <inheritdoc />
+    public override string ToString() => Expression;
+}
+
 /// <summary>No value: an edge that means "after". See <see cref="PortKind.Flow" />.</summary>
 /// <param name="Expression">Always empty. A flow port carries nothing to read.</param>
 public readonly record struct Flow(string Expression) : IPortValue {
