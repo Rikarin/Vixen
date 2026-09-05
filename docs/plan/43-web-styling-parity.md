@@ -309,12 +309,20 @@ is a red test on a laptop rather than a wrong picture caught on a device. ⚠ Co
 the property to test for anyway — desktop GLSL forgives what `#version 300 es` rejects, and a file
 that compiles can still disagree with the record it indexes, which is precisely what happened.
 
-⚠ **What is still uncovered, and no text comparison can reach it:** nothing compares that GLSL with
-the Raven every application draws through. They are two implementations of one specification in two
-languages, so the only real check is a golden image rendered through each — which regenerates every
-reference image in the suite and belongs on its own. `SharedUiShaderTests` says so in its own remark,
-and `EveryRavenCopyAgreesAboutTheShadersItShares` covers the half that is comparable: every `Ui.rvn`
-in the tree, per shader rather than per file.
+⚠ **What is still uncovered — and "no text comparison can reach it" was too strong.** The only
+*sufficient* check that the GLSL and the Raven agree is a golden image rendered through each, which
+regenerates every reference image in the suite and belongs on its own; that stays owed. But one
+**necessary** condition of the comparison is text, and is checked as of 2026-09-05:
+`SharedUiShaderTests.EveryConstantInTheGlslCopyIsOneTheRavenHoldsToo` requires every number in
+`ui-box.frag` to be a number `Ui.rvn` holds too — Ottosson's eighteen Oklab coefficients, sRGB's
+five, and every threshold the shape and shadow paths branch on. Constants are the part of a
+specification that survives translation between two languages unchanged, which is what makes them
+checkable on a laptop; an expression rearranged around the same numbers still passes, which is why
+this narrows the gap rather than closing it. ⚠ It compares them as `float` and not as text, and a
+sabotage proved why that is right rather than lax: `0.5363325363` → `0.5363325364` stays green,
+because `glslc` rounds the literal to the same single-precision value and the compiled module cannot
+contain the difference. `EveryRavenCopyAgreesAboutTheShadersItShares` covers the other half: every
+`Ui.rvn` in the tree, per shader rather than per file.
 
 ⚠ **`Gradient.rvn` and `RoundedRect.rvn` are not the shader to edit, and both look like it.**
 `Raven/Library/Ui/Gradient.rvn` already has radial and conic modes and a perceptual interpolation

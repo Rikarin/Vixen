@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -41,11 +43,21 @@ namespace Vixen.Graphics.Golden.Tests;
 ///     <para>
 ///         ⚠ <b>What is left uncovered is worth naming rather than papering over.</b> The reference
 ///         images in this suite were rendered with the GLSL below, and every shipping application
-///         renders with the Raven modules — and <i>nothing compares the two</i>. They are two
-///         implementations of one specification in two languages, so no byte comparison can, and the
-///         only real check is a golden image rendered through each. The right end state is this
-///         suite driving the Raven modules too, which is a change that regenerates every reference
-///         image in it and belongs on its own.
+///         renders with the Raven modules. They are two implementations of one specification in two
+///         languages, so no byte comparison can settle it, and the only <i>sufficient</i> check is a
+///         golden image rendered through each. The right end state is this suite driving the Raven
+///         modules too, which is a change that regenerates every reference image in it and belongs
+///         on its own.
+///     </para>
+///     <para>
+///         ⚠ <b>"Nothing compares the two" stood here and is no longer true — one necessary
+///         condition of the comparison is checked, and the distinction is the point.</b>
+///         <see cref="EveryConstantInTheGlslCopyIsOneTheRavenHoldsToo" /> holds the numbers: the
+///         eighteen Oklab coefficients, sRGB's five, and every threshold the shape and shadow paths
+///         branch on are the same in both files or one of them is wrong. Constants are the part of a
+///         specification that survives translation between two languages unchanged, so they are the
+///         part a laptop can check. An expression rearranged around the same numbers still passes,
+///         which is why the golden through each stays owed rather than closed.
 ///     </para>
 ///     <para>
 ///         So what stays here is the half that applies to one copy: every committed module is the one
@@ -72,7 +84,7 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         carry. Prose belongs where editing it is free.
 ///     </para>
 /// </remarks>
-public class SharedUiShaderTests {
+public partial class SharedUiShaderTests {
     /// <summary>Where this suite's own GLSL and its modules live, relative to the repository root.</summary>
     static readonly string Shaders = Path.Combine("Platform", "Vixen.Graphics.Golden.Tests", "Shaders");
 
@@ -337,6 +349,127 @@ public class SharedUiShaderTests {
         Assert.Contains("UiText", seen.Keys);
         Assert.Contains("UiSolid", seen.Keys);
     }
+
+    /// <summary>Every number the GLSL copy holds is a number the Raven it transcribes holds too.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the first thing in the tree that compares the two languages at all, and it
+    ///         is a <i>necessary</i> condition rather than a sufficient one — which is the whole of
+    ///         what it claims.</b> The class remark above says the only real check is a golden
+    ///         rendered through each, and that is still true and still owed. What is available
+    ///         without a device is the half of the specification that survives translation unchanged:
+    ///         the constants. Björn Ottosson's eighteen Oklab coefficients, sRGB's <c>0.0031308</c>,
+    ///         <c>12.92</c>, <c>1.055</c>, <c>0.04045</c> and <c>2.4</c>, and every threshold the
+    ///         shape and shadow paths branch on are the same numbers in both files or one of them is
+    ///         wrong.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it cannot catch, stated so nobody reads more into a green run than is
+    ///         there.</b> An expression rearranged around the same constants passes. A term dropped
+    ///         from a sum whose coefficient appears elsewhere passes. The historical defect this
+    ///         file exists for — <c>ui-box.frag</c> losing the whole shadow path on two copies —
+    ///         <i>would</i> have been caught, because that path carries constants nothing else uses;
+    ///         but that is a property of that defect and not a general guarantee.
+    ///     </para>
+    ///     <para>
+    ///         <b>One direction, and the direction is the argument.</b> The Raven is the source every
+    ///         shipping application draws through and it carries eight shaders; the GLSL is one
+    ///         transcription of one of them. So the Raven legitimately holds numbers this file does
+    ///         not, and the containment that means anything is GLSL ⊆ Raven. The reverse would be a
+    ///         gate red on every shader the copy does not transcribe.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Preprocessor lines are dropped rather than their numbers allow-listed</b>, which
+    ///         matters more than it looks. <c>#version 450</c> is the one number in this file that is
+    ///         not a constant, and an allow-list holding <c>450</c> would be a hole any future drift
+    ///         to that value could hide in — and allow-lists here rot. Dropping the directive drops it
+    ///         for the reason it is not a constant.
+    ///     </para>
+    ///     <para>
+    ///         <b>What this prints on the day it does not run.</b> A regex that stopped matching
+    ///         returns an empty set, and an empty set is contained in everything — the exact shape of
+    ///         the "comparator that called three empty manifests identical" this repository has
+    ///         already shipped once. So the extractor is checked before it is trusted: the sweep must
+    ///         find one named coefficient it is impossible to be right without.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void EveryConstantInTheGlslCopyIsOneTheRavenHoldsToo() {
+        var root = RepositoryRoot();
+        var glsl = Path.Combine(root, Shaders, "ui-box.frag");
+        var raven = Path.Combine(root, "Platform", "Vixen.Ui.Desktop", "Shaders", "Ui.rvn");
+
+        Assert.True(File.Exists(glsl), $"'{Relative(root, glsl)}' is missing, and it is the copy this compares.");
+        Assert.True(File.Exists(raven), $"'{Relative(root, raven)}' is missing, and it is what every application draws through.");
+
+        var copy = Constants(File.ReadAllText(glsl));
+        var source = Constants(File.ReadAllText(raven));
+
+        // ⚠ The instrument's own check, and it runs before the comparison rather than after it. This
+        // is the first coefficient of Ottosson's linear-to-LMS matrix: no correct version of either
+        // file can be without it, so a sweep that does not find it has stopped reading rather than
+        // found agreement.
+        Assert.Contains(0.4122214708f, copy);
+        Assert.Contains(0.4122214708f, source);
+
+        var missing = copy.Where(value => !source.Contains(value)).Order().ToList();
+
+        Assert.True(
+            missing.Count == 0,
+            $"'{Relative(root, glsl)}' holds {missing.Count} number(s) that '{Relative(root, raven)}' does not: "
+            + string.Join(", ", missing.Select(value => value.ToString("R", CultureInfo.InvariantCulture)))
+            + ". They are two implementations of one specification, and a constant in one and not the "
+            + "other is drift between them — which is what the reference images in this suite would "
+            + "then be rendered against."
+        );
+    }
+
+    /// <summary>Every numeric literal in a shader source, as the <c>float</c> the GPU would hold.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Compared as <c>float</c> values and not as text, because the two languages spell the
+    ///     same number differently and neither spelling is wrong.</b> Raven writes <c>0.5f</c> where
+    ///     GLSL writes <c>0.5</c>, and a comparison of the characters would report drift on every
+    ///     line. Rounding to single precision is also what the shaders themselves do, so two
+    ///     spellings a GPU cannot tell apart are two spellings this cannot either — which is the
+    ///     right resolution for a check about what the hardware computes.
+    ///
+    ///     ⚠ <b>Found by a sabotage that came back green, and it is the sharpest thing this test
+    ///     has to say about itself.</b> Changing <c>0.5363325363</c> to <c>0.5363325364</c> in the
+    ///     GLSL does not fail this — the two are the same <c>float</c>, and Ottosson's coefficients
+    ///     are written to ten digits where single precision holds about seven. That looked like a
+    ///     hole and is not one: <c>glslc</c> rounds the literal the same way, so a difference this
+    ///     cannot see is a difference the compiled module does not contain. The check is exactly as
+    ///     sensitive as the hardware, which is the sensitivity a picture is rendered at. The
+    ///     sabotage that <i>does</i> go red is <c>0.5363325</c>.
+    /// </remarks>
+    static HashSet<float> Constants(string source) {
+        var values = new HashSet<float>();
+
+        foreach (var line in Code(source).Split('\n')) {
+            // The directives, dropped whole — see the remark above.
+            if (line.TrimStart().StartsWith('#')) {
+                continue;
+            }
+
+            foreach (Match match in Literal().Matches(line)) {
+                if (float.TryParse(match.Value.TrimEnd('f', 'F'), NumberStyles.Float, CultureInfo.InvariantCulture, out var value)) {
+                    values.Add(value);
+                }
+            }
+        }
+
+        return values;
+    }
+
+    /// <summary>A numeric literal, and never the tail of an identifier or a swizzle.</summary>
+    /// <remarks>
+    ///     ⚠ The leading guard is what keeps <c>c.b</c>, <c>float2</c> and <c>radiiX[1]</c> from
+    ///     contributing digits. A bare <c>\d</c> sweep over either of these files reports the <c>2</c>
+    ///     of <c>float2</c> and the <c>4</c> of <c>vec4</c> as constants, which is noise on both sides
+    ///     and would make the containment hold by accident.
+    /// </remarks>
+    [GeneratedRegex(@"(?<![\w.])\d+(?:\.\d*)?(?:[eE][-+]?\d+)?[fF]?")]
+    private static partial Regex Literal();
 
     /// <summary>Every <c>shader Name { … }</c> block in a Raven source, by name.</summary>
     /// <remarks>
