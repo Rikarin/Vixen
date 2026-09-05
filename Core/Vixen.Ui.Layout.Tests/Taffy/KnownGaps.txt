@@ -202,6 +202,40 @@
 # A_leaf_is_probed_at_the_width_its_own_minimum_guarantees_it for the witness, whose oracle is that
 # the answer does not depend on the container at all.
 #
+# ⚠ RE-MEASURED A THIRD TIME, AND THE LAST FOUR ARE CLOSED: THE CAP NOW COSTS NOTHING IN THIS
+# PROJECT AT ALL. A full Vixen.Ui.Layout.Tests run with the cap deleted is 6 417 of 6 417 with no
+# skips — the pinned corpus counts included, so no fixture moved in either direction. The four
+# `bevy_issue_9530` went with one sentence, and it is the mirror image of the one two paragraphs up:
+# `ProbeInlineSize` subtracts a box's MARGINS from the room it was offered, which is right for a box
+# whose width comes from what is left over and wrong for one that declares a percentage. A
+# `width: 100%` box with 20 points of margin either side inside a 300-point column is 300 wide and
+# overflows; its content box is 260 and its text is drawn 220 wide. Taking the margins off the offer
+# measured that text at 180, fitted four chunks to a line where Chrome fits five, and floored the
+# item at thirty lines against Chrome's twenty-four. ⚠ THE PERCENTAGE IS RESOLVED AGAINST
+# `probeWidth`, NOT `ownerWidth`, and that is the whole of it: `ownerWidth` one box down is the zero
+# §5.2.1 asks for and would make every percentage width nothing, while `probeWidth` is by
+# construction the containing block's content width. The two questions `ProbeContentWidth` and
+# `ProbeInlineSize` split apart are split again here, one level lower. Witness:
+# AutomaticMinimumSizeTests.
+# A_percentage_width_is_probed_at_its_percentage_and_not_at_what_its_margins_leave — hand-written,
+# because `bevy_issue_9530` is green either way under the cap, and its oracle is that a box floored
+# by its own contents is exactly as tall as they are.
+#
+# ⚠ <b>AND THE CAP STILL DOES NOT GO, FOR A REASON THAT IS NO LONGER A DEFECT.</b> Every probe
+# defect the cap was written to hide is closed, and this project is green without it — but deleting
+# it turns THREE Vixen.Ui.Controls.Tests.TextWrappingPixelTests red
+# (`Breaking_pulls_the_word_inside_the_box_and_onto_a_second_line` at `overflow-wrap: break-word`,
+# `Normal_on_the_text_escapes_a_breaking_container`, and
+# `The_two_breaking_keywords_differ_in_the_intrinsic_minimum_and_nowhere_else`, whose marks go from
+# one band at 231 to two at 125). That is `Rikarin/Vixen#682`'s half: `break-word`'s intrinsic
+# minimum is specified NOT to shrink, so with §9.2 step 3E's max-content base the floor really is the
+# whole word and the word never wraps into its box. So the cap has stopped being a workaround for a
+# wrong number and become a ceiling with a real rule behind it — which means the next move is to
+# NAME it rather than to delete it, and the measurement that would decide its shape is a browser one
+# (what does Chrome do with an unbreakable `break-word` word in a fixed box) that nobody has taken.
+# ⚠ Do not read "the layout corpus is green without the cap" as permission: the corpus has no text
+# leaf that cannot break, so it cannot see the case that holds it up.
+#
 # ⚠ AND THE `width: 50%` HALF IS REFUTED AS AN OWED ITEM. `ProbeContentWidth` returning zero for a
 # percentage width is CSS Sizing §5.2.1 being obeyed and its own remark says so; the number a text
 # below such a box is MEASURED at is `ProbeInlineSize`, a separate quantity threaded beside it since
