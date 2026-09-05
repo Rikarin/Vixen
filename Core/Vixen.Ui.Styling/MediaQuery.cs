@@ -18,6 +18,22 @@ public enum ColorSchemePreference : byte {
     Dark
 }
 
+/// <summary>Whether the user has asked for less movement on screen.</summary>
+/// <remarks>
+///     ⚠ <b>Two values and not three, unlike <see cref="ColorSchemePreference" />.</b> CSS Media
+///     Queries 5 § 6.2 gives <c>prefers-reduced-motion</c> exactly <c>no-preference</c> and
+///     <c>reduce</c>: there is no way for a user to ask for <i>more</i> motion, so an
+///     <c>Increase</c> here would be a member no operating system can ever produce and every
+///     <c>switch</c> over it would need an arm nothing reaches.
+/// </remarks>
+public enum MotionPreference : byte {
+    /// <summary>Nothing was asked for, which is not the same as asking for motion.</summary>
+    NoPreference,
+
+    /// <summary>Less movement, please.</summary>
+    Reduce
+}
+
 /// <summary>What a media query is asked about.</summary>
 /// <param name="Width">The surface width in logical pixels.</param>
 /// <param name="Height">The surface height in logical pixels.</param>
@@ -26,6 +42,12 @@ public enum ColorSchemePreference : byte {
 /// <param name="Gamut">
 ///     What the surface can actually show, which is the swapchain's granted gamut and not the
 ///     monitor's specification sheet.
+/// </param>
+/// <param name="ReducedMotion">
+///     Whether the user has asked for less movement. ⚠ Unlike every other member here it is a
+///     statement about the <i>person</i> rather than about the surface, and it is on this record
+///     anyway because a media query is the only thing that asks — and because a document shown in
+///     two windows on two machines is not a case this framework has.
 /// </param>
 /// <remarks>
 ///     <para>
@@ -46,7 +68,8 @@ public readonly record struct MediaContext(
     float Height,
     float Resolution = 1f,
     ColorSchemePreference ColorScheme = ColorSchemePreference.NoPreference,
-    ColorGamut Gamut = ColorGamut.Srgb
+    ColorGamut Gamut = ColorGamut.Srgb,
+    MotionPreference ReducedMotion = MotionPreference.NoPreference
 );
 
 /// <summary>Evaluates the <c>@media</c> conditions doc 09 lists as supported.</summary>
@@ -166,6 +189,42 @@ public static class MediaQuery {
             }
 
             reason = $"'{value}' is not a colour scheme";
+            return false;
+        }
+
+        if (name.Equals("prefers-reduced-motion", StringComparison.OrdinalIgnoreCase)) {
+            // Discrete, on `color-gamut`'s terms: Media Queries 5 gives it no range type, so
+            // `min-prefers-reduced-motion` is a typo rather than a spelling variant — and so is
+            // `(prefers-reduced-motion > reduce)`, which is why the guard is `IsRanged` and not a
+            // comparison of its own.
+            if (terms.IsRanged) {
+                reason = "'prefers-reduced-motion' is discrete, so it has no range or min-/max- form";
+                return false;
+            }
+
+            if (value.Equals("reduce", StringComparison.OrdinalIgnoreCase)) {
+                matches = context.ReducedMotion == MotionPreference.Reduce;
+                return true;
+            }
+
+            if (value.Equals("no-preference", StringComparison.OrdinalIgnoreCase)) {
+                matches = context.ReducedMotion == MotionPreference.NoPreference;
+                return true;
+            }
+
+            if (terms.IsBoolean) {
+                // ⚠ The boolean form is answered here and not for `prefers-color-scheme`, and that
+                // is the specification's asymmetry rather than an omission. Media Queries 5 § 6.2
+                // makes `no-preference` the *false* value of this feature, so
+                // `@media (prefers-reduced-motion)` means "reduce" and is the spelling almost every
+                // sheet in the wild uses. A colour scheme has no false value in the same sense —
+                // every display shows one of the two — so a bare `(prefers-color-scheme)` is a
+                // question with no useful answer and stays a diagnostic.
+                matches = context.ReducedMotion == MotionPreference.Reduce;
+                return true;
+            }
+
+            reason = $"'{value}' is not a motion preference";
             return false;
         }
 

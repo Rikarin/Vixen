@@ -33,6 +33,7 @@ top.
 | `KeyEvent`, `TextInputEvent` | Keys routed from the focus outwards; typed text as its own event. Tab is the document's default, after the route. |
 | `UiDocument.Track` | `:hover` and `:active` on the ancestor chain, `Entered`/`Exited` per element crossed, `:focus-visible` from how the focus arrived. |
 | `WheelEvent` | Hit-tested and bubbling, so nested scrolling chains on `Handled` rather than on a rule. Carries `Modifiers`, because Ctrl-wheel means zoom in every canvas and timeline ever written. |
+| `DropEvent` | A file or a string dragged in from another application, hit-tested and bubbling like a wheel. ⚠ The OS half only: there is no `DataObject` and no in-app drop model, because the payload an in-app drag negotiates is the half an OS drop cannot fill in. |
 | `UiElement.OnCreated`, `TagName` | The constructor a control cannot have, and the element name a type answers to. |
 | `UiElement.OffsetX/Y` | A translation applied after layout — scrolling, popups and drag previews, at the cost of a walk. |
 | `translate` (CSS) | The declarative half of the same idea, resolved by `TranslationReader` and added into the same sum. Separate from `OffsetX` on purpose: a stylesheet must not be able to erase a scroll position. `scale` and `rotate` are refused — a `DrawCommand` is an axis-aligned rectangle. |
@@ -327,6 +328,99 @@ The gate is `Vixen.Ui.Testing.AccessibilitySnapshot`: `Render` for the tree as c
 `Unnamed` for the assertion a snapshot cannot make. ⚠ Assert `Unnamed` first — a snapshot of a
 document with no accessibility at all is the empty string, and an expectation of the empty string
 matches it.
+
+## What a screen-reader bridge has to be, and why there is not one
+
+⚠ **Everything above is read by xUnit and by nothing else.** Every `AccessibilityInvalidated +=` in
+the repository is in a test — `Vixen.Ui.Tests/AccessibilityTests.cs:32,176,208` and the two
+`AccessibilityNotificationTests` — and grepping every platform assembly for `NSAccessibility`,
+`IRawElementProvider`, `UIAutomation`, `AtSpi` and `IAccessible` returns nothing. No screen reader on
+any platform can see a Vixen element, and the suite that covers the tree is green either way, which
+is exactly the question the working agreement says to ask of an instrument: *what does this print on
+the day it does not run?* This section is the shape the missing half has to take, written down
+because the tree above was designed against it and the reasons are not recoverable from the code.
+
+**The bridge is per surface, not per document.** Every one of the three protocols roots at a *window*
+— an `NSWindow`, an `HWND`, an AT-SPI object with `ROLE_FRAME` — and `UiDocument` deliberately spans
+several (`Surfaces.cs:20`, and one document across windows is the thing this framework does that
+AppKit does not). So the attach and detach points are `SurfaceAdded`/`SurfaceRemoved`
+(`Surfaces.cs:35,38`), `SurfaceOf` (`Surfaces.cs:199`) is how a node answers which window it belongs
+to, and the per-frame raise stays document-wide because coalescing across surfaces is cheaper than
+three flags and the diff has to walk anyway.
+
+⚠ **What a bridge publishes is a snapshot, and it may not read the element tree at all.** This is the
+load-bearing decision and it is not obvious. Assistive technology calls *in*, on its own thread: AT-SPI2
+is a D-Bus server answering from the bus thread, UI Automation calls providers from an RPC thread it
+owns, and only `NSAccessibility` is main-thread — and even that one is re-entrant inside the run loop,
+so it can arrive between a layout walk and the draw walk. `Vixen.Ui`'s reactive graph is
+single-threaded by contract, a signal read asserts its owning thread, and `AccessibleName` on a
+control is a *computed* property that reads the control's own fields. A bridge that answered
+`accessibilityLabel` by reaching for the live element would therefore be reading the UI thread's
+graph from the AT's thread, and the failure mode is a torn read on a good day and the assert on a
+bad one. The rule is: build an immutable snapshot on the UI thread from `AccessibilityInvalidated`,
+answer every protocol call out of the most recently published snapshot, and never dereference a
+`UiElement` off the UI thread. ⚠ This is also the real reason the event says *that* something changed
+and never *what* — a bridge was always going to hold a whole cached tree, because the protocol
+requires it to answer questions about nodes nobody touched this frame.
+
+**Node identity has to outlive the frame and must not keep the element alive.** UIA hands out
+provider references an AT retains for as long as it likes, AT-SPI hands out bus paths, and
+`NSAccessibility` retains the element objects it is given; none of the three re-fetches because a
+frame ended. So a snapshot node carries a stable id allocated once per element and kept across
+republishes, and the map from id back to a live element for the *action* path is weak — a request
+against an id whose element is gone answers "no longer valid" rather than resurrecting it or
+crashing. `ReleaseAccessibilitySubscribers` (`Accessibility.cs:897`) exists for the mirror image of
+this leak and is the precedent for taking it seriously.
+
+**Three things the model owes a bridge and does not have yet, in the order a bridge needs them.**
+
+* **Actions.** Every protocol asks an element to *do* something — `accessibilityPerformPress`,
+  `IInvokeProvider.Invoke`, AT-SPI's `Action.DoAction` — and there is no mapping here from a role to
+  a verb. `UiDocument` has commands and a hit test; what is missing is the small table that says a
+  `Button` has one action named "press" that raises a `ClickEvent` on it, and the seam for a control
+  with more than one.
+* **Text ranges.** `NativeAccessibleValue` answers a whole string. A screen reader reads a text field
+  by asking for the line the caret is on, the word to its right, the selected range and the character
+  offsets of each — `AXTextMarker`, `ITextProvider`, AT-SPI's `Text` interface. Without it `TextField`
+  is announced as one opaque value and `CodeEditor` is unreadable, bridge or no bridge.
+* **Live-region announcements.** `Toasts.cs:31,114` assigns `Alert` and `Log` correctly and there is
+  nothing to deliver: a toast appears where the user is not looking and takes itself away again, so a
+  reader that is only told when the user walks to it is never told. The announcement is a *message*
+  rather than a tree change, which is why the coalesced per-frame diff cannot carry it and why it
+  needs its own small queue drained on the same tick.
+
+Adjacent and cheap, and none of them is a bridge: `AccessibleStates.Required` and `.Invalid` have no
+producer anywhere in the tree, so no control ever reports a required or invalid field — they wait on
+a validation seam that does not exist rather than on a bridge — and `AccessibleRelation.FlowsTo` has
+no producer either.
+
+**Geometry crosses two coordinate systems and neither of them is the one AT asks for.** Layout gives
+a rect in document space; a surface knows its size and DPI scale (`UiSurface.cs:101`); the protocols
+want screen space, and on macOS in a bottom-left origin. The snapshot therefore carries surface-space
+rects and the platform half adds the window origin, because the window origin is the one number that
+only the platform assembly can know and the one that changes when the user drags the window without
+anything in the document changing.
+
+**`NSAccessibility` first, and it is first because it is worth most rather than because it is
+cheapest.** ⚠ `Platform/Vixen.Platform.MacOS/ObjC.cs` is send-only — `objc_getClass`,
+`sel_registerName` and a set of `objc_msgSend` prototypes — and a bridge is the first thing in this
+repository that has to be *called by* Objective-C rather than call it. That needs
+`objc_allocateClassPair`, `class_addMethod` and IMPs that survive the GC, which is a genuinely new
+capability in that file and is the largest single cost in the wave; it is not visible from the
+outside, and estimating the bridge from the 163 lines already there would be wrong by an order of
+magnitude. ⚠ Second cost, also invisible: the `NSWindow` is not reachable from what exists.
+`DesktopSurface.Resolve` (`DesktopSurface.cs:54-63`) deliberately takes the `SDL_Metal_CreateView`
+route on macOS and hands back a `CAMetalLayer`, precisely so nothing has to reach into AppKit — so
+the bridge needs its own `SDL_GetWindowWMInfo` route to the window and its content view, and it is
+the first consumer that does. Windows is the same shape one level over: UIA arrives as `WM_GETOBJECT`
+on a window procedure SDL owns.
+
+⚠ **The gate is a real assistive technology and nothing else counts.** A second in-process consumer —
+a test double that subscribes, diffs and asserts — reproduces exactly the defect this work exists to
+fix, because it is another reader inside the same process reading a tree that is already correct.
+What is unproven is not the tree; it is that a `NSAccessibility` object graph built from it is one
+VoiceOver will read. So the gate is VoiceOver reading a `Samples/02-HelloUi` panel, and it is a
+manual gate on purpose.
 
 ## Background tasks
 

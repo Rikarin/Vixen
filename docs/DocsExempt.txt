@@ -3548,7 +3548,6 @@ T:Vixen.Ui.Styling.AnimationFill sweep-pending
 T:Vixen.Ui.Styling.AnimationSpec sweep-pending
 T:Vixen.Ui.Styling.Animator sweep-pending
 T:Vixen.Ui.Styling.AttributeOperator sweep-pending
-T:Vixen.Ui.Styling.ColorSchemePreference sweep-pending
 T:Vixen.Ui.Styling.Combinator sweep-pending
 T:Vixen.Ui.Styling.CompoundSelector sweep-pending
 T:Vixen.Ui.Styling.ComputedStyle sweep-pending
@@ -3571,7 +3570,6 @@ T:Vixen.Ui.Styling.KeyframesTable sweep-pending
 T:Vixen.Ui.Styling.LayerRule sweep-pending
 T:Vixen.Ui.Styling.LayerRuleParser sweep-pending
 T:Vixen.Ui.Styling.MediaConditions sweep-pending
-T:Vixen.Ui.Styling.MediaContext sweep-pending
 T:Vixen.Ui.Styling.MediaQuery sweep-pending
 T:Vixen.Ui.Styling.MediaScopes sweep-pending
 T:Vixen.Ui.Styling.MediaVerdicts sweep-pending

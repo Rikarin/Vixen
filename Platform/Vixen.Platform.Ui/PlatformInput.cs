@@ -211,6 +211,29 @@ public static class PlatformInput {
 
                 return true;
 
+            // ⚠ <b>The second pair of arms this bridge was missing, and the same shape as the
+            // first.</b> `DropFile` and `DropText` are produced by SDL (`DesktopPlatform`) and by
+            // the browser (`WebPlatform`), are asserted by both backends' own tests, and fell
+            // through the `default` below — so dragging a file onto the window was inert on every
+            // platform this engine runs on. As with `TextEditing`, both halves were tested and the
+            // join was neither, because a producer with no consumer has nothing to disagree with.
+            case PlatformEventKind.DropFile:
+            case PlatformEventKind.DropText:
+                document.Dispatch(
+                    surface,
+                    new DropEvent {
+                        X = platformEvent.Position.X,
+                        Y = platformEvent.Position.Y,
+                        Files = platformEvent.Kind == PlatformEventKind.DropFile
+                            ? [platformEvent.Text]
+                            : [],
+                        Text = platformEvent.Kind == PlatformEventKind.DropText ? platformEvent.Text : null,
+                        Timestamp = when
+                    }
+                );
+
+                return true;
+
             default:
                 return false;
         }

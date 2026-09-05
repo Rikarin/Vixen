@@ -174,6 +174,37 @@ flick is still running.
 the rubber-band and pull-to-refresh at the boundary, and this engine has neither, so there is nothing
 for `none` to additionally suppress. Both stop the chain, which is the half the class is written for.
 
+⚠ **There is no scroll anchoring, and the attempt at it is worth recording because the obstacle is not
+where it looks.** CSS Scroll Anchoring keeps the reader still when content above them grows: remember
+the first child the viewport can see and its position in *content* space — `Top` is relative to
+`Content` and the scroll is an `OffsetY` applied after layout, so the two are independent — and the
+difference between one frame's position and the next's is exactly what appeared above it. Hung on
+`Refresh` from `LayoutFinished` that correction lands inside the same frame's settle loop, it is four
+lines, and a closed-form test over forty-pixel rows passes both directions and both instrument checks.
+
+⚠ **It is not here because it fights a row recycler, which no browser has to deal with.** The rule
+assumes an element's position in content space changes only when content is inserted or removed above
+it. A virtualising panel breaks that assumption on every scroll: it *reuses* one element for a
+different row, so the anchor moves for a reason that is not growth, and the correction cancels the
+scroll that caused it. `EditorShellBudgetTests.Scrolling_one_row_restyles_the_rows_it_rebound_and_not_the_shell`
+catches it exactly — the scroll ends up dirtying nothing at all — and no cheap discriminator separates
+the two cases: keying off the child count would miss an image that finished decoding, and keying off
+the content height would fire on a virtualiser realising a row. Anchoring here needs a recycler that
+says which of its children are the *same content* as last frame, and that is the work rather than the
+four lines.
+
+⚠ **Momentum and rubber-band are still absent, and the reason is one level down from where it is
+usually looked for.** There is no drag-to-scroll on the content at all: a `ScrollView` scrolls from
+the wheel, the keyboard and its bars, and handles no `PointerEvent` or `DragEvent` of its own. So
+there is no finger for a fling to continue, and velocity tracking has nothing to track until content
+dragging exists. On the wheel path the question is different again and is a
+platform one that should be answered before any curve is written: AppKit generates a trackpad's
+momentum phase itself and SDL forwards those events as ordinary wheel deltas, which would mean a
+flick on macOS already coasts and a second deceleration here would fight it. ⚠ That is reasoned from
+the two APIs and **has not been measured on a device**, and measuring it is the first step of the
+work rather than a footnote to it — a deceleration added on top of an OS that already provides one is
+a bug that only shows up on the platform the feature was asked for.
+
 ## The theme
 
 **The sheet is `ControlTheme.vcss`, a file beside the loader**, embedded by the `**/*.vcss` glob in
