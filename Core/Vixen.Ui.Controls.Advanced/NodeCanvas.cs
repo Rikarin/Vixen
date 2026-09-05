@@ -478,7 +478,13 @@ public sealed class NodeWireLayer : UiElement {
 
         var thickness = MathF.Max(1f, canvas.WireThickness * canvas.Zoom);
 
-        foreach (var wire in canvas.Graph.Wires) {
+        var wires = canvas.Graph.Wires;
+
+        // ⚠ Indexed, because `Wires` is an `IReadOnlyList<GraphWire>` and a `foreach` over one boxes
+        // the list's enumerator: 40 bytes on every frame the canvas is on screen, whether or not a
+        // wire moved. The same trap `UiElement.PaintOrder` carries a paragraph about.
+        for (var i = 0; i < wires.Count; i++) {
+            var wire = wires[i];
             var lit = canvas.Selection.Contains(wire.From.Node) || canvas.Selection.Contains(wire.To.Node);
             var chosen = ReferenceEquals(canvas.SelectedWire, wire);
 

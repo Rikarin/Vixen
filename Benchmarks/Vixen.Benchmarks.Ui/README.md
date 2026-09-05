@@ -214,15 +214,24 @@ anything is timed, so none of these includes the cost of copying a million items
 really about, and it is the one `DocumentBenchmarks` found at 41× before the incremental cascade was
 wired up. A shell of this size restyles a neighbourhood.
 
-⚠ **The settled frame allocates 504 bytes and `DocumentBenchmarks`' settled frame allocates none.**
-Both early-return out of `UiDocument.Update`, so this is in the draw walk or the frame diff, reached
-by something the advanced set has and the plain one does not. It is a constant rather than per-item —
-the gate holds it under 8 KB and it does not move with the row count — so it is an object or two a
-frame rather than a walk. ⚠ **And 591 KB per scrolled frame is a lot for twenty-four realised rows.**
-Some of that is the fixture's row accessors formatting strings; how much is not known. Both are
-filed as [#597](https://github.com/Rikarin/Vixen/issues/597) rather than chased here, because the
-composition had never been measured at all and the numbers should exist in one place before anybody
-optimises against them.
+⚠ **The 504 bytes are gone and the table above predates the fix.** [#597](https://github.com/Rikarin/Vixen/issues/597)
+filed the settled frame allocating where `DocumentBenchmarks`' does not, and the answer was three more
+boxed enumerators of exactly `UiElement.PaintOrder`'s kind — `Icon` walking
+`PathBuilder.Segments` (64 B), `NodeMinimap` walking `NodeGraph.Nodes` twice (80 B) and
+`NodeWireLayer` walking `NodeGraph.Wires` (40 B), each typed `IReadOnlyList<T>` and each therefore
+boxing a `List<T>.Enumerator` once per element per frame. `SteadyFrame` now allocates **0 B**, and
+`EditorShellBudgetTests.A_settled_frame_allocates_nothing` states the zero rather than an 8 KB ceiling
+— 504 bytes was four per cent of that ceiling, so the gate that held it was green for the whole time
+the defect existed.
+
+⚠ **The 591 KB of a scrolled frame is the cascade and not the draw walk, and not the fixture's
+strings either.** Attributed with a per-phase allocation probe: `Draw` is 0 B, `Arrange` is 7 KB,
+`Settle` is 2.8 KB and **`Restyle` is 590 KB** — because scrolling the grid realises and releases row
+elements, an add or a remove is not a change `StyleUpdater` can narrow, and the pass therefore goes
+*cold*: `StylesResolved` reads 561 against 561 elements in the document while `StylesApplied` reads 24.
+So a one-row scroll of a virtualised grid re-cascades every element in the editor. Filed separately as
+[#598](https://github.com/Rikarin/Vixen/issues/598); the row accessors are about 2 KB of the 591 and
+were the wrong suspect.
 
 ## What it found
 

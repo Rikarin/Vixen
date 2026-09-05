@@ -61,9 +61,13 @@ public sealed partial class NodeMinimap : Control {
             }
 
             var bounds = canvas.View;
+            var nodes = canvas.Graph.Nodes;
 
-            foreach (var node in canvas.Graph.Nodes) {
-                bounds = Rectangle.Union(bounds, canvas.RectOf(node));
+            // ⚠ Indexed, because `Nodes` is an `IReadOnlyList<GraphNode>` and a `foreach` over one
+            // boxes the list's enumerator — 40 bytes a frame from here and 40 more from `OnDraw`,
+            // on a map of a graph nobody has touched. See `UiElement.PaintOrder`.
+            for (var i = 0; i < nodes.Count; i++) {
+                bounds = Rectangle.Union(bounds, canvas.RectOf(nodes[i]));
             }
 
             return bounds;
@@ -130,7 +134,12 @@ public sealed partial class NodeMinimap : Control {
 
         var foreground = context.Foreground;
 
-        foreach (var node in canvas.Graph.Nodes) {
+        var nodes = canvas.Graph.Nodes;
+
+        // ⚠ Indexed, for `Extent`'s reason: a `foreach` over the interface boxes an enumerator once
+        // a frame, for ever, on a document nothing has changed in.
+        for (var i = 0; i < nodes.Count; i++) {
+            var node = nodes[i];
             var rectangle = canvas.RectOf(node);
             var origin = fit.ToScreen(rectangle.Position);
 
