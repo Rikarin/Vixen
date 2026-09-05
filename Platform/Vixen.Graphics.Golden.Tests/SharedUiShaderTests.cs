@@ -57,7 +57,17 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         branch on are the same in both files or one of them is wrong. Constants are the part of a
 ///         specification that survives translation between two languages unchanged, so they are the
 ///         part a laptop can check. An expression rearranged around the same numbers still passes,
-///         which is why the golden through each stays owed rather than closed.
+///         which is why that check is necessary and not sufficient.
+///     </para>
+///     <para>
+///         ⚠ <b>The sufficient half exists now, and it cost no reference image at all.</b> It was
+///         carried as owed for months on the belief that comparing the two meant a golden rendered
+///         through each, and a golden is a committed picture — so a second renderer meant a second
+///         baseline for every fixture in this suite. It does not:
+///         <see cref="UiRavenAgreementTests" /> draws one frame through both tables on one device in
+///         one process and compares the two <i>with each other</i>, exactly. There is no baseline, so
+///         there is nothing to regenerate and no way for a divergence to be accepted by editing a
+///         file.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>That check ran over one file of eight and now runs over all eight, and widening it
@@ -67,10 +77,18 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         the same Raven out of the same specification, <c>ui-mask.frag</c> alone holding ten
 ///         numbers. Widening it needed <c>layout(…)</c> qualifiers dropped, whose numbers are an ABI
 ///         stated in one language and not in the other; and it found one number spelled two ways —
-///         <c>ui-mask.frag</c> divides a conic sweep by <c>6.28318531</c> where the Raven multiplies
-///         by its reciprocal. Same rotation, and no comparison of numbers can see through it, so it
-///         is an exception of one carrying its reason, on a list that is allowed to shrink and never
-///         to grow quietly.
+///         <c>ui-mask.frag</c> divided a conic sweep by <c>6.28318531</c> where the Raven multiplies
+///         by its reciprocal. Same rotation, and no comparison of numbers can see through it.
+///     </para>
+///     <para>
+///         ⚠ <b>That exception is gone because the GLSL was respelled, and the list it was the only
+///         entry on is gone with it.</b> The alternative — keeping an allow-list of one against the
+///         day a second reciprocal appears — is the shape this file's own remark warns about, since an
+///         allow-list that survives its reason is a hole and an empty one is a hole waiting. So
+///         <c>ui-mask.frag</c> now multiplies by <c>0.15915494309189535</c> exactly as
+///         <c>Ui.rvn</c> does, which is arithmetically a no-op and cost a <c>glslc</c> run, a
+///         recommitted module and a rewritten ledger. The containment is unconditional again: every
+///         number the copy holds is one the Raven holds.
 ///     </para>
 ///     <para>
 ///         So what stays here is the half that applies to one copy: every committed module is the one
@@ -279,7 +297,7 @@ public partial class SharedUiShaderTests {
     }
 
     /// <summary>A lower-case hexadecimal SHA-256, which is what the ledger holds.</summary>
-    static string Digest(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
+    internal static string Digest(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
 
     /// <summary>Every <c>Ui.rvn</c> in the tree agrees, shader for shader, with every other.</summary>
     /// <remarks>
@@ -406,30 +424,6 @@ public partial class SharedUiShaderTests {
     ///         find one named coefficient it is impossible to be right without.
     ///     </para>
     /// </remarks>
-    /// <summary>The one number a copy spells differently, and why it is not drift.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>An exception list of one, and it is the case this whole check's own remark
-    ///         predicted it could not see.</b> <c>ui-mask.frag</c> normalises a conic sweep as
-    ///         <c>angle / 6.28318531</c> and the Raven as <c>angle * 0.15915494309189535f</c> — the
-    ///         same rotation, spelled as a division and as a multiplication by the reciprocal, and no
-    ///         comparison of numbers can see through that. Admitting reciprocals generally would be
-    ///         the wrong fix: it would weaken every file's containment to catch one legitimate
-    ///         difference, and this repository's own history is of allow-lists that rot into holes.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The list can only shrink, which is what stops it being a hiding place.</b> An
-    ///         entry that is no longer missing fails, so the day somebody rewrites either expression
-    ///         to match the other, this says so instead of quietly excusing a number that is now
-    ///         present. Filed as an issue rather than fixed here: editing the GLSL changes its code
-    ///         digest, and <see cref="EveryCommittedModuleMatchesTheSourceItWasBuiltFrom" /> then
-    ///         wants <c>glslc</c> and a new committed module for what is arithmetically a no-op.
-    ///     </para>
-    /// </remarks>
-    static readonly Dictionary<string, float[]> Spelled = new(StringComparer.Ordinal) {
-        ["ui-mask.frag"] = [6.28318531f]
-    };
-
     /// <summary>Every number each GLSL copy holds is a number the Raven it transcribes holds too.</summary>
     /// <remarks>
     ///     ⚠ <b>All eight, where this was <c>ui-box.frag</c> alone.</b> The record's layout is what
@@ -475,21 +469,11 @@ public partial class SharedUiShaderTests {
         // What separates the two is whether there was any code to read.
         Assert.NotEqual(0, Code(text).Trim().Length);
 
-        var spelled = Spelled.TryGetValue(name, out var known) ? known : [];
+        // ⚠ Unconditional, with no exception list to consult. There was one, of one entry, and it
+        // was retired by respelling the copy rather than by widening the comparison — an allow-list
+        // outliving its reason is this repository's own recurring hole, and an empty one is a hole
+        // waiting for the next person who would rather add a line than run `glslc`.
         var missing = copy.Where(value => !source.Contains(value)).Order().ToList();
-
-        // ⚠ Before the comparison, so the list can only shrink: an exception whose number the Raven
-        // now holds is an exception that has outlived its reason.
-        foreach (var value in spelled) {
-            Assert.True(
-                missing.Contains(value),
-                $"'{name}' is excused {value.ToString("R", CultureInfo.InvariantCulture)} and no longer needs to be — "
-                + $"'{Relative(root, raven)}' holds it now, or the copy has stopped holding it. Drop the entry from "
-                + $"`{nameof(Spelled)}`; that list is allowed to shrink and never to grow quietly."
-            );
-        }
-
-        missing.RemoveAll(spelled.Contains);
 
         Assert.True(
             missing.Count == 0,
@@ -598,7 +582,7 @@ public partial class SharedUiShaderTests {
     static string Relative(string root, string path) => Path.GetRelativePath(root, path);
 
     /// <summary>The repository root, found by walking up rather than by counting directories.</summary>
-    static string RepositoryRoot() {
+    internal static string RepositoryRoot() {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
             if (Directory.Exists(Path.Combine(directory.FullName, "Raven", "Library"))) {
                 return directory.FullName;

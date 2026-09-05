@@ -392,11 +392,82 @@ public class ContainerQueryTests {
     [InlineData("(min-resolution: 2x)")]
     [InlineData("(min-width: banana)")]
     [InlineData("screen")]
+    // ⚠ Range syntax that is not a range. A comparison with a side missing, two values compared with
+    // each other, a pair of operators pointing opposite ways, and the two spellings mixed — each of
+    // these has an obvious wrong reading, and taking it would make the query mean something the
+    // author did not write.
+    [InlineData("(width <)")]
+    [InlineData("(400px < 600px)")]
+    [InlineData("(400px < width > 600px)")]
+    [InlineData("(min-width: 400px < 600px)")]
+    [InlineData("(orientation > landscape)")]
     public void Features_a_box_does_not_have_are_refused(string condition) {
         var box = new ContainerBox(500f, 500f, ContainerKind.Size);
 
         Assert.False(ContainerQuery.TryEvaluate(condition, box, out _, out var reason));
 
         Assert.NotNull(reason);
+    }
+
+    [Theory]
+    // ⚠ **The threshold, which is the only width where the two spellings differ at all.** A reader
+    // that dropped the operator and kept the `max-` reading passes every other row here.
+    [InlineData("(width < 400px)", 400f, false)]
+    [InlineData("(max-width: 400px)", 400f, true)]
+    [InlineData("(width > 400px)", 400f, false)]
+    [InlineData("(min-width: 400px)", 400f, true)]
+    // A texel either side of it the four agree, which is what makes the threshold the whole test.
+    [InlineData("(width < 400px)", 399f, true)]
+    [InlineData("(max-width: 400px)", 399f, true)]
+    [InlineData("(width > 400px)", 401f, true)]
+    [InlineData("(min-width: 400px)", 401f, true)]
+    // The inclusive operators, which are the prefixes' exact synonyms and must stay so.
+    [InlineData("(width <= 400px)", 400f, true)]
+    [InlineData("(width >= 400px)", 400f, true)]
+    [InlineData("(width = 400px)", 400f, true)]
+    [InlineData("(width = 400px)", 401f, false)]
+    // ⚠ Written the other way round, which CSS allows and which flips the operator rather than the
+    // sides: `400px > width` is `width < 400px`, so it must be false at 400 and not true.
+    [InlineData("(400px > width)", 400f, false)]
+    [InlineData("(400px > width)", 399f, true)]
+    [InlineData("(400px <= width)", 400f, true)]
+    // The two-sided form, whose lower bound is inclusive and whose upper bound is not — v4's own
+    // `@min-sm:@max-lg:` written as one term.
+    [InlineData("(400px <= width < 600px)", 400f, true)]
+    [InlineData("(400px <= width < 600px)", 599f, true)]
+    [InlineData("(400px <= width < 600px)", 600f, false)]
+    [InlineData("(400px <= width < 600px)", 399f, false)]
+    // The logical spelling of the same axis reads the same operators.
+    [InlineData("(inline-size < 400px)", 400f, false)]
+    public void A_range_comparison_and_its_prefix_spelling_part_company_at_the_threshold(
+        string condition,
+        float width,
+        bool expected
+    ) {
+        var box = new ContainerBox(width, 100f, ContainerKind.Size);
+
+        Assert.True(ContainerQuery.TryEvaluate(condition, box, out var matches, out var reason), reason);
+        Assert.Equal(expected, matches);
+    }
+
+    [Fact]
+    public void A_range_condition_survives_the_stylesheet_parser_and_not_only_the_evaluator() {
+        // ⚠ The evaluator is not the whole path: `@container`'s prelude reaches it as ExCSS's
+        // `ConditionText`, so a parser that normalised or swallowed `<` would leave every assertion
+        // above green while no stylesheet in the tree could spell the exclusive form.
+        var fixture = new CascadeFixture();
+        fixture.Load("@container (width < 400px) { .leaf { color: narrow } }");
+
+        Assert.Empty(fixture.Engine.Loader.Diagnostics);
+
+        var atThreshold = fixture.Tree.CreateElement("div");
+        fixture.Contain(atThreshold, width: 400f);
+
+        Assert.Null(fixture.Value(fixture.Tree.CreateElement("div", atThreshold, classNames: ["leaf"])));
+
+        var below = fixture.Tree.CreateElement("div");
+        fixture.Contain(below, width: 399f);
+
+        Assert.Equal("narrow", fixture.Value(fixture.Tree.CreateElement("div", below, classNames: ["leaf"])));
     }
 }

@@ -204,6 +204,26 @@ public static class UtilityFamilies {
     ///         <c>via-*</c> in the theme, so it belongs to the family rather than to the value.
     ///     </para>
     /// </param>
+    /// <param name="ValueAlongside">
+    ///     Declarations emitted verbatim when the family resolves <i>a particular keyword</i>, keyed
+    ///     by that keyword.
+    ///     <para>
+    ///         ⚠ <b>This exists because a Tailwind prefix is not always one property family, and
+    ///         <see cref="Alongside" /> above cannot express that.</b> <c>mask-circle</c> and
+    ///         <c>mask-ellipse</c> are spelled with the bare <c>mask</c> prefix, which is already the
+    ///         <c>mask-repeat</c> family — and <see cref="Register" /> keeps the first family under a
+    ///         name and discards a second silently, so a second registration is not an option. The
+    ///         two shape values need the three mask-layer declarations every other
+    ///         <c>mask-radial-*</c> emits and the four repeat values must not have them, which is a
+    ///         difference between <i>values</i> and not between families.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Keyed on the keyword as written, and applied after the value resolved</b>, for
+    ///         <see cref="Alongside" />'s reason one step finer: a table keyed on a value the family
+    ///         does not accept would emit a mask layer for a typo, which is a rule that exists and
+    ///         silently changes the picture.
+    ///     </para>
+    /// </param>
     /// <param name="Template">
     ///     The value a <see cref="ValueKind.CountTemplate" /> family emits, with <c>{0}</c> where the
     ///     count goes. Null on every other kind.
@@ -243,6 +263,7 @@ public static class UtilityFamilies {
         string[]? ColorProperties = null,
         string[]? Positions = null,
         UtilityDeclaration[]? Alongside = null,
+        Dictionary<string, UtilityDeclaration[]>? ValueAlongside = null,
         string? Template = null,
         string? Scope = null
     );
@@ -727,6 +748,44 @@ public static class UtilityFamilies {
         Keywords("overscroll", "overscroll-behavior", overscroll);
         Keywords("overscroll-x", "overscroll-behavior-x", overscroll);
         Keywords("overscroll-y", "overscroll-behavior-y", overscroll);
+
+        // ⚠ <b>Four Tailwind roots and one family, because all twelve classes are spelled `snap-`
+        // and they set three different properties.</b> `snap-y` is the container's axis,
+        // `snap-mandatory` its strictness, `snap-start` an item's alignment and `snap-always` an
+        // item's stop — and `Register` keeps the first family under a name, so a family per property
+        // is not available. The keyword table already carries a property per value, which is what
+        // makes one entry per class the natural shape rather than a workaround.
+        //
+        // ⚠ <b>The strictness is a fragment and the axis references it, which is the one thing here
+        // that could not be a plain declaration.</b> `snap-y snap-mandatory` is two classes writing
+        // one `scroll-snap-type`; the axis class cannot know the strictness and the strictness class
+        // cannot know the axis, so the axis names it through a `var()` whose fallback is CSS's own
+        // `proximity`. `ScrollView.SnapType` reads the assembled value as *text* for this reason —
+        // what arrives there was joined by the cascade rather than typed by a person, and it is
+        // deliberately order-independent.
+        //
+        // ⚠ <b>`snap-align-none` and not `snap-none` for the alignment's off switch.</b> `snap-none`
+        // is already the container's `scroll-snap-type: none`, and that is v4's spelling of both —
+        // one prefix, two properties, and the longer name belongs to the one that came second.
+        Register(new Family(
+            "snap",
+            ValueKind.Keyword,
+            ["scroll-snap-type"],
+            new Dictionary<string, string>(StringComparer.Ordinal) {
+                ["none"] = "scroll-snap-type:none",
+                ["x"] = $"scroll-snap-type:x {SnapStrictness}",
+                ["y"] = $"scroll-snap-type:y {SnapStrictness}",
+                ["both"] = $"scroll-snap-type:both {SnapStrictness}",
+                ["mandatory"] = $"{UtilityComposition.ScrollSnapStrictness}:mandatory",
+                ["proximity"] = $"{UtilityComposition.ScrollSnapStrictness}:proximity",
+                ["start"] = "scroll-snap-align:start",
+                ["end"] = "scroll-snap-align:end",
+                ["center"] = "scroll-snap-align:center",
+                ["align-none"] = "scroll-snap-align:none",
+                ["normal"] = "scroll-snap-stop:normal",
+                ["always"] = "scroll-snap-stop:always"
+            }
+        ));
 
         // ── The two families that are a rule over children ──────────────────────────────────
         //
@@ -1796,12 +1855,14 @@ public static class UtilityFamilies {
         // family registered against an ending the reader declines deletes the masking it was
         // written to shape.
         //
-        // ⚠ <b>`mask-circle` and `mask-ellipse` are still not here, and for a reason that has
-        // nothing to do with gradients.</b> The shape fragment exists and is read; the obstacle is
-        // this table's own shape — `Alongside` belongs to a family and not to a value, and the
-        // `mask` prefix is already the `mask-repeat` family, whose values must not emit a mask
-        // layer. Filed rather than worked around, because the workaround is a second family under a
-        // name `Register` would silently discard.
+        // ⚠ <b>`mask-circle` and `mask-ellipse` are registered now, under the `mask` prefix a
+        // hundred lines below, and what they waited on was never gradients.</b> The reader has
+        // understood `circle` since #545; the obstacle was this table's own shape — the `mask`
+        // prefix is already the `mask-repeat` family and `Alongside` belonged to a family rather
+        // than to a value, so the two shape values could not carry the mask layer their siblings do
+        // while the four repeat values must not. `Family.ValueAlongside` is that difference, and it
+        // was worth a second field rather than a second family: `Register` keeps the first family
+        // under a name and discards a second silently.
         Keywords("mask-radial", UtilityComposition.MaskRadialSize, new() {
             ["closest-side"] = "closest-side",
             ["closest-corner"] = "closest-corner",
@@ -1870,12 +1931,31 @@ public static class UtilityFamilies {
         Register(new Family("mask-size", ValueKind.Placement, ["mask-size"]));
         Register(new Family("mask-position", ValueKind.Placement, ["mask-position"]));
 
-        Keywords("mask", "mask-repeat", new() {
-            ["repeat"] = "repeat",
-            ["no-repeat"] = "no-repeat",
-            ["repeat-x"] = "repeat-x",
-            ["repeat-y"] = "repeat-y"
-        });
+        // ⚠ <b>One prefix, two unrelated properties, and that is Tailwind's spelling rather than an
+        // accident of this table.</b> `mask-repeat` and its three siblings are `mask-repeat`;
+        // `mask-circle` and `mask-ellipse` are the radial ending's *shape*. `Register` keeps the
+        // first family under a name and discards a second silently, so these cannot be two
+        // registrations — and the two halves differ in what they must emit *alongside* the value,
+        // which is why `Family.ValueAlongside` had to exist before this line could be written. A
+        // shape carries the three mask-layer declarations every other `mask-radial-*` carries; a
+        // repeat value must not, or `mask-no-repeat` on its own would install a radial mask.
+        Register(new Family(
+            "mask",
+            ValueKind.Keyword,
+            ["mask-repeat"],
+            new Dictionary<string, string>(StringComparer.Ordinal) {
+                ["repeat"] = "mask-repeat:repeat",
+                ["no-repeat"] = "mask-repeat:no-repeat",
+                ["repeat-x"] = "mask-repeat:repeat-x",
+                ["repeat-y"] = "mask-repeat:repeat-y",
+                ["circle"] = $"{UtilityComposition.MaskRadialShape}:circle",
+                ["ellipse"] = $"{UtilityComposition.MaskRadialShape}:ellipse"
+            },
+            ValueAlongside: new Dictionary<string, UtilityDeclaration[]>(StringComparer.Ordinal) {
+                ["circle"] = MaskAlongside(UtilityComposition.MaskRadial, Radial),
+                ["ellipse"] = MaskAlongside(UtilityComposition.MaskRadial, Radial)
+            }
+        ));
 
         Static("mask-none", "mask-image", "none");
 
@@ -1910,6 +1990,42 @@ public static class UtilityFamilies {
         // that by a week because nobody re-read it.
         Translate("translate-x", UtilityComposition.TranslateX);
         Translate("translate-y", UtilityComposition.TranslateY);
+
+        // ⚠ <b>The root that moves BOTH axes, and it is not a third fragment.</b> v4's `translate-4`
+        // writes the same two `--tw-*` slots the two axis families write and assembles the same
+        // `translate`, so it is one family over both fragments rather than a new slot — which is
+        // what makes `translate-4 translate-x-8` compose the way the cascade says it should, last
+        // declaration winning per slot with one assembly either way. Registering it as its own
+        // property would have made the two spellings of the same movement fight.
+        //
+        // ⚠ <b><see cref="ValueKind.Size" /> for `Translate`'s reason, and it is what closes the
+        // three values the ledger recorded as missing on this root</b>: `translate-full` is a
+        // hundred per cent of the element's own border box, `translate-px` is one pixel, and
+        // `translate-4` is the spacing scale. ⚠ The ledger also listed `translate-x-full`,
+        // `translate-x-px`, `translate-y-full` and `translate-y-px` as missing on this row, and all
+        // four of them already resolved through the axis families above —
+        // `CompositionTests.Emits("translate-x-full")` has pinned `--tw-translate-x: 100%` the whole
+        // time. A value-gap column enumerated by class-name prefix attributes a sibling root's
+        // classes to this one.
+        Register(new Family(
+            "translate",
+            ValueKind.Size,
+            [UtilityComposition.TranslateX, UtilityComposition.TranslateY],
+            Alongside: [new UtilityDeclaration("translate", UtilityComposition.Translation())]
+        ));
+
+        // ⚠ <b>Its own registered name rather than a keyword on the family above, because
+        // `Alongside` is appended on EVERY resolution of a family.</b> A `none` in that keyword
+        // table would emit `translate: none` and then the assembly over the top of it, and the
+        // assembly would win — a class spelling "do not move" that moves. `SplitName` takes the
+        // longest registered prefix, so `translate-none` arrives here and `translate-4` arrives
+        // above; `ShadowedFamilyTests` is what holds that rule.
+        //
+        // ⚠ And `none` is read BY NAME, which is the same shape `scale-none` and `rotate-none` have:
+        // `TranslationReader.Of` compares the interned value against `none` before it parses
+        // anything, so this is refusal shape 3's opposite — a reader that already distinguishes the
+        // value, and no family able to emit it.
+        Static("translate-none", "translate", "none");
 
         // ⚠ <b>A percentage, because Tailwind's scale runs in hundredths.</b> `scale-150` is one and
         // a half, not a hundred and fifty — v4 emits `scale: 150%` and CSS reads a percentage on this
@@ -2547,6 +2663,14 @@ public static class UtilityFamilies {
         // exists and silently changes the gradient.
         if (family.Alongside is not null) {
             declarations.AddRange(family.Alongside);
+        }
+
+        // ⚠ The same rule one step finer, and in the same place for the same reason: only once the
+        // value has resolved, so a `mask-nonsense` cannot emit a radial mask layer for a keyword the
+        // family declined. See `Family.ValueAlongside`.
+        if (family.ValueAlongside is not null
+            && family.ValueAlongside.TryGetValue(candidate.Value, out var perValue)) {
+            declarations.AddRange(perValue);
         }
 
         return true;
@@ -3570,10 +3694,21 @@ public static class UtilityFamilies {
     ///     <c>BackgroundGradient.IsDefaultEnding</c> is what keeps that on the shader's fast path
     ///     rather than merely arriving at the same picture by a longer route.
     /// </remarks>
+    /// <remarks>
+    ///     ⚠ <b>The ending <i>shape</i> is written unconditionally as well, and it is a second
+    ///     fragment rather than part of the size's.</b> CSS makes the two independent —
+    ///     <c>circle closest-side</c> is one ending named in two keywords — so
+    ///     <c>mask-circle mask-radial-closest-side</c> is two classes assembling one
+    ///     <c>mask-image</c>, and a single fragment would let whichever the cascade picked last
+    ///     erase the other's half. <c>GradientReader</c> reads the prelude word by word and has done
+    ///     since #545, so <c>ellipse farthest-corner at center</c> is the same record
+    ///     <c>farthest-corner at center</c> already produced.
+    /// </remarks>
     static string Radial =>
         UtilityComposition.MaskImage(
             "radial",
-            $"{UtilityComposition.Reference(UtilityComposition.MaskRadialSize)} "
+            $"{UtilityComposition.Reference(UtilityComposition.MaskRadialShape)} "
+            + $"{UtilityComposition.Reference(UtilityComposition.MaskRadialSize)} "
             + $"at {UtilityComposition.Reference(UtilityComposition.MaskRadialPosition)}"
         );
 
@@ -3597,6 +3732,9 @@ public static class UtilityFamilies {
     /// </remarks>
     static void Mask(string name, string colour, string position, string layer, string image) =>
         MaskFamily(name, [colour], [position], layer, image);
+
+    /// <summary>The <c>var()</c> a <c>snap-x</c>/<c>snap-y</c>/<c>snap-both</c> names its strictness by.</summary>
+    static string SnapStrictness => UtilityComposition.Reference(UtilityComposition.ScrollSnapStrictness);
 
     /// <summary>The declarations every <c>mask-*</c> family emits beside whatever it was given.</summary>
     /// <param name="layer">The <c>mask-image</c> layer fragment this family fills.</param>

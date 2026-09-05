@@ -676,6 +676,133 @@ public sealed partial class LayoutTree {
         return total + (axis.Gap * int.Max(0, alive - 1));
     }
 
+    /// <summary>A grid container's min-content size on one axis, for CSS Flexbox §4.5's probe.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A grid container's intrinsic size is its TRACKS' and not its items'</b>, which is
+    ///         what makes this a different method rather than a branch inside
+    ///         <see cref="ComputeMinContentSizeUncached" />'s loop. That loop sums every in-flow child
+    ///         along one axis and takes the largest across the other, which is a flex line — so a 2x2
+    ///         grid of 20-point boxes reported 80 where the answer is two columns of 20.
+    ///         `gridflex_row_integration` is that fixture.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="GridSizingConstraint" />'s <c>MinContent</c> case existed and nothing
+    ///         reached it</b>: <see cref="ConstraintFor" /> returns only <c>Definite</c> or
+    ///         <c>MaxContent</c>, because a grid being laid out is either given a size or asked how
+    ///         big it would like to be — never how small it can be. §12's phases already read the
+    ///         constraint (an <c>auto</c> maximum takes the min-content contribution under it, and
+    ///         §12.7's <c>fr</c> tracks take their base size), so the whole of the answer is here in
+    ///         asking the question the enumeration was written for.
+    ///     </para>
+    ///     <para>
+    ///         The available space is indefinite on both axes on purpose: the probe is being asked
+    ///         how small the container may be, so it has no content box for a percentage track or a
+    ///         percentage gutter to be a fraction of. That is the same CSS Sizing §5.2.1 reading
+    ///         <see cref="ProbeContentWidth" /> applies one level down.
+    ///     </para>
+    /// </remarks>
+    float ComputeGridMinContentSize(
+        int index,
+        bool wantRow,
+        Direction direction,
+        float ownerWidth,
+        float ownerHeight,
+        int currentDepth
+    ) {
+        var mark = Scratch.Mark;
+
+        try {
+            var columnGap = StyleResolution.GapForAxis(in styles[index], FlexDirection.Row, ownerWidth);
+            var rowGap = StyleResolution.GapForAxis(in styles[index], FlexDirection.Column, ownerWidth);
+
+            var templateColumns = ExplicitTrackCount(in styles[index].GridTemplateColumns, float.NaN, columnGap);
+            var templateRows = ExplicitTrackCount(in styles[index].GridTemplateRows, float.NaN, rowGap);
+            var explicitColumns = int.Max(templateColumns, AreaTrackCount(index, inline: true));
+            var explicitRows = int.Max(templateRows, AreaTrackCount(index, inline: false));
+
+            var placement = PlaceGridItems(index, explicitColumns, explicitRows);
+
+            var columnsAt = BuildGridTracks(
+                in styles[index].GridTemplateColumns,
+                in styles[index].GridAutoColumns,
+                placement.Columns,
+                placement.ColumnOffset,
+                explicitColumns,
+                templateColumns,
+                float.NaN
+            );
+
+            CollapseAutoFitTracks(in styles[index].GridTemplateColumns, in placement, columnsAt, templateColumns, inline: true);
+
+            var columnAxis = new GridAxis(
+                Inline: true,
+                columnsAt,
+                placement.Columns,
+                placement.ItemsAt,
+                placement.ItemCount,
+                float.NaN,
+                columnGap,
+                GridSizingConstraint.MinContent,
+                // Nothing to stretch into: an intrinsic pass has no free space by definition.
+                StretchAuto: false
+            );
+
+            SizeGridTracks(in columnAxis, direction, ownerWidth, ownerHeight, currentDepth);
+
+            if (wantRow) {
+                return UsedTrackSpace(in columnAxis)
+                    + StyleResolution.FlexStartContentInset(in styles[index], FlexDirection.Row, direction, ownerWidth)
+                    + StyleResolution.FlexEndContentInset(in styles[index], FlexDirection.Row, direction, ownerWidth);
+            }
+
+            // ⚠ The block axis is a function of the inline one, exactly as it is in LayOutGrid: an
+            // item's height is the height its contents take at the width its columns just gave it,
+            // and its baseline shim is an input to §12 rather than an output of it.
+            for (var at = 0; at < placement.ItemCount; at++) {
+                var itemAt = placement.ItemsAt + at;
+                Scratch.Item(itemAt).ResolvedInlineSize =
+                    AreaSize(in columnAxis, Scratch.Item(itemAt).ColumnStart, Scratch.Item(itemAt).ColumnSpan);
+            }
+
+            ResolveBaselineShims(index, placement.ItemsAt, placement.ItemCount, direction, ownerWidth, ownerHeight, currentDepth);
+
+            var rowsAt = BuildGridTracks(
+                in styles[index].GridTemplateRows,
+                in styles[index].GridAutoRows,
+                placement.Rows,
+                placement.RowOffset,
+                explicitRows,
+                templateRows,
+                float.NaN
+            );
+
+            CollapseAutoFitTracks(in styles[index].GridTemplateRows, in placement, rowsAt, templateRows, inline: false);
+
+            var rowAxis = new GridAxis(
+                Inline: false,
+                rowsAt,
+                placement.Rows,
+                placement.ItemsAt,
+                placement.ItemCount,
+                float.NaN,
+                rowGap,
+                GridSizingConstraint.MinContent,
+                StretchAuto: false
+            );
+
+            SizeGridTracks(in rowAxis, direction, ownerWidth, ownerHeight, currentDepth);
+
+            return UsedTrackSpace(in rowAxis)
+                + StyleResolution.FlexStartContentInset(in styles[index], FlexDirection.Column, direction, ownerWidth)
+                + StyleResolution.FlexEndContentInset(in styles[index], FlexDirection.Column, direction, ownerWidth);
+        } finally {
+            // ⚠ The watermark comes back however this leaves, for the reason CalculateGridLayoutImpl
+            // gives: a scratch stack that only grows is the second failure nobody can read.
+            Scratch.Restore(mark);
+        }
+    }
+
     /// <summary>§10.3: distributes the container's leftover space between the tracks.</summary>
     /// <param name="axis">The axis whose tracks are being placed.</param>
     /// <param name="distribution">The content distribution the container asked for.</param>
@@ -1339,7 +1466,7 @@ public sealed partial class LayoutTree {
 
         var margin = StyleResolution.MarginForAxis(in styles[child], FlexDirection.Row, ownerWidth);
 
-        var minContent = MinContentContribution(child, FlexDirection.Row, direction, ownerWidth, ownerHeight) + margin;
+        var minContent = MinContentContribution(child, FlexDirection.Row, direction, ownerWidth, ownerHeight, currentDepth) + margin;
 
         // ⚠ <b>The owner size handed to the max-content probe is NaN, and passing the real one is a
         // bug that looks like a track-sizing bug.</b> CSS Sizing §5.2.1: while an intrinsic

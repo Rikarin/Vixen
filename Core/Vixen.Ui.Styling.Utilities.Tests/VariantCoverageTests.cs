@@ -460,6 +460,33 @@ public class VariantCoverageTests {
     }
 
     [Fact]
+    public void The_two_container_variants_meet_at_the_threshold_without_overlapping_on_it() {
+        // ⚠ **The one box width at which `@sm:` and `@max-sm:` could both apply, and in v4 neither
+        // pair does.** `--container-sm` is 24rem, so a container measured at exactly 384px is the
+        // only probe that can tell `(width < 384px)` from `(max-width: 384px)`; every other width
+        // answers the same under both, which is why this was silent for as long as it was and why
+        // the rows in the test above cannot see it.
+        var fixture = new UtilityFixture("");
+
+        var atThreshold = new ContainerBox(384f, 0f, ContainerKind.InlineSize);
+
+        // v4's `@max-sm` is `(width < 24rem)`, so the threshold belongs to `@sm:` alone.
+        Assert.Null(fixture.Computed(["@max-sm:p-4"], "padding-left", container: atThreshold));
+        Assert.Equal("16px", fixture.Computed(["@sm:p-4"], "padding-left", container: atThreshold));
+
+        // One texel narrower and they swap, which proves the null above is the threshold and not a
+        // variant that stopped resolving.
+        var below = new ContainerBox(383f, 0f, ContainerKind.InlineSize);
+
+        Assert.Equal("16px", fixture.Computed(["@max-sm:p-4"], "padding-left", container: below));
+        Assert.Null(fixture.Computed(["@sm:p-4"], "padding-left", container: below));
+
+        // ⚠ And `@min-*` stays inclusive — v4 spells that one `(width >= 24rem)` — so the exclusive
+        // reading must not have been applied to the whole family.
+        Assert.Equal("16px", fixture.Computed(["@min-[384px]:p-4"], "padding-left", container: atThreshold));
+    }
+
+    [Fact]
     public void A_named_container_variant_asks_the_container_with_that_name() {
         // ⚠ The name is not part of the condition — it chooses *which* box the condition is asked of
         // — so the discriminating scene is a box that satisfies the size and carries another name.

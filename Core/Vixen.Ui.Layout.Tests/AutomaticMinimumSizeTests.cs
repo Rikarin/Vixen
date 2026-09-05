@@ -405,6 +405,59 @@ public class AutomaticMinimumSizeTests {
         Assert.Equal(30f, tree.GetTop(child), Tolerance);
     }
 
+    [Fact]
+    public void A_grid_item_is_floored_by_its_columns_and_not_by_the_sum_of_its_children() {
+        // ⚠ <b>§4.5's probe read every container as a flex line, so a grid was measured as one.</b>
+        // Four 20-point boxes over two auto columns occupy two columns of 20 — 40 across, whatever
+        // the row count. The probe resolved the grid's main axis from `flex-direction`, which no
+        // grid sets and which defaults to COLUMN, so the inline answer was the widest single child:
+        // 20, for one column and for two alike. The columns are what a grid is wide by.
+        //
+        // ⚠ THE ORACLE IS THE GRID'S OWN SHAPE rather than a number chosen to match, and the
+        // one-column row is the control: it reads 20 both before and after, so a probe that had
+        // merely started SUMMING its children — 80, the mistake in the other direction, and the one
+        // `gridflex_row_integration` reports — cannot pass this pair either.
+        //
+        // The basis is DECLARED for the reason the empty-padding witness gives: a measured one sets
+        // LayoutResult.FlexBasisFromContent, and the cap in ComputeAutoMinMainSize — which exists
+        // precisely to hold this over-reported floor down — would hide the change.
+        Assert.Equal(40f, GridFlooredWidth(columns: 2));
+        Assert.Equal(20f, GridFlooredWidth(columns: 1));
+    }
+
+    /// <summary>
+    ///     The width a shrinking flex item settles at when it is a grid of four 20-point boxes over
+    ///     <paramref name="columns" /> columns, squeezed into a row far narrower than any of them.
+    /// </summary>
+    static float GridFlooredWidth(int columns) {
+        using var tree = new LayoutTree();
+        var root = tree.CreateNode();
+        tree.SetFlexDirection(root, FlexDirection.Row);
+        tree.SetDimension(root, Dimension.Width, StyleLength.Points(5f));
+        tree.SetDimension(root, Dimension.Height, StyleLength.Points(100f));
+
+        var grid = tree.CreateNode();
+        tree.SetDisplay(grid, Display.Grid);
+        tree.SetFlexShrink(grid, 1f);
+        tree.SetFlexBasis(grid, StyleLength.Points(200f));
+
+        Span<GridTrackSize> template = stackalloc GridTrackSize[columns];
+        template.Fill(GridTrackSize.Auto);
+        tree.SetGridTemplateColumns(grid, template);
+        tree.AddChild(root, grid);
+
+        for (var i = 0; i < 4; i++) {
+            var box = tree.CreateNode();
+            tree.SetDimension(box, Dimension.Width, StyleLength.Points(20f));
+            tree.SetDimension(box, Dimension.Height, StyleLength.Points(20f));
+            tree.AddChild(grid, box);
+        }
+
+        tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
+
+        return tree.GetWidth(grid);
+    }
+
     /// <summary>A leaf whose content is a fixed width however little room it is offered.</summary>
     /// <remarks>
     ///     Standing in for a single unbreakable word, which is the case §4.5 exists for. It answers

@@ -8,21 +8,25 @@
         <IsTrimmable>true</IsTrimmable>
 
         <!--
-            The content's addresses, as C# constants, so `Addresses.Maps.Greenmarch.Address` is a
-            compile error when it is wrong and a magic string never is. Written into obj/ by the
-            import step before the compiler runs, and regenerated whenever the content changes.
+            ⚠ No generated address constants, and the properties that would ask for them are absent
+            rather than set to true. `VixenAddressConstants` and friends are read by Vixen.Sdk's
+            targets, and line 1 of this file is Microsoft.NET.Sdk — so setting them here changed
+            nothing at all, while the comment that used to sit in their place described the
+            generated file as something the build writes. An opt-in nothing imports is worse than an
+            absent one, because a reader cannot tell.
 
-            Here rather than in the realm or the client because both of them reference this project
-            and neither should hold its own copy — which is the same argument the block below makes
-            about the rules.
+            Turning it on is three edits and one bill. The edits: `Sdk="Vixen.Sdk/<version>"` on
+            line 1; `VixenAddressConstants`, `VixenAddressNamespace` and `VixenProjectDirectory`
+            pointing at ../VixenMmo1.Content; and `VixenContentBuildOnBuild=false` beside them,
+            because the SDK's content build and copy-to-output belong to the client rather than to
+            the assembly holding the rules. (`VixenAddressIds` adds a DefId per address and needs
+            Vixen.Gameplay, which is a second opt-in.) The bill: the SDK carries the whole `vixen`
+            CLI so that a consumer installs nothing, which is a large package on every machine that
+            restores this project — see Vixen.Sdk's README before deciding.
 
-            VixenAddressIds adds a DefId beside each address. It needs Vixen.Gameplay, so it is a
-            second opt-in: a game that declined doc 28's libraries still gets its addresses.
+            Until a game decides that, the addresses code names are constants somebody writes, and
+            `vixen content build` over ../VixenMmo1.Content is a command rather than a build step.
         -->
-        <VixenAddressConstants>true</VixenAddressConstants>
-        <VixenAddressNamespace>VixenMmo1</VixenAddressNamespace>
-        <VixenAddressIds>false</VixenAddressIds>
-        <VixenProjectDirectory>$(MSBuildThisFileDirectory)../VixenMmo1.Content</VixenProjectDirectory>
     </PropertyGroup>
 
     <ItemGroup>

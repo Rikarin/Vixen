@@ -140,10 +140,26 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 ///         against a tree nobody chose. Eighteen baselines stay byte-identical.
 ///     </para>
 /// </param>
+/// <param name="Snapped">
+///     Whether <c>#probe</c> is a <see cref="ScrollView" /> nested inside a <i>snapping</i> one, and
+///     the scene drives a wheel gesture to an end between the recorded frames. False for every scene
+///     but <c>snapped</c>.
+///     <para>
+///         ⚠ <b>The tenth time this list has been the thing missing rather than the engine, and the
+///         first where the missing ingredient was an <i>event</i> rather than a shape, a state or a
+///         font.</b> A snap is defined only at the moment a scroll comes to rest, and nothing in the
+///         <c>scrolled</c> scene ever ends a gesture: <c>ScrollIntoView</c> is not one and a wheel
+///         with no idle after it is one still in progress. So all three snap properties would have
+///         measured inert with <c>ScrollView</c> reading every one of them — which is the exact
+///         false gap this file's own opening warns about, and the reason #281 registered the
+///         behaviour before the family.
+///     </para>
+/// </param>
 sealed record ProbeScene(
     string Name,
     string Css,
     bool Scrolling = false,
+    bool Snapped = false,
     bool Unbroken = false,
     bool Edited = false,
     bool Figured = false,
@@ -1006,6 +1022,51 @@ static class UtilityConsumptionProbe {
             Scrolling: true
         ),
 
+        // ⚠ <b>Snapped, and what it adds to `scrolled` is a moment rather than a shape.</b> A snap
+        // is defined only where a scroll comes to rest, and nothing in `scrolled` ever comes to
+        // rest: `ScrollIntoView` is not a gesture and a wheel with no idle after it is a gesture
+        // still running. `ScrollView` reads all three snap properties and every one of them would
+        // have measured inert.
+        //
+        // ⚠ <b>`#probe` has to be a snapping CONTAINER and a snap CANDIDATE at once, which is what
+        // the nesting from `scrolled` buys.</b> `scroll-snap-type` lands on the inner view and needs
+        // candidates inside it — `#above`, `#mark` and `#below` carry a `scroll-snap-align` here for
+        // that. `scroll-snap-align` and `scroll-snap-stop` land on the same element and mean nothing
+        // there; they are read off `#probe` by the OUTER view, which is why the outer is the one
+        // that declares `scroll-snap-type` in the scene's own rules.
+        //
+        // ⚠ <b>`#probe`'s own align is `end` and not `start`, which is the `primed` lesson.</b> The
+        // injected declaration is appended after the scene's, so a scene that already said what the
+        // injection says measures the property inert — `transition-property` cost a run this way.
+        // Every value the family can give `scroll-snap-align` therefore differs from what is here.
+        new(
+            "snapped",
+            """
+            /* `ControlTheme.vcss` quoted, for the reason the scrolled scene quotes it. */
+            scroll-view          { flex-direction: column; overflow: hidden; position: relative; }
+            scroll-content       { flex-direction: column; flex-shrink: 0; align-self: flex-start; min-width: 100%; }
+            scrollbar            { position: absolute; }
+            scrollbar.vertical   { top: 0px; right: 0px; bottom: 0px; width: 10px; }
+            scrollbar.horizontal { left: 0px; right: 0px; bottom: 0px; height: 10px; }
+
+            #host   { display: flex; flex-direction: column; width: 200px; height: 140px; align-items: flex-start; }
+            #outer  { width: 100px; height: 60px; scroll-snap-type: y mandatory; }
+            #lead   { width: 260px; height: 90px; background-color: #404060; scroll-snap-align: start; }
+            #trail  { width: 260px; height: 90px; background-color: #604040; scroll-snap-align: start; }
+            #probe  { width: 60px; height: 40px; margin-left: 110px; background-color: #204080;
+                      scroll-snap-align: end; }
+            #above  { width: 40px; height: 24px; background-color: #206040; scroll-snap-align: start; }
+            #below  { width: 40px; height: 24px; background-color: #402060; scroll-snap-align: start; }
+            #mark   { width: 30px; height: 12px; background-color: #c0a020; scroll-snap-align: start; }
+            .kid    { width: 8px; height: 8px; }
+            #wide   { width: 8px; height: 8px; }
+            #label  { width: 30px; }
+            #short  { width: 30px; }
+            #after  { width: 30px; height: 12px; background-color: #a0a040; }
+            """,
+            Snapped: true
+        ),
+
         // ⚠ <b>Edited, and it is the only scene in which anything has a caret.</b> `caret-color` is
         // read in exactly two places — `TextField.CaretColour` and `CodeEditor`'s copy of it — and
         // both are inside an `if (!IsFocused) return;`. So the ingredient is a *state* rather than a
@@ -1480,11 +1541,16 @@ static class UtilityConsumptionProbe {
         ScrollView? outer = null;
         ScrollView? inner = null;
         UiElement? mark = null;
+        UiElement? above = null;
 
         UiElement probe;
         UiElement body;
 
-        if (scene.Scrolling) {
+        // The `snapped` scene is `scrolled`'s tree with a different thing done to it, so the shape is
+        // built once and only the driving differs. See `Drive`.
+        var nested = scene.Scrolling || scene.Snapped;
+
+        if (nested) {
             outer = host.Add<ScrollView>(null, "outer");
             document.Create("div", outer.Content, "lead");
 
@@ -1581,8 +1647,8 @@ static class UtilityConsumptionProbe {
             )
         );
 
-        if (scene.Scrolling) {
-            document.Create("div", body, "above");
+        if (nested) {
+            above = document.Create("div", body, "above");
             mark = document.Create("div", body, "mark");
             document.Create("div", body, "below");
         }
@@ -1610,8 +1676,8 @@ static class UtilityConsumptionProbe {
         // it was. Adding one globally would have re-timed all thirteen existing baselines — every
         // transition would be sampled a frame further along — and quietly re-measured properties this
         // change has nothing to do with.
-        if (scene.Scrolling) {
-            Approach(0);
+        if (nested) {
+            Drive(0);
 
             now += TimeSpan.FromMilliseconds(16);
             document.Tick(now);
@@ -1623,13 +1689,13 @@ static class UtilityConsumptionProbe {
 
         probe.AddClass("moved");
 
-        if (scene.Scrolling) {
-            Approach(1);
+        if (nested) {
+            Drive(1);
         }
 
         for (var frame = 0; frame < 3; frame++) {
-            if (scene.Scrolling && frame == 2) {
-                Approach(2);
+            if (nested && frame == 2) {
+                Drive(2);
             }
 
             now += TimeSpan.FromMilliseconds(16);
@@ -1640,6 +1706,120 @@ static class UtilityConsumptionProbe {
         }
 
         return new SceneSignature(layout.ToString(), paint.ToString(), cursor.ToString(), hit.ToString());
+
+        // Which of the two nested scenes is driving, so the shared tree is built once. `scrolled`
+        // moves the offsets and never ends a gesture; `snapped` ends one, which is the only moment a
+        // snap is defined at.
+        void Drive(int phase) {
+            if (scene.Scrolling) {
+                Approach(phase);
+            } else {
+                Flick(phase);
+            }
+        }
+
+        // ⚠ <b>A wheel and then a silence, because the silence is the terminator.</b> A wheel is a
+        // stream of deltas with no end in it, so `ScrollView` calls a gesture over when the TICK
+        // clock has been still for `SnapIdleSeconds` — which means a phase that turned the wheel and
+        // returned would leave the gesture running and every snap property measuring inert. The
+        // clock is moved by hand here and nothing waits on the machine.
+        void Rest() {
+            now += TimeSpan.FromSeconds(ScrollView.SnapIdleSeconds) + TimeSpan.FromMilliseconds(32);
+            document.Tick(now);
+            document.Update();
+        }
+
+        // Turns the wheel over a view and lets it come to rest there.
+        //
+        // ⚠ <b>A frame between the wheel and the silence, and without it the snap is computed from
+        // the layout the wheel has not happened in yet.</b> A candidate's snap position is read off
+        // its `Bounds` at the offset the view is at NOW — so a terminator that fired before the
+        // layout caught up would measure every candidate against the offset the gesture started at,
+        // land on the one the view is already on, and leave every snap property looking inert. A
+        // real frame loop lays out between an input event and the tick that follows it; this is that
+        // frame, and it is short enough that the gesture is still running.
+        void Wheel(ScrollView view, float delta) {
+            var over = view.Bounds;
+
+            document.Dispatch(
+                new WheelEvent {
+                    X = over.X + over.Width * 0.5f,
+                    Y = over.Y + over.Height * 0.5f,
+                    DeltaY = delta
+                }
+            );
+
+            now += TimeSpan.FromMilliseconds(16);
+            document.Tick(now);
+            document.Update();
+
+            Rest();
+        }
+
+        // One of the three gestures the `snapped` scene needs. Each ends somewhere a different one
+        // of the three properties decides, and none of the three can be read off the others.
+        void Flick(int phase) {
+            if (outer is null || inner is null || above is null || mark is null) {
+                return;
+            }
+
+            document.Update();
+
+            switch (phase) {
+                // ⚠ <b>Ends where `#probe` is the nearest candidate, which is what makes its
+                // `scroll-snap-align` observable.</b> The outer's candidates are `#lead` at 0,
+                // `#probe` at whatever its alignment says, and `#trail` at 130; a wheel to 95 is
+                // nearer `#probe` under every one of the four alignments and lands on a different
+                // offset for each — `end` is the scene's, so `start`, `center` and `none` are three
+                // distinct moves away from the baseline.
+                case 0:
+                    outer.ScrollTop = 0f;
+                    outer.ScrollLeft = 0f;
+                    document.Update();
+
+                    Wheel(outer, 95f);
+                    break;
+
+                // ⚠ <b>Ends where `#probe` is NOT the nearest and the scroll went PAST it, which is
+                // the only arrangement `scroll-snap-stop` decides anything in.</b> `always` is a
+                // claim about what a gesture crossed rather than where it stopped, so a phase that
+                // came to rest on `#probe` — phase 0 — measures the property inert with the reader
+                // present. At 125 the nearest candidate is `#trail`, and `always` on `#probe` is the
+                // whole of the difference between landing there and landing on `#probe`.
+                case 1:
+                    outer.ScrollTop = 0f;
+                    outer.ScrollLeft = 0f;
+                    document.Update();
+
+                    Wheel(outer, 125f);
+                    break;
+
+                // The inner's own `scroll-snap-type`, which is the property the injected declaration
+                // lands on as a CONTAINER rather than as a candidate.
+                //
+                // ⚠ <b>The destination is computed rather than written down, and it has to be.</b>
+                // `#above`'s snap position depends on the shared children stacked above it, which
+                // every other scene also uses and which no rule here may move. Six pixels past it is
+                // inside `SnapProximity` on a forty-pixel viewport, so both strictnesses snap and
+                // the baseline — a container with no `scroll-snap-type` at all — rests six pixels
+                // short of them.
+                default:
+                    outer.ScrollTop = 0f;
+                    outer.ScrollLeft = 0f;
+                    document.Update();
+
+                    outer.ScrollIntoView(inner);
+
+                    inner.ScrollTop = 0f;
+                    inner.ScrollLeft = 0f;
+                    document.Update();
+
+                    var position = above.AbsoluteTop - inner.Bounds.Top + inner.ScrollTop;
+
+                    Wheel(inner, Math.Clamp(position + 6f, 0f, inner.MaximumTop));
+                    break;
+            }
+        }
 
         // One of the three scroll approaches the `scrolled` scene needs. See that scene's remark for
         // why there are three of them and why the wheel is last.

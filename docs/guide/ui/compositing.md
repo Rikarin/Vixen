@@ -320,11 +320,14 @@ layer carries its own gradient function.
 ⚠ **What is still absent, and each for a stated reason.** `mask-origin-*` and `mask-clip-*` both
 default to `border-box`, which is the only rectangle this engine has — there is no padding, content,
 fill, stroke or view box to resolve the other values against, so every one of them would draw the
-same picture. `mask-type-*` applies to SVG `<mask>` elements, which this engine has none of. The
-radial *ending shapes* — `mask-circle`, `mask-ellipse`, `mask-radial-closest-side` and its siblings —
-each name a different ellipse from the `farthest-corner` one computed here, so `GradientReader`
-refuses them; a refused layer is no mask at all rather than a slightly wrong one. `bg-clip-text` is a
-separate matter again — see doc 43, which names the text-coverage surface it is waiting on.
+same picture. `mask-type-*` applies to SVG `<mask>` elements, which this engine has none of.
+⚠ **The radial *ending shapes* used to be listed here and no longer belong**: `mask-circle`,
+`mask-ellipse`, `mask-radial-closest-side` and its three siblings are all read, and
+`BackgroundGradient.Reach` is the closed form for each — the refusal that stood here named a blocker
+(a stated pair of radii) that had been satisfied all along. What is still refused is an ending
+size stated as a `<length>{1,2}` pair, which needs two lanes the record does not have; a refused
+layer is no mask at all rather than a slightly wrong one, which is why that one stays refused rather
+than being approximated. `bg-clip-text` is a separate matter again — see doc 43, which names the text-coverage surface it is waiting on.
 
 `UiRenderer.Masked` is what says a mask happened, and it is worth having for `Filtered`'s reason plus
 one: `ui-mask.frag` serves masked groups *and* carries the colour matrix, so a renderer that picked

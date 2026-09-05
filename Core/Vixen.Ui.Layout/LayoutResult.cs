@@ -387,11 +387,18 @@ public static class LayoutLimits {
     ///     <para>
     ///         ⚠ <b>65 535 is the widest grid a document can NAME.</b> Grid line numbers run to
     ///         ±32 767 — the range Taffy's corpus writes, and what its <c>over_u16</c> fixture names
-    ///         refer to — so an implicit grid spanning the whole of it is 65 535 tracks. Below that,
-    ///         the clamp in <c>PlaceGridItems</c> does not merely truncate: it SATURATES, pulling
-    ///         every item past the end onto the last track, so two items thirty thousand lines apart
-    ///         share a cell and their two tracks come back as one. Twenty fixtures turned on that and
-    ///         on nothing else. See the closed bucket in GridKnownGaps.txt for the measurement.
+    ///         refer to — so an implicit grid spanning the whole of it is 65 535 tracks. Twenty
+    ///         fixtures turned on that number and on nothing else; see the closed bucket in
+    ///         GridKnownGaps.txt for the measurement.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is an allocation bound and nothing else, which it did not used to be.</b> Both
+    ///         clamps in <c>PlaceGridItems</c> SATURATED, pulling every item past the end onto the
+    ///         last track, so two items thirty thousand lines apart shared a cell and their two
+    ///         tracks came back as one. <c>LayoutTree.CollapseEmptyRuns</c> maps an over-large axis
+    ///         through its occupied runs instead, collapsing each empty implicit run to a single
+    ///         track — so raising or lowering this constant now changes how much arena a pathological
+    ///         document costs and changes no item's cell.
     ///     </para>
     ///     <para>
     ///         The cost is linear and is paid only by a document that asks for it: a

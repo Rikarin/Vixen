@@ -8,7 +8,7 @@ api: [L:7004, L:7005, L:7006, T:Vixen.Ui.Styling.Utilities.UtilityRefusal, T:Vix
 tags: [ui, styling, vcss, diagnostics, logging, troubleshooting, apply]
 since: 0.2
 status: preview
-related: [ui/cascade-layers, ui/utility-composition, editor/utility-styles]
+related: [ui/cascade-layers, ui/utility-composition, editor/utility-styles, ui/document-diagnostics]
 ---
 
 ## What it is

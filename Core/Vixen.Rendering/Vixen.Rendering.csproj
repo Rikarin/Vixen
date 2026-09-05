@@ -28,6 +28,11 @@
           This is not the assembly growing a compiler, which its own remarks rule out: these are
           pre-compiled modules read out of the assembly, the same bytes Vixen.Graphics.Golden.Tests
           renders `debug-world` and `debug-overlay` with.
+
+          ⚠ And a person runs `glslc` to change them, which for a while nothing noticed: an edited
+          Shaders/line.frag beside an unrecompiled .spv shipped the old bytes in this assembly and
+          nothing said so. `CommittedGlslModuleTests` records the pair in `hand-compiled.sha256`, so
+          the forgotten step is a red test rather than a wrong picture.
         -->
         <EmbeddedResource Include="Shaders\line.vert.spv" LogicalName="Vixen.Rendering.line.vert.spv" />
         <EmbeddedResource Include="Shaders\line.frag.spv" LogicalName="Vixen.Rendering.line.frag.spv" />

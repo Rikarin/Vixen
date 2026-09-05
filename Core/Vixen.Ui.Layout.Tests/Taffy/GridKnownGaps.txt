@@ -413,6 +413,29 @@ grid_available_space_smaller_than_min_content
 # because the near item survives the clamp and the two never collide. And the symptom needs items
 # with a SIZE — a probe built from empty boxes reports x=300 for both whether they share a track or
 # occupy two zero-width ones, so it cannot tell the defect from the fix.
+#
+# ⚠ <b>THE COLLAPSE IS WRITTEN AND THE THIRD ROW NOW READS 100 WIDE, x=0 AND x=50, LIKE THE OTHER
+# TWO.</b> `CollapseEmptyRuns` maps an over-large axis through its occupied runs: the explicit region
+# and every occupied run keep their own lengths and their own coordinates, and each maximal run of
+# EMPTY implicit tracks between them becomes one empty implicit track — which sizes to zero exactly
+# as the thousands it replaced did, so the arithmetic §12 already had gives Chrome's answer. Neither
+# clamp saturates a start any more: `ClampPlacement` bounds the coordinate only so that `start + span`
+# and the running sums cannot overflow, and the clamp at the end of `PlaceGridItems` is kept as a last
+# resort for an axis whose OCCUPIED tracks alone still exceed the ceiling — a hundred `span 20000`
+# items — which no fixture in any of the four corpora reaches.
+#
+# So the ceiling is now what this heading said it should be: a pure allocation bound, which decides
+# how much arena a pathological document costs and decides nothing about which cell an item is in.
+# ⚠ What the collapse does NOT preserve is the GUTTERS inside a collapsed run: `column-gap: 10px` with
+# thirty thousand empty tracks between two items is 300 000 points of gutter in a browser and one
+# gutter here. That is deliberate and it is written into `CollapseEmptyRuns` — the alternative on
+# offer was the two items sharing a cell.
+#
+# The witness is `GridBlindSpotTests.Two_items_past_the_track_ceiling_keep_their_own_cells`, which
+# pins all three rows above plus a fourth that walks the map LEFTWARDS from the explicit origin
+# (lines −70 000 and 2). ⚠ Its oracle is a conservation law rather than the table: two 50-point items
+# that do not share a cell make a 100-point max-content grid whatever lies between them, because
+# every track between them is empty. No fixture moved, in any of the four corpora.
 
 # ── SINGLETONS, EACH ITS OWN STORY ── three of four closed ──
 #

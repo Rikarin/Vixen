@@ -26,7 +26,7 @@
 # exactly the committed counts — so a line cannot quietly widen to cover a new failure, and fixing
 # any one of these turns the suite red until the count and the line are both updated.
 #
-# 206 at the corpus's first run; 18 now — and the four that arrived most recently arrived by being
+# 206 at the corpus's first run; 6 now — and the four that arrived most recently arrived by being
 # LOOKED AT rather than by breaking. They were refused on `scrollbar-width` and had never run. A
 # number in this file going up is not automatically bad news, and a number going up because a skip
 # turned into a measurement is the only kind of bad news worth having.
@@ -119,12 +119,19 @@
 #      "it happens to under-report" note predicted: see AutomaticMinimumSizeTests.
 #      An_empty_descendant_still_contributes_its_own_padding_and_border for the hand-written witness.
 #
-#   A third, in the same probe: it reads a GRID container as a flex row and sums all of its items
-#   along one axis. gridflex_row_integration is four 20-wide boxes in a 2x2 grid — 40 in Chrome, 80
-#   from the probe.
+#   3. It read a GRID container as a flex line. FIXED — ComputeGridMinContentSize sizes the grid's
+#      tracks under §12's min-content constraint (a case GridSizingConstraint had and nothing
+#      reached, because a grid being laid out is asked for a definite size or a max-content one and
+#      never for its smallest) and reports what they occupy. ⚠ The shape of the error was not what
+#      this line said: the probe resolved the container's main axis from `flex-direction`, which
+#      defaults to COLUMN and which no grid sets, so a grid's inline min-content came back as the
+#      WIDEST SINGLE CHILD rather than as the 80 the sum would have given. Both are wrong and the
+#      four `gridflex_row_integration` variants go red either way with the cap off; they are green
+#      with the fix and the cap off, which is how the fix was measured, since the cap hides it.
 #
-# ⚠ Because two of those three are still open — the grid one, and the `width: 50%` half of the
-# percentage one — the §4.5 floor is CAPPED at the item's own flex basis whenever that basis was
+# ⚠ Because ONE of those three is still open — the `width: 50%` half of the percentage one — plus a
+# fourth found by the same measurement (below), the §4.5 floor is CAPPED at the item's own flex basis
+# whenever that basis was
 # MEASURED rather than declared — LayoutResult.FlexBasisFromContent. The
 # justification is an inequality, not a heuristic: a box's min-content size cannot exceed the size
 # its own contents were just measured at, so a floor that comes out above such a basis is the probe
@@ -132,12 +139,23 @@
 # content_row is untouched by the cap. Remove the cap when the probe is fixed, and expect nothing to
 # move; keep it until then, or an over-reported floor becomes a real box.
 #
-# ⚠ "EXPECT NOTHING TO MOVE" WAS MEASURED AND IS WRONG, and it is worth the two lines because the next
+# ⚠ "EXPECT NOTHING TO MOVE" WAS MEASURED AND IS WRONG, and it is worth the lines because the next
 # person will otherwise repeat the experiment. Deleting the cap on the unclamped-flex-base branch
 # costs FOUR grid fixtures (measured when grid stood at 1 896) and gains nothing anywhere: flex
 # stayed at 2 190 / 66 and Yoga's 534 did not move. So the cap is load-bearing beyond the two probe
 # defects above, and bevy_issue_9530 — which the §9.7 heading expected the cap to be holding back —
 # was not waiting on it either.
+#
+# ⚠ RE-MEASURED, AND "FOUR GRID FIXTURES" IS NOT THE WHOLE BILL EITHER. Deleting the cap outright
+# costs TWENTY fixtures in five families: gridflex_row_integration (closed by the grid probe above),
+# and then bevy_issue_9530, bevy_issue_9530_reduced, blitz_issue_88 and
+# measure_child_with_min_size_greater_than_available_space, which are one defect and not four. Every
+# one of them is a TEXT LEAF in the BLOCK axis: ComputeMinContentSizeUncached measures it at
+# `ownerWidth` — the containing block's inline size — where what it is about to be given is its own
+# used width. blitz_issue_88 is one line of text in a 600-point row that the probe wraps to five:
+# 10 points tall in Chrome and 50 from the probe, and the flex item is then floored at 50. That
+# measurement is the whole of what stands between this cap and its removal, and it is filed on its
+# own rather than folded in here.
 #
 # ⚠ percentage_flex_basis_cross_min_height CLOSED with §9.2's unclamped flex base, which is written up
 # under §9.7 below. It sat here rather than there because its symptom is a cross-axis minimum, and it
@@ -230,8 +248,22 @@ padding_border_overrides_size_flex_basis_0_growable
 #
 # ⚠ THE HEADING THIS BUCKET CARRIED WAS WRONG, and refuting it is what closed most of the file. It
 # said "the loop that re-runs distribution after clamping is what is missing, not the clamp." That
-# loop was never missing — DistributeFreeSpaceFirstPass is exactly it, and it is correct. What it
-# was handed was a pool that had already paid for the clamp.
+# loop was never missing — DistributeFreeSpaceFirstPass is exactly it. What it was handed was a pool
+# that had already paid for the clamp.
+#
+# ⚠ "AND IT IS CORRECT" IS THE ONE WORD OF THAT REFUTATION THAT WAS ITSELF WRONG, and #605 is the
+# case it cost. The first pass took a frozen item's factor out of the divisor the instant it found
+# the violation, and went on dividing the SAME un-repaid pool by it — so every later sibling was
+# offered a share computed against a divisor that had already shrunk. §9.7 step 4 distributes to all
+# the unfrozen items from one pool and one factor sum (4c), clamps them all (4d), and only then
+# freezes the violators (4e); nothing an item is offered may depend on where in the line it sits. Two
+# `flex-basis: 60; flex-shrink: 1` siblings with `min-width: 20px` on the first, in a 30-point row:
+# the second was measured against half the divisor, shot past its own zero floor, was frozen too, and
+# with both clamps charged to it the pool came back POSITIVE — the second pass took the GROW branch,
+# found `flex-grow: 0`, and handed both items their unshrunk 60-point bases. No fixture in any corpus
+# saw it: above 40 nothing violates and below 20 the divisor reaches zero and a different branch gets
+# the answer right. The reductions are collected and applied after the loop now, and
+# FlexibleLengthResolutionTests pins the seven-row window against Chrome.
 #
 # §9.3 breaks lines by each item's outer HYPOTHETICAL main size: the flex base clamped by its used
 # min and max. §9.7 step 3 builds the free space out of a DIFFERENT sum — the frozen items' target
@@ -466,8 +498,16 @@ align_baseline_multiline_column2
 # fix is to stop a FitContent/MaxContent measurement handing a definite size down for percentages to
 # resolve against, which is a change to how availability propagates and wants its own pass.
 # bevy_issue_7976_reduced passes, and the only difference is that it has no percentage child.
-bevy_issue_7976_3_level
-bevy_issue_7976_4_level
+#
+# ⚠ <b>CLOSED, AND NOT BY THE PASS THIS PARAGRAPH SCOPED.</b> Both families went green with the
+# max-content flex-base measurement written up under the next heading, which is a different sentence
+# of the same specification and reaches this one from the side: the extra pass measures the item with
+# its main axis UNDEFINED, and a percentage against an undefined containing block is §5.2.1's `auto`
+# by arithmetic rather than by a rule — `Resolve(NaN)` is NaN. So the `width: 100%` child contributes
+# nothing during the pass that decides the base, which is exactly what this paragraph asked for, and
+# availability propagation was never changed. ⚠ Two families predicted to need a pass of their own
+# were closed by a fix aimed at a third; the prediction was not wrong about the mechanism, only about
+# what would have to be written to reach it.
 
 # ── THE FLEX BASE SIZE OF A MEASURED ITEM IS TAKEN UNDER THE CONTAINER'S AVAILABLE SIZE, NOT AT
 #    MAX-CONTENT ── one family, and it only shows when §4.5 is opted out ──
@@ -500,4 +540,40 @@ bevy_issue_7976_4_level
 # Chrome's own behaviour is the spec's. The honest shape is to keep the offer for the measurement
 # but record the unclamped max-content size separately as the base — the same separation
 # LayoutResult.UnclampedMeasuredDimensions already made once, one question further out.
-measure_child_with_flex_shrink_hidden
+#
+# ⚠ <b>CLOSED, in exactly that shape, and it cost TWELVE fixtures rather than four.</b> A
+# content-sized item whose main-axis offer came out as FitContent is now measured twice: once with
+# that axis undefined, whose main-axis answer alone becomes the flex base, and then again with the
+# real offer, which is what every other consumer reads. The order is what makes it safe — the second
+# pass leaves `MeasuredDimensions` exactly as it found them before, so the clause the comment calls
+# load-bearing keeps doing its job and text still wraps to the width it is about to be given.
+#
+# The other eight are `bevy_issue_7976_{3,4}_level`, filed one heading up as a percentage cycle
+# needing a pass of its own: the undefined main axis makes their `width: 100%` grandchild resolve
+# against nothing, which is CSS Sizing §5.2.1's answer arrived at by arithmetic. 2 390 → 2 402, and
+# nothing anywhere regressed — not one of the eight Taffy corpora, not Yoga's 534.
+#
+# ⚠ <b>The second measurement is not the cost it looks like</b>, and the reason is worth writing down
+# because "measure everything twice" is the shape of a change that should be refused. Only an item
+# with no declared basis AND no declared main size AND an offered — not stretched, not max-content —
+# main axis reaches it, and `CalculateLayoutInternal`'s per-node measurement cache keys on the
+# question, so the second pass is a cache hit for every leaf whose answer does not depend on the
+# offer. The whole 6 354-test project runs in the same 25 seconds it did before.
+#
+# ⚠ <b>IT IS GATED ON THE ITEM BEING ABLE TO SHRINK, and that gate is a workaround for a different
+# defect rather than part of this rule.</b> §9.2 asks for the max-content base of every content-sized
+# item; taking it for an item that CANNOT shrink makes the item overflow, because `flex-shrink`'s
+# initial value in this store is Yoga's 0 where CSS's is 1 — the same divergence
+# `TaffyStyleMap.ApplyCssInitialValues` resets per node, and which nothing resets for the engine's own
+# documents. Ungated, the change turns six `Vixen.Ui.Tests` red and every one is the same sentence: a
+# label whose base became the width of its unwrapped string stops wrapping, one line and 28 points
+# tall against three lines and 83.6. Filed as #628; when the initial value is CSS's, the gate comes
+# out. ⚠ The corpus cannot see this at all, because it applies CSS's initial values on the way in —
+# an oracle that corrects for a defect on entry can never report it.
+#
+# The hand-written witness is `FlexibleLengthResolutionTests.
+# A_content_sized_item_shrinks_from_its_max_content_size_and_not_from_the_room_it_was_offered`, whose
+# oracle is two closed-form properties rather than the two numbers: the widths sum to the container,
+# and §9.7 scales the shrink BY THE BASE, so the amounts given up must be in the same ratio as the
+# bases. ⚠ It measures with the pixel grid off, because the second property is exact and 9 + 91 is
+# only the first.

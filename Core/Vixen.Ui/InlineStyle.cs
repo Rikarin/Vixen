@@ -150,5 +150,6 @@ public partial class UiElement {
         }
 
         Document.InvalidateInline(StyleNode);
+        Document.RecordDirty(this, UiInvalidationKind.Inline);
     }
 }
