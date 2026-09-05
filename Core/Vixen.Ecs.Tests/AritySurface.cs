@@ -163,8 +163,7 @@ public struct AritySpy<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T1
     where T12 : struct, ISlot
     where T13 : struct, ISlot
     where T14 : struct, ISlot
-    where T15 : struct, ISlot
-{
+    where T15 : struct, ISlot {
     /// <summary>Every entity the two entity-carrying families handed over.</summary>
     public List<Entity>? Seen { get; init; }
 

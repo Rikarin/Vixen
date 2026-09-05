@@ -525,13 +525,13 @@ public sealed partial class LayoutTree {
             }
 
             Scratch.Span(shifts + anchor) = 0;
-            var cursor = (long) Scratch.Span(ends + anchor);
+            var cursor = (long)Scratch.Span(ends + anchor);
 
             for (var i = anchor + 1; i < runs; i++) {
                 var placed = cursor + 1;
 
                 Scratch.Span(shifts + i) =
-                    (int) long.Clamp(placed - Scratch.Span(starts + i), -MaximumAuthoredLine, MaximumAuthoredLine);
+                    (int)long.Clamp(placed - Scratch.Span(starts + i), -MaximumAuthoredLine, MaximumAuthoredLine);
 
                 cursor = placed + (Scratch.Span(ends + i) - Scratch.Span(starts + i));
             }
@@ -542,7 +542,7 @@ public sealed partial class LayoutTree {
                 var placed = cursor - 1 - (Scratch.Span(ends + i) - Scratch.Span(starts + i));
 
                 Scratch.Span(shifts + i) =
-                    (int) long.Clamp(placed - Scratch.Span(starts + i), -MaximumAuthoredLine, MaximumAuthoredLine);
+                    (int)long.Clamp(placed - Scratch.Span(starts + i), -MaximumAuthoredLine, MaximumAuthoredLine);
 
                 cursor = placed;
             }
