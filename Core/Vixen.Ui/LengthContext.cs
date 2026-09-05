@@ -37,6 +37,19 @@ public readonly record struct LengthContext(
     /// <summary>CSS's initial font size, which is what a document with no <c>font-size</c> gets.</summary>
     public const float InitialFontSize = 16f;
 
+    /// <summary>What <c>line-height: normal</c> is worth here, as a multiple of the font size.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A stand-in, and the one number in this file that is not exact.</b> CSS computes
+    ///     <c>normal</c> from the font's own ascender, descender and line gap —
+    ///     <c>TextRun.Height</c> does exactly that — and nothing that resolves a length has a font.
+    ///     So a <c>1lh</c> on an element whose line height is <c>normal</c> answers this instead, and
+    ///     it will differ from the drawn line box by whatever that font's metrics differ from 1.2 by.
+    ///     A declared <c>line-height</c> is carried through exactly and does not go near this.
+    /// </remarks>
+    const float NormalLineHeightFactor = 1.2f;
+
+    readonly float lineHeight;
+
     /// <summary>A context for a surface, before any element's own font size is known.</summary>
     /// <param name="width">The surface's width.</param>
     /// <param name="height">Its height.</param>
@@ -49,6 +62,29 @@ public readonly record struct LengthContext(
     /// <param name="fontSize">The element's own computed font size.</param>
     /// <returns>The context.</returns>
     public LengthContext WithFontSize(float fontSize) => this with { FontSize = fontSize };
+
+    /// <summary>The element's own computed line height in pixels. What <c>lh</c> means.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Never zero and never <see cref="float.NaN" />, whatever was written in.</b> Both are
+    ///     how the rest of the engine spells "the font decides" — <c>UiElement.LineHeight</c> is
+    ///     <c>NaN</c> for <c>line-height: normal</c> and a default-constructed context has nothing at
+    ///     all — and a length unit whose scale is zero is this file's own documented trap: it makes
+    ///     <c>max-height: 1lh</c> a box of no height rather than a declaration that could not be
+    ///     resolved. So the two "unset" spellings answer <see cref="NormalLineHeightFactor" /> times
+    ///     the font size, which is a stand-in for the font's metrics and is marked as one.
+    /// </remarks>
+    public float LineHeight {
+        get => lineHeight > 0f ? lineHeight : FontSize * NormalLineHeightFactor;
+        init => lineHeight = value;
+    }
+
+    /// <summary>The same context with a different line height.</summary>
+    /// <param name="lineHeight">
+    ///     The element's own computed line height in pixels, or <see cref="float.NaN" /> for
+    ///     <c>line-height: normal</c>.
+    /// </param>
+    /// <returns>The context.</returns>
+    public LengthContext WithLineHeight(float lineHeight) => this with { LineHeight = lineHeight };
 
     /// <summary>How many pixels one of a unit is worth.</summary>
     /// <param name="unit">The unit.</param>
@@ -82,6 +118,7 @@ public readonly record struct LengthContext(
         StyleUnit.ViewportHeight => ViewportHeight / 100f,
         StyleUnit.ViewportMin => MathF.Min(ViewportWidth, ViewportHeight) / 100f,
         StyleUnit.ViewportMax => MathF.Max(ViewportWidth, ViewportHeight) / 100f,
+        StyleUnit.LineHeight => LineHeight,
         _ => 0f
     };
 
@@ -121,5 +158,6 @@ public readonly record struct LengthContext(
             or StyleUnit.ViewportWidth
             or StyleUnit.ViewportHeight
             or StyleUnit.ViewportMin
-            or StyleUnit.ViewportMax;
+            or StyleUnit.ViewportMax
+            or StyleUnit.LineHeight;
 }

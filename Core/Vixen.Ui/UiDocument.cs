@@ -1392,12 +1392,27 @@ public sealed partial class UiDocument : IDisposable {
         // declarations did not change still needs rebuilding if an ancestor's font size did, because
         // every `em` on it measures against a different number now.
         //
-        if (!ReferenceEquals(element.AppliedStyle, style) || !element.AppliedFontSize.Equals(element.FontSize)) {
+        // ⚠ And the line height, for exactly that reason one unit later. `lh` measures the element's
+        // own line box, `line-height` is inherited outside the cascade, and a child of an element
+        // that changed it has an unchanged `ComputedStyle` — so without this a `max-h-lh` would be
+        // built once against the line height it happened to have and keep that box for ever. Read
+        // before the block below writes `AppliedLineHeight`, which is what makes one field serve both
+        // tests; `.Equals` because NaN is a legitimate value for it and `NaN == NaN` is false.
+        if (!ReferenceEquals(element.AppliedStyle, style)
+            || !element.AppliedFontSize.Equals(element.FontSize)
+            || !element.AppliedLineHeight.Equals(element.LineHeight)) {
             element.AppliedStyle = style;
             element.AppliedFontSize = element.FontSize;
             StylesApplied++;
 
-            var layoutStyle = Builder.Build(style, metrics.WithFontSize(element.FontSize));
+            // ⚠ The line height goes in as well as the font size, and it can only go in here: `lh`
+            // is a length that measures the element's own line box, and the line box is resolved
+            // eleven lines up. A context built before that — the one `metrics` still is — answers
+            // every `1lh` against the stand-in rather than against the declaration.
+            var layoutStyle = Builder.Build(
+                style,
+                metrics.WithFontSize(element.FontSize).WithLineHeight(element.LineHeight)
+            );
 
             Layout.SetStyle(element.LayoutNode, layoutStyle);
 

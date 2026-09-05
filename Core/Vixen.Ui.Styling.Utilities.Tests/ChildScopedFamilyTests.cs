@@ -237,9 +237,16 @@ public class ChildScopedFamilyTests {
     ///     </para>
     ///     <list type="bullet">
     ///         <item><c>space-x-reverse</c> and <c>divide-x-reverse</c> — v4 emits both edges of the
-    ///         axis and multiplies each by a <c>--tw-*-reverse</c> flag, which needs
-    ///         <c>calc()</c>. <c>StyleValueParser</c> has no <c>calc()</c>, so the flag would have
-    ///         nothing to multiply and the reverse class would be a custom property nobody reads.</item>
+    ///         axis and multiplies each by a <c>--tw-*-reverse</c> flag. ⚠ <b>The reason written here
+    ///         was that <c>StyleValueParser</c> has no <c>calc()</c>, so the flag would have nothing
+    ///         to multiply and the class would be a custom property nobody reads. Both halves of that
+    ///         have expired</b> — the parser folds <c>+ - * /</c>, and <c>ReverseFlagTests</c>
+    ///         measures the flag being written by one class and read by another's declaration at both
+    ///         its values. What holds them out now is the one-edge decision: <c>divide-x</c> and
+    ///         <c>space-x</c> write only the edge they mean, because writing the leading one would
+    ///         out-specify a child's own <c>border-s-2</c>, and a reverse flag works by swapping which
+    ///         of <i>two</i> written edges carries the width. See <c>UtilityFamilies</c>'
+    ///         <c>divide-x-*</c> remark and #599.</item>
     ///     </list>
     ///     <para>
     ///         ⚠ <b><c>divide-solid</c> and the other four style keywords used to be on this list and
@@ -285,18 +292,24 @@ public class ChildScopedFamilyTests {
     ///         ⚠ <b>v4 wraps the scope in <c>:where()</c> and this cannot, so a container's
     ///         <c>space-y-*</c> beats a child's own margin utility.</b> <c>:where()</c> contributes no
     ///         specificity in CSS, which is precisely why Tailwind adopted it in v4: the rule lands at
-    ///         one class, so <c>&lt;div class="mb-0"&gt;</c> inside <c>space-y-4</c> wins. Vixen's
-    ///         <c>SelectorCompiler</c> compiles <c>:where()</c> as <c>:is()</c> and charges a class for
-    ///         it either way, so there is no spelling available here that reaches zero — the emitted
-    ///         rule is <c>(0,2,0)</c> and the child's <c>.mb-0</c> is <c>(0,1,0)</c>.
+    ///         one class, so <c>&lt;div class="mb-0"&gt;</c> inside <c>space-y-4</c> wins. Here there
+    ///         is no spelling that reaches zero — the emitted rule is <c>(0,2,0)</c> and the child's
+    ///         <c>.mb-0</c> is <c>(0,1,0)</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This remark used to say <c>SelectorCompiler</c> "compiles <c>:where()</c> as
+    ///         <c>:is()</c> and charges a class for it either way", and that closing it was three
+    ///         lines there. Both halves are wrong.</b> ExCSS 4.3.2 does not parse <c>:where()</c> at
+    ///         all: the whole selector arrives as one unknown, the compiler refuses the rule entire,
+    ///         and there is no charge anywhere to remove. <c>Vixen.Ui.Styling.Tests</c>'
+    ///         <c>WhereSelectorTests</c> is the measurement.
     ///     </para>
     ///     <para>
     ///         <b>This is v3's behaviour, and it shipped for four major versions.</b> It is written
     ///         down in the guide and in doc 43 rather than left to be discovered, and the escape is the
     ///         one v3 users used: put the exception on the container, or do not use <c>space-*</c> on a
-    ///         list whose items set their own margins. Closing it is three lines in
-    ///         <c>SelectorCompiler</c> — charge nothing for <c>:where()</c> — and the day that lands
-    ///         this test fails, which is the point of writing it.
+    ///         list whose items set their own margins. The day <c>:where()</c> is understood and the
+    ///         generator wraps the scope in it, this test fails, which is the point of writing it.
     ///     </para>
     /// </remarks>
     [Fact]

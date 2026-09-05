@@ -447,6 +447,38 @@ public class UtilityFamilyTests {
         Assert.Equal(["width: 100vh", "height: 100vh"], fixture.Emits("size-svh"));
     }
 
+    /// <summary><c>lh</c> is one line box, on every sizing root that answers a keyword.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The only sizing value whose <i>unit</i> did not exist, which is why it was the
+    ///         ledger's one Sizing <c>partial</c> and why the row's own <c>value_gap</c> said nothing
+    ///         about it.</b> Every keyword beside it resolves to a unit the parser already read;
+    ///         <c>max-block-lh</c> emitted text <c>StyleValueParser</c> refused, so the class
+    ///         cascaded to nothing and the demotion came from the measurement rather than from the
+    ///         prose. Resolving it took a <c>StyleUnit</c>, a line height on <c>LengthContext</c> and
+    ///         a wire from <c>UiDocument</c>; <c>Vixen.Ui.Tests</c>' <c>LineHeightUnitTests</c> is the
+    ///         half of that which measures a box.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And the negation, which is the third time this trap has been laid: <c>1lh</c> begins
+    ///         with a digit exactly as <c>100%</c> and <c>100vh</c> do, so <c>-max-block-lh</c> would
+    ///         have emitted "minus one line box" on the strength of that first character had
+    ///         <c>lh</c> not been named in <c>NotNegatable</c>.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_lh_keyword_is_one_line_box_and_cannot_be_negated() {
+        var fixture = new UtilityFixture();
+
+        Assert.Equal(["max-height: 1lh"], fixture.Emits("max-block-lh"));
+        Assert.Equal(["height: 1lh"], fixture.Emits("h-lh"));
+        Assert.Equal(["min-height: 1lh"], fixture.Emits("min-h-lh"));
+        Assert.Equal(["max-height: 1lh"], fixture.Emits("max-h-lh"));
+
+        Assert.Null(fixture.Declarations("-h-lh"));
+        Assert.Null(fixture.Declarations("-max-block-lh"));
+    }
+
     [Fact]
     public void The_writing_mode_relative_sizing_roots_are_physical_on_both_axes() {
         // ⚠ The block three are the `inset-bs-*` argument: no writing mode, so the block axis is

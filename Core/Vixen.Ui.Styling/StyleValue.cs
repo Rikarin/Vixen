@@ -83,7 +83,24 @@ public enum StyleUnit : byte {
     ViewportMin,
 
     /// <summary>A hundredth of the viewport's larger side.</summary>
-    ViewportMax
+    ViewportMax,
+
+    /// <summary>
+    ///     The element's own computed line height — CSS Values 4's <c>lh</c>.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Appended rather than filed next to <see cref="Em" />, because these are bytes on a
+    ///     struct that is interned and compared.</b> Renumbering the relative units would change what
+    ///     every persisted <see cref="StyleValue" /> means, and the alphabetical neighbour is worth
+    ///     nothing against that.
+    ///     <para>
+    ///         ⚠ <b>Its resolution is the one that can differ from the drawn line box.</b>
+    ///         <c>line-height: normal</c> computes to a value only the font's own metrics settle, and
+    ///         nothing that resolves a length has a font — so <c>LengthContext</c> stands in a
+    ///         multiple of the font size for that case, and says so.
+    ///     </para>
+    /// </remarks>
+    LineHeight
 }
 
 /// <summary>A declaration's value, parsed far enough to be interpolated.</summary>
