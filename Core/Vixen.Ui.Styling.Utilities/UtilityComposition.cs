@@ -145,6 +145,25 @@ public static class UtilityComposition {
     /// <summary>Where a conic mask's sweep starts.</summary>
     public const string MaskConicAngle = Prefix + "mask-conic-angle";
 
+    /// <summary>Whether a snapping container must land on a candidate or only may.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A fragment because <c>scroll-snap-type</c> is one property carrying two
+    ///         independent choices and Tailwind spells them as two classes.</b> <c>snap-y</c> is the
+    ///         axis and <c>snap-mandatory</c> is the strictness, and the two are written beside each
+    ///         other on one element — so the axis class has to name a value it does not know, which
+    ///         is exactly what a <c>var()</c> is for. Emitting <c>y mandatory</c> from a single class
+    ///         would need one class per pair, which is what v4 declines to do.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>proximity</c> is the fallback because it is CSS's own initial and v4's</b> —
+    ///         so <c>snap-y</c> alone means what it means in a browser. <c>mandatory</c> here would
+    ///         make every container that named only an axis snap unconditionally, which is the
+    ///         stronger of the two behaviours and the one an author has to ask for.
+    ///     </para>
+    /// </remarks>
+    public const string ScrollSnapStrictness = Prefix + "scroll-snap-strictness";
+
     /// <summary>How long a transition the <c>transition</c> class started runs for.</summary>
     /// <remarks>
     ///     ⚠ <b>A fragment rather than a plain declaration on the <c>transition</c> family, and the
@@ -552,6 +571,10 @@ public static class UtilityComposition {
         [MaskLinearAngle] = "180deg",
         [MaskConicAngle] = "0deg",
         [MaskRadialPosition] = "center",
+
+        // CSS Scroll Snap 1 § 6.1's own initial, which is also v4's: `snap-y` on its own is a
+        // container that snaps when a candidate is near and leaves the scroll alone otherwise.
+        [ScrollSnapStrictness] = "proximity",
 
         // ⚠ CSS's own default, so a radial mask that names no ending reaches `GradientReader` as the
         // one it already had — and `BackgroundGradient.IsDefaultEnding` then keeps it on the fast

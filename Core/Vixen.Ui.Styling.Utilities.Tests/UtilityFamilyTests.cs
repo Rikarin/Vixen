@@ -160,6 +160,22 @@ public class UtilityFamilyTests {
         + "|mask-composite: intersect"
     )]
     [InlineData("mask-intersect", "mask-composite: intersect")]
+    // ⚠ <b>Four Tailwind roots under one prefix, setting three properties.</b> `snap-y` is a
+    // container's axis, `snap-start` an item's alignment, `snap-always` an item's stop — and
+    // `snap-mandatory` is none of the three: it is the strictness half of `scroll-snap-type`, which
+    // the axis class cannot know because the two are written as separate classes. Hence the
+    // fragment, whose fallback is CSS's own `proximity` so that `snap-y` alone means what it means
+    // in a browser.
+    [InlineData("snap-y", "scroll-snap-type: y var(--tw-scroll-snap-strictness, proximity)")]
+    [InlineData("snap-both", "scroll-snap-type: both var(--tw-scroll-snap-strictness, proximity)")]
+    [InlineData("snap-none", "scroll-snap-type: none")]
+    [InlineData("snap-mandatory", "--tw-scroll-snap-strictness: mandatory")]
+    [InlineData("snap-start", "scroll-snap-align: start")]
+    [InlineData("snap-center", "scroll-snap-align: center")]
+    // ⚠ `snap-align-none` and not `snap-none`, which is already the container's off switch — one
+    // prefix, two properties, and v4 spells the second one longer for exactly that reason.
+    [InlineData("snap-align-none", "scroll-snap-align: none")]
+    [InlineData("snap-always", "scroll-snap-stop: always")]
     // ⚠ <b>The two halves of the `mask` prefix, and they are the point of `Family.ValueAlongside`.</b>
     // Tailwind spells the radial ending's *shape* `mask-circle`, on the same bare prefix as the four
     // `mask-repeat` classes — one family, because `Register` keeps the first under a name and drops a
@@ -220,6 +236,35 @@ public class UtilityFamilyTests {
     public void Each_family_emits_what_it_says(string candidate, string expected) {
         var fixture = new UtilityFixture();
         Assert.Equal(expected.Split('|'), fixture.Emits(candidate));
+    }
+
+    /// <summary>Two <c>snap-</c> classes write one <c>scroll-snap-type</c> between them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Asserted as a computed value and not as emitted text, because the join happens in
+    ///         the cascade.</b> <c>snap-y</c> writes an axis and a <c>var()</c>; <c>snap-mandatory</c>
+    ///         writes the fragment that <c>var()</c> names. Neither rule can see the other, and what
+    ///         reaches <c>ScrollView.SnapType</c> is a string the cascade assembled — which is exactly
+    ///         why that method reads it as text rather than through a keyword accessor.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The strictness on its own must say nothing.</b> A fragment is half a declaration;
+    ///         a <c>snap-mandatory</c> that made a container snap without an axis beside it would be
+    ///         the family emitting a property the author did not ask for.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_axis_and_the_strictness_are_two_classes_writing_one_declaration() {
+        var fixture = new UtilityFixture();
+
+        // Alone, the axis resolves through the fallback — CSS's own initial, and v4's.
+        Assert.Equal("y proximity", fixture.Computed(["snap-y"], "scroll-snap-type"));
+
+        // Together, one declaration whose two halves came from two rules.
+        Assert.Equal("y mandatory", fixture.Computed(["snap-y", "snap-mandatory"], "scroll-snap-type"));
+
+        // And the strictness alone is a fragment nothing assembled.
+        Assert.Null(fixture.Computed(["snap-mandatory"], "scroll-snap-type"));
     }
 
     [Fact]

@@ -749,6 +749,44 @@ public static class UtilityFamilies {
         Keywords("overscroll-x", "overscroll-behavior-x", overscroll);
         Keywords("overscroll-y", "overscroll-behavior-y", overscroll);
 
+        // ⚠ <b>Four Tailwind roots and one family, because all twelve classes are spelled `snap-`
+        // and they set three different properties.</b> `snap-y` is the container's axis,
+        // `snap-mandatory` its strictness, `snap-start` an item's alignment and `snap-always` an
+        // item's stop — and `Register` keeps the first family under a name, so a family per property
+        // is not available. The keyword table already carries a property per value, which is what
+        // makes one entry per class the natural shape rather than a workaround.
+        //
+        // ⚠ <b>The strictness is a fragment and the axis references it, which is the one thing here
+        // that could not be a plain declaration.</b> `snap-y snap-mandatory` is two classes writing
+        // one `scroll-snap-type`; the axis class cannot know the strictness and the strictness class
+        // cannot know the axis, so the axis names it through a `var()` whose fallback is CSS's own
+        // `proximity`. `ScrollView.SnapType` reads the assembled value as *text* for this reason —
+        // what arrives there was joined by the cascade rather than typed by a person, and it is
+        // deliberately order-independent.
+        //
+        // ⚠ <b>`snap-align-none` and not `snap-none` for the alignment's off switch.</b> `snap-none`
+        // is already the container's `scroll-snap-type: none`, and that is v4's spelling of both —
+        // one prefix, two properties, and the longer name belongs to the one that came second.
+        Register(new Family(
+            "snap",
+            ValueKind.Keyword,
+            ["scroll-snap-type"],
+            new Dictionary<string, string>(StringComparer.Ordinal) {
+                ["none"] = "scroll-snap-type:none",
+                ["x"] = $"scroll-snap-type:x {SnapStrictness}",
+                ["y"] = $"scroll-snap-type:y {SnapStrictness}",
+                ["both"] = $"scroll-snap-type:both {SnapStrictness}",
+                ["mandatory"] = $"{UtilityComposition.ScrollSnapStrictness}:mandatory",
+                ["proximity"] = $"{UtilityComposition.ScrollSnapStrictness}:proximity",
+                ["start"] = "scroll-snap-align:start",
+                ["end"] = "scroll-snap-align:end",
+                ["center"] = "scroll-snap-align:center",
+                ["align-none"] = "scroll-snap-align:none",
+                ["normal"] = "scroll-snap-stop:normal",
+                ["always"] = "scroll-snap-stop:always"
+            }
+        ));
+
         // ── The two families that are a rule over children ──────────────────────────────────
         //
         // ⚠ <b>`space-x-4` is not a property on the element that carries it.</b> It is
@@ -3658,6 +3696,9 @@ public static class UtilityFamilies {
     /// </remarks>
     static void Mask(string name, string colour, string position, string layer, string image) =>
         MaskFamily(name, [colour], [position], layer, image);
+
+    /// <summary>The <c>var()</c> a <c>snap-x</c>/<c>snap-y</c>/<c>snap-both</c> names its strictness by.</summary>
+    static string SnapStrictness => UtilityComposition.Reference(UtilityComposition.ScrollSnapStrictness);
 
     /// <summary>The declarations every <c>mask-*</c> family emits beside whatever it was given.</summary>
     /// <param name="layer">The <c>mask-image</c> layer fragment this family fills.</param>

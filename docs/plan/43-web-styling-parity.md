@@ -84,7 +84,7 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **329** | 280 families |
+| Utility **roots** (the unit of this table) | **330** | 281 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
 | Variant keys | **88** | **25** |
@@ -107,10 +107,10 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **225** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **228** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **28** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **71** |
+| **absent** | not emitted at all | **69** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -464,7 +464,7 @@ refusal block, which already says so for the same reason.
 | Category | roots | works | partial | inert | absent | composed | unknown |
 |---|--:|--:|--:|--:|--:|--:|--:|
 | Layout | 49 | 29 | 5 | 0 | 11 | 3 | 1 |
-| Interactivity | 39 | 27 | 0 | 1 | 11 | 0 | 0 |
+| Interactivity | 40 | 30 | 0 | 1 | 9 | 0 | 0 |
 | Borders | 34 | 28 | 2 | 0 | 4 | 0 | 0 |
 | Effects | 34 | 27 | 1 | 0 | 6 | 0 | 0 |
 | Flexbox and Grid | 34 | 30 | 2 | 0 | 2 | 0 | 0 |
@@ -478,7 +478,7 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **329** | **225** | **28** | **1** | **71** | **3** | **1** |
+| **Total** | **330** | **228** | **28** | **1** | **69** | **3** | **1** |
 
 Flexbox and Grid leads at 29 of 34, with only two absent roots left and both of those refused on
 policy rather than owed; then Effects at 27 of 34, Interactivity at 27 of 39, Borders at 26 of 34,
@@ -520,8 +520,8 @@ written, and asking the standard `caret-color` first is the whole of `caret-*`. 
 blocker in their own row — `accent-*` (the three controls CSS means are drawn from a stylesheet, and
 `var()` cannot read a standard property), `will-change-*` (no element-keyed retained surface),
 `touch` (touch events never reach `UiDocument` at all), `resize`, `appearance` and `field-sizing`.
-Two are sized and not started: `snap` and `snap (keywords)`, which want 250–400 lines in `ScrollView`
-and, harder, an end-of-gesture the wheel and the scrollbar drag do not have. The remaining four are
+✅ `snap` and `snap (keywords)` were the two sized-and-not-started ones, and both read `works` now —
+with a third row, `snap (align)`, that this file had no entry for at all. The remaining four are
 the scrollbar cluster, which is one feature and is owned elsewhere.
 
 ⚠ ~~**The one finding here that is nobody's root and everybody's problem: `UiDocument.Cursor` has no
@@ -1331,7 +1331,7 @@ all twelve scenes and at every value the family could emit, rather than argued f
 | `divide-x/y-*`, `divide-<color>` | **written** | `border-inline-end-width`, `border-bottom-width` and the four `border-color` longhands are read |
 | `mix-blend-*` | **refused** | `mix-blend-mode` moves no channel. `DrawCommand` has no blend channel and there is no offscreen target to blend into — the same compositor `rotate`/`scale` wait on under **#23** |
 | `origin-*` | **written** ✅ | ⚠ Refused here as *unobservable*, and the last clause of that refusal — "`scale` and `rotate` are refused under **#23**" — was its expiry condition. Both are implemented now, `TransformReader` reads `transform-origin` into the point they turn about, and the family is registered. The refusal also needed a *scene*: the property is invisible without a transform whose fixed point matters, so `translated` could never have seen it and the new `turned` scene is what does — the seventh entry on `UtilityConsumptionProbe`'s list of arrangements that were missing |
-| `scroll-*` | **22 of 32 written** ✅ | Part 8 § 3, discharged by **A18**. `ScrollView` reads `scroll-margin-*`, `scroll-padding-*`, `scroll-behavior` and `overscroll-behavior*` now, so the roots are registered against real readers rather than as properties on a box. The four block roots stay absent (`space-y`'s reason); `snap-*` remains deferred, and of `scrollbar-*` only `scrollbar` is written — see Part 8 § 3 |
+| `scroll-*` | **22 of 32 written** ✅ | Part 8 § 3, discharged by **A18**. `ScrollView` reads `scroll-margin-*`, `scroll-padding-*`, `scroll-behavior` and `overscroll-behavior*` now, so the roots are registered against real readers rather than as properties on a box. The four block roots stay absent (`space-y`'s reason); `snap-*` is registered now against the snapping behaviour A18 could not have used, and of `scrollbar-*` only `scrollbar` is written — see Part 8 § 3 |
 
 ⚠ **The `origin-*` refusal was the one worth reading, and it is worth more now that it has been
 retired.** What it said: every other inert verdict here turned out at least *possibly* to be a missing
@@ -2986,10 +2986,27 @@ dependency.
   the moment a scroll *comes to rest*, and neither gesture had an end: `ScrollBar` raised nothing when
   a thumb was released (`ScrollEnded` now does) and a wheel is a stream of deltas with no terminator
   in it at all (`ScrollView.SnapIdleSeconds`, on the tick clock — not the event's, which a platform
-  head is free to stamp from a source the frame loop never reads). **The four roots are still
-  unregistered**, and deliberately in that order: they need `UtilityConsumptionProbe`'s `scrolled`
-  scene to grow candidates and a driven gesture end, or they measure inert and the gate is right to
-  say so.
+  head is free to stamp from a source the frame loop never reads). ✅ **The four roots are registered
+  now**, and the order was the right one: registering them first would have measured all three
+  properties inert. ⚠ **One family answers all four roots**, because Tailwind spells all twelve
+  classes `snap-` and they set three different properties — `Register` keeps the first family under a
+  name, so a family per property was never available, and the keyword table already carries a
+  property per value. The strictness is the one part that could not be a plain declaration:
+  `snap-y snap-mandatory` is two classes writing one `scroll-snap-type`, so the axis names the
+  strictness through `--tw-scroll-snap-strictness` with CSS's own `proximity` as the fallback — which
+  is also why `ScrollView.SnapType` reads that value as *text*, since what arrives there was
+  assembled by the cascade rather than typed. ⚠ **And the probe needed a scene of its own rather than
+  a bigger `scrolled` one**: a snap is defined only where a scroll comes to rest, and nothing in
+  `scrolled` ever ends a gesture. `snapped` is that scene, and its three phases are not
+  interchangeable — one ends ON `#probe` (which is what makes `scroll-snap-align` observable), one
+  ends PAST it and nearer `#trail` (`scroll-snap-stop`, which decides nothing where the nearest
+  candidate is already the one it would block on), and one turns the wheel over the inner view
+  (`scroll-snap-type`, the only one that lands on `#probe` as a container). Deleting any one of the
+  three takes exactly one property back to `inert`, which is how each was verified. ⚠ A fourth thing
+  the scene had to learn: a frame between the wheel and the silence. A candidate's snap position is
+  read off its `Bounds` at the offset the view is at *now*, so a terminator that fired before the
+  layout caught up measured every candidate against the offset the gesture started at, landed on the
+  one the view was already on, and left all three properties looking inert with the reader present.
 - **`scrollbar-color` / `scrollbar-gutter`** — `ScrollBar` is a child element this control creates
   and themes through `scrollbar { … }`, `--track-color` and `--thumb-color`. A CSS property that
   restyled it would be a second way to say what the theme already says, so `scrollbar-thumb-*` and
