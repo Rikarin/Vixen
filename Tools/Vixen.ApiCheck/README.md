@@ -153,5 +153,13 @@ only shipped assembly in the tree with no baseline at all: 4 913 entries approve
 assembly with the most churn. Adding it cost 1 162 of those entries first, which is the point of
 reading a baseline rather than generating one — the SPIR-V and GLSL emitters, the symbol table's
 `Source` and `Metadata` construction, the binder and its bound tree, and the lexer's token kind were
-public only because nothing had made them `internal`. `Vixen.Raven.Cli` and the tests beside it are
-still not covered, because neither packs.
+public only because nothing had made them `internal`.
+
+The tests beside it are not covered because they do not pack, and neither does
+`Vixen.Raven.Transpile`, which sets `IsPackable=false`. ⚠ `Vixen.Raven.Cli` used to be named in that
+same sentence and does not belong in it: it **packs** — `PackAsTool`, `PackageId=Vixen.Raven.Cli`, a
+description, tags and a readme. Leaving it out is still right, for the reason
+[`build/ApiUncovered.txt`](../../build/ApiUncovered.txt) now writes beside it: what a
+`dotnet tool install` promises is a command line and its arguments rather than a type, and a
+CLI-surface gate would be a different instrument from this one. A conclusion that is right for a
+false reason is the shape that survives review, which is why the reason is what changed here.
