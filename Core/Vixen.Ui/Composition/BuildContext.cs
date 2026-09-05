@@ -69,7 +69,7 @@ public readonly record struct EventSubscription {
 ///         a steady-state interface allocates nothing because nothing runs.
 ///     </para>
 ///     <para>
-///         The two exceptions are <see cref="Switch" /> and <see cref="For" />, which is the point:
+///         The two exceptions are <see cref="Switch" /> and <c>For</c>, which is the point:
 ///         those are the only two places where the <i>shape</i> of the tree depends on state, so
 ///         those are the only two places that add and remove elements.
 ///     </para>
@@ -233,7 +233,7 @@ public sealed class BuildContext {
     /// <remarks>
     ///     ⚠ <b>Taken from the loop rather than recomputed at the tag, and that is the whole
     ///     correctness argument for <c>refs</c>.</b> A handle keyed on anything but the identity
-    ///     <see cref="For{T}" /> reconciled on is a handle that disagrees with the reconciler the
+    ///     <c>For</c> reconciled on is a handle that disagrees with the reconciler the
     ///     first time a key expression is not what somebody assumed — and disagrees silently,
     ///     because both sides still answer.
     /// </remarks>
@@ -329,7 +329,7 @@ public sealed class BuildContext {
     ///         deliberately one method.</b> A <c>.vxml</c> whose class is a <see cref="UiElement" />
     ///         gets the <i>same</i> <see cref="BuildContext" /> a <see cref="Component" /> does, so it
     ///         gets the same <see cref="Bind(System.Action)" />, the same <see cref="Switch" />, the
-    ///         same keyed <see cref="For{T}" /> reconciliation and the same region discipline. That
+    ///         same keyed <c>For</c> reconciliation and the same region discipline. That
     ///         equality is the point: a second, weaker way to build a tree from markup would make the
     ///         markup a worse way to write the imperative code it replaced.
     ///     </para>
@@ -865,6 +865,165 @@ public sealed class BuildContext {
         Bind(() => action(target));
     }
 
+    // ================================================================== Attachments
+
+    /// <summary>
+    ///     How a <c>help="…"</c> is realised: given the element being described, make the thing that
+    ///     describes it and hand it back.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The layering answer for every attach-shaped directive, and it is
+    ///     <see cref="Subscribe" />'s answer rather than a new one.</b> A tooltip is
+    ///     <c>Vixen.Ui.Controls.Tooltip</c>, and the controls reference this assembly rather than the
+    ///     other way round — so <c>Help</c> cannot name the type it needs. The two alternatives were
+    ///     both worse. Emitting <c>global::Vixen.Ui.Controls.Tooltip.Attach(…)</c> from the generator
+    ///     resolves in a project that references the controls and produces a generated file that does
+    ///     <i>not compile</i> in one that references only <c>Vixen.Ui</c> — which is strictly worse
+    ///     than a directive refused with a diagnostic, and cannot be refused, because the generator
+    ///     never touches the compilation and so cannot know which project it is in. Moving the
+    ///     mechanism down here would bring an overlay's placement, its light dismiss and its hover
+    ///     delay with it, which is most of what a <c>Tooltip</c> is.
+    /// </remarks>
+    static Func<UiElement, UiElement>? describes;
+
+    /// <summary>How a <c>context-menu="…"</c> is realised: attach that menu to that element.</summary>
+    /// <remarks>
+    ///     <see cref="describes" />'s seam for <see cref="describes" />'s reason. The menu arrives as
+    ///     a <see cref="UiElement" /> because that is the widest type this assembly has a name for;
+    ///     what is registered is what knows whether it is a menu, and says so if it is not.
+    /// </remarks>
+    static Action<UiElement, UiElement>? contextualises;
+
+    /// <summary>Says what describes an element, for markup's <c>help</c>.</summary>
+    /// <param name="attach">
+    ///     Makes something that describes the element it is given, attaches it, and returns it. The
+    ///     text is written to the returned element's <see cref="UiElement.Text" /> afterwards, and
+    ///     the element is removed when the region that asked for it goes.
+    /// </param>
+    /// <remarks>
+    ///     Called from <c>Vixen.Ui.Controls</c>' module initializer, exactly as <see cref="Subscribe" />
+    ///     is, so a project that uses a control gets <c>help</c> without knowing this exists.
+    /// </remarks>
+    public static void Describes(Func<UiElement, UiElement> attach) {
+        ArgumentNullException.ThrowIfNull(attach);
+        describes = attach;
+    }
+
+    /// <summary>Says how a menu is attached to an element, for markup's <c>context-menu</c>.</summary>
+    /// <param name="attach">
+    ///     Given the element and the menu, makes a secondary click anywhere in the first open the
+    ///     second at the pointer.
+    /// </param>
+    public static void Contextualises(Action<UiElement, UiElement> attach) {
+        ArgumentNullException.ThrowIfNull(attach);
+        contextualises = attach;
+    }
+
+    /// <summary>Describes an element with fixed text, which is markup's <c>help="Save the scene"</c>.</summary>
+    /// <param name="target">The element being described.</param>
+    /// <param name="text">What it says.</param>
+    /// <exception cref="InvalidOperationException">Nothing has registered an attachment.</exception>
+    /// <remarks>
+    ///     ⚠ <b>A description and not only a hover behaviour.</b> What is registered attaches a
+    ///     tooltip <i>and</i> an <c>AccessibleRelation.DescribedBy</c>, so the sentence reaches a
+    ///     screen reader — which is the half a box that appears on hover withholds from the users
+    ///     who never hover.
+    /// </remarks>
+    public void Help(UiElement target, string text) {
+        ArgumentNullException.ThrowIfNull(text);
+        Described(target).Text = text;
+    }
+
+    /// <summary>Describes an element with text that follows an expression.</summary>
+    /// <param name="target">The element being described.</param>
+    /// <param name="text">What it says. Re-read whenever something it read changes.</param>
+    /// <remarks>
+    ///     ⚠ <b>Attached once, written many times.</b> The attachment is a subscription and an
+    ///     accessible relation; re-attaching on every change would add a second handler and a second
+    ///     relation per flush. So only the text is inside the effect.
+    /// </remarks>
+    public void Help(UiElement target, Func<object?> text) {
+        ArgumentNullException.ThrowIfNull(text);
+
+        var description = Described(target);
+        Bind(() => description.Text = Format(text()));
+    }
+
+    /// <summary>Makes a secondary click on an element open a menu, which is markup's <c>context-menu</c>.</summary>
+    /// <param name="target">The subtree a secondary click anywhere in opens the menu.</param>
+    /// <param name="menu">
+    ///     The menu — a <c>Vixen.Ui.Controls.ContextMenu</c>, which this assembly has no name for.
+    /// </param>
+    /// <exception cref="InvalidOperationException">Nothing has registered an attachment.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The menu is not made here and is not removed with the region, which is the whole
+    ///         asymmetry with <see cref="Help(UiElement, string)" />.</b> A description is a sentence
+    ///         written at the tag, so the tooltip that carries it is the directive's to make and to
+    ///         take away. A menu is a model — every one of the nine callers in this repository builds
+    ///         it from commands, keeps it in a field and re-opens it — so the directive attaches and
+    ///         nothing else, and a menu shared by four rows is attached four times rather than made
+    ///         four times.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An expression and not a nested tag, and the reason is the binder's rather than
+    ///         the menu's.</b> An overlay must be a child of the document root — the draw list is
+    ///         document order, so one nested where it was written is clipped by every
+    ///         <c>overflow: hidden</c> above it — and deciding that a tag needs re-parenting means
+    ///         knowing that the tag names an overlay, which is exactly the type resolution the
+    ///         markup binder refuses to do. A <c>&lt;ContextMenu&gt;</c> written in place would
+    ///         compile, build, and open inside the panel that declared it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Static, and that is the same fact said in the signature.</b> It registers nothing
+    ///         against the region being built, because there is nothing of its own to take away: the
+    ///         handler it adds is on the target, which the region removes, and the menu belongs to
+    ///         whoever made it. <see cref="Help(UiElement, string)" /> is an instance method for the
+    ///         opposite reason.
+    ///     </para>
+    /// </remarks>
+    public static void Menu(UiElement target, UiElement menu) {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(menu);
+
+        if (contextualises is not { } attach) {
+            throw new InvalidOperationException(
+                "'context-menu' needs a menu implementation, and none is registered. Vixen.Ui.Controls "
+                + "registers one when it is loaded; a project referencing only Vixen.Ui has no menus "
+                + "for it to open."
+            );
+        }
+
+        attach(target, menu);
+    }
+
+    /// <summary>The element that describes a target, made by whatever registered an attachment.</summary>
+    UiElement Described(UiElement target) {
+        ArgumentNullException.ThrowIfNull(target);
+
+        if (describes is not { } attach) {
+            throw new InvalidOperationException(
+                "'help' needs a description implementation, and none is registered. Vixen.Ui.Controls "
+                + "registers one when it is loaded; a project that references only Vixen.Ui has no "
+                + "tooltip for it to make."
+            );
+        }
+
+        var description = attach(target);
+
+        // ⚠ Tracked, because the description is a root child rather than a child of the element it
+        // describes — an overlay is, for painting order — so clearing the region that built the
+        // target does not take it. A row in a `@for` that leaves would otherwise leave a tooltip
+        // behind on every reorder, holding the element it described alive with it.
+        building.Track(new Unsubscribe(() => {
+            if (!description.IsRemoved) {
+                description.Remove();
+            }
+        }));
+
+        return description;
+    }
+
     /// <summary>Subscribes a handler to an event by name.</summary>
     /// <param name="target">The element.</param>
     /// <param name="name">The event name, as written after <c>on:</c>.</param>
@@ -1309,7 +1468,7 @@ public sealed class BuildContext {
     /// </remarks>
     /// <remarks>
     ///     ⚠ <b>An arm inside a <c>@for</c> row builds under that row's iteration key, and getting
-    ///     that wrong was a silent defect until 2026-08-23.</b> <see cref="For{T}" /> sets
+    ///     that wrong was a silent defect until 2026-08-23.</b> <c>For</c> sets
     ///     <c>iteration</c> around the <i>synchronous</i> build of a new region and restores it in a
     ///     <c>finally</c>; this registers its own <see cref="Bind(Action)" />, which the scheduler
     ///     runs later — so a <c>refs</c> in an arm found no key and threw the "only meaningful inside
@@ -1318,7 +1477,7 @@ public sealed class BuildContext {
     ///     arm's builder was abandoned at the throw, so the element on the line above the <c>refs</c>
     ///     survived with no classes, no bindings and no children while every other panel on the
     ///     screen was correct. Capturing the key at registration and restoring it round the build is
-    ///     the same bargain <see cref="For{T}" /> already makes for a nested loop, and for the same
+    ///     the same bargain <c>For</c> already makes for a nested loop, and for the same
     ///     reason: an arm inside a row belongs to the row.
     /// </remarks>
     public void Switch(UiElement? parent, Func<int> arm, Action<BuildContext, UiElement, int> build) {
@@ -1385,25 +1544,94 @@ public sealed class BuildContext {
         Func<T, object> key,
         Action<BuildContext, UiElement, T> build
     ) {
+        ArgumentNullException.ThrowIfNull(build);
+        Rows(parent, items, key, (context, at, item, _) => build(context, at, item), indexed: false);
+    }
+
+    /// <summary>The same, with each row told where it is.</summary>
+    /// <typeparam name="T">The item type.</typeparam>
+    /// <param name="parent">Its parent, or null for the mount point.</param>
+    /// <param name="items">The sequence.</param>
+    /// <param name="key">What identifies an item across changes.</param>
+    /// <param name="build">Builds one item, given a signal holding its position.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A <see cref="Signal{T}" /> and not an <c>int</c>, and that distinction is the
+    ///         whole feature.</b> A key that survives keeps its region and its body is <i>not</i>
+    ///         re-run, so a position handed to the body as a value is captured once — the position
+    ///         that row had when its key first appeared — and is a lie from the first reorder
+    ///         onwards. Nothing about it looks wrong: the list has the right rows in the right order,
+    ///         showing numbers that stopped being true. It is <c>VXML2011</c>'s mistake with no key
+    ///         to blame it on.
+    ///     </para>
+    ///     <para>
+    ///         The signal is written on every reconciliation pass, after the rows are matched, so a
+    ///         row that moved is re-read by whatever in its body read the index and a row that did
+    ///         not move costs one equality check. It is created with the row and dropped with it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One reconciler, not two.</b> Both overloads are the same private pass with the
+    ///         index bookkeeping switched off, because a second copy of the keyed reconciliation is
+    ///         the way the two come to disagree about what a move is.
+    ///     </para>
+    /// </remarks>
+    public void For<T>(
+        UiElement? parent,
+        Func<IEnumerable<T>> items,
+        Func<T, object> key,
+        Action<BuildContext, UiElement, T, Signal<int>> build
+    ) {
+        ArgumentNullException.ThrowIfNull(build);
+
+        Rows(
+            parent,
+            items,
+            key,
+            (context, at, item, index) => build(context, at, item, index!),
+            indexed: true
+        );
+    }
+
+    void Rows<T>(
+        UiElement? parent,
+        Func<IEnumerable<T>> items,
+        Func<T, object> key,
+        Action<BuildContext, UiElement, T, Signal<int>?> build,
+        bool indexed
+    ) {
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(key);
-        ArgumentNullException.ThrowIfNull(build);
 
         var target = parent ?? Anchor;
         var region = Open(target);
         var live = new Dictionary<object, Region>();
 
+        // Null unless the loop declared an index, so a loop that does not want one allocates nothing
+        // and does no extra work per pass.
+        var positions = indexed ? new Dictionary<object, Signal<int>>() : null;
+
         Bind(() => {
             var wanted = new List<Region>();
             var kept = new Dictionary<object, Region>();
+            var order = indexed ? new List<object>() : null;
+            var at = 0;
 
             foreach (var item in items()) {
                 var identity = key(item);
+                order?.Add(identity);
 
                 if (live.Remove(identity, out var existing)) {
                     kept[identity] = existing;
                     wanted.Add(existing);
+                    at++;
                     continue;
+                }
+
+                Signal<int>? index = null;
+
+                if (positions is not null) {
+                    index = new Signal<int>(at);
+                    positions[identity] = index;
                 }
 
                 var created = new Region(target, null, region);
@@ -1416,23 +1644,34 @@ public sealed class BuildContext {
                 // outer row no iteration at all.
                 iteration = identity;
                 try {
-                    In(target, created, () => build(this, target, captured));
+                    In(target, created, () => build(this, target, captured, index));
                 } finally {
                     iteration = outer;
                 }
 
                 kept[identity] = created;
                 wanted.Add(created);
+                at++;
             }
 
             // Whatever is left in `live` is what the new sequence does not contain.
-            foreach (var gone in live.Values) {
+            foreach (var (identity, gone) in live) {
                 gone.Clear();
+                positions?.Remove(identity);
             }
 
             live.Clear();
             foreach (var (identity, item) in kept) {
                 live[identity] = item;
+            }
+
+            // ⚠ After the matching pass and not during it, because a row's new position is not known
+            // until the whole sequence has been walked — and because a row that survived was never
+            // rebuilt, so this write is the only thing that can tell it that it moved.
+            if (order is not null && positions is not null) {
+                for (var i = 0; i < order.Count; i++) {
+                    positions[order[i]].Value = i;
+                }
             }
 
             // The chain has to be rewritten before anything is repositioned: a region's index comes

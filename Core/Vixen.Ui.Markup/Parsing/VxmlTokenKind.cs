@@ -58,6 +58,9 @@ enum VxmlTokenKind {
     /// <summary><c>:</c> ending a switch arm's label.</summary>
     Colon,
 
+    /// <summary><c>,</c> separating an <c>@for</c>'s item from its index.</summary>
+    Comma,
+
     /// <summary>A tag, attribute or namespace name.</summary>
     Name,
 

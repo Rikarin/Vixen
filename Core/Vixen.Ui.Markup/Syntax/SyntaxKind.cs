@@ -202,5 +202,15 @@ public enum SyntaxKind : ushort {
     CommentTrivia,
 
     /// <summary>Source the parser skipped while recovering. Its presence means a diagnostic was reported.</summary>
-    SkippedTokensTrivia
+    SkippedTokensTrivia,
+
+    // ------------------------------------------------------------------ Added after the first pass
+
+    /// <summary><c>,</c> between an <c>@for</c>'s item and its index.</summary>
+    /// <remarks>
+    ///     ⚠ At the end rather than beside the other punctuation, because these values are the
+    ///     approved API baseline: inserting one renumbers every kind after it, which is a diff about
+    ///     nothing across the whole file.
+    /// </remarks>
+    CommaToken
 }

@@ -662,6 +662,17 @@ sealed class VxmlParser : SyntaxParser {
         var openParen = Expect(VxmlTokenKind.OpenParen, SyntaxKind.OpenParenToken);
         var varKeyword = Expect(VxmlTokenKind.VarKeyword, SyntaxKind.VarKeyword);
         var identifier = Expect(VxmlTokenKind.Name, SyntaxKind.IdentifierToken);
+
+        // `SwitchSectionSyntax.Pattern`'s shape: null when the loop declares no index, and a
+        // *missing* token when it wrote the comma and then nothing — so recovery still produces a
+        // tree that reproduces the file, and the binder can tell "no index" from "an index the
+        // author started".
+        var comma = At(VxmlTokenKind.Comma) ? Take(SyntaxKind.CommaToken) : null;
+
+        var index = comma is null
+            ? null
+            : At(VxmlTokenKind.Name) ? Take(SyntaxKind.IdentifierToken) : Missing(SyntaxKind.IdentifierToken);
+
         var inKeyword = Expect(VxmlTokenKind.InKeyword, SyntaxKind.InKeyword);
         var sequence = Expect(VxmlTokenKind.Expression, SyntaxKind.ExpressionToken);
         var closeParen = Fabricate(VxmlTokenKind.CloseParen, SyntaxKind.CloseParenToken);
@@ -671,6 +682,8 @@ sealed class VxmlParser : SyntaxParser {
             openParen,
             varKeyword,
             identifier,
+            comma,
+            index,
             inKeyword,
             sequence,
             closeParen,

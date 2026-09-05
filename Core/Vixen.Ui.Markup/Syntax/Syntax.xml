@@ -476,6 +476,23 @@
         <Field Name="Identifier" Type="SyntaxToken">
             <Kind Name="IdentifierToken"/>
         </Field>
+        <Field Name="CommaToken" Type="SyntaxToken" Optional="true">
+            <Kind Name="CommaToken"/>
+            <PropertyComment>
+                <summary>The <c>,</c> before an index name, absent when the loop declares none.</summary>
+            </PropertyComment>
+        </Field>
+        <Field Name="Index" Type="SyntaxToken" Optional="true">
+            <Kind Name="IdentifierToken"/>
+            <PropertyComment>
+                <summary>
+                    The name bound to the row's position, from <c>@for (var row, i in Rows)</c>.
+                    ⚠ It is a <c>Signal&lt;int&gt;</c> rather than an <c>int</c>, because a surviving
+                    key keeps its region and its body is never re-run — so a captured position would
+                    be a lie from the first reorder.
+                </summary>
+            </PropertyComment>
+        </Field>
         <Field Name="InKeyword" Type="SyntaxToken">
             <Kind Name="InKeyword"/>
         </Field>
