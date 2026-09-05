@@ -427,7 +427,7 @@ sealed partial class EditorApplication {
             new StringId("editor.command.assets.bake-mesh-maps", "Bake Mesh Maps"),
             CategoryAssets,
             BakeSelectedMeshMaps,
-            enabled: () => !content.IsBusy && project.Selection.Count == 1
+            enabled: () => !content.IsBusy && SelectedIsAModel()
         );
 
         Verb(
@@ -1752,6 +1752,24 @@ sealed partial class EditorApplication {
             Shell.Notifications.Show("Could not bake mesh maps", NotificationSeverity.Error, failure.Message);
         }
     }
+
+    /// <summary>Whether exactly one asset is selected and it is a model file.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The extension is checked here rather than discovered by failing.</b> A verb enabled
+    ///     for every selection and refusing most of them is doc 20's complaint in reverse: it reads
+    ///     as an editor that cannot bake, once, per texture the artist happened to have selected.
+    ///     The list is <c>ModelImporter</c>'s own <c>[Importer]</c> attribute rather than a second
+    ///     copy of it, so a format added there is a format this offers.
+    /// </remarks>
+    bool SelectedIsAModel() =>
+        project.Selection.Count == 1
+        && project.Assets.TryGetByGuid(project.Selection[0], out var entry)
+        && !entry.IsFolder
+        && ModelExtensions.Contains(Path.GetExtension(entry.Path));
+
+    /// <summary>What <c>ModelImporter</c> claims, read once from its own attribute.</summary>
+    static readonly HashSet<string> ModelExtensions =
+        new(new ModelImporter().Extensions, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>How big a mesh map the verb bakes.</summary>
     /// <remarks>
