@@ -557,10 +557,19 @@ scale-invariance case** — [exit criteria 2–4](#exit-criteria-measured). Ever
 Three rules the whole catalogue obeys:
 
 - **Grey and colour are one port kind, and grey promotes.** `PortKind` gains `Image` — doc 40 § D5
-  asked for `Image` and `Mesh` and neither was added — and grey/colour is a *format* on it. Grey into
-  a colour port splats; colour into a grey port is a type error naming the port. ⚠ This is
-  `DynamicVector`'s widening rule reused rather than a second type system, and it is what stops the
-  library needing a `BlendGrayscale` beside every `Blend`.
+  asked for `Image` and `Mesh` and neither was added. Grey into a colour port splats; colour into a
+  grey port is a type error naming the port. ⚠ This is `DynamicVector`'s widening rule reused rather
+  than a second type system, and it is what stops the library needing a `BlendGrayscale` beside every
+  `Blend`.
+  - ⚠ **This paragraph used to say grey/colour was "a *format* on" the port kind, and that is not
+    where it could live.** A `PortKind` is one enum member shared by three graphs and carries no
+    format at all, so `PortKinds.Accepts` says yes to every image-to-image wire and the rule cannot be
+    stated there. It is `TextureGraphCompiler`'s: `TextureChannels` is the format, a node resolves to
+    the widest thing arriving at its image inputs, a grey feeding one that resolved to colour is
+    splatted by an inserted `ChannelShuffle`, and a colour arriving at a port that *measures* is
+    refused by name. That is the same division `PortKind.Dynamic` already makes — a width resolved by
+    a compiler rather than by the enum — which is why the rule survives the correction unchanged and
+    only its address moves.
 - **Every scalar parameter accepts a Raven expression** over the graph's exposed parameters (§ D6), so
   `amount * 0.5 + rust` is a field rather than eleven nodes.
 - **Every radius, width and length is in texels at the base resolution** (§ D8), and the evaluator

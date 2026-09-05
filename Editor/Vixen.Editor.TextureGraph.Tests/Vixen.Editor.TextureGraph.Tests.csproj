@@ -22,6 +22,11 @@
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Editor.TextureGraph\Vixen.Editor.TextureGraph.csproj" />
 
+        <!-- The Raven front end, so a test can put the source a node generated through the same
+             compiler the compiler used and read the diagnostics back as objects. -->
+        <ProjectReference Include="..\..\Raven\Vixen.Raven\Vixen.Raven.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Syntax\Vixen.Core.Syntax.csproj" />
+
         <!-- The evaluator dispatches, so the tests that say what came out need a real backend. They
              skip loudly without one, they name the adapter they ran on, and VIXEN_REQUIRE_VULKAN=1
              turns the skip into a failure. ⚠ Half of this suite needs no device at all — the plan,

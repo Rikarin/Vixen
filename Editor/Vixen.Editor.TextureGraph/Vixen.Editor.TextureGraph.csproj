@@ -72,6 +72,23 @@
         <ProjectReference Include="..\..\Tools\Vixen.ShaderCompiler\Vixen.ShaderCompiler.csproj" />
 
         <!--
+          ⚠ The Raven *front end*, on top of the effect compiler above, and the two answer different
+          questions. `RavenEffectCompiler` compiles a whole shader to bytecode and throws a string on
+          failure; doc 48 § D6 needs Raven's own `Diagnostic` objects — with a `Location` a line
+          number comes out of — so that a complaint about generated text names the node whose
+          expression is on that line, and it needs `FieldSymbol.ConstantValue` so that a scalar
+          parameter's expression is folded by the real compiler rather than by a second evaluator
+          this repository would then own. `Vixen.Editor.AssetEditors` takes the same reference for the
+          same first reason. It is already here at runtime, transitively through the effect compiler;
+          this only makes it visible to the compilation.
+        -->
+        <ProjectReference Include="..\..\Raven\Vixen.Raven\Vixen.Raven.csproj" />
+
+        <!-- And the syntax layer a `Diagnostic` and its `Location` are declared in, which
+             `DisableTransitiveProjectReferences` above stops arriving through Raven itself. -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Syntax\Vixen.Core.Syntax.csproj" />
+
+        <!--
           And the image containers, because a bake's last step is a file. `PngCodec` sits under
           everything that writes a picture in this repository precisely so that a new writer does
           not become a new encoder.

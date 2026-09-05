@@ -30,12 +30,13 @@ namespace Tests;
 ///     </para>
 /// </remarks>
 public class TextureGraphCompilerTests {
-    /// <summary>The eight node types of this batch, by menu path.</summary>
+    /// <summary>The node types this assembly declares, by menu path.</summary>
     static readonly string[] Paths = [
         "Analysis/Distance",
         "Colour/Blend",
         "Colour/Levels",
         "Filters/Blur",
+        "Filters/Pixel Processor",
         "Output/Output",
         "Source/Noise",
         "Source/Uniform",
