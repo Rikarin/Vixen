@@ -9,6 +9,7 @@ using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Syntax;
+using Vixen.Testing;
 using Xunit;
 
 namespace Tests;
@@ -21,37 +22,24 @@ namespace Tests;
 ///     Regenerate with <c>UPDATE_GOLDEN=1</c> and read the diff.
 /// </summary>
 public class GoldenGlslTests(ITestOutputHelper output) {
-    static bool ShouldUpdate => Environment.GetEnvironmentVariable("UPDATE_GOLDEN") is "1" or "true";
-
+    /// <summary>Every generated stage, against the source committed for it.</summary>
+    /// <param name="name">The fixture.</param>
+    /// <remarks>
+    ///     ⚠ A <see cref="GoldenFile.Set" /> rather than a bare loop: the loop that stood here
+    ///     passed when <see cref="Compile" /> returned no stages at all, which is the one failure a
+    ///     code-generation golden is for. The set still regenerates every stage before it fails, so
+    ///     one run refreshes them all.
+    /// </remarks>
     [Theory]
     [InlineData("lambert")]
     public void Matches_golden(string name) {
-        List<string> regenerated = [];
+        var goldens = GoldenFile.Batch();
 
         foreach (var unit in Compile(name)) {
-            var goldenPath = FixturePath($"{name}.{StageSuffix(unit)}.glsl");
-            var actual = Normalize(unit.Code);
-
-            // Regenerate every stage before failing, so one run refreshes them all.
-            if (ShouldUpdate || !File.Exists(goldenPath)) {
-                File.WriteAllText(goldenPath, actual);
-                regenerated.Add(Path.GetFileName(goldenPath));
-                continue;
-            }
-
-            var expected = Normalize(File.ReadAllText(goldenPath));
-
-            if (expected != actual) {
-                File.WriteAllText(goldenPath + ".actual", actual);
-            }
-
-            Assert.Equal(expected, actual);
+            goldens.Matches(unit.Code, FixturePath($"{name}.{StageSuffix(unit)}.glsl"));
         }
 
-        Assert.True(
-            regenerated.Count == 0,
-            $"Goldens were (re)generated: {string.Join(", ", regenerated)}. Review the diff and re-run."
-        );
+        goldens.Done();
     }
 
     /// <summary>
@@ -104,9 +92,5 @@ public class GoldenGlslTests(ITestOutputHelper output) {
 
     static string StageSuffix(GeneratedSource unit) => GlslBackend.StageSuffix(unit.Stage);
 
-    static string Normalize(string text) => text.Replace("\r\n", "\n").TrimEnd('\n');
-
-    // bin/Debug/net10.0 -> Tests project root -> Fixtures
-    static string FixturePath(string file) =>
-        Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Fixtures", file);
+    static string FixturePath(string file) => GoldenFile.InProjectDirectory("Fixtures", file);
 }

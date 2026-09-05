@@ -7,6 +7,7 @@ using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Syntax;
+using Vixen.Testing;
 using Xunit;
 
 namespace Tests;
@@ -19,9 +20,12 @@ namespace Tests;
 ///     To (re)generate snapshots after an intentional change, run the suite with
 ///     the environment variable <c>UPDATE_GOLDEN=1</c> and review the diff.
 /// </summary>
+/// <remarks>
+///     The comparison, the regeneration and the diff are <see cref="GoldenFile" />'s — the shared
+///     helper of <c>docs/plan/12</c>, which this suite is one of the four that used to write out by
+///     hand.
+/// </remarks>
 public class GoldenIrTests {
-    static bool ShouldUpdate => Environment.GetEnvironmentVariable("UPDATE_GOLDEN") is "1" or "true";
-
     [Theory]
     [InlineData("lambert")]
     public void Matches_golden(string name) {
@@ -43,25 +47,8 @@ public class GoldenIrTests {
             "Expected clean lowering, got:\n" + string.Join("\n", bag.Select(d => d.ToString()))
         );
 
-        var actual = Normalize(IrPrinter.Print(module));
-
-        if (ShouldUpdate || !File.Exists(goldenPath)) {
-            File.WriteAllText(goldenPath, actual);
-            Assert.Fail($"Golden '{name}.ir' was (re)generated. Review the diff and re-run.");
-        }
-
-        var expected = Normalize(File.ReadAllText(goldenPath));
-
-        if (expected != actual) {
-            File.WriteAllText(goldenPath + ".actual", actual);
-        }
-
-        Assert.Equal(expected, actual);
+        GoldenFile.Matches(IrPrinter.Print(module), goldenPath);
     }
 
-    static string Normalize(string text) => text.Replace("\r\n", "\n").TrimEnd('\n');
-
-    // bin/Debug/net10.0 -> Tests project root -> Fixtures
-    static string FixturePath(string file) =>
-        Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Fixtures", file);
+    static string FixturePath(string file) => GoldenFile.InProjectDirectory("Fixtures", file);
 }

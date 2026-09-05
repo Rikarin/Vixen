@@ -57,4 +57,8 @@
             <CustomToolNamespace>Vixen.Raven.Grammar</CustomToolNamespace>
         </Antlr4>
     </ItemGroup>
+
+    <!-- docs/plan/12's snapshot helper. Linked rather than referenced; the props file says why, and
+         the four Golden*Tests here are what it was taken out of. -->
+    <Import Project="..\..\Testing\Vixen.Testing.GoldenFile.props" />
 </Project>
