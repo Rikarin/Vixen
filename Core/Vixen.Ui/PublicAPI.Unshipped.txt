@@ -223,6 +223,7 @@ Vixen.Ui.Composition.BuildContext.Create<T>(Vixen.Ui.UiElement? parent, string? 
 Vixen.Ui.Composition.BuildContext.Document.get -> Vixen.Ui.UiDocument
 Vixen.Ui.Composition.BuildContext.Element(Vixen.Ui.UiElement? parent, string tag) -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.BuildContext.For<T>(Vixen.Ui.UiElement? parent, System.Func<System.Collections.Generic.IEnumerable<T>> items, System.Func<T, object> key, System.Action<Vixen.Ui.Composition.BuildContext, Vixen.Ui.UiElement, T> build) -> void
+Vixen.Ui.Composition.BuildContext.For<T>(Vixen.Ui.UiElement? parent, System.Func<System.Collections.Generic.IEnumerable<T>> items, System.Func<T, object> key, System.Action<Vixen.Ui.Composition.BuildContext, Vixen.Ui.UiElement, T, Vixen.Ui.Reactive.Signal<int>> build) -> void
 Vixen.Ui.Composition.BuildContext.Help(Vixen.Ui.UiElement target, System.Func<object?> text) -> void
 Vixen.Ui.Composition.BuildContext.Help(Vixen.Ui.UiElement target, string text) -> void
 Vixen.Ui.Composition.BuildContext.Mount.get -> Vixen.Ui.UiElement

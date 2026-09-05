@@ -69,7 +69,7 @@ public readonly record struct EventSubscription {
 ///         a steady-state interface allocates nothing because nothing runs.
 ///     </para>
 ///     <para>
-///         The two exceptions are <see cref="Switch" /> and <see cref="For" />, which is the point:
+///         The two exceptions are <see cref="Switch" /> and <c>For</c>, which is the point:
 ///         those are the only two places where the <i>shape</i> of the tree depends on state, so
 ///         those are the only two places that add and remove elements.
 ///     </para>
@@ -233,7 +233,7 @@ public sealed class BuildContext {
     /// <remarks>
     ///     ⚠ <b>Taken from the loop rather than recomputed at the tag, and that is the whole
     ///     correctness argument for <c>refs</c>.</b> A handle keyed on anything but the identity
-    ///     <see cref="For{T}" /> reconciled on is a handle that disagrees with the reconciler the
+    ///     <c>For</c> reconciled on is a handle that disagrees with the reconciler the
     ///     first time a key expression is not what somebody assumed — and disagrees silently,
     ///     because both sides still answer.
     /// </remarks>
@@ -329,7 +329,7 @@ public sealed class BuildContext {
     ///         deliberately one method.</b> A <c>.vxml</c> whose class is a <see cref="UiElement" />
     ///         gets the <i>same</i> <see cref="BuildContext" /> a <see cref="Component" /> does, so it
     ///         gets the same <see cref="Bind(System.Action)" />, the same <see cref="Switch" />, the
-    ///         same keyed <see cref="For{T}" /> reconciliation and the same region discipline. That
+    ///         same keyed <c>For</c> reconciliation and the same region discipline. That
     ///         equality is the point: a second, weaker way to build a tree from markup would make the
     ///         markup a worse way to write the imperative code it replaced.
     ///     </para>
@@ -1468,7 +1468,7 @@ public sealed class BuildContext {
     /// </remarks>
     /// <remarks>
     ///     ⚠ <b>An arm inside a <c>@for</c> row builds under that row's iteration key, and getting
-    ///     that wrong was a silent defect until 2026-08-23.</b> <see cref="For{T}" /> sets
+    ///     that wrong was a silent defect until 2026-08-23.</b> <c>For</c> sets
     ///     <c>iteration</c> around the <i>synchronous</i> build of a new region and restores it in a
     ///     <c>finally</c>; this registers its own <see cref="Bind(Action)" />, which the scheduler
     ///     runs later — so a <c>refs</c> in an arm found no key and threw the "only meaningful inside
@@ -1477,7 +1477,7 @@ public sealed class BuildContext {
     ///     arm's builder was abandoned at the throw, so the element on the line above the <c>refs</c>
     ///     survived with no classes, no bindings and no children while every other panel on the
     ///     screen was correct. Capturing the key at registration and restoring it round the build is
-    ///     the same bargain <see cref="For{T}" /> already makes for a nested loop, and for the same
+    ///     the same bargain <c>For</c> already makes for a nested loop, and for the same
     ///     reason: an arm inside a row belongs to the row.
     /// </remarks>
     public void Switch(UiElement? parent, Func<int> arm, Action<BuildContext, UiElement, int> build) {
@@ -1544,25 +1544,94 @@ public sealed class BuildContext {
         Func<T, object> key,
         Action<BuildContext, UiElement, T> build
     ) {
+        ArgumentNullException.ThrowIfNull(build);
+        Rows(parent, items, key, (context, at, item, _) => build(context, at, item), indexed: false);
+    }
+
+    /// <summary>The same, with each row told where it is.</summary>
+    /// <typeparam name="T">The item type.</typeparam>
+    /// <param name="parent">Its parent, or null for the mount point.</param>
+    /// <param name="items">The sequence.</param>
+    /// <param name="key">What identifies an item across changes.</param>
+    /// <param name="build">Builds one item, given a signal holding its position.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A <see cref="Signal{T}" /> and not an <c>int</c>, and that distinction is the
+    ///         whole feature.</b> A key that survives keeps its region and its body is <i>not</i>
+    ///         re-run, so a position handed to the body as a value is captured once — the position
+    ///         that row had when its key first appeared — and is a lie from the first reorder
+    ///         onwards. Nothing about it looks wrong: the list has the right rows in the right order,
+    ///         showing numbers that stopped being true. It is <c>VXML2011</c>'s mistake with no key
+    ///         to blame it on.
+    ///     </para>
+    ///     <para>
+    ///         The signal is written on every reconciliation pass, after the rows are matched, so a
+    ///         row that moved is re-read by whatever in its body read the index and a row that did
+    ///         not move costs one equality check. It is created with the row and dropped with it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One reconciler, not two.</b> Both overloads are the same private pass with the
+    ///         index bookkeeping switched off, because a second copy of the keyed reconciliation is
+    ///         the way the two come to disagree about what a move is.
+    ///     </para>
+    /// </remarks>
+    public void For<T>(
+        UiElement? parent,
+        Func<IEnumerable<T>> items,
+        Func<T, object> key,
+        Action<BuildContext, UiElement, T, Signal<int>> build
+    ) {
+        ArgumentNullException.ThrowIfNull(build);
+
+        Rows(
+            parent,
+            items,
+            key,
+            (context, at, item, index) => build(context, at, item, index!),
+            indexed: true
+        );
+    }
+
+    void Rows<T>(
+        UiElement? parent,
+        Func<IEnumerable<T>> items,
+        Func<T, object> key,
+        Action<BuildContext, UiElement, T, Signal<int>?> build,
+        bool indexed
+    ) {
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(key);
-        ArgumentNullException.ThrowIfNull(build);
 
         var target = parent ?? Anchor;
         var region = Open(target);
         var live = new Dictionary<object, Region>();
 
+        // Null unless the loop declared an index, so a loop that does not want one allocates nothing
+        // and does no extra work per pass.
+        var positions = indexed ? new Dictionary<object, Signal<int>>() : null;
+
         Bind(() => {
             var wanted = new List<Region>();
             var kept = new Dictionary<object, Region>();
+            var order = indexed ? new List<object>() : null;
+            var at = 0;
 
             foreach (var item in items()) {
                 var identity = key(item);
+                order?.Add(identity);
 
                 if (live.Remove(identity, out var existing)) {
                     kept[identity] = existing;
                     wanted.Add(existing);
+                    at++;
                     continue;
+                }
+
+                Signal<int>? index = null;
+
+                if (positions is not null) {
+                    index = new Signal<int>(at);
+                    positions[identity] = index;
                 }
 
                 var created = new Region(target, null, region);
@@ -1575,23 +1644,34 @@ public sealed class BuildContext {
                 // outer row no iteration at all.
                 iteration = identity;
                 try {
-                    In(target, created, () => build(this, target, captured));
+                    In(target, created, () => build(this, target, captured, index));
                 } finally {
                     iteration = outer;
                 }
 
                 kept[identity] = created;
                 wanted.Add(created);
+                at++;
             }
 
             // Whatever is left in `live` is what the new sequence does not contain.
-            foreach (var gone in live.Values) {
+            foreach (var (identity, gone) in live) {
                 gone.Clear();
+                positions?.Remove(identity);
             }
 
             live.Clear();
             foreach (var (identity, item) in kept) {
                 live[identity] = item;
+            }
+
+            // ⚠ After the matching pass and not during it, because a row's new position is not known
+            // until the whole sequence has been walked — and because a row that survived was never
+            // rebuilt, so this write is the only thing that can tell it that it moved.
+            if (order is not null && positions is not null) {
+                for (var i = 0; i < order.Count; i++) {
+                    positions[order[i]].Value = i;
+                }
             }
 
             // The chain has to be rewritten before anything is repositioned: a region's index comes

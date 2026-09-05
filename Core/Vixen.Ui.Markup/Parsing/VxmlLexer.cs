@@ -512,6 +512,17 @@ sealed class VxmlLexer {
             LexName(tokens);
             SkipWhitespace(tokens);
 
+            // ⚠ `@for (var row, i in Rows)` — the index is a second name, and it is the only comma
+            // this grammar has. Lexed rather than left inside the sequence expression because the
+            // scan for the sequence starts after `in`, and `row, i` before it would otherwise be one
+            // `Name` token followed by characters nothing claims.
+            if (window.Current == ',') {
+                Emit(tokens, VxmlTokenKind.Comma, 1);
+                SkipWhitespace(tokens);
+                LexName(tokens);
+                SkipWhitespace(tokens);
+            }
+
             if (AtWord("in")) {
                 Emit(tokens, VxmlTokenKind.InKeyword, 2);
                 SkipWhitespace(tokens);

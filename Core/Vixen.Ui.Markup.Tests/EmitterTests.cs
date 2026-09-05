@@ -1695,6 +1695,103 @@ public class EmitterTests {
     static Microsoft.CodeAnalysis.SyntaxTree Parse(string text, string path) =>
         CSharpSyntaxTree.ParseText(text, new CSharpParseOptions(LanguageVersion.Latest), path);
 
+    // ================================================================== The @for index
+
+    /// <summary>Three keyed rows, each showing where it is.</summary>
+    const string Indexed = """
+                           @component Greeter
+                           @using System.Collections.Generic
+                           @using Vixen.Ui.Reactive
+
+                           @code {
+                               public Signal<IReadOnlyList<string>> Rows { get; } = new(["a", "b", "c"]);
+                           }
+
+                           @for (var row, i in Rows.Value) {
+                               <row-line key="@row">@i.Value</row-line>
+                           }
+                           """;
+
+    /// <summary>
+    ///     ⚠ <b>The index is a per-row signal, and a captured <c>int</c> is the bug this shape
+    ///     exists to avoid.</b> <c>BuildContext.For</c> keeps a surviving key's region and does
+    ///     <i>not</i> re-run its body, so a position handed to the body as a value is the position
+    ///     that row had when its key first appeared — right until anything moves, and silently
+    ///     wrong afterwards. That is <c>VXML2011</c>'s mistake with no key to blame it on.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The instrument is checked before the claim.</b> The three elements are asserted to
+    ///     be the same objects in a new order, because a test whose rows were rebuilt would pass
+    ///     against a captured <c>int</c> as happily as against a signal — the rebuild would hand the
+    ///     new position to the new body either way, and the assertion would say nothing.
+    /// </remarks>
+    [Fact]
+    public void A_for_index_is_a_signal_so_a_row_that_moved_reports_its_new_position() {
+        var (component, instance, document) = Run(Indexed);
+
+        using var owned = document;
+        document.Effects.Flush();
+
+        var rows = component.Root.Children.ToArray();
+        Assert.Equal(["0", "1", "2"], rows.Select(Text));
+
+        var sequence = (Signal<IReadOnlyList<string>>)Property(instance, "Rows");
+
+        sequence.Value = ["c", "a", "b"];
+        document.Effects.Flush();
+
+        // The instrument: the same three elements, moved rather than remade.
+        Assert.Equal<UiElement>([rows[2], rows[0], rows[1]], component.Root.Children);
+
+        // What every row reads is its position now.
+        Assert.Equal(["0", "1", "2"], component.Root.Children.Select(Text));
+
+        // And said the other way round, which is the assertion a captured int fails: `a` was row 0
+        // and is row 1, `b` was 1 and is 2, `c` was 2 and is 0.
+        Assert.Equal(["1", "2", "0"], rows.Select(Text));
+    }
+
+    /// <summary>A row that leaves takes its index with it, and the rows after it close up.</summary>
+    /// <remarks>
+    ///     The half a reorder does not cover: removal shortens the sequence, so a position table
+    ///     that only ever grew would answer for keys that are gone and hold their rows alive.
+    /// </remarks>
+    [Fact]
+    public void Removing_a_row_renumbers_the_ones_after_it() {
+        var (component, instance, document) = Run(Indexed);
+
+        using var owned = document;
+        document.Effects.Flush();
+
+        var rows = component.Root.Children.ToArray();
+        var last = rows[2];
+
+        ((Signal<IReadOnlyList<string>>)Property(instance, "Rows")).Value = ["b", "c"];
+        document.Effects.Flush();
+
+        Assert.Equal<UiElement>([rows[1], last], component.Root.Children);
+        Assert.Equal(["0", "1"], component.Root.Children.Select(Text));
+    }
+
+    /// <summary>A loop that declares no index compiles to exactly the call it always did.</summary>
+    [Fact]
+    public void A_loop_with_no_index_emits_the_three_parameter_body() {
+        const string Source = """
+                              @component Greeter
+                              @using System.Collections.Generic
+
+                              @code {
+                                  public IReadOnlyList<string> Rows { get; } = ["a"];
+                              }
+
+                              @for (var row in Rows) {
+                                  <row-line key="@row">@row</row-line>
+                              }
+                              """;
+
+        Assert.Contains(", row) => {", Emit(Source), StringComparison.Ordinal);
+    }
+
     // ================================================================== help
 
     /// <summary>

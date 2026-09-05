@@ -576,7 +576,11 @@ public sealed class Binder {
             }
         }
 
-        return new(variable, Expression(@for.Sequence), key, body);
+        // A comma with no name after it leaves a missing token; there is nothing to bind and the
+        // parser has already reported it, so the loop is bound as if no index were declared.
+        var index = @for.Index is { IsMissing: false } named ? named.Text : null;
+
+        return new(variable, Expression(@for.Sequence), key, body, index);
     }
 
     /// <summary>Whether a key expression reads a member of the loop variable instead of the variable.</summary>

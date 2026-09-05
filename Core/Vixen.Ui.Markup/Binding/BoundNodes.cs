@@ -298,11 +298,21 @@ public sealed record BoundIf(ImmutableArray<BoundBranch> Branches, ImmutableArra
 /// <param name="Sequence">The C# that produces the items.</param>
 /// <param name="Key">The body's key expression, if its root element carries one.</param>
 /// <param name="Body">What each item builds.</param>
+/// <param name="Index">
+///     The name bound to the row's position, or null when the loop declares none.
+///     ⚠ <b>It arrives in the body as a <c>Signal&lt;int&gt;</c> and not as an <c>int</c>, which is
+///     the whole of the feature rather than an implementation note.</b> <c>BuildContext.For</c>
+///     reuses a surviving key's region and never re-runs its body, so a position captured by a
+///     lambda is the position that row had when its key first appeared — right until anything moves,
+///     and silently wrong afterwards. A signal the reconciler writes on each pass is re-read by
+///     whatever in the body read it, and a row that did not move costs an equality check.
+/// </param>
 public sealed record BoundFor(
     string Variable,
     BoundExpression Sequence,
     BoundExpression? Key,
-    ImmutableArray<BoundNode> Body
+    ImmutableArray<BoundNode> Body,
+    string? Index = null
 ) : BoundNode;
 
 /// <summary>One arm of an <c>@switch</c>.</summary>

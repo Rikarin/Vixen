@@ -906,7 +906,14 @@ public sealed class ComponentEmitter {
         var innerContext = $"c{depth.ToString(CultureInfo.InvariantCulture)}";
         var innerParent = $"p{depth.ToString(CultureInfo.InvariantCulture)}";
 
-        Line($"({innerContext}, {innerParent}, {@for.Variable}) => {{");
+        // ⚠ The index is a fourth parameter and picks the *other* `For` overload, which is what makes
+        // it a `Signal<int>` in the body rather than an `int`. C# resolves that from the lambda's
+        // parameter count, so nothing here needs to name the type.
+        var row = @for.Index is { } index
+            ? $"{@for.Variable}, {index}"
+            : @for.Variable;
+
+        Line($"({innerContext}, {innerParent}, {row}) => {{");
         depth++;
         EmitNodes(@for.Body, innerContext, innerParent);
         depth--;

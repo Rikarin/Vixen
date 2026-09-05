@@ -914,13 +914,29 @@ is a real limitation and the diagnostics are a guard rail over it. The alternati
 body for a surviving key — would throw away the elements and therefore the focus, scroll offset and
 animation state that keys exist to preserve, so it is not a fix, it is the other trade.
 
-⚠ **It is also why `@for` has no index variable, which is a refusal rather than an omission.** A
-second name bound to the item's position would be captured in a body a surviving key never re-runs,
-so after a reorder every row would report the index it had when its key first appeared —
-`VXML2011`'s mistake with no key to blame it on and nothing syntactic to warn about. An index that
-behaves has to be a per-row signal the reconciler writes when it repositions, which is a different
-feature from the one the spelling suggests. See `BuildContext.For`, whose `live`/`kept` pass is where
-such a signal would be set.
+⚠ **It is also why an `@for` index is a `Signal<int>` and not an `int`**, and that sentence is the
+whole feature rather than an implementation note.
+
+```html
+@for (var row, i in Rows.Value) {
+    <row-line key="@row">@i.Value — @row.Name</row-line>
+}
+```
+
+A second name bound to the item's *position* would be captured in a body a surviving key never
+re-runs, so after a reorder every row would report the index it had when its key first appeared —
+`VXML2011`'s mistake with no key to blame it on and nothing syntactic to warn about. Nothing about
+it looks wrong either: the list has the right rows in the right order, showing numbers that stopped
+being true. So the name is bound to a signal that `BuildContext.For` writes on each reconciliation
+pass, after the rows have been matched: a row that moved is re-read by whatever in its body read the
+index, and a row that did not move costs one equality check. The signal is made with the row and
+dropped with it.
+
+⚠ **Nothing in the emitter names the type.** A fourth lambda parameter picks the second `For`
+overload and C# resolves it from the parameter count, so `@for (var row, i in …)` differs from
+`@for (var row in …)` by one comma in the lexer and one name in the emitted lambda. Both overloads
+are the same private pass with the index bookkeeping switched off, because a second copy of the
+keyed reconciliation is how the two come to disagree about what a move is.
 
 ### ⚠ The same rule governs `@if`, where nothing diagnoses it
 
