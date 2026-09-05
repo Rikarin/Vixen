@@ -275,4 +275,62 @@ public class MenuTests : IDisposable {
         // was true then, for ever.
         Assert.False(menu.Items[0].Disabled);
     }
+
+    /// <summary>
+    ///     ⚠ <b>A hundred commands are one bar, not a hundred.</b> The presenter rebuilt the whole
+    ///     bar synchronously from <c>CommandRegistry.Changed</c>, and the registry raises that once
+    ///     per command — so standing an editor up threw the bar away and built it again about two
+    ///     hundred times before the window appeared, and unloading one plugin did it once per command
+    ///     withdrawn. It is asserted as a count of rebuilds rather than as a duration on purpose: the
+    ///     claim is about how much work a registration causes, and a millisecond budget for the same
+    ///     claim is calibrated on whichever machine ran it.
+    /// </summary>
+    [Fact]
+    public void Registering_a_hundred_commands_rebuilds_the_bar_once_rather_than_a_hundred_times() {
+        var model = new MenuModel();
+        var file = model.AddMenu(Title("File"));
+
+        var presenter = Present(model);
+        var built = presenter.Rebuilds;
+
+        for (var index = 0; index < 100; index++) {
+            var id = "file.command-" + index;
+
+            file.Add(id);
+            commands.Add(id, Title("Command " + index), () => { });
+        }
+
+        // Nothing yet: a hundred registrations have marked the bar stale a hundred times and built
+        // nothing at all.
+        Assert.Equal(built, presenter.Rebuilds);
+        Assert.True(presenter.IsPending);
+
+        document.Tick(TimeSpan.FromSeconds(1));
+
+        Assert.Equal(built + 1, presenter.Rebuilds);
+        Assert.False(presenter.IsPending);
+        Assert.Equal(100, presenter.Bar.Items[0].Menu.Items.Count);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A reader settles it, which is what keeps the deferral invisible.</b> Callers all over
+    ///     this repository register a command and read the bar on the next line with no frame in
+    ///     between — the shell's own tests included — and a bar that answered them with the
+    ///     arrangement from before the registration would be a coalescing that changed what the class
+    ///     means rather than when it does its work.
+    /// </summary>
+    [Fact]
+    public void Reading_the_bar_settles_a_registration_no_frame_has_reached_yet() {
+        var model = new MenuModel();
+        model.AddMenu(Title("File")).Add("file.save");
+
+        var presenter = Present(model);
+
+        commands.Add("file.save", Title("Save"), () => { });
+
+        var item = Assert.Single(presenter.Bar.Items[0].Menu.Items);
+
+        Assert.Equal("Save", item.Label);
+        Assert.False(presenter.IsPending);
+    }
 }
