@@ -177,6 +177,16 @@ public sealed class UiApplication : IDisposable {
         // after; this one is a default.
         Document.UndoManager = new UndoManager();
 
+        // ⚠ **And the two verbs that drive it, on the root, because a manager nothing can reach from
+        // a menu is half a feature.** Until this line ⌘Z worked inside a `TextField` and Edit ▸ Undo
+        // did nothing anywhere — the field answers the *chord* and deliberately leaves the *command*
+        // alone, since `CommandRoute` stops at the first element that registered an id and a field
+        // that took `edit.undo` would swallow the application's Undo whenever it had the focus. On
+        // the root the same walk ends where the manager is, so a field's ⌘Z climbs out of the field
+        // and reaches the stack it recorded into. A panel with a document stack of its own installs
+        // these again on itself and outranks this one, which is the route's ordinary rule.
+        UndoCommands.Install(Document.Root);
+
         // ⚠ After the sheets and the font, before the content. A component's `Build` reads class
         // names against the cascade as it goes and measures text against whatever face is registered,
         // so mounting first would resolve the first frame against an empty stylesheet and a

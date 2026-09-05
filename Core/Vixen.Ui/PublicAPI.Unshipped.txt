@@ -1726,6 +1726,7 @@ Vixen.Ui.UiWindowRequest.X.init -> float
 Vixen.Ui.UiWindowRequest.Y.get -> float
 Vixen.Ui.UiWindowRequest.Y.init -> float
 Vixen.Ui.UiWindowTitle -> static class
+Vixen.Ui.UndoCommands -> static class
 Vixen.Ui.UndoManager -> sealed class
 Vixen.Ui.UndoManager : Vixen.Ui.IUndoManager
 Vixen.Ui.UndoManager.CanRedo.get -> bool
@@ -1774,6 +1775,8 @@ const Vixen.Ui.Rendering.UiLayer.MaximumKernel = 64 -> int
 const Vixen.Ui.UiDiagnostics.RecordsRegions = false -> bool
 const Vixen.Ui.UiDocument.ContainerScopeCeiling = 4096 -> int
 const Vixen.Ui.UiDocument.SettlePasses = 3 -> int
+const Vixen.Ui.UndoCommands.Redo = "edit.redo" -> string
+const Vixen.Ui.UndoCommands.Undo = "edit.undo" -> string
 override Vixen.Ui.CommandHandler.Equals(object? obj) -> bool
 override Vixen.Ui.CommandHandler.GetHashCode() -> int
 override Vixen.Ui.CommandHandler.ToString() -> string
@@ -1868,6 +1871,7 @@ static Vixen.Ui.UiPropertyRegistry.Register(string name, System.Type ownerType, 
 static Vixen.Ui.UiPropertyRegistry.TryFind(System.Type ownerType, string name, out Vixen.Ui.UiPropertyKey? key) -> bool
 static Vixen.Ui.UiPropertyRegistry.TryFindFor(Vixen.Ui.UiElement element, string name, out Vixen.Ui.UiPropertyKey? key) -> bool
 static Vixen.Ui.UiWindowTitle.Bind(Vixen.Ui.IUiWindow window, Vixen.Ui.IEditableDocument document, Vixen.Ui.Reactive.EffectScheduler? scheduler = null, string dirtyMarker = "• ") -> System.IDisposable
+static Vixen.Ui.UndoCommands.Install(Vixen.Ui.UiElement element) -> void
 static readonly Vixen.Ui.LayoutStyleBuilder.CssInitial -> Vixen.Ui.Layout.LayoutStyle
 static readonly Vixen.Ui.Rendering.UiColorMatrix.Luminance -> Vixen.Core.Mathematics.Vector3
 static readonly Vixen.Ui.UiElement.AccessKeyProperty -> Vixen.Ui.UiPropertyKey

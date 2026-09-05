@@ -367,9 +367,15 @@ public abstract partial class TextField : Control, ITextInputTarget {
         // handler that ran and did nothing is worse than none, since the route would report the verb
         // available and the menu item would go live. `IUiClipboard` retired the first half of that,
         // so Cut, Copy and Paste are registered here and their `CanExecute` asks the pasteboard
-        // rather than assuming. Undo and Redo are still keystrokes only: they answer through
-        // `FindUndoManager`, which returns nothing in an application that has not put one anywhere,
-        // and an always-grey menu item is the thing this comment refuses.
+        // rather than assuming.
+        //
+        // ⚠ **Undo and Redo are still deliberately absent, and that is a refusal rather than the
+        // remaining half of the same blocker.** `IUndoManager` exists now, but undo is the
+        // *manager's* verb: `CommandRoute.Resolve` stops at the first element that registered an id
+        // and its refusal is final, so a field answering `edit.undo` would swallow the application's
+        // Undo for as long as the caret was in it — exactly what the chord leg below refuses to do.
+        // `UndoCommands.Install` puts the pair where the manager is instead, so ⌘Z climbs out of the
+        // field and reaches the very stack this field records into.
         //
         // The four are ids, not a private key switch, so a menu item spelling `edit.copy` and a
         // keymap bound to it both reach the focused field without either of them knowing a text field
@@ -580,6 +586,12 @@ public abstract partial class TextField : Control, ITextInputTarget {
             () => Restore(edit.Before, edit.CaretBefore, edit.AnchorBefore),
             () => Restore(edit.After, edit.CaretAfter, edit.CaretAfter)
         );
+
+        // ⚠ The stack just moved, and `UndoCommands`' predicate reads it. Command state is pulled
+        // once per raise rather than observed, so without this the first edit in a window leaves
+        // Edit ▸ Undo greyed until something unrelated invalidates — which looks exactly like Undo
+        // being broken. Coalesced to a flag, so once per keystroke costs nothing.
+        Document.InvalidateCommands();
 
         run = isTyping ? edit : null;
         runEnd = CaretIndex;

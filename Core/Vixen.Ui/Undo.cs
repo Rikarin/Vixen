@@ -166,6 +166,74 @@ public sealed class UndoManager : IUndoManager {
     }
 }
 
+/// <summary>The command ids an undo manager answers, and the one call that makes an element answer them.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>Undo is the manager's verb and not the text field's, which is why this is here and
+///         not in <c>TextField</c>.</b> <see cref="IUndoManager" /> already argues that a control
+///         must not own a stack because undo has to interleave with everything else an application
+///         does; registering <c>edit.undo</c> on the control would have contradicted that at the
+///         other end — <c>CommandRoute.Resolve</c> stops at the first element that <i>registered</i>
+///         the id and a refusal from it is final, so a focused field answering <c>edit.undo</c> would
+///         swallow the application's Undo for as long as the caret was in it, whatever its
+///         <c>canExecute</c> said. Installed where the manager is, the same walk gives the answer the
+///         field wanted: ⌘Z in a text box climbs out of the field and reaches the manager the field
+///         recorded into.
+///     </para>
+///     <para>
+///         <b>Nearest wins, on <see cref="DocumentCommands" />'s terms.</b> A panel that owns a
+///         document's stack sets <see cref="UiElement.UndoManager" /> and calls
+///         <see cref="Install" /> on the same element; the route then picks that panel's Undo while
+///         the focus is inside it and the application's everywhere else, with neither knowing the
+///         other exists.
+///     </para>
+///     <para>
+///         ⚠ <b>The manager is looked up on every ask rather than captured</b>, for
+///         <see cref="UiElement.FindUndoManager" />'s reason: an application is entitled to replace
+///         <see cref="UiDocument.UndoManager" /> after the install, and a captured one would be the
+///         stack that happened to be there when the window opened. Finding nothing greys both items
+///         rather than making them run and do nothing.
+///     </para>
+/// </remarks>
+public static class UndoCommands {
+    /// <summary>Take back the last edit on the nearest undo manager.</summary>
+    public const string Undo = "edit.undo";
+
+    /// <summary>Put back the last edit taken back.</summary>
+    public const string Redo = "edit.redo";
+
+    /// <summary>Makes an element answer <see cref="Undo" /> and <see cref="Redo" /> for the nearest manager.</summary>
+    /// <param name="element">The element that owns a manager — the window's root, a document panel.</param>
+    /// <exception cref="ArgumentException">That element already handles one of the two ids.</exception>
+    /// <remarks>
+    ///     ⚠ <b>Each run invalidates the document's commands, because the stack it just moved is what
+    ///     the other item's predicate reads.</b> Undoing the only edit has to grey Undo and un-grey
+    ///     Redo in the same breath, and command state is pulled once per raise rather than observed —
+    ///     so without this the menu keeps whatever enablement it had when it was opened.
+    /// </remarks>
+    public static void Install(UiElement element) {
+        ArgumentNullException.ThrowIfNull(element);
+
+        element.AddCommandHandler(
+            Undo,
+            () => Perform(element, static manager => manager.Undo()),
+            () => element.FindUndoManager() is { CanUndo: true }
+        );
+
+        element.AddCommandHandler(
+            Redo,
+            () => Perform(element, static manager => manager.Redo()),
+            () => element.FindUndoManager() is { CanRedo: true }
+        );
+    }
+
+    static void Perform(UiElement element, Func<IUndoManager, bool> step) {
+        if (element.FindUndoManager() is { } manager && step(manager)) {
+            element.Document.InvalidateCommands();
+        }
+    }
+}
+
 public partial class UiElement {
     /// <summary>The undo manager this element hosts, if it is one.</summary>
     /// <remarks>
