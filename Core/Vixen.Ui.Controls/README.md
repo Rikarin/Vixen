@@ -230,6 +230,51 @@ placed beside the item that opens it, so reaching into it means leaving that ite
 rule would shut the menu the user is reaching for, every time, and no nested command would be
 reachable with the mouse at all.
 
+### The menu bar is drawn, and stays drawn — decided 2026-09-05
+
+`MenuBar` is a `Control` and there is no `IUiMenuHost`, no `NSMenu`, no `SetMenu` on `IWindow` and no
+seam in `Core/Vixen.Ui` for one. That is the state; this is why it is not being changed yet.
+
+⚠ **The urgency argument for native menus is built on a claim that is false.** Doc 49 § Part 5 and
+issue #652 both say that a macOS application with no `NSMenu` "has no ⌘Q and no About, and the OS
+draws the previous application's bar". SDL builds one. The library this engine actually loads on a
+Mac — `sdl2-compat` over SDL3 — carries the whole default application menu in its binary: `strings`
+on `libSDL3.0.dylib` finds `About `, `Services`, `Hide `, `Hide Others`, `Show All`, `Quit `,
+`Window`, `Minimize`, `Zoom` and `Toggle Full Screen`, alongside the `setMainMenu:`, `setAppleMenu:`,
+`hideOtherApplications:` and `orderFrontStandardAboutPanel:` selectors that install and drive them. A
+Vixen application on macOS therefore has ⌘Q, About, Hide, Services and a working Window menu today,
+without a line of code.
+
+**So what is actually missing is narrower than it was filed as**: an application's *own* menus —
+File, Edit, View, Help — appear inside the window rather than in the system bar. That is a
+platform-convention gap, not a broken quit.
+
+**Three reasons to leave it.**
+
+- **The test suite can drive a drawn menu and cannot drive an `NSMenu`.** A drawn bar is in the draw
+  list, so it is screenshotted by the golden-image suite and clicked by a headless run; a native one
+  is in another process's compositor and its items are reachable only through the accessibility API.
+  Making the native path the default would move the menu bar out of every test that covers it.
+- **A seam is cheap and the implementations are not.** `IUiMenuHost` is an afternoon. Three native
+  implementations that keep enablement, checkmarks, key equivalents, dynamic items and the responder
+  chain's answers in step with a live `MenuBar` are not, and a half-built one is worse than none: a
+  greyed item that should be live reads as a broken command.
+- **Nothing above is blocked on it.** Every capability the menus carry is reachable through the drawn
+  bar and through `Commands`; this is about where the strip is painted.
+
+**What changes the answer**, and these are the conditions to reopen on rather than a preference:
+
+1. A shipped application whose users are on macOS full-time — the convention gap is felt daily there
+   and barely at all on Windows or Linux, where an in-window menu bar is ordinary.
+2. Global shortcuts that must work while a modal native panel is up: an `NSMenu` key equivalent does,
+   a drawn one does not, because the drawn bar's window is not in the responder chain then.
+3. The accessibility work landing. A native bar is read by VoiceOver for free; the drawn one needs
+   `Core/Vixen.Ui`'s accessibility layer to have a consumer, which it does not yet have.
+
+Recorded here rather than in the issue because a decision that lives only in a tracker is a decision
+the next reader re-derives. See `docs/plan/49-responder-chain-and-appkit-parity.md` § Part 5 for the
+proposed `IUiMenuHost` shape, which stands unchanged if the answer becomes yes.
+
 ## What the set says to a screen reader
 
 Every control here carries a role, and every one with words of its own carries a name. It costs the
