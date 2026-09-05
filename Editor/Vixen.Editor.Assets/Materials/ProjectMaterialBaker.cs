@@ -314,7 +314,7 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
             // remove was written by a previous run of this bake: the name is derived from the
             // material's name alone, so the FIRST bake of a material called `Rock` would delete a
             // hand-authored `Rock_basecolor.png` and its `.meta` — which destroys an AssetId every
-            // scene referencing that texture resolves through. See #714. The two files differ in
+            // scene referencing that texture resolves through. See #723. The two files differ in
             // extension and coexist happily until then; an orphan an artist can see and delete is a
             // strictly better failure than one this code deletes for them.
             warnings.Add(

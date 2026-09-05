@@ -318,7 +318,7 @@ public sealed class MaterialBakeAssetTests : IDisposable {
     ///         the name comes from the material's name alone — so the first bake of a material called
     ///         <c>Rock</c> deleted a hand-authored <c>Rock_basecolor.png</c> <em>and its
     ///         <c>.meta</c></em>, destroying the id every scene resolved that texture through. See
-    ///         <see href="https://github.com/Rikarin/Vixen/issues/715" />. An orphan an artist can see
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/723" />. An orphan an artist can see
     ///         is a strictly better failure than one this code deletes for them, so the assertion is
     ///         inverted rather than removed: the file survives, and the warning has to say so.
     ///     </para>
