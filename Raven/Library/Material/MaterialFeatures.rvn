@@ -124,8 +124,14 @@ shader IdentitySurface : IMaterialSurface {
 //
 // `MaterialLayersSurface` is N layers of one workflow — rock under moss under snow, weighted by a
 // splat map. The layers differ in their *values*, not in their features, so they are an array and
-// `LayerCount` is a permutation: the loop is unrolled at compile time and a two-layer material does
-// not pay for four. This is the case terrain and decals actually want.
+// `LayerCount` is a permutation: it sizes the array, so a two-layer material's block holds two layers
+// rather than the most anyone might use. This is the case terrain and decals actually want.
+//
+// ⚠ **It does not unroll the loop, whatever this comment said for as long as it existed.** The emitted
+// unit is a `while` with a constant bound — unrolling one is the backend compiler's business, not
+// Raven's — and `LibraryTreeTests.The_layered_surfaces_count_is_a_permutation_the_compilation_honours`
+// asserts the half that is Raven's. The uniform cost was the claim worth making; the iteration was not
+// ours to promise.
 //
 // `BlendSurface` is two *different* surfaces mixed by a weight — a metal-roughness base under a
 // specular-glossiness overlay, say. It composes, so each side can be any feature.
@@ -152,8 +158,9 @@ struct MaterialLayer {
 /// never quite does, and a material that dims where the artist was imprecise is a bug that gets
 /// blamed on the lighting.
 shader MaterialLayersSurface : IMaterialSurface {
-    /// How many layers this material has. A permutation, so the loop unrolls and an unused layer
-    /// costs neither a uniform nor an iteration.
+    /// How many layers this material has. A permutation, so it sizes the array below and an unused
+    /// layer costs no uniform. ⚠ Not an iteration — see the note at the top of this file: the loop is
+    /// emitted as a loop with a constant bound.
     [Permutation] val LayerCount: int = 2
 
     var layers: MaterialLayer[LayerCount]
@@ -166,6 +173,115 @@ shader MaterialLayersSurface : IMaterialSurface {
 
         for (i in 0 .. LayerCount - 1) {
             val weight = max(layers[i].weight, 0f)
+
+            color += layers[i].baseColor * weight
+            metalness += layers[i].metalness * weight
+            roughness += layers[i].roughness * weight
+            total += weight
+        }
+
+        val scale = 1f / max(total, Const.Epsilon)
+        val blended = color * scale
+        val metal = saturate(metalness * scale)
+
+        d.diffuseColor = blended * (1f - metal)
+        d.f0 = Brdf.F0FromMetalness(blended, metal, MaterialDefaults.DielectricF0)
+        d.perceptualRoughness = saturate(roughness * scale)
+    }
+}
+
+/// N metal-roughness layers whose weights are *painted* rather than authored.
+///
+/// **What makes a painted layer stack shippable as a live material.** `MaterialLayersSurface` above
+/// takes its weights as constants, so a ten-layer stack with painted masks was expressible only as
+/// the images it evaluates to — doc 48 § B1 is the statement of that gap and this is the half of it
+/// that belongs to the renderer.
+///
+/// ⚠ **Four layers per map, because a splat map has four channels.** R, G, B and A are layers 0 to 3
+/// and a fifth layer's painted weight is zero — the same ceiling `TerrainSplat.LayersPerWeightMap`
+/// works to. A stack deeper than four wants a second map, which is a second feature rather than a
+/// wider one.
+///
+/// ⚠ **And the fourth of those channels has to be declared, which is `paintedChannels` below.** A
+/// one- or three-channel texture samples alpha as 1 — the hazard `TexturedOpacitySurface` documents
+/// at length and reads `.r` to avoid — so a fourth layer weighted by `splat.a` on an RGB splat map is
+/// weighted **1 over the whole surface**, and after the `1/total` normalisation the stack is layer 3
+/// everywhere. Three is the default for that reason: a stack that reaches the alpha says so, and a
+/// material whose fourth layer is silently unpainted is a warning the material compiler raises rather
+/// than a surface that turned into one colour.
+///
+/// ⚠ **`layers[i].weight` survives and is a *scale* on the painted channel, not the weight.** One is
+/// the map exactly; zero disables a layer wherever it was painted, which is what an author toggling a
+/// layer off wants and is why the constant was not dropped.
+///
+/// The weights are normalised for `MaterialLayersSurface`'s reason, which a painted map only makes
+/// stronger: a splat map painted by hand never sums to one, and a material that dims where the artist
+/// was imprecise is a bug that gets blamed on the lighting.
+shader TexturedMaterialLayersSurface : MaterialTextures, IMaterialSurface {
+    /// How many layers this material has. A permutation, so it sizes the array below and an unused
+    /// layer costs no uniform. ⚠ Not an iteration — see the note above `MaterialLayersSurface`.
+    ///
+    /// ⚠ Raven resolves a permutation by name across the whole compilation, so this and
+    /// `MaterialLayersSurface.LayerCount` are one permutation. That is right — they are the same knob
+    /// — and it is why a material carrying both features has to agree with itself about the count.
+    [Permutation] val LayerCount: int = 2
+
+    /// Which slot of the frame's table holds this material's splat map.
+    var splatIndex: uint = 0u
+
+    /// How many of the splat map's channels actually carry a painted weight.
+    ///
+    /// ⚠ **Three, not four, and the default is the whole guard.** A one- or three-channel texture
+    /// samples alpha as 1, so a material that reaches `splat.a` without having a four-channel map is
+    /// not slightly wrong — layer 3 weighs 1 everywhere and, normalised, covers the surface. A value
+    /// rather than a permutation because it costs one comparison and no variant, and because the
+    /// number is a fact about *this material's* texture rather than about the frame.
+    var paintedChannels: int = 3
+
+    var layers: MaterialLayer[LayerCount]
+
+    /// One layer's painted weight, by channel. Layers past `paintedChannels` are unpainted.
+    ///
+    /// A chain rather than a dynamic index into the vector, because a vector's components are not
+    /// addressable by a runtime index in every backend this library targets — and `layer` *is* a
+    /// runtime index here, since the loop above is emitted as a loop. Four comparisons a layer, which
+    /// a driver that unrolls a constant-bound loop folds to one swizzle.
+    func Painted(splat: float4, layer: int): float {
+        // ⚠ Zero rather than the channel, for a layer the map does not paint. See `paintedChannels`:
+        // the alpha of a map that has none reads 1, which is the widest possible wrong answer.
+        if (layer >= paintedChannels) {
+            return 0f
+        }
+
+        if (layer == 0) {
+            return splat.r
+        }
+
+        if (layer == 1) {
+            return splat.g
+        }
+
+        if (layer == 2) {
+            return splat.b
+        }
+
+        if (layer == 3) {
+            return splat.a
+        }
+
+        return 0f
+    }
+
+    func Compute(inout d: MaterialData) {
+        val splat = SampleSurface(splatIndex, d)
+
+        var color = float3(0f)
+        var metalness = 0f
+        var roughness = 0f
+        var total = 0f
+
+        for (i in 0 .. LayerCount - 1) {
+            val weight = max(layers[i].weight * Painted(splat, i), 0f)
 
             color += layers[i].baseColor * weight
             metalness += layers[i].metalness * weight

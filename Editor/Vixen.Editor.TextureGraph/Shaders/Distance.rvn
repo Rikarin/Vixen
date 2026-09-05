@@ -1,0 +1,71 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// The reading half of doc 48 § 4.5's `Distance`: the settled jump-flood record turned into a grey.
+//
+// `JumpFlood.rvn` has already done the work — this is one load and a length, and it exists as a
+// separate kernel for the reason `AutoLevels.rvn` is separate from `MinMaxReduce.rvn`: the chain
+// writes a record and the node writes a picture, and folding the two would mean the last flood
+// dispatch was a different kernel from the ones before it.
+//
+// **The mode reads a different field of the same record rather than needing a different flood.**
+// `xy` is the offset to the nearest in-texel and `zw` to the nearest out-texel, so an out-texel's
+// outside distance is `|xy|` and its inside distance is zero, and an in-texel's are the other way
+// round. Nothing here reads the mask again, which is what makes the three modes one dispatch and not
+// three chains.
+//
+// ⚠ **The output rises away from the shape and a designer who wants the other direction reaches for
+// `Invert`.** § 4.5 names the node and not the ramp, and picking the other one would make the
+// closed form — "the distance from a single lit texel is the Euclidean distance, exactly" —
+// unassertable without a second subtraction. `value * maxDistance` is a length in texels, which is
+// the property a test can hold this to.
+
+shader Distance {
+    /// The settled record from the last `JumpFlood` dispatch.
+    var flood: Texture2D
+
+    /// 0 outside · 1 inside · 2 both, signed about a half.
+    var mode: int = 0
+
+    /// The same fraction of the image's longer side the flood was run with.
+    var maxDistance: float = 0.25f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = flood.GetDimensions(0)
+        val record = flood.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+        val reach = max(maxDistance * float(max(extent.x, extent.y)), 0.000001f)
+
+        val toInside = length(float2(record.x, record.y))
+        val toOutside = length(float2(record.z, record.w))
+
+        var value = saturate(toInside / reach)
+
+        if (mode == 1) {
+            value = saturate(toOutside / reach)
+        }
+
+        if (mode == 2) {
+            // An in-texel is one whose offset to the nearest in-texel is itself, which the flood
+            // wrote as an exact zero — so the half-texel test is a comparison against nothing and
+            // not a tolerance.
+            var signed = -toInside
+
+            if (toInside < 0.5f) {
+                signed = toOutside
+            }
+
+            value = saturate(0.5f + 0.5f * signed / reach)
+        }
+
+        target.Store(coord, float4(value, value, value, 1f))
+    }
+}

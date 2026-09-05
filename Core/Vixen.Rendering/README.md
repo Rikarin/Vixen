@@ -923,6 +923,18 @@ parameter name and a material's texture name belong to different things, and a c
 stripped `Index` and matched the rest would guess. An unmatched pair leaves the index at zero, which
 is a valid slot holding some other material's texture.
 
+⚠ **Explicit is not the problem; unchecked is.** `WorldRenderer.Paired` is a hand-kept list, and a
+sampling feature missing from it fails *exactly* like a renamed map — the index stays zero, the map
+comes from slot zero, and for a normal map that is a lit surface whose shading is merely wrong rather
+than one that is obviously untextured. `MaterialPairingInventoryTests` reads `Raven/Library` for every
+shader inheriting `MaterialTextures` and asserts an entry for each, which is
+`ComposeSlotInventoryTests`' shape one layer over — read the library, never a second list.
+
+**A graph's slots are the exception, because they are data.** Nothing can name `albedoIndex` ahead of
+a `.vxshadergraph` the host has never seen, so `AssetMaterialSource.Materials` adds a graph-authored
+material's own `GraphSurfaceFeature.Maps` to the pairing as it compiles. Until that existed a graph
+with a sample node compiled, composed, drew — and sampled the checker.
+
 **Per material, not per variant** — the one thing in this class that is. A permutation can fold a
 texture out of the block but cannot change which texture the material carries, and the table is
 global, so indexing per variant would take two references to one view and release neither.

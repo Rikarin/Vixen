@@ -79,13 +79,24 @@ sealed class TierScene : IDisposable {
 
     (TextureHandle Texture, TextureViewHandle View, TextureDescription Description) owned;
 
+    /// <summary>
+    ///     Every texture this fixture owns that has to be copied into before the first frame.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A list rather than the one hard-coded copy that used to be here, because a material
+    ///     that samples is the second reason to own a texture and there is no third place to put the
+    ///     transfer.</b> A copy into a texture cannot be recorded inside a render pass and everything
+    ///     the compositor executes is inside one — the same constraint <c>Fixture.Render</c>'s
+    ///     <c>before</c> exists for. <see cref="Frames" /> drains this on frame zero, in the order the
+    ///     maps were staged, so a fixture with five maps records five copies and not one.
+    /// </remarks>
+    readonly List<(TextureHandle Texture, BufferHandle Staging, int Width, int Height)> uploads = [];
+
     EnvironmentTexture? environment;
-    TextureHandle opaqueTexture;
     TextureViewHandle opaqueView;
     SamplerHandle opaqueSampler;
     BufferHandle bindPose;
     BufferHandle clusters;
-    BufferHandle opacityStaging;
 
     TierScene(Fixture fixture, WorldRenderer renderer) {
         this.fixture = fixture;
@@ -347,23 +358,14 @@ sealed class TierScene : IDisposable {
 
         device.Write(clusters, 0, new byte[ClusterGrid.BufferSize]);
 
-        var opacity = fixture.Owned(
+        opaqueView = Map(
             "Opacity.Opaque",
-            TextureUsage.Sampled | TextureUsage.CopyDestination,
-            PixelFormat.Rgba8UNorm,
             1,
-            1
+            [byte.MaxValue, byte.MaxValue, byte.MaxValue, byte.MaxValue],
+            PixelFormat.Rgba8UNorm
         );
 
-        opaqueView = opacity.View;
         opaqueSampler = fixture.Sampler(SamplerDescription.LinearClamp with { Name = "Opacity.Opaque" });
-        opaqueTexture = opacity.Texture;
-
-        opacityStaging = device.CreateBuffer(
-            new(4, BufferUsage.CopySource, MemoryAccess.HostUpload, "Opacity.Staging")
-        );
-
-        device.Write(opacityStaging, 0, [byte.MaxValue, byte.MaxValue, byte.MaxValue, byte.MaxValue]);
 
         bindPose = device.CreateBuffer(
             new(64, BufferUsage.Storage, MemoryAccess.HostUpload, "Bones.BindPose")
@@ -375,9 +377,35 @@ sealed class TierScene : IDisposable {
 
         cleanup.Add(() => {
             device.Destroy(clusters);
-            device.Destroy(opacityStaging);
             device.Destroy(bindPose);
         });
+    }
+
+    /// <summary>
+    ///     Stages a square sampled map, and hands back the view a material names it by.
+    /// </summary>
+    /// <param name="name">A name for the debugger and the validation layers.</param>
+    /// <param name="side">Its width and height in texels.</param>
+    /// <param name="texels">Its contents, row-major from the top, in <paramref name="format" />.</param>
+    /// <param name="format">
+    ///     What the texels are. ⚠ <b>The one decision a caller cannot delegate</b>: an
+    ///     <c>Rgba8UNormSrgb</c> view and an <c>Rgba8UNorm</c> view over the same bytes are two
+    ///     different colours, and a base-colour map read as linear is a material two stops too dark
+    ///     everywhere — which looks like lighting.
+    /// </param>
+    /// <returns>The view, for <c>Material.Parameters</c>.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The copy is deferred to the first frame rather than done here, and it has to be.</b>
+    ///     The device has no open frame while a scene is being described, and a copy into a texture
+    ///     cannot be recorded inside a render pass in any case. <see cref="Frames" /> records every
+    ///     staged copy before the compositor's first pass, with the barriers either side of it.
+    /// </remarks>
+    public TextureViewHandle Map(string name, int side, ReadOnlySpan<byte> texels, PixelFormat format) {
+        var (texture, view, staging) = fixture.Sampled(name, side, texels, format);
+
+        uploads.Add((texture, staging, side, side));
+
+        return view;
     }
 
     /// <summary>Adds one box to the scene.</summary>
@@ -588,15 +616,17 @@ sealed class TierScene : IDisposable {
                 if (frame == 0) {
                     // ⚠ Before the passes and outside any of them: a copy into a texture cannot be
                     // recorded inside a render pass, and everything the graph executes is inside one.
-                    commands.Barrier(
-                        new([], [new(opaqueTexture, ResourceState.Undefined, ResourceState.CopyDestination)])
-                    );
+                    foreach (var (texture, staging, width, height) in uploads) {
+                        commands.Barrier(
+                            new([], [new(texture, ResourceState.Undefined, ResourceState.CopyDestination)])
+                        );
 
-                    commands.CopyBufferToTexture(opacityStaging, 0, new(opaqueTexture), new(1, 1, 1));
+                        commands.CopyBufferToTexture(staging, 0, new(texture), new(width, height, 1));
 
-                    commands.Barrier(
-                        new([], [new(opaqueTexture, ResourceState.CopyDestination, ResourceState.ShaderRead)])
-                    );
+                        commands.Barrier(
+                            new([], [new(texture, ResourceState.CopyDestination, ResourceState.ShaderRead)])
+                        );
+                    }
                 }
 
                 Renderer.Draw(commands);

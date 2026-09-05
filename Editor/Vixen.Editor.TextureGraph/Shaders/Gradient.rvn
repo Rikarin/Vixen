@@ -1,0 +1,96 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § 4.1's gradient: linear · radial · angular · reflected, with an angle, a centre and a ramp.
+//
+// ⚠ **The ramp is an *image*, not a list of uniforms, and that is what keeps this kernel from being a
+// second implementation of `Vixen.Ui.Controls.Advanced.Gradient`.** That class already evaluates a
+// ramp — two independent stop lists, a clamp at each end, and three interpolation spaces that
+// disagree visibly (`GradientInterpolation`: sRGB, linear, Oklab). Spelling any of that again in
+// Raven would be the "two transcriptions agree" trap doc 48 § D3 forbids, and it would additionally
+// have to fit `Gradient.MaximumStops` × five scalars into a uniform block one `TextureParameter` at a
+// time. So the node bakes the control's own `Evaluate` into a strip — an ordinary external image in
+// the plan's table — and this kernel does nothing but decide *where along it* a texel falls.
+//
+// That division is also what makes the closed form here exact: feed the identity strip, where texel
+// `i` of 256 holds `i/255`, and the output of a linear gradient at rotation zero over the full width
+// is exactly `(x + 0.5) / width`. Nothing else in this file has to be believed.
+//
+// **The ramp is read from row 0 and interpolated along x.** A strip is one texel high; a taller image
+// is legal and its other rows are ignored, because the alternative is a silent second axis.
+//
+// **Nothing here is in texels**, so `t` is a function of the normalised position only and a gradient
+// is the same picture at every resolution — the one kernel in § 4.1 for which doc 48 § D8's
+// bake-at-1K-against-4K comparison is exact rather than approximate, because the field is continuous.
+
+shader Gradient {
+    /// The strip the position is looked up in. Row 0, interpolated along x.
+    var ramp: Texture2D
+
+    /// 0 linear · 1 radial · 2 angular · 3 reflected.
+    var kind: int = 0
+
+    /// Radians. The direction of a linear or reflected sweep, and where an angular one starts.
+    /// Clockwise on screen, because a texel's y grows downwards.
+    var angle: float = 0f
+
+    var centreX: float = 0.5f
+
+    var centreY: float = 0.5f
+
+    /// The length of the sweep as a fraction of the image: 1 spans it, 0.5 spans the middle half.
+    var scale: float = 1f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// 1 / 2π.
+    const val InvTwoPi: float = 0.15915494f
+
+    /// Where along the ramp a point falls, in 0..1.
+    func Position(offset: float2, direction: float2, span: float): float {
+        if (kind == 1) {
+            return saturate(length(offset) * 2f / span)
+        }
+
+        if (kind == 2) {
+            // `frac` is `x - floor(x)` in both of Raven's backends, so it is already non-negative and
+            // no `+ 1` is needed to bring a negative atan2 into range.
+            return frac((atan2(offset.y, offset.x) - angle) * InvTwoPi)
+        }
+
+        if (kind == 3) {
+            // The linear sweep mirrored about the centre: reflected(d) is exactly 2·linear(|d|) − 1.
+            return saturate(abs(dot(offset, direction)) * 2f / span)
+        }
+
+        return saturate(dot(offset, direction) / span + 0.5f)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val uv = float2((float(coord.x) + 0.5f) / float(size.x), (float(coord.y) + 0.5f) / float(size.y))
+        val offset = uv - float2(centreX, centreY)
+        val direction = float2(cos(angle), sin(angle))
+        val position = Position(offset, direction, max(scale, 0.00001f))
+
+        val width = ramp.GetDimensions(0).x
+        val along = saturate(position) * float(max(width - 1, 1))
+        val low = clamp(int(floor(along)), 0, width - 1)
+        val high = min(low + 1, width - 1)
+        val blend = along - float(low)
+
+        val under = ramp.Load(int3(low, 0, 0))
+        val over = ramp.Load(int3(high, 0, 0))
+
+        // Written as an add and a scale rather than `lerp`, because Raven's `lerp` takes its third
+        // argument at the same type as the first two and a scalar blend of two float4s would be an
+        // overload that is not there.
+        target.Store(coord, under + (over - under) * blend)
+    }
+}

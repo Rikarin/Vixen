@@ -116,6 +116,35 @@ public sealed class SettingAttribute : Attribute {
     ///     both are given.
     /// </remarks>
     public string Default { get; init; } = "";
+
+    /// <summary>How its text is read: a name, a flag, a count or a number.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The field is a <see langword="string" /> whatever this says, and that is the point.</b>
+    ///     A setting's storage is <see cref="GraphNode.Texts" /> — which is what survives a save and a
+    ///     merge, and what lets a node type read a key it no longer declares — while what an inspector
+    ///     should <em>offer</em> for it is a different question. Before
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/730">#730</a> there was only the first
+    ///     answer, so every setting in every graph was a text box, including the ones whose legal
+    ///     values are two.
+    /// </remarks>
+    public SettingKind Kind { get; init; } = SettingKind.Text;
+
+    /// <summary>The bottom of its range, for a <see cref="SettingKind.Int" /> or a <see cref="SettingKind.Float" />.</summary>
+    /// <remarks>
+    ///     Both ends or neither: a range with one end open is not a slider, and
+    ///     <see cref="SettingDefinition.IsBounded" /> is what decides.
+    /// </remarks>
+    public float Minimum { get; init; } = float.NegativeInfinity;
+
+    /// <summary>The top of it.</summary>
+    public float Maximum { get; init; } = float.PositiveInfinity;
+
+    /// <summary>Which section of an inspector it belongs to, or empty for the ungrouped ones.</summary>
+    /// <remarks>
+    ///     Consecutive settings sharing a group are one section, in declaration order — so a group is
+    ///     a property of where a field is written rather than a second ordering to maintain.
+    /// </remarks>
+    public string Group { get; init; } = "";
 }
 
 /// <summary>Marks a field as an output port.</summary>

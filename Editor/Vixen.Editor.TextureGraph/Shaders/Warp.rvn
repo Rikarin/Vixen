@@ -1,0 +1,99 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § 4.4's `Warp`: displace the source by the **gradient** of a grey input.
+//
+// **Its sibling `DirectionalWarp` displaces by the input's *value* along a fixed angle; this one
+// displaces by the input's *slope*, in the slope's own direction.** That is the difference between
+// pushing a picture around with a height field and dragging it downhill, and it is why the two are
+// separate nodes rather than a mode.
+//
+// ## The convention, written down because nothing else could tell you
+//
+// **The sample is taken *up* the gradient**: `p′ = p + ∇h · intensity`. A ramp that gets brighter
+// towards +x therefore reads its source from further right, so the picture appears to slide **left**
+// as the intensity rises. The mirror convention is equally defensible and produces a picture that
+// looks entirely correct, which is exactly why the sign is asserted rather than described:
+// `TextureFilterDeviceTests` warps a known image by an exact linear ramp and requires the shift to
+// be a named number of texels in a named direction.
+//
+// ## ⚠ The gradient is per unit of image width, not per texel — doc 48 § D8
+//
+// A central difference over ±1 texel is a slope in texels and halves at twice the resolution, so a
+// warp written the obvious way displaces by half as much at 4K. Multiplying by the map's own
+// dimensions makes it a slope per unit of normalised image, which is resolution-independent — and
+// then `intensity`, which *is* a length, is a `TexelsAtBase` that `TexturePlan.Resolve` scales. The
+// two together are what make the same graph the same material at both resolutions.
+//
+// ⚠ **The map is read as its red channel and never as a luminance**, because a mask here is an `R8`
+// image and `Load` gives `(r, 0, 0, 1)` for one.
+//
+// **Three closed forms.** A constant map has no gradient, so it is a copy — exactly. An intensity of
+// zero is a copy — exactly. And an exactly linear ramp is a **uniform shift** whose size is
+// arithmetic rather than opinion, which is what makes the sign assertable.
+
+shader Warp {
+    var source: Texture2D
+
+    /// The grey field whose gradient does the displacing. Its **red** channel.
+    var warp: Texture2D
+
+    /// How far a unit of slope displaces, in texels of the image being written.
+    var intensity: float = 0f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// One texel of the source, clamped to the **source's** edge — never the target's.
+    func Tap(x: int, y: int): float4 {
+        val size = source.GetDimensions(0)
+
+        return source.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+    }
+
+    /// The source at a position in **target texels**, bilinearly.
+    func At(x: float, y: float): float4 {
+        val extent = source.GetDimensions(0)
+        val size = target.GetDimensions()
+        val px = (x + 0.5f) * float(extent.x) / float(size.x) - 0.5f
+        val py = (y + 0.5f) * float(extent.y) / float(size.y) - 0.5f
+
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Tap(x0, y0), Tap(x0 + 1, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Tap(x0, y0 + 1), Tap(x0 + 1, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    /// The warp field's height at one of **its own** texels.
+    func Height(x: int, y: int): float {
+        val extent = warp.GetDimensions(0)
+
+        return warp.Load(int3(clamp(x, 0, extent.x - 1), clamp(y, 0, extent.y - 1), 0)).x
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = warp.GetDimensions(0)
+        val wx = int(floor((float(coord.x) + 0.5f) * float(extent.x) / float(size.x)))
+        val wy = int(floor((float(coord.y) + 0.5f) * float(extent.y) / float(size.y)))
+
+        val dhdx = (Height(wx + 1, wy) - Height(wx - 1, wy)) * 0.5f * float(extent.x)
+        val dhdy = (Height(wx, wy + 1) - Height(wx, wy - 1)) * 0.5f * float(extent.y)
+
+        // Up the gradient. See the header: the sign is a convention and is asserted, not described.
+        val x = float(coord.x) + dhdx * intensity
+        val y = float(coord.y) + dhdy * intensity
+
+        target.Store(coord, At(x, y))
+    }
+}

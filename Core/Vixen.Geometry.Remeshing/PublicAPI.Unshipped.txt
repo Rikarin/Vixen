@@ -16,6 +16,12 @@ Vixen.Geometry.Remeshing.BakeSettings : System.IEquatable<Vixen.Geometry.Remeshi
 Vixen.Geometry.Remeshing.BakeSettings.BakeSettings() -> void
 Vixen.Geometry.Remeshing.BakeSettings.Gutter.get -> int
 Vixen.Geometry.Remeshing.BakeSettings.Gutter.init -> int
+Vixen.Geometry.Remeshing.BakeSettings.Maps.get -> Vixen.Geometry.Remeshing.MeshMaps
+Vixen.Geometry.Remeshing.BakeSettings.Maps.init -> Vixen.Geometry.Remeshing.MeshMaps
+Vixen.Geometry.Remeshing.BakeSettings.OcclusionRadius.get -> float
+Vixen.Geometry.Remeshing.BakeSettings.OcclusionRadius.init -> float
+Vixen.Geometry.Remeshing.BakeSettings.OcclusionSamples.get -> int
+Vixen.Geometry.Remeshing.BakeSettings.OcclusionSamples.init -> int
 Vixen.Geometry.Remeshing.BakeSettings.SearchRadius.get -> float
 Vixen.Geometry.Remeshing.BakeSettings.SearchRadius.init -> float
 Vixen.Geometry.Remeshing.BakeSettings.Space.get -> Vixen.Geometry.Remeshing.BakeSpace
@@ -26,9 +32,25 @@ Vixen.Geometry.Remeshing.BakeSpace.Object = 1 -> Vixen.Geometry.Remeshing.BakeSp
 Vixen.Geometry.Remeshing.BakeSpace.Tangent = 0 -> Vixen.Geometry.Remeshing.BakeSpace
 Vixen.Geometry.Remeshing.BakedMaps -> sealed record
 Vixen.Geometry.Remeshing.BakedMaps : System.IEquatable<Vixen.Geometry.Remeshing.BakedMaps>
+Vixen.Geometry.Remeshing.BakedMaps.AmbientOcclusion.get -> System.Collections.Generic.IReadOnlyList<float>?
+Vixen.Geometry.Remeshing.BakedMaps.AmbientOcclusion.init -> System.Collections.Generic.IReadOnlyList<float>?
 Vixen.Geometry.Remeshing.BakedMaps.BakedMaps() -> void
+Vixen.Geometry.Remeshing.BakedMaps.BentNormal.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector3>?
+Vixen.Geometry.Remeshing.BakedMaps.BentNormal.init -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector3>?
+Vixen.Geometry.Remeshing.BakedMaps.Curvature.get -> System.Collections.Generic.IReadOnlyList<float>?
+Vixen.Geometry.Remeshing.BakedMaps.Curvature.init -> System.Collections.Generic.IReadOnlyList<float>?
+Vixen.Geometry.Remeshing.BakedMaps.CurvatureRange.get -> float
+Vixen.Geometry.Remeshing.BakedMaps.CurvatureRange.init -> float
+Vixen.Geometry.Remeshing.BakedMaps.Ids.get -> System.Collections.Generic.IReadOnlyList<int>?
+Vixen.Geometry.Remeshing.BakedMaps.Ids.init -> System.Collections.Generic.IReadOnlyList<int>?
+Vixen.Geometry.Remeshing.BakedMaps.Position.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector3>?
+Vixen.Geometry.Remeshing.BakedMaps.Position.init -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector3>?
+Vixen.Geometry.Remeshing.BakedMaps.Thickness.get -> System.Collections.Generic.IReadOnlyList<float>?
+Vixen.Geometry.Remeshing.BakedMaps.Thickness.init -> System.Collections.Generic.IReadOnlyList<float>?
 Vixen.Geometry.Remeshing.BakedMaps.Warnings.get -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.Geometry.Remeshing.BakedMaps.Warnings.init -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Geometry.Remeshing.BakedMaps.WorldNormal.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector3>?
+Vixen.Geometry.Remeshing.BakedMaps.WorldNormal.init -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector3>?
 Vixen.Geometry.Remeshing.ConditioningReport -> readonly struct
 Vixen.Geometry.Remeshing.ConditioningReport : System.IEquatable<Vixen.Geometry.Remeshing.ConditioningReport>
 Vixen.Geometry.Remeshing.ConditioningReport.ConditioningReport() -> void
@@ -67,6 +89,17 @@ Vixen.Geometry.Remeshing.ConditioningSettings.SpeckArea.init -> float
 Vixen.Geometry.Remeshing.ConditioningSettings.WeldTolerance.get -> float
 Vixen.Geometry.Remeshing.ConditioningSettings.WeldTolerance.init -> float
 Vixen.Geometry.Remeshing.MapBaker -> static class
+Vixen.Geometry.Remeshing.MeshMaps -> enum : int
+Vixen.Geometry.Remeshing.MeshMaps.All = Vixen.Geometry.Remeshing.MeshMaps.AmbientOcclusion | Vixen.Geometry.Remeshing.MeshMaps.BentNormal | Vixen.Geometry.Remeshing.MeshMaps.Curvature | Vixen.Geometry.Remeshing.MeshMaps.Thickness | Vixen.Geometry.Remeshing.MeshMaps.Position | Vixen.Geometry.Remeshing.MeshMaps.WorldNormal | Vixen.Geometry.Remeshing.MeshMaps.Id -> Vixen.Geometry.Remeshing.MeshMaps
+Vixen.Geometry.Remeshing.MeshMaps.AmbientOcclusion = 1 -> Vixen.Geometry.Remeshing.MeshMaps
+Vixen.Geometry.Remeshing.MeshMaps.BentNormal = 2 -> Vixen.Geometry.Remeshing.MeshMaps
+Vixen.Geometry.Remeshing.MeshMaps.Curvature = 4 -> Vixen.Geometry.Remeshing.MeshMaps
+Vixen.Geometry.Remeshing.MeshMaps.Id = 64 -> Vixen.Geometry.Remeshing.MeshMaps
+Vixen.Geometry.Remeshing.MeshMaps.MeshMaps() -> void
+Vixen.Geometry.Remeshing.MeshMaps.None = 0 -> Vixen.Geometry.Remeshing.MeshMaps
+Vixen.Geometry.Remeshing.MeshMaps.Position = 16 -> Vixen.Geometry.Remeshing.MeshMaps
+Vixen.Geometry.Remeshing.MeshMaps.Thickness = 8 -> Vixen.Geometry.Remeshing.MeshMaps
+Vixen.Geometry.Remeshing.MeshMaps.WorldNormal = 32 -> Vixen.Geometry.Remeshing.MeshMaps
 Vixen.Geometry.Remeshing.RemeshArcLabel -> readonly struct
 Vixen.Geometry.Remeshing.RemeshArcLabel : System.IEquatable<Vixen.Geometry.Remeshing.RemeshArcLabel>
 Vixen.Geometry.Remeshing.RemeshArcLabel.Arc.get -> int
@@ -291,6 +324,7 @@ required Vixen.Geometry.Remeshing.SkinBinding.Stride.get -> int
 required Vixen.Geometry.Remeshing.SkinBinding.Stride.init -> int
 static Vixen.Geometry.Remeshing.AttributeTransfer.Transfer(Vixen.Geometry.EditMesh source, Vixen.Geometry.Remeshing.SourceAttributes attributes, Vixen.Geometry.EditMesh target, Vixen.Geometry.Remeshing.TransferSettings settings) -> Vixen.Geometry.Remeshing.TransferResult
 static Vixen.Geometry.Remeshing.MapBaker.Bake(Vixen.Geometry.EditMesh source, Vixen.Geometry.EditMesh target, Vixen.Geometry.Remeshing.BakeSettings settings) -> Vixen.Geometry.Remeshing.BakedMaps
+static Vixen.Geometry.Remeshing.MapBaker.IdColour(int id) -> Vixen.Core.Mathematics.Vector3
 static Vixen.Geometry.Remeshing.RemeshDump.Capture(Vixen.Geometry.EditMesh source, Vixen.Geometry.Remeshing.RemeshSettings settings, Vixen.Core.Threading.JobScheduler? scheduler = null) -> Vixen.Geometry.Remeshing.RemeshDump
 static Vixen.Geometry.Remeshing.Remesher.Remesh(Vixen.Geometry.EditMesh source, Vixen.Geometry.Remeshing.RemeshSettings settings, out Vixen.Geometry.Remeshing.RemeshReport report, Vixen.Core.Threading.JobScheduler? scheduler = null) -> Vixen.Geometry.EditMesh
 static Vixen.Geometry.Remeshing.Remesher.Remesh(Vixen.Geometry.EditMesh source, Vixen.Geometry.Remeshing.SourceAttributes attributes, Vixen.Geometry.Remeshing.RemeshSettings settings, out Vixen.Geometry.Remeshing.RemeshReport report, out Vixen.Geometry.Remeshing.TransferResult transferred, Vixen.Core.Threading.JobScheduler? scheduler = null) -> Vixen.Geometry.EditMesh

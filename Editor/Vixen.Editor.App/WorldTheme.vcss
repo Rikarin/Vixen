@@ -44,4 +44,78 @@ scene-row {
 scene-row.selected { background-color: var(--accent-deep, var(--accent)); color: #ffffff; }
 scene-name { flex-grow: 1; min-width: 0; }
 
+/* ── The mesh-map bake panel (doc 48 § D12) ─────────────────────────────
+   Deliberately the same shape as `build-settings` one sheet over — a form
+   of rows, a block of choices, an action strip and two sentences — because
+   it is the same kind of surface and reading it as a second kind of panel
+   would be the cost of styling it as one. ⚠ The rules are repeated rather
+   than shared: `EditorTheme.vcss`'s `build-*` names are the build panel's,
+   and a selector list naming both is how restyling one silently restyles
+   the other, which that sheet's own choice-list comment says in as many
+   words. */
+mesh-map-bake {
+    flex-direction: column;
+    flex-grow: 1;
+    flex-basis: 0px;
+    min-height: 0px;
+    gap: 0px;
+}
+
+meshbake-form {
+    flex-direction: column;
+    flex-shrink: 0;
+    gap: 4px;
+    padding: 8px 9px;
+}
+
+meshbake-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+
+meshbake-row text { width: 110px; flex-shrink: 0; color: var(--text-muted); }
+meshbake-row select, meshbake-row textbox { flex-grow: 1; min-width: 120px; }
+meshbake-subject { flex-grow: 1; min-width: 0; }
+
+meshbake-heading {
+    flex-shrink: 0;
+    padding: 4px 9px 2px 9px;
+    font-weight: 600;
+}
+
+/* ⚠ Wrapped rather than a column of seven, and it is what keeps the Bake
+   button above the fold in a docked panel: seven checkboxes stacked is
+   roughly two hundred pixels of a surface that is often three hundred
+   tall. */
+meshbake-maps {
+    flex-direction: row;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    gap: 4px 14px;
+    padding: 2px 9px 6px 9px;
+}
+
+meshbake-note, meshbake-status {
+    flex-shrink: 0;
+    padding: 4px 9px;
+    color: var(--text-muted);
+    font-size: 0.85em;
+}
+
+meshbake-actions {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    gap: 6px;
+    padding: 6px 9px;
+    border-top-width: 1px;
+    border-color: var(--border);
+    background-color: var(--surface-sunken);
+}
+
+meshbake-spacer { flex-grow: 1; }
+
+mesh-map-bake data-grid { flex-grow: 1; flex-basis: 0px; min-height: 60px; }
+
 }

@@ -1,0 +1,94 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § 4.4's `Directional Warp`: displace the source along **one authored direction** by the
+// value of a grey input.
+//
+//     p′ = p + h(p) · intensity · (cos angle, sin angle)
+//
+// **Its sibling `Warp` displaces by the *gradient* of the input, in the gradient's own direction.**
+// This one takes the value and the direction is the artist's — which is what makes it the node a
+// stretch, a drip and a wood grain are all built from, and why it is not a mode on `Warp`.
+//
+// ## The convention
+//
+// **The height is raw 0..1, not centred**, so a black map is no displacement at all and the warp
+// only ever pushes one way. That is deliberate and it is the difference from `VectorWarp`, whose map
+// carries a signed displacement in an unorm and therefore *does* have to be decoded. An artist who
+// wants a two-sided directional warp levels the map first, which is one node and is visible in the
+// graph — where a hidden `−0.5` here would not be.
+//
+// **`angle` is in radians from +x towards +y, and +y is down the image**, because a texel's y is a
+// row index. Nothing but the tests pins that, so they pin it: a constant map at angle 0 shifts by an
+// exact number of texels in x, and the same map at π/2 shifts by the same number in y.
+//
+// ⚠ **`intensity` arrives in the texels of the image being written** — `TexturePlan.Resolve` has
+// applied doc 48 § D8's scaling, so a warp authored at 1K is the same physical displacement at 4K.
+//
+// ⚠ **The map is read as its red channel and never as a luminance**, because a mask here is an `R8`
+// image and `Load` gives `(r, 0, 0, 1)` for one.
+//
+// **Three closed forms.** A black map is a copy, exactly. An intensity of zero is a copy, exactly.
+// And a **constant** map is a uniform shift of exactly `h · intensity` texels along the angle —
+// which is the only one of the three that can tell a working `angle` from an ignored one.
+
+shader DirectionalWarp {
+    var source: Texture2D
+
+    /// The grey field whose **red** channel is the displacement, 0..1.
+    var warp: Texture2D
+
+    /// Radians from +x towards +y, and +y is down the image.
+    var angle: float = 0f
+
+    /// What a fully lit texel of the map displaces by, in texels of the image being written.
+    var intensity: float = 0f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// One texel of the source, clamped to the **source's** edge — never the target's.
+    func Tap(x: int, y: int): float4 {
+        val size = source.GetDimensions(0)
+
+        return source.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+    }
+
+    /// The source at a position in **target texels**, bilinearly.
+    func At(x: float, y: float): float4 {
+        val extent = source.GetDimensions(0)
+        val size = target.GetDimensions()
+        val px = (x + 0.5f) * float(extent.x) / float(size.x) - 0.5f
+        val py = (y + 0.5f) * float(extent.y) / float(size.y) - 0.5f
+
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Tap(x0, y0), Tap(x0 + 1, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Tap(x0, y0 + 1), Tap(x0 + 1, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = warp.GetDimensions(0)
+        val wx = clamp(int(floor((float(coord.x) + 0.5f) * float(extent.x) / float(size.x))), 0, extent.x - 1)
+        val wy = clamp(int(floor((float(coord.y) + 0.5f) * float(extent.y) / float(size.y))), 0, extent.y - 1)
+
+        val height = warp.Load(int3(wx, wy, 0)).x
+        val push = height * intensity
+
+        val x = float(coord.x) + push * cos(angle)
+        val y = float(coord.y) + push * sin(angle)
+
+        target.Store(coord, At(x, y))
+    }
+}

@@ -15,8 +15,10 @@ using Vixen.Platform.Headless;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Features;
+using Vixen.Rendering.Materials;
 using Vixen.Rendering.PostFx;
 using Vixen.Rendering.Terrain;
+using Vixen.Shaders.Generated;
 using Xunit;
 
 namespace Vixen.App.Tests;
@@ -320,6 +322,52 @@ public sealed class HostedRendererTests : IDisposable {
         Assert.Contains(key, renderer.Materials.PermutationKeys["ForwardPlus"]);
     }
 
+    /// <summary>
+    ///     A layered material's <c>LayerCount</c> is in the effect key of the host that draws, after
+    ///     the host has registered the pass's own generated keys over the top.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The assertion that was missing, and the shape of test this repository keeps
+    ///         paying for.</b> The engine registered the key in <c>WorldRenderer</c>'s constructor and
+    ///         a unit test exercised that registration on a fresh <c>MaterialRenderFeature</c> — green,
+    ///         and green under every sabotage, while the defect stood untouched in both shipping
+    ///         samples: an architecture rule with no false positives that was satisfied by exactly the
+    ///         defect it was meant to catch. What no test read was <em>what a host ends up with</em>,
+    ///         and a host ends up with whatever it assigned last.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="LayeredGame" /> is that line and nothing else, copied from
+    ///         <c>Samples/03-PbrShowcase/PbrShowcaseGame.cs</c> and
+    ///         <c>Samples/13-ThirdPersonShooter/Arena.cs</c>, which both make it in <c>OnInitialise</c>
+    ///         — after the renderer was constructed. Five golden device suites make it too. ⚠ The line
+    ///         is right and stays: <c>ForwardPlusKeys.UsedPermutationKeys</c> is what the pass's own
+    ///         reflection reports, and <c>LayerCount</c> is a <em>composed</em> surface's permutation
+    ///         that no pass reflection can carry. It is the dropping that had to become impossible.
+    ///     </para>
+    ///     <para>
+    ///         Both halves are asserted, because keeping the registered key by throwing the host's own
+    ///         list away would be the same defect facing the other way — a pass compiled without
+    ///         clustered lights or shadows.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AHostsOwnPermutationKeysDoNotDropTheOnesTheRendererRegistered() {
+        var game = new LayeredGame();
+        using var application = Build(game);
+
+        var renderer = application.Services.Graphics!.Renderer;
+
+        application.Initialise();
+
+        Assert.True(game.Assigned, "The game never made the assignment, so nothing was proved.");
+
+        var keys = renderer.Materials.PermutationKeys["ForwardPlus"];
+
+        Assert.Contains(MaterialKeys.LayerCount("ForwardPlus"), keys);
+        Assert.All(ForwardPlusKeys.UsedPermutationKeys, key => Assert.Contains(key, keys));
+    }
+
     /// <summary>Two tiers, two budgets — otherwise the fold could be a constant.</summary>
     [Fact]
     public void ADifferentTierIsADifferentLightBudget() {
@@ -608,6 +656,26 @@ public sealed class HostedRendererTests : IDisposable {
     /// </summary>
     sealed class WindowedGame : Game {
         protected internal override void OnConfigure(AppConfig config) => config.Window = new();
+    }
+
+    /// <summary>
+    ///     A game that registers the shading pass's generated permutation keys, which is the one line
+    ///     every host that draws materials writes.
+    /// </summary>
+    sealed class LayeredGame : SilentGame {
+        /// <summary>Whether the host actually got as far as the line under test.</summary>
+        public bool Assigned { get; private set; }
+
+        protected internal override void OnInitialise() {
+            base.OnInitialise();
+
+            if (Services.Graphics is not { } graphics) {
+                return;
+            }
+
+            graphics.Renderer.Materials.PermutationKeys["ForwardPlus"] = ForwardPlusKeys.UsedPermutationKeys;
+            Assigned = true;
+        }
     }
 
     /// <summary>A game that says which tier it is and nothing else.</summary>

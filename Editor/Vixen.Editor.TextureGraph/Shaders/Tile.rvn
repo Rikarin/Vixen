@@ -1,0 +1,92 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § 4.3's `Tile`: an integer repeat, with a shift per tile row and column.
+//
+// **The per-tile offset is what makes this a brick node rather than a `frac`.** Repeating four by
+// four with `offsetX` at 0.5 shifts every other row by half a tile, which is a running bond; the
+// same node with both offsets at zero is a plain grid. Every pattern in § 4.9's list that is not a
+// splatter starts here.
+//
+// **Two exact closed forms, and they are the reason the sampling is what it is.**
+//   · A repeat of 1×1 with no offset is a **copy** — texel for texel, because at one sample per
+//     texel the address arithmetic lands back on the texel it started from.
+//   · A repeat of *n* is **periodic**: the output at `u` and at `u + 1/n` are the same texel,
+//     exactly, whatever is underneath.
+//
+// ⚠ **Minification is area-averaged rather than point-sampled, and the sample count is the repeat.**
+// A repeat of 4 shows the whole source in a quarter of the width, which is a 4× minification: point
+// sampling it keeps one source texel in four and drops the rest, and a noise tiled that way grows a
+// moiré that gets blamed on the noise. Averaging `repeat × repeat` sub-samples is exactly the box a
+// mip level would have been — and at a repeat of 1 it is one sample, which is what keeps the copy
+// above exact rather than nearly exact.
+
+shader Tile {
+    var source: Texture2D
+
+    /// How many times across. Clamped to at least one — zero would be a division by zero.
+    var repeatX: int = 1
+
+    var repeatY: int = 1
+
+    /// How far each successive tile *row* is shifted along x, in tiles.
+    var offsetX: float = 0f
+
+    /// How far each successive tile *column* is shifted along y, in tiles.
+    var offsetY: float = 0f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The most sub-samples per axis, whatever the repeat says.
+    const val MaxSamples: int = 8
+
+    /// One tap, wrapped — a tile's edge meets the opposite edge of the source by construction.
+    func Tap(u: float, v: float): float4 {
+        val extent = source.GetDimensions(0)
+        val fx = u - floor(u)
+        val fy = v - floor(v)
+        val x = clamp(int(fx * float(extent.x)), 0, extent.x - 1)
+        val y = clamp(int(fy * float(extent.y)), 0, extent.y - 1)
+
+        return source.Load(int3(x, y, 0))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val countX = max(repeatX, 1)
+        val countY = max(repeatY, 1)
+        val samples = clamp(max(countX, countY), 1, MaxSamples)
+        val step = 1f / float(samples)
+
+        var sum = float4(0f, 0f, 0f, 0f)
+
+        for (sy in 0 .. MaxSamples) {
+            if (sy >= samples) {
+                break
+            }
+
+            for (sx in 0 .. MaxSamples) {
+                if (sx >= samples) {
+                    break
+                }
+
+                val u = (float(coord.x) + (float(sx) + 0.5f) * step) / float(size.x)
+                val v = (float(coord.y) + (float(sy) + 0.5f) * step) / float(size.y)
+
+                // The tile this sub-sample lands in, which is what the per-tile shift is indexed by.
+                val tileX = floor(u * float(countX))
+                val tileY = floor(v * float(countY))
+
+                sum = sum + Tap(u * float(countX) + offsetX * tileY, v * float(countY) + offsetY * tileX)
+            }
+        }
+
+        target.Store(coord, sum / float(samples * samples))
+    }
+}

@@ -100,6 +100,20 @@
         <ProjectReference Include="..\Vixen.Editor.Testing\Vixen.Editor.Testing.csproj" />
 
         <!--
+          ⚠ **The one place in the tree that can see both halves of doc 48 § 4.8's binding**, and it
+          has to be a *test* project because neither production assembly may reference the other.
+          `Vixen.Editor.Assets` owns the vocabulary — `MeshMapUsage`, `MeshMapNaming`, the sidecar —
+          and drags Assimp, `Vixen.Engine` and every importer with it;
+          `Vixen.Editor.TextureGraph`'s csproj spends four paragraphs keeping its closure to
+          twenty-nine projects, so it cannot take that reference and states so in
+          `MeshMapInputNode`'s own remarks. The node therefore spells the nine suffixes a second
+          time, and `MeshMapGeneratorBindingTests` is what stops the two spellings drifting: it bakes
+          through the real baker, drives the real node through the real compiler, and asserts the
+          reference that comes out is one the resolver reads back.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.TextureGraph\Vixen.Editor.TextureGraph.csproj" />
+
+        <!--
             The platform with nothing attached, which is what `EditorHostTests` builds the host over.
             One reference and one fixture is the whole cost of running the editor's own frame loop:
             `EditorHost` takes an `IPlatform` and an `IWindow`, and a headless window's surface

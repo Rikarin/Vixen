@@ -597,4 +597,28 @@ level and `MaxSize` does not apply to it. `TextureImporter` reports both rather 
 importer that *throws*; surviving one that takes the process with it — a malformed FBX inside a C++
 library — needs a separate process, and that is what `Tools/Vixen.AssetCompiler` is for.
 
+## `MeshMaps/`, whose whole point is that the pixels stop being pixels
+
+`MapBaker` in `Core/Vixen.Geometry.Remeshing` measures nine things at every texel of a mesh's atlas
+and returns arrays. ⚠ **It had no caller anywhere in the repository** — not an importer, not a
+content build, not the editor — which is the shape of defect this repository names as its commonest:
+a finished thing nothing calls. `MeshMapBake` is that caller and `IMeshMapBaker` is where what it
+produces goes.
+
+`Core/` is under the virtual-path rule, so the bake deliberately writes no files; the encoding
+decisions therefore have to live somewhere, and they live in `MeshMapBake.Encode`, as a pure function
+of a `BakedMaps`. What that buys is that the row flip, the signed remaps and the per-usage import
+settings are all provable against arrays a test wrote by hand.
+
+**The naming is a decision, and it is here because doc 48 § 4.8's generators depend on it.** A Mesh
+Map Input binds *by usage* — that is what makes one generator compound work on every mesh — so a
+usage has to be a value both halves agree on rather than a substring somebody greps for. `MeshMapUsage`
+is that value and `MeshMapNaming` is the vocabulary: `Barrel_ao.png`, `Barrel_curvature.png`,
+`Barrel_height.png` and so on, in `Assets/MeshMaps/`.
+
+⚠ **The `.meta` is authoritative and the file name is a convenience.** Every baked map's sidecar
+carries `meshMap.usage` and `meshMap.mesh` in its extensions block, so a rename changes what an artist
+reads and nothing about what a generator resolves. `docs/guide/editor/mesh-map-assets.md` is the
+written half of this, including the table of suffixes and the two maps that carry a `meshMap.scale`.
+
 Licensed under Apache-2.0.
