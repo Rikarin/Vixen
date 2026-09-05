@@ -326,8 +326,8 @@ same document carries `Vixen.Core` at 0.1 % — a figure that describes neither 
 whenever an unrelated dependency grows. A "per-project coverage" table built from a document's own
 `line-rate` would be that second number.
 
-**And where "is this line reached" is a real question, the answer is a test.** ✅ The first of the
-three places ([#338](https://github.com/Rikarin/Vixen/issues/338)) is done, and it is the worked
+**And where "is this line reached" is a real question, the answer is a test.** ✅ Two of the three
+places ([#338](https://github.com/Rikarin/Vixen/issues/338)) are done, and the first is the worked
 example of the shape: the generated ECS query surface, driven rather than counted, by
 `Vixen.Ecs.Tests/QueryAritySurfaceTests` and `Vixen.Ecs.Tests/QueryAritySweepTests`.
 
@@ -365,10 +365,29 @@ first entity's components) and pinning the entity reference (the handle stops ad
 columns) each go red naming the entity they were given — which is why every component in the sweep
 knows which entity it belongs to. Raising `MaxArity` to 17 fails the census.
 
-Still owed, and deliberately not attempted here: the same treatment for **the serializers and the
-cascade** ([#338](https://github.com/Rikarin/Vixen/issues/338)). ⚠️ Whatever lands there should
-almost certainly not be a percentage either: the shape that survives this section's own argument is
-an executable claim that a named path is exercised, which is a test, not a threshold.
+✅ **The serializers are the second, and the same two halves carry it:**
+`Vixen.Core.Serialization.Tests/BuiltInSerializerSweepTests` runs every serializer
+`BuiltInSerializers` declares against the edges of its own type, and reads the nested types back off
+the assembly so the file rather than the table is the enumeration. ⚠️ **Twenty of the twenty-five
+built-ins had never been written by that suite**, for a reason no percentage could have shown: every
+contract in its `Contracts.cs` is made of `int`, `float`, `double`, `string`, an enum and collections
+of those, so `sbyte`, `ushort`, `char`, `Half`, `decimal`, `Guid`, `DateTime`, `DateTimeOffset`,
+`TimeSpan`, `AssetId`, `SubAssetId`, `AssetReference`, `ObjectId`, `Entity` and `ComponentTypeId` did
+not appear in the test project at all.
+
+⚠️ **And the first assertion written for it was itself the defect, which is the part worth keeping.**
+Stamping every `DateTime` `Utc` in the writer left a plain `Assert.Equal(written, read)` **green**:
+`DateTime.Equals` compares ticks and ignores `Kind`, and `DateTimeOffset.Equals` compares the instant
+and ignores the offset. The kind is asserted on its own and the offset through `EqualsExact` because
+of that, and neither would have been without the sabotage. Both code sabotages — the stamped kind,
+and an `Entity` read that drops its world id — fail this suite and **nothing else in the project**:
+84 other tests green in each case, which is the measurement of the gap rather than a claim about it.
+Adding a twenty-sixth serializer without a sweep entry fails the census.
+
+Still owed, and deliberately not attempted here: the same treatment for **the cascade**
+([#338](https://github.com/Rikarin/Vixen/issues/338)). ⚠️ Whatever lands there should almost
+certainly not be a percentage either: the shape that survives this section's own argument is an
+executable claim that a named path is exercised, which is a test, not a threshold.
 
 ### Coverage of the pyramid
 
