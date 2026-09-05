@@ -723,7 +723,27 @@ public class UtilityFamilySupportTests {
         // — over the declaration's text, not as a value kind — so the clause could never fire and the
         // row stayed `absent` over a capability the engine already had. See
         // <see cref="The_rotate_z_family_turns_the_box_the_way_the_rotate_property_does" />.
-        { "rotate-z-45", "transform", "rotateZ(45deg)" },
+        { "rotate-z-45", "transform", "rotateZ(45deg) skewX(0deg) skewY(0deg)" },
+
+        // ⚠ <b>The three skews, and the expectation above changed when they landed — which is the
+        // useful half of writing an assembled value out in full.</b> Every family that fills one slot
+        // of `transform` emits all three, so `rotate-z-45` now carries two identity skews and a
+        // `skew-x-6` carries an identity rotation. That is what makes the classes compose, and it is
+        // also where the units earn their keep: `skewX(0)` is not a value CSS has, `TransformReader`
+        // refuses a list containing one, and the refusal is whole — so a bare `0` in
+        // `UtilityComposition.Initials` would have made `rotate-z-45` stop rotating.
+        //
+        // ⚠ <b>`skew-6` writes both fragments rather than emitting `skew(6deg, 6deg)`</b>, which is
+        // v4's own shape: two functions, so a `skew-y-0` written beside it has a slot to overwrite.
+        { "skew-x-6", "transform", "rotateZ(0deg) skewX(6deg) skewY(0deg)" },
+        { "skew-y-6", "transform", "rotateZ(0deg) skewX(0deg) skewY(6deg)" },
+        { "skew-6", "transform", "rotateZ(0deg) skewX(6deg) skewY(6deg)" },
+
+        // ⚠ <b>The one keyword of v4's `transform-*` set this engine can honour.</b> `transform-cpu`
+        // and `transform-gpu` are refused rather than absent — see `UtilityFamilies`, where the
+        // reason is that emitting v4's `translateZ(0)` would make `TransformReader` refuse the whole
+        // list and silently unrotate anything beside it.
+        { "transform-none", "transform", "none" },
 
         // ⚠ <b>`ring-*` moved without anything in the engine learning a thing, which no other row in
         // this file has done.</b> Every previous move was a reader arriving or an algorithm landing.
@@ -2207,7 +2227,7 @@ public class UtilityFamilySupportTests {
         ui.Frame();
 
         // One: the shorthand assembled, fragment and all.
-        Assert.Equal("rotateZ(90deg)", ui.StyleOf(spun, "transform"));
+        Assert.Equal("rotateZ(90deg) skewX(0deg) skewY(0deg)", ui.StyleOf(spun, "transform"));
 
         // Two: a group was opened for it. A transform that reached the draw list as no layer at all
         // is a box drawn unrotated, and every geometric assertion below would then be about the
@@ -2231,6 +2251,95 @@ public class UtilityFamilySupportTests {
         // inverted nothing would still pass.
         Assert.Same(spun, ui.Document.HitTest(20f, 24f));
         Assert.NotSame(spun, ui.Document.HitTest(2f, 2f));
+    }
+
+    /// <summary><c>skew-x-45</c> shears the box along x about its centre, and along x only.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Asserted cell by cell, because the way this family goes wrong is a transposition
+    ///         and nothing else.</b> <c>skewX(a)</c> shifts a point's <i>x</i> by its <i>y</i> — the
+    ///         <c>M21</c> cell — so the argument writes the row it is not named after, and
+    ///         <c>TransformReader.Function</c>'s own remark says so. A reader with the two crossed the
+    ///         other way still slants a box, still opens a group and still moves the corner; it slants
+    ///         it the wrong way, and only naming the cell separates the two.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Forty-five degrees, so the cell is exactly <c>tan(45°)</c> = 1</b>, which makes the
+    ///         corner arithmetic closed form rather than a rounding to be eyeballed. The box is 64 by
+    ///         32 and <c>transform-origin</c>'s initial value is its centre, so the top-left corner
+    ///         sits 16 above that centre and a unit shear moves it 16 to the left and nowhere down.
+    ///         ⚠ A skew taken about the element's <i>corner</i> instead would leave that point exactly
+    ///         where it started and satisfy every cell assertion above it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_skew_x_family_shears_the_box_about_its_centre_along_one_axis() {
+        using var ui = Sheet("skew-x-45", "w-16", "h-8", "bg-accent");
+
+        var slanted = ui.Create("probe", ui.Document.Root, null, "skew-x-45", "w-16", "h-8", "bg-accent");
+
+        ui.Frame();
+
+        // One: the assembled declaration names all three slots, with the two this element did not ask
+        // for carrying their identities — and carrying them with units, without which
+        // `TransformReader` refuses the list whole and the class does nothing.
+        Assert.Equal("rotateZ(0deg) skewX(45deg) skewY(0deg)", ui.StyleOf(slanted, "transform"));
+
+        // Two: a group was opened, so the slant reached the draw list as a transform rather than as a
+        // declaration nobody read.
+        var layer = Assert.Single(ui.Document.Drawing.Commands, command => command.Kind == DrawCommandKind.LayerPush);
+
+        Assert.NotNull(layer.Transform);
+
+        var matrix = layer.Transform!.Value;
+
+        // Three: the shear is in `M21` and nowhere else. This is the assertion `skew-y-45` fails.
+        Assert.Equal(1f, matrix.M11, 3);
+        Assert.Equal(0f, matrix.M12, 3);
+        Assert.Equal(1f, matrix.M21, 3);
+        Assert.Equal(1f, matrix.M22, 3);
+
+        // Four: about the centre.
+        var corner = matrix.Apply(new Vector2(slanted.AbsoluteLeft, slanted.AbsoluteTop));
+
+        Assert.Equal(slanted.AbsoluteLeft - 16f, corner.X, 3);
+        Assert.Equal(slanted.AbsoluteTop, corner.Y, 3);
+    }
+
+    /// <summary>The three skew roots and <c>rotate-z-*</c> compose onto one <c>transform</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The assertion the fragment mechanism exists for, and the failure it prevents is
+    ///         silent.</b> Both families write the same <c>transform</c> property, so if each emitted
+    ///         a whole declaration the cascade would keep one and drop the other with nothing
+    ///         unresolved and nothing red — <c>translate-x</c>/<c>translate-y</c>'s original bug, one
+    ///         property over.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>skew-6</c> writes <i>both</i> fragments rather than emitting CSS's
+    ///         two-argument <c>skew(6deg, 6deg)</c>, which is v4's own reading.</b> The two spellings
+    ///         paint the same box on their own and differ the moment a <c>skew-y-*</c> joins the
+    ///         element: a <c>skew(…)</c> slot and a <c>skewY(…)</c> slot are different slots, so
+    ///         whichever of the two rules the cascade dropped would take a whole axis with it. That
+    ///         the assembled value here names <c>skewX</c> and <c>skewY</c> separately is what makes
+    ///         the two roots addressable at all — the outcome of the race is a cascade question and
+    ///         is deliberately not asserted, since rule order here is the order the sheet was
+    ///         generated in and not the order the classes are written on the element.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_skew_and_rotation_fragments_land_in_one_transform_rather_than_overwriting_it() {
+        using var ui = Sheet("skew-x-45", "skew-y-30", "skew-6", "rotate-z-90", "w-16", "h-8");
+
+        var crossed = ui.Create("crossed", ui.Document.Root, null, "skew-x-45", "skew-y-30", "w-16", "h-8");
+        var both = ui.Create("both", ui.Document.Root, null, "skew-6", "w-16", "h-8");
+        var turned = ui.Create("turned", ui.Document.Root, null, "rotate-z-90", "skew-x-45", "w-16", "h-8");
+
+        ui.Frame();
+
+        Assert.Equal("rotateZ(0deg) skewX(45deg) skewY(30deg)", ui.StyleOf(crossed, "transform"));
+        Assert.Equal("rotateZ(0deg) skewX(6deg) skewY(6deg)", ui.StyleOf(both, "transform"));
+        Assert.Equal("rotateZ(90deg) skewX(45deg) skewY(0deg)", ui.StyleOf(turned, "transform"));
     }
 
     /// <summary>

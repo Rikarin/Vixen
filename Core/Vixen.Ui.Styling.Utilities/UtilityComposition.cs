@@ -320,20 +320,28 @@ public static class UtilityComposition {
 
     // ── The transform list ──────────────────────────────────────────────────────────────────
     //
-    // ⚠ <b>A fragment for a family that is currently alone, and the reason is the <i>next</i> two
-    // functions rather than this one</b> — the argument <see cref="Blur" /> makes one property over.
-    // CSS's `transform` is an ordered list, so `rotate-z-45 skew-x-6` has to come out as one
-    // declaration holding both functions; two families each writing a whole `transform` would let
-    // the cascade pick one and drop the other, silently, which is the failure `translate-x`/
+    // ── The transform list's fragments ──────────────────────────────────────────────────────
+    //
+    // ⚠ <b>Three fragments and one assembler, and the arrangement is the reason a second family
+    // could join without touching the first</b> — the argument <see cref="Blur" /> makes one
+    // property over. CSS's `transform` is an ordered list, so `rotate-z-45 skew-x-6` has to come out
+    // as one declaration holding both functions; two families each writing a whole `transform` would
+    // let the cascade pick one and drop the other, silently, which is the failure `translate-x`/
     // `translate-y` had.
     //
-    // ⚠ <b>And it is a list this engine can only partly spell, which is why the assembler names one
-    // slot rather than v4's five.</b> `TransformReader.Functions` refuses a list outright if any one
-    // function in it is unreadable — deliberately, because a card flip read as the two flat halves
-    // of a `rotateX rotateY` pair is a picture, and a wrong one. So writing v4's whole
+    // ⚠ <b>And it is a list this engine can only partly spell, which is why the assembler names
+    // three slots rather than v4's five.</b> `TransformReader.Functions` refuses a list outright if
+    // any one function in it is unreadable — deliberately, because a card flip read as the two flat
+    // halves of a `rotateX rotateY` pair is a picture, and a wrong one. So writing v4's whole
     // `rotateX(…) rotateY(…) rotateZ(…) skewX(…) skewY(…)` today would make `rotate-z-45` emit a
     // declaration the engine drops *whole*: the family would resolve, cascade and do nothing. A slot
     // joins this assembler when its function parses, and not before.
+    //
+    // ⚠ <b>Which is a condition and not a verdict, and the two skews are the case that proves it —
+    // for the second time on this feature.</b> `skewX` and `skewY` have parsed since
+    // `TransformReader.Functions` was written, so the sentence above was already satisfied for them
+    // when it was written; the ledger, `InertProperties.txt` and #227's own body all went on saying
+    // the shorthand was "a parser away" instead. `rotate-z-*` sat `absent` over the same reading.
 
     /// <summary>How far a <c>transform</c> spins the box about the axis normal to the screen.</summary>
     /// <remarks>
@@ -358,6 +366,31 @@ public static class UtilityComposition {
     ///     </para>
     /// </remarks>
     public const string RotateZ = Prefix + "rotate-z";
+
+    /// <summary>How far a <c>transform</c> slants the box along x, as an angle.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="RotateZ" />'s arrangement exactly — the angle in the fragment and
+    ///         <c>skewX(…)</c> in the assembler — and for its reason: <c>UtilityFamilies.TryNegate</c>
+    ///         refuses a value that does not begin with a digit, so a fragment holding
+    ///         <c>skewX(6deg)</c> could never spell <c>-skew-x-6</c>, and a negative skew is half of
+    ///         what the family is written for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two fragments and not one, although CSS's own <c>skew(a, b)</c> takes both
+    ///         angles.</b> The pair is the translations' situation and not the rotation's:
+    ///         <c>skew-x-6 skew-y-3</c> is two classes that have to arrive as one <c>transform</c>,
+    ///         and a single fragment holding <c>6deg 3deg</c> would let whichever rule the cascade
+    ///         picked last zero the other axis silently. ⚠ It is also why <c>skew-*</c> writes
+    ///         <i>both</i> fragments rather than emitting <c>skew(…)</c>: v4's <c>skew-6</c> is
+    ///         <c>skewX(6deg) skewY(6deg)</c>, so a later <c>skew-y-0</c> beside it has somewhere to
+    ///         land.
+    ///     </para>
+    /// </remarks>
+    public const string SkewX = Prefix + "skew-x";
+
+    /// <summary>And along y.</summary>
+    public const string SkewY = Prefix + "skew-y";
 
     // ── The numeric figures ─────────────────────────────────────────────────────────────────
     //
@@ -633,6 +666,13 @@ public static class UtilityComposition {
         // See `RotateZ`: the unit is load-bearing here rather than merely legible, because the
         // initial is substituted inside `rotateZ(…)` and a bare zero makes the whole list invalid.
         [RotateZ] = "0deg",
+
+        // The same unit for the same reason one slot over, with one extra edge: a zero skew is the
+        // *common* case, since an element carrying only `rotate-z-45` still substitutes both of these
+        // — so `skewX(0)`, which `TransformReader`'s angle parser refuses, would take the rotation
+        // down with it rather than merely dropping itself.
+        [SkewX] = "0deg",
+        [SkewY] = "0deg",
 
         // ⚠ <b>One, and this is the pair where the identity is not zero — which is the whole reason
         // these are separate fragments rather than a second use of the translations'.</b> A missing
@@ -927,16 +967,26 @@ public static class UtilityComposition {
     ///         beside it, so one class works alone and several compose.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>One function, where v4 writes five — and the missing four are missing on purpose,
-    ///         not pending.</b> See the block above <see cref="RotateZ" />: a <c>transform</c> naming
-    ///         a function <c>TransformReader</c> cannot read is refused whole, so a slot added before
-    ///         its parser would take the working rotation down with it. <c>rotateX</c>,
-    ///         <c>rotateY</c>, <c>skewX</c> and <c>skewY</c> each join this string on the day the
-    ///         reader accepts them; <c>skew</c> already parses, so its two are a family away rather
-    ///         than a parser away.
+    ///         ⚠ <b>Three functions, where v4 writes five — and the missing two are missing on
+    ///         purpose, not pending.</b> See the block above <see cref="RotateZ" />: a
+    ///         <c>transform</c> naming a function <c>TransformReader</c> cannot read is refused
+    ///         whole, so a slot added before its parser would take the working rotation down with it.
+    ///         <c>skewX</c> and <c>skewY</c> joined on the day somebody read the parser rather than
+    ///         the note about it — both have parsed since <c>TransformReader.Functions</c> was
+    ///         written. <c>rotateX</c> and <c>rotateY</c> are the two still outside, and they are not
+    ///         waiting on a parser either: <c>UiTransform</c> is affine and cannot express the
+    ///         projective composite they need, which is #228.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every slot is substituted on every element that fills any of them</b>, so the
+    ///         initials in <see cref="Initials" /> are load-bearing three times over rather than
+    ///         once: a lone <c>skew-x-6</c> emits a <c>rotateZ</c> and a <c>skewY</c> as well, and
+    ///         either of them spelled without its unit would make <c>TransformReader</c> refuse the
+    ///         list and the class do nothing.
     ///     </para>
     /// </remarks>
-    public static string Transform() => $"rotateZ({Reference(RotateZ)})";
+    public static string Transform() =>
+        $"rotateZ({Reference(RotateZ)}) skewX({Reference(SkewX)}) skewY({Reference(SkewY)})";
 
     /// <summary>The <c>box-shadow</c> a ring is.</summary>
     /// <returns>The assembled value.</returns>

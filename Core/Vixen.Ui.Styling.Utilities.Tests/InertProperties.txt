@@ -96,12 +96,40 @@
 # for the neighbouring transform, because any transform opens a group and so moves every observable
 # the draw list has — and `Vixen.Graphics.Golden.Tests.UiCompositingTests` for the two paths agreeing.
 #
-# ⚠ Still absent and *not* a missing reader, so no line here either: `transform` itself. There is no
-# `<transform-function>` parser — no `matrix()`, `rotate()`, `scale()`, `skew()` — and no list-of-
-# functions in `StyleValue`, so `skew-*` and the whole `transform: …` shorthand are a parser away
-# rather than a renderer away. The 3D family is further out: `perspective`, `transform-style` and
-# `backface-visibility` need a third axis and a projective composite, which `UiTransform` is
-# deliberately unable to express.
+# ⚠ WRONG WHEN IT WAS WRITTEN, corrected 2026-09-05, and it is the clearest case on this page of the
+# failure the page keeps recording. What stood here was:
+#
+#   Still absent and *not* a missing reader, so no line here either: `transform` itself. There is no
+#   `<transform-function>` parser — no `matrix()`, `rotate()`, `scale()`, `skew()` — and no list-of-
+#   functions in `StyleValue`, so `skew-*` and the whole `transform: …` shorthand are a parser away
+#   rather than a renderer away.
+#
+# `Core/Vixen.Ui/Transform.cs` has held that parser the whole time. `TransformReader.Functions` reads
+# `matrix`, `translate`, `translateX/Y`, `scale`, `scaleX/Y`, `rotate`, `rotateZ`, `skew`, `skewX` and
+# `skewY`, composes them right to left per Transforms 1, folds `transform-origin` in per Transforms 2
+# §3, and refuses the whole declaration if any one function in it is unreadable —
+# `Vixen.Ui.Tests.TransformTests` pins it against pixels with `skewX(45deg)` and `matrix(2, 0, 0, 1,
+# 10, 0)` among the cases. ⚠ **It is built over the declaration's TEXT rather than as a
+# `StyleValueKind`**, which is the whole reason every search for the grammar came back empty and why
+# the ledger's `[expires-on Vixen.Ui.Styling.StyleValueKind.Function]` clause could never fire: the
+# refusal named one spelling of the arriving thing and the thing arrived under another name. That
+# clause is still unsatisfied as written and was satisfied in substance months ago — #288's finding,
+# one level worse, and it cost `rotate-z-*` and the three `skew` roots months of reading `absent`.
+#
+# `skew-*`, `skew-x-*` and `skew-y-*` are registered now (#227) and emit a `transform` this engine
+# reads, on `rotate-z-*`'s mechanism: an angle fragment each and the function in
+# `UtilityComposition.Transform`. They carry no line here for the fragments' usual reason — a `--tw-*`
+# is half a declaration and is judged through its assembler.
+#
+# ⚠ What IS still absent, and it is narrower than what this paragraph used to claim: `StyleValueKind`
+# has no function kind, so `StyleValue.CanInterpolate` cannot take a transform list and `Lerp` falls
+# to its discrete branch — a transitioned or animated `transform` jumps at the halfway mark instead of
+# moving. That is not a consumption gap and has no line here either; it sizes `animate-*` (#270) and
+# any `transition` written over the shorthand. The 3D family is further out again — `perspective`,
+# `transform-style` and `backface-visibility` — and ⚠ NOT because `UiTransform` cannot express the
+# matrix, which is what this paragraph used to imply: #547 (`bfad9599`) made it a 3×3 homography on
+# 2026-09-04. What stands is one level down, in the vertex: `UiVertex` has nowhere to put a `w`, so a
+# projective quad would be rasterised with affine barycentrics. #228 and #548.
 
 # ── Filters — A8. CLOSED for blur, and it was the same shape as the transforms above: `blur-2` wrote
 # a number into `--blur`, a name of this engine's own invention that no assembler and no engine — this
