@@ -10,16 +10,17 @@
 #
 # ⚠ A row here is a finding and not a shrug. Every one of these is a rule that fires on nothing, and
 # the reason column says which of the two answers it is owed: the rule goes, or the element arrives.
-# #693 is where that is decided. The one case a row could legitimately be permanent is a tag composed
-# at run time — `Add($"row-{kind}")` — which this scan cannot see; there is no such row today.
+# The one case a row could legitimately be permanent is a tag composed at run time —
+# `Add($"row-{kind}")` — which this scan cannot see; there is no such row today.
 #
-# ⚠ The count is six, not the "well over a hundred" this file's own consumer used to assert. The two
-# older theories are green, and a green `A_type_selector_names_a_tag_rather_than_a_class` means every
-# declared name that is not a tag is a name written nowhere at all — so its passing is what bounds
-# this list.
-asset-picker-list	#693	Two rules including `asset-picker-list > text`; no view creates the tag. EditorTheme.vcss:536.
-material-facts	#693	Shares AssetEditorTheme.vcss:70 with `texture-facts` and `compiled-scene-facts`, which are live. The rule is not dead; this name in it is.
-model-facts	#693	As `material-facts`. ⚠ Also `The_mirror_scan_actually_ran`'s never-written control, so it cannot leave this file without that assertion moving too.
-notification-list	#693	The `Notifications` section of EditorTheme.vcss — five rules for a view that does not exist. The one of the six worth a decision rather than a delete.
-notification-row	#693	As `notification-list`; carries three rules of its own, `> text` and two severity classes.
-prefab-banner	#693	One rule at AssetEditorTheme.vcss:488; nothing creates the tag.
+# ⚠ **The file is empty, and an empty census is the finished state rather than a disabled test.**
+# It held six names when it was written — `notification-list`, `notification-row`,
+# `asset-picker-list`, `prefab-banner`, `model-facts`, `material-facts` — and #693 answered all six
+# the same way: every one was a name left behind by a design that had been replaced under different
+# tags, not a feature waiting to be built. The rules are gone and each deletion left a ⚠ note in the
+# sheet saying what replaced it.
+#
+# ⚠ So what stops this reading green on the day the scan breaks is not this file. It is
+# `The_scan_actually_ran` and `The_mirror_scan_actually_ran`, which refuse a `Declared` or a
+# `Written` that has collapsed — an empty census compared against an empty measured set is exactly
+# what a broken regex also produces, and only those two can tell the difference.

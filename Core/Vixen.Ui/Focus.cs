@@ -70,6 +70,31 @@ public sealed class FocusEvent : UiEvent {
 }
 
 public sealed partial class UiDocument {
+    /// <summary>The element that is part-way through answering "will you give the focus up".</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A resignation is asked once, and without this it was asked twice for the one
+    ///         handler shape this feature exists for.</b> A commit-on-blur control ends its edit by
+    ///         removing itself from inside its own losing event; <see cref="Remove" /> clears the
+    ///         focus it finds, and the focus it finds is still this element because
+    ///         <see cref="Focus(UiElement,bool)" /> deliberately writes nothing until the handler
+    ///         has returned. So the nested call asked the same element the same question again,
+    ///         from underneath the answer.
+    ///     </para>
+    ///     <para>
+    ///         Every commit-on-blur control in this tree survived that only by guarding — a rename
+    ///         editor testing whether the row still has one — and a control written without the
+    ///         guard committed its value twice. The guard belongs here, once, rather than in each of
+    ///         them: an element that is answering the question is not asked it again, and the
+    ///         change it is being asked about still happens.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Saved and restored rather than cleared</b>, because the handler is free to move
+    ///         the focus again and the element resigning underneath is not always the same one.
+    ///     </para>
+    /// </remarks>
+    UiElement? resigning;
+
     /// <summary>The element the keyboard is talking to.</summary>
     public UiElement? Focused { get; private set; }
 
@@ -160,9 +185,21 @@ public sealed partial class UiDocument {
             // give the focus up after it has already gone is being told, not asked. This is the same
             // event the tree would have heard afterwards and not a second one — a duplicate "lost"
             // would be worse than no veto at all.
-            if (previous is not null) {
+            // ⚠ And not asked at all when it is already answering. See `resigning`: a handler that
+            // ends the edit by removing its own element re-enters here through `Remove` → `Release`
+            // with the focus still on it, and the old code put the same question to it a second
+            // time. The move itself still happens — this suppresses the ask, not the change.
+            if (previous is not null && !ReferenceEquals(previous, resigning)) {
                 var leaving = new FocusEvent { Gained = false, Previous = previous, Next = element };
-                previous.Raise(leaving);
+
+                var outer = resigning;
+                resigning = previous;
+
+                try {
+                    previous.Raise(leaving);
+                } finally {
+                    resigning = outer;
+                }
 
                 // ⚠ The refusal is read only when the move is one somebody asked for. `force` is how
                 // removal and teardown say they are not asking, and without it a field with an

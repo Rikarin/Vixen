@@ -498,9 +498,11 @@ upward invalidation walk narrowed by the far end's names. What *is* refused is a
 with a combinator in it. CSS anchors the argument at the element, so `:has(.a .b)` requires the `.a`
 to be inside the subtree too, and the obvious implementation — matching the nested selector against
 every descendant — also says yes when the `.a` is an ancestor. ⚠ And the relative form `:has(> .x)`
-cannot be refused here at all: ExCSS 4.3.2 parses it into the same node as `:has(.x)`, so the
-combinator is gone before this compiler sees it. `Variants` refuses `has-[>_.x]` at the one point
-where the text is still intact, and a hand-written rule is unguarded — filed as **#711**. (Doc 09 lists container queries beside `:has()`; that entry is stale
+cannot be refused *here* at all: ExCSS 4.3.2 parses it into the same node as `:has(.x)`, so the
+combinator is gone from the tree and from `ISelector.Text` before this compiler sees it. So the
+refusal lives one step earlier, in `StyleSheetLoader.RefuseRelativeHas`, which cuts the rule out of
+the source text before the parser reads it — the only place the combinator still exists. `Variants`
+refuses `has-[>_.x]` on the same ground for a generated class. (Doc 09 lists container queries beside `:has()`; that entry is stale
 too — see the section above.) Anything else
 Vixen does not understand is dropped with a diagnostic naming the selector, never approximated. A rule that silently matches more than it says produces a UI that is
 wrong everywhere nobody looked; a rule that does not load produces a message.

@@ -277,9 +277,10 @@ public static class UtilityFamilies {
     ///         border on <i>every child but the last</i>: they are a rule over a relationship, not a
     ///         declaration on a box, and no amount of value-table work reaches them. With
     ///         <c>" &gt; :not(:last-child)"</c> here the generator writes
-    ///         <c>.space-x-4 &gt; :not(:last-child)</c>, which the selector engine compiles and
-    ///         matches — <see cref="SimpleSelectorKind.Not" />, <see cref="PositionTest.Last" /> and
-    ///         <see cref="Combinator.Child" /> have all been there the whole time.
+    ///         <c>:where(.space-x-4 &gt; :not(:last-child))</c>, which the selector engine compiles
+    ///         and matches — <see cref="SimpleSelectorKind.Not" />, <see cref="PositionTest.Last" />
+    ///         and <see cref="Combinator.Child" /> have all been there the whole time, and the
+    ///         <c>:where()</c> that keeps the rule out of a child's way is the generator's.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>It is appended <i>after</i> the variants, which is the only order that is
@@ -3848,20 +3849,19 @@ public static class UtilityFamilies {
     /// <param name="kind">How its value turns into declarations — the same kinds as anything else.</param>
     /// <param name="properties">What it sets, on each child but the last.</param>
     /// <remarks>
-    ///     ⚠ <b><c>:not(:last-child)</c> and not v4's <c>:where(&amp; &gt; :not(:last-child))</c>,
-    ///     and the difference is one Vixen cannot currently paper over.</b> The <c>&amp;</c> is CSS
-    ///     nesting, which the loader does not do, so the emitted form is the flattened one — proved
-    ///     rather than assumed, in <c>ChildScopedFamilyTests</c>. The <c>:where()</c> is v4's way of
-    ///     keeping the rule at one class of specificity so that a child's own <c>me-0</c> still
-    ///     wins; the rule lands at <c>(0,2,0)</c> here and beats a child's own single-class utility.
-    ///     That is exactly what Tailwind v3 did for four major versions, and it is written down in
-    ///     the guide rather than left to be discovered.
+    ///     ⚠ <b>The scope is the bare <c>&gt; :not(:last-child)</c>, and v4's <c>:where()</c> goes
+    ///     round the whole selector rather than round this.</b> The <c>&amp;</c> in v4's
+    ///     <c>:where(&amp; &gt; :not(:last-child))</c> is CSS nesting, which the loader does not do,
+    ///     so the flattening is <see cref="UtilityGenerator" />'s — and it wraps there because that
+    ///     is where the variants have already been applied and the whole selector exists. Wrapping
+    ///     this constant instead would emit <c>.space-y-4 &gt; :where(:not(:last-child))</c>, which
+    ///     lands at (0,1,0) and only ties with a child's own <c>mb-0</c>.
     ///     <para>
-    ///         ⚠ <b>This remark used to say the fix was "three lines in a file this project does not
-    ///         own" — that <c>SelectorCompiler</c> counts <c>:where()</c> like <c>:is()</c> and a
-    ///         charge could simply be dropped. It does not.</b> ExCSS 4.3.2 does not parse
-    ///         <c>:where()</c> at all, so the whole selector arrives as one unknown and the rule is
-    ///         refused rather than compiled at the wrong specificity. Measured in
+    ///         ⚠ <b>This remark used to say the rule was stuck at (0,2,0) because
+    ///         <c>SelectorCompiler</c> counts <c>:where()</c> like <c>:is()</c> and the charge could
+    ///         not be dropped. It counted nothing:</b> ExCSS 4.3.2 does not parse <c>:where()</c> at
+    ///         all, so the whole selector arrived as one unknown and the rule was refused rather
+    ///         than compiled at the wrong specificity. The compiler repairs that text itself now —
     ///         <c>Vixen.Ui.Styling.Tests</c>' <c>WhereSelectorTests</c>.
     ///     </para>
     /// </remarks>

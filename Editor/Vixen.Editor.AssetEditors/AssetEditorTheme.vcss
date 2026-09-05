@@ -67,7 +67,12 @@ import-settings > scroll-view > scroll-content { gap: 8px; }
 fact-row { flex-direction: row; align-items: center; gap: 8px; min-height: 20px; }
 fact-name { width: 40%; min-width: 72px; flex-shrink: 0; color: var(--text-muted); }
 fact-value { flex-grow: 1; min-width: 0; }
-texture-facts, model-facts, material-facts, compiled-scene-facts { flex-direction: column; }
+/* ⚠ `model-facts` and `material-facts` stood in this list and are gone. `model-editor` and
+   `material-editor` were built with no facts region at all — nothing anywhere creates either
+   tag — so the two names matched nothing while the rule around them went on doing its job for
+   the other two. That is why no rule-level check could have found them, and why the census
+   `TypeSelectorReachTests` keeps is per *name*. #693. */
+texture-facts, compiled-scene-facts { flex-direction: column; }
 
 /* ── What a build makes of a scene ───────────────────────────────────
    A block is an archetype, and the archetype is the long part of the row — so it takes the
@@ -485,7 +490,9 @@ compositor-side { flex-direction: column; width: 280px; flex-shrink: 0; gap: 6px
 
 /* ── The prefab editor ──────────────────────────────────────────────── */
 prefab-editor { flex-direction: column; }
-prefab-banner { flex-direction: row; align-items: center; gap: 8px; padding: 4px 8px; }
+/* ⚠ A `prefab-banner` rule stood here and fired on nothing. `PrefabView` says what it says with
+   an `<Alert>`, which is a control with a theme of its own — the tag was left behind by the
+   design the alert replaced. #693. */
 
 /* ── The shared node inspector ──────────────────────────────────────
    Beside every graph rather than inside one, because a node's numbers live on the graph and

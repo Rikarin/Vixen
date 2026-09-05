@@ -33,7 +33,16 @@ namespace Vixen.Ui.Styling.Tests;
 ///         <see cref="A_type_selector_names_a_tag_rather_than_a_class" /> was green, because a
 ///         declared name that is not a tag is, by that theory passing, a name written nowhere at all.
 ///         So <see cref="Every_type_selector_names_a_tag_the_repository_writes" /> asks the question
-///         the paragraph declined to, against a committed census of the six.
+///         the paragraph declined to, against a committed census.
+///     </para>
+///     <para>
+///         ⚠ <b>The census is empty now, and that is the answer rather than the absence of one.</b>
+///         #693 took each of the six and found the same thing: a name left behind by a design that
+///         had already been rebuilt under other tags — <c>notification-*</c> by
+///         <c>MessageLogView</c>'s <c>message-*</c>, <c>asset-picker-list</c> by an
+///         <c>asset-grid</c>, <c>prefab-banner</c> by an <c>Alert</c>. None of them was a feature
+///         waiting to be written, which is what the paragraph refusing this direction had assumed
+///         they would be.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The mirror direction — a rule with no tag — is two questions and not one, and only
@@ -226,12 +235,20 @@ public partial class TypeSelectorReachTests {
         Assert.True(written.Literals.ContainsKey("flame-hue-0"), "'flame-hue-0' was not found in any source.");
         Assert.False(written.Tags.ContainsKey("flame-hue-0"), "'flame-hue-0' was mistaken for a tag.");
 
-        // Declared and never written at all — the shape both theories have to let through.
+        // Declared, and a tag: `compiled-scene-facts` is written by `CompiledSceneView.vxml`.
         Assert.Contains(Declared, candidate => candidate.Name == "compiled-scene-facts");
+
+        // ⚠ Written nowhere at all — the third bucket, and the one that no longer has a *declared*
+        // example. `model-facts` was it until #693 took the last six such names out of the sheets,
+        // so it is asserted from both sides now: still absent from every source, and no longer a
+        // selector either. A control that had quietly become a tag, or quietly come back into a
+        // sheet, would stop sorting into the bucket it is here to demonstrate.
         Assert.False(
             written.Literals.ContainsKey("model-facts"),
             "'model-facts' turned up in a source, so it is no longer the never-written example."
         );
+
+        Assert.DoesNotContain(Declared, candidate => candidate.Name == "model-facts");
     }
 
     /// <summary>Every bare type selector the repository's stylesheets declare.</summary>
@@ -345,9 +362,10 @@ public partial class TypeSelectorReachTests {
     ///         ⚠ <b>What the other two theories let through, and why that is a gap rather than a
     ///         decision.</b> Both discriminate on a name being <i>written</i> — one as a class, the
     ///         other with the hyphens moved — so a selector nobody ever wrote anywhere is the one
-    ///         shape neither can see, and it is the shape a whole abandoned feature leaves behind. The
-    ///         census holds five rules' worth of <c>notification-*</c>: a Notifications section in
-    ///         <c>EditorTheme.vcss</c> styling elements no view creates.
+    ///         shape neither can see, and it is the shape a whole abandoned feature leaves behind.
+    ///         The biggest thing it found was five rules' worth of <c>notification-*</c> — a
+    ///         Notifications section in <c>EditorTheme.vcss</c> styling a view no code creates,
+    ///         because the feature had been rebuilt as <c>MessageLogView</c> under other names.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Committed and compared exactly rather than counted</b>, which is
@@ -356,7 +374,9 @@ public partial class TypeSelectorReachTests {
     ///         came back to life, so a census row would outlive the rule it excuses and the next dead
     ///         selector would take the seat it vacated. Equality fails in both directions: a name that
     ///         starts being created must leave the file, and a new one cannot arrive without a line
-    ///         naming the issue that will close it.
+    ///         naming the issue that will close it. ⚠ The file is empty today — #693 answered all six
+    ///         — so this compares nothing against nothing, and what makes that a pass rather than a
+    ///         silence is <see cref="The_mirror_scan_actually_ran" /> next door.
     ///     </para>
     ///     <para>
     ///         The census is read off disk and its absence throws rather than emptying the expected
@@ -405,7 +425,19 @@ public partial class TypeSelectorReachTests {
     static Dictionary<string, string> Census() {
         var rows = new Dictionary<string, string>(StringComparer.Ordinal);
 
-        foreach (var line in File.ReadAllLines(Path.Combine(RepositoryRoot(), CensusFile))) {
+        var lines = File.ReadAllLines(Path.Combine(RepositoryRoot(), CensusFile));
+
+        // ⚠ <b>"It has rows" used to stand in for "it was read", and cannot any more.</b> #693
+        // answered all six, so an answered census and a census that has been truncated to nothing
+        // are both zero rows — and only one of them still has the header explaining what the file
+        // is for. That is what is asserted instead, so a deleted file fails here rather than
+        // turning the comparison below into a pass over two empty sets.
+        Assert.True(
+            lines.Count(line => line.StartsWith('#')) >= 5,
+            $"{CensusFile} has lost its header, so it was emptied rather than answered."
+        );
+
+        foreach (var line in lines) {
             var text = line.Trim();
 
             if (text.Length == 0 || text.StartsWith('#')) {
@@ -421,8 +453,6 @@ public partial class TypeSelectorReachTests {
 
             rows[parts[0]] = parts[2];
         }
-
-        Assert.NotEmpty(rows);
 
         return rows;
     }
