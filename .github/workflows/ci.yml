@@ -959,6 +959,13 @@ jobs:
   # the run summary that no one reads as absence. Before concluding anything about determinism from
   # this job's colour, check that an artifact exists at all. (The same is true of `content-bytes`,
   # which has run — so its silence is the exception rather than the rule.)
+  #
+  # ⚠ AND AS OF 2026-09-06 THE PRECONDITION CANNOT BE MET AT ALL, FOR A REASON OUTSIDE THIS JOB.
+  # `master`'s last COMPLETED CI run is 2026-09-01T07:46Z; every push since has ended `cancelled`,
+  # because `concurrency` at the top of this file cancels in progress on the ref and merges arrive
+  # faster than a run finishes — twelve consecutive, having burned 47 min to 3 h 46 min each. So the
+  # `test` legs this job needs do not fail here so much as never end, and "read one green run" is
+  # blocked on #862 rather than on anybody's attention. Check that before re-reading this block.
   remesh-bytes:
     name: remesh-bytes
     runs-on: ubuntu-latest
