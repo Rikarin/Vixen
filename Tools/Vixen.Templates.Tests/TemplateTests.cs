@@ -3,6 +3,7 @@
 
 using System.Reflection;
 using System.Text;
+using System.Xml.Linq;
 using Vixen.App;
 using Vixen.Cli;
 using Vixen.Core.Yaml;
@@ -238,6 +239,90 @@ public class TemplateTests {
             );
         }
     }
+
+    /// <summary>
+    ///     A property only <c>Vixen.Sdk</c>'s targets read may only be set by a project that is on
+    ///     <c>Vixen.Sdk</c>. Anywhere else it is inert, and inert in the one way nothing reports.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is a real defect made mechanical, not a hypothetical.</b> The mmo
+    ///         template's <c>Shared</c> project set <c>VixenAddressConstants</c>,
+    ///         <c>VixenAddressNamespace</c>, <c>VixenAddressIds</c> and
+    ///         <c>VixenProjectDirectory</c> on a <c>Microsoft.NET.Sdk</c> project — so
+    ///         <c>VixenImport</c> never ran, <c>Addresses.g.cs</c> was never written, and the
+    ///         comment above them stated the generated file as a fact. MSBuild says nothing about a
+    ///         property nobody reads; the whole failure is silence.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>No exemption list, deliberately.</b> An architecture rule whose one entry is the
+    ///         defect it was written for is satisfied by that defect, which is how this repository
+    ///         has built rules that could not fail. The properties came out of the template instead,
+    ///         and what it costs to put them back is written where they used to be.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void NoTemplateSetsAnSdkPropertyOnAProjectThatIsNotOnTheSdk() {
+        var projects = TemplateCatalog.All
+            .SelectMany(template => template.Instantiate("Kestrel", ScaffoldRunner.SdkVersion)
+                .Where(file => file.Path.EndsWith(".csproj", StringComparison.Ordinal))
+                .Select(file => (template.Id, file.Path, Text: Encoding.UTF8.GetString(file.Content)))
+            )
+            .ToList();
+
+        // The instrument, before the sweep. A reader that found no projects, or that could not tell
+        // the one SDK-driven project from the other eight, would walk an empty list in green.
+        Assert.Equal(9, projects.Count);
+        Assert.Single(projects, project => DrivenByTheSdk(project.Text));
+
+        // And it has to be able to say no, over the shape this test exists to keep out.
+        Assert.Equal(
+            ["VixenAddressConstants"],
+            SdkProperties(
+                "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup>"
+                + "<VixenAddressConstants>true</VixenAddressConstants></PropertyGroup></Project>"
+            )
+        );
+
+        foreach (var (id, path, text) in projects.Where(project => !DrivenByTheSdk(project.Text))) {
+            Assert.True(
+                SdkProperties(text).Count == 0,
+                $"{id}/{path} is not on Vixen.Sdk and sets {string.Join(", ", SdkProperties(text))}, "
+                + "which nothing reads. Put the project on Vixen.Sdk or take the property out — "
+                + "leaving it is an opt-in a reader cannot tell from a working one."
+            );
+        }
+    }
+
+    /// <summary>Whether a project file names <c>Vixen.Sdk</c> as its SDK.</summary>
+    /// <param name="project">The project file's text.</param>
+    /// <returns>Whether the SDK's targets are imported at all.</returns>
+    /// <remarks>
+    ///     ⚠ The root element's attribute, read as XML rather than looked for as a substring —
+    ///     which is how the first draft of this test called three of the nine projects SDK-driven.
+    ///     Two of them only <i>mention</i> <c>Sdk="Vixen.Sdk/…"</c> in a comment saying why they are
+    ///     not on it, and a comment is exactly where that string is most likely to appear.
+    /// </remarks>
+    static bool DrivenByTheSdk(string project) =>
+        XDocument.Parse(project).Root?.Attribute("Sdk")?.Value
+            .StartsWith("Vixen.Sdk/", StringComparison.Ordinal)
+        ?? false;
+
+    /// <summary>The <c>Vixen*</c> property elements a project file sets.</summary>
+    /// <param name="project">The project file's text.</param>
+    /// <returns>Their names, in document order.</returns>
+    /// <remarks>
+    ///     Every property <c>Vixen.Sdk.targets</c> reads is named <c>Vixen…</c>, and an element is
+    ///     not a comment — so the recipe written where the mmo template's properties used to be
+    ///     names them without setting them, which is the distinction this has to make.
+    /// </remarks>
+    static IReadOnlyList<string> SdkProperties(string project) =>
+        [
+            .. XDocument.Parse(project)
+                .Descendants()
+                .Select(element => element.Name.LocalName)
+                .Where(name => name.StartsWith("Vixen", StringComparison.Ordinal))
+        ];
 
     /// <summary>
     ///     The whole point of the gate: the C# a template writes compiles against the assemblies its

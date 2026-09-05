@@ -183,11 +183,38 @@ container usually is and what a hand-maintained list of "the three desktop RIDs"
 no tool at all.
 
 ⚠ **What it costs is size: ~170 MB unpacked, ~69 MB on the wire, downloaded by every consumer on
-every one of the three desktop RIDs, of which the RID actually running uses about 30 MB.** Assimp
-across five RIDs and HarfBuzz across twenty are most of it. `.pdb` and `.xml` are excluded, which is
-another 82 MB that would otherwise have travelled. The way out is a smaller tool rather than a
-cleverer package: the SDK calls `vixen import` and `vixen content build` and nothing else, while what
-is packed is the whole CLI — `live`, `content serve`, Roslyn workspaces and the text stack included.
+every one of the three desktop RIDs, of which the RID actually running uses about 30 MB.** `.pdb` and
+`.xml` are excluded, which is another 82 MB that would otherwise have travelled.
+
+**Where the weight actually is**, measured over the CLI's own `runtimes/` with symbols excluded, so
+that the next attempt at this argues with numbers rather than with an impression:
+
+| | Bytes | Files | RIDs |
+|---|---:|---:|---|
+| Assimp | ~104 MB | 11 | 8 — `win-x64`, `win-x86`, `win-arm64`, `linux-x64`, `linux-arm`, `linux-arm64`, `osx-x64`, `osx-arm64` |
+| HarfBuzz | ~46 MB | 17 | 17, including musl, bionic, loongarch and riscv |
+| everything else under `runtimes/` | ~1 MB | 2 | `System.Diagnostics.EventLog` on Windows |
+
+⚠ **Two corrections to what this file used to say**, both from that measurement: Assimp is across
+**eight** RIDs and not five, and HarfBuzz across **seventeen** and not twenty. Neither changes the
+conclusion, and the second is the smaller half of the bill rather than the larger.
+
+⚠ **And one finding that nothing here had recorded: about 43 MB of the Assimp weight is a second
+major version of the same library.** `Ultz.Native.Assimp` ships `libassimp.so.5` *and*
+`libassimp.so.6` in each Linux RID, and `libassimp.5.dylib` *and* `libassimp.6.dylib` in each macOS
+one — `Silk.NET.Assimp` loads one of them. That is a quarter of the unpacked package, and it is not
+one of the three ways out below. It is **not** excluded here, deliberately: which soname the loader
+takes has to be established on each platform first, and a wrong guess is a model importer that
+throws at run time on the one platform nobody tested. Filed rather than fixed.
+
+The way out is still a smaller tool rather than a cleverer package: the SDK calls `vixen import` and
+`vixen content build` and nothing else, while what is packed is the whole CLI — `live`,
+`content serve`, Roslyn workspaces and the text stack included. ⚠ But the table says what a second
+entry point would and would not buy. Dropping `Vixen.Live.Cluster` and `Vixen.ContentServer` from a
+`Vixen.ContentBuild`'s reference closure drops **managed** assemblies; the ~150 MB that dominates is
+native, Assimp belongs to the model importer the content build exists to run, and the text stack is
+reached by font import. So a second entry point is worth doing for what it removes from the graph and
+should not be expected to halve the download on its own.
 
 ⚠ **The apphosts are not packed.** `vixen`, `vixen-content-server` and `Vixen.AssetCompiler` sit in
 the build output beside the assemblies with no extension: they are native launchers built for
