@@ -3,6 +3,7 @@
 
 using System.Collections.Concurrent;
 using System.Globalization;
+using Vixen.Core;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.MeshMaps;
@@ -128,6 +129,7 @@ sealed class ContentTasks {
 
     /// <summary>Bakes a mesh's maps and puts the files in the project.</summary>
     /// <param name="baker">What turns the pixels into project assets.</param>
+    /// <param name="model">The model asset the mesh was read out of, which is what keys the set.</param>
     /// <param name="mesh">What to call the set.</param>
     /// <param name="source">The high-resolution surface. May be the same mesh as the target.</param>
     /// <param name="target">The mesh with the atlas the maps land in.</param>
@@ -149,11 +151,25 @@ sealed class ContentTasks {
     ///     <para>
     ///         ⚠ <b>It takes the same one-at-a-time guard as an import</b>, because it writes into
     ///         <c>Assets/</c> and an import running over the same folder would read the files
-    ///         half-written.
+    ///         half-written. ⚠ <b>So the guard is held until <see cref="Landed" /> has written
+    ///         them</b>, not until the pool task ends: the arithmetic is what takes the minutes and
+    ///         the write is what touches the project, and releasing between the two — which is what
+    ///         this did — left the whole of the write unguarded while the remark above claimed
+    ///         otherwise. The one thing a bake has to be exclusive against is the one thing it was
+    ///         not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Cancel does not stop the casting, and saying so is the honest half.</b>
+    ///         <c>MapBaker.Bake</c> takes no cancellation token and reports no progress — it is one
+    ///         call that returns when every texel of the atlas is done — so the task centre's Cancel
+    ///         is read at the two points around it and nowhere inside. Pressing it during a 4K bake
+    ///         means the maps are not written, not that the machine stops. The bar moves twice for
+    ///         the same reason.
     ///     </para>
     /// </remarks>
     public void BakeMeshMaps(
         IMeshMapBaker baker,
+        AssetId model,
         string mesh,
         EditMesh source,
         EditMesh target,
@@ -173,6 +189,8 @@ sealed class ContentTasks {
         shell.Tasks.Start(
             "Baking " + mesh + "'s mesh maps",
             task => {
+                var handed = false;
+
                 try {
                     task.Report(0f, "Casting");
 
@@ -181,13 +199,19 @@ sealed class ContentTasks {
                     task.Cancellation.ThrowIfCancellationRequested();
                     task.Report(0.9f, "Encoding");
 
-                    var images = MeshMapBake.Encode(mesh, maps);
+                    var images = MeshMapBake.Encode(maps);
 
-                    afterwards.Enqueue(() => Landed(baker, mesh, images, maps.Warnings));
+                    afterwards.Enqueue(() => Landed(baker, model, mesh, images, maps.Warnings));
+                    handed = true;
                 } catch (Exception failure) when (failure is IOException or ArgumentException) {
                     finished.Enqueue(new(NotificationSeverity.Error, "Could not bake " + mesh, failure.Message));
                 } finally {
-                    Volatile.Write(ref running, 0);
+                    // ⚠ Only where the frame thread was not given the job — cancellation leaves
+                    // through here without having enqueued one, and so does a failure. `Landed`
+                    // releases it in the other case, which is the case that writes files.
+                    if (!handed) {
+                        Volatile.Write(ref running, 0);
+                    }
                 }
 
                 return Task.CompletedTask;
@@ -196,9 +220,22 @@ sealed class ContentTasks {
     }
 
     /// <summary>Puts a finished bake in the project. ⚠ On the frame thread, from <see cref="Pump" />.</summary>
-    void Landed(IMeshMapBaker baker, string mesh, IReadOnlyList<MeshMapImage> images, IReadOnlyList<string> warnings) {
+    /// <remarks>
+    ///     ⚠ <b>And this is what releases the one-at-a-time guard</b> — see
+    ///     <see cref="BakeMeshMaps" />. Everything up to here was arithmetic on a copy; everything
+    ///     from here writes <c>Assets/</c>.
+    /// </remarks>
+    void Landed(
+        IMeshMapBaker baker,
+        AssetId model,
+        string mesh,
+        IReadOnlyList<MeshMapImage> images,
+        IReadOnlyList<string> warnings
+    ) {
         try {
-            var set = baker.Write(mesh, images, warnings);
+            var set = baker.Write(model, mesh, images, warnings);
+
+            LastBake = set;
 
             // The browser is showing the folder these landed in and does not know they are there.
             // Rescan is the frame-thread half of "something changed on disk" — see Pump.
@@ -214,8 +251,27 @@ sealed class ContentTasks {
             shell.Notifications.Success(wrote);
         } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
             shell.Notifications.Show("Could not write " + mesh + "'s mesh maps", NotificationSeverity.Error, failure.Message);
+        } finally {
+            Volatile.Write(ref running, 0);
+            Baked?.Invoke();
         }
     }
+
+    /// <summary>What to do once a mesh-map bake has finished writing. ⚠ On the frame thread.</summary>
+    /// <remarks>
+    ///     The bake panel's, so that it can show what the last bake produced and what it warned
+    ///     about. Raised on every ending that reached <see cref="Landed" /> — including the failed
+    ///     one, because a panel that only hears about successes is a panel stuck on the last one.
+    /// </remarks>
+    public Action? Baked { get; set; }
+
+    /// <summary>What the last mesh-map bake produced, or null before one has finished.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Held here rather than handed to <see cref="Baked" />, because a panel opened after a
+    ///     bake has to be able to ask.</b> A panel's factory runs on every reopen — see
+    ///     <c>EditorBuilds</c>'s pulled answers — and an event is only heard by whoever was listening.
+    /// </remarks>
+    public MeshMapSet? LastBake { get; private set; }
 
     /// <summary>Imports and then packs a content build.</summary>
     /// <remarks>

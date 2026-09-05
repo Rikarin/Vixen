@@ -38,13 +38,12 @@ public static class MeshMapBake {
     public static IReadOnlyList<MeshMapUsage> Always { get; } = [MeshMapUsage.Normal, MeshMapUsage.Displacement];
 
     /// <summary>Bakes a mesh's maps and encodes them.</summary>
-    /// <param name="mesh">What the set is called, which is the stem of every file in it.</param>
     /// <param name="source">The high-resolution surface. Read, never modified.</param>
     /// <param name="target">The mesh with the atlas the maps land in.</param>
     /// <param name="settings">The size, the gutter, the search radius and which maps to measure.</param>
     /// <returns>The files, and what the bake could not do.</returns>
     /// <exception cref="ArgumentNullException">Any argument is null.</exception>
-    /// <exception cref="ArgumentException">The mesh name is empty, or the target has no atlas.</exception>
+    /// <exception cref="ArgumentException">The target has no atlas.</exception>
     /// <remarks>
     ///     ⚠ <b><paramref name="source" /> and <paramref name="target" /> may be the same mesh, and
     ///     usually are.</b> A separate high-poly is the retopology case; asking for the ambient
@@ -52,22 +51,27 @@ public static class MeshMapBake {
     ///     ordinary one, and it is what every generator in § 4.8 reads. The bake is the same either
     ///     way — the rays are cast from the target's atlas at whatever surface it is handed.
     /// </remarks>
-    public static IReadOnlyList<MeshMapImage> Run(string mesh, EditMesh source, EditMesh target, BakeSettings settings) {
-        ArgumentException.ThrowIfNullOrEmpty(mesh);
+    public static IReadOnlyList<MeshMapImage> Run(EditMesh source, EditMesh target, BakeSettings settings) {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(settings);
 
-        return Encode(mesh, MapBaker.Bake(source, target, settings));
+        return Encode(MapBaker.Bake(source, target, settings));
     }
 
     /// <summary>Turns what a bake measured into the files it becomes.</summary>
-    /// <param name="mesh">What the set is called.</param>
     /// <param name="maps">What the bake measured.</param>
     /// <returns>One image per map the bake actually produced.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="maps" /> is null.</exception>
-    /// <exception cref="ArgumentException">The mesh name is empty.</exception>
     /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Nothing here knows what the set is called, and that is a fix rather than a
+    ///         simplification.</b> An encoded image used to carry the file name a caller's mesh name
+    ///         produced, which fixed the one part of a bake that is a person's typing before the only
+    ///         thing that can make it safe — the writer — had seen it. A mesh named <c>../Wall</c>
+    ///         then wrote nine PNGs outside <c>Assets/</c>. Naming is
+    ///         <see cref="IMeshMapBaker.Write" />'s, derived from the usage each image declares.
+    ///     </para>
     ///     <para>
     ///         ⚠ <b>The rows are flipped.</b> A <c>BakedMaps</c> array is row-major <i>from the
     ///         bottom left</i>, because that is where a texture coordinate's origin is; a PNG's first
@@ -84,8 +88,7 @@ public static class MeshMapBake {
     ///         rather than a special case somebody later optimises away.
     ///     </para>
     /// </remarks>
-    public static IReadOnlyList<MeshMapImage> Encode(string mesh, BakedMaps maps) {
-        ArgumentException.ThrowIfNullOrEmpty(mesh);
+    public static IReadOnlyList<MeshMapImage> Encode(BakedMaps maps) {
         ArgumentNullException.ThrowIfNull(maps);
 
         var size = maps.Resolution;
@@ -98,35 +101,35 @@ public static class MeshMapBake {
         // the compression back to automatic.
         var normalContent = maps.Space == BakeSpace.Tangent ? TextureContent.NormalMap : TextureContent.Linear;
 
-        made.Add(Vector(mesh, MeshMapUsage.Normal, size, maps.Normals, signed: true, normalContent));
-        made.Add(Signed(mesh, MeshMapUsage.Displacement, size, maps.Displacement, maps.DisplacementRange));
+        made.Add(Vector(MeshMapUsage.Normal, size, maps.Normals, signed: true, normalContent));
+        made.Add(Signed(MeshMapUsage.Displacement, size, maps.Displacement, maps.DisplacementRange));
 
         if (maps.AmbientOcclusion is { } occlusion) {
-            made.Add(Scalar(mesh, MeshMapUsage.AmbientOcclusion, size, occlusion));
+            made.Add(Scalar(MeshMapUsage.AmbientOcclusion, size, occlusion));
         }
 
         if (maps.BentNormal is { } bent) {
-            made.Add(Vector(mesh, MeshMapUsage.BentNormal, size, bent, signed: true, TextureContent.Linear));
+            made.Add(Vector(MeshMapUsage.BentNormal, size, bent, signed: true, TextureContent.Linear));
         }
 
         if (maps.Curvature is { } curvature) {
-            made.Add(Signed(mesh, MeshMapUsage.Curvature, size, curvature, maps.CurvatureRange));
+            made.Add(Signed(MeshMapUsage.Curvature, size, curvature, maps.CurvatureRange));
         }
 
         if (maps.Thickness is { } thickness) {
-            made.Add(Scalar(mesh, MeshMapUsage.Thickness, size, thickness));
+            made.Add(Scalar(MeshMapUsage.Thickness, size, thickness));
         }
 
         if (maps.Position is { } position) {
-            made.Add(Vector(mesh, MeshMapUsage.Position, size, position, signed: false, TextureContent.Linear));
+            made.Add(Vector(MeshMapUsage.Position, size, position, signed: false, TextureContent.Linear));
         }
 
         if (maps.WorldNormal is { } world) {
-            made.Add(Vector(mesh, MeshMapUsage.WorldNormal, size, world, signed: true, TextureContent.Linear));
+            made.Add(Vector(MeshMapUsage.WorldNormal, size, world, signed: true, TextureContent.Linear));
         }
 
         if (maps.Ids is { } ids) {
-            made.Add(Identifiers(mesh, size, ids));
+            made.Add(Identifiers(size, ids));
         }
 
         return made;
@@ -143,7 +146,7 @@ public static class MeshMapBake {
             AlphaIsTransparency = false
         };
 
-    static MeshMapImage Scalar(string mesh, MeshMapUsage usage, int size, IReadOnlyList<float> values) {
+    static MeshMapImage Scalar(MeshMapUsage usage, int size, IReadOnlyList<float> values) {
         var pixels = Blank(size);
 
         Fill(size, values.Count, (index, at) => {
@@ -153,7 +156,7 @@ public static class MeshMapBake {
             pixels[at + 2] = level;
         });
 
-        return Made(mesh, usage, size, pixels, Common(TextureContent.Linear), 0f);
+        return Made(usage, size, pixels, Common(TextureContent.Linear), 0f);
     }
 
     /// <summary>A measurement that is signed and in the model's own units, remapped about a half.</summary>
@@ -163,7 +166,7 @@ public static class MeshMapBake {
     ///     otherwise divide by nothing; a half everywhere decodes to zero everywhere, which is what
     ///     was measured.
     /// </remarks>
-    static MeshMapImage Signed(string mesh, MeshMapUsage usage, int size, IReadOnlyList<float> values, float range) {
+    static MeshMapImage Signed(MeshMapUsage usage, int size, IReadOnlyList<float> values, float range) {
         var pixels = Blank(size);
         var scale = range > 0f ? range : 0f;
         var inverse = scale > 0f ? 1f / scale : 0f;
@@ -175,11 +178,10 @@ public static class MeshMapBake {
             pixels[at + 2] = level;
         });
 
-        return Made(mesh, usage, size, pixels, Common(TextureContent.Linear), scale);
+        return Made(usage, size, pixels, Common(TextureContent.Linear), scale);
     }
 
     static MeshMapImage Vector(
-        string mesh,
         MeshMapUsage usage,
         int size,
         IReadOnlyList<Vector3> values,
@@ -200,7 +202,7 @@ public static class MeshMapBake {
             pixels[at + 2] = Byte(value.Z);
         });
 
-        return Made(mesh, usage, size, pixels, Common(content), 0f);
+        return Made(usage, size, pixels, Common(content), 0f);
     }
 
     /// <summary>The id map, coloured at the last possible moment.</summary>
@@ -211,7 +213,7 @@ public static class MeshMapBake {
     ///     exist along every chart border. The bake dilates ids by copying a neighbour rather than
     ///     averaging, and this writes the colour after that.
     /// </remarks>
-    static MeshMapImage Identifiers(string mesh, int size, IReadOnlyList<int> ids) {
+    static MeshMapImage Identifiers(int size, IReadOnlyList<int> ids) {
         var pixels = Blank(size);
 
         Fill(size, ids.Count, (index, at) => {
@@ -221,11 +223,10 @@ public static class MeshMapBake {
             pixels[at + 2] = Byte(colour.Z);
         });
 
-        return Made(mesh, MeshMapUsage.Id, size, pixels, Common(TextureContent.Linear), 0f);
+        return Made(MeshMapUsage.Id, size, pixels, Common(TextureContent.Linear), 0f);
     }
 
     static MeshMapImage Made(
-        string mesh,
         MeshMapUsage usage,
         int size,
         byte[] pixels,
@@ -234,7 +235,6 @@ public static class MeshMapBake {
     ) =>
         new() {
             Usage = usage,
-            FileName = MeshMapNaming.FileName(mesh, usage),
             Png = PngCodec.Encode(new Bitmap(size, size, pixels)),
             Settings = settings,
             Scale = scale

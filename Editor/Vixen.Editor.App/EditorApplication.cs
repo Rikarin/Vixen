@@ -729,6 +729,12 @@ sealed partial class EditorApplication : IDisposable {
             BusyChanged = RefreshBuildPanel
         };
 
+        // ⚠ And the bake panel's result list, which is the one surface a finished bake changes that
+        // a rescan does not. Assigned after the initializer rather than in it, because the hook
+        // reads the object being initialized back — `LastBake` is pulled rather than handed over, so
+        // that a panel opened *after* a bake can still ask what it produced.
+        content.Baked = () => bakeView?.ShowResult(content.LastBake);
+
         // ⚠ Before the panels, because the inspector's asset fields are built by drawers that have
         // to be pointed at a project first. `AssetDrawer` has raised `PickRequested` since it was
         // written and nothing ever listened, so the button in an asset field did nothing at all.
@@ -752,6 +758,10 @@ sealed partial class EditorApplication : IDisposable {
 
         SettingsPanels();
         BuildPanels();
+
+        // And doc 48 § D12's, which is where a mesh-map bake is set up and where what it produced is
+        // read afterwards.
+        MeshMapPanels();
 
         // And E5's four, for the same reason: the Sequencing preset names the scene list.
         WorldPanels();
@@ -1071,6 +1081,13 @@ sealed partial class EditorApplication : IDisposable {
         // ⚠ And the thumbnails, on the frame thread because the device is not thread-safe. The
         // decode happened on the pool; this is the upload.
         thumbnails.Pump();
+
+        // ⚠ Pulled, and it is the one panel in this loop that has to be. What it says depends on the
+        // project *selection*, and `Selection<T>` raises nothing when it changes — so a panel opened
+        // before a model was clicked would sit greyed with "select a model" for ever. The read is a
+        // count and two lookups and the panel writes nothing when the answer has not moved; compare
+        // `BuildRefusal`, which enumerates the project root and is therefore asked on events only.
+        bakeView?.Refresh();
 
         // ⚠ Pulled here rather than subscribed to, and the reason is threading: the sink is written
         // from the pool by a content import and by anything else the editor runs in the background,
