@@ -387,7 +387,14 @@ public sealed class UiCompositingTests {
     ///     Whether to bracket the groups. False folds each group's opacity onto its children instead,
     ///     which is what the frame looks like with compositing off.
     /// </param>
-    static DrawList Groups(bool isolate = true) {
+    /// <remarks>
+    ///     ⚠ <b><c>internal</c> so that <see cref="UiRavenAgreementTests" /> can draw <i>this</i>
+    ///     frame rather than a second one written there.</b> Every group, mask entry and blur in it
+    ///     was chosen to reach a branch the compositing stages have, and a fixture written next door
+    ///     would reach the branches its author thought of — which is the argument that file already
+    ///     makes about taking its box fixtures from <see cref="UiBoxAgreementTests" />.
+    /// </remarks>
+    internal static DrawList Groups(bool isolate = true) {
         var font = Font();
         var list = new DrawList();
         list.BeginFrame();
