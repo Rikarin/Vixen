@@ -372,6 +372,10 @@ public sealed class WorldRenderer : IDisposable {
             Paired(Materials, "ForwardPlus");
             FilterTextures("ForwardPlus");
         }
+
+        // Outside the bindless branch, because a layered material is not a sampling one: its count
+        // sizes a uniform array and is read on every device, table or no table.
+        Permuted(Materials, "ForwardPlus");
     }
 
     /// <summary>The device everything here lives on.</summary>
@@ -731,7 +735,10 @@ public sealed class WorldRenderer : IDisposable {
             ) {
                 Logger = logger
             };
-        Painter = painting = new(assets, Painted);
+        // ⚠ `Materials` and not only the texture source: a graph-authored surface's slots are data, so
+        // nothing in `Paired` above could have named them and until this line a graph with a sample
+        // node drew the fallback checker. See AssetMaterialSource.Materials and #493.
+        Painter = painting = new(assets, Painted) { Materials = Materials };
 
         // Only where there is something to size. A survey over a source with no streamer would walk
         // the object list every frame to call a method that returns immediately.
@@ -1047,34 +1054,73 @@ public sealed class WorldRenderer : IDisposable {
     ///         is a lit surface whose shading is wrong rather than a surface that is obviously
     ///         untextured. <c>MaterialRenderFeature.UnresolvedTextureCount</c> is what says so.
     ///     </para>
+    ///     <para>
+    ///         ⚠ And the completeness of the list is checked rather than remembered.
+    ///         <c>MaterialPairingInventoryTests</c> reads <c>Raven/Library</c> for every shader that
+    ///         inherits <c>MaterialTextures</c> and asserts one entry here for each — the same
+    ///         "read the library, not a second list" shape <c>ComposeSlotInventoryTests</c> has, and
+    ///         written while the list was still complete, which is the only moment such a test can be
+    ///         written honestly.
+    ///     </para>
     /// </remarks>
-    static void Paired(MaterialRenderFeature materials, string shader) {
+    internal static void Paired(MaterialRenderFeature materials, string shader) {
         var prefix = $"{shader}.{MaterialCompiler.ChainShader}.";
 
         var baseColor = new TexturedMetalRoughnessFeature();
         var normal = new TexturedNormalMapFeature();
         var orm = new TexturedOrmFeature();
+        var emissive = new TexturedEmissiveFeature();
+        var opacity = new TexturedOpacityFeature();
+        var layers = new TexturedMaterialLayersFeature();
 
-        materials.TextureIndices[
-                ParameterKeys.New<uint>(
-                    TexturedMetalRoughnessFeature.BaseColorIndexParameter(
-                        prefix + baseColor.ShaderName + "."
-                    )
-                )
-            ] =
-            ParameterKeys.New<TextureViewHandle>(baseColor.BaseColorMap);
+        Pair(TexturedMetalRoughnessFeature.BaseColorIndexParameter(Under(baseColor)), baseColor.BaseColorMap);
+        Pair(TexturedNormalMapFeature.NormalIndexParameter(Under(normal)), normal.NormalMap);
+        Pair(TexturedOrmFeature.OrmIndexParameter(Under(orm)), orm.OrmMap);
+        Pair(TexturedEmissiveFeature.EmissiveIndexParameter(Under(emissive)), emissive.EmissiveMap);
+        Pair(TexturedOpacityFeature.OpacityIndexParameter(Under(opacity)), opacity.OpacityMap);
+        Pair(TexturedMaterialLayersFeature.SplatIndexParameter(Under(layers)), layers.SplatMap);
 
-        materials.TextureIndices[
-                ParameterKeys.New<uint>(
-                    TexturedNormalMapFeature.NormalIndexParameter(prefix + normal.ShaderName + ".")
-                )
-            ] =
-            ParameterKeys.New<TextureViewHandle>(normal.NormalMap);
+        string Under(IMaterialFeature feature) => prefix + feature.ShaderName + ".";
 
-        materials.TextureIndices[
-                ParameterKeys.New<uint>(TexturedOrmFeature.OrmIndexParameter(prefix + orm.ShaderName + "."))
-            ] =
-            ParameterKeys.New<TextureViewHandle>(orm.OrmMap);
+        void Pair(string index, string map) =>
+            materials.TextureIndices[ParameterKeys.New<uint>(index)] =
+                ParameterKeys.New<TextureViewHandle>(map);
+    }
+
+    /// <summary>
+    ///     Registers the material permutations this pass's variants are selected by.
+    /// </summary>
+    /// <param name="materials">The feature that builds the effect key.</param>
+    /// <param name="shader">The shading pass its materials are authored against.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A layered material sets <c>LayerCount</c> and, until this existed, nothing put the
+    ///         key in the effect key</b> — so a three-layer material resolved the variant compiled for
+    ///         the shader's declared default of two, wrote <c>layers[2]</c> into a block sized for
+    ///         two, and blended the first two layers. The unregistered-permutation trap exactly:
+    ///         <see cref="MaterialKeys" />' own remarks say a host that draws layered materials adds
+    ///         this key, and no host did.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Registered rather than set, and the difference is not cosmetic.</b>
+    ///         <c>MaterialRenderFeature.SetPermutation</c> writes <c>Permutations</c> as well, and
+    ///         <c>Contribute</c> applies that collection <em>last</em> — deliberately, so a material
+    ///         cannot claim a device capability by setting the same key. A count that belongs to the
+    ///         material is the one shape that must not go through it: every material would resolve the
+    ///         frame's value instead of its own.
+    ///     </para>
+    /// </remarks>
+    internal static void Permuted(MaterialRenderFeature materials, string shader) {
+        var key = MaterialKeys.LayerCount(shader);
+
+        if (!materials.PermutationKeys.TryGetValue(shader, out var keys)) {
+            materials.PermutationKeys[shader] = [key];
+            return;
+        }
+
+        if (!keys.Contains(key)) {
+            materials.PermutationKeys[shader] = [.. keys, key];
+        }
     }
 
     /// <summary>

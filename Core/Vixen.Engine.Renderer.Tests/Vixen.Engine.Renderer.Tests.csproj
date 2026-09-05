@@ -30,6 +30,16 @@
         <ProjectReference Include="..\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
     </ItemGroup>
 
+    <!--
+      Every shipped shader, so MaterialPairingInventoryTests can check that WorldRenderer.Paired names
+      one entry per shader that inherits MaterialTextures. A glob rather than a list, for the reason
+      Vixen.Rendering.Tests globs them: the failure this guards against arrives as a NEW shader, and a
+      glob is what sees one.
+    -->
+    <ItemGroup>
+        <None Include="..\..\Raven\Library\**\*.rvn" LinkBase="Shaders" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
     <!-- Measured, the guarded allocation measurement. See Testing/Vixen.Testing.props. -->
     <Import Project="..\..\Testing\Vixen.Testing.props" />
 
