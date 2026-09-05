@@ -75,7 +75,7 @@ public static class LooseContent {
         var plan = ContentPipeline.Analyse(workspace, report);
 
         foreach (var diagnostic in plan.Diagnostics) {
-            report(new(diagnostic.Severity, ContentStage.Plan, string.Empty, diagnostic.Message));
+            report(new(diagnostic.Severity, ContentStage.Plan, diagnostic.Path, diagnostic.Message));
         }
 
         if (!plan.Succeeded) {

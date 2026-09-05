@@ -108,10 +108,15 @@ summary, rather than prose from a subprocess that scrolled past. The codes are r
 The path is absolute because a relative one is resolved against whatever directory the build happens
 to be running in, which is not the project's, so the IDE opens nothing.
 
-**A build-plan diagnostic has no file.** Those messages name the asset inside their text, so a person
-can act on them; only the IDE's jump-to-file loses. Fixing it means carrying a path on
-`ImportDiagnostic`, which is a change to a type the planner and every importer share, and it is owed
-rather than done here.
+⚠ **A build-plan diagnostic used to have no file, and now it has one.** The planner walks every asset
+in the project and named the one it was talking about only inside its sentence — which serves a person
+reading a log and serves an error list nothing: MSBuild attributed those lines to the project, so
+double-clicking one opened the `.csproj`. `ImportDiagnostic.Path` is what closed it, defaulted and
+last so that an importer never supplies one — an importer is already running *on* an asset and the
+executor knows which. What stays path-less is deliberate and stated on the type: the invented default
+group, the server profile's summary, and the collision in which several assets claim one address —
+that last one *because* it holds several, and naming one would decide the question the message says
+cannot be decided.
 
 ⚠ **The pre-compile import is passed `--advisory`, and does not put anything in that list.** It runs
 `BeforeTargets=CoreCompile`, so on a clean build the game assembly does not exist and a level naming

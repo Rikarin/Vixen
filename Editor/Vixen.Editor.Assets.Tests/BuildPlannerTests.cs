@@ -850,6 +850,68 @@ public sealed class BuildPlannerTests {
         Assert.Contains("Pixels", note.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     <b>A diagnostic about one asset carries that asset, and one about the project carries
+    ///     nothing.</b> This is what makes a plan error an entry an IDE can open: the CLI's
+    ///     <c>--format msbuild</c> writes <c>&lt;absolute path&gt;: error VX…</c> for a diagnostic
+    ///     with a path, and attributes one without to the project being built.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Both halves, because an empty path is a decision here rather than an omission.</b>
+    ///     The planner's project-wide messages — the invented default group, the server profile's
+    ///     summary, the collision in which several assets claim one address — are true of no single
+    ///     file, and giving one of them a path would send a reader to a file that is not the
+    ///     problem. Asserting only the first half would pass over a version that stamped every
+    ///     diagnostic with whatever asset the loop happened to be on.
+    /// </remarks>
+    [Fact]
+    public void ADiagnosticAboutOneAssetCarriesItsPathAndOneAboutTheProjectDoesNot() {
+        var project = new PlannedProject();
+        project.Add("hero.png", address: "ui/hero", group: "UiCore", imported: false);
+        project.Add("notes.txt");
+        project.Group("UiCore");
+
+        var plan = project.Plan();
+
+        var refusal = Assert.Single(
+            plan.Diagnostics,
+            said => said.Message.Contains("has not been imported", StringComparison.Ordinal)
+        );
+
+        // The same string the sentence quotes, which is what the CLI resolves against the project
+        // directory to get the absolute path MSBuild parses.
+        Assert.Equal("hero.png", refusal.Path);
+        Assert.Contains($"'{refusal.Path}'", refusal.Message, StringComparison.Ordinal);
+
+        // And the one that is about the project as a whole: `notes.txt` names no group, so the
+        // planner invents one and says so. That is about the build, not about that file.
+        var invented = Assert.Single(
+            plan.Diagnostics,
+            said => said.Message.Contains("name no group", StringComparison.Ordinal)
+        );
+
+        Assert.Equal(string.Empty, invented.Path);
+    }
+
+    /// <summary>A sidecar that will not read is the asset's own problem, and says which asset.</summary>
+    /// <remarks>
+    ///     A second reporting site, in a different method of the planner — <c>ReadAll</c> rather than
+    ///     the main walk — because a path attached at one site and forgotten at the next is exactly
+    ///     the shape of this defect, and one example cannot see it.
+    /// </remarks>
+    [Fact]
+    public void AnUnreadableSidecarCarriesTheAssetItCouldNotRead() {
+        var project = new PlannedProject();
+        project.AddUnreadable("Textures/broken.png");
+
+        var said = Assert.Single(
+            project.Plan().Diagnostics,
+            diagnostic => diagnostic.Message.Contains("no readable sidecar", StringComparison.Ordinal)
+        );
+
+        Assert.Equal("Textures/broken.png", said.Path);
+    }
+
     /// <summary>A project of sidecars, imports and groups, with no filesystem in sight.</summary>
     sealed class PlannedProject {
         readonly Dictionary<string, AssetMeta?> metas = new(StringComparer.Ordinal);

@@ -294,6 +294,13 @@ public sealed class VixenCommandTests : IDisposable {
     ///     be absolute — a relative one is resolved against whatever directory the build is running
     ///     in, which is not the project's — and the code has to be there or the line is prose.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>This is a <i>plan</i> diagnostic, and it used to arrive with no file at all.</b>
+    ///     The planner names the asset inside its sentence, which serves a person reading a log and
+    ///     serves an error list nothing: MSBuild attributed the line to the project, and
+    ///     double-clicking it opened the <c>.csproj</c>. <c>ImportDiagnostic.Path</c> is what closed
+    ///     that, and asserting the code alone — which is what this test did — passes either way.
+    /// </remarks>
     [Fact]
     public async Task TheMsbuildFormatCarriesAnAbsolutePathAndACode() {
         Asset("hero.txt", "hero", address: "ui/hero", group: "Missing");
@@ -302,6 +309,10 @@ public sealed class VixenCommandTests : IDisposable {
 
         Assert.Equal(ExitCode.Failed, code);
         Assert.Contains($"error {DiagnosticCode.Plan}:", output, StringComparison.Ordinal);
+
+        var expected = Path.Combine(root, "Assets", "hero.txt");
+
+        Assert.Contains($"{expected}: error {DiagnosticCode.Plan}:", output, StringComparison.Ordinal);
 
         // No "  error  " column, which is the human form and which MSBuild reads as prose.
         Assert.DoesNotContain("  error  ", output, StringComparison.Ordinal);
