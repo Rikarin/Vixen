@@ -43,6 +43,16 @@ static class ControlMarkup {
     ///     markup names a control — is <c>ctx.Child&lt;IconButton&gt;</c>, several statements before
     ///     the <c>ctx.On</c> that needs this to have happened.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>That sentence is true of <c>on:</c> and is not true of everything registered
+    ///     below.</b> It rests on the markup naming a capitalised tag, and <c>help=</c> and
+    ///     <c>context-menu=</c> are legal on a <c>&lt;div&gt;</c> — so a <c>.vxml</c> of plain boxes
+    ///     with a tooltip on one of them reads this seam having touched nothing in this assembly.
+    ///     <c>on:</c> survives that because the event names it needs are <c>Vixen.Ui</c>'s own and
+    ///     the entries here only sharpen them; <c>BuildContext.Describes</c> and
+    ///     <c>Contextualises</c> have nothing underneath. <c>ControlTheme.Install</c> is what
+    ///     touches the assembly in practice, and <c>BuildContext</c>'s failure message now says so.
+    /// </remarks>
     [ModuleInitializer]
     [SuppressMessage(
         "Usage",

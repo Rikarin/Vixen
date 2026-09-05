@@ -956,6 +956,46 @@ public sealed class BuildContext {
     /// </remarks>
     static Action<UiElement, UiElement>? contextualises;
 
+    /// <summary>The half of an empty seam that is not "you did not reference the control library".</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An empty seam has two causes and the old message named only one of them.</b> It
+    ///         said the library "registers one when it is loaded", which reads as a statement about
+    ///         the project file — and the project file is usually right. <c>ControlMarkup.Register</c>
+    ///         is a <c>[ModuleInitializer]</c>, so the CLR runs it when something in
+    ///         <c>Vixen.Ui.Controls</c> is first <i>touched</i>, and a reference that nothing has
+    ///         used is a module whose initializer has not run.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is a state <c>on:</c> cannot reach and these two can.</b> A markup file
+    ///         that names <c>&lt;IconButton&gt;</c> touches the assembly at <c>ctx.Child&lt;T&gt;</c>,
+    ///         several statements before the <c>ctx.On</c> that reads the table — the assumption
+    ///         written on <c>Register</c> — and a file that names no capitalised tag at all does not
+    ///         need the table, because <c>click</c>, <c>tap</c> and the rest are <c>Vixen.Ui</c>'s
+    ///         own. <c>help=</c> and <c>context-menu=</c> are legal on a <c>&lt;div&gt;</c>, and they
+    ///         are the first two directives on this seam for which "no capitalised tag anywhere" is
+    ///         a shape somebody writes: a panel of plain boxes with a tooltip on one of them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A message and not a repair, and that is the decision rather than a shortcut.</b>
+    ///         Reaching the registration from here means loading the assembly by name and running
+    ///         its module constructor, and <c>Assembly.Load(string)</c> is a trim and AOT warning in
+    ///         a repository where iOS is NativeAOT-only, the AOT gate fails on any such warning, and
+    ///         warnings are errors — so the mechanism is not merely inelegant here, it is
+    ///         unavailable. What is left is to say which of the two states this is and what ends it,
+    ///         and <c>ControlTheme.Install</c> is the answer because every application already calls
+    ///         it and calling it is what touches the assembly.
+    ///     </para>
+    /// </remarks>
+    const string Unloaded =
+        "Vixen.Ui.Controls registers one from a module initializer, which the runtime does not run "
+        + "until something in that assembly is first touched — so a .vxml whose markup names no "
+        + "capitalised tag has never touched it, and the registration has not happened yet even "
+        + "though the project references the library. Call ControlTheme.Install(document) during "
+        + "start-up, which touches the assembly and is what every application that draws controls "
+        + "does anyway. If this project references only Vixen.Ui, there is no tooltip and no menu "
+        + "for these directives to reach and the reference is what is missing.";
+
     /// <summary>Says what describes an element, for markup's <c>help</c>.</summary>
     /// <param name="attach">
     ///     Makes something that describes the element it is given, attaches it, and returns it. The
@@ -965,6 +1005,9 @@ public sealed class BuildContext {
     /// <remarks>
     ///     Called from <c>Vixen.Ui.Controls</c>' module initializer, exactly as <see cref="Subscribe" />
     ///     is, so a project that uses a control gets <c>help</c> without knowing this exists.
+    ///     ⚠ <b>"Uses a control" is load-bearing and <c>help</c> does not require it</b> — see
+    ///     <see cref="Unloaded" />, which is what the failure says when the reference is there and
+    ///     the module has never been touched.
     /// </remarks>
     public static void Describes(Func<UiElement, UiElement> attach) {
         ArgumentNullException.ThrowIfNull(attach);
@@ -1050,9 +1093,8 @@ public sealed class BuildContext {
 
         if (contextualises is not { } attach) {
             throw new InvalidOperationException(
-                "'context-menu' needs a menu implementation, and none is registered. Vixen.Ui.Controls "
-                + "registers one when it is loaded; a project referencing only Vixen.Ui has no menus "
-                + "for it to open."
+                "'context-menu' needs a menu implementation and none has registered one yet. "
+                + Unloaded
             );
         }
 
@@ -1065,9 +1107,7 @@ public sealed class BuildContext {
 
         if (describes is not { } attach) {
             throw new InvalidOperationException(
-                "'help' needs a description implementation, and none is registered. Vixen.Ui.Controls "
-                + "registers one when it is loaded; a project that references only Vixen.Ui has no "
-                + "tooltip for it to make."
+                "'help' needs a description implementation and none has registered one yet. " + Unloaded
             );
         }
 
