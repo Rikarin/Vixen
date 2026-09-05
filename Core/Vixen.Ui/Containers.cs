@@ -81,6 +81,24 @@ public sealed partial class UiDocument {
     ///         cascade on the frame it fires.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>Measured rather than argued, and the branch had never run until it was.</b>
+    ///         <c>ContainerWiringTests.The_scope_table_is_rebuilt_at_the_ceiling_and_the_document_still_answers</c>
+    ///         drags a window a pixel a frame until it fires. Two things it settled: the frame costs
+    ///         <b>two</b> extra settle passes and not one — one for the drag that moved the box and
+    ///         one for the rebuild — and the table never carries more than
+    ///         <see cref="ContainerScopeCeiling" /> chains across a frame boundary, because the
+    ///         settle loop arranges twice and the chain that trips the branch is interned and swept
+    ///         inside the same <see cref="Update" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the re-assign on the next line is an optimisation, not a correctness
+    ///         requirement — which is the opposite of what the comment inside the branch implies.</b>
+    ///         Removing it leaves the document correct, because the settle loop's own next pass
+    ///         re-assigns every scope anyway; what it costs is a third pass. That is worth knowing
+    ///         because a test asserting only that the document still answers passes that sabotage,
+    ///         and the pass count is the only thing that does not.
+    ///     </para>
+    ///     <para>
     ///         Four thousand is about a minute of continuous dragging at sixty frames a second and a
     ///         pixel a frame, and far more distinct chains than any static document has — interning
     ///         by value collapses a thousand equally-sized rows to one. It is deliberately high

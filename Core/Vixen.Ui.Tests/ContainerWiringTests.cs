@@ -319,6 +319,95 @@ public class ContainerWiringTests {
         Assert.True(document.Settled);
     }
 
+    /// <summary>⚠ The ceiling fires, and the document still answers on the frame it fires on.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The eviction policy had never once run.</b>
+    ///         <see cref="UiDocument.ContainerScopeCeiling" /> is four thousand and ninety-six, and
+    ///         reaching it takes about a minute of continuous dragging — so every test in this file
+    ///         and every document in this repository took the branch above it, and the branch that
+    ///         resets the table was code nothing had executed. That is the shape this repository
+    ///         calls a finished thing nothing calls: it is not a claim about whether the number is
+    ///         right, it is that <c>Reset</c> is documented as safe in exactly one order and nothing
+    ///         had ever checked that the caller uses that order.
+    ///     </para>
+    ///     <para>
+    ///         A drag is one chain per pixel per frame because the scopes are interned <i>by
+    ///         value</i>, so a window widened a pixel at a time is the cheapest way to reach it —
+    ///         and it is also the thing the policy exists for rather than a contrivance.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The assertion is the table's size and then a verdict, in that order and both.</b>
+    ///         The size alone would pass against a <c>Reset</c> that forgot to re-assign — every
+    ///         element would be left pointing at a scope that no longer exists, which
+    ///         <c>VerdictsOf</c> answers conservatively rather than throwing for, so the failure
+    ///         would be a silently unstyled document and not a crash. The verdict alone would pass
+    ///         against no ceiling at all.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_scope_table_is_rebuilt_at_the_ceiling_and_the_document_still_answers() {
+        using var document = Document(
+            """
+            root { width: 100%; height: 100%; flex-direction: column; }
+            .panel { container-type: inline-size; height: 100px; }
+            .body { width: 10px; height: 10px; }
+            @container (min-width: 400px) { .body { width: 300px; } }
+            """,
+            width: 500f
+        );
+
+        var body = document.Root.Add("div", classNames: "panel").Add("div", classNames: "body");
+
+        document.Update();
+        Assert.Equal(300f, body.Width, 0.001f);
+
+        // One pixel a frame, which is a drag, and the frame the table shrinks on is the one the
+        // policy is about.
+        var peak = 0;
+        var passes = -1;
+        var settled = false;
+
+        for (var width = 501; width <= 500 + UiDocument.ContainerScopeCeiling + 4; width++) {
+            var held = document.Styles.ContainerScopes.Count;
+
+            document.Resize(width, 600f);
+            document.Update();
+
+            if (document.Styles.ContainerScopes.Count >= held) {
+                continue;
+            }
+
+            peak = held;
+            passes = document.SettlingPasses;
+            settled = document.Settled;
+
+            break;
+        }
+
+        // ⚠ The table never carries more than the ceiling <i>across a frame boundary</i>, which is
+        // one less than the number the branch tests: the settle loop arranges twice, so the chain
+        // that trips it is interned and the rebuild fires inside the same `Update`.
+        Assert.Equal(UiDocument.ContainerScopeCeiling, peak);
+
+        // ⚠ <b>Two extra passes, and this is the assertion that says "reset, re-assign, re-cascade"
+        // rather than "reset and hope".</b> One for the drag, which moved a box and so moved a
+        // scope, and one for the rebuild. Dropping the re-assign from the branch leaves the
+        // document *correct* — the settle loop's next pass re-assigns everything anyway — so the
+        // width below stays right and only this number moves, from two to three. A version of this
+        // test that asserted the width alone passed that sabotage, which is how it came to be
+        // written twice.
+        Assert.Equal(2, passes);
+        Assert.True(settled, "the frame the table was rebuilt on did not reach a fixed point");
+
+        // And the document still answers, before and after the rebuild's cold cascade.
+        Assert.Equal(300f, body.Width, 0.001f);
+
+        document.Resize(320f, 600f);
+        document.Update();
+        Assert.Equal(10f, body.Width, 0.001f);
+    }
+
     /// <summary>⚠ A document with no <c>@container</c> in it does not walk, and does not intern.</summary>
     /// <remarks>
     ///     The <c>if</c> that keeps the feature free for every sheet in this repository. It is worth

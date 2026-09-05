@@ -1956,6 +1956,17 @@ so `UiDocument.ContainerScopeCeiling` rebuilds the table wholesale at 4096 chain
 `Reset` is documented as safe in: reset, re-assign, re-cascade. `ContainerScopesEntered` reports the
 churn, and is nought on a settled frame.
 
+⚠ **That branch had never been executed by anything**, which is the state this document's own § F
+calls a finished thing nothing calls: reaching the ceiling takes about a minute of continuous
+dragging, so every test and every document in the tree took the branch beside it.
+`The_scope_table_is_rebuilt_at_the_ceiling_and_the_document_still_answers` drags a window a pixel a
+frame until it fires, and measuring it corrected two things the prose had asserted. The frame costs
+**two** extra settle passes and not one — one for the drag and one for the rebuild. And the
+re-assign inside the branch is an **optimisation rather than a correctness requirement**: removing it
+leaves the document correct, because the settle loop's next pass re-assigns every scope anyway, and
+what it costs is a third pass. Which is why the assertion is the pass count and not the computed
+width — a test asserting the width alone passes that sabotage.
+
 #### What is owed, and what it costs
 
 **1. The containment coercion — ~0.15 EM, in `Vixen.Ui.Layout`.** Force `SizingMode.StretchFit` on a
