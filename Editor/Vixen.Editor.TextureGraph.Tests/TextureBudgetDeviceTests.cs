@@ -5,7 +5,6 @@ using System.Globalization;
 using Vixen.Core.Imaging;
 using Vixen.Editor.TextureGraph;
 using Vixen.Graphics;
-using Vixen.Graphics.Vulkan;
 using Xunit;
 
 namespace Tests;
