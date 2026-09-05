@@ -1,0 +1,99 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Each output channel takes a source channel of one of two inputs — doc 48 § 4.2's
+// `Channel Shuffle`, and the node half of § 4.5's list is built out of.
+//
+// **Two inputs and not one**, because the thing this node is actually for is packing: a roughness,
+// a metalness and an occlusion authored as three grey graphs, gathered into the three channels of
+// one map. One input would make that two shuffles and an intermediate.
+//
+// ⚠ **The selector is an index and the numbering is the contract.** 0…3 are the first input's
+// r, g, b, a; 4…7 are the second's; 8 is a constant zero and 9 a constant one. Nothing in the C#
+// checks it — an out-of-range selector falls through to zero rather than reading somewhere it
+// should not — so `TextureChannelSource` in the evaluator assembly is what a plan spells instead of
+// a bare number, and `ChannelShuffleTests` is what keeps the two tables the same.
+//
+// **The constants are why 8 and 9 exist rather than being a Uniform node and a wire.** An opacity
+// map that has to be forced to 1, or a green channel zeroed before a normal is rebuilt, is one
+// selector here against an extra image in the pool.
+//
+// The closed form: selectors (0, 1, 2, 3) copy the first input exactly, texel for texel and bit for
+// bit, which is a golden that no tolerance is needed for.
+
+shader ChannelShuffle {
+    /// Selectors 0…3.
+    var first: Texture2D
+
+    /// Selectors 4…7.
+    var second: Texture2D
+
+    /// Which channel the output's red takes.
+    var sourceR: int = 0
+
+    var sourceG: int = 1
+
+    var sourceB: int = 2
+
+    var sourceA: int = 3
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// One channel of a float4, by index. Written as a chain because a vector is not indexable here.
+    func Lane(value: float4, channel: int): float {
+        if (channel == 0) {
+            return value.x
+        }
+
+        if (channel == 1) {
+            return value.y
+        }
+
+        if (channel == 2) {
+            return value.z
+        }
+
+        return value.w
+    }
+
+    func Pick(a: float4, b: float4, selector: int): float {
+        if (selector == 8) {
+            return 0f
+        }
+
+        if (selector == 9) {
+            return 1f
+        }
+
+        if (selector >= 4) {
+            return Lane(b, clamp(selector - 4, 0, 3))
+        }
+
+        return Lane(a, clamp(selector, 0, 3))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extentA = first.GetDimensions(0)
+        val extentB = second.GetDimensions(0)
+
+        val a = first.Load(int3(clamp(coord.x, 0, extentA.x - 1), clamp(coord.y, 0, extentA.y - 1), 0))
+        val b = second.Load(int3(clamp(coord.x, 0, extentB.x - 1), clamp(coord.y, 0, extentB.y - 1), 0))
+
+        target.Store(
+            coord,
+            float4(
+                Pick(a, b, sourceR),
+                Pick(a, b, sourceG),
+                Pick(a, b, sourceB),
+                Pick(a, b, sourceA)
+            )
+        )
+    }
+}

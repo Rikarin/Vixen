@@ -1,0 +1,80 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § 4.3's `Mirror`: an axis, and a line to mirror about.
+//
+// **Two modes, because the word means two things and both are wanted.** `Reflect` keeps the side of
+// the line the origin is on and copies it, reversed, over the other — which is what a mirror node in
+// the reference does and what makes a tileable half out of an untileable one. `Flip` reverses the
+// whole image about the line, which is what everybody means when they say "mirror it".
+//
+// **The closed forms are different for the two, and both are exact.**
+//   · `Flip` is **its own inverse**: applied twice with the same axis and offset it is the identity,
+//     bit for bit.
+//   · `Reflect` is **idempotent** — applied twice it is itself — and its output is *symmetric about
+//     the line*, which is the property the node exists to produce.
+// ⚠ Asserting involution on `Reflect` would be asserting the wrong law, and it happens to hold on a
+// symmetric test image, which is how that mistake survives.
+//
+// ⚠ **The address is computed in texels and rounded, not sampled in UV.** `2·line − x` with the line
+// at the middle of an even image is `w − 1 − x`, an exact integer, so a mirror is a permutation of
+// the texels rather than a resample of them — and both closed forms above are then equalities rather
+// than tolerances. Interpolating would make a flip lose a little contrast every time it ran.
+
+shader Mirror {
+    var source: Texture2D
+
+    /// 0 mirrors in x, 1 in y, 2 in both — § 4.3's "corner".
+    var axis: int = 0
+
+    /// 0 reflects one half onto the other; 1 flips the whole image.
+    var mode: int = 0
+
+    /// Where the line is, from 0 to 1 across the axis. 0.5 is the middle.
+    var offset: float = 0.5f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// One coordinate, mirrored about the line, in texels.
+    func Reflected(coordinate: int, extent: int): int {
+        // The line, in texel centres: at `offset` 0.5 on a 64-wide image this is 31.5, and twice it
+        // is 63 — so the mirror of texel x is exactly texel 63 − x.
+        val line = offset * float(extent) - 0.5f
+        val mirrored = int(round(2f * line - float(coordinate)))
+
+        if (mode != 0) {
+            return mirrored
+        }
+
+        // Reflect: the far side takes the near side's texel, the near side keeps its own.
+        if (float(coordinate) > line) {
+            return mirrored
+        }
+
+        return coordinate
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+
+        var x = coord.x
+        var y = coord.y
+
+        if (axis == 0 || axis == 2) {
+            x = Reflected(coord.x, extent.x)
+        }
+
+        if (axis == 1 || axis == 2) {
+            y = Reflected(coord.y, extent.y)
+        }
+
+        target.Store(coord, source.Load(int3(clamp(x, 0, extent.x - 1), clamp(y, 0, extent.y - 1), 0)))
+    }
+}

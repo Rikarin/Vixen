@@ -1,0 +1,92 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// The reduction half of doc 48 § 4.2's `Auto Levels`, on `NearestReduce.rvn`'s shape.
+//
+// ⚠ **This is the first kernel in the catalogue whose output depends on every texel of its input**,
+// and everything unusual about it follows from that. A reduction cannot be evaluated in tiles, a
+// level cannot be read until the whole of the level above it has been written, and a workgroup can
+// only wait for itself — so it is **a dispatch per level**, exactly as `NearestReduce` and
+// `HiZReduce` are, and the plan's op order is what puts the barriers between them.
+//
+// **What a texel of the output carries: `(min, max, 0, 1)` of the block under it.** Two numbers in
+// four lanes, so the chain reduces the same way at every level after the first — which is what
+// `first` selects. On the first dispatch a tap is a *grey value* and becomes `(v, v)`; after that a
+// tap is already a `(min, max)` pair and the two lanes reduce independently.
+//
+// ⚠ **Grey is the red channel, not a luminance**, for `GradientMap.rvn`'s reason: § 4.2 gives
+// `Grayscale Conversion` its own node so that "which weights" is answered once by an artist. Auto
+// Levels is a grey node in the reference too.
+//
+// **The block is whatever the two sizes say, up to `MaxBlock`.** A plan reduces 64 → 8 → 1 with
+// level offsets 0, 3, 6, so the block is 8×8 and one dispatch does what three halvings would. ⚠ A
+// plan that skipped more than three levels at once would silently read only the first 8×8 of each
+// block — `AutoLevelsTests` is what asserts the min and max are the whole image's rather than a
+// corner's, on an image whose extremes are deliberately in opposite corners.
+
+shader MinMaxReduce {
+    /// The image on the first dispatch, the previous level's pairs after that.
+    var source: Texture2D
+
+    /// Non-zero when `source` is the image itself rather than a level of pairs.
+    var first: int = 1
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The widest block one invocation reads, per axis.
+    ///
+    /// ⚠ **A ceiling rather than a runtime bound, and a correctness property rather than a
+    /// performance one** — `Blur.rvn`'s argument, in the other direction. A loop whose bound came
+    /// from a ratio of two image sizes would be unbounded from the shader's point of view, and a
+    /// 4096 → 1 reduction in one dispatch is a loop no invocation leaves.
+    const val MaxBlock: int = 8
+
+    /// One tap, as a `(min, max)` pair.
+    func Pair(x: int, y: int): float2 {
+        val extent = source.GetDimensions(0)
+        val texel = source.Load(int3(clamp(x, 0, extent.x - 1), clamp(y, 0, extent.y - 1), 0))
+
+        if (first != 0) {
+            return float2(texel.x, texel.x)
+        }
+
+        return float2(texel.x, texel.y)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val parent = source.GetDimensions(0)
+        val blockX = clamp((parent.x + size.x - 1) / size.x, 1, MaxBlock)
+        val blockY = clamp((parent.y + size.y - 1) / size.y, 1, MaxBlock)
+
+        val seedTap = Pair(coord.x * blockX, coord.y * blockY)
+
+        var lowest = seedTap.x
+        var highest = seedTap.y
+
+        for (dy in 0 .. MaxBlock) {
+            if (dy >= blockY) {
+                break
+            }
+
+            for (dx in 0 .. MaxBlock) {
+                if (dx >= blockX) {
+                    break
+                }
+
+                val tap = Pair(coord.x * blockX + dx, coord.y * blockY + dy)
+
+                lowest = min(lowest, tap.x)
+                highest = max(highest, tap.y)
+            }
+        }
+
+        target.Store(coord, float4(lowest, highest, 0f, 1f))
+    }
+}
