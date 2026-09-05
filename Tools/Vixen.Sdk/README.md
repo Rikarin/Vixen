@@ -189,7 +189,10 @@ no tool at all.
 
 ⚠ **What it costs is size: ~170 MB unpacked, ~69 MB on the wire, downloaded by every consumer on
 every one of the three desktop RIDs, of which the RID actually running uses about 30 MB.** `.pdb` and
-`.xml` are excluded, which is another 82 MB that would otherwise have travelled.
+`.xml` are excluded, which is another 82 MB that would otherwise have travelled. ⚠ Those two figures
+are the ones [#433](https://github.com/Rikarin/Vixen/issues/433) was filed against and they are
+**pre-#624**: the Assimp major nothing opens is 44 251 540 bytes of them, so the package is about a
+quarter smaller than every number in this section says.
 
 **Where the weight actually is**, measured over the CLI's own `runtimes/` with symbols excluded, so
 that the next attempt at this argues with numbers rather than with an impression:
@@ -208,18 +211,27 @@ conclusion, and the second is the smaller half of the bill rather than the large
 major version of the same library.** `Ultz.Native.Assimp` ships `libassimp.so.5` *and*
 `libassimp.so.6` in each Linux RID, and `libassimp.5.dylib` *and* `libassimp.6.dylib` in each macOS
 one — `Silk.NET.Assimp` loads one of them. That is a quarter of the unpacked package, and it is not
-one of the three ways out below. It is **not** excluded here, deliberately: which soname the loader
-takes has to be established on each platform first, and a wrong guess is a model importer that
-throws at run time on the one platform nobody tested. Filed rather than fixed.
+one of the three ways out below. ⚠ **The sentence that stood here said it was "not excluded,
+deliberately… filed rather than fixed", and that has been untrue since
+[#624](https://github.com/Rikarin/Vixen/issues/624) landed** — the major the binding does not open is
+excluded now, and which one that is went the opposite way from how it was filed. Both halves are
+below.
 
 The way out is still a smaller tool rather than a cleverer package: the SDK calls `vixen import` and
 `vixen content build` and nothing else, while what is packed is the whole CLI — `live`,
 `content serve`, Roslyn workspaces and the text stack included. ⚠ But the table says what a second
 entry point would and would not buy. Dropping `Vixen.Live.Cluster` and `Vixen.ContentServer` from a
 `Vixen.ContentBuild`'s reference closure drops **managed** assemblies; the ~150 MB that dominates is
-native, Assimp belongs to the model importer the content build exists to run, and the text stack is
-reached by font import. So a second entry point is worth doing for what it removes from the graph and
-should not be expected to halve the download on its own.
+native, and Assimp belongs to the model importer the content build exists to run. So a second entry
+point is worth doing for what it removes from the graph and should not be expected to halve the
+download on its own.
+
+⚠ **What that paragraph used to end with — "and the text stack is reached by font import" — is
+false, and it is the sentence that made HarfBuzz look unavoidable.** Nothing imports a font.
+`BuiltInImporters.cs:174` lists `.ttf` and `.otf` among the extensions that are *refused* with a
+reason, `Vixen.Editor.Assets.Tests.UnimportedFormatTests` asserts that refusal names a `FontImporter`
+nobody has written, and no file under `Editor/Vixen.Editor.Assets` mentions HarfBuzz at all. The
+shaper is reached only by the graph chain below, so the whole 46 MB is accidental rather than earned.
 
 ⚠ **One exception is taken, and it is the only lever that changes neither the reference graph nor the
 RID coverage.** `Ultz.Native.Assimp` 6.0.2 ships **two majors** of the native in every Linux and macOS
@@ -270,18 +282,41 @@ HarfBuzz's 46 MB reaches the CLI through the *importers*, by this chain, read of
 ```
 vixen → Vixen.Editor.Assets → Vixen.Editor.ShaderGraph  ┐
                             → Vixen.Editor.VfxGraph     ┴→ Vixen.Editor.NodeGraph
-     → Vixen.Editor.Inspector → Vixen.Ui.Controls.Advanced → Vixen.Ui → Vixen.Ui.Text → HarfBuzzSharp
+                                → Vixen.Editor.Inspector ┐
+                                → Vixen.Ui.Controls.Advanced → Vixen.Ui → Vixen.Ui.Text → HarfBuzzSharp
 ```
+
+⚠ **Those two `ProjectReference` lines are the *only* route from the CLI to the interface framework,
+and the cut is measurable rather than argued.** Walking `Vixen.Cli.csproj`'s `ProjectReference`
+closure with `Vixen.Editor.Assets → Vixen.Editor.ShaderGraph` and
+`Vixen.Editor.Assets → Vixen.Editor.VfxGraph` removed takes it from 76 projects to 59: the seventeen
+that leave are `Vixen.Ui` and its ten siblings (`.Text`, `.Layout`, `.Styling`,
+`.Styling.Utilities`, `.Controls`, `.Controls.Advanced`, `.Markup`, `.HotReload`, and the two
+generators), the four graph and inspector assemblies with their two generators, and with them
+`HarfBuzzSharp`, its three native asset packages and `ExCSS`. Nothing else in the closure reaches
+`Vixen.Ui.Text`.
+
+⚠ **And the split is one assembly and six files, not the four or five this file first estimated.**
+`Vixen.Editor.ShaderGraph` (13 `.cs`) and `Vixen.Editor.VfxGraph` (4) contain **no** file that names
+`Vixen.Ui` or `Vixen.Editor.Inspector`; they are already the document-and-compiler halves they would
+have been split into. The UI is confined to six files of `Vixen.Editor.NodeGraph` — `NodeGraphView`,
+`NodeGraphTheme` (+ `.vcss`), `NodeSearchPopup` (+ `.vxml`), `NodePreview`, `NodeInspector`
+(+ `.vxml`) and `NodePortEditProvider` — beside fourteen that are the model, the registry, the
+compiler, the layout and the search. `Vixen.Editor.NodeGraph.csproj`'s own comment beside the
+`Vixen.Ui.Controls.Advanced` reference says the same thing from the other side: *"this is what makes
+the assembly a UI assembly… splitting the view out would fix that"*.
 
 `Vixen.Editor.Assets` needs the two graph assemblies for real work — `ShaderGraphImporter` compiles a
 `.vxshadergraph` through `NodeTypeRegistry`, which is content-build work and belongs in the SDK. What
-it does not need is that those two also reference `Vixen.Editor.NodeGraph`, the *editor*, which drags
-the whole UI framework and its shaper behind it. Splitting each graph's document-and-compiler half from
-its editor half sheds 46 324 264 bytes — more than a quarter of the package — without a new entry
-point, without changing the RID coverage, and without asking anything of the trimmer.
+it does not need is the canvas those six files are. Moving them into a
+`Vixen.Editor.NodeGraph.View` the editor references and the importers do not sheds 46 324 264 bytes —
+more than a quarter of the package — without a new entry point, without changing the RID coverage,
+and without asking anything of the trimmer.
 
 That is the measurement #433 wants before it decides, and it says its own option list is aimed at the
-wrong half.
+wrong half. ⚠ It is a **reorganisation and not a one-line exclusion**: six public types change
+assembly, so both `PublicAPI` baselines move with them and `CheckApi` has to be regenerated rather
+than hand-edited. That is why it is written down here rather than done in passing.
 
 ⚠ **The apphosts are not packed.** `vixen`, `vixen-content-server` and `Vixen.AssetCompiler` sit in
 the build output beside the assemblies with no extension: they are native launchers built for
@@ -300,7 +335,28 @@ asks and is available here only because `vixen --version` needs no project to po
 **Nothing generates C# yet**, so the `BeforeTargets="CoreCompile"` hook is ordering without cargo.
 VXML and shader generators arrive in Phases 4d and 5.
 
-**Platform packaging** — bundles into an APK's assets, an iOS bundle, `wwwroot` — waits for those
-platforms.
+**Platform packaging** — bundles into an APK's assets, an iOS bundle, `wwwroot`. ⚠ **It does not
+"wait for those platforms", which is what this line used to say: all three runtime halves are
+built and each one says where it looks.** What is missing is on this side of the seam, and it is
+not the same amount of work three times:
+
+- **Android** is item metadata and nothing else. `AndroidServices.cs:256` mounts an
+  `AndroidAssetProvider` — the APK's own `AssetManager` — at `MountPoints.App`, so a bundle put in
+  `@(AndroidAsset)` under `Content/` is already reachable. ⚠ Worth reading that provider's remarks
+  first: `AssetManager.Open` returns a non-seekable inflater stream for anything the packager
+  compressed, which is why it buffers, and why `AndroidUseAssetPackCompression=false` is the
+  arrangement a large bundle wants.
+- **iOS** is the same shape. `IosFileSystemHost.cs:48` mounts a read-only `PhysicalFileProvider`
+  over the application directory, so the bundles need to be `@(BundleResource)` at `Content/`.
+- ⚠ **Web is not item metadata and is the one with a missing producer.**
+  `WebFileSystemHost.cs:98` mounts a `FetchFileProvider` over `content/` **and a
+  `content/manifest.json`** — a web server has no directory listing, so the manifest *is* the file
+  system. Nothing in this repository writes one; `Tools/Vixen.WebProbe/README.md:65` says so in as
+  many words and turns `MountContent` off because of it. So the `wwwroot` third is a content-build
+  feature (emit the manifest `WebContentManifest` parses) before it is a packaging one.
+
+Neither `Samples/01-HelloTriangle.Android` nor `.iOS` uses this SDK or ships content, so there is
+also nothing here that would go red if any of the three were written wrong — which is why none of
+them is written on a machine with no mobile workload installed.
 
 Licensed under Apache-2.0.
