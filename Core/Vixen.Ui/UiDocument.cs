@@ -1503,11 +1503,20 @@ public sealed partial class UiDocument : IDisposable {
         // built once against the line height it happened to have and keep that box for ever. Read
         // before the block below writes `AppliedLineHeight`, which is what makes one field serve both
         // tests; `.Equals` because NaN is a legitimate value for it and `NaN == NaN` is false.
+        //
+        // ⚠ And the font registry's revision, which is the third thing that can move under an
+        // unchanged style: the strut below is font metrics, and a face registered after this element
+        // was styled leaves the cascade, the font size and the line height all exactly as they were.
+        // Without it, an interface built before its font is installed keeps a strut of nothing for
+        // ever — the same fault `Refont` repairs for the measure function, and it is not enough on
+        // its own because a strut is written here rather than measured there.
         if (!ReferenceEquals(element.AppliedStyle, style)
             || !element.AppliedFontSize.Equals(element.FontSize)
-            || !element.AppliedLineHeight.Equals(element.LineHeight)) {
+            || !element.AppliedLineHeight.Equals(element.LineHeight)
+            || element.AppliedFontRevision != Fonts.Revision) {
             element.AppliedStyle = style;
             element.AppliedFontSize = element.FontSize;
+            element.AppliedFontRevision = Fonts.Revision;
             StylesApplied++;
 
             // ⚠ The line height goes in as well as the font size, and it can only go in here: `lh`
@@ -1529,6 +1538,13 @@ public sealed partial class UiDocument : IDisposable {
             // write; going first would hand it a style that already had what it was about to
             // preserve. See `LayoutStyleBuilder.ApplyVariableLength`.
             Builder.ApplyVariableLength(style, Layout, element.LayoutNode);
+
+            // ⚠ <b>After `SetStyle` and not inside `Build`, for the same reason the call above is:
+            // `SetStyle` writes the whole struct, so a strut folded into the built value would be
+            // right until the next write and gone after it.</b> This is the one layout property whose
+            // numbers no stylesheet contains — CSS 2.1 §10.8's strut is the container's own FONT, and
+            // the font is on this side of the bridge. See `StrutOf`.
+            Layout.SetStrut(element.LayoutNode, StrutOf(style, element.FontSize, element.LineHeight));
 
             // ⚠ `order` is the one layout property the draw list also has to know, because CSS
             // Flexbox §5.4 makes it modify *painting* order as well as layout order. Taken from the
@@ -2358,6 +2374,65 @@ public sealed partial class UiDocument : IDisposable {
 
     /// <summary>CSS Text 3 § 6.1's initial <c>tab-size</c>.</summary>
     internal const float DefaultTabSize = 8f;
+
+    /// <summary>CSS 2.1 §10.8's strut for one element, or nothing where no face answered.</summary>
+    /// <param name="style">The element's computed style, for its font family, weight and slant.</param>
+    /// <param name="fontSize">Its resolved font size.</param>
+    /// <param name="lineHeight">Its resolved line height, or <see cref="float.NaN" /> for <c>normal</c>.</param>
+    /// <returns>The metrics, or <c>default</c> — which means "no strut" to the layout store.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This method is the whole of why the five font-relative <c>vertical-align</c>
+    ///         values were refusable for so long and are not any more.</b> The refusal was always
+    ///         stated as "<c>Vixen.Ui.Layout</c> has no font", which is true and was the wrong half
+    ///         of the sentence: a strut is not a font, it is five numbers <i>derived</i> from one.
+    ///         Deriving them needs a <see cref="FontRegistry" /> and this side has one, so the store
+    ///         stays geometry and the numbers cross the bridge like any other computed value.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The leading is split in half above and below, and that is what separates the two
+    ///         pairs of metrics.</b> CSS 2.1 §10.8.1: the line box's half of the strut is the content
+    ///         area grown by half the difference between the line height and it — so under
+    ///         <c>line-height: 2</c> the strut's box is half a font size taller on each side than the
+    ///         content area that <c>text-top</c> and <c>text-bottom</c> align to. A negative
+    ///         <c>line-height</c>'s worth of half-leading is legal and shrinks the line, which is what
+    ///         <c>line-height: 0</c> is for.
+    ///     </para>
+    ///     <para>
+    ///         A <see cref="float.NaN" /> line height is <c>normal</c>, which CSS leaves to the font:
+    ///         the face's own ascender, descender and line gap, exactly as <c>TextRun.Height</c>
+    ///         computes it. That is the one path where the leading comes from the face rather than
+    ///         from the cascade.
+    ///     </para>
+    /// </remarks>
+    internal StrutMetrics StrutOf(ComputedStyle style, float fontSize, float lineHeight) {
+        // Nothing registered, or nothing matching — and `default` is the honest answer rather than a
+        // synthesised one. It is what every document laid out as before this existed, and it is what
+        // makes the layout store refuse `middle` instead of putting it half a guess out of place.
+        if (Fonts.Resolve(FontFamilyOf(style), FontWeightOf(style), FontStyleOf(style)) is not { } face) {
+            return default;
+        }
+
+        var scale = fontSize / face.UnitsPerEm;
+        var textAscent = face.Metrics.Ascender * scale;
+
+        // The face's descender is negative, as the font tables give it; every number in a strut is a
+        // distance and therefore positive.
+        var textDescent = -face.Metrics.Descender * scale;
+
+        var leading = float.IsNaN(lineHeight) ? face.Metrics.LineHeight * scale : lineHeight;
+        var halfLeading = (leading - (textAscent + textDescent)) / 2f;
+
+        return new StrutMetrics(
+            textAscent + halfLeading,
+            textDescent + halfLeading,
+            textAscent,
+            textDescent,
+            face.XHeight * scale,
+            face.SubscriptOffset * scale,
+            face.SuperscriptOffset * scale
+        );
+    }
 
     internal string? FontFamilyOf(ComputedStyle style) =>
         style.TryGet(fontFamily, out var value) ? Styles.Values.NameOf(value) : null;

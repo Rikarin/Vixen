@@ -2022,6 +2022,17 @@ public partial class UiElement : Composition.IComposable {
     /// <summary>The line height that went with it.</summary>
     internal float AppliedLineHeight { get; set; } = float.NaN;
 
+    /// <summary>Which <see cref="FontRegistry.Revision" /> the strut was resolved against.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The strut has the same "styled before the font was registered" trap the measure
+    ///     function had, and this is the same cure.</b> A face that arrives after an element was
+    ///     styled changes nothing about that element's <c>ComputedStyle</c>, its font size or its line
+    ///     height — so without a revision in the test, an interface built before its font is installed
+    ///     keeps a strut of nothing for ever and every line box in it stays as tall as the boxes on
+    ///     it. Minus one so that the first pass always resolves, since a registry starts at zero.
+    /// </remarks>
+    internal int AppliedFontRevision { get; set; } = -1;
+
     /// <summary>The letter spacing that went with it.</summary>
     internal float AppliedLetterSpacing { get; set; } = float.NaN;
 

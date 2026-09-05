@@ -116,10 +116,13 @@ Vixen.Ui.Text.FontFace.IsVariable.get -> bool
 Vixen.Ui.Text.FontFace.Metrics.get -> Vixen.Ui.Text.FontMetrics
 Vixen.Ui.Text.FontFace.Name.get -> string
 Vixen.Ui.Text.FontFace.SetInstance(Vixen.Ui.Text.FontVariation? variation) -> void
+Vixen.Ui.Text.FontFace.SubscriptOffset.get -> int
+Vixen.Ui.Text.FontFace.SuperscriptOffset.get -> int
 Vixen.Ui.Text.FontFace.Supports(int codePoint) -> bool
 Vixen.Ui.Text.FontFace.TryGetGlyphExtents(ushort glyphId, out Vixen.Ui.Text.Outlines.GlyphBounds bounds) -> bool
 Vixen.Ui.Text.FontFace.UnitsPerEm.get -> int
 Vixen.Ui.Text.FontFace.Variation(System.Collections.Generic.IReadOnlyDictionary<string, float> values) -> Vixen.Ui.Text.FontVariation
+Vixen.Ui.Text.FontFace.XHeight.get -> int
 Vixen.Ui.Text.FontFeature -> readonly struct
 Vixen.Ui.Text.FontFeature : System.IEquatable<Vixen.Ui.Text.FontFeature>
 Vixen.Ui.Text.FontFeature.FontFeature() -> void

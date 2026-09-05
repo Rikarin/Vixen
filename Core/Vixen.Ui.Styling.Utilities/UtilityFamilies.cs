@@ -1298,8 +1298,23 @@ public static class UtilityFamilies {
             ["wrap"] = "wrap", ["nowrap"] = "nowrap"
         });
 
+        // ⚠ <b>Eight of Tailwind's eight now, and the four that arrive last are the four that were
+        // waiting on a strut rather than on this table.</b> `align-text-top`, `align-text-bottom`,
+        // `align-sub` and `align-super` each emit a value defined against the parent's font metrics,
+        // which `LayoutStyleBuilder` dropped for the life of the property because the layout store
+        // had no font to measure them against. It still has none — it has `StrutMetrics`, five
+        // numbers `UiDocument.StrutOf` resolves from the element's own face — so all four now reach
+        // the line walk and move a box. Registering them before that would have been the inert
+        // family this table's gate exists to keep out.
         Keywords("align", "vertical-align", new() {
-            ["top"] = "top", ["middle"] = "middle", ["bottom"] = "bottom", ["baseline"] = "baseline"
+            ["top"] = "top",
+            ["middle"] = "middle",
+            ["bottom"] = "bottom",
+            ["baseline"] = "baseline",
+            ["text-top"] = "text-top",
+            ["text-bottom"] = "text-bottom",
+            ["sub"] = "sub",
+            ["super"] = "super"
         });
 
         // ── Line clamp ──────────────────────────────────────────────────────────────────────

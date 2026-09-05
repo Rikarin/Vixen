@@ -254,6 +254,12 @@ public sealed class LayoutStyleBuilder {
         ApplyEdges(style, in context, ref result);
         ApplyGaps(style, in context, ref result);
         ApplyScrollbar(style, in context, ref result);
+
+        // ⚠ Here rather than in `ApplyKeywords` beside the other keyword tables, because
+        // `vertical-align` is the one of them that is not only keywords: its `<length>` and
+        // `<percentage>` form needs the resolution context, and the percentage's base is a line
+        // height that only this side of the bridge has.
+        ApplyVerticalAlign(style, in context, ref result);
         ApplyPlacements(style, ref result);
 
         return result;
@@ -423,10 +429,6 @@ public sealed class LayoutStyleBuilder {
 
         if (TryKeyword(style, names.Clear, keywords.Clears, out Clear clear)) {
             result.Clear = clear;
-        }
-
-        if (TryKeyword(style, names.VerticalAlign, keywords.VerticalAligns, out VerticalAlign verticalAlign)) {
-            result.VerticalAlign = verticalAlign;
         }
 
         if (TryKeyword(style, names.TextAlign, keywords.TextAligns, out TextAlign textAlign)) {
@@ -720,6 +722,47 @@ public sealed class LayoutStyleBuilder {
     ///         <see cref="LayoutStyle.ScrollbarWidth" />.
     ///     </para>
     /// </remarks>
+    /// <summary>Reads <c>vertical-align</c>, which is seven keywords or a distance.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The percentage is resolved HERE and nowhere else, because this is the last place
+    ///         that knows what it is a percentage of.</b> CSS 2.1 §10.8.1 resolves a percentage
+    ///         <c>vertical-align</c> against the <i>element's own</i> <c>line-height</c> — not the
+    ///         container's and not the line box's — and the layout store's inline-level box is a
+    ///         rectangle with no line height in it. <see cref="LengthContext.LineHeight" /> is that
+    ///         number, and <c>UiDocument.ApplyStyle</c> has already put this element's own resolved
+    ///         line height into the context before <see cref="Build" /> is called.
+    ///     </para>
+    ///     <para>
+    ///         An unreadable value leaves the field alone rather than writing a zero: zero is
+    ///         <c>baseline</c>, which is a perfectly visible answer, and a typo that silently means
+    ///         "the initial value" is indistinguishable from not writing the declaration at all.
+    ///     </para>
+    /// </remarks>
+    void ApplyVerticalAlign(ComputedStyle style, in LengthContext context, ref LayoutStyle result) {
+        if (!TryValue(style, names.VerticalAlign, out var value)) {
+            return;
+        }
+
+        if (value.Kind == StyleValueKind.Keyword) {
+            if (keywords.VerticalAligns.TryGetValue(value.Keyword, out var keyword)) {
+                result.VerticalAlign = keyword;
+            }
+
+            return;
+        }
+
+        var length = context.ToLength(value);
+        if (!length.IsDefined) {
+            return;
+        }
+
+        result.VerticalAlign = VerticalAlign.Offset;
+        result.VerticalAlignOffset = length.Unit == LayoutUnit.Percent
+            ? length.Value / 100f * context.LineHeight
+            : length.Value;
+    }
+
     void ApplyScrollbar(ComputedStyle style, in LengthContext context, ref LayoutStyle result) {
         if (!TryValue(style, names.ScrollbarWidth, out var value)) {
             return;
@@ -1528,18 +1571,26 @@ public sealed class LayoutStyleBuilder {
                 [table.Intern("inline-end")] = Clear.InlineEnd
             };
 
-            // ⚠ <b>Three of the eight, and the five that are missing are missing on purpose.</b>
-            // `middle`, `text-top`, `text-bottom`, `sub` and `super` are each defined against the
-            // parent's strut — its font's x-height, ascent or descent — and `Vixen.Ui.Layout` has no
-            // font: it is geometry, and `FontRegistry` is on this side of the boundary rather than
-            // that one. The layout store falls them back to `baseline`, which is what an engine must
-            // do with a value it cannot honour; what it must not do is let this bridge report them as
-            // supported, so they are dropped here and the utilities that emit them stay in the
-            // editor's inert inventory with a task number. See `VerticalAlign`.
+            // ⚠ <b>All seven keywords now, and the five that used to be dropped here are the reason
+            // this comment is worth reading twice.</b> `middle`, `text-top`, `text-bottom`, `sub` and
+            // `super` are each defined against the parent's STRUT — its font's x-height, ascent or
+            // descent — and `Vixen.Ui.Layout` still has no font. What changed is that a strut is five
+            // NUMBERS rather than a font, and this side of the boundary has the `FontRegistry` that
+            // produces them: `UiDocument.ApplyStyle` writes a `StrutMetrics` on every element that
+            // resolved a face, and the layout store still falls all five back to `baseline` on a
+            // container that has none. So mapping them here is no longer a bridge claiming support
+            // that is not there — it is the half of the feature that lives on this side.
+            // The `<length>` and `<percentage>` form is not a keyword and is read by
+            // `ApplyVerticalAlign`, which is also what this table is now called from.
             VerticalAligns = new Dictionary<int, VerticalAlign> {
                 [table.Intern("baseline")] = VerticalAlign.Baseline,
                 [table.Intern("top")] = VerticalAlign.Top,
-                [table.Intern("bottom")] = VerticalAlign.Bottom
+                [table.Intern("bottom")] = VerticalAlign.Bottom,
+                [table.Intern("middle")] = VerticalAlign.Middle,
+                [table.Intern("text-top")] = VerticalAlign.TextTop,
+                [table.Intern("text-bottom")] = VerticalAlign.TextBottom,
+                [table.Intern("sub")] = VerticalAlign.Sub,
+                [table.Intern("super")] = VerticalAlign.Super
             };
 
             // ⚠ <b>Five of the six, and `justify` is the one that is dropped rather than aliased.</b>

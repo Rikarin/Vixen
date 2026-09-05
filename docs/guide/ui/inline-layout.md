@@ -4,7 +4,7 @@ slug: ui/inline-layout
 kind: guide
 area: Core
 summary: Line boxes over Vixen's layout store — inline-block and inline-flex, shrink-to-fit sizing, baseline alignment and vertical-align, and the one invariant an inline formatting context asks the store to give up.
-api: [T:Vixen.Ui.Layout.VerticalAlign, T:Vixen.Ui.Layout.TextAlign, T:Vixen.Ui.Layout.LayoutFragmentEnds]
+api: [T:Vixen.Ui.Layout.VerticalAlign, T:Vixen.Ui.Layout.TextAlign, T:Vixen.Ui.Layout.LayoutFragmentEnds, T:Vixen.Ui.Layout.StrutMetrics]
 tags: [ui, layout, inline, css, line-boxes, baseline]
 since: 0.2
 status: preview
@@ -110,21 +110,46 @@ from CSS 2.1 §10.8.1:
   outside it. Cards, badges and chips almost always declare `overflow: hidden`, so this branch fires
   constantly.
 
+### The strut
+
+Every line box begins with an imaginary zero-width inline box carrying the block container's own font
+and line height (CSS 2.1 §10.8). It is why an empty line is still a line tall, why a short image never
+makes a line shorter than the text beside it would be, and why `line-height` on a container does
+anything at all.
+
+⚠ **A strut is font metrics and `Vixen.Ui.Layout` still has no font — but a strut is five *numbers*,
+and only producing them needs one.** So <xref:Vixen.Ui.Layout.StrutMetrics> is a computed value
+written on the container, exactly as a resolved `font-size` is, and the layout store stays geometry.
+From a stylesheet nothing has to be written at all: `UiDocument` resolves the element's face and
+writes the strut for you.
+
+```csharp no-compile="A fragment. Direct callers of the layout store supply their own numbers; a `UiDocument` writes this for every element from its resolved face."
+// A 20-point face with a 16/4 ascent and descent, at `line-height: 30` — so five points of
+// half-leading on each side, and a strut box of 21 above the baseline and 9 below.
+tree.SetStrut(panel, new StrutMetrics(21f, 9f, 16f, 4f, XHeight: 10f, SubOffset: 4f, SuperOffset: 8f));
+```
+
+⚠ **All-zero means "no strut", which is the initial value**, and a tree that never writes one lays out
+exactly as this store did before the type existed: a line is as tall as the boxes on it, and the five
+font-relative `vertical-align` values below fall back to `Baseline`.
+
 ### `vertical-align`
 
-Three of the eight values are implemented, and the split is not arbitrary — it is exactly the line
-between values defined against the **line box** and values defined against a **font**:
+All nine values are implemented, and the split that used to divide them is now a question about the
+*document* rather than about the store:
 
 | Value | State |
 |---|---|
 | `Baseline` | **done** — the initial value |
 | `Top`, `Bottom` | **done** — measured from the line box's edges; they grow the line without moving its baseline |
-| `Middle`, `TextTop`, `TextBottom`, `Sub`, `Super` | **refused** — each is defined against the parent's *strut* |
+| `Middle`, `TextTop`, `TextBottom`, `Sub`, `Super` | **done where the container has a strut**, and `Baseline` where it does not |
+| `Offset` | **done** — CSS's `<length>` and `<percentage>`, and the one value that needs no strut |
 
-⚠ A strut is font metrics, and `Vixen.Ui.Layout` has no font: it is a geometry store, and
-`FontRegistry` lives a layer out in `Vixen.Ui`. The five are dropped at the stylesheet bridge rather
-than approximated, because rounding `middle` to `baseline` looks almost right and reads as a
-rendering quirk.
+⚠ `TextTop` and `TextBottom` align to the font's **content area** and not to the line box; under
+`line-height: 2` those differ by half a font size on each side, which is why a strut carries both
+pairs of numbers. A percentage `vertical-align` resolves against the **element's own** `line-height`
+and is turned into a distance at the stylesheet bridge, because an inline-level box in the layout
+store is a rectangle with no line height in it.
 
 ### `text-align`
 
@@ -249,8 +274,10 @@ tree.SetVerticalAlign(short_, VerticalAlign.Top);     // top = 0, not 20
 
 ## See also
 
-- [Floats and clear](floats.md) — ⚠ implemented for block-level content only. A line box does
-  **not** yet shorten as it passes a float, so text beside one runs under it.
+- [Floats and clear](floats.md) — ⚠ this entry used to say a line box does not shorten as it passes
+  a float. It does: `WalkInlineLines` asks the exclusion list for the band at each line's own top and
+  height. What a line still does not do is break *inside* a text leaf, so a paragraph beside a float
+  re-flows as whole leaves rather than as a staircase.
 - [Grid layout](grid-layout.md) — the store's third algorithm, and what *it* cost.
 - [Utility composition](utility-composition.md) — the `inline`, `inline-block`, `inline-flex` and
   `align-*` utilities.
