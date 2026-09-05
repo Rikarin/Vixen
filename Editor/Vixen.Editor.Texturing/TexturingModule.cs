@@ -4,6 +4,7 @@
 using Vixen.Editor.AssetEditors;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
+using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Ui;
 using Vixen.Ui;
 
@@ -25,8 +26,8 @@ namespace Vixen.Editor.Texturing;
 ///         of <see cref="Activate" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Three things doc 48 predicted this plugin would need and could not have. Two are
-///         closed, and closing them is what this module was for.</b>
+///         ⚠ <b>Three things doc 48 predicted this plugin would need and could not have. All three
+///         are closed, and closing them is what this module was for.</b>
 ///     </para>
 ///     <list type="number">
 ///         <item>
@@ -52,10 +53,15 @@ namespace Vixen.Editor.Texturing;
 ///         </item>
 ///         <item>
 ///             <description>
-///                 <b>The compiler — still open.</b> <c>TextureGraphCompiler</c> is
-///                 <c>internal</c>, so this plugin can offer an author every node and cannot compile
-///                 what they wire; the preview is therefore the graph's base layer and says so.
-///                 <a href="https://github.com/Rikarin/Vixen/issues/738">#738</a>.
+///                 <b>The compiler — closed, and this entry was stale.</b>
+///                 <c>TextureGraphCompiler</c> is <c>public</c>; <see cref="LayerStackPreview" />
+///                 compiles the open stack through it and shows the map that comes out.
+///                 <a href="https://github.com/Rikarin/Vixen/issues/738">#738</a>. ⚠ <b>The
+///                 <em>graph</em> pane has not caught up</b> — <c>TextureGraphPreview</c> still
+///                 evaluates a fixed checkerboard and its status line still tells an author the
+///                 compiler is internal, which is a sentence naming an obstacle that no longer exists
+///                 and an issue that is closed.
+///                 <a href="https://github.com/Rikarin/Vixen/issues/816">#816</a>.
 ///             </description>
 ///         </item>
 ///     </list>
@@ -82,6 +88,18 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// <summary>The panel a graph is edited in.</summary>
     public const string GraphPanel = "texturing.graph";
 
+    /// <summary>The verb that opens the selected <c>.vxlayers</c>.</summary>
+    public const string OpenStackCommand = "texturing.open-stack";
+
+    /// <summary>The panel a layer stack is shown in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Its own panel rather than the graph's, and the reason is the canvas.</b>
+    ///     <c>NodeGraphView</c> pans and zooms in a space of its own; a panel that swapped a node
+    ///     canvas for a list of rows and back would have to reset that transform on every swap, and
+    ///     the one that forgets is a canvas an author cannot find their graph on.
+    /// </remarks>
+    public const string StackPanel = "texturing.layers";
+
     EditorProject project = null!;
     EditorShell shell = null!;
 
@@ -97,6 +115,17 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// <summary>What turns the open graph into pixels, once there is anything to turn it with.</summary>
     TextureGraphPreview? preview;
 
+    /// <summary>What turns the open stack into pixels.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A second preview and not a second evaluator, and the difference is what doc 48 § D1
+    ///     claims.</b> Both hold a <c>TexturePlanEvaluator</c> — that is a pipeline cache per kernel
+    ///     and has to be held across evaluations — but both compile through the same public
+    ///     <c>TextureGraphCompiler</c> and run the same kernels. Sharing one evaluator between the
+    ///     two panels would be the better shape and is not this slice's:
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>.
+    /// </remarks>
+    LayerStackPreview? stackPreview;
+
     /// <summary>The view, once the panel has been opened at least once.</summary>
     /// <remarks>
     ///     ⚠ <b>Null until then, and replaced every time the panel is reopened.</b> A dock panel's
@@ -106,8 +135,14 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// </remarks>
     TextureGraphView? view;
 
+    /// <summary>The stack's view, on the same terms.</summary>
+    LayerStackView? stackView;
+
     /// <summary>The graph on the canvas, which outlives the panel showing it.</summary>
     TextureGraphDocument? document;
+
+    /// <summary>The stack in the panel, on the same terms.</summary>
+    LayerStackDocument? stack;
 
     /// <inheritdoc />
     public void Activate(PluginContext context) {
@@ -126,6 +161,7 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
         if (graphics is not null) {
             preview = new TextureGraphPreview(graphics);
+            stackPreview = new LayerStackPreview(graphics);
 
             // ⚠ Through the scope rather than in `Deactivate`, because it holds device resources: an
             // evaluator's pipelines and one uploaded image. `Deactivate` runs first and this runs
@@ -143,6 +179,7 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
         if (editors is not null) {
             context.Owns(editors.Add(new TextureGraphEditorFactory()));
+            context.Owns(editors.Add(new LayerStackEditorFactory()));
         }
 
         // ⚠ `Opens` is derived rather than declared. A kind that opens needs an editor claiming the
@@ -162,6 +199,23 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             )
         );
 
+        // ⚠ The second kind, and registering it is what turned `TexturingClaimTests`' `Assert.Single`
+        // red — deliberately, and that tripwire firing is the good version of #806. A kind added
+        // where nothing counted them would have been a kind nobody noticed; the assertion now names
+        // both extensions, so a *third* still has to be argued for.
+        context.Owns(
+            registry.Add(
+                new NewAssetKind(
+                    "texturing.create-layer-stack",
+                    "Layer Stack",
+                    LayerStackDocument.Extension,
+                    "New Layer Stack",
+                    LayerStackDocument.NewContents,
+                    editors is not null
+                )
+            )
+        );
+
         context.AddPanel(
             GraphPanel,
             new StringId("editor.panel.texture-graph", "Texture Graph"),
@@ -171,13 +225,28 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             }
         );
 
+        context.AddPanel(
+            StackPanel,
+            new StringId("editor.panel.layer-stack", "Layer Stack"),
+            panel => {
+                stackView = new LayerStackView(panel);
+                RefreshStack();
+            }
+        );
+
         context.AddCommand(OpenCommand, new StringId("editor.command." + OpenCommand, "Open Texture Graph"), Open);
+        context.AddCommand(
+            OpenStackCommand,
+            new StringId("editor.command." + OpenStackCommand, "Open Layer Stack"),
+            OpenStack
+        );
 
         // Where the verb belongs rather than a menu of its own — doc 36, and `PluginContext.FindMenu`
         // says why. A host with no Tools menu gets the command in the palette and the keymap, which
         // is the whole of what a menu entry adds.
         if (context.FindMenu(EditorStrings.MenuTools.Id) is { } tools) {
             context.AddMenuItem(tools, OpenCommand);
+            context.AddMenuItem(tools, OpenStackCommand);
         }
     }
 
@@ -190,12 +259,18 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// </remarks>
     public void Deactivate() {
         view = null;
+        stackView = null;
 
         if (document is { IsOpen: true }) {
             document.Close();
         }
 
+        if (stack is { IsOpen: true }) {
+            stack.Close();
+        }
+
         document = null;
+        stack = null;
     }
 
     /// <inheritdoc />
@@ -221,6 +296,9 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         preview?.Dispose();
         preview = null;
 
+        stackPreview?.Dispose();
+        stackPreview = null;
+
         graphics = null;
     }
 
@@ -242,6 +320,43 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             document,
             blocker,
             blocker == TexturePreviewBlocker.None && document is not null ? preview?.Evaluate(document) : null
+        );
+    }
+
+    /// <summary>Re-compiles the open stack and puts the map it produces in the pane.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one difference from <see cref="Refresh" />, and it is why the two are not one
+    ///     method.</b> A graph pane is blocked or not, and <c>TexturePreview.Describe</c> answers
+    ///     for the whole host. A stack has a third kind of answer — it compiled and the compilation
+    ///     refused, it wants an imported picture, it writes no map of that usage — so the sentence
+    ///     under the pane comes back from the evaluation rather than from a blocker enum.
+    ///     <see cref="Refresh" />'s "outside the host's own frame" rule holds identically.
+    /// </remarks>
+    void RefreshStack() {
+        if (stackView is null) {
+            return;
+        }
+
+        if (stack is null) {
+            stackView.Show(null);
+
+            return;
+        }
+
+        // ⚠ The fallback matters: with no graphics there is no `LayerStackPreview` at all, and a null
+        // picture would leave the pane blank with an empty line under it — which says nothing about
+        // whether this host could have drawn one. `TexturePreview.Describe` is the sentence naming
+        // which of the two host states it is in.
+        stackView.Show(
+            stack,
+            stackPreview?.Evaluate(stack)
+            ?? new LayerStackPicture(
+                null,
+                LayerStackPreview.DefaultUsage,
+                stack.Document.BaseWidth,
+                stack.Document.BaseHeight,
+                TexturePreview.Describe(TexturePreview.Blocking(graphics))
+            )
         );
     }
 
@@ -283,5 +398,39 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         // the panel for anybody who ran it while it was already open, which is every second use.
         shell.Workspace.Open(GraphPanel);
         Refresh();
+    }
+
+    /// <summary>Opens the selected <c>.vxlayers</c> in the layers panel.</summary>
+    /// <remarks>
+    ///     <b><see cref="Open" />'s six decisions, unchanged and for its reasons:</b> the project's
+    ///     own document is reused so that one file is not two undo histories, <c>Primary</c>'s
+    ///     emptiness is asked about by name because <c>AssetId</c> is a struct and a pattern match
+    ///     compiles to "always true", and the panel is opened rather than toggled.
+    /// </remarks>
+    void OpenStack() {
+        var asset = project.Selection.Primary;
+
+        if (asset.IsEmpty
+            || !project.Assets.TryGetByGuid(asset, out var entry)
+            || !entry.Path.EndsWith(LayerStackDocument.Extension, StringComparison.OrdinalIgnoreCase)) {
+            shell.Notifications.Show(
+                "Select a .vxlayers first",
+                NotificationSeverity.Warning,
+                "Open Layer Stack opens whatever is selected in the Project panel."
+            );
+
+            return;
+        }
+
+        if (project.TryGetDocument(asset, out var existing) && existing is LayerStackDocument opened) {
+            stack = opened;
+        } else {
+            stack = new LayerStackDocument(project, asset, project.Paths.Absolute(entry.Path));
+        }
+
+        project.Activate(stack);
+
+        shell.Workspace.Open(StackPanel);
+        RefreshStack();
     }
 }

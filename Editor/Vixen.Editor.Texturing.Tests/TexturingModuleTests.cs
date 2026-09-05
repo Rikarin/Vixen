@@ -20,16 +20,24 @@ public class TexturingModuleTests {
         Assert.Empty(fixture.Host.Diagnostics);
 
         Assert.NotNull(fixture.Shell.Commands[TexturingModule.OpenCommand]);
+        Assert.NotNull(fixture.Shell.Commands[TexturingModule.OpenStackCommand]);
         Assert.Contains(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.GraphPanel);
+        Assert.Contains(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.StackPanel);
 
-        var kind = Assert.Single(fixture.Extensions.All<NewAssetKind>());
+        // ⚠ Both documents this plugin owns, named rather than counted —
+        // <a href="https://github.com/Rikarin/Vixen/issues/806">#806</a>. This was `Assert.Single`,
+        // which is what caught the second kind arriving; a count grown to two would have said nothing
+        // about *which* two, and the whole finding was that one of them had never been registered.
+        Assert.Equal(
+            [Layers.LayerStackDocument.Extension, TextureGraphDocument.Extension],
+            fixture.Extensions.All<NewAssetKind>().Select(kind => kind.Extension).Order(StringComparer.Ordinal)
+        );
 
-        Assert.Equal(TextureGraphDocument.Extension, kind.Extension);
-
-        // ⚠ And it does not open, which is not a nicety. `AssetEditorRegistry` has an `Add` and no
-        // `Remove`, so a plugin cannot claim an extension undoably — a kind with `Opens: true` would
-        // put "No editor claims that file" on screen every time somebody made one.
-        Assert.False(kind.Opens);
+        // ⚠ And neither opens, which is not a nicety: this fixture publishes no `AssetEditorRegistry`,
+        // and `Opens` is derived from whether there is one to claim the extension in. A kind with
+        // `Opens: true` here would put "No editor claims that file" on screen every time somebody
+        // made one.
+        Assert.All(fixture.Extensions.All<NewAssetKind>(), kind => Assert.False(kind.Opens));
     }
 
     /// <summary>
@@ -58,13 +66,19 @@ public class TexturingModuleTests {
         Assert.True(fixture.Host.Unload(TexturingModule.ModuleId));
 
         Assert.Null(fixture.Shell.Commands[TexturingModule.OpenCommand]);
+        Assert.Null(fixture.Shell.Commands[TexturingModule.OpenStackCommand]);
         Assert.DoesNotContain(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.GraphPanel);
+        Assert.DoesNotContain(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.StackPanel);
         Assert.Empty(fixture.Extensions.All<NewAssetKind>());
 
         // ⚠ The panel's *command* too, which is the half that is easy to leave: `RegisterPanel` makes
         // two registrations and `UnregisterPanel` is what takes both out. A View-menu line that
         // toggles nothing is the visible symptom; the invisible one is a lambda over the module.
+        // ⚠ Both panels, because #806's whole shape was a second document registered nowhere — and a
+        // roll call that names only the first cannot catch the second going unregistered *or*
+        // un-unregistered.
         Assert.Null(fixture.Shell.Commands[EditorShell.PanelCommand(TexturingModule.GraphPanel)]);
+        Assert.Null(fixture.Shell.Commands[EditorShell.PanelCommand(TexturingModule.StackPanel)]);
     }
 
     /// <summary>

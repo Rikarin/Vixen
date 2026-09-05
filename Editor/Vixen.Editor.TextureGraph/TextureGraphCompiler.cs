@@ -677,16 +677,19 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
 
     /// <summary>One axis at a level offset from the base, at this bake.</summary>
     /// <remarks>
-    ///     ⚠ <b>The same arithmetic as <c>TexturePlan</c>'s, in a second place, because a node that
-    ///     needs it needs it <em>while</em> the plan is being built.</b> A jump flood's dispatch count
-    ///     is <c>log2</c> of the image it writes, so <c>Distance</c> has to know the bake's resolution
-    ///     before there is a plan to ask. <c>The_size_a_node_was_told_is_the_size_the_plan_reports</c>
-    ///     is what keeps the two honest.
-    /// </remarks>
-    /// <remarks>
-    ///     The image's own offset and the bake's added, which is <see cref="TexturePlan.LevelOf" />'s
-    ///     sum — so a node asking for the size of the scratch it is about to allocate gets the number
-    ///     the plan will report for it.
+    ///     <para>
+    ///         ⚠ <b>The same arithmetic as <c>TexturePlan</c>'s, in a second place, because a node
+    ///         that needs it needs it <em>while</em> the plan is being built.</b> A jump flood's
+    ///         dispatch count is <c>log2</c> of the image it writes, so <c>Distance</c> has to know
+    ///         the bake's resolution before there is a plan to ask.
+    ///         <c>The_size_a_node_was_told_is_the_size_the_plan_reports</c> is what keeps the two
+    ///         honest.
+    ///     </para>
+    ///     <para>
+    ///         The image's own offset and the bake's added, which is
+    ///         <see cref="TexturePlan.LevelOf" />'s sum — so a node asking for the size of the
+    ///         scratch it is about to allocate gets the number the plan will report for it.
+    ///     </para>
     /// </remarks>
     internal int Extent(int baseExtent, int levelOffset) {
         var level = BakeLevelOffset + levelOffset;
@@ -741,6 +744,40 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     }
 
     /// <summary>Keeps an image past the evaluation, under a usage.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The terminus is where <a href="https://github.com/Rikarin/Vixen/issues/779">#779</a>'s
+    ///         rule stops, and <a href="https://github.com/Rikarin/Vixen/issues/805">#805</a> is what
+    ///         it cost not to say so.</b> A node's output is the size of what it reads — everywhere
+    ///         inside a graph, which is right. Applied here it made <em>one map</em> a different size
+    ///         from its siblings: <c>Resample(Half) → Output("baseColor")</c> beside a bare
+    ///         <c>Output("roughness")</c> validated, baked both, and threw out of
+    ///         <c>MaterialBake.Extent</c> — a stack trace where a picture was asked for, which is the
+    ///         failure mode this tree refuses everywhere else.
+    ///     </para>
+    ///     <para>
+    ///         <b>A map's resolution is declared twice already and neither place is a node.</b>
+    ///         <see cref="TexturePlan.BaseWidth" /> is what the file asked for and
+    ///         <see cref="TexturePlan.BakeLevelOffset" /> is what the bake asked for on top of it. A
+    ///         <c>Space/Resample</c> says where in the graph the <em>work</em> happens — which is
+    ///         already how it behaves at every other node, because <see cref="Rescale" /> magnifies a
+    ///         half-resolution branch back the instant it meets a base-resolution sibling. The
+    ///         terminus is one more such meeting, and what it meets is the texture set.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Level zero and not <see cref="authoredWidth" />, and the difference is a whole
+    ///         bake.</b> A terminus pinned to the authoring size would hand a 4K bake a 1K map and
+    ///         put the same throw back one level further out.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it is <em>said</em>, which is the half neither shape #805 named had.</b>
+    ///         Refusing makes a legal-looking graph illegal; rescaling in silence undoes what the
+    ///         author wrote with nothing on screen. <c>TG0022</c> is a warning rather than an error
+    ///         because the plan it produces is sound and the picture is the one the graph describes —
+    ///         what the author cannot otherwise see is that a resample they wrote does not decide how
+    ///         big the file is.
+    ///     </para>
+    /// </remarks>
     internal void Keep(GraphNode node, int image, string usage) {
         if (image < 0) {
             return;
@@ -761,10 +798,34 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
                 $"Two Output nodes both write '{usage}', and a bake writes one file per usage — so one of "
                 + $"them is the map and the graph does not say which. The other is {existing.Node}.",
                 node.Id,
-                "Usage"
+
+                // The node's own field rather than the string, because the port name is the join
+                // between a diagnostic and the row an editor highlights, and a literal here is a
+                // join a rename cannot break loudly.
+                nameof(Nodes.OutputNode.Usage)
             ));
 
             return;
+        }
+
+        var level = LevelOf(image);
+
+        if (level != 0) {
+            var arrived = SizeOf(image);
+
+            Report(new(
+                "TG0022",
+                $"'{usage}' is computed at {arrived.X}×{arrived.Y} and this graph's maps are "
+                + $"{Extent(authoredWidth, 0)}×{Extent(authoredHeight, 0)}, so the compiler resampled it back. A "
+                + "texture set is one material's maps over one atlas, so they are one size — a Resample says at "
+                + "which resolution part of a graph is computed and not how big its map is. Resample back before "
+                + "the Output to say it in the graph.",
+                node.Id,
+                nameof(Nodes.OutputNode.Usage),
+                NodeSeverity.Warning
+            ));
+
+            image = Rescale(image, 0);
         }
 
         outputs.Add(new(usage, image, node.Id));
@@ -997,13 +1058,14 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             return source;
         }
 
-        // ⚠ An external is never rescaled and never has to be: its size is the caller's picture's,
-        // it is read by exactly one op — the `Bitmap` or ramp kernel that asked for it — and that
-        // kernel samples it in normalised space precisely so a plan need not know how big it is.
-        if (images[source].External) {
-            return source;
-        }
-
+        // ⚠ An external cannot arrive here, and that used to be written as a branch. `External`
+        // hands its index straight back to the node that asked and never puts it in `imageOf`, so
+        // the only two routes into this method — `Upstream`, and `Keep` by way of it — cannot
+        // produce one. Said here rather than guarded, for `Keep`'s reason one method up: an
+        // unreachable branch is a claim about the compiler's own shape rather than about this
+        // method, and `A_table_baked_by_a_node_below_the_base_is_read_at_its_own_size` is where a
+        // claim can go red. It would not have to be rescaled in any case — a kernel samples an
+        // external in normalised space precisely so a plan need not know how big it is.
         if (rescales.TryGetValue((source, level), out var scaled)) {
             return scaled;
         }

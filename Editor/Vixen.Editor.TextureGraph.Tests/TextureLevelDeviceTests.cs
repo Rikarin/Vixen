@@ -70,7 +70,11 @@ public class TextureLevelDeviceTests(ITestOutputHelper output) {
 
         var compilation = compiler.Compile(graph);
 
-        Assert.Empty(compilation.Diagnostics);
+        // ⚠ The terminus warning is expected and named, rather than the emptiness this asserted
+        // before #805: the Output here is fed by a half-resolution chain, so the compiler resamples
+        // the *kept* image back to the graph's size and says so. What this test measures is the
+        // intermediate — `Image(compiler, invert.Id)`, below — which is untouched by that.
+        Assert.Equal("TG0022", Assert.Single(compilation.Diagnostics).Id);
 
         var plan = compilation.Value;
         var source = Image(compiler, resample.Id);

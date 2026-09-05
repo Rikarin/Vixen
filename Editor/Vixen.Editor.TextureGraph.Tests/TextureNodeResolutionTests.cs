@@ -183,7 +183,11 @@ public class TextureNodeResolutionTests {
         Rewire(graph, levels);
 
         var plan = Compile(compiler, graph);
-        var source = Assert.Single(plan.Ops, op => op.Kernel == "Resample").Output;
+
+        // ⚠ The image the resample *node* wrote, not "the Resample op" — since #805 the terminus
+        // inserts one of its own to bring the map back to the graph's size, so the kernel name is no
+        // longer a unique handle on the author's node.
+        var source = Assert.Single(compiler.NodeImages, image => image.Node == resample.Id).Image;
         var rungs = plan.Ops.Where(op => op.Kernel == "MinMaxReduce").ToArray();
 
         // Half of 256 is 128, and the ladder is measured from there rather than from 256.
@@ -383,9 +387,20 @@ public class TextureNodeResolutionTests {
 
     /// <summary>A resample writes an image at a level of its own, relative to what arrives.</summary>
     /// <remarks>
-    ///     ⚠ <b>Two in a row is the assertion that matters.</b> An offset applied to the graph's base
-    ///     rather than to the input makes the second resample write an image the size of the first's
-    ///     — an identity copy, which is exactly the defect the node exists to make impossible.
+    ///     <para>
+    ///         ⚠ <b>Two in a row is the assertion that matters.</b> An offset applied to the graph's
+    ///         base rather than to the input makes the second resample write an image the size of the
+    ///         first's — an identity copy, which is exactly the defect the node exists to make
+    ///         impossible.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two the <em>author</em> wired, which is a distinction this test did not have
+    ///         to make until <a href="https://github.com/Rikarin/Vixen/issues/805">#805</a>.</b> A
+    ///         third <c>Resample</c> op is in this plan now — the one the terminus rule inserts to
+    ///         bring 64² back to the graph's 256² — so filtering the op list by kernel name no longer
+    ///         means "the resamples in the graph". Reading them off <c>NodeImages</c> says which
+    ///         nodes are meant, and the output's size is asserted rather than left to be inferred.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void Two_resamples_in_a_row_each_halve() {
@@ -400,19 +415,30 @@ public class TextureNodeResolutionTests {
         Rewire(graph, second);
 
         var plan = Compile(compiler, graph);
-        var sizes = plan.Ops
-            .Where(op => op.Kernel == "Resample")
-            .Select(op => plan.SizeOf(op.Output).X)
+        var sizes = new[] { first, second }
+            .Select(node => plan.SizeOf(Assert.Single(compiler.NodeImages, image => image.Node == node.Id).Image).X)
             .ToArray();
 
         Assert.Equal([128, 64], sizes);
+        Assert.Equal(Side, plan.SizeOf(Assert.Single(plan.Outputs)).X);
     }
 
     /// <summary>Every size a resample may ask for is the size the plan reports.</summary>
     /// <remarks>
-    ///     The doubling direction as well as the halving one, because they are different arithmetic:
-    ///     a level offset is a shift left below zero and a shift right above it, and only one of the
-    ///     two clamps.
+    ///     <para>
+    ///         The doubling direction as well as the halving one, because they are different
+    ///         arithmetic: a level offset is a shift left below zero and a shift right above it, and
+    ///         only one of the two clamps.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two facts now, and it asserted only the first</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/805">#805</a>. The image the
+    ///         <em>node</em> writes is the size its setting names; the map the <em>graph</em> keeps is
+    ///         the graph's, whatever the last node did. Those were the same number before the
+    ///         terminus rule, and reading `Assert.Single(… "Resample")` as "the resample" is what hid
+    ///         that they are two claims — so the node's image is found through
+    ///         <c>NodeImages</c> and the output is asserted beside it.
+    ///     </para>
     /// </remarks>
     [Theory]
     [InlineData("Quarter", 64)]
@@ -430,8 +456,10 @@ public class TextureNodeResolutionTests {
         Rewire(graph, resample);
 
         var plan = Compile(compiler, graph, allowWarnings: true);
+        var written = Assert.Single(compiler.NodeImages, image => image.Node == resample.Id);
 
-        Assert.Equal(expected, plan.SizeOf(Assert.Single(plan.Ops, op => op.Kernel == "Resample").Output).X);
+        Assert.Equal(expected, plan.SizeOf(written.Image).X);
+        Assert.Equal(Side, plan.SizeOf(Assert.Single(plan.Outputs)).X);
     }
 
     /// <summary>A resample onto its own size says that it is a copy.</summary>
@@ -456,19 +484,31 @@ public class TextureNodeResolutionTests {
         Assert.Equal(NodeSeverity.Warning, caution.Severity);
         Assert.NotNull(compilation.Artefact);
 
-        // The instrument: the same graph at any other size says nothing, so the warning is about the
-        // setting rather than about the node.
+        // The instrument: the same graph at any other size no longer says *this*, so the warning is
+        // about the setting rather than about the node. ⚠ It is not `Assert.Empty` any more, and the
+        // difference is #805: at `Half` the graph's own terminus is below its base, so the compiler
+        // has a second and unrelated thing to say. Emptiness would have been a claim about both.
         resample.SetText("Size", "Half");
 
-        Assert.Empty(Compiler().Compile(graph).Diagnostics);
+        Assert.DoesNotContain(Compiler().Compile(graph).Diagnostics, diagnostic => diagnostic.Id == "TG0018");
     }
 
     /// <summary>A graph whose source, table and ladder all differ still validates as one plan.</summary>
     /// <remarks>
-    ///     The three shapes this file adds meeting in one graph: an external image at no level, a
-    ///     ladder of scratch at three, and an output at one. ⚠ <c>TexturePlan.Validate</c> is what
-    ///     would catch a level that ran away, an image written twice or an input read before it was
-    ///     written, and none of the individual tests above would.
+    ///     <para>
+    ///         The three shapes this file adds meeting in one graph: an external image at no level, a
+    ///         ladder of scratch at three, and a resample at one. ⚠ <c>TexturePlan.Validate</c> is
+    ///         what would catch a level that ran away, an image written twice or an input read before
+    ///         it was written, and none of the individual tests above would.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is the one of #805's seven that was asserting the defect rather than a
+    ///         fragile selector.</b> It read <c>Assert.Equal(128, plan.SizeOf(plan.Outputs[0]).X)</c>
+    ///         at a base of 256 — a graph <em>output</em> half the size of the graph, which is
+    ///         precisely the shape that made <c>MaterialBake.Extent</c> throw when a sibling map had
+    ///         no resample on it. The number changed because the claim was wrong, not because the
+    ///         test was in the way.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void An_external_a_ladder_and_a_halving_hold_together_in_one_plan() {
@@ -490,7 +530,11 @@ public class TextureNodeResolutionTests {
 
         Assert.Empty(plan.Validate());
         Assert.Equal(2, compiler.Externals.Length);
-        Assert.Equal(128, plan.SizeOf(plan.Outputs[0]).X);
+
+        // The graph's map is the graph's size; the resample that fed it is still half of it, and the
+        // two facts are asserted separately now that they are different numbers.
+        Assert.Equal(Side, plan.SizeOf(Assert.Single(plan.Outputs)).X);
+        Assert.Equal(128, plan.SizeOf(Assert.Single(compiler.NodeImages, image => image.Node == resample.Id).Image).X);
     }
 
     /// <summary>A graph with one node of a type, wired to an Output, and the node it made.</summary>
@@ -522,13 +566,23 @@ public class TextureNodeResolutionTests {
     }
 
     /// <summary>Compiles, and refuses to hand back a plan nobody could have meant.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>TG0022</c> is expected rather than tolerated, and naming it is the point</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/805">#805</a>. Almost every fixture in
+    ///     this file ends a resample chain at the Output node, which is exactly the graph the
+    ///     terminus rule now brings back to the base and says so about. A blanket
+    ///     <paramref name="allowWarnings" /> here would have swallowed it along with anything else a
+    ///     later change started warning about; the id is spelled so that a *new* warning still
+    ///     reddens these.
+    /// </remarks>
     static TexturePlan Compile(TextureGraphCompiler compiler, NodeGraphModel graph, bool allowWarnings = false) {
         var compilation = compiler.Compile(graph);
 
         Assert.All(
             compilation.Diagnostics,
             diagnostic => Assert.True(
-                allowWarnings && diagnostic.Severity == NodeSeverity.Warning,
+                string.Equals(diagnostic.Id, "TG0022", StringComparison.Ordinal)
+                || (allowWarnings && diagnostic.Severity == NodeSeverity.Warning),
                 $"{diagnostic.Id}: {diagnostic.Message}"
             )
         );

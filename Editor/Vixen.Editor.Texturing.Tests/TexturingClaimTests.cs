@@ -24,10 +24,23 @@ public class TexturingClaimTests {
         Assert.True(fixture.Editors.TryGetForFile("Assets/Bricks" + TextureGraphDocument.Extension, out var editor));
         Assert.Equal("Texture Graph", editor.Name);
 
+        // ⚠ Both extensions, and this is the tripwire #806 predicted firing correctly. It read
+        // `Assert.Single(…)` — so registering `.vxlayers` turned it red the moment the fifteen
+        // missing lines existed, which is exactly what a roll call over registrations is for. Grown
+        // to *name* both rather than to count two: the finding was that one of the two was missing,
+        // and a count cannot tell which.
+        Assert.True(fixture.Editors.TryGetForFile("Assets/Hull" + Layers.LayerStackDocument.Extension, out var stack));
+        Assert.Equal("Layer Stack", stack.Name);
+
+        Assert.Equal(
+            [Layers.LayerStackDocument.Extension, TextureGraphDocument.Extension],
+            fixture.Extensions.All<NewAssetKind>().Select(kind => kind.Extension).Order(StringComparer.Ordinal)
+        );
+
         // ⚠ Derived rather than declared. The kind said `Opens: false` for as long as claiming an
         // extension was not undoable, and a constant either way is a claim about the host rather than
         // about this one.
-        Assert.True(Assert.Single(fixture.Extensions.All<NewAssetKind>()).Opens);
+        Assert.All(fixture.Extensions.All<NewAssetKind>(), kind => Assert.True(kind.Opens));
     }
 
     /// <summary>And a double-click opens the graph the registry's own way.</summary>
@@ -58,16 +71,18 @@ public class TexturingClaimTests {
 
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
 
-        Assert.Equal(1, fixture.Editors.Count);
+        // Two factories now — the graph's and the stack's — and both are the module's to give back.
+        Assert.Equal(2, fixture.Editors.Count);
         Assert.True(fixture.Host.Unload(TexturingModule.ModuleId));
 
         Assert.Equal(0, fixture.Editors.Count);
         Assert.False(fixture.Editors.TryGetForFile("Assets/Bricks" + TextureGraphDocument.Extension, out _));
+        Assert.False(fixture.Editors.TryGetForFile("Assets/Hull" + Layers.LayerStackDocument.Extension, out _));
 
         // The claim a reload rests on, asserted rather than assumed.
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
 
-        Assert.Equal(1, fixture.Editors.Count);
+        Assert.Equal(2, fixture.Editors.Count);
     }
 
     /// <summary>A host with no asset-editor registry still gets the module, and says so honestly.</summary>
@@ -84,6 +99,10 @@ public class TexturingClaimTests {
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
 
         Assert.Empty(fixture.Host.Diagnostics);
-        Assert.False(Assert.Single(fixture.Extensions.All<NewAssetKind>()).Opens);
+
+        // Every kind, because the honesty is per-kind: a module that derived `Opens` for one document
+        // and hard-coded it for the other would satisfy any assertion over just the first.
+        Assert.All(fixture.Extensions.All<NewAssetKind>(), kind => Assert.False(kind.Opens));
+        Assert.Equal(2, fixture.Extensions.All<NewAssetKind>().Count);
     }
 }
