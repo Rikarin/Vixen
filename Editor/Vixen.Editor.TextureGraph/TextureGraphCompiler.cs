@@ -1088,10 +1088,10 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             return scaled;
         }
 
-        // ⚠ Read before the allocation, because `Allocate` appends to `images` and a later read of
-        // `images[source]` would be a read through a list that has grown under it. The comparison is
-        // between two offsets rather than between two extents so that `BakeLevelOffset`, which moves
-        // both by the same amount, cannot change which filter a rescale gets.
+        // ⚠ The comparison is between two level offsets rather than between two extents, so that
+        // `BakeLevelOffset` — which moves both by the same amount — cannot change which filter a
+        // rescale gets. Which way a rescale goes is a property of the graph, not of what the bake
+        // was asked for.
         var coarser = level > images[source].LevelOffset;
 
         scaled = Allocate(images[source].Format, ChannelsOf(source), level);
