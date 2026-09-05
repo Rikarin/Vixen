@@ -181,6 +181,13 @@ Vixen.Ui.BoxStyle.Space.get -> Vixen.Ui.GradientSpace
 Vixen.Ui.BoxStyle.Space.init -> Vixen.Ui.GradientSpace
 Vixen.Ui.BoxStyle.Stops.get -> Vixen.Ui.GradientStops
 Vixen.Ui.BoxStyle.Stops.init -> Vixen.Ui.GradientStops
+Vixen.Ui.CloseRequestEvent -> sealed class
+Vixen.Ui.CloseRequestEvent : Vixen.Ui.UiEvent
+Vixen.Ui.CloseRequestEvent.Cancel() -> void
+Vixen.Ui.CloseRequestEvent.CloseRequestEvent() -> void
+Vixen.Ui.CloseRequestEvent.IsCancelled.get -> bool
+Vixen.Ui.CloseRequestEvent.Reason.get -> Vixen.Ui.UiCloseReason
+Vixen.Ui.CloseRequestEvent.Reason.init -> Vixen.Ui.UiCloseReason
 Vixen.Ui.CommandHandler -> readonly struct
 Vixen.Ui.CommandHandler : System.IEquatable<Vixen.Ui.CommandHandler>
 Vixen.Ui.CommandHandler.CanExecute.get -> bool
@@ -1170,6 +1177,10 @@ Vixen.Ui.TransformStage.Completed = 2 -> Vixen.Ui.TransformStage
 Vixen.Ui.TransformStage.Started = 0 -> Vixen.Ui.TransformStage
 Vixen.Ui.TransformStage.TransformStage() -> void
 Vixen.Ui.TransformStage.Updated = 1 -> Vixen.Ui.TransformStage
+Vixen.Ui.UiCloseReason -> enum : byte
+Vixen.Ui.UiCloseReason.Quit = 0 -> Vixen.Ui.UiCloseReason
+Vixen.Ui.UiCloseReason.UiCloseReason() -> void
+Vixen.Ui.UiCloseReason.WindowClosed = 1 -> Vixen.Ui.UiCloseReason
 Vixen.Ui.UiCursor -> enum : byte
 Vixen.Ui.UiCursor.Auto = 0 -> Vixen.Ui.UiCursor
 Vixen.Ui.UiCursor.ColumnResize = 12 -> Vixen.Ui.UiCursor
@@ -1201,6 +1212,7 @@ Vixen.Ui.UiDocument.CapturePointer(Vixen.Ui.UiElement element) -> void
 Vixen.Ui.UiDocument.Captured.get -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Clipboard.get -> Vixen.Ui.IUiClipboard?
 Vixen.Ui.UiDocument.Clipboard.set -> Vixen.Ui.IUiClipboard?
+Vixen.Ui.UiDocument.CloseRequested -> System.Action<Vixen.Ui.CloseRequestEvent>?
 Vixen.Ui.UiDocument.ColorOf(Vixen.Ui.Styling.ComputedStyle style, int property) -> Vixen.Core.Mathematics.Color4?
 Vixen.Ui.UiDocument.ColorScheme.get -> Vixen.Ui.Styling.ColorSchemePreference
 Vixen.Ui.UiDocument.ColorScheme.set -> Vixen.Ui.Styling.ColorSchemePreference
@@ -1275,6 +1287,7 @@ Vixen.Ui.UiDocument.ReloadStyles(int sheet, string css) -> void
 Vixen.Ui.UiDocument.Remove(Vixen.Ui.UiElement element) -> void
 Vixen.Ui.UiDocument.RemoveSurface(Vixen.Ui.UiSurface surface) -> bool
 Vixen.Ui.UiDocument.Reparent(Vixen.Ui.UiElement element, Vixen.Ui.UiElement parent, int index = -1) -> void
+Vixen.Ui.UiDocument.RequestClose(Vixen.Ui.UiCloseReason reason = Vixen.Ui.UiCloseReason.Quit) -> bool
 Vixen.Ui.UiDocument.Resize(Vixen.Ui.UiSurface surface, float width, float height, float dpiScale) -> void
 Vixen.Ui.UiDocument.Resize(float width, float height) -> void
 Vixen.Ui.UiDocument.Restyler.get -> Vixen.Ui.Styling.StyleUpdater

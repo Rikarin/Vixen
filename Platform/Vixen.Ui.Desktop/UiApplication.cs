@@ -330,6 +330,18 @@ public sealed class UiApplication : IDisposable {
     /// <summary>The window the application was opened on.</summary>
     public IWindow Window => window;
 
+    /// <summary>The platform under the application.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Public because keeping it private made whole capabilities unreachable.</b> The window
+    ///     was exposed and the platform was not, so an application that wanted the clipboard, the
+    ///     native file pickers, the lifecycle or the display list had a host that held all four and
+    ///     handed out none of them — and could not have written them itself, because
+    ///     <c>Vixen.Ui</c> may not reference <c>Platform/</c>. The two things this host now does with
+    ///     it on the application's behalf, <c>PlatformClipboard.Install</c> and the quit veto, are
+    ///     the two it should not have to be asked for; everything else is the application's.
+    /// </remarks>
+    public IPlatform Platform => platform;
+
     /// <summary>How many frames have been drawn.</summary>
     public int FrameCount { get; private set; }
 
@@ -443,6 +455,35 @@ public sealed class UiApplication : IDisposable {
     /// </remarks>
     public void Stop() => running = false;
 
+    /// <summary>Asks whether the application may close, and stops the loop if nothing refuses.</summary>
+    /// <param name="reason">What prompted it. The default is the one a Quit menu item wants.</param>
+    /// <returns>Whether the loop was told to stop.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one modal every desktop application has, and this host had no way to write
+    ///         it.</b> <c>Pump</c> set <c>running = false</c> outright on a platform Quit and on an
+    ///         unclaimed window close, so Save / Don't Save / Cancel was not merely unimplemented —
+    ///         it was unreachable, in every <c>Vixen.Ui</c> application. The editor's own host has
+    ///         done this correctly since save-on-close was built; the framework host was the copy
+    ///         that still had the bug, one assembly over.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A refusal is "not now", not "never".</b> A prompt is a dialog and a dialog is
+    ///         answered frames later, so a handler that needs to ask cancels the request, opens the
+    ///         prompt and calls this again when it has an answer. <see cref="Stop" /> is the
+    ///         unconditional form for the handler that has finished asking.
+    ///     </para>
+    /// </remarks>
+    public bool Quit(UiCloseReason reason = UiCloseReason.Quit) {
+        if (!Document.RequestClose(reason)) {
+            return false;
+        }
+
+        running = false;
+
+        return true;
+    }
+
     /// <summary>Runs until the window closes, or for <see cref="UiApplicationOptions.Frames" /> frames.</summary>
     /// <returns>A process exit code.</returns>
     /// <remarks>
@@ -553,7 +594,15 @@ public sealed class UiApplication : IDisposable {
         foreach (var platformEvent in platform.PumpEvents()) {
             switch (platformEvent.Kind) {
                 case PlatformEventKind.Quit:
-                    running = false;
+                    // ⚠ Asked rather than obeyed, and the platform's own latch is cleared when the
+                    // answer is no. `DesktopLifecycle` holds `IsQuitRequested` once it has been set,
+                    // so a host that refused the quit and left the flag would be one where the
+                    // *next* quit is already half-answered. `EditorHost` has carried these four
+                    // lines since save-on-close was built; this host had none of them, which is why
+                    // ⌘Q threw away unsaved work in every application that was not the editor.
+                    if (!Quit()) {
+                        platform.Lifecycle.CancelQuit();
+                    }
 
                     // ⚠ Not `return`. The rest of this pump is the frame's input — a click, a
                     // keystroke, the resize that arrived with it — and dropping it is what makes a
@@ -569,7 +618,10 @@ public sealed class UiApplication : IDisposable {
                         break;
                     }
 
-                    running = false;
+                    // ⚠ A request, not a close. Backing out of the prompt has to leave the window
+                    // open, and there is no lifecycle flag to clear here — the platform has asked
+                    // rather than latched.
+                    Quit(UiCloseReason.WindowClosed);
                     break;
 
                 case PlatformEventKind.WindowResized:
