@@ -1591,3 +1591,57 @@ host registers a panel, and its rule is written there: an overlay is registered 
 holds the object its numbers come from. An aggregator with no `IDiagnosticOverlay` over it and no
 registration is this repository's commonest defect wearing a diagnostics badge — a finished thing
 nothing calls.
+
+### ⚠ The registration site named above does not exist, and that decides the panel's shape
+
+Two things were true when the paragraph above was written and neither was checked, because both are
+facts about `.csproj` files rather than about code.
+
+**`AppGraphics` holds no `UiDocument`.** `Core/Vixen.App.Hosting/Vixen.App.Hosting.csproj` does not
+reference `Vixen.Ui` at all — not directly and not through `Vixen.Engine.Renderer` — so
+`BuildOverlays` cannot register a UI panel *under its own stated rule*, which is the rule the
+paragraph above quotes approvingly. It is the only production holder of a `DiagnosticOverlays` in the
+tree: every other construction of one is in `Vixen.Engine.Tests`.
+
+**And the host that does own a `UiDocument` cannot see `IDiagnosticOverlay`.**
+`Platform/Vixen.Ui.Desktop`'s `UiApplication` is the framework's own application host, and its remark
+says why it exists: *"No `Vixen.Engine` and no `Vixen.App`, and the absence is the reason this
+assembly exists."* `IDiagnosticOverlay` and `DiagnosticOverlays` are `Vixen.Engine`'s. So the overlay
+interface is unreachable from the one host whose whole job is drawing a `UiDocument` — which is
+precisely the case a UI-debug panel is *for*.
+
+`Editor/Vixen.Editor.App` is the single assembly in the tree that references both sides. It registers
+no overlays today.
+
+So the seam question has now been answered wrongly three times — first as "`Vixen.Ui` may not
+reference `Vixen.Engine`" ([#461](https://github.com/Rikarin/Vixen/issues/461) refuted that), then as
+"`Vixen.Ui` publishes nothing to report" (the table above refutes that), and now as "an overlay in
+`Vixen.Engine.Renderer` registered by `AppGraphics`". ⚠ **The pattern is the tell: every answer has
+assumed the panel must be an `IDiagnosticOverlay`, and that is the assumption to drop.**
+
+**The defended shape: a `Vixen.Ui` control, not an overlay.** Doc 13's four rows — element bounds,
+layout boxes, style origin for the hovered element, dirty-region highlight — are all *about* a
+`UiDocument`, and every one of them is readable inside `Vixen.Ui` with no seam whatever. A control
+reading the aggregator works in `UiApplication`, in the editor, and in any game that draws a document,
+and it needs no new assembly, no reference either way across the `Ui`/`Engine` line, and no host to
+grow a `DiagnosticOverlays` it does not have. `GpuOverlay` and `StreamingOverlay` are overlays because
+their numbers come from a frame the UI knows nothing about; this panel's numbers come from the UI
+itself, and that is the difference the interface was drawing all along.
+
+⚠ **What that costs, said out loud, because it is the one real objection.** A panel drawn into the
+document it describes is part of that document: it has elements, it is styled, it is laid out, and it
+therefore moves `StylesApplied`, `NodeCount` and the settling counters it is reporting. `GpuOverlay`
+has no such problem. Three ways out, in preference order — the panel reads a snapshot taken at the top
+of the frame, before it is itself restyled, which makes the numbers a frame old and self-consistent
+(the same trade `FrameStatsOverlay` already documents); or it subtracts its own subtree, which is
+exact and fragile; or it lives in its own `UiDocument` on its own surface, which is honest and costs a
+second document. The first is what `AppGraphics.BuildOverlays`' neighbour comment already argues for
+on the frame stats, and it is why the aggregator wants to be a **snapshot** rather than a live view —
+a decision the "reads, does not sample" constraint above does not settle on its own.
+
+**So the owed items are re-ordered rather than re-scoped.** The aggregator is still item 1 and is
+still an aggregator; it is now known to want a snapshot shape and an in-process reader. Item 2 is a
+control rather than an `IDiagnosticOverlay`, and item 3 is composing it into a host's tree rather than
+registering it in `BuildOverlays`. Nothing here is built yet, and the reason for saying so in the
+README rather than in a session is that the last two attempts each re-derived a seam answer that was
+already written down.
