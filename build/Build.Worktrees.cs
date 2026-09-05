@@ -41,6 +41,35 @@ using Serilog;
 ///         locked. Anything that fails one of them, and every directory that is not a registered
 ///         worktree, is reported and left alone whatever the flags say.
 ///     </para>
+///     <para>
+///         ⚠ <b>Of those three, only two are properties of the work; the lock is a property of the
+///         runner, and the runner does not always set it.</b> Read on 2026-09-05, 2 of 13 live agent
+///         worktrees carried no lock at all (#770). Both were unmerged, so nothing was at risk — but
+///         the window this target is meant to be run in is exactly the one between the orchestrator
+///         merging a branch and the agent's process ending, and in that window a missing lock leaves
+///         "merged" and "clean" doing the whole job. <c>git worktree remove</c> is not a second line
+///         of defence here either: a merged, clean worktree passes its dirtiness check too.
+///     </para>
+///     <para>
+///         ⚠ <b>The obvious fourth condition — refusing anything whose files were touched recently —
+///         is refused, and not on this repository's general dislike of wall-clock predicates.</b> It
+///         fails on its own terms: an agent's last act is to commit, so at the moment its branch is
+///         merged its worktree is the <i>most</i> recently touched thing on the disk. A recency guard
+///         would therefore refuse every worktree in precisely the merge-then-prune window the target
+///         exists to serve, and would only start allowing removals once the checkouts had been idle
+///         long enough to have been forgotten about. It cannot be repaired by reading the git index
+///         instead, either: <see cref="IsClean" /> runs <c>git status</c> against each worktree
+///         moments before the decision, and that refreshes the index — the instrument would be
+///         reading its own footprint.
+///     </para>
+///     <para>
+///         <b>So the decision is that merge implies the agent has finished</b>, and it is written here
+///         rather than left to be re-derived: a branch reaches master only after the orchestrator has
+///         read the agent's report, so a merged and clean worktree is one whose owner has said it is
+///         done. The lock remains the intended signal and is honoured when present; it is not the one
+///         being relied on. Removal stays behind an explicit <c>--remove-merged</c> typed on purpose,
+///         which is the actual guard.
+///     </para>
 /// </remarks>
 partial class Build {
     [Parameter("Actually remove the agent worktrees PruneWorktrees reports as safe, rather than only listing them")]
@@ -105,13 +134,30 @@ partial class Build {
     ///     Whether every commit in <paramref name="head" /> is already in <c>master</c>.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The commit graph is the only honest merged test.</b> A branch name says nothing, and
-    ///     a hash an agent reported for its own branch is stale the moment anything rebases. This is
-    ///     <c>git merge-base --is-ancestor</c> written as a count so that "not merged" is an answer
-    ///     rather than a non-zero exit code to be caught: <c>rev-list --count master..HEAD</c> is
-    ///     zero exactly when HEAD is an ancestor of master.
+    ///     <para>
+    ///         ⚠ <b>The commit graph is the only honest merged test.</b> A branch name says nothing,
+    ///         and a hash an agent reported for its own branch is stale the moment anything rebases.
+    ///         This is <c>git merge-base --is-ancestor</c> written as a count so that "not merged" is
+    ///         an answer rather than a non-zero exit code to be caught:
+    ///         <c>rev-list --count master..HEAD</c> is zero exactly when HEAD is an ancestor of
+    ///         master.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An empty head is refused rather than asked about, because git would answer — and
+    ///         about the wrong tree.</b> <c>rev-list --count "master.."</c> is not an error: the
+    ///         missing right-hand side means <c>HEAD</c>, and the <c>HEAD</c> it means is the one of
+    ///         the checkout this target is running in. So a worktree whose <c>HEAD</c> line the parse
+    ///         did not see would be judged by <i>this</i> agent's branch, exit 0, and say nothing
+    ///         about having done so — and "merged" is the answer that deletes a checkout. It is the
+    ///         same class of defect as the stray directory that answered about its parent repository,
+    ///         one level in: the subject is silently substituted rather than the question refused.
+    ///     </para>
     /// </remarks>
     bool IsMergedIntoMaster(string head) {
+        if (string.IsNullOrWhiteSpace(head)) {
+            return false;
+        }
+
         var count = GitTasks
             .Git($"rev-list --count master..{head}", RootDirectory, logOutput: false, logInvocation: false)
             .Select(output => output.Text.Trim())
@@ -200,7 +246,13 @@ partial class Build {
                     reasons.Add($"locked ({worktree.Locked})");
                 }
 
-                if (!IsMergedIntoMaster(worktree.Head)) {
+                if (string.IsNullOrWhiteSpace(worktree.Head)) {
+                    // Distinct from "has commits master does not", because it is not a fact about the
+                    // branch — it is the parse having nothing to ask about. `IsMergedIntoMaster`
+                    // refuses the same input for the same reason; this says so out loud, because a
+                    // worktree kept for a reason nobody can act on is a worktree kept for ever.
+                    reasons.Add("git reported no HEAD for it");
+                } else if (!IsMergedIntoMaster(worktree.Head)) {
                     reasons.Add("has commits master does not");
                 }
 
