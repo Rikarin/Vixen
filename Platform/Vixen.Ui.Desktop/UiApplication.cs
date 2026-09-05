@@ -166,6 +166,16 @@ public sealed class UiApplication : IDisposable {
             SystemFonts.Install(Document);
         }
 
+        // ⚠ **Installed rather than offered, because "no manager" is what a text field checks and a
+        // default of none is a ⌘Z that does nothing.** `CodeBuffer` is right that undo belongs to the
+        // application and not to the control — but AppKit's window supplies one anyway, and that is
+        // what makes a dialog's text box undoable in a program that has no documents at all.
+        //
+        // ⚠ Before `Configure`, so an application with its own stack replaces this rather than being
+        // replaced by it. The clipboard and the window host below are the head's own wiring and go
+        // after; this one is a default.
+        Document.UndoManager = new UndoManager();
+
         // ⚠ After the sheets and the font, before the content. A component's `Build` reads class
         // names against the cascade as it goes and measures text against whatever face is registered,
         // so mounting first would resolve the first frame against an empty stylesheet and a
@@ -177,6 +187,13 @@ public sealed class UiApplication : IDisposable {
         // type: the docking host asks the document, the document asks `IUiWindowHost`, and this
         // assembly is the only one in the chain allowed to know what a window is.
         windows = new PlatformWindowHost(platform, Document, window);
+
+        // ⚠ **The same shape as the line above, and its absence was why ⌘C did nothing.**
+        // `IClipboard` has had real backends on three desktops since Phase 1 and nothing above
+        // `Vixen.Platform` ever called one, so a text field in any application but the editor had
+        // cut, copy and paste that silently were not there. A platform without the capability
+        // leaves `Document.Clipboard` null and the three verbs grey out, which is the truth.
+        PlatformClipboard.Install(Document, platform);
 
         // ⚠ `Mount` first and `Content` second, because a development build supplies the first to
         // put its components under a `HotReloadHost` — see `UiApplicationOptions.Mount`, which is
@@ -323,6 +340,18 @@ public sealed class UiApplication : IDisposable {
     /// <summary>The window the application was opened on.</summary>
     public IWindow Window => window;
 
+    /// <summary>The platform under the application.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Public because keeping it private made whole capabilities unreachable.</b> The window
+    ///     was exposed and the platform was not, so an application that wanted the clipboard, the
+    ///     native file pickers, the lifecycle or the display list had a host that held all four and
+    ///     handed out none of them — and could not have written them itself, because
+    ///     <c>Vixen.Ui</c> may not reference <c>Platform/</c>. The two things this host now does with
+    ///     it on the application's behalf, <c>PlatformClipboard.Install</c> and the quit veto, are
+    ///     the two it should not have to be asked for; everything else is the application's.
+    /// </remarks>
+    public IPlatform Platform => platform;
+
     /// <summary>How many frames have been drawn.</summary>
     public int FrameCount { get; private set; }
 
@@ -436,6 +465,35 @@ public sealed class UiApplication : IDisposable {
     /// </remarks>
     public void Stop() => running = false;
 
+    /// <summary>Asks whether the application may close, and stops the loop if nothing refuses.</summary>
+    /// <param name="reason">What prompted it. The default is the one a Quit menu item wants.</param>
+    /// <returns>Whether the loop was told to stop.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one modal every desktop application has, and this host had no way to write
+    ///         it.</b> <c>Pump</c> set <c>running = false</c> outright on a platform Quit and on an
+    ///         unclaimed window close, so Save / Don't Save / Cancel was not merely unimplemented —
+    ///         it was unreachable, in every <c>Vixen.Ui</c> application. The editor's own host has
+    ///         done this correctly since save-on-close was built; the framework host was the copy
+    ///         that still had the bug, one assembly over.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A refusal is "not now", not "never".</b> A prompt is a dialog and a dialog is
+    ///         answered frames later, so a handler that needs to ask cancels the request, opens the
+    ///         prompt and calls this again when it has an answer. <see cref="Stop" /> is the
+    ///         unconditional form for the handler that has finished asking.
+    ///     </para>
+    /// </remarks>
+    public bool Quit(UiCloseReason reason = UiCloseReason.Quit) {
+        if (!Document.RequestClose(reason)) {
+            return false;
+        }
+
+        running = false;
+
+        return true;
+    }
+
     /// <summary>Runs until the window closes, or for <see cref="UiApplicationOptions.Frames" /> frames.</summary>
     /// <returns>A process exit code.</returns>
     /// <remarks>
@@ -546,7 +604,15 @@ public sealed class UiApplication : IDisposable {
         foreach (var platformEvent in platform.PumpEvents()) {
             switch (platformEvent.Kind) {
                 case PlatformEventKind.Quit:
-                    running = false;
+                    // ⚠ Asked rather than obeyed, and the platform's own latch is cleared when the
+                    // answer is no. `DesktopLifecycle` holds `IsQuitRequested` once it has been set,
+                    // so a host that refused the quit and left the flag would be one where the
+                    // *next* quit is already half-answered. `EditorHost` has carried these four
+                    // lines since save-on-close was built; this host had none of them, which is why
+                    // ⌘Q threw away unsaved work in every application that was not the editor.
+                    if (!Quit()) {
+                        platform.Lifecycle.CancelQuit();
+                    }
 
                     // ⚠ Not `return`. The rest of this pump is the frame's input — a click, a
                     // keystroke, the resize that arrived with it — and dropping it is what makes a
@@ -562,7 +628,10 @@ public sealed class UiApplication : IDisposable {
                         break;
                     }
 
-                    running = false;
+                    // ⚠ A request, not a close. Backing out of the prompt has to leave the window
+                    // open, and there is no lifecycle flag to clear here — the platform has asked
+                    // rather than latched.
+                    Quit(UiCloseReason.WindowClosed);
                     break;
 
                 case PlatformEventKind.WindowResized:
