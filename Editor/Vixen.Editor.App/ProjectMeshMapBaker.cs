@@ -138,8 +138,7 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
             var relative = project.Paths.Relative(files[at]);
 
             if (!project.Assets.TryGetByPath(relative, out var entry)) {
-                references[images[at].Usage] = AssetReference.Null;
-                continue;
+                throw new InvalidOperationException(Unresolved(files[at], images[at].Usage));
             }
 
             Describe(files[at], entry.Guid, model, name, images[at]);
@@ -150,6 +149,42 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
 
         return new(name, references, files, said);
     }
+
+    /// <summary>What a bake says when the database did not pick a map it wrote back up.</summary>
+    /// <param name="file">The file that was written and not indexed.</param>
+    /// <param name="usage">What that file measures, which is the name a generator would ask for.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A refusal rather than <see cref="AssetReference.Null" />, which is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/731">#731</a> and is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/724">#724</a>'s shape one asset type
+    ///         over.</b> It survived the material fix because it is in another assembly, and the two
+    ///         refusals are written separately for the same reason — <c>ProjectMaterialBaker</c> is
+    ///         in <c>Vixen.Editor.Assets</c> and this is in the application, so the shared spelling
+    ///         would be a new public type owing a guide page to say one sentence.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Where the null went is what makes this worth the same severity.</b> A material
+    ///         bake's null went into a <c>.vxmat</c> and became the bindless fallback; a mesh map's
+    ///         goes into <see cref="MeshMapSet.Maps" />, which is <em>the</em> by-usage index —
+    ///         <c>MeshMapNaming</c>'s remarks say the usage is a map's identity and the file name is
+    ///         a convenience. So a null there is a set that reports nine maps and resolves eight, and
+    ///         the generator asking for the ninth binds nothing while the bake says it succeeded.
+    ///     </para>
+    ///     <para>
+    ///         It is a state a project can genuinely be in: <c>AssetDatabase.Read</c> leaves a file
+    ///         out of the index entirely when <c>MetaScanner</c> cannot read a GUID out of the
+    ///         <c>.meta</c> beside it, and it deliberately refuses to mint a replacement, because a
+    ///         new id would break every reference through the old one.
+    ///     </para>
+    /// </remarks>
+    static string Unresolved(string file, MeshMapUsage usage) =>
+        $"'{Path.GetFileName(file)}' was written and the asset database did not pick it up, so this bake cannot "
+        + $"name the {MeshMapNaming.Suffix(usage)} map by id. Nothing further was written: a set that reports a "
+        + "map and resolves it to nothing binds no texture in the generator that asks for that usage, and says so "
+        + "nowhere. The usual cause is a .meta beside that file whose GUID cannot be read — a scan refuses to "
+        + "replace one, because minting a new id would break every reference to it. Repair or remove that .meta "
+        + "and bake again.";
 
     /// <summary>What this set is called in the folder, which is not simply what it was asked to be.</summary>
     /// <param name="directory">The folder the set lands in.</param>

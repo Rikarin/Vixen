@@ -4,7 +4,7 @@ slug: editor/mesh-map-assets
 kind: guide
 area: Editor
 summary: The bake panel a mesh-map bake is set up in, what the nine files are called, how a set is keyed on the model it came from, and how a generator finds one by usage rather than by path.
-api: [T:Vixen.Editor.Assets.MeshMaps.MeshMapUsage, T:Vixen.Editor.Assets.MeshMaps.MeshMapNaming, T:Vixen.Editor.Assets.MeshMaps.MeshMapBake, T:Vixen.Editor.Assets.MeshMaps.MeshMapImage, T:Vixen.Editor.Assets.MeshMaps.MeshMapSet, T:Vixen.Editor.Assets.MeshMaps.IMeshMapBaker, T:Vixen.Editor.App.ProjectMeshMapBaker]
+api: [T:Vixen.Editor.Assets.MeshMaps.MeshMapUsage, T:Vixen.Editor.Assets.MeshMaps.MeshMapNaming, T:Vixen.Editor.Assets.MeshMaps.MeshMapBake, T:Vixen.Editor.Assets.MeshMaps.MeshMapImage, T:Vixen.Editor.Assets.MeshMaps.MeshMapSet, T:Vixen.Editor.Assets.MeshMaps.IMeshMapBaker, T:Vixen.Editor.Assets.MeshMaps.MeshMapLibrary, T:Vixen.Editor.Assets.MeshMaps.MeshMapAsset, T:Vixen.Editor.App.ProjectMeshMapBaker, T:Vixen.Cli.MeshMapRunner]
 tags: [editor, bake, mesh-maps, assets, material-authoring, texture-graph]
 since: 0.1
 status: preview
@@ -119,6 +119,41 @@ it before it reaches a file:
 A set written before `meshMap.model` existed records no model, and the next keyed bake of that name
 adopts it rather than landing beside it.
 
+### Reading one back — the resolver
+
+`MeshMapLibrary` is the query the naming above exists to serve. `MeshMapLibrary.Index` walks the asset
+database, opens the sidecar beside every indexed `.png`, and keeps the ones that carry
+`meshMap.usage`; `TryResolve` then answers **(set, usage)** or **(model, usage)** with a
+`MeshMapAsset` — the reference, the set, the model, the scale and the path.
+
+⚠ **This is what a Mesh Map Input node calls**, and until it existed nothing in the repository read
+`meshMap.usage` at all: the bake wrote nine files with a full sidecar each and the whole read side was
+empty. `vixen mesh-maps list` is a second caller of the same index, so the answer an artist gets from
+a terminal is the answer the node gets:
+
+```console
+$ vixen mesh-maps list --project . --set Barrel
+Barrel  normal      3b1f…  Assets/MeshMaps/Barrel_normal.png
+Barrel  height      9a02…  Assets/MeshMaps/Barrel_height.png  scale=0.42
+Barrel  ao          c714…  Assets/MeshMaps/Barrel_ao.png
+```
+
+⚠ **A model with more than one set does not resolve by model alone.** Every mesh of a model has its
+own nine maps, so "the normal map of this model" has as many answers as the model has meshes —
+`TryResolve(model, usage, …)` returns false rather than the first, and `SetsOf` is what a caller names
+a mesh from. Returning one silently is how a graph binds the barrel's lid on the machine the bake ran
+on and the barrel's body on the next.
+
+⚠ **A missing map and a missing scale are both ordinary.** Only the normal and the height map are
+always baked, so a set baked with the ray-casting maps switched off genuinely has no occlusion map —
+`TryResolve` says false, and a generator has to report that rather than sample nothing. And a
+measurement whose range is zero — the curvature of a flat target — writes no `meshMap.scale`, so a
+`Scale` of zero means "nothing was measured" rather than "the key was lost".
+
+⚠ **The library is a snapshot.** It reads one sidecar per candidate file, so it is built once and is
+stale the moment a bake writes; a caller rebuilds it afterwards, which is the same contract
+`AssetDatabase.Scan` has with everything reading its index.
+
 ### What is in the pixels
 
 ⚠ **Nothing is compressed and nothing gets a mip chain.** A mesh map is an authoring input a
@@ -152,6 +187,14 @@ in the editor is reading. `ContentTasks.BakeMeshMaps` is the split in practice �
 pool, `Write` back on the frame thread, with the one-at-a-time guard held across *both* so that an
 import cannot run over the folder while the files are going down.
 
+⚠ **A map the database did not pick up stops the bake.** A `.meta` whose GUID cannot be read is a
+file `AssetDatabase` leaves out of the index entirely — it refuses to mint a replacement, because a
+new id would break every reference through the old one — so the read-back after the scan misses. The
+bake refuses rather than recording a null reference for that usage: `MeshMapSet.Maps` is the by-usage
+index a generator binds through, and a set that reports nine maps and resolves eight is a generator
+reading nothing with nothing said anywhere. It is the same refusal `ProjectMaterialBaker` makes, one
+asset type over.
+
 ⚠ **An encoded image does not carry a file name.** `MeshMapBake.Encode` produces pixels, a usage and
 the import settings that usage needs; `Write` is what names the file, because naming needs the folder,
 the sanitising and the model key, and none of those are known at encode time.
@@ -175,28 +218,16 @@ if (set.Maps.TryGetValue(MeshMapUsage.Curvature, out var curvature)) {
 Finding a mesh's baked maps again, by usage rather than by path:
 
 ```csharp no-compile="needs an open project and its asset database"
-static Dictionary<MeshMapUsage, AssetEntry> Bound(EditorProject project, string mesh) {
-    var found = new Dictionary<MeshMapUsage, AssetEntry>();
+var library = MeshMapLibrary.Index(project.Assets);
 
-    foreach (var entry in project.Assets.Entries) {
-        var sidecar = AssetMetaFile.PathFor(project.Paths.Absolute(entry.Path));
+// ⚠ The sidecar and not the file name: a rename must not unbind a generator.
+if (library.TryResolve("Barrel", MeshMapUsage.Curvature, out var curvature)) {
+    material.Set("EdgeWearMask", curvature.Map);
+}
 
-        if (!File.Exists(sidecar)) {
-            continue;
-        }
-
-        var extensions = AssetMetaFile.ReadFile(sidecar).Extensions;
-
-        // ⚠ The sidecar and not the file name: a rename must not unbind a generator.
-        if (extensions.TryGetValue(MeshMapNaming.MeshKey, out var owner)
-            && owner == mesh
-            && extensions.TryGetValue(MeshMapNaming.UsageKey, out var suffix)
-            && MeshMapNaming.TryParseSuffix(suffix, out var usage)) {
-            found[usage] = entry;
-        }
-    }
-
-    return found;
+// By the model, where the model has one set. Two and it refuses — name the mesh instead.
+if (!library.TryResolve(model, MeshMapUsage.AmbientOcclusion, out var occlusion)) {
+    report($"{model} has {library.SetsOf(model).Count} sets; say which.");
 }
 ```
 
