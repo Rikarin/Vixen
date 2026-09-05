@@ -4,20 +4,19 @@
 using System.Text;
 using Vixen.Input;
 using Vixen.Ui;
-using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.Ui;
 
-// ⚠ **This type is NOT the self-contained leaf #650 names, and the `using Vixen.Ui.Controls` above is
-// why.** `Describe()`, `UsePlatformFormat` and both `MacFormat`/`MacWords` go through
-// `KeyboardShortcut.Formatter` and `KeyboardShortcut.Describe`, two statics on a *Control* in
-// `Vixen.Ui.Controls` — an assembly above `Vixen.Ui`, which references neither it nor anything in
-// it. So `KeyChord` cannot be moved to `Vixen.Ui` first: it can only go to `Vixen.Ui.Controls`, or
-// the two formatting statics have to be split down into `Vixen.Ui` before it, and that split is the
-// real leaf. Deleting the using to check turns four lines of this file red with CS0103, which is
-// the cheapest way to see it.
+// ⚠ **This type WAS not the self-contained leaf #650 names, and now it is.** `Describe()`,
+// `UsePlatformFormat` and both `MacFormat`/`MacWords` went through `KeyboardShortcut.Formatter`
+// and `KeyboardShortcut.Describe`, two statics on a *Control* in `Vixen.Ui.Controls` — above
+// `Vixen.Ui`, which references neither it nor anything in it — so `KeyChord` could only ever have
+// gone to `Vixen.Ui.Controls`. `ShortcutFormat` (`Core/Vixen.Ui/ShortcutFormat.cs`) is that split:
+// the formatter and the key-name table were never view state, and `KeyboardShortcut`'s two members
+// forward to them. This file names nothing above `Vixen.Ui` any more, which is what makes it the
+// leaf to move first.
 //
-// The same shape blocks two of the other four: `EditorCommand` holds an `IconArt`, also
+// The same shape still blocks two of the other four: `EditorCommand` holds an `IconArt`, also
 // `Vixen.Ui.Controls`, and `KeyMap` reads `Vixen.Core.Yaml`, which `Vixen.Ui` does not reference
 // either. Only `CommandRegistry` and `CommandDispatcher` name nothing above `Vixen.Ui` — and they
 // name `EditorCommand`, so they cannot land below it.
@@ -114,7 +113,7 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
     /// <summary>What a menu shows against the command.</summary>
     /// <returns>Something like <c>Ctrl+Shift+S</c>.</returns>
     /// <remarks>
-    ///     ⚠ <b>Through <see cref="KeyboardShortcut.Formatter" /> and after
+    ///     ⚠ <b>Through <see cref="ShortcutFormat.Formatter" /> and after
     ///     <see cref="ForPlatform" />, which is the two halves of writing a shortcut the way the
     ///     machine's other applications do.</b> The swap turns the stored <c>Ctrl+S</c> into the
     ///     <c>Meta+S</c> a Mac user actually presses; the formatter turns that into <c>⌘S</c>. A
@@ -122,13 +121,13 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
     ///     cannot disagree.
     /// </remarks>
     public string Describe() =>
-        IsBound ? KeyboardShortcut.Formatter(Key, ForPlatform().Modifiers) : string.Empty;
+        IsBound ? ShortcutFormat.Formatter(Key, ForPlatform().Modifiers) : string.Empty;
 
     /// <summary>Makes every shortcut in the process read the way this machine writes them.</summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Called once by the shell, and it replaces a static.</b>
-    ///         <see cref="KeyboardShortcut.Formatter" /> is process-wide because a shortcut is drawn
+    ///         <see cref="ShortcutFormat.Formatter" /> is process-wide because a shortcut is drawn
     ///         by three views and an application that adapted each one would miss the fourth. On
     ///         anything but a Mac this does nothing at all, so it costs a branch at start-up.
     ///     </para>
@@ -148,7 +147,7 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
         // none of ⌘ ⇧ ⌥ ⌃. An unmapped codepoint does not draw as a box or as nothing: it resolves
         // to whatever glyph zero happens to be, and the menu bar read "L+S" for Save. A shortcut
         // nobody can read is worse than one written the long way.
-        KeyboardShortcut.Formatter = CanDrawGlyphs(document) ? MacFormat : MacWords;
+        ShortcutFormat.Formatter = CanDrawGlyphs(document) ? MacFormat : MacWords;
     }
 
     /// <summary>Whether a document's default face has the four modifier glyphs.</summary>
@@ -178,7 +177,7 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
     /// <returns>Something like <c>Shift+Cmd+S</c>.</returns>
     /// <remarks>
     ///     ⚠ <b>The platform's order and the platform's names, with separators.</b> It is not the
-    ///     <see cref="KeyboardShortcut.Describe" /> form: that writes <c>Meta</c>, which is what the
+    ///     <see cref="ShortcutFormat.Describe" /> form: that writes <c>Meta</c>, which is what the
     ///     modifier is called in an event and not what it is called on the key — a Mac user reading
     ///     "Meta+S" has to translate, and the whole point of adapting is that they should not have to.
     /// </remarks>
@@ -201,7 +200,7 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
             text.Append("Cmd+");
         }
 
-        return text.Append(KeyboardShortcut.Describe(key, ModifierKeys.None)).ToString();
+        return text.Append(ShortcutFormat.Name(key)).ToString();
     }
 
     public static string MacFormat(InputKey key, ModifierKeys modifiers) {
@@ -226,7 +225,7 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
         // ⚠ The key's own name comes from the control set, because the list of exceptions —
         // `Number1` is the `1` key, `Grave` is a backtick — is long and belongs in one place. Only
         // the modifiers are written differently here.
-        return text.Append(KeyboardShortcut.Describe(key, ModifierKeys.None)).ToString();
+        return text.Append(ShortcutFormat.Name(key)).ToString();
     }
 
     /// <summary>What a keymap file writes.</summary>
