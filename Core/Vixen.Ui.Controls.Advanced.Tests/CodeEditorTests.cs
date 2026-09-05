@@ -67,6 +67,76 @@ public class CodeBufferTests {
         Assert.Equal(7, buffer.WordStart(new TextPosition(0, 8)).Column);
     }
 
+    /// <summary>And inside a run of letters it stops where UAX #29 says a word ends.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The class rule alone navigates Japanese as one word, and it is
+    ///         <c>char.IsLetterOrDigit</c> that makes it.</b> That predicate is true of every Han,
+    ///         Kana and Thai codepoint, so <c>編集するためのボタン</c> — a language that puts no space
+    ///         between words — was a single run of the word class and Ctrl-Left jumped the whole
+    ///         clause. The literals below are UAX #29's answer for this string: a break after each
+    ///         ideograph and each hiragana, and <b>none</b> inside <c>ボタン</c>, because WB13 holds
+    ///         a katakana run together.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Written as positions rather than as "whatever <c>WordBreaker</c> says", which
+    ///         would be a tautology.</b> The implementation calls that breaker; a test that asked it
+    ///         the same question would agree with itself on the day the subdivision was deleted, so
+    ///         long as the deletion also went through it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Word_navigation_divides_a_run_of_letters_where_the_language_does() {
+        var buffer = new CodeBuffer("編集するためのボタン");
+
+        // Ctrl-Left from the end: ボタン is one stop, then one per kana and per ideograph.
+        var stops = new List<int>();
+
+        for (var at = new TextPosition(0, 10); at.Column > 0;) {
+            at = buffer.WordStart(at);
+            stops.Add(at.Column);
+        }
+
+        Assert.Equal([7, 6, 5, 4, 3, 2, 1, 0], stops);
+
+        // And Ctrl-Right from the start, which is the same set read the other way.
+        stops.Clear();
+
+        for (var at = new TextPosition(0, 0); at.Column < 10;) {
+            at = buffer.WordEnd(at);
+            stops.Add(at.Column);
+        }
+
+        Assert.Equal([1, 2, 3, 4, 5, 6, 7, 10], stops);
+    }
+
+    /// <summary>And it did not swap one rule for the other: code still navigates by class run.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the half that says the fix is a subdivision and not a replacement.</b>
+    ///     <c>WordBreaker</c> on its own would stop <i>between</i> <c>foo</c>, <c>.</c> and
+    ///     <c>bar</c> too, but it would also refuse to treat <c>(</c> as its own stop the way an
+    ///     editor does — and, more to the point, the run rule is what a code editor exists for.
+    ///     Identifiers survive because UAX #29 already keeps them whole: <c>_</c> is
+    ///     <c>ExtendNumLet</c>, and digits join letters, so <c>fooBar</c>, <c>foo_bar</c> and
+    ///     <c>abc123</c> are one word to it as well as one run to the class rule.
+    /// </remarks>
+    [Fact]
+    public void Word_navigation_still_stops_at_the_brackets_and_keeps_identifiers_whole() {
+        var buffer = new CodeBuffer("foo.bar(");
+
+        Assert.Equal(7, buffer.WordStart(new TextPosition(0, 8)).Column);
+        Assert.Equal(4, buffer.WordStart(new TextPosition(0, 7)).Column);
+        Assert.Equal(3, buffer.WordStart(new TextPosition(0, 4)).Column);
+        Assert.Equal(0, buffer.WordStart(new TextPosition(0, 3)).Column);
+
+        foreach (var identifier in (string[]) ["fooBar", "foo_bar", "abc123", "_private"]) {
+            var one = new CodeBuffer(identifier);
+
+            Assert.Equal(identifier.Length, one.WordEnd(new TextPosition(0, 0)).Column);
+            Assert.Equal(0, one.WordStart(new TextPosition(0, identifier.Length)).Column);
+        }
+    }
+
     [Fact]
     public void Stepping_back_from_column_zero_lands_at_the_end_of_the_line_above() {
         var buffer = new CodeBuffer("abc\nde");
