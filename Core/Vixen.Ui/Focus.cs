@@ -331,6 +331,12 @@ public sealed partial class UiDocument {
 
         element?.Raise(new FocusEvent { Gained = true, Previous = previous, Next = element });
 
+        // ⚠ **The focus is the drag's other driver, and a keyboard drag has no third mechanism.**
+        // A pointer drag is unaffected because a pointer drag does not move the focus — the press
+        // that preceded it already did, and the source holds the capture — so following the focus
+        // here costs a null check on every focus change and is what makes Tab move a drag.
+        TrackDragToFocus(element);
+
         return true;
     }
 

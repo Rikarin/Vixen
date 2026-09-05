@@ -130,6 +130,24 @@ ever — the drag that can never be dropped anywhere.
 has to remove the original; `DropEvent.DragSource` is the element the drag started on, and `null` is
 exactly the test for "this came from another application".
 
+### Driving one from the keyboard
+
+**The pointer is one driver of a drag and the focus is the other.** Moving the focus moves the drag:
+the target becomes the nearest `AllowDrop` element at or above whatever is now focused, and it hears
+the same `Entered` / `Left` a pointer crossing it would have raised. **Enter drops.**
+
+⚠ **A pointer drag is unaffected, and that is why there is no second mode.** A pointer drag does not
+move the focus — the press that preceded it already did, and the source holds the capture — so
+following the focus costs one null check per focus change and buys the whole keyboard gesture.
+
+⚠ **Enter alone, and not Space.** Space is what activates the button, checkbox or row that has the
+focus, so a drop bound to it would be two gestures on one key. Enter with a modifier is somebody
+else's verb and is left alone. And with no drag running, Enter is not intercepted at all.
+
+⚠ **Enter with nothing under the focus leaves the drag running.** Tabbing past the last target and
+pressing Enter drops nowhere rather than cancelling: Enter is the key the user pressed to *complete*
+the gesture, and Escape is already how one is abandoned.
+
 ### Getting out of one
 
 **Escape cancels the drag**, and it is the only key the document answers before the route. A drag is a
@@ -198,9 +216,6 @@ neither the seam nor a backend exists.
 
 **A drag image.** A source draws its own ghost from `UiDocument.CurrentDrag` and `UiElement.OffsetX/Y`;
 nothing carries a picture for it.
-
-**Keyboard drag and drop.** There is no way to move something without a pointer, which is the
-accessibility gap this feature ships with.
 
 ⚠ **One event per file.** SDL 2 posts one `SDL_DROPFILE` per path and brackets a group with
 `SDL_DROPBEGIN`/`SDL_DROPCOMPLETE`, which the desktop backend does not yet forward — so a five-file
