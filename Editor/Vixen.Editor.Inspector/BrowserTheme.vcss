@@ -102,13 +102,20 @@ asset-tile:checked icon { color: #ffffff; }
 
 /* ⚠ Bigger than a row's icon by a lot. A grid whose glyphs are row-sized is a list with
    gaps in it — the size *is* the affordance, and it is what makes the colour readable
-   from across the panel. */
-asset-tile > icon { width: var(--tile-glyph, 40px); height: var(--tile-glyph, 40px); }
+   from across the panel.
+
+   ⚠ And `flex-shrink: 0`, because the tile is a column whose height the grid writes: 8 px of
+   padding twice, a 40 px glyph, a 6 px gap and a caption allowed 30 px is 92 px in an 84 px
+   tile, so from #628 onwards the one item that could shrink absorbed the whole overflow and
+   the glyph came back 40×32. The tile's `overflow: hidden` is what the extra eight pixels are
+   meant to meet — the caption is the half that is allowed to be cut. */
+asset-tile > icon { width: var(--tile-glyph, 40px); height: var(--tile-glyph, 40px); flex-shrink: 0; }
 
 /* The picture takes the glyph's place and its size, so a tile is the same shape whether its
    asset has one or not — a grid whose rows changed height as thumbnails arrived would
-   reflow under the pointer. */
-asset-tile > image { width: var(--tile-glyph, 40px); height: var(--tile-glyph, 40px); }
+   reflow under the pointer. Same `flex-shrink: 0` and for the same arithmetic: a thumbnail
+   that squashed where the glyph did would make the two states different shapes. */
+asset-tile > image { width: var(--tile-glyph, 40px); height: var(--tile-glyph, 40px); flex-shrink: 0; }
 asset-tile > .hidden { display: none; }
 
 /* Two lines and then clipped: a tile whose height followed its name would make every row of
@@ -119,8 +126,15 @@ asset-tile > .hidden { display: none; }
    column means each one is as wide as its own content — so a caption was laid out at the
    full width of the file name and never given a reason to wrap. Stretching gives it the
    tile's width to wrap inside, and `anywhere` is what lets it: an asset name is
-   `T_Crate_Diffuse_01.png`, which has no space in it to break at. */
+   `T_Crate_Diffuse_01.png`, which has no space in it to break at.
+
+   ⚠ And `flex-shrink: 0`, which is what makes "two lines and then clipped" reachable at all.
+   The tile is 84 px and its padding, glyph and gap leave 22 — one line — so from #628 onwards
+   the caption was squeezed to a single line and `max-height: 30px` became a bound nothing
+   could reach. The second line is meant to be cut by the tile's `overflow: hidden`, which is
+   a name half-shown rather than a name half-lost. */
 asset-caption {
+    flex-shrink: 0;
     align-self: stretch;
     text-align: center;
     font-size: 0.85em;
