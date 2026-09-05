@@ -77,6 +77,18 @@
 
         <!-- A graph is YAML on disk, the same as every other node document in the tree. -->
         <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+
+        <!--
+            ⚠ **And no `Vixen.Core.Reflection` here, deliberately: a plugin's own entry assembly must
+            not declare a `[DataContract]`.** `PluginLoadContext` sends every `Vixen.*` dependency to
+            the default context and loads *this* assembly into the collectible one — that is exactly
+            what makes `PluginHost.WaitForCollection` mean anything — so this assembly is loaded
+            twice, its generated descriptor module initializer runs twice, and the process-wide
+            `TypeRegistry` refuses the second with *"Both 'X' and 'X' claim the name"*, out of a
+            `TypeInitializationException` that takes the whole plugin load down. `.vxlayers` is
+            therefore mapped key by key in `LayerStackYaml`. See #798; `Vixen.Editor.Terrain` has the
+            same landmine and nothing loads it from a folder yet.
+        -->
     </ItemGroup>
 
     <ItemGroup>
