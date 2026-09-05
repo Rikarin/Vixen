@@ -40,11 +40,30 @@ partial class Build : NukeBuild {
     ///         limit usually is.</b> Measured from the 176 TRX of the 2026-09-02 run: the
     ///         per-assembly wall times sum to 3 024 s, the longest single assembly
     ///         (<c>Vixen.Editor.App.Tests</c>) is 695 s on its own, and the unbounded run finished
-    ///         in 17 min. A perfectly packed run on ten cores cannot beat
-    ///         <c>max(695, 3024 / 10) ≈ 11.6 min</c>, so unbounded concurrency is buying about five
-    ///         minutes — while 395 compilations and up to 178 test hosts, each parallelising its own
-    ///         collections to the core count, take the machine away from everything else on it. The
-    ///         long pole is one assembly, not the fan-out.
+    ///         in 17 min — so unbounded concurrency was buying about five minutes, while 395
+    ///         compilations and up to 178 test hosts, each parallelising its own collections to the
+    ///         core count, take the machine away from everything else on it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The floor that argument was written against is gone, and this paragraph used to
+    ///         say it was <c>max(695, 3024 / 10) ≈ 11.6 min</c>.</b> That figure was arithmetic —
+    ///         total CPU over ten cores — and never bound anything. What did bind was first the
+    ///         schedule (<c>Vixen.Editor.App.Tests</c> was dispatched last and started at t=300 s,
+    ///         #592) and then that assembly's own wall (#557). Both moved. Re-derived from the 178
+    ///         TRX of the most recent local run, in <c>artifacts/test-results</c>: elapsed
+    ///         <b>556.8 s</b>, summed per-assembly wall 2 189.2 s, 33 642 tests, and the longest
+    ///         assembly now starts at t=0.1 s and is 412.0 s — <i>shorter</i> than the run. So the
+    ///         run is no longer floored by one assembly at all: 2 189.2 / 4 = 547.3 s against an
+    ///         actual 556.8 s, which is a schedule packed to within 2 %.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which changes what is worth doing next.</b> With the queue full and the long
+    ///         pole first, elapsed is very nearly summed wall over <see cref="Workers" />: anything
+    ///         that removes <i>summed</i> wall — per-assembly host overhead (#560), a slow lane
+    ///         (#558) — is now worth about a quarter of itself in elapsed, and anything that only
+    ///         reorders is worth nothing. Raising this number is the other lever, and it is the one
+    ///         that costs the machine; whether a laptop running several agent worktrees can afford
+    ///         it is not a question these numbers answer.
     ///     </para>
     ///     <para>
     ///         <b>Four locally, unbounded in CI.</b> A CI leg has the machine to itself and there is
