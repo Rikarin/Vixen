@@ -3099,23 +3099,24 @@ public sealed class DrawListBuilder {
     /// <param name="half">Half the mask box, which is the border box.</param>
     /// <returns>The centre's offset from the box's centre, and the reach.</returns>
     /// <remarks>
-    ///     ⚠ <b>The radial reach is `half + abs(offset)`, which is <c>RampFrame</c>'s closed form and
-    ///     is the same number for the same reason.</b> CSS's default ending shape is
-    ///     <c>farthest-corner</c>; the farthest corner maximises each axis independently, so the
-    ///     scale is always root two and the reach the shader's <c>length(offset / reach) / √2</c>
-    ///     wants is the farthest-<i>side</i> pair. Sharing the derivation and not the code is
-    ///     deliberate — <c>UiMask</c> is in document pixels and <c>UiShape</c> in box-relative ones —
-    ///     but the two must not disagree, because a <c>mask-radial-*</c> and a <c>bg-radial-*</c>
-    ///     written with the same <c>at</c> have to line up.
+    ///     ⚠ <b>The reach is <see cref="BackgroundGradient.Reach" />'s, and it is shared code now
+    ///     rather than a shared derivation.</b> This remark used to say the two "must not disagree,
+    ///     because a <c>mask-radial-*</c> and a <c>bg-radial-*</c> written with the same <c>at</c>
+    ///     have to line up" — and while the only ending was <c>farthest-corner</c> the two closed
+    ///     forms were one line each and prose was enough to keep them equal. There are eight endings
+    ///     now, and eight lines written twice is a divergence waiting for whichever of the two the
+    ///     next change forgets. What still differs, and is why this is a method rather than a call
+    ///     site inside the other, is the frame: <c>UiMask</c> is in document pixels and
+    ///     <c>UiShape</c> in box-relative ones.
     /// </remarks>
     static (Vector2 Centre, Vector2 Reach) MaskFrame(BackgroundGradient gradient, Vector2 half) {
-        if (gradient.Centre is not { } at) {
-            return (Vector2.Zero, half);
+        if (gradient.Shape != GradientShape.Radial) {
+            return (gradient.Centre is { } placed ? placed.Resolve(half.X * 2f, half.Y * 2f) - half : Vector2.Zero, half);
         }
 
-        var offset = at.Resolve(half.X * 2f, half.Y * 2f) - half;
+        var offset = gradient.Centre is { } at ? at.Resolve(half.X * 2f, half.Y * 2f) - half : Vector2.Zero;
 
-        return (offset, gradient.Shape == GradientShape.Radial ? half + Vector2.Abs(offset) : half);
+        return (offset, gradient.Reach(half, offset));
     }
 
     /// <summary>The three stops' coverages, under whichever <c>mask-mode</c> the element asked for.</summary>
@@ -3486,18 +3487,22 @@ public sealed class DrawListBuilder {
     /// </returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The radial reach is the <i>farthest-side</i> distance, and it is exactly right
-    ///         rather than an approximation — which is surprising enough to be worth the derivation.</b>
-    ///         CSS's default ending shape is <c>farthest-corner</c>: the ellipse with the
-    ///         <c>farthest-side</c> aspect ratio, scaled to pass through the farthest corner. Both
-    ///         farthest-side distances are <c>max(c, extent - c)</c> per axis, and the farthest corner
-    ///         maximises each axis independently — so the corner sits at <c>(fs.x, fs.y)</c> and the
-    ///         scale that puts it on the ellipse is <c>√(1 + 1)</c>, whatever the centre.
-    ///         <b>The radii are therefore always <c>√2 · fs</c>, and the shader's parameterisation is
-    ///         already <c>length(offset / reach) / √2</c></b> — so the reach it wants <i>is</i> the
-    ///         farthest-side pair, and the centred case reduces to the half size the shader used
-    ///         before this lane existed. Nothing in the three shader copies had to learn a second
-    ///         convention.
+    ///         ⚠ <b>The radial reach is <see cref="BackgroundGradient.Reach" />'s, which for CSS's
+    ///         default ending is the <i>farthest-side</i> distance and is exactly right rather than an
+    ///         approximation.</b> The derivation is on that method, and the surprise is worth keeping
+    ///         here: <c>farthest-corner</c> is the ellipse with the farthest-side aspect ratio scaled
+    ///         to pass through the farthest corner, a corner maximises each axis independently, so the
+    ///         scale is <c>√(1 + 1)</c> whatever the centre — and the shader's own parameterisation is
+    ///         already <c>length(offset / reach) / √2</c>. Nothing in the shader copies had to learn a
+    ///         second convention for the default, and nothing had to learn one for the other seven
+    ///         endings either.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The zero return is a claim about the <i>ending</i> as well as about the centre
+    ///         now.</b> Zero means "the ramp is the box", which is a farthest-corner ellipse centred
+    ///         in it — so a <c>closest-side</c> or a <c>circle</c> has to write its lane even when
+    ///         nothing moved, or the class resolves, computes, and paints the ending it was written to
+    ///         replace.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A linear gradient's reach is the tile and not the ellipse, and a conic reads no
@@ -3513,13 +3518,15 @@ public sealed class DrawListBuilder {
             centre = at.Resolve(tile.X * 2f, tile.Y * 2f) - tile;
         }
 
-        if (areaHalf == Vector2.Zero && centre == Vector2.Zero) {
+        var stated = gradient.Shape == GradientShape.Radial && !gradient.IsDefaultEnding;
+
+        if (areaHalf == Vector2.Zero && centre == Vector2.Zero && !stated) {
             // Nobody moved anything: leave the lane at zero so the shader keeps the arrangement it had.
             return (Vector2.Zero, Vector2.Zero);
         }
 
         var reach = gradient.Shape == GradientShape.Radial
-            ? tile + Vector2.Abs(centre)
+            ? gradient.Reach(tile, centre)
             : tile;
 
         return (centre, reach);

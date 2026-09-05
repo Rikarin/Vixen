@@ -84,7 +84,7 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **329** | 278 families |
+| Utility **roots** (the unit of this table) | **329** | 279 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
 | Variant keys | **88** | **25** |
@@ -108,9 +108,9 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 | State | Meaning | Roots |
 |---|--:|--:|
 | **works** | Vixen emits it, and a consumer acts on every property it sets | **219** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **32** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **33** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **73** |
+| **absent** | not emitted at all | **72** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -132,13 +132,18 @@ fragments with a working assembler.
 moved it out of `composed`: it was buildable all along and the flattering state was what hid it. A
 `--tw-mask-radial-position` fragment defaulting to `center` — CSS's own default — feeds an
 `at <position>` that `DrawListBuilder.MaskFrame` resolves, so an unmoved radial mask reaches the
-shader as the record it always had. Its sibling `mask-radial-*` stays `absent` and is now a refusal
-with a named blocker rather than an unregistered family; see its row. ⚠ **That blocker was named
-wrong until 2026-09-05 (#545): it is a reader, not a lane.** `UiShape.Paint.zw` is a stated pair of
-radii and all three rasterisers already honour an arbitrary pair, so nothing is waiting on a shader —
-what is missing is a place on `BackgroundGradient` to record which of the six endings was written and
-four more closed forms in `RampFrame`. The refusal itself stands; `GradientPaintTests.
-A_radial_gradient_ends_at_the_corner_and_not_at_the_edge` is the pixel oracle that says why.
+shader as the record it always had. ⚠ **Its sibling `mask-radial-*` reads `partial` now, and the two
+halves of that row are blocked on entirely different things.** The four ending *sizes* are registered
+and read: `GradientReader` takes all four keywords, `BackgroundGradient.Reach` is the closed form for
+each, and `GradientPaintTests.A_circle_ending_is_round_on_a_box_that_is_not` is the pixel oracle — on
+an 80×40 box, because on a square one every ending draws the same circle. ⚠ **The blocker the row
+named was wrong twice**, and the second time it was named "they land when `UiMask` carries a stated
+pair of radii": `UiShape.Paint.zw` *is* a stated pair and every rasteriser already honoured an
+arbitrary one, so nothing was ever waiting on a shader. What is still out is the two ending *shapes*,
+`mask-circle` and `mask-ellipse`, and their obstacle is this layer rather than the engine — Tailwind
+spells them with the bare `mask` prefix, which is already the `mask-repeat` family, and
+`Family.Alongside` belongs to a family rather than to a value, so those two values cannot carry the
+mask layer their siblings do.
 
 ### The composition mechanism
 
@@ -454,7 +459,7 @@ refusal block, which already says so for the same reason.
 
 | Category | roots | works | partial | inert | absent | composed | unknown |
 |---|--:|--:|--:|--:|--:|--:|--:|
-| Layout | 49 | 28 | 5 | 0 | 12 | 3 | 1 |
+| Layout | 49 | 28 | 6 | 0 | 11 | 3 | 1 |
 | Interactivity | 39 | 27 | 0 | 1 | 11 | 0 | 0 |
 | Borders | 34 | 28 | 2 | 0 | 4 | 0 | 0 |
 | Effects | 34 | 27 | 1 | 0 | 6 | 0 | 0 |
@@ -469,7 +474,7 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **329** | **219** | **32** | **1** | **73** | **3** | **1** |
+| **Total** | **329** | **219** | **33** | **1** | **72** | **3** | **1** |
 
 Flexbox and Grid leads at 29 of 34, with only two absent roots left and both of those refused on
 policy rather than owed; then Effects at 27 of 34, Interactivity at 27 of 39, Borders at 26 of 34,
@@ -2955,8 +2960,9 @@ absence.** Sixteen roots in the `Layout` category read `absent` *when this was w
 twelve now, and the four below are why the headline is left at sixteen — it is the triage's own
 denominator and rewriting it would falsify what was triaged. Four of them belong to work in
 flight elsewhere — `mask-radial-*`, `mask-radial-at-*`, `ring-offset-*` and `@container-*`; ⚠ of
-those, **`mask-radial-at-*` has since landed and reads `works`**, and `mask-radial-*` is now a
-refusal with a named blocker (`GradientRefusal.Extent`) rather than an unregistered family. The
+those, **`mask-radial-at-*` has since landed and reads `works`**, and `mask-radial-*` reads
+`partial`: its four ending sizes are registered and read, and its two ending shapes are held up by
+this table's own shape rather than by `GradientRefusal.Extent`, which no longer refuses them. The
 other twelve were triaged together, and they fall into four buckets that want four different
 answers. **Only one bucket was buildable, and the other three are refusals with a measurement
 behind each.** The costs below are the deliverable; the one implementation is the small part.

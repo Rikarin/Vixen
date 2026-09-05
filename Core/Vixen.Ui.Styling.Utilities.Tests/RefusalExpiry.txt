@@ -51,7 +51,6 @@ border-spacing-x-*	expires-with	border-spacing-*
 border-spacing-y-*	expires-with	border-spacing-*
 inset-ring-*	expires-with	inset-shadow-*
 isolation	expires-with	mix-blend
-mask-radial-*	expires-on	Vixen.Ui.BackgroundGradient.Extent
 mix-blend	expires-on	Vixen.Ui.DrawCommand.Blend
 perspective-*	expires-on	Vixen.Ui.Rendering.UiVertex.W
 perspective-origin-*	expires-with	perspective-*

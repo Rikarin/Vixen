@@ -150,6 +150,35 @@ enum GradientCorner : byte {
     BottomLeft
 }
 
+/// <summary>Which ellipse a round gradient's ramp ends on.</summary>
+/// <remarks>
+///     <para>
+///         CSS Images 3 § 3.3's four ending <i>sizes</i>. The ending <i>shape</i> — <c>circle</c> or
+///         <c>ellipse</c> — is a separate question carried separately, because CSS spells the two as
+///         independent keywords and <c>circle closest-side</c> is a real declaration.
+///     </para>
+///     <para>
+///         ⚠ <b>The default is <see cref="FarthestCorner" />, which is CSS's initial value and also
+///         the one the shader's parameterisation lands on for free</b> — see
+///         <see cref="BackgroundGradient.Reach" />. That is why the other three arrived with no new
+///         lane and no shader change, which is the half of <c>GradientRefusal.Extent</c>'s stated
+///         blocker that turned out to be false.
+///     </para>
+/// </remarks>
+enum GradientExtent : byte {
+    /// <summary>Through the farthest corner. CSS's initial value.</summary>
+    FarthestCorner,
+
+    /// <summary>Touching the farthest side.</summary>
+    FarthestSide,
+
+    /// <summary>Through the closest corner.</summary>
+    ClosestCorner,
+
+    /// <summary>Touching the closest side.</summary>
+    ClosestSide
+}
+
 /// <summary>One component of a CSS <c>&lt;position&gt;</c>: a fraction of the box, plus a pixel offset.</summary>
 /// <param name="Fraction">How far across the box, from zero at the near edge to one at the far one.</param>
 /// <param name="Pixels">A length added to it.</param>
@@ -211,6 +240,17 @@ readonly record struct GradientPoint(GradientOffset X, GradientOffset Y) {
 ///         <c>ReadPrelude</c> refuses one rather than storing it.
 ///     </para>
 /// </param>
+/// <param name="Extent">Which ellipse the ramp ends on. Meaningless on anything but a radial gradient.</param>
+/// <param name="Circle">
+///     Whether the ending shape was written <c>circle</c> rather than <c>ellipse</c>.
+///     <para>
+///         ⚠ <b>A bool beside an enum rather than eight enum members, because CSS's two keywords are
+///         independent and either may be written without the other.</b> <c>circle</c> alone is a
+///         farthest-corner circle and <c>closest-side</c> alone is a closest-side ellipse; folding
+///         them into one value would make a family that sets only the shape have to know the size,
+///         which is exactly the cascade problem <c>--tw-*</c> fragments exist to avoid one layer up.
+///     </para>
+/// </param>
 /// <param name="Refusal">Why this is not paintable, or <see cref="GradientRefusal.None" />.</param>
 readonly record struct BackgroundGradient(
     Color4 Start,
@@ -223,6 +263,8 @@ readonly record struct BackgroundGradient(
     float Angle,
     GradientCorner Corner,
     GradientPoint? Centre,
+    GradientExtent Extent,
+    bool Circle,
     GradientRefusal Refusal
 ) {
     /// <summary>Whether this is a gradient the draw list can carry.</summary>
@@ -242,8 +284,83 @@ readonly record struct BackgroundGradient(
         0f,
         GradientCorner.None,
         null,
+        GradientExtent.FarthestCorner,
+        false,
         reason
     );
+
+    /// <summary>How far the ramp reaches along each axis, from a centre inside a box.</summary>
+    /// <param name="half">Half the box the ramp is drawn in.</param>
+    /// <param name="offset">Where the centre sits, in pixels from the box's centre.</param>
+    /// <returns>The reach pair the shader's <c>paint.zw</c> carries.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The closed form for all eight endings, in one place because two callers compute
+    ///         it and must not disagree.</b> <c>DrawListBuilder.RampFrame</c> works in a background
+    ///         tile and <c>MaskFrame</c> in the mask box, so they cannot share their surroundings —
+    ///         but a <c>bg-radial-*</c> and a <c>mask-radial-*</c> written with the same ending have
+    ///         to line up on the pixel, and before this they shared a derivation in prose and nothing
+    ///         else.
+    ///     </para>
+    ///     <para>
+    ///         <b>The derivation.</b> The shader's parameter is <c>length(offset / reach) / √2</c>,
+    ///         so a boundary at radii <c>r</c> means <c>reach = r / √2</c>. Per axis
+    ///         <c>fs = half + |offset|</c> is the farthest-side distance and
+    ///         <c>cs = half − |offset|</c> the closest-side one. A corner ending has the
+    ///         corresponding side ending's aspect ratio and passes through that corner, and a corner
+    ///         maximises each axis independently — so it is that pair scaled by <c>√(1 + 1)</c>,
+    ///         whatever the centre. The four ellipse radii are therefore <c>cs</c>, <c>fs</c>,
+    ///         <c>√2·cs</c> and <c>√2·fs</c>, and <b>the last of them is why the default reduces to
+    ///         <c>fs</c> and why no shader had to learn a second convention.</b>
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A circle is not the ellipse case with equal <c>half</c>.</b> Its radius is one
+    ///         scalar: the nearer or farther of the two side distances, or the length of the
+    ///         corresponding corner vector. Writing <c>min(cs)</c> into both axes is a different
+    ///         picture from an ellipse of radii <c>cs</c> on any box that is not square, which is
+    ///         every box worth writing <c>mask-circle</c> on.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>cs</c> is clamped at zero.</b> A centre resolved outside the box — which
+    ///         <c>at 150%</c> and <c>at -20px</c> both do, and both are legal CSS — makes the closest
+    ///         side distance negative, and a negative reach is a ramp the shader runs inside out.
+    ///     </para>
+    /// </remarks>
+    public Vector2 Reach(Vector2 half, Vector2 offset) {
+        var away = Vector2.Abs(offset);
+
+        var far = half + away;
+        var near = Vector2.Max(half - away, Vector2.Zero);
+
+        var radii = Extent switch {
+            GradientExtent.ClosestSide => near,
+            GradientExtent.FarthestSide => far,
+            GradientExtent.ClosestCorner => near * Root2,
+            _ => far * Root2
+        };
+
+        if (Circle) {
+            var radius = Extent switch {
+                GradientExtent.ClosestSide => MathF.Min(near.X, near.Y),
+                GradientExtent.FarthestSide => MathF.Max(far.X, far.Y),
+                GradientExtent.ClosestCorner => near.Length(),
+                _ => far.Length()
+            };
+
+            radii = new Vector2(radius, radius);
+        }
+
+        return radii / Root2;
+    }
+
+    /// <summary>Whether this is the ending CSS assumes when nobody writes one.</summary>
+    /// <remarks>
+    ///     What lets <c>RampFrame</c> keep leaving the lane at zero for the gradients that never asked
+    ///     for anything — see <c>UiShape.Paint</c>, whose zero means "the ramp is the box".
+    /// </remarks>
+    public bool IsDefaultEnding => Extent == GradientExtent.FarthestCorner && !Circle;
+
+    static readonly float Root2 = MathF.Sqrt(2f);
 
     /// <summary>Which way the gradient runs across a box of this size, in the box's own space.</summary>
     /// <param name="width">The box's width in pixels.</param>
@@ -509,6 +626,10 @@ sealed class GradientReader {
         var corner = GradientCorner.None;
         GradientPoint? centre = null;
 
+        // CSS's initial ending: an ellipse through the farthest corner.
+        var extent = GradientExtent.FarthestCorner;
+        var circle = false;
+
         // ⚠ <b>sRGB, because that is what CSS says an unhinted gradient means</b> — not linear RGB,
         // which is what this engine paints in and what the shader lerped in before there was a
         // choice. The two disagree most exactly at the midpoint. Tailwind writes `in oklab` on every
@@ -522,7 +643,7 @@ sealed class GradientReader {
         if (!LooksLikeStop(first)) {
             stopsFrom = 1;
 
-            var prelude = ReadPrelude(first, shape, ref angle, ref corner, ref space, ref centre);
+            var prelude = ReadPrelude(first, shape, ref angle, ref corner, ref space, ref centre, ref extent, ref circle);
             if (prelude != GradientRefusal.None) {
                 return BackgroundGradient.Refused(prelude);
             }
@@ -563,6 +684,8 @@ sealed class GradientReader {
             angle,
             corner,
             centre,
+            extent,
+            circle,
             GradientRefusal.None
         );
     }
@@ -633,6 +756,25 @@ sealed class GradientReader {
         return true;
     }
 
+    /// <summary>The ending size one word names, or null if it names none.</summary>
+    /// <param name="word">The word.</param>
+    /// <returns>The ending, or null.</returns>
+    /// <remarks>
+    ///     ⚠ Whole words rather than the <c>StartsWith("closest-")</c> the refusal used, and the
+    ///     difference is what happens to a typo: <c>closest-corners</c> falls through to the bare-size
+    ///     branch and is still refused as <c>Extent</c>, rather than being read as the ending it most
+    ///     resembles. A misspelt ending that paints something plausible is precisely the failure this
+    ///     file's whole refusal scheme exists to prevent.
+    /// </remarks>
+    static GradientExtent? Ending(ReadOnlySpan<char> word) =>
+        word switch {
+            _ when word.Equals("farthest-corner", StringComparison.OrdinalIgnoreCase) => GradientExtent.FarthestCorner,
+            _ when word.Equals("farthest-side", StringComparison.OrdinalIgnoreCase) => GradientExtent.FarthestSide,
+            _ when word.Equals("closest-corner", StringComparison.OrdinalIgnoreCase) => GradientExtent.ClosestCorner,
+            _ when word.Equals("closest-side", StringComparison.OrdinalIgnoreCase) => GradientExtent.ClosestSide,
+            _ => null
+        };
+
     /// <summary>Reads the first argument: a direction, a round gradient's geometry, and a space.</summary>
     /// <param name="text">The argument.</param>
     /// <param name="shape">Which gradient function this is.</param>
@@ -640,6 +782,8 @@ sealed class GradientReader {
     /// <param name="corner">The corner a <c>to bottom right</c> names.</param>
     /// <param name="space">Which space to interpolate in.</param>
     /// <param name="centre">Where an <c>at &lt;position&gt;</c> puts a round gradient's centre.</param>
+    /// <param name="extent">Which ellipse the ramp ends on.</param>
+    /// <param name="circle">Whether the ending shape is a circle.</param>
     /// <returns>Why it was refused, or <see cref="GradientRefusal.None" />.</returns>
     /// <remarks>
     ///     <para>
@@ -664,7 +808,9 @@ sealed class GradientReader {
         ref float angle,
         ref GradientCorner corner,
         ref GradientSpace space,
-        ref GradientPoint? centre
+        ref GradientPoint? centre,
+        ref GradientExtent extent,
+        ref bool circle
     ) {
         Span<Range> words = stackalloc Range[12];
         var count = SplitWords(text, words);
@@ -733,10 +879,36 @@ sealed class GradientReader {
                 continue;
             }
 
-            // ⚠ `ellipse farthest-corner at center` is CSS's default and is accepted for saying so;
-            // everything else about a round gradient's geometry is a centre or an extent the record
-            // has no lanes for. See `GradientRefusal.Extent`.
-            if (shape != GradientShape.Linear
+            // ⚠ <b>The ending shape and the ending size, which are two independent keywords and are
+            // read as two.</b> `circle`, `ellipse` and the four `closest`/`farthest` × `side`/`corner`
+            // sizes each name a different ellipse, and every one of them was a
+            // `GradientRefusal.Extent` until `BackgroundGradient.Reach` grew the closed forms — the
+            // refusal was right the whole time and its stated blocker was not, which is #545.
+            //
+            // ⚠ Radial only. `conic-gradient(circle, …)` is not CSS, and the pre-existing leniency
+            // towards `ellipse` and `farthest-corner` on a conic is kept below rather than widened:
+            // accepting a whole geometry grammar on a shape that has no geometry would make a typo
+            // paint.
+            if (shape == GradientShape.Radial) {
+                if (word.Equals("circle", StringComparison.OrdinalIgnoreCase)) {
+                    circle = true;
+                    continue;
+                }
+
+                if (word.Equals("ellipse", StringComparison.OrdinalIgnoreCase)) {
+                    circle = false;
+                    continue;
+                }
+
+                if (Ending(word) is { } ending) {
+                    extent = ending;
+                    continue;
+                }
+            }
+
+            // `ellipse farthest-corner` on a conic says nothing and has always been accepted for
+            // saying it. See `GradientRefusal.Extent`.
+            if (shape == GradientShape.Conic
                 && (word.Equals("ellipse", StringComparison.OrdinalIgnoreCase)
                     || word.Equals("farthest-corner", StringComparison.OrdinalIgnoreCase))) {
                 continue;
@@ -775,6 +947,7 @@ sealed class GradientReader {
             if (word.Equals("circle", StringComparison.OrdinalIgnoreCase)
                 || word.StartsWith("closest-", StringComparison.OrdinalIgnoreCase)
                 || word.StartsWith("farthest-", StringComparison.OrdinalIgnoreCase)) {
+                // Only reachable on a conic now, where none of these is CSS.
                 return GradientRefusal.Extent;
             }
 
