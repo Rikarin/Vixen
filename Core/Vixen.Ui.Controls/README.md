@@ -18,7 +18,8 @@ Escape.
 | Fields | `TextBox`, `TextArea`, `SearchBox`, `NumericInput` (with drag-scrub) |
 | Range | `Slider`, `RangeSlider`, `ProgressBar`, `Spinner` |
 | Choice | `Select`, `MultiSelect`, `ComboBox` |
-| Grouping | `Panel`, `Card`, `Separator`, `Tabs`, `Expander`, `Accordion`, `ScrollView` |
+| Grouping | `Panel`, `Card`, `Separator`, `Tabs`, `Expander`, `Accordion`, `ScrollView`, `SplitView` |
+| Application chrome | `Toolbar`, `StatusBar`, `SegmentedControl`/`Segment` — the three the editor drew out of bare elements. Each carries the behaviour a stylesheet cannot: one tab stop with roving arrows, a `status` live region, and an exclusive choice. ⚠ `AccessibleRole.Toolbar` had no carrier until `Toolbar` existed |
 | Overlays | `Popover`, `Tooltip`, `Menu`, `ContextMenu`, `MenuBar`, `Dialog`, `Drawer`, `Toast` |
 | Navigation | `Breadcrumb`, `Pagination` |
 | Feedback | `Alert`, `EmptyState` |

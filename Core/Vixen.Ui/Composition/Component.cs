@@ -65,6 +65,47 @@ public abstract class Component : IComposable {
     /// <param name="ctx">What to build with.</param>
     protected abstract void Build(BuildContext ctx);
 
+    /// <summary>Declares the ambient values this component makes available to everything inside it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The one hook that runs after this component's parameters have been assigned and
+    ///         before any child of it exists.</b> That window is exactly where an ambient value has
+    ///         to be provided: earlier and it would be computed from a parameter still at its
+    ///         default, later and the children that were supposed to inject it have already been
+    ///         built and have already read nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Why it is a hook rather than the first line of <see cref="Build" />.</b> A
+    ///         component whose <c>Build</c> is generated from a <c>.vxml</c> has no first line to
+    ///         write in — the markup compiler owns the whole method — so a runtime that could only
+    ///         be reached from inside <c>Build</c> would be reachable from hand-written components
+    ///         and from no markup at all. An overridden hook in the code-behind partial is the
+    ///         spelling markup already uses for <c>OnComposed</c>.
+    ///     </para>
+    ///     <para>
+    ///         <c>protected override void OnProvide() =&gt; Provide&lt;ITheme&gt;(theme.Value);</c>
+    ///     </para>
+    /// </remarks>
+    protected virtual void OnProvide() { }
+
+    /// <summary>Makes a value available to everything this component builds.</summary>
+    /// <typeparam name="T">What it is to be found as. The key is this type and nothing else.</typeparam>
+    /// <param name="value">The value.</param>
+    /// <remarks>Provided on <see cref="Root" />, so it reaches the whole subtree and nothing outside it.</remarks>
+    protected void Provide<T>(T value) where T : notnull => Root.Provide(value);
+
+    /// <summary>The nearest ambient value of that type, looking up from this component.</summary>
+    /// <typeparam name="T">The key it was provided under.</typeparam>
+    /// <returns>The value, or <see langword="null" /> if nothing above provides one.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Answerable from inside <see cref="Build" /> because <c>Root</c> is already in the
+    ///     tree by then.</b> <c>BuildContext.Create</c> makes the host element and parents it before
+    ///     <c>Compose</c> runs the build, so the walk this makes reaches every ancestor a finished
+    ///     component would have. That ordering is the reason this works at all and is the thing a
+    ///     rearrangement of the mount would silently break.
+    /// </remarks>
+    protected T? Inject<T>() => Root.Inject<T>();
+
     /// <summary>Called when the component leaves the tree, before its effects are disposed.</summary>
     /// <remarks>
     ///     <para>
@@ -131,6 +172,11 @@ public abstract class Component : IComposable {
     /// <summary>The rest of a mount: <see cref="Build" /> and what depends on what it made.</summary>
     internal void Compose(BuildContext ctx) {
         var root = Root;
+
+        // ⚠ Before `Build` and after the caller's parameter assignments, which is the only window an
+        // ambient value can be declared in: a value computed from a parameter needs the assignment
+        // to have happened, and a child that injects it needs not to have been built yet.
+        OnProvide();
 
         Build(ctx);
 

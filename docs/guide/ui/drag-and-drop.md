@@ -1,10 +1,10 @@
 ---
-title: Files dragged in from outside
+title: Drag and drop
 slug: ui/drag-and-drop
 kind: guide
 area: Core
-summary: A file dragged from Finder or Explorer onto a Vixen window arrives as a routed event at the element it was let go over, hit-tested and bubbling like a wheel — and what is deliberately not here yet is the in-app drag model, whose interesting half an OS drop cannot fill in.
-api: [T:Vixen.Ui.DropEvent]
+summary: A file dragged from Finder or Explorer arrives as a routed event at the element it was let go over; a drag that starts inside the application carries a payload offered in several formats, is addressed to the nearest element that allows drops, and negotiates what the drop would do before anything is let go.
+api: [T:Vixen.Ui.DropEvent, T:Vixen.Ui.DataObject, T:Vixen.Ui.DataFormats, T:Vixen.Ui.DragOverEvent, T:Vixen.Ui.DragOverStage, T:Vixen.Ui.DragSession, T:Vixen.Ui.DropEffect]
 tags: [ui, input, drag-and-drop, files, platform]
 since: 0.2
 status: preview
@@ -61,16 +61,98 @@ happened to put there. Setting `Handled` stops it, so an inner drop target wins 
 pumping the platform itself passes each event to `PlatformInput.Dispatch`, which turns a `DropFile`
 or `DropText` into a `DropEvent` on the surface the window id names.
 
+## A drag that starts inside the application
+
+The other direction has the half an OS drag-in cannot have: the payload exists *before* the button
+comes up, so a target can say what it would do with it and show the user.
+
+A source starts one from its `dragstart` handler — from `dragstart` and not from a press, because the
+gesture recogniser is what decides a press has wandered far enough to be a drag rather than a wobble:
+
+```csharp no-compile="a fragment; `row` is a UiElement in a document"
+row.AddHandler<DragEvent>((element, args) => {
+    if (args.Stage != DragStage.Started) {
+        return;
+    }
+
+    var data = new DataObject();
+    data.Set("vixen.asset-id", asset);
+    data.SetText(asset.Name);
+
+    element.Document.BeginDrag(element, data, DropEffect.Move | DropEffect.Copy);
+});
+```
+
+**`DataObject` offers as many representations as the source can produce, best first.** The same row
+is an asset id to a material slot, a path to a file field and its own name to a text box, and each
+target asks for the one it understands. `Formats` comes back in the order they were offered, so a
+target that can take several gets what the source would rather it had.
+
+⚠ **The format names are `IClipboard`'s vocabulary; the values are not bytes.** Both ends of an
+in-app drag are objects in one heap, so serialising an `AssetId` so the panel next door can parse it
+back is cost with nothing bought. The names match so that a drag which one day leaves the process
+needs no new vocabulary.
+
+A target opts in once, with `AllowDrop`:
+
+```csharp no-compile="a fragment; `slot` is a UiElement in a document"
+slot.AllowDrop = true;
+
+slot.AddHandler<DragOverEvent>((element, args) => {
+    if (!args.Data.Has("vixen.asset-id")) {
+        args.Effect = DropEffect.None;   // refuse this payload, stay a target
+        return;
+    }
+
+    args.Effect = DropEffect.Copy;       // narrow move-or-copy to copy
+    element.AddClass("would-accept");
+});
+```
+
+⚠ **`DragOverEvent` arrives already accepting, unlike the DOM's `dragover`.** The web starts from a
+refusal because every element is a potential target and only `preventDefault` distinguishes them;
+here `AllowDrop` is already that opt-in, so a second one would mean a target that declared itself a
+target and silently was not. Writing `DropEffect.None` is how a target refuses one payload.
+
+⚠ **Enter, over and leave are addressed to the drop target, not to the hit-test result.** The element
+under the pointer while a drag crosses a row is whichever label, icon or background the layout put
+there; raised on each of those, enter and leave would arrive dozens of times crossing one row and a
+target that opened a gap on enter would flicker it. The document walks up from the hit-test result to
+the nearest ancestor with `AllowDrop` and addresses the event there — and it bubbles from there like
+everything else.
+
+⚠ **The target lookup hit-tests past `Captured`, which nothing else positional does.** A source
+almost always captures the pointer when a drag starts, because that is how it keeps receiving moves
+once the cursor has left it. Asking the capture where the pointer is answers "on the source", for
+ever — the drag that can never be dropped anywhere.
+
+`DropEvent.Effect` carries what the target chose, which is what a source reads to find out whether it
+has to remove the original; `DropEvent.DragSource` is the element the drag started on, and `null` is
+exactly the test for "this came from another application".
+
+## The markup spelling
+
+| Name | Event | Fires on |
+|---|---|---|
+| `on:dragstart`, `on:drag`, `on:dragend` | `DragEvent` | The **source**: the grab, each move, the release |
+| `on:dragenter`, `on:dragover`, `on:dragleave` | `DragOverEvent` | The **target**, while a drag is passing over it |
+| `on:drop` | `DropEvent` | The target, when it is let go — from either kind of drag |
+
+⚠ **The target's four names did not exist for as long as `DropEvent` did.** A name absent from
+`BuildContext`'s subscription table is an `on:` the binder rejects, so a file dragged out of Finder
+was routed to an element and bubbled correctly and no `.vxml` in the tree could hear it.
+
 ## What is deliberately not here yet
 
-**An in-app drag model.** There is no `DataObject`, no `AllowDrop`, no `on:dragenter`/`dragover`, and
-`DropEvent` carries both of its representations directly rather than a negotiated payload. That is
-not an oversight in this event: a payload a source *offers* and a target *negotiates* — several
-flavours, a preferred one, a promise resolved only if the drop is accepted — is the model an in-app
-drag needs, where both ends are elements in one tree and the negotiation is the useful part. An OS
-drag-in has neither end. The source is another process, the flavours were settled before this
-application was involved, and what arrives is a path or a string, so a negotiated payload here would
-be a type whose interesting half no producer could fill in.
+**A cross-process drag out.** `BeginDrag` is a drag inside one document; dragging a Vixen row *into*
+Finder needs the platform's own drag session and a promise the receiving application resolves, and
+neither the seam nor a backend exists.
+
+**A drag image.** A source draws its own ghost from `UiDocument.CurrentDrag` and `UiElement.OffsetX/Y`;
+nothing carries a picture for it.
+
+**Keyboard drag and drop.** There is no way to move something without a pointer, which is the
+accessibility gap this feature ships with.
 
 ⚠ **One event per file.** SDL 2 posts one `SDL_DROPFILE` per path and brackets a group with
 `SDL_DROPBEGIN`/`SDL_DROPCOMPLETE`, which the desktop backend does not yet forward — so a five-file

@@ -789,6 +789,12 @@ public sealed partial class UiDocument : IDisposable {
 
         Gestures.Forget(element);
         ForgetHover(element);
+        ForgetDropTarget(element);
+
+        // An effect is held by every signal it read, so dropping the last reference to the element
+        // does not stop it — a removed panel would keep invalidating the route on every keystroke in
+        // a document nothing is showing any more.
+        element.ForgetDocumentCommands();
     }
 
     /// <summary>Tells a subtree it is going, deepest last.</summary>
@@ -1846,6 +1852,12 @@ public sealed partial class UiDocument : IDisposable {
         // stream, not a replacement for it, and a control that wants presses and a control that
         // wants taps are both entitled to what they asked for.
         Gestures.Process(args, target);
+
+        // After the gesture rather than before it, because the drag a source begins is begun from
+        // the `dragstart` the recogniser is about to raise — a pump that ran first would see no
+        // session on the very move that started one, and the target under the pointer at the moment
+        // of the press is the one an author expects to have been entered.
+        PumpDrag(surface, args);
         return target;
     }
 
