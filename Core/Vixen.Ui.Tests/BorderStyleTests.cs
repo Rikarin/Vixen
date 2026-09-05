@@ -239,6 +239,98 @@ public class BorderStyleTests {
         }
     }
 
+    /// <summary>A doubled band's two strips carry the band's corners between them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The reason this was left square was half true, and the half it got wrong is the
+    ///         visible one.</b> "A corner radius on a strip a third of a hairline thick is a curve
+    ///         nothing can see" is right about the <i>vertical</i> radius and wrong about the
+    ///         horizontal: <c>BoxDistance</c> clamps per axis, so an 8px radius on a strip that is
+    ///         a third of a 3px band is an ellipse eight pixels wide and half a pixel tall — the end
+    ///         tapers over eight pixels, in the direction the band actually runs.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And "what a third of a corner should be" turned out not to be a question.</b> A
+    ///         band's radii sit only on its outer side — <c>EmitBorder</c> hands the bottom band the
+    ///         box's two bottom corners and two zeroes — so the strip lying against that side takes a
+    ///         whole corner and the other takes a zero. That is what the uniform ring path computes
+    ///         independently: its outer ring keeps <c>corners</c> and its inner one is <c>Shrink</c>ed,
+    ///         and <c>Shrink</c> leaves a square corner square. Asserted against the solid band's own
+    ///         radii rather than against the literal 8, so the two cannot drift apart while both
+    ///         agreeing with a constant.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_doubled_band_carries_the_corner_radii_the_solid_band_carries() {
+        using var solid = Drawn(
+            ".probe { border-bottom-width: 3px; border-color: #ff0000; border-radius: 8px; }"
+        );
+
+        using var doubled = Drawn(
+            """
+            .probe {
+                border-bottom-width: 3px;
+                border-color: #ff0000;
+                border-radius: 8px;
+                border-style: double;
+            }
+            """
+        );
+
+        var whole = Assert.Single(Bands(solid));
+
+        Assert.True(whole.HasStyle, "a solid band on a rounded box carries its corners");
+
+        var band = solid.Drawing.Boxes[whole.Offset].Corners;
+
+        Assert.NotEqual(Vector2.Zero, band.BottomLeft);
+        Assert.NotEqual(Vector2.Zero, band.BottomRight);
+
+        var strips = Bands(doubled);
+
+        Assert.Equal(2, strips.Count);
+
+        // The outer third lies against the box's outer edge, which is the bottom for a bottom band,
+        // so it is the second strip that carries the curve — and the first, two thirds in, is square
+        // because the band it is a piece of is square on that side.
+        Assert.False(strips[0].HasStyle, "the strip away from the box's edge is square, as the band is there");
+
+        Assert.True(strips[1].HasStyle, "the strip against the box's edge carries that edge's corners");
+
+        var outer = doubled.Drawing.Boxes[strips[1].Offset].Corners;
+
+        Assert.Equal(band.BottomLeft, outer.BottomLeft);
+        Assert.Equal(band.BottomRight, outer.BottomRight);
+        Assert.Equal(Vector2.Zero, outer.TopLeft);
+        Assert.Equal(Vector2.Zero, outer.TopRight);
+
+        // ⚠ The instrument. Two strips that drew nothing carry no corners either, and the geometry
+        // above is a statement about a picture only while the strips are the doubled band: a third
+        // each, the middle third left out, spanning what the solid band spanned.
+        Assert.Equal(whole.X, strips[0].X, 0.001f);
+        Assert.Equal(whole.Width, strips[0].Width, 0.001f);
+        Assert.Equal(whole.Height / 3f, strips[0].Height, 0.001f);
+        Assert.Equal(whole.Y, strips[0].Y, 0.001f);
+        Assert.Equal(whole.Y + (whole.Height * 2f / 3f), strips[1].Y, 0.001f);
+    }
+
+    /// <summary>A doubled band on a square box reaches the side buffer no more than a solid one.</summary>
+    /// <remarks>
+    ///     ⚠ <c>divide-double</c> is the common case and it never rounds, so rounding the ends must
+    ///     cost only the bands that are actually round — the same bargain
+    ///     <see cref="A_dashed_band_on_a_square_box_still_costs_nothing" /> keeps for the marks.
+    /// </remarks>
+    [Fact]
+    public void A_doubled_band_on_a_square_box_still_costs_nothing() {
+        using var document = Drawn(
+            ".probe { border-bottom-width: 3px; border-color: #ff0000; border-style: double; }"
+        );
+
+        Assert.Equal(2, Bands(document).Count);
+        Assert.All(Bands(document), strip => Assert.False(strip.HasStyle));
+        Assert.Empty(document.Drawing.Boxes);
+    }
+
     [Fact]
     public void A_dashed_band_on_a_square_box_still_costs_nothing() {
         using var document = Drawn(
