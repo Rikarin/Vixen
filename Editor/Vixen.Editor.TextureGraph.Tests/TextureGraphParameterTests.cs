@@ -291,6 +291,21 @@ public class TextureGraphParameterTests {
         Assert.Equal(NodeId.None, diagnostic.Node);
     }
 
+    /// <summary>A cleared field is not an expression: the port keeps the number typed on it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The state a field is in for the whole time an author is deleting one.</b> An editor
+    ///     that wrote the empty string back would otherwise turn every cleared box into a diagnostic
+    ///     asking for exactly what had just been done.
+    /// </remarks>
+    [Fact]
+    public void A_cleared_expression_leaves_the_ports_own_number() {
+        var (compiler, graph) = Blurred("   ");
+        var compilation = compiler.Compile(graph);
+
+        Assert.Empty(compilation.Diagnostics);
+        Assert.Equal(3f, RadiusOf(compilation.Value));
+    }
+
     /// <summary>A graph with no expressions asks Raven nothing and compiles as it always did.</summary>
     [Fact]
     public void A_graph_with_no_expressions_is_unchanged() {

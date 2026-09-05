@@ -355,6 +355,15 @@ sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
                     continue;
                 }
 
+                // ⚠ An empty field is *not* an expression, and this is where that is decided. Clearing
+                // the box is how an author goes back to the number typed on the port, and a UI that
+                // wrote the empty string back would otherwise turn every cleared field into a
+                // diagnostic — which is a refusal an author cannot act on, because the thing it asks
+                // them to do is what they just did.
+                if (string.IsNullOrWhiteSpace(node.Texts[key])) {
+                    continue;
+                }
+
                 For(Inlining.TryGet(node.Id, out var origin) ? origin.Type : "")
                     .Add(new(node.Id, port, node.Texts[key]));
             }

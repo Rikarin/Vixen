@@ -259,7 +259,12 @@ static class TextureGraphExpressions {
     /// <returns>The tail of a sentence beginning "'Radius' is an expression that ".</returns>
     internal static string? Refuse(string text) {
         if (text.Length == 0) {
-            return "is empty. Clear the field to go back to the number typed on the port.";
+            // ⚠ Unreachable from `TextureGraphCompiler.Collect`, which drops an empty field before it
+            // gets here — clearing the box is how an author goes back to the port's own number. It
+            // stays because this method is the contract for anything else that folds an expression,
+            // and an empty `const val` initializer is a parse error blamed on the next line's node.
+            return "is empty, so there is nothing to fold. An empty field means the port keeps the "
+                   + "number typed on it.";
         }
 
         if (text.Contains('\n', StringComparison.Ordinal) || text.Contains('\r', StringComparison.Ordinal)) {
