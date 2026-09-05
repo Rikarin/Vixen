@@ -1570,8 +1570,8 @@ property the mutation does not touch — is where injecting `all` finally change
 as `gridded` and `inlined`: a green gate is a claim about the scenes as much as about the engine.
 
 ⚠ **Three limitations found while proving it — the header said two and the list has always had
-three, which is the smaller of the two things wrong with this paragraph.** All three were real; two
-are closed.
+three, which is the smaller of the two things wrong with this paragraph.** All three were real and
+all three are now closed.
 
 - ✅ **A transition only ran where the previous computed style *also held the property* — closed.**
   `Observe` read the displayed value out of `before`, and a cascade with no computed-value stage had
@@ -1601,24 +1601,44 @@ are closed.
   ⚠ **Only the duration was missing**: CSS's initial timing function is already `ease`, so emitting
   one would buy nothing and would overwrite the `ease-*` beside it for the same ordering reason.
   `TransitionUtilityTests` holds all three claims, reading the width between the endpoints.
-- **A fading inherited value does not reach the children** — still open, and the two ways to close
-  it are worth writing down because they are not equivalent. The animator is a tier over the finished
-  cascade: `StyleUpdater.Resolve` inherits from the parent's *cascaded* style (`styles[parent]`) and
-  `UiDocument.Apply` overlays the running values per element afterwards. So a panel fading its
-  `color` hands its descendants the destination on the first frame while the panel itself travels,
-  and a descendant cannot start its own transition because `transition-*` do not inherit.
-  ⚠ **The obvious fix is the expensive one.** Making `StyleUpdater.Resolve` inherit from the parent's
-  *overlaid* style is three lines and changes what a stored `ComputedStyle` is: it would then move
-  every frame for every descendant of anything animating, so the sharing cache stops sharing, and
-  `Announce` — which is a comparison, not an event — sees a change every frame and re-targets the
-  descendant's own transitions continuously.
-  ⚠ **The cheaper one is a heuristic and needs a decision rather than a patch.** `UiDocument.Apply`
-  already walks parent-to-child with the overlaid style in hand, so it could push each property the
-  parent is *currently transitioning* down onto descendants that inherit it. Telling "the child
-  inherited this" from "the child declared the same value" is what it cannot do — a `ComputedStyle`
-  does not record which — so the test would be "the child's value equals the parent's destination",
-  which is right in every case anyone writes and is still a guess about a case nobody has named.
-  Left open on purpose: choosing between them is a decision about what a stored computed style *is*.
+- ✅ **A fading inherited value did not reach the children — closed in the overlay pass.** The
+  animator is a tier over the finished cascade: `StyleUpdater.Resolve` inherits from the parent's
+  *cascaded* style (`styles[parent]`) and `UiDocument.Apply` overlays the running values per element
+  afterwards. So a panel fading its `color` handed its descendants the destination on the first frame
+  while the panel itself travelled, and a descendant could not start its own transition to cover it
+  because `transition-*` do not inherit.
+  ⚠ **The decision, and it went the other way from how this paragraph used to read.** Two closures
+  were on the table — inheriting from the parent's *overlaid* style in `StyleUpdater.Resolve`, or
+  pushing the parent's displayed value down in `UiDocument.Apply` — and this said the first was the
+  obvious, expensive one and the second a heuristic. **The first does not work at all**, which is the
+  half nobody had checked: a cascade is not a per-frame pass. `UiDocument.Tick` calls
+  `InvalidatePositions` while a transition runs and deliberately never `Invalidate`, because a fade
+  changes nothing the cascade decided — so nothing re-resolves between the frame a fade starts on and
+  the frame something else changes. Inheriting the overlaid style would therefore hand each descendant
+  whatever the parent was displaying *at the last cascade*, which is the fade's **start** value, held
+  for the whole fade and kept after it ended. That is worse than the destination, which is at least
+  where the frame is going. The predicted costs — a sharing cache that stops sharing and an `Announce`
+  that re-targets every frame — are real and would have been paid for a broken picture.
+  ⚠ **So the pushed-down version landed, and its heuristic is the only approximation in it.**
+  `InheritedProperties.Descend` is called from `UiDocument.Apply`'s existing parent-to-child walk with
+  the parent's cascaded and displayed styles in hand; it writes the parent's moving value over each
+  inherited property whose value on this element **is** the parent's cascaded one. That test cannot
+  tell "the child inherited this" from "the child declared the same value" — a `ComputedStyle` does
+  not record which — so an element that declared its parent's colour is carried along with the fade.
+  The alternative is a provenance bit per property in every computed style, paid on every element of
+  every document to serve the frames where something is fading.
+  ⚠ **What it cost is one pointer comparison per element per frame.** `Animator.Apply` returns the
+  instance it was given when it overlays nothing, so `ReferenceEquals(parentCascaded, parentDisplayed)`
+  is the whole test on a document with nothing in flight, and `Descend` is not called at all. An
+  element running its own transition on the property keeps it, and hands *its* value on in turn, so a
+  chain needs no state carried across the walk beyond the parent's two styles.
+  ⚠ **The instrument is `Vixen.Ui.Tests.TransitionTests`, and it used to assert the defect.**
+  `An_inherited_value_reaches_the_children_at_its_destination_rather_than_mid_fade` pinned the old
+  behaviour and said in its own remarks that the right response to it going red was to rewrite the
+  test. It is now `A_fading_inherited_value_reaches_the_children_mid_flight`, reading a colour that is
+  neither endpoint on the panel, the child and the grandchild — the endpoints agree under both
+  behaviours, so nothing weaker could see it. A second fixture holds the negative half: a child that
+  declares `color: #ff0000` keeps it, and hands red rather than the fade down to *its* child.
 
 ### F11 · The whole of `@media` was evaluated against a surface that does not exist ✅ *closed*
 

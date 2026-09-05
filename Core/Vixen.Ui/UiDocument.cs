@@ -1170,7 +1170,7 @@ public sealed partial class UiDocument : IDisposable {
     ///     own display's pixel grid.
     /// </remarks>
     void Arrange() {
-        Apply(Root, Viewport.RootFontSize, ComputedText.Initial, Viewport);
+        Apply(Root, Viewport.RootFontSize, ComputedText.Initial, Viewport, null, null);
 
         foreach (var surface in surfaces) {
             // ⚠ Written before each call rather than once, because two windows on two displays have
@@ -1357,7 +1357,14 @@ public sealed partial class UiDocument : IDisposable {
             new(float.NaN, float.NaN, 0f, 0f, FontFeatureSet.None, 0f, float.NaN);
     }
 
-    void Apply(UiElement element, float parentFontSize, ComputedText parentText, LengthContext metrics) {
+    void Apply(
+        UiElement element,
+        float parentFontSize,
+        ComputedText parentText,
+        LengthContext metrics,
+        ComputedStyle? parentCascaded,
+        ComputedStyle? parentDisplayed
+    ) {
         // ⚠ The surface's own lengths from here down. `50vw` inside a torn-off inspector means half
         // of that window, and resolving it against the main one would size a 400-pixel palette
         // against a 3840-pixel display. Everything else — the cascade, inheritance, the font size —
@@ -1376,7 +1383,26 @@ public sealed partial class UiDocument : IDisposable {
         //
         // Free when nothing is running — `Animator.Apply` returns the same instance — which is what
         // lets it sit in the hot walk of every element of every frame.
-        var style = Styles.Animations.Apply(element.StyleNode, Restyler.StyleOf(element.StyleNode), seconds);
+        var cascaded = Restyler.StyleOf(element.StyleNode);
+        var style = Styles.Animations.Apply(element.StyleNode, cascaded, seconds);
+
+        // ⚠ <b>And the second half of that tier, which is inheritance — because the cascade this is
+        // laid over resolved every child against the parent's <i>destination</i>.</b>
+        // `StyleUpdater.Resolve` inherits from `styles[parent]`, so a label inside a panel fading its
+        // `color` gets the panel's arrival value on the panel's first frame and keeps it for the whole
+        // fade. The child cannot start a transition of its own to cover it either: `transition-*` do
+        // not inherit. See `InheritedProperties.Descend`, which also records why doing this in the
+        // cascade instead is not a cheaper version of it but a broken one — nothing re-cascades
+        // between the frame a fade starts and the frame something else changes, so the child would
+        // freeze at the fade's *start* value rather than travel.
+        //
+        // ⚠ Guarded by a reference comparison here as well as inside, so a document with nothing
+        // fading pays one pointer test per element per frame and no call at all.
+        if (parentCascaded is not null
+            && parentDisplayed is not null
+            && !ReferenceEquals(parentCascaded, parentDisplayed)) {
+            style = Styles.Resolver.Inherited.Descend(parentCascaded, parentDisplayed, cascaded, style);
+        }
 
         element.Style = style;
         element.FontSize = Builder.ResolveFontSize(style, parentFontSize, metrics);
@@ -1487,7 +1513,7 @@ public sealed partial class UiDocument : IDisposable {
         // ⚠ `ChildList` rather than `Children`, here and in `Accumulate`, and it is worth forty bytes
         // per element with children per frame. See the remarks on it.
         foreach (var child in element.ChildList) {
-            Apply(child, element.FontSize, text, metrics);
+            Apply(child, element.FontSize, text, metrics, cascaded, style);
         }
     }
 

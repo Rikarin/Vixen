@@ -53,14 +53,23 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         own reflection.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What this cannot see, stated so a green run is not read as more than it is.</b> The
-///         four stages a <see cref="UiShaders" /> table takes positionally are the ones these
-///         fixtures reach: vertex, box, text and solid. Blur, colour and mask ride a group's
-///         composite draw, and a fixture that opened a group would be asserting about surfaces rather
-///         than about the box shader — <c>UiCompositingTests</c> and
-///         <c>EditorUiCompositingDeviceTests</c> are where that lives. So this closes the box path
-///         and leaves the three compositing stages compared with nothing, which is a smaller
-///         remainder than the one it inherited and still a remainder.
+///         ⚠ <b>All eight stages are reached, and it took two fixtures rather than one because a
+///         box fixture provably cannot reach three of them.</b> The four a <see cref="UiShaders" />
+///         table takes positionally — vertex, box, text and solid — are the ones
+///         <see cref="TheGlslCopyAndTheRavenDrawTheSameBox" /> exercises; <c>ui-image.frag</c>,
+///         <c>ui-blur.frag</c>, <c>ui-colour.frag</c> and <c>ui-mask.frag</c> only run on a group's
+///         composite draw, so nothing that draws a flat frame can bind them at all. That is what
+///         <see cref="TheGlslCopyAndTheRavenCompositeTheSameFrame" /> is for, and it borrows
+///         <c>UiCompositingTests</c>' frame for the reason the box theory borrows
+///         <see cref="UiBoxAgreementTests" />': a fixture written here would reach the branches its
+///         author thought of.
+///     </para>
+///     <para>
+///         ⚠ <b>Until it landed, those four had exactly what <c>ui-box.frag</c> had before #286
+///         closed: a constants-containment check and no picture.</b>
+///         <c>SharedUiShaderTests.EveryConstantInTheGlslCopyIsOneTheRavenHoldsToo</c> is satisfied by
+///         an expression rearranged around the same numbers, which is the whole reason a text
+///         comparison is a necessary condition and not a sufficient one.
 ///     </para>
 /// </remarks>
 [Collection("Vulkan")]
@@ -172,6 +181,125 @@ public sealed class UiRavenAgreementTests {
     }
 
     /// <summary>
+    ///     The four compositing stages, drawn through both sources and compared — which needs a frame
+    ///     that opens a group, because nothing else binds them.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The remainder <see cref="TheGlslCopyAndTheRavenDrawTheSameBox" /> left, and it is
+    ///         a different fixture rather than a different assertion.</b> <c>ui-image.frag</c>,
+    ///         <c>ui-blur.frag</c>, <c>ui-colour.frag</c> and <c>ui-mask.frag</c> are bound only by a
+    ///         group's composite draw, so a frame with no <see cref="UiLayer" /> in it cannot reach
+    ///         them however many box branches it exercises. <c>UiCompositingTests.Groups</c> is the
+    ///         frame that does: two nested translucent groups with a four-entry mask list, a colour
+    ///         matrix on each, a blur on the inner one, a rotated blurred panel, two drop shadows and
+    ///         two backdrop captures.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both arms compose as well as record, and both do it before either pass runs.</b>
+    ///         <c>Compose</c> is not part of the graph — it records a render pass per group straight
+    ///         onto the command list — and a group's pass draws from the buffers <c>Upload</c> just
+    ///         wrote, so the order inside the callback is upload-then-compose, twice, and never
+    ///         interleaved. Both arms also do both on <i>every</i> frame, for the reason the box case
+    ///         gives: reading two targets takes two runs of the graph, and a renderer's buffers belong
+    ///         to the frame that uploaded them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The counters are asserted on each arm before the pixels are, and they are the
+    ///         only thing separating "the two agree" from "neither did anything".</b> A group that was
+    ///         not composited still draws — it draws the un-isolated approximation, which on anything
+    ///         opaque is the same picture — and a blur, a matrix and a mask each have several ways of
+    ///         silently not happening. Two renderers that both declined would agree perfectly, which
+    ///         is the one failure a differential provably cannot report. So this is the shape
+    ///         <c>UiCompositingTests</c> uses, applied to the pair it was not applied to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Exact, like the box case, and for the same reason: one device, one driver, one
+    ///         geometry buffer, and nothing between the two arms but the SPIR-V.</b> A divergence here
+    ///         is either real drift between the two sources or a compiler reassociating a float, and
+    ///         both are things somebody should be told about rather than allowed a shade of. It is
+    ///         emphatically <i>not</i> <c>UiCompositingTests</c>' tolerance, which is sized for a
+    ///         software emulation of <c>fwidth</c> and has no business here.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheGlslCopyAndTheRavenCompositeTheSameFrame() {
+        if (!TryOpen(out var opened, out _)) {
+            return;
+        }
+
+        using var owned = opened!;
+
+        var cache = new GlyphFieldCache(new GlyphAtlas(256, 256));
+        var geometry = new UiGeometryBuilder().Build(UiCompositingTests.Groups(), cache, Viewport);
+
+        // ⚠ The instrument, and the half the box case states the other way round. A frame that opened
+        // no group binds none of the four stages this exists to compare, and would pass.
+        Assert.Equal(6, geometry.Layers.Count);
+        Assert.NotEmpty(geometry.Draws);
+
+        var glsl = new UiShaders(
+            owned.Shader("ui.vert.spv", ShaderStage.Vertex),
+            owned.Shader("ui-box.frag.spv", ShaderStage.Fragment),
+            owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
+            owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
+        ) {
+            Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment),
+            Blur = owned.Shader("ui-blur.frag.spv", ShaderStage.Fragment),
+            Colour = owned.Shader("ui-colour.frag.spv", ShaderStage.Fragment),
+            Mask = owned.Shader("ui-mask.frag.spv", ShaderStage.Fragment)
+        };
+
+        var raven = UiShaderLibrary.Load(owned.Device);
+
+        owned.Owns(() => Destroy(owned, raven));
+
+        var one = Declare(owned, geometry, glsl, "ui-raven-composited-glsl");
+        var two = Declare(owned, geometry, raven, "ui-raven-composited-rvn");
+
+        void Frame(ICommandList commands) {
+            // ⚠ <b>The same colour both passes clear to, handed to both captures.</b> A capture built
+            // from the draw list alone is transparent where the window's ground should be, so a
+            // backdrop group would composite a blurred *translucent* copy over the sharp original —
+            // and it would do so identically on both arms, which is a divergence this file could not
+            // see. See `UiBackdropSource`.
+            one.Renderer.Upload(commands, geometry, cache.Atlas);
+            one.Renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Background));
+
+            two.Renderer.Upload(commands, geometry, cache.Atlas);
+            two.Renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Background));
+        }
+
+        var copy = owned.Render(one.Target, Frame);
+        var source = owned.Render(two.Target, Frame);
+
+        // ⚠ Per arm rather than once. The whole point of the pair is that they are two pipelines, so
+        // a count read off one of them says nothing about the other — and the four stages under test
+        // are exactly the ones a renderer can decline to use while still drawing a plausible frame.
+        foreach (var renderer in new[] { one.Renderer, two.Renderer }) {
+            Assert.Equal(6, renderer.Composited);
+            Assert.Equal(3, renderer.Blurred);
+            Assert.Equal(2, renderer.Backdropped);
+            Assert.Equal(10, renderer.Filtered);
+            Assert.Equal(6, renderer.Masked);
+            Assert.Equal(2, renderer.Shadowed);
+        }
+
+        var comparison = ImageComparer.Compare(copy, source, Agreement);
+
+        Assert.True(
+            comparison.Matches,
+            "'Shaders/ui-image.frag', 'ui-blur.frag', 'ui-colour.frag' and 'ui-mask.frag' and the "
+            + "matching stages of 'Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn' composite a group "
+            + $"differently, and the shipping applications draw through the second: {comparison}. The "
+            + "four stages are only reachable through a composite draw, so this is the only fixture "
+            + "that compares them at all — a difference here is drift between two implementations of "
+            + "one specification, and the reference images in this suite were rendered against the "
+            + "first."
+        );
+    }
+
+    /// <summary>
     ///     The two arms are two different pipelines, which is what stops the comparison above being
     ///     a picture compared with itself.
     /// </summary>
@@ -229,11 +357,24 @@ public sealed class UiRavenAgreementTests {
     }
 
     /// <summary>Destroys the eight modules a loaded table holds.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Eight, and this used to destroy four.</b> <see cref="UiShaderLibrary.Load" /> creates
+    ///     the four positional stages <i>and</i> <c>Image</c>, <c>Blur</c>, <c>Colour</c> and
+    ///     <c>Mask</c>; the summary said eight and the body freed half of them, so every case in this
+    ///     file leaked four modules. Nothing said so — an undestroyed module is memory the device holds
+    ///     until it goes away, which in a test is the end of the fixture, so the picture is right and
+    ///     the leak is invisible. It matters now for a second reason as well: the compositing case
+    ///     below is the first that actually binds the four.
+    /// </remarks>
     static void Destroy(Fixture owned, UiShaders shaders) {
         owned.Device.Destroy(shaders.Vertex);
         owned.Device.Destroy(shaders.Box);
         owned.Device.Destroy(shaders.Text);
         owned.Device.Destroy(shaders.Solid);
+        owned.Device.Destroy(shaders.Image);
+        owned.Device.Destroy(shaders.Blur);
+        owned.Device.Destroy(shaders.Colour);
+        owned.Device.Destroy(shaders.Mask);
     }
 
     /// <summary>Opens a device, or skips — unless the environment promised one.</summary>

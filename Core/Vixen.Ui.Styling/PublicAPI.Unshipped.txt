@@ -203,6 +203,7 @@ Vixen.Ui.Styling.ElementState.ReadOnly = 128 -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.ElementState.Required = 1024 -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.ElementState.Valid = 2048 -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.InheritedProperties -> sealed class
+Vixen.Ui.Styling.InheritedProperties.Descend(Vixen.Ui.Styling.ComputedStyle parentCascaded, Vixen.Ui.Styling.ComputedStyle parentDisplayed, Vixen.Ui.Styling.ComputedStyle cascaded, Vixen.Ui.Styling.ComputedStyle displayed) -> Vixen.Ui.Styling.ComputedStyle
 Vixen.Ui.Styling.InheritedProperties.InheritedPortionDiffers(Vixen.Ui.Styling.ComputedStyle before, Vixen.Ui.Styling.ComputedStyle after) -> bool
 Vixen.Ui.Styling.InheritedProperties.InheritedProperties(Vixen.Ui.Styling.NameTable properties) -> void
 Vixen.Ui.Styling.InheritedProperties.Inherits(int property) -> bool
