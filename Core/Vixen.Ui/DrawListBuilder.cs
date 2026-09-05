@@ -1873,9 +1873,14 @@ public sealed class DrawListBuilder {
                 // `box-shadow: none` is a keyword and is how the property is switched off; reporting
                 // it would put a warning in the log for every control that turns a theme's shadow
                 // back off. `Unknown` is the parser saying it had no reading at all — today that is
-                // `calc()` — which is a refusal that has to stay visible.
+                // an expression it cannot fold, `calc(100% - 10px)` above all, which needs a unit a
+                // `StyleValue` has not got — and that is a refusal which has to stay visible.
                 if (value.Kind == StyleValueKind.Unknown) {
-                    Refuse(boxShadow, id, "this shadow could not be read — `calc()` is still refused whole");
+                    Refuse(
+                        boxShadow,
+                        id,
+                        "this shadow could not be read — an expression mixing two units is still refused whole"
+                    );
                 }
 
                 return;

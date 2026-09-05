@@ -556,7 +556,12 @@ public class StyleDiagnosticDrainTests {
     /// </remarks>
     [Theory]
     [InlineData("box-shadow: 90deg 2px #000000")]
-    [InlineData("box-shadow: 0px 4px 12px #000000, 0 0 0 calc(2px + 2px) #ff0000")]
+    // ⚠ The expression here folds now and this row does not test what it used to. `calc(2px + 2px)`
+    // is a length since `StyleValueParser` learned to fold; what is left unreadable is an expression
+    // whose summands carry different units, which needs the containing block a `StyleValue` cannot
+    // reach. The row is kept on that spelling rather than deleted, because "one item of a list is
+    // unreadable, so the whole declaration is" is still the case worth a warning.
+    [InlineData("box-shadow: 0px 4px 12px #000000, 0 0 0 calc(100% - 10px) #ff0000")]
     [InlineData("box-shadow: inset 0px 4px 12px #000000")]
     public void A_shadow_the_draw_list_cannot_paint_reaches_the_log(string declaration) {
         var (document, sink) = Watched();

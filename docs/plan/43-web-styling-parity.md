@@ -146,8 +146,12 @@ than more mechanism. It is written up in [the guide](../guide/ui/utility-composi
 column.** `space-x/y-*` and `divide-*` were counted `composed` because v4 sets a `--tw-*-reverse` on
 them, but the fragment is only how v4 spells the `*-reverse` *variant*; the families themselves are a
 rule over children — `& > :not(:last-child)` — which is a selector problem and not a value one. They
-are emitted now, without any fragment, through `Family.Scope`; the reverse spellings stay absent
-because they need `calc()` and `StyleValueParser` has none. See F9.
+are emitted now, without any fragment, through `Family.Scope`; the reverse spellings stay absent —
+⚠ **though no longer for the reason written here for months.** `StyleValueParser` folds a `calc()`
+now, so "it needs `calc()` and there is none" has expired; what is unmeasured is whether the
+`--tw-*-reverse` flag those families would multiply by is read by anything once the multiply works.
+Filed rather than lifted, because a refusal lifted without a measurement is how an inert root gets
+registered. See F9.
 
 **Two designs, and the argument that settled it.** (a) the utilities really set custom properties and
 the cascade resolves the `var()` references at use time; (b) the generator folds the fragments into
@@ -1245,7 +1249,9 @@ does mirror that one.
    with hex colours a list did arrive as `Unknown`, but the cascade normalises `#000` to
    `rgb(0, 0, 0)` and the same declaration then parses as a perfectly ordinary eight-item list whose
    fourth item ends in a comma. Both drew nothing, so which one it was never mattered until it did.
-   What still blocks the root is `calc()` and the five-fragment composition. `stroke-none` is the same
+   ⚠ **`calc()` has since gone the same way** — `StyleValueParser` folds one, on the fold-or-refuse
+   rule that keeps `calc(100% - 10px)` `Unknown` because a `StyleValue` is one number and one unit —
+   so what still blocks the root is the five-fragment composition alone. `stroke-none` is the same
    shape one file over — `stroke` is read only as a colour, and `Icon.Resolve` falls back to the
    foreground for anything that is not one.
 4. *The class is v4 compatibility surface, and § D5 already says not to implement it.*
@@ -1337,8 +1343,12 @@ behaviour fails the day they land.
 
 **What is absent inside the two families, and why.** `space-x-reverse`, `space-y-reverse`,
 `divide-x-reverse` and `divide-y-reverse` need `calc()` to multiply an edge by a `--tw-*-reverse`
-flag, and `StyleValueParser` has none; the flag would be a custom property nobody reads. Registering that set would add exactly the inert roots Part 8 § 3
-declines to add for `scroll-*`.
+flag. ⚠ **Half of that reason expired on 2026-09-05**: `StyleValueParser` folds a `calc()` now, and
+`calc(1px * var(--tw-divide-x-reverse))` is substituted before it is parsed, so the multiply resolves.
+What is *not* measured is the other half — whether the flag is a custom property anything reads — and
+that is the half that decides whether registering these four adds four working roots or exactly the
+inert roots Part 8 § 3 declines to add for `scroll-*`. They stay absent until somebody measures it,
+because lifting a refusal without the measurement is the failure this document is about.
 
 ⚠ **The five `divide-<style>` keywords were on that list and are not any more.** They were absent
 because `border-style` had no reader — measured, like the rest — and A3 gave it one. They are merged
@@ -1654,7 +1664,10 @@ value" to "resolve a token *name* to `var(--name)`", which is what the editor's 
 resolves spacing at generate time to a pixel string, so it needs either `calc()` in the style engine
 (which doc 09 lists as supported for `+ - * /` on compatible units — this is a multiply by a unitless
 scalar, the easy case) or continued build-time resolution, which is a documented, defensible
-divergence. Vixen's `SpacingBase` is already one number, so the *model* matches; only the emission
+divergence. ⚠ **The first of those arrived on 2026-09-05 and the divergence stayed anyway**:
+`StyleValueParser` folds exactly the `+ - * /` doc 09 describes, so the engine could now read v4's
+own spelling — but build-time resolution is not made wrong by that, and changing it is a decision
+about where the scale is resolved rather than a gap. Vixen's `SpacingBase` is already one number, so the *model* matches; only the emission
 does not.
 
 ✅ **Landed, and `vixen.ui.yaml` is gone from the tree.** `ThemeTokens.Parse` reads `@theme` blocks
