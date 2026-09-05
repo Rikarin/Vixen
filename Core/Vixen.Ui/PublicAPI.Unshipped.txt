@@ -1206,6 +1206,8 @@ Vixen.Ui.UiDocument.Invalidate() -> void
 Vixen.Ui.UiDocument.InvalidateAccessibility() -> void
 Vixen.Ui.UiDocument.InvalidateCommands() -> void
 Vixen.Ui.UiDocument.InvokeAccessKey(char key) -> bool
+Vixen.Ui.UiDocument.KeySurface.get -> Vixen.Ui.UiSurface?
+Vixen.Ui.UiDocument.KeySurface.set -> Vixen.Ui.UiSurface?
 Vixen.Ui.UiDocument.KeyboardMode.get -> bool
 Vixen.Ui.UiDocument.KeywordOf(Vixen.Ui.Styling.ComputedStyle style, int property) -> string?
 Vixen.Ui.UiDocument.Language.get -> string

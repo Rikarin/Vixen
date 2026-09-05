@@ -211,6 +211,29 @@ public static class PlatformInput {
 
                 return true;
 
+            // ⚠ <b>Two more arms that were missing, and their absence was invisible for the reason
+            // `TextEditing`'s was.</b> Every backend produces these — `DesktopPlatform` from SDL,
+            // `WebPlatform` from focus/blur on the canvas, `HeadlessWindow` from its own harness —
+            // and this bridge dropped both through the `default` below, so no assembly above
+            // `Vixen.Platform` had ever been told which window the user is in. The symptom is not an
+            // error either: keys with nothing focused went to the *primary* surface's root, so a
+            // keystroke aimed at a torn-off inspector ran against the main window.
+            //
+            // ⚠ Gained sets it and Lost only clears it *if this surface still holds it*. The two
+            // events do not arrive in a guaranteed order — a window manager that raises B's gained
+            // before A's lost is ordinary — and an unconditional clear on Lost would take the key
+            // status away from the window that had just been given it.
+            case PlatformEventKind.WindowFocusGained:
+                document.KeySurface = surface;
+                return true;
+
+            case PlatformEventKind.WindowFocusLost:
+                if (ReferenceEquals(document.KeySurface, surface)) {
+                    document.KeySurface = null;
+                }
+
+                return true;
+
             default:
                 return false;
         }
