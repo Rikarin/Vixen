@@ -1512,12 +1512,23 @@ public partial class UiElement : Composition.IComposable {
         }
 
         // The cascade's half of the same fact, and what makes `:empty` mean what CSS means by it —
-        // an element with words in it is not empty, however few children it has. `Invalidate` below
-        // is what restyles on the back of it: a text change is a cold pass, so nothing narrower is
-        // owed here, and `:empty` needs no entry in the invalidation map.
+        // an element with words in it is not empty, however few children it has.
         Document.Styles.Tree.SetHasText(StyleNode, !string.IsNullOrEmpty(current));
 
-        Document.Invalidate();
+        // ⚠ **Only the emptiness is a cold pass, and the remark this replaced said the whole
+        // assignment was.** `HasTextAt` has exactly one reader — `SelectorMatcher`'s `:empty` — so
+        // one string becoming another string changes nothing any selector in the engine can test,
+        // and the pass it used to buy re-cascaded the document to arrive at the styles it already
+        // had. That is the cost #598 attributed to row realisation: a scrolled `DataGrid` assigns
+        // one cell label per visible cell, seventy-two of them on the editor-shell fixture, and
+        // every one of those came through `Invalidate`. Crossing between text and no text can move
+        // a `:empty` verdict on this element and on anything selecting off it, so that half stays
+        // conservative.
+        if (string.IsNullOrEmpty(previous) != string.IsNullOrEmpty(current)) {
+            Document.Invalidate();
+        } else {
+            Document.InvalidatePositions();
+        }
     }
 
     /// <summary>Builds whatever this element is made of, once, as it joins a document.</summary>

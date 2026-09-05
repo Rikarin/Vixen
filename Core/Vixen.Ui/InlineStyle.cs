@@ -131,6 +131,12 @@ public partial class UiElement {
     ///     for the life of the document — see <c>InlineStyleStore.Replace</c> — and it would also
     ///     defeat the style-sharing key, which carries the handle: two elements that keep taking new
     ///     handles never look alike, however identical their declarations are.
+    ///     <para>
+    ///         ⚠ <b>And the handle staying put is what lets the pass be narrowed rather than merely
+    ///         cheap.</b> A block rewritten under a handle the element already owns changes nothing
+    ///         the sharing key is keyed on, so the whole frame's inline writes resolve in one pass.
+    ///         See <see cref="UiDocument.InvalidateInline" />.
+    ///     </para>
     /// </remarks>
     void Commit() {
         var styles = Document.Styles;
@@ -143,6 +149,6 @@ public partial class UiElement {
             Document.Styles.Tree.SetInlineStyle(StyleNode, inlineId);
         }
 
-        Document.Invalidate();
+        Document.InvalidateInline(StyleNode);
     }
 }

@@ -192,6 +192,51 @@ public sealed class StyleUpdater {
     /// <returns>How many elements had to be cascaded.</returns>
     public int StateChanged(StyleNodeId element) => Update(element, [], stateChanged: true);
 
+    /// <summary>Restyles the elements a set of inline-declaration writes could have reached.</summary>
+    /// <param name="elements">The elements written on.</param>
+    /// <returns>How many elements had to be cascaded.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>No invalidator, and that is the whole of why this is cheap.</b>
+    ///         <see cref="ClassChanged" /> has to ask which <i>other</i> elements a name could have
+    ///         reached, because a class appears in selectors and a selector reaches sideways and
+    ///         downwards. An inline declaration appears in no selector — see
+    ///         <see cref="SimpleSelectorKind" />, which tests a tag, an id, a class, an attribute, a
+    ///         state, a position and emptiness, and nothing else — so the only elements whose answer
+    ///         can have moved are the one written on and whatever inherits from it. That is the walk
+    ///         below, unseeded by any collection step.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>All of them in one pass, unlike the other two kinds.</b> A pass is per change
+    ///         elsewhere because the sharing cache's key describes what an element <i>is</i> and a
+    ///         change made between two passes invalidates it. An inline write mutates the block
+    ///         behind a handle the element already owns: the key does not move, the handle is unique
+    ///         to the element, and every block is final before this runs — so one
+    ///         <c>BeginPass</c> covers the lot. A virtualised grid writes a couple of dozen of these
+    ///         on one frame, and the per-change shape would have made the narrowing pointless.
+    ///     </para>
+    /// </remarks>
+    public int InlineChanged(params ReadOnlySpan<StyleNodeId> elements) {
+        Refresh();
+        invalidator.Read(engine.Rules);
+        Grow();
+
+        engine.Resolver.BeginPass();
+        LastPassResolved = 0;
+        LastPassStopped = 0;
+
+        pending.Clear();
+        queued.Clear();
+
+        foreach (var element in elements) {
+            if (queued.Add(element.Index)) {
+                pending.Enqueue(element.Index, element.Index);
+            }
+        }
+
+        return Drain();
+    }
+
     int Update(StyleNodeId element, ReadOnlySpan<int> changed, bool stateChanged) {
         Refresh();
         invalidator.Read(engine.Rules);
@@ -217,6 +262,12 @@ public sealed class StyleUpdater {
             }
         }
 
+        return Drain();
+    }
+
+    /// <summary>Cascades everything queued, descending only where a child could have inherited a change.</summary>
+    /// <returns>How many elements were cascaded.</returns>
+    int Drain() {
         while (pending.Count > 0) {
             var index = pending.Dequeue();
             var before = styles[index];

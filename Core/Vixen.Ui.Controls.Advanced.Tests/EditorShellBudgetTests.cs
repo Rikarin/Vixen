@@ -164,6 +164,74 @@ public class EditorShellBudgetTests {
         }
     }
 
+    /// <summary>And one row of scroll costs a cascade of the rows it rebound, not of the shell.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Virtualisation that re-cascades the document is virtualisation in name only</b>,
+    ///         and that is what #598 measured: 590 KB of a 591 KB scrolled frame was
+    ///         <c>Restyle</c>, with <c>StylesResolved</c> reading the shell's whole element count.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The element count is asserted unchanged, and that is the half #598 got
+    ///         wrong.</b> It read the cold pass as rows being realised and released. They are not —
+    ///         <c>DataGrid.Realise</c> pools its rows and parks the surplus, so the shell holds the
+    ///         same 561 elements before a scroll and after it, on every frame of one. What bought
+    ///         the cold pass was the rebinding: an inline <c>top</c> on each recycled row and a
+    ///         label assignment in each cell, both of which went through <c>UiDocument.Invalidate</c>.
+    ///         Keeping that equality here is what stops this test from being satisfied by a grid
+    ///         that stopped recycling.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Against the rows realised rather than a constant, and with a floor.</b> A
+    ///         ceiling alone is met most convincingly by a scroll that cascaded nothing at all —
+    ///         which is exactly what a grid whose <c>Scrolled</c> hook stopped firing would report.
+    ///         The two-row baseline before the measured scroll is not cosmetic either:
+    ///         <c>DataGrid.Overscan</c> is two, so the first two rows of scroll genuinely rebind
+    ///         nothing and would satisfy the ceiling by doing no work.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Scrolling_one_row_restyles_the_rows_it_rebound_and_not_the_shell() {
+        var height = Shell.Grid.RowHeight;
+
+        // Past the overscan, so that the measured scroll is one that genuinely moves the window.
+        Shell.Grid.Scroller.ScrollTop = height * 8f;
+
+        while (Shell.Document.Update()) {
+            Shell.Document.Draw();
+        }
+
+        var elements = Count(Shell.Document.Root);
+        var realised = Shell.Grid.Rows.Count;
+
+        Shell.Grid.Scroller.ScrollTop += height;
+
+        Assert.True(Shell.Document.Update(), "a one-row scroll dirtied nothing, so the grid did not rebind");
+        Shell.Document.Draw();
+
+        var resolved = Shell.Document.StylesResolved;
+
+        Assert.Equal(elements, Count(Shell.Document.Root));
+        Assert.True(resolved > 0, $"the scroll cascaded nothing, so {realised} rows were rebound without restyling");
+
+        Assert.False(
+            Shell.Document.LastPassWasCold,
+            $"a one-row scroll took a cold pass over the whole document — {resolved} of {elements} elements"
+        );
+
+        Assert.True(
+            resolved <= realised * 4,
+            $"a one-row scroll cascaded {resolved} elements for {realised} realised rows, of {elements} in the "
+            + "shell, which is a document-wide pass rather than a row-wide one"
+        );
+
+        Shell.Grid.Scroller.ScrollTop = 0f;
+
+        while (Shell.Document.Update()) {
+            Shell.Document.Draw();
+        }
+    }
+
     /// <summary>And the composition costs a bounded number of elements, not one per datum.</summary>
     /// <remarks>
     ///     ⚠ <b>The number that makes the whole row a claim about a <i>framework</i>.</b> Five panels,
