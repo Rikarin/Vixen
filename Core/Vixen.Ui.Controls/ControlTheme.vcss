@@ -271,7 +271,16 @@ page-button:focus-visible, breadcrumb-item:focus-visible, expander-header:focus-
     color: var(--text-muted);
 }
 
-/* ── Toggles ────────────────────────────────────────────────────────── */
+/* ── Toggles ──────────────────────────────────────────────────────────
+   ⚠ Every indicator below carries `flex-shrink: 0`, and it is not
+   decoration. A tick box, a radio dot and a switch track are square or
+   fixed by construction — a squashed one reads as a rendering fault, not
+   as a tight layout — and they sit in a row beside a label that will
+   happily take the whole width. Until #628 the engine's own initial
+   `flex-shrink` was Yoga's 0, so this said itself; now that a `.vcss`
+   means what CSS means, the ones that must not shrink have to say so.
+   Measured: without it a `radio { width: 24px }` beside its label comes
+   back as a 6×16 ellipse. */
 checkbox, radio, switch {
     flex-direction: row;
     align-items: center;
@@ -283,6 +292,7 @@ checkbox, radio, switch {
 checkbox box {
     width: 16px;
     height: 16px;
+    flex-shrink: 0;
     align-items: center;
     justify-content: center;
     border-width: 1px;
@@ -291,13 +301,14 @@ checkbox box {
     background-color: var(--surface);
 }
 
-checkbox box icon { width: 12px; height: 12px; display: none; }
+checkbox box icon { width: 12px; height: 12px; flex-shrink: 0; display: none; }
 checkbox:checked box, checkbox.indeterminate box { background-color: var(--accent); border-color: var(--accent); }
 checkbox:checked box icon, checkbox.indeterminate box icon { display: flex; color: var(--accent-text); }
 
 radio box {
     width: 16px;
     height: 16px;
+    flex-shrink: 0;
     align-items: center;
     justify-content: center;
     border-width: 1px;
@@ -306,7 +317,7 @@ radio box {
     background-color: var(--surface);
 }
 
-radio box dot { width: 8px; height: 8px; border-radius: 4px; display: none; }
+radio box dot { width: 8px; height: 8px; flex-shrink: 0; border-radius: 4px; display: none; }
 radio:checked box { border-color: var(--accent); }
 radio:checked box dot { display: flex; background-color: var(--accent); }
 
@@ -315,6 +326,7 @@ radio-group { flex-direction: column; gap: 6px; }
 switch track {
     width: 34px;
     height: 18px;
+    flex-shrink: 0;
     flex-direction: row;
     align-items: center;
     padding: 2px;
@@ -325,6 +337,7 @@ switch track {
 switch track knob {
     width: 14px;
     height: 14px;
+    flex-shrink: 0;
     border-radius: 7px;
     background-color: var(--thumb-color);
     margin-left: 0px;

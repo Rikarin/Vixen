@@ -231,7 +231,15 @@ public class ControlVisualTests {
 
     [Fact]
     public void Badge_alert_and_separator() {
-        using var ui = Opened(200f, 120f, "badge { width: 60px; height: 20px; } alert { width: 180px; height: 40px; }");
+        // ⚠ `flex-shrink: 0` says what the two declared widths already assume: 60 and 180 in a
+        // 200-wide row is over-full, and CSS's initial shrink divides the 40-point deficit by flex
+        // base — 50 and 150 — which is right and is a picture of the row rather than of a badge and
+        // an alert. See #628.
+        using var ui = Opened(
+            200f,
+            120f,
+            "badge { width: 60px; height: 20px; flex-shrink: 0; } alert { width: 180px; height: 40px; flex-shrink: 0; }"
+        );
 
         var badge = ui.Add<Badge>("count");
         badge.Text = "9";

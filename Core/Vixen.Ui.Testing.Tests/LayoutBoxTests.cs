@@ -31,13 +31,20 @@ public class LayoutBoxTests {
     ///     framework's <c>box-sizing</c> is CSS's initial <c>content-box</c>, so the row draws 400
     ///     wide. The first child takes a third of the 360 and the second the rest, by ratio: 120 and
     ///     240 appear nowhere in the sheet, and neither does either child's position.
+    ///     <para>
+    ///     ⚠ <b>And <c>flex-shrink: 0</c> is what keeps that arithmetic true.</b> 360 of content,
+    ///     40 of padding and 30 of margin is 430 in a 400-wide root, so since #628 gave the bridge
+    ///     CSS's initial shrink of 1 the row would take the 30-point deficit itself and split 330
+    ///     rather than 360 — every number in this file would be a measurement of the overflow. The
+    ///     row is meant to be 360 wide; it now says so.
+    ///     </para>
     /// </remarks>
     static UiTest Fixture() {
         var ui = UiTest.Create(400f, 300f);
 
         ui.Load("""
             root  { width: 400px; height: 300px; }
-            .row  { width: 360px; height: 80px; padding: 10px 20px; margin-left: 30px; }
+            .row  { width: 360px; height: 80px; padding: 10px 20px; margin-left: 30px; flex-shrink: 0; }
             .a    { flex-grow: 1; }
             .b    { flex-grow: 2; }
         """);

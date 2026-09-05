@@ -128,9 +128,12 @@ public class GridFromCssTests {
     /// </remarks>
     [Fact]
     public void A_bare_fr_and_a_minmax_zero_fr_are_not_the_same_track() {
+        // ⚠ `flex-shrink: 0` on the two grids because they are 300 apiece in a 400-wide flex row,
+        // and CSS's initial shrink squeezes both to 200 — correctly, and it would turn every number
+        // below into a measurement of the outer row rather than of the track list.
         const string Sheet = """
             root { width: 400px; height: 300px; }
-            .grid { display: grid; width: 300px; height: 60px; }
+            .grid { display: grid; width: 300px; height: 60px; flex-shrink: 0; }
             .bare { grid-template-columns: repeat(3, 1fr); }
             .clamped { grid-template-columns: repeat(3, minmax(0, 1fr)); }
             .wide { width: 200px; height: 10px; }

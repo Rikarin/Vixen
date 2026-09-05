@@ -706,6 +706,15 @@ public class UtilityFamilySupportTests {
         // `scale: 2%`, not twice — which is the half of these two rows that was always right.
         { "translate-x-2", "translate", "8px 0px" },
         { "translate-y-2", "translate", "0px 8px" },
+
+        // ⚠ <b>The bare root and its `none` are two more ROOTS and not two more values, which is why
+        // they need rows of their own here.</b> `translate-2` writes BOTH `--tw-*` slots from one
+        // rule — the diagonal — and `translate-none` is registered under its own name rather than as
+        // a keyword on the root, because `Alongside` is appended on every resolution of a family and
+        // would have written the assembly over the top of a `translate: none`. `SplitName` takes the
+        // longest registered prefix, so all four of these reach the family their spelling names.
+        { "translate-2", "translate", "8px 8px" },
+        { "translate-none", "translate", "none" },
         { "scale-2", "scale", "2%" },
         { "rotate-45", "rotate", "45deg" },
 

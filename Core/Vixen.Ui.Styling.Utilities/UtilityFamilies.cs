@@ -1992,11 +1992,20 @@ public static class UtilityFamilies {
         Translate("translate-y", UtilityComposition.TranslateY);
 
         // ⚠ <b>The root that moves BOTH axes, and it is not a third fragment.</b> v4's `translate-4`
-        // writes the same two `--tw-*` slots the two axis families write and assembles the same
-        // `translate`, so it is one family over both fragments rather than a new slot — which is
-        // what makes `translate-4 translate-x-8` compose the way the cascade says it should, last
-        // declaration winning per slot with one assembly either way. Registering it as its own
-        // property would have made the two spellings of the same movement fight.
+        // is `translate: 1rem 1rem` — one class moving a box on the diagonal — so it writes the same
+        // two `--tw-*` slots the two axis families write and assembles the same `translate`. One
+        // family over both fragments rather than a new slot is what makes `translate-4
+        // translate-x-8` compose the way the cascade says it should, last declaration winning per
+        // slot with one assembly either way. Registering it as a single-property family beside the
+        // two axes would have made `translate-4` a `translate-x-4` under a different spelling with y
+        // left at its initial, which reads as the class half-working — the worse of the two
+        // failures — and registering it against a `translate` of its own would have had the two
+        // spellings of one movement fight.
+        //
+        // ⚠ Its own root and not a value on `translate-x`, and `SplitName`'s longest-prefix rule is
+        // what keeps that safe: `translate-x-4` still reaches the axis family above and `translate-4`
+        // reaches this one. `ShadowedFamilyTests` holds the rule; `rotate-z` beside `rotate` is the
+        // same arrangement two sections down.
         //
         // ⚠ <b><see cref="ValueKind.Size" /> for `Translate`'s reason, and it is what closes the
         // three values the ledger recorded as missing on this root</b>: `translate-full` is a
@@ -2025,6 +2034,15 @@ public static class UtilityFamilies {
         // `TranslationReader.Of` compares the interned value against `none` before it parses
         // anything, so this is refusal shape 3's opposite — a reader that already distinguishes the
         // value, and no family able to emit it.
+        //
+        // ⚠ <b>This was written up as a REFUSAL on a parallel branch, and the refusal was wrong on
+        // its second premise rather than its first.</b> That reading had `Family.Alongside` belongs
+        // to the family and not to the value — which is true and is exactly the paragraph above —
+        // and concluded from it that the class cannot be registered at all. It concluded that
+        // because it only considered `Keywords("translate", …)` on the functional root; a separate
+        // registered name is not a keyword on that family and never reaches its `Alongside`. The
+        // ledger's `partial` on this row, and `mask-circle`'s neighbouring refusal, are the two
+        // places that reading also reached.
         Static("translate-none", "translate", "none");
 
         // ⚠ <b>A percentage, because Tailwind's scale runs in hundredths.</b> `scale-150` is one and

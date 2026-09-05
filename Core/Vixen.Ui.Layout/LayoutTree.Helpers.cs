@@ -572,7 +572,11 @@ public sealed partial class LayoutTree {
             }
         }
 
-        var floor = ComputeMinContentSize(index, mainAxis, direction, ownerWidth, ownerHeight, currentDepth);
+        // ⚠ `ownerWidth` twice, and the two arguments mean different things. The fifth is the
+        // percentage basis; the sixth is the inline room this item's margin box will have, and at
+        // this entry point the containing block's inline size is the nearest honest value for both.
+        // They part company one box down — see `ProbeInlineSize`.
+        var floor = ComputeMinContentSize(index, mainAxis, direction, ownerWidth, ownerHeight, ownerWidth, currentDepth);
 
         // ⚠ <b>§4.5's CONTENT SIZE SUGGESTION is itself clamped through the ratio, and that is a
         // different clamp from the transferred size suggestion below.</b> The specification: "the
@@ -636,11 +640,32 @@ public sealed partial class LayoutTree {
         // `bevy_issue_9530_reduced` and `measure_child_with_min_size_greater_than_available_space`
         // are the same sentence — sixteen fixtures across four families, and nothing else in any
         // corpus. Until that is fixed an over-reported floor must not be allowed to inflate a real
-        // box.
-        if (results[index].FlexBasisFromContent
-            && !float.IsNaN(results[index].ComputedFlexBasis)
-            && floor > results[index].ComputedFlexBasis) {
-            floor = results[index].ComputedFlexBasis;
+        // box. ⚠ The block-axis sentence above is CLOSED — `probeWidth` is threaded beside
+        // `ownerWidth` now and `ProbeInlineSize` is where they separate — and the cap still cannot
+        // go: `bevy_issue_9530` and `measure_child_with_min_size_greater_than_available_space`
+        // remain, the second under a different rule this file's `KnownGaps.txt` already files.
+        //
+        // ⚠ <b>AND THE CAP IS THE SMALLER OF TWO MEASUREMENTS NOW, because §9.2 step 3E made
+        // `ComputedFlexBasis` stop being the one this sentence is about.</b> The justification is
+        // "a box's min-content size cannot exceed the size its own contents were MEASURED at" —
+        // which was the flex basis only while the basis WAS that measurement. Step 3E makes it the
+        // item's MAX-CONTENT size instead, taken with the main axis unconstrained, and that is a
+        // strictly weaker ceiling: an unbreakable word under `overflow-wrap: break-word` measures as
+        // wide as the word, so the cap stopped holding the floor down to the box and the word never
+        // wrapped. `TextWrappingPixelTests` is four fixtures of exactly that.
+        // `UnclampedMeasuredDimensions` is the offer-measured number the cap always meant — the
+        // second, real pass's answer — so the two are taken together and the smaller wins.
+        if (results[index].FlexBasisFromContent) {
+            var cap = results[index].ComputedFlexBasis;
+            var offered = results[index].UnclampedMeasuredDimensions[(int) mainDimension];
+
+            if (!float.IsNaN(offered) && (float.IsNaN(cap) || offered < cap)) {
+                cap = offered;
+            }
+
+            if (!float.IsNaN(cap) && floor > cap) {
+                floor = cap;
+            }
         }
 
         return float.IsNaN(floor) || floor < 0f ? 0f : floor;
@@ -674,7 +699,15 @@ public sealed partial class LayoutTree {
     ///         freeze every definitely-sized item at its own width.
     ///     </para>
     /// </remarks>
-    float MinContentContribution(int index, FlexDirection axis, Direction ownerDirection, float ownerWidth, float ownerHeight, int currentDepth) {
+    float MinContentContribution(
+        int index,
+        FlexDirection axis,
+        Direction ownerDirection,
+        float ownerWidth,
+        float ownerHeight,
+        float probeWidth,
+        int currentDepth
+    ) {
         var dimension = FlexAxis.DimensionOf(axis);
         var reference = FlexAxis.IsRow(axis) ? ownerWidth : ownerHeight;
         var direction = StyleResolution.ResolveDirection(in styles[index], ownerDirection);
@@ -692,7 +725,7 @@ public sealed partial class LayoutTree {
             : float.NaN;
 
         var contribution = float.IsNaN(preferred)
-            ? ComputeMinContentSize(index, axis, ownerDirection, ownerWidth, ownerHeight, currentDepth)
+            ? ComputeMinContentSize(index, axis, ownerDirection, ownerWidth, ownerHeight, probeWidth, currentDepth)
             : preferred;
 
         contribution = BoundAxisWithinMinAndMax(index, direction, axis, contribution, reference, ownerWidth);
@@ -713,6 +746,7 @@ public sealed partial class LayoutTree {
         Direction ownerDirection,
         float ownerWidth,
         float ownerHeight,
+        float probeWidth,
         int currentDepth
     ) {
         var wantRow = FlexAxis.IsRow(requestedAxis);
@@ -722,20 +756,28 @@ public sealed partial class LayoutTree {
         // precisely the per-frame text measurement doc 09 says the measure cache exists to prevent.
         // It is keyed on the owner size because percentage margins and padding resolve against it,
         // and invalidated by the dirty flag, which a change anywhere below this node has already set.
+        // ⚠ The probe width is part of the key and not only the owner size. They are two different
+        // numbers since the block-axis probe stopped measuring text at whatever the percentage basis
+        // happened to be — a node probed as its container's item and the same node probed again from
+        // an ancestor's recursion can share an `ownerWidth` and be measured at different widths, and
+        // the answer is a different number in each case.
         if (!float.IsNaN(results[index].MinContentSizes[axis])
             && Inexact(results[index].MinContentOwnerWidth, ownerWidth)
-            && Inexact(results[index].MinContentOwnerHeight, ownerHeight)) {
+            && Inexact(results[index].MinContentOwnerHeight, ownerHeight)
+            && Inexact(results[index].MinContentProbeWidth, probeWidth)) {
             return results[index].MinContentSizes[axis];
         }
 
-        var computed = ComputeMinContentSizeUncached(index, requestedAxis, ownerDirection, ownerWidth, ownerHeight, currentDepth);
+        var computed = ComputeMinContentSizeUncached(index, requestedAxis, ownerDirection, ownerWidth, ownerHeight, probeWidth, currentDepth);
 
         if (!Inexact(results[index].MinContentOwnerWidth, ownerWidth)
-            || !Inexact(results[index].MinContentOwnerHeight, ownerHeight)) {
+            || !Inexact(results[index].MinContentOwnerHeight, ownerHeight)
+            || !Inexact(results[index].MinContentProbeWidth, probeWidth)) {
             results[index].MinContentSizes[0] = float.NaN;
             results[index].MinContentSizes[1] = float.NaN;
             results[index].MinContentOwnerWidth = ownerWidth;
             results[index].MinContentOwnerHeight = ownerHeight;
+            results[index].MinContentProbeWidth = probeWidth;
         }
 
         results[index].MinContentSizes[axis] = computed;
@@ -767,6 +809,52 @@ public sealed partial class LayoutTree {
         return MathF.Max(0f, width - StyleResolution.ContentInsetForAxis(in styles[index], FlexDirection.Row, direction, ownerWidth));
     }
 
+    /// <summary>The inline size a text leaf under this box should be measured at.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not <see cref="ProbeContentWidth" />, and the difference is the whole of
+    ///         <c>Rikarin/Vixen#623</c>.</b> That one answers "what are a descendant's percentages a
+    ///         fraction of", and its zero for an undeclared box is CSS Sizing §5.2.1 being obeyed.
+    ///         This one answers "how much room will the text actually have", and zero is never the
+    ///         answer to that: a box with no width of its own is as wide as what it is inside, less
+    ///         its own edges. The recursion used to conflate them, so every paragraph below a box
+    ///         that did not declare a width was measured in a width of nothing.
+    ///     </para>
+    ///     <para>
+    ///         It is an upper bound rather than the used width in a <i>row</i>, where siblings will
+    ///         divide this between them — but a bound in the right direction and off by a factor of
+    ///         the sibling count beats a bound in the wrong one and off by the length of the text.
+    ///         An indefinite width stays indefinite: NaN in, NaN out, and the leaf measures unbounded.
+    ///     </para>
+    /// </remarks>
+    float ProbeInlineSize(int index, Direction direction, float ownerWidth, float probeWidth) {
+        if (StyleResolution.ProcessedDimension(in styles[index], Dimension.Width).Unit == LayoutUnit.Point) {
+            var declared = ResolvedDimension(index, Dimension.Width, ownerWidth, ownerWidth, direction);
+            if (!float.IsNaN(declared)) {
+                return MathF.Max(
+                    0f,
+                    declared - StyleResolution.ContentInsetForAxis(in styles[index], FlexDirection.Row, direction, ownerWidth)
+                );
+            }
+        }
+
+        if (float.IsNaN(probeWidth)) {
+            return float.NaN;
+        }
+
+        // ⚠ The margins come off as well as the padding and border, because `probeWidth` is what is
+        // available to this box's MARGIN box. `bevy_issue_9530` is the fixture that says so: a text
+        // with 20 points of margin either side inside a 260-wide column is laid out in 220, and
+        // measuring it in 260 puts six of its chunks on a line where Chrome fits five — twenty lines
+        // against twenty-four, and the item is floored four lines short of what it needs.
+        return MathF.Max(
+            0f,
+            probeWidth
+            - StyleResolution.MarginForAxis(in styles[index], FlexDirection.Row, ownerWidth)
+            - StyleResolution.ContentInsetForAxis(in styles[index], FlexDirection.Row, direction, ownerWidth)
+        );
+    }
+
     /// <summary>As <see cref="ProbeContentWidth" />, for the block axis.</summary>
     float ProbeContentHeight(int index, Direction direction, float ownerWidth, float ownerHeight) {
         if (StyleResolution.ProcessedDimension(in styles[index], Dimension.Height).Unit != LayoutUnit.Point) {
@@ -787,6 +875,7 @@ public sealed partial class LayoutTree {
         Direction ownerDirection,
         float ownerWidth,
         float ownerHeight,
+        float probeWidth,
         int currentDepth
     ) {
         var wantRow = FlexAxis.IsRow(requestedAxis);
@@ -819,13 +908,21 @@ public sealed partial class LayoutTree {
             // below their own content. `grid_min_content_flex_column` is three two-line texts in a
             // 40-point row that Chrome overflows and this store squeezed to 13.3 each.
             //
-            // ⚠ `ownerWidth` is the containing block's inline size rather than the node's own used
-            // width, which for a stretched item in a column are the same number. Where they are not,
-            // this is still nearer than infinity.
+            // ⚠ <b>`probeWidth` and not `ownerWidth`, and the two part company one box down.</b>
+            // `ownerWidth` is the percentage basis, which CSS Sizing §5.2.1 makes ZERO for a box
+            // with no definite width of its own — a descendant's `margin: 5%` inside such a box is
+            // 5% of nothing. Handing that same zero to a text measurer says the paragraph is being
+            // laid out in no width at all, so it broke at every opportunity and reported a line per
+            // word. `blitz_issue_88` is the arithmetic: one line of text that Chrome draws 600 wide
+            // and 10 tall came back 50 tall, five lines measured in a width of 0, and §4.5 then
+            // floored the item at five lines. See `ProbeInlineSize` for where the two numbers
+            // separate. `Rikarin/Vixen#623`.
+            var ownProbe = ProbeInlineSize(index, StyleResolution.ResolveDirection(in styles[index], ownerDirection), ownerWidth, probeWidth);
+
             var size = Measure(
                 index,
-                wantRow ? 0f : ownerWidth,
-                wantRow ? MeasureMode.AtMost : float.IsNaN(ownerWidth) ? MeasureMode.Undefined : MeasureMode.AtMost,
+                wantRow ? 0f : ownProbe,
+                wantRow ? MeasureMode.AtMost : float.IsNaN(ownProbe) ? MeasureMode.Undefined : MeasureMode.AtMost,
                 wantRow ? float.NaN : 0f,
                 wantRow ? MeasureMode.Undefined : MeasureMode.AtMost
             );
@@ -860,6 +957,12 @@ public sealed partial class LayoutTree {
         // in a 2x2 grid — two columns of 20, so 40 in Chrome, where reading the children as one flex
         // row adds all four to 80. Both mistakes are in the sum: the second row's items are not
         // beside the first row's, and the second column's are not stacked on the first's.
+        //
+        // ⚠ Two branches for `Rikarin/Vixen#265` were written independently and this is the wider
+        // one. The other covered the INLINE axis alone and let the block axis keep the flex-line
+        // reading, on the ground that a grid's min-content height needs the column pass run first;
+        // ComputeGridMinContentSize does run it — the column axis, then each item's resolved inline
+        // size, then the rows — so the block axis is answered here rather than left owed.
         if (styles[index].Display == Display.Grid) {
             return ComputeGridMinContentSize(index, wantRow, direction, ownerWidth, ownerHeight, currentDepth);
         }
@@ -888,15 +991,16 @@ public sealed partial class LayoutTree {
         // consumes it, and an inflated floor becomes a real box.
         var innerWidth = ProbeContentWidth(index, direction, ownerWidth);
         var innerHeight = ProbeContentHeight(index, direction, ownerWidth, ownerHeight);
+        var innerProbe = ProbeInlineSize(index, direction, ownerWidth, probeWidth);
 
         foreach (var child in ChildIds(index)) {
             if (!IsInFlow(child)) {
                 continue;
             }
 
-            var childMain = MinContentContribution(child, nodeMainAxis, direction, innerWidth, innerHeight, currentDepth)
+            var childMain = MinContentContribution(child, nodeMainAxis, direction, innerWidth, innerHeight, innerProbe, currentDepth)
                 + StyleResolution.MarginForAxis(in styles[child], nodeMainAxis, innerWidth);
-            var childCross = MinContentContribution(child, nodeCrossAxis, direction, innerWidth, innerHeight, currentDepth)
+            var childCross = MinContentContribution(child, nodeCrossAxis, direction, innerWidth, innerHeight, innerProbe, currentDepth)
                 + StyleResolution.MarginForAxis(in styles[child], nodeCrossAxis, innerWidth);
 
             mainTotal = wraps ? MathF.Max(mainTotal, childMain) : mainTotal + childMain;
@@ -1034,15 +1138,38 @@ public sealed partial class LayoutTree {
         var sameWidthSpec = lastWidthMode == widthMode && Inexact(effectiveLastWidth, effectiveWidth);
         var sameHeightSpec = lastHeightMode == heightMode && Inexact(effectiveLastHeight, effectiveHeight);
 
+        // ⚠ <b>THE THREE SHORTCUTS BELOW ALL READ `Computed*` AS THE SIZE THE NODE CHOSE, and it is
+        // not that when the node's own minimum or maximum cut the measurement down.</b> Each of them
+        // argues "the old answer already satisfies the new constraint, so re-asking cannot change
+        // it" — sound only while the old answer is what the node's CONTENTS produced. A clamped
+        // entry is a measurement taken at one size and REPORTED at another, so the pair it holds was
+        // never true together: a `max-width: 80px` label measured with the width unconstrained
+        // wrapped to one line, came back 200 wide and 28 tall, and was reported as 80 × 28 — and a
+        // later question of exactly 80 then matched the width and inherited the ONE-LINE height,
+        // where the true answer at 80 is three lines and 83.6.
+        // `TextWrapTests.A_label_with_no_width_of_its_own_wraps_at_its_container` is the fixture.
+        //
+        // So a clamped entry answers only the question it was actually asked — an exact spec match —
+        // and never a shortcut. ⚠ It took two branches meeting to become reachable: §9.2 step 3E's
+        // max-content pass is what seeds an unconstrained entry for a content-sized item, and #628's
+        // CSS initial `flex-shrink` is what opened that clause's gate for `Vixen.Ui` documents.
+        // Neither side alone shows it and no fixture in the eight corpora does either, which is why
+        // the guard is here rather than in the corpus.
+        var wasClamped =
+            (!float.IsNaN(entry.UnclampedComputedWidth) && !Inexact(entry.UnclampedComputedWidth, entry.ComputedWidth))
+            || (!float.IsNaN(entry.UnclampedComputedHeight) && !Inexact(entry.UnclampedComputedHeight, entry.ComputedHeight));
+
         var widthCompatible = sameWidthSpec
-            || ExactAndMatchesOld(widthMode, availableWidth - marginRow, entry.ComputedWidth)
-            || OldWasMaxContentAndStillFits(widthMode, availableWidth - marginRow, lastWidthMode, entry.ComputedWidth)
-            || NewIsStricterAndStillValid(widthMode, availableWidth - marginRow, lastWidthMode, entry.AvailableWidth, entry.ComputedWidth);
+            || (!wasClamped
+                && (ExactAndMatchesOld(widthMode, availableWidth - marginRow, entry.ComputedWidth)
+                    || OldWasMaxContentAndStillFits(widthMode, availableWidth - marginRow, lastWidthMode, entry.ComputedWidth)
+                    || NewIsStricterAndStillValid(widthMode, availableWidth - marginRow, lastWidthMode, entry.AvailableWidth, entry.ComputedWidth)));
 
         var heightCompatible = sameHeightSpec
-            || ExactAndMatchesOld(heightMode, availableHeight - marginColumn, entry.ComputedHeight)
-            || OldWasMaxContentAndStillFits(heightMode, availableHeight - marginColumn, lastHeightMode, entry.ComputedHeight)
-            || NewIsStricterAndStillValid(heightMode, availableHeight - marginColumn, lastHeightMode, entry.AvailableHeight, entry.ComputedHeight);
+            || (!wasClamped
+                && (ExactAndMatchesOld(heightMode, availableHeight - marginColumn, entry.ComputedHeight)
+                    || OldWasMaxContentAndStillFits(heightMode, availableHeight - marginColumn, lastHeightMode, entry.ComputedHeight)
+                    || NewIsStricterAndStillValid(heightMode, availableHeight - marginColumn, lastHeightMode, entry.AvailableHeight, entry.ComputedHeight)));
 
         return widthCompatible && heightCompatible;
 

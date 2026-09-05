@@ -473,6 +473,15 @@ public class TextFieldTests {
         using var fixture = new ControlFixture();
 
         var view = fixture.Add<ScrollView>();
+
+        // ⚠ <b>The width is stated because it was never implied.</b> The fixture's root is a flex
+        // ROW — CSS's initial direction — so a `ScrollView` with no width of its own is sized by its
+        // flex base, and this view filled the row only for as long as that base was the width it was
+        // OFFERED. §9.2 step 3E makes it the view's max-content width instead, which for an empty
+        // field over a zero-width spacer is the scrollbar and the padding: eighteen points. The
+        // subject here is the focus and not the layout, so the setup says what it always assumed.
+        view.SetStyle("width", "400px");
+
         var field = view.Content.Add<TextBox>();
 
         // Enough content for the bar to have somewhere to go, or the press below is a press on a
