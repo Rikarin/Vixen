@@ -604,6 +604,12 @@ jobs:
   # workload and Xcode on top of RestoreNativeDeps for MoltenVK, none of which could be tried from
   # the machine this leg was written on — no workload is installed there, so the step would have been
   # committed unverified. #327 carries it.
+  #
+  # ⚠ AND WIRING IT UP WOULD NOT YET BUY WHAT THIS JOB BUYS. CheckAotIos is a DotNetPublish and
+  # nothing else: its only assertion is the exit code, which is exactly the state CheckAot was in
+  # before the paragraph above — where a publish with PublishAot edited out succeeded in 17 seconds
+  # having written 51 managed assemblies. AssertAotOutput is called by the desktop target and by
+  # nothing else. So the iOS leg needs the assertions before it needs the runner. #634.
   aot:
     name: aot-${{ matrix.os }}
     runs-on: ${{ matrix.os }}
