@@ -30,6 +30,22 @@
             debugger's line table is approximate. That is the trade in a library whose public surface
             is three pure entry points over values, and it does not apply to callers — `Optimize` is
             per assembly.
+
+            ⚠ And it does not generalise, which is why this is a named property here and not a
+            setting in Directory.Build.props. #591 asked whether the rest of the tree pays the same
+            3.7x. Measured the same way on 2026-09-05 — one machine, solo runs, every build forced
+            with `NoIncremental` and the DLL size checked, so that the middle column is not the old
+            binaries measured a second time:
+
+                                       Debug   +Optimize   Release   tests
+              Vixen.Raven.Tests         225 s      213 s     232 s    1921
+              Vixen.Rendering.Tests     157 s      154 s        —     1428
+              Vixen.Fuzz.Tests           50 s       41 s      35 s      42
+
+            The two largest move by less than this machine's own spread — a parser and a frame-graph
+            suite are bound by allocation, dictionaries and I/O, not by arithmetic the JIT can fold.
+            Only the fuzz loop moves at all, by 1.24x, and its Release column shows more of that gap
+            is `#if DEBUG` code than is the optimiser. So the lever is a float inner loop, not Debug.
         -->
         <Optimize Condition="'$(Configuration)' == 'Debug'">true</Optimize>
     </PropertyGroup>
