@@ -436,6 +436,50 @@ public static class UtilityFamilies {
             ]
         ));
 
+        // ⚠ <b>Two static roots and not a keyword family, because v4 spells them with two different
+        // shapes</b> — `isolate` bare and `isolation-auto` prefixed — which is `normal-nums`' problem
+        // further down and has the same answer.
+        //
+        // ⚠ <b>The property was worth nothing at all until `mix-blend-mode` existed, and is worth
+        // exactly a composited group now that it does.</b> `isolation` has no picture of its own: its
+        // only defined effect is on a descendant's blend, and it bounds that blend by being a
+        // stacking context. `DrawListBuilder` reads it as a sixth reason to open a group, and a
+        // nested group's draws land in its parent's surface — so the bound comes out of the
+        // compositor's existing shape rather than out of anything new. See `UiLayer.Blend`.
+        Static("isolate", "isolation", "isolate");
+        Static("isolation-auto", "isolation", "auto");
+
+        // ⚠ <b>Fourteen static roots and not two keyword families, because Tailwind spells two
+        // properties under one prefix</b> — `object-contain` is a fit and `object-center` is a
+        // position, and a family named `object` would have to decide which property a value belongs
+        // to by looking the value up. That is `mask-alpha`'s arrangement beside `mask-repeat`, one
+        // prefix and two meanings, and the answer there was separate registry roots.
+        //
+        // ⚠ <b>Four of the nine positions are TWO-WORD values, which is why this root needed a
+        // reader and not just a table.</b> `object-left-top` computes to `left top`, and
+        // `UiDocument.KeywordOf` answers null to anything that is not one bare identifier — so the
+        // four corners were unreadable by every accessor `StyleAccess` had. `UiDocument.PositionOf`
+        // is the fifth, and it is the same `<position>` parser `background-position` uses.
+        //
+        // ⚠ <b>All five fit keywords but `fill` are undefined without an intrinsic size, and
+        // supplying one is an application's job.</b> `Image.IntrinsicSize` is where it goes; zero
+        // means unknown, and unknown draws `fill` whatever the class says — which is CSS's own answer
+        // for content with no intrinsic dimensions rather than a shortfall.
+        Static("object-contain", "object-fit", "contain");
+        Static("object-cover", "object-fit", "cover");
+        Static("object-fill", "object-fit", "fill");
+        Static("object-none", "object-fit", "none");
+        Static("object-scale-down", "object-fit", "scale-down");
+        Static("object-bottom", "object-position", "bottom");
+        Static("object-center", "object-position", "center");
+        Static("object-left", "object-position", "left");
+        Static("object-left-bottom", "object-position", "left bottom");
+        Static("object-left-top", "object-position", "left top");
+        Static("object-right", "object-position", "right");
+        Static("object-right-bottom", "object-position", "right bottom");
+        Static("object-right-top", "object-position", "right top");
+        Static("object-top", "object-position", "top");
+
         // ⚠ <b>Three declarations, because `truncate` <i>is</i> three declarations.</b> It was one
         // here — `overflow: hidden` alone — and doc 43's F5 is the finding that the other two were
         // missing: the class named the ellipsis it could not draw, and the wrapping the third
@@ -1870,6 +1914,42 @@ public static class UtilityFamilies {
             },
             Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
         ));
+
+        // ⚠ <b>Sixteen keywords rather than the eight the ledger's `classes` column transcribed, and
+        // the extra eight are not padding.</b> That column is the original survey's list and is short
+        // of v4 on several roots — the four non-separable modes are the ones anybody actually reaches
+        // for on a tinted panel, and `hard-light`, `soft-light`, `difference` and `exclusion` are the
+        // rest of CSS Compositing 1 § 5.1. Registering fewer would leave `mix-blend-difference`
+        // producing no rule at all, which is the failure `blur-md` was.
+        //
+        // ⚠ <b>`plus-darker` and `plus-lighter` are deliberately absent.</b> They are CSS
+        // Compositing 2's *porter-duff* operators rather than § 5.1 blend functions — they change how
+        // much of the source lands, not what colour it is — so they do not fit `UiBlend.Apply`'s
+        // shape at all, and neither `UiLayer` nor either executor has a second composite operator to
+        // put them in. A class that resolved to a keyword nothing could act on would measure `inert`
+        // and read as a family that half works.
+        Keywords(
+            "mix-blend",
+            "mix-blend-mode",
+            new Dictionary<string, string>(StringComparer.Ordinal) {
+                ["normal"] = "normal",
+                ["multiply"] = "multiply",
+                ["screen"] = "screen",
+                ["overlay"] = "overlay",
+                ["darken"] = "darken",
+                ["lighten"] = "lighten",
+                ["color-dodge"] = "color-dodge",
+                ["color-burn"] = "color-burn",
+                ["hard-light"] = "hard-light",
+                ["soft-light"] = "soft-light",
+                ["difference"] = "difference",
+                ["exclusion"] = "exclusion",
+                ["hue"] = "hue",
+                ["saturation"] = "saturation",
+                ["color"] = "color",
+                ["luminosity"] = "luminosity"
+            }
+        );
 
         // ── The backdrop ────────────────────────────────────────────────────────────────
         //

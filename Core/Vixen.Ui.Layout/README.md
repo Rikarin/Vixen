@@ -726,6 +726,40 @@ Auto margins on an absolutely positioned box (CSS 2.1 §10.3.7 and §10.6.4) wer
 that sentence and are now implemented, judged by the 22 `block_absolute_margin_auto_*_with_inset`
 fixtures and, for the cases none of them reaches, by `AbsoluteAutoMarginTests`.
 
+**CSS containment (`contain`)** — *not here at all, and this is the proposal rather than a refusal.*
+There is no property, no `LayoutStyle` field, no `LayoutEnums` member and no branch anywhere in this
+store; the same is true one layer up, so `contain-*` computes and moves nothing. ⚠ It is **five
+independent effects behind one property**, which is why sizing it as a single item is the mistake:
+`contain: content` is `layout paint style` and `contain: strict` adds `size`, so three of five made
+real leaves both aggregate values half working.
+
+- **`size`** — the box sizes as if it had no contents. This is the interesting one, and the seam is
+  already written: `MeasureNodeWithoutChildren` in `LayoutTree.Layout.cs` *is* that computation, for
+  a node that happens to have none. ⚠ But it is not "skip the children": a contained box still lays
+  them out, paints them and hit-tests them — it only refuses to let them decide its own box. Since
+  `CalculateLayoutImpl` measures the node and places its children in one pass, the intervention is to
+  settle the dimensions first and then run the children against them as though they were `Exactly`,
+  which is a change in the middle of the flex and block algorithms rather than at either end. The
+  intrinsic pre-pass needs the matching half, so that a content keyword on a contained box measures
+  zero.
+- **`inline-size`** — the same on one axis, and it arrives with `size`.
+- **`layout`** — an independent formatting context and a containing block for out-of-flow
+  descendants. ⚠ Mostly true here already: a flex or grid item is an independent formatting context
+  by construction, and `LayoutTree.Absolute` picks a containing block per node — so the observable
+  part is the one `position: relative` already provides. That makes it cheap **and** makes it the one
+  whose test is most likely to be unable to fail.
+- **`paint`** — descendants clipped to the padding box, which is the clip `overflow: hidden` already
+  pushes through `DrawListBuilder`'s `OverflowReader`.
+- **`style`** — ⛔ **refused in writing.** It scopes counters and quotes, and this engine has neither,
+  so every value of it would resolve, compute and move nothing.
+
+⚠ **The instrument comes first, because a contained box and an uncontained one draw the same picture
+wherever the children happen to fit.** A fixture with an explicit `width` and `height` proves nothing
+about `contain: size`; it has to be an auto-sized box whose children overflow it, where containment
+collapses the box and its absence does not. `contain: paint` has the mirror-image trap. See
+`docs/plan/43-web-styling-parity.md` § Part 9, Bucket 3, which carries the same table with the
+Tailwind classes beside it.
+
 **Parallel layout.** Independent subtrees with a fixed available size are jobs, and text measurement
 of siblings is where the win is. `Benchmarks/Vixen.Benchmarks.Ui` now gives the serial number to
 beat, and it says the algorithm is not where an incremental frame's time goes — so this waits behind

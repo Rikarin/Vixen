@@ -87,7 +87,7 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | Utility **roots** (the unit of this table) | **332** | 289 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
-| Variant keys | **88** | **51** |
+| Variant keys | **88** | **54** |
 
 ⚠ **The family figure moves every week, which is why it is no longer typed here.** It has been quoted
 as 43 (the helper calls in one region of `UtilityFamilies`' static constructor), then as 98 (the
@@ -478,7 +478,7 @@ refusal block, which already says so for the same reason.
 | Layout | 51 | 32 | 2 | 0 | 14 | 3 |
 | Interactivity | 40 | 30 | 0 | 1 | 9 | 0 |
 | Borders | 34 | 28 | 2 | 0 | 4 | 0 |
-| Effects | 34 | 27 | 1 | 0 | 6 | 0 |
+| Effects | 34 | 27 | 2 | 0 | 5 | 0 |
 | Flexbox and Grid | 34 | 30 | 2 | 0 | 2 | 0 |
 | Typography | 34 | 21 | 4 | 0 | 9 | 0 |
 | Spacing | 24 | 24 | 0 | 0 | 0 | 0 |
@@ -493,7 +493,7 @@ refusal block, which already says so for the same reason.
 | **Total** | **332** | **236** | **27** | **1** | **65** | **3** |
 
 Flexbox and Grid leads at 30 of 34, with only two absent roots left and both of those refused on
-policy rather than owed; then Interactivity at 30 of 40, Layout at 30 of 51, Borders at 28 of 34,
+policy rather than owed; then Layout at 33 of 51, Interactivity at 30 of 40, Borders at 28 of 34,
 and Effects at 27 of 34. Tables and Accessibility still have **no working root at all**.
 
 ⚠ **No category is `complete`, and SVG — which this section called the first one to be — is 2 of 3.**
@@ -891,8 +891,9 @@ holds it to them:
 - `[expires-on <Namespace.Type>.<Member>]` — this refusal stands only while that member does not
   exist. ⚠ **A tripwire, not a proof**: whoever eventually builds the thing picks the name, and a
   different name leaves the clause green for ever. It is here because some refusals have no root to
-  hang on — `mix-blend`'s surviving half is a fact about a struct — and where both are available the
-  root is the one to name.
+  hang on — `mix-blend`'s surviving half was a fact about a struct — and where both are available the
+  root is the one to name. ⚠ That first anchor has since fired exactly as designed: `UiLayer.Blend`
+  landed, the clause resolved, and the run went red on a note nobody had thought about for a month.
 - `[expires-when-read <css-property>]` — this refusal stands only while **nothing in the engine reads
   that property**. Exact, like the first, and for the same reason: its condition is the *same
   measurement* `InertProperties.txt` expires on, taken by `UtilityConsumptionProbe` from a real frame.
@@ -1378,16 +1379,17 @@ Five of the names in that list had no family: **`space`**, **`divide`**, **`mix-
 **`origin`**, **`scroll`**. This was not a Tailwind-parity gap; it was doc 09 disagreeing with the
 code, which is the thing `docs/overview.md` exists to catch and did not.
 
-**Settled per family, with the reason, which is what C6 asked for.** Two were written and three were
-struck from doc 09's list, and the split is not a matter of effort — it is whether any consumer reads
-the property. Each of the three was *measured* inert through `UtilityConsumptionProbe.Channels`, over
+**Settled per family, with the reason, which is what C6 asked for.** ⚠ Two were written, three were
+struck from doc 09's list, and **all three of those refusals have since expired** — the split was
+never a matter of effort, it is whether any consumer reads the property, and building the consumer is
+what moved each of them. Each of the three was *measured* inert through `UtilityConsumptionProbe.Channels`, over
 all twelve scenes and at every value the family could emit, rather than argued from a grep.
 
 | root | verdict | why |
 | --- | --- | --- |
 | `space-x/y-*` | **written** | `margin-inline-end` and `margin-bottom` are read; the family needed a compound selector, not a reader |
 | `divide-x/y-*`, `divide-<color>` | **written** | `border-inline-end-width`, `border-bottom-width` and the four `border-color` longhands are read |
-| `mix-blend-*` | **refused** | `mix-blend-mode` moves no channel. ⚠ Half of the reason as written here has expired and the other half named the wrong seam: the offscreen target arrived with the compositor, and the channel a blend mode needs is on `UiLayer` beside `Alpha`, not on `DrawCommand`. See Part 9, Bucket 2 |
+| `mix-blend-*` | **written** ✅ | ⚠ Refused here as moving no channel, and every part of that refusal has now been retired — including the correction that replaced it. `UiLayer.Blend` carries all sixteen of CSS Compositing 1 § 5.1's modes, `DrawListBuilder` opens a group for one, and `SoftwareUiRasterizer` applies it. `isolation` came with it. The one thing still owed is the device composite, which is a shader variant rather than a channel. See Part 9, Bucket 2 |
 | `origin-*` | **written** ✅ | ⚠ Refused here as *unobservable*, and the last clause of that refusal — "`scale` and `rotate` are refused under **#23**" — was its expiry condition. Both are implemented now, `TransformReader` reads `transform-origin` into the point they turn about, and the family is registered. The refusal also needed a *scene*: the property is invisible without a transform whose fixed point matters, so `translated` could never have seen it and the new `turned` scene is what does — the seventh entry on `UtilityConsumptionProbe`'s list of arrangements that were missing |
 | `scroll-*` | **22 of 32 written** ✅ | Part 8 § 3, discharged by **A18**. `ScrollView` reads `scroll-margin-*`, `scroll-padding-*`, `scroll-behavior` and `overscroll-behavior*` now, so the roots are registered against real readers rather than as properties on a box. The four block roots stay absent (`space-y`'s reason); `snap-*` is registered now against the snapping behaviour A18 could not have used, and of `scrollbar-*` only `scrollbar` is written — see Part 8 § 3 |
 
@@ -1550,15 +1552,26 @@ property the mutation does not touch — is where injecting `all` finally change
 as `gridded` and `inlined`: a green gate is a claim about the scenes as much as about the engine.
 
 ⚠ **Three limitations found while proving it — the header said two and the list has always had
-three, which is the smaller of the two things wrong with this paragraph.** All three were real; one is
-closed.
+three, which is the smaller of the two things wrong with this paragraph.** All three were real; two
+are closed.
 
-- **A transition only runs where the previous computed style *also held the property*.** `Observe`
-  reads the displayed value out of `before`, and a cascade with no computed-value stage has nothing
-  to offer for a property the element did not previously declare — so fading `margin-left` from an
-  implicit `0` does not happen, while fading it from a declared `0px` does. That is why the three
-  rows come back as `paint` consumers and not `layout` ones: the probe's mutation adds a `margin-left`
-  that was not there before, and only its `background-color` change had both ends.
+- ✅ **A transition only ran where the previous computed style *also held the property* — closed.**
+  `Observe` read the displayed value out of `before`, and a cascade with no computed-value stage had
+  nothing to offer for a property the element did not previously declare — so fading `margin-left`
+  from an implicit `0` did not happen, while fading it from a declared `0px` did.
+  ⚠ **What made this look bigger than it is was reading the table as a design choice.** It is not:
+  two checkable rules decide every entry. A property qualifies when **it does not inherit** — because
+  `StyleResolver` materialises inheritance into the computed style, so an inherited property the
+  element did not declare is *already there*, with the value it really computes to, and an entry for
+  `color` would fade every label out of the user agent's black — and when **its initial value is one
+  `StyleValue.Lerp` can travel from**, because a keyword initial (`left: auto`, `filter: none`)
+  interpolates discretely in CSS too, so an entry would buy a jump at the halfway mark in place of no
+  transition. `InitialValues` is the table; anything outside it keeps the snap it had.
+  ⚠ **And the half that is more visible in a real interface was the reverse one.** `Observe` looped
+  over the *new* style's properties, so a `:hover` rule that adds a property — which leaves it out of
+  the computed style again the moment the pointer goes — faded in and never faded back. That
+  asymmetry cannot appear in a fixture that only ever adds a class, which is what every transition
+  fixture here did. `InitialValueTransitionTests` holds both halves and both sabotages.
 - ✅ **The `transition` utility did nothing on its own — closed.** Vixen's family emitted
   `transition-property` and stopped; Tailwind's also emits a 150 ms duration and a timing function.
   ⚠ **The consumption gate could not have caught it and it is worth being exact about why**: that gate
@@ -1570,12 +1583,24 @@ closed.
   ⚠ **Only the duration was missing**: CSS's initial timing function is already `ease`, so emitting
   one would buy nothing and would overwrite the `ease-*` beside it for the same ordering reason.
   `TransitionUtilityTests` holds all three claims, reading the width between the endpoints.
-- **A fading inherited value does not reach the children.** The animator is a tier over the finished
-  cascade, so `StyleUpdater` inherits from the parent's *cascaded* style and the overlay is applied
-  per element afterwards — a panel fading its `color` hands its descendants the destination on the
-  first frame while the panel itself travels, and a descendant cannot start its own transition
-  because `transition-*` do not inherit. Fixing it means the overlay participating in inheritance,
-  which is a change to the order of the pass rather than to the animator, and is not A20's.
+- **A fading inherited value does not reach the children** — still open, and the two ways to close
+  it are worth writing down because they are not equivalent. The animator is a tier over the finished
+  cascade: `StyleUpdater.Resolve` inherits from the parent's *cascaded* style (`styles[parent]`) and
+  `UiDocument.Apply` overlays the running values per element afterwards. So a panel fading its
+  `color` hands its descendants the destination on the first frame while the panel itself travels,
+  and a descendant cannot start its own transition because `transition-*` do not inherit.
+  ⚠ **The obvious fix is the expensive one.** Making `StyleUpdater.Resolve` inherit from the parent's
+  *overlaid* style is three lines and changes what a stored `ComputedStyle` is: it would then move
+  every frame for every descendant of anything animating, so the sharing cache stops sharing, and
+  `Announce` — which is a comparison, not an event — sees a change every frame and re-targets the
+  descendant's own transitions continuously.
+  ⚠ **The cheaper one is a heuristic and needs a decision rather than a patch.** `UiDocument.Apply`
+  already walks parent-to-child with the overlaid style in hand, so it could push each property the
+  parent is *currently transitioning* down onto descendants that inherit it. Telling "the child
+  inherited this" from "the child declared the same value" is what it cannot do — a `ComputedStyle`
+  does not record which — so the test would be "the child's value equals the parent's destination",
+  which is right in every case anyone writes and is still a guess about a case nobody has named.
+  Left open on purpose: choosing between them is a decision about what a stored computed style *is*.
 
 ### F11 · The whole of `@media` was evaluated against a surface that does not exist ✅ *closed*
 
@@ -1711,15 +1736,16 @@ glyph advances and the glyph comparison catches it, so this is a note and not a 
 | Prefix (`tw:flex`) | ✅ | ⛔ | |
 | Two media variants on one utility | nests | ✅ nests | A15 |
 
-The 51 Vixen covers: `hover focus focus-visible focus-within active disabled enabled checked first
-last only odd even empty first-of-type last-of-type only-of-type dark ltr rtl group peer data aria
+The 54 Vixen covers: `hover focus focus-visible focus-within active disabled enabled checked first
+last only odd even empty first-of-type last-of-type only-of-type read-only placeholder-shown
+indeterminate dark ltr rtl group peer data aria
 not nth nth-last nth-of-type nth-last-of-type motion-safe motion-reduce contrast-more contrast-less
 forced-colors inverted-colors portrait landscape print noscript pointer-none pointer-coarse
 pointer-fine any-pointer-none any-pointer-coarse any-pointer-fine has` plus the five breakpoint names
-when the theme declares them. ⚠ It was 25 until A13's structural half and A14 landed; this figure is
-hand-kept and nothing checks it, so it is spelled out as a list rather than as a number for the
-reason two paragraphs of Part 0 give about the family count — a bare figure beside a table nobody
-regenerates is the copy that rots.
+when the theme declares them. ⚠ It was 25 until A13's structural half and A14 landed, and 51 until
+A13's three form states; this figure is hand-kept and nothing checks it, so it is spelled out as a
+list rather than as a number for the reason two paragraphs of Part 0 give about the family count — a
+bare figure beside a table nobody regenerates is the copy that rots.
 
 ⚠ **The bucket sizes below do not add up to the difference, and forcing them to would be the
 dishonest arithmetic rather than the honest one.** The 88 is a count of Tailwind's variant
@@ -1729,18 +1755,28 @@ and three keys here. Each bucket says what it is about; none of them is a share 
 What is left falls into three quite different kinds, and lumping them together is how this gets
 mis-sized:
 
-- **Seventeen are a table entry plus an element-state bit** the control library has to set:
-  `target`, `open`, `required`, `optional`, `valid`, `invalid`, `read-only`, `placeholder-shown`,
-  `indeterminate`, `default`, `autofill`, `in-range`, `out-of-range`, `visited`, `inert`,
-  `user-valid`, `user-invalid`. ⚠ **This bucket said twenty-two and "none needs a matcher change",
-  and both halves were wrong.** Five of the twenty-two — `empty`, `not-*`, `nth-*`, `nth-last-*` and
-  `*-of-type` — are structural and are registered now, and the of-type family was precisely the one
-  that *did* need a matcher change: a child index is stored on every element and an of-type index is
-  a position among the siblings sharing a tag, which nothing stored. It reads as a table entry
-  because `:nth-of-type(n)` and `:nth-child(n)` agree on every document whose children all carry one
-  tag. ⚠ Two of the seventeen want **refusing** rather than building — `visited` and `target` are
-  about a navigation model Vixen does not have — and `open` needs the CSS parser before it needs a
-  bit, since ExCSS 4.3.2 returns `:open` as an `UnknownSelector`.
+- **Fourteen are a table entry plus an element-state bit** the control library has to set — and
+  ⚠ **eleven of those fourteen are refusals rather than work**, which is the shape this bucket has
+  never had written down. ⚠ **It said twenty-two and "none needs a matcher change", and both halves
+  were wrong.** Five of the twenty-two — `empty`, `not-*`, `nth-*`, `nth-last-*` and `*-of-type` —
+  are structural and are registered; the of-type family was precisely the one that *did* need a
+  matcher change, because a child index is stored on every element and an of-type index is a position
+  among the siblings sharing a tag, which nothing stored. It reads as a table entry because
+  `:nth-of-type(n)` and `:nth-child(n)` agree on every document whose children all carry one tag.
+  Three more are registered now — `read-only`, `placeholder-shown` and `indeterminate` — with bits on
+  `ElementState`, arms in `SelectorCompiler` and writers in `TextField`, `CheckBox` and
+  `ProgressBar`. ⚠ **A table entry is worth nothing without a writer**, which is the half the sizing
+  missed: a pseudo-class compiled against a bit no control sets resolves, indexes and matches
+  nothing, and passes every scene in `VariantCoverageTests` — so the writers have a test file of
+  their own. What is left, per reason rather than as a count:
+    - **no validation model anywhere in `Vixen.Ui.Controls`** — `required`, `optional`, `valid`,
+      `invalid`, `user-valid`, `user-invalid`, `in-range`, `out-of-range`. Eight of the fourteen, one
+      missing concept.
+    - **no navigation model** — `visited` and `target`, ⛔ refused rather than owed.
+    - **one each** — `autofill` needs a credential store, `default` needs a form, `inert` needs a
+      subtree flag nothing carries.
+    - **`open` is a parser problem before it is a state bit** — ExCSS 4.3.2 returns `:open` as an
+      `UnknownSelector`, so a bit for it would reach a compiler that never sees the pseudo-class.
 - **Seven need pseudo-elements to mean something** — F6.
 - **The media features are done** — A14. ⚠ The bucket said "thirteen … each one condition in
   `MediaQuery`" and it listed twelve, of which **two needed no condition at all**: `portrait` and
@@ -2924,7 +2960,7 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A10 ✅ | `oklch()`/`oklab()` colour syntax, both notations, `none`, and every angle unit | `Vixen.Ui.Styling` | done | — |
 | A11 🟢 | Backgrounds. **`linear-gradient()`, `radial-gradient()` and `conic-gradient()` all paint**: `background-image` is parsed into `BoxStyle`, all eight direction keywords with CSS's corner rule, all four angle units, both colour notations, two or three stops, arbitrary stop positions inside or outside the box, `in srgb` / `in srgb-linear` / `in oklab`, and it layers over `background-color` as CSS does. `bg-radial` and `bg-conic` are assemblers now, and every assembler emits `in oklab` for v4 parity. Everything else is *refused loudly* rather than approximated — see `GradientRefusal`. `UiShape` grew 80 → 112 bytes; `UiShapeLayoutTests` and `CheckShaders` are what keep its four files in step. **Owed:** an explicit radial/conic centre, `bg-conic-<angle>` (the parser and shader do `from <angle>`; the *utility* needs a numeric family), `background-position`/`-size`/`-repeat`, and gradient text — see [what a third stop cost](#what-a-third-stop-cost) | `DrawListBuilder`, `BackgroundGradient`, `UiShape`, `Ui.rvn` | **#43** | 0.15 |
 | A12 🟡 | Pseudo-elements materialised — `::before`/`::after` with `content` | `StyleRuleSet`, `UiDocument` | — | 0.5 |
-| A13 🟡 | **The five structural ones landed and the seventeen form states did not, and that split is the shape of the item rather than how far it got.** `empty`, `not-*`, `nth-*`, `nth-last-*` and the whole `*-of-type` family are registered, each with a positive and a negative computed-value scene. ⚠ **The item's own claim that "none needs a matcher change" was wrong, and wrong about exactly the family that looks most like a table entry**: an of-type index is a position among the siblings *sharing a tag*, which nothing stored, so `PositionTest` grew five members and `StyleTree` learned to count them. The trap it hides behind is that `:nth-of-type(n)` and `:nth-child(n)` pick the same element out of any run of one tag — so a fixture of five `li` proves nothing, and the scenes here mix `p` and `div` for that reason. ⚠ **`not-*` is a bare-suffix negation only**: `not-sm:` is an at-rule in v4 and `not-group-hover:` an ancestor, and negating either is a different production, so both are *not variants* rather than variants meaning something else. **Owed**: the seventeen that need an element-state bit — and two of those (`visited`, `target`) want refusing rather than building, since Vixen has no navigation model to make either true. ⚠ And `:open` is a *parser* problem before it is a state bit: ExCSS 4.3.2 hands it back as an `UnknownSelector`, so a state flag for it would reach a compiler that never sees the pseudo-class | `Variants`, `ElementState` | — | 0.15 of 0.3 |
+| A13 🟡 | **Five structural, then three form states, and the fourteen left are not one item.** `empty`, `not-*`, `nth-*`, `nth-last-*` and the whole `*-of-type` family are registered, each with a positive and a negative computed-value scene. ⚠ **The item's own claim that "none needs a matcher change" was wrong, and wrong about exactly the family that looks most like a table entry**: an of-type index is a position among the siblings *sharing a tag*, which nothing stored, so `PositionTest` grew five members and `StyleTree` learned to count them. The trap it hides behind is that `:nth-of-type(n)` and `:nth-child(n)` pick the same element out of any run of one tag — so a fixture of five `li` proves nothing, and the scenes mix `p` and `div` for that reason. ⚠ **`not-*` is a bare-suffix negation only**: `not-sm:` is an at-rule in v4 and `not-group-hover:` an ancestor, so both are *not variants* rather than variants meaning something else. **Then `read-only`, `placeholder-shown` and `indeterminate`** — `ElementState` grew three bits, `SelectorCompiler` three arms plus `:read-write` as a negation of the first (`:enabled`'s arrangement), and `TextField`, `CheckBox` and `ProgressBar` write them. ⚠ **A table entry is worth nothing without a writer, which is what the sizing missed**: `:read-only` compiled against a bit no control sets resolves, indexes and matches nothing, and would pass every row in `VariantCoverageTests` — so `ElementStateBitTests` is the writer's side and the end-to-end one. ⚠ And two beliefs were refuted on the way: `TextField.ReadOnly` argued a class rather than a state because `ElementState` holds *transient* conditions, but `Disabled` and `Checked` are modes on the same terms and have been in the enum since it was written; and `:placeholder-shown` is **not** the `empty` class renamed — it needs a placeholder *and* no value, where the class is set on either. **Owed: fourteen, and eleven of them are refusals rather than work.** There is no validation model anywhere in `Vixen.Ui.Controls`, so `required`, `optional`, `valid`, `invalid`, `user-valid`, `user-invalid`, `in-range` and `out-of-range` have nothing to be true of; there is no navigation model, so `visited` and `target` are refused; `autofill` needs a credential store, `default` needs a form, `inert` needs a subtree flag nothing carries. ⚠ `open` is a *parser* problem before it is a state bit: ExCSS 4.3.2 hands `:open` back as an `UnknownSelector` | `Variants`, `ElementState`, `TextField`, `Toggles`, `Range` | — | 0.22 of 0.3 |
 | A14 ✅ | **Done, as sixteen keys rather than thirteen conditions, and two of them were already answerable.** `portrait` and `landscape` are `(orientation: …)`, which `MediaQuery` has always derived from the surface's own width and height — a table entry and no condition. The rest brought five axes onto a new `MediaPreferences` value: reduced motion, contrast (⚠ four values, because `custom` is neither more nor less and collapsing it would apply every high-contrast rule to a palette the user chose), forced colours, inverted colours, and the two pointer families. ⚠ **`PointerCapability` needed a fourth member for a reason that is this repository's commonest bug in a new disguise**: CSS's `pointer: none` is the empty capability set, and the empty set is also what a field nobody assigned holds — so a zero meaning "no pointing device" would make `pointer-none:` the rule that always applies under `default(MediaContext)`. Zero is `Unspecified` and reads as a mouse; `NoDevice` carries a bit so the stated emptiness can be told from the unstated one. ⚠ **`print:` and `noscript:` resolve and can never match, deliberately** — paged media is out of scope for good (Part 8 § 1) and a Vixen document always scripts — so the gate names them as the two entries that must have a negative scene and must *not* have a positive one, and a separate test proves the class is still generated, which is what tells "always false" from "not a variant". ⚠ **Owed, and filed separately: nothing sets any of it.** `UiSurface.Preferences` is exposed and defaults to "nothing unusual", exactly as `UiSurface.ColorScheme` has since it was added — and `Vixen.Ui.Desktop` reads the swapchain's gamut and has never read the system appearance, so `dark:` under the media strategy has never been true in a real application either. That is one hole in the platform layer with two victims | `MediaQuery`, `MediaPreferences`, `UiSurface` | — | 0.2 |
 | A15 ✅ | **Nested conditional-group rules — done, and for a tenth of the estimate, because the cascade already did it.** `StyleSheetLoader.LoadMedia` has always recursed into the rule it matched, so `@media A { @media B { … } }` loaded and conjoined; the thing that could not nest was `UtilityGenerator`, carrying one `string?` for the whole variant stack. It carries an ordered, deduplicated chain now and emits a trie over those chains, so `sm:md:p-4` and `dark:md:p-4` nest and share their outer wrapper with the shallower utilities. **Nesting cost the rule representation nothing at the time** — though a `StyleRule` carries a
 conditional-group id since per-surface media landed; see F11. ⚠ The real finding was next door: see § D6 | cascade | — | done |
@@ -2964,7 +3000,7 @@ mixed-content paragraph sit behind it.
 | C3 ✅ | `@theme` replaces `vixen.ui.yaml`; `ThemeTokens` reads a stylesheet, and v4.3.3's palette ships as the engine default in oklch (D1, D4) | 0.5 |
 | C4 ✅ | Cross-assembly token sharing, shape C (Part 3) — `VixenStyleTokens` names another project's `@theme`; `Vixen.Editor.Ui.Styling.targets` makes joining the editor's theme one `Import`; guarded by `SharedThemeTests`, which is cross-assembly because no per-project suite can be | 0.3 |
 | C5 🟡 | The gate: a family emitting a property no consumer **acts on** fails the build (#11) — ✅ landed as `UtilityConsumptionGateTests` with its expiring allow-list. ⛔ Still owed: `Tools/Vixen.TailwindParity` regenerating the TSV from a committed registry snapshot, which is the half that needs the Tailwind registry and cannot be a test | 0.2 |
-| C6 ✅ | Doc 09's five missing families — `space` and `divide` written (a new `Family.Scope`, so the generator can emit `& > :not(:last-child)`); `mix-blend` and `origin` refused as measured-inert and struck from doc 09's list; `scroll` deferred to A18 per Part 8 § 3. See F9 | 0.25 |
+| C6 ✅ | Doc 09's five missing families — `space` and `divide` written (a new `Family.Scope`, so the generator can emit `& > :not(:last-child)`); `mix-blend` and `origin` refused as measured-inert and struck from doc 09's list; `scroll` deferred to A18 per Part 8 § 3. ⚠ All three refusals have since expired and all five families are registered — `origin` in F9, `scroll` under A18, `mix-blend` (with `isolation`) in Part 9 Bucket 2. See F9 | 0.25 |
 | C7 🟢 | The ~120 families that are a table line each, once A and B land | 0.75 |
 | C8 🟡 | The families that are their own small feature: `mask-*`, gradients, `animate-*` | 0.75 |
 | | **C total** | **3.2** |
@@ -3195,91 +3231,124 @@ layout effect and needs `LayoutStyle` to carry the keyword, which it does not. S
 is right in that case too and strictly closer than painting it in full, so this is a smaller gap
 than the one it replaced, not a new one.
 
-### Bucket 2 — nothing exists that could observe it. `isolation`. ⛔ **Refused.**
+### Bucket 2 — nothing existed that could observe it. `isolation`, `mix-blend`. ✅ **Written.**
 
-The compositor does make real groups now — `DrawListBuilder` opens one for `opacity < 1`, for a
-`filter`, and for a `mask-image`, and both the GPU and software executors render a real offscreen
-surface and composite it back. So the obvious reading is that `isolation: isolate` is "open a
-layer", and it is available today.
+**What this bucket said, and what it turned out to be.** `isolation: isolate` looked available: the
+compositor makes real groups, so "open a layer" is a line of code. ⚠ **It was available and
+unobservable, which is not the same as working** — `isolation`'s only defined effect is on a
+descendant's `mix-blend-mode`, and `mix-blend-mode` existed at no layer at all. Registering it would
+have added a property that resolves, computes a value and moves no channel in any scene, which is
+the defect this document exists to prevent. So the order was forced: the blend first, the isolation
+after it.
 
-⚠ **It is available and it is unobservable, which is not the same as working.** `isolation`'s only
-defined effect is on `mix-blend-mode`: it stops a descendant blending with what is outside the
-group. **`mix-blend-mode` does not exist at any layer** — not parsed, not stored, no channel on
-`DrawCommand`, none on `UiLayer`, no shader path, no branch in the software rasteriser, whose blend
-is fixed at premultiplied source-over in both executors. `background-blend-mode` is absent too, and
-`backdrop-filter` — which *has* landed — is no help: it filters what is behind a group rather than
-changing how the group blends with it, so it gives `isolation` nothing to isolate. Registering `isolation` would add a property that resolves,
-computes a value and moves no channel in any scene — the defect this document exists to prevent.
+**Both are written now.** `UiBlendMode` is CSS Compositing 1 § 5.1's sixteen modes, `UiBlend.Apply`
+is their arithmetic (the separable twelve and the four non-separable ones, with § 5.3's `ClipColor`,
+`SetLum` and `SetSat`), `UiLayer.Blend` is the channel, `DrawListBuilder` reads `mix-blend-mode` as a
+sixth reason to open a group and `isolation: isolate` as a seventh, and `SoftwareUiRasterizer`
+applies the blend at the composite draw.
 
-⚠ **Two doc comments already argue this and one of them is now half stale.** `DrawListBuilder`'s
-`ElementFilter.Any` remark justifies departing from CSS for an identity filter with "the engine has
-no other observable that depends on the isolation", which is the same argument reached
-independently. But the *older* refusal of `mix-blend-mode` is justified partly with "there is no
-offscreen target to blend into", and that half is no longer true — the compositor has them.
+⚠ **Three claims made while refusing this were wrong, and the third was made by the correction that
+replaced the first two.**
 
-⚠ **And the surviving half names the wrong seam, which matters because it is what the expiry clause
-watches.** "No blend channel on a `DrawCommand`" reads as though the fix were a field on the command,
-and a per-command blend would be a *defect* of exactly the shape `LayerPush`'s own remark already
-warns about for opacity: CSS Compositing 1 § 5.1 blends an element's **rendered result** with its
-backdrop, so an element's background, its border and its text must first composite source-over with
-each other and with its children, and only the finished group blends. Blending each command
-separately gives a different picture the moment two of them overlap — and every bordered element has
-two. So `mix-blend-mode` is a sixth reason to open a group, and the channel belongs on `UiLayer`
-beside `Alpha`, `Blur`, `Filter` and `MaskCount`, which is the seam every other group-wide effect
-already occupies. The clause moved with it.
+1. *"There is no offscreen target to blend into."* Expired when the compositor landed.
+2. *"There is no blend channel on a `DrawCommand`."* Named the wrong seam — a **per-command** blend
+   is a defect, because § 5.1 blends an element's *rendered result*: a bordered element's background,
+   border and text composite source-over with each other first and only the finished group blends.
+   Every bordered element is two commands, so the two readings differ on the commonest element there
+   is. `MixBlendModeTests.A_bordered_element_blends_its_result_rather_than_each_command` is that
+   distinction as two pixels.
+   ⚠ The correction drawn from it — "the channel is on `UiLayer` and **not** on `DrawCommand`" — is
+   half wrong as stated. There *is* a `DrawCommand.Blend`, because a `LayerPush` is a `DrawCommand`
+   and that is how every other group-wide effect reaches the geometry builder; what must not exist is
+   a blend the *executors* read per command, which is a different statement about the same field.
+3. *"The composite must read its destination, which on the GPU is a subpass input, a framebuffer
+   fetch or a copy the UI pass does not have."* ⚠ **Refuted.** § 5.1 defines the whole feature as a
+   change of *source* colour followed by an ordinary source-over —
+   `Cs' = (1 − αb)·Cs + αb·B(Cb, Cs)` — so there is no read-modify-write and no second blend state
+   anywhere. The software rasteriser reads the destination because it happens to own the buffer; on a
+   device the backdrop can arrive as a **texture**, and `UiRenderer.Capture` already produces exactly
+   that picture for `backdrop-filter`. The shape is there. What is missing is a composite fragment
+   that samples two textures.
 
-⚠ **The sizing also missed the half that is not like `Alpha`: the composite has to READ its
-destination.** Fading a surface in is a source-over draw that never looks at what is under it, which
-is why `Alpha` cost one field and no new capability. A blend mode is a function of both operands, so
-the composite needs the backdrop under its own quad — free in `SoftwareUiRasterizer`, which already
-has the destination buffer in hand, and on the GPU a subpass input, a framebuffer fetch or a copy of
-the target, none of which the UI pass has today. `isolation` then bounds *which* backdrop, so a
-faithful pair is nested surfaces rather than one.
+**`isolation` cost what its own refusal predicted.** A nested group's draws are executed into its
+parent's surface, so a blended descendant of an isolated ancestor mixes with that ancestor's
+accumulation and can never reach the page behind it — the boundary does the work, which is what CSS
+Compositing 1 § 3 says a stacking context is for. ⚠ And where the ancestor painted nothing, that
+accumulation is transparent black, which § 5.1 weights the blend to zero against: a blend against
+nothing is `normal`. That is why an isolated wrapper makes a `mix-blend-multiply` child come out
+*unblended* rather than come out black, and it is the assertion the isolation test is built on.
 
-**Cost to close:** not `isolation` — `mix-blend-mode` first, and it is a channel through four layers
-(a field on `UiLayer`, a batching key, a shader variant in the composite that can sample its
-destination, matching arithmetic in `SoftwareUiRasterizer.Composite`) plus the separable and
-non-separable blend formulae. `isolation` is then perhaps twenty lines on top and cannot sensibly
-precede it.
+**Still owed: the device.** `UiRenderer` submits a blended composite source-over, so the picture on
+the GPU path is the one the frame would have had without the declaration. That is the same bargain
+`UiLayer.Blur` states for a consumer that ignores it, and it needs an observer for
+`Backdropped`'s reason and a sharper version of it — a blend over a flat backdrop is frequently the
+identity (`multiply` against white, `screen` against black), so neither a screenshot nor a comparison
+of the two executors can tell. `UiRenderer.Unblended` counts it. The `mix-blend` row stays `partial`
+until that number can be zero on a frame that asks for a blend.
 
-### Bucket 3 — the code exists and an *input* does not. `object-fit`, `object-position`, `contain`.
+⚠ **`background-blend-mode` is not this and stays refused.** It blends an element's background
+*layers* with each other, and there is one background layer for them to blend.
 
-⚠ **The guess going in was that these are about the sampling rectangle. The sampling rectangle is
+### Bucket 3 — the code existed and an *input* did not. `object-fit`, `object-position` ✅; `contain` ⛔.
+
+⚠ **The guess going in was that these are about the sampling rectangle. The sampling rectangle was
 already there and already honoured** — `DrawCommand.Source` is a UV sub-rect, it survives to the
 geometry builder, and negative extents work (`Viewport` flips vertically with one). Nine-slice
 already relates a destination rect to a source rect, and `Icon.Fit` is `object-fit: contain` plus
-`object-position: center` written out in path space. None of that is the blocker.
+`object-position: center` written out in path space. None of that was the blocker.
 
-**The blocker is that `Vixen.Ui` cannot see the texture's intrinsic size.** `Image.Texture` is an
-opaque `ulong` the renderer owns; the control does no measurement, has no measure hook, and takes
-its box entirely from `width`/`height`/`aspect-ratio`. `object-fit` is *defined* as a relation
-between the intrinsic ratio of the replaced content and the box — so `contain`, `cover`,
-`scale-down` and `none` are all undefined here, and only `fill`, the initial value, is expressible,
-which is what already happens. ⚠ **This is a layering decision, not an oversight**, and the honest
-close is an app-supplied intrinsic size on `Image` (the asset layer knows it) rather than reaching
-through the abstraction from the UI. That is an API design question and a decision about who fills
-it in, not a property registration. **Sized: small once the intrinsic size exists, and the intrinsic
-size is the actual work.** Note a video is an `Image` here, so this covers the classic
-non-matching-aspect case.
+**The blocker was that `Vixen.Ui` cannot see the texture's intrinsic size,** and ⚠ **that made the
+close an API decision rather than an algorithm.** `Image.Texture` is an opaque `ulong` the renderer
+owns, and this assembly does not reference `Vixen.Graphics` — which is the whole bargain, not an
+accident to route around. So the intrinsic size is **supplied**: `Image.IntrinsicSize`, in the
+texture's own pixels, written by whoever registered the texture, because the asset layer is the layer
+that knows. **Zero means unknown**, and unknown draws `fill` whatever the class says — which is not a
+fallback for a missing feature but CSS's own answer, since Images 3 § 5.5 defines every other keyword
+as a relation between the intrinsic ratio and the box and gives `fill` for content that has no
+intrinsic dimensions.
 
-⚠ **`object-position` is behind `object-fit` and carries one half of its own**, which is worth
-knowing before the pair is sized as one item. It is refused for `object-fit`'s reason first — a
-position says where the sampled rectangle sits in the box, and with no intrinsic size there is never
-anything left over to place — but four of Tailwind's nine position classes are *two-word* values
-(`object-left-top`), and `UiDocument.KeywordOf` answers `null` to a two-word value by construction.
-So that root also wants a `<position>` reading beside the four `StyleAccess` has, where `object-fit`
-wants none. Both rows now carry the measurement in the ledger, and the pair is tripwired:
-`object` expires on `Image.IntrinsicSize` and `object-*` expires with `object`.
+⚠ **It sizes the picture and not the element, and that half of CSS's replaced-element model is
+deliberately still absent.** A browser lets an `<img>` with no width take its box from the intrinsic
+size; an unsized `Image` here is still a zero-height box, because sizing a replaced element from its
+content needs a measure hook the control has no equivalent of. What landed changes what is drawn
+*inside* a box, not what the box is.
+
+**The arithmetic is one arrangement for all five keywords,** and the reason it can be is that the
+answer is always "place a rectangle, then clip it to the box". The tempting shape is two cases —
+shrink the *destination* for `contain`, narrow the *source* for `cover` — and it is two chances to
+get the position arithmetic subtly different. ⚠ `none` is the case that makes the two-branch version
+wrong outright: a 64 × 16 picture in a 40 × 40 box overflows on one axis and underfills on the other
+at the same time.
+
+⚠ **`object-position` carried a second blocker of its own, and sizing the pair as one item would have
+missed it.** Four of Tailwind's nine position classes are *two-word* values — `object-left-top`
+computes to `left top` — and `UiDocument.KeywordOf` answers `null` to anything that is not one bare
+identifier, so those four were unreadable by every accessor `StyleAccess` had. The root wanted a
+`<position>` **reading** and not another keyword table. `UiDocument.PositionOf` is the fifth accessor,
+and it is the *same* parser `background-position` and `radial-gradient(at …)` use, because CSS Values
+4 § 8.2 gives all three one grammar and two readers of it would be two sets of keyword handling to
+keep in step. ⚠ The extents it resolves against are the **slack** rather than the box: a 50% offset
+centres the concrete object size, which is half of what is left over, and passing the box's own size
+would put the middle of a smaller picture at the middle of nothing.
+
+⚠ **And the consumption gate needed a scene before it could see any of this.** `object-fit` and
+`object-position` are the only properties in the registry read by a *replaced element*, and no probe
+scene had one — the eighth entry on `UtilityConsumptionProbe`'s own tally of arrangements that were
+missing, and the one that would have made a finished feature measure `inert`. The `pictured` scene's
+`#probe` **is** an `Image` rather than holding one, because `object-fit` does not inherit, and it
+declares `object-fit: contain` itself so the injected `object-position` has slack to move in —
+`primed`'s lesson, one property along.
 
 `contain` is refused for a related reason and a worse one: **there is no containment concept in the
-layout store at all** — no property, no style slot, no branch — and no vocabulary to express the
-interesting half. Size containment means a box sizes as if it had no contents. ⚠ **Correcting a claim
-made in passing during the container-query work:** `LayoutUnit.Stretch` is *not* an enum member
-nothing references — `Tools/Vixen.YogaTestGen` emits it and two generated fixtures set it. It is one
-nothing *resolves*: `StyleLength.IsResolvable` admits only `Point` and `Percent`, so both fixtures
-pass with the keyword behaving as "undefined", and the two disagree about what it should mean
-(`Stretch_width` wants the containing block's width, `Stretch_flex_basis_column` wants its own
-content's height) — so resolving it closes one by opening the other.
+layout store at all** — no property, no style slot, no branch. That claim was re-checked against the
+tree rather than inherited: `LayoutStyle` has no field, `LayoutEnums` has no member, and no algorithm
+file mentions the word. ⚠ **Correcting a claim made in passing during the container-query work:**
+`LayoutUnit.Stretch` is *not* an enum member nothing references — `Tools/Vixen.YogaTestGen` emits it
+and two generated fixtures set it. It is one nothing *resolves*: `StyleLength.IsResolvable` admits
+only `Point` and `Percent`, so both fixtures pass with the keyword behaving as "undefined", and the
+two disagree about what it should mean (`Stretch_width` wants the containing block's width,
+`Stretch_flex_basis_column` wants its own content's height) — so resolving it closes one by opening
+the other.
 
 ⚠ **And the paragraph that used to sit here said three keywords were unimplemented, which stopped
 being true when the intrinsic pre-pass landed.** `MinContent`, `MaxContent` and `FitContent` *are*
@@ -3287,8 +3356,49 @@ resolved — `IsResolvable` is not the predicate that settles them, `StyleLength
 and `LayoutTree.Intrinsic.cs`'s whole-tree bottom-up pre-pass measures the node and substitutes a
 `Point` before the algorithm reads the slot. Reading a `NaN` out of `Resolve` as "unimplemented" is
 the mistake, and it is one this file made about its own store. **`Stretch` is the one left**, and
-`contain` is not behind it: containment is a concept the store does not have at all, which is a
-larger and separate item. This is also the layout half of the container-query coercion.
+`contain` is not behind it. This is also the layout half of the container-query coercion.
+
+#### What containment should be here, sized per kind
+
+⚠ **`contain` is one property with five independent effects, and the eight Tailwind classes are
+combinations of them — so sizing the root as one item is the mistake to avoid.** `contain-content` is
+`layout paint style`; `contain-strict` adds `size`. A registration that made three of the five real
+would leave both aggregate classes half working, which is the shape this document exists to refuse.
+Taken one at a time against this engine's own seams:
+
+| kind | what CSS asks for | the seam here | verdict |
+| --- | --- | --- | --- |
+| **size** | the box sizes as if it had no contents | `LayoutTree.Layout.cs`'s `MeasureNodeWithoutChildren`, which is *already* that computation for a childless node, plus `LayoutTree.Intrinsic.cs` so a content keyword on a contained box measures zero | **buildable, and the interesting half** |
+| **inline-size** | the same on one axis | the same seam, one axis | buildable with `size` |
+| **layout** | independent formatting context; a containing block for descendants | `LayoutTree.Absolute.cs` already picks a containing block per node | **buildable, and largely already true** — a flex or grid item is an independent formatting context by construction here, so the observable part is the abspos containing block, which `position: relative` already gives |
+| **paint** | descendants clipped to the padding box | `DrawListBuilder`'s `OverflowReader` and the clip stack | **buildable**, and the same clip `overflow: hidden` pushes |
+| **style** | counters and quotes are scoped to the subtree | — | ⛔ **refuse**: there are no counters and no `content` quotes in this engine, so every value of it computes and moves nothing. A class emitted for it would be inert by construction |
+
+**So the shape is: four of the five, and `style` refused in writing.** The order is forced by
+observability rather than by effort — `size` is the only one whose absence is visible on a fixture
+that does nothing else, and it is the one the aggregate classes are worth having for.
+
+⚠ **Size containment is not "skip the children", and reading it that way is how it gets built
+wrong.** A contained box still *lays its children out* — they are painted, they are hit-tested, they
+scroll. What it must not do is let them decide its own box. In this store that is a real distinction:
+`CalculateLayoutImpl` computes the node's measured dimensions and positions its children in one pass,
+so the intervention is to settle the box from `MeasureNodeWithoutChildren` first and then run the
+children against those dimensions as though they were `Exactly`. That is a change in the middle of
+the flex algorithm rather than at either end of it, and it is why this is not a table entry.
+
+⚠ **The instrument to build first, before any of it.** A contained box and an uncontained one draw
+the *same picture* wherever the children happen to fit — which is most fixtures — so a test whose
+box has an explicit `width` and `height` proves nothing about `contain: size` at all. The fixture has
+to be an auto-sized box with children that overflow it, where containment collapses the box to zero
+and its absence does not. `contain: paint` has the mirror-image trap: it is invisible unless a child
+overflows.
+
+**Sized:** `paint` is small and is the same clip that already exists. `layout` is small and is mostly
+a statement about what is already true, which is a reason to be careful that its test can fail.
+`size` and `inline-size` are the item, and they are a change inside the flex and block algorithms
+with an intrinsic-pre-pass half beside it. `style` is a refusal. The four buildable kinds are filed
+separately from this triage; the row stays `absent` until every keyword an aggregate class expands to
+is real, because a half-real `contain-strict` is worse than an absent one.
 
 ### Bucket 4 — the algorithm was never written. `columns`, the three `break-*`, `box-decoration-break`, `float`, `clear`.
 

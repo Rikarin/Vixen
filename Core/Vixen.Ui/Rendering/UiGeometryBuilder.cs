@@ -492,7 +492,8 @@ public sealed class UiGeometryBuilder {
                     command.Shadow,
                     command.Backdrop,
                     new Rectangle(command.X, command.Y, command.Width, command.Height),
-                    command.Transform
+                    command.Transform,
+                    command.Blend
                 )
             );
             return;
@@ -647,6 +648,11 @@ public sealed class UiGeometryBuilder {
         var layer = new UiLayer(open.Draw, draws.Count - open.Draw, bounds, open.Alpha) {
             Image = image,
             Blur = open.Blur,
+
+            // ⚠ Carried with no effect on the bounds, the surface or the quad, because a blend
+            // changes only what the composite's fragment arithmetic does with the destination — see
+            // `UiBlend.Apply`. It is the one field here that outsets nothing and schedules nothing.
+            Blend = open.Blend,
 
             // ⚠ <b>Carried with no outset of the group's bounds, and that is not the colour matrix's
             // reason.</b> A backdrop's Gaussian does move coverage — but it moves it within a surface
@@ -961,7 +967,8 @@ public sealed class UiGeometryBuilder {
         UiDropShadow? Shadow,
         UiBackdrop? Backdrop,
         Rectangle Box,
-        UiTransform? Transform
+        UiTransform? Transform,
+        UiBlendMode Blend
     );
 
     /// <summary>Puts every glyph the frame draws into the atlas, before any of it is read back.</summary>

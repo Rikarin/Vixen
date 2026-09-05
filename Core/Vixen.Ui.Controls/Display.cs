@@ -248,6 +248,43 @@ public sealed partial class Image : Control {
     /// <remarks>A frame with a hole in it — a selection outline, a window chrome over a viewport.</remarks>
     public bool HollowCentre { get; set; }
 
+    /// <summary>How big the picture actually is, in its own pixels. Zero where nobody said.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Supplied by the application rather than measured here, and that is a layering
+    ///         decision rather than an omission.</b> <see cref="Texture" /> is an opaque number the
+    ///         renderer owns — this assembly does not reference <c>Vixen.Graphics</c>, which is the
+    ///         whole bargain — so nothing on this side can ask a texture how big it is. The asset
+    ///         layer that registered it knows, and whoever writes <see cref="Texture" /> writes this
+    ///         beside it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Zero means unknown, and unknown means <c>object-fit: fill</c> whatever the
+    ///         stylesheet says.</b> CSS Images 3 § 5.5 defines every keyword but <c>fill</c> as a
+    ///         relation between the intrinsic ratio and the box, so with no ratio there is nothing to
+    ///         relate — <c>contain</c>, <c>cover</c>, <c>none</c> and <c>scale-down</c> are not merely
+    ///         unimplemented there, they are undefined. Stretching to the box is CSS's own answer for
+    ///         content with no intrinsic dimensions, so an application that never sets this sees
+    ///         exactly the picture it saw before the property existed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It sizes the <i>picture</i> and not the element</b>, which is the half of CSS's
+    ///         replaced-element model that is deliberately not here. A browser lets an
+    ///         <c>&lt;img&gt;</c> with no width take its box from the intrinsic size; this control
+    ///         still takes its box entirely from <c>width</c>, <c>height</c> and <c>aspect-ratio</c>,
+    ///         because sizing from content needs a measure hook the control has no equivalent of. So
+    ///         an unsized <c>Image</c> is still a zero-height box, and this changes what is drawn
+    ///         inside a box rather than what the box is.
+    ///     </para>
+    ///     <para>
+    ///         In the texture's own pixels rather than in UVs, unlike <see cref="SourceBorder" />:
+    ///         what <c>object-fit</c> needs is a <i>ratio</i>, and a ratio in UVs is always 1:1.
+    ///         ⚠ It is the size of the whole texture and not of <see cref="SourceRectangle" />'s cut —
+    ///         the cut is applied to it here, so a sprite sheet's cell fits by the cell's ratio.
+    ///     </para>
+    /// </remarks>
+    public Vector2 IntrinsicSize { get; set; }
+
     /// <inheritdoc />
     protected override void OnDraw(DrawContext context) {
         base.OnDraw(context);
@@ -257,7 +294,16 @@ public sealed partial class Image : Control {
         }
 
         if (Border.IsEmpty || SourceBorder.IsEmpty) {
-            context.DrawImage(context.Bounds, Texture, source: SourceRectangle);
+            var (destination, source) = Fitted(context.Bounds);
+
+            // ⚠ Nothing is drawn rather than a degenerate quad. `object-fit: none` on a picture wider
+            // than its box that `object-position` has pushed entirely outside it is a real
+            // arrangement, and a zero- or negative-extent rectangle would reach the geometry builder
+            // as a quad whose winding is the wrong way round.
+            if (destination.Width > 0f && destination.Height > 0f) {
+                context.DrawImage(destination, Texture, source: source);
+            }
+
             return;
         }
 
@@ -270,6 +316,121 @@ public sealed partial class Image : Control {
             hollowCentre: HollowCentre
         );
     }
+
+    /// <summary>Where the picture goes and which part of it shows, per CSS Images 3 § 5.5.</summary>
+    /// <param name="box">The element's content box.</param>
+    /// <returns>The rectangle to draw and the UV rectangle to sample.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One arrangement covers all five keywords, and the reason it can is that the answer
+    ///         is always "place a rectangle, then clip it to the box".</b> The tempting shape is two
+    ///         cases — shrink the <i>destination</i> for <c>contain</c>, narrow the <i>source</i> for
+    ///         <c>cover</c> — and it is two chances to get the position arithmetic subtly different.
+    ///         Here the concrete object size is placed in the box by <c>object-position</c> whether it
+    ///         is bigger or smaller, the result is intersected with the box, and the surviving part is
+    ///         mapped back into UV space. <c>none</c>, which can overflow on one axis and underfill on
+    ///         the other at the same time, is the case that makes the two-branch version wrong.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The UV mapping is affine and therefore survives a flipped
+    ///         <see cref="SourceRectangle" />.</b> A negative width is how this engine spells a
+    ///         mirrored sample — <c>Viewport</c> flips vertically with one — and multiplying a
+    ///         fraction of the placed rectangle by that width carries the sign through, so a flipped
+    ///         video still fits by the same rule. Clamping the extents to be positive first is the
+    ///         mistake that would silently un-flip it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>fill</c> returns the box and the whole cut without computing anything</b>, which
+    ///         is not thrift: it is the value CSS gives when there is no intrinsic size at all, so it
+    ///         has to be reachable without one — and it is the path every existing caller takes.
+    ///     </para>
+    /// </remarks>
+    (Rectangle Destination, Rectangle Source) Fitted(Rectangle box) {
+        if (IntrinsicSize.X <= 0f || IntrinsicSize.Y <= 0f || box.Width <= 0f || box.Height <= 0f) {
+            return (box, SourceRectangle);
+        }
+
+        if (fitProperty == 0) {
+            fitProperty = Document.PropertyId("object-fit");
+            positionProperty = Document.PropertyId("object-position");
+        }
+
+        // ⚠ The cut's own size, not the texture's. `SourceRectangle` is a fraction of the texture, so
+        // a sprite sheet cell that is a third as wide as the sheet has a third of its intrinsic width
+        // — and fitting by the sheet's ratio would letterbox every cell by the sheet's shape.
+        // Absolute, so a flipped cut has the ratio of the picture rather than a negative one.
+        var intrinsic = new Vector2(
+            IntrinsicSize.X * MathF.Abs(SourceRectangle.Width),
+            IntrinsicSize.Y * MathF.Abs(SourceRectangle.Height)
+        );
+
+        if (intrinsic.X <= 0f || intrinsic.Y <= 0f) {
+            return (box, SourceRectangle);
+        }
+
+        var contain = MathF.Min(box.Width / intrinsic.X, box.Height / intrinsic.Y);
+
+        var scale = Document.KeywordOf(Style, fitProperty) switch {
+            "contain" => contain,
+            "cover" => MathF.Max(box.Width / intrinsic.X, box.Height / intrinsic.Y),
+            "none" => 1f,
+
+            // ⚠ CSS defines this as the smaller of `none` and `contain` by CONCRETE SIZE, and because
+            // both preserve the ratio that is exactly the smaller scale. Written as the comparison
+            // rather than as a clamp so it still reads as the specification's rule.
+            "scale-down" => MathF.Min(contain, 1f),
+
+            // `fill`, an unrecognised keyword, and the property being absent, which are one answer:
+            // `fill` is the initial value, so a stylesheet that says nothing says this.
+            _ => 0f
+        };
+
+        if (scale <= 0f) {
+            return (box, SourceRectangle);
+        }
+
+        var size = intrinsic * scale;
+
+        // ⚠ Resolved against the SLACK and not against the box — see <c>UiDocument.PositionOf</c>.
+        // Centred when nothing said, which is CSS's initial `50% 50%` and not a house convention.
+        var slack = new Vector2(box.Width - size.X, box.Height - size.Y);
+
+        var offset = Document.PositionOf(Style, positionProperty, slack.X, slack.Y)
+            ?? new Vector2(slack.X * 0.5f, slack.Y * 0.5f);
+
+        var placedX = box.X + offset.X;
+        var placedY = box.Y + offset.Y;
+
+        // The part of the placed picture the box lets through. CSS Images 3 § 5.5 clips the content to
+        // the element's box, which is what makes `cover` and `none` show a crop rather than overflow.
+        var left = MathF.Max(placedX, box.X);
+        var top = MathF.Max(placedY, box.Y);
+        var right = MathF.Min(placedX + size.X, box.X + box.Width);
+        var bottom = MathF.Min(placedY + size.Y, box.Y + box.Height);
+
+        if (right <= left || bottom <= top) {
+            return (default, SourceRectangle);
+        }
+
+        // Back into UV space, through the cut rather than through the whole texture — so a sprite
+        // sheet cell crops within its own cell.
+        var u0 = (left - placedX) / size.X;
+        var v0 = (top - placedY) / size.Y;
+        var u1 = (right - placedX) / size.X;
+        var v1 = (bottom - placedY) / size.Y;
+
+        var source = new Rectangle(
+            SourceRectangle.X + (u0 * SourceRectangle.Width),
+            SourceRectangle.Y + (v0 * SourceRectangle.Height),
+            (u1 - u0) * SourceRectangle.Width,
+            (v1 - v0) * SourceRectangle.Height
+        );
+
+        return (new Rectangle(left, top, right - left, bottom - top), source);
+    }
+
+    int fitProperty;
+    int positionProperty;
 }
 
 /// <summary>A key combination, drawn the way a menu draws one.</summary>

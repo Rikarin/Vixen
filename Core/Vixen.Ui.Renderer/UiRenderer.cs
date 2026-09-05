@@ -386,6 +386,19 @@ public sealed class UiRenderer : IDisposable {
     /// </remarks>
     readonly Dictionary<ulong, (int First, int Count)> layerMasks = [];
 
+    /// <summary>Each blended group's surface number, so <see cref="Unblended" /> can count it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A record of what this renderer is <i>not</i> doing, which is the only kind of entry a
+    ///     set like this should ever be.</b> <c>mix-blend-mode</c> reaches the frame as
+    ///     <see cref="UiLayer.Blend" /> and the software rasteriser applies it; the device cannot,
+    ///     because a blend is a function of its destination and the UI pass has no read of the
+    ///     attachment it is writing. Keeping the numbers anyway is what lets
+    ///     <see cref="SubmitDraw" /> say out loud that a composite went out source-over — the same job
+    ///     <see cref="Backdropped" /> does for a capture that never ran, and needed here for the same
+    ///     reason: a blend over a flat backdrop is often the identity, so a screenshot cannot tell.
+    /// </remarks>
+    readonly HashSet<ulong> layerBlends = [];
+
     /// <summary>What an image set's storage binding points at, and it is never the box buffer.</summary>
     /// <remarks>
     ///     <para>
@@ -596,6 +609,7 @@ public sealed class UiRenderer : IDisposable {
     ///     at zero, which is the honest answer for a frame with no composited group in it.
     /// </remarks>
     int filtered;
+    int unblended;
 
     /// <summary>How many composite draws the last <see cref="Record" /> put a mask through.</summary>
     /// <remarks>
@@ -859,6 +873,35 @@ public sealed class UiRenderer : IDisposable {
     /// </remarks>
     public int Filtered => filtered;
 
+    /// <summary>How many composite draws went out source-over despite carrying a blend mode.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one counter on this class that counts something the renderer failed to do, and
+    ///         it is not a bug report — it is the honest shape of a feature that is implemented on one
+    ///         executor and not the other.</b> <c>mix-blend-mode</c> reaches the frame as
+    ///         <see cref="UiLayer.Blend" />; <c>SoftwareUiRasterizer</c> applies it, because it owns
+    ///         the destination buffer and can read it. This renderer cannot: a blend is a function of
+    ///         both operands, and the UI pass has no subpass input, no framebuffer fetch and no copy
+    ///         of the attachment it is writing into. So the composite is submitted unchanged and the
+    ///         picture is the one the frame would have had without the declaration.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which needs saying out loud for <see cref="Backdropped" />'s reason and a sharper
+    ///         version of it.</b> A blend over a flat backdrop is frequently the identity —
+    ///         <c>multiply</c> against white, <c>screen</c> against black — so a fixture cannot tell a
+    ///         blend that ran from one that did not, and here a comparison of the two executors will
+    ///         <i>not</i> agree either. This is the number that says which of the two happened.
+    ///     </para>
+    ///     <para>
+    ///         Non-zero is therefore a claim about the device path rather than about the frame: the
+    ///         geometry asked for a blend and the picture on screen does not have one. Closing it
+    ///         needs the backdrop as an input to the composite fragment — the capture
+    ///         <see cref="Backdropped" /> already performs is exactly that picture, so the shape is
+    ///         there and the shader is not. <c>docs/guide/ui/compositing.md</c> prices it.
+    ///     </para>
+    /// </remarks>
+    public int Unblended => unblended;
+
     /// <summary>How many composite draws the last <see cref="Record" /> put a mask through.</summary>
     /// <remarks>
     ///     ⚠ <b>Counted separately from <see cref="Filtered" /> even though one pipeline serves
@@ -1066,6 +1109,7 @@ public sealed class UiRenderer : IDisposable {
         backdropped = 0;
         filtered = 0;
         masked = 0;
+        unblended = 0;
 
         // ⚠ Cleared here and not where it is filled, so that every early return below leaves the map
         // empty rather than holding the *previous* frame's answers keyed by numbers this frame's
@@ -1073,6 +1117,7 @@ public sealed class UiRenderer : IDisposable {
         // frame, so a group in the same position gets the same number.
         layerFilters.Clear();
         layerMasks.Clear();
+        layerBlends.Clear();
 
         if (geometry.Layers.Count == 0 || geometry.Indices.Count == 0) {
             return;
@@ -1152,6 +1197,16 @@ public sealed class UiRenderer : IDisposable {
         // needs `maskPipeline`, which is the only module that does both. The identity is dropped one
         // level up, in `DrawListBuilder`, rather than here: an opaque mask never becomes a
         // `UiLayer.Mask` at all, because unlike a `grayscale(0)` it is not worth a group.
+        // ⚠ <b>Filled unconditionally, because unlike the three maps around it this one gates
+        // nothing.</b> `layerFilters` and `layerMasks` choose a pipeline; a group in this set is
+        // composited by exactly the same draw it would have been without it. What the entry buys is
+        // that <see cref="SubmitDraw" /> can count the divergence rather than leave it silent.
+        foreach (var layer in geometry.Layers) {
+            if (layer.Blend != UiBlendMode.Normal) {
+                layerBlends.Add(layer.Image);
+            }
+        }
+
         if (maskPipeline.IsValid) {
             foreach (var layer in geometry.Layers) {
                 // ⚠ The ceiling is checked here rather than at the upload, because this is the map
@@ -2319,6 +2374,12 @@ public sealed class UiRenderer : IDisposable {
 
         if (mask is not null) {
             masked++;
+        }
+
+        // ⚠ After the draw for `filtered`'s reason, and counting a *failure* rather than a success —
+        // which is what makes it worth having. See `Unblended`.
+        if (layerBlends.Count > 0 && draw.Kind == BatchKind.Image && layerBlends.Contains(draw.Image)) {
+            unblended++;
         }
     }
 

@@ -165,6 +165,12 @@ public sealed partial class CheckBox : ToggleBase {
             RemoveClass("indeterminate");
         }
 
+        // ⚠ <b>And the state bit, which is what `:indeterminate` is.</b> Not a third value of
+        // `Checked`: CSS matches `:indeterminate` and *not* `:checked` on a half-ticked box, so the
+        // two bits are independent and setting both would make `checked:` apply to a box showing a
+        // dash. The class stays for the reason `TextField.ReadOnly`'s does — the themes select on it.
+        State = current ? State | ElementState.Indeterminate : State & ~ElementState.Indeterminate;
+
         // ⚠ The class is the wrong half to rely on. `NativeAccessibleState` above swaps `Checked`
         // for `Mixed` from this flag alone, and a class change is a cascade invalidation that
         // touches nothing a bridge reads — so without this line a screen reader kept announcing a

@@ -165,7 +165,8 @@ sealed record ProbeScene(
     bool Figured = false,
     bool Floated = false,
     bool Tabbed = false,
-    bool Hyphenated = false
+    bool Hyphenated = false,
+    bool Pictured = false
 );
 
 /// <summary>Runs a declaration past the engine and reports what moved.</summary>
@@ -1112,6 +1113,43 @@ static class UtilityConsumptionProbe {
             #after { width: 30px; height: 12px; background-color: #a0a040; }
             """,
             Edited: true
+        ),
+
+        // ⚠ <b>Pictured: `#probe` is an `Image` with a texture and an intrinsic size, and every one of
+        // those three words is load-bearing.</b> `object-fit` and `object-position` are the only
+        // properties in the registry read by a *replaced element*, and there was no replaced element
+        // in any scene — the eighth entry on this list's own tally of arrangements that were missing,
+        // and the one that would have made a finished feature measure inert.
+        //
+        // ⚠ <b>A texture number and not merely an `Image`.</b> `Image.OnDraw` returns before it looks
+        // at anything when `Texture` is zero, exactly as `Icon` returns on a zero-area box — so an
+        // `Image` nobody gave a texture is `icon { width: 14px }` all over again. The number is opaque
+        // here and names nothing this suite owns, which is fine: the draw list records it and no
+        // renderer is run.
+        //
+        // ⚠ <b>And the scene declares `object-fit: contain` itself, which is `primed`'s lesson
+        // exactly.</b> `object-position` places the concrete object size in the box, so under the
+        // initial `fill` — where the two are equal by definition — there is no slack and every one of
+        // its nine values draws the identical picture. Declaring `contain` here is what gives the
+        // injected position somewhere to move to, and `object-fit` is still measured because the
+        // injected `object-cover`, `object-none` and `object-fill` all differ from it.
+        //
+        // 4:1 against a square box, so `contain`, `cover` and `none` are three different rectangles
+        // rather than two.
+        new(
+            "pictured",
+            """
+            #host  { display: flex; flex-direction: column; width: 120px; height: 90px;
+                     align-items: flex-start; }
+            #probe { display: flex; flex-direction: column; width: 40px; height: 40px;
+                     object-fit: contain; background-color: #204080; color: #e0e0e0; }
+            .kid   { width: 8px; height: 8px; }
+            #wide  { width: 8px; height: 8px; }
+            #label { width: 30px; }
+            #short { width: 30px; }
+            #after { width: 30px; height: 12px; background-color: #a0a040; }
+            """,
+            Pictured: true
         )
     ];
 
@@ -1567,7 +1605,22 @@ static class UtilityConsumptionProbe {
                 document.Create("div", host, "lead");
             }
 
-            probe = document.Create("div", host, "probe");
+            if (scene.Pictured) {
+                // ⚠ The probe *is* the replaced element rather than holding one, because
+                // `object-fit` does not inherit — an injected declaration lands on `#probe` and
+                // nowhere else, so a picture one level down would never see it. That is the opposite
+                // arrangement from the icon below, which is a child precisely because `fill` does
+                // inherit and the inheritance is half of what that scene measures.
+                var picture = host.Add<Image>(null, "probe");
+
+                picture.Texture = 1;
+                picture.IntrinsicSize = new Vector2(64f, 16f);
+
+                probe = picture;
+            } else {
+                probe = document.Create("div", host, "probe");
+            }
+
             body = probe;
         }
 

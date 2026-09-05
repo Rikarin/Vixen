@@ -3,9 +3,9 @@ title: Compositing groups
 slug: ui/compositing
 kind: guide
 area: Core
-summary: How a translucent subtree is rendered into a surface of its own and blended back once — the offscreen pass behind `opacity`, `filter: blur()`, the seven colour functions, `drop-shadow()` and `mask-image`, why a group is not the same as fading each element, why a colour matrix and a mask cost neither a surface nor a pass where a blur and a drop shadow cost both, why a mask's seam is fixed on both executors where a matrix's is free, why a drop shadow's seam is fixed by arithmetic that does not commute, how a colour matrix with zero coefficients turns a surface into a tinted silhouette, how a list of mask layers is folded into one coverage and what `mask-composite` means for each, when the pass is skipped as an exact identity, what the surfaces cost, how a backdrop filter is a replay of the draw-list prefix rather than a read-back and what that cost the compositor's walk, what gradient text would still need on top of it, and how `rotate` and `scale` ride the composite quad's four vertices for the price of no shader at all.
-api: [T:Vixen.Ui.Rendering.UiLayer, T:Vixen.Ui.Rendering.UiColorMatrix, T:Vixen.Ui.Rendering.UiDropShadow, T:Vixen.Ui.Rendering.UiBackdrop, T:Vixen.Ui.Renderer.UiBackdropSource, T:Vixen.Ui.Rendering.UiMask, T:Vixen.Ui.Rendering.MaskComposite, T:Vixen.Ui.Rendering.UiTransform]
-tags: [ui, rendering, opacity, blur, filter, compositing, offscreen, filters, grayscale, colour-matrix, drop-shadow, backdrop-filter, mask, mask-image, mask-composite, transform, rotate, scale]
+summary: How a translucent subtree is rendered into a surface of its own and blended back once — the offscreen pass behind `opacity`, `filter: blur()`, the seven colour functions, `drop-shadow()` and `mask-image`, why a group is not the same as fading each element, why a colour matrix and a mask cost neither a surface nor a pass where a blur and a drop shadow cost both, why a mask's seam is fixed on both executors where a matrix's is free, why a drop shadow's seam is fixed by arithmetic that does not commute, how a colour matrix with zero coefficients turns a surface into a tinted silhouette, how a list of mask layers is folded into one coverage and what `mask-composite` means for each, when the pass is skipped as an exact identity, what the surfaces cost, how a backdrop filter is a replay of the draw-list prefix rather than a read-back and what that cost the compositor's walk, what gradient text would still need on top of it, how `rotate` and `scale` ride the composite quad's four vertices for the price of no shader at all, and why `mix-blend-mode` is the one group-wide effect that has to read its destination — free on the software rasteriser, and still owed on the device.
+api: [T:Vixen.Ui.Rendering.UiLayer, T:Vixen.Ui.Rendering.UiBlend, T:Vixen.Ui.Rendering.UiBlendMode, T:Vixen.Ui.Rendering.UiColorMatrix, T:Vixen.Ui.Rendering.UiDropShadow, T:Vixen.Ui.Rendering.UiBackdrop, T:Vixen.Ui.Renderer.UiBackdropSource, T:Vixen.Ui.Rendering.UiMask, T:Vixen.Ui.Rendering.MaskComposite, T:Vixen.Ui.Rendering.UiTransform]
+tags: [ui, rendering, opacity, blur, filter, compositing, offscreen, mix-blend-mode, blend, isolation, filters, grayscale, colour-matrix, drop-shadow, backdrop-filter, mask, mask-image, mask-composite, transform, rotate, scale]
 since: 0.2
 status: preview
 related: [ui/gradients, ui/utility-composition]
@@ -17,8 +17,9 @@ A **composited group** is a subtree of the interface that is drawn into a surfac
 blended back into the frame as a single image. `UiLayer` is the record that describes one: which
 draws belong to it, how big its surface has to be, and what it is faded by.
 
-Five things open a group: an element whose `opacity` is below one, an element with a `filter`, one
-with a `mask`, one with a `backdrop-filter`, and one with a `rotate` or a `scale`.
+Seven things open a group: an element whose `opacity` is below one, an element with a `filter`, one
+with a `mask`, one with a `backdrop-filter`, one with a `rotate` or a `scale`, one with a
+`mix-blend-mode`, and one with `isolation: isolate`.
 
 The difference between the first two is worth stating up front, because it is why the second could
 not be approximated while the compositor was being built. An opacity *can* be faded element by
@@ -37,7 +38,7 @@ The pieces, top to bottom:
 
 | Where | What it does |
 |---|---|
-| `DrawListBuilder` | Brackets a translucent, filtered, masked or transformed subtree with `LayerPush` / `LayerPop` |
+| `DrawListBuilder` | Brackets a translucent, filtered, masked, transformed, blended or isolated subtree with `LayerPush` / `LayerPop` |
 | `DrawBatcher` | Gives each bracket a `BatchKind.Layer` batch of its own, never merged |
 | `UiGeometryBuilder` | Resolves the brackets into `UiGeometry.Layers`, outsets the bounds by a blur, and emits the compositing quad |
 | `UiRenderer.Compose` | Renders each group's pass on the device, sweeps a blur over the ones that ask, and hands each group's colour matrix to its composite draw |
@@ -678,6 +679,57 @@ parser — no `matrix()`, `rotate()`, `scale()` or `skew()`, and no list-of-func
 so those are a parser away rather than a renderer away. The 3D family (`perspective`,
 `transform-style`, `backface-visibility`, the `-z` axes) needs a third axis and a projective
 composite as well.
+
+### Blending a group with what is under it
+
+`mix-blend-mode` is the sixth reason to open a group and the only one whose answer is a function of
+**two** pictures. Everything above it — the fade, the Gaussian, the colour matrix, the mask, the
+transform — is computable from the group's own surface, which is why each of them can be applied at
+the seam where that surface is finished and no executor has to know where the composite quad will
+land. A blend cannot: its second operand is the backdrop.
+
+⚠ **It is nevertheless not a second blend state, and that is what makes it cheap where it is
+implemented at all.** CSS Compositing 1 § 5.1 defines the whole feature as a change of *source*
+colour followed by an ordinary source-over:
+
+```
+Cs' = (1 - αb)·Cs + αb·B(Cb, Cs)
+```
+
+So `UiBlend.Apply` takes the group's premultiplied fragment and the backdrop's, and returns the
+premultiplied colour to composite exactly as an unblended group's would be. `SoftwareUiRasterizer`
+owns its destination buffer, so the entire cost there is one read per pixel of the composite quad.
+
+⚠ **The blend is done on the values the surface holds, which in this engine are linear, and a browser
+blends in sRGB.** That is a stated divergence rather than an oversight — `multiply` of two mid-greys
+is perceptibly darker here than in a browser. Closing it means an encode and a decode per pixel in
+both composites and a decision about what the interface's compositing space *is*, which is a
+colour-management question rather than a blending one.
+
+⚠ **`UiRenderer` does not implement it, and says so.** The device has no read of the attachment the
+UI pass is writing — no subpass input, no framebuffer fetch, no copy — so a blended group is
+submitted source-over and the picture is the one the frame would have had without the declaration.
+`UiRenderer.Unblended` counts exactly that, and it needs to: a blend over a flat backdrop is often
+the identity (`multiply` against white, `screen` against black), so neither a screenshot nor a
+comparison of the two executors can tell. **Closing it is a shader change and not a pass change** —
+the capture `UiRenderer.Capture` already performs for `backdrop-filter` is precisely the backdrop
+picture the formula wants, so the missing piece is a composite variant that samples two textures.
+
+### Isolating which backdrop a blend reaches
+
+`isolation: isolate` is the seventh reason to open a group and it changes no pixel of the group it
+opens. Its only defined effect is on a **descendant's** `mix-blend-mode`, and it bounds it by being a
+boundary: a nested group's draws are executed into its parent's surface, so a blended descendant of
+an isolated ancestor mixes with that ancestor's accumulation and can never reach the page behind it.
+
+⚠ Where the ancestor has painted nothing, that accumulation is transparent black — and § 5.1 weights
+the blend by the backdrop's alpha, so a blend against nothing is `normal`. That is why an isolated
+wrapper makes a `mix-blend-multiply` child come out unblended rather than come out black.
+
+⚠ The peephole in `DrawList.Collapse` deliberately does **not** exclude an isolated group, where it
+does exclude a blended one. Isolation is only observable through a descendant that opened a group of
+its own, and such a descendant contributes at least three commands — so the collapse's own
+`drawn == 1` test is already the statement that there is nothing to isolate.
 
 ### What a group does not change
 

@@ -67,7 +67,24 @@ public static class Variants {
         // folded them into the child tests would have been the quiet one.
         ["first-of-type"] = ":first-of-type",
         ["last-of-type"] = ":last-of-type",
-        ["only-of-type"] = ":only-of-type"
+        ["only-of-type"] = ":only-of-type",
+
+        // ⚠ The three of A13's seventeen that had a control behind them, and the ratio is the
+        // finding rather than the count. The other fourteen name a model this framework does not
+        // have — there is no validation anywhere in `Vixen.Ui.Controls`, so `required`, `optional`,
+        // `valid`, `invalid`, `user-valid`, `user-invalid`, `in-range` and `out-of-range` have
+        // nothing to be true of; there is no navigation model, so `visited` and `target` are refused
+        // rather than owed; `autofill` needs a credential store, `default` needs a form, `inert`
+        // needs a subtree flag nothing carries, and `open` is refused one layer further out, by the
+        // parser — ExCSS 4.3.2 hands `:open` back as an `UnknownSelector`.
+        //
+        // ⚠ <b>A table entry here is worth nothing without a writer</b>, which is what the item this
+        // came from underestimated: `:read-only` compiled against a bit no control sets resolves,
+        // indexes and matches nothing at all. `TextField` writes two of these and `CheckBox` and
+        // `ProgressBar` write the third.
+        ["read-only"] = ":read-only",
+        ["placeholder-shown"] = ":placeholder-shown",
+        ["indeterminate"] = ":indeterminate"
     };
 
     /// <summary>The variants that are a media feature rather than a selector.</summary>

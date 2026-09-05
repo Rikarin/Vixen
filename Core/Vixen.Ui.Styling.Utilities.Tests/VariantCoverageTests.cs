@@ -122,7 +122,17 @@ public class VariantCoverageTests {
                      ("focus-within", ElementState.FocusWithin),
                      ("active", ElementState.Active),
                      ("disabled", ElementState.Disabled),
-                     ("checked", ElementState.Checked)
+                     ("checked", ElementState.Checked),
+
+                     // ⚠ The three of A13's seventeen that had a control behind them. These rows
+                     // prove the *selector*: the variant compiles, indexes and matches an element in
+                     // the state. What they cannot prove is that anything ever puts an element into
+                     // it, which is the half that made the item expensive — a bit no control writes
+                     // resolves and matches nothing, and would pass every row in this file.
+                     // `Vixen.Ui.Controls.Tests.ElementStateBitTests` is the other half.
+                     ("read-only", ElementState.ReadOnly),
+                     ("placeholder-shown", ElementState.PlaceholderShown),
+                     ("indeterminate", ElementState.Indeterminate)
                  }) {
             Row(variant, on, 0, 0, true);
             Row(variant, ElementState.None, 0, 0, false);
