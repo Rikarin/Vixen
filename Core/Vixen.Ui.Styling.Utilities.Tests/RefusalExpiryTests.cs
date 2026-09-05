@@ -52,6 +52,30 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         root is the one to name.
 ///     </para>
 ///     <para>
+///         ⚠ <b>That weakness stopped being hypothetical one day after it was written, and the worked
+///         case is worth more than the warning.</b> <c>ring-offset-*</c> was refused partly because
+///         <c>StyleValueParser</c> read no <c>calc()</c>, and its clause was
+///         <c>[expires-on Vixen.Ui.Styling.StyleValueKind.Calculation]</c> — the most likely name for
+///         the thing somebody would build. What was built instead <i>folds</i> the expression to an
+///         ordinary length, on the argument that a <see cref="StyleValue" /> is one number and one
+///         unit and a kind carrying a tree would allocate on every declaration in the cascade. The
+///         premise expired, the symbol never arrived, and this suite stayed green — exactly as
+///         predicted, by the paragraph above, in the same week. It was a person re-reading the note
+///         who caught it, which is the thing the mechanism exists to stop being necessary.
+///     </para>
+///     <para>
+///         <b>The lesson is about <i>what</i> an anchor names, not about the kind.</b> The clause now
+///         reads <c>[expires-on Vixen.Ui.Styling.Utilities.UtilityComposition.RingOffsetWidth]</c> —
+///         the <c>--tw-*</c> fragment that is genuinely missing rather than a plausible spelling of a
+///         parser feature. A tripwire on a thing whose <i>name</i> is forced by an external
+///         specification is far harder to walk around than one on a thing whose implementation is a
+///         design decision, because the first has one spelling and the second has as many as there
+///         are designs. ⚠ A fourth kind — <c>expires-when-parsed</c>, measured by parsing a value —
+///         would have caught this exactly, and is deliberately not built: after the fold landed, no
+///         row in the ledger would carry it, and a clause kind with no users is this repository's
+///         commonest defect wearing a mechanism's clothes.
+///     </para>
+///     <para>
 ///         <b><c>[expires-when-read &lt;css-property&gt;]</c> — exact, and it is the other file #288
 ///         names.</b> The refusal stands only while nothing in the engine reads that property. Its
 ///         condition is the <i>same measurement</i> <c>InertProperties.txt</c> expires on — the probe
