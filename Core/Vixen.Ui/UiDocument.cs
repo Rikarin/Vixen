@@ -998,6 +998,13 @@ public sealed partial class UiDocument : IDisposable {
             updating = false;
         }
 
+        // ⚠ After the settle and outside the `finally`, because the settle is where a pool parks
+        // things: a handler runs, adds a `parked` class, and the pass restyles again — so the styles
+        // this reads are the last ones and not an intermediate. Outside `updating` because moving the
+        // focus raises events into application code, which is entitled to change the document; what
+        // it changes lands on the next frame rather than re-entering this one.
+        Reseat();
+
         // ⚠ After the settle rather than after the restyle, because a settle pass restyles too — a
         // handler that assigns a class runs the bridge again, and a drain placed above `Settle` would
         // report the refusals of the first pass and hold the rest until the next frame. See
@@ -1735,6 +1742,11 @@ public sealed partial class UiDocument : IDisposable {
         ArgumentNullException.ThrowIfNull(surface);
 
         var changed = drawings.Build(this, surface.Root, surface.Drawing);
+
+        // ⚠ Here rather than in `Draw()`, so the two numbers are per *window* per frame — which is
+        // the unit the work is actually done in. A document with a torn-off panel rebuilds two lists
+        // a frame and a count per frame would report one.
+        CountDrawing(changed);
 
         // ⚠ After the build, which makes this the one drain point outside the style pass. See
         // `DrainDrawingDiagnostics` for why a per-frame drain costs nothing after the first frame.

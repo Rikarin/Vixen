@@ -139,6 +139,36 @@ public readonly struct UiDiagnostics(UiDocument document) {
     /// </remarks>
     public int RegionsRecorded => document.RegionsRecorded;
 
+    /// <summary>How many times a surface's draw list has been rebuilt from the tree.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The instrument doc 49 § 7.3 asks for, standing before the work it is meant to
+    ///         measure.</b> There is no retained per-element surface and no dirty-rect path:
+    ///         <c>DrawListBuilder.Build</c> reconstructs the whole list on every frame of every
+    ///         window, whether or not anything moved. The only economy is a content diff
+    ///         <i>afterwards</i> — <c>DrawList.Version</c> — which lets a still window skip the
+    ///         tessellation and the GPU recording, and does not skip the rebuild that produced the
+    ///         identical list again.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read against <see cref="DrawListsChanged" /> and never alone.</b> Neither number
+    ///         means anything by itself; the gap between them <i>is</i> the waste, stated as work
+    ///         rather than as watts or milliseconds — a hundred rebuilds and one change is a still
+    ///         window rebuilding its drawing ninety-nine times for nothing, and it is the same figure
+    ///         on a fast machine and a loaded one, which a wall-clock budget is not.
+    ///     </para>
+    /// </remarks>
+    public int DrawListsBuilt => document.DrawListsBuilt;
+
+    /// <summary>How many of those rebuilds produced drawing that differs from the frame before.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What actually changed, not what was believed to have changed.</b> It counts
+    ///     <c>DrawList.Version</c> moving, and that is a comparison against the previous content — so
+    ///     a document invalidated too eagerly still reports one change here, and its eagerness shows
+    ///     up as the gap to <see cref="DrawListsBuilt" /> instead of being absorbed and hidden.
+    /// </remarks>
+    public int DrawListsChanged => document.DrawListsChanged;
+
     /// <summary>The element at a point, and its four boxes.</summary>
     /// <param name="x">Where, in document space.</param>
     /// <param name="y">Ditto.</param>
@@ -248,6 +278,28 @@ public partial class UiDocument {
 
     /// <summary>How many invalidations were recorded, the dropped ones included.</summary>
     internal int RegionsRecorded { get; private set; }
+
+    /// <summary>How many times a surface's draw list has been rebuilt from the tree.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Always compiled, unlike the region ring above, because this is the number a
+    ///     <i>gate</i> reads rather than the number an overlay draws.</b> A counter behind
+    ///     <c>DEBUG</c> is a counter a Release gate cannot assert on, and the measurement doc 49 asks
+    ///     for — idle-frame work, before and against after — is worthless if the two runs are not the
+    ///     same build. It is one increment per window per frame.
+    /// </remarks>
+    internal int DrawListsBuilt { get; private set; }
+
+    /// <summary>How many of those rebuilds produced drawing that differs from the frame before.</summary>
+    internal int DrawListsChanged { get; private set; }
+
+    /// <summary>Counts one rebuild and whether it was worth anything.</summary>
+    void CountDrawing(bool changed) {
+        DrawListsBuilt++;
+
+        if (changed) {
+            DrawListsChanged++;
+        }
+    }
 
     /// <summary>What a debug overlay may read about this document.</summary>
     /// <remarks>

@@ -201,6 +201,7 @@ Vixen.Platform.INativeDialogs.SaveFileAsync(Vixen.Platform.FileDialogOptions opt
 Vixen.Platform.INativeDialogs.ShowMessageAsync(Vixen.Platform.MessageBoxOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Platform.MessageBoxResult>
 Vixen.Platform.IPlatform -> interface
 Vixen.Platform.IPlatform : System.IDisposable
+Vixen.Platform.IPlatform.Accessibility.get -> Vixen.Platform.SystemAccessibility
 Vixen.Platform.IPlatform.Capabilities.get -> Vixen.Platform.PlatformCapabilities
 Vixen.Platform.IPlatform.Clipboard.get -> Vixen.Platform.IClipboard
 Vixen.Platform.IPlatform.ColorScheme.get -> Vixen.Platform.SystemColorScheme
@@ -547,6 +548,7 @@ Vixen.Platform.PlatformEventKind.PlatformEventKind() -> void
 Vixen.Platform.PlatformEventKind.Quit = 73 -> Vixen.Platform.PlatformEventKind
 Vixen.Platform.PlatformEventKind.Resumed = 71 -> Vixen.Platform.PlatformEventKind
 Vixen.Platform.PlatformEventKind.Suspending = 70 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.SystemAccessibilityChanged = 62 -> Vixen.Platform.PlatformEventKind
 Vixen.Platform.PlatformEventKind.SystemColorSchemeChanged = 61 -> Vixen.Platform.PlatformEventKind
 Vixen.Platform.PlatformEventKind.TextEditing = 23 -> Vixen.Platform.PlatformEventKind
 Vixen.Platform.PlatformEventKind.TextInput = 22 -> Vixen.Platform.PlatformEventKind
@@ -602,6 +604,14 @@ Vixen.Platform.StandardFileSystemHost.MountStandardLocations(Vixen.Core.IO.Virtu
 Vixen.Platform.StandardFileSystemHost.RequestPermissionAsync(Vixen.Platform.PermissionKind permission, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
 Vixen.Platform.StandardFileSystemHost.StandardFileSystemHost(string organisation, string application, string? applicationDirectory = null) -> void
 Vixen.Platform.StandardFileSystemHost.TemporaryDirectory.get -> string
+Vixen.Platform.SystemAccessibility -> readonly struct
+Vixen.Platform.SystemAccessibility : System.IEquatable<Vixen.Platform.SystemAccessibility>
+Vixen.Platform.SystemAccessibility.HighContrast.get -> bool?
+Vixen.Platform.SystemAccessibility.HighContrast.init -> bool?
+Vixen.Platform.SystemAccessibility.ReduceMotion.get -> bool?
+Vixen.Platform.SystemAccessibility.ReduceMotion.init -> bool?
+Vixen.Platform.SystemAccessibility.SystemAccessibility() -> void
+Vixen.Platform.SystemAccessibility.SystemAccessibility(bool? ReduceMotion = null, bool? HighContrast = null) -> void
 Vixen.Platform.SystemColorScheme -> enum : byte
 Vixen.Platform.SystemColorScheme.Dark = 2 -> Vixen.Platform.SystemColorScheme
 Vixen.Platform.SystemColorScheme.Light = 1 -> Vixen.Platform.SystemColorScheme
@@ -681,3 +691,4 @@ static Vixen.Platform.PlatformEvent.WindowResized(uint windowId, long timestamp,
 static Vixen.Platform.PlatformExtensions.FocusedWindow(this Vixen.Platform.IPlatform platform) -> Vixen.Platform.IWindow?
 static Vixen.Platform.PlatformExtensions.Has(this Vixen.Platform.IPlatform platform, Vixen.Platform.PlatformCapabilities required) -> bool
 static Vixen.Platform.PlatformExtensions.Pickers(this Vixen.Platform.IPlatform platform) -> Vixen.Platform.INativeDialogs?
+static Vixen.Platform.SystemAccessibility.Unknown.get -> Vixen.Platform.SystemAccessibility

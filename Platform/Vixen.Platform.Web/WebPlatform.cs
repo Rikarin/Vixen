@@ -144,6 +144,16 @@ public sealed class WebPlatform : IPlatform {
     public SystemColorScheme ColorScheme { get; private set; }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b><see cref="SystemAccessibility.Unknown" />: the browser answers both of these and this
+    ///     platform does not ask.</b> They are two more <c>matchMedia</c> calls beside the one
+    ///     <see cref="ColorScheme" /> already makes — <c>(prefers-reduced-motion: reduce)</c> and
+    ///     <c>(forced-colors: active)</c> — and wiring them is the cheapest of the four platforms
+    ///     that owe this. Reporting "off" until then would be inventing a preference.
+    /// </remarks>
+    public SystemAccessibility Accessibility => SystemAccessibility.Unknown;
+
+    /// <inheritdoc />
     public IFileSystemHost FileSystem => fileSystem;
 
     /// <inheritdoc />

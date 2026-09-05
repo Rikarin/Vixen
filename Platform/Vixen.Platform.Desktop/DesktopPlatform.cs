@@ -127,6 +127,7 @@ public sealed unsafe class DesktopPlatform : IPlatform {
     readonly bool requestGlContext;
     readonly IPlatformSupplement? supplement;
     readonly DesktopAppearance appearance;
+    readonly DesktopAccessibility accessibility;
 
     bool disposed;
 
@@ -207,6 +208,7 @@ public sealed unsafe class DesktopPlatform : IPlatform {
         // of the property is that a host can seed its document from it before the first frame, and a
         // lazy first read would put a `gsettings` subprocess in the middle of one.
         appearance = new DesktopAppearance();
+        accessibility = new DesktopAccessibility();
 
         Clipboard = services.Clipboard;
         Dialogs = services.Dialogs;
@@ -250,6 +252,9 @@ public sealed unsafe class DesktopPlatform : IPlatform {
 
     /// <inheritdoc />
     public SystemColorScheme ColorScheme => appearance.Current;
+
+    /// <inheritdoc />
+    public SystemAccessibility Accessibility => accessibility.Current;
 
     /// <inheritdoc />
     public IFileSystemHost FileSystem { get; }
@@ -389,6 +394,15 @@ public sealed unsafe class DesktopPlatform : IPlatform {
         if (appearance.Pump()) {
             events.Post(
                 PlatformEvent.Application(PlatformEventKind.SystemColorSchemeChanged, TimestampOf(sdl.GetTicks()))
+            );
+        }
+
+        // ⚠ A second counter rather than a second branch on the first one's. The two settings share a
+        // cadence and not a verdict — a user who switches to dark mode has not asked for less motion —
+        // and folding them together would post both events every time either moved.
+        if (accessibility.Pump()) {
+            events.Post(
+                PlatformEvent.Application(PlatformEventKind.SystemAccessibilityChanged, TimestampOf(sdl.GetTicks()))
             );
         }
 

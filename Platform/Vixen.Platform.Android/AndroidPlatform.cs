@@ -105,6 +105,16 @@ public sealed class AndroidPlatform : IPlatform {
     public SystemColorScheme ColorScheme { get; private set; }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b><see cref="SystemAccessibility.Unknown" />: Android has these settings and this
+    ///     platform does not read them.</b> <c>Settings.Global.ANIMATOR_DURATION_SCALE</c> at zero is
+    ///     the reduced-motion answer and the high-contrast one is a per-OEM accessibility service, and
+    ///     both need a <c>ContentResolver</c> this assembly does not hold. Reporting "off" instead
+    ///     would be inventing a preference on behalf of the user.
+    /// </remarks>
+    public SystemAccessibility Accessibility => SystemAccessibility.Unknown;
+
+    /// <inheritdoc />
     public IFileSystemHost FileSystem { get; }
 
     /// <inheritdoc />

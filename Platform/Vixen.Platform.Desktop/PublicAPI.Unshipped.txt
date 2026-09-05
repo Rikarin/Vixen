@@ -46,6 +46,7 @@ Vixen.Platform.Desktop.DesktopLifecycle.State.get -> Vixen.Platform.ApplicationS
 Vixen.Platform.Desktop.DesktopPlatform -> sealed class
 Vixen.Platform.Desktop.DesktopPlatform : System.IDisposable
 Vixen.Platform.Desktop.DesktopPlatform : Vixen.Platform.IPlatform
+Vixen.Platform.Desktop.DesktopPlatform.Accessibility.get -> Vixen.Platform.SystemAccessibility
 Vixen.Platform.Desktop.DesktopPlatform.Capabilities.get -> Vixen.Platform.PlatformCapabilities
 Vixen.Platform.Desktop.DesktopPlatform.Clipboard.get -> Vixen.Platform.IClipboard
 Vixen.Platform.Desktop.DesktopPlatform.ColorScheme.get -> Vixen.Platform.SystemColorScheme

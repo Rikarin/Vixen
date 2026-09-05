@@ -106,6 +106,16 @@ public sealed class IosPlatform : IPlatform {
     public SystemColorScheme ColorScheme { get; private set; }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b><see cref="SystemAccessibility.Unknown" />: iOS has these settings and this platform
+    ///     does not read them.</b> <c>UIAccessibility.isReduceMotionEnabled</c> and
+    ///     <c>isDarkerSystemColorsEnabled</c> are the answers, both UIKit and both needing the main
+    ///     thread this does not run on. Reporting "off" instead would be inventing a preference on
+    ///     behalf of the user.
+    /// </remarks>
+    public SystemAccessibility Accessibility => SystemAccessibility.Unknown;
+
+    /// <inheritdoc />
     public IFileSystemHost FileSystem { get; }
 
     /// <inheritdoc />

@@ -125,6 +125,31 @@ public sealed class HeadlessPlatform : IPlatform {
         }
     }
 
+    /// <summary>The accessibility settings a headless run reports, and the seam a test drives them
+    /// through.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="SystemAccessibility.Unknown" /> by default, because a headless run has no
+    ///     user to have asked for anything.</b> Setting it queues a
+    ///     <see cref="PlatformEventKind.SystemAccessibilityChanged" /> exactly as a desktop's poll
+    ///     would, on the same terms as <see cref="ColorScheme" /> beside it — so a host wired to the
+    ///     event is exercised by the real code path and a host wired to nothing goes red.
+    /// </remarks>
+    public SystemAccessibility Accessibility {
+        get;
+
+        set {
+            if (field == value) {
+                return;
+            }
+
+            field = value;
+
+            events.Post(
+                PlatformEvent.Application(PlatformEventKind.SystemAccessibilityChanged, Stopwatch.GetTimestamp())
+            );
+        }
+    }
+
     /// <inheritdoc />
     public IFileSystemHost FileSystem { get; }
 

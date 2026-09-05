@@ -74,6 +74,27 @@ recording sits behind `[Conditional("DEBUG")]` and `[Conditional("VIXEN_UI_DIAGN
 shape `Vixen.Ecs` uses for its structural events. In a build without either symbol the call site is
 gone entirely.
 
+### What an idle window costs, stated as work
+
+`DrawListsBuilt` counts one rebuild per window per frame; `DrawListsChanged` counts the ones whose
+drawing actually differed from the frame before.
+
+```csharp no-compile="A fragment: `diagnostics` is a UiDiagnostics the caller already read."
+Say($"drawing: {diagnostics.DrawListsChanged} of {diagnostics.DrawListsBuilt} rebuilds were worth it");
+```
+
+⚠ **Neither number means anything alone; the gap between them is the point.** There is no retained
+per-element surface and no dirty-rect path, so the whole draw list is reconstructed on every frame of
+every window whether or not anything moved. The only economy is the content diff afterwards — a
+window whose drawing is unchanged skips the tessellation and the GPU recording, and does not skip the
+rebuild that produced the identical list again. A still window reports thirty rebuilds and one
+change over thirty frames.
+
+⚠ **Work, never elapsed time.** A rebuild count is the same figure on an idle laptop and a loaded
+one, and an interface that redraws a hundred times to produce one picture is wasteful at every frame
+rate — which a millisecond budget cannot say. These two are also compiled in every configuration,
+unlike the region ring below: a counter behind `DEBUG` is one a Release gate cannot assert on.
+
 ### The two empty answers, and why one constant exists
 
 `DirtyRegions` is empty when nothing was invalidated **and** when nothing was recording, and those

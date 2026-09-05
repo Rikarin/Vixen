@@ -1619,9 +1619,11 @@ public static class UtilityFamilies {
         // ⚠ <b>`outline-hidden` is v4's spelling and here it is `outline-none` exactly, which is a
         // loss worth naming rather than papering over.</b> In v4 the class removes the visible ring
         // *and* restores a transparent two-pixel one inside `@media (forced-colors: active)`, so a
-        // Windows high-contrast user keeps a focus indicator the sighted default hid. `MediaQuery`
-        // has no forced-colors feature and this engine has no forced-colors mode for one to
-        // describe, so the second half has nowhere to go and the class collapses to the first. It is
+        // Windows high-contrast user keeps a focus indicator the sighted default hid. ⚠ `MediaQuery`
+        // evaluates `forced-colors` now and `IPlatform.Accessibility` feeds it — that half of this
+        // remark is out of date — but this engine still has no forced-colors *mode* for the
+        // transparent ring to be substituted against, so the second half has nowhere to go and the
+        // class collapses to the first. It is
         // registered anyway because the visible half is real, is read, and is the idiom every v4
         // sheet writes for "take the focus ring off" — refusing it would leave the common case
         // spelled only by the v3 name.
