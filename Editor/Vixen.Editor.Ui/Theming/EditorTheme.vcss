@@ -1040,6 +1040,14 @@ console-toolbar {
 console-toolbar search-box { flex-grow: 1; min-width: 80px; }
 console-toolbar select { width: 150px; flex-shrink: 0; }
 
+/* ⚠ The three verbs refuse to shrink, and the search box beside them is
+   the thing that gives. They are words: shrunk, `Clear on Play` wraps to
+   two lines, the button doubles in height and the whole toolbar grows
+   with it — which is what this row did the day the engine's initial
+   `flex-shrink` became CSS's 1 rather than Yoga's 0 (#628). The `select`
+   and the level chips above and below already say the same thing. */
+console-toolbar button, console-toolbar toggle-button { flex-shrink: 0; }
+
 /* ⚠ The four level buttons are pushed to the right, away from the verbs.
    Clear and Collapse *do* something; a level button changes what you are
    looking at, and mixing the two into one run of identical chips is how
