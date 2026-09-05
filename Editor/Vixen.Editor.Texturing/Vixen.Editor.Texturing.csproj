@@ -1,0 +1,78 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.Texturing</RootNamespace>
+        <Description>
+            The texture-graph plugin: the .vxtexgraph document, the panel that edits one, the Create ▸
+            entry that makes one, and the module that registers all three through the plugin contract.
+            The evaluator and the kernels are Vixen.Editor.TextureGraph and are not this.
+        </Description>
+        <PackageTags>editor;plugin;texture-graph;material-authoring;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ **`Vixen.Editor.App` is deliberately absent, and that absence is the claim doc 48 § D14
+            makes.** Everything this assembly needs from the host it asks for through
+            `PluginServices.Require` — which is the only way a third party could have written it, and
+            therefore the only way this feature proves the door is wide enough. `ModuleReferenceTests`
+            asserts the absence rather than trusting this comment.
+
+            The contract, and the shell vocabulary a command and a panel are expressed in. The second
+            is what the first already references, named here because this assembly builds controls of
+            its own rather than only registering with the shell.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Plugin\Vixen.Editor.Plugin.csproj" />
+        <ProjectReference Include="..\Vixen.Editor.Ui\Vixen.Editor.Ui.csproj" />
+
+        <!--
+            The project, the document base and the contribution registry: `EditorDocument`,
+            `EditorProject`, `NewAssetKind` and `IEditorRegistry`. A `.vxtexgraph` is an asset in a
+            project before it is anything else.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
+
+        <!--
+            The canvas and the model a texture graph is stored as. `NodeGraphAsset` is the file's
+            shape, exactly as a `.vxshadergraph`'s is, and `NodeGraphView` is what edits one.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.NodeGraph\Vixen.Editor.NodeGraph.csproj" />
+
+        <!--
+            And the node library, which is the only thing this assembly takes from the evaluator.
+
+            ⚠ **It is the only thing it *can* take.** `TextureGraphCompiler`, `TextureNode` and all
+            eight `[Node]` classes are `internal` and that assembly's `InternalsVisibleTo` names its
+            own test project alone — so the generated `NodeTypes.Register` is the whole of the
+            reachable surface and a plugin cannot compile a graph into a `TexturePlan` at all. See
+            this project's README; it is a finding rather than a decision.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.TextureGraph\Vixen.Editor.TextureGraph.csproj" />
+
+        <!--
+            ⚠ Named for one type and one question: `IGraphicsDevice`, so that
+            `TexturePreview.Blocking` can ask the host for one and say precisely what is missing when
+            there is none. Doc 48 § D14 predicted a plugin would need a device and that the contract
+            publishes none; this reference is what turns that prediction into a value a test can
+            assert rather than a sentence in a report.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Graphics\Vixen.Graphics.csproj" />
+
+        <!-- The image view the preview pane is, and the canvas the graph view is built on. -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
+
+        <!-- A graph is YAML on disk, the same as every other node document in the tree. -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Editor.Texturing.Tests" />
+    </ItemGroup>
+
+</Project>
