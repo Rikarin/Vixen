@@ -1511,6 +1511,23 @@ and nothing else. What it costs today is a real move per element on a list that 
 — a rotation by one changes nearly every index — and each of those is a layout remove-and-insert
 plus a style-tree move.
 
+Also owed: **an ambient value — anything a descendant can read without being handed it**. A theme, an
+edit target, a document scale: today each of them is a parameter repeated on every tag that needs one,
+which `Samples/02-HelloUi/Shell.vxml` shows at three `Model="@Model"`s and an editor multiplies by
+forty panels. ⚠ **Three ancestor walks exist and not one of them generalises**, which is worth writing
+down because each looks from a distance as if it might:
+
+- `[UiProperty(Inherits = true)]` emits a walk that matches only ancestors **of the declaring type**
+  (`Vixen.Ui.Generators/UiPropertyGenerator.cs`, the `ancestor is <Owner> owner` test), so it inherits
+  a property down a chain of one kind of element. It is CSS inheritance, and ⚠ its only producers in
+  the tree are three fixtures in `Vixen.Ui.Tests/SampleElements.cs` — nothing ships with it on.
+- `UiElement.EffectiveCommandScope` is a real nearest-ancestor walk whose value is one `string?`.
+- `UiDocument.ComponentAt` is a dictionary keyed on the exact host element, not a walk: there is no
+  "nearest ancestor component of type T" to ask.
+
+What is wanted is a provide/inject keyed by type over the `Parent` walk — the same walk the responder
+chain makes, and worth sharing one implementation with it rather than growing a fourth.
+
 Also owed: **fallback content in a `<slot>`**. `<slot name="footer">Nothing yet</slot>` is how every
 other framework spells a default, and it is `VXML2017` here — refused rather than supported, because
 building the fallback and then removing it if the slot turns out to be filled needs an ordering the
