@@ -372,6 +372,127 @@ public class FocusTests {
     }
 
     [Fact]
+    public void A_losing_element_may_remove_itself_from_inside_its_own_refusal_event() {
+        using var document = new UiDocument(100f, 100f);
+
+        var panel = document.Root.Add("div");
+        var field = Stop(panel);
+        var other = Stop(document.Root);
+
+        // ⚠ What every commit-on-blur editor does, and what a tree row's rename editor in this
+        // repository actually does: the losing event is where the typed value is written, and
+        // writing it ends the edit — so the element being asked is gone before the answer is read.
+        // Asked *after* the write, as it was until the veto arrived, that was harmless; asked
+        // before, the document then restated an element that had left the tree and threw
+        // "this UiElement has been removed from its document" out of the caller's `Focus` call.
+        var ended = false;
+
+        field.AddHandler<FocusEvent>(
+            (_, args) => {
+                // Once, the way a rename editor's own handler is: removing the field clears the
+                // focus, which asks it again.
+                if (args.Gained || ended) {
+                    return;
+                }
+
+                ended = true;
+                field.Remove();
+            }
+        );
+
+        document.Focus(field);
+
+        Assert.True(document.Focus(other));
+        Assert.Same(other, document.Focused);
+        Assert.True(field.IsRemoved);
+    }
+
+    [Fact]
+    public void A_focus_the_losing_handler_moved_itself_does_not_survive_the_move_it_was_asked_about() {
+        using var document = new UiDocument(100f, 100f);
+
+        var field = Stop(document.Root);
+        var fallback = Stop(document.Root);
+        var other = Stop(document.Root);
+
+        // The other half of the same shape: the handler does not refuse, it redirects — and until
+        // the redirect is noticed, the caller's write lands on top of it from a `previous` that is
+        // no longer the focus, so `Restate` clears the chain of an element that has already lost
+        // its flags and leaves them on the one the handler put them on.
+        var handed = false;
+
+        field.AddHandler<FocusEvent>(
+            (_, args) => {
+                // ⚠ Once, and every handler that moves the focus from inside a focus event has to
+                // be: the move asks the same element again, and an unguarded handler answers that
+                // by moving it again, for ever. That is true of this event whichever side of the
+                // write it is raised on.
+                if (args.Gained || handed) {
+                    return;
+                }
+
+                handed = true;
+                document.Focus(fallback);
+            }
+        );
+
+        document.Focus(field);
+
+        // ⚠ The caller's request wins over the handler's, and the handler's move is an intermediate
+        // state rather than the answer: a press on `other` that made `field` hand over to
+        // `fallback` must still end with the keyboard on what was pressed.
+        Assert.True(document.Focus(other));
+        Assert.Same(other, document.Focused);
+
+        // ⚠ **The state and not `IsFocused`**, which reads `Document.Focused` and so cannot see this
+        // at all. `Restate` is handed the chain to clear, and a chain computed before the handler
+        // ran clears the element that no longer has the focus and leaves the flags on the one the
+        // handler moved to — two focus rings on screen, and `:focus` true for two elements.
+        Assert.True(other.State.HasFlag(ElementState.Focus));
+        Assert.False(fallback.State.HasFlag(ElementState.Focus));
+        Assert.False(field.State.HasFlag(ElementState.Focus));
+    }
+
+    [Fact]
+    public void Two_handlers_that_each_take_the_focus_back_stop_rather_than_spin() {
+        using var document = new UiDocument(100f, 100f);
+
+        var first = Stop(document.Root);
+        var second = Stop(document.Root);
+        var other = Stop(document.Root);
+
+        // ⚠ The cap is this test's hang check and not its property, and it is here because the
+        // failure it guards is an infinite loop rather than a wrong answer: without the restart's
+        // memory the two handlers hand the focus back and forth for ever and nothing returns.
+        const int Cap = 32;
+
+        var fights = 0;
+
+        first.AddHandler<FocusEvent>((_, args) => Fight(args, second));
+        second.AddHandler<FocusEvent>((_, args) => Fight(args, first));
+
+        document.Focus(first);
+
+        // ⚠ False, and the focus is left wherever the fight abandoned it. A pair of elements that
+        // each take the focus back cannot be given what the caller asked for, and answering `true`
+        // would tell it the keyboard is somewhere it is not.
+        Assert.False(document.Focus(other));
+        Assert.InRange(fights, 1, Cap - 1);
+        Assert.NotNull(document.Focused);
+        Assert.False(other.IsFocused);
+
+        // Each of them only fights the element it is actually being taken by, which is what makes
+        // this a loop between two elements rather than a handler recursing into itself.
+        void Fight(FocusEvent args, UiElement take) {
+            if (args.Gained || !ReferenceEquals(args.Next, other) || fights++ >= Cap) {
+                return;
+            }
+
+            document.Focus(take);
+        }
+    }
+
+    [Fact]
     public void Force_moves_the_focus_past_a_refusal() {
         using var document = new UiDocument(100f, 100f);
 
