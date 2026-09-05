@@ -582,10 +582,14 @@ Vixen.Ui.Controls.ScrollSnapAxis.X = 1 -> Vixen.Ui.Controls.ScrollSnapAxis
 Vixen.Ui.Controls.ScrollSnapAxis.Y = 2 -> Vixen.Ui.Controls.ScrollSnapAxis
 Vixen.Ui.Controls.ScrollView -> sealed class
 Vixen.Ui.Controls.ScrollView : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.ScrollView.ClearDragToScroll() -> void
 Vixen.Ui.Controls.ScrollView.ClearScrollLeft() -> void
 Vixen.Ui.Controls.ScrollView.ClearScrollTop() -> void
 Vixen.Ui.Controls.ScrollView.Content.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.ScrollView.DragToScroll.get -> bool
+Vixen.Ui.Controls.ScrollView.DragToScroll.set -> bool
 Vixen.Ui.Controls.ScrollView.HorizontalBar.get -> Vixen.Ui.Controls.ScrollBar
+Vixen.Ui.Controls.ScrollView.IsFlinging.get -> bool
 Vixen.Ui.Controls.ScrollView.IsScrolling.get -> bool
 Vixen.Ui.Controls.ScrollView.MaximumLeft.get -> float
 Vixen.Ui.Controls.ScrollView.MaximumTop.get -> float
@@ -599,6 +603,7 @@ Vixen.Ui.Controls.ScrollView.ScrollTop.set -> float
 Vixen.Ui.Controls.ScrollView.ScrollView() -> void
 Vixen.Ui.Controls.ScrollView.Scrolled -> System.Action<Vixen.Ui.Controls.ScrollView>?
 Vixen.Ui.Controls.ScrollView.Settle() -> void
+Vixen.Ui.Controls.ScrollView.StopFling() -> void
 Vixen.Ui.Controls.ScrollView.VerticalBar.get -> Vixen.Ui.Controls.ScrollBar
 Vixen.Ui.Controls.SearchBox -> sealed class
 Vixen.Ui.Controls.SearchBox : Vixen.Ui.Controls.TextField
@@ -857,9 +862,12 @@ Vixen.Ui.Controls.VirtualizingPanel.TotalHeight.get -> float
 Vixen.Ui.Controls.VirtualizingPanel.VirtualizingPanel() -> void
 abstract Vixen.Ui.Controls.SelectBase.OnOptionChosen(Vixen.Ui.Controls.Option option) -> void
 const Vixen.Ui.Controls.Expander.HeaderSlot = "header" -> string
+const Vixen.Ui.Controls.ScrollView.FlingDecayConstant = 0.325 -> float
+const Vixen.Ui.Controls.ScrollView.FlingStopSpeed = 8 -> float
 const Vixen.Ui.Controls.ScrollView.SmoothingConstant = 0.075 -> float
 const Vixen.Ui.Controls.ScrollView.SnapIdleSeconds = 0.125 -> float
 const Vixen.Ui.Controls.ScrollView.SnapProximity = 0.25 -> float
+const Vixen.Ui.Controls.ScrollView.VelocityBlend = 0.35 -> float
 const Vixen.Ui.Controls.SecureTextBox.Bullet = '•' -> char
 const Vixen.Ui.Controls.SplitView.SecondSlot = "second" -> string
 const Vixen.Ui.Controls.VirtualizingGrid.Overscan = 2 -> int
@@ -1239,6 +1247,7 @@ static readonly Vixen.Ui.Controls.ScrollBar.ContentSizeProperty -> Vixen.Ui.UiPr
 static readonly Vixen.Ui.Controls.ScrollBar.OrientationProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.ScrollBar.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.ScrollBar.ViewportSizeProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.ScrollView.DragToScrollProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.ScrollView.ScrollLeftProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.ScrollView.ScrollTopProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Select.PlaceholderProperty -> Vixen.Ui.UiPropertyKey

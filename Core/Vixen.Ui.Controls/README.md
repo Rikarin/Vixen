@@ -193,17 +193,37 @@ the content height would fire on a virtualiser realising a row. Anchoring here n
 says which of its children are the *same content* as last frame, and that is the work rather than the
 four lines.
 
-⚠ **Momentum and rubber-band are still absent, and the reason is one level down from where it is
-usually looked for.** There is no drag-to-scroll on the content at all: a `ScrollView` scrolls from
-the wheel, the keyboard and its bars, and handles no `PointerEvent` or `DragEvent` of its own. So
-there is no finger for a fling to continue, and velocity tracking has nothing to track until content
-dragging exists. On the wheel path the question is different again and is a
-platform one that should be answered before any curve is written: AppKit generates a trackpad's
-momentum phase itself and SDL forwards those events as ordinary wheel deltas, which would mean a
-flick on macOS already coasts and a second deceleration here would fight it. ⚠ That is reasoned from
-the two APIs and **has not been measured on a device**, and measuring it is the first step of the
-work rather than a footnote to it — a deceleration added on top of an OS that already provides one is
-a bug that only shows up on the platform the feature was asked for.
+**Momentum is here and rubber-band is not, and what unblocked the first was not the curve.** A
+`ScrollView` used to scroll from the wheel, the keyboard and its bars and handle no `PointerEvent` or
+`DragEvent` of its own — so there was no finger for a fling to continue and nothing for a velocity
+tracker to track. `DragToScroll` is that finger: it takes the `DragEvent` the recogniser already
+produced, moves the content under it, and lets go of it with whatever speed it had.
+
+⚠ **It is opt-in, and the reason is that nothing in this engine can tell a finger from a mouse.**
+`PointerEvent` carries a `PointerId` and no device kind, so a control cannot ask whether a drag came
+from a touchscreen. A mouse drag inside a scroll view is a text selection or a marquee on every
+desktop, and turning content dragging on for everybody would take both away.
+
+⚠ **The velocity is sampled per tick and not per drag event.** `DragEvent` carries no timestamp and
+several can arrive between two frames, so a per-event velocity would divide by a zero interval or
+invent one. Measuring the offset's change over the document's own clock means a fling can never be
+faster than the frames that produced it, and a test that steps the clock gets the same number on
+every machine. The decay is a time constant against real seconds for the same reason
+`SmoothingConstant` is: a factor applied once a frame decelerates twice as fast at 120 fps as at 60,
+which is the commonest way an inertial scroll is written wrong and is invisible on the machine it was
+tuned on.
+
+⚠ **The wheel deliberately has no fling.** AppKit generates a trackpad's momentum phase itself and
+SDL forwards those events as ordinary wheel deltas, so a flick on macOS plausibly already coasts and
+a second deceleration here would compound with it. That is reasoned from the two APIs and **has not
+been measured on a device**; a drag is the platform-neutral gesture that carries no momentum of its
+own, which is why the curve lives there and nowhere else.
+
+⚠ **Rubber-band is still absent and needs one thing this does not have: an offset that may leave its
+range.** `ScrollTop` coerces into `[0, MaximumTop]`, so there is nowhere for an elastic overscroll to
+go — an axis that reaches an end simply loses its velocity here. Adding it means a second offset
+outside the clamp, a resistance function on the way out and a spring back, and it is what would
+finally make `overscroll-contain` and `overscroll-none` differ.
 
 ## The theme
 

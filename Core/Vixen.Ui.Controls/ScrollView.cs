@@ -352,6 +352,33 @@ public sealed partial class ScrollView : Control {
     [UiProperty(Coerce = nameof(CoerceLeft), Changed = nameof(OnScrolled))]
     public partial float ScrollLeft { get; set; }
 
+    /// <summary>Whether dragging the content itself scrolls the view, with a fling at the end of it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Off, and it is opt-in rather than automatic for one reason: nothing in this engine
+    ///         can tell a finger from a mouse.</b> <c>PointerEvent</c> carries a
+    ///         <c>PointerId</c> and no device kind, so a control cannot ask "was that a touch" — and
+    ///         a mouse drag inside a scroll view is not a scroll on any desktop. It is a text
+    ///         selection, a marquee, or a drag of the row it started on. Turning this on globally
+    ///         would take all three away.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is what momentum is built on, and until it existed there was no gesture to
+    ///         attach a velocity to.</b> The view scrolled from the wheel, the keyboard and its bars,
+    ///         none of which has a finger leaving it — so a fling had nothing to continue. That is
+    ///         the premise the momentum work was blocked on rather than the deceleration curve, which
+    ///         is four lines.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The wheel is deliberately <i>not</i> given a fling.</b> On macOS AppKit generates
+    ///         the trackpad's own momentum phase and SDL forwards it as ordinary wheel deltas, so a
+    ///         curve added on that path would run on top of the operating system's and the two would
+    ///         compound. A drag is the platform-neutral gesture that carries no momentum of its own.
+    ///     </para>
+    /// </remarks>
+    [UiProperty]
+    public partial bool DragToScroll { get; set; }
+
     /// <summary>Raised when either offset changes.</summary>
     public event Action<ScrollView>? Scrolled;
 
@@ -380,6 +407,7 @@ public sealed partial class ScrollView : Control {
         HorizontalBar.ScrollEnded += _ => Ended();
 
         AddHandler<WheelEvent>(static (element, args) => ((ScrollView) element).Wheeled(args));
+        AddHandler<DragEvent>(static (element, args) => ((ScrollView) element).Dragged(args));
         AddHandler<KeyEvent>(static (element, args) => ((ScrollView) element).Keyed(args));
         AddHandler<FocusEvent>(static (element, args) => ((ScrollView) element).Refocused(args));
 
@@ -522,8 +550,26 @@ public sealed partial class ScrollView : Control {
 
         // ⚠ Before the easing rather than after it, and outside the `IsScrolling` guard: the whole
         // point of the terminator is that it fires on a view that is doing nothing at all.
-        if (gesturing && (float) (now - gestureAt).TotalSeconds >= SnapIdleSeconds) {
+        //
+        // ⚠ Except while a finger is down or a fling is running, and that exception is what a
+        // gesture with a real terminator earns. `SnapIdleSeconds` is an eighth of a second — shorter
+        // than any drag worth making and far shorter than a fling — so without this a drag would be
+        // declared over, and snapped, while it was still happening. The wheel needs the timer
+        // precisely because it has no end in it; a drag ends when the pointer comes up and a fling
+        // ends when it runs out of speed.
+        if (gesturing
+            && !dragging
+            && !IsFlinging
+            && (float) (now - gestureAt).TotalSeconds >= SnapIdleSeconds) {
             Ended();
+        }
+
+        if (elapsed > 0f) {
+            if (dragging) {
+                Track(elapsed);
+            } else if (IsFlinging) {
+                Fling(elapsed);
+            }
         }
 
         if (!IsScrolling || elapsed <= 0f) {
@@ -547,6 +593,181 @@ public sealed partial class ScrollView : Control {
 
         ScrollTop = top;
         ScrollLeft = left;
+    }
+
+    // ── Dragging the content, and the fling at the end of it ────────────────────────────────
+
+    bool dragging;
+    float velocityTop;
+    float velocityLeft;
+    float sampledTop;
+    float sampledLeft;
+
+    /// <summary>How long a fling takes to lose about two thirds of its speed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A time constant against real elapsed seconds, not a per-frame multiplier.</b> A
+    ///     factor applied once a frame decelerates twice as fast at 120 fps as at 60, which is the
+    ///     commonest way an inertial scroll is written wrong and is invisible on the machine it was
+    ///     tuned on. <see cref="SmoothingConstant" /> one screen up makes the same choice for the
+    ///     same reason; this constant is far larger because a fling is meant to be watched travelling
+    ///     and an eased jump is meant to be over.
+    /// </remarks>
+    public const float FlingDecayConstant = 0.325f;
+
+    /// <summary>How slow a fling has to get before it is over, in pixels per second.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An exponential decay never reaches zero</b>, so without a floor the offset would go
+    ///     on changing by a millionth of a pixel every frame for the life of the document — and every
+    ///     one of those frames invalidates positions and rebuilds the draw list. It is the same
+    ///     argument the half-pixel terminator in <see cref="Advance" /> makes, in the units this one
+    ///     is measured in.
+    /// </remarks>
+    public const float FlingStopSpeed = 8f;
+
+    /// <summary>How much of a new velocity reading is believed, against what was already known.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Smoothed, because the last sample before a finger lifts is the worst one.</b> A hand
+    ///     slows fractionally as it releases, so a fling taken from the final frame alone is
+    ///     consistently slower than the gesture felt — and one stalled frame mid-drag would otherwise
+    ///     report a velocity of nothing at all. A running average over the tail of the drag is what
+    ///     every platform's velocity tracker computes; this is the cheapest honest form of one.
+    /// </remarks>
+    public const float VelocityBlend = 0.35f;
+
+    /// <summary>Whether a fling is still carrying the content.</summary>
+    public bool IsFlinging { get; private set; }
+
+    /// <summary>Drops any fling in flight, leaving the offset where it got to.</summary>
+    public void StopFling() {
+        IsFlinging = false;
+        velocityTop = 0f;
+        velocityLeft = 0f;
+    }
+
+    /// <summary>Scrolls the content under the finger, and lets go of it with whatever speed it had.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The delta is subtracted.</b> A drag moves the <i>content</i>, and the offset is how
+    ///     far down the content the viewport is — so dragging downwards moves the viewport up. The
+    ///     bars and the wheel both write the offset directly and do not invert; this is the one path
+    ///     where the number the user is moving is not the number being stored.
+    /// </remarks>
+    void Dragged(DragEvent args) {
+        if (!DragToScroll) {
+            return;
+        }
+
+        switch (args.Stage) {
+            case DragStage.Started:
+                // Direct manipulation, so it takes the content away from anything easing it — and
+                // from its own previous fling, which is what makes a second flick continue the first
+                // rather than fight it.
+                Began();
+                Settle();
+                StopFling();
+
+                dragging = true;
+                sampledTop = ScrollTop;
+                sampledLeft = ScrollLeft;
+
+                args.Handled = true;
+                break;
+
+            case DragStage.Moved when dragging:
+                ScrollTop -= args.DeltaY;
+                ScrollLeft -= args.DeltaX;
+
+                args.Handled = true;
+                break;
+
+            case DragStage.Completed when dragging:
+                dragging = false;
+
+                // ⚠ The snap runs only when there is no fling to run first. A fling that comes to
+                // rest somewhere a snap point does not want is snapped when it stops — see
+                // <see cref="Fling" /> — and snapping now would take the content away from the
+                // finger's speed at the moment the user expects it to keep going.
+                if (MathF.Abs(velocityTop) >= FlingStopSpeed || MathF.Abs(velocityLeft) >= FlingStopSpeed) {
+                    IsFlinging = true;
+                } else {
+                    StopFling();
+                    Ended();
+                }
+
+                args.Handled = true;
+                break;
+
+            case DragStage.Cancelled when dragging:
+                dragging = false;
+                StopFling();
+                Ended();
+
+                args.Handled = true;
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    /// <summary>Measures how fast the content is being dragged, on the clock that will carry it on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Sampled per tick rather than per drag event, and that is what makes it honest.</b>
+    ///     <see cref="DragEvent" /> carries no timestamp, and several of them can arrive between two
+    ///     frames — so a velocity computed per event would divide by a zero interval or invent one.
+    ///     Measuring the offset's change over the document's own tick means a fling can never be
+    ///     faster than the frames that produced it, and means a test that steps the clock gets the
+    ///     same number on every machine.
+    /// </remarks>
+    void Track(float elapsed) {
+        var top = (ScrollTop - sampledTop) / elapsed;
+        var left = (ScrollLeft - sampledLeft) / elapsed;
+
+        sampledTop = ScrollTop;
+        sampledLeft = ScrollLeft;
+
+        velocityTop += (top - velocityTop) * VelocityBlend;
+        velocityLeft += (left - velocityLeft) * VelocityBlend;
+    }
+
+    /// <summary>Carries the content on after the finger has gone, and decides where it stops.</summary>
+    void Fling(float elapsed) {
+        var decay = MathF.Exp(-elapsed / FlingDecayConstant);
+
+        var top = ScrollTop;
+        var left = ScrollLeft;
+
+        // The integral of a decaying velocity over the interval, rather than speed × time: at a
+        // frame long enough to matter the two differ by the whole of the deceleration, and a fling
+        // stepped in one large tick would travel further than the same fling stepped in twenty.
+        ScrollTop = top + (velocityTop * FlingDecayConstant * (1f - decay));
+        ScrollLeft = left + (velocityLeft * FlingDecayConstant * (1f - decay));
+
+        velocityTop *= decay;
+        velocityLeft *= decay;
+
+        // ⚠ An axis that did not move is an axis that has reached an end, and its speed is spent.
+        // Without this the fling goes on decaying against a clamp for a second after it visibly
+        // stopped, and a flick back the other way inside that second starts from a velocity the
+        // content has not had since it hit the edge. There is no bounce: elastic overscroll needs an
+        // offset that may leave its range, and `ScrollTop` coerces.
+        if (ScrollTop.Equals(top)) {
+            velocityTop = 0f;
+        }
+
+        if (ScrollLeft.Equals(left)) {
+            velocityLeft = 0f;
+        }
+
+        if (MathF.Abs(velocityTop) >= FlingStopSpeed || MathF.Abs(velocityLeft) >= FlingStopSpeed) {
+            return;
+        }
+
+        StopFling();
+
+        // Where a fling comes to rest is where the gesture came to rest, so this is the moment the
+        // snap is defined at — the same moment `ScrollBar.ScrollEnded` and the wheel's idle
+        // terminator name for the gestures that have one.
+        Ended();
     }
 
     /// <summary>Abandons any smooth scroll in flight, leaving the offset where it got to.</summary>
