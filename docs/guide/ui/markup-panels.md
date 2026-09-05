@@ -105,6 +105,26 @@ public ShellModel Model {
 }
 ```
 
+**`VXS0320` says so at the declaration.** A public settable property on a `Component` whose type is
+neither reactive nor a delegate is a parameter nothing can subscribe to, and the analyzer points at
+it with the `Signal<T>` to reach for.
+
+⚠ **It is a suggestion rather than a warning, and that is a repository rule rather than a doubt about
+the diagnostic.** `TreatWarningsAsErrors` is a stated non-negotiable, so a warning firing anywhere in
+the tree is a broken build — and a plain parameter is sometimes right, for a value a caller sets once
+and never changes. Promoting it is a decision to take after the tree has been swept with it.
+
+⚠ **It cannot be a `VXML2xxx`.** `VxmlGenerator` never takes a `Compilation` — deliberately, so that
+editing a C# file re-runs no markup — and `Binder` is pure syntax, so "is this property signal-backed"
+is a question the markup compiler cannot ask at all. That is why it is a separate analyzer over the
+C#, and why the option the audit called the cheaper one was the impossible one.
+
+⚠ **A dynamic parameter's expression is evaluated twice**, once as the statement the child is built
+with and once inside the `Bind` that keeps it current — the bargain `ComponentEmitter` records beside
+the emission. A markup expression is re-evaluated on every dependency change anyway, so one that
+cannot stand being read twice was already wrong; what does change is that an expression which throws
+now throws out of `Build` rather than being caught and logged by the effect.
+
 ### The three universal attributes
 
 `class`, `style` and `binding-path` mean the same on a component tag as on an element, and are never

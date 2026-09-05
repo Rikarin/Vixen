@@ -12,3 +12,4 @@ VXS0304 | Vixen.Ui | Error | A [UiProperty] names a callback the type does not h
 VXS0310 | Vixen.Ui | Error | A declared StringId is not in its class's All list
 VXS0311 | Vixen.Ui | Error | Two StringId declarations share one id
 VXS0312 | Vixen.Ui | Error | A StringId is built outside the assembly's declaration class
+VXS0320 | Vixen.Ui | Info | A component parameter is not signal-backed and cannot follow its source

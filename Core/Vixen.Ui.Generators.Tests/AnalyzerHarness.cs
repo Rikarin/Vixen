@@ -41,8 +41,32 @@ public static class AnalyzerHarness {
     ///     Appended rather than prepended, because a <c>using</c> has to be the first thing in a file
     ///     and every snippet starts with one.
     /// </remarks>
-    public static async Task<ImmutableArray<Diagnostic>> RunAsync(string source) {
-        var tree = CSharpSyntaxTree.ParseText(source + Environment.NewLine + StringId, path: "Declarations.cs");
+    public static Task<ImmutableArray<Diagnostic>> RunAsync(string source) =>
+        RunAsync(source, new StringDeclarationAnalyzer(), StringId);
+
+    /// <summary>Compiles source with a preamble and runs one analyzer over it.</summary>
+    /// <param name="source">The C# to compile. It has to compile, for the reason above.</param>
+    /// <param name="analyzer">Which analyzer to run.</param>
+    /// <param name="preamble">
+    ///     The declarations the analyzer resolves by metadata name — appended rather than prepended,
+    ///     because a <c>using</c> has to be the first thing in a file and every snippet starts with
+    ///     one.
+    /// </param>
+    /// <returns>What the analyzer reported, in file order.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The compilation under test declares the framework types itself.</b> An analyzer
+    ///     resolves a metadata name, so a declaration here is the same thing to it as one in a
+    ///     referenced assembly — and a test that referenced the real <c>Vixen.Ui</c> would be
+    ///     asserting that a restore happened.
+    /// </remarks>
+    public static async Task<ImmutableArray<Diagnostic>> RunAsync(
+        string source,
+        DiagnosticAnalyzer analyzer,
+        string preamble
+    ) {
+        ArgumentNullException.ThrowIfNull(analyzer);
+
+        var tree = CSharpSyntaxTree.ParseText(source + Environment.NewLine + preamble, path: "Declarations.cs");
 
         var compilation = CSharpCompilation.Create(
             "ApplicationUnderTest",
@@ -62,7 +86,7 @@ public static class AnalyzerHarness {
         }
 
         var reported = await compilation
-            .WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(new StringDeclarationAnalyzer()))
+            .WithAnalyzers(ImmutableArray.Create(analyzer))
             .GetAnalyzerDiagnosticsAsync(TestContext.Current.CancellationToken);
 
         return [.. reported.OrderBy(diagnostic => diagnostic.Location.SourceSpan.Start)];
