@@ -6,7 +6,10 @@ using Microsoft.Extensions.Logging;
 using Vixen.Core;
 using Vixen.Core.Diagnostics;
 using Vixen.Core.Mathematics;
+using Vixen.Core.Yaml;
+using Vixen.Core.Yaml.Meta;
 using Vixen.Ecs.Systems;
+using Vixen.Editor.Assets.Models;
 using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
@@ -408,6 +411,23 @@ sealed partial class EditorApplication {
             CategoryAssets,
             OpenSelectedAsset,
             enabled: () => project.Selection.Count > 0
+        );
+
+        // ⚠ Doc 48 § D12's last line, and the reason this verb exists rather than a checkbox on the
+        // model importer. A mesh map has to land in `Assets/` as a file an artist can open — § D12
+        // says so in one sentence: they want to look at the curvature map when a generator
+        // misbehaves. An importer cannot write one there. It writes artefacts into `Library/` under
+        // a cache key, and a file it dropped into `Assets/` would be a file the next scan imports,
+        // that the import it came out of never declared it read, and that no cache key can see — a
+        // hidden cache with a re-entrancy bug on top. Baking is therefore a verb over a selected
+        // model, taken through the same scan-then-read-back-the-GUID sequence as every other thing
+        // the editor puts in a project.
+        Verb(
+            "assets.bake-mesh-maps",
+            new StringId("editor.command.assets.bake-mesh-maps", "Bake Mesh Maps"),
+            CategoryAssets,
+            BakeSelectedMeshMaps,
+            enabled: () => !content.IsBusy && project.Selection.Count == 1
         );
 
         Verb(
@@ -1071,7 +1091,7 @@ sealed partial class EditorApplication {
         assets.AddSeparator()
             .Add("assets.show-in-explorer", "assets.open", "assets.rename", "assets.delete", "assets.move-to")
             .AddSeparator()
-            .Add("assets.reimport", "assets.reimport-all")
+            .Add("assets.reimport", "assets.reimport-all", "assets.bake-mesh-maps")
             .AddSeparator()
             .Add("assets.find-references", "assets.select-dependencies")
             .AddSeparator()
@@ -1657,6 +1677,108 @@ sealed partial class EditorApplication {
         // The folder rather than the file: every desktop opens a directory URI in its file manager
         // and none of them agree on how to ask for a file to be revealed.
         Browse(new Uri(Path.GetDirectoryName(full) ?? project.Paths.Root).AbsoluteUri);
+    }
+
+    /// <summary>Bakes the selected model's mesh maps into the project.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>⚠ The caller <c>MapBaker.Bake</c> did not have.</b> Doc 48 § D12's seven
+    ///         measurements were built on <c>BakedMaps</c> and nothing in the repository outside
+    ///         <c>MapBakerTests</c> called the bake — not an importer, not a content build, not the
+    ///         editor. This line and <c>ContentTasks.BakeMeshMaps</c> behind it are what makes them
+    ///         reachable by a person.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The source and the target are the same mesh, and that is the ordinary case
+    ///         rather than a simplification.</b> A separate high-poly belongs to the retopology
+    ///         flow; asking for the occlusion, curvature and thickness <i>of the mesh you are
+    ///         texturing</i> is what every generator in § 4.8 reads, and it is what Painter's bake
+    ///         does when nobody supplies a high-poly. A high-poly picker is a bake panel's job.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The first mesh with an atlas, and it says which.</b> A model file can hold
+    ///         several, the bake is one at a time because it writes one named set, and a verb that
+    ///         silently picked one of four would be a verb whose output nobody can account for.
+    ///     </para>
+    /// </remarks>
+    void BakeSelectedMeshMaps() {
+        if (project.Selection.Count != 1 || !project.Assets.TryGetByGuid(project.Selection[0], out var entry)) {
+            return;
+        }
+
+        var absolute = project.Paths.Absolute(entry.Path);
+        var extension = Path.GetExtension(absolute);
+
+        try {
+            var settings = ModelSettingsOf(absolute);
+            var read = ModelReader.Read(
+                File.ReadAllBytes(absolute),
+                extension,
+                Path.GetFileNameWithoutExtension(absolute),
+                settings
+            );
+
+            var mesh = Array.Find(read.Meshes, candidate => candidate.TexCoords.Length == candidate.Positions.Length
+                && candidate.TexCoords.Length > 0);
+
+            if (mesh is null) {
+                Shell.Notifications.Show(
+                    "Nothing to bake into",
+                    NotificationSeverity.Warning,
+                    read.Meshes.Length == 0
+                        ? "That file has no meshes."
+                        : "None of its meshes carries texture coordinates, and a mesh map is a picture of "
+                        + "the atlas. Unwrap it first — the model importer's Unwrap setting will."
+                );
+
+                return;
+            }
+
+            var kernel = ModelGeometry.ToEditMesh(mesh);
+            var name = mesh.Name.Length > 0 ? mesh.Name : Path.GetFileNameWithoutExtension(absolute);
+
+            content.BakeMeshMaps(
+                meshMaps,
+                name,
+                kernel,
+                kernel,
+                new() { Resolution = MeshMapResolution, Maps = Vixen.Geometry.Remeshing.MeshMaps.All }
+            );
+        } catch (Exception failure) when (failure
+            is IOException
+            or UnauthorizedAccessException
+            or ModelFormatException
+            or ArgumentException) {
+            Shell.Notifications.Show("Could not bake mesh maps", NotificationSeverity.Error, failure.Message);
+        }
+    }
+
+    /// <summary>How big a mesh map the verb bakes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A constant until § D12's bake panel exists, and it is deliberately a preview
+    ///     size.</b> 1K with <c>BakeSettings</c>'s default sixty-four rays is seconds; the same bake
+    ///     at 4K with several hundred is what a hero asset wants and what nobody wants to discover by
+    ///     picking a menu item. The panel is what turns this into a number somebody chose.
+    /// </remarks>
+    const int MeshMapResolution = 1024;
+
+    /// <summary>How the model is imported, so the bake reads the geometry the project uses.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Defaults where the sidecar cannot be read, rather than a refusal.</b> A model that
+    ///     has never been imported has no importer block at all, and that is the commonest moment to
+    ///     want a bake — the file has just been dropped in.
+    /// </remarks>
+    static ModelImportSettings ModelSettingsOf(string absolute) {
+        var sidecar = AssetMetaFile.PathFor(absolute);
+
+        try {
+            return File.Exists(sidecar) && AssetMetaFile.ReadFile(sidecar).Importer is ModelImportSettings settings
+                ? settings
+                : new();
+        } catch (Exception failure)
+            when (failure is IOException or YamlParseException or YamlBindingException or MetaVersionException) {
+            return new();
+        }
     }
 
     /// <summary>Throws away the import cache and the artefacts, so the next build starts clean.</summary>

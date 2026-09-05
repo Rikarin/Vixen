@@ -8,7 +8,7 @@ api: [T:Vixen.Geometry.Remeshing.MapBaker, T:Vixen.Geometry.Remeshing.BakeSettin
 tags: [geometry, retopology, remesh, bake, normal-map, displacement, atlas, ambient-occlusion, curvature, mesh-maps]
 since: 0.1
 status: preview
-related: [engine/retopology, engine/attribute-transfer, engine/uv-packing, core/triangle-tree]
+related: [engine/retopology, engine/attribute-transfer, engine/uv-packing, core/triangle-tree, editor/mesh-map-assets]
 ---
 
 ## What it is
@@ -282,3 +282,5 @@ character is the entire point of baking one.
 - [Attribute transfer](engine/attribute-transfer) — the other half of stage seven.
 - [UV packing](engine/uv-packing) — the margin rule the gutter has to agree with.
 - [Triangle tree](core/triangle-tree) — the rays and the closest-point fallback both go through it.
+- [Mesh maps as project assets](editor/mesh-map-assets) — the caller that writes these pixels to
+  files, what the files are called, and how a generator finds one by usage.

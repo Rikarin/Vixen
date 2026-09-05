@@ -12,6 +12,7 @@ using Vixen.Editor.AssetEditors;
 using Vixen.Editor.AssetEditors.Content;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Assets.Content;
+using Vixen.Editor.Assets.MeshMaps;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Debugger;
@@ -206,6 +207,16 @@ sealed partial class EditorApplication : IDisposable {
     internal ExternalEdits External => external;
 
     readonly ContentTasks content;
+
+    /// <summary>What puts doc 48 § D12's baked mesh maps into the project as ordinary assets.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Held as well as published, because it has two callers and they are different
+    ///     shapes.</b> A plugin resolves <see cref="IMeshMapBaker" /> out of the service list, the
+    ///     way the block-out module resolves <c>IMeshBaker</c>; the editor's own Bake Mesh Maps verb
+    ///     hands this to <c>ContentTasks</c>, which does the arithmetic on a pool thread and calls
+    ///     <c>Write</c> back on the frame thread. Neither could reach it through the other.
+    /// </remarks>
+    readonly ProjectMeshMapBaker meshMaps;
 
     /// <summary>The project's own content, opened the way a player opens a build.</summary>
     /// <remarks>
@@ -690,6 +701,7 @@ sealed partial class EditorApplication : IDisposable {
         // been imported opens as a refusal rather than an exception — see the type — so this is
         // never null and `Assets` is what says whether there is anything to mount.
         projectContent = new(project);
+        meshMaps = new(project);
 
         content = new(project, Shell) {
             // The panel's own rescan, so the browser shows what an import repaired rather than what
@@ -2474,6 +2486,13 @@ sealed partial class EditorApplication : IDisposable {
             .Add(plane)
             .Add<IMeshBaker>(new ProjectMeshBaker(Project))
 
+            // ⚠ And doc 48 § D12's, under its own interface for the reason below. A mesh map is a
+            // measurement of geometry that lands in `Assets/` as a file an artist opens, so a module
+            // that generates or retopologises meshes has the same relationship to it that the
+            // block-out mode has to the mesh baker: it knows what it wants baked and nothing about
+            // where a GUID comes from.
+            .Add<IMeshMapBaker>(meshMaps)
+
             // ⚠ Under the interface, not under the implementation. `PluginServices` keys on the
             // static type it is handed, so publishing this as a `ProjectMeshSource` would mean a
             // module asking for the contract finding nothing — and being refused, correctly and
@@ -3381,7 +3400,7 @@ sealed partial class EditorApplication : IDisposable {
         group.AddSeparator();
         group.Add("assets.rename", "assets.delete", "assets.move-to");
         group.AddSeparator();
-        group.Add("assets.reimport-all", "assets.show-in-explorer");
+        group.Add("assets.reimport-all", "assets.bake-mesh-maps", "assets.show-in-explorer");
 
         return MenuPresenter.Context(Shell.Document, group, Shell.Commands, Shell.Keys);
     }

@@ -5,8 +5,11 @@ using System.Collections.Concurrent;
 using System.Globalization;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Assets.Content;
+using Vixen.Editor.Assets.MeshMaps;
 using Vixen.Editor.Core;
 using Vixen.Editor.Ui;
+using Vixen.Geometry;
+using Vixen.Geometry.Remeshing;
 using Vixen.Ui;
 
 namespace Vixen.Editor.App;
@@ -121,6 +124,97 @@ sealed class ContentTasks {
                 );
             }
         );
+    }
+
+    /// <summary>Bakes a mesh's maps and puts the files in the project.</summary>
+    /// <param name="baker">What turns the pixels into project assets.</param>
+    /// <param name="mesh">What to call the set.</param>
+    /// <param name="source">The high-resolution surface. May be the same mesh as the target.</param>
+    /// <param name="target">The mesh with the atlas the maps land in.</param>
+    /// <param name="settings">The size, the gutter, the search radius and which maps to measure.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 48 § D12's maps, from the editor, without freezing the window.</b> A bake casts
+    ///         <c>OcclusionSamples</c> rays at every texel of the atlas, which is seconds on a preview
+    ///         and minutes on a hero asset — the same argument <see cref="Import" /> is here for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The arithmetic is on the pool and the project write is not, and the split is not
+    ///         cosmetic.</b> Writing the files means <c>AssetDatabase.Scan</c>, which rewrites the
+    ///         index the browser, the inspector and every asset field are reading — from a pool
+    ///         thread that is a tearing read in a panel rather than an exception anybody can find. So
+    ///         what crosses back is the encoded PNGs, and <see cref="Pump" /> puts them in the
+    ///         project on the frame thread.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It takes the same one-at-a-time guard as an import</b>, because it writes into
+    ///         <c>Assets/</c> and an import running over the same folder would read the files
+    ///         half-written.
+    ///     </para>
+    /// </remarks>
+    public void BakeMeshMaps(
+        IMeshMapBaker baker,
+        string mesh,
+        EditMesh source,
+        EditMesh target,
+        BakeSettings settings
+    ) {
+        ArgumentNullException.ThrowIfNull(baker);
+        ArgumentException.ThrowIfNullOrEmpty(mesh);
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(settings);
+
+        if (Interlocked.CompareExchange(ref running, 1, 0) != 0) {
+            shell.Notifications.Show("Already running", NotificationSeverity.Warning, "Wait for it to finish.");
+            return;
+        }
+
+        shell.Tasks.Start(
+            "Baking " + mesh + "'s mesh maps",
+            task => {
+                try {
+                    task.Report(0f, "Casting");
+
+                    var maps = MapBaker.Bake(source, target, settings);
+
+                    task.Cancellation.ThrowIfCancellationRequested();
+                    task.Report(0.9f, "Encoding");
+
+                    var images = MeshMapBake.Encode(mesh, maps);
+
+                    afterwards.Enqueue(() => Landed(baker, mesh, images, maps.Warnings));
+                } catch (Exception failure) when (failure is IOException or ArgumentException) {
+                    finished.Enqueue(new(NotificationSeverity.Error, "Could not bake " + mesh, failure.Message));
+                } finally {
+                    Volatile.Write(ref running, 0);
+                }
+
+                return Task.CompletedTask;
+            }
+        );
+    }
+
+    /// <summary>Puts a finished bake in the project. ⚠ On the frame thread, from <see cref="Pump" />.</summary>
+    void Landed(IMeshMapBaker baker, string mesh, IReadOnlyList<MeshMapImage> images, IReadOnlyList<string> warnings) {
+        try {
+            var set = baker.Write(mesh, images, warnings);
+
+            // The browser is showing the folder these landed in and does not know they are there.
+            // Rescan is the frame-thread half of "something changed on disk" — see Pump.
+            Rescan?.Invoke();
+
+            var wrote = string.Create(CultureInfo.InvariantCulture, $"{set.Files.Count} maps for {set.Mesh}");
+
+            if (set.Warnings.Count > 0) {
+                shell.Notifications.Show(wrote, NotificationSeverity.Warning, string.Join(Environment.NewLine, set.Warnings));
+                return;
+            }
+
+            shell.Notifications.Success(wrote);
+        } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
+            shell.Notifications.Show("Could not write " + mesh + "'s mesh maps", NotificationSeverity.Error, failure.Message);
+        }
     }
 
     /// <summary>Imports and then packs a content build.</summary>
