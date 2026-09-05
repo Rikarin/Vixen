@@ -3569,6 +3569,15 @@ ask is not "where is this read" but "what else reads the number it changes".**
    `Inert` table is empty or every entry names its task. It is the only artefact in this survey built
    by resolving elements rather than by reading source, and it is where a finding goes to become a
    fact: F1 and F5 were derived from source and are now three `Fact`s in that file.
+   ⚠ **This was checked by eye until #604, and what it printed on the day a root was missing was
+   `Passed!`.** `Every_registered_root_is_claimed_by_a_row_or_named_here` enumerates the registry
+   against the four hand-maintained tables now, and the first run of it found **121 roots with no row
+   anywhere** — against the five that #276 had made anybody look for. They are named one by one in
+   `UtilityFamilySupportTests.Uncovered`, grouped by the reason they have none (#629); only the first
+   group, the `Family.Scope` roots, can never be rows. ⚠ The exemptions are a **list of names and never a
+   predicate**, because a rule of the shape "roots whose family has a `Scope` are exempt" is
+   satisfied by exactly the defect it is meant to catch. And the walk asserts its own **count** as
+   well as its membership: an enumeration that returns nothing agrees with every table ever written.
 4. **The layout conformance suite is green against a second oracle.** Yoga's 534 stay. Taffy's
    translated corpus is added: **868 block, 1 960 grid, 2 268 flex**, every expected number out of
    Chrome, run behind the Ahem measure stub so no text engine is involved. Failures are listed by name
