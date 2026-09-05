@@ -132,8 +132,15 @@ float mask_progress(vec2 offset, vec2 half_size, vec2 axis, int kind) {
     if (kind == 3) {
         // CSS starts at twelve o'clock and sweeps clockwise; screen space is y-down, so up is -y and
         // `atan(x, -y)` is already CSS's angle. The axis's own angle is the `from <angle>`.
+        //
+        // ⚠ A multiplication by 1/2π rather than a division by 2π, and the reason is not speed — a
+        // compiler folds either. It is that `Ui.rvn` spells it this way, and a comparison of the
+        // numbers two files hold cannot see through a reciprocal: spelled as a division this was the
+        // single entry on an exception list, in a check whose own remark says allow-lists here rot.
+        // `ui-box.frag` beside this one already had it right — its `INV_TWO_PI` is the same
+        // reciprocal — so the division was this file disagreeing with its own siblings as well.
         float angle = atan(offset.x, -offset.y) - atan(axis.x, -axis.y);
-        float turns = (angle / 6.28318531) + 1.0;
+        float turns = (angle * 0.15915494309189535) + 1.0;
 
         return turns - floor(turns);
     }
