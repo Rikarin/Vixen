@@ -477,16 +477,30 @@ building on that argument rather than on a blocking one. They are tracked as
   buy the one runaway nothing in-process can report: a stack overflow ends the CLR where it happens,
   with no thread left to name the input.
 
-  **Three findings are open and filed rather than fixed**, recorded here so the ✅ above is not read as
-  "and nothing is owed":
+  **Three findings were recorded here as open and filed rather than fixed. ⚠ All three are fixed, and
+  none of them was ever filed** (#341) — the paragraph outlived the defects it was protecting the ✅
+  above from being read over. They are kept rather than deleted, because each names a shape worth
+  recognising a second time:
 
-  - the YAML binder writes `null` into a member declared non-nullable — nullability is decided from the
-    CLR type, so the C# annotation contradicting it is not in the descriptor to read. Refusing it is a
-    decision about every `[DataContract]` type in the engine and belongs to `Vixen.Core.Yaml`;
-  - three inputs make Raven's incremental reparse build a **structurally different tree** — the printed
-    text still agrees, so only the shape comparison sees it.
+  - the YAML binder wrote `null` into a member declared non-nullable — nullability was decided from the
+    CLR type, to which every reference type is nullable, so `subAssets: null` bound straight into an
+    `AssetMeta` that broke its own declaration and the crash landed in whichever consumer dereferenced
+    it first. ⚠ **Fixed in `0a905f21`**, and by carrying the *annotation* rather than by the cheaper
+    "a collection member may not be null": the reflection generator reads it while the member is still
+    a symbol and puts it on `MemberDescriptor.IsNullable`, which only ever narrows the CLR answer — the
+    narrow rule would have refused `AssetMaterialSource.Slots`, `MoveQuery.Preferred` and
+    `ResponseCurve.Keys`, which are nullable on purpose. `MetaTests.ANullAgainstANonNullableMemberIsRefused`
+    pins the three refusals and `ANullAgainstANullableMemberIsStillBound` pins the half a type-shaped
+    rule would have got wrong. Oblivious counts as nullable, so nothing that used to bind stopped;
+  - three inputs made Raven's incremental reparse build a **structurally different tree** — the printed
+    text still agreed, so only the shape comparison saw it. ⚠ **Fixed in `ad962730`**: a reuse
+    candidate carries the parse loop that produced it (`ReuseCandidate.Context`) and a reuse site names
+    the one it is standing in, because a node belongs to the grammar that read it and not to the
+    characters underneath it. The smallest input is forty bytes — an enum whose name is replaced by the
+    keyword `shader`, which leaves its members lexing identically at what is now a member boundary —
+    and it is a row in `IncrementalParseTests` with the inputs in the corpus.
 
-  **The third is fixed.** A binder recursion on `func F(): float[F()]` overflowed the stack — not a
+  **And the third.** A binder recursion on `func F(): float[F()]` overflowed the stack — not a
   property of `shader` as first recorded, but of any type with members: a `struct` did it too, and so
   did a parameter type, two signatures sizing arrays by each other, and a `val` parameter sizing its
   own type. Three of the four source symbols that resolve a type already carried the cycle guard;
