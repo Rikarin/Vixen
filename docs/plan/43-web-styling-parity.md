@@ -451,10 +451,19 @@ from `UiMask`, which is an analytic ramp over a box and has no way to express a 
 needs a pass that binds `ui-text.frag` with the colour forced to white, a surface to put it in, and a
 `UiLayer` that names a *coverage* source separately from its colour source.
 
-Two further things are absent and would be needed for the general form, and both are recorded against
-their own rows: an ordered filter list on `UiLayer` (today it carries a `Blur`, a `Filter` and a
-`Mask` as discrete fields, which is enough because their order is fixed by the specification), and
-`mask-composite`, without which two mask sources cannot be intersected.
+One further thing is absent and would be needed for the general form, and it is recorded against its
+own row: an ordered filter list on `UiLayer` (today it carries a `Blur`, a `Filter` and a `Mask` as
+discrete fields, which is enough because their order is fixed by the specification).
+
+⚠ **This paragraph named a second absence, `mask-composite`, and that half is refuted — it landed
+with the mask list and the generated row has read `works` since.** `mask-add`, `mask-subtract`,
+`mask-intersect` and `mask-exclude` are registered families writing the property,
+`DrawListBuilder.MasksFor` reads it as a *list* — `mask-composite: add, intersect` is one operator
+per layer — and `UiMask.Coverage` folds that list bottom-up through `UiMask.Compose`, which is the
+Porter-Duff step both executors run at the composite draw. So two mask sources **can** be
+intersected, and `bg-clip-text` is blocked on the text-coverage surface alone.
+The lesson is the one this document keeps re-learning one section up: a count or a state repeated in
+prose beside a generated table is a copy nothing checks, and it outlives the thing it described.
 
 **Recommendation stands, with the blocker now named rather than implied: `bg-clip-text` is absent
 until a text-coverage surface exists.** It is not a `mask-*` root, `bg-clip` is not a registered
