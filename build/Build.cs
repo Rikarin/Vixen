@@ -3,7 +3,6 @@
 
 using System.IO.Compression;
 using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
 using Nuke.Common;
 using Nuke.Common.IO;
 using Nuke.Common.ProjectModel;
@@ -651,13 +650,6 @@ partial class Build : NukeBuild {
 
     AbsolutePath AotProbeProject => RootDirectory / "Tools" / "Vixen.AotProbe" / "Vixen.AotProbe.csproj";
 
-    /// <summary>One of the probe's project references, whose last path segment names the assembly.</summary>
-    [GeneratedRegex("""<ProjectReference\s+Include="(?<path>[^"]+)"\s*/>""")]
-    private static partial Regex ProbeReference();
-
-    /// <summary>One of the probe's rooted assemblies, named directly.</summary>
-    [GeneratedRegex("""<TrimmerRootAssembly\s+Include="(?<name>[^"]+)"\s*/>""")]
-    private static partial Regex ProbeRoot();
 
     /// <summary>
     ///     Fails unless what the publish wrote is a native binary with no managed assemblies beside
@@ -735,28 +727,27 @@ partial class Build : NukeBuild {
     ///     reach, which the probe's README says proves nothing about the rest of it. The gate would
     ///     stay green and the coverage it claims would be false. Checked before the publish rather
     ///     than after, because it costs milliseconds and the publish costs minutes.
+    ///     <para>
+    ///         ⚠ The lists are read as XML by <see cref="AotProbeContract" /> and were read as text:
+    ///         a commented-out <c>TrimmerRootAssembly</c> was a match, so the one edit somebody makes
+    ///         while debugging a probe left this comparison balanced and the assembly covered by
+    ///         nothing (#808).
+    ///     </para>
     /// </remarks>
     void AssertProbeRootsEveryAssemblyItReferences(AbsolutePath probe, int atLeast) {
-        var project = probe.ReadAllText();
+        var project = AotProbeContract.Read(probe.ReadAllText(), probe.Name);
+        var referenced = AotProbeContract.ReferencedAssemblies(project).ToHashSet(StringComparer.Ordinal);
+        var rooted = AotProbeContract.RootedAssemblies(project).ToHashSet(StringComparer.Ordinal);
 
-        var referenced = ProbeReference()
-            .Matches(project)
-            .Select(match => match.Groups["path"].Value.Split('\\', '/')[^1].Replace(".csproj", string.Empty))
-            .ToHashSet(StringComparer.Ordinal);
-
-        var rooted = ProbeRoot()
-            .Matches(project)
-            .Select(match => match.Groups["name"].Value)
-            .ToHashSet(StringComparer.Ordinal);
-
-        // The floor is the same instrument-check the licence and attribution gates carry: a regex
+        // The floor is the same instrument-check the licence and attribution gates carry: a reader
         // that stopped matching how the project is written would otherwise compare two empty sets
         // and call them equal, which is the failure mode where a gate reports success on the day it
         // does not run.
         Assert.True(
             referenced.Count >= atLeast,
             $"found only {referenced.Count} ProjectReference entries in {probe.Name}, which "
-            + "is too few to be the whole file — the regex no longer matches how they are written."
+            + "is too few to be the whole file — they are no longer where this reads them, in an "
+            + "unconditional top-level ItemGroup."
         );
 
         var problems = referenced
@@ -803,21 +794,18 @@ partial class Build : NukeBuild {
     ///         enforced by the csproj: on iOS it is the <em>only</em> thing enforced, and it is
     ///         three lines somebody can delete while the publish goes on succeeding.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And deleting them was never the cheap way to lose them — commenting them out
+    ///         was.</b> This asked <c>project.Contains("&lt;PublishAot&gt;true&lt;/PublishAot&gt;")</c>
+    ///         of the file as a string, so a commented-out declaration satisfied it exactly as the
+    ///         live one did, and on iOS these four properties are the only enforcement there is. It
+    ///         reads the project as XML through <see cref="AotProbeContract" /> now, where a comment
+    ///         is not an element (#808).
+    ///     </para>
     /// </remarks>
     void AssertProbePublishesAheadOfTime(AbsolutePath probe) {
-        var project = probe.ReadAllText();
-
-        var required = new (string Property, string Value, string Why)[] {
-            ("PublishAot", "true", "the publish is a framework-dependent one and ILC never runs"),
-            ("TreatWarningsAsErrors", "true", "a C# warning no longer fails the publish"),
-            ("ILLinkTreatWarningsAsErrors", "true", "an ILC trim or AOT warning no longer fails the publish"),
-            ("TrimmerSingleWarn", "false", "ILC collapses a whole assembly's warnings into one line"),
-        };
-
-        var missing = required
-            .Where(entry => !project.Contains($"<{entry.Property}>{entry.Value}</{entry.Property}>", StringComparison.Ordinal))
-            .Select(entry => $"{probe.Name} no longer declares {entry.Property}={entry.Value}, so {entry.Why}.")
-            .ToList();
+        var project = AotProbeContract.Read(probe.ReadAllText(), probe.Name);
+        var missing = AotProbeContract.MissingAheadOfTimeProperties(project, probe.Name);
 
         foreach (var problem in missing) {
             Log.Error("{Problem}", problem);
@@ -826,12 +814,17 @@ partial class Build : NukeBuild {
         Assert.True(
             missing.Count == 0,
             $"{missing.Count} of the properties that make {probe.Name} an ahead-of-time probe are "
-            + "gone. They are declared in the project rather than passed on the command line — a "
+            + "gone, commented out, or behind a condition. They are declared in the project rather "
+            + "than passed on the command line — a "
             + "command-line property is global and reaches the source generators — which is exactly "
             + "why nothing else would notice them being removed."
         );
 
-        Log.Information("{Probe} still declares all four ahead-of-time properties.", probe.Name);
+        Log.Information(
+            "{Probe} still declares all {Count} ahead-of-time properties.",
+            probe.Name,
+            AotProbeContract.AheadOfTime.Count
+        );
     }
 
     /// <summary>
