@@ -176,6 +176,17 @@ public enum OverflowAlignment : byte {
 ///         the set this store implements.
 ///     </para>
 ///     <para>
+///         ⚠ <b>Reachable from a stylesheet, and for most of its life it was not.</b> This field, its
+///         setter and <c>LayoutTree.Block.LegacyTextAlignOffset</c> all existed with sixteen Taffy
+///         fixtures on them, and the only caller of the setter in the whole repository was the corpus
+///         harness — <c>LayoutStyleBuilder</c> never read <c>text-align</c> into it. So the algorithm
+///         was implemented, conformance-tested, green, and unreachable, which is this repository's
+///         commonest defect shape and is invisible precisely because a harness counts as a caller.
+///         ⚠ Two defects were stacked, each hiding the other's symptom: even once the bridge read the
+///         keyword, <c>StyleValueParser</c> sent anything beginning with <c>-</c> down its numeric
+///         path, so <c>-webkit-center</c> came back as an unparseable value rather than as a word.
+///     </para>
+///     <para>
 ///         ⚠ <b>Physical, and they do not flip with <see cref="Direction" />.</b>
 ///         <see cref="Left" /> is the left in an RTL container too — the keywords predate
 ///         writing-mode-relative alignment and were never respecified in terms of it.
