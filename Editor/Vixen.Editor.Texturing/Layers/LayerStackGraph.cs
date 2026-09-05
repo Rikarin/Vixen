@@ -378,6 +378,18 @@ static class LayerStackGraph {
         ///         mean something without a coverage channel of this class's own.
         ///     </para>
         ///     <para>
+        ///         ⚠ <b>And starting a chain from transparency is the one thing in this file that
+        ///         asks anything of <c>Blend.rvn</c> beyond an opaque backdrop, which is why
+        ///         <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a> · 2 landed there
+        ///         rather than here.</b> The kernel used to implement the opaque-backdrop
+        ///         specialisation of source-over — exact for every chain that starts at a source,
+        ///         and premultiplying for one that starts at nothing — so a group of partial
+        ///         coverage handed back a colour already lerped towards black and its own blend then
+        ///         consumed it as a straight one, darkening it by exactly its coverage. The fix is
+        ///         the general form in the kernel and no node at all here: this class does not need
+        ///         to un-premultiply what a correct compositor never premultiplied.
+        ///     </para>
+        ///     <para>
         ///         ⚠ <b>Pass-through is kept for <c>Copy</c> rather than isolating everything, and
         ///         the reason is a child's own operator.</b> A child set to <c>Multiply</c> inside an
         ///         isolated group multiplies against an empty backdrop and darkens to nothing — the
@@ -570,13 +582,43 @@ static class LayerStackGraph {
             return new(node.Id, "Out");
         }
 
-        /// <summary>The mask multiplied into the foreground's alpha, or the foreground unchanged.</summary>
+        /// <summary>The mask multiplied into the foreground's coverage, or the foreground unchanged.</summary>
         /// <remarks>
-        ///     ⚠ <b>The mask is composited before it is shuffled, and the shuffle is still one node.</b>
-        ///     A mask stack is a chain of <c>Colour/Blend</c> nodes exactly like the layer stack it
-        ///     masks — the same operators, the same kernel — and only its <em>result</em> becomes the
-        ///     foreground's alpha. Doc 48 § D10's "a mask is itself a small stack" is therefore not a
-        ///     second compositor: it is this one, called on a smaller list.
+        ///     <para>
+        ///         ⚠ <b>The mask is composited before it is shuffled, and the shuffle is still what
+        ///         puts it into alpha.</b> A mask stack is a chain of <c>Colour/Blend</c> nodes
+        ///         exactly like the layer stack it masks — the same operators, the same kernel — and
+        ///         only its <em>result</em> becomes the foreground's coverage. Doc 48 § D10's "a mask
+        ///         is itself a small stack" is therefore not a second compositor: it is this one,
+        ///         called on a smaller list.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>Multiplied and not <em>replaced</em>, which is
+        ///         <a href="https://github.com/Rikarin/Vixen/issues/790">#790</a> and half of
+        ///         <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a>.</b> A mask is
+        ///         coverage and so is the foreground's alpha, and two coverages compose by
+        ///         multiplication. Replacing agrees with multiplying exactly when the foreground's
+        ///         alpha is already 1 — which a constant fill's is, by construction, which is why
+        ///         the defect stayed invisible while a fill was the only content a stack could
+        ///         express. It is not 1 for an imported image with a transparent region, and it is
+        ///         emphatically not 1 for a group, where the alpha <em>is</em> what the group
+        ///         covered: replacing it there throws away the isolation the group was built for and
+        ///         a group masked to white composites everything, including the texels none of its
+        ///         children wrote.
+        ///     </para>
+        ///     <para>
+        ///         <b>Three nodes rather than one, because this library has no arithmetic node.</b>
+        ///         The product has to be computed in a colour lane — <c>Colour/Blend</c>'s alpha rule
+        ///         only ever <em>raises</em> alpha, so no composite can express one — and both
+        ///         operands have to be made opaque first, because <c>Blend</c> is a compositor and
+        ///         reads an alpha it is handed as coverage rather than as a number. Hence a shuffle
+        ///         that lifts the foreground's alpha into grey, a shuffle that lifts the mask's red
+        ///         into grey, and a <c>Multiply</c> between them.
+        ///         <a href="https://github.com/Rikarin/Vixen/issues/789">#789</a>'s fold removes all
+        ///         four dispatches for a constant mask, and ⚠ that fold is <em>exact</em> under this
+        ///         rule and was not under the old one: <c>amount</c> is already
+        ///         <c>opacity · mask · alpha</c>.
+        ///     </para>
         /// </remarks>
         PortRef Mask(LayerAsset layer, ChannelAsset channel, PortRef foreground) {
             var cursor = MaskImage(layer, channel);
@@ -584,6 +626,37 @@ static class LayerStackGraph {
             if (cursor is not { } mask) {
                 return foreground;
             }
+
+            var carried = Add("Colour/Channel Shuffle");
+
+            // The foreground's own coverage, as a grey, forced opaque so that the Multiply below
+            // reads it as a number rather than as something to composite by.
+            carried.SetText("Red From", "FirstAlpha");
+            carried.SetText("Green From", "FirstAlpha");
+            carried.SetText("Blue From", "FirstAlpha");
+            carried.SetText("Alpha From", "One");
+
+            graph.Connect(foreground, new(carried.Id, "First"));
+
+            var opaque = Add("Colour/Channel Shuffle");
+
+            // And the mask's red, the same way. ⚠ A mask's own alpha is not part of what it means —
+            // a bitmap mask is read for its red — so it is replaced rather than carried, or a PNG
+            // whose alpha happens to be zero would mask nothing.
+            opaque.SetText("Red From", "FirstRed");
+            opaque.SetText("Green From", "FirstRed");
+            opaque.SetText("Blue From", "FirstRed");
+            opaque.SetText("Alpha From", "One");
+
+            Into(mask, channel, layer.Id, new(opaque.Id, "First"));
+
+            var product = Add("Colour/Blend");
+
+            product.SetText("Mode", nameof(LayerBlendMode.Multiply));
+            product.SetValue("Opacity", 1f);
+
+            graph.Connect(new(carried.Id, "Out"), new(product.Id, "Background"));
+            graph.Connect(new(opaque.Id, "Out"), new(product.Id, "Foreground"));
 
             var shuffle = Add("Colour/Channel Shuffle");
 
@@ -596,7 +669,7 @@ static class LayerStackGraph {
             shuffle.SetText("Alpha From", "SecondRed");
 
             graph.Connect(foreground, new(shuffle.Id, "First"));
-            Into(mask, channel, layer.Id, new(shuffle.Id, "Second"));
+            graph.Connect(new(product.Id, "Out"), new(shuffle.Id, "Second"));
 
             return new(shuffle.Id, "Out");
         }

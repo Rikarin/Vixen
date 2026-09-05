@@ -2,6 +2,19 @@ package Vixen.Editor.TextureGraph.Shaders
 
 // Two images composited into one, under a mode and an opacity.
 //
+// **The model, stated once, because two front ends and forty-five other kernels depend on it.** An
+// image here is a *straight* colour and a coverage: `xyz` is what the texel looks like where it is
+// covered at all, and `w` is how much of it there is. This kernel is the only thing in the library
+// that reads `w` as coverage, and it composites source-over — the foreground's coverage times the
+// opacity decides how much of the operator's answer replaces the backdrop, the coverages accumulate
+// as `αb + (1 − αb)·αs`, and the result is divided back out so that what leaves is straight again.
+//
+// ⚠ **It used to implement only the opaque-backdrop specialisation of that**, which is exact
+// wherever the backdrop is opaque and silently premultiplying wherever it is not — see the two terms
+// in `Main`. Every chain in a texture graph starts from an opaque source, so the specialisation was
+// invisible until a layer stack isolated a group by starting a chain from transparency and then
+// handed the premultiplied result back to this kernel as a straight one. #832.
+//
 // ⚠ **The mode is a uniform and not a `[Permutation]`, and that is a measured trade rather than
 // laziness.** A permutation would specialise the branch away and cost one compiled variant per mode
 // per output format — sixteen modes times three formats is forty-eight modules for a kernel whose
@@ -186,8 +199,23 @@ shader Blend {
         // backdrop alone. Multiplying the opacity by it here rather than in `Combine` is what keeps
         // every mode agreeing about what a transparent foreground texel means.
         val amount = saturate(opacity) * saturate(b.w)
-        val colour = lerp(a.xyz, blended.xyz, float3(amount, amount, amount))
-        val alpha = a.w + (1f - a.w) * amount
+        val backdrop = saturate(a.w)
+        val alpha = backdrop + (1f - backdrop) * amount
+
+        // ⚠ **The operator only means something where there is a backdrop to apply it to.** Where
+        // the backdrop is absent the composite is the foreground's own colour — a multiply against
+        // nothing is not black, it is the thing that was multiplied. This is the term that was
+        // missing: without it a group of half coverage came out half its colour, because `blended`
+        // had already been lerped towards a backdrop of zero.
+        val over = blended.xyz * backdrop + b.xyz * (1f - backdrop)
+
+        // Straight, not premultiplied — the division by the composite's own alpha is what makes it
+        // so, and it is why every other node in this library may read a colour without asking what
+        // its alpha was. ⚠ At `backdrop == 1` every added term is exactly zero or exactly one and
+        // this reduces, bit for bit, to the `lerp(a.xyz, blended.xyz, amount)` it replaced: the
+        // whole of the change is confined to the partially covered backdrop, which nothing but a
+        // group could produce and which a group produced wrongly.
+        val colour = lerp(a.xyz * backdrop, over, float3(amount, amount, amount)) / max(alpha, 0.000001f)
 
         target.Store(coord, float4(colour.x, colour.y, colour.z, alpha))
     }

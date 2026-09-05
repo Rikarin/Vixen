@@ -457,9 +457,10 @@ public class MaskStackTests(ITestOutputHelper output) {
         // test would be the claim that nothing equals nothing — the shape a comparator that called
         // three empty manifests identical already had once in this repository. So the ops the mask
         // stack is *made of* are counted before the two are compared: the bake entry's Bitmap, the
-        // effect's Levels, and one Blend per mask entry on top of the layer's own.
+        // effect's Levels, one Blend per mask entry on top of the layer's own, and the Multiply that
+        // composes the finished mask with the coverage the layer already had (#832 · 1).
         Assert.Single(Ops(direct.Plan!, "Levels"));
-        Assert.Equal(3, Ops(direct.Plan!, "Blend").Count);
+        Assert.Equal(4, Ops(direct.Plan!, "Blend").Count);
         Assert.NotEmpty(direct.Externals);
 
         LayerStackDifferential.AssertSamePlan(direct.Plan!, exploded.Plan!);
