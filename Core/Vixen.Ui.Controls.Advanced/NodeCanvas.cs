@@ -219,7 +219,57 @@ public sealed partial class NodeItem : Control {
     protected override string TagName => "node-item";
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Still false, and that is the point rather than the omission.</b> A node element is
+    ///     pooled and rebound as the canvas pans, so a tab stop on one would be a stop that lands on
+    ///     a different node between one press and the next — the parking hazard <c>ColorSwatch</c>'s
+    ///     palette does not have, because a chip is bound for as long as it is shown. The keyboard
+    ///     stays on <see cref="NodeCanvas" /> and what it is *on* is said with
+    ///     <see cref="AccessibleRelation.ActiveDescendant" />, which is the relation that exists for
+    ///     exactly this.
+    /// </remarks>
     protected override bool AcceptsFocus => false;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>option</c>, in the <c>listbox</c> the canvas's surface carries</b> — the same
+    ///         pairing <c>ColorSwatch</c> and its palette make, and for the same reason: an
+    ///         <c>option</c> with no set over it is an item of nothing, and a reader has no way to
+    ///         hear how many nodes there are or which of them is chosen. The canvas is still
+    ///         <c>application</c>, because the *keyboard model* is the canvas's own.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A parked item is taken out of the tree by the canvas rather than by this
+    ///         property.</b> <c>Realise</c> assigns <see cref="UiElement.Role" />
+    ///         <see cref="AccessibleRole.None" /> as it parks one and calls
+    ///         <see cref="UiElement.ClearRole" /> as it binds one, because a pool of thirty behind a
+    ///         view of twelve would otherwise announce eighteen empty options — the same trap the
+    ///         palette's spare chips were. Answering <see cref="AccessibleRole.None" /> here for a
+    ///         null <see cref="Node" /> would say the same thing and cost the coverage sweep its
+    ///         answer: the sweep builds one of each type and never binds it, so this type would read
+    ///         as roleless for ever.
+    ///     </para>
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Option;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The node's title, not the element's content.</b> An <c>option</c> is named from what
+    ///     is inside it, and what is inside this one is two columns of ports and their number boxes
+    ///     — so name-from-content would announce a node as its own list of constants. The title is
+    ///     the sentence the author wrote.
+    /// </remarks>
+    protected override string? NativeAccessibleName => Node?.Title;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     Read from <see cref="ElementState.Checked" /> rather than stored, on <c>TreeRow</c>'s and
+    ///     <c>ColorSwatch</c>'s terms: the canvas already marks the selected items for the theme, and
+    ///     a second copy of that fact is one that can be caught out of step with the first.
+    /// </remarks>
+    protected override AccessibleStates NativeAccessibleState =>
+        (State & ElementState.Checked) != 0 ? AccessibleStates.Selected : AccessibleStates.None;
 
     /// <summary>The node it is showing, or <c>null</c> if it is parked.</summary>
     public GraphNode? Node { get; internal set; }
@@ -649,6 +699,8 @@ public sealed partial class NodeCanvas : Control {
     readonly HashSet<GraphPort> connected = [];
 
     NodeGraph graph = new();
+    GraphNode? cursor;
+    NodeItem? cursorItem;
     CanvasDrag drag;
     Vector2 dragOrigin;
     Vector2 dragStart;
@@ -760,6 +812,26 @@ public sealed partial class NodeCanvas : Control {
     /// <summary>What is selected.</summary>
     public IReadOnlyCollection<GraphNode> Selection => selection;
 
+    /// <summary>The node the keyboard is on, which is not the same thing as the selection.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two states, because on a canvas they are two things.</b> The arrows walk the
+    ///         graph and Enter or Space chooses — so a keyboard user can pass over six nodes on the
+    ///         way to the seventh without selecting any of them, which is what a mouse user does by
+    ///         moving the pointer. Folding them together would make every arrow press a selection
+    ///         change, and on a graph with a command stack behind it, six edits.
+    ///     </para>
+    ///     <para>
+    ///         Setting it brings the node into view, because the element showing a node exists only
+    ///         while the node is near the viewport — and a cursor on a culled node is a cursor a
+    ///         reader is told nothing about.
+    ///     </para>
+    /// </remarks>
+    public GraphNode? Cursor {
+        get => cursor;
+        set => PutCursor(value);
+    }
+
     /// <summary>The graph point at the canvas's top-left corner.</summary>
     [UiProperty(Changed = nameof(OnViewChanged))]
     public partial Vector2 Pan { get; set; }
@@ -785,7 +857,7 @@ public sealed partial class NodeCanvas : Control {
     public partial bool SnapToGrid { get; set; }
 
     /// <summary>Whether more than one node may be selected.</summary>
-    [UiProperty(Default = true)]
+    [UiProperty(Default = true, Changed = nameof(OnMultiSelectChanged))]
     public partial bool MultiSelect { get; set; }
 
     /// <summary>Which way the graph reads, and therefore which edge a wire leaves a node by.</summary>
@@ -953,6 +1025,16 @@ public sealed partial class NodeCanvas : Control {
         nodeFontSize = Document.PropertyId("--node-font-size");
 
         Surface = Part("node-surface");
+
+        // ⚠ The set the nodes are items of. A `NodeItem` is an `option`, and an option with no
+        // `listbox` over it is an item of nothing — a reader hears the node it is on and can never
+        // hear how many there are. The role goes on the surface rather than on the canvas because
+        // the canvas is `application`: what a listbox describes is the collection, and what
+        // `application` describes is the keyboard, and both are true of this control at once.
+        Surface.Role = AccessibleRole.ListBox;
+        Surface.AccessibleName = ControlStrings.NodeCanvasNodes.Text;
+        Surface.DeclaredAccessibleState = MultiSelect ? AccessibleStates.MultiSelectable : AccessibleStates.None;
+
         GroupLayer = Surface.Add("node-groups");
 
         // Under the wires and under the nodes: a shaded region is a backdrop saying "this is the
@@ -1195,6 +1277,13 @@ public sealed partial class NodeCanvas : Control {
             selection.RemoveWhere(node => !known.Contains(node));
         }
 
+        // The cursor outlives a deletion for the same reason and with a worse consequence: it is
+        // where the next arrow press starts from, so one left on a deleted node would send the
+        // keyboard off from a place that is no longer on the canvas.
+        if (cursor is not null && !graph.Nodes.Contains(cursor)) {
+            PutCursor(null);
+        }
+
         Realise();
     }
 
@@ -1245,6 +1334,12 @@ public sealed partial class NodeCanvas : Control {
                 item.Node = null;
                 item.AddClass("parked");
 
+                // ⚠ Out of the accessibility tree entirely, not merely hidden. `display: none` is
+                // invisible to a reader and nothing else — a spare element keeps its role — so a
+                // pool of thirty behind a view of twelve would announce eighteen options with no
+                // name. `ClearRole` on the bound path below is what gives it back.
+                item.Role = AccessibleRole.None;
+
                 continue;
             }
 
@@ -1253,6 +1348,7 @@ public sealed partial class NodeCanvas : Control {
             var origin = ToScreen(rectangle.Position);
 
             item.RemoveClass("parked");
+            item.ClearRole();
             item.Bind(node, header, pitch, connected);
 
             item.Place(
@@ -1293,6 +1389,10 @@ public sealed partial class NodeCanvas : Control {
             gview.Header.SetStyle("height", Inline.Px(group.HeaderHeight * Zoom));
             gview.SetStyle("font-size", fontSize);
         }
+
+        // Last, because the pool has only just been bound: which element is showing the cursor's
+        // node is a fact this loop decided.
+        PointCursor();
     }
 
     // ── Selection ────────────────────────────────────────────────────────────
@@ -1536,9 +1636,192 @@ public sealed partial class NodeCanvas : Control {
         SelectionChanged?.Invoke(this);
     }
 
+    // ── The keyboard's node ──────────────────────────────────────────────────
+
+    /// <summary>Pans the least it can until a node is inside the view.</summary>
+    /// <param name="node">The node.</param>
+    /// <returns>Whether the view had to move.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Pans and never zooms.</b> A canvas that zoomed to reach the next node would change
+    ///     the scale of everything on screen on an arrow press, and the reader's picture of where
+    ///     they are with it. A node larger than the view is aligned to its top-left rather than
+    ///     centred, because the header is the part that names it.
+    /// </remarks>
+    public bool EnsureVisible(GraphNode node) {
+        ArgumentNullException.ThrowIfNull(node);
+
+        if (Width <= 0f || Height <= 0f || Zoom <= 0f) {
+            return false;
+        }
+
+        var view = View;
+        var target = RectOf(node);
+        var margin = MathF.Min(32f / Zoom, MathF.Min(view.Width, view.Height) * 0.25f);
+        var pan = new Vector2(
+            Reach(Pan.X, view.Width, target.X, target.Width, margin),
+            Reach(Pan.Y, view.Height, target.Y, target.Height, margin)
+        );
+
+        if (pan == Pan) {
+            return false;
+        }
+
+        Pan = pan;
+
+        return true;
+    }
+
+    /// <summary>One axis of <see cref="EnsureVisible" />.</summary>
+    static float Reach(float pan, float extent, float start, float length, float margin) {
+        // The far edge first and the near edge second, so a node too big to fit lands on its start
+        // rather than on its end — the second assignment is the one that survives.
+        if (start + length + margin > pan + extent) {
+            pan = start + length + margin - extent;
+        }
+
+        if (start - margin < pan) {
+            pan = start - margin;
+        }
+
+        return pan;
+    }
+
+    /// <summary>Puts the keyboard on a node, bringing it into view.</summary>
+    /// <returns>Whether there is a node under the cursor afterwards.</returns>
+    bool PutCursor(GraphNode? node) {
+        if (node is not null && !graph.Nodes.Contains(node)) {
+            node = null;
+        }
+
+        cursor = node;
+
+        // Before the relation is pointed, because the pan rebinds the pool — the element showing
+        // this node a moment from now is very often not the one showing it right now.
+        if (node is not null) {
+            EnsureVisible(node);
+        }
+
+        PointCursor();
+
+        return node is not null;
+    }
+
+    /// <summary>Points <c>aria-activedescendant</c> at the element showing the cursor's node.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Called at the end of every realise, which is what makes a pooled item safe to point
+    ///     at.</b> The pool rebinds as the canvas pans, so the element showing a node changes
+    ///     without the cursor moving at all — and a relation left pointing at the element it used to
+    ///     be would name whichever node that element was given next. Cheap when nothing moved: it
+    ///     compares the element it is already on and returns.
+    /// </remarks>
+    void PointCursor() {
+        var item = cursor is { } node ? ItemOf(node) : null;
+
+        if (ReferenceEquals(item, cursorItem)) {
+            return;
+        }
+
+        cursorItem?.RemoveClass("cursor");
+        cursorItem = item;
+
+        // Cleared rather than replaced: it is a single-target relation that follows the cursor, and
+        // appending would leave it pointing at every node ever walked over.
+        ClearAccessibleRelations(AccessibleRelation.ActiveDescendant);
+
+        if (item is null) {
+            return;
+        }
+
+        item.AddClass("cursor");
+        AddAccessibleRelation(AccessibleRelation.ActiveDescendant, item);
+    }
+
+    /// <summary>Moves the cursor to the nearest node in a direction.</summary>
+    /// <returns>Whether it moved.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The perpendicular offset counts double, which is what makes this read as
+    ///     "next".</b> A graph is a plane and not a list: scored on distance alone, Right from a
+    ///     node would reach whatever happens to be nearest the corner rather than the node the wire
+    ///     goes to. Weighting the offset across the direction is the ordering every spatial
+    ///     navigation uses, and the one a reader can predict from the picture.
+    /// </remarks>
+    bool Step(InputKey key) {
+        if (cursor is null || !graph.Nodes.Contains(cursor)) {
+            // From nothing, the nearest node to the middle of what is on screen — which is the node
+            // the reader would have been looking at, and never one off in the dark.
+            return PutCursor(Nearest(View.Center));
+        }
+
+        var from = RectOf(cursor).Center;
+
+        GraphNode? best = null;
+        var score = float.MaxValue;
+
+        foreach (var node in graph.Nodes) {
+            if (ReferenceEquals(node, cursor)) {
+                continue;
+            }
+
+            var delta = RectOf(node).Center - from;
+
+            var along = key switch {
+                InputKey.Right => delta.X,
+                InputKey.Left => -delta.X,
+                InputKey.Down => delta.Y,
+                _ => -delta.Y
+            };
+
+            if (along <= 0f) {
+                continue;
+            }
+
+            var across = MathF.Abs(key is InputKey.Left or InputKey.Right ? delta.Y : delta.X);
+            var candidate = along + (across * 2f);
+
+            if (candidate < score) {
+                score = candidate;
+                best = node;
+            }
+        }
+
+        return best is not null && PutCursor(best);
+    }
+
+    /// <summary>The node whose middle is closest to a graph point.</summary>
+    GraphNode? Nearest(Vector2 point) {
+        GraphNode? best = null;
+        var score = float.MaxValue;
+
+        foreach (var node in graph.Nodes) {
+            var distance = (RectOf(node).Center - point).LengthSquared();
+
+            if (distance < score) {
+                score = distance;
+                best = node;
+            }
+        }
+
+        return best;
+    }
+
     // ── Input ────────────────────────────────────────────────────────────────
 
     float ClampZoom(float value) => Math.Clamp(value, MathF.Max(0.001f, MinimumZoom), MathF.Max(0.001f, MaximumZoom));
+
+    /// <remarks>
+    ///     <c>aria-multiselectable</c> is what tells a reader that choosing a second node does not
+    ///     un-choose the first — which is the whole difference between this canvas and one where a
+    ///     click means "instead".
+    /// </remarks>
+    void OnMultiSelectChanged(bool previous, bool current) {
+        // ⚠ A style may set this before the parts exist: a UI property is assigned from the cascade,
+        // and the cascade reaches an element before `OnCreated` has built anything on it.
+        if (Surface is null) {
+            return;
+        }
+
+        Surface.DeclaredAccessibleState = current ? AccessibleStates.MultiSelectable : AccessibleStates.None;
+    }
 
     void OnViewChanged(Vector2 previous, Vector2 current) => Realise();
 
@@ -1590,6 +1873,23 @@ public sealed partial class NodeCanvas : Control {
         switch (args.Key) {
             case InputKey.A when args.Modifiers.HasFlag(ModifierKeys.Control):
                 SelectAll();
+                break;
+
+            // ⚠ Next node, never move the node. A canvas whose arrows dragged the selection would
+            // have no way left to reach the node beside it, and a keyboard user would be able to
+            // rearrange a graph they cannot navigate. Unhandled when there is nothing that way, so
+            // the key goes on to whatever contains the canvas rather than being eaten at the edge.
+            case InputKey.Left or InputKey.Right or InputKey.Up or InputKey.Down:
+                if (!Step(args.Key)) {
+                    return;
+                }
+
+                break;
+
+            // Enter and Space both, because a set of items answers both everywhere else in this
+            // control set, and the modifiers mean here what they mean to a click.
+            case InputKey.Enter or InputKey.Space when cursor is not null:
+                Select(cursor, args.Modifiers);
                 break;
 
             case InputKey.Delete or InputKey.Backspace when selection.Count > 0:

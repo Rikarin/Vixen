@@ -684,7 +684,10 @@ Vixen.Ui.Controls.Advanced.NodeCanvas.ClearWireCurvature() -> void
 Vixen.Ui.Controls.Advanced.NodeCanvas.ClearWireThickness() -> void
 Vixen.Ui.Controls.Advanced.NodeCanvas.ClearZoom() -> void
 Vixen.Ui.Controls.Advanced.NodeCanvas.Connected -> System.Action<Vixen.Ui.Controls.Advanced.NodeCanvas, Vixen.Ui.Controls.Advanced.GraphWire>?
+Vixen.Ui.Controls.Advanced.NodeCanvas.Cursor.get -> Vixen.Ui.Controls.Advanced.GraphNode?
+Vixen.Ui.Controls.Advanced.NodeCanvas.Cursor.set -> Vixen.Ui.Controls.Advanced.GraphNode?
 Vixen.Ui.Controls.Advanced.NodeCanvas.Dropped -> System.Action<Vixen.Ui.Controls.Advanced.NodeCanvas, Vixen.Ui.Controls.Advanced.GraphNode, Vixen.Core.Mathematics.Vector2>?
+Vixen.Ui.Controls.Advanced.NodeCanvas.EnsureVisible(Vixen.Ui.Controls.Advanced.GraphNode node) -> bool
 Vixen.Ui.Controls.Advanced.NodeCanvas.Graph.get -> Vixen.Ui.Controls.Advanced.NodeGraph
 Vixen.Ui.Controls.Advanced.NodeCanvas.Graph.set -> Vixen.Ui.Controls.Advanced.NodeGraph
 Vixen.Ui.Controls.Advanced.NodeCanvas.GridSize.get -> float
@@ -1287,6 +1290,9 @@ override Vixen.Ui.Controls.Advanced.NodeGroupView.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Advanced.NodeGroupView.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.NodeGroupView.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.NodeItem.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.NodeItem.NativeAccessibleName.get -> string?
+override Vixen.Ui.Controls.Advanced.NodeItem.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
+override Vixen.Ui.Controls.Advanced.NodeItem.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.NodeItem.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.NodeItem.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.NodeMinimap.AcceptsFocus.get -> bool

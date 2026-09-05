@@ -427,6 +427,14 @@ node-item {
 node-item:checked { border-color: var(--accent); }
 node-item.parked { display: none; }
 
+/* ⚠ The node the keyboard is on is not the selected node, and no `:focus-visible` rule can ever
+   reach it: the canvas keeps the focus and says which node it is on with `aria-activedescendant`,
+   so the element itself is never focused. Dashed against the selection's solid, because the two
+   states are independent — the arrows walk over nodes without choosing them — and a sighted
+   keyboard user with nothing to follow is the keyboard half of #420 done and then hidden. It costs
+   no reflow: `node-item` already carries a border. */
+node-item.cursor { border-color: var(--accent); border-style: dashed; }
+
 /* Everything inside a node is in `em`, which is what carries the zoom: the canvas writes one
    `font-size` per node and the padding, the gaps and the dots follow it. */
 node-header {

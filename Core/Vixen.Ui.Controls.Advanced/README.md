@@ -242,6 +242,20 @@ is left entirely alone — the press lands on the `NodePortView`, so the untouch
 wire from the port the box belongs to — and no keyboard shortcut is claimed while the focus is in a
 `TextField`, or Backspace in a value box deletes the node the box is on.
 
+⚠ **The arrows walk the graph and never move a node**, and the node they are on is not the
+selection. `Cursor` is where the keyboard is; Enter or Space chooses, with Control and Shift meaning
+what they mean to a click. Folding the two together would make a journey across six nodes six
+selection changes, and in an editor six entries on an undo stack. Scored by the distance along the
+direction plus **twice** the offset across it, which is what makes Right reach the node a reader
+would call the one to the right rather than whatever is nearest the corner; moving the cursor pans
+the view the least it can, and never zooms.
+
+⚠ **A node is not a tab stop and must not become one.** A `NodeItem` is pooled and rebound as the
+canvas pans, so a focus resting on one would be on a different node a moment later — the parking
+hazard a `ColorSwatch` palette does not have. The focus stays on the canvas, which points
+`aria-activedescendant` at the element currently showing the cursor's node and **re-points it at the
+end of every realise**, because which element that is changes without the cursor moving at all.
+
 ### CodeEditor
 
 Virtualised lines, pluggable highlighting, line numbers, indentation folding, a diagnostics gutter
@@ -390,6 +404,7 @@ All eleven controls carry a role, and it costs each of them a **virtual member**
 | `ColorInput` | `button` | Expandable, owning its popup |
 | `CodeEditor` | `textbox` | Editable, multi-line, read-only when it is |
 | `Viewport`, `NodeCanvas`, `CurveEditor`, `GradientEditor`, `Timeline` | `application` | |
+| `NodeItem` | `option`, in the `listbox` the canvas's surface carries | Named by the node's title, selected from its own `:checked`, and taken out of the tree entirely while it is parked |
 
 ⚠ **`application` is a role with a cost, and it is worth paying for exactly those five.** It asks
 assistive technology to stop intercepting the keyboard and pass every key through, which is right for
