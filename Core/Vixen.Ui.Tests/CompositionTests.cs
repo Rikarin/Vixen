@@ -473,6 +473,28 @@ public class CompositionTests {
         Assert.Equal(["end:Cancelled"], component.Seen);
     }
 
+    /// <summary>
+    ///     ⚠ <b>The target half of a drag had no markup spelling at all, which is what made
+    ///     <c>DropEvent</c> a finished thing nothing could call.</b> A name absent from
+    ///     <c>BuildContext</c>'s subscription table is an <c>on:</c> the binder rejects, so for as
+    ///     long as a file dragged out of Finder was routed to an element and bubbled correctly, no
+    ///     <c>.vxml</c> in the tree could hear it. <c>dragstart</c>/<c>drag</c>/<c>dragend</c> are
+    ///     the <i>source</i>'s three names and never were these.
+    /// </summary>
+    [Fact]
+    public void The_drop_target_has_four_names_and_dragover_is_the_middle_one() {
+        using var document = new UiDocument(200f, 200f);
+        var component = BuildContext.Build<Dropped>(document, document.Root);
+        var well = component.Root.Children[0];
+
+        well.Raise(new DragOverEvent { Stage = DragOverStage.Entered });
+        well.Raise(new DragOverEvent { Stage = DragOverStage.Moved });
+        well.Raise(new DragOverEvent { Stage = DragOverStage.Left });
+        well.Raise(new DropEvent { Text = "hello" });
+
+        Assert.Equal(["enter:Entered", "over:Moved", "leave:Left", "drop:hello"], component.Seen);
+    }
+
     [Fact]
     public void Children_are_projected_into_the_slot_the_component_declared() {
         using var document = new UiDocument(200f, 200f);
@@ -978,6 +1000,20 @@ public class CompositionTests {
             ctx.On<DragEvent>(handle, "dragstart", args => Seen.Add("start:" + args.Stage));
             ctx.On<DragEvent>(handle, "drag", args => Seen.Add("drag:" + args.Stage));
             ctx.On<DragEvent>(handle, "dragend", args => Seen.Add("end:" + args.Stage));
+        }
+    }
+
+    /// <summary>What a drop target's markup writes: the three passing-over names and the drop.</summary>
+    sealed class Dropped : Component {
+        public List<string> Seen { get; } = [];
+
+        protected override void Build(BuildContext ctx) {
+            var well = ctx.Element(null, "well");
+
+            ctx.On<DragOverEvent>(well, "dragenter", args => Seen.Add("enter:" + args.Stage));
+            ctx.On<DragOverEvent>(well, "dragover", args => Seen.Add("over:" + args.Stage));
+            ctx.On<DragOverEvent>(well, "dragleave", args => Seen.Add("leave:" + args.Stage));
+            ctx.On<DropEvent>(well, "drop", args => Seen.Add("drop:" + args.Data.Text));
         }
     }
 

@@ -258,15 +258,16 @@ code to which an absent key is an answer.
 ```
 
 The names are `tap`, `click`, `dblclick`, `longpress`, `pointerdown`, `pointerup`, `pointermove`,
-`dragstart`, `drag`, `dragend`, `keydown`, `keyup`, `textinput`, `focus`, `blur` and — where
-`Vixen.Ui.Controls` is referenced — `submit`.
+`dragstart`, `drag`, `dragend`, `dragenter`, `dragover`, `dragleave`, `drop`, `keydown`, `keyup`,
+`textinput`, `focus`, `blur` and — where `Vixen.Ui.Controls` is referenced — `submit`.
 
 #### Most of those names are a filtered view over one routed event
 
 | The event | The names over it | What each one is |
 |---|---|---|
 | `PointerEvent` | `pointerdown`, `pointerup`, `pointermove` | its `Action` |
-| `DragEvent` | `dragstart`, `drag`, `dragend` | its `Stage`: `Started`, `Moved`, and `Completed` **or** `Cancelled` |
+| `DragEvent` | `dragstart`, `drag`, `dragend` | its `Stage`: `Started`, `Moved`, and `Completed` **or** `Cancelled`. The drag **source**'s three |
+| `DragOverEvent` | `dragenter`, `dragover`, `dragleave` | its `Stage`. The drop **target**'s three, on the element that set `AllowDrop` |
 | `KeyEvent` | `keydown`, `keyup` | its `Action` |
 | `FocusEvent` | `focus`, `blur` | whether focus was gained |
 | `TapEvent` | `tap`, `click`, `dblclick` | `dblclick` is a tap whose `Count` reached two |

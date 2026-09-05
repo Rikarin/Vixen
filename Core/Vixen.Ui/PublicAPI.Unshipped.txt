@@ -270,6 +270,17 @@ Vixen.Ui.CornerRadii.TopLeft.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.CornerRadii.TopLeft.init -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.CornerRadii.TopRight.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.CornerRadii.TopRight.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.DataFormats -> static class
+Vixen.Ui.DataObject -> sealed class
+Vixen.Ui.DataObject.DataObject() -> void
+Vixen.Ui.DataObject.Files.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Ui.DataObject.Formats.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Ui.DataObject.Has(string format) -> bool
+Vixen.Ui.DataObject.Set(string format, object value) -> void
+Vixen.Ui.DataObject.SetFiles(System.Collections.Generic.IReadOnlyList<string> paths) -> void
+Vixen.Ui.DataObject.SetText(string text) -> void
+Vixen.Ui.DataObject.Text.get -> string?
+Vixen.Ui.DataObject.TryGet<T>(string format, out T? value) -> bool
 Vixen.Ui.DecorationBar -> readonly struct
 Vixen.Ui.DecorationBar : System.IEquatable<Vixen.Ui.DecorationBar>
 Vixen.Ui.DecorationBar.DecorationBar() -> void
@@ -297,6 +308,34 @@ Vixen.Ui.DragEvent.X.get -> float
 Vixen.Ui.DragEvent.X.init -> float
 Vixen.Ui.DragEvent.Y.get -> float
 Vixen.Ui.DragEvent.Y.init -> float
+Vixen.Ui.DragOverEvent -> sealed class
+Vixen.Ui.DragOverEvent : Vixen.Ui.UiEvent
+Vixen.Ui.DragOverEvent.Allowed.get -> Vixen.Ui.DropEffect
+Vixen.Ui.DragOverEvent.Allowed.init -> Vixen.Ui.DropEffect
+Vixen.Ui.DragOverEvent.Data.get -> Vixen.Ui.DataObject
+Vixen.Ui.DragOverEvent.Data.init -> Vixen.Ui.DataObject
+Vixen.Ui.DragOverEvent.DragOverEvent() -> void
+Vixen.Ui.DragOverEvent.DragSource.get -> Vixen.Ui.UiElement?
+Vixen.Ui.DragOverEvent.DragSource.init -> Vixen.Ui.UiElement?
+Vixen.Ui.DragOverEvent.Effect.get -> Vixen.Ui.DropEffect
+Vixen.Ui.DragOverEvent.Effect.set -> Vixen.Ui.DropEffect
+Vixen.Ui.DragOverEvent.Stage.get -> Vixen.Ui.DragOverStage
+Vixen.Ui.DragOverEvent.Stage.init -> Vixen.Ui.DragOverStage
+Vixen.Ui.DragOverEvent.X.get -> float
+Vixen.Ui.DragOverEvent.X.init -> float
+Vixen.Ui.DragOverEvent.Y.get -> float
+Vixen.Ui.DragOverEvent.Y.init -> float
+Vixen.Ui.DragOverStage -> enum : byte
+Vixen.Ui.DragOverStage.DragOverStage() -> void
+Vixen.Ui.DragOverStage.Entered = 0 -> Vixen.Ui.DragOverStage
+Vixen.Ui.DragOverStage.Left = 2 -> Vixen.Ui.DragOverStage
+Vixen.Ui.DragOverStage.Moved = 1 -> Vixen.Ui.DragOverStage
+Vixen.Ui.DragSession -> sealed class
+Vixen.Ui.DragSession.Allowed.get -> Vixen.Ui.DropEffect
+Vixen.Ui.DragSession.Data.get -> Vixen.Ui.DataObject
+Vixen.Ui.DragSession.Effect.get -> Vixen.Ui.DropEffect
+Vixen.Ui.DragSession.Source.get -> Vixen.Ui.UiElement
+Vixen.Ui.DragSession.Target.get -> Vixen.Ui.UiElement?
 Vixen.Ui.DragStage -> enum : byte
 Vixen.Ui.DragStage.Cancelled = 3 -> Vixen.Ui.DragStage
 Vixen.Ui.DragStage.Completed = 2 -> Vixen.Ui.DragStage
@@ -435,9 +474,21 @@ Vixen.Ui.DrawListBuilder.Compositing.get -> bool
 Vixen.Ui.DrawListBuilder.Compositing.set -> bool
 Vixen.Ui.DrawListBuilder.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Styling.SelectorDiagnostic>
 Vixen.Ui.DrawListBuilder.DrawListBuilder(Vixen.Ui.Styling.NameTable properties, Vixen.Ui.Styling.NameTable values, Vixen.Ui.Styling.NameTable keywords) -> void
+Vixen.Ui.DropEffect -> enum : byte
+Vixen.Ui.DropEffect.Copy = 1 -> Vixen.Ui.DropEffect
+Vixen.Ui.DropEffect.DropEffect() -> void
+Vixen.Ui.DropEffect.Link = 4 -> Vixen.Ui.DropEffect
+Vixen.Ui.DropEffect.Move = 2 -> Vixen.Ui.DropEffect
+Vixen.Ui.DropEffect.None = 0 -> Vixen.Ui.DropEffect
 Vixen.Ui.DropEvent -> sealed class
 Vixen.Ui.DropEvent : Vixen.Ui.UiEvent
+Vixen.Ui.DropEvent.Data.get -> Vixen.Ui.DataObject
+Vixen.Ui.DropEvent.Data.init -> Vixen.Ui.DataObject
+Vixen.Ui.DropEvent.DragSource.get -> Vixen.Ui.UiElement?
+Vixen.Ui.DropEvent.DragSource.init -> Vixen.Ui.UiElement?
 Vixen.Ui.DropEvent.DropEvent() -> void
+Vixen.Ui.DropEvent.Effect.get -> Vixen.Ui.DropEffect
+Vixen.Ui.DropEvent.Effect.init -> Vixen.Ui.DropEffect
 Vixen.Ui.DropEvent.Files.get -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.Ui.DropEvent.Files.init -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.Ui.DropEvent.Text.get -> string?
@@ -1276,8 +1327,10 @@ Vixen.Ui.UiDocument.AccessibilityInvalidated -> System.Action<Vixen.Ui.UiDocumen
 Vixen.Ui.UiDocument.Adopt(Vixen.Ui.UiElement element, string? tag, Vixen.Ui.UiElement? parent, string? id = null, params System.ReadOnlySpan<string> classNames) -> Vixen.Ui.UiElement
 Vixen.Ui.UiDocument.ApplicationCommandResponder.get -> Vixen.Ui.ICommandResponder?
 Vixen.Ui.UiDocument.ApplicationCommandResponder.set -> Vixen.Ui.ICommandResponder?
+Vixen.Ui.UiDocument.BeginDrag(Vixen.Ui.UiElement source, Vixen.Ui.DataObject data, Vixen.Ui.DropEffect allowed = Vixen.Ui.DropEffect.Copy) -> Vixen.Ui.DragSession
 Vixen.Ui.UiDocument.Builder.get -> Vixen.Ui.LayoutStyleBuilder
 Vixen.Ui.UiDocument.CanOpenWindows.get -> bool
+Vixen.Ui.UiDocument.CancelDrag() -> bool
 Vixen.Ui.UiDocument.CapturePointer(Vixen.Ui.UiElement element) -> void
 Vixen.Ui.UiDocument.Captured.get -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Clipboard.get -> Vixen.Ui.IUiClipboard?
@@ -1299,6 +1352,7 @@ Vixen.Ui.UiDocument.ContentWidthOf(Vixen.Ui.UiElement element) -> float
 Vixen.Ui.UiDocument.Create(string tag, Vixen.Ui.UiElement? parent, string? id = null, params System.ReadOnlySpan<string> classNames) -> Vixen.Ui.UiElement
 Vixen.Ui.UiDocument.Create<T>(string? tag, Vixen.Ui.UiElement? parent, string? id = null, params System.ReadOnlySpan<string> classNames) -> T
 Vixen.Ui.UiDocument.CreateSurface(float width, float height, float dpiScale = 1, Vixen.Ui.UiElement? owner = null) -> Vixen.Ui.UiSurface
+Vixen.Ui.UiDocument.CurrentDrag.get -> Vixen.Ui.DragSession?
 Vixen.Ui.UiDocument.Cursor.get -> Vixen.Ui.UiCursor
 Vixen.Ui.UiDocument.CursorOf(Vixen.Ui.Styling.ComputedStyle style) -> Vixen.Ui.UiCursor
 Vixen.Ui.UiDocument.Diagnostics.get -> Vixen.Ui.UiDiagnostics
@@ -1411,6 +1465,8 @@ Vixen.Ui.UiElement.AddAccessibleRelation(Vixen.Ui.AccessibleRelation relation, V
 Vixen.Ui.UiElement.AddClass(string className) -> bool
 Vixen.Ui.UiElement.AddCommandHandler(string id, System.Action execute, System.Func<bool>? canExecute = null, System.Func<string?>? title = null, System.Func<bool>? isChecked = null) -> void
 Vixen.Ui.UiElement.AddHandler<T>(System.Action<Vixen.Ui.UiElement, T> handler, Vixen.Ui.RoutingStrategy strategy = Vixen.Ui.RoutingStrategy.Bubble, bool handledEventsToo = false) -> void
+Vixen.Ui.UiElement.AllowDrop.get -> bool
+Vixen.Ui.UiElement.AllowDrop.set -> bool
 Vixen.Ui.UiElement.Attribute(string name) -> string?
 Vixen.Ui.UiElement.Block() -> Vixen.Ui.TextLayout?
 Vixen.Ui.UiElement.Block(float width) -> Vixen.Ui.TextLayout?
@@ -1418,6 +1474,7 @@ Vixen.Ui.UiElement.Bounds.get -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.UiElement.Children.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.UiElement>
 Vixen.Ui.UiElement.ClearAccessKey() -> void
 Vixen.Ui.UiElement.ClearAccessibleRelations(Vixen.Ui.AccessibleRelation relation) -> int
+Vixen.Ui.UiElement.ClearAllowDrop() -> void
 Vixen.Ui.UiElement.ClearFocusable() -> void
 Vixen.Ui.UiElement.ClearIsFocusScope() -> void
 Vixen.Ui.UiElement.ClearOffsetX() -> void
@@ -1602,6 +1659,8 @@ Vixen.Ui.WheelEvent.Y.init -> float
 abstract Vixen.Ui.Composition.Component.Build(Vixen.Ui.Composition.BuildContext ctx) -> void
 const Vixen.Ui.AccessKey.Marker = '_' -> char
 const Vixen.Ui.Composition.BuildContext.DefaultSlot = "default" -> string
+const Vixen.Ui.DataFormats.FileUrl = "public.file-url" -> string
+const Vixen.Ui.DataFormats.Text = "public.utf8-plain-text" -> string
 const Vixen.Ui.FontRegistry.BoldWeight = 700 -> int
 const Vixen.Ui.FontRegistry.RegularWeight = 400 -> int
 const Vixen.Ui.LengthContext.InitialFontSize = 16 -> float
@@ -1700,6 +1759,7 @@ static Vixen.Ui.UiPropertyRegistry.TryFindFor(Vixen.Ui.UiElement element, string
 static readonly Vixen.Ui.LayoutStyleBuilder.CssInitial -> Vixen.Ui.Layout.LayoutStyle
 static readonly Vixen.Ui.Rendering.UiColorMatrix.Luminance -> Vixen.Core.Mathematics.Vector3
 static readonly Vixen.Ui.UiElement.AccessKeyProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.UiElement.AllowDropProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.UiElement.FocusableProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.UiElement.IsFocusScopeProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.UiElement.OffsetXProperty -> Vixen.Ui.UiPropertyKey
