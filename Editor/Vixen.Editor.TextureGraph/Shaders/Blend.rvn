@@ -25,7 +25,17 @@ shader Blend {
     /// and a plan that wants a resampled read puts a resample op in front of this.
     var foreground: Texture2D
 
-    /// 0 normal · 1 multiply · 2 screen · 3 overlay · 4 add · 5 subtract · 6 darken · 7 lighten.
+    /// 0 copy · 1 multiply · 2 screen · 3 overlay · 4 add · 5 subtract · 6 darken · 7 lighten ·
+    /// 8 divide · 9 hard light · 10 soft light · 11 difference · 12 exclusion · 13 colour dodge ·
+    /// 14 colour burn · 15 signed add.
+    ///
+    /// ⚠ **The numbers are appended rather than reordered into doc 48 § 4.2's own listing order**,
+    /// which is a choice this comment has to record because nothing in the compilation would notice.
+    /// § 4.2 names them Copy · Add · Subtract · Multiply · Divide · …, and the eight that shipped in
+    /// M1 are numbered in a different order from that. Renumbering to match the prose would have
+    /// silently changed what every plan already written means — `TexturePlanDeviceTests` asks for
+    /// mode 1 and gets a multiply — and a plan is a *file*. `TextureBlendMode` is the C# name for
+    /// each of these, and its values are this list.
     var mode: int = 0
 
     /// How much of the result is the foreground's, before the foreground's own alpha.
@@ -50,8 +60,17 @@ shader Blend {
     }
 
     /// The mode applied to two colours, alpha left alone.
+    ///
+    /// **Every mode has a neutral foreground, and that is what the suite reads them off.** Copy has
+    /// none by construction; multiply and divide are neutral at white, screen, add, subtract,
+    /// difference, exclusion and colour dodge at black, darken at white, lighten at black, colour
+    /// burn at white, overlay, hard light, soft light and signed add at mid-grey. ⚠ A mode
+    /// implemented with an operand swapped, a factor dropped or a `1 −` missing generally *keeps*
+    /// its distinguishing value at some point and loses its neutral, or the reverse — which is why
+    /// `TextureBlendDeviceTests` asserts both and not either.
     func Combine(a: float4, b: float4): float4 {
         val one = float4(1f, 1f, 1f, 1f)
+        val epsilon = float4(0.0001f, 0.0001f, 0.0001f, 0.0001f)
 
         if (mode == 1) {
             return a * b
@@ -85,6 +104,64 @@ shader Blend {
 
         if (mode == 7) {
             return max(a, b)
+        }
+
+        if (mode == 8) {
+            // The backdrop divided by the layer over it, capped at white. ⚠ The `max` is a floor on
+            // the *divisor*, not a `saturate` afterwards: a foreground of zero is a division by zero,
+            // which is an infinity in one target and a NaN in the other, and a NaN stored into an
+            // `rgba16f` intermediate survives every later op unchanged.
+            return min(a / max(b, epsilon), one)
+        }
+
+        if (mode == 9) {
+            // ⚠ Hard light is overlay with the operands **swapped** — `ComputeColor.rvn:42` says so
+            // in one line — and the whole of the swap is which operand the `step` reads. The two
+            // halves are symmetric in a and b, so a hard light written by copying the overlay case
+            // and forgetting to move the selector is *exactly* overlay, on every image, with no
+            // artefact to notice.
+            val low = 2f * a * b
+            val high = one - 2f * (one - a) * (one - b)
+
+            return lerp(low, high, step(float4(0.5f, 0.5f, 0.5f, 0.5f), b))
+        }
+
+        if (mode == 10) {
+            // `ComputeColor.SoftLight`, transcribed — the Photoshop form, where the light half
+            // reaches for `sqrt(a)` rather than the W3C's cubic. The two differ visibly on a dark
+            // backdrop, and an artist who matches a soft light in the shader graph and sees it shift
+            // here has found a bug, which is the same argument `Hsl` makes about its hue rotation.
+            val darken = a - (one - 2f * b) * a * (one - a)
+            val lighten = a + (2f * b - one) * (sqrt(max(a, float4(0f, 0f, 0f, 0f))) - a)
+
+            return lerp(darken, lighten, step(float4(0.5f, 0.5f, 0.5f, 0.5f), b))
+        }
+
+        if (mode == 11) {
+            return abs(a - b)
+        }
+
+        if (mode == 12) {
+            // Difference's smooth twin: the same endpoints, no derivative discontinuity at a == b.
+            return a + b - 2f * a * b
+        }
+
+        if (mode == 13) {
+            return min(a / max(one - b, epsilon), one)
+        }
+
+        if (mode == 14) {
+            return one - min((one - a) / max(b, epsilon), one)
+        }
+
+        if (mode == 15) {
+            // ⚠ **Times two, and that factor is the whole point of the mode.** A signed quantity in
+            // an unorm map is carried as `v * 0.5 + 0.5`, so decoding it is `v * 2 - 1` — doc 48
+            // § 4.4 names exactly this pair as the encoding "the two conventions differ by a factor
+            // of two and a sign" over. Without the two, a mid-grey foreground is still neutral and
+            // every offset is half the height the map says, which looks like a weak effect rather
+            // than a wrong one.
+            return a + (b - float4(0.5f, 0.5f, 0.5f, 0.5f)) * 2f
         }
 
         return b
