@@ -386,6 +386,13 @@ public abstract partial class TextField : Control, ITextInputTarget {
         AddHandler<PointerEvent>(static (element, args) => ((TextField) element).Pointed(args));
         AddHandler<TapEvent>(static (element, args) => ((TextField) element).Tapped(args));
         AddHandler<FocusEvent>(static (element, args) => ((TextField) element).Refocused(args));
+
+        // ⚠ <b>A field that is valid from birth has to say so, and nothing else would have made it.</b>
+        // `Revalidate` is otherwise only reached by a change, so a field never touched carried
+        // neither `:valid` nor `:invalid` — indistinguishable, to a selector, from a container that
+        // does not validate at all. This is the call that makes "exactly one of the two, always" the
+        // invariant the enum claims it is.
+        Revalidate();
     }
 
     /// <summary>Moves the caret, and either drops the selection or extends it.</summary>
@@ -749,6 +756,16 @@ public abstract partial class TextField : Control, ITextInputTarget {
     public void Revalidate() {
         var message = Validate(Value);
 
+        // ⚠ <b>Before the early return, and unconditionally.</b> The verdict's *bits* have to be
+        // written on a call that changes nothing, because the first such call is the one at
+        // `OnCreated` — a field that is valid and stays valid would otherwise carry neither
+        // `:valid` nor `:invalid` for its whole life, and a selector engine cannot tell that apart
+        // from an element which does not validate at all. Writing them is free when they are already
+        // right: `UiElement.State` compares before it invalidates anything.
+        State = message is null
+            ? (State | ElementState.Valid) & ~ElementState.Invalid
+            : (State | ElementState.Invalid) & ~ElementState.Valid;
+
         if (string.Equals(message, ValidationMessage, StringComparison.Ordinal)) {
             return;
         }
@@ -1092,6 +1109,9 @@ public abstract partial class TextField : Control, ITextInputTarget {
     }
 
     void OnRequiredChanged(bool previous, bool current) {
+        // ⚠ The bit before the verdict, because `Revalidate` reads `Required` to reach one.
+        State = current ? State | ElementState.Required : State & ~ElementState.Required;
+
         Revalidate();
         InvalidateAccessibility();
     }

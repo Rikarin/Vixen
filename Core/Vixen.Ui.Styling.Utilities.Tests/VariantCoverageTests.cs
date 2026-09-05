@@ -132,11 +132,24 @@ public class VariantCoverageTests {
                      // `Vixen.Ui.Controls.Tests.ElementStateBitTests` is the other half.
                      ("read-only", ElementState.ReadOnly),
                      ("placeholder-shown", ElementState.PlaceholderShown),
-                     ("indeterminate", ElementState.Indeterminate)
+                     ("indeterminate", ElementState.Indeterminate),
+
+                     // The form-validity family, which arrived with `TextField`'s validation model.
+                     // `Vixen.Ui.Controls.Tests.ElementStateBitTests` is the writer's side, and the
+                     // invariant it holds — exactly one of `Valid` and `Invalid`, always — is the one
+                     // these rows cannot see, because this fixture sets the state by hand.
+                     ("required", ElementState.Required),
+                     ("valid", ElementState.Valid),
+                     ("invalid", ElementState.Invalid)
                  }) {
             Row(variant, on, 0, 0, true);
             Row(variant, ElementState.None, 0, 0, false);
         }
+
+        // ⚠ `:optional` is the *absence* of `:required`, so its rows run the other way round —
+        // `:enabled`'s arrangement, and a variant given a bit of its own fails exactly this pair.
+        Row("optional", ElementState.None, 0, 0, true);
+        Row("optional", ElementState.Required, 0, 0, false);
 
         // ⚠ `:enabled` is the *absence* of `:disabled`, which is what CSS means by it — so its two
         // rows are the other way round from every row above, and a variant that compiled to a state

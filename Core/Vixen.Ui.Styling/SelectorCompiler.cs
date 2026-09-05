@@ -622,6 +622,21 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             "read-only" => ElementState.ReadOnly,
             "placeholder-shown" => ElementState.PlaceholderShown,
             "indeterminate" => ElementState.Indeterminate,
+
+            // ⚠ The form-validity family, which arrived once `TextField` grew a validation model —
+            // the comment above these three used to say this framework had none, and it was true
+            // when it was written. `:valid` and `:invalid` are two bits rather than one and its
+            // negation, because Selectors 4 § 10.6 gives neither to an element that does not take
+            // part in constraint validation and a negation would have made every `div` valid.
+            //
+            // ⚠ <b>`:user-valid` and `:user-invalid` are absent, and not by choice.</b> They are the
+            // same verdicts gated on the user having had a go — one more bit, and a two-bit mask,
+            // since the state test below is already a conjunction. Measured: ExCSS 4.3.2 does not
+            // know either name and hands the whole compound back as an `UnknownSelector`, so they
+            // are refused one layer out by the parser exactly as `:open` is.
+            "required" => ElementState.Required,
+            "valid" => ElementState.Valid,
+            "invalid" => ElementState.Invalid,
             _ => ElementState.None
         };
 
@@ -682,6 +697,19 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             // `:enabled` already carries for an element that is not a control.
             specificity = specificity with { Classes = specificity.Classes + 1 };
             var nested = table.AddNested(NegatedState(ElementState.ReadOnly));
+            compiled = new SimpleSelector(SimpleSelectorKind.Not, NestedStart: nested, NestedCount: 1);
+
+            return true;
+        }
+
+        if (name == "optional") {
+            // ⚠ `:read-write`'s arrangement, and unlike `:valid` this one is a true complement.
+            // Selectors 4 § 10.5 defines `:optional` as the form controls `:required` does not match,
+            // and a bit of its own would be a second thing to keep in step. It carries the same
+            // divergence the two above already carry: a browser only calls a *form control* optional,
+            // and here everything that never said it was required is.
+            specificity = specificity with { Classes = specificity.Classes + 1 };
+            var nested = table.AddNested(NegatedState(ElementState.Required));
             compiled = new SimpleSelector(SimpleSelectorKind.Not, NestedStart: nested, NestedCount: 1);
 
             return true;

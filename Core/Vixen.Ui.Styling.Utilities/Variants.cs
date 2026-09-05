@@ -69,14 +69,12 @@ public static class Variants {
         ["last-of-type"] = ":last-of-type",
         ["only-of-type"] = ":only-of-type",
 
-        // ⚠ The three of A13's seventeen that had a control behind them, and the ratio is the
-        // finding rather than the count. The other fourteen name a model this framework does not
-        // have — there is no validation anywhere in `Vixen.Ui.Controls`, so `required`, `optional`,
-        // `valid`, `invalid`, `user-valid`, `user-invalid`, `in-range` and `out-of-range` have
-        // nothing to be true of; there is no navigation model, so `visited` and `target` are refused
-        // rather than owed; `autofill` needs a credential store, `default` needs a form, `inert`
-        // needs a subtree flag nothing carries, and `open` is refused one layer further out, by the
-        // parser — ExCSS 4.3.2 hands `:open` back as an `UnknownSelector`.
+        // ⚠ The three of A13's seventeen that had a control behind them, and the ratio was the
+        // finding rather than the count. Of the fourteen that named a model this framework did not
+        // have: there is no navigation model, so `visited` and `target` are refused rather than
+        // owed; `autofill` needs a credential store, `default` needs a form, `inert` needs a subtree
+        // flag nothing carries, and `open` is refused one layer further out, by the parser — ExCSS
+        // 4.3.2 hands `:open` back as an `UnknownSelector`.
         //
         // ⚠ <b>A table entry here is worth nothing without a writer</b>, which is what the item this
         // came from underestimated: `:read-only` compiled against a bit no control sets resolves,
@@ -84,7 +82,26 @@ public static class Variants {
         // `ProgressBar` write the third.
         ["read-only"] = ":read-only",
         ["placeholder-shown"] = ":placeholder-shown",
-        ["indeterminate"] = ":indeterminate"
+        ["indeterminate"] = ":indeterminate",
+
+        // ⚠ <b>The eight form-validity names were refused for "there is no validation anywhere in
+        // `Vixen.Ui.Controls`", and that stopped being true without anyone coming back here</b> —
+        // which is the finding rather than these four lines. `TextField` carries `Required`,
+        // `Validator`, `Validate`, `Revalidate`, `ValidationMessage` and `IsValid`, and it is the
+        // writer for all four registered below.
+        //
+        // ⚠ <b>Four of the eight and not six, and the two left out are refused for two different
+        // reasons — both measured rather than assumed.</b> `user-valid` and `user-invalid` are
+        // `:open`'s problem one layer out: ExCSS 4.3.2 does not know either name and hands the whole
+        // compound back as an `UnknownSelector`, so the bit and the writer for them were built and
+        // then taken back out. `in-range` and `out-of-range` parse perfectly well and fail on the
+        // control instead: `NumericInput` carries `Minimum` and `Maximum` and *clamps* to them in
+        // its coerce, so a value outside the range cannot be held long enough to be asked about and
+        // `:out-of-range` registered today would resolve and never match.
+        ["required"] = ":required",
+        ["optional"] = ":optional",
+        ["valid"] = ":valid",
+        ["invalid"] = ":invalid"
     };
 
     /// <summary>The variants that are a media feature rather than a selector.</summary>
