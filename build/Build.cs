@@ -587,7 +587,8 @@ partial class Build : NukeBuild {
         .Description("Fails if any runtime assembly cannot be published ahead of time")
         .DependsOn(Restore)
         .Executes(() => {
-                AssertProbeRootsEveryAssemblyItReferences();
+                AssertProbeRootsEveryAssemblyItReferences(AotProbeProject, atLeast: 25);
+                AssertProbePublishesAheadOfTime(AotProbeProject);
 
                 DotNetPublish(settings => settings
                     .SetProject(RootDirectory / "Tools" / "Vixen.AotProbe" / "Vixen.AotProbe.csproj")
@@ -687,8 +688,8 @@ partial class Build : NukeBuild {
     ///     stay green and the coverage it claims would be false. Checked before the publish rather
     ///     than after, because it costs milliseconds and the publish costs minutes.
     /// </remarks>
-    void AssertProbeRootsEveryAssemblyItReferences() {
-        var project = AotProbeProject.ReadAllText();
+    void AssertProbeRootsEveryAssemblyItReferences(AbsolutePath probe, int atLeast) {
+        var project = probe.ReadAllText();
 
         var referenced = ProbeReference()
             .Matches(project)
@@ -705,8 +706,8 @@ partial class Build : NukeBuild {
         // and call them equal, which is the failure mode where a gate reports success on the day it
         // does not run.
         Assert.True(
-            referenced.Count > 25,
-            $"found only {referenced.Count} ProjectReference entries in {AotProbeProject.Name}, which "
+            referenced.Count >= atLeast,
+            $"found only {referenced.Count} ProjectReference entries in {probe.Name}, which "
             + "is too few to be the whole file — the regex no longer matches how they are written."
         );
 
@@ -723,12 +724,66 @@ partial class Build : NukeBuild {
 
         Assert.True(
             problems.Count == 0,
-            $"{problems.Count} disagreement(s) between the AOT probe's ProjectReference and "
+            $"{problems.Count} disagreement(s) between {probe.Name}'s ProjectReference and "
             + "TrimmerRootAssembly lists. Every assembly the probe references is rooted, or the "
             + "gate's coverage is smaller than it reads."
         );
 
-        Log.Information("The AOT probe roots all {Count} assemblies it references.", referenced.Count);
+        Log.Information("{Probe} roots all {Count} assemblies it references.", probe.Name, referenced.Count);
+    }
+
+    /// <summary>
+    ///     Fails when the probe has stopped declaring the four properties that are the whole of what
+    ///     makes its publish an ahead-of-time one that reports its warnings.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ This is the poor relation of <see cref="AssertAotOutput" /> and exists because the
+    ///         iOS half cannot have the rich one. Reading the output is the better instrument by a
+    ///         long way — it catches a runtime identifier the ILC package does not cover and an SDK
+    ///         that starts warning where it used to fail, neither of which is visible in the project
+    ///         file. But it needs somebody to have looked at what a <c>net10.0-ios</c> publish lays
+    ///         down, and asserting over a guessed path fails for a reason that is not the defect
+    ///         (#634). Until then this is what can be checked without a device: the one regression
+    ///         #218 actually measured — <c>PublishAot</c> edited out, publish exits 0 in 17 seconds
+    ///         having written 51 managed assemblies — is a property that is either in the file or
+    ///         not.
+    ///     </para>
+    ///     <para>
+    ///         The three warning properties are here for the same reason. <c>CheckAotIos</c> asserts
+    ///         nothing about its output, so the trim/AOT warning half is not merely <em>also</em>
+    ///         enforced by the csproj: on iOS it is the <em>only</em> thing enforced, and it is
+    ///         three lines somebody can delete while the publish goes on succeeding.
+    ///     </para>
+    /// </remarks>
+    void AssertProbePublishesAheadOfTime(AbsolutePath probe) {
+        var project = probe.ReadAllText();
+
+        var required = new (string Property, string Value, string Why)[] {
+            ("PublishAot", "true", "the publish is a framework-dependent one and ILC never runs"),
+            ("TreatWarningsAsErrors", "true", "a C# warning no longer fails the publish"),
+            ("ILLinkTreatWarningsAsErrors", "true", "an ILC trim or AOT warning no longer fails the publish"),
+            ("TrimmerSingleWarn", "false", "ILC collapses a whole assembly's warnings into one line"),
+        };
+
+        var missing = required
+            .Where(entry => !project.Contains($"<{entry.Property}>{entry.Value}</{entry.Property}>", StringComparison.Ordinal))
+            .Select(entry => $"{probe.Name} no longer declares {entry.Property}={entry.Value}, so {entry.Why}.")
+            .ToList();
+
+        foreach (var problem in missing) {
+            Log.Error("{Problem}", problem);
+        }
+
+        Assert.True(
+            missing.Count == 0,
+            $"{missing.Count} of the properties that make {probe.Name} an ahead-of-time probe are "
+            + "gone. They are declared in the project rather than passed on the command line — a "
+            + "command-line property is global and reaches the source generators — which is exactly "
+            + "why nothing else would notice them being removed."
+        );
+
+        Log.Information("{Probe} still declares all four ahead-of-time properties.", probe.Name);
     }
 
     /// <summary>
@@ -746,6 +801,27 @@ partial class Build : NukeBuild {
     ///         Nothing is signed: the question is what compiles, not what can be installed on a
     ///         device.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The publish's exit code was the whole of this target, and that is the defect
+    ///         #218 fixed one target over.</b> It is not fixed here. What the two checks below buy
+    ///         is everything that can be asserted about an iOS publish <em>without</em> looking at
+    ///         one: that the probe still roots every assembly it references, and that it still
+    ///         declares <c>PublishAot</c> and the three warning properties. That covers the
+    ///         regression #218 measured — <c>PublishAot</c> edited out, publish exits 0 in 17
+    ///         seconds having written 51 managed assemblies — because on iOS the trim/AOT warning
+    ///         half is the only thing enforced at all and it is three deletable lines.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What is still owed is the iOS analogue of <see cref="AssertAotOutput" />, and
+    ///         it is #634.</b> Reading the output is the stronger instrument: it is what would catch
+    ///         a runtime identifier the ILC package does not cover, or an SDK that begins warning
+    ///         where it used to fail. It cannot be written blind — where a <c>net10.0-ios</c>
+    ///         publish puts its <c>.app</c>, and whether an <c>.ipa</c> appears at all without
+    ///         <c>ArchiveOnBuild</c>, has to be looked at on a machine with the <c>ios</c> workload
+    ///         first, and an assertion over a guessed path fails for a reason that is not the
+    ///         defect. Two sessions have now reached this line on a Mac with Xcode and
+    ///         <c>dotnet workload list</c> reporting none installed.
+    ///     </para>
     /// </remarks>
     Target CheckAotIos => definition => definition
         .Description("Fails if the runtime assemblies cannot be published for iOS ahead of time")
@@ -754,12 +830,22 @@ partial class Build : NukeBuild {
         // The probe links MoltenVK, which is pinned and checksummed rather than committed. Depending
         // on the restore rather than assuming it is what lets a fresh clone run this target.
         .DependsOn(RestoreNativeDeps)
-        .Executes(() =>
-            DotNetPublish(settings => settings
-                .SetProject(RootDirectory / "Tools" / "Vixen.AotProbe.iOS" / "Vixen.AotProbe.iOS.csproj")
-                .SetConfiguration(Configuration.Release)
-            )
+        .Executes(() => {
+                // 21 rather than the desktop probe's 25: this probe roots the assemblies a phone
+                // links, which is a smaller set on purpose. The floor is the instrument check — a
+                // regex that stopped matching would compare two empty sets and call them equal.
+                AssertProbeRootsEveryAssemblyItReferences(AotProbeIosProject, atLeast: 21);
+                AssertProbePublishesAheadOfTime(AotProbeIosProject);
+
+                DotNetPublish(settings => settings
+                    .SetProject(AotProbeIosProject)
+                    .SetConfiguration(Configuration.Release)
+                );
+            }
         );
+
+    AbsolutePath AotProbeIosProject =>
+        RootDirectory / "Tools" / "Vixen.AotProbe.iOS" / "Vixen.AotProbe.iOS.csproj";
 
     /// <summary>
     ///     Builds the two mobile platform assemblies, which the solution cannot contain.

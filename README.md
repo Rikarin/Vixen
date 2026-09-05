@@ -78,8 +78,13 @@ register in [`docs/plan/01`](docs/plan/01-technology-decisions.md).
 - **All metaprogramming is Roslyn source generators.** No IL weaving, no `Mono.Cecil`, no
   post-processing — so NativeAOT and full trimming work, and generated code is ordinary steppable C#.
   `CheckArchitecture` fails the build if an IL rewriter appears in the restore graph (ADR-002).
-- **iOS is NativeAOT-only, and that is gated.** `CheckAotIos` publishes every runtime assembly
-  *rooted* and fails on any trim or AOT warning. Reflection debt is caught before it is expensive.
+- **iOS is NativeAOT-only, and that is gated.** `CheckAotIos` publishes the 21 assemblies a phone
+  links, *rooted*, and fails on any trim or AOT warning. Reflection debt is caught before it is
+  expensive. ⚠ The gate now also asserts, before publishing, that the probe still roots every
+  assembly it references and still declares `PublishAot` — but it does **not** yet read the output,
+  so a publish that quietly stopped being ahead-of-time for a reason outside the project file would
+  still pass ([#634](https://github.com/Rikarin/Vixen/issues/634)), and no workflow runs it
+  ([#327](https://github.com/Rikarin/Vixen/issues/327)).
 - **`Vixen.Ui` never references `Vixen.Engine`.** The moment it does, the application-framework claim
   is dead. Checked from Phase 0.
 - **`internal` by default.** `public` needs a reason and a `PublicAPI.Unshipped.txt` entry, and
