@@ -1415,21 +1415,25 @@ was filed as a reason not to look again.
 `margin-block-end`: `LayoutStyleBuilder.EdgeNames` interns `-left`, `-top`, `-right`, `-bottom`,
 `-inline-start` and `-inline-end` and no block pair, so v4's spelling measures inert — and it is not
 an approximation to substitute the physical one, because `Vixen.Ui.Layout` has no writing mode for the
-two to differ in. And the scope is emitted bare rather than inside `:where()`: v4 wraps it to keep the
-rule at one class of specificity so a child's own `mb-0` still wins, and no spelling available here
-reaches zero. The rule lands at `(0,2,0)` and beats a child's single-class utility — which is what v3
-did for four major versions.
+two to differ in. ⚠ **The second divergence recorded here — the scope emitted bare rather than inside
+`:where()` — is closed**, and both the sizing and the shape it was sized against were wrong.
 
-⚠ **The sizing this paragraph carried was wrong, and wrong about which stage the gap is in.** It said
-`SelectorCompiler` "charges a class for `:where()` exactly as it does for `:is()`" and that closing it
-was three lines there. Measured 2026-09-05 in
+It said `SelectorCompiler` "charges a class for `:where()` exactly as it does for `:is()`" and that
+closing it was three lines there. Measured 2026-09-05 in
 `Core/Vixen.Ui.Styling.Tests/WhereSelectorTests.cs`: **ExCSS 4.3.2 has no `:where()` at all.** A
 selector containing one comes back as a single `UnknownSelector` covering the *whole* selector — not a
-complex selector with one unknown part — so `SelectorCompiler` never sees a `MatchesSelector` to
-charge anything for, and refuses the rule entire with a diagnostic. There is nothing at that site to
-subtract a class from. Closing it means teaching the front end a selector ExCSS does not parse, which
-is a different job from a specificity tweak; filed separately. The tests in that file pin the refusal
-and go red the day it lands.
+complex selector with one unknown part — so `SelectorCompiler` never saw a `MatchesSelector` to charge
+anything for, and refused the rule entire with a diagnostic. There was nothing at that site to
+subtract a class from.
+
+What landed instead is a repair at the one place the author's text still exists: that unknown node
+carries it verbatim, so the compiler splits it on its top-level commas, rewrites each `:where(` to
+`:is(`, hands each part back to ExCSS, and takes one class off the result per top-level occurrence.
+⚠ **And the fix is *not* to wrap the scope**, which is the other half the sizing got wrong:
+`.space-y-4 > :where(:not(:last-child))` lands at `(0,1,0)` and merely ties with the child's own
+`.mb-0`, leaving the winner to be decided by the generator's ordinal sort of class names. The whole
+selector is wrapped — `:where(.space-y-4 > :not(:last-child))`, v4's own — so the rule is `(0,0,0)`
+and the child wins whatever it is called.
 
 **What is absent inside the two families, and why.** `space-x-reverse`, `space-y-reverse`,
 `divide-x-reverse` and `divide-y-reverse` need `calc()` to multiply an edge by a `--tw-*-reverse`

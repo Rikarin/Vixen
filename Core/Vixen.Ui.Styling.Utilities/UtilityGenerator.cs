@@ -175,7 +175,19 @@ public sealed class UtilityGenerator {
             // `.hover\:space-x-4 > :not(:last-child):hover`, which compiles, matches, and is a
             // different rule: space whichever child the pointer happens to be over. Null for every
             // family but the `space-*` and `divide-*` set, and `+= null` is the empty string.
-            selector += UtilityFamilies.ScopeOf(parsed.Name);
+            // ⚠ <b>And the whole of it goes inside a <c>:where()</c>, which is what makes a child's
+            // own utility able to win.</b> `:where()` contributes no specificity, so
+            // `:where(.space-y-4 > :not(:last-child))` lands at (0,0,0) and `<div class="mb-0">`
+            // inside it takes the margin back. Unwrapped it is (0,2,0) and the override is
+            // unwritable, which is what v3 shipped and what this emitted until `:where()` compiled.
+            // ⚠ Wrapping only the *scope* — `.space-y-4 > :where(:not(:last-child))` — reads like
+            // the same idea and is not: it lands at (0,1,0), ties with the child's own `.mb-0`, and
+            // the tie is then broken by which class name sorts later. `mb-0` before `space-y-4` is
+            // alphabetical rather than meant, so that spelling would make the override depend on a
+            // sort order. This is v4's own selector.
+            if (UtilityFamilies.ScopeOf(parsed.Name) is { } scope) {
+                selector = ":where(" + selector + scope + ")";
+            }
 
             var group = root;
             foreach (var atRule in atRuleScratch) {

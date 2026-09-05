@@ -329,8 +329,9 @@ accept both**. Cheap to know before the property system is written; expensive to
 
 Supported: type/class/id/universal selectors, descendant/child/sibling combinators, attribute
 selectors, `:hover`/`:active`/`:focus`/`:focus-visible`/`:disabled`/`:checked`/`:first-child`/
-`:last-child`/`:nth-child()`/`:empty`/`:not()`/`:is()` (⚠ **not** `:where()` — ExCSS 4.3.2 does not
-parse it, so a rule containing one is refused whole; `WhereSelectorTests` measures that),
+`:last-child`/`:nth-child()`/`:empty`/`:not()`/`:is()`/`:where()` (⚠ ExCSS 4.3.2 does not parse
+`:where()` — the whole selector comes back as one unknown — so `SelectorCompiler` repairs the text
+itself before re-reading it, and charges nothing for it; `WhereSelectorTests` measures that),
 custom properties (`--x`) with `var()` and fallbacks, `@media` (width/height/orientation/
 prefers-color-scheme/dpi), `@supports`, `@keyframes`, `@font-face`, `@import`, `@layer` (cascade
 layers — worth having, it is how the utility system and component styles coexist cleanly).
@@ -546,11 +547,12 @@ needed the generator to emit a compound selector rather than a bare class. It do
 `:last-child` all along. Two divergences from v4, both deliberate and both recorded in
 `ChildScopedFamilyTests`: `space-y-*` emits the physical `margin-bottom` where v4 emits
 `margin-block-end`, because the block pair is interned by nobody and this engine has no writing mode
-for them to differ in; and the scope is not wrapped in `:where()`, which v4 uses to keep the rule at
-one class of specificity, because ⚠ **`:where()` is not a selector this front end reads** — ExCSS
-4.3.2 hands the whole selector back as one unknown and `SelectorCompiler` refuses the rule, so there
-is no charge to remove and the fix is not a specificity tweak. The second is v3's behaviour and
-shipped for four major versions. `space-x-reverse` and
+for them to differ in. ⚠ **The second divergence — the scope emitted without v4's `:where()` wrapper
+— is gone**, and the reason recorded for it here was wrong: ExCSS 4.3.2 hands a selector containing
+`:where()` back as one unknown, so the rule was refused rather than compiled at the wrong
+specificity, and closing it was a repair of the text rather than a charge to remove. The emitted rule
+is `:where(.space-y-4 > :not(:last-child))` at `(0,0,0)`, so a child's own `mb-0` wins.
+`space-x-reverse` and
 `divide-*-reverse` are absent — ⚠ **and neither reason originally given for them is the reason any
 more.** `StyleValueParser` folds `+ - * /` on compatible units, and `ReverseFlagTests` measures that
 the `--tw-*-reverse` flag *is* read: written by one class, read by another class's declaration,

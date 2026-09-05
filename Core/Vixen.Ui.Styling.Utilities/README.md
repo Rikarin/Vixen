@@ -470,20 +470,18 @@ tell and a width is the commoner one. The shape test is `#`, `rgb` or `hsl` and 
 table, so `border-[red]` and `divide-x-[red]` are widths — `IsPlausibleValue`'s remark is the argument
 for keeping the escape hatch a token-shape test rather than a value parser.
 
-⚠ **`space-*` and `divide-*` are two classes of specificity, where Tailwind v4's are one.** They are
-the only families whose rule is about the *children* — `.space-y-4 > :not(:last-child)` — and v4 wraps
-that scope in `:where()` so the rule stays at one class and a child's own `mb-0` still wins.
-No spelling available here reaches zero: the emitted rule is `(0,2,0)` and it beats a child's
-single-class utility. ⚠ **This paragraph used to say `SelectorCompiler` "charges a class for
-`:where()` exactly as it does for `:is()`", and it is not what happens.** ExCSS 4.3.2 does not parse
-`:where()`: the whole selector comes back as one unknown and the rule is refused with a diagnostic, so
-there is no charge to remove and the job is teaching the front end a selector rather than adjusting a
-number. `Vixen.Ui.Styling.Tests`' `WhereSelectorTests` is the measurement.
-**The `(0,2,0)` is v3's behaviour, and it shipped for four major versions** — the escape is v3's too:
-put the exception on the container, or do not reach for `space-*` on a list whose items set their own
-margins. Closing it is a change in `Vixen.Ui.Styling`, and
-`ChildScopedFamilyTests.A_child_margin_utility_loses_to_the_containers_space_and_that_is_the_v3_behaviour`
-fails the day it lands.
+⚠ **`space-*` and `divide-*` carry no specificity at all, which is v4's arrangement and was not
+this one's.** They are the only families whose rule is about the *children*, and the emitted selector
+is `:where(.space-y-4 > :not(:last-child))` — `(0,0,0)`, so a child's own `mb-0` takes its margin
+back. ⚠ **This paragraph used to say the rule was `(0,2,0)` and could not be anything else, because
+`SelectorCompiler` "charges a class for `:where()` exactly as it does for `:is()`". Both halves were
+wrong.** ExCSS 4.3.2 does not parse `:where()` at all: the whole selector came back as one unknown and
+the rule was refused, so there was no charge to remove — the compiler now repairs that text itself
+before re-reading it. And wrapping the *scope* rather than the whole selector, which is what this
+said the fix was, lands at `(0,1,0)` and only ties with the child, leaving the winner to the
+generator's ordinal sort of class names. `Vixen.Ui.Styling.Tests`' `WhereSelectorTests` and
+`ChildScopedFamilyTests.A_child_utility_beats_the_containers_space_which_is_the_v4_behaviour` are the
+measurements.
 
 ⚠ **`space-y-*` emits `margin-bottom` where v4 emits `margin-block-end`, and it is not a shortcut.**
 `LayoutStyleBuilder.EdgeNames` interns `-left`, `-top`, `-right`, `-bottom`, `-inline-start` and

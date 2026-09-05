@@ -140,12 +140,12 @@ corner would be right only under `direction: ltr`. They keep the logical longhan
 half of each name and leaving the block half alone. `rounded-ss` is therefore the top-left corner
 under `ltr` and the top-right under `rtl`, which is what `ps-2` does one property over.
 
-⚠ **`space-*` and `divide-*` are the only families whose rule is about the children**, and the two
-things worth knowing before reaching for them are both divergences from Tailwind v4. The rule is
-`.space-y-4 > :not(:last-child)`, emitted without v4's `:where()` wrapper because Vixen's stylesheet
-front end does not read `:where()` at all — a rule containing one is refused with a diagnostic rather
-than compiled at some other specificity. So the rule is two classes of specificity and beats a child's
-own `mb-0`, exactly as Tailwind v3 did. And `space-y-*` writes
+⚠ **`space-*` and `divide-*` are the only families whose rule is about the children.** The rule is
+`:where(.space-y-4 > :not(:last-child))` — v4's own selector, wrapper included. `:where()` contributes
+no specificity, so the rule lands at `(0,0,0)` and a child's own `mb-0` takes its margin back; without
+the wrapper it would be `(0,2,0)` and the override would be unwritable, which is what Tailwind v3
+shipped and what this emitted until `:where()` compiled. One divergence from v4 is left:
+`space-y-*` writes
 `margin-bottom` where v4 writes `margin-block-end`, because the block longhands are interned by
 nobody here and there is no writing mode for the two to differ in. `@apply space-x-4` is refused, for
 the same reason `@apply hover:bg-accent` is: it is a rule with a selector of its own.
