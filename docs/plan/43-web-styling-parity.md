@@ -87,7 +87,7 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | Utility **roots** (the unit of this table) | **332** | 304 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
-| Variant keys | **88** | **51** |
+| Variant keys | **88** | **54** |
 
 ⚠ **The family figure moves every week, which is why it is no longer typed here.** It has been quoted
 as 43 (the helper calls in one region of `UtilityFamilies`' static constructor), then as 98 (the
@@ -1732,15 +1732,16 @@ glyph advances and the glyph comparison catches it, so this is a note and not a 
 | Prefix (`tw:flex`) | ✅ | ⛔ | |
 | Two media variants on one utility | nests | ✅ nests | A15 |
 
-The 51 Vixen covers: `hover focus focus-visible focus-within active disabled enabled checked first
-last only odd even empty first-of-type last-of-type only-of-type dark ltr rtl group peer data aria
+The 54 Vixen covers: `hover focus focus-visible focus-within active disabled enabled checked first
+last only odd even empty first-of-type last-of-type only-of-type read-only placeholder-shown
+indeterminate dark ltr rtl group peer data aria
 not nth nth-last nth-of-type nth-last-of-type motion-safe motion-reduce contrast-more contrast-less
 forced-colors inverted-colors portrait landscape print noscript pointer-none pointer-coarse
 pointer-fine any-pointer-none any-pointer-coarse any-pointer-fine has` plus the five breakpoint names
-when the theme declares them. ⚠ It was 25 until A13's structural half and A14 landed; this figure is
-hand-kept and nothing checks it, so it is spelled out as a list rather than as a number for the
-reason two paragraphs of Part 0 give about the family count — a bare figure beside a table nobody
-regenerates is the copy that rots.
+when the theme declares them. ⚠ It was 25 until A13's structural half and A14 landed, and 51 until
+A13's three form states; this figure is hand-kept and nothing checks it, so it is spelled out as a
+list rather than as a number for the reason two paragraphs of Part 0 give about the family count — a
+bare figure beside a table nobody regenerates is the copy that rots.
 
 ⚠ **The bucket sizes below do not add up to the difference, and forcing them to would be the
 dishonest arithmetic rather than the honest one.** The 88 is a count of Tailwind's variant
@@ -1750,18 +1751,28 @@ and three keys here. Each bucket says what it is about; none of them is a share 
 What is left falls into three quite different kinds, and lumping them together is how this gets
 mis-sized:
 
-- **Seventeen are a table entry plus an element-state bit** the control library has to set:
-  `target`, `open`, `required`, `optional`, `valid`, `invalid`, `read-only`, `placeholder-shown`,
-  `indeterminate`, `default`, `autofill`, `in-range`, `out-of-range`, `visited`, `inert`,
-  `user-valid`, `user-invalid`. ⚠ **This bucket said twenty-two and "none needs a matcher change",
-  and both halves were wrong.** Five of the twenty-two — `empty`, `not-*`, `nth-*`, `nth-last-*` and
-  `*-of-type` — are structural and are registered now, and the of-type family was precisely the one
-  that *did* need a matcher change: a child index is stored on every element and an of-type index is
-  a position among the siblings sharing a tag, which nothing stored. It reads as a table entry
-  because `:nth-of-type(n)` and `:nth-child(n)` agree on every document whose children all carry one
-  tag. ⚠ Two of the seventeen want **refusing** rather than building — `visited` and `target` are
-  about a navigation model Vixen does not have — and `open` needs the CSS parser before it needs a
-  bit, since ExCSS 4.3.2 returns `:open` as an `UnknownSelector`.
+- **Fourteen are a table entry plus an element-state bit** the control library has to set — and
+  ⚠ **eleven of those fourteen are refusals rather than work**, which is the shape this bucket has
+  never had written down. ⚠ **It said twenty-two and "none needs a matcher change", and both halves
+  were wrong.** Five of the twenty-two — `empty`, `not-*`, `nth-*`, `nth-last-*` and `*-of-type` —
+  are structural and are registered; the of-type family was precisely the one that *did* need a
+  matcher change, because a child index is stored on every element and an of-type index is a position
+  among the siblings sharing a tag, which nothing stored. It reads as a table entry because
+  `:nth-of-type(n)` and `:nth-child(n)` agree on every document whose children all carry one tag.
+  Three more are registered now — `read-only`, `placeholder-shown` and `indeterminate` — with bits on
+  `ElementState`, arms in `SelectorCompiler` and writers in `TextField`, `CheckBox` and
+  `ProgressBar`. ⚠ **A table entry is worth nothing without a writer**, which is the half the sizing
+  missed: a pseudo-class compiled against a bit no control sets resolves, indexes and matches
+  nothing, and passes every scene in `VariantCoverageTests` — so the writers have a test file of
+  their own. What is left, per reason rather than as a count:
+    - **no validation model anywhere in `Vixen.Ui.Controls`** — `required`, `optional`, `valid`,
+      `invalid`, `user-valid`, `user-invalid`, `in-range`, `out-of-range`. Eight of the fourteen, one
+      missing concept.
+    - **no navigation model** — `visited` and `target`, ⛔ refused rather than owed.
+    - **one each** — `autofill` needs a credential store, `default` needs a form, `inert` needs a
+      subtree flag nothing carries.
+    - **`open` is a parser problem before it is a state bit** — ExCSS 4.3.2 returns `:open` as an
+      `UnknownSelector`, so a bit for it would reach a compiler that never sees the pseudo-class.
 - **Seven need pseudo-elements to mean something** — F6.
 - **The media features are done** — A14. ⚠ The bucket said "thirteen … each one condition in
   `MediaQuery`" and it listed twelve, of which **two needed no condition at all**: `portrait` and
@@ -2945,7 +2956,7 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A10 ✅ | `oklch()`/`oklab()` colour syntax, both notations, `none`, and every angle unit | `Vixen.Ui.Styling` | done | — |
 | A11 🟢 | Backgrounds. **`linear-gradient()`, `radial-gradient()` and `conic-gradient()` all paint**: `background-image` is parsed into `BoxStyle`, all eight direction keywords with CSS's corner rule, all four angle units, both colour notations, two or three stops, arbitrary stop positions inside or outside the box, `in srgb` / `in srgb-linear` / `in oklab`, and it layers over `background-color` as CSS does. `bg-radial` and `bg-conic` are assemblers now, and every assembler emits `in oklab` for v4 parity. Everything else is *refused loudly* rather than approximated — see `GradientRefusal`. `UiShape` grew 80 → 112 bytes; `UiShapeLayoutTests` and `CheckShaders` are what keep its four files in step. **Owed:** an explicit radial/conic centre, `bg-conic-<angle>` (the parser and shader do `from <angle>`; the *utility* needs a numeric family), `background-position`/`-size`/`-repeat`, and gradient text — see [what a third stop cost](#what-a-third-stop-cost) | `DrawListBuilder`, `BackgroundGradient`, `UiShape`, `Ui.rvn` | **#43** | 0.15 |
 | A12 🟡 | Pseudo-elements materialised — `::before`/`::after` with `content` | `StyleRuleSet`, `UiDocument` | — | 0.5 |
-| A13 🟡 | **The five structural ones landed and the seventeen form states did not, and that split is the shape of the item rather than how far it got.** `empty`, `not-*`, `nth-*`, `nth-last-*` and the whole `*-of-type` family are registered, each with a positive and a negative computed-value scene. ⚠ **The item's own claim that "none needs a matcher change" was wrong, and wrong about exactly the family that looks most like a table entry**: an of-type index is a position among the siblings *sharing a tag*, which nothing stored, so `PositionTest` grew five members and `StyleTree` learned to count them. The trap it hides behind is that `:nth-of-type(n)` and `:nth-child(n)` pick the same element out of any run of one tag — so a fixture of five `li` proves nothing, and the scenes here mix `p` and `div` for that reason. ⚠ **`not-*` is a bare-suffix negation only**: `not-sm:` is an at-rule in v4 and `not-group-hover:` an ancestor, and negating either is a different production, so both are *not variants* rather than variants meaning something else. **Owed**: the seventeen that need an element-state bit — and two of those (`visited`, `target`) want refusing rather than building, since Vixen has no navigation model to make either true. ⚠ And `:open` is a *parser* problem before it is a state bit: ExCSS 4.3.2 hands it back as an `UnknownSelector`, so a state flag for it would reach a compiler that never sees the pseudo-class | `Variants`, `ElementState` | — | 0.15 of 0.3 |
+| A13 🟡 | **Five structural, then three form states, and the fourteen left are not one item.** `empty`, `not-*`, `nth-*`, `nth-last-*` and the whole `*-of-type` family are registered, each with a positive and a negative computed-value scene. ⚠ **The item's own claim that "none needs a matcher change" was wrong, and wrong about exactly the family that looks most like a table entry**: an of-type index is a position among the siblings *sharing a tag*, which nothing stored, so `PositionTest` grew five members and `StyleTree` learned to count them. The trap it hides behind is that `:nth-of-type(n)` and `:nth-child(n)` pick the same element out of any run of one tag — so a fixture of five `li` proves nothing, and the scenes mix `p` and `div` for that reason. ⚠ **`not-*` is a bare-suffix negation only**: `not-sm:` is an at-rule in v4 and `not-group-hover:` an ancestor, so both are *not variants* rather than variants meaning something else. **Then `read-only`, `placeholder-shown` and `indeterminate`** — `ElementState` grew three bits, `SelectorCompiler` three arms plus `:read-write` as a negation of the first (`:enabled`'s arrangement), and `TextField`, `CheckBox` and `ProgressBar` write them. ⚠ **A table entry is worth nothing without a writer, which is what the sizing missed**: `:read-only` compiled against a bit no control sets resolves, indexes and matches nothing, and would pass every row in `VariantCoverageTests` — so `ElementStateBitTests` is the writer's side and the end-to-end one. ⚠ And two beliefs were refuted on the way: `TextField.ReadOnly` argued a class rather than a state because `ElementState` holds *transient* conditions, but `Disabled` and `Checked` are modes on the same terms and have been in the enum since it was written; and `:placeholder-shown` is **not** the `empty` class renamed — it needs a placeholder *and* no value, where the class is set on either. **Owed: fourteen, and eleven of them are refusals rather than work.** There is no validation model anywhere in `Vixen.Ui.Controls`, so `required`, `optional`, `valid`, `invalid`, `user-valid`, `user-invalid`, `in-range` and `out-of-range` have nothing to be true of; there is no navigation model, so `visited` and `target` are refused; `autofill` needs a credential store, `default` needs a form, `inert` needs a subtree flag nothing carries. ⚠ `open` is a *parser* problem before it is a state bit: ExCSS 4.3.2 hands `:open` back as an `UnknownSelector` | `Variants`, `ElementState`, `TextField`, `Toggles`, `Range` | — | 0.22 of 0.3 |
 | A14 ✅ | **Done, as sixteen keys rather than thirteen conditions, and two of them were already answerable.** `portrait` and `landscape` are `(orientation: …)`, which `MediaQuery` has always derived from the surface's own width and height — a table entry and no condition. The rest brought five axes onto a new `MediaPreferences` value: reduced motion, contrast (⚠ four values, because `custom` is neither more nor less and collapsing it would apply every high-contrast rule to a palette the user chose), forced colours, inverted colours, and the two pointer families. ⚠ **`PointerCapability` needed a fourth member for a reason that is this repository's commonest bug in a new disguise**: CSS's `pointer: none` is the empty capability set, and the empty set is also what a field nobody assigned holds — so a zero meaning "no pointing device" would make `pointer-none:` the rule that always applies under `default(MediaContext)`. Zero is `Unspecified` and reads as a mouse; `NoDevice` carries a bit so the stated emptiness can be told from the unstated one. ⚠ **`print:` and `noscript:` resolve and can never match, deliberately** — paged media is out of scope for good (Part 8 § 1) and a Vixen document always scripts — so the gate names them as the two entries that must have a negative scene and must *not* have a positive one, and a separate test proves the class is still generated, which is what tells "always false" from "not a variant". ⚠ **Owed, and filed separately: nothing sets any of it.** `UiSurface.Preferences` is exposed and defaults to "nothing unusual", exactly as `UiSurface.ColorScheme` has since it was added — and `Vixen.Ui.Desktop` reads the swapchain's gamut and has never read the system appearance, so `dark:` under the media strategy has never been true in a real application either. That is one hole in the platform layer with two victims | `MediaQuery`, `MediaPreferences`, `UiSurface` | — | 0.2 |
 | A15 ✅ | **Nested conditional-group rules — done, and for a tenth of the estimate, because the cascade already did it.** `StyleSheetLoader.LoadMedia` has always recursed into the rule it matched, so `@media A { @media B { … } }` loaded and conjoined; the thing that could not nest was `UtilityGenerator`, carrying one `string?` for the whole variant stack. It carries an ordered, deduplicated chain now and emits a trie over those chains, so `sm:md:p-4` and `dark:md:p-4` nest and share their outer wrapper with the shallower utilities. **Nesting cost the rule representation nothing at the time** — though a `StyleRule` carries a
 conditional-group id since per-surface media landed; see F11. ⚠ The real finding was next door: see § D6 | cascade | — | done |

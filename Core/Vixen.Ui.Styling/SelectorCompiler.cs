@@ -427,6 +427,15 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             "focus-within" => ElementState.FocusWithin,
             "disabled" => ElementState.Disabled,
             "checked" => ElementState.Checked,
+
+            // ⚠ The three that need a bit somebody sets rather than a bit the input system sets, which
+            // is what made them the expensive third of doc 43's A13 and not the cheap two-thirds. A
+            // compiler arm here is worth nothing on its own: `:read-only` compiled against a bit no
+            // control ever writes resolves, indexes and matches nothing, which is the failure that
+            // document exists to refuse. See `TextField` and `CheckBox`, which are the writers.
+            "read-only" => ElementState.ReadOnly,
+            "placeholder-shown" => ElementState.PlaceholderShown,
+            "indeterminate" => ElementState.Indeterminate,
             _ => ElementState.None
         };
 
@@ -473,6 +482,22 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             specificity = specificity with { Classes = specificity.Classes + 1 };
             var nested = table.AddNested(NegatedState(ElementState.Disabled));
             compiled = new SimpleSelector(SimpleSelectorKind.Not, NestedStart: nested, NestedCount: 1);
+            return true;
+        }
+
+        if (name == "read-write") {
+            // ⚠ `:enabled`'s arrangement, and the reason is the same sentence in a different
+            // specification: Selectors 4 § 10.2 defines `:read-write` as the elements `:read-only`
+            // does not match, so a bit of its own would be a second thing to keep in step with the
+            // first — and the two would disagree the first time a control set one and forgot the
+            // other. ⚠ It differs from CSS in what it says about a plain `div`: a browser calls a
+            // non-editable element read-only, and here everything that never said otherwise is
+            // read-write. That is stated rather than smuggled, and it is the same divergence
+            // `:enabled` already carries for an element that is not a control.
+            specificity = specificity with { Classes = specificity.Classes + 1 };
+            var nested = table.AddNested(NegatedState(ElementState.ReadOnly));
+            compiled = new SimpleSelector(SimpleSelectorKind.Not, NestedStart: nested, NestedCount: 1);
+
             return true;
         }
 

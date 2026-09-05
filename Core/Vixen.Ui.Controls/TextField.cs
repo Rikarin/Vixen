@@ -3,6 +3,7 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Input;
+using Vixen.Ui.Styling;
 using Vixen.Ui.Text;
 
 namespace Vixen.Ui.Controls;
@@ -964,6 +965,12 @@ public abstract partial class TextField : Control, ITextInputTarget {
         } else {
             RemoveClass("read-only");
         }
+
+        // ⚠ <b>The state bit as well as the class, and the class is not redundant.</b> The bit is
+        // what CSS spells `:read-only` and what the `read-only:` variant compiles to; the class is
+        // what the editor's own themes already select on. Dropping the class to tidy up would
+        // restyle every inspector field in the same commit as a variant nobody has used yet.
+        State = current ? State | ElementState.ReadOnly : State & ~ElementState.ReadOnly;
     }
 
     /// <summary>Shows the placeholder only when there is nothing to show instead.</summary>
@@ -973,11 +980,22 @@ public abstract partial class TextField : Control, ITextInputTarget {
     ///     rather than being cleared and reinstated on every keystroke.
     /// </remarks>
     void Restate() {
-        if (string.IsNullOrEmpty(Value)) {
+        var empty = string.IsNullOrEmpty(Value);
+
+        if (empty) {
             AddClass("empty");
         } else {
             RemoveClass("empty");
         }
+
+        // ⚠ <b>Both halves, which is what separates `:placeholder-shown` from the `empty` class
+        // beside it.</b> Selectors 4 § 10.4 matches a field that is *currently displaying*
+        // placeholder text, so a field with no value and nothing to show in its place is not one —
+        // and a variant compiled against the class alone would have matched every empty field in the
+        // document, including the ones with no placeholder at all.
+        var shown = empty && !string.IsNullOrEmpty(Placeholder);
+
+        State = shown ? State | ElementState.PlaceholderShown : State & ~ElementState.PlaceholderShown;
     }
 
     /// <summary>Scrolls the text sideways so that the caret is inside the box.</summary>
