@@ -2028,6 +2028,17 @@ public sealed class DrawListBuilder {
         float radius,
         float alpha
     ) {
+        // ⚠ <b>A fully transparent shadow is dropped, and it is a composition slot rather than an
+        // author who makes this worth a branch.</b> `UtilityComposition.Shadows` puts a ring and an
+        // elevation shadow in one list on every element carrying either class, so the one the author
+        // did not write arrives here as its initial — `0 0 transparent` — and would otherwise become
+        // a second `Shadow` command per element for a picture nobody can see. Sound in general: CSS
+        // Backgrounds 3 gives an `rgba(…, 0)` shadow no rendering, so this is the same picture with
+        // one command fewer, not an approximation.
+        if (Fade(shadow.Colour, alpha).A <= 0f) {
+            return;
+        }
+
         // The spread grows the box in every direction, and the corner radius with it: a spread that
         // kept the original corner would give a shadow visibly squarer than the thing casting it.
         var spread = shadow.Spread;
