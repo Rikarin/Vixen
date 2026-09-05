@@ -26,14 +26,19 @@ shader Blur {
 
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
-    /// The furthest a tap may reach, whatever the radius says.
+    /// The most taps this kernel takes on each side of a texel, whatever the radius says.
     ///
-    /// ⚠ **A ceiling rather than a runtime loop bound, and it is a correctness property rather than a
-    /// performance one.** A radius that arrives as a NaN, or as a number an artist typed four zeros
-    /// into, becomes a loop no invocation leaves — which on a GPU is a device loss and a desktop that
-    /// stops repainting, not a slow bake. 64 texels at the base resolution is a very wide box; wider
-    /// than that is a downsample and a blur, which is what a real tool does anyway.
-    const val MaxRadius: int = 64
+    /// ⚠ **A budget in *taps*, not a ceiling on the width, and the difference is doc 48 § D8.** A
+    /// constant loop bound is a correctness property rather than a performance one: a radius that
+    /// arrives as a NaN, or as a number an artist typed four zeros into, would otherwise be a loop no
+    /// invocation leaves — which on a GPU is a device loss and a desktop that stops repainting, not a
+    /// slow bake. But the radius arrives *already scaled into this image's texels*, so clamping the
+    /// width to this number is a second place a bake's resolution gets decided: an authored 20
+    /// resolves to 80 at a 4× bake and was silently clipped to 64, making the 4× bake a narrower
+    /// filter than the 1× one — [#678](https://github.com/Rikarin/Vixen/issues/678), the fuse #619
+    /// removed, relit one layer down. So past the budget the taps spread out instead, and the width
+    /// is always the width the plan resolved.
+    const val MaxTaps: int = 64
 
     /// One texel, clamped to the edge.
     ///
@@ -55,9 +60,15 @@ shader Blur {
             return
         }
 
-        val wide = clamp(radius, 0f, float(MaxRadius))
-        val whole = int(floor(wide))
-        val partial = wide - float(whole)
+        // ⚠ The width is what the plan resolved; only the sampling inside it is budgeted. Under
+        // `MaxTaps` the spacing is exactly one and every line below is the box this kernel always
+        // was, texel for texel; past it the same width is covered by `MaxTaps` taps spaced further
+        // apart, which thins the box rather than narrowing it.
+        val wide = max(radius, 0f)
+        val spacing = max(1f, wide / float(MaxTaps))
+        val reach = wide / spacing
+        val whole = int(floor(reach))
+        val partial = reach - float(whole)
 
         var sum = Tap(coord.x, coord.y)
         var weight = 1f
@@ -67,7 +78,7 @@ shader Blur {
         // 4.0 does nothing at all and then jumps, which reads as a slider with steps in it — and it
         // is also what would make doc 48 § D8's bake-at-1K-against-4K comparison fail for a reason
         // that has nothing to do with resolution.
-        for (i in 1 .. MaxRadius) {
+        for (i in 1 .. MaxTaps) {
             if (i > whole + 1) {
                 break
             }
@@ -82,8 +93,12 @@ shader Blur {
                 break
             }
 
-            sum = sum + w * Tap(coord.x + stepX * i, coord.y + stepY * i)
-            sum = sum + w * Tap(coord.x - stepX * i, coord.y - stepY * i)
+            // At a spacing of one this is `i`, exactly, which is what keeps an ordinary radius the
+            // same picture it was.
+            val offset = int(round(float(i) * spacing))
+
+            sum = sum + w * Tap(coord.x + stepX * offset, coord.y + stepY * offset)
+            sum = sum + w * Tap(coord.x - stepX * offset, coord.y - stepY * offset)
             weight = weight + 2f * w
         }
 

@@ -52,8 +52,28 @@ static class TextureKernelHarness {
         $"{device.Adapter.Name} ({device.Adapter.Kind}, {device.Adapter.DriverVersion})";
 
     /// <summary>Uploads RGBA8 texels as a texture a plan can read.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>It records and submits on <see cref="IGraphicsDevice.ComputeQueue" />, because
+    ///         that is the queue <see cref="TexturePlanEvaluator" /> dispatches on</b> — and the kind
+    ///         is taken from that submitter rather than spelled, so the two cannot drift into naming
+    ///         different queues. <a href="https://github.com/Rikarin/Vixen/issues/679">#679</a>: this
+    ///         helper uploaded on the graphics queue, which is precisely the mismatch
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/617">#617</a> closed. Every texture in
+    ///         a bake is <c>ResourceSharing.Exclusive</c>, so touching one from a second queue family
+    ///         without an ownership transfer leaves its contents undefined by specification — and on
+    ///         every adapter this engine has been developed on the two families are one, so the
+    ///         validation layers say nothing and the picture comes out right.
+    ///     </para>
+    ///     <para>
+    ///         <b>Typed on the interface rather than on <c>VulkanDevice</c> so the Null device can
+    ///         reach it</b>, which is the only place in the tree where the two queues are two
+    ///         objects and the choice above is therefore observable —
+    ///         <c>TextureHarnessQueueTests</c>.
+    ///     </para>
+    /// </remarks>
     public static (TextureHandle Texture, BufferHandle Staging) Upload(
-        VulkanDevice device,
+        IGraphicsDevice device,
         byte[] pixels,
         int width,
         int height
@@ -72,10 +92,16 @@ static class TextureKernelHarness {
             new(pixels.Length, BufferUsage.CopySource, MemoryAccess.HostUpload, "kernel test staging")
         );
 
+        // ⚠ One expression decides the queue, and everything below reads it — the command list's
+        // kind, the submission and the wait. Spelling `QueueKind.Compute` separately from
+        // `device.ComputeQueue` is how #617 and #679 both happened: the two spellings agree on a
+        // unified adapter and name different families on a discrete one.
+        var queue = device.ComputeQueue;
+
         device.Write(staging, 0, pixels);
         device.BeginFrame();
 
-        using (var commands = device.BeginCommandList(QueueKind.Graphics, "upload")) {
+        using (var commands = device.BeginCommandList(queue.Kind, "upload")) {
             commands.Barrier(
                 new BarrierGroup(
                     [],
@@ -93,11 +119,14 @@ static class TextureKernelHarness {
             );
 
             commands.Finish();
-            device.GraphicsQueue.Submit([commands]);
+            queue.Submit([commands]);
         }
 
         device.EndFrame();
-        device.WaitIdle();
+
+        // The queue rather than the device, because the queue is what the copy went to — and because
+        // it is the one call in this helper that leaves a record of which queue that was.
+        queue.WaitIdle();
 
         return (texture, staging);
     }
@@ -136,13 +165,45 @@ static class TextureKernelHarness {
     ///     factor this is 0.5 everywhere, and point-sampled it is 0 or 255 everywhere. Those two are
     ///     as far apart as a picture gets.
     /// </remarks>
-    public static byte[] Columns(int side) {
-        var pixels = new byte[side * side * 4];
+    public static byte[] Columns(int side) => Columns(side, side);
 
-        for (var y = 0; y < side; y++) {
-            for (var x = 0; x < side; x++) {
-                var at = ((y * side) + x) * 4;
+    /// <summary>The same checkerboard on an image that need not be square.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every § 4.3 assertion before <a href="https://github.com/Rikarin/Vixen/issues/677">#677</a>
+    ///     was made on a square image</b>, and a footprint derived per axis is exactly the arithmetic a
+    ///     square image cannot tell apart from the wrong one — <c>size.x</c> and <c>size.y</c> are the
+    ///     same number there, so dividing by either gives the same answer.
+    /// </remarks>
+    public static byte[] Columns(int width, int height) {
+        var pixels = new byte[width * height * 4];
+
+        for (var y = 0; y < height; y++) {
+            for (var x = 0; x < width; x++) {
+                var at = ((y * width) + x) * 4;
                 var value = (byte)(x % 2 == 0 ? 0 : 255);
+
+                pixels[at] = value;
+                pixels[at + 1] = value;
+                pixels[at + 2] = value;
+                pixels[at + 3] = 255;
+            }
+        }
+
+        return pixels;
+    }
+
+    /// <summary>A one-texel-high row checkerboard, whose mean is exactly one half.</summary>
+    /// <remarks>
+    ///     <see cref="Columns(int, int)" />'s transpose. The pair is what separates a kernel that
+    ///     measures its footprint along the right axis from one that measures both along x.
+    /// </remarks>
+    public static byte[] Rows(int width, int height) {
+        var pixels = new byte[width * height * 4];
+
+        for (var y = 0; y < height; y++) {
+            for (var x = 0; x < width; x++) {
+                var at = ((y * width) + x) * 4;
+                var value = (byte)(y % 2 == 0 ? 0 : 255);
 
                 pixels[at] = value;
                 pixels[at + 1] = value;

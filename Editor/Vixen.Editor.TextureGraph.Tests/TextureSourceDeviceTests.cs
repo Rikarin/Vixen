@@ -57,22 +57,17 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
         };
 
     /// <summary>A device, or a loud skip — or, when one was required, a failure.</summary>
-    static VulkanDevice Open() {
-        if (VulkanDevice.TryCreate(new(), out var device, out var reason)) {
-            return device!;
-        }
+    /// <remarks>
+    ///     ⚠ <b>Forwarded to the one shared instrument rather than copied, which is
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/679">#679</a>'s lasting half.</b> This
+    ///     file and <c>TexturePlanDeviceTests</c> were written in parallel and neither could see the
+    ///     other, so <c>Open</c>, <c>Adapter</c> and <c>Upload</c> were written twice — and the two
+    ///     copies of <c>Upload</c> already disagreed about which queue an exclusive texture may be
+    ///     filled from. One helper is what stops a third suite making the choice again.
+    /// </remarks>
+    static VulkanDevice Open() => TextureKernelHarness.Open();
 
-        if (Environment.GetEnvironmentVariable("VIXEN_REQUIRE_VULKAN") is "1" or "true" or "TRUE") {
-            Assert.Fail($"VIXEN_REQUIRE_VULKAN is set and no device could be opened: {reason}");
-        }
-
-        Assert.Skip(reason ?? "no Vulkan device, so nothing here can be proved");
-
-        throw new InvalidOperationException("unreachable");
-    }
-
-    static string Adapter(VulkanDevice device) =>
-        $"{device.Adapter.Name} ({device.Adapter.Kind}, {device.Adapter.DriverVersion})";
+    static string Adapter(VulkanDevice device) => TextureKernelHarness.Adapter(device);
 
     /// <summary>Uploads a picture as an RGBA8 texture a plan can read as an external image.</summary>
     static (TextureHandle Texture, BufferHandle Staging) Upload(
@@ -80,50 +75,7 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
         byte[] pixels,
         int width,
         int height
-    ) {
-        var texture = device.CreateTexture(
-            new(
-                PixelFormat.Rgba8UNorm,
-                width,
-                height,
-                TextureUsage.Sampled | TextureUsage.CopyDestination,
-                Name: "source"
-            )
-        );
-
-        var staging = device.CreateBuffer(
-            new(pixels.Length, BufferUsage.CopySource, MemoryAccess.HostUpload, "source staging")
-        );
-
-        device.Write(staging, 0, pixels);
-        device.BeginFrame();
-
-        using (var commands = device.BeginCommandList(QueueKind.Graphics, "upload")) {
-            commands.Barrier(
-                new BarrierGroup(
-                    [],
-                    [new TextureBarrier(texture, ResourceState.Undefined, ResourceState.CopyDestination)]
-                )
-            );
-
-            commands.CopyBufferToTexture(staging, 0, new(texture), new(width, height, 1));
-
-            commands.Barrier(
-                new BarrierGroup(
-                    [],
-                    [new TextureBarrier(texture, ResourceState.CopyDestination, ResourceState.ShaderRead)]
-                )
-            );
-
-            commands.Finish();
-            device.GraphicsQueue.Submit([commands]);
-        }
-
-        device.EndFrame();
-        device.WaitIdle();
-
-        return (texture, staging);
-    }
+    ) => TextureKernelHarness.Upload(device, pixels, width, height);
 
     /// <summary>The identity ramp: texel <c>i</c> of 256 holds <c>i/255</c> in every colour channel.</summary>
     /// <remarks>
@@ -165,25 +117,10 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
     }
 
     /// <summary>A horizontal ramp, the picture a resampler reproduces exactly.</summary>
-    static byte[] Ramp(int side) {
-        var pixels = new byte[side * side * 4];
+    static byte[] Ramp(int side) => TextureKernelHarness.Ramp(side);
 
-        for (var y = 0; y < side; y++) {
-            for (var x = 0; x < side; x++) {
-                var value = (byte)(x * 255 / (side - 1));
-                var at = ((y * side) + x) * 4;
-
-                pixels[at] = value;
-                pixels[at + 1] = value;
-                pixels[at + 2] = value;
-                pixels[at + 3] = 255;
-            }
-        }
-
-        return pixels;
-    }
-
-    static byte At(Bitmap picture, int x, int y, int channel = 0) => picture.Pixels[picture.Offset(x, y) + channel];
+    static byte At(Bitmap picture, int x, int y, int channel = 0) =>
+        TextureKernelHarness.At(picture, x, y, channel);
 
     /// <summary>The x coordinate of a texel centre in the shape frame at scale 1 — −1 to 1 across the image.</summary>
     static float Axis(int index, int side) => (((index + 0.5f) / side) - 0.5f) * 2f;

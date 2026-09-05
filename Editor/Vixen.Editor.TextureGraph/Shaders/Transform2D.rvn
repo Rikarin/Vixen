@@ -151,8 +151,17 @@ shader Transform2D {
         val extent = source.GetDimensions(0)
 
         // How many source texels one output texel covers, along each of the inverse's columns.
-        val footX = length(float2(i00 / float(size.x) * float(extent.x), i10 / float(size.y) * float(extent.y)))
-        val footY = length(float2(i01 / float(size.x) * float(extent.x), i11 / float(size.y) * float(extent.y)))
+        //
+        // ⚠ **A step of one output texel along x is `1/size.x` of the output, so *both* rows of
+        // column 0 are divided by `size.x`** — and both rows of column 1 by `size.y`. The two extents
+        // then convert the result from normalised source into source texels, and those *are* per
+        // row: `.x` for the first, `.y` for the second. Dividing row 1 of column 0 by `size.y`
+        // instead reads right and is wrong (#677); on a square image the two are the same number, so
+        // every test in this suite agreed with it. On a 256×64 image turned a quarter it makes both
+        // footprints 1, and a 4× minification is taken with a single tap — which is exactly the
+        // aliasing this file's header calls the node's whole trap.
+        val footX = length(float2(i00 / float(size.x) * float(extent.x), i10 / float(size.x) * float(extent.y)))
+        val footY = length(float2(i01 / float(size.y) * float(extent.x), i11 / float(size.y) * float(extent.y)))
         val samples = clamp(int(ceil(max(footX, footY))), 1, MaxSamples)
         val step = 1f / float(samples)
 

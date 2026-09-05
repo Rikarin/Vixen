@@ -83,9 +83,22 @@ Without it a radius sweeping from 3.0 to 4.0 does nothing and then jumps, which 
 steps in it — and it is also what would make § D8's bake-at-1K-against-4K comparison fail for a reason
 that has nothing to do with resolution.
 
-⚠ **`MaxRadius` is a correctness property and not a performance one.** A radius arriving as a NaN, or
+⚠ **`MaxTaps` is a correctness property and not a performance one.** A radius arriving as a NaN, or
 as a number an artist typed four zeros into, would be a loop no invocation leaves — which on a GPU is a
 device loss and a desktop that stops repainting, not a slow bake.
+
+⚠ **But it budgets the *taps* and not the width, and the difference is § D8.** It was a
+`clamp(radius, 0, 64)` applied to the radius *as it arrived* — that is, after `TexturePlan.Resolve`
+had already scaled it into the written image's texels. A plan authored with a radius of 20 at 1K
+resolves to 80 at a 4× bake and was silently clipped to 64, so **the 4× bake was a narrower filter
+than the 1× one, with no message anywhere**
+([#678](https://github.com/Rikarin/Vixen/issues/678)) — the two-year fuse
+[#619](https://github.com/Rikarin/Vixen/issues/619) was opened to remove, relit one layer below the
+fix, and invisible because the § D8 device test happened to pick a radius of 12. Past the budget the
+same width is now covered by 64 taps spaced further apart: the box thins rather than narrowing, and
+below the budget the spacing is exactly one and the filter is texel for texel what it always was. A
+refusal on the plan would be better still and is not this kernel's to make; there is no
+`TexturePlan.Validate` check that a resolved length fits the kernel that receives it.
 
 ## Why `Levels` is the kernel that carries the seed
 

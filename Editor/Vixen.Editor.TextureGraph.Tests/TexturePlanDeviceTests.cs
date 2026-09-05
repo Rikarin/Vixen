@@ -34,67 +34,29 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
     const int Side = 64;
 
     /// <summary>A device, or a loud skip — or, when one was required, a failure.</summary>
-    static VulkanDevice Open() {
-        if (VulkanDevice.TryCreate(new(), out var device, out var reason)) {
-            return device!;
-        }
-
-        if (Environment.GetEnvironmentVariable("VIXEN_REQUIRE_VULKAN") is "1" or "true" or "TRUE") {
-            Assert.Fail($"VIXEN_REQUIRE_VULKAN is set and no device could be opened: {reason}");
-        }
-
-        Assert.Skip(reason ?? "no Vulkan device, so nothing here can be proved");
-
-        throw new InvalidOperationException("unreachable");
-    }
+    /// <remarks>
+    ///     ⚠ <b>Forwarded rather than spelled, because the loud-skip instrument existed three times
+    ///     and one of the three had drifted</b> — <a href="https://github.com/Rikarin/Vixen/issues/679">
+    ///     #679</a>. A skip that reports success on the day there is no device is the failure mode
+    ///     this whole file guards against, and three copies of it is three chances to lose it.
+    /// </remarks>
+    static VulkanDevice Open() => TextureKernelHarness.Open();
 
     /// <summary>What ran, said in every message so a number is never anonymous.</summary>
-    static string Adapter(VulkanDevice device) =>
-        $"{device.Adapter.Name} ({device.Adapter.Kind}, {device.Adapter.DriverVersion})";
+    static string Adapter(VulkanDevice device) => TextureKernelHarness.Adapter(device);
 
     /// <summary>Uploads a picture as an RGBA8 texture the plan can read.</summary>
     /// <remarks>
-    ///     ⚠ <b>On the compute queue, because that is the queue the kernel that reads it runs on.</b>
-    ///     The texture is <c>ResourceSharing.Exclusive</c>, so filling it from the graphics family and
-    ///     sampling it from a compute family is the same undefined cross-family access
+    ///     ⚠ <b>On the compute queue, because that is the queue the kernel that reads it runs on</b>
+    ///     — and that decision now lives in one helper for the whole project rather than in each
+    ///     suite. The texture is <c>ResourceSharing.Exclusive</c>, so filling it from the graphics
+    ///     family and sampling it from a compute family is the same undefined cross-family access
     ///     <see cref="TexturePlanEvaluator" />'s own lists avoid — in reverse, and equally invisible
-    ///     on a unified-family adapter like this Mac's.
+    ///     on a unified-family adapter like this Mac's. <c>TextureHarnessQueueTests</c> is what
+    ///     asserts it, on the Null device, where the two queues are two objects.
     /// </remarks>
-    static (TextureHandle Texture, BufferHandle Staging) Upload(VulkanDevice device, byte[] pixels, int side) {
-        var texture = device.CreateTexture(
-            new(PixelFormat.Rgba8UNorm, side, side, TextureUsage.Sampled | TextureUsage.CopyDestination, Name: "source")
-        );
-
-        var staging = device.CreateBuffer(
-            new(pixels.Length, BufferUsage.CopySource, MemoryAccess.HostUpload, "source staging")
-        );
-
-        device.Write(staging, 0, pixels);
-        device.BeginFrame();
-
-        using (var commands = device.BeginCommandList(QueueKind.Compute, "upload")) {
-            commands.Barrier(
-                new BarrierGroup([], [new TextureBarrier(texture, ResourceState.Undefined, ResourceState.CopyDestination)])
-            );
-
-            commands.CopyBufferToTexture(staging, 0, new(texture), new(side, side, 1));
-
-            commands.Barrier(
-                new BarrierGroup(
-                    [],
-                    [new TextureBarrier(texture, ResourceState.CopyDestination, ResourceState.ShaderRead)]
-                )
-            );
-
-            commands.Finish();
-            device.ComputeQueue.Submit([commands]);
-        }
-
-        device.EndFrame();
-        device.WaitIdle();
-
-        return (texture, staging);
-    }
+    static (TextureHandle Texture, BufferHandle Staging) Upload(VulkanDevice device, byte[] pixels, int side) =>
+        TextureKernelHarness.Upload(device, pixels, side, side);
 
     /// <summary>A black image with one white texel, which is what a filter's impulse response is read off.</summary>
     static byte[] Impulse(int side, int x, int y) {
@@ -114,23 +76,7 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
     }
 
     /// <summary>A horizontal ramp from black to white, which a levels curve is read off.</summary>
-    static byte[] Ramp(int side) {
-        var pixels = new byte[side * side * 4];
-
-        for (var y = 0; y < side; y++) {
-            for (var x = 0; x < side; x++) {
-                var value = (byte)(x * 255 / (side - 1));
-                var at = (((y * side) + x) * 4);
-
-                pixels[at] = value;
-                pixels[at + 1] = value;
-                pixels[at + 2] = value;
-                pixels[at + 3] = 255;
-            }
-        }
-
-        return pixels;
-    }
+    static byte[] Ramp(int side) => TextureKernelHarness.Ramp(side);
 
     /// <summary>A vertical edge down the middle: black on the left, white on the right.</summary>
     /// <remarks>
@@ -202,7 +148,8 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
             Parameters = [new("mode", mode), new("opacity", opacity)]
         };
 
-    static byte At(Bitmap picture, int x, int y, int channel) => picture.Pixels[picture.Offset(x, y) + channel];
+    static byte At(Bitmap picture, int x, int y, int channel) =>
+        TextureKernelHarness.At(picture, x, y, channel);
 
     /// <summary>A plan runs, the pictures are not black, and the adapter that produced them is named.</summary>
     /// <remarks>
