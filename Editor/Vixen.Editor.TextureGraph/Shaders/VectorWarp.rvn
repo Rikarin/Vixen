@@ -1,0 +1,89 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § 4.4's `Vector Warp`: displace the source by a two-channel map that carries the
+// displacement itself.
+//
+// ## ⚠ The encoding is the whole node, and the two conventions differ by a factor of two and a sign
+//
+// A displacement is **signed** — it runs both ways — and an unorm image cannot store a negative
+// number. So the map carries it **biased into 0..1**, and the kernel decodes:
+//
+//     d = (rg · 2 − 1) · intensity
+//
+// **128 is therefore rest, 255 is +intensity and 0 is −intensity.** The alternative reading — that
+// the channels are already the displacement, 0..1, one-sided — is what a kernel gets if nobody
+// writes the convention down, and it produces a picture that looks entirely plausible: everything
+// drifts one way at half the amplitude, which an artist corrects by doubling the intensity and never
+// notices. Both halves are asserted:
+//
+// - a map of exactly 128 in both channels is a **copy** — that is the bias;
+// - a map of 0 in red displaces the *opposite* way from a map of 255 — that is the sign, and it is
+//   the assertion the one-sided reading cannot pass, because under it a red of 0 is a copy too.
+//
+// This is the same signed-in-unorm decode a tangent-space normal map uses, and the same trap: doc 48
+// § 4.6's `Height → Normal` owes its green convention the same treatment.
+//
+// **Green is +y, and +y is down the image**, because a texel's y is a row index. A map above rest in
+// green pulls its sample from further down, so the picture appears to move up.
+//
+// ⚠ **`intensity` arrives in the texels of the image being written** — `TexturePlan.Resolve` has
+// applied doc 48 § D8's scaling.
+
+shader VectorWarp {
+    var source: Texture2D
+
+    /// The displacement map. Red is x and green is y, both biased: 0.5 is rest.
+    var vectors: Texture2D
+
+    /// What a fully deflected channel displaces by, in texels of the image being written.
+    var intensity: float = 0f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// One texel of the source, clamped to the **source's** edge — never the target's.
+    func Tap(x: int, y: int): float4 {
+        val size = source.GetDimensions(0)
+
+        return source.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+    }
+
+    /// The source at a position in **target texels**, bilinearly.
+    func At(x: float, y: float): float4 {
+        val extent = source.GetDimensions(0)
+        val size = target.GetDimensions()
+        val px = (x + 0.5f) * float(extent.x) / float(size.x) - 0.5f
+        val py = (y + 0.5f) * float(extent.y) / float(size.y) - 0.5f
+
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Tap(x0, y0), Tap(x0 + 1, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Tap(x0, y0 + 1), Tap(x0 + 1, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = vectors.GetDimensions(0)
+        val vx = clamp(int(floor((float(coord.x) + 0.5f) * float(extent.x) / float(size.x))), 0, extent.x - 1)
+        val vy = clamp(int(floor((float(coord.y) + 0.5f) * float(extent.y) / float(size.y))), 0, extent.y - 1)
+
+        val encoded = vectors.Load(int3(vx, vy, 0))
+
+        // The decode, and the only line in the file that matters. See the header.
+        val dx = (encoded.x * 2f - 1f) * intensity
+        val dy = (encoded.y * 2f - 1f) * intensity
+
+        target.Store(coord, At(float(coord.x) + dx, float(coord.y) + dy))
+    }
+}
