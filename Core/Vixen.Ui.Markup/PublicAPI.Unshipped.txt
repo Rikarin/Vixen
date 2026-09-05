@@ -22,6 +22,7 @@ Vixen.Ui.Markup.Binding.BoundAttributeKind.BoundAttributeKind() -> void
 Vixen.Ui.Markup.Binding.BoundAttributeKind.Changed = 5 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
 Vixen.Ui.Markup.Binding.BoundAttributeKind.ContextMenu = 11 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
 Vixen.Ui.Markup.Binding.BoundAttributeKind.Event = 1 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
+Vixen.Ui.Markup.Binding.BoundAttributeKind.Exit = 12 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
 Vixen.Ui.Markup.Binding.BoundAttributeKind.Help = 10 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
 Vixen.Ui.Markup.Binding.BoundAttributeKind.Key = 3 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
 Vixen.Ui.Markup.Binding.BoundAttributeKind.Parameter = 0 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
@@ -73,6 +74,7 @@ Vixen.Ui.Markup.Binding.BoundElement.Attributes.init -> System.Collections.Immut
 Vixen.Ui.Markup.Binding.BoundElement.BoundElement(string Tag, bool IsComponent, System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundAttribute> Attributes, System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode> Children, Vixen.Core.Syntax.Text.LinePositionSpan TagPosition) -> void
 Vixen.Ui.Markup.Binding.BoundElement.Children.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
 Vixen.Ui.Markup.Binding.BoundElement.Children.init -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
+Vixen.Ui.Markup.Binding.BoundElement.ExitAttribute.get -> Vixen.Ui.Markup.Binding.BoundAttribute?
 Vixen.Ui.Markup.Binding.BoundElement.IsComponent.get -> bool
 Vixen.Ui.Markup.Binding.BoundElement.IsComponent.init -> bool
 Vixen.Ui.Markup.Binding.BoundElement.IsSelf.get -> bool
@@ -101,6 +103,10 @@ Vixen.Ui.Markup.Binding.BoundFor : Vixen.Ui.Markup.Binding.BoundNode
 Vixen.Ui.Markup.Binding.BoundFor.Body.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
 Vixen.Ui.Markup.Binding.BoundFor.Body.init -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
 Vixen.Ui.Markup.Binding.BoundFor.BoundFor(string Variable, Vixen.Ui.Markup.Binding.BoundExpression Sequence, Vixen.Ui.Markup.Binding.BoundExpression? Key, System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode> Body, string? Index = null) -> void
+Vixen.Ui.Markup.Binding.BoundFor.ExitAfter.get -> int?
+Vixen.Ui.Markup.Binding.BoundFor.ExitAfter.init -> int?
+Vixen.Ui.Markup.Binding.BoundFor.ExitClass.get -> string?
+Vixen.Ui.Markup.Binding.BoundFor.ExitClass.init -> string?
 Vixen.Ui.Markup.Binding.BoundFor.Index.get -> string?
 Vixen.Ui.Markup.Binding.BoundFor.Index.init -> string?
 Vixen.Ui.Markup.Binding.BoundFor.Key.get -> Vixen.Ui.Markup.Binding.BoundExpression?
@@ -608,11 +614,14 @@ static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.DuplicateAttribute
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.DuplicateSlot -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.DynamicSlotName -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.EmptyComponent -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ExitOutsideLoop -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ExitWithIndex -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ExpectedExpression -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ExpectedExpressionValue -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.IncompleteProvide -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.InertElementAttribute -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.InterpolatedProvideType -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.InvalidExitDuration -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.InvalidParameterName -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.MismatchedEndTag -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.MisplacedSelf -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor

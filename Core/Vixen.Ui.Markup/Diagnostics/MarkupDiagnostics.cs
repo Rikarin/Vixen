@@ -502,4 +502,64 @@ public static class MarkupDiagnostics {
         BindingCategory,
         DiagnosticSeverity.Error
     );
+
+    /// <summary>An <c>exit</c> was written outside an <c>@for</c> body.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="RefsOutsideLoop" />'s shape and <see cref="RefsOutsideLoop" />'s reason.</b>
+    ///     An exit is an interval the <i>reconciler</i> holds a removed row for, so it is read by the
+    ///     enclosing loop and by nothing else. Written anywhere else there is no reconciler to read
+    ///     it, and the honest failure is this rather than an attribute silently dropped — which is
+    ///     what an unconsumed one would be, since nothing downstream would ever ask for it.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor ExitOutsideLoop = new(
+        "VXML2024",
+        "'exit' outside @for",
+        "'exit' is the interval an @for holds a removed row for, and outside a loop nothing removes "
+        + "rows. An element that leaves because an @if arm changed has no exit yet.",
+        BindingCategory,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>An <c>exit</c> whose value is not a duration.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A literal duration and not an expression, which is the opposite of what
+    ///         <c>key</c> takes.</b> A key is an identity and has to be computed per row; an exit is
+    ///         the same number the author already wrote in <c>transition: opacity 200ms</c>, so it is
+    ///         written the same way and read at compile time. That is also what lets this message
+    ///         exist at all: an expression's mistakes are Roslyn's and land on generated code.
+    ///     </para>
+    ///     <para>
+    ///         The optional second word is the class the row wears on its way out, which defaults to
+    ///         <c>leaving</c> — the name <c>ExitSpec</c> defaults to, so the two cannot drift.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor InvalidExitDuration = new(
+        "VXML2025",
+        "'exit' is not a duration",
+        "'{0}' is not a duration. Write the number the stylesheet already has — exit=\"200ms\" or "
+        + "exit=\"0.2s\" — optionally followed by the class the row wears on its way out, as in "
+        + "exit=\"200ms fading\". The default class is 'leaving'.",
+        BindingCategory,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>An <c>exit</c> in a loop that also declares an index.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A gap the runtime states rather than a rule this invents.</b>
+    ///     <c>BuildContext.For</c>'s indexed overload takes no <c>ExitSpec</c>, because a row on its
+    ///     way out is no longer in the sequence and what its index signal should read while it fades
+    ///     was never decided. Refused here rather than dropped: an <c>exit</c> that compiled and did
+    ///     nothing is a row that vanishes, which is the exact symptom the feature exists to remove
+    ///     and is indistinguishable from not having written it.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor ExitWithIndex = new(
+        "VXML2026",
+        "'exit' with an index",
+        "'@for (var {0}, {1} in …)' declares an index, and the indexed reconciler has no exit: a "
+        + "leaving row is no longer in the sequence, so what '{1}' reads while it animates out is "
+        + "undecided. Drop the index or drop the exit.",
+        BindingCategory,
+        DiagnosticSeverity.Error
+    );
 }

@@ -599,6 +599,11 @@ public sealed class ComponentEmitter {
                 // Consumed by the enclosing loop, which needs it before the element exists.
                 break;
 
+            case BoundAttributeKind.Exit:
+                // Consumed by the enclosing loop for `key`'s reason, one argument along: the
+                // interval is handed to `ctx.For` before the row this was written on exists.
+                break;
+
             case BoundAttributeKind.Tag:
                 // Consumed by `EmitElement`, for the same reason: it is an argument to the call that
                 // makes the element, not a statement after it.
@@ -928,7 +933,22 @@ public sealed class ComponentEmitter {
         depth++;
         EmitNodes(@for.Body, innerContext, innerParent);
         depth--;
-        Line("});");
+
+        // ⚠ The fifth argument, written after the body lambda because that is where `ExitSpec`
+        // sits in the signature. The class is omitted where the markup did not name one, so
+        // `ExitSpec`'s own default is the only place "leaving" is written down — a copy of it here
+        // is a copy that can drift.
+        if (@for.ExitAfter is { } after) {
+            var milliseconds = after.ToString(CultureInfo.InvariantCulture);
+            var named = @for.ExitClass is { } wanted ? $", \"{wanted}\"" : string.Empty;
+
+            Line(
+                $"}}, new global::Vixen.Ui.Composition.ExitSpec(global::System.TimeSpan.FromMilliseconds({milliseconds}){named}));"
+            );
+        } else {
+            Line("});");
+        }
+
         depth--;
     }
 

@@ -3,7 +3,7 @@ title: Exit animations
 slug: ui/exit-animations
 kind: guide
 area: Core
-summary: A row removed from a keyed list can stay in the document long enough to animate away. The runtime adds a class and holds the elements for an interval the caller states; the row's bindings die the moment it is let go of, and a key that comes back mid-flight ends the old row rather than standing beside it.
+summary: A row removed from a keyed list can stay in the document long enough to animate away. Written exit="200ms" on the row, where its key already is; the runtime adds a class and holds the elements for the interval stated, the row's bindings die the moment it is let go of, and a key that comes back mid-flight ends the old row rather than standing beside it.
 api: [T:Vixen.Ui.Composition.ExitSpec]
 tags: [ui, reactivity, animation, vxml]
 since: 0.2
@@ -25,6 +25,14 @@ ctx.For(
     static (inner, parent, row) => inner.Element(parent, "li").Text = row.Title,
     new ExitSpec(TimeSpan.FromMilliseconds(200))
 );
+```
+
+In a `.vxml` it is one attribute on the row, written where the row's `key` already is:
+
+```html
+@for (var row in Rows.Value) {
+    <li key="@row.Id" exit="200ms">@row.Title</li>
+}
 ```
 
 A row the sequence stops containing is given the class the spec names — `leaving` unless it says
@@ -77,6 +85,39 @@ rather than crossfading.
 exit.** That is the same requirement transitions and `@keyframes` already have, and it fails the same
 way: not instantly, but stuck.
 
+### In markup
+
+⚠ **`exit` goes on the row's element and not on the `@for` header, and `key` is why.** An exit is a
+property of the *loop* rather than of the element it is written on — which argues for the header —
+and so is `key`, which has been written on the row's own element since the language had loops. A
+second convention for the second member of the same pair would be the language disagreeing with
+itself. Written where it is, the interval sits beside the identity it reconciles against and beside
+the class list the transition is written for.
+
+⚠ **The value is a literal, which no other directive on that list is.** `key`, `ref`, `use` and
+`context-menu` all take expressions, because what they name has to be computed per row. A duration
+cannot depend on the row — it is the same number already in `transition: opacity 200ms` — so it is
+written the same way and read when the file is compiled:
+
+| Written | Means |
+|---|---|
+| `exit="200ms"` | 200 milliseconds, class `leaving` |
+| `exit="0.2s"` | the same |
+| `exit="320ms closing"` | 320 milliseconds, class `closing` |
+| `exit="200"` | **VXML2025** — a bare number is refused, on CSS's rule |
+| `exit="@Duration"` | **VXML2025** — there is nothing per-row for an expression to read |
+
+Two more refusals, both of which would otherwise be silence:
+
+- **`VXML2024` — `exit` outside an `@for`.** The interval is the reconciler's, and an `@if` arm that
+  is swapped out is cleared rather than reconciled. Left as an ordinary attribute the word `exit`
+  would have gone into the style tree as selector data and the build would have called that success.
+- **`VXML2026` — `exit` in a loop that also declares an index.** `BuildContext.For`'s indexed
+  overload takes no `ExitSpec`: a leaving row is no longer in the sequence, so what its index signal
+  should read while it animates out was never decided. Refused rather than dropped, because an
+  `exit` that compiled and did nothing is a row that vanishes — which is indistinguishable from not
+  having written it.
+
 ## Examples
 
 A list whose deletions collapse, asserted the way this repository asserts anything time-shaped — on
@@ -108,6 +149,24 @@ Naming a different class, for a panel with two lists that leave differently:
 ```csharp
 new ExitSpec(TimeSpan.FromMilliseconds(320), "closing")
 ```
+
+The same list in markup, with the stylesheet it is written against:
+
+```html
+@for (var chip in Filters.Value) {
+    <span class="chip" key="@chip.Id" exit="320ms closing">@chip.Label</span>
+}
+```
+
+```css
+.chip { opacity: 1; transition: opacity 320ms }
+.chip.closing { opacity: 0 }
+```
+
+⚠ The number appears twice — once here and once in the stylesheet — and that is the cost the stated
+duration buys. When they disagree the failure is benign in one direction (the row is removed
+mid-fade) and invisible in the other (it sits at its final appearance for the remainder). Neither is
+a wrong picture that looks right.
 
 Omitting the spec is the old behaviour exactly — the row is gone on the flush that removed it — and
 that is the default, because deferring every removal would change what "the row is gone" means for

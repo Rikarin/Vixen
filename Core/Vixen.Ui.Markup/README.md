@@ -1062,14 +1062,39 @@ of a string.
   where it raises `Submitted` — the moment a `.vxml` had no way to hear at all.
 - **A generic base.** `@inherits` takes a `NameToken`, which carries dots and not angle brackets, so
   `@inherits Row<T>` does not lex. Same limit `@using` has, and nothing has needed it.
-- **A spelling for a row's exit.** The runtime half landed — `BuildContext.For` takes an `ExitSpec`,
-  a removed row keeps its place and its `leaving` class for an interval the document owns, and a key
-  that comes back mid-flight ends the old row rather than standing beside it. Nothing in this
-  language reaches it: `EmitFor` writes four arguments and there is no syntax for a fifth, so an
-  exit is available to hand-written `Build` bodies and to a component that calls `ctx.For` itself.
-  The open question is where the number goes — an attribute on the `@for` header, a `@transition`
-  directive, or a declaration the stylesheet already carries — and it is a syntax decision rather
-  than a wiring one. See `docs/guide/ui/exit-animations.md`.
+- **An exit on the indexed `@for`.** `exit` reaches the four-argument reconciler and `VXML2026`
+  refuses it on the five-argument one, because `BuildContext.For`'s indexed overload takes no
+  `ExitSpec`: a leaving row is no longer in the sequence, so what its index signal should read while
+  it animates out was never decided. Refused rather than dropped, since an `exit` that compiled and
+  did nothing is a row that vanishes — the exact symptom the attribute exists to remove.
+- **An exit on an `@if` arm.** `VXML2024` says so: the interval belongs to the reconciler, and an arm
+  that is swapped out is cleared rather than reconciled. The runtime half would have to grow a second
+  caller before the language could have a second spelling.
+
+## A row's exit is written where its key is
+
+`exit="200ms"` on an `@for` row's element becomes `BuildContext.For`'s fifth argument, and
+`exit="200ms fading"` names the class the leaving row wears instead of `leaving`.
+
+⚠ **The syntax question the runtime half left open was settled by `key` rather than by taste.** An
+exit is a property of the *loop* and not of the element it is written on, so the obvious spelling was
+a fourth clause on the `@for` header — and `key` is already a property of the loop written on the
+row's own element, collected by `BindFor` walking the bound body for it. A second convention for the
+second member of the same pair would have been the language disagreeing with itself; this way the
+interval sits next to the identity it reconciles against and next to the class list the transition is
+written for.
+
+⚠ **A literal, which no other directive on that list is.** `key`, `ref`, `use` and `context-menu` all
+take expressions, because what they name has to be computed. A duration cannot depend on the row: it
+is the same number the author already wrote in `transition: opacity 200ms`, so it is written the same
+way and read at compile time — which is also what lets `VXML2025` exist at all, since an expression's
+mistakes are Roslyn's and land on generated code. A bare `exit="2"` is refused rather than read as
+milliseconds, on CSS's rule and for CSS's reason: two milliseconds is a row removed on the next frame,
+which looks exactly like the attribute not working.
+
+⚠ **The class is omitted from the generated call when the markup does not name one**, so `ExitSpec`'s
+own default is the only place the word `leaving` is written down. See
+`docs/guide/ui/exit-animations.md`.
 
 ## `OnComposed` is the build-time hook, and it was owed a paragraph rather than a feature
 

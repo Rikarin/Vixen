@@ -1896,6 +1896,107 @@ public class EmitterTests {
         value.SetValue(signal, array);
     }
 
+    // ================================================================== The @for exit
+
+    /// <summary>A list whose removed rows are held for a fifth of a second.</summary>
+    const string Leaving = """
+                           @component Greeter
+                           @using System.Collections.Generic
+                           @using Vixen.Ui.Reactive
+
+                           @code {
+                               public Signal<IReadOnlyList<string>> Rows { get; } = new([]);
+                           }
+
+                           @for (var row in Rows.Value) {
+                               <row-line key="@row" exit="200ms">@row</row-line>
+                           }
+                           """;
+
+    /// <summary>
+    ///     ⚠ <b>The assertion the whole spelling exists for, and it is about the <i>document</i>
+    ///     rather than about the emitted text.</b> A row removed from the sequence is still in the
+    ///     tree on the next frame, wearing the class the stylesheet transitions, and is gone once the
+    ///     stated interval has run out.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Frames given to the document's own clock, never elapsed wall time.</b> A budget
+    ///     calibrated on an idle machine is this repository's largest flake source; what is asserted
+    ///     here is what the document held when it was handed each instant, which is the same answer
+    ///     on a loaded machine as on an empty one.
+    /// </remarks>
+    [Fact]
+    public void An_exit_on_a_for_keeps_a_removed_row_until_its_interval_has_run() {
+        var (component, instance, document) = Run(Leaving);
+
+        using var owned = document;
+        var rows = (Signal<IReadOnlyList<string>>)Property(instance, "Rows");
+
+        rows.Value = ["a", "b", "c"];
+        document.Effects.Flush();
+        Assert.Equal(["a", "b", "c"], component.Root.Children.Select(Text));
+
+        rows.Value = ["a", "c"];
+        document.Effects.Flush();
+
+        // Still there, still between the rows it was between, and marked.
+        Assert.Equal(["a", "b", "c"], component.Root.Children.Select(Text));
+        Assert.True(component.Root.Children[1].HasClass("leaving"));
+
+        // A frame inside the interval changes nothing.
+        document.Tick(TimeSpan.FromMilliseconds(120));
+        Assert.Equal(["a", "b", "c"], component.Root.Children.Select(Text));
+
+        document.Tick(TimeSpan.FromMilliseconds(200));
+        Assert.Equal(["a", "c"], component.Root.Children.Select(Text));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The instrument, checked before the claim.</b> The same markup without the attribute
+    ///     removes on the flush, which is what every loop in the tree has always done — so the test
+    ///     above is measuring the attribute and not the reconciler.
+    /// </summary>
+    [Fact]
+    public void The_same_list_without_an_exit_removes_its_row_on_the_flush() {
+        var (component, instance, document) = Run(Leaving.Replace(" exit=\"200ms\"", string.Empty, StringComparison.Ordinal));
+
+        using var owned = document;
+        var rows = (Signal<IReadOnlyList<string>>)Property(instance, "Rows");
+
+        rows.Value = ["a", "b", "c"];
+        document.Effects.Flush();
+
+        rows.Value = ["a", "c"];
+        document.Effects.Flush();
+
+        Assert.Equal(["a", "c"], component.Root.Children.Select(Text));
+    }
+
+    /// <summary>The class the markup names is the class the row wears.</summary>
+    /// <remarks>
+    ///     ⚠ Omitted from the generated call when the markup does not name one, so
+    ///     <c>ExitSpec</c>'s own default is the only place <c>leaving</c> is written down. Two
+    ///     copies of a default are two things that can drift.
+    /// </remarks>
+    [Fact]
+    public void An_exit_can_name_the_class_the_row_wears_on_its_way_out() {
+        var (component, instance, document) = Run(
+            Leaving.Replace("exit=\"200ms\"", "exit=\"200ms fading\"", StringComparison.Ordinal)
+        );
+
+        using var owned = document;
+        var rows = (Signal<IReadOnlyList<string>>)Property(instance, "Rows");
+
+        rows.Value = ["a", "b"];
+        document.Effects.Flush();
+
+        rows.Value = ["a"];
+        document.Effects.Flush();
+
+        Assert.True(component.Root.Children[1].HasClass("fading"));
+        Assert.False(component.Root.Children[1].HasClass("leaving"));
+    }
+
     // ================================================================== The @for index
 
     /// <summary>Three keyed rows, each showing where it is.</summary>
