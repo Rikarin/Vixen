@@ -200,6 +200,12 @@ zero is a valid-looking value.
   that list that has become clean**, so the list can only shrink. ⚠ It is 13 s for the whole tree,
   not minutes: `--folder` loads no MSBuild workspace. `./build.sh CheckWhitespace --update-exemptions`
   rewrites the list; read the diff, because a commit that grows it added mis-indented code.
+- **`CheckDocComments`** (also run inside `CheckFormat`) fails on a doc comment block that describes a
+  member other than the one it is attached to — two `<summary>`, or a `<param>` naming a parameter the
+  following member does not have — outside `docs/DocCommentExempt.txt`, **and equally on a file in
+  that list that has become clean**. ⚠ Nothing else in this repository can see that defect: a
+  duplicated `<summary>` is not a Roslyn diagnostic at any severity, and `GenerateDocumentationFile`
+  is off for the whole tooling profile. It parses and loads no workspace, so it is ~20 s for the tree.
 - **`CheckArchitecture`** globs directories rather than reading the solution, so it sees the
   out-of-solution mobile/web projects that `Test`, `CheckFormat`, `CheckApi` and `Pack` never evaluate.
 

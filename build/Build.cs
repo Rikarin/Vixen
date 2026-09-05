@@ -316,6 +316,13 @@ partial class Build : NukeBuild {
                 // which is also a target of its own.
                 CheckWhitespaceFormatting();
 
+                // Fourth, and for the third time the same argument: it parses the tree and loads no
+                // workspace, so it costs about twenty seconds. ⚠ It is here rather than only as its
+                // own target because the defect it catches is one the two passes below are green on
+                // by construction — a doc comment stapled above the wrong member is not a formatting
+                // question and not a Roslyn diagnostic at any severity (#866). See CheckDocComments.
+                CheckDocCommentPlacement();
+
                 // Invoked raw rather than through Nuke's typed settings, whose shape has moved
                 // between versions; the CLI's has not.
                 //

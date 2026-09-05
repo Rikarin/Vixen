@@ -19,6 +19,15 @@
 
     <ItemGroup>
         <PackageReference Include="Nuke.Common" />
+
+        <!--
+            ⚠ `CheckDocComments` parses C# and nothing else: no workspace, no compilation, no restore
+            of the tree it reads. A regular-expression draft of that rule measured 544 findings on
+            this repository and every one sampled was the parser failing to see an `operator ==`, a
+            tuple return type or an indexer — a false-positive rate that turns a gate into a list
+            somebody learns to ignore.
+        -->
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     </ItemGroup>
 
 </Project>
