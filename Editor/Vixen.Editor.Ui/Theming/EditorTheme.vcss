@@ -783,7 +783,17 @@ outliner-filters {
     padding: 5px 6px;
 }
 
-outliner-filters > search-box { flex-grow: 1; min-width: 0; }
+/* ⚠ `flex-shrink: 0`, which is what `min-width: 0` used to say by saying nothing. The old
+   declaration was inert while no element in a `.vcss` could shrink (#628) and load-bearing
+   the moment that changed: this row is 161 px holding a 132 px dropdown, so a box allowed
+   below its content took the whole 11 px overflow and came back 23 px wide — narrower than
+   its own magnifying glass, with the prompt drawn outside it. `min-width: auto` is no help,
+   because the box has no measure function of its own to be clamped by. Every other search box
+   in the editor that shares a row with something fixed already says `flex-shrink: 0` — the
+   command palette's below, the add-component menu's in BrowserTheme, the property grid's in
+   AdvancedTheme — and this is the fourth. What gives way in an outliner too narrow for both
+   is the dropdown's far edge, not the filter. */
+outliner-filters > search-box { flex-grow: 1; flex-shrink: 0; }
 outliner-filters > select { flex-shrink: 0; width: 132px; }
 
 property-grid { gap: 4px; }

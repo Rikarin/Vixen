@@ -59,20 +59,31 @@ pushed. The pull is one level too shallow, and every new panel is a new chance t
 > > scoped command is actually asking.
 >
 > That is load-bearing, and it was measured rather than argued.
-> `CommandContextTests.Only_one_panel_in_seven_leaves_a_focus_behind_for_a_route_to_read` presses in
+> `CommandContextTests.Two_panels_in_seven_leave_a_focus_behind_for_a_route_to_read` presses in
 > each of the seven panels that claim a context and reads `UiDocument.Focused` afterwards:
 >
 > | Panel | Context claimed | `Document.Focused` after the press |
 > |---|---|---|
 > | `hierarchy` | `scene` | `<tree-view>`, inside the panel |
-> | `scenes` · `project` · `console` · `world-settings` · `lighting` · `navigation` | `scene` · `project` · `console` · `world` ×3 | **none** |
+> | `lighting` | `world` | `<slider>` in an inspector row, inside the panel |
+> | `scenes` · `project` · `console` · `world-settings` · `navigation` | `scene` · `project` · `console` · `world` ×2 | **none** |
 >
-> **Six of seven leave nothing for a route to read**, because `git grep -a "Focusable = true" --
+> **Five of seven leave nothing for a route to read**, because `git grep -a "Focusable = true" --
 > 'Editor/**/*.cs'` matches nothing outside one test: no editor panel is focusable, and the press
 > lands on nothing that is. `hierarchy` is the exception only because it contains a `TreeView`, whose
 > rows are — and note what that costs rather than what it buys: a press in `hierarchy` gives the
 > route a *row*, so the scope it derives is whatever the row's panel declared, not the panel the
 > press was in. Those happen to coincide today.
+>
+> ⚠️ **The row for `lighting` was `none` when this table was written, and the count was six of
+> seven. Amended 2026-09-05, and nothing in the editor changed.** The test presses the middle of
+> each panel; #628's CSS-initial `flex-shrink` fix let the lighting panel's scroll viewport shrink
+> to its content, its middle rose about twenty-two pixels, and it now falls on a slider instead of
+> just below one. So the second exception is the same kind as the first and makes the same point
+> more sharply: what a press leaves behind is whatever control happens to be under the pointer, and
+> the scope derivable from it is the *panel* it sits in — `lighting`, `world-settings` and
+> `navigation` all declare `world`, so which of the three owns the slider decides nothing. The
+> count is a property of a layout; the argument is not.
 >
 > **Four of the nine contexts are not places at all.** `blockout`, `terrain`, `water` and `foliage`
 > are *modes* — "a statement about what the viewport's input means right now" — claimed by

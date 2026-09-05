@@ -288,8 +288,8 @@ static partial class RefusalExpiry {
     /// <param name="root">The repository root.</param>
     /// <returns>The clauses and the count of opening brackets.</returns>
     static (List<ExpiryClause> Clauses, int Opened) Sweep(string root) {
-        lock (swept) {
-            if (swept.TryGetValue(root, out var already)) {
+        lock (Swept) {
+            if (Swept.TryGetValue(root, out var already)) {
                 return already;
             }
 
@@ -317,13 +317,13 @@ static partial class RefusalExpiry {
             }
 
             clauses.Sort();
-            swept[root] = (clauses, opened);
+            Swept[root] = (clauses, opened);
 
             return (clauses, opened);
         }
     }
 
-    static readonly Dictionary<string, (List<ExpiryClause> Clauses, int Opened)> swept = new(StringComparer.Ordinal);
+    static readonly Dictionary<string, (List<ExpiryClause> Clauses, int Opened)> Swept = new(StringComparer.Ordinal);
 
     /// <summary>Every clause in the ledger and in the prose, together and sorted.</summary>
     /// <param name="rows">The ledger.</param>

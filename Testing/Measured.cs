@@ -182,6 +182,17 @@ static class Measured {
 ///         of the named bytes; 100,000 passes / 4,800,040 B gave forty-five, still 100%.
 ///     </para>
 ///     <para>
+///         ⚠ <b>And a pass count sized against that rate is still not enough, because the rate does not
+///         start when the provider is enabled.</b> The 51,200 passes a 48 B/pass reading asks for run in
+///         1.0 ms, and on an idle machine not one sample had arrived by the end of them in any of twenty
+///         runs — the two dozen the report showed were taken as the window closed and dispatched during
+///         the drain. On a loaded machine they are taken after it closes and the report has no names at
+///         all: reproduced at ten copies of this assembly at once, six explanatory runs in a hundred and
+///         eighty naming nothing while their byte counts were exactly right. The loop therefore runs
+///         until <c>Enough</c> of this thread's samples have landed rather than for a computed number of
+///         passes; the same reproduction with that in place, twice over, produced none.
+///     </para>
+///     <para>
 ///         <b>The other thread is the trap.</b> Samples arrive from the whole process, so a second test
 ///         collection allocating in parallel drowns the answer — in a deliberate two-thread run the
 ///         report was 5,521,520 B of the noise type against 4,224 B of the real one. Every sample is
@@ -220,6 +231,15 @@ sealed class AllocationNames : EventListener {
     ///     to be every named byte; this is that with room for a noisy neighbour.
     /// </summary>
     const int WantedSamples = 24;
+
+    /// <summary>
+    ///     How many of this thread's samples the explanatory loop keeps running for, whatever the
+    ///     pass arithmetic said. A quarter of <see cref="WantedSamples" />: enough that a single
+    ///     sample of some type the test framework allocated before the loop started cannot end it in
+    ///     the guilty type's place, and far enough below the target that a healthy run never notices
+    ///     the clause is there.
+    /// </summary>
+    const int Enough = WantedSamples / 4;
 
     /// <summary>How many <see cref="Drain" /> objects are allocated between two checks of the drain.</summary>
     const int DrainBatch = 4_096;
@@ -343,10 +363,26 @@ sealed class AllocationNames : EventListener {
             return $"No names, and the instrument did not run: the {MeasuringThreadMarker.SourceName} marker event never came back, so no sample could have been attributed to this thread. The marker source failed to construct or was not enabled.";
         }
 
+        // ⚠ `explanatory` is a floor and not the stopping condition, and the second clause is what
+        // makes the naming survive a busy machine. Two things the arithmetic above cannot know.
+        // Enabling the provider does not make this thread sampled *now*: measured on an idle box,
+        // the 51,200 passes a 48 B/pass reading asks for run in 1.0 ms, and in twenty runs not one
+        // sample had arrived by the end of them — the two dozen the report showed were taken as the
+        // window closed. And the sampler's budget is spent across the process, so a neighbour
+        // allocating thirty times as much takes all but a thirtieth of it. Either way the window
+        // that yields two dozen samples on a quiet run yields none on a loaded one, and the report
+        // then says "no sample landed on this thread" about work it has just printed a byte count
+        // for. Which is what the union of two merged batches printed and a run of this project
+        // alone did not: reproduced at ten copies of this assembly at once, six explanatory runs in
+        // a hundred and eighty naming nothing.
+        //
+        // So the loop stops on samples rather than on a pass count — the property is the work the
+        // sampler has actually seen, and `Patience` stays what it says it is, a hang check. The
+        // same ten-way reproduction with this clause in place, twice over: none.
         var watch = Stopwatch.StartNew();
         long ran = 0;
 
-        while (ran < explanatory && watch.Elapsed < Patience) {
+        while ((ran < explanatory || SamplesSoFar() < Enough) && watch.Elapsed < Patience) {
             for (var index = 0; index < passes; index++) {
                 work();
             }
@@ -373,6 +409,24 @@ sealed class AllocationNames : EventListener {
         return Report(ran, watch.Elapsed, undrained);
     }
 
+    /// <summary>How many samples have been attributed to this thread so far, across every type.</summary>
+    /// <remarks>
+    ///     Read under the lock the dispatcher writes under, and read once per <c>passes</c> rather
+    ///     than per allocation, because it is a stopping condition and not a measurement — a stale
+    ///     answer costs one more batch of work and nothing else.
+    /// </remarks>
+    int SamplesSoFar() {
+        lock (gate) {
+            var total = 0;
+
+            foreach (var (_, sampled) in mine) {
+                total += sampled.Count;
+            }
+
+            return total;
+        }
+    }
+
     string Report(long ran, TimeSpan elapsed, bool undrained) {
         List<KeyValuePair<string, Sampled>> found;
 
@@ -386,7 +440,7 @@ sealed class AllocationNames : EventListener {
         if (found.Count == 0) {
             message.Append(
                 CultureInfo.InvariantCulture,
-                $"No names, though the instrument did run: the sampler was armed across {ran:N0} further passes and no sample landed on this thread. The runtime samples roughly one allocation in {SampleInterval:N0} B and cannot be made to sample more finely, so a reading this small is below what it can see — raise the pass count at the call site, or reproduce the regression where it allocates more."
+                $"No names, though the instrument did run: the sampler was armed across {ran:N0} further passes and {elapsed.TotalSeconds:N0} s, and no sample landed on this thread in any of them. The loop runs until one does, so reaching this sentence means it gave up on the {Patience.TotalSeconds:N0} s hang check — the runtime samples roughly one allocation in {SampleInterval:N0} B and cannot be made to sample more finely, so either this work allocates far too little to be seen or something else in this process is allocating enough to take the whole budget."
             );
         } else {
             message.Append(

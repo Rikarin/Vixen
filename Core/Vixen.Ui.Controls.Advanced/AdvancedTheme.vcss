@@ -318,7 +318,16 @@ tree-row icon { width: 10px; height: 10px; flex-shrink: 0; color: var(--text-mut
    mixed rows has one left edge. */
 .tree-glyph { width: 13px; height: 13px; flex-shrink: 0; color: var(--text-muted); }
 
-tree-label { flex-grow: 1; }
+/* ⚠ `white-space: nowrap`, and it is the row's height that depends on it. A tree row is
+   positioned and sized by the virtualiser — every row is `--row-height` tall and row *n* is
+   at *n* × that — so a label that wraps does not push the row taller, it draws its second
+   line over the row below. Until #628 nothing in a `.vcss` could shrink and the label simply
+   overflowed; now that it can, "Directional Light" in a 173 px outliner squeezes to the width
+   of its longest word and comes back 44 px tall in a 24 px row. Clipping a long name is the
+   documented intent — see EditorTheme's outliner block, which says the eye and the padlock
+   are what must stay reachable — and nowrap is what makes the shrink stop at the name's own
+   width rather than at its longest word. */
+tree-label { flex-grow: 1; white-space: nowrap; }
 
 .tree-editor { flex-grow: 1; padding: 0px 2px; border-radius: 3px; }
 

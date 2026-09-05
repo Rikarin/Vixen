@@ -628,10 +628,18 @@ public sealed class UiTest : IDisposable {
     /// <returns>The tree.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="root" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>The rectangles are still absolute</b>, which is what makes two dumps of the same
-    ///     subtree comparable only when it was built in the same place. That is deliberate and is the
-    ///     property every panel-port comparison in the editor relies on: a part that draws the same
-    ///     shape a pixel to the left is a defect, and relative coordinates would hide it.
+    ///     <para>
+    ///         ⚠ <b>The rectangles are still absolute</b>, which is what makes two dumps of the same
+    ///         subtree comparable only when it was built in the same place. That is deliberate and is
+    ///         the property every panel-port comparison in the editor relies on: a part that draws the
+    ///         same shape a pixel to the left is a defect, and relative coordinates would hide it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The classes are sorted, which is the opposite decision and for the opposite
+    ///         reason.</b> A rectangle is what the interface is; a class list's <i>order</i> is only
+    ///         the order somebody's code ran, and nothing in the cascade can read it. See
+    ///         <c>Describe</c>.
+    ///     </para>
     /// </remarks>
     public string Tree(UiElement root) {
         ArgumentNullException.ThrowIfNull(root);
@@ -777,7 +785,22 @@ public sealed class UiTest : IDisposable {
                 text.Append(" #").Append(id);
             }
 
-            foreach (var className in Document.Styles.Tree.GetClassNames(element.StyleNode)) {
+            // ⚠ **Ordinal order, and not the order the classes were added.** A class list is a set:
+            // matching is `StyleTree.HasClass`, a membership scan over interned ids, and specificity
+            // counts classes rather than reading them — so the order they went on is an artifact of
+            // the order somebody's code ran and not a property of the interface. Writing them in
+            // that order made every committed dump a hostage to it. `Variant="Subtle"` on a control
+            // tag *replaces* the `variant-default` its constructor added, so the class leaves its
+            // place and reappears at the end; when the markup emitter began assigning a tag's
+            // parameters before applying its `class=` attribute — `Create` … parameters … `Compose`,
+            // so that a child builds with its values — two panel ledgers went red over a rearranged
+            // set with nothing visible changed, and the geometry assertions beside them stayed green.
+            // Sorted, a class gained or lost is still a byte diff and the order is nobody's to break.
+            var classNames = Document.Styles.Tree.GetClassNames(element.StyleNode);
+
+            Array.Sort(classNames, StringComparer.Ordinal);
+
+            foreach (var className in classNames) {
                 text.Append(" .").Append(className);
             }
         }
