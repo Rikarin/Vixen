@@ -38,15 +38,50 @@ Clean ──► Restore ──► Compile ──┬─► Test ─────�
 | `Test` | xunit v3 over every test project, and the allocation gates run inside it as ordinary tests. Passes `.runsettings`, which exists solely to set environment that has to be in place *before* the process starts (see below). ⚠️ **Collects no coverage and enforces no floor, and this row used to say it did both** — see § Coverage below for why `Coverage` is off the graph rather than owed |
 | `GoldenImages` | ✅ renders the fixture suite on the local backend — lavapipe on the Linux leg, MoltenVK on macOS — and compares it with the committed references; writes the rendering, the reference and a diff into `artifacts/golden-diff/` on failure, which CI uploads. `--update-golden` rewrites the references. The fixtures also run under `Test`, so a wrong picture fails an ordinary build; the separate target exists for the diffs and the switch. |
 | `AotSmoke` | `PublishAot` + `PublishTrimmed` of `Samples/01` and `Samples/02` per RID; **any IL2xxx/IL3xxx warning fails** |
-| `Benchmark` | BenchmarkDotNet over `Benchmarks/*`; compares against a committed baseline JSON; fails on > 10 % regression or any allocation-count increase |
+| `Benchmark` | BenchmarkDotNet over `Benchmarks/*`, then judged against `Benchmarks/baseline.json`: **any** allocation growth fails, a mean more than 10 % above the baseline fails only under `--gate-timing`, and a benchmark that is in the baseline and did not run fails too. ⚠️ **There is no committed baseline yet, and the target therefore fails rather than passing** — a comparison with nothing to compare against is the shape of a gate that did not run, and this row described one for as long as it had described anything. `--update-baseline` writes the file, stamped with the machine, the runtime, the BenchmarkDotNet version and the commit out of BenchmarkDotNet's own `HostEnvironmentInfo`; `--report-only` asks for numbers without a verdict. The comparison alone, over whatever is already in `artifacts/benchmarks`, is `CheckBenchmarks` |
 | `Pack` | produces every NuGet package, then opens some of them. ⚠️ **There is no expected-files manifest and this row used to claim one** — a table of required entries per package is still owed ([#337](https://github.com/Rikarin/Vixen/issues/337)), and a package that silently stops shipping its native asset is still the failure mode it would catch. What exists is three checks, each written from a failure that had already happened or from an obligation that cannot be satisfied by memory: `CheckApacheObligations` opens **every** package and asserts the Apache-2.0 licence expression in its manifest and a non-empty `NOTICE` at its root (ADR-015); `CheckStyleGenIsShippable` names the four files `Vixen.Ui.Styling.Utilities` must carry for its `tools/` to start; `CheckCliIsShippable` extracts `Vixen.Sdk` and **runs** the CLI out of it. All three are reachable alone as `CheckPackages`, over whatever is already in `artifacts/packages` — an instrument nobody can run alone is one nobody has watched fail |
 | `PublishEditor` | per-RID single-file publish of `Vixen.Editor.App`; `.app` bundle + `.dmg` on macOS, AppImage on Linux, MSI/zip on Windows |
 | `Sign` / `Notarize` | codesign + notarytool on macOS, Authenticode on Windows; secrets from CI, skipped locally |
 | `Docs` | ⚠️ **Superseded by [25](25-documentation-generator-and-site.md)**: `Vixen.DocGen` over Roslyn source symbols + `docs/guide`, built into the Angular site in `www/` and shipped as an nginx image of static assets. `CheckDocs` is its gate — coverage, links and compiled examples — and sits beside `CheckApi` |
 | `Release` | on tag: everything above, plus GitHub Release creation with changelog from conventional commits, artefact upload, and `dotnet nuget push` |
 
-Nuke parameters: `--configuration`, `--platform`, `--rid`, `--skip-native`, `--update-golden`,
-`--update-api`, `--filter <test-trait>`.
+Nuke parameters, all of them: `--configuration`, `--workers <n>`, `--since <ref>`; the four that
+rewrite something a gate then checks — `--update-api`, `--update-golden`, `--update-shaders`,
+`--update-baseline`, `--update-exemptions`; and the per-target ones — `--benchmark-filter`, `--short`,
+`--gate-timing`, `--report-only`, `--verify-docs`, `--all-native-deps`, `--stage-vulkan`,
+`--publish-smoke`, `--frame-sample`, `--frame-count`, `--browser-smoke-checks`,
+`--browser-smoke-timeout`, `--release-version`, `--release-date`.
+
+⚠️ **`--platform`, `--rid`, `--skip-native` and `--filter <test-trait>` are not among them and this
+line used to name all four** ([#340](https://github.com/Rikarin/Vixen/issues/340)). There is no
+per-RID switch because the targets that need one derive it, and no test-trait filter because a
+narrowed run is `AffectedTests --since` or a direct `dotnet test --filter`.
+
+### The benchmark baseline
+
+Two numbers, judged differently, because only one of them is a property of the code.
+
+**An allocation count is machine-independent**, so it fails a pull request on a shared runner and it
+fails on *any* increase rather than on a percentage. That is the same reasoning as the allocation
+gates below asserting through `Measured` **in a test rather than in a report** — it fails the build
+instead of producing a document nobody opens.
+
+**A mean is not.** This repository has attributed a ±14 % swing to machine state alone, and wall-clock
+budgets calibrated on an idle machine are its single largest flake source. So a timing regression is
+*reported* everywhere and *fatal* only under `--gate-timing`, which is the nightly run — and ⚠️ **it is
+refused outright when the baseline's `host.processor` is not the machine doing the judging**, because
+comparing an M1 Max mean with a shared Linux runner's is not a weak signal but no signal, and a verdict
+drawn from one would be read as evidence.
+
+⚠️ **The baseline carries its provenance or it stops being evidence.** `--update-baseline` stamps the
+processor, core count, operating system, architecture, runtime and BenchmarkDotNet version out of
+BenchmarkDotNet's own `HostEnvironmentInfo`, plus the commit and the moment — an unattributed number is
+indistinguishable from a guess within a month, and this file is asked to be a gate. The comparison
+reads the processor back out, which is what makes the paragraph above enforceable rather than advisory.
+
+**Still owed** ([#339](https://github.com/Rikarin/Vixen/issues/339)): the baseline itself, taken on
+hardware that will run the suite again; and the `benchmark` CI job, which has to follow it — a job
+added first would fail every pull request for want of the file it compares against.
 
 ## NuGet package layout
 
