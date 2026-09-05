@@ -534,19 +534,13 @@ dialog-body { gap: 8px; }
    rules below — so the tag was never created and neither rule ever fired. The height
    argument survives in `asset-grid.asset-picker-grid`, which is where it now belongs. #693. */
 
-/* Left-aligned rather than centred, because the list is read down its left
-   edge and a centred name is one the eye has to find on every row. */
-button.asset-picker-row {
-    flex-shrink: 0;
-    justify-content: flex-start;
-    padding: 5px 8px;
-    border-width: 0px;
-    border-radius: var(--radius-row);
-    background-color: transparent;
-    color: var(--text);
-}
-
-button.asset-picker-row:hover { background-color: var(--surface-hover); }
+/* ⚠ A `button.asset-picker-row` pair stood here — left-aligned, because a list read down its
+   left edge should not make the eye hunt for a centred name — and it is the sibling of the
+   `asset-picker-list` rules above rather than a separate loss. `AssetPicker.Build` makes an
+   `asset-grid` and one `.asset-picker-empty` label and has never made a per-row button, so
+   neither rule had ever fired. #778, which is also where the class direction of the reach
+   census came from: `TypeSelectorReachTests` asks whether a *type* selector names a tag, and a
+   class nobody writes was a third shape nothing measured. */
 
 /* ⚠ A fixed height, for the reason the list this replaced had one and for one more: `asset-grid`
    is `flex-grow: 1; min-height: 0`, which inside a dialog body that sizes itself to its

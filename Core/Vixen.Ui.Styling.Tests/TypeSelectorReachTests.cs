@@ -565,9 +565,11 @@ public partial class TypeSelectorReachTests {
             into.TryAdd(name, $"{Path.GetRelativePath(root, path)}:{line}");
 
         foreach (var path in SourceFiles("*.cs")) {
-            // This file writes every name it talks about, so scanning it would make each of them
-            // look written — and `flame-hue-0` is one of them, in the remarks above.
-            if (Path.GetFileName(path).Equals("TypeSelectorReachTests.cs", StringComparison.Ordinal)) {
+            // ⚠ A census file writes every name it talks about, so scanning one would make each of
+            // them look written — `flame-hue-0` is in the remarks above, and `asset-picker-row` is in
+            // the class census's. Both are skipped, and the predicate lives over there so that adding
+            // a third census cannot leave this one reading it.
+            if (ClassSelectorReachTests.Census(path)) {
                 continue;
             }
 
@@ -666,7 +668,7 @@ public partial class TypeSelectorReachTests {
             var sheet = Path.GetRelativePath(root, path);
 
             for (var rule = 0; rule < engine.Rules.Count; rule++) {
-                foreach (var name in TypesIn(engine, engine.Rules[rule].Selector)) {
+                foreach (var name in RepositoryScan.Names(engine, engine.Rules[rule].Selector, SimpleSelectorKind.Type)) {
                     if (seen.Add(name)) {
                         list.Add((name, sheet));
                     }
@@ -676,33 +678,6 @@ public partial class TypeSelectorReachTests {
 
         list.Sort(static (a, b) => string.CompareOrdinal(a.Item1, b.Item1));
         return list;
-    }
-
-    static IEnumerable<string> TypesIn(StyleEngine engine, Selector selector) {
-        var table = engine.Selectors;
-
-        for (var index = 0; index < selector.Count; index++) {
-            var compound = table.Compound(selector.Start + index);
-
-            for (var part = 0; part < compound.Count; part++) {
-                var simple = table.Simple(compound.Start + part);
-
-                if (simple.Kind is SimpleSelectorKind.Type) {
-                    yield return engine.Names.NameOf(simple.NameId);
-                    continue;
-                }
-
-                if (simple.Kind is not (SimpleSelectorKind.Not or SimpleSelectorKind.Is)) {
-                    continue;
-                }
-
-                for (var nested = 0; nested < simple.NestedCount; nested++) {
-                    foreach (var name in TypesIn(engine, table.Nested(simple.NestedStart + nested))) {
-                        yield return name;
-                    }
-                }
-            }
-        }
     }
 
     static string Hyphenless(string name) => name.Replace("-", "", StringComparison.Ordinal);
@@ -756,54 +731,18 @@ public partial class TypeSelectorReachTests {
         return engine;
     }
 
-    /// <summary>Directories a source sweep must not descend into, matched by name at any depth.</summary>
+    /// <summary>Every file in the working tree matching a pattern.</summary>
     /// <remarks>
-    ///     ⚠ <b>Pruned during the walk rather than filtered after it, and the difference is eleven
-    ///     minutes.</b> The obvious spelling — <c>EnumerateFiles(root, pattern, AllDirectories)</c>
-    ///     followed by a <c>Where</c> on the path — still visits every file it then discards, and
-    ///     <c>.claude/worktrees/</c> held <b>56 full checkouts of this repository</b> on the machine
-    ///     where that was measured. Three patterns over fifty-seven copies of the tree is not a
-    ///     filter problem, it is a traversal problem, and a gate that costs eleven minutes is one
-    ///     somebody eventually deletes.
-    ///     <para>
-    ///         ⚠ <c>.claude</c> is also the difference between a test about this repository and a
-    ///         test about whatever else is on the disk: a worktree is a full checkout of arbitrary
-    ///         other work, and this sweep failed a gate run by finding the very <c>World-title</c> it
-    ///         exists to prevent in a tree where that fix had not landed yet — a true statement about
-    ///         a tree nobody was asking about.
-    ///     </para>
+    ///     ⚠ <b>The walk, its pruning and the reason for each pruned directory moved to
+    ///     <see cref="RepositoryScan" />, so that this census and the class one cannot come to
+    ///     disagree about what "the repository" is.</b> Two copies of a directory sweep are two
+    ///     chances to skip a different set of directories — and one of the directories is
+    ///     <c>.claude</c>, whose worktrees are other people's uncommitted checkouts of this same
+    ///     tree.
     /// </remarks>
-    static readonly string[] Unwalked = [".git", ".claude", "bin", "obj", "artifacts", "node_modules"];
-
-    static List<string> SourceFiles(string pattern) {
-        List<string> found = [];
-        Walk(RepositoryRoot(), pattern, found);
-        found.Sort(StringComparer.Ordinal);
-
-        return found;
-    }
-
-    static void Walk(string directory, string pattern, List<string> into) {
-        into.AddRange(Directory.EnumerateFiles(directory, pattern));
-
-        foreach (var child in Directory.EnumerateDirectories(directory)) {
-            if (!Unwalked.Contains(Path.GetFileName(child), StringComparer.Ordinal)) {
-                Walk(child, pattern, into);
-            }
-        }
-    }
+    static List<string> SourceFiles(string pattern) => RepositoryScan.Files(pattern);
 
     static string Lower(string name) => name.ToLowerInvariant();
 
-    static string RepositoryRoot() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
-             directory is not null;
-             directory = directory.Parent) {
-            if (Directory.Exists(Path.Combine(directory.FullName, "Raven", "Library"))) {
-                return directory.FullName;
-            }
-        }
-
-        throw new DirectoryNotFoundException($"the repository root was not found above '{AppContext.BaseDirectory}'.");
-    }
+    static string RepositoryRoot() => RepositoryScan.Root();
 }
