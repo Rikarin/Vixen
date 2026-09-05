@@ -1,0 +1,130 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// One iteration of the label propagation doc 48 § 4.5's `Flood Fill` is, and § 4.5 is right that it
+// is the highest-risk kernel in the catalogue.
+//
+// ## What a texel carries, and why the label *is* the bounding box
+//
+// `(minX, minY, maxX, maxY)` of the island as this texel has seen it so far, in texels. A background
+// texel carries `-1` in every channel and is skipped by every merge.
+//
+// The obvious arrangement is a label chain that settles first and a bounds chain that follows it.
+// This is one chain, because **the union of two adjacent in-texels' bounds is the merge either
+// chain would have done**: adjacency *is* connectivity, so a merge needs no label to compare — a
+// four-neighbour that is in the mask is in this island by definition. The bounds are monotone, so
+// the iteration has a fixed point and reaching it early is stable, and the settled minimum corner is
+// a canonical name for the island that every one of its texels agrees on.
+//
+// ⚠ **So the island's identity is its bounding box, and two islands with the same bounding box are
+// one island to every consumer of this node.** That is a real collision and it is not hypothetical —
+// an L-shape and a small square tucked into its corner can share a box. It is the price of settling
+// bounds and labels in one chain rather than two, it is what `TextureFloodOutput` documents, and the
+// alternative costs twice the dispatches for a case a splatter never produces.
+//
+// ## ⚠ The iteration count is a property of the *shape*, and it is reported rather than guessed
+//
+// Bounds travel one texel per dispatch along the island, so a disc of diameter d settles in about
+// `d` iterations and a spiral of the same area takes its whole arc length. There is no jump-flooding
+// acceleration available: a jump would cross background and merge two islands that do not touch.
+//
+// A `while` on the device is not an option — the fixed point is a property of the whole image and a
+// workgroup can only wait for itself — so `TextureAnalysis.FloodFill` emits a **fixed budget** and
+// the plan appends `FloodResidual` and a `MinMaxReduce` chain after it. A caller reads one texel and
+// learns whether the budget was enough. **That is the difference between a truncated flood fill and a
+// wrong picture nobody can account for**, and it is the whole reason this node is four kernels.
+//
+// ## The half-float ceiling
+//
+// ⚠ A coordinate is stored, not an offset, so the record is exact only where a half is exact on the
+// integers — up to 2048. `TextureAnalysis.FloodFill` refuses a larger image rather than quantising
+// the boxes to even texels, which would merge the identities of islands two texels apart. Doc 48 §
+// D5 rules 32-bit float out of the plan deliberately; this is the one node in the catalogue that
+// wants it.
+
+shader FloodBounds {
+    /// The mask on the first dispatch, the previous iteration's bounds on every one after it.
+    var source: Texture2D
+
+    /// Non-zero when `source` is the mask rather than a record.
+    var first: int = 1
+
+    /// What counts as inside the mask, read off the red channel.
+    var threshold: float = 0.5f
+
+    /// Non-zero to treat diagonally touching texels as one island.
+    ///
+    /// A genuine authoring choice rather than an implementation detail: a chain of texels running
+    /// diagonally is one island under eight-connectivity and a row of separate ones under four.
+    var diagonal: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// A texel that is in no island.
+    const val Background: float = -1f
+
+    /// One neighbour's record, or its seeding.
+    ///
+    /// ⚠ **Out of bounds is background and never a clamped tap.** A clamp would let the border texel
+    /// merge with a texel it does not touch, which joins two islands that are separated by exactly
+    /// the image edge — and the picture that comes out is one island with a box the size of the
+    /// image, which reads as a flood fill that "leaked".
+    func Record(x: int, y: int): float4 {
+        val extent = source.GetDimensions(0)
+
+        if (x < 0 || y < 0 || x >= extent.x || y >= extent.y) {
+            return float4(Background, Background, Background, Background)
+        }
+
+        val texel = source.Load(int3(x, y, 0))
+
+        if (first == 0) {
+            return texel
+        }
+
+        if (texel.x >= threshold) {
+            return float4(float(x), float(y), float(x), float(y))
+        }
+
+        return float4(Background, Background, Background, Background)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val here = Record(coord.x, coord.y)
+
+        if (here.x < 0f) {
+            target.Store(coord, float4(Background, Background, Background, Background))
+
+            return
+        }
+
+        var low = float2(here.x, here.y)
+        var high = float2(here.z, here.w)
+
+        for (dy in -1 .. 1) {
+            for (dx in -1 .. 1) {
+                // A diagonal neighbour is only a neighbour under eight-connectivity, and the centre
+                // has already been read.
+                val skip = dx * dy != 0 && diagonal == 0
+
+                if (!skip) {
+                    val tap = Record(coord.x + dx, coord.y + dy)
+
+                    if (tap.x >= 0f) {
+                        low = min(low, float2(tap.x, tap.y))
+                        high = max(high, float2(tap.z, tap.w))
+                    }
+                }
+            }
+        }
+
+        target.Store(coord, float4(low.x, low.y, high.x, high.y))
+    }
+}

@@ -1,0 +1,56 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Whether the last `FloodBounds` iteration changed anything: one in red where the two records
+// differ, zero where they agree.
+//
+// ⚠ **This is the whole of doc 48 § 4.5's "an iteration ceiling that reports truncation rather than
+// a while-loop on the device".** A label propagation settles after a number of iterations that
+// depends on the *shape* of the mask rather than on its size — a disc in about its diameter, a
+// spiral in its arc length — and neither the plan nor the kernel can know which. So
+// `TextureAnalysis.FloodFill` emits a fixed budget and then this, and a `MinMaxReduce` chain over
+// its red channel reduces the answer to one texel the caller reads back: **max zero means the flood
+// converged inside the budget, and anything else means it did not.**
+//
+// **Written as a picture rather than as a counter because the plan has no buffers.** A texture-graph
+// kernel binds a uniform block, its inputs and one storage image — `TexturePlanEvaluator.Bind`
+// refuses anything else — so there is no atomic and nowhere to increment one. The reduction that
+// already exists for `Auto Levels` is exactly the instrument this needs, which is why the residual is
+// a *value* per texel rather than a flag.
+//
+// The comparison is exact and deliberately so: the records are integer texel coordinates stored in a
+// half, so two settled iterations are bit-identical or the flood is still moving. A tolerance here
+// would be a way to report convergence that had not happened.
+
+shader FloodResidual {
+    /// The record before the last iteration.
+    var previous: Texture2D
+
+    /// The record after it.
+    var current: Texture2D
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val before = previous.GetDimensions(0)
+        val after = current.GetDimensions(0)
+
+        val a = previous.Load(int3(clamp(coord.x, 0, before.x - 1), clamp(coord.y, 0, before.y - 1), 0))
+        val b = current.Load(int3(clamp(coord.x, 0, after.x - 1), clamp(coord.y, 0, after.y - 1), 0))
+
+        var changed = 0f
+
+        if (a.x != b.x || a.y != b.y || a.z != b.z || a.w != b.w) {
+            changed = 1f
+        }
+
+        target.Store(coord, float4(changed, changed, changed, 1f))
+    }
+}
