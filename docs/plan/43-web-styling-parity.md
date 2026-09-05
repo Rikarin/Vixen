@@ -133,7 +133,12 @@ moved it out of `composed`: it was buildable all along and the flattering state 
 `--tw-mask-radial-position` fragment defaulting to `center` — CSS's own default — feeds an
 `at <position>` that `DrawListBuilder.MaskFrame` resolves, so an unmoved radial mask reaches the
 shader as the record it always had. Its sibling `mask-radial-*` stays `absent` and is now a refusal
-with a named blocker rather than an unregistered family; see its row.
+with a named blocker rather than an unregistered family; see its row. ⚠ **That blocker was named
+wrong until 2026-09-05 (#545): it is a reader, not a lane.** `UiShape.Paint.zw` is a stated pair of
+radii and all three rasterisers already honour an arbitrary pair, so nothing is waiting on a shader —
+what is missing is a place on `BackgroundGradient` to record which of the six endings was written and
+four more closed forms in `RampFrame`. The refusal itself stands; `GradientPaintTests.
+A_radial_gradient_ends_at_the_corner_and_not_at_the_edge` is the pixel oracle that says why.
 
 ### The composition mechanism
 
@@ -146,8 +151,12 @@ than more mechanism. It is written up in [the guide](../guide/ui/utility-composi
 column.** `space-x/y-*` and `divide-*` were counted `composed` because v4 sets a `--tw-*-reverse` on
 them, but the fragment is only how v4 spells the `*-reverse` *variant*; the families themselves are a
 rule over children — `& > :not(:last-child)` — which is a selector problem and not a value one. They
-are emitted now, without any fragment, through `Family.Scope`; the reverse spellings stay absent
-because they need `calc()` and `StyleValueParser` has none. See F9.
+are emitted now, without any fragment, through `Family.Scope`; the reverse spellings stay absent —
+⚠ **though no longer for the reason written here for months.** `StyleValueParser` folds a `calc()`
+now, so "it needs `calc()` and there is none" has expired; what is unmeasured is whether the
+`--tw-*-reverse` flag those families would multiply by is read by anything once the multiply works.
+Filed rather than lifted, because a refusal lifted without a measurement is how an inert root gets
+registered. See F9.
 
 **Two designs, and the argument that settled it.** (a) the utilities really set custom properties and
 the cascade resolves the `var()` references at use time; (b) the generator folds the fragments into
@@ -305,12 +314,20 @@ is a red test on a laptop rather than a wrong picture caught on a device. ⚠ Co
 the property to test for anyway — desktop GLSL forgives what `#version 300 es` rejects, and a file
 that compiles can still disagree with the record it indexes, which is precisely what happened.
 
-⚠ **What is still uncovered, and no text comparison can reach it:** nothing compares that GLSL with
-the Raven every application draws through. They are two implementations of one specification in two
-languages, so the only real check is a golden image rendered through each — which regenerates every
-reference image in the suite and belongs on its own. `SharedUiShaderTests` says so in its own remark,
-and `EveryRavenCopyAgreesAboutTheShadersItShares` covers the half that is comparable: every `Ui.rvn`
-in the tree, per shader rather than per file.
+⚠ **What is still uncovered — and "no text comparison can reach it" was too strong.** The only
+*sufficient* check that the GLSL and the Raven agree is a golden image rendered through each, which
+regenerates every reference image in the suite and belongs on its own; that stays owed. But one
+**necessary** condition of the comparison is text, and is checked as of 2026-09-05:
+`SharedUiShaderTests.EveryConstantInTheGlslCopyIsOneTheRavenHoldsToo` requires every number in
+`ui-box.frag` to be a number `Ui.rvn` holds too — Ottosson's eighteen Oklab coefficients, sRGB's
+five, and every threshold the shape and shadow paths branch on. Constants are the part of a
+specification that survives translation between two languages unchanged, which is what makes them
+checkable on a laptop; an expression rearranged around the same numbers still passes, which is why
+this narrows the gap rather than closing it. ⚠ It compares them as `float` and not as text, and a
+sabotage proved why that is right rather than lax: `0.5363325363` → `0.5363325364` stays green,
+because `glslc` rounds the literal to the same single-precision value and the compiled module cannot
+contain the difference. `EveryRavenCopyAgreesAboutTheShadersItShares` covers the other half: every
+`Ui.rvn` in the tree, per shader rather than per file.
 
 ⚠ **`Gradient.rvn` and `RoundedRect.rvn` are not the shader to edit, and both look like it.**
 `Raven/Library/Ui/Gradient.rvn` already has radial and conic modes and a perceptual interpolation
@@ -1245,7 +1262,9 @@ does mirror that one.
    with hex colours a list did arrive as `Unknown`, but the cascade normalises `#000` to
    `rgb(0, 0, 0)` and the same declaration then parses as a perfectly ordinary eight-item list whose
    fourth item ends in a comma. Both drew nothing, so which one it was never mattered until it did.
-   What still blocks the root is `calc()` and the five-fragment composition. `stroke-none` is the same
+   ⚠ **`calc()` has since gone the same way** — `StyleValueParser` folds one, on the fold-or-refuse
+   rule that keeps `calc(100% - 10px)` `Unknown` because a `StyleValue` is one number and one unit —
+   so what still blocks the root is the five-fragment composition alone. `stroke-none` is the same
    shape one file over — `stroke` is read only as a colour, and `Icon.Resolve` falls back to the
    foreground for anything that is not one.
 4. *The class is v4 compatibility surface, and § D5 already says not to implement it.*
@@ -1337,8 +1356,12 @@ behaviour fails the day they land.
 
 **What is absent inside the two families, and why.** `space-x-reverse`, `space-y-reverse`,
 `divide-x-reverse` and `divide-y-reverse` need `calc()` to multiply an edge by a `--tw-*-reverse`
-flag, and `StyleValueParser` has none; the flag would be a custom property nobody reads. Registering that set would add exactly the inert roots Part 8 § 3
-declines to add for `scroll-*`.
+flag. ⚠ **Half of that reason expired on 2026-09-05**: `StyleValueParser` folds a `calc()` now, and
+`calc(1px * var(--tw-divide-x-reverse))` is substituted before it is parsed, so the multiply resolves.
+What is *not* measured is the other half — whether the flag is a custom property anything reads — and
+that is the half that decides whether registering these four adds four working roots or exactly the
+inert roots Part 8 § 3 declines to add for `scroll-*`. They stay absent until somebody measures it,
+because lifting a refusal without the measurement is the failure this document is about.
 
 ⚠ **The five `divide-<style>` keywords were on that list and are not any more.** They were absent
 because `border-style` had no reader — measured, like the rest — and A3 gave it one. They are merged
@@ -1654,7 +1677,10 @@ value" to "resolve a token *name* to `var(--name)`", which is what the editor's 
 resolves spacing at generate time to a pixel string, so it needs either `calc()` in the style engine
 (which doc 09 lists as supported for `+ - * /` on compatible units — this is a multiply by a unitless
 scalar, the easy case) or continued build-time resolution, which is a documented, defensible
-divergence. Vixen's `SpacingBase` is already one number, so the *model* matches; only the emission
+divergence. ⚠ **The first of those arrived on 2026-09-05 and the divergence stayed anyway**:
+`StyleValueParser` folds exactly the `+ - * /` doc 09 describes, so the engine could now read v4's
+own spelling — but build-time resolution is not made wrong by that, and changing it is a decision
+about where the scale is resolved rather than a gap. Vixen's `SpacingBase` is already one number, so the *model* matches; only the emission
 does not.
 
 ✅ **Landed, and `vixen.ui.yaml` is gone from the tree.** `ThemeTokens.Parse` reads `@theme` blocks

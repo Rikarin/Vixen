@@ -637,17 +637,17 @@ public class DrawListTests {
     ///         property in this engine depends on.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>calc()</c> is the blocker that is left, and it is easy to miss.</b> Tailwind's
-    ///         <c>ring-offset-*</c> writes its outer ring's spread as
-    ///         <c>calc(var(--tw-ring-offset-width) + var(--tw-ring-width))</c>, and nothing in
-    ///         <c>StyleValueParser</c> reads <c>calc</c> — the substitution happens on the text and
-    ///         then the function falls out as a keyword. A <c>var()</c> alone resolves fine, which is
-    ///         what makes this one easy to assume away.
+    ///         ⚠ <b><c>calc()</c> is no longer one of them either, and the sentence that used to
+    ///         stand here — "nothing in <c>StyleValueParser</c> reads <c>calc</c>" — was true until
+    ///         it folded.</b> The rows below are what survives: an expression whose two summands have
+    ///         different units. That one is valid CSS and is still refused, because a
+    ///         <c>StyleValue</c> is one number and one unit and resolving a percentage needs the
+    ///         containing block. See <c>Vixen.Ui.Styling.Tests.CalcTests</c> for the folding half.
     ///     </para>
     /// </remarks>
     [Theory]
-    [InlineData("0 0 0 calc(2px + 2px) #000000")]
-    [InlineData("0px 4px 12px #000000, 0 0 0 calc(2px + 2px) #ff0000")]
+    [InlineData("0 0 0 calc(100% - 10px) #000000")]
+    [InlineData("0px 4px 12px #000000, 0 0 0 calc(1rem + 4px) #ff0000")]
     // ⚠ The same rule reached by the other road, and both roads are needed. A `calc()` makes the
     // *item* unreadable before any shadow is read out of it; `90deg` is a well-formed item whose
     // lengths are not distances, so it fails inside the reader with the first shadow already in
@@ -670,6 +670,54 @@ public class DrawListTests {
         // shadow written beside it paints nothing either. Drawing that one would be the "half a list
         // looks like it worked" failure arriving through the feature written to prevent it.
         Assert.Equal(DrawCommandKind.Rectangle, Assert.Single(document.Drawing.Commands).Kind);
+    }
+
+    /// <summary>A spread written as an expression grows the shadow by the number it folds to.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The per-value assertion, and a kind assertion would not have been one.</b>
+    ///         <c>calc(2px + 2px)</c> and <c>calc(2px * 2)</c> and a plain <c>4px</c> all have to move
+    ///         the same four numbers, and the spread is the field that makes that checkable without a
+    ///         picture: it grows the command's rectangle by twice itself in each axis and moves its
+    ///         origin back by itself. A shadow drawn at the box's own size is a <c>calc()</c> that
+    ///         folded to zero, which is exactly what a refusal that had been "helpfully" defaulted
+    ///         would look like — and it would still be a <c>Shadow</c> command.
+    ///     </para>
+    ///     <para>
+    ///         This is doc 43's <c>ring-offset-*</c> shape written out. Tailwind v4 spells the outer
+    ///         ring's spread as <c>calc(var(--tw-ring-offset-width) + var(--tw-ring-width))</c>, and
+    ///         the two widths come from two independent classes — so no generator can add them at
+    ///         build time, and substitution has already run by the time the parser sees the text.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("calc(2px + 2px)")]
+    [InlineData("calc(2px * 2)")]
+    [InlineData("calc(8px / 2)")]
+    [InlineData("calc(1px + calc(1px + 2px))")]
+    public void A_spread_written_as_an_expression_grows_the_shadow_by_what_it_folds_to(string spread) {
+        using var document = Drawn(
+            $$"""
+            root { width: 400px; height: 300px; }
+            .card {
+                width: 100px; height: 60px; background-color: #ffffff;
+                box-shadow: 0 0 0 {{spread}} #000000;
+            }
+            """,
+            document => document.Root.Add("div", classNames: "card")
+        );
+
+        var commands = document.Drawing.Commands;
+
+        Assert.Equal(2, commands.Count);
+
+        var shadow = commands[0];
+
+        Assert.Equal(DrawCommandKind.Shadow, shadow.Kind);
+        Assert.Equal(-4f, shadow.X, Tolerance);
+        Assert.Equal(-4f, shadow.Y, Tolerance);
+        Assert.Equal(108f, shadow.Width, Tolerance);
+        Assert.Equal(68f, shadow.Height, Tolerance);
     }
 
     /// <summary>A list is a command each, and the first shadow written is the one on top.</summary>

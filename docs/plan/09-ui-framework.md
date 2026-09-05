@@ -540,8 +540,11 @@ needed the generator to emit a compound selector rather than a bare class. It do
 for them to differ in; and the scope is not wrapped in `:where()`, which v4 uses to keep the rule at
 one class of specificity, because `SelectorCompiler` charges a class for `:where()` as it does for
 `:is()`. The second is v3's behaviour and shipped for four major versions. `space-x-reverse`,
-`divide-*-reverse` and the `divide-<style>` keywords are absent: the first pair needs `calc()`, which
-`StyleValueParser` does not have, and the second needs a reader for `border-style`, which nothing is.
+`divide-*-reverse` and the `divide-<style>` keywords are absent: the first pair needs `calc()` — ⚠
+which `StyleValueParser` **now has**, folding `+ - * /` on compatible units exactly as the supported
+list above claims, so what holds those four back is no longer the arithmetic but whether anything
+reads the `--tw-*-reverse` flag they would multiply by — and the second needs a reader for
+`border-style`, which nothing is.
 
 **Why build this rather than hand-write CSS.** The editor has ~200 distinct visual components. A
 utility system means the design-token change ("accent is now teal") is one file, and the styling of a

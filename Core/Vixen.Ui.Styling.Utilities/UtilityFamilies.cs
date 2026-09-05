@@ -1370,9 +1370,12 @@ public static class UtilityFamilies {
         // ⚠ <b>`divide-x` is the *end* edge and `divide-y` the *bottom* one, which is v4's choice and
         // not an arbitrary half of the pair.</b> Tailwind emits both edges of each axis — a zero on
         // one and the width on the other — so that `divide-x-reverse` can swap them by flipping a
-        // custom property. The zero is what this cannot follow: `StyleValueParser` has no `calc()`,
-        // so the reverse fragment has nothing to multiply by and `divide-x-reverse` is not
-        // registered. Emitting the leading `0` anyway would buy nothing and cost something real — it
+        // custom property. The zero is what this does not follow, and ⚠ <b>the reason given here
+        // stopped being true on 2026-09-05</b>: `StyleValueParser` folds a `calc()` now, so the
+        // multiply resolves and what is left unmeasured is whether anything reads the
+        // `--tw-*-reverse` flag itself. `divide-x-reverse` stays unregistered until somebody
+        // measures that, not because the arithmetic is missing.
+        // Emitting the leading `0` anyway would buy nothing and cost something real — it
         // would out-specify a child's own `border-s-2` and silently erase it — so the family writes
         // the one edge it means. Same argument for `space-x-*`, which is why it writes no leading
         // margin either.
@@ -1723,9 +1726,19 @@ public static class UtilityFamilies {
         // different ellipse from the `farthest-corner` one this engine computes, so
         // `GradientReader` refuses them as `GradientRefusal.Extent` — and a refused layer is not a
         // slightly wrong mask, it is *no mask at all*, so registering them would make the class
-        // delete the masking it was written to shape. They land when `UiMask` carries a stated pair
-        // of radii; the centre could land without them because moving a farthest-corner ellipse
-        // leaves it one.
+        // delete the masking it was written to shape. The centre could land without them because
+        // moving a farthest-corner ellipse leaves it one.
+        //
+        // ⚠ <b>"They land when `UiMask` carries a stated pair of radii" stood here and is false —
+        // re-measured 2026-09-05 (`Rikarin/Vixen#545`).</b> `UiShape.Paint.zw` <i>is</i> a stated
+        // pair, honoured as an arbitrary pair by all three rasterisers (`Ui.rvn`, `ui-box.frag`,
+        // `SoftwareUiRasterizer`), and `RampFrame` already writes one for a moved centre. Nothing is
+        // waiting on a lane or on a shader. What is missing is a place on `BackgroundGradient` to
+        // record which of the six endings was written and the other four closed forms in
+        // `RampFrame` — so this is unbuilt work with a stated conversion, not a blocked design. The
+        // refusal itself stands either way, and `GradientPaintTests.
+        // A_radial_gradient_ends_at_the_corner_and_not_at_the_edge` is the pixel oracle that says
+        // why: approximating one of these is a ramp that finishes in the wrong place.
         Keywords("mask-radial-at", UtilityComposition.MaskRadialPosition, new() {
             ["top"] = "top", ["top-left"] = "top left", ["top-right"] = "top right",
             ["left"] = "left", ["center"] = "center", ["right"] = "right",
@@ -2077,10 +2090,12 @@ public static class UtilityFamilies {
         //   An offset ring is a two-shadow *list*, and `EmitShadow` refused lists — so a
         //   `ring-offset-2` beside a `ring-2` would have stopped the ring painting at all. Lists are
         //   painted now, a command each, last to first (`Rikarin/Vixen#279`). What still blocks the
-        //   root is the other two thirds of that issue: v4 writes the outer ring's spread as
-        //   `calc(var(--tw-ring-offset-width) + var(--tw-ring-width))` and `StyleValueParser` reads
-        //   no `calc`, and the five-fragment composition is what makes `shadow-lg ring-2` stop being
-        //   "the cascade picks one". ⚠ <b>`stroke-none` was the third example here and is now closed, which is worth
+        //   root is the last third of that issue, and ⚠ <b>the `calc()` clause that used to stand
+        //   here expired on 2026-09-05</b>: v4 writes the outer ring's spread as
+        //   `calc(var(--tw-ring-offset-width) + var(--tw-ring-width))`, and `StyleValueParser` folds
+        //   that now — fold or refuse, so a mixed-unit expression is still `Unknown`. What is left
+        //   is the five-fragment composition, which is what makes `shadow-lg ring-2` stop being
+        //   "the cascade picks one", and `UtilityComposition` carries no offset fragment at all. ⚠ <b>`stroke-none` was the third example here and is now closed, which is worth
         //   keeping because of *how*: not by a registration but by a reading.</b> `Icon.Resolve`
         //   asked `ColorOf` for the slot and fell back to the foreground for anything that was not
         //   a colour, so `stroke: none` stroked. `UiDocument.KeywordOf` — the fourth reading beside

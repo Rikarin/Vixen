@@ -132,6 +132,30 @@ public sealed class StyleValueParser {
             return ParsePredefined(arguments);
         }
 
+        // ⚠ <b><c>calc()</c> folds here and leaves no trace, which is the decision worth arguing
+        // rather than the arithmetic.</b> It could have been a <see cref="StyleValueKind" /> of its
+        // own, carrying the expression for something downstream to resolve — and that is what a
+        // browser does, because CSS lets an expression mix a percentage with a pixel and only the
+        // used-value stage knows what the percentage is of. This parser cannot follow it there: a
+        // <see cref="StyleValue" /> is a struct with one number and one unit, and a kind that had to
+        // carry a tree would put an allocation on every declaration in the cascade. So the rule is
+        // <i>fold or refuse</i>, and everything that cannot be folded to a single number or a single
+        // length comes back <see cref="StyleValue.Unknown" /> — which is what it already did.
+        //
+        // ⚠ <b><c>calc(100% - 10px)</c> is therefore still refused, and that is a real limit and not
+        // an oversight.</b> The two summands have different units, there is no third unit to hold the
+        // answer, and resolving the percentage needs the containing block — the same context
+        // <see cref="StyleUnit" />'s own remark says this assembly is never allowed to reach for.
+        // Refusing it is the behaviour that was already there; what changes is that
+        // <c>calc(2px + 2px)</c>, <c>calc(1 / 0.75)</c> and <c>calc(var(--a) + var(--b))</c> now
+        // answer, and the last of those is the one that matters: substitution runs on the text before
+        // this method sees it, so an expression over two custom properties arrives here as ordinary
+        // arithmetic, and no generator can do that addition at build time because the two operands
+        // come from two independent classes.
+        if (name.Equals("calc", StringComparison.OrdinalIgnoreCase)) {
+            return ParseCalc(arguments);
+        }
+
         // ⚠ <b>The non-colour functions this parser knows, and each is spelt as a keyword and its
         // argument rather than given a <c>StyleValueKind</c> of its own.</b> A filter is a *list* of
         // functions — <c>filter: blur(4px) brightness(.5)</c> — so whatever a single one parses to
@@ -689,6 +713,227 @@ public sealed class StyleValueParser {
         ['-' or '+', var digit, ..] when char.IsAsciiDigit(digit) => true,
         _ => false
     };
+
+    /// <summary>Folds a <c>calc()</c> body to one number or one length.</summary>
+    /// <param name="arguments">What was between the brackets.</param>
+    /// <returns>The folded value, or <see cref="StyleValue.Unknown" /> if it does not fold.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The whole body must be consumed, and that trailing check is the one carrying the
+    ///     refusals.</b> Every rule below leaves the cursor where it stopped rather than throwing, so
+    ///     an expression this evaluator does not understand parses as its own first half and returns
+    ///     a value — <c>calc(2px -1px)</c> would fold to <c>2px</c>, silently, which is a shadow at
+    ///     the wrong offset rather than a declaration that was refused. Requiring the cursor to reach
+    ///     the end turns every one of those into <see cref="StyleValue.Unknown" />.
+    /// </remarks>
+    static StyleValue ParseCalc(ReadOnlySpan<char> arguments) {
+        var at = 0;
+        var value = Sum(arguments, ref at);
+
+        SkipSpace(arguments, ref at);
+
+        return at == arguments.Length ? value : StyleValue.Unknown;
+    }
+
+    /// <summary>Reads a sum, which is the lowest precedence.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>+</c> and <c>-</c> are operators only with whitespace on both sides, and this is
+    ///     Values 4 § 10.1 rather than a house style.</b> CSS cannot tell the operator from a sign
+    ///     otherwise — <c>calc(2px -1px)</c> would be a sum or a two-item list depending on who is
+    ///     reading — so the grammar demands the space and calls the rest invalid. Accepting it here
+    ///     would make this parser answer where a browser refuses, which is the worse of the two
+    ///     disagreements: a stylesheet that works in Vixen and not on the web.
+    /// </remarks>
+    static StyleValue Sum(ReadOnlySpan<char> text, ref int at) {
+        var left = Product(text, ref at);
+
+        while (left.Kind != StyleValueKind.Unknown) {
+            var resume = at;
+            SkipSpace(text, ref at);
+
+            if (at == resume || at >= text.Length || text[at] is not ('+' or '-')) {
+                at = resume;
+                return left;
+            }
+
+            var subtract = text[at] == '-';
+            at++;
+
+            if (at >= text.Length || !IsSpace(text[at])) {
+                at = resume;
+                return left;
+            }
+
+            left = Add(left, Product(text, ref at), subtract);
+        }
+
+        return StyleValue.Unknown;
+    }
+
+    /// <summary>Reads a product, which binds tighter than a sum.</summary>
+    /// <remarks>
+    ///     ⚠ <c>*</c> and <c>/</c> need no surrounding whitespace, and the asymmetry with
+    ///     <see cref="Sum" /> is CSS's: neither character can begin a number, so there is nothing to
+    ///     be ambiguous about.
+    /// </remarks>
+    static StyleValue Product(ReadOnlySpan<char> text, ref int at) {
+        var left = Unary(text, ref at);
+
+        while (left.Kind != StyleValueKind.Unknown) {
+            var resume = at;
+            SkipSpace(text, ref at);
+
+            if (at >= text.Length || text[at] is not ('*' or '/')) {
+                at = resume;
+                return left;
+            }
+
+            var divide = text[at] == '/';
+            at++;
+
+            var right = Unary(text, ref at);
+            left = divide ? Divide(left, right) : Multiply(left, right);
+        }
+
+        return StyleValue.Unknown;
+    }
+
+    /// <summary>Reads a bracketed group, a nested <c>calc()</c>, or one dimension.</summary>
+    static StyleValue Unary(ReadOnlySpan<char> text, ref int at) {
+        SkipSpace(text, ref at);
+
+        if (at >= text.Length) {
+            return StyleValue.Unknown;
+        }
+
+        // A nested `calc()` is exactly a bracketed group — Values 4 says the two are equivalent — so
+        // the name is stepped over and the same branch reads the brackets.
+        if (at + 4 < text.Length
+            && text.Slice(at, 4).Equals("calc", StringComparison.OrdinalIgnoreCase)
+            && text[at + 4] == '(') {
+            at += 4;
+        }
+
+        if (text[at] == '(') {
+            at++;
+            var inner = Sum(text, ref at);
+            SkipSpace(text, ref at);
+
+            if (at >= text.Length || text[at] != ')') {
+                return StyleValue.Unknown;
+            }
+
+            at++;
+
+            return inner;
+        }
+
+        var start = at;
+
+        if (text[at] is '-' or '+') {
+            at++;
+        }
+
+        while (at < text.Length) {
+            var c = text[at];
+
+            if (char.IsAsciiLetterOrDigit(c) || c is '.' or '%') {
+                at++;
+                continue;
+            }
+
+            // ⚠ The one place a sign is part of the term rather than an operator: the exponent of
+            // `1e-2`. `ParseNumeric` accepts that spelling, so a scanner that stopped at the `-`
+            // would hand it half a number and refuse a value the rest of this file reads.
+            if (c is '-' or '+' && at > start && text[at - 1] is 'e' or 'E') {
+                at++;
+                continue;
+            }
+
+            break;
+        }
+
+        if (at == start) {
+            return StyleValue.Unknown;
+        }
+
+        var term = ParseNumeric(text[start..at]);
+
+        return term.Kind is StyleValueKind.Number or StyleValueKind.Length ? term : StyleValue.Unknown;
+    }
+
+    /// <summary>Adds or subtracts, which is the operation that can refuse on units.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A bare zero is not accepted as a length here, and it is accepted everywhere else in
+    ///     this file.</b> <see cref="StyleValue.CanInterpolate" /> says zero belongs to every unit,
+    ///     and for interpolation it does. Values 4 § 10.2 does not extend that to arithmetic:
+    ///     <c>calc(100px + 0)</c> is a length plus a number and is invalid, because the alternative is
+    ///     a grammar in which the type of an expression depends on the value of a term.
+    /// </remarks>
+    static StyleValue Add(StyleValue left, StyleValue right, bool subtract) {
+        if (left.Kind == StyleValueKind.Unknown || right.Kind == StyleValueKind.Unknown) {
+            return StyleValue.Unknown;
+        }
+
+        var value = subtract ? left.Number - right.Number : left.Number + right.Number;
+
+        if (left.Kind == StyleValueKind.Number && right.Kind == StyleValueKind.Number) {
+            return Finite(StyleValue.FromNumber(value));
+        }
+
+        return left.Kind == StyleValueKind.Length && right.Kind == StyleValueKind.Length
+            && left.Unit == right.Unit
+                ? Finite(StyleValue.FromLength(value, left.Unit))
+                : StyleValue.Unknown;
+    }
+
+    /// <summary>Multiplies, where one side has to be a plain number.</summary>
+    static StyleValue Multiply(StyleValue left, StyleValue right) {
+        var value = left.Number * right.Number;
+
+        if (right.Kind == StyleValueKind.Number) {
+            return left.Kind switch {
+                StyleValueKind.Number => Finite(StyleValue.FromNumber(value)),
+                StyleValueKind.Length => Finite(StyleValue.FromLength(value, left.Unit)),
+                _ => StyleValue.Unknown
+            };
+        }
+
+        return left.Kind == StyleValueKind.Number && right.Kind == StyleValueKind.Length
+            ? Finite(StyleValue.FromLength(value, right.Unit))
+            : StyleValue.Unknown;
+    }
+
+    /// <summary>Divides, where the divisor has to be a plain non-zero number.</summary>
+    /// <remarks>
+    ///     ⚠ Dividing by zero is refused rather than folded. IEEE would answer infinity, and an
+    ///     infinite length is a value every consumer downstream accepts and none of them draws — a
+    ///     rectangle that vanishes rather than a declaration that was rejected.
+    /// </remarks>
+    static StyleValue Divide(StyleValue left, StyleValue right) {
+        if (right.Kind != StyleValueKind.Number || right.Number == 0f) {
+            return StyleValue.Unknown;
+        }
+
+        var value = left.Number / right.Number;
+
+        return left.Kind switch {
+            StyleValueKind.Number => Finite(StyleValue.FromNumber(value)),
+            StyleValueKind.Length => Finite(StyleValue.FromLength(value, left.Unit)),
+            _ => StyleValue.Unknown
+        };
+    }
+
+    /// <summary>Refuses a fold that overflowed, rather than letting an infinity out of the parser.</summary>
+    static StyleValue Finite(StyleValue value) =>
+        float.IsFinite(value.Number) ? value : StyleValue.Unknown;
+
+    static bool IsSpace(char c) => c is ' ' or '\t' or '\r' or '\n';
+
+    static void SkipSpace(ReadOnlySpan<char> text, ref int at) {
+        while (at < text.Length && IsSpace(text[at])) {
+            at++;
+        }
+    }
 
     /// <summary>Splits on top-level whitespace, keeping bracketed groups whole.</summary>
     static List<Range> SplitTopLevel(ReadOnlySpan<char> text) {
