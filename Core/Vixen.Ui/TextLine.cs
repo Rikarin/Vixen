@@ -45,6 +45,17 @@ public sealed class TextLine {
     /// </remarks>
     readonly float[] widths;
 
+    /// <summary>The runs' logical indices in the order they are drawn, left to right.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Kept rather than recomputed, because a hit test needs it and nothing else could
+    ///     recover it.</b> <see cref="PenOf" /> is stored against the <i>logical</i> index, so on a
+    ///     line whose direction changes the pens are not increasing in <c>i</c> — and a search that
+    ///     walked the runs in order and stopped at the first whose pen span contained the point
+    ///     would answer with whichever run happened to come first in the text. It is the array the
+    ///     constructor already built, kept instead of dropped.
+    /// </remarks>
+    readonly int[] order;
+
     /// <summary>The map between the element's own text and the text the runs were shaped from.</summary>
     /// <remarks>
     ///     Null for the identity, which is every line of text no <c>text-transform</c> touched and
@@ -162,8 +173,9 @@ public sealed class TextLine {
         // block's are and not where its glyphs begin. Getting that wrong puts every tabbed line
         // after an indent a fraction of a stop out, which reads as a wobbly column.
         var pen = 0f;
+        order = Order(runs);
 
-        foreach (var index in Order(runs)) {
+        foreach (var index in order) {
             pens[index] = pen;
             widths[index] = runs[index].IsTab
                 ? NextStop(offset + pen, tabStop) - (offset + pen)
@@ -467,8 +479,16 @@ public sealed class TextLine {
     ///     the index alone need not, which is the whole reason the pair exists.
     /// </remarks>
     public (int Index, CaretAffinity Affinity) CaretPositionAt(float x) {
-        for (var i = 0; i < Runs.Length; i++) {
-            if (x < PenOf(i) + widths[i] || i == Runs.Length - 1) {
+        // ⚠ <b>Walked in visual order and not in logical order</b>, which is the difference between
+        // a hit test and a wrong hit test on any line that changes direction. The pens are stored
+        // against the logical index, so `PenOf` does not increase with `i`; a walk in `i` stops at
+        // the first run whose span *contains or is past* the point and, on a reordered line, that is
+        // the run that reads first rather than the one drawn under the cursor — a click on the left
+        // end of a right-to-left paragraph answering with a character at the other end of it.
+        for (var visual = 0; visual < order.Length; visual++) {
+            var i = order[visual];
+
+            if (x < PenOf(i) + widths[i] || visual == order.Length - 1) {
                 var run = Runs[i];
 
                 // ⚠ A tab has no interior to hit-test, so the click goes to whichever of its two

@@ -2125,8 +2125,19 @@ public sealed class DrawListBuilder {
     ///     </para>
     /// </remarks>
     float Indent(UiElement element, float slack) {
-        if (slack <= 0f || !element.Style.TryGet(textAlign, out var alignment)) {
+        if (slack <= 0f) {
             return 0f;
+        }
+
+        var mirrored = element.Style.TryGet(direction, out var flow) && flow == rtl;
+
+        // ⚠ <b>The initial value of `text-align` is `start`, and `start` is not the left.</b> Reading
+        // a miss as zero made every Arabic and Hebrew paragraph nobody had written a `text-align`
+        // for ragged down the *right* and flush against the left — which is the one thing an RTL
+        // interface must not do, and which no assertion about glyph order can see, because the
+        // glyphs inside each line were in the correct order the whole time.
+        if (!element.Style.TryGet(textAlign, out var alignment)) {
+            return mirrored ? slack : 0f;
         }
 
         // The physical keywords first, because they mean a side whatever the direction is — that is
@@ -2145,7 +2156,6 @@ public sealed class DrawListBuilder {
 
         // `start`, `end`, and anything unrecognised — which lands on the start edge, the same place
         // an element with no `text-align` at all sits.
-        var mirrored = element.Style.TryGet(direction, out var flow) && flow == rtl;
         return mirrored != (alignment == alignedEnd) ? slack : 0f;
     }
 

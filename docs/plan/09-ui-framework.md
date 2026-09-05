@@ -637,8 +637,20 @@ Underestimating text is the classic UI-framework mistake.
   whether an Arabic letter's neighbour joins by seeing the whole string; a level change is a change of
   strong direction, and no script joins across one.
 
-  Still owed: nothing *mirrors*. `text-align: start` on a wrapped block, bidi-aware hit-testing and
-  caret affinity are all untouched — see the `TextEditor` row in `docs/overview.md`.
+  ⚠ **"Still owed: nothing *mirrors*" was written here and is no longer true of any of the three
+  items it named** — and two of them were closed by fixing something other than what the sentence
+  says. Caret affinity landed whole (2026-09-03, see the `TextEditor` row in `docs/overview.md`), and
+  the other two were never a missing feature: `text-align`'s logical keywords *were* resolved against
+  `direction`, and the hit test *did* go through a bidi-aware caret. What was wrong was one line
+  each. `DrawListBuilder.Indent` read a **missing** `text-align` as zero, and the initial value of
+  `text-align` is `start` rather than `left` — so a right-to-left paragraph nobody had written an
+  alignment for, which is every paragraph in a plain interface, sat flush against the left edge with
+  perfectly ordered text in it. And `TextLine.CaretPositionAt` searched the runs in **logical** order
+  over pens stored in **visual** order, so on a line that changes direction it stopped at the run that
+  reads first rather than the one drawn under the cursor. Both are held down by
+  `Vixen.Ui.Tests.BidiMirroringTests`; ⚠ the click assertion there is on *which half of the line the
+  caret is drawn in* and not on the index, because the wrong run's clamped edge answers with the same
+  index at the opposite end of the line.
 - **Line breaking**: UAX#14 with a compact rule table; UAX#29 grapheme/word segmentation for cursor
   movement and double-click selection.
 - **Rasterisation**: **MSDF** atlas — multi-channel signed distance fields give crisp text at any
