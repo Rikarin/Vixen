@@ -687,3 +687,30 @@ align_baseline_multiline_column2
 #     existed. It is `break-word` that still needs it, because `break-word`'s intrinsic minimum is
 #     specified NOT to shrink; whether Chrome's answer for that case comes from the same cap or from
 #     somewhere else is the measurement nobody has taken. Do not remove the second term without it.
+#   · ⚠ THAT MEASUREMENT HAS NOW BEEN TAKEN, IN CHROME, AND THE ANSWER IS "FROM SOMEWHERE ELSE".
+#     One unbreakable word, `font: 28px monospace`, max-content 269.72, in a 120px container:
+#
+#         flex-direction: row     overflow-wrap: normal        w = 269.72   h = 32.50  (one line)
+#         flex-direction: row     overflow-wrap: break-word    w = 269.72   h = 32.50  (one line)
+#         flex-direction: row     overflow-wrap: anywhere      w = 120.00   h = 97.50  (three)
+#         flex-direction: column  overflow-wrap: normal        w = 120.00   h = 32.50  (one line)
+#         flex-direction: column  overflow-wrap: break-word    w = 120.00   h = 97.50  (three)
+#         flex-direction: column  word-break: break-all        w = 120.00   h = 97.50  (three)
+#         display: block          overflow-wrap: break-word    w = 120.00   h = 97.50  (three)
+#
+#     ⚠ CHROME DOES NOT CAP THE FLOOR. A `break-word` item on the MAIN axis keeps the whole word and
+#     overflows — §4.5's automatic minimum applied with an intrinsic minimum that is specified not to
+#     shrink, exactly as written, with nothing holding it down to the box. The wrapping picture comes
+#     from the CROSS axis instead, where there is no §4.5 floor at all: the item is stretched to the
+#     container and `break-word` then breaks the overflowing word at line layout, which is also why
+#     the `display: block` row is identical to the column one.
+#
+#     ⚠ AND THAT MAKES THE REMAINING QUESTION A FRAMEWORK CALL RATHER THAN A MISSING NUMBER, because
+#     this engine's initial `Display` is `Flex` and its initial `FlexDirection` is `Row`
+#     (`LayoutStyle.Default`, `LayoutStyleBuilder.CreateCssInitial`) where a browser's initial display
+#     is `block`. So `TextWrappingPixelTests`' box IS the first table row, and the picture this engine
+#     draws for it is the LAST one. Dropping the second term would make a plain Vixen element with
+#     `overflow-wrap: break-word` stop wrapping, which is Chrome's answer for the markup and is not
+#     Chrome's answer for the markup an author thinks they wrote. The measurement is no longer the
+#     blocker; the decision is, and it belongs to whoever owns that divergence. Still do not remove
+#     the second term on this note alone.
