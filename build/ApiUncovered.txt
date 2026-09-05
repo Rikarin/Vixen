@@ -1,0 +1,81 @@
+# Projects that pack and whose public surface `CheckApi` does not read.
+#
+# CheckApi's coverage is a glob (build/Build.Api.cs), and a glob says nothing at all about what
+# it does not match. An assembly outside it still produces a .nupkg, so every addition, every
+# signature change and — the half that breaks a consumer without breaking anything here — every
+# silent removal in it passes with nothing to approve it, while the target prints
+# `Checking the public surface of N assemblies` and succeeds. That is the shape this repository
+# keeps rediscovering: a gate reporting success on work it did not do.
+#
+# This file is the other half of the decision. The set the gate skips is written down, so that
+# joining it is a reviewed line in a diff rather than silence, and ApiCoverageTests asserts the
+# list and the tree agree in BOTH directions:
+#
+#   * a project in Vixen.slnx that packs, is not a test/generator/analyzer and has no
+#     PublicAPI.Shipped.txt beside it, and no line here — fails,
+#   * a line here naming a project that no longer exists, no longer packs, or now has a
+#     baseline — fails, because a stale exemption is how a list like this stops meaning
+#     anything.
+#
+# One line per project: its path from the repository root, whitespace, and the reason token.
+#
+# ⚠ Nothing here is an exemption somebody argued for on the merits. Twenty-one of the
+# twenty-nine lines are #641, which is open and asks the opposite question: a package is a
+# promise, so either these are covered the way Core/ is, or they should not be packing.
+#
+# Reason tokens:
+#
+#   editor-undecided   Editor/. The TOOLING profile in Directory.Build.props sets no IsPackable,
+#                      so every Editor project takes the SDK default of *true*; only .App, .Host
+#                      and .Testing opt out, and the two generators are excluded by the
+#                      compiler-plugin profile. ⚠ "Editor/ is applications, so it does not pack"
+#                      does not survive contact with the tree: all of these carry a
+#                      <Description>, PackageTags and a PackageReadmeFile, which is a project
+#                      that means to ship rather than an accident of the default.
+#                      Vixen.Editor.Plugin is the one CheckApi names, and is not here. (#641)
+#
+#   library-undecided  A packable library outside Editor/ with a real referenced surface and no
+#                      baseline — the same condition Vixen.Raven was in before it was covered.
+#                      ⚠ This refutes the Coverage section of Tools/Vixen.ApiCheck/README.md,
+#                      which says Tools/ "ships to nobody": seven Tools projects declare
+#                      IsPackable=true, and two of them are libraries a consumer compiles
+#                      against. (#749)
+#
+#   tool-command-line  Packed with PackAsTool. What a `dotnet tool install` promises is a
+#                      command line and its arguments, not a type; the assembly is an
+#                      implementation detail nothing references. A CLI-surface gate would be a
+#                      different instrument from this one.
+#
+#   no-assembly        IncludeBuildOutput=false — the package is MSBuild logic or template
+#                      content and carries no lib/, so there is literally no surface to read.
+#                      This is the only token on the list that is a settled answer.
+
+Editor/Vixen.Editor.Ai/Vixen.Editor.Ai.csproj editor-undecided
+Editor/Vixen.Editor.AnimationGraph/Vixen.Editor.AnimationGraph.csproj editor-undecided
+Editor/Vixen.Editor.AssetEditors/Vixen.Editor.AssetEditors.csproj editor-undecided
+Editor/Vixen.Editor.Assets/Vixen.Editor.Assets.csproj editor-undecided
+Editor/Vixen.Editor.Blockout/Vixen.Editor.Blockout.csproj editor-undecided
+Editor/Vixen.Editor.Core/Vixen.Editor.Core.csproj editor-undecided
+Editor/Vixen.Editor.Debugger/Vixen.Editor.Debugger.csproj editor-undecided
+Editor/Vixen.Editor.Diagnostics/Vixen.Editor.Diagnostics.csproj editor-undecided
+Editor/Vixen.Editor.Gameplay.Loot/Vixen.Editor.Gameplay.Loot.csproj editor-undecided
+Editor/Vixen.Editor.Gameplay.Quests/Vixen.Editor.Gameplay.Quests.csproj editor-undecided
+Editor/Vixen.Editor.Inspector/Vixen.Editor.Inspector.csproj editor-undecided
+Editor/Vixen.Editor.NodeGraph/Vixen.Editor.NodeGraph.csproj editor-undecided
+Editor/Vixen.Editor.Profiler/Vixen.Editor.Profiler.csproj editor-undecided
+Editor/Vixen.Editor.SceneView/Vixen.Editor.SceneView.csproj editor-undecided
+Editor/Vixen.Editor.Scripts/Vixen.Editor.Scripts.csproj editor-undecided
+Editor/Vixen.Editor.ShaderGraph/Vixen.Editor.ShaderGraph.csproj editor-undecided
+Editor/Vixen.Editor.Terrain/Vixen.Editor.Terrain.csproj editor-undecided
+Editor/Vixen.Editor.Terrain.Physics/Vixen.Editor.Terrain.Physics.csproj editor-undecided
+Editor/Vixen.Editor.Ui/Vixen.Editor.Ui.csproj editor-undecided
+Editor/Vixen.Editor.VfxGraph/Vixen.Editor.VfxGraph.csproj editor-undecided
+Editor/Vixen.Editor.Water/Vixen.Editor.Water.csproj editor-undecided
+Raven/Vixen.Raven.Cli/Vixen.Raven.Cli.csproj tool-command-line
+Tools/Vixen.App/Vixen.App.csproj library-undecided
+Tools/Vixen.Cli/Vixen.Cli.csproj tool-command-line
+Tools/Vixen.ContentServer/Vixen.ContentServer.csproj tool-command-line
+Tools/Vixen.Sdk/Vixen.Sdk.csproj no-assembly
+Tools/Vixen.ShaderCompiler/Vixen.ShaderCompiler.csproj library-undecided
+Tools/Vixen.ShaderCompilerService/Vixen.ShaderCompilerService.csproj tool-command-line
+Tools/Vixen.Templates/Vixen.Templates.csproj no-assembly
