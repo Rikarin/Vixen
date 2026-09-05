@@ -26,8 +26,10 @@
           a LineShaders from.
 
           This is not the assembly growing a compiler, which its own remarks rule out: these are
-          pre-compiled modules read out of the assembly, the same bytes Vixen.Graphics.Golden.Tests
-          renders `debug-world` and `debug-overlay` with.
+          pre-compiled modules read out of the assembly, and they are the bytes
+          Vixen.Graphics.Golden.Tests renders `debug-world` and `debug-overlay` with — that suite
+          used to keep a byte-identical copy of the four files and now reads these (#637), so the
+          resource being embedded is itself under a picture.
 
           ⚠ And a person runs `glslc` to change them, which for a while nothing noticed: an edited
           Shaders/line.frag beside an unrecompiled .spv shipped the old bytes in this assembly and

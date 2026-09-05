@@ -47,10 +47,7 @@ public sealed class LineImageTests {
 
         var renderer = new LineRenderer(
             owned.Device,
-            new(
-                owned.Shader("line.vert.spv", ShaderStage.Vertex),
-                owned.Shader("line.frag.spv", ShaderStage.Fragment)
-            ),
+            owned.Lines(),
             new RenderOutput([PixelFormat.Rgba8UNorm])
         );
 
@@ -110,10 +107,7 @@ public sealed class LineImageTests {
 
         var renderer = new LineRenderer(
             owned.Device,
-            new(
-                owned.Shader("line.vert.spv", ShaderStage.Vertex),
-                owned.Shader("line.frag.spv", ShaderStage.Fragment)
-            ),
+            owned.Lines(),
             new RenderOutput([PixelFormat.Rgba8UNorm]),
             capacity: 4
         );
@@ -138,10 +132,7 @@ public sealed class LineImageTests {
 
         var renderer = new LineRenderer(
             owned.Device,
-            new(
-                owned.Shader("line.vert.spv", ShaderStage.Vertex),
-                owned.Shader("line.frag.spv", ShaderStage.Fragment)
-            ),
+            owned.Lines(),
             new RenderOutput([PixelFormat.Rgba8UNorm])
         );
 

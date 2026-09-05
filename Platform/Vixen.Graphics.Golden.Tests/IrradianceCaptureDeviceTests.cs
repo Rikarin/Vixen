@@ -280,9 +280,11 @@ public sealed class IrradianceCaptureDeviceTests {
     static RenderedIrradianceCaptures Source(Fixture fixture, Vertex[] triangles, Color4 sky, Vector3 sun) {
         var device = fixture.Device;
 
+        var lines = fixture.Lines();
+
         var pipeline = fixture.Pipeline(
-            fixture.Shader("line.vert.spv", ShaderStage.Vertex),
-            fixture.Shader("line.frag.spv", ShaderStage.Fragment),
+            lines.Vertex,
+            lines.Fragment,
             BlendState.Opaque,
 
             // Reversed, like everything else the engine draws with — see DepthStencilAttachment.

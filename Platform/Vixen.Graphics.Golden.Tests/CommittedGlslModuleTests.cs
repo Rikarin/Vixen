@@ -34,12 +34,14 @@ namespace Vixen.Graphics.Golden.Tests;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The census found twenty-four more pairs than the issue that asked for it named, and
-///         they are in this project.</b> <c>Shaders/</c> here holds thirty-two GLSL sources with a
+///         they are in this project.</b> <c>Shaders/</c> here holds thirty GLSL sources with a
 ///         committed module beside each, and <see cref="SharedUiShaderTests" />' ledger records eight
-///         of them — the eight the UI suite renders with. The other twenty-four are the same
+///         of them — the eight the UI suite renders with. The other twenty-two are the same
 ///         arrangement and were uncovered for the same reason: a hand-kept list of names, in a
 ///         directory nobody was counting. A census with a twenty-four-file exception list is not a
-///         census, so they are in.
+///         census, so they are in. ⚠ Twenty-two and not twenty-four because <c>line.vert</c> and
+///         <c>line.frag</c> left: they were a byte-identical copy of <c>Core/Vixen.Rendering</c>'s
+///         pair, and this suite now reads that assembly's embedded modules instead (#637).
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Two ledgers, one mechanism, and the partition between them is what makes that
@@ -63,9 +65,9 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         "every pair found has a line" — a walk that finds no pairs satisfies that trivially, which
 ///         is the "comparator that called three empty manifests identical" this repository has already
 ///         shipped once. So the ledger is asserted in the other direction too: every line in it names
-///         a pair this walk must have found, and there are thirty-two of them. A root that moved, a
+///         a pair this walk must have found, and there are thirty of them. A root that moved, a
 ///         skip list that swallowed a real directory, a pattern that stopped matching — each of those
-///         loses all thirty-two at once and is loud.
+///         loses all thirty at once and is loud.
 ///     </para>
 /// </remarks>
 public class CommittedGlslModuleTests {

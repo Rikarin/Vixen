@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics.Vulkan;
+using Vixen.Rendering;
 using Vixen.Ui.Testing.Visual;
 using Graph = Vixen.Graphics.RenderGraph.RenderGraph;
 using GraphTexture = Vixen.Graphics.RenderGraph.GraphTexture;
@@ -65,6 +66,28 @@ sealed class Fixture : IDisposable {
         var handle = device.CreateShader(stage, File.ReadAllBytes(path), name);
         cleanup.Add(() => device.Destroy(handle));
         return handle;
+    }
+
+    /// <summary>The line stages, out of the assembly that embeds them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read from <c>Vixen.Rendering</c>'s embedded resources, and this suite used to keep a
+    ///     byte-identical copy of all four files under its own <c>Shaders/</c> instead</b> (#637).
+    ///     Source and module were identical on both sides, so the copy bought nothing and was one
+    ///     more pair somebody had to keep in step by hand — and this suite is the only other reader
+    ///     of a line stage in the tree.
+    ///     <para>
+    ///         It is also worth more than the deletion: <see cref="LineShaders.Default" /> is the
+    ///         call a game makes, so every picture drawn through this now also answers whether that
+    ///         resource is embedded at all. A missing one used to look like a feature nobody wired.
+    ///     </para>
+    /// </remarks>
+    public LineShaders Lines() {
+        var shaders = LineShaders.Default(device);
+
+        cleanup.Add(() => device.Destroy(shaders.Vertex));
+        cleanup.Add(() => device.Destroy(shaders.Fragment));
+
+        return shaders;
     }
 
     /// <summary>Creates a buffer that lives as long as the fixture.</summary>
