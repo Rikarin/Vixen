@@ -237,9 +237,16 @@ public class ChildScopedFamilyTests {
     ///     </para>
     ///     <list type="bullet">
     ///         <item><c>space-x-reverse</c> and <c>divide-x-reverse</c> — v4 emits both edges of the
-    ///         axis and multiplies each by a <c>--tw-*-reverse</c> flag, which needs
-    ///         <c>calc()</c>. <c>StyleValueParser</c> has no <c>calc()</c>, so the flag would have
-    ///         nothing to multiply and the reverse class would be a custom property nobody reads.</item>
+    ///         axis and multiplies each by a <c>--tw-*-reverse</c> flag. ⚠ <b>The reason written here
+    ///         was that <c>StyleValueParser</c> has no <c>calc()</c>, so the flag would have nothing
+    ///         to multiply and the class would be a custom property nobody reads. Both halves of that
+    ///         have expired</b> — the parser folds <c>+ - * /</c>, and <c>ReverseFlagTests</c>
+    ///         measures the flag being written by one class and read by another's declaration at both
+    ///         its values. What holds them out now is the one-edge decision: <c>divide-x</c> and
+    ///         <c>space-x</c> write only the edge they mean, because writing the leading one would
+    ///         out-specify a child's own <c>border-s-2</c>, and a reverse flag works by swapping which
+    ///         of <i>two</i> written edges carries the width. See <c>UtilityFamilies</c>'
+    ///         <c>divide-x-*</c> remark and #599.</item>
     ///     </list>
     ///     <para>
     ///         ⚠ <b><c>divide-solid</c> and the other four style keywords used to be on this list and
