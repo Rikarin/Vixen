@@ -675,6 +675,140 @@ public sealed partial class LayoutTree {
         return line;
     }
 
+    /// <summary>
+    ///     CSS Flexbox §9.9.1's max-content CONTRIBUTION and §9.2's flex BASE are two numbers, and
+    ///     this is where the container stops using the first as the second.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A row container sized at max-content answers two questions in one walk, and
+    ///         until this ran it answered the second with the first's number.</b> While the
+    ///         container's own main size is indefinite, <see cref="ComputeFlexBasisForChild" />
+    ///         deliberately refuses a declared <c>flex-basis</c> and measures instead, because
+    ///         §9.9.3 makes an item's max-content contribution its own outer max-content size — the
+    ///         declaration is a ceiling there, not a size. That is what sizes the container. But the
+    ///         instant the container's size is decided from those contributions it is a DEFINITE
+    ///         main size, and §9.7 is then owed a real flex base to distribute over: the
+    ///         declaration.
+    ///     </para>
+    ///     <para>
+    ///         <c>padding_border_overrides_size_flex_basis_0_growable</c> is the arithmetic in six
+    ///         numbers. Two <c>flex-grow: 1; flex-basis: 0px</c> items in a shrink-to-fit row, the
+    ///         first with 22 points of padding and border around a border-box <c>width: 12px</c>.
+    ///         The contributions are 22 and 12 and the container is 34, which this store already got
+    ///         right; the bases are 22 and 0, so 12 points of free space split evenly and Chrome
+    ///         draws 28 and 6. Leaving the contributions in place as bases froze the items at 22 and
+    ///         12 — the two errors cancel in the sum and not per item, and they cancel exactly in
+    ///         the content-box pair, which is why that pair passed with no rule being right.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves have to move together</b>, which is why relaxing the guard in
+    ///         <see cref="ComputeFlexBasisForChild" /> instead was measured as a REGRESSION: the
+    ///         container would then be sized off the declarations and come out 22 wide.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ A PERCENTAGE basis is excluded and that exclusion is the load-bearing half of the
+    ///         same guard. CSS Sizing §5.2.1 makes a percentage against an indefinite main size
+    ///         behave as <c>content</c>, and on a column the percentage resolves against the OWNER's
+    ///         size — which can be definite while the container's is not — so adopting it here would
+    ///         resolve a cycle this store deliberately breaks.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="FlexLine.SizeConsumed" /> is deliberately left as it was: it is documented
+    ///         as what the container's own content-based main size is made of, that size has already
+    ///         been taken off it, and after this the bases no longer sum to it. Nothing reads it
+    ///         once the main size is definite.
+    ///     </para>
+    /// </remarks>
+    /// <returns>Whether any item's base moved, i.e. whether §9.7 now has something to distribute.</returns>
+    bool AdoptDeclaredFlexBases(
+        int index,
+        ref FlexLine line,
+        Direction direction,
+        FlexDirection mainAxis,
+        float ownerWidth,
+        float mainAxisOwnerSize
+    ) {
+        var children = ChildIds(index);
+        var adopted = false;
+
+        for (var i = line.StartChild; i < line.EndChild; i++) {
+            var child = children[i];
+            if (!IsInFlow(child)) {
+                continue;
+            }
+
+            var processedFlexBasis = StyleResolution.ProcessedFlexBasis(in styles[child]);
+            if (processedFlexBasis.Unit == LayoutUnit.Percent) {
+                continue;
+            }
+
+            var resolvedFlexBasis = StyleResolution.WithBoxSizing(
+                in styles[child],
+                processedFlexBasis.Resolve(mainAxisOwnerSize),
+                FlexAxis.DimensionOf(mainAxis),
+                ownerWidth,
+                direction
+            );
+
+            if (float.IsNaN(resolvedFlexBasis)) {
+                continue;
+            }
+
+            var declared = MathF.Max(
+                resolvedFlexBasis,
+                StyleResolution.PaddingAndBorderForAxis(in styles[child], mainAxis, direction, ownerWidth)
+            );
+
+            if (declared == results[child].ComputedFlexBasis) {
+                continue;
+            }
+
+            var before = HypotheticalMainSize(
+                child,
+                direction,
+                mainAxis,
+                results[child].ComputedFlexBasis,
+                mainAxisOwnerSize,
+                ownerWidth
+            );
+
+            results[child].ComputedFlexBasis = declared;
+
+            var after = HypotheticalMainSize(child, direction, mainAxis, declared, mainAxisOwnerSize, ownerWidth);
+
+            // A delta rather than a re-sum, because the line's gutters were resolved against the
+            // indefinite main size the cyclic-gap rule depends on and must not be re-resolved here.
+            line.HypotheticalSizeConsumed += after - before;
+            adopted = true;
+        }
+
+        if (!adopted) {
+            return false;
+        }
+
+        // §9.7 scales the shrink factor BY THE BASE, so this total is a function of the numbers that
+        // just moved. Re-summed rather than adjusted, because CalculateFlexLine's floor below one
+        // has already been applied to it once and a delta cannot see through that.
+        line.TotalFlexShrinkScaledFactors = 0f;
+        for (var i = line.StartChild; i < line.EndChild; i++) {
+            var child = children[i];
+            if (!IsInFlow(child) || !IsNodeFlexible(child)) {
+                continue;
+            }
+
+            line.TotalFlexShrinkScaledFactors +=
+                -StyleResolution.ResolveFlexShrink(in styles[child], links[child].Parent < 0)
+                * results[child].ComputedFlexBasis;
+        }
+
+        if (line.TotalFlexShrinkScaledFactors is > 0f and < 1f) {
+            line.TotalFlexShrinkScaledFactors = 1f;
+        }
+
+        return true;
+    }
+
     /// <summary>CSS Flexbox §9.7 step 3: the free space the distribution passes start from.</summary>
     /// <remarks>
     ///     <para>

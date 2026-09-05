@@ -668,6 +668,17 @@ public sealed partial class LayoutTree {
                 }
             }
 
+            // ⚠ <b>The container has just been sized from its items' §9.9.1 CONTRIBUTIONS, and that
+            // makes its main size definite — so §9.2's declared flex BASES become owed.</b> The two
+            // are one field until here; see AdoptDeclaredFlexBases for why they have to move
+            // together and for why a percentage is excluded.
+            if (sizeBasedOnContent
+                && float.IsNaN(gapBasis)
+                && !float.IsNaN(availableInnerMainDim)
+                && AdoptDeclaredFlexBases(index, ref line, direction, mainAxis, ownerWidth, mainAxisOwnerSize)) {
+                sizeBasedOnContent = false;
+            }
+
             // ── The cyclic percentage gutter ────────────────────────────────────────────────────
             // ⚠ <b>A percentage main-axis gap on a box whose main size comes from its content
             // depends on the size it helps decide, and CSS Sizing §5.2.1 breaks the cycle by

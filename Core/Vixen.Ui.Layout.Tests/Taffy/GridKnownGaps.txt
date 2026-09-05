@@ -15,7 +15,7 @@
 # corollary is the one rule that matters: a gap that closes comes off this file in the same commit
 # as it closes, and a gap that opens does not get added without a heading explaining it.
 #
-# 2 038 of the 2 120 grid, blockgrid and gridflex fixtures pass, 42 fail and 40 are refused.
+# 2 080 of the 2 120 grid, blockgrid and gridflex fixtures pass, 40 fail and none is refused.
 #
 # ⚠ 76 → 40 most recently, and unlike the batch described below all 36 of them passed. They are the
 # `safe` alignment families, which were an ENGINE gap rather than a harness one — `OverflowAlignment`
@@ -86,7 +86,7 @@
 # What is NOT here: only items with a row span of exactly 1 join a baseline-sharing group, per
 # §11.8. A spanning item is aligned as though it said `start`, and no corpus fixture disagrees.
 
-# ── AN ITEM'S PERCENTAGE MARGINS DURING TRACK SIZING ── CLOSED, and one RTL remainder ──
+# ── AN ITEM'S PERCENTAGE MARGINS DURING TRACK SIZING ── CLOSED, on both axes and in two goes ──
 #
 # ⚠ Filed under baseline alignment until the baseline work closed the other four families and left
 # this one standing, which is what made it legible: it was never a baseline bug. The two items are in
@@ -105,7 +105,30 @@
 # (`root.1.0.x`: Chrome 0, this −1), which is a half-point margin mirrored against a box that
 # overflows its area and then rounded — a rounding question in `PlaceGridItemBoxes`' RTL mirror
 # rather than a margin-resolution one, and nothing else in the corpus exercises it.
-grid_align_items_baseline_child_margin_percent
+#
+# ⚠ CLOSED, AND THE PARAGRAPH ABOVE IS REFUTED: it was a margin-resolution question after all, and
+# the mirror is exact. `PlaceGridItemBoxes` mirrors to −0.5 and `RoundToPixelGrid(−0.5)` is 0
+# unaided — the fraction is normalised to +0.5 and half rounds away from the floor. What the store
+# actually held was −0.52000046, and the 0.02 is the whole defect.
+#
+# §12's INLINE pass resolved the item's percentage margin against the grid's own `ownerWidth`. CSS
+# Sizing §5.2.1 makes that `auto`: the item's containing block is its grid area, and the area's
+# inline size is precisely what the column pass is being run to decide. So a `width: 50px;
+# margin: 1%` item in a 50-point grid contributed 50 plus 2% of the OUTER grid's 100 — its column
+# came out 52 — and the used margin, a fraction of the track the measurement had just inflated,
+# came out 0.52. Direction only decided which side of a half point that landed on: +0.52 rounds to
+# Chrome's 1, −0.52 rounds to −1 where −0.5 rounds to 0.
+#
+# ⚠ `MeasureGridItem`'s BLOCK branch already carried the correct sentence in its own remark — "the
+# inline pass deliberately does NOT do this" — and the inline pass did. A comment describing a
+# neighbour rather than itself is how this survived a rewrite of the margin rule that closed ten
+# fixtures one heading up. 2 078 → 2 080.
+#
+# The witness is hand-written, because the corpus can only see this at 1% of 50 where it is two
+# hundredths of a point: `GridBlindSpotTests.
+# A_grid_items_percentage_margin_is_no_part_of_the_track_it_is_a_fraction_of` uses 10% and asserts
+# the property rather than the number — the margin is a tenth of the inner grid and the outer grid
+# has no part in it, so the answer is the same for a 200-, a 500- and a 1 000-point container.
 
 # ── A SPANNING ITEM AGAINST AN INDEFINITE CONTAINER ── CLOSED, and two that were never this ──
 #

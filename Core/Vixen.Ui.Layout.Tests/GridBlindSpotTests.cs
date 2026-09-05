@@ -115,6 +115,64 @@ public class GridBlindSpotTests {
         Assert.Equal(expected, tree.GetWidth(grid), Tolerance);
     }
 
+    /// <summary>
+    ///     An item's PERCENTAGE margin is a fraction of the grid area, so it contributes nothing to
+    ///     the measurement that decides the area.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         CSS Sizing §5.2.1, in the one place the inline track pass had it backwards: a
+    ///         percentage against a containing block whose size is still being computed behaves as
+    ///         <c>auto</c>, and a grid item's containing block is exactly the area the column pass is
+    ///         being run to size. Resolving it against the grid's own owner width instead makes the
+    ///         column grow by a fraction of a box two levels out, and the used margin is then a
+    ///         fraction of a track the measurement inflated.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The oracle is that the answer does not depend on the outer grid at all.</b> The
+    ///         inner grid is 50 points wide whatever is around it, so its item's 10% margin is 5
+    ///         points in every row of this theory. Resolving against the outer width instead gives
+    ///         20, 50 and 100 — three different answers to a question the outer box has no part in.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The corpus sees this as a half point.</b>
+    ///         <c>grid_align_items_baseline_child_margin_percent</c> is the same shape at 1% of 50,
+    ///         so the error is 0.02 of a point and only the RTL mirror puts it across a rounding
+    ///         boundary — which is why <c>GridKnownGaps.txt</c> filed it as an RTL rounding question
+    ///         for as long as it did. Ten per cent of a wide grid is the same defect made legible.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(200f)]
+    [InlineData(500f)]
+    [InlineData(1000f)]
+    public void A_grid_items_percentage_margin_is_no_part_of_the_track_it_is_a_fraction_of(float outerWidth) {
+        using var tree = new LayoutTree();
+
+        var outer = tree.CreateNode();
+        tree.SetDisplay(outer, Display.Grid);
+        tree.SetDimension(outer, Dimension.Width, StyleLength.Points(outerWidth));
+        tree.SetDimension(outer, Dimension.Height, StyleLength.Points(100f));
+
+        var inner = tree.CreateNode();
+        tree.SetDisplay(inner, Display.Grid);
+        tree.SetDimension(inner, Dimension.Width, StyleLength.Points(50f));
+        tree.SetDimension(inner, Dimension.Height, StyleLength.Points(50f));
+        tree.AddChild(outer, inner);
+
+        var item = tree.CreateNode();
+        tree.SetDimension(item, Dimension.Width, StyleLength.Points(50f));
+        tree.SetDimension(item, Dimension.Height, StyleLength.Points(10f));
+        tree.SetMargin(item, Edge.Left, StyleLength.Percent(10f));
+        tree.SetMargin(item, Edge.Right, StyleLength.Percent(10f));
+        tree.AddChild(inner, item);
+
+        tree.CalculateLayout(outer, float.NaN, float.NaN, Direction.Ltr);
+
+        // A tenth of the inner grid's own 50 points, and of nothing else.
+        Assert.Equal(5f, tree.GetLeft(item), Tolerance);
+    }
+
     [Fact]
     public void An_inherited_rtl_reaches_a_grid_item_that_never_states_one() {
         // A two-column grid whose container says nothing about direction. In `rtl` the first item
