@@ -34,18 +34,37 @@ using Serilog;
 ///         dependency edges stop deciding.</b> Nothing here needs building — <c>VSTestNoBuild</c> is
 ///         set and <see cref="Compile" /> has already run — so an edge between two test assemblies
 ///         buys the schedule nothing and costs it the ordering. Greedy LPT over the same 178
-///         measured walls gives a makespan of 655.0 s against the 873.3 s that ran, and 655.0 s is
-///         the longest single assembly: after this the run cannot be shortened by scheduling at all,
-///         only by <see cref="Test" />'s slowest assembly getting faster (#557).
+///         measured walls gives a makespan of 655.0 s against the 873.3 s that ran, and 655.0 s was
+///         then the longest single assembly, so the run could not be shortened by scheduling at all
+///         — only by <see cref="Test" />'s slowest assembly getting faster (#557).
+///     </para>
+///     <para>
+///         ⚠ <b>That last sentence expired, and a stale cost list is how it stayed believed.</b>
+///         #557 landed and halved the assembly the whole conclusion rested on:
+///         <c>Vixen.Editor.App.Tests</c> is <b>329.5 s</b> in the 178 TRX of the 2026-09-05 23:04
+///         run, against the <b>655.0</b> this file's list still claimed for it — a schedule input
+///         wrong by 2×, and wrong in the direction that makes the run look unfixable. Regenerated,
+///         the same greedy LPT gives <b>489.8 s</b> at four workers (the run itself measured
+///         498.3 s, so the model is within 1.7% of what happens) and <b>329.5 s</b> at six or more.
+///         So scheduling headroom is back: raising <see cref="Workers" /> from four now buys about
+///         160 s of a 498 s run, which the old list said was worth exactly nothing.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>A cost list is an instrument, and this repository's rule is to ask what it prints on
 ///         the day it is wrong.</b> Three answers are built in: a name in <c>build/test-cost.txt</c>
 ///         that is no longer a test project in the solution <em>fails</em> the target rather than
 ///         being ignored; a test project with no line sorts <em>first</em> rather than last, because
-///         an unmeasured assembly may be the next 655 s one and starting a 1 s assembly early costs
+///         an unmeasured assembly may be the next 330 s one and starting a 1 s assembly early costs
 ///         nothing; and the run asserts afterwards that it produced one TRX per test project, so a
 ///         traversal that quietly ran a subset cannot look like a fast run.
+///     </para>
+///     <para>
+///         ⚠ <b>What none of the three catches is the case above: a name that is still real and a
+///         number that is no longer true.</b> Nothing fails, by design — the run is merely packed
+///         worse — but the numbers are also read as evidence, here and in <see cref="Workers" />'s
+///         own remarks, and a wrong one argues against the work that would fix it. Regenerate this
+///         list from the TRX after any change that moves an assembly's wall, not only after a
+///         rename (#562).
 ///     </para>
 /// </remarks>
 partial class Build {

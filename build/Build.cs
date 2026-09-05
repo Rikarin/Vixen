@@ -48,31 +48,34 @@ partial class Build : NukeBuild {
     ///         say it was <c>max(695, 3024 / 10) ≈ 11.6 min</c>.</b> That figure was arithmetic —
     ///         total CPU over ten cores — and never bound anything. What did bind was first the
     ///         schedule (<c>Vixen.Editor.App.Tests</c> was dispatched last and started at t=300 s,
-    ///         #592) and then that assembly's own wall (#557). Both moved. Re-derived from the 178
-    ///         TRX of the most recent local run, in <c>artifacts/test-results</c>: elapsed
-    ///         <b>556.8 s</b>, summed per-assembly wall 2 189.2 s, 33 642 tests, and the longest
-    ///         assembly now starts at t=0.1 s and is 412.0 s — <i>shorter</i> than the run. So the
-    ///         run is no longer floored by one assembly at all: 2 189.2 / 4 = 547.3 s against an
-    ///         actual 556.8 s, which is a schedule packed to within 2 %.
+    ///         #592) and then that assembly's own wall (#557). Both moved, and the run is no longer
+    ///         floored by one assembly at all. Re-derived from the 178 TRX of the 2026-09-05 23:04
+    ///         run, in <c>artifacts/test-results</c>: elapsed <b>498.3 s</b>, summed per-assembly
+    ///         wall 1 955.8 s, 34 213 tests, and the longest assembly starts at t=0.1 s and is
+    ///         <b>329.5 s</b> — it finishes 169 s before the run does. 1 955.8 / 4 = 488.9 s against
+    ///         an actual 498.3 s, a schedule packed to within 2 %. ⚠ That 2 % is now confirmed on
+    ///         <em>two</em> runs rather than one, which is what the measurement most needed: the
+    ///         same arithmetic over the superseded 2026-09-05 sweep read 2 189.2 / 4 = 547.3 s
+    ///         against 556.8 s.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Which changes what is worth doing next.</b> With the queue full and the long
     ///         pole first, elapsed is very nearly summed wall over <see cref="Workers" />: anything
     ///         that removes <i>summed</i> wall — per-assembly host overhead (#560), a slow lane
-    ///         (#558) — is now worth about a quarter of itself in elapsed, and anything that only
+    ///         (#558) — is worth about a quarter of itself in elapsed, and anything that only
     ///         reorders is worth nothing. Raising this number is the other lever, and it is the one
-    ///         that costs the machine; whether a laptop running several agent worktrees can afford
-    ///         it is not a question these numbers answer.
+    ///         that costs the machine; see the last two paragraphs for what it is worth now.
     ///     </para>
     ///     <para>
-    ///         <b>Measured again after the cap landed</b>, from the 178 TRX of the 2026-09-05 sweep
-    ///         — the run's own interval arithmetic rather than a stopwatch, so it is reproducible
-    ///         from committed artefacts. Per-assembly wall sums to 2 189 s; the window from the
-    ///         earliest start to the latest finish is 557 s; the longest assembly is
-    ///         <c>Vixen.Editor.App.Tests</c> at 412 s. That is a speed-up of <b>3.93×</b> against a
-    ///         cap of four — 98% of the ideal — and the optimal four-lane packing of those same
-    ///         durations is 548 s, so the cap loses about nine seconds to scheduling and nothing to
-    ///         anything else.
+    ///         <b>Measured again after the cap landed</b>, from the 178 TRX of the 2026-09-05 23:04
+    ///         run — the run's own interval arithmetic rather than a stopwatch, so it is
+    ///         reproducible from committed artefacts. Per-assembly wall sums to 1 956 s; the window
+    ///         from the earliest start to the latest finish is 498 s; the longest assembly is
+    ///         <c>Vixen.Editor.App.Tests</c> at 330 s. That is a speed-up of <b>3.93×</b> against a
+    ///         cap of four — 98% of the ideal — and a greedy four-lane packing of those same
+    ///         durations is 490 s, so the cap loses about eight seconds to scheduling and nothing to
+    ///         anything else. ⚠ The same three numbers off the superseded sweep were 2 189 / 557 /
+    ///         412 and the same 3.93×, which is the point of quoting a ratio rather than a wall.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Peak concurrency observed in those intervals is exactly four, and checking that
@@ -85,13 +88,15 @@ partial class Build : NukeBuild {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And it says four is not the interesting number: six is.</b> The makespan floor
-    ///         is <c>max(longest, work / W)</c>, and on this tree it bottoms out at the 412 s of the
-    ///         single longest assembly from <b>W = 6</b> upward — 730 s at three, 548 at four, 438
-    ///         at five, 412 from six to unbounded. So raising the cap past six cannot buy a second,
-    ///         and raising it from four buys at most 145 s. ⚠ The estimate this paragraph replaces
-    ///         said "about five minutes"; on the tree as it stands it is under two and a half, and
-    ///         it shrinks every time that one assembly does. Whatever makes
-    ///         <c>Vixen.Editor.App.Tests</c> quicker is worth more than any value of this parameter.
+    ///         is <c>max(longest, work / W)</c>, and on this tree it bottoms out at the 330 s of the
+    ///         single longest assembly from <b>W = 6</b> upward — 652 s at three, 489 at four, 391
+    ///         at five, 330 from six to unbounded. So raising the cap past six cannot buy a second,
+    ///         and raising it from four buys at most 160 s. ⚠ The estimate this paragraph replaces
+    ///         said "about five minutes", and the one before that "about 145 s"; the number moves
+    ///         every time <c>Vixen.Editor.App.Tests</c> does, and it has halved twice. Six stays the
+    ///         knee because the knee is <em>that assembly against the total</em>, not a property of
+    ///         the machine — and whatever makes it quicker still raises the ceiling on what any
+    ///         value of this parameter can buy.
     ///     </para>
     ///     <para>
     ///         <b>Four locally, unbounded in CI.</b> A CI leg has the machine to itself and there is

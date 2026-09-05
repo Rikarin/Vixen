@@ -84,7 +84,7 @@ item, and `CheckAttribution` is ADR-015's enforcement.
 | `CheckFormat` | four passes, cheapest first: the SPDX licence header on every file, `CheckAttributionManifest`, `CheckWhitespaceFormatting`, and then `dotnet format style` and `dotnet format analyzers` with `--verify-no-changes`. ⚠️ **This row used to say the whitespace pass was refused outright.** It is not: the lambda-indentation argument that refused it covers 551 files out of 4 842, and using it to skip the other 4 291 left mis-indentation ungated everywhere. `docs/WhitespaceExempt.txt` carries the exceptions and may only shrink, so a file that becomes clean fails until its line is removed |
 | `CheckWhitespace` / `CheckAttribution` / `CheckStrings` | the three of those passes that are also targets of their own, so each can be run — and watched failing — without the two minute-long `dotnet format` passes. `CheckStrings` fails on a declared string id used nowhere and on a call site that rebuilds an id a declaration class already declares; it is what caught the untranslatable Undo menu item. `CheckAttribution` is ADR-015's enforcement over `docs/manual/third-party.md`. `--update-exemptions` rewrites the whitespace list, and the diff is worth reading: a commit that grows it added mis-indented code |
 | `Test` | xunit v3 over every test project, and the allocation gates run inside it as ordinary tests. Passes `.runsettings`, which exists solely to set environment that has to be in place *before* the process starts (see below). ⚠️ **Collects no coverage and enforces no floor, and this row used to say it did both** — the collector lives in the separate `Coverage` target, which reports and does not gate; § Coverage below says why the floor is refused rather than owed |
-| `TestOrder` | prints the order `Test` starts the 178 assemblies in, which is longest first out of `build/test-cost.txt`; `--update-test-cost` rewrites that list from the last run's TRX `Times`. ⚠️ **What used to decide the order was `Vixen.slnx`**, and a solution build of a custom target walks each project's dependencies first — so the assembly referencing the most of the tree was dispatched last, and that assembly is for the same reason the slowest one. `Test` hands MSBuild a generated flat traversal project instead. Measured on the 2026-09-05 runs either side of the change: elapsed 873.3 s → **677.5 s**, with `Vixen.Editor.App.Tests` moving from a 218.4 s start to 0.2 s. The run is now its longest single assembly and cannot be shortened by scheduling at all ([#592](https://github.com/Rikarin/Vixen/issues/592), then [#557](https://github.com/Rikarin/Vixen/issues/557)) |
+| `TestOrder` | prints the order `Test` starts the 178 assemblies in, which is longest first out of `build/test-cost.txt`; `--update-test-cost` rewrites that list from the last run's TRX `Times`. ⚠️ **What used to decide the order was `Vixen.slnx`**, and a solution build of a custom target walks each project's dependencies first — so the assembly referencing the most of the tree was dispatched last, and that assembly is for the same reason the slowest one. `Test` hands MSBuild a generated flat traversal project instead. Measured on the 2026-09-05 runs either side of the change: elapsed 873.3 s → **677.5 s**, with `Vixen.Editor.App.Tests` moving from a 218.4 s start to 0.2 s ([#592](https://github.com/Rikarin/Vixen/issues/592), then [#557](https://github.com/Rikarin/Vixen/issues/557)). ⚠️ **This row used to end "the run is now its longest single assembly and cannot be shortened by scheduling at all", and that expired when #557 halved that assembly** — 655.0 s → **329.5 s** against a 498.3 s run in the 2026-09-05 23:04 TRX, so 169 s of the run happens after it finishes and greedy LPT bottoms out at six workers rather than at four. The cost list itself was the last thing holding the old conclusion up: it still said 655.0, and a schedule input wrong by 2× is wrong in the direction that makes the run look unfixable |
 | `Coverage` | reports line coverage of each test project against its own subject assembly and gates on nothing but its own instrument; not in CI. `--coverage-project <substring>` narrows it. § Coverage below says why the floor is refused rather than owed |
 | `CheckDocsCoverage` | the half of `CheckDocs` that builds nothing: fails when a type in a `PublicAPI` baseline has no guide page and no `docs/DocsExempt.txt` line. Reachable alone precisely because `CheckDocs` costs a Release build of the solution first |
 | `PruneWorktrees` | reports the agent worktrees under `.claude/worktrees` that are **merged into master, clean, unlocked and unwritten for `--idle-minutes`** (30), and with `--remove-merged` removes those and only those. ⚠️ **The fourth condition is the only one about the worker rather than the work** ([#770](https://github.com/Rikarin/Vixen/issues/770)): the lock is what "somebody is still using this" is read off, and two of thirteen live agent worktrees carried none on 2026-09-05 — while merged-and-clean is precisely the state a live agent is in between the orchestrator merging its branch and its own process ending. The signal is the newest write anywhere under the worktree, free because the size report already walks every file; the pid in the lock reason is deliberately not consulted, since a recycled pid is a worse oracle than a missing lock and there is no lock to read one out of in the case this is about. ⚠️ The ordering hazard is that merge-then-prune now reports those worktrees as `keep` for up to the window — which costs a sweep and not the disk, since #561's worktrees had been held for days — and `--idle-minutes 0` restores the three-condition behaviour exactly. ⚠️ **Nothing else in the repository reclaims that disk**: on 2026-09-04 it was 105 GB of a 132 GB tree, ~25 GB per worktree, three of them merged and clean for days. ⚠️ It enumerates *directory entries* and not `git worktree list`, because one 3.8 GB directory in there was not a registered worktree at all — and git run from inside such a directory answers about the parent repository, so it reported itself clean and on master while being neither. Those are warned about and never removed. Removal is `git worktree remove`, so git's own dirtiness refusal stays behind the filter rather than being replaced by it. Not on the graph and never in CI: it deletes checkouts, so it is a target somebody types on purpose ([#561](https://github.com/Rikarin/Vixen/issues/561)) |
@@ -280,13 +280,25 @@ files.
   a type you own and can construct** — a mocked `Signal<T>` or mocked `LayoutStore` tests the mock.
 - ⚠️ **Proposed, and implemented by nothing** — traits for filtering:
   `[Trait("Category","Unit|Integration|Golden|Perf|Platform")]`. `Trait(` appears in **zero** of the
-  4 992 tracked `.cs` files (searched with `git grep -a`, so a NUL byte in a literal cannot be hiding
+  5 201 tracked `.cs` files (searched with `git grep -a`, so a NUL byte in a literal cannot be hiding
   one); no test in this repository has ever carried a trait of any kind. It is listed among the
   conventions above, which read as *in force*, and it is not one — which is why it is marked here
   rather than left to be discovered by somebody writing `--filter Category=Unit` and getting an empty
   run. Whether it arrives at all is [#558](https://github.com/Rikarin/Vixen/issues/558)'s open
   question: a speed lane wants a way to name the slow tests, and a tag every author has to remember
   is a gate nothing enforces unless something enforces it per assembly.
+  ⚠️ **What the threshold would be is arithmetic rather than taste, which nobody had checked.** Model
+  a `Speed!=Slow` lane by scaling each assembly's wall by the fraction of its test CPU that survives,
+  over the 178 TRX of the 2026-09-05 23:04 run: at a **10 s** per-method threshold the lane is
+  **316 s** against the full run's 498.3 s — 62 methods tagged, 1 542 s of the 2 982 s of test CPU
+  removed — and at 5 s it is still 316 s. Below 10 s the lane buys nothing further because
+  `Vixen.Editor.App.Tests` bounds it: that assembly holds **13.3 s** of slow methods, 4.1% of its own
+  CPU, so it survives the lane almost whole at 316 s while the next assembly finishes at 72 s. ⚠️ So
+  the old floor argument is wrong about the full run and exactly right about the lane, and the answer
+  it gives is "yes, and 10 s". Raising the threshold is what costs: 20 s gives 342 s and 30 s gives
+  411 s. ⚠️ Also worth knowing before anyone budgets on it: 'summed wall removed converts to elapsed
+  at about a quarter' over-promises here by about 2× (1 542 / 4 = 385 s against a measured 182 s),
+  because the makespan stops falling once it reaches the longest surviving assembly.
   ⚠️ It does **not** contradict the refusal 160 lines above. What that paragraph refuses is the *Nuke
   switch* `--filter <test-trait>` ([#340](https://github.com/Rikarin/Vixen/issues/340)), and the
   replacement it names — a direct `dotnet test --filter` — is exactly what would consume a trait.
@@ -308,6 +320,21 @@ files.
   whichever finished last. The build still fails on a red test — the exit code does not go through
   the file — but the report a human opens to find out *which* test is the entire point of producing
   one.
+  ⚠️ **Both bullets are what [#560](https://github.com/Rikarin/Vixen/issues/560) — dropping VSTest for
+  Microsoft.Testing.Platform — has to replace, and three things about that were measured on
+  2026-09-06 rather than assumed.** (1) MTP's TRX **does** carry `<ResultSummary outcome>` and
+  `<Times>` in VSTest's shape, so `TestOrder --update-test-cost`, `AffectedTests` and this
+  repository's read-the-outcome-not-the-counters rule all survive — probed with xunit.v3 3.2.2 plus
+  the extension and one deliberately failing test, which wrote `ResultSummary outcome="Failed"`.
+  (2) ⚠️ The TRX writer is a **separate package this tree has never referenced**,
+  `Microsoft.Testing.Extensions.TrxReport`, so the migration owes 178 `PackageReference` *additions*
+  and not only the 178 removals of `xunit.runner.visualstudio`. (3) ⚠️ Its current release **2.0.0 is
+  incompatible with xunit.v3 3.2.2** and NuGet resolves to it by default: the host dies before
+  running anything with `TypeLoadException: Could not load type
+  'Microsoft.Testing.Platform.Extensions.TestHost.IDataConsumer' from assembly
+  'Microsoft.Testing.Platform, Version=2.0.0.0'`, because xunit.v3 binds the 1.x platform. It must be
+  pinned to 1.x. And MTP names the file `_<machine>_<timestamp>.trx`, so the per-project name is
+  `--report-trx-filename` per project rather than one property.
 
 ### Coverage, reported and not gated
 
