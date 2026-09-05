@@ -34,6 +34,7 @@ public abstract partial class RangeBase : Control {
     int trackColor;
     int fillColor;
     int thumbColor;
+    int thumbBorderColor;
     int thumbSize;
 
     /// <summary>The bottom of the range.</summary>
@@ -55,6 +56,7 @@ public abstract partial class RangeBase : Control {
         trackColor = Document.PropertyId("--track-color");
         fillColor = Document.PropertyId("--fill-color");
         thumbColor = Document.PropertyId("--thumb-color");
+        thumbBorderColor = Document.PropertyId("--thumb-border-color");
         thumbSize = Document.PropertyId("--thumb-size");
 
         // The starting axis, so that `.horizontal` selects the default rather than only the one
@@ -186,11 +188,40 @@ public abstract partial class RangeBase : Control {
     /// <summary>A thumb's colour.</summary>
     protected Color4 ThumbColor => Document.ColorOf(Style, thumbColor) ?? Document.ForegroundOf(this);
 
+    /// <summary>The ring drawn just inside a thumb's edge. Transparent draws none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A thumb is the one part of a control the user has to <i>find</i> before it can be
+    ///         used, and a fill alone cannot promise that.</b> The light palette's
+    ///         <c>--thumb-color</c> is <c>#ffffff</c> and its <c>--surface</c> is <c>#ffffff</c>, so
+    ///         a slider at its minimum drew a white disc on white paper and had no visible thumb at
+    ///         all — the fill was legible only where it happened to overlap
+    ///         <see cref="FillColor" />. See <c>ControlTheme.vcss</c>, which is where the ring's
+    ///         colour is decided.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Its own token rather than <c>--border</c>, and that is the whole judgement.</b>
+    ///         <c>--border</c> separates two surfaces that are already next to each other; at the
+    ///         light palette's <c>#d8dbe0</c> it is 1.4:1 against the surface, which is nowhere near
+    ///         the 3:1 WCAG asks of the boundary of a control somebody has to grab. A theme that
+    ///         wants the old look back sets this to <c>transparent</c> and pays no draw command for
+    ///         it.
+    ///     </para>
+    /// </remarks>
+    protected Color4 ThumbBorderColor => Document.ColorOf(Style, thumbBorderColor) ?? default;
+
     /// <summary>Draws the unfilled strip.</summary>
     protected void DrawTrack(DrawContext context, Rectangle rail) =>
         context.FillRectangle(rail, TrackColor, Thickness(rail) * 0.5f);
 
+    /// <summary>How wide a thumb's ring is. One pixel, which is what every other border here is.</summary>
+    const float ThumbBorderWidth = 1f;
+
     /// <summary>Draws a thumb centred on a point of the rail.</summary>
+    /// <remarks>
+    ///     Fill then ring, so the ring is the outline of the disc rather than a band under it. See
+    ///     <see cref="ThumbBorderColor" /> for why a thumb has one at all.
+    /// </remarks>
     protected void DrawThumb(DrawContext context, Rectangle rail, float fraction) {
         var size = ThumbSize;
 
@@ -209,6 +240,14 @@ public abstract partial class RangeBase : Control {
             );
 
         context.FillRectangle(box, ThumbColor, size * 0.5f);
+
+        var ring = ThumbBorderColor;
+
+        // A theme that set nothing, or set `transparent`, costs no command rather than an invisible
+        // one — the same test `DrawContext.Styled` applies to a box style nobody filled in.
+        if (ring.A > 0f) {
+            context.StrokeRectangle(box, ring, ThumbBorderWidth, BoxStyle.Rounded(CornerRadii.Uniform(size * 0.5f)));
+        }
     }
 
     /// <summary>Where along the rail a document-space point falls, as zero to one.</summary>
