@@ -133,9 +133,22 @@ BenchmarkDotNet's own `HostEnvironmentInfo`, plus the commit and the moment — 
 indistinguishable from a guess within a month, and this file is asked to be a gate. The comparison
 reads the processor back out, which is what makes the paragraph above enforceable rather than advisory.
 
+⚠️ **And the route to that baseline was broken, in a way only running the target could show.**
+`Benchmark` built BenchmarkDotNet's command line as one interpolated string and handed it to
+`SetApplicationArguments`. Nuke quotes *each element* of that list — every other `DotNetRun` in
+`build/` passes a `List<string>`, and `Build.ContentBytes.cs` says so in a comment — so the whole line
+arrived as a single argv entry, `-- "--filter * --artifacts … --exporters json"`. Measured against
+BenchmarkDotNet 0.15.8's own `ConfigParser`: that argv parses **false** and the element-per-argument
+form parses **true**. So the target would have run no benchmark at all, and
+`--update-baseline` would have failed with *"no reports to write a baseline from"* — a message naming
+the symptom and not the cause. Five rounds of this issue recorded the baseline as blocked on hardware;
+it was also blocked on this.
+
 **Still owed** ([#339](https://github.com/Rikarin/Vixen/issues/339)): the baseline itself, taken on
-hardware that will run the suite again; and the `benchmark` CI job, which has to follow it — a job
-added first would fail every pull request for want of the file it compares against.
+hardware that will run the suite again — and now, first, one real `Benchmark` run to confirm the
+arguments reach BenchmarkDotNet end to end, which needs `build.sh`; and the `benchmark` CI job, which
+has to follow it — a job added first would fail every pull request for want of the file it compares
+against.
 
 ## NuGet package layout
 

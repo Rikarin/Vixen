@@ -55,8 +55,28 @@ partial class Build {
                 foreach (var project in projects) {
                     Log.Information("Benchmarking {Project}", project.NameWithoutExtension);
 
-                    var arguments = $"--filter {BenchmarkFilter} --artifacts \"{BenchmarkResultsDirectory}\" --exporters json"
-                        + (Short ? " --job short" : string.Empty);
+                    // ⚠ A list and not one string, which is what every other DotNetRun in build/
+                    // does and what this one did not. Nuke quotes each element of
+                    // ApplicationArguments, so a whole command line in one element reaches the
+                    // process as ONE argv entry — `-- "--filter * --artifacts ... --exporters json"`
+                    // — and BenchmarkDotNet's own ConfigParser refuses it, prints its help screen
+                    // and runs nothing. Measured against ConfigParser 0.15.8: the blob parses false
+                    // and this form parses true. It is invisible until somebody runs the target,
+                    // which nobody had: `--update-baseline` would have failed with "no reports to
+                    // write a baseline from", naming the symptom and not this.
+                    var arguments = new List<string> {
+                        "--filter",
+                        BenchmarkFilter,
+                        "--artifacts",
+                        BenchmarkResultsDirectory,
+                        "--exporters",
+                        "json"
+                    };
+
+                    if (Short) {
+                        arguments.Add("--job");
+                        arguments.Add("short");
+                    }
 
                     DotNetRun(settings => settings
                         .SetProjectFile(project)
