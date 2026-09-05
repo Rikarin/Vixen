@@ -8,11 +8,11 @@ test, package, or release — CI calls the same targets a developer calls, so "w
 
 ### Target graph
 
-The thirty-three targets, by what they depend on. Only the `DependsOn` edges are drawn; a target with
+The thirty-eight targets, by what they depend on. Only the `DependsOn` edges are drawn; a target with
 no edge into it is reachable on its own, which most of the checks deliberately are.
 
 ```
-Restore ──┬─► Compile ────────┬─► Test ──┬─► Pack
+Restore ──┬─► Compile ────────┬─► Test ──┬─► Pack ──► CheckTemplates
           │                   │          └─► PublishEditor
           │                   ├─► GoldenImages
           │                   ├─► ContentBytes
@@ -80,6 +80,7 @@ item, and `CheckAttribution` is ADR-015's enforcement.
 | `CheckAot` / `CheckAotIos` | `PublishAot` + `PublishTrimmed` of a probe that roots the runtime assemblies; **any IL2xxx/IL3xxx warning fails**. ⚠️ **Two targets and not one `AotSmoke`**, because iOS is the NativeAOT-only platform and `CheckAotIos` `.Requires` macOS — a single target would have been silently half a gate on every other runner. ⚠️ The probe roots 29 of 95 runtime assemblies rather than all of them ([#506](https://github.com/Rikarin/Vixen/issues/506)) |
 | `Benchmark` | BenchmarkDotNet over `Benchmarks/*`, then judged against `Benchmarks/baseline.json`: **any** allocation growth fails, a mean more than 10 % above the baseline fails only under `--gate-timing`, and a benchmark that is in the baseline and did not run fails too. ⚠️ **There is no committed baseline yet, and the target therefore fails rather than passing** — a comparison with nothing to compare against is the shape of a gate that did not run, and this row described one for as long as it had described anything. `--update-baseline` writes the file, stamped with the machine, the runtime, the BenchmarkDotNet version and the commit out of BenchmarkDotNet's own `HostEnvironmentInfo`; `--report-only` asks for numbers without a verdict. The comparison alone, over whatever is already in `artifacts/benchmarks`, is `CheckBenchmarks` |
 | `Pack` | produces every NuGet package, then opens every one of them. Four checks, each written from a failure that had already happened or from an obligation that cannot be satisfied by memory: `CheckApacheObligations` asserts the Apache-2.0 licence expression in each manifest and a non-empty `NOTICE` at its root (ADR-015); `CheckPackedToolsAreComplete` is the **expected-files manifest** this row asks for — ⚠️ **the manifest is the tool's own `.deps.json`**, so every assembly in the closure and every `runtimes/<rid>/native/` payload it names has to be in the package, and nothing is hand-maintained (`build/PackageContents.cs`); `CheckStyleGenIsShippable` names the five files `Vixen.Ui.Styling.Utilities` must carry for its `tools/` to start; `CheckCliIsShippable` extracts `Vixen.Sdk` and **runs** the CLI out of it. All four are reachable alone as `CheckPackages`, over whatever is already in `artifacts/packages` — an instrument nobody can run alone is one nobody has watched fail. Still owed: `PackageValidation` ([#337](https://github.com/Rikarin/Vixen/issues/337)) |
+| `CheckTemplates` | ✅ scaffolds every `dotnet new` template from the feed `Pack` just wrote, into a directory outside the repository, with an **empty package cache**, and builds each one. On the `pack` leg, in the same invocation as `Pack` — a second invocation would clean the feed it consumes. ⚠️ **The assertion that carries this target is the negative control, not the six builds**: a scaffolded project restores perfectly well outside the repository on any machine that has ever run `Pack`, because ~57 `Vixen.*` packages are sitting in the global NuGet cache, so "it restored" is a statement about the cache. The target therefore first requires a restore to **fail** with the feed unwired, and refuses to continue if it succeeds. Source mapping pins `Vixen.*` to the local feed so a package this build failed to produce cannot be supplied by a published one. Still owed on [#114](https://github.com/Rikarin/Vixen/issues/114): the Android, iOS and Web *platform* heads, which need workloads no desktop leg has |
 | `PublishEditor` | per-RID single-file publish of `Vixen.Editor.App`; `.app` bundle + `.dmg` on macOS, AppImage on Linux, MSI/zip on Windows |
 | ~~`Sign` / `Notarize`~~ | ⚠️ **Not built.** codesign + notarytool on macOS and Authenticode on Windows are still what a signed editor build needs; nothing in `build/` does either, and `PublishEditor` produces an unsigned bundle |
 | `Docs` | ⚠️ **Superseded by [25](25-documentation-generator-and-site.md)**: `Vixen.DocGen` over Roslyn source symbols + `docs/guide`, built into the Angular site in `www/` and shipped as an nginx image of static assets. `CheckDocs` is its gate — coverage, links and compiled examples — and sits beside `CheckApi` |
@@ -298,28 +299,48 @@ same document carries `Vixen.Core` at 0.1 % — a figure that describes neither 
 whenever an unrelated dependency grows. A "per-project coverage" table built from a document's own
 `line-rate` would be that second number.
 
-**The first of the three places is now an executable claim rather than a number.** ✅
-`Vixen.Ecs.Tests.QueryAritySurfaceTests` drives every arity of the generated query surface and checks
-the arithmetic it leaves behind. ⚠️ **What made it worth writing is what the grep found**:
-`QueryArityGenerator` emits **256** methods — four description builders and four iteration families,
-sixteen arities each — and the whole tree called **ten** of them. `Query` at arities 1, 2 and 4,
-`QueryWithEntity` and `ForEach` at arity 1, `WithAll` at 1, 2 and 4, `WithAny` at 2, `WithNone` at 1 —
-and `ForEachWithEntity`, all sixteen arities of it, by nothing at all. A coverage percentage would
-have reported that as one number against `Vixen.Ecs` and left the reader to guess which lines it was
-about.
+**And where "is this line reached" is a real question, the answer is a test.** ✅ The first of the
+three places ([#338](https://github.com/Rikarin/Vixen/issues/338)) is done, and it is the worked
+example of the shape: the generated ECS query surface, driven rather than counted, by
+`Vixen.Ecs.Tests/QueryAritySurfaceTests` and `Vixen.Ecs.Tests/QueryAritySweepTests`.
 
-The claim is a drive and a census together, because either alone is green on the day it stops
-measuring: the drive runs all sixty-four iteration methods and all sixty-four builders over three
-entities and asserts a closed form — slot *i* is a column of every arity above *i*, in each of four
-families, so it ends worth `seed + i + 4 × (16 − i)` — and the census asserts by reflection that the
-generator emits **no arity beyond** the ones the drive covers, so raising `MaxArity` without extending
-the drive fails rather than silently leaving the new arities untouched. Sabotage-proved both ways: a
-row offset made wrong only above arity 4 fails the drive and **nothing else in the 127-test suite**,
-which is the measurement of the gap; raising `MaxArity` to 17 fails the census.
+⚠️ **What made it worth writing is what the grep found, from both ends.** `QueryArityGenerator`
+emits sixteen arities of four description builders and four iteration families — "roughly two
+thousand lines of code whose only variable is a number", as its own remarks put it — which is
+**128 callable methods** (sixty-four builders, sixty-four iteration methods) beside thirty-two
+delegates and thirty-two visitor interfaces. Across `Core`, `Samples`, `Editor`, `Platform` and
+`Tools` the tree called **ten** of them: `Query` at arities 1, 2 and 4, `QueryWithEntity` and
+`ForEach` at arity 1, `WithAll` at 1, 2 and 4, `WithAny` at 2, `WithNone` at 1 — and
+`ForEachWithEntity`, all sixteen arities of it, by nothing at all. Narrow the grep to the suite that
+is supposed to be testing this and the number is **one**: `ForEach<SumHealth, Health>`, in
+`QueryTests`. A transposed index at arity nine would have been found by a game, months later. A
+coverage percentage would have reported all of that as one number against `Vixen.Ecs` and left the
+reader to guess which lines it was about.
 
-Still owed, and deliberately not attempted here: the same treatment for the other two places
-([#338](https://github.com/Rikarin/Vixen/issues/338)) — the serializers and the cascade. ⚠️ Whatever
-lands there should not be a percentage either: the shape that survives this section's own argument is
+The claim is a **drive and a census together**, because either alone is green on the day it stops
+measuring. The drive runs all sixty-four iteration methods and all sixty-four builders over three
+entities — three and not one, because with a single row every offset into the chunk is zero and a
+loop that walked the same row *n* times would leave the arithmetic exactly right — and asserts a
+closed form: slot *i* is a column of every arity above *i*, in each of four families, so it ends
+worth `seed + i + 4 × (16 − i)`. The census comes in two forms, and they are complementary rather
+than duplicate: one asserts by reflection that the generator emits **no arity beyond** the ones the
+drive covers, so raising `MaxArity` without extending the drive fails rather than silently leaving
+the new arities untouched; the other reads the test assembly's own IL back and fails **naming any
+generated member nothing calls**, so the claim survives a fifth family arriving as well.
+
+⚠️ **Three sabotages, and the first one is the lesson.** Transposing a column into the wrong
+parameter *does not compile* — the generated `Values<T{i}>()` is type-checked, so the failure mode
+everyone fears is the one the compiler already owns, and an attempt to prove these tests that way
+proves nothing. ⚠ A build error is not a red test. The ones that compile are arithmetic: a row
+offset made wrong only above arity 4 fails the drive and **nothing else in the suite** — 127 other
+tests at the time it was measured, and that silence is the measurement of the gap; pinning the column offset to zero (every entity handed the
+first entity's components) and pinning the entity reference (the handle stops advancing beside the
+columns) each go red naming the entity they were given — which is why every component in the sweep
+knows which entity it belongs to. Raising `MaxArity` to 17 fails the census.
+
+Still owed, and deliberately not attempted here: the same treatment for **the serializers and the
+cascade** ([#338](https://github.com/Rikarin/Vixen/issues/338)). ⚠️ Whatever lands there should
+almost certainly not be a percentage either: the shape that survives this section's own argument is
 an executable claim that a named path is exercised, which is a test, not a threshold.
 
 ### Coverage of the pyramid
