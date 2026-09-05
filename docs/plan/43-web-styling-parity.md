@@ -278,9 +278,9 @@ maths and not the layout — it was the *census*:
 | 3 | `UiBox.frag.spv` / `UiBox.reflect.json` | the whole layout | `UiShapeLayoutTests`, `CheckShaders` |
 | 4 | `SoftwareUiRasterizer` | the whole layout | the UI suite's own pixel tests |
 | 5 | **`UiRenderer`** | only the **size**, spelled `80` three times | `Vixen.Graphics.Golden.Tests` |
-| 6 | **`Platform/Vixen.Graphics.Golden.Tests/Shaders/ui-box.frag`** | the whole layout, in GLSL | itself |
-| 7 | **`Samples/02-HelloUi/Shaders/ui-box.frag`** | ditto | nothing |
-| 8 | **`Tools/Vixen.Templates/.../Shaders/ui-box.frag`** | ditto | nothing |
+| 6 | **`Platform/Vixen.Graphics.Golden.Tests/Shaders/ui-box.frag`** | the whole layout, in GLSL | `UiShapeLayoutTests` (2026-09-05), and itself on a device |
+| 7 | ~~`Samples/02-HelloUi/Shaders/ui-box.frag`~~ | — | **gone** |
+| 8 | ~~`Tools/Vixen.Templates/.../Shaders/ui-box.frag`~~ | — | **gone** |
 
 Five, six, seven and eight are invisible to a search for the type: number five spells the literal
 `80` and mentions no type at all, and the three GLSL copies call the struct `Shape`. The host wrote
@@ -291,12 +291,26 @@ with the wrong radii, which is the failure `UiShape`'s remark predicts almost wo
 ⚠ **What actually caught it was `Vixen.Graphics.Golden.Tests` on a real device, not either new test.**
 `UiShapeLayoutTests` pins the record's *shape* against the shader's reflection and has nothing to say
 about how a host sizes a buffer around it; `CheckShaders` compiles Raven and the GLSL copies are not
-Raven. Nothing compiles those three `.frag` files, and nothing should be made to — `TestShaders.cs`
+Raven. Nothing compiles those `.frag` files, and nothing should be made to — `TestShaders.cs`
 records the decision not to require `glslc` on every CI leg. `UiRenderer` now derives its stride from
-`Marshal.SizeOf<UiShape>()`, which removes number five from the list permanently; six, seven and eight
-remain, and the honest answer to them is
-[`Core/Vixen.Ui.Renderer/README.md`](../../Core/Vixen.Ui.Renderer/README.md)'s standing point that
-three hand-maintained copies of one shader is not a design anybody chose.
+`Marshal.SizeOf<UiShape>()`, which removes number five from the list permanently.
+
+⚠ **Three of the eight are gone and the last GLSL copy is measured now (2026-09-05, #286).** Seven
+and eight were deleted — the sample and the `vixen-app` template draw through
+`Vixen.Ui.Desktop.UiShaderLibrary` and carry no shaders at all — and number six is kept on purpose,
+because the reference images beside it were rendered with it. What closes the gap for it is not a
+compiler: `UiShapeLayoutTests.The_one_hand_written_GLSL_copy_declares_the_same_record` **parses** its
+`struct Shape` and holds the lanes to `UiShape`'s, in order and by type, so a lane added on one side
+is a red test on a laptop rather than a wrong picture caught on a device. ⚠ Compiling it was never
+the property to test for anyway — desktop GLSL forgives what `#version 300 es` rejects, and a file
+that compiles can still disagree with the record it indexes, which is precisely what happened.
+
+⚠ **What is still uncovered, and no text comparison can reach it:** nothing compares that GLSL with
+the Raven every application draws through. They are two implementations of one specification in two
+languages, so the only real check is a golden image rendered through each — which regenerates every
+reference image in the suite and belongs on its own. `SharedUiShaderTests` says so in its own remark,
+and `EveryRavenCopyAgreesAboutTheShadersItShares` covers the half that is comparable: every `Ui.rvn`
+in the tree, per shader rather than per file.
 
 ⚠ **`Gradient.rvn` and `RoundedRect.rvn` are not the shader to edit, and both look like it.**
 `Raven/Library/Ui/Gradient.rvn` already has radial and conic modes and a perceptual interpolation
