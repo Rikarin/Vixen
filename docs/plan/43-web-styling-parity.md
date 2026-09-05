@@ -3159,15 +3159,23 @@ wants none. Both rows now carry the measurement in the ledger, and the pair is t
 `object` expires on `Image.IntrinsicSize` and `object-*` expires with `object`.
 
 `contain` is refused for a related reason and a worse one: **there is no containment concept in the
-layout store at all**, and no vocabulary to express the interesting half. Size containment means a
-box sizes as if it had no contents — which needs intrinsic-size keywords the store does not
-implement. ⚠ **Correcting a claim made in passing during the container-query work:**
-`LayoutUnit.Stretch` is *not* an enum member nothing references — it is referenced by two generated
-Yoga fixtures and by `Vixen.YogaTestGen`. It is, however, unimplemented, and so are
-`LayoutUnit.MaxContent` and `LayoutUnit.FitContent`: `StyleLength.IsResolvable` admits only `Point`
-and `Percent`, and `Resolve` returns `NaN` for the other four. So those two fixtures pass with the
-keyword behaving as "undefined", which is a thing worth knowing before anybody builds on it. Three
-unimplemented sizing keywords is the prerequisite, and `contain` is behind them.
+layout store at all** — no property, no style slot, no branch — and no vocabulary to express the
+interesting half. Size containment means a box sizes as if it had no contents. ⚠ **Correcting a claim
+made in passing during the container-query work:** `LayoutUnit.Stretch` is *not* an enum member
+nothing references — `Tools/Vixen.YogaTestGen` emits it and two generated fixtures set it. It is one
+nothing *resolves*: `StyleLength.IsResolvable` admits only `Point` and `Percent`, so both fixtures
+pass with the keyword behaving as "undefined", and the two disagree about what it should mean
+(`Stretch_width` wants the containing block's width, `Stretch_flex_basis_column` wants its own
+content's height) — so resolving it closes one by opening the other.
+
+⚠ **And the paragraph that used to sit here said three keywords were unimplemented, which stopped
+being true when the intrinsic pre-pass landed.** `MinContent`, `MaxContent` and `FitContent` *are*
+resolved — `IsResolvable` is not the predicate that settles them, `StyleLength.IsContentBased` is,
+and `LayoutTree.Intrinsic.cs`'s whole-tree bottom-up pre-pass measures the node and substitutes a
+`Point` before the algorithm reads the slot. Reading a `NaN` out of `Resolve` as "unimplemented" is
+the mistake, and it is one this file made about its own store. **`Stretch` is the one left**, and
+`contain` is not behind it: containment is a concept the store does not have at all, which is a
+larger and separate item. This is also the layout half of the container-query coercion.
 
 ### Bucket 4 — the algorithm was never written. `columns`, the three `break-*`, `box-decoration-break`, `float`, `clear`.
 
