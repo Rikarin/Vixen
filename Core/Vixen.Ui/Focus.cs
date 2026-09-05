@@ -385,6 +385,77 @@ public sealed partial class UiDocument {
         }
     }
 
+    /// <summary>Moves the focus off an element that has just been hidden, and says where it lands.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Skipping a hidden element in <see cref="Collect(UiElement, List{UiElement})" /> fixed the walk and left the
+    ///         element that was <i>already focused</i> when it was hidden exactly where it was.</b>
+    ///         That is not a corner: it is what a pool does while somebody is typing. Panning a node
+    ///         canvas parks the <c>NodeItem</c> whose port box has the caret, and the caret stayed in
+    ///         it — a <c>display: none</c> element holding the keyboard, with <c>:focus-within</c>
+    ///         still lit on every ancestor and a screen reader announcing something nobody can see.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The next Tab was the visible half.</b> <see cref="MoveFocus(FocusDirection)" /> finds its place
+    ///         by <c>IndexOf(Focused)</c> in the order, and a hidden element is no longer in it — so
+    ///         the index was <c>-1</c> and Tab restarted from the top of the document. A user who
+    ///         panned a canvas and pressed Tab was thrown to the first control in the window, which
+    ///         reads as the focus having been lost rather than as a pool having tidied up.
+    ///     </para>
+    ///     <para>
+    ///         <b>To the nearest ancestor that can hold it, and only to nothing when there is
+    ///         none.</b> The web's answer here is the document body — focus is simply lost — and it
+    ///         is the wrong one for a pooled interface: the ancestor a parked element hangs from is
+    ///         the thing that parked it, and it is usually focusable itself. The canvas takes the
+    ///         keyboard back from its own port box, so the arrow keys keep working; a browser would
+    ///         have dropped the user out of the graph entirely.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Forced, so the leaving element cannot veto.</b> A focus veto is a control saying
+    ///         "not yet" about a move somebody asked for — a field with an invalid value refusing to
+    ///         be left. Nobody asked for this one, and an element that is no longer on the screen
+    ///         does not get to keep the keyboard by refusing to let go of it.
+    ///     </para>
+    /// </remarks>
+    void Reseat() {
+        if (Focused is not { } focused || Reachable(focused)) {
+            return;
+        }
+
+        for (var candidate = focused.Parent; candidate is not null; candidate = candidate.Parent) {
+            if (candidate.Focusable && Reachable(candidate)) {
+                Focus(candidate, force: true);
+                return;
+            }
+        }
+
+        Focus(null, force: true);
+    }
+
+    /// <summary>Whether the tab order can see an element, which is the rule <see cref="Collect(UiElement, List{UiElement})" /> walks.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Stated once and asked from both places, because two copies of this would drift.</b>
+    ///     <see cref="Collect(UiElement, List{UiElement})" /> expresses it as a descent — it returns early on an undisplayed
+    ///     element and never reaches the children — and this has to express the same rule as a climb,
+    ///     since it starts at the element and does not know what is above it. The asymmetry between
+    ///     the two hiding rules is why it cannot be one test: <c>display</c> takes the subtree with
+    ///     it and so is asked of every ancestor, <c>visibility</c> is inherited and a descendant may
+    ///     declare itself back, so it is asked of this element alone.
+    /// </remarks>
+    static bool Reachable(UiElement element) {
+        if (element.IsStyleHidden) {
+            return false;
+        }
+
+        for (var ancestor = element; ancestor is not null; ancestor = ancestor.Parent) {
+            if (ancestor.IsUndisplayed) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /// <summary>The innermost focus scope containing the focus, or the root.</summary>
     UiElement Scope() {
         for (var element = Focused; element is not null; element = element.Parent) {

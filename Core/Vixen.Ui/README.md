@@ -63,6 +63,27 @@ the keyboard.
 `:focus` and `:focus-within` are set on the style tree, so a focus ring is a stylesheet's business
 rather than a special case in the renderer.
 
+**A hidden element is not a stop, and one that had the focus when it was hidden does not keep it.**
+Those are two rules and the second was missing for as long as the first existed: `Collect` decides
+what is in the order at the moment somebody asks for the order, and nothing looked at the element the
+focus was already on. A pool parking a subtree the user is typing into left a `display: none` element
+holding the keyboard, `:focus-within` lit on every ancestor above it, and — the visible half —
+`MoveFocus` finding `IndexOf(Focused) == -1` and restarting Tab from the top of the document.
+`Reseat` runs after the settle, because the settle is where a pool parks things.
+
+⚠ **It hands the focus to the nearest ancestor that can hold it, and only to nothing when there is
+none.** The web's answer is the document body; for a pooled interface that is wrong, because the
+ancestor a parked element hangs from is the thing that parked it. A node canvas takes the keyboard
+back from its own port box instead of throwing the user out of the graph.
+
+⚠ **Forced, so the leaving element cannot veto.** A focus veto is a control saying "not yet" about a
+move somebody asked for. Nobody asked for this one, and an element no longer on the screen does not
+get to keep the keyboard by refusing to let go of it.
+
+`Reachable` states the same rule `Collect` walks, once, because two copies would drift: `display` is
+asked of every ancestor because it takes the subtree with it, `visibility` of the element alone
+because it inherits and a descendant may declare itself back.
+
 **A press that lands on nothing focusable takes the focus away.** Which control a press *gives* the
 focus to is that control's own decision — some decline it, a `NumericInput` being scrubbed among
 them — but the other half of the rule belongs to the document, because no control is in a position
