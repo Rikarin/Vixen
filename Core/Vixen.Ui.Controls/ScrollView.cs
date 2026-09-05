@@ -1051,6 +1051,11 @@ public sealed partial class ScrollView : Control {
         HorizontalBar.ContentSize = Content.Width;
         HorizontalBar.Value = ScrollLeft;
 
+        // ⚠ Before the clamp, because anchoring is what decides where the offset *should* be and
+        // the clamp is what keeps it reachable. Correcting after clamping would clamp against the
+        // old content size and then move away from the result.
+        Anchor();
+
         // The clamp has to run again here rather than only in the coercion, because the thing it
         // clamps against is the content's size — and that changes without anybody assigning to the
         // scroll offset at all.
@@ -1077,6 +1082,85 @@ public sealed partial class ScrollView : Control {
 
         ScrollTop = top;
         ScrollLeft = left;
+    }
+
+    UiElement? anchored;
+    float anchoredTop;
+
+    /// <summary>Keeps whatever the reader was looking at where it was, across a layout that grew.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>CSS Scroll Anchoring, and the defect it exists for is not a rare one.</b> A row
+    ///         inserted above the viewport, an image that finished loading and took its real height,
+    ///         a wrapped line that rewrapped when the window narrowed — every one of them moves the
+    ///         content the reader is looking at down the screen by the amount that appeared above it,
+    ///         while the scroll offset, which nobody touched, stays where it was. A log that appends
+    ///         at the top and a chat that loads older messages do it on every batch.
+    ///     </para>
+    ///     <para>
+    ///         <b>The anchor is the first child the viewport can see, and its position is measured in
+    ///         content space</b> — <c>Top</c> is relative to <see cref="Content" /> and the scroll is
+    ///         an <c>OffsetY</c> applied after layout, so the two are independent by construction and
+    ///         the difference between one frame's <c>Top</c> and the next's is exactly what grew
+    ///         above it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing is done at the very top, which is the rule browsers arrived at rather
+    ///         than an edge case.</b> A reader parked at offset zero is watching the top of the
+    ///         content, and content arriving above them is the thing they are there to see — pinning
+    ///         them to the old first row instead would make a live feed appear frozen while it filled
+    ///         up out of sight. Anchoring is what keeps a reader still; at zero, staying still means
+    ///         staying at zero.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And nothing is done while a gesture or an easing owns the offset</b>, on the
+    ///         snapping guard's terms one method up: both of those are already moving the view on
+    ///         purpose, and a correction added to a movement is a movement of the wrong size.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Vertical only, deliberately.</b> The horizontal anchor is a different element —
+    ///         the one nearest the left edge — so an implementation that reused this one and applied
+    ///         its delta to <see cref="ScrollLeft" /> would be correcting by a number measured on the
+    ///         wrong box. One axis that is right is worth more than two that are plausible, and the
+    ///         defect this is named after is a vertical one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>There is no <c>overflow-anchor</c> yet.</b> CSS's escape hatch for the case where
+    ///         a correction is itself the surprise — an element that resizes itself in response to
+    ///         being scrolled — is not spelled here, so a document that needs it has to move the
+    ///         offset back by hand.
+    ///     </para>
+    /// </remarks>
+    void Anchor() {
+        if (gesturing || IsScrolling) {
+            anchored = null;
+
+            return;
+        }
+
+        // ⚠ `Parent` and not a null check: an anchor whose element was removed from the content is
+        // still a live object with a stale `Top`, and correcting by the difference between a laid-out
+        // position and an orphan's leftover one moves the view somewhere nobody asked for.
+        if (anchored is { } previous && ReferenceEquals(previous.Parent, Content) && ScrollTop > 0f) {
+            var moved = previous.Top - anchoredTop;
+
+            if (moved != 0f) {
+                ScrollTop = CoerceTop(ScrollTop + moved);
+            }
+        }
+
+        anchored = null;
+
+        // Re-chosen against the offset as it is *now*, so the anchor a correction moved to is the one
+        // the next frame measures against.
+        foreach (var child in Content.Children) {
+            if (child.Top + child.Height > ScrollTop) {
+                anchored = child;
+                anchoredTop = child.Top;
+
+                break;
+            }
+        }
     }
 
     float CoerceTop(float value) => Math.Clamp(value, 0f, MaximumTop);
