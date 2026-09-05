@@ -196,7 +196,6 @@ public sealed class DrawListBuilder {
     /// </remarks>
     readonly int[] filterFunctions;
 
-    readonly int textAlign;
     readonly int direction;
     readonly int decorationLine;
     readonly int decorationColor;
@@ -211,10 +210,6 @@ public sealed class DrawListBuilder {
     readonly int keywordDotted;
     readonly int boxShadow;
     readonly int currentColor;
-    readonly int alignedCenter;
-    readonly int alignedLeft;
-    readonly int alignedRight;
-    readonly int alignedEnd;
     readonly int rtl;
 
     /// <summary>Creates a builder over a style engine's name tables.</summary>
@@ -388,7 +383,6 @@ public sealed class DrawListBuilder {
             keywords.Intern("hue-rotate")
         ];
 
-        textAlign = properties.Intern("text-align");
         direction = properties.Intern("direction");
 
         // ⚠ The four longhands and not `text-decoration`. ExCSS expands the shorthand while parsing,
@@ -425,10 +419,6 @@ public sealed class DrawListBuilder {
         // and a `currentcolor` that silently refuses the declaration instead of resolving it.
         currentColor = keywords.Intern("currentcolor");
 
-        alignedCenter = values.Intern("center");
-        alignedLeft = values.Intern("left");
-        alignedRight = values.Intern("right");
-        alignedEnd = values.Intern("end");
         this.rtl = values.Intern("rtl");
     }
 
@@ -2158,40 +2148,14 @@ public sealed class DrawListBuilder {
     ///         been cut off.
     ///     </para>
     /// </remarks>
-    float Indent(UiElement element, float slack) {
-        if (slack <= 0f) {
-            return 0f;
-        }
-
-        var mirrored = element.Style.TryGet(direction, out var flow) && flow == rtl;
-
-        // ⚠ <b>The initial value of `text-align` is `start`, and `start` is not the left.</b> Reading
-        // a miss as zero made every Arabic and Hebrew paragraph nobody had written a `text-align`
-        // for ragged down the *right* and flush against the left — which is the one thing an RTL
-        // interface must not do, and which no assertion about glyph order can see, because the
-        // glyphs inside each line were in the correct order the whole time.
-        if (!element.Style.TryGet(textAlign, out var alignment)) {
-            return mirrored ? slack : 0f;
-        }
-
-        // The physical keywords first, because they mean a side whatever the direction is — that is
-        // the whole difference between them and the logical ones.
-        if (alignment == alignedCenter) {
-            return slack * 0.5f;
-        }
-
-        if (alignment == alignedRight) {
-            return slack;
-        }
-
-        if (alignment == alignedLeft) {
-            return 0f;
-        }
-
-        // `start`, `end`, and anything unrecognised — which lands on the start edge, the same place
-        // an element with no `text-align` at all sits.
-        return mirrored != (alignment == alignedEnd) ? slack : 0f;
-    }
+    /// <remarks>
+    ///     ⚠ <b>The rule moved to <see cref="UiDocument.TextAlignShift" /> and this is now a caller
+    ///     of it.</b> The glyphs are not the only thing on the line: a caret, a selection band and a
+    ///     hit test have to land on the identical number, and while this owned the rule privately
+    ///     they could not read it — a wrapped RTL field drew its caret against the left edge of the
+    ///     block while the short line it belonged to sat flush against the right.
+    /// </remarks>
+    static float Indent(UiElement element, float slack) => element.Document.TextAlignShift(element, slack);
 
     /// <summary>Everything an element's <c>filter</c> asks for, in the three shapes a group can carry.</summary>
     /// <param name="Blur">The Gaussian's standard deviation in document pixels, or zero.</param>

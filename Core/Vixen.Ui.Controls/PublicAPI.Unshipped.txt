@@ -531,6 +531,7 @@ Vixen.Ui.Controls.RangeBase.Span(Vixen.Core.Mathematics.Rectangle rail, float fr
 Vixen.Ui.Controls.RangeBase.Step.get -> float
 Vixen.Ui.Controls.RangeBase.Step.set -> float
 Vixen.Ui.Controls.RangeBase.Thickness(Vixen.Core.Mathematics.Rectangle rail) -> float
+Vixen.Ui.Controls.RangeBase.ThumbBorderColor.get -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.Controls.RangeBase.ThumbColor.get -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.Controls.RangeBase.ThumbSize.get -> float
 Vixen.Ui.Controls.RangeBase.TrackColor.get -> Vixen.Core.Mathematics.Color4
@@ -1097,6 +1098,8 @@ static Vixen.Ui.Controls.ControlStrings.DialogConfirm.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.DockClose.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.DockNextTab.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.DockPreviousTab.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.GradientEditorAlphaStops.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.GradientEditorColorStops.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.GradientEditorOpacity.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.GradientEditorSpace.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.PaginationNext.get -> Vixen.Ui.StringId

@@ -64,6 +64,16 @@ root {
     --track-color: #e3e6eb;
     --fill-color: #3b6cf0;
     --thumb-color: #ffffff;
+
+    /* ⚠ Not `--border`, and the light palette is why: `--thumb-color` and `--surface` are the same
+       white, so before this token existed a slider at its minimum had no visible thumb at all — the
+       disc was legible only where it overlapped `--fill-color`. `--border` at #d8dbe0 would not have
+       fixed it either, at 1.4:1 against the surface; a control somebody has to find and grab wants
+       the 3:1 WCAG asks of a non-text boundary, and #7a7f88 is 4.0:1 against the surface and 3.2:1
+       against the track it sits on at the minimum. The dark palette needs none of this — #e8eaed on
+       #1b1d21 is already 14:1 — so its ring is the ordinary `--border` grey and reads as definition
+       rather than as rescue. `transparent` turns the ring off and costs no draw command. */
+    --thumb-border-color: #7a7f88;
     --thumb-size: 14px;
     --selection-color: #b8ccf8;
     --caret-color: #1c1f23;
@@ -85,6 +95,7 @@ root.dark {
     --track-color: #33373d;
     --fill-color: #5b87ff;
     --thumb-color: #e8eaed;
+    --thumb-border-color: #383c43;
     --selection-color: #2c4a86;
     --caret-color: #e8eaed;
 }

@@ -777,12 +777,29 @@ public partial class UiElement {
 
     /// <summary>Tells the document that something a bridge is showing may have changed.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>document</c> and not <see cref="Document" />.</b> Half of what a control declares
-    ///     about itself is declared before the element is in a document at all — markup builds an
-    ///     element and then binds it — and the property throws for exactly that case. There is
-    ///     nothing to invalidate on a detached element and no document to tell.
+    ///     <para>
+    ///         ⚠ <b><c>document</c> and not <see cref="Document" />.</b> Half of what a control
+    ///         declares about itself is declared before the element is in a document at all — markup
+    ///         builds an element and then binds it — and the property throws for exactly that case.
+    ///         There is nothing to invalidate on a detached element and no document to tell.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Protected, because the states the framework <i>cannot</i> see are exactly the
+    ///         ones a control computes for itself.</b> <see cref="State" /> raises for the two style
+    ///         bits a screen reader announces, which is every ticked, selected, open and greyed
+    ///         control in the set; what it cannot see is an override of
+    ///         <see cref="NativeAccessibleState" /> or <see cref="NativeAccessibleValue" /> reading a
+    ///         field of the control's own — a half-ticked <c>CheckBox</c>, an <c>Overlay</c> that
+    ///         opened, a <c>TreeNode</c> that expanded, a <c>Slider</c> arrowed one step. Those call
+    ///         this on the line that writes the field. It is a notification and not a mirror: nothing
+    ///         is stored, and the override is still read on demand.
+    ///     </para>
+    ///     <para>
+    ///         Free to call as often as you like, and free to call from a funnel rather than from
+    ///         every writer — it sets a bool the document already clears once a frame.
+    ///     </para>
     /// </remarks>
-    void InvalidateAccessibility() => document?.InvalidateAccessibility();
+    protected void InvalidateAccessibility() => document?.InvalidateAccessibility();
 }
 
 public sealed partial class UiDocument {
@@ -843,12 +860,14 @@ public sealed partial class UiDocument {
     ///         <see cref="UiElement.NativeAccessibleState" /> is still read on demand.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What it still cannot see is a state a control computes from a field of its own
-    ///         with no style write beside it</b> — a half-ticked <c>CheckBox</c>, a <c>MenuItem</c>
-    ///         whose submenu opened, a <c>TreeRow</c> whose node expanded. It was previously claimed
-    ///         here that such changes "reach a bridge through the restyle they already cause"; they
-    ///         do not, and did not — a restyle invalidates the cascade and touches nothing a bridge
-    ///         reads. A control in that position says so here, in one line.
+    ///         ⚠ <b>What it cannot see is a state a control computes from a field of its own with no
+    ///         style write beside it</b> — a half-ticked <c>CheckBox</c>, a <c>MenuItem</c> whose
+    ///         submenu opened, a <c>TreeRow</c> whose node expanded, a <c>Slider</c> arrowed one
+    ///         step. It was previously claimed here that such changes "reach a bridge through the
+    ///         restyle they already cause"; they do not, and did not — a restyle invalidates the
+    ///         cascade and touches nothing a bridge reads. Each of those controls now calls
+    ///         <see cref="UiElement.InvalidateAccessibility" /> on the line that writes the field,
+    ///         which is the protected form of this and the one a control should reach for.
     ///     </para>
     ///     <para>Free to call as often as you like: it sets a flag.</para>
     /// </remarks>

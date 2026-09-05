@@ -1004,6 +1004,11 @@ public sealed partial class ColorPicker : Control {
 
             Mark();
             Document.Invalidate();
+
+            // The bands and the field announce `Fraction` and `Marker`, which are internal fields
+            // this method writes — #420 gave them a keyboard and a `slider` role, and a slider that
+            // moves on every arrow press and tells nobody is #593's other half.
+            InvalidateAccessibility();
         } finally {
             updating = false;
         }

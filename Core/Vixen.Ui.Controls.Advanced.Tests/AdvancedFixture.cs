@@ -139,6 +139,21 @@ sealed class AdvancedFixture : IDisposable {
         Update();
     }
 
+    /// <summary>Moves the clock on and tells the document, the way a frame loop would.</summary>
+    /// <remarks>
+    ///     <c>ControlFixture.Advance</c>'s counterpart, and it exists here for the one thing
+    ///     <see cref="Update" /> cannot do: <c>UiDocument.Tick</c> is what raises the coalesced
+    ///     <c>AccessibilityInvalidated</c>, and <c>Update</c> is not called every frame — see that
+    ///     event's own remarks. A test about a notification that never ticked would be asserting
+    ///     that nothing was raised because nothing could be.
+    /// </remarks>
+    public void Advance(TimeSpan by) {
+        clock += by;
+
+        Document.Tick(clock);
+        Update();
+    }
+
     public void Type(InputKey key, ModifierKeys modifiers = ModifierKeys.None) {
         SendKey(key, KeyAction.Pressed, modifiers);
         SendKey(key, KeyAction.Released, modifiers);

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using Vixen.Core.Mathematics;
 using Vixen.Input;
 
@@ -53,18 +54,238 @@ public sealed partial class GradientBar : Control {
 }
 
 /// <summary>The rail of markers above or below the bar.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The keyboard came before the role, which is #420's whole ordering.</b> This was
+///         pointer-only and roleless together, and the pairing was deliberate: announcing a rail a
+///         mouse alone can reach converts "not available to me" into "available and does nothing".
+///         So the arrows landed with the role, in one change, and neither is correct alone.
+///     </para>
+///     <para>
+///         ⚠ <b>Two axes and two meanings, because a rail is a list and not a value.</b> Left and
+///         Right move the selected stop along the gradient — a hundredth a press, a tenth with Page,
+///         the ends with Home and End, which is <c>ColorStrip</c>'s contract. Up and Down select the
+///         previous and next stop, which on a horizontal rail is an axis with nothing else to mean.
+///         Any of the six with nothing selected selects the first stop rather than doing nothing:
+///         a keyboard user who has just tabbed in has no selection and would otherwise be stuck in a
+///         control that answers no key.
+///     </para>
+///     <para>
+///         ⚠ <b>One tab stop for the whole rail, not one per stop.</b> A stop is drawn rather than
+///         built — see <c>GradientRail.OnDraw</c> — so there is no element to focus, and a gradient
+///         of sixteen stops would otherwise be sixteen tab stops between the bar and the picker.
+///     </para>
+/// </remarks>
 public sealed partial class GradientRail : Control {
+    /// <summary>How far one arrow press moves the selected stop. <c>ColorStrip.KeyStep</c>'s value.</summary>
+    public const float KeyStep = 0.01f;
+
     /// <inheritdoc />
     protected override string TagName => "gradient-rail";
 
     /// <inheritdoc />
-    protected override bool AcceptsFocus => false;
+    protected override bool AcceptsFocus => true;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b><c>Group</c> rather than <c>Slider</c>, and it is <c>RangeSlider</c>'s refusal
+    ///     rather than a new one.</b> Doc 46's table put this row under "a 1-D value with arrow-key
+    ///     stepping — the shape <c>Slider</c> already has"; that is wrong for the same reason
+    ///     <c>RangeSlider</c> gives for its second thumb, only more so. <c>aria-valuenow</c> is one
+    ///     number and a rail carries N — a screen reader told the selected stop's position is the
+    ///     control's value would announce a slider that jumps whenever the <i>selection</i> moves
+    ///     and never moves when the other stops do. A group with a composite value says what is
+    ///     actually true.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Group;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     From the catalogue, on <c>ButtonBase.NativeAccessibleName</c>'s terms: the two rails are
+    ///     identical in every way a screen reader can perceive except which list they carry, and
+    ///     nothing near either of them says which.
+    /// </remarks>
+    protected override string? NativeAccessibleName =>
+        IsAlpha ? ControlStrings.GradientEditorAlphaStops.Text : ControlStrings.GradientEditorColorStops.Text;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Which stop of how many, and where — and <c>null</c> when nothing is selected.</b> The
+    ///     position alone would be a number that means nothing without the count, since the arrows
+    ///     move one stop out of several and the other keys change which one that is. Invariant and
+    ///     unitless for <c>Slider</c>'s reason: a bare float in the current culture is a string a
+    ///     bridge has to parse back.
+    /// </remarks>
+    protected override string? NativeAccessibleValue {
+        get {
+            var index = SelectedIndex;
+
+            return index < 0
+                ? null
+                : string.Create(CultureInfo.InvariantCulture, $"{index + 1} of {Count} at {SelectedPosition:0.###}");
+        }
+    }
 
     /// <summary>The editor it belongs to.</summary>
     public GradientEditor? Owner { get; internal set; }
 
     /// <summary>Whether it carries the alpha stops rather than the colour ones.</summary>
     public bool IsAlpha { get; internal set; }
+
+    /// <summary>How many stops this rail carries.</summary>
+    public int Count => Owner is not { } owner ? 0 : IsAlpha ? owner.Gradient.AlphaStops.Count : owner.Gradient.ColorStops.Count;
+
+    /// <summary>Where the selected stop is on this rail, or <c>-1</c> when none of them is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The editor holds one selection across both rails</b> — selecting a colour stop clears
+    ///     the alpha one — so a rail asking "which of mine is selected" has to check that the
+    ///     selection is on <i>its</i> list at all, and the alpha rail correctly answers <c>-1</c>
+    ///     while a colour stop is chosen.
+    /// </remarks>
+    public int SelectedIndex {
+        get {
+            if (Owner is not { } owner) {
+                return -1;
+            }
+
+            return IsAlpha
+                ? owner.SelectedAlphaStop is { } alpha ? IndexOf(owner.Gradient.AlphaStops, alpha) : -1
+                : owner.SelectedColorStop is { } colour ? IndexOf(owner.Gradient.ColorStops, colour) : -1;
+        }
+    }
+
+    /// <summary>Where the selected stop sits along the gradient, or zero when none is selected.</summary>
+    public float SelectedPosition =>
+        Owner is not { } owner ? 0f
+        : IsAlpha ? owner.SelectedAlphaStop?.Position ?? 0f
+        : owner.SelectedColorStop?.Position ?? 0f;
+
+    static int IndexOf<T>(IReadOnlyList<T> stops, T stop) where T : class {
+        for (var i = 0; i < stops.Count; i++) {
+            if (ReferenceEquals(stops[i], stop)) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <inheritdoc />
+    protected override void OnCreated() {
+        base.OnCreated();
+
+        AddHandler<KeyEvent>(static (element, args) => ((GradientRail) element).Keyed(args));
+    }
+
+    /// <summary>Selects the stop at an index of this rail's list, or nothing for an index outside it.</summary>
+    /// <param name="index">Which.</param>
+    public void SelectAt(int index) {
+        if (Owner is not { } owner) {
+            return;
+        }
+
+        if (IsAlpha) {
+            owner.Select(index >= 0 && index < owner.Gradient.AlphaStops.Count ? owner.Gradient.AlphaStops[index] : null);
+        } else {
+            owner.Select(index >= 0 && index < owner.Gradient.ColorStops.Count ? owner.Gradient.ColorStops[index] : null);
+        }
+    }
+
+    /// <summary>Moves the selected stop to a position along the gradient.</summary>
+    /// <param name="position">Where, from zero to one. Clamped.</param>
+    /// <remarks>
+    ///     ⚠ Through <c>Gradient.Move</c>, which re-sorts — so a stop arrowed past its neighbour
+    ///     changes places with it and stays selected, exactly as a dragged one does. Writing
+    ///     <c>Position</c> directly would leave the list out of order and the bar drawn from it
+    ///     wrong.
+    /// </remarks>
+    public void MoveSelected(float position) {
+        if (Owner is not { } owner) {
+            return;
+        }
+
+        if (IsAlpha) {
+            if (owner.SelectedAlphaStop is { } alpha) {
+                owner.Gradient.Move(alpha, Math.Clamp(position, 0f, 1f));
+            }
+        } else if (owner.SelectedColorStop is { } colour) {
+            owner.Gradient.Move(colour, Math.Clamp(position, 0f, 1f));
+        }
+    }
+
+    /// <remarks>
+    ///     ⚠ <b>Delete and Backspace are deliberately not handled here.</b> <c>GradientEditor</c>
+    ///     already owns them and this rail is one of its parts, so an unhandled key bubbles to it —
+    ///     answering them here would be a second implementation of "remove the selected stop" that
+    ///     could disagree with the first about which stop that is.
+    /// </remarks>
+    void Keyed(KeyEvent args) {
+        if (args.Action != KeyAction.Pressed || Count == 0) {
+            return;
+        }
+
+        var index = SelectedIndex;
+
+        // Nothing selected: the first key press picks a stop rather than doing nothing, so a rail
+        // that has just been tabbed into is operable without a mouse having been anywhere near it.
+        if (index < 0) {
+            switch (args.Key) {
+                case InputKey.Left or InputKey.Right or InputKey.Up or InputKey.Down:
+                case InputKey.Home or InputKey.End or InputKey.PageUp or InputKey.PageDown:
+                    SelectAt(0);
+                    args.Handled = true;
+
+                    return;
+
+                default:
+                    return;
+            }
+        }
+
+        var position = SelectedPosition;
+
+        switch (args.Key) {
+            case InputKey.Left:
+                MoveSelected(position - KeyStep);
+                break;
+
+            case InputKey.Right:
+                MoveSelected(position + KeyStep);
+                break;
+
+            case InputKey.PageDown:
+                MoveSelected(position - (KeyStep * 10f));
+                break;
+
+            case InputKey.PageUp:
+                MoveSelected(position + (KeyStep * 10f));
+                break;
+
+            case InputKey.Home:
+                MoveSelected(0f);
+                break;
+
+            case InputKey.End:
+                MoveSelected(1f);
+                break;
+
+            // ⚠ Up is the *previous* stop, which is leftwards along the rail. A rail is horizontal
+            // and its list is sorted by position, so "up the list" and "towards the start" are the
+            // same direction — the opposite of the vertical-slider convention, and right here.
+            case InputKey.Up:
+                SelectAt(Math.Max(0, index - 1));
+                break;
+
+            case InputKey.Down:
+                SelectAt(Math.Min(Count - 1, index + 1));
+                break;
+
+            default:
+                return;
+        }
+
+        args.Handled = true;
+    }
 
     /// <inheritdoc />
     protected override void OnDraw(DrawContext context) {
@@ -361,6 +582,12 @@ public sealed partial class GradientEditor : Control {
             case Rail.Color when ColorStopAt(args.X) is { } stop:
                 Select(stop);
 
+                // ⚠ The rail and not the editor, now that a rail answers keys. `Pointed` focused
+                // the editor a moment ago, which is right for a press that grabbed nothing; a press
+                // that grabbed a stop should leave the arrows moving that stop, and the arrows are
+                // the rail's.
+                Document.Focus(ColorRail);
+
                 draggingColor = stop;
                 Document.CapturePointer(this);
 
@@ -368,6 +595,7 @@ public sealed partial class GradientEditor : Control {
 
             case Rail.Alpha when AlphaStopAt(args.X) is { } alpha:
                 Select(alpha);
+                Document.Focus(AlphaRail);
 
                 draggingAlpha = alpha;
                 Document.CapturePointer(this);

@@ -575,9 +575,14 @@ Vixen.Ui.Controls.Advanced.GradientInterpolation.Oklab = 2 -> Vixen.Ui.Controls.
 Vixen.Ui.Controls.Advanced.GradientInterpolation.Srgb = 0 -> Vixen.Ui.Controls.Advanced.GradientInterpolation
 Vixen.Ui.Controls.Advanced.GradientRail -> sealed class
 Vixen.Ui.Controls.Advanced.GradientRail : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.GradientRail.Count.get -> int
 Vixen.Ui.Controls.Advanced.GradientRail.GradientRail() -> void
 Vixen.Ui.Controls.Advanced.GradientRail.IsAlpha.get -> bool
+Vixen.Ui.Controls.Advanced.GradientRail.MoveSelected(float position) -> void
 Vixen.Ui.Controls.Advanced.GradientRail.Owner.get -> Vixen.Ui.Controls.Advanced.GradientEditor?
+Vixen.Ui.Controls.Advanced.GradientRail.SelectAt(int index) -> void
+Vixen.Ui.Controls.Advanced.GradientRail.SelectedIndex.get -> int
+Vixen.Ui.Controls.Advanced.GradientRail.SelectedPosition.get -> float
 Vixen.Ui.Controls.Advanced.GraphAttachment -> readonly struct
 Vixen.Ui.Controls.Advanced.GraphAttachment : System.IEquatable<Vixen.Ui.Controls.Advanced.GraphAttachment>
 Vixen.Ui.Controls.Advanced.GraphAttachment.Above.get -> bool
@@ -1157,6 +1162,7 @@ const Vixen.Ui.Controls.Advanced.DockGroupView.PageFraction = 0.75 -> float
 const Vixen.Ui.Controls.Advanced.DockSplitNode.MinimumRatio = 0.05 -> float
 const Vixen.Ui.Controls.Advanced.Gradient.MaximumStops = 8 -> int
 const Vixen.Ui.Controls.Advanced.GradientBar.Bands = 48 -> int
+const Vixen.Ui.Controls.Advanced.GradientRail.KeyStep = 0.01 -> float
 const Vixen.Ui.Controls.Advanced.NodeCanvas.Overscan = 0.2 -> float
 const Vixen.Ui.Controls.Advanced.TreeView.Overscan = 2 -> int
 override Vixen.Ui.Controls.Advanced.CodeEditor.AcceptsFocus.get -> bool
@@ -1263,6 +1269,10 @@ override Vixen.Ui.Controls.Advanced.GradientEditor.NativeRole.get -> Vixen.Ui.Ac
 override Vixen.Ui.Controls.Advanced.GradientEditor.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.GradientEditor.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.GradientRail.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.GradientRail.NativeAccessibleName.get -> string?
+override Vixen.Ui.Controls.Advanced.GradientRail.NativeAccessibleValue.get -> string?
+override Vixen.Ui.Controls.Advanced.GradientRail.NativeRole.get -> Vixen.Ui.AccessibleRole
+override Vixen.Ui.Controls.Advanced.GradientRail.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.GradientRail.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.Advanced.GradientRail.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.GraphNode.ToString() -> string

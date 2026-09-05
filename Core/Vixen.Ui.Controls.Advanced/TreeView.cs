@@ -492,6 +492,14 @@ public sealed partial class TreeView : Control {
         // one of them says — and assigning a property its existing value does nothing at all, so the
         // row would keep drawing a leaf that has children.
         Panel.Realise();
+
+        // ⚠ And for the same reason, one line further on: `TreeRow.NativeAccessibleState` reads
+        // `Node.HasChildren` and `Node.IsExpanded`, which are fields on the model rather than
+        // anything the element wrote. Where the count *does* change the realise attaches or detaches
+        // rows and that already invalidates — which is exactly why this was easy to miss, since the
+        // common case looked correct and the case that changes what a row says without changing how
+        // many there are did not.
+        InvalidateAccessibility();
     }
 
     /// <summary>Opens or closes a node.</summary>

@@ -303,6 +303,14 @@ public abstract partial class Overlay : Control {
             AddClass("closed");
         }
 
+        // ⚠ Here rather than on each of the anchors, and that is what makes one line enough. The
+        // element whose announced state changed is the *anchor* — a `MenuItem` gains `Expanded`, a
+        // `Select` flips it, a `ComboBox` reads it off `Owner.List` — and not one of them is told
+        // when this happens. The invalidation is a document-wide flag rather than a node, so the
+        // place to raise it is the field every one of those overrides reads: `IsOpen`, which is
+        // written in exactly two methods and restated in exactly this one.
+        InvalidateAccessibility();
+
         Raise(new OpenChangedEvent { IsOpen = IsOpen });
         OpenChanged?.Invoke(this, IsOpen);
     }

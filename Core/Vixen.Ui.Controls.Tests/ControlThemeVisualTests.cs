@@ -37,6 +37,17 @@ namespace Vixen.Ui.Controls.Tests;
 ///         text and a danger colour — is a picture a reviewer can actually read, and it moves for
 ///         every token in the block.
 ///     </para>
+///     <para>
+///         ⚠ <b>And there is evidence for that judgement rather than only taste.</b>
+///         <c>ControlTheme.vcss</c> has exactly one <c>root.dark</c> block and it declares tokens and
+///         nothing else — not a single dark-scoped <i>component</i> rule in the whole sheet. So every
+///         control in this project is dark by substitution alone, and thirty-nine per-control dark
+///         references would be thirty-nine pictures of the one fact the test above already asserts.
+///         The tree's only per-control dark rules are the five <c>root.dark .tok-*</c> lines in
+///         <c>AdvancedTheme.vcss</c>, which are in another assembly and are covered by
+///         <c>Vixen.Ui.Controls.Advanced.Tests.SyntaxThemeTests</c> — on a contrast oracle, because
+///         a syntax colour that loses its dark rule is unreadable rather than merely different.
+///     </para>
 /// </remarks>
 public class ControlThemeVisualTests {
     /// <summary>How wide and tall the gallery is. Small, for <c>ControlVisualTests</c>' reason.</summary>
