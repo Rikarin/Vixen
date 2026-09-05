@@ -70,6 +70,52 @@ public static class Variants {
         ["only-of-type"] = ":only-of-type"
     };
 
+    /// <summary>The variants that are a media feature rather than a selector.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two of these were already answerable and needed no condition at all.</b>
+    ///         <c>portrait</c> and <c>landscape</c> are <c>(orientation: …)</c>, which
+    ///         <c>MediaQuery</c> has always derived from the surface's own width and height — so
+    ///         they were a table entry and nothing else, while the item they arrived in was sized as
+    ///         "one condition each". The other axes did need one, and needed a field on
+    ///         <c>MediaContext</c> to answer it from.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>print</c> and <c>noscript</c> resolve and can never match, deliberately.</b>
+    ///         Paged media is permanently out of scope and a Vixen document always scripts, so both
+    ///         are one comparison that is false — which is worth having rather than refusing,
+    ///         because a stylesheet shared with a web codebase then loads unchanged instead of
+    ///         failing a block. They are the two entries a coverage gate cannot ask for a positive
+    ///         scene from, and <c>VariantCoverageTests</c> names them for that reason.
+    ///     </para>
+    /// </remarks>
+    static readonly Dictionary<string, string> MediaFeatures = new(StringComparer.Ordinal) {
+        ["motion-safe"] = "(prefers-reduced-motion: no-preference)",
+        ["motion-reduce"] = "(prefers-reduced-motion: reduce)",
+        ["contrast-more"] = "(prefers-contrast: more)",
+        ["contrast-less"] = "(prefers-contrast: less)",
+        ["forced-colors"] = "(forced-colors: active)",
+        ["inverted-colors"] = "(inverted-colors: inverted)",
+        ["portrait"] = "(orientation: portrait)",
+        ["landscape"] = "(orientation: landscape)",
+        ["print"] = "print",
+        ["noscript"] = "(scripting: none)",
+        ["pointer-none"] = "(pointer: none)",
+        ["pointer-coarse"] = "(pointer: coarse)",
+        ["pointer-fine"] = "(pointer: fine)",
+        ["any-pointer-none"] = "(any-pointer: none)",
+        ["any-pointer-coarse"] = "(any-pointer: coarse)",
+        ["any-pointer-fine"] = "(any-pointer: fine)"
+    };
+
+    /// <summary>The variants that are one <c>@media</c> feature on the element's own surface.</summary>
+    /// <remarks>
+    ///     Exposed for the same reason <see cref="StateVariants" /> is: the coverage test enumerates
+    ///     it, so a seventeenth entry with no scene fails the build rather than joining the silent
+    ///     ones. That gate is what a whole dead breakpoint family cost before it existed.
+    /// </remarks>
+    public static IReadOnlyCollection<string> MediaVariants => MediaFeatures.Keys;
+
     /// <summary>The <c>nth-*</c> families, longest prefix first.</summary>
     /// <remarks>
     ///     ⚠ <b>Order is the whole of this table.</b> <c>nth-last-of-type-3</c> begins with
@@ -125,6 +171,11 @@ public static class Variants {
         }
 
         if (variant.Length > 1 && variant[0] == '@' && TryContainer(variant.AsSpan(1), tokens, out effect)) {
+            return true;
+        }
+
+        if (MediaFeatures.TryGetValue(variant, out var feature)) {
+            effect = new VariantEffect(string.Empty, string.Empty, $"@media {feature}");
             return true;
         }
 

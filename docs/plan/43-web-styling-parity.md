@@ -87,7 +87,7 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | Utility **roots** (the unit of this table) | **332** | 283 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
-| Variant keys | **88** | **34** |
+| Variant keys | **88** | **50** |
 
 ⚠ **The family figure moves every week, which is why it is no longer typed here.** It has been quoted
 as 43 (the helper calls in one region of `UtilityFamilies`' static constructor), then as 98 (the
@@ -1622,7 +1622,7 @@ glyph advances and the glyph comparison catches it, so this is a note and not a 
 
 | | Tailwind v4 | Vixen | |
 |---|---|---|---|
-| Registered variant keys | 88 | 34 | 39 % |
+| Registered variant keys | 88 | 50 | 57 % |
 | Arbitrary variant `[&>*]:` | ✅ | ✅ | |
 | Arbitrary value `w-[37px]` | ✅ | ✅ | |
 | Arbitrary property `[mask-type:luminance]` | ✅ | ✅ | F7 *closed* |
@@ -1633,15 +1633,23 @@ glyph advances and the glyph comparison catches it, so this is a note and not a 
 | Prefix (`tw:flex`) | ✅ | ⛔ | |
 | Two media variants on one utility | nests | ✅ nests | A15 |
 
-The 34 Vixen covers: `hover focus focus-visible focus-within active disabled enabled checked first
+The 50 Vixen covers: `hover focus focus-visible focus-within active disabled enabled checked first
 last only odd even empty first-of-type last-of-type only-of-type dark ltr rtl group peer data aria
-not nth nth-last nth-of-type nth-last-of-type` plus the five breakpoint names when the theme declares
-them. ⚠ It was 25 until A13's structural half landed; this figure is hand-kept and nothing checks it,
-so it is spelled out as a list rather than as a number for the reason two paragraphs of Part 0 give
-about the family count — a bare figure beside a table nobody regenerates is the copy that rots.
+not nth nth-last nth-of-type nth-last-of-type motion-safe motion-reduce contrast-more contrast-less
+forced-colors inverted-colors portrait landscape print noscript pointer-none pointer-coarse
+pointer-fine any-pointer-none any-pointer-coarse any-pointer-fine` plus the five breakpoint names
+when the theme declares them. ⚠ It was 25 until A13's structural half and A14 landed; this figure is
+hand-kept and nothing checks it, so it is spelled out as a list rather than as a number for the
+reason two paragraphs of Part 0 give about the family count — a bare figure beside a table nobody
+regenerates is the copy that rots.
 
-The 54 it does not fall into three quite different buckets, and lumping them together is how this
-gets mis-sized:
+⚠ **The bucket sizes below do not add up to the difference, and forcing them to would be the
+dishonest arithmetic rather than the honest one.** The 88 is a count of Tailwind's variant
+*families* and this is a count of registered *keys*: `pointer-*` is one line in v4's documentation
+and three keys here. Each bucket says what it is about; none of them is a share of a total.
+
+What is left falls into three quite different kinds, and lumping them together is how this gets
+mis-sized:
 
 - **Seventeen are a table entry plus an element-state bit** the control library has to set:
   `target`, `open`, `required`, `optional`, `valid`, `invalid`, `read-only`, `placeholder-shown`,
@@ -1656,9 +1664,11 @@ gets mis-sized:
   about a navigation model Vixen does not have — and `open` needs the CSS parser before it needs a
   bit, since ExCSS 4.3.2 returns `:open` as an `UnknownSelector`.
 - **Seven need pseudo-elements to mean something** — F6.
-- **Thirteen are media features** (`motion-safe`, `motion-reduce`, `contrast-more`, `contrast-less`,
-  `forced-colors`, `inverted-colors`, `portrait`, `landscape`, `print`, `noscript`, `pointer-*`,
-  `any-pointer-*`), each one condition in `MediaQuery`.
+- **The media features are done** — A14. ⚠ The bucket said "thirteen … each one condition in
+  `MediaQuery`" and it listed twelve, of which **two needed no condition at all**: `portrait` and
+  `landscape` are `(orientation: …)`, which has been answered from the surface's own width and
+  height since media queries existed here, so they were a table entry and nothing more. The other
+  ten are sixteen keys, because `pointer-*` and `any-pointer-*` are three each.
 - **The rest are engine features**: `has-*` (doc 09 defers it to P2 on incremental-match cost),
   `supports-*`, `starting` (`@starting-style`), `in-*`, `*`/`**`, and the whole container-query
   family `@`/`@min`/`@max` — Part 2.
@@ -2837,7 +2847,7 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A11 🟢 | Backgrounds. **`linear-gradient()`, `radial-gradient()` and `conic-gradient()` all paint**: `background-image` is parsed into `BoxStyle`, all eight direction keywords with CSS's corner rule, all four angle units, both colour notations, two or three stops, arbitrary stop positions inside or outside the box, `in srgb` / `in srgb-linear` / `in oklab`, and it layers over `background-color` as CSS does. `bg-radial` and `bg-conic` are assemblers now, and every assembler emits `in oklab` for v4 parity. Everything else is *refused loudly* rather than approximated — see `GradientRefusal`. `UiShape` grew 80 → 112 bytes; `UiShapeLayoutTests` and `CheckShaders` are what keep its four files in step. **Owed:** an explicit radial/conic centre, `bg-conic-<angle>` (the parser and shader do `from <angle>`; the *utility* needs a numeric family), `background-position`/`-size`/`-repeat`, and gradient text — see [what a third stop cost](#what-a-third-stop-cost) | `DrawListBuilder`, `BackgroundGradient`, `UiShape`, `Ui.rvn` | **#43** | 0.15 |
 | A12 🟡 | Pseudo-elements materialised — `::before`/`::after` with `content` | `StyleRuleSet`, `UiDocument` | — | 0.5 |
 | A13 🟡 | **The five structural ones landed and the seventeen form states did not, and that split is the shape of the item rather than how far it got.** `empty`, `not-*`, `nth-*`, `nth-last-*` and the whole `*-of-type` family are registered, each with a positive and a negative computed-value scene. ⚠ **The item's own claim that "none needs a matcher change" was wrong, and wrong about exactly the family that looks most like a table entry**: an of-type index is a position among the siblings *sharing a tag*, which nothing stored, so `PositionTest` grew five members and `StyleTree` learned to count them. The trap it hides behind is that `:nth-of-type(n)` and `:nth-child(n)` pick the same element out of any run of one tag — so a fixture of five `li` proves nothing, and the scenes here mix `p` and `div` for that reason. ⚠ **`not-*` is a bare-suffix negation only**: `not-sm:` is an at-rule in v4 and `not-group-hover:` an ancestor, and negating either is a different production, so both are *not variants* rather than variants meaning something else. **Owed**: the seventeen that need an element-state bit — and two of those (`visited`, `target`) want refusing rather than building, since Vixen has no navigation model to make either true. ⚠ And `:open` is a *parser* problem before it is a state bit: ExCSS 4.3.2 hands it back as an `UnknownSelector`, so a state flag for it would reach a compiler that never sees the pseudo-class | `Variants`, `ElementState` | — | 0.15 of 0.3 |
-| A14 🟢 | The 13 media-feature variants | `MediaQuery` | — | 0.2 |
+| A14 ✅ | **Done, as sixteen keys rather than thirteen conditions, and two of them were already answerable.** `portrait` and `landscape` are `(orientation: …)`, which `MediaQuery` has always derived from the surface's own width and height — a table entry and no condition. The rest brought five axes onto a new `MediaPreferences` value: reduced motion, contrast (⚠ four values, because `custom` is neither more nor less and collapsing it would apply every high-contrast rule to a palette the user chose), forced colours, inverted colours, and the two pointer families. ⚠ **`PointerCapability` needed a fourth member for a reason that is this repository's commonest bug in a new disguise**: CSS's `pointer: none` is the empty capability set, and the empty set is also what a field nobody assigned holds — so a zero meaning "no pointing device" would make `pointer-none:` the rule that always applies under `default(MediaContext)`. Zero is `Unspecified` and reads as a mouse; `NoDevice` carries a bit so the stated emptiness can be told from the unstated one. ⚠ **`print:` and `noscript:` resolve and can never match, deliberately** — paged media is out of scope for good (Part 8 § 1) and a Vixen document always scripts — so the gate names them as the two entries that must have a negative scene and must *not* have a positive one, and a separate test proves the class is still generated, which is what tells "always false" from "not a variant". ⚠ **Owed, and filed separately: nothing sets any of it.** `UiSurface.Preferences` is exposed and defaults to "nothing unusual", exactly as `UiSurface.ColorScheme` has since it was added — and `Vixen.Ui.Desktop` reads the swapchain's gamut and has never read the system appearance, so `dark:` under the media strategy has never been true in a real application either. That is one hole in the platform layer with two victims | `MediaQuery`, `MediaPreferences`, `UiSurface` | — | 0.2 |
 | A15 ✅ | **Nested conditional-group rules — done, and for a tenth of the estimate, because the cascade already did it.** `StyleSheetLoader.LoadMedia` has always recursed into the rule it matched, so `@media A { @media B { … } }` loaded and conjoined; the thing that could not nest was `UtilityGenerator`, carrying one `string?` for the whole variant stack. It carries an ordered, deduplicated chain now and emits a trie over those chains, so `sm:md:p-4` and `dark:md:p-4` nest and share their outer wrapper with the shallower utilities. **Nesting cost the rule representation nothing at the time** — though a `StyleRule` carries a
 conditional-group id since per-surface media landed; see F11. ⚠ The real finding was next door: see § D6 | cascade | — | done |
 | A16 🟡 | Container queries. ⚠ **The cascade half landed** — `ContainerConditions`, `ContainerScopes`, `ContainerQuery`, a second group id on `StyleRule`, two scope slots on `StyleTree`, one integer test in the cascade, 34 computed-value tests. ⚠ **And it closed a silent drop**: ExCSS parses `@container` into a `ContainerRule`, so it never reached `LoadUnknown` and was discarded with no diagnostic, while two docs said it warned. ⚠ **And the `@sm:` variants were never gated on the wiring**: a pure variant emits no property, so the consumption gate never sees one — the blocker was that `--container-*` did not exist, and `Screens` under the same names means numbers two-thirds too big. They are registered now, off `ThemeTokens.Containers`. **Owed**: the layout coercion for containers sized by their contents, the `@container` marker family (which *does* face the gate, and wants a fifteenth probe scene), and the `cq*` units. Containment is *free* for a normal-flow block, whose inline size is already `SizingMode.StretchFit`. See § D3 | cascade + layout | 0.15 | 0.6 |

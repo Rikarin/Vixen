@@ -219,6 +219,169 @@ public class VariantCoverageTests {
         Assert.True(stale.Length == 0, $"these scenes name a variant that no longer exists: {string.Join(", ", stale)}");
     }
 
+    /// <summary>The surfaces the media variants are judged against, by name.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Named rather than inlined, because a <see cref="MediaContext" /> in a theory row is
+    ///     not a primitive and xunit would collapse the whole theory into one opaque case</b> — the
+    ///     same constraint <see cref="StateScenes" /> is built around. A name also makes the failure
+    ///     readable: <c>("motion-reduce", "reduced-motion", True)</c> says what was asked and of
+    ///     what.
+    /// </remarks>
+    static readonly Dictionary<string, MediaContext> Surfaces = new(StringComparer.Ordinal) {
+        // Landscape, a mouse, and every preference where a platform that has said nothing leaves it.
+        ["desktop"] = new(1280, 720),
+        ["portrait"] = new(720, 1280),
+        ["reduced-motion"] = new(1280, 720) { Preferences = new(Motion: MotionPreference.Reduce) },
+        ["more-contrast"] = new(1280, 720) { Preferences = new(Contrast: ContrastPreference.More) },
+        ["less-contrast"] = new(1280, 720) { Preferences = new(Contrast: ContrastPreference.Less) },
+
+        // ⚠ `custom` is neither more nor less, and it is here to prove that `contrast-more:` does not
+        // read as "any stated contrast preference".
+        ["custom-contrast"] = new(1280, 720) { Preferences = new(Contrast: ContrastPreference.Custom) },
+        ["forced-colors"] = new(1280, 720) { Preferences = new(ForcedColors: true) },
+        ["inverted"] = new(1280, 720) { Preferences = new(InvertedColors: true) },
+        ["touch"] = new(1280, 720) {
+            Preferences = new(Pointer: PointerCapability.Coarse, AnyPointer: PointerCapability.Coarse)
+        },
+
+        // ⚠ The row that tells `pointer-*` from `any-pointer-*`. A tablet with a stylus is coarse
+        // *primarily* and fine as well, so `pointer-fine:` must be off here and `any-pointer-fine:`
+        // must be on — and a table that resolved both families to the same feature passes every
+        // other scene in this file.
+        ["touch-and-stylus"] = new(1280, 720) {
+            Preferences = new(
+                Pointer: PointerCapability.Coarse,
+                AnyPointer: PointerCapability.Coarse | PointerCapability.Fine
+            )
+        },
+        ["no-pointer"] = new(1280, 720) {
+            Preferences = new(Pointer: PointerCapability.NoDevice, AnyPointer: PointerCapability.NoDevice)
+        }
+    };
+
+    static readonly (string Variant, string Surface, bool Matches)[] MediaRows = [
+        ("motion-safe", "desktop", true),
+        ("motion-safe", "reduced-motion", false),
+        ("motion-reduce", "reduced-motion", true),
+        ("motion-reduce", "desktop", false),
+
+        ("contrast-more", "more-contrast", true),
+        ("contrast-more", "desktop", false),
+        ("contrast-more", "custom-contrast", false),
+        ("contrast-less", "less-contrast", true),
+        ("contrast-less", "desktop", false),
+        ("contrast-less", "more-contrast", false),
+
+        ("forced-colors", "forced-colors", true),
+        ("forced-colors", "desktop", false),
+        ("inverted-colors", "inverted", true),
+        ("inverted-colors", "desktop", false),
+
+        ("portrait", "portrait", true),
+        ("portrait", "desktop", false),
+        ("landscape", "desktop", true),
+        ("landscape", "portrait", false),
+
+        // ⚠ Two rows and both negative, which is the whole of what these two variants can be asked.
+        // Paged media is out of scope for good and a Vixen document always scripts, so each is a
+        // condition that resolves and never holds — and the assertion that matters is the one in
+        // `Every_media_variant_generates_a_rule` below: the class is a class, so it is not a typo,
+        // and it applies nowhere.
+        ("print", "desktop", false),
+        ("print", "portrait", false),
+        ("noscript", "desktop", false),
+        ("noscript", "touch", false),
+
+        ("pointer-fine", "desktop", true),
+        ("pointer-fine", "touch", false),
+        ("pointer-fine", "touch-and-stylus", false),
+        ("pointer-coarse", "touch", true),
+        ("pointer-coarse", "desktop", false),
+        ("pointer-coarse", "no-pointer", false),
+        ("pointer-none", "no-pointer", true),
+        ("pointer-none", "desktop", false),
+        ("pointer-none", "touch", false),
+
+        ("any-pointer-fine", "desktop", true),
+        ("any-pointer-fine", "touch-and-stylus", true),
+        ("any-pointer-fine", "touch", false),
+        ("any-pointer-coarse", "touch", true),
+        ("any-pointer-coarse", "touch-and-stylus", true),
+        ("any-pointer-coarse", "desktop", false),
+        ("any-pointer-none", "no-pointer", true),
+        ("any-pointer-none", "desktop", false),
+        ("any-pointer-none", "touch-and-stylus", false)
+    ];
+
+    public static TheoryData<string, string, bool> MediaScenes {
+        get {
+            var data = new TheoryData<string, string, bool>();
+
+            foreach (var (variant, surface, matches) in MediaRows) {
+                data.Add(variant, surface, matches);
+            }
+
+            return data;
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(MediaScenes))]
+    public void A_media_variant_changes_what_the_element_computes(string variant, string surface, bool matches) {
+        var fixture = new UtilityFixture();
+        var value = fixture.Computed([$"{variant}:p-4"], "padding-left", media: Surfaces[surface]);
+
+        Assert.Equal(matches ? "16px" : null, value);
+    }
+
+    [Fact]
+    public void The_media_variant_table_has_no_untested_entry() {
+        // The same gate `The_state_variant_table_has_no_untested_entry` is, over the other table.
+        var tested = MediaRows.Select(row => row.Variant).ToHashSet(StringComparer.Ordinal);
+        var untested = Variants.MediaVariants.Where(variant => !tested.Contains(variant)).ToArray();
+
+        Assert.True(
+            untested.Length == 0,
+            $"these media variants have no end-to-end scene: {string.Join(", ", untested)}"
+        );
+
+        var stale = tested.Where(variant => !Variants.MediaVariants.Contains(variant)).ToArray();
+
+        Assert.True(stale.Length == 0, $"these scenes name a variant that no longer exists: {string.Join(", ", stale)}");
+
+        // ⚠ And a scene of each sign, which is the assertion that stops a variant from passing on a
+        // negative row alone — a table entry that emitted an at-rule nothing can satisfy would do
+        // exactly that. The two exceptions are named rather than inferred: `print` and `noscript`
+        // *cannot* have a positive scene, and a gate that worked that out for itself would stop
+        // noticing the day a third one arrived by accident.
+        string[] neverMatch = ["print", "noscript"];
+
+        foreach (var variant in Variants.MediaVariants) {
+            var signs = MediaRows.Where(row => row.Variant == variant).Select(row => row.Matches).ToArray();
+
+            Assert.Contains(false, signs);
+
+            if (!neverMatch.Contains(variant, StringComparer.Ordinal)) {
+                Assert.Contains(true, signs);
+            } else {
+                Assert.DoesNotContain(true, signs);
+            }
+        }
+    }
+
+    [Fact]
+    public void Every_media_variant_generates_a_rule_even_when_it_can_never_match() {
+        // ⚠ What tells "a variant that is always false" from "not a variant at all", which is
+        // exactly the pair `print:` and `noscript:` sit between. Their whole justification is that a
+        // stylesheet shared with a web codebase loads unchanged; a class that silently vanished
+        // would be that stylesheet failing quietly instead of loudly.
+        var fixture = new UtilityFixture();
+
+        foreach (var variant in Variants.MediaVariants) {
+            Assert.Contains("padding", fixture.Generate($"{variant}:p-4"), StringComparison.Ordinal);
+        }
+    }
+
     [Fact]
     public void The_nth_variants_count_children_and_their_of_type_pair_counts_a_tag() {
         // ⚠ Four families that differ only in which sequence they index, so every row here is

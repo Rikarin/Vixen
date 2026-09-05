@@ -1259,6 +1259,8 @@ Vixen.Ui.UiDocument.MoveFocus(Vixen.Ui.NavigationDirection direction) -> bool
 Vixen.Ui.UiDocument.Now.get -> System.TimeSpan
 Vixen.Ui.UiDocument.NumberOf(Vixen.Ui.Styling.ComputedStyle style, int property) -> float?
 Vixen.Ui.UiDocument.PointerSurface.get -> Vixen.Ui.UiSurface?
+Vixen.Ui.UiDocument.Preferences.get -> Vixen.Ui.Styling.MediaPreferences
+Vixen.Ui.UiDocument.Preferences.set -> Vixen.Ui.Styling.MediaPreferences
 Vixen.Ui.UiDocument.Primary.get -> Vixen.Ui.UiSurface
 Vixen.Ui.UiDocument.PropertyId(string name) -> int
 Vixen.Ui.UiDocument.Refusals() -> System.Collections.Generic.IReadOnlyList<string>
@@ -1441,6 +1443,8 @@ Vixen.Ui.UiSurface.IsPrimary.get -> bool
 Vixen.Ui.UiSurface.IsRemoved.get -> bool
 Vixen.Ui.UiSurface.Media.get -> Vixen.Ui.Styling.MediaContext
 Vixen.Ui.UiSurface.Metrics.get -> Vixen.Ui.LengthContext
+Vixen.Ui.UiSurface.Preferences.get -> Vixen.Ui.Styling.MediaPreferences
+Vixen.Ui.UiSurface.Preferences.set -> Vixen.Ui.Styling.MediaPreferences
 Vixen.Ui.UiSurface.Root.get -> Vixen.Ui.UiElement
 Vixen.Ui.UiSurface.Width.get -> float
 Vixen.Ui.UiWindowRequest -> readonly struct
