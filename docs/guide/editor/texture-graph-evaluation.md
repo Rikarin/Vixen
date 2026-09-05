@@ -4,7 +4,7 @@ slug: editor/texture-graph-evaluation
 kind: guide
 area: Editor
 summary: The plan of compute kernels a texture graph and a layer stack both compile to, the image pool that runs it, and the resolution rule that keeps a graph the same material at every size.
-api: [T:Vixen.Editor.TextureGraph.TexturePlan, T:Vixen.Editor.TextureGraph.TextureOp, T:Vixen.Editor.TextureGraph.TextureImage, T:Vixen.Editor.TextureGraph.TextureParameter, T:Vixen.Editor.TextureGraph.TextureParameterUnit, T:Vixen.Editor.TextureGraph.TextureFormat, T:Vixen.Editor.TextureGraph.TextureFormats, T:Vixen.Editor.TextureGraph.TexturePoolSlot, T:Vixen.Editor.TextureGraph.TexturePoolSchedule, T:Vixen.Editor.TextureGraph.TextureKernels, T:Vixen.Editor.TextureGraph.TexturePlanEvaluator, T:Vixen.Editor.TextureGraph.TextureBake, T:Vixen.Editor.TextureGraph.TextureProblem, T:Vixen.Editor.TextureGraph.TextureProblemSeverity, T:Vixen.Editor.TextureGraph.ITextureCpuOperation, T:Vixen.Editor.TextureGraph.TextureCpuImage, T:Vixen.Editor.TextureGraph.TextureCpuInvocation, T:Vixen.Editor.TextureGraph.TextureUploads]
+api: [T:Vixen.Editor.TextureGraph.TexturePlan, T:Vixen.Editor.TextureGraph.TextureOp, T:Vixen.Editor.TextureGraph.TextureImage, T:Vixen.Editor.TextureGraph.TextureParameter, T:Vixen.Editor.TextureGraph.TextureParameterUnit, T:Vixen.Editor.TextureGraph.TextureFormat, T:Vixen.Editor.TextureGraph.TextureFormats, T:Vixen.Editor.TextureGraph.TexturePoolSlot, T:Vixen.Editor.TextureGraph.TexturePoolSchedule, T:Vixen.Editor.TextureGraph.TextureKernels, T:Vixen.Editor.TextureGraph.TexturePlanEvaluator, T:Vixen.Editor.TextureGraph.TextureBake, T:Vixen.Editor.TextureGraph.TextureProblem, T:Vixen.Editor.TextureGraph.TextureProblemSeverity, T:Vixen.Editor.TextureGraph.ITextureCpuOperation, T:Vixen.Editor.TextureGraph.TextureCpuImage, T:Vixen.Editor.TextureGraph.TextureCpuInvocation, T:Vixen.Editor.TextureGraph.TextureUploads, T:Vixen.Editor.TextureGraph.TextureExternal]
 tags: [editor, texture-graph, material-authoring, compute, raven, baking]
 since: 0.1
 status: preview
@@ -252,6 +252,31 @@ Dispose it when the document closes.
 > font or a path parser. Both are filled on the CPU and uploaded as coverage — see
 > [#687](https://github.com/Rikarin/Vixen/issues/687).
 
+### What the texture behind one has to be
+
+A bare `TextureHandle` says the image can be **sampled**, which is what every dispatch needs and all
+that the overload above asks for. A `TextureOp.Cpu` op reads its inputs by *copying out of them*, so an
+external image one of those reads also needs `TextureUsage.CopySource` — and that is declared with
+`TextureExternal`:
+
+```csharp no-compile="a fragment against a caller's own device and its own texture"
+var usage = TextureUsage.Sampled | TextureUsage.CopyDestination | TextureUsage.CopySource;
+var texture = device.CreateTexture(new(PixelFormat.Rgba8UNorm, width, height, usage));
+
+using var bake = evaluator.Evaluate(plan, new Dictionary<int, TextureExternal> { [0] = new(texture, usage) });
+```
+
+A plan that copies out of an image declared without it is **refused**, naming the image and what is
+missing, rather than run.
+
+> ⚠ **This is why the declaration exists at all.** A handle is an opaque number and `IGraphicsDevice`
+> cannot describe one back, so the evaluator has no other way to know. And the requirement is not
+> theoretical: for a whole batch the CPU-op seam copied out of a caller's texture that had no
+> `TRANSFER_SRC` on it — `VUID-vkCmdCopyImageToBuffer-srcImage-00186` — past a green device test,
+> because **MoltenVK does not enforce usage bits** ([#722](https://github.com/Rikarin/Vixen/issues/722)).
+> Build the texture and the declaration from *one* `TextureUsage` expression: a declaration that does
+> not match the description is a lie nothing here can catch.
+
 ## The seed
 
 `TexturePlan.Seed` is hashed **per op** — `SeedFor(op)` — so a bake is reproducible and inserting a
@@ -292,9 +317,16 @@ that did not scale parts them by 92.
 invert`, whose closed form is the transpose of the source, exactly, in every channel. ⚠ Its second
 test's name claims the two pictures and **not** the layout barrier that hands an external image back
 readable — deleting that barrier leaves both assertions green on an M1 Max, because a unified-memory
-adapter reads an image left in a transfer layout perfectly well. The validation layers are the only
-witness for a layout, and this suite cannot use them: `VulkanDiagnostics` is process-wide and every
-device class here opens its own device in parallel.
+adapter reads an image left in a transfer layout perfectly well.
+
+`TextureValidationDeviceTests` is the witness for the layout, and for every other barrier and usage bit
+in a bake: it runs a plan with the validation layers watching and asserts they said nothing, which is
+red on that same deletion (`VUID-vkCmdDraw-None-09600`). ⚠ It costs the suite its parallelism —
+`VulkanDiagnostics` is process-wide, so a message is only attributable to a test when no other test is
+running, and this assembly is serialised for that one reason
+([#712](https://github.com/Rikarin/Vixen/issues/712)). It **skips** rather than passes on a device
+with no validation layer, because an instrument that reports success when it did not run is the defect
+it exists to catch.
 
 > ⚠ **`TextureQueueTests` opens a Null device on purpose**, and it is the only file here that does. A
 > unified adapter cannot tell the compute queue from the graphics one — which is why

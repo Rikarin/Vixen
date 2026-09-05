@@ -94,7 +94,7 @@ public class TextureCpuOpDeviceTests(ITestOutputHelper output) {
         Assert.Equal(2, TexturePoolSchedule.For(plan).Allocations);
 
         using var evaluator = new TexturePlanEvaluator(device);
-        using var bake = evaluator.Evaluate(plan, new Dictionary<int, TextureHandle> { [0] = texture });
+        using var bake = evaluator.Evaluate(plan, TextureKernelHarness.Externals(0, texture));
 
         // Two, not three: the op in the middle is not a dispatch, and a seam that quietly compiled a
         // kernel for it would say three here.
@@ -135,12 +135,14 @@ public class TextureCpuOpDeviceTests(ITestOutputHelper output) {
     ///         ⚠ <b>Measured, not assumed: the restore barrier itself is not witnessed by these two
     ///         pictures on this adapter.</b> Deleting it leaves both assertions green on an Apple
     ///         M1 Max — a unified-memory adapter reads an image left in a transfer layout perfectly
-    ///         well — so this test's name claims the pictures and not the layout. The only witness
-    ///         for a layout is the validation layers, and this assembly cannot use them:
-    ///         <c>VulkanDiagnostics</c> is process-wide and every device class here opens its own
-    ///         device in parallel, so a message would be attributed to whichever test was running.
-    ///         <c>Platform/Vixen.Graphics.Vulkan.Tests/ValidationCleanTests.cs</c> is the shape that
-    ///         works and it is serialised into a collection to get there.
+    ///         well — so this test's name claims the pictures and not the layout. The witness for a
+    ///         layout is <see cref="TextureValidationDeviceTests" />, which runs this same plan shape
+    ///         with the validation layers watching and goes red on
+    ///         <c>VUID-vkCmdDraw-None-09600</c> under that same deletion. It could only be written
+    ///         once this assembly stopped running its device classes in parallel —
+    ///         <c>VulkanDiagnostics</c> is process-wide, so a message is attributable to a test only
+    ///         when no other test is running; see <c>AssemblyParallelism.cs</c> and
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/712">#712</a>.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -168,7 +170,7 @@ public class TextureCpuOpDeviceTests(ITestOutputHelper output) {
         };
 
         using var evaluator = new TexturePlanEvaluator(device);
-        using var bake = evaluator.Evaluate(plan, new Dictionary<int, TextureHandle> { [0] = texture });
+        using var bake = evaluator.Evaluate(plan, TextureKernelHarness.Externals(0, texture));
 
         Assert.Equal(2, bake.Dispatches);
 
