@@ -95,11 +95,11 @@ public class FontFeatureStyleTests {
 
     /// <summary>CSS's grammar takes a list, and so does the reader.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is what the utility families cannot do, and the gap is in the composition rather
-    ///     than in the engine.</b> Tailwind builds nine <c>--tw-*</c> fragments so that
-    ///     <c>class="tabular-nums slashed-zero"</c> gets both; here each class emits the whole
-    ///     property and the cascade keeps the later declaration. The declaration itself takes a list,
-    ///     which is what an arbitrary value can reach and what this pins.
+    ///     ⚠ <b>The utility families reach this now, and the remark here used to say they could
+    ///     not.</b> Each numeric class emitted the whole property, so
+    ///     <c>class="tabular-nums slashed-zero"</c> kept the later declaration and the other class
+    ///     silently did nothing; they compose through <c>--tw-*</c> fragments now, exactly as v4
+    ///     does. What this pins is the half underneath that: the declaration itself takes a list.
     /// </remarks>
     [Fact]
     public void A_list_of_keywords_asks_for_all_of_them() {
@@ -107,6 +107,27 @@ public class FontFeatureStyleTests {
         var element = Styled(document, "font-variant-numeric: tabular-nums slashed-zero;");
 
         Assert.Equal(["tnum", "zero"], Tags(element));
+    }
+
+    /// <summary>⚠ And empty slots in the list are not keywords, which is what the composition emits.</summary>
+    /// <remarks>
+    ///     <b>The contract the utility layer's composition rests on, asserted where the reader
+    ///     lives.</b> <c>UtilityComposition.NumericFigures</c> assembles five <c>var()</c>
+    ///     references and an element carrying one class fills exactly one of them — the other four
+    ///     resolve to the empty token stream, so what reaches this method is a keyword with runs of
+    ///     spaces around it. A reader that treated the gaps as keywords would produce no tags at all
+    ///     for every composed class, and a reader that refused the declaration would produce none
+    ///     either; both failures look like the family never having been registered.
+    /// </remarks>
+    [Fact]
+    public void Empty_slots_in_the_list_contribute_no_feature() {
+        using var document = new UiDocument(400f, 300f);
+        var element = Styled(document, "font-variant-numeric:   tabular-nums    slashed-zero ;");
+
+        Assert.Equal(["tnum", "zero"], Tags(element));
+
+        // And a list that is nothing but slots asks for nothing rather than for a mistake.
+        Assert.Empty(Tags(Styled(document, "font-variant-numeric:     ;")));
     }
 
     [Fact]

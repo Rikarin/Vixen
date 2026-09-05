@@ -885,21 +885,34 @@ public static class UtilityFamilies {
         // words</b> — `tabular-nums`, not `nums-tabular`. Inventing the second spelling is the
         // failure `bg-conic-<angle>` is recorded under.
         //
-        // ⚠ <b>What this does not do, stated rather than left to be found: two of them on one element
-        // keep the last.</b> Tailwind composes these through nine `--tw-*` fragments, so
-        // `class="tabular-nums slashed-zero"` gets both; here each class emits the whole property and
-        // the cascade keeps the later declaration. CSS's own grammar takes a list, so
-        // `[font-variant-numeric:tabular-nums_slashed-zero]` does get both — the gap is in the
-        // composition, not in the reader. Recorded as a value gap on the row rather than papered over.
+        // ⚠ <b>Composed, and the row this section used to carry — "two of them on one element keep
+        // the last" — is closed.</b> Each class emitted the whole property, so
+        // `class="tabular-nums slashed-zero"` kept whichever declaration the cascade picked second
+        // and the other silently did nothing: a *wrong answer* rather than a refusal, which is worse
+        // than an unregistered class because there is nothing to look up. The eight keywords write
+        // `--tw-*` fragments now and every one of them emits the same assembled
+        // `font-variant-numeric` beside it, so any combination of them composes.
+        //
+        // ⚠ <b>Five fragments and not nine, which is CSS's grammar rather than a compression.</b>
+        // CSS Fonts 4 § 6.6 takes at most one keyword from each of three sets — figure, spacing,
+        // fraction — plus the two independent flags, so `lining-nums oldstyle-nums` is not something
+        // an author can mean. A fragment per class would let both be set and would emit an invalid
+        // declaration; a fragment per *set* makes the later class win within its set and leave the
+        // rest alone, which is what the property says and what v4 emits.
+        //
+        // ⚠ <b>`normal-nums` stays a whole declaration, and it has to.</b> `normal` is the one
+        // keyword CSS forbids beside any other, so composing it would produce
+        // `normal tabular-nums` — invalid — where writing the property outright makes it the
+        // override it is meant to be. v4 does the same.
         Static("normal-nums", "font-variant-numeric", "normal");
-        Static("ordinal", "font-variant-numeric", "ordinal");
-        Static("slashed-zero", "font-variant-numeric", "slashed-zero");
-        Static("lining-nums", "font-variant-numeric", "lining-nums");
-        Static("oldstyle-nums", "font-variant-numeric", "oldstyle-nums");
-        Static("proportional-nums", "font-variant-numeric", "proportional-nums");
-        Static("tabular-nums", "font-variant-numeric", "tabular-nums");
-        Static("diagonal-fractions", "font-variant-numeric", "diagonal-fractions");
-        Static("stacked-fractions", "font-variant-numeric", "stacked-fractions");
+        NumericFigure("ordinal", UtilityComposition.Ordinal, "ordinal");
+        NumericFigure("slashed-zero", UtilityComposition.SlashedZero, "slashed-zero");
+        NumericFigure("lining-nums", UtilityComposition.NumericFigure, "lining-nums");
+        NumericFigure("oldstyle-nums", UtilityComposition.NumericFigure, "oldstyle-nums");
+        NumericFigure("proportional-nums", UtilityComposition.NumericSpacing, "proportional-nums");
+        NumericFigure("tabular-nums", UtilityComposition.NumericSpacing, "tabular-nums");
+        NumericFigure("diagonal-fractions", UtilityComposition.NumericFraction, "diagonal-fractions");
+        NumericFigure("stacked-fractions", UtilityComposition.NumericFraction, "stacked-fractions");
 
         // ⚠ <b>`font-features-*` is deliberately NOT registered, and the reason changed on this pass.</b>
         // The blocker it shared with the nine families above is gone: `font-feature-settings` is read
@@ -3176,6 +3189,27 @@ public static class UtilityFamilies {
 
         Registry[family.Name] = existing with { Keywords = merged };
     }
+
+    /// <summary>Registers one <c>font-variant-numeric</c> keyword as a fragment plus the assembly.</summary>
+    /// <param name="name">The class, which is also the keyword — v4 spells these as bare words.</param>
+    /// <param name="fragment">The <c>--tw-*</c> slot it writes, one per CSS keyword *set*.</param>
+    /// <param name="keyword">The keyword it writes there.</param>
+    /// <remarks>
+    ///     ⚠ <see cref="Translate" />'s shape with the fragment named per call rather than derived
+    ///     from the class, because two classes share a slot: <c>lining-nums</c> and
+    ///     <c>oldstyle-nums</c> are the two values of one set and must overwrite each other. A helper
+    ///     that derived the slot from the name would give them one each and let both apply.
+    /// </remarks>
+    static void NumericFigure(string name, string fragment, string keyword) =>
+        Register(new Family(
+            name,
+            ValueKind.Static,
+            [fragment],
+            new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = $"{fragment}:{keyword}" },
+            Alongside: [
+                new UtilityDeclaration("font-variant-numeric", UtilityComposition.NumericFigures())
+            ]
+        ));
 
     static void Static(string name, string property, string value) =>
         Register(new Family(name, ValueKind.Static, [property], new Dictionary<string, string>(StringComparer.Ordinal) {

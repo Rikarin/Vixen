@@ -107,8 +107,8 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **219** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **32** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **220** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **31** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
 | **absent** | not emitted at all | **73** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
@@ -459,7 +459,7 @@ refusal block, which already says so for the same reason.
 | Borders | 34 | 28 | 2 | 0 | 4 | 0 | 0 |
 | Effects | 34 | 27 | 1 | 0 | 6 | 0 | 0 |
 | Flexbox and Grid | 34 | 29 | 3 | 0 | 2 | 0 | 0 |
-| Typography | 34 | 17 | 7 | 0 | 10 | 0 | 0 |
+| Typography | 34 | 18 | 6 | 0 | 10 | 0 | 0 |
 | Spacing | 24 | 22 | 0 | 0 | 2 | 0 | 0 |
 | Transforms | 23 | 6 | 2 | 0 | 15 | 0 | 0 |
 | Filters | 20 | 10 | 10 | 0 | 0 | 0 | 0 |
@@ -469,7 +469,7 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **329** | **219** | **32** | **1** | **73** | **3** | **1** |
+| **Total** | **329** | **220** | **31** | **1** | **73** | **3** | **1** |
 
 Flexbox and Grid leads at 29 of 34, with only two absent roots left and both of those refused on
 policy rather than owed; then Effects at 27 of 34, Interactivity at 27 of 39, Borders at 26 of 34,
@@ -3352,11 +3352,27 @@ digit — so the family would have measured inert with the reader finished, the 
 HarfBuzz correctly ignoring a tag the face has never heard of. The `figured` scene registers Open
 Sans, linked from where the editor already ships it, and gives it `0123456789` to apply them to.
 
-**What the nine classes do not do, recorded as a value gap rather than papered over:** two of them on
-one element keep the last. Tailwind composes all nine through `--tw-*` fragments; here each class
-emits the whole property. CSS's own grammar takes a list, so
-`[font-variant-numeric:tabular-nums_slashed-zero]` does get both — the gap is in the composition, not
-in the reader, and the root is `partial` because of it.
+**✅ The value gap this section recorded — two of them on one element keep the last — is closed, and
+it was a silent wrong answer rather than a refusal.** Each class emitted the whole property, so
+`class="tabular-nums slashed-zero"` kept whichever declaration the cascade picked second and the
+other did nothing: no diagnostic, no unrecognised candidate, nothing for an author to look up. The
+eight write `--tw-*` fragments now and each emits the same assembled `font-variant-numeric` beside
+it.
+
+⚠ **Five fragments for eight classes, which is CSS's grammar rather than a compression.** CSS
+Fonts 4 § 6.6 takes at most one keyword from each of the figure, spacing and fraction sets, plus the
+two independent flags — so `lining-nums oldstyle-nums` is not something an author can mean, and a
+fragment per class would let both be set and emit an invalid declaration. A fragment per *set* makes
+the later class win inside its set and leave the others alone. v4 does the same, for the same reason.
+
+⚠ **And their initial value is the empty string, the first in `UtilityComposition` with no identity
+to fall back to.** A translation unset is `0px` and a scale unset is `1`, because those properties
+need a value; this one needs a *shorter list*, and CSS's spelling of "no tokens at all" is the empty
+fallback `var(--tw-ordinal,)` — which `VarSubstitution` already distinguishes from a missing one.
+`CompositionTests.Every_fragment_carries_an_initial_value` asserted a non-*empty* initial and had to
+be corrected: the invariant that makes a reference safe is the comma, never the text after it.
+`normal-nums` stays a whole declaration, because `normal` is the one keyword CSS forbids beside any
+other.
 
 **`font-features-*` is left unregistered, and its sizing is now about the instrument rather than the
 engine.** The property is read end to end and reachable today through the arbitrary-property hatch,
