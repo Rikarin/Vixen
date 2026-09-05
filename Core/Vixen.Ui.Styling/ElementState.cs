@@ -101,16 +101,57 @@ public enum ElementState : uint {
     /// <remarks>
     ///     <para>See <see cref="Valid" /> for why these are two bits and not one.</para>
     ///     <para>
-    ///         ⚠ <b>There is no <c>UserInteracted</c> beside it, and the reason is a dependency
-    ///         rather than a design.</b> CSS pairs these with <c>:user-valid</c> and
-    ///         <c>:user-invalid</c> — the same verdict, shown only once the user has had a go — which
-    ///         is one more bit and a two-bit mask, since the matcher's state test is already
-    ///         <c>(state &amp; mask) == mask</c>. ⚠ <b>Measured: ExCSS 4.3.2 does not know either
-    ///         name</b>, and hands the whole compound back as an <c>UnknownSelector</c>, exactly as
-    ///         it does for <c>:open</c> and <c>:autofill</c>. So the bit and its writer were written
-    ///         and then taken back out: nothing could ever have selected on them, and a state
-    ///         nothing selects on is the defect this family was filed to stop.
+    ///         <see cref="UserInteracted" /> is what pairs with it to make <c>:user-invalid</c>.
     ///     </para>
     /// </remarks>
-    Invalid = 1 << 12
+    Invalid = 1 << 12,
+
+    /// <summary>Its value is outside the bounds it carries.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A bit for the violation and not for the compliance, which is the opposite way
+    ///         round from <see cref="Valid" /> beside it — and the difference is not an
+    ///         inconsistency.</b> Selectors 4 § 10.7 gives <c>:in-range</c> and <c>:out-of-range</c>
+    ///         only to elements with a range, so an element with none is neither; but a range is
+    ///         <i>declared</i> rather than computed, and a control that has one always answers. So
+    ///         the pair collapses to one bit and its negation, <c>:read-write</c>'s arrangement,
+    ///         with the same stated divergence: everything that never declared bounds is
+    ///         <c>:in-range</c> here where a browser would say neither.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It could not be true at all until the control stopped clamping.</b>
+    ///         <c>NumericInput</c> used to bring the value back inside the bounds in its coerce, so
+    ///         the condition this bit describes could not be held for any length of time by any
+    ///         route — a variant registered against it would have compiled, indexed and matched
+    ///         nothing. What moved was the control: a typed or assigned number is now held and
+    ///         reported, and only the arrows, the spinner and the scrub still clamp.
+    ///     </para>
+    /// </remarks>
+    OutOfRange = 1 << 13,
+
+    /// <summary>The user has had a go at it, rather than only having been shown it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Never a pseudo-class on its own — it is half of two.</b> CSS spells
+    ///         <c>:user-valid</c> and <c>:user-invalid</c>, which are <see cref="Valid" /> and
+    ///         <see cref="Invalid" /> gated on the user having touched the control, and the whole
+    ///         point of having both pairs is that a form must not turn red before it has been filled
+    ///         in. The matcher's state test is already <c>(state &amp; mask) == mask</c>, so the
+    ///         conjunction costs one comparison and no new selector kind.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It never clears.</b> What changes back is the verdict; having been in a field is
+    ///         not something that stops being true. A control that cleared it on focus loss would
+    ///         make <c>:user-invalid</c> a state visible only while the caret was in the field, which
+    ///         is precisely when a form should <i>not</i> be shouting.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The name is refused by the parser and reaches the compiler as a rewrite.</b>
+    ///         Measured: ExCSS 4.3.2 has no literal for either word — the UTF-16 bytes are not in the
+    ///         assembly — so <c>textbox:user-invalid</c> comes back as one <c>UnknownSelector</c>
+    ///         covering the whole compound, exactly as <c>:where()</c> does.
+    ///         <c>SelectorCompiler.TryRewrite</c> is where both are repaired, on the same scan.
+    ///     </para>
+    /// </remarks>
+    UserInteracted = 1 << 14
 }

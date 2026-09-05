@@ -67,7 +67,7 @@ public readonly record struct SelectorDiagnostic(string Text, string Reason, str
 /// </remarks>
 public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
     /// <summary>Re-reads one selector that had to be repaired before ExCSS could read it.</summary>
-    /// <remarks>See <see cref="CompileWhere" />. The settings are <c>StyleSheetLoader</c>'s.</remarks>
+    /// <remarks>See <see cref="CompileRewritten" />. The settings are <c>StyleSheetLoader</c>'s.</remarks>
     static readonly StylesheetParser Reparser = new(true, true, true, true, true);
 
     readonly NameTable names = names ?? throw new ArgumentNullException(nameof(names));
@@ -113,11 +113,10 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             return;
         }
 
-        // ⚠ Before anything else looks at the tree, because for this one selector there is no tree.
-        // See `CompileWhere`.
-        if (selector.Text.Contains(":where(", StringComparison.OrdinalIgnoreCase)
-            && TryRewriteWhere(selector.Text, out var parts)) {
-            CompileWhere(parts, compiled);
+        // ⚠ Before anything else looks at the tree, because for these selectors there is no tree.
+        // See `CompileRewritten`.
+        if (NeedsRepair(selector.Text) && TryRewrite(selector.Text, out var parts)) {
+            CompileRewritten(parts, compiled);
             return;
         }
 
@@ -139,11 +138,36 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
     /// <summary>Records a refusal against the rule currently being compiled.</summary>
     void Refuse(string text, string reason) => diagnostics.Add(new SelectorDiagnostic(text, reason, rule));
 
+    /// <summary>The attribute name <c>:user-valid</c> is smuggled through ExCSS as.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An attribute and not a class or a pseudo-class, and the choice is about the number
+    ///     rather than about the syntax.</b> ExCSS charges an attribute selector one class, which is
+    ///     what a pseudo-class costs — so the rewrite is specificity-neutral and nothing has to be
+    ///     added back afterwards, unlike the <c>:where(</c> → <c>:is(</c> rewrite beside it. A
+    ///     pseudo-class marker is not available: an unknown one is exactly what this works around.
+    /// </remarks>
+    const string UserValidMarker = "_vixen-user-valid";
+
+    /// <summary>The same for <c>:user-invalid</c>.</summary>
+    const string UserInvalidMarker = "_vixen-user-invalid";
+
+    /// <summary>Whether ExCSS will have failed on this text for a reason this class can repair.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Cheap and deliberately over-eager, because the repair itself is the honest test.</b>
+    ///     All three words can appear inside a quoted attribute value in text ExCSS reads perfectly
+    ///     well, so <see cref="TryRewrite" /> answers false when it changed nothing outside a string
+    ///     and this only decides whether to ask.
+    /// </remarks>
+    static bool NeedsRepair(string text) =>
+        text.Contains(":where(", StringComparison.OrdinalIgnoreCase)
+        || text.Contains(":user-valid", StringComparison.OrdinalIgnoreCase)
+        || text.Contains(":user-invalid", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>One comma-separated part of a selector that was written with <c>:where()</c>.</summary>
     /// <param name="Written">What the author wrote, for a diagnostic to quote.</param>
     /// <param name="Rewritten">The same part with every <c>:where(</c> turned into <c>:is(</c>.</param>
     /// <param name="Zeroed">How many of those were at the top level, and so must be charged nothing.</param>
-    readonly record struct WherePart(string Written, string Rewritten, int Zeroed);
+    readonly record struct RewrittenPart(string Written, string Rewritten, int Zeroed);
 
     /// <summary>Compiles the parts of a selector ExCSS could not read because of a <c>:where()</c>.</summary>
     /// <param name="parts">The parts, already rewritten.</param>
@@ -178,7 +202,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
     ///         the rewritten form would name a selector nobody wrote.
     ///     </para>
     /// </remarks>
-    void CompileWhere(List<WherePart> parts, List<Selector> compiled) {
+    void CompileRewritten(List<RewrittenPart> parts, List<Selector> compiled) {
         foreach (var part in parts) {
             var sheet = Reparser.Parse(part.Rewritten + " { color: red }");
 
@@ -224,7 +248,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
     ///     well, and answering true there would send a selector that needs no repair down a path that
     ///     re-parses it and refuses it.
     /// </remarks>
-    static bool TryRewriteWhere(string text, out List<WherePart> parts) {
+    static bool TryRewrite(string text, out List<RewrittenPart> parts) {
         parts = [];
 
         var rewritten = new System.Text.StringBuilder(text.Length);
@@ -274,6 +298,23 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
                 continue;
             }
 
+            // ⚠ The longer name first. `:user-invalid` is not a `:user-valid` with a prefix — they
+            // diverge at the seventh character — but testing the shorter one first is the habit that
+            // would go wrong the day a third name in this family is not so lucky.
+            if (c == ':' && string.Compare(text, i, ":user-invalid", 0, 13, StringComparison.OrdinalIgnoreCase) == 0) {
+                found++;
+                rewritten.Append('[').Append(UserInvalidMarker).Append(']');
+                i += 12;
+                continue;
+            }
+
+            if (c == ':' && string.Compare(text, i, ":user-valid", 0, 11, StringComparison.OrdinalIgnoreCase) == 0) {
+                found++;
+                rewritten.Append('[').Append(UserValidMarker).Append(']');
+                i += 10;
+                continue;
+            }
+
             switch (c) {
                 case '(' or '[':
                     depth++;
@@ -284,7 +325,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
                     break;
 
                 case ',' when depth == 0:
-                    parts.Add(new WherePart(text[start..i].Trim(), rewritten.ToString().Trim(), zeroed));
+                    parts.Add(new RewrittenPart(text[start..i].Trim(), rewritten.ToString().Trim(), zeroed));
                     rewritten.Clear();
                     start = i + 1;
                     zeroed = 0;
@@ -297,7 +338,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             rewritten.Append(c);
         }
 
-        parts.Add(new WherePart(text[start..].Trim(), rewritten.ToString().Trim(), zeroed));
+        parts.Add(new RewrittenPart(text[start..].Trim(), rewritten.ToString().Trim(), zeroed));
 
         return found > 0;
     }
@@ -436,7 +477,22 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
 
             case AttrAvailableSelector attribute:
                 specificity = specificity with { Classes = specificity.Classes + 1 };
-                compiled = new SimpleSelector(SimpleSelectorKind.Attribute, names.Intern(attribute.Attribute));
+
+                // ⚠ The two names this compiler does not read as attributes, because they never
+                // came from an author — `TryRewrite` puts them there so that a pseudo-class ExCSS
+                // has no literal for can reach this switch at all. See `UserValidMarker`.
+                compiled = attribute.Attribute switch {
+                    UserValidMarker => new SimpleSelector(
+                        SimpleSelectorKind.State,
+                        State: ElementState.Valid | ElementState.UserInteracted
+                    ),
+                    UserInvalidMarker => new SimpleSelector(
+                        SimpleSelectorKind.State,
+                        State: ElementState.Invalid | ElementState.UserInteracted
+                    ),
+                    _ => new SimpleSelector(SimpleSelectorKind.Attribute, names.Intern(attribute.Attribute))
+                };
+
                 return true;
 
             case AttrMatchSelector match:
@@ -629,14 +685,22 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             // negation, because Selectors 4 § 10.6 gives neither to an element that does not take
             // part in constraint validation and a negation would have made every `div` valid.
             //
-            // ⚠ <b>`:user-valid` and `:user-invalid` are absent, and not by choice.</b> They are the
-            // same verdicts gated on the user having had a go — one more bit, and a two-bit mask,
-            // since the state test below is already a conjunction. Measured: ExCSS 4.3.2 does not
-            // know either name and hands the whole compound back as an `UnknownSelector`, so they
-            // are refused one layer out by the parser exactly as `:open` is.
+            // ⚠ `:user-valid` and `:user-invalid` never reach this switch, and their absence here is
+            // not a refusal. ExCSS 4.3.2 has no literal for either name — measured, the UTF-16 bytes
+            // are not in the assembly — so the whole compound arrives as an `UnknownSelector` and
+            // never becomes a `PseudoClassSelector` at all. `TryRewrite` turns them into the two
+            // markers the attribute arm above reads, and the mask is a conjunction because the state
+            // test below already is one.
             "required" => ElementState.Required,
             "valid" => ElementState.Valid,
             "invalid" => ElementState.Invalid,
+
+            // ⚠ `:out-of-range` is the positive of the pair and `:in-range` is its negation below,
+            // which is the other way round from `:valid`/`:invalid` two lines up. A range is
+            // declared rather than computed, so a control that has one always answers and the two
+            // are true complements; validity is a verdict, and an element that reaches no verdict
+            // has to be able to be neither.
+            "out-of-range" => ElementState.OutOfRange,
             _ => ElementState.None
         };
 
@@ -710,6 +774,19 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             // and here everything that never said it was required is.
             specificity = specificity with { Classes = specificity.Classes + 1 };
             var nested = table.AddNested(NegatedState(ElementState.Required));
+            compiled = new SimpleSelector(SimpleSelectorKind.Not, NestedStart: nested, NestedCount: 1);
+
+            return true;
+        }
+
+        if (name == "in-range") {
+            // ⚠ `:optional`'s arrangement, and it carries the divergence those two already carry:
+            // a browser gives neither pseudo-class to an element with no range, and here everything
+            // that never declared bounds is in range. Stated rather than smuggled — and unlike
+            // `:valid` there is nothing to lose by it, since a control with no bounds cannot be
+            // outside them.
+            specificity = specificity with { Classes = specificity.Classes + 1 };
+            var nested = table.AddNested(NegatedState(ElementState.OutOfRange));
             compiled = new SimpleSelector(SimpleSelectorKind.Not, NestedStart: nested, NestedCount: 1);
 
             return true;

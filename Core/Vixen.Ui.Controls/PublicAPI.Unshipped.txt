@@ -70,8 +70,13 @@ Vixen.Ui.Controls.CheckBox : Vixen.Ui.Controls.ToggleBase
 Vixen.Ui.Controls.CheckBox.Box.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.CheckBox.CheckBox() -> void
 Vixen.Ui.Controls.CheckBox.ClearIsIndeterminate() -> void
+Vixen.Ui.Controls.CheckBox.ClearRequired() -> void
 Vixen.Ui.Controls.CheckBox.IsIndeterminate.get -> bool
 Vixen.Ui.Controls.CheckBox.IsIndeterminate.set -> bool
+Vixen.Ui.Controls.CheckBox.IsValid.get -> bool
+Vixen.Ui.Controls.CheckBox.Required.get -> bool
+Vixen.Ui.Controls.CheckBox.Required.set -> bool
+Vixen.Ui.Controls.CheckBox.Revalidate() -> void
 Vixen.Ui.Controls.ClickEvent -> sealed class
 Vixen.Ui.Controls.ClickEvent : Vixen.Ui.UiEvent
 Vixen.Ui.Controls.ClickEvent.ClickEvent() -> void
@@ -378,6 +383,7 @@ Vixen.Ui.Controls.NumericInput.ClearRelativeStep() -> void
 Vixen.Ui.Controls.NumericInput.ClearStep() -> void
 Vixen.Ui.Controls.NumericInput.Decimals.get -> int
 Vixen.Ui.Controls.NumericInput.Decimals.set -> int
+Vixen.Ui.Controls.NumericInput.IsInRange.get -> bool
 Vixen.Ui.Controls.NumericInput.Maximum.get -> double
 Vixen.Ui.Controls.NumericInput.Maximum.set -> double
 Vixen.Ui.Controls.NumericInput.Minimum.get -> double
@@ -511,9 +517,14 @@ Vixen.Ui.Controls.RadioButton.Value.set -> string?
 Vixen.Ui.Controls.RadioGroup -> sealed class
 Vixen.Ui.Controls.RadioGroup : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.RadioGroup.AddOption(string value, string? label = null) -> Vixen.Ui.Controls.RadioButton
+Vixen.Ui.Controls.RadioGroup.ClearRequired() -> void
 Vixen.Ui.Controls.RadioGroup.ClearValue() -> void
+Vixen.Ui.Controls.RadioGroup.IsValid.get -> bool
 Vixen.Ui.Controls.RadioGroup.Options.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.RadioButton>
 Vixen.Ui.Controls.RadioGroup.RadioGroup() -> void
+Vixen.Ui.Controls.RadioGroup.Required.get -> bool
+Vixen.Ui.Controls.RadioGroup.Required.set -> bool
+Vixen.Ui.Controls.RadioGroup.Revalidate() -> void
 Vixen.Ui.Controls.RadioGroup.Value.get -> string?
 Vixen.Ui.Controls.RadioGroup.Value.set -> string?
 Vixen.Ui.Controls.RadioGroup.ValueChanged -> System.Action<Vixen.Ui.Controls.RadioGroup, string?>?
@@ -646,9 +657,14 @@ Vixen.Ui.Controls.SegmentedControl.ValueChanged -> System.Action<Vixen.Ui.Contro
 Vixen.Ui.Controls.Select -> sealed class
 Vixen.Ui.Controls.Select : Vixen.Ui.Controls.SelectBase
 Vixen.Ui.Controls.Select.ClearPlaceholder() -> void
+Vixen.Ui.Controls.Select.ClearRequired() -> void
 Vixen.Ui.Controls.Select.ClearValue() -> void
+Vixen.Ui.Controls.Select.IsValid.get -> bool
 Vixen.Ui.Controls.Select.Placeholder.get -> string?
 Vixen.Ui.Controls.Select.Placeholder.set -> string?
+Vixen.Ui.Controls.Select.Required.get -> bool
+Vixen.Ui.Controls.Select.Required.set -> bool
+Vixen.Ui.Controls.Select.Revalidate() -> void
 Vixen.Ui.Controls.Select.Select() -> void
 Vixen.Ui.Controls.Select.Selected.get -> Vixen.Ui.Controls.Option?
 Vixen.Ui.Controls.Select.SelectionChanged -> System.Action<Vixen.Ui.Controls.Select, string?>?
@@ -960,6 +976,7 @@ override Vixen.Ui.Controls.Card.TagName.get -> string
 override Vixen.Ui.Controls.CheckBox.Activate(Vixen.Ui.Controls.ActivationDevice device, int count, Vixen.Ui.ModifierKeys modifiers) -> void
 override Vixen.Ui.Controls.CheckBox.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
 override Vixen.Ui.Controls.CheckBox.NativeRole.get -> Vixen.Ui.AccessibleRole
+override Vixen.Ui.Controls.CheckBox.OnChecked(bool current) -> void
 override Vixen.Ui.Controls.CheckBox.OnCreated() -> void
 override Vixen.Ui.Controls.CheckBox.TagName.get -> string
 override Vixen.Ui.Controls.ComboBox.AcceptsFocus.get -> bool
@@ -1050,6 +1067,7 @@ override Vixen.Ui.Controls.NumericInput.OnCreated() -> void
 override Vixen.Ui.Controls.NumericInput.OnSubmit() -> void
 override Vixen.Ui.Controls.NumericInput.SelectAt(int index, int count) -> void
 override Vixen.Ui.Controls.NumericInput.TagName.get -> string
+override Vixen.Ui.Controls.NumericInput.Validate(string? value) -> string?
 override Vixen.Ui.Controls.Option.Label.get -> string?
 override Vixen.Ui.Controls.Option.Label.set -> string?
 override Vixen.Ui.Controls.Option.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
@@ -1085,6 +1103,7 @@ override Vixen.Ui.Controls.RadioButton.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.RadioButton.OnCreated() -> void
 override Vixen.Ui.Controls.RadioButton.TagName.get -> string
 override Vixen.Ui.Controls.RadioGroup.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.RadioGroup.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
 override Vixen.Ui.Controls.RadioGroup.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.RadioGroup.OnChildAdded(Vixen.Ui.UiElement child) -> void
 override Vixen.Ui.Controls.RadioGroup.OnCreated() -> void
@@ -1126,6 +1145,7 @@ override Vixen.Ui.Controls.SegmentedControl.TagName.get -> string
 override Vixen.Ui.Controls.Select.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
 override Vixen.Ui.Controls.Select.NativeAccessibleValue.get -> string?
 override Vixen.Ui.Controls.Select.NativeRole.get -> Vixen.Ui.AccessibleRole
+override Vixen.Ui.Controls.Select.OnCreated() -> void
 override Vixen.Ui.Controls.Select.OnOptionAdded(Vixen.Ui.Controls.Option option) -> void
 override Vixen.Ui.Controls.Select.OnOptionChosen(Vixen.Ui.Controls.Option option) -> void
 override Vixen.Ui.Controls.Select.TagName.get -> string
@@ -1251,6 +1271,7 @@ static Vixen.Ui.Controls.ControlStrings.DockPreviousTab.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.DocumentDiscard.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.DocumentSave.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.DocumentSavePrompt.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.FieldOutOfRange.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.FieldRequired.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.GradientEditorAlphaStops.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.GradientEditorColorStops.get -> Vixen.Ui.StringId
@@ -1285,6 +1306,7 @@ static readonly Vixen.Ui.Controls.Accordion.AllowMultipleProperty -> Vixen.Ui.Ui
 static readonly Vixen.Ui.Controls.Avatar.NameProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.BreadcrumbItem.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.CheckBox.IsIndeterminateProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.CheckBox.RequiredProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Control.DisabledProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Control.SizeProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Control.VariantProperty -> Vixen.Ui.UiPropertyKey
@@ -1321,6 +1343,7 @@ static readonly Vixen.Ui.Controls.ProgressBar.IsIndeterminateProperty -> Vixen.U
 static readonly Vixen.Ui.Controls.ProgressBar.PhaseProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.ProgressBar.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.RadioButton.ValueProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.RadioGroup.RequiredProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.RadioGroup.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.RangeBase.MaximumProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.RangeBase.MinimumProperty -> Vixen.Ui.UiPropertyKey
@@ -1338,6 +1361,7 @@ static readonly Vixen.Ui.Controls.ScrollView.ScrollTopProperty -> Vixen.Ui.UiPro
 static readonly Vixen.Ui.Controls.Segment.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.SegmentedControl.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Select.PlaceholderProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Select.RequiredProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Select.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Separator.OrientationProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Slider.ValueProperty -> Vixen.Ui.UiPropertyKey

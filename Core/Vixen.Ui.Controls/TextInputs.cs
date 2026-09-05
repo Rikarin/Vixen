@@ -3,6 +3,7 @@
 
 using System.Globalization;
 using Vixen.Input;
+using Vixen.Ui.Styling;
 
 namespace Vixen.Ui.Controls;
 
@@ -269,6 +270,15 @@ public partial class NumericInput : TextField {
     /// <summary>Raised when the number changes.</summary>
     public event Action<NumericInput, double>? NumberChanged;
 
+    /// <summary>Whether <see cref="Number" /> is inside the bounds the field declares.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A question worth being able to ask, which it was not while the field clamped.</b> The
+    ///     answer was <c>true</c> unconditionally — see <see cref="CoerceNumber" /> — so nothing
+    ///     could have been written against it. Both comparisons are inclusive, and both are false for
+    ///     a number that is <c>NaN</c>; the coerce keeps that out of <see cref="Number" /> anyway.
+    /// </remarks>
+    public bool IsInRange => Number >= Minimum && Number <= Maximum;
+
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
@@ -293,8 +303,15 @@ public partial class NumericInput : TextField {
     ///     than by a percent of where it started — which is the behaviour a person expects from a key
     ///     they are pressing over and over, and the opposite of what a drag wants. A drag freezes its
     ///     rate instead; <see cref="Scrub" /> says why.
+    ///     <para>
+    ///     ⚠ <b>And this is one of the three mutations that still clamps</b> — see
+    ///     <see cref="CoerceNumber" /> for the split. A spinner's whole affordance is that it stops
+    ///     at the ends, so an arrow held down at the ceiling has to sit there rather than climb into
+    ///     a number the field will then call invalid. It also means an arrow is the way <i>back</i>
+    ///     from a value typed outside the bounds: one press lands on the nearest end.
+    ///     </para>
     /// </remarks>
-    public void Nudge(double steps) => Number += steps * StepAt(Number);
+    public void Nudge(double steps) => Number = Math.Clamp(Number + (steps * StepAt(Number)), Minimum, Maximum);
 
     /// <summary>What one step is worth at a given value.</summary>
     /// <remarks>
@@ -338,6 +355,18 @@ public partial class NumericInput : TextField {
 
         return value;
     }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>A range violation is a constraint violation, which is CSS's own reading and not a
+    ///     convenience.</b> Selectors 4 § 10.7 puts a number outside its bounds in
+    ///     <c>:out-of-range</c> <i>and</i> in <c>:invalid</c>, so a stylesheet that only knows how to
+    ///     colour an invalid field still colours this one. Read off <see cref="Number" /> rather than
+    ///     off the text it is handed: the text is half-typed for as long as somebody is typing, and
+    ///     the number is only assigned from text that parses.
+    /// </remarks>
+    protected override string? Validate(string? value) =>
+        base.Validate(value) ?? (IsInRange ? null : ControlStrings.FieldOutOfRange.Text);
 
     /// <inheritdoc />
     /// <remarks>
@@ -402,15 +431,68 @@ public partial class NumericInput : TextField {
     /// </remarks>
     double Quantize(double value) => Decimals == 0 ? Math.Round(value, MidpointRounding.AwayFromZero) : value;
 
-    double CoerceNumber(double value) =>
-        double.IsNaN(value) ? Number : Math.Clamp(value, Minimum, Maximum);
+    /// <summary>Keeps out what the field cannot hold, which is not the same as what it may not be.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This used to clamp to <see cref="Minimum" /> and <see cref="Maximum" />, and it
+    ///         is the same mistake <see cref="TextField.Coerce" />'s own remarks warn about one seam
+    ///         over: a field that silently rewrites what was typed is a field that will not take what
+    ///         you type.</b> Somebody entering <c>500</c> into a field bounded at a hundred saw
+    ///         <c>100</c> appear under their cursor with nothing said, and no state anywhere recorded
+    ///         that anything had been refused — <c>:out-of-range</c> could not be true of this
+    ///         control, for any length of time, by any route.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the bounds moved from the coerce to the verdict, and the split is by
+    ///         gesture rather than by value.</b> A typed or assigned number is <i>held</i> and
+    ///         reported — <see cref="Validate" /> makes it <c>:invalid</c> as well as
+    ///         <c>:out-of-range</c>, which is what CSS says, a range violation being a constraint
+    ///         violation. <see cref="Nudge" /> and the scrub still clamp, because a spinner and a
+    ///         drag are affordances that stop at the ends and the person doing them is not saying a
+    ///         number, they are pushing one.
+    ///     </para>
+    ///     <para>
+    ///         The <c>NaN</c> guard stays: that is genuinely something the field cannot hold rather
+    ///         than something it may not be.
+    ///     </para>
+    /// </remarks>
+    double CoerceNumber(double value) => double.IsNaN(value) ? Number : value;
 
     void OnNumberChanged(double previous, double current) {
+        Rerange();
         Format();
+
+        // ⚠ Explicitly, because `Format` only reaches `Revalidate` when the *text* moved. A field
+        // showing whole numbers that is pushed from ten to ten and a half formats to "10" both
+        // times, so the number left the range and nothing would have said so.
+        Revalidate();
+
         NumberChanged?.Invoke(this, current);
     }
 
-    void OnRangeChanged(double previous, double current) => Number = CoerceNumber(Number);
+    /// <summary>Re-decides the verdict when the bounds move rather than the number.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It used to pull the number back inside, and that is the behaviour this issue
+    ///     changed.</b> A ceiling lowered under a value that is already there does not un-say the
+    ///     value; it makes it unacceptable, which is a thing the field can now express. Nothing is
+    ///     lost that the arrows do not give back: one press lands on the nearest end.
+    /// </remarks>
+    void OnRangeChanged(double previous, double current) {
+        Rerange();
+        Revalidate();
+    }
+
+    /// <summary>Writes the one range bit.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One bit and no birth call, which is where this differs from the verdict beside
+    ///     it.</b> <c>:valid</c> needed a positive write at <c>OnCreated</c> because its absence is
+    ///     indistinguishable from an element that does not validate; <c>:in-range</c> is compiled as
+    ///     this bit's negation, so a field that has never left its bounds is in range by carrying
+    ///     nothing — which is also what a field with no bounds at all should be, and
+    ///     <see cref="Minimum" /> and <see cref="Maximum" /> default to the infinities.
+    /// </remarks>
+    void Rerange() =>
+        State = IsInRange ? State & ~ElementState.OutOfRange : State | ElementState.OutOfRange;
 
     void OnDecimalsChanged(int previous, int current) => Format();
 
@@ -428,8 +510,25 @@ public partial class NumericInput : TextField {
         }
     }
 
+    /// <summary>Turns Up, Down, PageUp and PageDown into a step.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="TextField.ReadOnly" /> was the one route into the value that did not
+    ///         ask.</b> Typing is refused, the scrub's press case is guarded, and <c>Stepper</c>'s
+    ///         arrows disable themselves — so a field offered as "look, do not touch" was one
+    ///         keystroke from being edited, and <c>ReadOnly</c> is precisely the state in which a
+    ///         person's finger is on the arrow keys: it still takes the focus, and its text can still
+    ///         be selected and copied. That is what separates it from <c>Disabled</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the key is left unhandled rather than swallowed</b>, which is the half worth
+    ///         saying out loud. A read-only field has not consumed Up; marking it handled would stop
+    ///         it reaching whatever the field is inside — a list that scrolls, a dialog that moves a
+    ///         selection — and turn "cannot be edited" into "eats the keyboard".
+    ///     </para>
+    /// </remarks>
     void Stepped(KeyEvent args) {
-        if (args.Action != KeyAction.Pressed) {
+        if (args.Action != KeyAction.Pressed || ReadOnly) {
             return;
         }
 
@@ -492,7 +591,12 @@ public partial class NumericInput : TextField {
 
                 scrubbed += delta;
                 offset += delta * rate * Scale(args.Modifiers);
-                Number = origin + Quantize(offset);
+
+                // ⚠ Clamped here rather than in the coerce, which is where it used to be. A drag is
+                // an affordance that stops at the ends — the same argument `Nudge` makes — so the
+                // gesture keeps the behaviour the coerce used to give every mutation, and typing
+                // keeps what it was given.
+                Number = Math.Clamp(origin + Quantize(offset), Minimum, Maximum);
 
                 args.Handled = true;
                 break;
@@ -681,9 +785,9 @@ public sealed partial class Stepper : NumericInput {
         args.Handled = true;
 
         // ⚠ Belt as well as braces: `Ends` has already disabled both arrows while the field is
-        // read-only, and a disabled control raises no click at all. It is written out because the
-        // arrow *keys* have no such check — a read-only numeric field can still be stepped with Up,
-        // which is #826 — and a new gesture should not quietly join a hole in an older one.
+        // read-only, and a disabled control raises no click at all. It is written out because this
+        // is the third of three gestures that reach `Nudge` and the other two both say it — the
+        // arrow keys said it last (#826), which is what this comment used to record as a hole.
         if (ReadOnly) {
             return;
         }

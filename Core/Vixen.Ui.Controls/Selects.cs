@@ -430,11 +430,24 @@ public sealed partial class Select : SelectBase {
     ///     select indistinguishable from a control that does not open at all.
     /// </remarks>
     protected override AccessibleStates NativeAccessibleState =>
-        AccessibleStates.Expandable | (IsOpen ? AccessibleStates.Expanded : AccessibleStates.None);
+        AccessibleStates.Expandable
+        | (IsOpen ? AccessibleStates.Expanded : AccessibleStates.None)
+        | (Required ? AccessibleStates.Required : AccessibleStates.None)
+        | (IsValid ? AccessibleStates.None : AccessibleStates.Invalid);
 
     /// <summary>Which choice is made, or <c>null</c> if none is.</summary>
     [UiProperty(Changed = nameof(OnValueChanged))]
     public partial string? Value { get; set; }
+
+    /// <summary>Whether a choice has to be made.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Answered from <see cref="Value" /> and not from <see cref="Selected" />.</b> A select
+    ///     whose value names an option that has not been added yet — a field bound to a model before
+    ///     its list has been fetched — has a choice made, and reading the option would call it empty
+    ///     until the list arrived and then quietly correct itself.
+    /// </remarks>
+    [UiProperty(Changed = nameof(OnRequiredChanged))]
+    public partial bool Required { get; set; }
 
     /// <summary>What the field says when nothing is chosen.</summary>
     [UiProperty(Changed = nameof(OnPlaceholderChanged))]
@@ -453,6 +466,31 @@ public sealed partial class Select : SelectBase {
             }
 
             return null;
+        }
+    }
+
+    /// <summary>Whether the choice made is acceptable.</summary>
+    public bool IsValid => !Required || Value is not null;
+
+    /// <inheritdoc />
+    protected override void OnCreated() {
+        base.OnCreated();
+
+        // ⚠ Here rather than only on a change, which is the trap `TextField` hit first: a select that
+        // is not required is valid from birth and never goes through a change, so without this call
+        // it would carry neither `:valid` nor `:invalid` — which a selector cannot tell apart from an
+        // element that does not validate at all.
+        Revalidate();
+    }
+
+    /// <summary>Republishes the verdict.</summary>
+    /// <remarks>
+    ///     Public on <see cref="TextField.Revalidate" />'s terms — what makes a choice acceptable can
+    ///     depend on something that is not this field.
+    /// </remarks>
+    public void Revalidate() {
+        if (FieldValidity.Publish(this, Required, IsValid)) {
+            InvalidateAccessibility();
         }
     }
 
@@ -484,8 +522,21 @@ public sealed partial class Select : SelectBase {
     void OnValueChanged(string? previous, string? current) {
         Restate();
 
+        // Before the notifications, so a handler that reads `IsValid` sees the verdict on the choice
+        // it was just handed.
+        Revalidate();
+
         Raise(new ValueChangedEvent<string> { Previous = previous, Value = current });
         SelectionChanged?.Invoke(this, current);
+    }
+
+    void OnRequiredChanged(bool previous, bool current) {
+        Revalidate();
+
+        // Unconditionally, because `Required` is reported in its own right: a field that goes from
+        // optional to required with a choice already made moves nothing about the verdict and still
+        // has something new to announce.
+        InvalidateAccessibility();
     }
 
     void OnPlaceholderChanged(string? previous, string? current) => Restate();

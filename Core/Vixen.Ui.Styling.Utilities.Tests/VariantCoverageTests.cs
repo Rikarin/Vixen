@@ -140,16 +140,48 @@ public class VariantCoverageTests {
                      // these rows cannot see, because this fixture sets the state by hand.
                      ("required", ElementState.Required),
                      ("valid", ElementState.Valid),
-                     ("invalid", ElementState.Invalid)
+                     ("invalid", ElementState.Invalid),
+
+                     // ⚠ The one of the eight whose blocker was the *control* rather than the
+                     // selector: `NumericInput` clamped in its coerce, so this bit could never be
+                     // set and a row here would have proved a variant nothing could ever match.
+                     // The clamp moved to the gestures and the bounds became a verdict.
+                     ("out-of-range", ElementState.OutOfRange),
+
+                     // ⚠ Two bits each. ExCSS 4.3.2 has no literal for either name, so these do not
+                     // reach the pseudo-class switch at all — `SelectorCompiler.TryRewrite` repairs
+                     // the text the way it already repairs `:where()`. A row that only proves the
+                     // positive would pass against a rewrite that dropped the interaction half, which
+                     // is what the extra pair below is for.
+                     ("user-valid", ElementState.Valid | ElementState.UserInteracted),
+                     ("user-invalid", ElementState.Invalid | ElementState.UserInteracted)
                  }) {
             Row(variant, on, 0, 0, true);
             Row(variant, ElementState.None, 0, 0, false);
         }
 
+        // ⚠ <b>The rows a one-bit implementation passes everything else and fails here.</b> A field
+        // that is valid and has never been touched is `:valid` and is *not* `:user-valid`; that
+        // separation is the only reason CSS has both pairs, and a mask that forgot
+        // `UserInteracted` would match both of these.
+        Row("user-valid", ElementState.Valid, 0, 0, false);
+        Row("user-invalid", ElementState.Invalid, 0, 0, false);
+
+        // And the interaction alone is not a verdict either, so neither name matches an element that
+        // has been typed into and validates nothing.
+        Row("user-valid", ElementState.UserInteracted, 0, 0, false);
+        Row("user-invalid", ElementState.UserInteracted, 0, 0, false);
+
         // ⚠ `:optional` is the *absence* of `:required`, so its rows run the other way round —
         // `:enabled`'s arrangement, and a variant given a bit of its own fails exactly this pair.
         Row("optional", ElementState.None, 0, 0, true);
         Row("optional", ElementState.Required, 0, 0, false);
+
+        // ⚠ And `:in-range` is the absence of `:out-of-range`, which is the other way round from
+        // `:valid`/`:invalid` above: a range is declared rather than reached, so a control that has
+        // one always answers and the two are true complements. These are the rows a second bit fails.
+        Row("in-range", ElementState.None, 0, 0, true);
+        Row("in-range", ElementState.OutOfRange, 0, 0, false);
 
         // ⚠ `:enabled` is the *absence* of `:disabled`, which is what CSS means by it — so its two
         // rows are the other way round from every row above, and a variant that compiled to a state

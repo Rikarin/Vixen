@@ -47,6 +47,13 @@ public abstract partial class TextField : Control, ITextInputTarget {
     bool dragging;
     Func<string?, string?>? validator;
 
+    // ⚠ Whether the *user* has changed the value, which is not the same question as whether the
+    // value has changed. It is set in `Replace` — the one mutation, so typing, pasting, Backspace
+    // and Delete all reach it — and deliberately not in `OnValueChanged`, which every field in a
+    // form loaded from a model goes through before anybody has seen it. Half of `:user-valid`; see
+    // `NoteUserInteraction`.
+    bool edited;
+
     // The input method's pre-edit and its own cursor within it. Empty for the whole life of a field
     // nobody types Japanese into, which is why they are two plain fields rather than state anything
     // else has to know about.
@@ -479,6 +486,8 @@ public abstract partial class TextField : Control, ITextInputTarget {
             return;
         }
 
+        edited = true;
+
         var value = Value ?? string.Empty;
         var start = SelectionStart;
         var end = SelectionEnd;
@@ -788,6 +797,22 @@ public abstract partial class TextField : Control, ITextInputTarget {
 
         InvalidateAccessibility();
     }
+
+    /// <summary>Records that the user has had a go at this field.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>It never clears, and that is the design rather than an omission.</b> What changes
+    ///         back is the verdict; having been in a field is not something that stops being true. A
+    ///         control that cleared this on focus loss would make <c>:user-invalid</c> a state
+    ///         visible only while the caret was in the field — which is precisely when a form should
+    ///         not be shouting.
+    ///     </para>
+    ///     <para>
+    ///         Cheap to call twice: <see cref="UiElement.State" /> compares before it invalidates
+    ///         anything.
+    ///     </para>
+    /// </remarks>
+    void NoteUserInteraction() => State |= ElementState.UserInteracted;
 
     /// <summary>Called when Enter is pressed, before <see cref="Submitted" /> is raised.</summary>
     protected virtual void OnSubmit() {
@@ -1216,6 +1241,15 @@ public abstract partial class TextField : Control, ITextInputTarget {
             }
         } else {
             dragging = false;
+
+            // ⚠ On the way out and only if the user actually typed something, which is the whole
+            // point of `:user-valid` existing beside `:valid`: a form must not turn red before it
+            // has been filled in. Tabbing through an empty required field leaves it `:invalid` and
+            // not `:user-invalid`, so a theme written against the second says nothing until the
+            // person has had a go.
+            if (edited) {
+                NoteUserInteraction();
+            }
 
             // ⚠ A field that has lost the focus is no longer the one the input method is talking to,
             // and the platform will not send it the end of the composition — it sends that to
@@ -1665,6 +1699,11 @@ public abstract partial class TextField : Control, ITextInputTarget {
             // ancestor seeing the submission before the field's own handler has is a form whose
             // default button fires on a value the field has not finished with.
             case EditingCommand.InsertNewline or EditingCommand.Submit:
+                // ⚠ Unconditionally, unlike the focus-loss case: a submit is the user saying they
+                // are finished with the whole form, so a required field they never reached has been
+                // answered — with nothing — and is entitled to say so.
+                NoteUserInteraction();
+
                 OnSubmit();
                 Submitted?.Invoke(this);
                 Raise(new SubmitEvent());

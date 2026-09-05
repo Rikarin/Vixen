@@ -294,6 +294,350 @@ public class ElementStateBitTests {
         Assert.Null(ui.Document.NumberOf(field.Style, opacity));
     }
 
+    /// <summary>A select reaches a verdict, and it is exactly one bit from the moment it exists.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The three assertions before <c>Required</c> is ever set are the ones a change-driven
+    ///     writer fails.</b> A select that is not required is valid and never goes through a change,
+    ///     so a control that only reached a verdict from its value's setter would carry neither bit —
+    ///     which a stylesheet cannot tell apart from a <c>div</c>. And the choice is read off
+    ///     <c>Value</c> rather than off the options, so a value assigned before its list arrives
+    ///     counts.
+    /// </remarks>
+    [Fact]
+    public void A_required_select_is_invalid_until_a_choice_is_made() {
+        using var ui = Opened();
+
+        var select = ui.Add<Select>();
+
+        Assert.False(select.State.HasFlag(ElementState.Required));
+        Assert.True(select.State.HasFlag(ElementState.Valid));
+        Assert.False(select.State.HasFlag(ElementState.Invalid));
+
+        select.Required = true;
+
+        Assert.True(select.State.HasFlag(ElementState.Required));
+        Assert.True(select.State.HasFlag(ElementState.Invalid));
+        Assert.False(select.State.HasFlag(ElementState.Valid));
+
+        // ⚠ Before any option is added, which is the case the verdict is deliberately not derived
+        // from `Selected` for: a field bound to a model before its list has been fetched has made a
+        // choice, and reading the option would call it empty and then quietly correct itself.
+        select.Value = "green";
+
+        Assert.True(select.State.HasFlag(ElementState.Valid));
+        Assert.False(select.State.HasFlag(ElementState.Invalid));
+
+        select.Value = null;
+
+        Assert.True(select.State.HasFlag(ElementState.Invalid));
+        Assert.False(select.State.HasFlag(ElementState.Valid));
+
+        // And it stops being mandatory without stopping being a control that validates.
+        select.Required = false;
+
+        Assert.False(select.State.HasFlag(ElementState.Required));
+        Assert.True(select.State.HasFlag(ElementState.Valid));
+        Assert.False(select.State.HasFlag(ElementState.Invalid));
+    }
+
+    /// <summary>A required box is invalid until it is ticked, and a dash is not a tick.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The indeterminate step is the one worth having.</b> A half-ticked box is
+    ///     <i>not</i> checked — that is why <see cref="ElementState.Indeterminate" /> is a bit of its
+    ///     own — so a required box showing a dash has not been answered, and a verdict computed from
+    ///     "has the user touched it" rather than from the value would let it through.
+    /// </remarks>
+    [Fact]
+    public void A_required_box_is_invalid_until_it_is_ticked() {
+        using var ui = Opened();
+
+        var box = ui.Add<CheckBox>();
+
+        Assert.True(box.State.HasFlag(ElementState.Valid));
+        Assert.False(box.State.HasFlag(ElementState.Invalid));
+
+        box.Required = true;
+
+        Assert.True(box.State.HasFlag(ElementState.Required));
+        Assert.True(box.State.HasFlag(ElementState.Invalid));
+        Assert.False(box.State.HasFlag(ElementState.Valid));
+
+        box.IsChecked = true;
+
+        Assert.True(box.State.HasFlag(ElementState.Valid));
+        Assert.False(box.State.HasFlag(ElementState.Invalid));
+
+        box.IsIndeterminate = true;
+
+        Assert.True(box.State.HasFlag(ElementState.Invalid));
+        Assert.False(box.State.HasFlag(ElementState.Valid));
+
+        box.IsIndeterminate = false;
+
+        Assert.True(box.State.HasFlag(ElementState.Valid));
+        Assert.False(box.State.HasFlag(ElementState.Invalid));
+
+        box.IsChecked = false;
+
+        Assert.True(box.State.HasFlag(ElementState.Invalid));
+        Assert.False(box.State.HasFlag(ElementState.Valid));
+    }
+
+    /// <summary>A required group is invalid until one of its members is chosen.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The bits are on the group and on none of the radios, which is the divergence from
+    ///     HTML worth asserting.</b> A browser marks each <c>&lt;input type=radio&gt;</c> required
+    ///     and re-derives the group from the shared name; here the group is the element that holds
+    ///     the answer, so a member carrying <c>:required</c> would be claiming that this one in
+    ///     particular has to be the chosen one.
+    /// </remarks>
+    [Fact]
+    public void A_required_group_is_invalid_until_a_member_is_chosen() {
+        using var ui = Opened();
+
+        var group = ui.Add<RadioGroup>();
+        var red = group.AddOption("red", "Red");
+        group.AddOption("green", "Green");
+
+        Assert.True(group.State.HasFlag(ElementState.Valid));
+        Assert.False(group.State.HasFlag(ElementState.Invalid));
+
+        group.Required = true;
+
+        Assert.True(group.State.HasFlag(ElementState.Required));
+        Assert.True(group.State.HasFlag(ElementState.Invalid));
+        Assert.False(group.State.HasFlag(ElementState.Valid));
+
+        // The member is neither, because a radio does not take part in constraint validation on its
+        // own — Selectors 4 § 10.6's "neither" case, and the reason `Valid` is a bit rather than the
+        // absence of `Invalid`.
+        Assert.False(red.State.HasFlag(ElementState.Valid));
+        Assert.False(red.State.HasFlag(ElementState.Invalid));
+        Assert.False(red.State.HasFlag(ElementState.Required));
+
+        group.Value = "green";
+
+        Assert.True(group.State.HasFlag(ElementState.Valid));
+        Assert.False(group.State.HasFlag(ElementState.Invalid));
+
+        group.Value = null;
+
+        Assert.True(group.State.HasFlag(ElementState.Invalid));
+        Assert.False(group.State.HasFlag(ElementState.Valid));
+    }
+
+    /// <summary>A number outside its bounds is <c>:out-of-range</c> and <c>:invalid</c> with it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The assertion that could not have been written a commit ago.</b>
+    ///         <c>NumericInput</c> clamped in its coerce, so the field arrived at the third line
+    ///         below holding ten and this whole condition was unreachable by any route — which is
+    ///         why the two variants were refused rather than registered.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And <c>:invalid</c> is asserted beside it deliberately. Selectors 4 § 10.7 makes a
+    ///         range violation a constraint violation, so a stylesheet that only knows how to colour
+    ///         an invalid field colours this one too — and a control that wrote the range bit without
+    ///         the verdict would look right in every by-hand test and be uncoloured in a real sheet.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_number_outside_its_bounds_is_out_of_range_and_invalid() {
+        using var ui = Opened();
+
+        var field = ui.Add<NumericInput>();
+        field.Minimum = 0d;
+        field.Maximum = 10d;
+
+        Assert.False(field.State.HasFlag(ElementState.OutOfRange));
+        Assert.True(field.State.HasFlag(ElementState.Valid));
+
+        field.Number = 50d;
+
+        Assert.True(field.State.HasFlag(ElementState.OutOfRange));
+        Assert.True(field.State.HasFlag(ElementState.Invalid));
+        Assert.False(field.State.HasFlag(ElementState.Valid));
+
+        field.Number = 5d;
+
+        Assert.False(field.State.HasFlag(ElementState.OutOfRange));
+        Assert.True(field.State.HasFlag(ElementState.Valid));
+        Assert.False(field.State.HasFlag(ElementState.Invalid));
+
+        // ⚠ The bounds moving under a value that has not moved, which is the case `OnRangeChanged`
+        // used to answer by rewriting the number.
+        field.Maximum = 4d;
+
+        Assert.True(field.State.HasFlag(ElementState.OutOfRange));
+        Assert.True(field.State.HasFlag(ElementState.Invalid));
+    }
+
+    /// <summary>And a stylesheet answers <c>:out-of-range</c>, with <c>:in-range</c> its negation.</summary>
+    /// <remarks>
+    ///     ⚠ The two rules run in opposite directions in one sheet, which is what a pair of
+    ///     independent bits would fail: a field is one or the other and never both, because
+    ///     <c>:in-range</c> compiles to the negation rather than to a bit of its own.
+    /// </remarks>
+    [Fact]
+    public void A_stylesheet_can_select_on_a_broken_bound() {
+        using var ui = ControlHarness.Open(
+            200f,
+            120f,
+            "numeric-input:out-of-range { opacity: 0.4 } numeric-input:in-range { opacity: 0.9 }");
+
+        var field = ui.Add<NumericInput>();
+        var opacity = ui.Document.PropertyId("opacity");
+
+        field.Minimum = 0d;
+        field.Maximum = 10d;
+        ui.Frame();
+
+        Assert.Equal(0.9f, ui.Document.NumberOf(field.Style, opacity) ?? 0f, 3);
+
+        field.Number = 50d;
+        ui.Frame();
+
+        Assert.Equal(0.4f, ui.Document.NumberOf(field.Style, opacity) ?? 0f, 3);
+
+        field.Number = 5d;
+        ui.Frame();
+
+        Assert.Equal(0.9f, ui.Document.NumberOf(field.Style, opacity) ?? 0f, 3);
+    }
+
+    /// <summary>And a stylesheet reaches all three, which is what the bits are for.</summary>
+    /// <remarks>
+    ///     ⚠ End to end rather than on the bit, on the <c>:read-only</c> test's terms: a bit nothing
+    ///     selects on is the same as no bit at all. Three tags in one sheet, because the failure this
+    ///     catches is a control that writes the bit onto a part rather than onto itself — which no
+    ///     assertion about <c>State</c> can see.
+    /// </remarks>
+    [Fact]
+    public void A_stylesheet_reaches_every_control_that_validates() {
+        using var ui = ControlHarness.Open(
+            200f,
+            160f,
+            "select:invalid { opacity: 0.4 } checkbox:invalid { opacity: 0.4 } radio-group:invalid { opacity: 0.4 }");
+
+        var opacity = ui.Document.PropertyId("opacity");
+
+        var select = ui.Add<Select>();
+        var box = ui.Add<CheckBox>();
+        var group = ui.Add<RadioGroup>();
+
+        Assert.Null(ui.Document.NumberOf(select.Style, opacity));
+        Assert.Null(ui.Document.NumberOf(box.Style, opacity));
+        Assert.Null(ui.Document.NumberOf(group.Style, opacity));
+
+        select.Required = true;
+        box.Required = true;
+        group.Required = true;
+        ui.Frame();
+
+        Assert.Equal(0.4f, ui.Document.NumberOf(select.Style, opacity) ?? 0f, 3);
+        Assert.Equal(0.4f, ui.Document.NumberOf(box.Style, opacity) ?? 0f, 3);
+        Assert.Equal(0.4f, ui.Document.NumberOf(group.Style, opacity) ?? 0f, 3);
+
+        select.Value = "green";
+        box.IsChecked = true;
+        group.Value = "green";
+        ui.Frame();
+
+        Assert.Null(ui.Document.NumberOf(select.Style, opacity));
+        Assert.Null(ui.Document.NumberOf(box.Style, opacity));
+        Assert.Null(ui.Document.NumberOf(group.Style, opacity));
+    }
+
+    /// <summary>A field is not <c>:user-invalid</c> until somebody has actually been in it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The blur without an edit is the assertion worth having, and it is the one a
+    ///         writer hooked to <c>OnValueChanged</c> fails.</b> Every field in a form loaded from a
+    ///         model goes through a value change before anybody has seen it, so a bit set there would
+    ///         claim the user had been in all of them — which is exactly the "form turns red before it
+    ///         has been filled in" that <c>:user-invalid</c> exists to prevent.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And the interaction never clears: what changes back is the verdict. The last two
+    ///         steps assert that, because a control that reset it on focus loss would make the state
+    ///         visible only while the caret was in the field.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_user_has_to_have_had_a_go_before_a_field_is_user_invalid() {
+        using var ui = Opened();
+
+        var field = ui.Add<TextBox>();
+        var other = ui.Add<TextBox>();
+
+        field.Required = true;
+
+        // Invalid from the moment it is marked — and not yet *user*-invalid, which is the whole
+        // distinction.
+        Assert.True(field.State.HasFlag(ElementState.Invalid));
+        Assert.False(field.State.HasFlag(ElementState.UserInteracted));
+
+        // Focused and blurred with nothing typed. Tabbing through a form must not accuse it.
+        ui.Document.Focus(field);
+        ui.Document.Focus(other);
+
+        Assert.False(field.State.HasFlag(ElementState.UserInteracted));
+
+        ui.Document.Focus(field);
+        ui.TypeText("A");
+        ui.Document.Focus(other);
+
+        Assert.True(field.State.HasFlag(ElementState.UserInteracted));
+        Assert.True(field.State.HasFlag(ElementState.Valid));
+
+        // ⚠ And it survives the value going back to what it was. The verdict moves; the fact that
+        // somebody has been in the field does not.
+        field.Value = string.Empty;
+
+        Assert.True(field.State.HasFlag(ElementState.Invalid));
+        Assert.True(field.State.HasFlag(ElementState.UserInteracted));
+    }
+
+    /// <summary>And a stylesheet can say <c>:user-invalid</c>, which ExCSS cannot parse.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The end-to-end row is what proves the repair rather than the bit.</b> ExCSS 4.3.2 has
+    ///     no literal for the name, so <c>textbox:user-invalid</c> arrives as one
+    ///     <c>UnknownSelector</c> covering the whole compound and no pseudo-class code ever runs on
+    ///     it; <c>SelectorCompiler.TryRewrite</c> is what re-reads it. The second rule is the
+    ///     separation that matters: the field is <c>:invalid</c> for the whole test and
+    ///     <c>:user-invalid</c> only after a keystroke.
+    /// </remarks>
+    [Fact]
+    public void A_stylesheet_can_select_on_user_invalidity() {
+        using var ui = ControlHarness.Open(
+            200f,
+            160f,
+            "textbox:user-invalid { opacity: 0.4 } textbox:invalid { --shown: 1 }");
+
+        var field = ui.Add<TextBox>();
+        var other = ui.Add<TextBox>();
+        var opacity = ui.Document.PropertyId("opacity");
+        var shown = ui.Document.PropertyId("--shown");
+
+        field.Required = true;
+        ui.Frame();
+
+        // Invalid, and saying nothing about it.
+        Assert.Equal(1f, ui.Document.NumberOf(field.Style, shown) ?? 0f, 3);
+        Assert.Null(ui.Document.NumberOf(field.Style, opacity));
+
+        ui.Document.Focus(field);
+        ui.TypeText("A");
+        ui.Document.Focus(other);
+
+        // Emptied again, so that the field is invalid *and* has been typed into — which is the only
+        // combination the first rule is allowed to reach.
+        field.Value = string.Empty;
+        ui.Frame();
+
+        Assert.Equal(0.4f, ui.Document.NumberOf(field.Style, opacity) ?? 0f, 3);
+    }
+
     /// <summary><c>:optional</c> is the absence of <c>:required</c>, and matches the other way round.</summary>
     /// <remarks>
     ///     ⚠ <b>A negation rather than a bit of its own</b>, on <c>:read-write</c>'s terms — so its
