@@ -206,10 +206,13 @@ public class GroupOpacityTests {
             var layer = Assert.Single(ui.Geometry.Layers);
 
             // The element is ten by ten at (10, 10); the child reaches (50, 50) in document space.
-            Assert.Equal(10f, layer.Bounds.X);
-            Assert.Equal(10f, layer.Bounds.Y);
-            Assert.Equal(40f, layer.Bounds.Width);
-            Assert.Equal(40f, layer.Bounds.Height);
+            // ⚠ And each box's quad reaches a pixel further out than its box, so the hull does too —
+            // `UiGeometryBuilder.BoxMargin`, which is where an antialiased edge's ramp lands. Erring
+            // outwards is the direction that costs a surface pixel rather than a missing one.
+            Assert.Equal(9f, layer.Bounds.X);
+            Assert.Equal(9f, layer.Bounds.Y);
+            Assert.Equal(42f, layer.Bounds.Width);
+            Assert.Equal(42f, layer.Bounds.Height);
 
             // And the overflow is actually painted, at the group's opacity.
             var bitmap = ui.Capture();

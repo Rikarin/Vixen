@@ -52,6 +52,7 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         <c>ClusterRasterTests</c> already makes exactly.
 ///     </para>
 /// </remarks>
+[Collection("Vulkan")]
 public sealed class VirtualGeometryGoldenTests {
     /// <summary>
     ///     The same mesh, drawn both ways, covers the same pixels.

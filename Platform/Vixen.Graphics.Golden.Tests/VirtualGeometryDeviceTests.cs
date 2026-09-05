@@ -34,6 +34,7 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         golden image is the picture, and it is still owed.
 ///     </para>
 /// </remarks>
+[Collection("Vulkan")]
 public sealed class VirtualGeometryDeviceTests {
     /// <summary>
     ///     A mesh loaded from its artefacts is traversed, streamed and drawn on a device.

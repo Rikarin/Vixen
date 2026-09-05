@@ -38,6 +38,11 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         <c>VulkanDevice</c>'s constructor is private and <c>TryCreate</c> is the only way through
 ///         it, so between the two tests every device in this assembly comes from a guarded caller.
 ///     </para>
+///     <para>
+///         The third test is the same argument about the machine that <i>has</i> a driver:
+///         <see cref="EveryClassThatOpensADeviceIsSerialised" /> holds every device opener in the one
+///         collection xunit will not run in parallel with itself.
+///     </para>
 /// </remarks>
 public sealed class DeviceGuardTests {
     /// <summary>The door: the one call that produces a device, spelled as callers spell it.</summary>
@@ -51,6 +56,9 @@ public sealed class DeviceGuardTests {
 
     /// <summary>The call behind the door, which nothing but the fixture may make.</summary>
     const string Creation = "VulkanDevice.TryCreate";
+
+    /// <summary>The collection every device opener belongs to, because two devices is one too many.</summary>
+    const string Serialised = "Vulkan";
 
     /// <summary>This file, which is the one source that names all three needles and opens nothing.</summary>
     /// <remarks>
@@ -80,7 +88,8 @@ public sealed class DeviceGuardTests {
 
         var opens = new List<string>();
 
-        foreach (var (name, source) in classes) {
+        foreach (var (type, source) in classes) {
+            var name = type.Name;
             var text = File.ReadAllText(source);
 
             if (!text.Contains(Door, StringComparison.Ordinal)) {
@@ -133,14 +142,79 @@ public sealed class DeviceGuardTests {
         Assert.Equal(["Fixture.cs"], creators);
     }
 
+    /// <summary>Every class that opens a device is in the one collection that runs serially.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The guard above is about a machine with <em>no</em> device; this one is about a machine
+    ///         with one. xunit parallelises across collections and never within one, so
+    ///         <c>[Collection("<see cref="Serialised" />")]</c> is the whole of what keeps two fixtures
+    ///         from holding a device at once — and <c>VulkanDiagnostics</c> is process-wide, so the
+    ///         second fixture's validation errors are attributed to whichever frame happens to call
+    ///         <c>Fail</c> first. That failure names the wrong test, in a suite where the message is
+    ///         the entire diagnostic.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two classes had escaped it</b> — <see cref="VirtualGeometryDeviceTests" /> and
+    ///         <see cref="VirtualGeometryGoldenTests" />, the two newest device openers in the
+    ///         assembly, which is exactly how an attribute nothing enforces is lost. Fifty-six files
+    ///         carrying it by hand is a convention, and a convention is what this replaces.
+    ///     </para>
+    ///     <para>
+    ///         By attribute rather than by source text, unlike the guard: the collection <i>is</i>
+    ///         recorded by an attribute, so reading the source for one would be checking the spelling
+    ///         of the thing rather than the thing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void EveryClassThatOpensADeviceIsSerialised() {
+        var classes = TestClasses();
+
+        // ⚠ The instrument, first — the same reason as above. A census of nothing serialises perfectly.
+        Assert.True(
+            classes.Count >= 50,
+            $"only {classes.Count} test classes were found in this assembly, and there are dozens. "
+            + "The census is broken, not the suite."
+        );
+
+        var serialised = 0;
+
+        foreach (var (type, source) in classes) {
+            if (!File.ReadAllText(source).Contains(Door, StringComparison.Ordinal)) {
+                continue;
+            }
+
+            var collection = type
+                .GetCustomAttributes(true)
+                .FirstOrDefault(attribute => attribute.GetType().Name is "CollectionAttribute");
+
+            var name = collection?.GetType().GetProperty("Name")?.GetValue(collection) as string;
+
+            Assert.True(
+                string.Equals(name, Serialised, StringComparison.Ordinal),
+                $"{type.Name} calls `{Door}` and is in collection '{name ?? "<none>"}' rather than "
+                + $"'{Serialised}', so it opens a device while the serialised collection has one. "
+                + $"VulkanDiagnostics is process-wide: the next validation error will be reported "
+                + "against whichever fixture reads it first, which is not the one that caused it."
+            );
+
+            serialised++;
+        }
+
+        Assert.True(
+            serialised >= 40,
+            $"only {serialised} classes were seen calling `{Door}`, and most of this suite draws. "
+            + "The door has been renamed and this test now checks nothing."
+        );
+    }
+
     /// <summary>Every public class in this assembly that declares a fact, with the file that declares it.</summary>
     /// <remarks>
     ///     One class per file is the convention here and this depends on it, so it asserts it: a class
     ///     with no file of its own is a failure rather than a class quietly left unchecked.
     /// </remarks>
-    static List<(string Name, string Source)> TestClasses() {
+    static List<(Type Type, string Source)> TestClasses() {
         var directory = ProjectDirectory();
-        var found = new List<(string, string)>();
+        var found = new List<(Type, string)>();
 
         foreach (var type in typeof(DeviceGuardTests).Assembly.GetTypes()) {
             if (type == typeof(DeviceGuardTests) || type.IsNested || type.IsAbstract || !type.IsClass) {
@@ -164,7 +238,7 @@ public sealed class DeviceGuardTests {
                 + "another file's tail is a class nothing here looks at."
             );
 
-            found.Add((type.Name, source));
+            found.Add((type, source));
         }
 
         return found;

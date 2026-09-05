@@ -46,6 +46,41 @@ public sealed class UiGeometryBuilder {
     /// </remarks>
     internal const int Slots = 256;
 
+    /// <summary>How far a box's quad reaches past the box, so its antialiasing ramp has somewhere to land.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A box used to be drawn on a quad exactly its own size, and that silently threw
+    ///         away the outer half of every edge's ramp.</b> The shader resolves coverage <i>inside</i>
+    ///         the geometry, so a fragment the field would have shaded is never generated if the
+    ///         rasteriser did not produce it. On an integer-aligned edge that costs nothing — the
+    ///         first sample is already half a pixel inside, where coverage is 1. On a
+    ///         <b>half-pixel-aligned</b> one it costs half the edge, and for a one-pixel hairline that
+    ///         is half the ink of the whole primitive: a connector from x=18.5 to x=19.5 covers half
+    ///         of column 18 and half of column 19, and drew only the first of them, because the sample
+    ///         at 19.5 sits on the right edge and the half-open rule gives it to the neighbour.
+    ///     </para>
+    ///     <para>
+    ///         One pixel and not a half. Coverage reaches zero half a pixel out, so a half would be
+    ///         exactly enough for the ramp and nothing for <c>fwidth</c>: the device takes the band
+    ///         width from the derivative of the distance across a 2×2 quad, and a quad straddling the
+    ///         geometric edge of the primitive derives it from helper invocations rather than from
+    ///         neighbours it actually shaded.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Boxes only.</b> Shadows, paths and glyphs already carry their own margin — a
+    ///         shadow's is twice its blur, a glyph's is its field padding — and adding this to those
+    ///         would be adding it twice.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not <see cref="Fringe" />, which is a different quantity with a similar name.</b>
+    ///         That one is how far a <i>path's</i> outline is offset outwards to be ramped by vertex
+    ///         alpha, it is settable, and zero is a legitimate value for a caller that multisamples
+    ///         the pass. This is the room a shader needs to do its own coverage at all, so there is
+    ///         no setting of it that is correct at zero.
+    ///     </para>
+    /// </remarks>
+    internal const float BoxMargin = 1f;
+
     // ⚠ Fixed-size and two-way on purpose. The failure mode of a collision here is that a colour is
     // searched for again — a slower frame, never a different picture — and that is the property that
     // lets the cache have no eviction policy, no allocation and no growth. A dictionary would be
@@ -806,8 +841,11 @@ public sealed class UiGeometryBuilder {
     /// <remarks>
     ///     ⚠ <b>Positions only, and that is exact rather than approximate.</b> Every UI primitive is
     ///     already expanded to the quad that contains its ink before it reaches the vertex list — a
-    ///     shadow's quad is grown by its blur, a path's by its fringe, a glyph's by its field padding —
-    ///     because each of those shaders resolves coverage <i>inside</i> the geometry it is given. So no
+    ///     shadow's quad is grown by its blur, a path's by its fringe, a glyph's by its field padding,
+    ///     a box's by <see cref="BoxMargin" /> — because each of those shaders resolves coverage
+    ///     <i>inside</i> the geometry it is given. ⚠ The box was the exception until #590, and it was
+    ///     the exception silently: a hairline on a half-pixel coordinate had ink the quad did not
+    ///     contain, so the hull here was right about the vertices and wrong about the picture. So no
     ///     fragment can land outside the hull of the positions, and there is no per-kind margin to add
     ///     here that would not be added twice.
     ///     <para>
@@ -1049,13 +1087,19 @@ public sealed class UiGeometryBuilder {
 
         // The texture coordinate is the offset from the centre, which is what a signed distance to a
         // rounded box is written in terms of — so the shader needs no uniform per box.
+        //
+        // ⚠ Grown by `BoxMargin`, exactly as a shadow's quad is grown by its blur, and for the same
+        // reason: the shader resolves coverage *inside* the geometry it is given, so an edge whose
+        // antialiasing ramp reaches outside the box needs somewhere for the ramp to land.
+        // `half` is unchanged — it is the *box's*, not the quad's — so the field still measures from
+        // the boundary the caller asked for and the two extra rings simply fall to zero coverage.
         Quad(
-            command.X,
-            command.Y,
-            command.X + command.Width,
-            command.Y + command.Height,
-            new Vector2(-half.X, -half.Y),
-            new Vector2(half.X, half.Y),
+            command.X - BoxMargin,
+            command.Y - BoxMargin,
+            command.X + command.Width + BoxMargin,
+            command.Y + command.Height + BoxMargin,
+            new Vector2(-half.X - BoxMargin, -half.Y - BoxMargin),
+            new Vector2(half.X + BoxMargin, half.Y + BoxMargin),
             command.Color,
             new Vector4(shapes.Count - 1, 0, 0, 0)
         );

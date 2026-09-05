@@ -15,11 +15,9 @@ layout(location = 0) out vec4 target;
 // and a three-stop gradient would take the vertex from forty-eight bytes to well past a hundred, and
 // every glyph in the frame would carry fields no shader reads on them.
 //
-// ⚠ **`Shape` is 144 bytes and there are five places that have to agree about that**, which is more
-// than any one of them says on its own: `Vixen.Ui.Rendering.UiShape`, `UiRenderer`'s buffer stride,
-// `SoftwareUiRasterizer`, the editor's `Ui.rvn`, and this file — of which there are three copies.
-// `UiShapeLayoutTests` pins the first against the editor's reflection; the rest are pinned only by
-// `Vixen.Graphics.Golden.Tests`, on a real device, which is how the 80-byte stride was caught.
+// ⚠ **`Shape` is 144 bytes and this is not the only place that has to agree about that.** Which the
+// others are, what pins each of them, and what it cost when they disagreed, is recorded in
+// `SharedUiShaderTests` — where correcting a sentence does not oblige anybody to recompile a module.
 struct Shape {
     vec4 size;       // half width, half height, border thickness, shape: 0 none 1 linear 2 radial 3 conic
     vec4 radiiX;     // clockwise from the top left

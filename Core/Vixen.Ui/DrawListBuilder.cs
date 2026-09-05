@@ -1231,17 +1231,42 @@ public sealed class DrawListBuilder {
 
             // ⚠ Two strips of a third each, with the middle third left out — the same split the ring
             // above makes, taken across the band rather than inwards from the box. It works on all
-            // four edges without knowing which way is out, because the gap is in the middle.
+            // four edges without knowing which way is out, because the gap is in the middle, and the
+            // corners work for the same reason: whichever side of the band carries a radius, the
+            // strip lying against that side is the one that inherits it.
             if (style == StrokeStyle.Double) {
                 var third = (bandWidth >= bandHeight ? bandHeight : bandWidth) / 3f;
 
                 if (third > 0f) {
+                    // ⚠ <b>Each strip carries the two corners of the band edge it lies against, and
+                    // squares the two it does not — the marks' rule turned ninety degrees.</b> A
+                    // band's radii are only ever on its *outer* side: `EmitBorder` hands the top band
+                    // the box's two top corners and two zeroes, and the bottom band the mirror of
+                    // that. So the strip along that side inherits a whole corner and the strip two
+                    // thirds in inherits a zero, which is what the ring path independently computes —
+                    // its outer ring keeps `corners` untouched and its inner one is `Shrink`ed, and
+                    // `Shrink` leaves a square corner square. There was never a third of a corner to
+                    // decide about.
                     if (bandWidth >= bandHeight) {
-                        Strip(bandX, bandY, bandWidth, third);
-                        Strip(bandX, bandY + (third * 2f), bandWidth, third);
+                        Strip(bandX, bandY, bandWidth, third, new CornerRadii(topLeft, topRight, default, default));
+
+                        Strip(
+                            bandX,
+                            bandY + (third * 2f),
+                            bandWidth,
+                            third,
+                            new CornerRadii(default, default, bottomRight, bottomLeft)
+                        );
                     } else {
-                        Strip(bandX, bandY, third, bandHeight);
-                        Strip(bandX + (third * 2f), bandY, third, bandHeight);
+                        Strip(bandX, bandY, third, bandHeight, new CornerRadii(topLeft, default, default, bottomLeft));
+
+                        Strip(
+                            bandX + (third * 2f),
+                            bandY,
+                            third,
+                            bandHeight,
+                            new CornerRadii(default, topRight, bottomRight, default)
+                        );
                     }
 
                     return;
@@ -1268,22 +1293,31 @@ public sealed class DrawListBuilder {
                 )
             );
 
-            // ⚠ Square, and since a broken band now carries its end radii on its end marks this is
-            // the only band left that squares a corner the solid one would have rounded. A strip is
-            // not a piece of the band the way a mark is: the split runs *across*, so each strip is a
-            // third as thick as the shape whose corners these are, and what a third of a corner is
-            // is a decision rather than a lookup. Left square until that decision is taken.
-            void Strip(float stripX, float stripY, float stripWidth, float stripHeight) =>
+            // ⚠ <b>The reason this used to be square was half right and cost the visible half.</b> It
+            // said a corner radius on a strip a third of a hairline thick is a curve nothing can see —
+            // and `BoxDistance` clamps the radius <i>per axis</i>, so an 8px radius on a 1px strip is
+            // an ellipse eight wide and half a pixel tall: the end tapers over eight pixels, plainly.
+            // What is invisible is the vertical half of the radius, never the horizontal one, which is
+            // the half that carries the whole of the shape along the band's length.
+            //
+            // ⚠ And it costs nothing on the band that is not round: `Styled` leaves a square box out
+            // of the side buffer, so a `double` divider — the overwhelmingly common case, since
+            // `divide-*` never rounds — still emits two plain rectangles and no shape record.
+            void Strip(float stripX, float stripY, float stripWidth, float stripHeight, CornerRadii ends) =>
                 into.Add(
-                    new DrawCommand(
-                        DrawCommandKind.Rectangle,
-                        stripX,
-                        stripY,
-                        stripWidth,
-                        stripHeight,
-                        Fade(fill, alpha),
-                        0f,
-                        0f
+                    Styled(
+                        new DrawCommand(
+                            DrawCommandKind.Rectangle,
+                            stripX,
+                            stripY,
+                            stripWidth,
+                            stripHeight,
+                            Fade(fill, alpha),
+                            0f,
+                            0f
+                        ),
+                        into,
+                        ends
                     )
                 );
         }

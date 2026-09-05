@@ -295,7 +295,10 @@ public class MaskGradientTests {
         var plain = Assert.Single(masked.Geometry.Layers);
         var gaussian = Assert.Single(blurred.Geometry.Layers);
 
-        Assert.Equal(new Rectangle(10f, 10f, 20f, 20f), plain.Bounds);
+        // ⚠ A pixel out on each side, which is the box quad's own antialiasing margin and not the
+        // mask's — see `UiGeometryBuilder.BoxMargin`. What is being asserted is that the mask adds
+        // nothing further, and the blur below is what makes that falsifiable.
+        Assert.Equal(new Rectangle(9f, 9f, 22f, 22f), plain.Bounds);
         Assert.True(
             gaussian.Bounds.Width > plain.Bounds.Width,
             $"a blur beside the mask must still outset: {gaussian.Bounds} against {plain.Bounds}"

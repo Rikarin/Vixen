@@ -73,6 +73,16 @@ namespace Vixen.Editor.Ui.Tests;
 ///         computed a value for each — the exact reading this file's own first paragraph says is not
 ///         enough.
 ///     </para>
+///     <para>
+///         ⚠ <b>There is a third signal and it is now consulted:</b> the parity ledger's
+///         <c>engine_reads</c> column, remeasured on every run of
+///         <c>Vixen.Ui.Styling.Utilities.Tests</c>, against which
+///         <see cref="No_inert_row_survives_the_ledger_measuring_its_property_read" /> holds every
+///         <see cref="Inert" /> row. That column knew about #532 the whole time and nothing here
+///         asked it. Its neighbour column <c>state</c> is <em>not</em> linked and should not be —
+///         the reasoning is on that method, and it is written down so the next sweep does not
+///         rediscover the idea and try it on a row that is right.
+///     </para>
 /// </remarks>
 public class UtilityFamilySupportTests {
     /// <summary>Utility, property, and the value the cascade must compute for it.</summary>
@@ -993,6 +1003,130 @@ public class UtilityFamilySupportTests {
              declined: that is what happened to `align-middle`, and a row like it must not be
              answered by adding a line to InertProperties.txt for a property that is read.
              """
+        );
+    }
+
+    /// <summary>The parity ledger's own measurement of what the engine reads agrees with this table.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The second independent signal, and the one that already knew about #532.</b>
+    ///         <c>docs/plan/43-web-styling-parity.tsv</c>'s <c>engine_reads</c> column is
+    ///         <em>recomputed on every run</em> of <c>Vixen.Ui.Styling.Utilities.Tests</c> from the
+    ///         consumption probe — a hand edit to it is a failure there. It held
+    ///         <c>vertical-align</c> against <c>align-*</c>, and <c>transform</c> against
+    ///         <c>scale-*</c> and <c>rotate-*</c>, throughout the window in which <see cref="Inert" />
+    ///         went on saying nothing looked at them. Nothing in this assembly consulted it.
+    ///         <see cref="No_inert_row_outlives_the_allow_list_entry_it_names" /> borrows
+    ///         <c>InertProperties.txt</c>'s expiry instead, which is a different file kept by
+    ///         different hands: two signals, and a row has to be wrong in both to survive.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The column linked is <c>engine_reads</c> and deliberately not <c>state</c>, which
+    ///         is too coarse to link at all.</b> A root's state is one word for a family of values, so
+    ///         <c>align-*</c> measures <c>partial</c> and is <i>correctly</i> <c>partial</c> — three of
+    ///         its four registered keywords are supported and the fourth is refused at the bridge,
+    ///         which is the distinction <see cref="Refused" /> exists to hold. A rule that fired on any
+    ///         row whose root measured other than <c>absent</c> would go red on a row that is right;
+    ///         and the narrower "<c>works</c> is a contradiction, <c>partial</c> is not" would have
+    ///         been green through the whole of #532, because both roots measured <c>partial</c>. What
+    ///         is not coarse is the property list: <see cref="Inert" /> claims a named longhand is read
+    ///         by nothing, and that column says which longhands are read.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A row that names no ledger class fails rather than passing quietly.</b> The lookup
+    ///         is the instrument, and a lookup that matched nothing would agree with every table this
+    ///         file could hold. The ledger already refuses a registered family that appears in no row,
+    ///         so a miss here is either a class name that has drifted or a family that skipped that
+    ///         guard — and both are worth a red run.
+    ///     </para>
+    /// </remarks>
+    /// <param name="utility">The class name, as the ledger's <c>classes</c> column spells it.</param>
+    /// <param name="property">The longhand this table claims nothing reads.</param>
+    [Theory]
+    [MemberData(nameof(Inert))]
+    public void No_inert_row_survives_the_ledger_measuring_its_property_read(string utility, string property) {
+        var (root, reads) = LedgerRow(utility);
+
+        var read = reads
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet(StringComparer.Ordinal);
+
+        Assert.False(
+            read.Contains(property),
+            $"""
+             '{utility}' is in `Inert`, which claims nothing reads '{property}' — and the parity
+             ledger's `engine_reads` for '{root}' measures it read: [{reads}]. That column is
+             recomputed from the consumption probe on every run, so it is a measurement and this
+             table is a claim. `Refused` is the answer when the property is read and its *value* is
+             declined; `Supported` is the answer when the value is honoured. ⚠ This is the signal
+             that was already true throughout #532 and that nothing here consulted.
+             """
+        );
+    }
+
+    /// <summary>The parity ledger's root and measured <c>engine_reads</c> for one utility class.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Walked up from the test binary, never down from the repository root.</b>
+    ///     <c>.claude/worktrees</c> holds a full checkout per parallel agent, so a search from above
+    ///     finds other branches' copies of this file and reports on a tree nobody is editing. The same
+    ///     walk <c>ParityLedger.Locate</c> makes, re-stated rather than referenced: a test assembly
+    ///     cannot be referenced by another test assembly, and eight lines of TSV reading is a smaller
+    ///     price than the third project that would make it shareable.
+    /// </remarks>
+    static (string Root, string Reads) LedgerRow(string utility) {
+        var lines = File.ReadAllLines(Ledger());
+        var header = lines[0].Split('\t');
+
+        var root = Array.IndexOf(header, "root");
+        var reads = Array.IndexOf(header, "engine_reads");
+        var classes = Array.IndexOf(header, "classes");
+        var example = Array.IndexOf(header, "example");
+
+        Assert.True(
+            root >= 0 && reads >= 0 && classes >= 0 && example >= 0,
+            "the parity ledger's header no longer names root, engine_reads, classes and example, so this "
+            + "check is reading columns by a layout that has moved."
+        );
+
+        foreach (var line in lines.Skip(1)) {
+            var cells = line.Split('\t');
+
+            if (cells.Length <= classes) {
+                continue;
+            }
+
+            var named = cells[classes]
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Append(cells[example])
+                .ToHashSet(StringComparer.Ordinal);
+
+            if (named.Contains(utility)) {
+                return (cells[root], cells[reads]);
+            }
+        }
+
+        Assert.Fail(
+            $"no row of docs/plan/43-web-styling-parity.tsv names the class '{utility}' in its `classes` or "
+            + "`example` column, so this check compared nothing. Either the class name has drifted from the "
+            + "ledger's spelling of it, or a family reached `Inert` without reaching the ledger — which its "
+            + "own completeness guard is supposed to refuse."
+        );
+
+        return default;
+    }
+
+    /// <summary>Where the parity ledger is, found by walking up from the test binary.</summary>
+    static string Ledger() {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+            var candidate = Path.Combine(directory.FullName, "docs", "plan", "43-web-styling-parity.tsv");
+
+            if (File.Exists(candidate)) {
+                return candidate;
+            }
+        }
+
+        throw new DirectoryNotFoundException(
+            $"docs/plan/43-web-styling-parity.tsv was not found above '{AppContext.BaseDirectory}'."
         );
     }
 

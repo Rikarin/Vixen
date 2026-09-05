@@ -125,7 +125,11 @@ public class FilterColourTests {
         var matrix = Assert.Single(filtered.Geometry.Layers);
         var gaussian = Assert.Single(blurred.Geometry.Layers);
 
-        Assert.Equal(new Rectangle(10f, 10f, 20f, 20f), matrix.Bounds);
+        // ⚠ A pixel out from the twenty-by-twenty element on each side, and that is the *box's* own
+        // antialiasing margin rather than anything the filter asked for — `UiGeometryBuilder.BoxMargin`
+        // is on the quad, so it is in the hull the ink is taken from. The claim is that the matrix
+        // adds nothing to it, which is why the blur is the comparison and not a number.
+        Assert.Equal(new Rectangle(9f, 9f, 22f, 22f), matrix.Bounds);
         Assert.True(
             gaussian.Bounds.Width > matrix.Bounds.Width,
             $"the blur's bounds must be the wider pair: {gaussian.Bounds} against {matrix.Bounds}"
