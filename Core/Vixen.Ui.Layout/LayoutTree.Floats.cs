@@ -495,19 +495,36 @@ public sealed partial class LayoutTree {
     /// <param name="height">Its border-box height.</param>
     /// <param name="marginLeft">Its physical left margin.</param>
     /// <param name="marginRight">Its physical right margin.</param>
+    /// <param name="clampLeft">Its containing block's content-box left, in context coordinates.</param>
+    /// <param name="clampRight">Its containing block's content-box right, in context coordinates.</param>
     /// <returns>Where it ends up and how wide it may be.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The band is narrowed to the box's own containing block and then translated into it,
+    ///     and both halves are the fix for <c>Rikarin/Vixen#781</c>.</b> The exclusion list is in the
+    ///     formatting context ROOT's coordinates and everything this returns is relative to the
+    ///     CONTAINER being walked; the two are the same edges only when the container's content box
+    ///     coincides with the root's, which is true of every fixture in <c>Corpus/float.xml</c> —
+    ///     <c>float_bfc_avoids_float_from_sibling_subtree</c> is the only one that nests anything and
+    ///     the box it nests it in has no margin, no padding and no width of its own. So a
+    ///     float-avoiding box in a container with a left margin was slid aside from a float it was
+    ///     never beside AND handed the root's remaining width: 50 and 350 where Chrome says 0 and 200.
+    ///     It is <c>PlaceFloatChild</c>'s clamp one clause over, and was deliberately left out of that
+    ///     change rather than widened into it.
+    /// </remarks>
     FloatAvoidance AvoidFloats(
         Direction direction,
         float flowTop,
         float statedWidth,
         float height,
         float marginLeft,
-        float marginRight
+        float marginRight,
+        float clampLeft,
+        float clampRight
     ) {
         var y = floatOriginY + flowTop;
 
         while (true) {
-            if (FitsBesideFloats(direction, y, statedWidth, height, marginLeft, marginRight)) {
+            if (FitsBesideFloats(direction, y, statedWidth, height, marginLeft, marginRight, clampLeft, clampRight)) {
                 break;
             }
 
@@ -521,14 +538,20 @@ public sealed partial class LayoutTree {
         }
 
         var top = y - floatOriginY;
-        var (bandLeft, bandRight) = FloatBandAt(y, height);
+        var (bandLeft, bandRight) = ClampedFloatBandAt(y, height, clampLeft, clampRight);
+
+        // Context-relative to container-relative, once, so that every comparison below is against the
+        // container's own content box and the returned edge is the offset the caller writes.
+        var innerWidth = clampRight - clampLeft;
+        bandLeft -= clampLeft;
+        bandRight -= clampLeft;
 
         // ⚠ A box that ended up clear of every float is NOT a float-avoiding box any more, and saying
         // so is what `float_bfc_large_negative_margin_moves_below_float` turns on: once it is below,
         // §10.3.3 puts its −60 margin back and it is 160 wide, where the absorbing rule would have
         // pinned it to the content edge at 100. NaN is the signal, and the caller reads it as "use the
         // ordinary inline-axis rule".
-        if (bandLeft <= 0f && bandRight >= floatContextWidth) {
+        if (bandLeft <= 0f && bandRight >= innerWidth) {
             return new FloatAvoidance(top, float.NaN, float.NaN);
         }
 
@@ -539,7 +562,7 @@ public sealed partial class LayoutTree {
         // container's inline start. Every one of the three that do differ states a `width`, which is
         // the only thing the anchor below can change.
         if (direction == Direction.Rtl && !float.IsNaN(statedWidth)) {
-            return new FloatAvoidance(top, MathF.Min(bandRight, floatContextWidth - marginRight) - statedWidth, statedWidth);
+            return new FloatAvoidance(top, MathF.Min(bandRight, innerWidth - marginRight) - statedWidth, statedWidth);
         }
 
         var borderLeft = bandLeft > 0f ? MathF.Max(bandLeft, marginLeft) : marginLeft;
@@ -557,10 +580,26 @@ public sealed partial class LayoutTree {
     ///     the far side of the band and leave no rectangle to occupy: −20 in a band of 50 fits and −60
     ///     does not, which is the whole difference between two fixtures that are otherwise identical.
     /// </remarks>
-    bool FitsBesideFloats(Direction direction, float y, float statedWidth, float height, float marginLeft, float marginRight) {
-        var (bandLeft, bandRight) = FloatBandAt(y, height);
+    bool FitsBesideFloats(
+        Direction direction,
+        float y,
+        float statedWidth,
+        float height,
+        float marginLeft,
+        float marginRight,
+        float clampLeft,
+        float clampRight
+    ) {
+        var (bandLeft, bandRight) = ClampedFloatBandAt(y, height, clampLeft, clampRight);
 
-        if (bandLeft <= 0f && bandRight >= floatContextWidth) {
+        // The same translation <see cref="AvoidFloats" /> makes, and it has to be the same one: this
+        // decides which slice the box lands in and that one decides where in the slice it goes, so a
+        // disagreement between them puts a box in a band it was measured not to fit.
+        var innerWidth = clampRight - clampLeft;
+        bandLeft -= clampLeft;
+        bandRight -= clampLeft;
+
+        if (bandLeft <= 0f && bandRight >= innerWidth) {
             return true;
         }
 
@@ -589,6 +628,6 @@ public sealed partial class LayoutTree {
             return borderLeft + statedWidth <= bandRight;
         }
 
-        return MathF.Min(bandRight, floatContextWidth - marginRight) - statedWidth >= bandLeft;
+        return MathF.Min(bandRight, innerWidth - marginRight) - statedWidth >= bandLeft;
     }
 }

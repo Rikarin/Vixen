@@ -674,6 +674,13 @@ align_baseline_multiline_column2
 #     width of zero, so `TextWrapMode.BreakWord` beside `Anywhere` is the whole mechanism.
 #     `The_two_breaking_keywords_are_one_behaviour_in_this_engine` was the deviation's record and is
 #     now `…_differ_in_the_intrinsic_minimum_and_nowhere_else`.
+#   · ⚠ AND `word-break` REACHES THE SAME STAGE BY A DIFFERENT ROUTE, which #682 named and nothing
+#     asserted. `break-all` never touches `LineWrapper`'s "nothing fits" branch at all — it changes
+#     the OPPORTUNITY LIST, so a probe at an available width of zero is already one grapheme wide
+#     with `overflow-wrap` left at its initial value. `The_intrinsic_minimum_reads_word_break_and_
+#     not_only_overflow_wrap` pins it against the same closed form (the widest single grapheme of the
+#     same text in the same face), and it is the only test that goes red when the intrinsic probe
+#     alone stops reading the property.
 #   · ⚠ What that leaves owed under #682 is the workaround it was propping up: `ComputeAutoMinMainSize`
 #     takes "the smaller of two measurements" — the max-content basis and the offer-measured one —
 #     and the second term exists to hold the floor down to the box while no intrinsic-minimum stage

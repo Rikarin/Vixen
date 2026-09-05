@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Ui.Layout;
 using Vixen.Ui.Styling;
 
 namespace Vixen.Ui;
@@ -46,6 +47,7 @@ sealed class OverflowReader {
     readonly int horizontal;
     readonly int vertical;
     readonly int visible;
+    readonly ContainmentReader containment;
 
     /// <summary>Interns the three property names and the one keyword that means "do not cut".</summary>
     /// <param name="properties">The table property names are interned in.</param>
@@ -55,6 +57,7 @@ sealed class OverflowReader {
         horizontal = properties.Intern("overflow-x");
         vertical = properties.Intern("overflow-y");
         visible = values.Intern("visible");
+        containment = new ContainmentReader(properties, values);
     }
 
     /// <summary>Which axes a style cuts.</summary>
@@ -69,6 +72,20 @@ sealed class OverflowReader {
         var both = style.TryGet(shorthand, out var value) && value != visible;
         var x = style.TryGet(horizontal, out var byX) ? byX != visible : both;
         var y = style.TryGet(vertical, out var byY) ? byY != visible : both;
+
+        // ⚠ <b>Paint containment is a second REASON to cut, not a second mechanism.</b> CSS
+        // Containment § 3.3 clips every descendant to the box on both axes and cannot be escaped by
+        // an `overflow: visible` written beside it, so it is folded in here rather than given a clip
+        // of its own — which is what keeps the picture, the hit test and the sticky scrollport
+        // agreeing about where the box ends, the one thing this class exists for.
+        //
+        // ⚠ The rectangle is the BORDER box, because that is the one `overflow` already cuts at in
+        // this engine; CSS says the padding box for both. The two differ only where a contained box
+        // has a border, and correcting one without the other would be the disagreement this class
+        // was written to prevent.
+        if ((containment.Of(style) & Containment.Paint) != 0) {
+            return new ClipAxes(true, true);
+        }
 
         return new ClipAxes(x, y);
     }

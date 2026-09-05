@@ -82,6 +82,7 @@ public sealed class LayoutStyleBuilder {
     public static readonly LayoutStyle CssInitial = CreateCssInitial();
 
     readonly StyleValueParser parser;
+    readonly ContainmentReader containment;
     readonly NameTable values;
     readonly Properties names;
     readonly Keywords keywords;
@@ -106,6 +107,7 @@ public sealed class LayoutStyleBuilder {
         ArgumentNullException.ThrowIfNull(keywordNames);
 
         parser = new StyleValueParser(values, keywordNames);
+        containment = new ContainmentReader(properties, values);
         this.values = values;
         propertyNames = properties;
         names = new Properties(properties);
@@ -408,6 +410,12 @@ public sealed class LayoutStyleBuilder {
         if (TryKeyword(style, names.Display, keywords.Displays, out Display display)) {
             result.Display = display;
         }
+
+        // ⚠ Not through `TryKeyword`, because `contain` is the one property here whose value is a
+        // LIST of keywords — `contain: layout paint` is two of them and interns as one string. See
+        // `ContainmentReader`, which is also where the draw list's half of the same declaration
+        // comes from.
+        result.Containment = containment.Of(style);
 
         if (TryKeyword(style, names.Float, keywords.Floats, out FloatSide floatSide)) {
             result.Float = floatSide;
