@@ -22,7 +22,7 @@ Doc 43 § B0. Licence: MIT — see the repository `NOTICE` and ADR-015.
 
 | Category | Fixtures | Pass | Fail | Refused |
 |---|--:|--:|--:|--:|
-| `flex` | 2 352 | 2 334 | 18 | 0 |
+| `flex` | 2 352 | 2 348 | 4 | 0 |
 | `leaf` | 56 | 56 | 0 | 0 |
 | `block` | 884 | 884 | 0 | 0 |
 | `blockflex` | 28 | 28 | 0 | 0 |
@@ -30,11 +30,15 @@ Doc 43 § B0. Licence: MIT — see the repository `NOTICE` and ADR-015.
 | `grid` | 2 040 | 1 998 | 42 | 0 |
 | `gridflex` | 24 | 24 | 0 | 0 |
 | `float` | 84 | 84 | 0 | 0 |
-| | **5 524** | **5 464** | **60** | **0** |
+| | **5 524** | **5 478** | **46** | **0** |
 
 Every one of those numbers is asserted — the pass and fail columns by the four conformance suites,
 the refused column additionally by `TaffyUnsupportedCensusTests`, which requires the census to match
 `UnsupportedFixtures.txt` line for line.
+
+⚠ **Asserted in the suites, not from this table** — and the difference is that this table had drifted
+by 14 fixtures before anyone noticed, while every suite was green. The numbers are copied here by
+hand; the suites are the record.
 
 ⚠ **The refused column is zero for the first time, and a zero there is the state
 `UnsupportedFixtures.txt` was written to warn about rather than to celebrate.** A census of nothing

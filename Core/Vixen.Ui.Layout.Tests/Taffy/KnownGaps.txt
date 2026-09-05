@@ -11,8 +11,8 @@
 # be Vixen's.
 #
 # Names are given without the __{border,content}_box_{ltr,rtl} suffix, so one line covers up to four
-# fixtures — and not always all four. Three lines here cover two apiece, and ⚠ THIS SENTENCE USED TO
-# NAME THE WRONG AXIS FOR TWO OF THEM, which is worth a line because it is the kind of claim nobody
+# fixtures — and not always all four. Both lines left here cover two apiece, and ⚠ THIS SENTENCE USED
+# TO NAME THE WRONG AXIS FOR THEM, which is worth a line because it is the kind of claim nobody
 # re-measures. It read: "align_baseline_multiline_column, align_baseline_multiline_column2 and
 # padding_border_overrides_size_flex_basis_0_growable each fail in their two border-box variants and
 # pass in their two content-box ones, because box-sizing decides whether the bug is reachable."
@@ -26,10 +26,10 @@
 # exactly the committed counts — so a line cannot quietly widen to cover a new failure, and fixing
 # any one of these turns the suite red until the count and the line are both updated.
 #
-# 206 at the corpus's first run; 6 now — and the four that arrived most recently arrived by being
-# LOOKED AT rather than by breaking. They were refused on `scrollbar-width` and had never run. A
-# number in this file going up is not automatically bad news, and a number going up because a skip
-# turned into a measurement is the only kind of bad news worth having.
+# 206 at the corpus's first run; 4 now — and the four that arrived latest of all arrived by being
+# LOOKED AT rather than by breaking. They were refused on `scrollbar-width` and had never run, and
+# they are closed now. A number in this file going up is not automatically bad news, and a number
+# going up because a skip turned into a measurement is the only kind of bad news worth having.
 #
 # ⚠ 36 more fixtures started running after that and this file did not grow, which is the other half
 # of the same point. They are the `safe` alignment families — 112 refusals down to 76 — and they
@@ -276,7 +276,25 @@
 # size the container from the items' max-content contributions, hand that back as a DEFINITE main
 # size, and let the declared `flex-basis: 0` be the base §9.7 distributes over. Both halves have to
 # move together, which is why relaxing the guard alone makes this fixture worse rather than better.
-padding_border_overrides_size_flex_basis_0_growable
+#
+# ⚠ CLOSED, in exactly that shape and in one place rather than two. The container is still sized from
+# the contributions — nothing about ComputeFlexBasisForChild's guard moved, and it must not. What was
+# missing is the sentence AFTER it: the moment `availableInnerMainDim = line.SizeConsumed` is taken,
+# the container's main size IS definite, and §9.7 is owed a real flex base to distribute over. So the
+# declared bases are adopted there, at the seam, by LayoutTree.Steps.AdoptDeclaredFlexBases — the
+# contribution answers §9.9.1 and then stands aside. 2 402 → 2 404, and nothing in the eight Taffy
+# corpora or Yoga's 534 moved in the other direction.
+#
+# ⚠ The percentage exclusion carried over from the guard is the half that is load-bearing, and it is
+# NOT belt and braces here the way it is there. On a COLUMN a percentage flex-basis resolves against
+# the OWNER's size, which can be definite while the container's own is not — so adopting it would
+# resolve the very §5.2.1 cycle the guard exists to break, where in ComputeFlexBasisForChild
+# `Resolve(NaN)` had already made it moot.
+#
+# ⚠ And `FlexLine.SizeConsumed` is deliberately left stale by the adoption: it is documented as what
+# the container's content-based main size is made of, that size has already been taken off it, and
+# after the swap the bases no longer sum to it. Nothing reads it once the main size is definite —
+# which is a claim about the two lines below the adoption and not a general one.
 
 # ── CSS Flexbox §9.7, resolving flexible lengths: the free space is not the line's size ──
 #

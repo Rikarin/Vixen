@@ -43,8 +43,8 @@ public class TaffyFlexConformanceTests {
     // Both were ENGINE gaps, which is a claim that the store cannot express the fixture, so the code
     // was written against them and was never going to disagree with them. The harness buckets were
     // the ones hiding defects: 32 of those 124 went red, because they had been runnable all along.
-    const int ExpectedPassing = 2402;
-    const int ExpectedFailing = 6;
+    const int ExpectedPassing = 2404;
+    const int ExpectedFailing = 4;
     const int ExpectedUnsupported = 0;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();
