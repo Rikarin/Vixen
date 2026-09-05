@@ -202,6 +202,7 @@ Vixen.Ui.Styling.ElementState.OutOfRange = 8192 -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.ElementState.PlaceholderShown = 256 -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.ElementState.ReadOnly = 128 -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.ElementState.Required = 1024 -> Vixen.Ui.Styling.ElementState
+Vixen.Ui.Styling.ElementState.UserInteracted = 16384 -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.ElementState.Valid = 2048 -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.InheritedProperties -> sealed class
 Vixen.Ui.Styling.InheritedProperties.Descend(Vixen.Ui.Styling.ComputedStyle parentCascaded, Vixen.Ui.Styling.ComputedStyle parentDisplayed, Vixen.Ui.Styling.ComputedStyle cascaded, Vixen.Ui.Styling.ComputedStyle displayed) -> Vixen.Ui.Styling.ComputedStyle

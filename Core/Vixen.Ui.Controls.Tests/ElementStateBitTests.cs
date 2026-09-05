@@ -548,6 +548,96 @@ public class ElementStateBitTests {
         Assert.Null(ui.Document.NumberOf(group.Style, opacity));
     }
 
+    /// <summary>A field is not <c>:user-invalid</c> until somebody has actually been in it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The blur without an edit is the assertion worth having, and it is the one a
+    ///         writer hooked to <c>OnValueChanged</c> fails.</b> Every field in a form loaded from a
+    ///         model goes through a value change before anybody has seen it, so a bit set there would
+    ///         claim the user had been in all of them — which is exactly the "form turns red before it
+    ///         has been filled in" that <c>:user-invalid</c> exists to prevent.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And the interaction never clears: what changes back is the verdict. The last two
+    ///         steps assert that, because a control that reset it on focus loss would make the state
+    ///         visible only while the caret was in the field.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_user_has_to_have_had_a_go_before_a_field_is_user_invalid() {
+        using var ui = Opened();
+
+        var field = ui.Add<TextBox>();
+        var other = ui.Add<TextBox>();
+
+        field.Required = true;
+
+        // Invalid from the moment it is marked — and not yet *user*-invalid, which is the whole
+        // distinction.
+        Assert.True(field.State.HasFlag(ElementState.Invalid));
+        Assert.False(field.State.HasFlag(ElementState.UserInteracted));
+
+        // Focused and blurred with nothing typed. Tabbing through a form must not accuse it.
+        ui.Document.Focus(field);
+        ui.Document.Focus(other);
+
+        Assert.False(field.State.HasFlag(ElementState.UserInteracted));
+
+        ui.Document.Focus(field);
+        ui.TypeText("A");
+        ui.Document.Focus(other);
+
+        Assert.True(field.State.HasFlag(ElementState.UserInteracted));
+        Assert.True(field.State.HasFlag(ElementState.Valid));
+
+        // ⚠ And it survives the value going back to what it was. The verdict moves; the fact that
+        // somebody has been in the field does not.
+        field.Value = string.Empty;
+
+        Assert.True(field.State.HasFlag(ElementState.Invalid));
+        Assert.True(field.State.HasFlag(ElementState.UserInteracted));
+    }
+
+    /// <summary>And a stylesheet can say <c>:user-invalid</c>, which ExCSS cannot parse.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The end-to-end row is what proves the repair rather than the bit.</b> ExCSS 4.3.2 has
+    ///     no literal for the name, so <c>textbox:user-invalid</c> arrives as one
+    ///     <c>UnknownSelector</c> covering the whole compound and no pseudo-class code ever runs on
+    ///     it; <c>SelectorCompiler.TryRewrite</c> is what re-reads it. The second rule is the
+    ///     separation that matters: the field is <c>:invalid</c> for the whole test and
+    ///     <c>:user-invalid</c> only after a keystroke.
+    /// </remarks>
+    [Fact]
+    public void A_stylesheet_can_select_on_user_invalidity() {
+        using var ui = ControlHarness.Open(
+            200f,
+            160f,
+            "textbox:user-invalid { opacity: 0.4 } textbox:invalid { --shown: 1 }");
+
+        var field = ui.Add<TextBox>();
+        var other = ui.Add<TextBox>();
+        var opacity = ui.Document.PropertyId("opacity");
+        var shown = ui.Document.PropertyId("--shown");
+
+        field.Required = true;
+        ui.Frame();
+
+        // Invalid, and saying nothing about it.
+        Assert.Equal(1f, ui.Document.NumberOf(field.Style, shown) ?? 0f, 3);
+        Assert.Null(ui.Document.NumberOf(field.Style, opacity));
+
+        ui.Document.Focus(field);
+        ui.TypeText("A");
+        ui.Document.Focus(other);
+
+        // Emptied again, so that the field is invalid *and* has been typed into — which is the only
+        // combination the first rule is allowed to reach.
+        field.Value = string.Empty;
+        ui.Frame();
+
+        Assert.Equal(0.4f, ui.Document.NumberOf(field.Style, opacity) ?? 0f, 3);
+    }
+
     /// <summary><c>:optional</c> is the absence of <c>:required</c>, and matches the other way round.</summary>
     /// <remarks>
     ///     ⚠ <b>A negation rather than a bit of its own</b>, on <c>:read-write</c>'s terms — so its

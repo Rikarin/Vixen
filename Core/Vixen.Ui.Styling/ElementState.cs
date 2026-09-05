@@ -101,15 +101,7 @@ public enum ElementState : uint {
     /// <remarks>
     ///     <para>See <see cref="Valid" /> for why these are two bits and not one.</para>
     ///     <para>
-    ///         ⚠ <b>There is no <c>UserInteracted</c> beside it, and the reason is a dependency
-    ///         rather than a design.</b> CSS pairs these with <c>:user-valid</c> and
-    ///         <c>:user-invalid</c> — the same verdict, shown only once the user has had a go — which
-    ///         is one more bit and a two-bit mask, since the matcher's state test is already
-    ///         <c>(state &amp; mask) == mask</c>. ⚠ <b>Measured: ExCSS 4.3.2 does not know either
-    ///         name</b>, and hands the whole compound back as an <c>UnknownSelector</c>, exactly as
-    ///         it does for <c>:open</c> and <c>:autofill</c>. So the bit and its writer were written
-    ///         and then taken back out: nothing could ever have selected on them, and a state
-    ///         nothing selects on is the defect this family was filed to stop.
+    ///         <see cref="UserInteracted" /> is what pairs with it to make <c>:user-invalid</c>.
     ///     </para>
     /// </remarks>
     Invalid = 1 << 12,
@@ -135,5 +127,31 @@ public enum ElementState : uint {
     ///         reported, and only the arrows, the spinner and the scrub still clamp.
     ///     </para>
     /// </remarks>
-    OutOfRange = 1 << 13
+    OutOfRange = 1 << 13,
+
+    /// <summary>The user has had a go at it, rather than only having been shown it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Never a pseudo-class on its own — it is half of two.</b> CSS spells
+    ///         <c>:user-valid</c> and <c>:user-invalid</c>, which are <see cref="Valid" /> and
+    ///         <see cref="Invalid" /> gated on the user having touched the control, and the whole
+    ///         point of having both pairs is that a form must not turn red before it has been filled
+    ///         in. The matcher's state test is already <c>(state &amp; mask) == mask</c>, so the
+    ///         conjunction costs one comparison and no new selector kind.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It never clears.</b> What changes back is the verdict; having been in a field is
+    ///         not something that stops being true. A control that cleared it on focus loss would
+    ///         make <c>:user-invalid</c> a state visible only while the caret was in the field, which
+    ///         is precisely when a form should <i>not</i> be shouting.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The name is refused by the parser and reaches the compiler as a rewrite.</b>
+    ///         Measured: ExCSS 4.3.2 has no literal for either word — the UTF-16 bytes are not in the
+    ///         assembly — so <c>textbox:user-invalid</c> comes back as one <c>UnknownSelector</c>
+    ///         covering the whole compound, exactly as <c>:where()</c> does.
+    ///         <c>SelectorCompiler.TryRewrite</c> is where both are repaired, on the same scan.
+    ///     </para>
+    /// </remarks>
+    UserInteracted = 1 << 14
 }

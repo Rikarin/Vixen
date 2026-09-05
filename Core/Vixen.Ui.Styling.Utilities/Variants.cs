@@ -90,10 +90,11 @@ public static class Variants {
         // `Validator`, `Validate`, `Revalidate`, `ValidationMessage` and `IsValid`, and it is the
         // writer for all four registered below.
         //
-        // ⚠ <b>Six of the eight now, and the two left out are refused one layer further out than the
-        // control.</b> `user-valid` and `user-invalid` are `:open`'s problem: ExCSS 4.3.2 does not
-        // know either name and hands the whole compound back as an `UnknownSelector`, so the bit and
-        // the writer for them were built and then taken back out.
+        // ⚠ <b>All eight now, and the last two took a rewrite rather than a bit.</b> `user-valid` and
+        // `user-invalid` were `:open`'s problem — ExCSS 4.3.2 has no literal for either name, so the
+        // whole compound came back as an `UnknownSelector` and no pseudo-class code ever ran. What
+        // unblocked them was not a parser upgrade: `SelectorCompiler` already re-reads a selector
+        // ExCSS could not parse, for `:where()`, and both names now ride that same scan.
         ["required"] = ":required",
         ["optional"] = ":optional",
         ["valid"] = ":valid",
@@ -106,7 +107,14 @@ public static class Variants {
         // this table exists to refuse. It now holds what it is given and reports the violation, and
         // only the arrows, the spinner and the scrub still clamp.
         ["in-range"] = ":in-range",
-        ["out-of-range"] = ":out-of-range"
+        ["out-of-range"] = ":out-of-range",
+
+        // ⚠ Two bits each rather than one, which is what makes these different from `valid:` and
+        // `invalid:` above rather than a rename of them: the verdict *and* the user having had a go.
+        // `TextField` is the writer, and it never clears the interaction — what changes back is the
+        // verdict, since having been in a field is not something that stops being true.
+        ["user-valid"] = ":user-valid",
+        ["user-invalid"] = ":user-invalid"
     };
 
     /// <summary>The variants that are a media feature rather than a selector.</summary>
