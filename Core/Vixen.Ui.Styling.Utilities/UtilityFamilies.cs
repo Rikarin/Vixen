@@ -1911,6 +1911,42 @@ public static class UtilityFamilies {
         Translate("translate-x", UtilityComposition.TranslateX);
         Translate("translate-y", UtilityComposition.TranslateY);
 
+        // ⚠ <b>The root that moves BOTH axes, and it is not a third fragment.</b> v4's `translate-4`
+        // writes the same two `--tw-*` slots the two axis families write and assembles the same
+        // `translate`, so it is one family over both fragments rather than a new slot — which is
+        // what makes `translate-4 translate-x-8` compose the way the cascade says it should, last
+        // declaration winning per slot with one assembly either way. Registering it as its own
+        // property would have made the two spellings of the same movement fight.
+        //
+        // ⚠ <b><see cref="ValueKind.Size" /> for `Translate`'s reason, and it is what closes the
+        // three values the ledger recorded as missing on this root</b>: `translate-full` is a
+        // hundred per cent of the element's own border box, `translate-px` is one pixel, and
+        // `translate-4` is the spacing scale. ⚠ The ledger also listed `translate-x-full`,
+        // `translate-x-px`, `translate-y-full` and `translate-y-px` as missing on this row, and all
+        // four of them already resolved through the axis families above —
+        // `CompositionTests.Emits("translate-x-full")` has pinned `--tw-translate-x: 100%` the whole
+        // time. A value-gap column enumerated by class-name prefix attributes a sibling root's
+        // classes to this one.
+        Register(new Family(
+            "translate",
+            ValueKind.Size,
+            [UtilityComposition.TranslateX, UtilityComposition.TranslateY],
+            Alongside: [new UtilityDeclaration("translate", UtilityComposition.Translation())]
+        ));
+
+        // ⚠ <b>Its own registered name rather than a keyword on the family above, because
+        // `Alongside` is appended on EVERY resolution of a family.</b> A `none` in that keyword
+        // table would emit `translate: none` and then the assembly over the top of it, and the
+        // assembly would win — a class spelling "do not move" that moves. `SplitName` takes the
+        // longest registered prefix, so `translate-none` arrives here and `translate-4` arrives
+        // above; `ShadowedFamilyTests` is what holds that rule.
+        //
+        // ⚠ And `none` is read BY NAME, which is the same shape `scale-none` and `rotate-none` have:
+        // `TranslationReader.Of` compares the interned value against `none` before it parses
+        // anything, so this is refusal shape 3's opposite — a reader that already distinguishes the
+        // value, and no family able to emit it.
+        Static("translate-none", "translate", "none");
+
         // ⚠ <b>A percentage, because Tailwind's scale runs in hundredths.</b> `scale-150` is one and
         // a half, not a hundred and fifty — v4 emits `scale: 150%` and CSS reads a percentage on this
         // property as a ratio. Emitting the bare count, which is what `Number` did into `--scale`,

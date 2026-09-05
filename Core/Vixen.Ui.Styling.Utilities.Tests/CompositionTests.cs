@@ -374,6 +374,44 @@ public class CompositionTests {
         // A percentage, which is the form that needs the element's own box — `-translate-x-full` is
         // the drawer idiom, and `Size` rather than `Spacing` is what admits it.
         Assert.Equal(["--tw-translate-x: 100%", assembly], fixture.Emits("translate-x-full"));
+
+        // ⚠ The ROOT writes both slots and assembles the same property, which is what makes
+        // `translate-4 translate-x-8` a cascade question rather than a fight: the two spellings of
+        // one movement write the same two slots and the later declaration wins each of them. A root
+        // registered against a `translate` of its own would have had two assemblies overwriting each
+        // other instead.
+        Assert.Equal(["--tw-translate-x: 8px", "--tw-translate-y: 8px", assembly], fixture.Emits("translate-2"));
+        Assert.Equal(["--tw-translate-x: 100%", "--tw-translate-y: 100%", assembly], fixture.Emits("translate-full"));
+        Assert.Equal(["--tw-translate-x: -8px", "--tw-translate-y: -8px", assembly], fixture.Emits("-translate-2"));
+    }
+
+    /// <summary><c>translate-none</c> turns the movement off, and the assembly does not undo it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the one value on the root that could not be a keyword on the root's family,
+    ///     and the reason is <see cref="UtilityFamilies.TryResolve" />'s order.</b> <c>Alongside</c>
+    ///     is appended on every resolution, so a <c>none</c> in the family's keyword table would emit
+    ///     <c>translate: none</c> and then <c>translate: var(--tw-translate-x) var(--tw-translate-y)</c>
+    ///     over the top of it — the later declaration wins, and a class spelling "do not move" would
+    ///     move. It is registered under its own name instead, which <c>SplitName</c>'s longest-prefix
+    ///     rule keeps apart from the root.
+    ///     <para>
+    ///         ⚠ And the value is read BY NAME rather than by falling out of a parse:
+    ///         <c>TranslationReader.Of</c> compares the interned value against <c>none</c> before it
+    ///         parses anything, which is what makes this a registration against a consumer rather
+    ///         than a declaration nothing acts on.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Turning_the_translation_off_does_not_go_through_the_assembly() {
+        var fixture = new UtilityFixture();
+
+        Assert.Equal(["translate: none"], fixture.Emits("translate-none"));
+
+        // The axes still assemble, so the two spellings have not been collapsed into one family.
+        Assert.Equal(
+            ["--tw-translate-x: 8px", $"translate: {UtilityComposition.Translation()}"],
+            fixture.Emits("translate-x-2")
+        );
     }
 
     /// <summary>Composed families still behave like utilities everywhere else.</summary>

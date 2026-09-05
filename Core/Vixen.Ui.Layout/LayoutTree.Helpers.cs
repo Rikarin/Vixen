@@ -537,7 +537,8 @@ public sealed partial class LayoutTree {
         Direction direction,
         float ownerMainAxisSize,
         float ownerWidth,
-        float ownerHeight
+        float ownerHeight,
+        int currentDepth
     ) {
         var mainDimension = FlexAxis.DimensionOf(mainAxis);
 
@@ -571,7 +572,7 @@ public sealed partial class LayoutTree {
             }
         }
 
-        var floor = ComputeMinContentSize(index, mainAxis, direction, ownerWidth, ownerHeight);
+        var floor = ComputeMinContentSize(index, mainAxis, direction, ownerWidth, ownerHeight, currentDepth);
 
         // ⚠ <b>§4.5's CONTENT SIZE SUGGESTION is itself clamped through the ratio, and that is a
         // different clamp from the transferred size suggestion below.</b> The specification: "the
@@ -619,19 +620,23 @@ public sealed partial class LayoutTree {
 
         // ⚠ A FLOOR ABOVE A CONTENT-MEASURED BASIS IS THE PROBE BEING WRONG. A box's min-content size
         // cannot exceed the size its own contents were measured at, so when ComputedFlexBasis came
-        // from that measurement rather than from a declaration, it caps the floor. Two live defects
-        // in ComputeMinContentSize are why the cap earns its place rather than being a tautology, and
-        // both were found by turning the floor on:
+        // from that measurement rather than from a declaration, it caps the floor. Live defects in
+        // ComputeMinContentSize are why the cap earns its place rather than being a tautology, and
+        // each was found by turning the floor on.
         //
-        //   · It reads a GRID container as a flex row. gridflex_row_integration is four 20-wide
-        //     items in a 2x2 grid: 40 wide in Chrome, and the probe sums all four to 80.
-        //   · It resolves a descendant's percentage padding and margin against the box the probe was
-        //     entered from where an intervening box is the real containing block. ProbeContentWidth
-        //     fixes the case that had a definite width; a `width: 50%` box still contributes zero.
-        //
-        // Neither is this rule's to fix — the first is grid's intrinsic sizing and the second is a
-        // cycle CSS Sizing §5.2.1 resolves by treating the percentage as auto — and until they are,
-        // an over-reported floor must not be allowed to inflate a real box.
+        // ⚠ <b>ONE DEFECT IS LEFT, and it is what the cap is now for.</b> The grid half is closed —
+        // ComputeGridMinContentSize sizes a grid's tracks instead of reading its items as a flex
+        // line, and with the cap deleted the four `gridflex_row_integration` variants go from red to
+        // green. What still fails without the cap is one family and one sentence: the block-axis
+        // probe measures a leaf at `ownerWidth`, which is the CONTAINING BLOCK's inline size and not
+        // the item's own used width. Where an item is about to be stretched wider than its owner,
+        // the text is measured too narrow, wraps to more lines than it will really take, and the
+        // floor comes out a multiple of the true height. `blitz_issue_88` is 600 points of row
+        // holding one line of text: 10 points tall in Chrome, 50 from the probe. `bevy_issue_9530`,
+        // `bevy_issue_9530_reduced` and `measure_child_with_min_size_greater_than_available_space`
+        // are the same sentence — sixteen fixtures across four families, and nothing else in any
+        // corpus. Until that is fixed an over-reported floor must not be allowed to inflate a real
+        // box.
         if (results[index].FlexBasisFromContent
             && !float.IsNaN(results[index].ComputedFlexBasis)
             && floor > results[index].ComputedFlexBasis) {
@@ -669,7 +674,7 @@ public sealed partial class LayoutTree {
     ///         freeze every definitely-sized item at its own width.
     ///     </para>
     /// </remarks>
-    float MinContentContribution(int index, FlexDirection axis, Direction ownerDirection, float ownerWidth, float ownerHeight) {
+    float MinContentContribution(int index, FlexDirection axis, Direction ownerDirection, float ownerWidth, float ownerHeight, int currentDepth) {
         var dimension = FlexAxis.DimensionOf(axis);
         var reference = FlexAxis.IsRow(axis) ? ownerWidth : ownerHeight;
         var direction = StyleResolution.ResolveDirection(in styles[index], ownerDirection);
@@ -687,7 +692,7 @@ public sealed partial class LayoutTree {
             : float.NaN;
 
         var contribution = float.IsNaN(preferred)
-            ? ComputeMinContentSize(index, axis, ownerDirection, ownerWidth, ownerHeight)
+            ? ComputeMinContentSize(index, axis, ownerDirection, ownerWidth, ownerHeight, currentDepth)
             : preferred;
 
         contribution = BoundAxisWithinMinAndMax(index, direction, axis, contribution, reference, ownerWidth);
@@ -702,7 +707,14 @@ public sealed partial class LayoutTree {
     ///     largest across its cross axis. No layout is written along the way — only the leaf measure
     ///     callbacks see anything happen.
     /// </remarks>
-    float ComputeMinContentSize(int index, FlexDirection requestedAxis, Direction ownerDirection, float ownerWidth, float ownerHeight) {
+    float ComputeMinContentSize(
+        int index,
+        FlexDirection requestedAxis,
+        Direction ownerDirection,
+        float ownerWidth,
+        float ownerHeight,
+        int currentDepth
+    ) {
         var wantRow = FlexAxis.IsRow(requestedAxis);
         var axis = wantRow ? 0 : 1;
 
@@ -716,7 +728,7 @@ public sealed partial class LayoutTree {
             return results[index].MinContentSizes[axis];
         }
 
-        var computed = ComputeMinContentSizeUncached(index, requestedAxis, ownerDirection, ownerWidth, ownerHeight);
+        var computed = ComputeMinContentSizeUncached(index, requestedAxis, ownerDirection, ownerWidth, ownerHeight, currentDepth);
 
         if (!Inexact(results[index].MinContentOwnerWidth, ownerWidth)
             || !Inexact(results[index].MinContentOwnerHeight, ownerHeight)) {
@@ -769,7 +781,14 @@ public sealed partial class LayoutTree {
         return MathF.Max(0f, height - StyleResolution.ContentInsetForAxis(in styles[index], FlexDirection.Column, direction, ownerWidth));
     }
 
-    float ComputeMinContentSizeUncached(int index, FlexDirection requestedAxis, Direction ownerDirection, float ownerWidth, float ownerHeight) {
+    float ComputeMinContentSizeUncached(
+        int index,
+        FlexDirection requestedAxis,
+        Direction ownerDirection,
+        float ownerWidth,
+        float ownerHeight,
+        int currentDepth
+    ) {
         var wantRow = FlexAxis.IsRow(requestedAxis);
 
         // ⚠ A box that clips or scrolls an axis contributes nothing along it but its own edges. Its
@@ -833,6 +852,18 @@ public sealed partial class LayoutTree {
         }
 
         var direction = StyleResolution.ResolveDirection(in styles[index], ownerDirection);
+
+        // ⚠ <b>A GRID IS NOT A FLEX ROW, and summing its items along one axis counts the same track
+        // once per row of it.</b> CSS Grid §12 is where a grid container's intrinsic sizes come from:
+        // the tracks are sized under a min-content constraint and the container's min-content size is
+        // what they then occupy, gutters included. `gridflex_row_integration` is four 20-point boxes
+        // in a 2x2 grid — two columns of 20, so 40 in Chrome, where reading the children as one flex
+        // row adds all four to 80. Both mistakes are in the sum: the second row's items are not
+        // beside the first row's, and the second column's are not stacked on the first's.
+        if (styles[index].Display == Display.Grid) {
+            return ComputeGridMinContentSize(index, wantRow, direction, ownerWidth, ownerHeight, currentDepth);
+        }
+
         var nodeMainAxis = FlexAxis.Resolve(styles[index].FlexDirection, direction);
         var nodeCrossAxis = FlexAxis.ResolveCross(nodeMainAxis, direction);
 
@@ -863,9 +894,9 @@ public sealed partial class LayoutTree {
                 continue;
             }
 
-            var childMain = MinContentContribution(child, nodeMainAxis, direction, innerWidth, innerHeight)
+            var childMain = MinContentContribution(child, nodeMainAxis, direction, innerWidth, innerHeight, currentDepth)
                 + StyleResolution.MarginForAxis(in styles[child], nodeMainAxis, innerWidth);
-            var childCross = MinContentContribution(child, nodeCrossAxis, direction, innerWidth, innerHeight)
+            var childCross = MinContentContribution(child, nodeCrossAxis, direction, innerWidth, innerHeight, currentDepth)
                 + StyleResolution.MarginForAxis(in styles[child], nodeCrossAxis, innerWidth);
 
             mainTotal = wraps ? MathF.Max(mainTotal, childMain) : mainTotal + childMain;

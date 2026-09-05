@@ -596,7 +596,7 @@ public sealed partial class LayoutTree {
             }
 
             results[child].ComputedAutoMinMainSize =
-                ComputeAutoMinMainSize(child, mainAxis, direction, mainAxisOwnerSize, availableInnerWidth, availableInnerHeight);
+                ComputeAutoMinMainSize(child, mainAxis, direction, mainAxisOwnerSize, availableInnerWidth, availableInnerHeight, currentDepth);
 
             totalMainDim += HypotheticalMainSize(child, direction, mainAxis, results[child].ComputedFlexBasis, mainAxisOwnerSize, ownerWidth)
                 + StyleResolution.MarginForAxis(in styles[child], mainAxis, availableInnerWidth);

@@ -289,6 +289,50 @@ public class GridBlindSpotTests {
         }
     }
 
+    [Theory]
+    [InlineData(1, 2)]
+    [InlineData(65_534, 65_536)]
+    [InlineData(70_000, 80_000)]
+    [InlineData(-70_000, 2)]
+    public void Two_items_past_the_track_ceiling_keep_their_own_cells(int firstLine, int secondLine) {
+        // ⚠ <b>The ceiling on how many tracks this store will allocate used to decide which items
+        // SHARE A CELL.</b> Both clamps in PlaceGridItems saturated, so two items whose authored
+        // lines were both past LayoutLimits.MaximumGridTracks were given the same start and merged:
+        // this grid came out 50 wide with both items at x=0 for lines 70 000 and 80 000, where lines
+        // 65 534 and 65 536 — one of which survives the clamp — gave the right 100.
+        //
+        // ⚠ THE ORACLE IS A CONSERVATION LAW rather than a table: two 50-point items that do not
+        // share a cell make a 100-point max-content grid whatever lies between them, because every
+        // track between them is empty and an empty auto track is zero wide. So the same two numbers
+        // are the answer on all four rows, and a row that merges the items cannot produce them.
+        // The first row is the ordinary grid that never reaches the collapse at all, and the last
+        // walks the map leftwards from the explicit origin rather than rightwards.
+        //
+        // ⚠ The items need a SIZE. A probe built from empty boxes reports x=0 for two zero-width
+        // tracks exactly as it does for one shared track, and cannot tell the defect from its fix.
+        using var tree = new LayoutTree();
+        var root = tree.CreateNode();
+        tree.SetDisplay(root, Display.Grid);
+
+        var first = tree.CreateNode();
+        tree.SetDimension(first, Dimension.Width, StyleLength.Points(50f));
+        tree.SetDimension(first, Dimension.Height, StyleLength.Points(20f));
+        tree.SetGridPlacement(first, Edge.Left, GridPlacement.Line(firstLine));
+        tree.AddChild(root, first);
+
+        var second = tree.CreateNode();
+        tree.SetDimension(second, Dimension.Width, StyleLength.Points(50f));
+        tree.SetDimension(second, Dimension.Height, StyleLength.Points(20f));
+        tree.SetGridPlacement(second, Edge.Left, GridPlacement.Line(secondLine));
+        tree.AddChild(root, second);
+
+        tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
+
+        Assert.Equal(100f, tree.GetWidth(root), Tolerance);
+        Assert.Equal(0f, tree.GetLeft(first), Tolerance);
+        Assert.Equal(50f, tree.GetLeft(second), Tolerance);
+    }
+
     static void AssertSameLayout(LayoutTree left, LayoutNodeId leftNode, LayoutTree right, LayoutNodeId rightNode) {
         Assert.Equal(right.GetLeft(rightNode), left.GetLeft(leftNode));
         Assert.Equal(right.GetTop(rightNode), left.GetTop(leftNode));
