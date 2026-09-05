@@ -386,6 +386,88 @@ public class MeshMapTests {
         Assert.True(straddling > 0, "No gutter texel had a different id on each side, so nothing was proved.");
     }
 
+    /// <summary>The same face numbers, read as a guess, are not baked as material ids.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The fixture above could not have caught this, and that is the finding.</b>
+    ///         <see cref="Strips" /> assigns its groups through <c>AddFace(loop, strip * 2)</c>, which
+    ///         does not move <see cref="EditMesh.GroupSource" /> off the default
+    ///         <see cref="MeshGroupSource.Coplanarity" /> — only <c>SetGroup</c> does — so a passing
+    ///         gutter test was running the same path a coplanarity-grouped blob runs. The two are told
+    ///         apart by one line, and this is it: one mesh, two sources, two different id maps.
+    ///     </para>
+    ///     <para>
+    ///         The two strips are disconnected, so the shells the fallback labels are the same two
+    ///         regions the groups named — numbered 0 and 1 rather than 0 and 2, which is what makes
+    ///         "the source's own group id never reached the map" a thing this test can assert.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_guessed_grouping_is_not_baked_as_ids_and_the_bake_says_so() {
+        var source = Strips();
+
+        source.GroupSource = MeshGroupSource.Coplanarity;
+
+        var maps = MapBaker.Bake(
+            source,
+            Unwrapped(Strips(), 0.02f, apart: true),
+            new() { Resolution = 64, Gutter = 6, Maps = MeshMaps.Id, Space = BakeSpace.Object }
+        );
+
+        var ids = Assert.IsAssignableFrom<IReadOnlyList<int>>(maps.Ids);
+
+        Assert.True(maps.Covered > 0, string.Join(" · ", maps.Warnings));
+
+        // ⚠ Nothing landed in Warnings before this, which is the half that makes it silent: an id map
+        // of confetti looks like an id map, and a content build has nobody watching it.
+        Assert.Contains(maps.Warnings, warning => warning.Contains("group", StringComparison.Ordinal));
+
+        var distinct = ids.Where(id => id >= 0).Distinct().Order().ToArray();
+
+        Assert.Equal([0, 1], distinct);
+    }
+
+    /// <summary>§ D12's own input: a faceted blob bakes one id, not one per triangle.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The measured shape of the defect.</b> <c>EditMesh.FromTriangles</c> ends in
+    ///     <c>Regroup</c>, and on a faceted surface almost no two adjacent triangles are within half a
+    ///     degree of coplanar — <see cref="MeshGroupSource" />'s remarks carry the number, 13 965
+    ///     groups on a 25 439-triangle image-to-3D mesh. Baked as ids that is per-triangle confetti,
+    ///     every generator keyed off it is noise, and <see cref="MapBaker.IdColour" /> paints each
+    ///     triangle a different hue.
+    /// </remarks>
+    [Fact]
+    public void A_faceted_source_does_not_bake_one_id_per_triangle() {
+        var source = Icosphere(3, 1f);
+
+        // What FromTriangles does at the end of every generated or sculpted mesh.
+        source.Regroup();
+
+        Assert.Equal(MeshGroupSource.Coplanarity, source.GroupSource);
+
+        // Verify the instrument: the fixture is only the § D12 input if its own grouping is confetti.
+        var groups = source.Faces.Select(face => face.Group).Distinct().Count();
+
+        Assert.True(groups > 100, $"The fixture has {groups} groups, so it is not a faceted surface.");
+
+        var maps = MapBaker.Bake(
+            source,
+            Unwrapped(Cap(Icosphere(3, 1.01f), 0.5f), 0f),
+            new() { Resolution = 24, Gutter = 2, Maps = MeshMaps.Id, Space = BakeSpace.Object }
+        );
+
+        var ids = Assert.IsAssignableFrom<IReadOnlyList<int>>(maps.Ids);
+
+        Assert.True(maps.Covered > 0, string.Join(" · ", maps.Warnings));
+
+        var distinct = ids.Where(id => id >= 0).Distinct().ToArray();
+
+        Assert.True(
+            distinct.Length == 1,
+            $"A closed sphere is one shell and baked {distinct.Length} ids, which is the confetti."
+        );
+    }
+
     /// <summary>Every material index gets a colour of its own.</summary>
     [Fact]
     public void An_id_colour_is_distinct_for_every_index_and_black_for_none() {
@@ -568,13 +650,24 @@ public class MeshMapTests {
         return mesh;
     }
 
-    /// <summary>Two coplanar sheets with a gap between them, carrying face groups 0 and 2.</summary>
+    /// <summary>Two coplanar sheets with a gap between them, carrying assigned face groups 0 and 2.</summary>
     /// <remarks>
-    ///     ⚠ <b>0 and 2, with nothing between them.</b> The id the gutter must not invent is then a
-    ///     number the test can name, rather than a shade of one it cannot distinguish from rounding.
+    ///     <para>
+    ///         ⚠ <b>0 and 2, with nothing between them.</b> The id the gutter must not invent is then a
+    ///         number the test can name, rather than a shade of one it cannot distinguish from rounding.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the assignment is stated, because <c>AddFace(loop, group)</c> does not state
+    ///         it.</b> Only <c>SetGroup</c> moves <see cref="EditMesh.GroupSource" /> off the default
+    ///         <see cref="MeshGroupSource.Coplanarity" />, so this fixture used to hand the baker a
+    ///         mesh whose groups were — as far as anything downstream could tell — <c>Regroup</c>'s
+    ///         guess. That is the same input a generated blob arrives with, which made a green id test
+    ///         say nothing about the case it was written for. Two charts an artist gave two materials
+    ///         is what this fixture means, so it says so.
+    ///     </para>
     /// </remarks>
     static EditMesh Strips() {
-        var mesh = new EditMesh();
+        var mesh = new EditMesh { GroupSource = MeshGroupSource.Assigned };
 
         for (var strip = 0; strip < 2; strip++) {
             var corners = new int[3, 3];
