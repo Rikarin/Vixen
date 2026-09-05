@@ -114,11 +114,15 @@ they happened. ⚠ `Register` is the opposite of `Execute`: the edit has already
 recorded and not run — and it is ignored inside a transaction, whose entry is built out of commands
 the transaction ran itself.
 
-⚠ **What is still owed is the install.** Nothing sets `UiDocument.UndoManager` or
-`UiElement.UndoManager` to a document's stack, so a text field in the editor still finds nothing and
-still leaves ⌘Z to the editor's global `edit.undo`. That wants the panel hosting the active document
-to set its own `UndoManager` — which is a real feature rather than a line, because the active
-document changes as the user switches tabs.
+⚠ **What is still owed is the *editor's* install, and only that.** `UiApplication` installs a
+default manager and `UndoCommands.Install` beside it, so every application built on the desktop host
+has both a stack and the two verbs that reach it. The editor is not one of those applications: it
+keeps only `UiWindowSurface` from that host, and nothing sets `UiDocument.UndoManager` or
+`UiElement.UndoManager` to a document's `CommandStack`. So a text field in the editor still finds
+nothing and still leaves ⌘Z to the editor's global `edit.undo`. That wants the panel hosting the
+active document to set its own `UndoManager` and call `UndoCommands.Install` on the same element —
+which is a real feature rather than a line, because the active document changes as the user switches
+tabs, and the call sites are in `Vixen.Editor.App`.
 
 ⚠ **`CodeEditor` registering nothing is a decision and not the same owed item**, which earlier notes
 here read the other way round. `CodeDocument` is already on `CodeBuffer.Changed` and already turns
