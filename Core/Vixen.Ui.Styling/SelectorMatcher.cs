@@ -164,6 +164,9 @@ public sealed class SelectorMatcher(SelectorTable table) {
             case SimpleSelectorKind.Empty:
                 return tree.ChildCountOf(element) == 0 && !tree.HasTextAt(element);
 
+            case SimpleSelectorKind.Lang:
+                return MatchesLanguage(tree, element, simple);
+
             case SimpleSelectorKind.Not: {
                 for (var i = 0; i < simple.NestedCount; i++) {
                     if (MatchFrom(tree, element, table.Nested(simple.NestedStart + i), table.Nested(simple.NestedStart + i).Count - 1, useBloom)) {
@@ -186,6 +189,120 @@ public sealed class SelectorMatcher(SelectorTable table) {
 
             default:
                 return false;
+        }
+    }
+
+    /// <summary>Whether the language in force at an element is in the selector's range.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The climb is the whole difference between this and <c>[lang|="de"]</c>.</b> A
+    ///         <c>lang</c> attribute states the language of an element <i>and everything under it</i>
+    ///         — that is what the attribute means in every document language that has one — so the
+    ///         subject of the comparison is the nearest declaration at or above this element, and
+    ///         <see cref="StyleTree.Language" /> under all of them. An attribute selector compares
+    ///         against what this element itself declares, which for a span inside a German paragraph
+    ///         is nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>lang=""</c> is not a declaration and does not stop the climb</b>, which is
+    ///         both what HTML means by it and what this tree forces. <c>UiElement.Language = null</c>
+    ///         writes the empty tag rather than removing the attribute, because <c>StyleTree</c>
+    ///         appends attributes and never removes one — so an empty value has to read back as "no
+    ///         declaration here" or taking a declaration off would strand the subtree. This walk is
+    ///         <c>UiElement.ResolvedLanguage</c>'s walk, and the two have to agree: one decides what
+    ///         a rule selects and the other decides what the shaper is told, about the same words.
+    ///     </para>
+    /// </remarks>
+    static bool MatchesLanguage(StyleTree tree, int element, SimpleSelector simple) {
+        for (var node = element; node >= 0; node = tree.ParentOf(node)) {
+            if (!tree.TryGetAttribute(node, simple.NameId, out var valueId) || valueId == NameTable.None) {
+                continue;
+            }
+
+            var declared = tree.Names.NameOf(valueId);
+
+            if (declared.Length != 0) {
+                return Filters(declared, tree.Names.NameOf(simple.ValueId));
+            }
+        }
+
+        return Filters(tree.Language, tree.Names.NameOf(simple.ValueId));
+    }
+
+    /// <summary>RFC 4647 § 3.3.2 extended filtering, which is what Selectors 4 § 9.1 asks for.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not "starts with the range", which is the implementation everybody writes and is
+    ///         wrong in both directions.</b> Too wide, because <c>den</c> starts with <c>de</c> and
+    ///         is Dendi, not German — the comparison is over <i>subtags</i>, so a range only matches
+    ///         at a hyphen. Too narrow, because a range's subtags need not be <i>consecutive</i> in
+    ///         the tag: <c>de-AT</c> matches <c>de-Latn-AT</c>, since a script subtag somebody added
+    ///         does not stop the document being Austrian German.
+    ///     </para>
+    ///     <para>
+    ///         The rule that makes the skipping safe is the singleton one: a one-character subtag
+    ///         opens an extension (<c>-u-</c>, <c>-x-</c>) and everything after it is a private or
+    ///         extension namespace, so a range subtag may not be matched past one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>No <c>*</c> branch, deliberately.</b> The specification allows a wildcard subtag
+    ///         and <see cref="SelectorCompiler" /> can never produce one, because ExCSS refuses to
+    ///         parse the form. A branch nothing can reach is this repository's commonest defect, and
+    ///         the compiler's remarks carry the measurement.
+    ///     </para>
+    /// </remarks>
+    /// <param name="tag">The language in force, as a BCP-47 tag. Empty is undetermined.</param>
+    /// <param name="range">The selector's range.</param>
+    /// <returns>Whether the tag is in the range.</returns>
+    internal static bool Filters(ReadOnlySpan<char> tag, ReadOnlySpan<char> range) {
+        if (tag.IsEmpty || range.IsEmpty) {
+            return false;
+        }
+
+        if (!Next(ref tag, out var tagPart) || !Next(ref range, out var rangePart)) {
+            return false;
+        }
+
+        if (!rangePart.Equals(tagPart, StringComparison.OrdinalIgnoreCase)) {
+            return false;
+        }
+
+        while (Next(ref range, out rangePart)) {
+            while (true) {
+                if (!Next(ref tag, out tagPart)) {
+                    return false;
+                }
+
+                if (rangePart.Equals(tagPart, StringComparison.OrdinalIgnoreCase)) {
+                    break;
+                }
+
+                // A singleton opens an extension, and a range subtag may not be matched inside one.
+                if (tagPart.Length == 1) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+
+        static bool Next(ref ReadOnlySpan<char> rest, out ReadOnlySpan<char> part) {
+            if (rest.IsEmpty) {
+                part = default;
+                return false;
+            }
+
+            var hyphen = rest.IndexOf('-');
+
+            if (hyphen < 0) {
+                part = rest;
+                rest = default;
+            } else {
+                part = rest[..hyphen];
+                rest = rest[(hyphen + 1)..];
+            }
+
+            return true;
         }
     }
 

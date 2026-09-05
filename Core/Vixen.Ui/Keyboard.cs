@@ -193,7 +193,7 @@ public sealed partial class UiDocument {
 
         KeyboardMode = true;
 
-        var target = Focused ?? Root;
+        var target = KeyTarget;
         target.Raise(args);
 
         // ⚠ After the route and only if nothing wanted it, exactly like Tab below. A menu that is
@@ -226,7 +226,7 @@ public sealed partial class UiDocument {
 
         KeyboardMode = true;
 
-        var target = Focused ?? Root;
+        var target = KeyTarget;
         target.Raise(args);
         return target;
     }
@@ -244,7 +244,7 @@ public sealed partial class UiDocument {
     public UiElement? Dispatch(TextCompositionEvent args) {
         ArgumentNullException.ThrowIfNull(args);
 
-        var target = Focused ?? Root;
+        var target = KeyTarget;
         target.Raise(args);
         return target;
     }

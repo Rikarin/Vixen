@@ -155,6 +155,16 @@ public enum PlatformEventKind : byte {
     /// from <see cref="IDisplayInfo" /> is stale.</summary>
     DisplaysChanged = 60,
 
+    /// <summary>The user changed the system's light/dark appearance.
+    /// <see cref="IPlatform.ColorScheme" /> already reports the new one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not queued at start-up.</b> The first appearance is a fact a host reads out of
+    ///     <see cref="IPlatform.ColorScheme" /> before its first frame, not an event it waits for —
+    ///     a host that only handled the event would render its first frame, and on a machine whose
+    ///     appearance never changes every frame after it, against the wrong palette.
+    /// </remarks>
+    SystemColorSchemeChanged = 61,
+
     // ── Lifecycle ───────────────────────────────────────────────────────────────────────────
 
     /// <summary>The process is about to be suspended. Save now; there may be no later.</summary>

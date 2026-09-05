@@ -703,6 +703,12 @@ public sealed class StyleValueParser {
             _ when suffix.Equals("vmax", StringComparison.OrdinalIgnoreCase) =>
                 StyleValue.FromLength(number, StyleUnit.ViewportMax),
 
+            // ⚠ `lh` and not `rlh`. Tailwind v4 spells one class in this unit — `max-h-lh`, one line
+            // box — and the root-relative sibling has no class and no consumer, so adding it would be
+            // a unit nothing writes and a second thing to keep resolving correctly.
+            _ when suffix.Equals("lh", StringComparison.OrdinalIgnoreCase) =>
+                StyleValue.FromLength(number, StyleUnit.LineHeight),
+
             _ => StyleValue.Unknown
         };
     }

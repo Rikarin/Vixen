@@ -226,4 +226,72 @@ public class SurfaceTests {
         // number it is in the main one, and a rule written once styles both.
         Assert.Equal(40f, box.Width, 0.001f);
     }
+
+    [Fact]
+    public void A_command_runs_against_the_key_surface_and_not_the_primary_one() {
+        using var document = Document();
+
+        var second = document.CreateSurface(400f, 300f);
+
+        var ran = "";
+        document.Root.AddCommandHandler("edit.copy", () => ran = "main");
+        second.Root.AddCommandHandler("edit.copy", () => ran = "inspector");
+
+        // Nothing focused and no key surface: the walk starts at the document root, which is what a
+        // one-window application means and what every caller before surfaces existed meant.
+        Assert.True(CommandRoute.Execute(document, "edit.copy"));
+        Assert.Equal("main", ran);
+
+        // ⚠ The same verb, the same document, nothing focused, and a different answer — because the
+        // user is in the other window. A surface root's parents still end at the document root, so
+        // this adds the torn-off window's links in front of the walk rather than replacing it.
+        document.KeySurface = second;
+
+        Assert.True(CommandRoute.Execute(document, "edit.copy"));
+        Assert.Equal("inspector", ran);
+    }
+
+    [Fact]
+    public void A_keystroke_with_nothing_focused_lands_in_the_key_surface() {
+        using var document = Document();
+
+        var second = document.CreateSurface(400f, 300f);
+        document.KeySurface = second;
+
+        var args = new KeyEvent { Key = Input.InputKey.F5, Action = KeyAction.Pressed };
+        Assert.Same(second.Root, document.Dispatch(args));
+
+        // The focus still outranks it, and has to: the key surface is the answer to "where is the
+        // user" and the focus is the answer to "what is she typing into", and only the second exists
+        // once something has been clicked.
+        var field = document.Root.Add("div");
+        field.Focusable = true;
+        document.Focus(field);
+
+        Assert.Same(field, document.Dispatch(new KeyEvent { Key = Input.InputKey.F5, Action = KeyAction.Pressed }));
+    }
+
+    [Fact]
+    public void Closing_the_key_window_gives_the_answer_back_to_the_primary() {
+        using var document = Document();
+
+        var second = document.CreateSurface(400f, 300f);
+        document.KeySurface = second;
+
+        Assert.True(document.RemoveSurface(second));
+
+        // ⚠ Not tidiness. A removed surface's root is out of the document, and `UiElement.Document`
+        // throws on one of those — so a key surface left pointing at a closed window turns the next
+        // keystroke into an exception rather than a misrouted key.
+        Assert.Null(document.KeySurface);
+        Assert.Same(document.Root, document.Dispatch(new KeyEvent { Key = Input.InputKey.F5, Action = KeyAction.Pressed }));
+    }
+
+    [Fact]
+    public void A_surface_from_another_document_is_refused() {
+        using var document = Document();
+        using var other = Document();
+
+        Assert.Throws<ArgumentException>(() => document.KeySurface = other.Primary);
+    }
 }

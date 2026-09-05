@@ -26,6 +26,19 @@ namespace Vixen.EditorShell;
 ///         the row says.
 ///     </para>
 ///     <para>
+///         ⚠ <b>Public, in two assemblies, and it owes the <c>Docs</c> gate nothing — read rather
+///         than guessed, because a link across a project boundary is exactly where that gate is
+///         surprising.</b> <c>Tools/Vixen.DocGen</c>'s <c>Scope.IsDocumented</c> takes a project
+///         only when its <i>area</i> — its top-level folder — is one of <c>Core</c>,
+///         <c>Gameplay</c>, <c>Platform</c>, <c>Editor</c>, <c>Tools</c>, <c>Raven</c> or
+///         <c>Live</c>, <i>and</i> its name does not end in <c>.Tests</c>. This copy is in a
+///         <c>.Tests</c> project and the linked one is under <c>Benchmarks/</c>, so neither
+///         reaches the graph, and no <c>docs/DocsExempt.txt</c> line is owed for either. ⚠ Note
+///         which half does the work: it is not packability. A type linked out of here into a
+///         <c>Core/</c> or <c>Editor/</c> project that does not end in <c>.Tests</c> <i>would</i>
+///         want a page, <c>IsPackable=false</c> and all.
+///     </para>
+///     <para>
 ///         ⚠ <b>A million <i>items</i> are materialised and a million <i>rows</i> are not, and the
 ///         difference is the whole claim.</b> <c>DataGrid.SetItems</c> copies its source into a list
 ///         because sorting, grouping and random access all need one — that cost is inherent and is

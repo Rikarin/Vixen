@@ -53,7 +53,9 @@ Vixen.Ui.Controls.Advanced.CodeDiagnostic.Severity.get -> Vixen.Ui.Controls.Adva
 Vixen.Ui.Controls.Advanced.CodeDiagnostic.Severity.init -> Vixen.Ui.Controls.Advanced.CodeSeverity
 Vixen.Ui.Controls.Advanced.CodeEditor -> sealed class
 Vixen.Ui.Controls.Advanced.CodeEditor : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.CodeEditor : Vixen.Ui.ITextInputTarget
 Vixen.Ui.Controls.Advanced.CodeEditor.AcceptCompletion() -> bool
+Vixen.Ui.Controls.Advanced.CodeEditor.AcceptsTextInput.get -> bool
 Vixen.Ui.Controls.Advanced.CodeEditor.Anchor.get -> Vixen.Ui.Controls.Advanced.TextPosition
 Vixen.Ui.Controls.Advanced.CodeEditor.AutoFold.get -> bool
 Vixen.Ui.Controls.Advanced.CodeEditor.AutoFold.set -> bool
@@ -64,6 +66,7 @@ Vixen.Ui.Controls.Advanced.CodeEditor.Buffer.set -> Vixen.Ui.Controls.Advanced.C
 Vixen.Ui.Controls.Advanced.CodeEditor.CanCopy.get -> bool
 Vixen.Ui.Controls.Advanced.CodeEditor.CanPaste.get -> bool
 Vixen.Ui.Controls.Advanced.CodeEditor.Caret.get -> Vixen.Ui.Controls.Advanced.TextPosition
+Vixen.Ui.Controls.Advanced.CodeEditor.CaretArea.get -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Controls.Advanced.CodeEditor.CaretBlink.get -> System.TimeSpan
 Vixen.Ui.Controls.Advanced.CodeEditor.CaretBlink.set -> System.TimeSpan
 Vixen.Ui.Controls.Advanced.CodeEditor.CaretMoved -> System.Action<Vixen.Ui.Controls.Advanced.CodeEditor>?

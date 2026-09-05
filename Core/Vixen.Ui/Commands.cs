@@ -355,9 +355,16 @@ public static class CommandRoute {
     ///         <see cref="UiElement.IsCommandTransparent" />.
     ///     </para>
     /// </remarks>
+    /// <remarks>
+    ///     ⚠ <b>With nothing focused it starts at the key surface's root and not the document's</b>,
+    ///     which is what makes a verb mean the window the user is in. A surface root's parent chain
+    ///     still ends at <see cref="UiDocument.Root" />, so this only inserts the window's own links
+    ///     in front of the ones that were already walked — a document-wide handler answers exactly as
+    ///     it did, and a torn-off inspector's answer now outranks it because it is nearer.
+    /// </remarks>
     public static UiElement Origin(UiDocument document) {
         ArgumentNullException.ThrowIfNull(document);
-        return document.CommandFocus ?? document.Root;
+        return document.CommandFocus ?? document.KeySurface?.Root ?? document.Root;
     }
 
     /// <summary>The scope the focus is in.</summary>

@@ -217,6 +217,9 @@ Vixen.Ui.Composition.BuildContext.Bind(Vixen.Ui.UiElement target, string name, S
 Vixen.Ui.Composition.BuildContext.Changed<T>(Vixen.Ui.UiElement target, string name, System.Func<T> read, System.Action<T> handler) -> void
 Vixen.Ui.Composition.BuildContext.Child<T>(Vixen.Ui.UiElement? parent) -> T
 Vixen.Ui.Composition.BuildContext.Child<T>(Vixen.Ui.UiElement? parent, string? tag) -> T
+Vixen.Ui.Composition.BuildContext.Compose<T>(T created) -> void
+Vixen.Ui.Composition.BuildContext.Create<T>(Vixen.Ui.UiElement? parent) -> T
+Vixen.Ui.Composition.BuildContext.Create<T>(Vixen.Ui.UiElement? parent, string? tag) -> T
 Vixen.Ui.Composition.BuildContext.Document.get -> Vixen.Ui.UiDocument
 Vixen.Ui.Composition.BuildContext.Element(Vixen.Ui.UiElement? parent, string tag) -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.BuildContext.For<T>(Vixen.Ui.UiElement? parent, System.Func<System.Collections.Generic.IEnumerable<T>> items, System.Func<T, object> key, System.Action<Vixen.Ui.Composition.BuildContext, Vixen.Ui.UiElement, T> build) -> void
@@ -476,6 +479,8 @@ Vixen.Ui.FocusDirection.Next = 0 -> Vixen.Ui.FocusDirection
 Vixen.Ui.FocusDirection.Previous = 1 -> Vixen.Ui.FocusDirection
 Vixen.Ui.FocusEvent -> sealed class
 Vixen.Ui.FocusEvent : Vixen.Ui.UiEvent
+Vixen.Ui.FocusEvent.Cancel.get -> bool
+Vixen.Ui.FocusEvent.Cancel.set -> bool
 Vixen.Ui.FocusEvent.FocusEvent() -> void
 Vixen.Ui.FocusEvent.Gained.get -> bool
 Vixen.Ui.FocusEvent.Gained.init -> bool
@@ -566,6 +571,9 @@ Vixen.Ui.GradientStops.Via.get -> float
 Vixen.Ui.GradientStops.Via.init -> float
 Vixen.Ui.ICommandResponder -> interface
 Vixen.Ui.ICommandResponder.TryGetCommandHandler(string id, out Vixen.Ui.CommandHandler handler) -> bool
+Vixen.Ui.ITextInputTarget -> interface
+Vixen.Ui.ITextInputTarget.AcceptsTextInput.get -> bool
+Vixen.Ui.ITextInputTarget.CaretArea.get -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.IUiClipboard -> interface
 Vixen.Ui.IUiClipboard.HasText.get -> bool
 Vixen.Ui.IUiClipboard.SetText(string text) -> bool
@@ -624,6 +632,8 @@ Vixen.Ui.LengthContext.FontSize.get -> float
 Vixen.Ui.LengthContext.FontSize.init -> float
 Vixen.Ui.LengthContext.LengthContext() -> void
 Vixen.Ui.LengthContext.LengthContext(float FontSize, float RootFontSize, float ViewportWidth, float ViewportHeight) -> void
+Vixen.Ui.LengthContext.LineHeight.get -> float
+Vixen.Ui.LengthContext.LineHeight.init -> float
 Vixen.Ui.LengthContext.PixelsPer(Vixen.Ui.Styling.StyleUnit unit) -> float
 Vixen.Ui.LengthContext.RootFontSize.get -> float
 Vixen.Ui.LengthContext.RootFontSize.init -> float
@@ -633,6 +643,7 @@ Vixen.Ui.LengthContext.ViewportHeight.init -> float
 Vixen.Ui.LengthContext.ViewportWidth.get -> float
 Vixen.Ui.LengthContext.ViewportWidth.init -> float
 Vixen.Ui.LengthContext.WithFontSize(float fontSize) -> Vixen.Ui.LengthContext
+Vixen.Ui.LengthContext.WithLineHeight(float lineHeight) -> Vixen.Ui.LengthContext
 Vixen.Ui.LineCap -> enum : byte
 Vixen.Ui.LineCap.Butt = 0 -> Vixen.Ui.LineCap
 Vixen.Ui.LineCap.LineCap() -> void
@@ -1291,7 +1302,7 @@ Vixen.Ui.UiDocument.EditingKeymap.get -> Vixen.Ui.EditingKeymap
 Vixen.Ui.UiDocument.EditingKeymap.set -> Vixen.Ui.EditingKeymap
 Vixen.Ui.UiDocument.Effects.get -> Vixen.Ui.Reactive.EffectScheduler
 Vixen.Ui.UiDocument.FindInDirection(Vixen.Ui.UiElement origin, Vixen.Ui.NavigationDirection direction) -> Vixen.Ui.UiElement?
-Vixen.Ui.UiDocument.Focus(Vixen.Ui.UiElement? element) -> bool
+Vixen.Ui.UiDocument.Focus(Vixen.Ui.UiElement? element, bool force = false) -> bool
 Vixen.Ui.UiDocument.Focused.get -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Fonts.get -> Vixen.Ui.FontRegistry
 Vixen.Ui.UiDocument.ForegroundOf(Vixen.Ui.UiElement element) -> Vixen.Core.Mathematics.Color4
@@ -1307,6 +1318,8 @@ Vixen.Ui.UiDocument.Invalidate() -> void
 Vixen.Ui.UiDocument.InvalidateAccessibility() -> void
 Vixen.Ui.UiDocument.InvalidateCommands() -> void
 Vixen.Ui.UiDocument.InvokeAccessKey(char key) -> bool
+Vixen.Ui.UiDocument.KeySurface.get -> Vixen.Ui.UiSurface?
+Vixen.Ui.UiDocument.KeySurface.set -> Vixen.Ui.UiSurface?
 Vixen.Ui.UiDocument.KeyboardMode.get -> bool
 Vixen.Ui.UiDocument.KeywordOf(Vixen.Ui.Styling.ComputedStyle style, int property) -> string?
 Vixen.Ui.UiDocument.Language.get -> string

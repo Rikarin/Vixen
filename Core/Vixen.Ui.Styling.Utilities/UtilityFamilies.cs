@@ -1195,12 +1195,20 @@ public static class UtilityFamilies {
 
         // ── Hyphens ─────────────────────────────────────────────────────────────────────────
         // ⚠ <b>Two of Tailwind's three, and the third is left unregistered on purpose.</b>
-        // `hyphens-auto` needs a per-language Liang pattern set AND a language to pick one with, and
-        // `TextShaper` leaves HarfBuzz's language unset so that shaping does not depend on the
-        // machine's locale — so the input is missing as well as the algorithm. Registering it would
-        // put a class in the table that resolves, computes a value and hyphenates nothing, which is
-        // the exact state `UtilityConsumptionGateTests` exists to keep out. The root stays `partial`
-        // with the reason named, which is the honest state rather than the flattering one.
+        // `hyphens-auto` needs a per-language Liang pattern set. Registering it would put a class in
+        // the table that resolves, computes a value and hyphenates nothing, which is the exact state
+        // `UtilityConsumptionGateTests` exists to keep out. The root stays `partial` with the reason
+        // named, which is the honest state rather than the flattering one.
+        //
+        // ⚠ <b>Half of the reason this comment used to give has expired, and it expired without
+        // anything noticing — which is the finding worth more than the sentence.</b> It said the
+        // refusal also rested on there being no language to pick a pattern set with, `TextShaper`
+        // leaving HarfBuzz's language unset. `UiElement.ResolvedLanguage` carries a BCP-47 tag that
+        // inherits by tree and reaches `TextShaper.ShapeRun`, so that half is false. It went stale
+        // in prose because `RefusalExpiry` could not reach it: this root is `partial`, and until now
+        // only an `expires-when-read` clause was allowed on a `partial` row. The remaining half now
+        // carries `[expires-on Vixen.Ui.Text.HyphenMode.Auto]` in the ledger, so the arrival of the
+        // pattern set reddens a test instead of leaving a paragraph standing.
         //
         // ⚠ <b>`hyphens-manual` is the initial value, and it is registered anyway.</b> Normally a
         // class whose only effect is "write nothing" earns no place — `normal-case` is the exception
@@ -2884,10 +2892,16 @@ public static class UtilityFamilies {
     ///         "minus one viewport tall" any more than <c>-w-full</c> is minus one hundred per
     ///         cent wide.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>lh</c> joined them the day it resolved, and it is the same trap a third
+    ///         time.</b> It comes out as <c>1lh</c> — a digit again — so <c>-max-block-lh</c> would
+    ///         have been "minus one line box tall" rather than a refusal. A value that stops being
+    ///         unresolvable has to be looked at here as well as in <see cref="TrySize" />.
+    ///     </para>
     /// </remarks>
     static readonly HashSet<string> NotNegatable = new(StringComparer.Ordinal) {
         "auto", "full", "screen", "min", "max", "fit",
-        "svw", "lvw", "dvw", "svh", "lvh", "dvh"
+        "svw", "lvw", "dvw", "svh", "lvh", "dvh", "lh"
     };
 
     /// <summary>Flips the sign of everything a utility resolved to.</summary>
@@ -3321,6 +3335,15 @@ public static class UtilityFamilies {
             case "dvh":
                 result = "100vh";
                 return true;
+
+            // ⚠ <b>One line box, and the only sizing value whose unit the engine had to learn.</b>
+            // Every other keyword above resolves to a unit the parser already read; `lh` did not
+            // exist, so `max-block-lh` emitted text `StyleValueParser` refused and the class was the
+            // ledger's one Sizing `partial`. It is answered by every family for the reason the
+            // viewport trios are — Tailwind names it after what is measured, not after the property.
+            case "lh":
+                result = "1lh";
+                return true;
             default:
                 break;
         }
@@ -3615,11 +3638,17 @@ public static class UtilityFamilies {
     ///     nesting, which the loader does not do, so the emitted form is the flattened one — proved
     ///     rather than assumed, in <c>ChildScopedFamilyTests</c>. The <c>:where()</c> is v4's way of
     ///     keeping the rule at one class of specificity so that a child's own <c>me-0</c> still
-    ///     wins; here <c>SelectorCompiler</c> counts <c>:where()</c> like <c>:is()</c> and adds a
-    ///     class either way, so the rule lands at <c>(0,2,0)</c> and beats a child's own single-class
-    ///     utility. That is exactly what Tailwind v3 did for four major versions, it is written down
-    ///     in the guide rather than left to be discovered, and the fix is three lines in a file this
-    ///     project does not own.
+    ///     wins; the rule lands at <c>(0,2,0)</c> here and beats a child's own single-class utility.
+    ///     That is exactly what Tailwind v3 did for four major versions, and it is written down in
+    ///     the guide rather than left to be discovered.
+    ///     <para>
+    ///         ⚠ <b>This remark used to say the fix was "three lines in a file this project does not
+    ///         own" — that <c>SelectorCompiler</c> counts <c>:where()</c> like <c>:is()</c> and a
+    ///         charge could simply be dropped. It does not.</b> ExCSS 4.3.2 does not parse
+    ///         <c>:where()</c> at all, so the whole selector arrives as one unknown and the rule is
+    ///         refused rather than compiled at the wrong specificity. Measured in
+    ///         <c>Vixen.Ui.Styling.Tests</c>' <c>WhereSelectorTests</c>.
+    ///     </para>
     /// </remarks>
     static void Between(string name, ValueKind kind, string[] properties) =>
         Register(new Family(name, kind, properties, Scope: BetweenChildren));

@@ -110,6 +110,7 @@ public sealed class UiApplication : IDisposable {
     readonly IPlatform platform;
     readonly IWindow window;
     readonly PlatformWindowHost windows;
+    readonly PlatformTextInput textInput;
 
     /// <summary>One shared atlas, because a glyph rasterised for one window is the same glyph in the next.</summary>
     readonly GlyphFieldCache glyphs = new(new GlyphAtlas(1024, 1024));
@@ -187,6 +188,7 @@ public sealed class UiApplication : IDisposable {
         // type: the docking host asks the document, the document asks `IUiWindowHost`, and this
         // assembly is the only one in the chain allowed to know what a window is.
         windows = new PlatformWindowHost(platform, Document, window);
+        textInput = new PlatformTextInput(platform.TextInput);
 
         // ⚠ **The same shape as the line above, and its absence was why ⌘C did nothing.**
         // `IClipboard` has had real backends on three desktops since Phase 1 and nothing above
@@ -340,15 +342,48 @@ public sealed class UiApplication : IDisposable {
     /// <summary>The window the application was opened on.</summary>
     public IWindow Window => window;
 
-    /// <summary>The platform under the application.</summary>
+    /// <summary>Everything the operating system does for this application.</summary>
     /// <remarks>
-    ///     ⚠ <b>Public because keeping it private made whole capabilities unreachable.</b> The window
-    ///     was exposed and the platform was not, so an application that wanted the clipboard, the
-    ///     native file pickers, the lifecycle or the display list had a host that held all four and
-    ///     handed out none of them — and could not have written them itself, because
-    ///     <c>Vixen.Ui</c> may not reference <c>Platform/</c>. The two things this host now does with
-    ///     it on the application's behalf, <c>PlatformClipboard.Install</c> and the quit veto, are
-    ///     the two it should not have to be asked for; everything else is the application's.
+    ///     <para>
+    ///         ⚠ <b>Its absence is what made three finished, six-platform capabilities unreachable
+    ///         from application code.</b> <see cref="Run(UiApplicationOptions)" /> is the only public
+    ///         way to start an application and the constructor is internal by design, so a caller had
+    ///         <see cref="Window" /> and <see cref="Document" /> and no route at all to
+    ///         <see cref="IPlatform.Clipboard" />, <see cref="IPlatform.Dialogs" />,
+    ///         <see cref="IPlatform.Displays" /> or <see cref="IPlatform.Lifecycle" /> — none of which
+    ///         a UI framework can offer from <c>Core/</c>, because <c>Vixen.Platform</c> sits above
+    ///         it. No file dialogs, no display list, and nothing in the framework to point at as the
+    ///         reason.
+    ///     </para>
+    ///     <para>
+    ///         Two of the four the host now does on the application's behalf and does not wait to be
+    ///         asked for: <c>PlatformClipboard.Install</c> puts the pasteboard behind
+    ///         <see cref="UiDocument.Clipboard" /> so every text box has ⌘C with nothing wired, and
+    ///         the quit veto turns the lifecycle's terminate into a
+    ///         <see cref="Vixen.Ui.CloseRequestEvent" />. Everything else here is the
+    ///         application's.
+    ///     </para>
+    ///     <para>
+    ///         <b>Where an application reaches it is <see cref="UiApplicationOptions.Started" />,</b>
+    ///         which is handed this object and runs after the interface is built and before the first
+    ///         frame — <see cref="UiApplicationOptions.Configure" /> is offered the document alone
+    ///         and deliberately stays that way, because what it is for is loading sheets and
+    ///         registering types before the content mounts.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read <see cref="IPlatform.Capabilities" /> before using most of it.</b> A
+    ///         headless build has no displays and no pickers, and a Linux session may have no picker
+    ///         either — <c>PlatformExtensions.Pickers()</c> is that question for the one service
+    ///         where the "nothing chosen" answer is indistinguishable from a cancellation.
+    ///     </para>
+    ///     <para>
+    ///         <b>Threading.</b> The platform is owned by the loop thread. Every member of it must be
+    ///         called from there, which for an application using this loop means from
+    ///         <see cref="Started" />, <see cref="Frame" />, <see cref="Stopping" /> or an event
+    ///         handler — not from a continuation that resumed on a pool thread. See
+    ///         <see cref="IPlatform" />, which says why that is the operating systems' restriction
+    ///         rather than one of ours.
+    ///     </para>
     /// </remarks>
     public IPlatform Platform => platform;
 
@@ -529,6 +564,12 @@ public sealed class UiApplication : IDisposable {
         var clock = Stopwatch.StartNew();
         var previous = TimeSpan.Zero;
 
+        // ⚠ Before `Started` and therefore before the first frame. The platform posts no event for
+        // the appearance it already had at boot — there is nothing to notice — so a host that only
+        // handled `SystemColorSchemeChanged` would draw every frame of a session against the wrong
+        // palette on a machine whose appearance never changed, which is most of them.
+        PlatformInput.ApplyColorScheme(Document, platform.ColorScheme);
+
         Started?.Invoke(this);
 
         while (running && (options.Frames == 0 || FrameCount < options.Frames)) {
@@ -584,6 +625,13 @@ public sealed class UiApplication : IDisposable {
             // `cursor-*` class in every theme resolves correctly and shows nothing.
             PlatformCursor.Apply(windows);
 
+            // ⚠ Beside the cursor and for the same reason: the focus moves between frames and the
+            // caret moves within one, so neither has an event to hang on that is not "the frame".
+            // Until this line existed nothing in the framework ever called `ITextInput.Activate`, so
+            // a focused field on the web or a phone received nothing at all — and desktop only
+            // worked because SDL leaves text input running.
+            textInput.Apply(windows);
+
             Document.Draw();
 
             Sync();
@@ -594,6 +642,11 @@ public sealed class UiApplication : IDisposable {
         }
 
         device?.WaitIdle();
+
+        // ⚠ Text input is process state, not window state: SDL leaves it running after the window
+        // that asked for it has gone, and a second application started in the same process would
+        // find the keyboard already handed to an input method.
+        textInput.Deactivate();
 
         Stopping?.Invoke(this);
 
@@ -652,6 +705,14 @@ public sealed class UiApplication : IDisposable {
 
                 case PlatformEventKind.Suspending:
                     Release();
+                    break;
+
+                case PlatformEventKind.SystemColorSchemeChanged:
+                    // ⚠ Not routed by window id, because it names none. The appearance is a setting
+                    // of the machine and every surface of the document answers `@media
+                    // (prefers-color-scheme: …)` with it — falling through to the default branch
+                    // would resolve window 0, find nothing, and drop the change silently.
+                    PlatformInput.ApplyColorScheme(Document, platform.ColorScheme);
                     break;
 
                 default:

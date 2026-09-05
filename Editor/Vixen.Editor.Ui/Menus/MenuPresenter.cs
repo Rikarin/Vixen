@@ -39,10 +39,16 @@ namespace Vixen.Editor.Ui;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>And the replacement is put back where the first one was.</b> Adding a child appends
-///         it, and a rebuild is triggered by every command anybody registers — so a bar built into
-///         an empty shell and rebuilt once the workspace and the status bar are in it comes back
+///         it, and a rebuild is triggered by anything anybody registers — so a bar built into an
+///         empty shell and rebuilt once the workspace and the status bar are in it comes back
 ///         underneath both of them. In a column that is a menu bar along the bottom of the window,
 ///         arriving on whichever frame the application happened to add its last command.
+///     </para>
+///     <para>
+///         ⚠ <b>A rebuild is owed at the frame, not at the registration.</b> The registry raises one
+///         event per command and the bar is rebuilt whole, so answering each one where it arrived
+///         made a hundred registrations a hundred bars. See <see cref="Invalidate" />, which is
+///         where the count and the reason are.
 ///     </para>
 /// </remarks>
 public sealed class MenuPresenter : IDisposable {
@@ -54,12 +60,14 @@ public sealed class MenuPresenter : IDisposable {
     readonly Action<CommandRegistry> onCommandsChanged;
     readonly Action<KeyMap> onKeysChanged;
     readonly Action<StringCatalog> onLanguageChanged;
+    readonly Action<UiDocument, TimeSpan> onTicked;
 
     /// <summary>Which of the host's children the bar is, whatever else has been added since.</summary>
     readonly int slot;
 
     MenuBar? bar;
     bool disposed;
+    bool pending;
 
     /// <summary>Builds a menu bar into an element.</summary>
     /// <param name="host">Where the bar goes.</param>
@@ -89,12 +97,17 @@ public sealed class MenuPresenter : IDisposable {
         Model = model;
         Rebuild();
 
-        onCommandsChanged = _ => Rebuild();
-        onKeysChanged = _ => Rebuild();
-        onLanguageChanged = _ => Rebuild();
+        onCommandsChanged = _ => Invalidate();
+        onKeysChanged = _ => Invalidate();
+        onLanguageChanged = _ => Invalidate();
+        onTicked = (_, _) => Flush();
 
         commands.Changed += onCommandsChanged;
         keys.Changed += onKeysChanged;
+
+        // ⚠ The frame is what a rebuild is worth doing once per, and this subscription is the whole
+        // of the coalescing. See `Invalidate`.
+        host.Document.Ticked += onTicked;
 
         // ⚠ `Strings.Changed` is static, so this subscription outlives the document unless it is
         // taken back. A presenter left subscribed rebuilds a menu bar into a disposed document the
@@ -108,7 +121,63 @@ public sealed class MenuPresenter : IDisposable {
     public MenuModel Model { get; }
 
     /// <summary>The bar itself, which is replaced by every rebuild.</summary>
-    public MenuBar Bar => bar!;
+    /// <remarks>
+    ///     ⚠ <b>Reading it settles whatever is outstanding</b>, so that a caller which registers a
+    ///     command and then reads the bar in the same breath sees the line it just added rather than
+    ///     the bar as it was a moment ago. See <see cref="Invalidate" /> for why there is anything
+    ///     outstanding to settle.
+    /// </remarks>
+    public MenuBar Bar {
+        get {
+            Flush();
+            return bar!;
+        }
+    }
+
+    /// <summary>How many bars this presenter has built, including the first.</summary>
+    /// <remarks>
+    ///     What the coalescing is asserted against: the property worth testing is a count of
+    ///     rebuilds against a count of registrations, and a wall-clock budget for the same claim is
+    ///     the kind of assertion this repository has spent years removing.
+    /// </remarks>
+    internal int Rebuilds { get; private set; }
+
+    /// <summary>Whether a rebuild is owed but has not happened yet.</summary>
+    internal bool IsPending => pending;
+
+    /// <summary>Marks the bar stale, to be rebuilt at the next frame or the next read.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A rebuild is the whole bar, and the registry raises one event per command.</b>
+    ///         This used to rebuild synchronously from the handler, so standing an editor up rebuilt
+    ///         the bar once per command registered — a shipped editor registers about two hundred —
+    ///         and unloading one plugin rebuilt it once per command withdrawn. Counted over a whole
+    ///         editor — <c>EditorSession.Start</c> and the dispose that follows it — that was
+    ///         <b>590 bars to open one and 687 by the time it closed</b>, the same on every run
+    ///         because it is a count of registrations rather than a timing. It is now 4 and 5. The
+    ///         96 withdrawals at teardown cost 0.52–0.85 s between them while the registry's own
+    ///         bookkeeping for all 96 was under 0.6 ms: the work was entirely in the notification
+    ///         and none of it in the change. Nothing about that is particular to a test — it is the
+    ///         same 590 bars in the product, before the window appears.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing coalesced it below.</b> <c>UiDocument.InvalidateCommands</c> only marks
+    ///         bound surfaces stale — it is a flag, and it is why the <i>enablement</i> pass is not
+    ///         the problem; the structure is, and the structure is this class's.
+    ///     </para>
+    /// </remarks>
+    void Invalidate() {
+        if (!disposed) {
+            pending = true;
+        }
+    }
+
+    /// <summary>Rebuilds the bar if one is owed.</summary>
+    internal void Flush() {
+        if (pending) {
+            Rebuild();
+        }
+    }
 
     /// <inheritdoc />
     public void Dispose() {
@@ -121,6 +190,7 @@ public sealed class MenuPresenter : IDisposable {
         commands.Changed -= onCommandsChanged;
         keys.Changed -= onKeysChanged;
         Strings.Changed -= onLanguageChanged;
+        host.Document.Ticked -= onTicked;
     }
 
     /// <summary>Throws the bar away and builds it again from the model.</summary>
@@ -128,6 +198,9 @@ public sealed class MenuPresenter : IDisposable {
         if (disposed) {
             return;
         }
+
+        pending = false;
+        Rebuilds++;
 
         // The menus first: they are the document root's children rather than the bar's, so removing
         // the bar would leave them behind — open, dismissable and attached to nothing.
@@ -163,7 +236,7 @@ public sealed class MenuPresenter : IDisposable {
         // precisely the case the model is built to tolerate. Dropping it would move the menus beside
         // it along the bar every time something registered, which is worse than an empty dropdown.
         foreach (var group in Model.Menus) {
-            Fill(Bar.AddMenu(group.Title.Text), group);
+            Fill(bar.AddMenu(group.Title.Text), group);
         }
     }
 

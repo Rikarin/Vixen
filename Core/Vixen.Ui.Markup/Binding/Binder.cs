@@ -712,6 +712,19 @@ public sealed class Binder {
             return null;
         }
 
+        // ⚠ And the mirror on the other side of the same case split: on a lowercase tag the parameter
+        // is *not* an assignment, it is `ctx.Attribute(n1, "AccessibleName", "Save")` — selector data
+        // nothing reads. Warned rather than refused because that reading is legal, and kept rather
+        // than dropped for the same reason. See `MarkupDiagnostics.InertElementAttribute` for why the
+        // test is the name's case and not a lookup of the property.
+        if (kind == BoundAttributeKind.Parameter
+            && !isComponent
+            && !IsUniversal(name)
+            && name.Length > 0
+            && char.IsUpper(name[0])) {
+            Report(MarkupDiagnostics.InertElementAttribute, attribute.Name.Span, name, tag);
+        }
+
         return new(kind.Value, name, modifiers, value, Position(attribute.Name));
     }
 

@@ -258,9 +258,14 @@ public sealed class StyleRuleSet {
             for (var s = 0; s < compound.Count; s++) {
                 var simple = table.Simple(compound.Start + s);
 
+                // ⚠ `Lang` is here for `Attribute`'s reason and one of its own. The key carries the
+                // parent, so two siblings agree on every ancestor's `lang` — but not on their own,
+                // which is an attribute the key does not hold. A German `<span lang="de">` beside an
+                // otherwise identical sibling would take the sibling's computed style.
                 if (simple.Kind is SimpleSelectorKind.Position
                     or SimpleSelectorKind.Attribute
-                    or SimpleSelectorKind.Empty) {
+                    or SimpleSelectorKind.Empty
+                    or SimpleSelectorKind.Lang) {
                     return true;
                 }
 

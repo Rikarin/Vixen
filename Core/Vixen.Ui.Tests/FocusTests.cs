@@ -287,8 +287,200 @@ public class FocusTests {
         var stop = Stop(document.Root);
         document.Focus(stop);
 
-        Assert.False(document.Focus(null));
+        // ⚠ True, and it answered false until refusals existed. "The focus is where you asked for
+        // it" is the only reading that survives a veto; the old one made a successful clear
+        // indistinguishable from an element that would not let go.
+        Assert.True(document.Focus(null));
         Assert.Null(document.Focused);
         Assert.False(stop.State.HasFlag(ElementState.Focus));
+
+        // And again, on a document that already has no focus: the caller asked for nothing and got
+        // nothing, which is success.
+        Assert.True(document.Focus(null));
+    }
+
+    [Fact]
+    public void An_element_can_refuse_to_give_the_focus_up() {
+        using var document = new UiDocument(100f, 100f);
+
+        var field = Stop(document.Root);
+        var other = Stop(document.Root);
+
+        var valid = false;
+        field.AddHandler<FocusEvent>((_, args) => args.Cancel = !args.Gained && !valid);
+
+        document.Focus(field);
+
+        // A click elsewhere.
+        Assert.False(document.Focus(other));
+        Assert.Same(field, document.Focused);
+
+        // And Tab, which goes through the same one door.
+        Assert.False(document.MoveFocus(FocusDirection.Next));
+        Assert.Same(field, document.Focused);
+
+        // ⚠ Not `Handled`. The refusal says the change must not happen, and every remaining handler
+        // still hears the event — a scroll view that reveals the focus has to know it is staying.
+        Assert.False(document.Focus(null));
+        Assert.Same(field, document.Focused);
+
+        valid = true;
+        Assert.True(document.Focus(other));
+        Assert.Same(other, document.Focused);
+    }
+
+    [Fact]
+    public void The_veto_is_asked_before_the_focus_moves() {
+        using var document = new UiDocument(100f, 100f);
+
+        var field = Stop(document.Root);
+        var other = Stop(document.Root);
+
+        UiElement? seenDuringLoss = null;
+        field.AddHandler<FocusEvent>((_, args) => {
+            if (!args.Gained) {
+                seenDuringLoss = document.Focused;
+            }
+        });
+
+        document.Focus(field);
+        document.Focus(other);
+
+        // ⚠ The element still holds the focus while it is being asked to give it up, which is what
+        // makes the answer a veto rather than a report. Raised after the write, a refusal would be
+        // arriving about a change that had already happened.
+        Assert.Same(field, seenDuringLoss);
+    }
+
+    [Fact]
+    public void A_refusal_cannot_survive_its_own_element_being_removed() {
+        using var document = new UiDocument(100f, 100f);
+
+        var panel = document.Root.Add("div");
+        var field = Stop(panel);
+
+        field.AddHandler<FocusEvent>((_, args) => args.Cancel = !args.Gained);
+        document.Focus(field);
+
+        // ⚠ The failure mode of this feature in every framework that ships it: a refusal that
+        // outlives its element leaves the document holding a focus pointing into a detached subtree,
+        // and every later read of `Focused` throws on it. Removal does not ask.
+        document.Remove(panel);
+
+        Assert.Null(document.Focused);
+        Assert.True(field.IsRemoved);
+    }
+
+    [Fact]
+    public void Force_moves_the_focus_past_a_refusal() {
+        using var document = new UiDocument(100f, 100f);
+
+        var field = Stop(document.Root);
+        var other = Stop(document.Root);
+
+        field.AddHandler<FocusEvent>((_, args) => args.Cancel = !args.Gained);
+        document.Focus(field);
+
+        Assert.False(document.Focus(other));
+        Assert.True(document.Focus(other, force: true));
+        Assert.Same(other, document.Focused);
+    }
+
+    [Fact]
+    public void A_display_none_subtree_contributes_no_tab_stops() {
+        using var document = new UiDocument(100f, 100f);
+
+        document.Load("""
+            root { width: 100px; height: 100px; }
+            div { width: 20px; height: 20px; }
+            parked { display: none; }
+        """);
+
+        var shown = Stop(document.Root);
+
+        // The shape every pool in this framework has: a box kept alive for later and hidden with a
+        // class. The three controls inside it are bound to nothing and cannot be seen, and until now
+        // Tab visited all three.
+        var parked = document.Root.Add("parked");
+        var buried = Stop(parked);
+        var alsoBuried = Stop(parked.Add("div"));
+
+        document.Update();
+
+        Assert.Equal([shown], UiDocument.TabOrder(document.Root));
+        Assert.DoesNotContain(buried, UiDocument.TabOrder(document.Root));
+        Assert.DoesNotContain(alsoBuried, UiDocument.TabOrder(document.Root));
+
+        // Which is the property that matters: Tab wraps round the one stop rather than landing on
+        // something invisible.
+        Assert.True(document.MoveFocus(FocusDirection.Next));
+        Assert.Same(shown, document.Focused);
+
+        document.MoveFocus(FocusDirection.Next);
+        Assert.Same(shown, document.Focused);
+    }
+
+    [Fact]
+    public void A_focusable_element_that_is_itself_display_none_is_not_a_stop() {
+        using var document = new UiDocument(100f, 100f);
+
+        document.Load("""
+            root { width: 100px; height: 100px; }
+            div { width: 20px; height: 20px; }
+            div.parked { display: none; }
+        """);
+
+        var shown = Stop(document.Root);
+        var parked = Stop(document.Root);
+        parked.AddClass("parked");
+
+        document.Update();
+
+        Assert.Equal([shown], UiDocument.TabOrder(document.Root));
+    }
+
+    [Fact]
+    public void A_visibility_hidden_element_is_not_a_stop_and_a_visible_island_inside_one_is() {
+        using var document = new UiDocument(100f, 100f);
+
+        document.Load("""
+            root { width: 100px; height: 100px; }
+            div { width: 20px; height: 20px; }
+            div.ghost { visibility: hidden; }
+            div.seen { visibility: visible; }
+        """);
+
+        var shown = Stop(document.Root);
+
+        var ghost = Stop(document.Root);
+        ghost.AddClass("ghost");
+
+        // ⚠ Inherited, and that is the whole reason this is asked per element rather than by
+        // refusing the subtree: the draw list and the hit test both bring a declared `visible`
+        // descendant back, so the tab order has to as well or a painted, clickable control would be
+        // unreachable by keyboard.
+        var inherited = Stop(ghost);
+        var island = Stop(ghost);
+        island.AddClass("seen");
+
+        document.Update();
+
+        Assert.Equal([shown, island], UiDocument.TabOrder(document.Root));
+        Assert.DoesNotContain(ghost, UiDocument.TabOrder(document.Root));
+        Assert.DoesNotContain(inherited, UiDocument.TabOrder(document.Root));
+    }
+
+    [Fact]
+    public void An_unstyled_tree_is_all_stops_because_nothing_declared_otherwise() {
+        using var document = new UiDocument(100f, 100f);
+
+        var first = Stop(document.Root);
+        var second = Stop(document.Root);
+
+        // ⚠ The reason the hiding test reads the declared style and not the zero box layout gives an
+        // element. Nothing here has been through a layout pass, so every one of these measures zero
+        // — and a box test would answer that a document nobody has laid out yet has no tab order at
+        // all, which is what every other test in this file would then be asserting about.
+        Assert.Equal([first, second], UiDocument.TabOrder(document.Root));
     }
 }

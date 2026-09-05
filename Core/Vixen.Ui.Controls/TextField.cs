@@ -37,7 +37,7 @@ namespace Vixen.Ui.Controls;
 ///         than a loop here that would get the interesting scripts wrong.
 ///     </para>
 /// </remarks>
-public abstract partial class TextField : Control {
+public abstract partial class TextField : Control, ITextInputTarget {
     UiElement text = null!;
     UiElement placeholder = null!;
     int selectionColor;
@@ -283,16 +283,31 @@ public abstract partial class TextField : Control {
         caretColor = Document.PropertyId("--caret-color");
         caretColorStandard = Document.PropertyId("caret-color");
 
-        // ⚠ The four verbs as *ids*, not as a private key switch. A menu item spelling `edit.copy`
-        // and a keymap bound to it both reach the focused field through `CommandRoute` without
-        // either of them knowing a text field exists — which is the whole of what the command route
-        // is for, and is why ⌘C in a dialog's text box is not a thing an application has to wire.
-        // The chords below still call the same methods, because a field must answer them with no
-        // keymap installed at all.
+        // ⚠ The first things in this repository ever to register an element command handler, and
+        // that is the point of them rather than a side effect. `CommandRoute`'s rule — the nearest
+        // responder that answers wins, all the way out — had no production responders at all, so the
+        // element leg of the walk always found nothing and the whole design was unfalsifiable outside
+        // its own tests. A focused field answering these verbs is the smallest true instance of it: a
+        // menu item now means "act on this field's text" while the caret is here and whatever the
+        // shell says when it is not, with nothing shell-shaped in the control.
+        //
+        // ⚠ Select All was for one batch the only verb here, because nothing above `Vixen.Platform`
+        // could reach `IClipboard` and no undo manager existed below the editor's `CommandStack` — a
+        // handler that ran and did nothing is worse than none, since the route would report the verb
+        // available and the menu item would go live. `IUiClipboard` retired the first half of that,
+        // so Cut, Copy and Paste are registered here and their `CanExecute` asks the pasteboard
+        // rather than assuming. Undo and Redo are still keystrokes only: they answer through
+        // `FindUndoManager`, which returns nothing in an application that has not put one anywhere,
+        // and an always-grey menu item is the thing this comment refuses.
+        //
+        // The four are ids, not a private key switch, so a menu item spelling `edit.copy` and a
+        // keymap bound to it both reach the focused field without either of them knowing a text field
+        // exists. The chords below still call the same methods, because a field must answer them with
+        // no keymap installed at all.
         AddCommandHandler("edit.cut", () => Cut(), () => CanCopy && !ReadOnly && !Disabled);
         AddCommandHandler("edit.copy", () => Copy(), () => CanCopy);
         AddCommandHandler("edit.paste", () => Paste(), () => CanPaste);
-        AddCommandHandler("edit.select-all", SelectAll, () => (Value?.Length ?? 0) > 0);
+        AddCommandHandler("edit.select-all", SelectAll, () => !Disabled && !string.IsNullOrEmpty(Value));
 
         AddHandler<KeyEvent>(static (element, args) => ((TextField) element).Keyed(args));
         AddHandler<TextInputEvent>(static (element, args) => ((TextField) element).Typed(args));
@@ -608,6 +623,26 @@ public abstract partial class TextField : Control {
     /// </remarks>
     protected virtual string? Coerce(string? value) => value;
 
+    /// <summary>What the field draws for a value on its way out.</summary>
+    /// <param name="value">What is being shown, with any pre-edit already spliced in.</param>
+    /// <returns>What to put in the text part.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The mirror of <see cref="Coerce" /> and the only seam between what a field holds and
+    ///         what it shows. Overridden by <see cref="SecureTextBox" />, which is the reason it
+    ///         exists.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An override must return one UTF-16 unit per unit it was given.</b> The caret, the
+    ///         selection, the hit test and the composition underline are all indices into the value,
+    ///         and they are measured against this layout — so a substitution that changed the length
+    ///         would put the caret in a different place from the character it is in front of. Masking
+    ///         per code unit rather than per grapheme is what keeps that true, and on a run of
+    ///         identical bullets there is nothing a grapheme would have bought.
+    ///     </para>
+    /// </remarks>
+    protected virtual string? Shown(string? value) => value;
+
     /// <summary>Called when Enter is pressed, before <see cref="Submitted" /> is raised.</summary>
     protected virtual void OnSubmit() {
     }
@@ -755,10 +790,7 @@ public abstract partial class TextField : Control {
         // `field-text` a `min-height` — the same declaration that stops an empty field collapsing.
         if (text.Block() is not { } block) {
             if (CaretIsLit) {
-                context.FillRectangle(
-                    new Rectangle(origin, top, 1f, MathF.Max(text.Height, 1f)),
-                    CaretColour(context)
-                );
+                context.FillRectangle(CaretArea, CaretColour(context));
             }
 
             return;
@@ -829,14 +861,41 @@ public abstract partial class TextField : Control {
         // ⚠ The caret is drawn even when there is a selection. Every editor does — the caret is the
         // end you are extending from, and hiding it during a Shift-Arrow leaves the user unable to
         // tell which way the next keystroke will grow the selection.
-        var caretLine = block.Lines[block.LineOf(DisplayCaret, CaretAffinity)];
-        var (caretX, caretY) = block.CaretAt(DisplayCaret, CaretAffinity);
-
-        context.FillRectangle(
-            new Rectangle(origin + ShiftOf(caretLine) + caretX, top + caretY, 1f, caretLine.Height),
-            CaretColour(context)
-        );
+        context.FillRectangle(CaretArea, CaretColour(context));
     }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Computed here rather than remembered from the last <see cref="OnDraw" />.</b> The
+    ///     caret rectangle used to exist only as three locals inside the paint, which is why nothing
+    ///     outside could place an input method's candidate window with it — and the paint now reads
+    ///     this, so the two cannot drift into disagreeing about where the caret is.
+    /// </remarks>
+    public Rectangle CaretArea {
+        get {
+            var origin = text.AbsoluteLeft;
+            var top = text.AbsoluteTop;
+
+            // An empty field has no block to ask and still has a caret — see `OnDraw`, where the
+            // same fallback is what makes clicking an empty search box look like something happened.
+            if (text.Block() is not { } block) {
+                return new(origin, top, 1f, MathF.Max(text.Height, 1f));
+            }
+
+            var line = block.Lines[block.LineOf(DisplayCaret, CaretAffinity)];
+            var (x, y) = block.CaretAt(DisplayCaret, CaretAffinity);
+
+            return new(origin + ShiftOf(line) + x, top + y, 1f, line.Height);
+        }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <see cref="ShowsCaret" />, and for exactly its reason: a caret is a promise that the next
+    ///     keystroke lands here, and an input method activated over a field that will discard what it
+    ///     commits makes the same false promise one layer up.
+    /// </remarks>
+    public bool AcceptsTextInput => ShowsCaret;
 
     /// <summary>Underlines the input method's pre-edit, which is what says it is not committed yet.</summary>
     /// <remarks>
@@ -1247,12 +1306,16 @@ public abstract partial class TextField : Control {
         var value = Value ?? string.Empty;
 
         if (!IsComposing) {
-            text.Text = Value;
+            text.Text = Shown(Value);
             return;
         }
 
+        // ⚠ The pre-edit goes through the same seam as the value. An input method's intermediate
+        // reading of a password is the password being typed, and a field that masked what was
+        // committed while showing what was being composed would leak exactly the same secret one
+        // keystroke earlier.
         var at = Math.Clamp(CaretIndex, 0, value.Length);
-        text.Text = string.Concat(value.AsSpan(0, at), composition, value.AsSpan(at));
+        text.Text = Shown(string.Concat(value.AsSpan(0, at), composition, value.AsSpan(at)));
     }
 
     void Keyed(KeyEvent args) {

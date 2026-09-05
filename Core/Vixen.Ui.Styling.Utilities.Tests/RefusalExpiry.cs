@@ -103,16 +103,34 @@ static partial class RefusalExpiry {
     /// </remarks>
     public static readonly string[] Refusing = ["absent", "inert"];
 
-    /// <summary>The states in which a root may still rest a gap on an unread property.</summary>
+    /// <summary>The states in which a root may still rest a gap on a condition of its own.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>partial</c> <i>is</i> on this list, and the difference from <see cref="Refusing" />
-    ///     is the point rather than an inconsistency.</b> An <c>expires-with</c> says "this root is
-    ///     refused because that one is", which is prose about a state a root that half works has
-    ///     already left. An <c>expires-when-read</c> says "this longhand of mine is emitted and read by
-    ///     nothing" — <c>border-s-*</c>'s width is read and its colour is not — and that is the
-    ///     commonest shape a <c>partial</c> takes. Refusing the clause there would leave the 29 most
-    ///     expensive rows in the ledger with no way to record a condition at all. <c>works</c> is what
-    ///     it excludes: a root with no gap left has nothing to rest on anything.
+    ///     <para>
+    ///         ⚠ <b><c>partial</c> <i>is</i> on this list, and the difference from
+    ///         <see cref="Refusing" /> is the point rather than an inconsistency.</b> An
+    ///         <c>expires-with</c> says "this root is refused because that one is", which is prose
+    ///         about a state a root that half works has already left. An <c>expires-when-read</c> says
+    ///         "this longhand of mine is emitted and read by nothing" — <c>border-s-*</c>'s width is
+    ///         read and its colour is not — and that is the commonest shape a <c>partial</c> takes.
+    ///         Refusing the clause there would leave the 29 most expensive rows in the ledger with no
+    ///         way to record a condition at all. <c>works</c> is what it excludes: a root with no gap
+    ///         left has nothing to rest on anything.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>expires-on</c> now takes this list too, and the case that forced it is the one
+    ///         the whole suite exists for.</b> <c>hyphens</c> is <c>partial</c> because two of CSS's
+    ///         three keywords landed and <c>auto</c> is refused. That refusal named two blockers — no
+    ///         Liang pattern set, and nothing carrying a language — and the second one closed when
+    ///         #600 put <c>UiElement.ResolvedLanguage</c> on the element and through to the shaper.
+    ///         Nothing went red, because the row is <c>partial</c> and only <c>expires-when-read</c>
+    ///         reached a <c>partial</c> row; the sentence sat in the ledger, in
+    ///         <c>UtilityFamilies</c> and in <c>HyphenMode</c>'s remarks saying the input was missing
+    ///         for as long as anyone cared to read it. A refusal that lives inside one keyword of a
+    ///         half-landed root is *more* likely to rot than one on an <c>absent</c> row, not less,
+    ///         because the row's own state stops moving once the other keywords ship. The carrier's
+    ///         state and the <i>anchor's</i> state are separate questions, and only the anchor's is
+    ///         what <see cref="Refusing" /> is really about.
+    ///     </para>
     /// </remarks>
     public static readonly string[] Gapped = ["absent", "inert", "partial"];
 

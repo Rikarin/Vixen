@@ -199,7 +199,7 @@ sealed class CodeOverlay : UiElement {
 ///         <see cref="CodeBuffer.Changed" /> is the seam.
 ///     </para>
 /// </remarks>
-public sealed partial class CodeEditor : Control {
+public sealed partial class CodeEditor : Control, ITextInputTarget {
     readonly List<CodeLine> pool = [];
     readonly List<CodeGutterRow> gutterRows = [];
     readonly List<UiElement> completionRows = [];
@@ -581,12 +581,20 @@ public sealed partial class CodeEditor : Control {
         // would pay for that on every frame of every pass. See Control.WhenResized.
         WhenResized(Refresh);
 
-        // The same four ids `TextField` registers, answered the same way. A menu or a keymap that
-        // spells `edit.copy` reaches whichever of the two has the focus without naming either.
+        // The same four ids `TextField` registers, answered the same way, and the reason both
+        // controls are done together: a rule that only one control in the library obeys is a special
+        // case rather than a chain. A menu or a keymap that spells `edit.copy` reaches whichever of
+        // the two has the focus without naming either.
+        //
+        // ⚠ `edit.select-all` is registered **once**, here with the other three. It briefly existed
+        // twice — a batch that could register only Select All, and a later one that could register
+        // all four — and `AddCommandHandler` throws on a repeated id per element, so the pair would
+        // have made every `CodeEditor` throw as it was created. The `!Disabled` half of the guard is
+        // the Select-All-only version's and is kept: a disabled editor answers no verb.
         AddCommandHandler("edit.cut", () => Cut(), () => CanCopy && !ReadOnly);
         AddCommandHandler("edit.copy", () => Copy(), () => CanCopy);
         AddCommandHandler("edit.paste", () => Paste(), () => CanPaste);
-        AddCommandHandler("edit.select-all", SelectAll, () => buffer.End != default);
+        AddCommandHandler("edit.select-all", SelectAll, () => !Disabled && buffer.End != default);
 
         AddHandler<KeyEvent>(static (element, args) => ((CodeEditor) element).Keyed(args));
         AddHandler<TextInputEvent>(static (element, args) => ((CodeEditor) element).Typed(args));
@@ -1202,20 +1210,49 @@ public sealed partial class CodeEditor : Control {
             return;
         }
 
-        var content = Scroller.Content;
-
         context.FillRectangle(
-            new Rectangle(
-                content.AbsoluteLeft + ((Caret.Column - starts[row]) * CharacterWidth),
-                content.AbsoluteTop + (row * RowHeight),
-                MathF.Max(1f, CharacterWidth * 0.1f),
-                RowHeight
-            ),
+            CaretArea,
             Document.ColorOf(Style, caretColorStandard)
             ?? Document.ColorOf(Style, caretColor)
             ?? Document.ForegroundOf(this)
         );
     }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The rectangle used to exist only as four expressions inside <see cref="DrawCaret" />,
+    ///     which is why an input method's candidate window could not be placed against it.</b> The
+    ///     draw now reads this, so the caret an editor shows and the caret the operating system is
+    ///     told about cannot drift apart.
+    /// </remarks>
+    public Rectangle CaretArea {
+        get {
+            var row = RowAt(Caret);
+            var content = Scroller.Content;
+
+            // A caret in a fold or before the first layout has no row. The content origin is still a
+            // better answer than nothing: it puts the candidate list in the editor rather than at the
+            // corner of the screen, which is what the whole wire is for.
+            return row < 0
+                ? new(content.AbsoluteLeft, content.AbsoluteTop, 1f, MathF.Max(RowHeight, 1f))
+                : new Rectangle(
+                    content.AbsoluteLeft + ((Caret.Column - starts[row]) * CharacterWidth),
+                    content.AbsoluteTop + (row * RowHeight),
+                    MathF.Max(1f, CharacterWidth * 0.1f),
+                    RowHeight
+                );
+        }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>True, and this editor still cannot render a composition.</b> It registers no
+    ///     <c>TextCompositionEvent</c> handler, so a pre-edit is invisible until it commits — see
+    ///     issue #673. Refusing to activate would be worse rather than better: text input is off by
+    ///     default on the web and on mobile, so an editor that never activated would receive no
+    ///     characters at all, and on the desktop it would lose the ones SDL currently leaves it.
+    /// </remarks>
+    public bool AcceptsTextInput => !ReadOnly && !Disabled;
 
     // ── Caret and editing ────────────────────────────────────────────────────
 

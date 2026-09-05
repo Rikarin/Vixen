@@ -94,6 +94,16 @@ simply a handler on the root, which always responds — so nothing changes for o
 handler still answers while the focus is nowhere. With something focused the root is on the walk
 anyway.
 
+⚠ **What runs a command is here; what a keystroke means is not.** There is no chord table in
+`Vixen.Ui` and no `.vxml` spelling of a shortcut — `MenuItem.ShowShortcut(key, modifiers)` *draws* one
+and registers nothing, which is why `Samples/02-HelloUi/Shell.vxml` says in as many words that a menu
+claiming ⌘S would be lying. The half that is missing is only the table, though, and it is not
+missing from the tree: `Editor/Vixen.Editor.Ui/Commands/CommandDispatcher.cs` attaches to any
+`UiDocument`, turns a `KeyEvent` into a platform-adapted `KeyChord`, resolves it against a `KeyMap` in
+the focused context and executes — falling through rather than refusing when the chord belongs
+somewhere the user is not. So an application that is not the editor has the route and not the chords,
+and what it lacks is a home for that dispatcher below `Vixen.Editor.Ui`, not the dispatcher.
+
 ### Past the root: responders that are not elements
 
 The walk does not stop at the root. Past the last parent it asks `UiDocument.CommandResponder` and
@@ -1500,6 +1510,23 @@ item. It is correctness-neutral: `Region.Reposition` calls `Document.Move` once 
 and nothing else. What it costs today is a real move per element on a list that *has* been reordered
 — a rotation by one changes nearly every index — and each of those is a layout remove-and-insert
 plus a style-tree move.
+
+Also owed: **an ambient value — anything a descendant can read without being handed it**. A theme, an
+edit target, a document scale: today each of them is a parameter repeated on every tag that needs one,
+which `Samples/02-HelloUi/Shell.vxml` shows at three `Model="@Model"`s and an editor multiplies by
+forty panels. ⚠ **Three ancestor walks exist and not one of them generalises**, which is worth writing
+down because each looks from a distance as if it might:
+
+- `[UiProperty(Inherits = true)]` emits a walk that matches only ancestors **of the declaring type**
+  (`Vixen.Ui.Generators/UiPropertyGenerator.cs`, the `ancestor is <Owner> owner` test), so it inherits
+  a property down a chain of one kind of element. It is CSS inheritance, and ⚠ its only producers in
+  the tree are three fixtures in `Vixen.Ui.Tests/SampleElements.cs` — nothing ships with it on.
+- `UiElement.EffectiveCommandScope` is a real nearest-ancestor walk whose value is one `string?`.
+- `UiDocument.ComponentAt` is a dictionary keyed on the exact host element, not a walk: there is no
+  "nearest ancestor component of type T" to ask.
+
+What is wanted is a provide/inject keyed by type over the `Parent` walk — the same walk the responder
+chain makes, and worth sharing one implementation with it rather than growing a fourth.
 
 Also owed: **fallback content in a `<slot>`**. `<slot name="footer">Nothing yet</slot>` is how every
 other framework spells a default, and it is `VXML2017` here — refused rather than supported, because

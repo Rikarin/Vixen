@@ -369,8 +369,31 @@ public sealed class ComponentEmitter {
         }
     }
 
+    /// <summary>
+    ///     Whether an attribute on this tag becomes an assignment to the thing the tag made, rather
+    ///     than something applied to its host element.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ These are the attributes that have to be written <i>before</i> the component builds —
+    ///     see <see cref="EmitElement" />. Everything else on a component tag reaches its host, which
+    ///     exists from the moment it is created.
+    /// </remarks>
+    static bool IsParameter(BoundAttribute attribute, BoundElement element) =>
+        element.IsComponent && attribute.Kind == BoundAttributeKind.Parameter && !IsUniversal(attribute.Name);
+
     void EmitElement(BoundElement element, string context, string parent) {
         var name = $"n{names++}";
+
+        // ⚠ **A component's parameters have to be assigned before its `Build` runs**, and for years
+        // they were assigned after it: `Child<T>` constructs, mounts — which runs `Build` — and
+        // returns, so every effect the child made had already read every parameter at its default,
+        // and a plain C# property assigned afterwards notifies nobody. The child drew the default
+        // for ever and nothing said so. Where there is a parameter to assign, the pair
+        // `Create` … `Compose` is emitted instead and the assignments go between them.
+        //
+        // Only where there is one, so that the overwhelming majority of component tags — which carry
+        // no parameter at all — keep emitting the exact call they always did.
+        var deferred = element.IsComponent && element.Attributes.Any(a => IsParameter(a, element));
 
         if (element.IsSelf) {
             // ⚠ **`Host(this)` and not `Root`, for the reason `Target` is a call.** A `@inherits`
@@ -397,14 +420,34 @@ public sealed class ComponentEmitter {
             // wrote, with nothing here having had to resolve a type.
             Mapped(
                 new(element.Tag, element.TagPosition),
-                $"var {name} = {context}.Child<",
+                $"var {name} = {context}.{(deferred ? "Create" : "Child")}<",
                 renamed is null ? $">({parent});" : $">({parent}, {renamed});"
             );
         } else {
             Line($"var {name} = {context}.Element({parent}, {Quote(element.Tag)});");
         }
 
+        // ⚠ Two passes and one `Compose` between them, rather than one pass. The order within each
+        // half is the source's, so a file's assignments still read in the order they were written;
+        // what moves is the build, from before all of them to after the parameters and before the
+        // rest. The rest — `class`, `on:`, `ref`, `use` — all address the host element or the
+        // created object itself, and every one of them ran after the build before this, so leaving
+        // them there is what keeps the change to the one thing it is about.
+        if (deferred) {
+            foreach (var attribute in element.Attributes) {
+                if (IsParameter(attribute, element)) {
+                    EmitAttribute(attribute, element, context, name);
+                }
+            }
+
+            Line($"{context}.Compose({name});");
+        }
+
         foreach (var attribute in element.Attributes) {
+            if (deferred && IsParameter(attribute, element)) {
+                continue;
+            }
+
             EmitAttribute(attribute, element, context, name);
         }
 
@@ -705,6 +748,26 @@ public sealed class ComponentEmitter {
 
             return;
         }
+
+        // ⚠ **The assignment twice: once now, and once inside the effect that keeps it current.**
+        // An `Effect` *queues* its first run — `Effect.Schedule` in the constructor — so a
+        // `Bind`-only parameter does not reach the component until the next flush, which is after
+        // the whole tree has been built. That is the same staleness `Create`/`Compose` exists to fix
+        // and the split alone does not reach it: the statement is what makes the value the child
+        // builds with the caller's, and the effect is what makes it follow afterwards.
+        //
+        // The cost is the expression written twice, evaluated twice, and reported twice if it does
+        // not compile — which is the bargain the literal branch above already makes for the
+        // property's name. A markup expression is re-evaluated on every dependency change anyway,
+        // so one that cannot stand being read twice was already wrong.
+        //
+        // ⚠ And one that throws now throws out of `Build` rather than being caught and logged by the
+        // effect, because a statement is not an effect. That is the right way round — a parameter
+        // expression that cannot be evaluated when the child is made is a defect the author has to
+        // see — but it is a visible change for a panel whose props are null until a host assigns
+        // them, which `BuildContext.Build<T>` still does after the fact.
+        Mapped(named, $"{name}.", " =");
+        Indented(() => Mapped2(attribute.Value, string.Empty, ";"));
 
         // Two directives, one statement: the first points at the parameter's name and the second
         // at the expression assigned to it. They are different mistakes and deserve different

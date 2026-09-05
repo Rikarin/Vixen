@@ -473,9 +473,13 @@ for keeping the escape hatch a token-shape test rather than a value parser.
 ⚠ **`space-*` and `divide-*` are two classes of specificity, where Tailwind v4's are one.** They are
 the only families whose rule is about the *children* — `.space-y-4 > :not(:last-child)` — and v4 wraps
 that scope in `:where()` so the rule stays at one class and a child's own `mb-0` still wins.
-`SelectorCompiler` charges a class for `:where()` exactly as it does for `:is()`, so no spelling
-available here reaches zero: the emitted rule is `(0,2,0)` and it beats a child's single-class
-utility. **That is v3's behaviour, and it shipped for four major versions** — the escape is v3's too:
+No spelling available here reaches zero: the emitted rule is `(0,2,0)` and it beats a child's
+single-class utility. ⚠ **This paragraph used to say `SelectorCompiler` "charges a class for
+`:where()` exactly as it does for `:is()`", and it is not what happens.** ExCSS 4.3.2 does not parse
+`:where()`: the whole selector comes back as one unknown and the rule is refused with a diagnostic, so
+there is no charge to remove and the job is teaching the front end a selector rather than adjusting a
+number. `Vixen.Ui.Styling.Tests`' `WhereSelectorTests` is the measurement.
+**The `(0,2,0)` is v3's behaviour, and it shipped for four major versions** — the escape is v3's too:
 put the exception on the container, or do not reach for `space-*` on a list whose items set their own
 margins. Closing it is a change in `Vixen.Ui.Styling`, and
 `ChildScopedFamilyTests.A_child_margin_utility_loses_to_the_containers_space_and_that_is_the_v3_behaviour`

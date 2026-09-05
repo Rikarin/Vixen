@@ -83,8 +83,18 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         allow-list line is now one dependency edge out from that line's own expiry rather than
 ///         prose beside it. <c>border-s-*</c> is the worked case: its width is read, its logical colour
 ///         is not, and its note has cited <c>InertProperties.txt #21</c> in words since the row was
-///         written. ⚠ A row carrying this clause may be <c>partial</c>, unlike the two kinds above —
+///         written. ⚠ A row carrying this clause may be <c>partial</c>, unlike <c>expires-with</c> —
 ///         see <see cref="RefusalExpiry.Gapped" />, where the difference is argued.
+///     </para>
+///     <para>
+///         ⚠ <b><c>expires-on</c> may sit on a <c>partial</c> row too, and it took a rotted sentence
+///         to find that out.</b> <c>hyphens</c>' <c>auto</c> keyword was refused on two things: no
+///         Liang pattern set, and nothing carrying a language. #600 landed the language, and nothing
+///         went red — the row is <c>partial</c> because <c>none</c> and <c>manual</c> shipped, so it
+///         could carry no clause at all, and the stale half of the reason stood in three files.
+///         ⚠ The lesson is the opposite of the intuition: a refusal buried in one keyword of a
+///         half-landed root is <i>more</i> exposed than one on an <c>absent</c> row, because once the
+///         other keywords ship the row's own state stops moving and nobody re-reads it.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>And the typo, which is how a check like this normally dies.</b> An anchor is a string
@@ -222,7 +232,13 @@ public class RefusalExpiryTests {
         var state = rows.ToDictionary(row => row.Root, row => row.State, StringComparer.Ordinal);
 
         foreach (var clause in RefusalExpiry.Declared(rows)) {
-            var standing = clause.Kind == ExpiryKind.WhenRead ? RefusalExpiry.Gapped : RefusalExpiry.Refusing;
+            // ⚠ Only `expires-with` demands that the CARRIER still be refused outright, and the
+            // asymmetry is argued on `RefusalExpiry.Gapped`. `expires-with` is prose about another
+            // root's state, which a half-landed root has stopped making claims about. The other two
+            // name a condition of this root's own — a property nothing reads, a symbol that does not
+            // exist — and a `partial` root is where those live, because a refusal inside one keyword
+            // of a root whose other keywords shipped is the one whose state column stops moving.
+            var standing = clause.Kind == ExpiryKind.With ? RefusalExpiry.Refusing : RefusalExpiry.Gapped;
 
             Assert.True(
                 standing.Contains(state[clause.Root]),
