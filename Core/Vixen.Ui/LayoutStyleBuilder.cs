@@ -433,9 +433,12 @@ public sealed class LayoutStyleBuilder {
             result.TextAlign = textAlign;
         }
 
-        // ⚠ The same declaration read a second time into a second field. It is not an `else`: the two
-        // tables are disjoint, so at most one of the pair can match, and writing it as an alternative
-        // would say the two fields are exclusive when what is exclusive is the spelling.
+        // ⚠ <b>The same declaration read a second time into a second field, and it is not an `else`
+        // — which stopped being a nicety and became load-bearing.</b> The two tables used to be
+        // disjoint, so at most one lookup could match and the `if` pair was merely honest about the
+        // fields being independent. The three `-webkit-*` spellings are now in both, because that is
+        // what they mean: `-webkit-center` centres the items on this container's lines *and* its
+        // block-level children. An `else` here would silently pick one of the two halves.
         if (TryKeyword(style, names.TextAlign, keywords.LegacyTextAligns, out LegacyTextAlign legacy)) {
             result.LegacyTextAlign = legacy;
         }
@@ -1550,16 +1553,28 @@ public sealed class LayoutStyleBuilder {
             // convincing enough that nobody would check. Dropped here, so the layout store's default
             // (`start`) stands, which is where CSS puts a justified block's last line anyway.
             //
-            // ⚠ The three legacy `-webkit-*` spellings are NOT here and belong to a different field:
-            // they move a container's BLOCK-level children, which is `LegacyTextAlign`. See its
-            // remarks — one property, two enums, because a container can have both kinds of child.
-            // `LegacyTextAligns` below is that other table, read from the same declaration.
+            // ⚠ <b>The three legacy `-webkit-*` spellings ARE here as well as in `LegacyTextAligns`,
+            // and this comment used to say the opposite.</b> They are not a third alignment: they are
+            // the ordinary keyword *plus* a block-level rule. The proof is the element the value was
+            // invented for — a browser's UA stylesheet says `center { text-align: -webkit-center }`
+            // and nothing else, and `<center>` centres its text, so the inline half cannot be coming
+            // from anywhere but this keyword. `LegacyTextAlign`'s own remarks already said it centres
+            // the child boxes "as well", where "as well" is precisely this table's entry.
+            //
+            // ⚠ So the two tables are deliberately NOT disjoint any more, and the pair of lookups
+            // that reads them was already written not to be an `else` — a legacy value now matches
+            // both and sets both fields, which is one declaration doing the two things the keyword
+            // means. A plain `center` still matches only this one, which is the direction §10.3.3
+            // pins: block-level children do not move for it.
             TextAligns = new Dictionary<int, TextAlign> {
                 [table.Intern("start")] = TextAlign.Start,
                 [table.Intern("end")] = TextAlign.End,
                 [table.Intern("left")] = TextAlign.Left,
                 [table.Intern("right")] = TextAlign.Right,
-                [table.Intern("center")] = TextAlign.Center
+                [table.Intern("center")] = TextAlign.Center,
+                [table.Intern("-webkit-left")] = TextAlign.Left,
+                [table.Intern("-webkit-center")] = TextAlign.Center,
+                [table.Intern("-webkit-right")] = TextAlign.Right
             };
 
             // ⚠ <b>The second table this one property needs, and until it existed the block half of
@@ -1571,9 +1586,11 @@ public sealed class LayoutStyleBuilder {
             // this repository's commonest defect shape exactly.
             //
             // ⚠ Two tables and two lookups rather than one table of a union type, because the two
-            // fields are independent and a container can have both kinds of child: a legacy value
-            // leaves `TextAlign` at its default and a plain one leaves `LegacyTextAlign` at `None`,
-            // which is what each store's own initial value already means.
+            // fields are independent and a container can have both kinds of child. ⚠ The asymmetry is
+            // the whole content of this table: a plain `center` leaves `LegacyTextAlign` at `None`,
+            // because §10.3.3 does not move a block-level child for it, while a legacy value appears
+            // in *both* tables and sets both fields. Which is why the union type would be wrong — it
+            // could not express a value that is two answers at once.
             LegacyTextAligns = new Dictionary<int, LegacyTextAlign> {
                 [table.Intern("-webkit-left")] = LegacyTextAlign.Left,
                 [table.Intern("-webkit-center")] = LegacyTextAlign.Center,

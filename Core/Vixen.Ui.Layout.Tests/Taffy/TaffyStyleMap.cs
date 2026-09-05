@@ -382,6 +382,14 @@ static class TaffyStyleMap {
             // an unprefixed value is refused rather than being folded in with them: the corpus
             // writes none, and accepting one would put every block child of a `text-align: center`
             // container in the wrong place. `text-align` proper is owed in `InlineKnownGaps.txt`.
+            //
+            // ⚠ <b>This deliberately no longer matches the stylesheet bridge, which sets BOTH fields
+            // for a legacy value</b> — `<center>` centres its text as well as its boxes, and
+            // `LayoutStyleBuilder` says so. This harness reproduces *Taffy's* model, which has only
+            // the block half, and every one of the sixteen fixtures holds block children only, so
+            // writing `TextAlign` here would set a field no expectation in this corpus was recorded
+            // against. The bridge is the reference for what CSS means; this is the reference for what
+            // the recorded numbers mean.
             case "text-align":
                 tree.SetLegacyTextAlign(
                     node,

@@ -455,12 +455,14 @@ public class LayoutStyleBridgeTests {
     ///         font-relative <c>vertical-align</c> values.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the three legacy <c>-webkit-*</c> spellings stay out of <i>this</i> field</b>,
-    ///         because they are <see cref="LegacyTextAlign" /> — one CSS property, two fields, because
-    ///         the legacy values move a container's block-level children and these move the items on
-    ///         its lines. Where they do land is
-    ///         <see cref="The_legacy_keywords_cross_into_the_other_field" />, and until that test
-    ///         existed the answer was "nowhere".
+    ///         ⚠ <b>The three legacy <c>-webkit-*</c> spellings land here <i>as well</i>, and this
+    ///         paragraph used to say they stayed out.</b> The premise that moved is what the keyword
+    ///         means, not what the test wanted: <c>-webkit-center</c> is the whole of what a browser's
+    ///         UA stylesheet puts on <c>&lt;center&gt;</c>, and <c>&lt;center&gt;</c> centres its text
+    ///         — so the value is the ordinary keyword plus a block-level rule, not a substitute for
+    ///         it. One CSS property, two fields, and a legacy value writes both;
+    ///         <see cref="The_legacy_keywords_cross_into_the_other_field" /> is the other half of the
+    ///         same declaration.
     ///     </para>
     /// </remarks>
     [Theory]
@@ -470,10 +472,46 @@ public class LayoutStyleBridgeTests {
     [InlineData("text-align: right", TextAlign.Right)]
     [InlineData("text-align: center", TextAlign.Center)]
     [InlineData("text-align: justify", TextAlign.Start)]
-    [InlineData("text-align: -webkit-center", TextAlign.Start)]
+    [InlineData("text-align: -webkit-left", TextAlign.Left)]
+    [InlineData("text-align: -webkit-center", TextAlign.Center)]
+    [InlineData("text-align: -webkit-right", TextAlign.Right)]
     [InlineData("color: red", TextAlign.Start)]
     public void Text_align_crosses_the_bridge_except_for_justify(string css, TextAlign expected) {
         Assert.Equal(expected, new BridgeFixture().Build(css).TextAlign);
+    }
+
+    /// <summary>
+    ///     One legacy declaration writes both fields, which is the only place the two halves meet.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Neither of the two theories on either side of this one can catch a regression
+    ///         here, and that is why it exists.</b> Each asserts one field for one spelling; the
+    ///         defect this guards against is the reading in which <c>-webkit-center</c> is a
+    ///         <i>third</i> alignment that replaces the ordinary one — a reading under which each of
+    ///         those theories can still be made to pass, one table at a time, while the pair of
+    ///         lookups in <c>LayoutStyleBuilder</c> quietly becomes an <c>else</c>.
+    ///     </para>
+    ///     <para>
+    ///         What each half then does is already proved and is deliberately not re-proved here:
+    ///         <c>InlineTextAlignTests.Center</c> pins the closed-form inline offset, and sixteen
+    ///         Taffy fixtures pin <c>LegacyTextAlignOffset</c>. What was missing was the statement
+    ///         that one declaration reaches both of them.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("text-align: -webkit-left", TextAlign.Left, LegacyTextAlign.Left)]
+    [InlineData("text-align: -webkit-center", TextAlign.Center, LegacyTextAlign.Center)]
+    [InlineData("text-align: -webkit-right", TextAlign.Right, LegacyTextAlign.Right)]
+    public void A_legacy_keyword_moves_the_lines_and_the_boxes_from_one_declaration(
+        string css,
+        TextAlign inline,
+        LegacyTextAlign block
+    ) {
+        var style = new BridgeFixture().Build(css);
+
+        Assert.Equal(inline, style.TextAlign);
+        Assert.Equal(block, style.LegacyTextAlign);
     }
 
     /// <summary>
