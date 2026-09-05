@@ -335,7 +335,28 @@ asks and is available here only because `vixen --version` needs no project to po
 **Nothing generates C# yet**, so the `BeforeTargets="CoreCompile"` hook is ordering without cargo.
 VXML and shader generators arrive in Phases 4d and 5.
 
-**Platform packaging** — bundles into an APK's assets, an iOS bundle, `wwwroot` — waits for those
-platforms.
+**Platform packaging** — bundles into an APK's assets, an iOS bundle, `wwwroot`. ⚠ **It does not
+"wait for those platforms", which is what this line used to say: all three runtime halves are
+built and each one says where it looks.** What is missing is on this side of the seam, and it is
+not the same amount of work three times:
+
+- **Android** is item metadata and nothing else. `AndroidServices.cs:256` mounts an
+  `AndroidAssetProvider` — the APK's own `AssetManager` — at `MountPoints.App`, so a bundle put in
+  `@(AndroidAsset)` under `Content/` is already reachable. ⚠ Worth reading that provider's remarks
+  first: `AssetManager.Open` returns a non-seekable inflater stream for anything the packager
+  compressed, which is why it buffers, and why `AndroidUseAssetPackCompression=false` is the
+  arrangement a large bundle wants.
+- **iOS** is the same shape. `IosFileSystemHost.cs:48` mounts a read-only `PhysicalFileProvider`
+  over the application directory, so the bundles need to be `@(BundleResource)` at `Content/`.
+- ⚠ **Web is not item metadata and is the one with a missing producer.**
+  `WebFileSystemHost.cs:98` mounts a `FetchFileProvider` over `content/` **and a
+  `content/manifest.json`** — a web server has no directory listing, so the manifest *is* the file
+  system. Nothing in this repository writes one; `Tools/Vixen.WebProbe/README.md:65` says so in as
+  many words and turns `MountContent` off because of it. So the `wwwroot` third is a content-build
+  feature (emit the manifest `WebContentManifest` parses) before it is a packaging one.
+
+Neither `Samples/01-HelloTriangle.Android` nor `.iOS` uses this SDK or ships content, so there is
+also nothing here that would go red if any of the three were written wrong — which is why none of
+them is written on a machine with no mobile workload installed.
 
 Licensed under Apache-2.0.
