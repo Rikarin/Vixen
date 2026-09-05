@@ -512,13 +512,14 @@ afford.
 
 ### Test infrastructure worth building early
 
-⚠️ **Two of the five are still unwritten, and the sequencing this section used to state is refuted by
-the tree.** `TestApp` was specified as a Phase 1 item that *"every later phase depends on"*. Every
-later phase shipped without it: 178 test projects, twenty-three suites of allocation gates and the golden
-suite exist, and nothing anywhere named the type until it landed. So the dependency was never real —
-what the remaining two would buy is arrangement code deleted, not tests made possible, and they are
-worth building on that argument rather than on a blocking one. They are tracked as
-[#336](https://github.com/Rikarin/Vixen/issues/336).
+⚠️ **All five are written now, and the sequencing this section used to state is refuted by the tree.**
+`TestApp` was specified as a Phase 1 item that *"every later phase depends on"*. Every later phase
+shipped without it: 178 test projects, twenty-three suites of allocation gates and the golden suite
+exist, and nothing anywhere named the type until it landed. So the dependency was never real — what
+each of the five bought when it arrived was arrangement code deleted and a refusal added, not tests
+made possible. (This paragraph said *"two of the five are still unwritten"* while `GoldenFile` was
+already ✅ two bullets below it, and then one, which is the arithmetic a count written in prose
+always loses.) Tracked as [#336](https://github.com/Rikarin/Vixen/issues/336).
 
 - **`TestApp`** — ✅ an in-process engine host with the Null backend, an in-memory VFS, a fake clock and
   a synthetic input source, in [`Testing/TestApp.cs`](../../Testing/TestApp.cs), linked into a test
@@ -602,10 +603,33 @@ worth building on that argument rather than on a blocking one. They are tracked 
   the comparison is exact rather than perceptual because no driver is involved. It does not replace
   the golden-image suite: it cannot see below `UiGeometry`, which is where descriptor bindings and
   vertex layouts live. `Ticked` is the per-frame seam a real `TestApp` would drive it through.
-- **`FixtureProject`** — a synthetic Vixen project generator (N textures, M models, K scenes) for asset
-  pipeline scale tests. ⚠️ The scale test it was meant to serve was written without it:
-  `Vixen.Editor.Assets.Tests/ImportBudgetTests` builds its own fixture and scales it from
-  `VIXEN_IMPORT_SCALE`. So this one is a generalisation of a working thing rather than a hole.
+- **`FixtureProject`** — ✅ the synthetic project generator, in
+  [`Testing/FixtureProject.cs`](../../Testing/FixtureProject.cs), adopted by
+  `Vixen.Editor.Assets.Tests/ImportBudgetTests`, which is the scale test that had been written
+  without it.
+
+  **What the generalisation turned out to buy is the kinds, and that was not the argument for it.**
+  The prediction here was that this one was *"a generalisation of a working thing rather than a
+  hole"*, because `ImportBudgetTests` already built its own fixture and scaled it from
+  `VIXEN_IMPORT_SCALE`. True as far as it went: what that fixture wrote was ten thousand `.bin`
+  files, which reach exactly one importer — the `RawImporter` fallback. ⚠️ **A fixture of the wrong
+  kinds is green.** `RawImporter` takes whatever nothing else claimed, succeeds and is counted, so a
+  "texture" no importer claims imports, passes and is indistinguishable from a texture unless
+  something asks *which importer claimed it* — the shape of the `.vxwaves` that became a byte blob
+  no runtime reader resolves, and of the five attributed importers found missing from
+  `BuiltInImporters` after it. So the textures are real PNGs through `PngCodec`, the models are
+  Wavefront OBJ and the scenes are `.vxscene` YAML, and `FixtureProjectTests` asserts the importer
+  name per extension rather than the count.
+
+  **Its three refusals are the same standard the other four are held to.** A fixture asked for
+  nothing writes an empty project, over which *"everything imported"* and *"nothing failed"* are
+  both true — refused. A second fixture written over the first returns counts short by whatever was
+  already there, and short in the direction that still passes — refused. And what it wrote is
+  counted **off the disk** and compared against what it computed, so a kind whose loop never ran is
+  a smaller project that satisfies every assertion derived from it — refused. ⚠️ The counts are the
+  product rather than the files: `ImportBudgetTests` used to compute `Files + (Files / 100) + 1`
+  beside the loop that made the folders it was counting, which is two derivations of one number in
+  one file.
 - **Fuzzers** — ✅ **all five of the parsers this line asked for are fuzzed**: VXML, VCSS (as
   `stylevalue` and `layerrule`), Raven, the `.meta` reader and the bundle reader, among twenty targets
   in [`Core/Vixen.Fuzz`](../../Core/Vixen.Fuzz), replayed nightly over a committed corpus by
