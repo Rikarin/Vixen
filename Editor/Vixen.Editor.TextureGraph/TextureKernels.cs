@@ -20,8 +20,9 @@ namespace Vixen.Editor.TextureGraph;
 ///     <para>
 ///         ⚠ <b>So the variant is produced by rewriting the one <c>[Format(…)]</c> the source
 ///         carries</b>, which is a shader variant in the plainest sense and is named as one rather
-///         than hidden. <see cref="Variant" /> refuses a source that does not carry exactly one, so a
-///         kernel that grew a second storage image is a failure here rather than a silent rewrite of
+///         than hidden. <see cref="Variant(string,TextureFormat)" /> refuses a source that does not
+///         carry exactly one, so a kernel that grew a second storage image is a failure here rather
+///         than a silent rewrite of
 ///         whichever came first.
 ///     </para>
 ///     <para>

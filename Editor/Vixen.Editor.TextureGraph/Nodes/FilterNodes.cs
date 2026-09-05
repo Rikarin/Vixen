@@ -302,6 +302,10 @@ sealed partial class Transform2DNode : TextureNode {
                 Kernel = TextureColourKernels.Transform2D,
                 Output = target,
                 Inputs = [source],
+
+                // A transform maps its target's normalised coordinate through the *source's* own
+                // extent, so reading an image of another size is what it is for — #801.
+                ReadsOtherExtents = true,
                 Parameters = [
                     new("rotation", emitter.Number(nameof(Rotation))),
                     new("scaleX", emitter.Number("Scale X")),

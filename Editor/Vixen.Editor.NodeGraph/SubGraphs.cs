@@ -363,6 +363,28 @@ public static class SubGraphs {
     ///         out inside it, which is what the author drew. One port per edge would produce three
     ///         identical inputs wired to the same thing.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="NodeGraphModel.Parameters" /> cross whole, and the alternative was
+    ///         argued and refused — <a href="https://github.com/Rikarin/Vixen/issues/802">#802</a>.</b>
+    ///         A copied node keeps its <see cref="GraphNode.Texts" />, which is where a front end
+    ///         stores an expression an author wrote over the graph's knobs, so an extraction that took
+    ///         the texts and left the declarations produced a sub-graph carrying
+    ///         <c>amount * 32f</c> and declaring no <c>amount</c>. The tidier rule — carry only the
+    ///         parameters the selection <em>mentions</em> — needs to know what an expression is, and
+    ///         that is a front end's question: the marker, the identifier syntax and the folder all
+    ///         live in <c>Vixen.Editor.TextureGraph</c>, and this assembly deliberately knows nothing
+    ///         about any of them. So the choice here is between a knob nobody uses, which an author
+    ///         can see and delete, and an expression that binds against nothing, which an author
+    ///         cannot see at all until the containing graph reports an undefined name.
+    ///     </para>
+    ///     <para>
+    ///         <b><see cref="NodeGraphModel.Settings" /> deliberately do not cross</b>, and the
+    ///         silence about that was the other half of #802. A texture graph's settings are its base
+    ///         resolution and its seed; <see cref="Flatten" /> keeps the <em>containing</em> graph's
+    ///         and drops an inlined one's, so a sub-graph that carried a copy of them would be
+    ///         carrying two numbers that are read exactly nowhere and shown in an inspector as though
+    ///         they were.
+    ///     </para>
     /// </remarks>
     public static SubGraphExtraction Extract(
         NodeGraphModel graph,
@@ -388,6 +410,12 @@ public static class SubGraphs {
         }
 
         var extracted = new NodeGraphModel { Name = name };
+
+        // ⚠ The knobs, because the copies below carry the expressions written against them. See the
+        // remarks: this is the whole of #802, and it is one line because the parameter list is a
+        // side table on the model rather than a property of whatever compiles it.
+        extracted.Parameters.AddRange(graph.Parameters);
+
         List<NodeId> moved = [];
         Rectangle? bounds = null;
 

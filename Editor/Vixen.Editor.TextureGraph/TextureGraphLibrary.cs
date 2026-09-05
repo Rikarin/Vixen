@@ -10,8 +10,9 @@ namespace Vixen.Editor.TextureGraph;
 /// <remarks>
 ///     ⚠ <b>Two questions and therefore two interfaces, because the framework only asks one.</b>
 ///     <see cref="ISubGraphSource" /> answers "what graph does this node type stand for", which is
-///     all <see cref="SubGraphs.Flatten" /> needs. A texture graph asks a second one — "and what
-///     knobs does it declare" — because the nodes inside it may have been written with expressions
+///     all <see cref="SubGraphs.Flatten(NodeGraphModel,ISubGraphSource,out IReadOnlyList{NodeDiagnostic})" />
+///     needs. A texture graph asks a second one — "and what knobs does it declare" — because the
+///     nodes inside it may have been written with expressions
 ///     over them, and after inlining those expressions are in a graph whose compiler has never heard
 ///     of them.
 /// </remarks>
@@ -37,8 +38,9 @@ interface ITextureGraphLibrary : ISubGraphSource {
 ///     </para>
 ///     <para>
 ///         ⚠ <b>What an author types into those settings does not reach the inlined nodes.</b>
-///         <see cref="SubGraphs.Flatten" /> replaces the sub-graph node with the graph's contents and
-///         the node — which is where the overrides are stored — is then gone, so an expression inside
+///         <see cref="SubGraphs.Flatten(NodeGraphModel,ISubGraphSource,out IReadOnlyList{NodeDiagnostic})" />
+///         replaces the sub-graph node with the graph's contents and the node — which is where the
+///         overrides are stored — is then gone, so an expression inside
 ///         a published graph folds against that graph's <em>declared defaults</em>. The knob is real,
 ///         saved and shown, and turning it changes nothing until
 ///         <a href="https://github.com/Rikarin/Vixen/issues/742">#742</a>.

@@ -115,6 +115,88 @@ public class TextureGraphPanelTests {
         Assert.Contains("no graphics device", view.Status, StringComparison.Ordinal);
     }
 
+    /// <summary>The canvas can look inside a published compound, because it has the library.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The half of <a href="https://github.com/Rikarin/Vixen/issues/803">#803</a> the
+    ///         document's own wire left dark.</b> <c>TextureGraphDocument</c> publishes the shipped
+    ///         compounds and hands the source to the <em>compiler</em>, so a graph containing one
+    ///         compiles — and the canvas was never given it, so <c>NodeGraphView.Opened</c> could not
+    ///         tell a sub-graph node from an atomic one and a double-click on a compound did nothing
+    ///         at all. A node type in the search popup that cannot be looked inside.
+    ///     </para>
+    ///     <para>
+    ///         <b>The assertion is the question the view asks</b> — <c>SubGraphSource.TryGet</c> over
+    ///         a type the registry offers — rather than a null check, which a source that resolved
+    ///         nothing would also pass.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_canvas_resolves_a_published_compound_to_the_graph_it_stands_for() {
+        using var fixture = new TexturingFixture();
+
+        var document = new TextureGraphDocument(
+            fixture.Project,
+            fixture.AddGraph("Bricks"),
+            fixture.Paths.Absolute("Assets/Bricks" + TextureGraphDocument.Extension)
+        );
+
+        var view = new TextureGraphView(fixture.Shell.Document.Root.Add<UiElement>());
+
+        view.Show(document, TexturePreviewBlocker.NoDevice);
+
+        var compound = TextureGraph.TextureCompoundLibrary.Shipped[0];
+
+        Assert.NotNull(view.Canvas.SubGraphSource);
+        Assert.True(view.Canvas.Registry.TryGet(compound, out _), $"'{compound}' is not in the menu.");
+        Assert.True(
+            view.Canvas.SubGraphSource!.TryGet(compound, out var inner),
+            $"the canvas cannot resolve '{compound}', so double-clicking it does nothing."
+        );
+
+        Assert.NotEmpty(inner!.Nodes);
+    }
+
+    /// <summary>A compound that will not read is said in the pane rather than nowhere.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The cost of publishing being forgiving, and nothing read it.</b>
+    ///     <c>TextureCompoundLibrary.Publish</c> reports and skips a file it cannot parse — one bad
+    ///     compound must not cost an author the rest of the library — so what an author sees is a
+    ///     node type missing from the search popup and no word anywhere.
+    ///     <c>TextureGraphDocument.CompoundProblems</c> had no reader at all until the line this
+    ///     asserts on, which is #803's own defect one level down.
+    /// </remarks>
+    [Fact]
+    public void A_compound_that_will_not_read_is_named_in_the_pane() {
+        using var fixture = new TexturingFixture();
+
+        Directory.CreateDirectory(Path.Combine(fixture.Paths.Assets, "Compounds"));
+        File.WriteAllText(
+            Path.Combine(fixture.Paths.Assets, "Compounds", "Broken" + TextureGraphDocument.Extension),
+            "nodes: [ this is not a graph"
+        );
+
+        var document = new TextureGraphDocument(
+            fixture.Project,
+            fixture.AddGraph("Bricks"),
+            fixture.Paths.Absolute("Assets/Bricks" + TextureGraphDocument.Extension)
+        );
+
+        // The instrument: the file really did fail to publish, rather than the pane being told
+        // nothing because there was nothing to tell.
+        Assert.Contains(document.CompoundProblems, problem => problem.Path == "Broken");
+
+        var view = new TextureGraphView(fixture.Shell.Document.Root.Add<UiElement>());
+
+        view.Show(document, TexturePreviewBlocker.NoDevice);
+
+        Assert.Contains("Broken", view.Status, StringComparison.Ordinal);
+        Assert.Contains("not in the menu", view.Status, StringComparison.Ordinal);
+
+        // And the blocker's own sentence survives beside it: two things to say is two sentences.
+        Assert.Contains("no graphics device", view.Status, StringComparison.Ordinal);
+    }
+
     static T? Find<T>(UiElement element) where T : UiElement {
         if (element is T found) {
             return found;

@@ -17,7 +17,10 @@ public enum TextureProblemSeverity : byte {
     /// <summary>The plan bakes, and the picture is not the one the graph describes.</summary>
     Warning = 0,
 
-    /// <summary>The plan does not bake. <see cref="TexturePlanEvaluator.Evaluate" /> throws.</summary>
+    /// <summary>
+    ///     The plan does not bake.
+    ///     <see cref="TexturePlanEvaluator.Evaluate(TexturePlan,IReadOnlyDictionary{int,TextureExternal})" /> throws.
+    /// </summary>
     Error = 1
 }
 
