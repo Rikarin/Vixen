@@ -192,13 +192,34 @@
 # only one whose two failing variants really are the border-box pair. `padding_border_overrides_size_
 # flex_basis_0_growable` is two `flex-grow: 1; flex-basis: 0px` items in a shrink-to-fit row, the
 # first with 22 points of horizontal padding and border around a `width: 12px`. Chrome makes the
-# container 34 and the items 28 and 6; this store makes it 22, 22 and 0. The content-box pair passes
-# with 46, 34 and 12, and the arithmetic that produces both is §9.9.1's: the container's max-content
-# main size is the sum of the items' max-content CONTRIBUTIONS — 22 + 12 border-box, 34 + 12
-# content-box — after which the free space over the items' flex BASES (22 and 0) splits evenly. The
-# store agrees about the bases and disagrees about the second item's contribution, counting its
-# `flex-basis: 0` where Chrome counts its `width: 12px`. It is a contribution rule, not a floor, and
-# it belongs under a heading this file does not yet have.
+# container 34 and the items 28 and 6. The content-box pair passes with 46, 34 and 12, and the
+# arithmetic that produces both is §9.9.1's: the container's max-content main size is the sum of the
+# items' max-content CONTRIBUTIONS — 22 + 12 border-box, 34 + 12 content-box — after which the free
+# space over the items' flex BASES (22 and 0) splits evenly.
+#
+# ⚠ <b>THE SENTENCE THAT FOLLOWED HERE WAS MEASURED AND IS WRONG, AND THE CORRECTION MOVES THE FIX
+# TO A DIFFERENT FILE.</b> It read: "this store makes it 22, 22 and 0. The store agrees about the
+# bases and disagrees about the second item's contribution, counting its `flex-basis: 0` where Chrome
+# counts its `width: 12px`." What this store actually reports at HEAD is <b>34, 22 and 12</b> — the
+# CONTAINER is Chrome's number and the ITEMS are not. 22-22-0 is what the store prints only after the
+# `mainAxisSize` half of `ComputeFlexBasisForChild`'s guard is relaxed for rows, which is the very
+# change the heading above records as a regression; the diagnosis had been written against the
+# hypothetical rather than against the tree.
+#
+# So the container is right BY ACCIDENT and for the opposite reason. Under a max-content main
+# constraint `mainAxisSize` is NaN, the guard refuses the declared `flex-basis: 0px`, and both items
+# fall through to `isMainAxisRow && isRowStyleDimDefined` — their bases become their `width`s, 22 and
+# 12. `LayoutTree.Layout`'s STEP 5 then takes `availableInnerMainDim = line.SizeConsumed` (the sum of
+# those bases, 34) and sets `sizeBasedOnContent`, so §9.7 never runs at all: each item is left frozen
+# at the number that was only ever meant to be its CONTRIBUTION. The two errors cancel in the sum and
+# do not cancel per item, and they cancel exactly in the content-box pair, which is why that pair
+# passes with no rule being right.
+#
+# The shape of the fix is therefore not "teach the contribution about `width`" — the contribution is
+# already `width`. It is to stop the container's max-content main size being read off the flex bases:
+# size the container from the items' max-content contributions, hand that back as a DEFINITE main
+# size, and let the declared `flex-basis: 0` be the base §9.7 distributes over. Both halves have to
+# move together, which is why relaxing the guard alone makes this fixture worse rather than better.
 padding_border_overrides_size_flex_basis_0_growable
 
 # ── CSS Flexbox §9.7, resolving flexible lengths: the free space is not the line's size ──
