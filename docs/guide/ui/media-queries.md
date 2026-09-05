@@ -74,13 +74,32 @@ engine.SetMedia(new MediaContext(
 ));
 ```
 
-⚠ **No platform assembly reads any of these preferences from the operating system yet.** Width,
-height, resolution and gamut are fed from the surface; `prefers-color-scheme` and
-`prefers-reduced-motion` are fed by whatever the application passes and by nothing else, so an
-application that wants them from the system asks the system itself and passes the answer in. The
-values a bridge would read are `NSWorkspace.accessibilityDisplayShouldReduceMotion` on macOS,
-`SystemParametersInfo(SPI_GETCLIENTAREAANIMATION)` on Windows, `gtk-enable-animations` on Linux and
-`matchMedia` in a browser.
+### Where the answers come from
+
+A desktop host does not pass these in by hand. `IPlatform.Accessibility` reads them from the
+operating system — `com.apple.universalaccess` on macOS, `SystemParametersInfo` on Windows,
+`gsettings` on Linux — and `PlatformInput.ApplyAccessibility` writes them onto every surface of a
+document, once before the first frame and again on each `SystemAccessibilityChanged`. Both desktop
+hosts do it, so an application built on either honours reduced motion without asking.
+
+```csharp no-compile="a fragment; `platform` is an IPlatform and `document` a UiDocument"
+PlatformInput.ApplyAccessibility(document, platform.Accessibility);
+```
+
+⚠ **Two of the six preference axes have an operating system behind them and four do not.** Reduced
+motion and the forced-colours pair are read; `inverted-colors` and the two pointer axes have no
+reader on any platform, so an application that wants those still passes them in itself. Android, iOS
+and the browser report `SystemAccessibility.Unknown` — each has a source and none of them is wired.
+
+⚠ **An axis the platform could not read is `no-preference` and never the "on" value.** A headless run
+and a Linux desktop with no settings daemon both answer `null`, and reading that as "the user asked
+for reduced motion" would take the animation off machines that never asked.
+
+⚠ **High contrast answers two questions.** Windows' high-contrast mode and macOS's Increase Contrast
+are one switch, and the host sets both `forced-colors` and `prefers-contrast: more` from it — a sheet
+written with only the second in it would otherwise do nothing on the platforms where the setting is
+most used. The converse is deliberately not wired: asking for more contrast is not asking for the
+palette to be replaced.
 
 ⚠ **`SetMedia` does not reload the stylesheets.** It re-evaluates the `@media` verdicts for one
 scope; the rule set, the keyframes table and the animator stay exactly where they are. A resize
@@ -90,8 +109,11 @@ about the stylesheet and never about the user.)
 
 ## What is not here
 
-`forced-colors`, a system accent colour, dynamic semantic colours and an OS text-size scale are all
-absent. `forced-colors` in particular is deliberately not added as a query alone: without a mode the
-renderer honours, `@media (forced-colors: active)` would evaluate and change nothing, and the two
-places that record its absence — `UtilityFamilies`' `outline-hidden` registration and
-`DrawListBuilder`'s `outline-style` remarks — would become half-true rather than true.
+A system accent colour, dynamic semantic colours and an OS text-size scale are all absent.
+
+⚠ **`forced-colors` is half here, and the missing half is the renderer's.** The query evaluates, the
+platform feeds it and a sheet's `@media (forced-colors: active)` block applies — what does not exist
+is a forced-colours *mode*: nothing substitutes a system palette for the colours a sheet asked for.
+So the two places that record the gap — `UtilityFamilies`' `outline-hidden` registration and
+`DrawListBuilder`'s `outline-style` remarks — are still true about the mode and no longer true about
+the query, and both now say which half they mean.

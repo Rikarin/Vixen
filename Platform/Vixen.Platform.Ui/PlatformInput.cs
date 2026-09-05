@@ -88,6 +88,57 @@ public static class PlatformInput {
         }
     }
 
+    /// <summary>Tells every one of a document's surfaces which accessibility settings are on.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="accessibility">What <see cref="IPlatform.Accessibility" /> says.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The wire <c>@media (prefers-reduced-motion)</c> and <c>@media (forced-colors)</c>
+    ///         were built without, which is the same hole <see cref="ApplyColorScheme" /> above was
+    ///         written to close one axis over.</b> Both features have evaluated since they landed,
+    ///         <c>Animator.ReduceMotion</c> has honoured the first since the same day, and every
+    ///         writer of <c>UiSurface.Preferences</c> in the tree was a test — so an application
+    ///         animated at a user who had switched animation off and nothing anywhere reported it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An unknown axis becomes <c>NoPreference</c> and not the "off" value</b>, for the
+    ///         reason <see cref="SystemAccessibility" /> gives: a platform that could not read a
+    ///         setting has not told us the user is happy without it. CSS agrees — every
+    ///         <c>prefers-*</c> query is false when nothing has been expressed — so the two happen to
+    ///         land on the same verdict, and they land there for different reasons that a host can
+    ///         still tell apart by reading the platform.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>High contrast sets <i>both</i> <c>ForcedColors</c> and
+    ///         <see cref="ContrastPreference.More" />.</b> Windows' high-contrast mode and macOS's
+    ///         Increase Contrast are the platforms' single answer to a question CSS asks twice, and a
+    ///         sheet written with only <c>(prefers-contrast: more)</c> in it would otherwise do
+    ///         nothing on the one platform where the setting is most used. The converse is not true
+    ///         and is why this is not symmetrical: a user asking for more contrast has not asked for
+    ///         their palette to be replaced.
+    ///     </para>
+    ///     <para>
+    ///         Every surface rather than the primary one, on the same terms as the appearance: these
+    ///         are settings of the machine, so a torn-off panel cannot be running under different
+    ///         ones.
+    ///     </para>
+    /// </remarks>
+    public static void ApplyAccessibility(UiDocument document, SystemAccessibility accessibility) {
+        ArgumentNullException.ThrowIfNull(document);
+
+        var forced = accessibility.HighContrast == true;
+
+        foreach (var surface in document.Surfaces) {
+            surface.Preferences = surface.Preferences with {
+                Motion = accessibility.ReduceMotion == true
+                    ? MotionPreference.Reduce
+                    : MotionPreference.NoPreference,
+                Contrast = forced ? ContrastPreference.More : ContrastPreference.NoPreference,
+                ForcedColors = forced
+            };
+        }
+    }
+
     /// <summary>Sends one platform event to a document's primary surface.</summary>
     /// <param name="document">The document.</param>
     /// <param name="platformEvent">What happened.</param>

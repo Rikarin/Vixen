@@ -2375,6 +2375,7 @@ T:Vixen.Platform.PlatformServices sweep-pending
 T:Vixen.Platform.PowerSource sweep-pending
 T:Vixen.Platform.ProcessorClass sweep-pending
 T:Vixen.Platform.StandardFileSystemHost sweep-pending
+T:Vixen.Platform.SystemAccessibility	the platform half of prefers-reduced-motion and forced-colors; documented on IPlatform.Accessibility and in docs/guide/ui/media-queries.md
 T:Vixen.Platform.SystemColorScheme	the platform half of prefers-color-scheme; documented on IPlatform.ColorScheme
 T:Vixen.Platform.ThermalState sweep-pending
 T:Vixen.Platform.TouchTracker sweep-pending

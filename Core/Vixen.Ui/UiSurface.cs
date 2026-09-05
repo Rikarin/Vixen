@@ -172,13 +172,14 @@ public sealed class UiSurface {
     ///         all six come out of the same platform read — see <see cref="MediaPreferences" />.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Nothing in this repository sets it yet, and that is a gap in the platform layer
-    ///         rather than in the cascade.</b> <see cref="ColorScheme" /> has been in exactly the
-    ///         same position since it was added — <c>Vixen.Ui.Desktop</c> reads the swapchain's gamut
-    ///         and has never read the system appearance — so a query about either is answered
-    ///         truthfully from what the host has said, which so far is nothing. Left settable and
-    ///         defaulted to "nothing unusual" rather than guessed at, which is the bargain
-    ///         <see cref="Gamut" /> makes one property up.
+    ///         ⚠ <b>Two of the six axes now have an operating system behind them and four still do
+    ///         not.</b> <c>PlatformInput.ApplyAccessibility</c> writes <see cref="MediaPreferences.Motion" />
+    ///         and the forced-colours pair from <c>IPlatform.Accessibility</c>, on the same terms as
+    ///         the appearance beside it; the two pointer axes and <see cref="MediaPreferences.InvertedColors" />
+    ///         have no reader on any platform, so a query about those is still answered truthfully
+    ///         from what the host has said, which is nothing. Left settable and defaulted to "nothing
+    ///         unusual" rather than guessed at, which is the bargain <see cref="Gamut" /> makes one
+    ///         property up.
     ///     </para>
     /// </remarks>
     public MediaPreferences Preferences {

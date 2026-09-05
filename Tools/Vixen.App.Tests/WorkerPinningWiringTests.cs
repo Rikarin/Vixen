@@ -90,6 +90,7 @@ public class WorkerPinningWiringTests {
         public IReadOnlyList<IWindow> Windows => inner.Windows;
         public IDisplayInfo Displays => inner.Displays;
         public SystemColorScheme ColorScheme => inner.ColorScheme;
+        public SystemAccessibility Accessibility => inner.Accessibility;
         public IFileSystemHost FileSystem => inner.FileSystem;
         public IClipboard Clipboard => inner.Clipboard;
         public INativeDialogs Dialogs => inner.Dialogs;

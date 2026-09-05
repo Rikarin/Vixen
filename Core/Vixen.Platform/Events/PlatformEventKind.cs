@@ -165,6 +165,16 @@ public enum PlatformEventKind : byte {
     /// </remarks>
     SystemColorSchemeChanged = 61,
 
+    /// <summary>The user changed an accessibility setting.
+    /// <see cref="IPlatform.Accessibility" /> already reports the new one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not queued at start-up either, and for the same reason</b> — see
+    ///     <see cref="SystemColorSchemeChanged" />. Reduced motion is a setting most users who have
+    ///     it on have had on since before the application started, so a host that waited for the
+    ///     event would honour it in no session at all.
+    /// </remarks>
+    SystemAccessibilityChanged = 62,
+
     // ── Lifecycle ───────────────────────────────────────────────────────────────────────────
 
     /// <summary>The process is about to be suspended. Save now; there may be no later.</summary>

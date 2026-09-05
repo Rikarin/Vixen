@@ -1395,12 +1395,14 @@ public sealed class DrawListBuilder {
     ///         solid.</b> <c>none</c> and <c>hidden</c> switch the ring off — CSS UI 4 makes them
     ///         synonyms on an outline, unlike on a border — and that pair is what <c>outline-none</c>
     ///         and <c>outline-hidden</c> compile to. <b>The forced-colors half of Tailwind's
-    ///         <c>outline-hidden</c> is not expressible here and is not emulated:</b> v4 pairs the
+    ///         <c>outline-hidden</c> is not emulated, and the reason has changed:</b> v4 pairs the
     ///         <c>none</c> with a transparent two-pixel ring inside
-    ///         <c>@media (forced-colors: active)</c>, and <c>MediaQuery</c> has no forced-colors
-    ///         feature to evaluate, so the class collapses to <c>outline-none</c> exactly. Said here
-    ///         because the two spellings being indistinguishable is the thing a reader will otherwise
-    ///         assume is a bug.
+    ///         <c>@media (forced-colors: active)</c>. ⚠ <c>MediaQuery</c> <i>does</i> evaluate
+    ///         <c>forced-colors</c> now and <c>IPlatform.Accessibility</c> feeds it, so a sheet can
+    ///         write that block and it will apply — what is still missing is a forced-colours
+    ///         <i>mode</i> in this builder for the ring to be visible against, so the class still
+    ///         collapses to <c>outline-none</c> exactly. Said here because the two spellings being
+    ///         indistinguishable is the thing a reader will otherwise assume is a bug.
     ///     </para>
     /// </remarks>
     void EmitOutline(

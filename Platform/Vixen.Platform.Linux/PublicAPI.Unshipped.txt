@@ -1,4 +1,5 @@
 #nullable enable
+Vixen.Platform.Linux.LinuxAccessibility -> static class
 Vixen.Platform.Linux.LinuxAppearance -> static class
 Vixen.Platform.Linux.LinuxClipboard -> sealed class
 Vixen.Platform.Linux.LinuxClipboard : Vixen.Platform.IClipboard
@@ -45,6 +46,7 @@ Vixen.Platform.Linux.LinuxProcessorTopology.PerformanceCores.get -> int
 Vixen.Platform.Linux.LinuxProcessorTopology.PhysicalCores.get -> int
 Vixen.Platform.Linux.LinuxProcessorTopology.SupportsAffinity.get -> bool
 Vixen.Platform.Linux.LinuxProcessorTopology.TrySetAffinity(int processor) -> bool
+static Vixen.Platform.Linux.LinuxAccessibility.Read() -> Vixen.Platform.SystemAccessibility
 static Vixen.Platform.Linux.LinuxAppearance.Read() -> Vixen.Platform.SystemColorScheme
 static Vixen.Platform.Linux.LinuxClipboard.IsAvailable.get -> bool
 static Vixen.Platform.Linux.LinuxDialogs.IsAvailable.get -> bool

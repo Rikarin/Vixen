@@ -277,6 +277,7 @@ sealed class EditorHost : IDisposable {
         // The appearance the machine already had. No event is posted for it — there is nothing to
         // notice — so a host that only handled the change would never see the first one.
         PlatformInput.ApplyColorScheme(editor.Shell.Document, platform.ColorScheme);
+        PlatformInput.ApplyAccessibility(editor.Shell.Document, platform.Accessibility);
 
         while (running && (frames == 0 || drawn < frames)) {
             var now = clock.Elapsed;
@@ -473,6 +474,14 @@ sealed class EditorHost : IDisposable {
                     // often enough to spend two lines on. A panel or plug-in loading a sheet whose
                     // theme uses the `media` strategy gets the same answer the framework host gives.
                     PlatformInput.ApplyColorScheme(editor.Shell.Document, platform.ColorScheme);
+                    break;
+
+                case PlatformEventKind.SystemAccessibilityChanged:
+                    // ⚠ And this one the editor's own theme *does* read: the animator honours
+                    // `MediaPreferences.Motion` for every transition and `@keyframes` in the shell,
+                    // so leaving this wire to the framework host alone would mean the editor was the
+                    // one application in the tree that ignored the setting.
+                    PlatformInput.ApplyAccessibility(editor.Shell.Document, platform.Accessibility);
                     break;
 
                 default:
