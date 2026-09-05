@@ -212,13 +212,17 @@ public sealed partial class UiDocument {
     ///         sending it at all. A host that has the surface in hand should pass it.
     ///     </para>
     ///     <para>
-    ///         <see cref="Focused" /> still outranks it, because it is still one document-global
-    ///         element — <c>UiSurface.Focused</c> does not exist, so a keystroke aimed at an
-    ///         unfocused control in a background window still reaches whatever holds the document's
-    ///         focus. That is the larger half of the key-window work and is owed.
+    ///         ⚠ <b>It is <see cref="UiSurface.Focused" /> that outranks it, and it used to be
+    ///         <see cref="Focused" />.</b> While the focus was one document-global element, a
+    ///         keystroke delivered to a background window reached whatever the front one had
+    ///         focused — the surface only decided the fallback for when nothing was focused at all,
+    ///         which is exactly the half of this that was owed. Each window keeps its own first
+    ///         responder now, so a key goes to the caret in the window it was delivered to and to
+    ///         that window's root when there is none.
     ///     </para>
     /// </remarks>
-    public UiElement? Dispatch(UiSurface surface, KeyEvent args) => Dispatch(args, Focused ?? Verify(surface).Root);
+    public UiElement? Dispatch(UiSurface surface, KeyEvent args) =>
+        Dispatch(args, Verify(surface).Focused ?? surface.Root);
 
     UiElement? Dispatch(KeyEvent args, UiElement target) {
         ArgumentNullException.ThrowIfNull(args);
@@ -292,7 +296,7 @@ public sealed partial class UiDocument {
     ///     exactly why nothing caught it.
     /// </remarks>
     public UiElement? Dispatch(UiSurface surface, TextInputEvent args) =>
-        DispatchText(args, Focused ?? Verify(surface).Root);
+        DispatchText(args, Verify(surface).Focused ?? surface.Root);
 
     UiElement? DispatchText(TextInputEvent args, UiElement target) {
         ArgumentNullException.ThrowIfNull(args);
@@ -328,7 +332,7 @@ public sealed partial class UiDocument {
     ///     had it.
     /// </remarks>
     public UiElement? Dispatch(UiSurface surface, TextCompositionEvent args) =>
-        DispatchComposition(args, Focused ?? Verify(surface).Root);
+        DispatchComposition(args, Verify(surface).Focused ?? surface.Root);
 
     static UiElement? DispatchComposition(TextCompositionEvent args, UiElement target) {
         ArgumentNullException.ThrowIfNull(args);

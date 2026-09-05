@@ -94,8 +94,16 @@ the transaction ran itself.
 `UiElement.UndoManager` to a document's stack, so a text field in the editor still finds nothing and
 still leaves ⌘Z to the editor's global `edit.undo`. That wants the panel hosting the active document
 to set its own `UndoManager` — which is a real feature rather than a line, because the active
-document changes as the user switches tabs. `CodeEditor` registers nothing either: it has the
-`CodeBuffer.Changed` seam and a consumer in `CodeDocument`, so wiring it is that document's call.
+document changes as the user switches tabs.
+
+⚠ **`CodeEditor` registering nothing is a decision and not the same owed item**, which earlier notes
+here read the other way round. `CodeDocument` is already on `CodeBuffer.Changed` and already turns
+each run of typing into a `TextEditCommand` on the document's `CommandStack` — so the moment that
+stack is installed as the document's manager, a `CodeEditor` that also registered through
+`FindUndoManager` would record every edit **twice**: once as the control's entry and once as the
+document's command, in one history that ⌘Z would then have to be pressed through twice. The
+asymmetry with `TextField` is the asymmetry between the two controls: a field has a seam nobody is
+on, and a code editor has one with a real consumer.
 
 ## See also
 

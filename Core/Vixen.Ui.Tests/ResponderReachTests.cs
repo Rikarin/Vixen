@@ -23,14 +23,23 @@ namespace Vixen.Ui.Tests;
 ///         <see cref="UiElement.AddCommandHandler" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The mirror half of #642's gate is deliberately not here yet, and saying which half is
-///         the point.</b> <see cref="UiElement.CommandScope" /> still has <b>zero</b> production
-///         callers: the editor scopes commands with <c>EditorShell.Context</c>, a mutable string
-///         pushed from pointer handlers, and swapping that for a scope read at the focus is a
-///         behaviour change — the editor's contexts are a mix of panel ids and mode names, and a
-///         panel's scope would silently outrank the mode the user is in. A second theory here
-///         asserting zero would be a gate recording the defect; one asserting one would be red.
-///         It belongs beside that change, not before it.
+///         ⚠ <b>The mirror half of #642's gate is here now, and it is not the editor that closed
+///         it.</b> <see cref="UiElement.CommandScope" /> had <b>zero</b> production callers for the
+///         whole life of the API, and the change the issue expected to close that — replacing the
+///         editor's <c>EditorShell.Context</c>, a mutable string pushed from ten pointer handlers —
+///         is still not made, because the editor's contexts are a mix of panel ids and mode names
+///         and a panel's scope would silently outrank the mode the user is in. What a scope needed
+///         was one honest user, and <c>Samples/02-HelloUi</c> is one: two panels declare a scope on
+///         their own roots and the shell reads it back with
+///         <see cref="CommandRoute.ScopeOf" /> from wherever the focus happens to be.
+///     </para>
+///     <para>
+///         ⚠ <b>So the sweep reads <c>.vxml</c> as well as <c>.cs</c>, and it must.</b> A Vixen
+///         interface is markup with a <c>@code</c> block in it, and the C# that block becomes lives
+///         under <c>obj/</c> — which this walk prunes, for the reason it prunes
+///         <c>.claude/worktrees/</c>. A <c>*.cs</c>-only sweep would have reported zero production
+///         callers on the day two samples had them, which is the same instrument failure in the
+///         other direction from the one the helper below records.
 ///     </para>
 /// </remarks>
 public class ResponderReachTests {
@@ -54,6 +63,31 @@ public class ResponderReachTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>Two, and it was zero for the whole life of the API.</b>
+    ///     <c>Samples/02-HelloUi</c>'s Hierarchy and Inspector panels each declare a scope on their
+    ///     own root, which is what makes "which panel am I in" a thing derived from the focus
+    ///     rather than a string somebody remembered to push.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A scope with no reader would be half a claim</b>, so this asserts the other end as
+    ///     well: something outside a test project asks <see cref="CommandRoute.ScopeOf" /> what the
+    ///     answer is. Without that, every scope in the repository could be write-only and this file
+    ///     would still be green.
+    /// </remarks>
+    [Fact]
+    public void Something_outside_a_test_project_declares_and_reads_a_command_scope() {
+        var declared = ProductionCallers("CommandScope = ");
+
+        Assert.NotEmpty(declared);
+        Assert.Contains(declared, path => path.EndsWith("Hierarchy.vxml", StringComparison.Ordinal));
+
+        // ⚠ Qualified, because `ScopeOf` is three different methods in this repository —
+        // `ScopedStyles.ScopeOf`, `UtilityFamilies.ScopeOf` and this one — and a bare `ScopeOf(`
+        // would have been satisfied by a stylesheet scope with nothing command-shaped anywhere.
+        Assert.NotEmpty(ProductionCallers("CommandRoute.ScopeOf("));
+    }
+
+    /// <summary>
     ///     The instrument, checked before the thing it measures: the sweep must be able to tell a
     ///     production file from a test one, or the theory above is green on the test projects alone.
     /// </summary>
@@ -70,6 +104,14 @@ public class ResponderReachTests {
         Assert.True(everywhere.Count > 1000, $"the sweep found only {everywhere.Count} C# files");
         Assert.Contains(everywhere, path => path.Contains(".Tests", StringComparison.Ordinal));
         Assert.DoesNotContain(ProductionCallers("AddCommandHandler("), path => IsTest(path));
+
+        // ⚠ The markup half, asserted separately because it is the half that can silently find
+        // nothing: a `.vxml` `@code` block compiles to C# under `obj/`, which this walk prunes, so a
+        // sweep that read only `*.cs` would report zero callers for every interface in the
+        // repository and look exactly like a sweep that read them and found none.
+        var markup = SourceFiles("*.vxml");
+
+        Assert.True(markup.Count > 10, $"the sweep found only {markup.Count} .vxml files");
     }
 
     /// <summary>The production files with at least one live call to something.</summary>
@@ -85,7 +127,7 @@ public class ResponderReachTests {
     static List<string> ProductionCallers(string call) {
         List<string> found = [];
 
-        foreach (var path in SourceFiles("*.cs")) {
+        foreach (var path in SourceFiles("*.cs").Concat(SourceFiles("*.vxml"))) {
             if (IsTest(path)) {
                 continue;
             }

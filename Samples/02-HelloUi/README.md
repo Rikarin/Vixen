@@ -50,6 +50,27 @@ suboptimal-present rule by hand. All of it is
 a window, a device and four steps of a frame, with no scene, no ECS world and no game loop anywhere
 in it. The boundary costs nothing to keep, and this file is a bootstrap again.
 
+## One Copy item, two meanings
+
+Edit ▸ Copy is bound to `edit.copy` and to nothing else. What it does depends on where the focus is:
+with rows selected in the Hierarchy it copies their names, and anywhere else it copies the docking
+layout. Neither handler knows the other exists — `Panels/Hierarchy.vxml` registers one on its own
+root, `Shell.vxml` registers the other on the shell's, and `CommandRoute` picks the nearest one above
+the focus and stops there.
+
+⚠ **This is the first thing outside the framework's own tests ever to declare a command scope.**
+`Commands.cs` is eight hundred lines of `NSResponder`-shaped routing whose defining rule — the nearest
+responder that answers wins, all the way out — had no production responders at all for the whole life
+of the API, which made it unfalsifiable: the element leg of the walk always found nothing. Two of this
+sample's three panels now declare `Root.CommandScope`, and `Shell.vxml` reads it back with
+`CommandRoute.ScopeOf` from wherever the focus happens to be, so the toast names the panel the user
+was in without anything having pushed or popped a context string.
+`Core/Vixen.Ui.Tests/ResponderReachTests.cs` counts these callers and fails at zero.
+
+⚠ **The Inspector declares a scope and handles no verb, deliberately.** Declaring where you are and
+taking over a verb are two separate things, and a sample in which every scope came with a handler
+would suggest they were one.
+
 ## The authoring loop
 
 ```bash

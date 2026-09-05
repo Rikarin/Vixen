@@ -764,15 +764,20 @@ public sealed partial class UiDocument : IDisposable {
 
     /// <summary>Drops anything that was pointing into a subtree about to go.</summary>
     void Release(UiElement element) {
-        for (var focused = Focused; focused is not null; focused = focused.Parent) {
-            if (ReferenceEquals(focused, element)) {
-                // ⚠ Forced, and it is the reason `force` exists. A removal is not a move the user
-                // asked for, so a field refusing to resign while its value is invalid must not be
-                // able to refuse being deleted — the alternative is a document holding a focus that
-                // points into a subtree it has just detached, which every read of `Focused` after
-                // that would throw on.
-                Focus(null, force: true);
-                break;
+        // ⚠ Asked of every surface rather than of `Focused`. The focus is per window now, so a panel
+        // removed from a background one holds a focus this document's `Focused` cannot see — and the
+        // read that would have found it is the one that throws, on the next switch to that window.
+        foreach (var surface in surfaces) {
+            for (var focused = surface.Focused; focused is not null; focused = focused.Parent) {
+                if (ReferenceEquals(focused, element)) {
+                    // ⚠ Forced, and it is the reason `force` exists. A removal is not a move the
+                    // user asked for, so a field refusing to resign while its value is invalid must
+                    // not be able to refuse being deleted — the alternative is a document holding a
+                    // focus that points into a subtree it has just detached, which every read of
+                    // `Focused` after that would throw on.
+                    Focus(surface, null, true);
+                    break;
+                }
             }
         }
 
@@ -1923,7 +1928,10 @@ public sealed partial class UiDocument : IDisposable {
         // ⚠ Read before the route rather than after it. What decides whether a press clicked *away*
         // from the focus is where the focus was when the press landed, and by the time the route has
         // finished a control may have moved it.
-        var focused = Focused;
+        //
+        // ⚠ And read off the surface the press landed in rather than off the document. A click in a
+        // second window is not a click away from the first window's caret.
+        var focused = surface.Focused;
 
         target?.Raise(args);
 
@@ -1931,7 +1939,7 @@ public sealed partial class UiDocument : IDisposable {
         // and this can tell that it did; and only when nothing was already captured, because a
         // pointer in the middle of a gesture is not a click on whatever it is passing over.
         if (args.Action == PointerAction.Pressed && captured is null) {
-            Defocus(target, focused);
+            Defocus(surface, target, focused);
         }
 
         // After the raw event rather than instead of it. A gesture is a reading of the pointer

@@ -17,6 +17,7 @@
 @component Hierarchy
 @namespace Vixen.Samples.HelloUi.Panels
 @tag hierarchy-panel
+@using Vixen.Ui
 @using Vixen.Ui.Controls
 @using Vixen.Ui.Controls.Advanced
 @using Vixen.Ui.Reactive
@@ -60,6 +61,38 @@
         tree.Expand(lights);
 
         tree.Activated += (_, node) => Model.Notify($"Opened {node.Text}", ControlVariant.Default);
+
+        // ⚠ **Declared once on the panel's root, and that is the whole of it.** Everything inside —
+        // the tree, its thousand rows, a control a later edit adds — is in the `hierarchy` scope
+        // because it is *inside*, so there is nowhere to forget to push it and nothing to pop when
+        // the focus leaves. The editor's `EditorShell.Context` is the same idea written as a mutable
+        // string assigned from ten pointer handlers, which is the shape this replaces.
+        Root.CommandScope = "hierarchy";
+
+        // ⚠ **The point of the panel: Copy here is not the shell's Copy.** Both are `edit.copy`, one
+        // Edit ▸ Copy item is bound to that id, and which of the two runs is decided by where the
+        // focus is — the route takes the nearest responder above it, so a selected row copies the
+        // row and the same item copies the layout when the focus is anywhere else. Neither handler
+        // knows the other exists.
+        //
+        // ⚠ `CanExecute` is asked rather than assumed: with no row selected this panel's Copy greys
+        // out rather than falling through to the shell's. A refusal from the nearest responder is
+        // final, which is what stops one menu item meaning two things depending on whether it
+        // happens to be enabled.
+        Root.AddCommandHandler(
+            "edit.copy",
+            CopySelection,
+            () => !tree.SelectedNodes.IsDefaultOrEmpty && Root.Document.HasClipboard
+        );
+    }
+
+    /// <summary>Puts the selected rows on the pasteboard, one name per line.</summary>
+    void CopySelection() {
+        var names = string.Join(Environment.NewLine, tree.SelectedNodes.Select(node => node.Text));
+
+        if (Root.Document.Clipboard?.SetText(names) == true) {
+            Model.Notify($"Copied {tree.SelectedNodes.Length} row(s) from the hierarchy", ControlVariant.Default);
+        }
     }
 
     /// <remarks>

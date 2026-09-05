@@ -8,6 +8,20 @@ using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.Ui;
 
+// ⚠ **This type is NOT the self-contained leaf #650 names, and the `using Vixen.Ui.Controls` above is
+// why.** `Describe()`, `UsePlatformFormat` and both `MacFormat`/`MacWords` go through
+// `KeyboardShortcut.Formatter` and `KeyboardShortcut.Describe`, two statics on a *Control* in
+// `Vixen.Ui.Controls` — an assembly above `Vixen.Ui`, which references neither it nor anything in
+// it. So `KeyChord` cannot be moved to `Vixen.Ui` first: it can only go to `Vixen.Ui.Controls`, or
+// the two formatting statics have to be split down into `Vixen.Ui` before it, and that split is the
+// real leaf. Deleting the using to check turns four lines of this file red with CS0103, which is
+// the cheapest way to see it.
+//
+// The same shape blocks two of the other four: `EditorCommand` holds an `IconArt`, also
+// `Vixen.Ui.Controls`, and `KeyMap` reads `Vixen.Core.Yaml`, which `Vixen.Ui` does not reference
+// either. Only `CommandRegistry` and `CommandDispatcher` name nothing above `Vixen.Ui` — and they
+// name `EditorCommand`, so they cannot land below it.
+
 /// <summary>A key and what is held with it.</summary>
 /// <param name="Key">The physical key, by its US-QWERTY legend.</param>
 /// <param name="Modifiers">What is held down at the time.</param>

@@ -110,6 +110,42 @@ public sealed class UiSurface {
     /// <summary>Whether it has been taken out of the document.</summary>
     public bool IsRemoved { get; private set; }
 
+    /// <summary>The element the keyboard is talking to in <i>this</i> window.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>AppKit's per-window first responder, and until this existed the focus was one
+    ///         element for the whole document.</b> Two windows of one application each have a
+    ///         caret, and only one of them is the caret the user is typing into: with a single
+    ///         document-global focus a keystroke delivered to a torn-off inspector reached whatever
+    ///         the main window had focused, because the delivering surface only ever decided the
+    ///         fallback for when nothing was focused at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Switching windows raises no focus event, deliberately.</b> A window losing key
+    ///         status has not lost its first responder — it keeps it, and gets it back when the user
+    ///         returns, which is why an application does not have to remember and restore anything.
+    ///         <see cref="UiDocument.Focused" /> follows <see cref="UiDocument.KeySurface" /> and so
+    ///         changes without anything having been focused or blurred.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So more than one element in a document can carry
+    ///         <c>ElementState.Focus</c> at once</b>, one per surface, and <c>:focus</c> in a
+    ///         background window still matches. That is the honest picture — the window remembers
+    ///         where the caret is — and a theme that wants the two to look different reads
+    ///         <see cref="IUiWindow.IsKey" /> rather than asking the focus to lie.
+    ///     </para>
+    /// </remarks>
+    public UiElement? Focused { get; internal set; }
+
+    /// <summary>Where a command id resolves from in this window — its focus, ignoring command surfaces.</summary>
+    /// <remarks>
+    ///     <see cref="UiDocument.CommandFocus" />'s per-surface half, split for
+    ///     <see cref="Focused" />'s reason: a menu opened over a torn-off inspector must resolve
+    ///     <c>edit.copy</c> against that inspector's view and not against whatever the main window
+    ///     was last looking at.
+    /// </remarks>
+    public UiElement? CommandFocus { get; internal set; }
+
     /// <summary>The lengths <c>vw</c>, <c>vh</c> and <c>rem</c> measure against here.</summary>
     /// <remarks>
     ///     ⚠ <b>Per surface, and that is the whole reason it is not read off the document.</b>
