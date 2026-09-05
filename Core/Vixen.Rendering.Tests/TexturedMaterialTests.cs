@@ -360,6 +360,95 @@ public class TexturedMaterialTests {
         Assert.Equal(3, material.Parameters.Get(MaterialKeys.LayerCount("ForwardPlus")));
     }
 
+    /// <summary>
+    ///     The splat map's fourth channel is one a material has to declare, and the default declares
+    ///     three.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The widest wrong picture this feature can draw, and it was the default.</b>
+    ///         <c>Painted</c> returned <c>splat.a</c> for layer 3 unconditionally, and a one- or
+    ///         three-channel texture samples alpha as 1 — the hazard <c>TexturedOpacitySurface</c>
+    ///         argues at length and reads <c>.r</c> to avoid. Weighted 1 at every texel, layer 3 wins
+    ///         the <c>1/total</c> normalisation over the whole surface: not a subtly wrong material but
+    ///         a lit, plausible surface of entirely the wrong stuff, on a map nothing constrained to
+    ///         have four channels.
+    ///     </para>
+    ///     <para>
+    ///         So the number reaches the shader as a value, three by default, and the compiler says so
+    ///         when a stack is deeper than the channels that paint it. <c>MaterialImporter</c> reports
+    ///         every compiler diagnostic, so the message is what an author sees at import.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_layer_past_the_splat_maps_painted_channels_is_a_warning_and_no_weight() {
+        var compilation = MaterialCompiler.Compile(
+            new() {
+                Features = [
+                    new TexturedMaterialLayersFeature {
+                        Layers = [
+                            new(Vector3.One, 0f, 0.8f, Weight: 1f),
+                            new(Vector3.One, 0f, 0.6f, Weight: 1f),
+                            new(Vector3.One, 0f, 0.4f, Weight: 1f),
+                            new(Vector3.One, 0f, 0.2f, Weight: 1f)
+                        ]
+                    }
+                ]
+            }
+        );
+
+        // A warning, so the material still compiles and draws the three layers its map paints.
+        Assert.False(compilation.Failed);
+
+        var diagnostic = Assert.Single(compilation.Diagnostics, d => d.Id == MaterialDiagnosticId.UnpaintedLayer);
+
+        Assert.False(diagnostic.IsError);
+
+        Assert.Equal(
+            3,
+            compilation.Material!.Parameters.Get(
+                ParameterKeys.New<int>(
+                    "ForwardPlus.CompositeSurface.TexturedMaterialLayersSurface.paintedChannels"
+                )
+            )
+        );
+    }
+
+    /// <summary>A material whose map really has four channels says so, and is not warned about.</summary>
+    /// <remarks>
+    ///     The other half, without which the assertion above is satisfied by a feature that always
+    ///     warns — and by one that writes a constant three whatever the material says.
+    /// </remarks>
+    [Fact]
+    public void A_four_channel_splat_map_is_declared_and_paints_the_fourth_layer() {
+        var compilation = MaterialCompiler.Compile(
+            new() {
+                Features = [
+                    new TexturedMaterialLayersFeature {
+                        PaintedChannels = 4,
+                        Layers = [
+                            new(Vector3.One, 0f, 0.8f, Weight: 1f),
+                            new(Vector3.One, 0f, 0.6f, Weight: 1f),
+                            new(Vector3.One, 0f, 0.4f, Weight: 1f),
+                            new(Vector3.One, 0f, 0.2f, Weight: 1f)
+                        ]
+                    }
+                ]
+            }
+        );
+
+        Assert.DoesNotContain(compilation.Diagnostics, d => d.Id == MaterialDiagnosticId.UnpaintedLayer);
+
+        Assert.Equal(
+            4,
+            compilation.Material!.Parameters.Get(
+                ParameterKeys.New<int>(
+                    "ForwardPlus.CompositeSurface.TexturedMaterialLayersSurface.paintedChannels"
+                )
+            )
+        );
+    }
+
     static Material Compiled(params IMaterialFeature[] features) {
         var compilation = MaterialCompiler.Compile(new() { Features = features });
 

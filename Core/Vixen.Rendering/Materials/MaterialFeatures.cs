@@ -686,6 +686,13 @@ public sealed record MaterialLayersFeature : IMaterialFeature {
 ///         a table keyed by one name cannot hold two.
 ///     </para>
 ///     <para>
+///         ⚠ <b>And the fourth channel has to be declared — see <see cref="PaintedChannels" />.</b> A
+///         one- or three-channel texture samples alpha as 1, so a fourth layer weighted by the alpha of
+///         an RGB splat map is weighted 1 <em>everywhere</em>, and the normalisation then makes that
+///         layer the whole surface. Three is the default and the compiler warns about a layer past it,
+///         which turns the widest wrong picture this feature can draw into a message somebody reads.
+///     </para>
+///     <para>
 ///         ⚠ <b><see cref="MaterialLayerValue.Weight" /> survives, and it is a <em>scale</em> on the
 ///         painted channel rather than the weight itself.</b> One is the map exactly, which is why the
 ///         layers a caller builds should carry one; zero disables a layer wherever it was painted,
@@ -720,6 +727,29 @@ public sealed record TexturedMaterialLayersFeature : IMaterialFeature {
     ///     's reason: a host pairs one name with one name, keyed off this default.
     /// </remarks>
     public string SplatMap { get; init; } = "splatMap";
+
+    /// <summary>How many of the splat map's channels carry a painted weight.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Three by default, because a one- or three-channel texture samples alpha as 1.</b>
+    ///         That is the hazard <c>TexturedOpacitySurface</c> documents at length and reads <c>.r</c>
+    ///         to avoid, and it is worse here than there: an opacity mask read from the wrong channel
+    ///         makes a surface solid, where a fourth layer weighted 1 over the whole surface <em>wins
+    ///         the normalisation everywhere</em> and the material becomes that one layer. Nothing about
+    ///         the frame says so — it is a lit, plausible surface of the wrong stuff.
+    ///     </para>
+    ///     <para>
+    ///         So the four-channel case is the one that has to be stated. A material whose splat map is
+    ///         RGBA — <c>TerrainSplat</c> writes those — sets this to four and gets its fourth layer; a
+    ///         material that leaves it alone and lists a fourth layer is warned by
+    ///         <see cref="MaterialCompiler" /> and draws the three it can paint.
+    ///     </para>
+    ///     <para>
+    ///         Clamped to <c>[0, 4]</c> when it is compiled, because a splat map has four channels and a
+    ///         number outside that describes no texture.
+    ///     </para>
+    /// </remarks>
+    public int PaintedChannels { get; init; } = 3;
 
     /// <inheritdoc />
     public string ShaderName => "TexturedMaterialLayersSurface";
@@ -760,6 +790,26 @@ public sealed record TexturedMaterialLayersFeature : IMaterialFeature {
         // channels are not zero, so an unpaired layered material blends its layers by the checker
         // rather than drawing nothing. That is visible, which is the whole point of the checker.
         context.Set("splatIndex", 0u);
+
+        // A splat map has four channels, so anything outside [0, 4] describes no texture.
+        var painted = Math.Clamp(PaintedChannels, 0, 4);
+
+        context.Set("paintedChannels", painted);
+
+        if (Layers.Count > painted) {
+            // ⚠ A warning rather than an error, and the shader paints nothing with the layers past the
+            // count rather than reading a channel that is not there. The message names the fix because
+            // the failure it replaces was a *lit surface of the wrong material* — see PaintedChannels.
+            context.Report(
+                MaterialDiagnosticId.UnpaintedLayer,
+                $"This material has {Layers.Count} layers and says its splat map paints {painted} "
+                + $"channel(s), so layer(s) {painted} and above have no weight anywhere and the rest "
+                + "are normalised without them. Set PaintedChannels to how many channels the map "
+                + "really has — and give it four, because a one- or three-channel texture samples "
+                + "alpha as 1 and a fourth layer read from it would cover the whole surface.",
+                false
+            );
+        }
     }
 }
 

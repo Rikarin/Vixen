@@ -202,6 +202,14 @@ shader MaterialLayersSurface : IMaterialSurface {
 /// works to. A stack deeper than four wants a second map, which is a second feature rather than a
 /// wider one.
 ///
+/// ⚠ **And the fourth of those channels has to be declared, which is `paintedChannels` below.** A
+/// one- or three-channel texture samples alpha as 1 — the hazard `TexturedOpacitySurface` documents
+/// at length and reads `.r` to avoid — so a fourth layer weighted by `splat.a` on an RGB splat map is
+/// weighted **1 over the whole surface**, and after the `1/total` normalisation the stack is layer 3
+/// everywhere. Three is the default for that reason: a stack that reaches the alpha says so, and a
+/// material whose fourth layer is silently unpainted is a warning the material compiler raises rather
+/// than a surface that turned into one colour.
+///
 /// ⚠ **`layers[i].weight` survives and is a *scale* on the painted channel, not the weight.** One is
 /// the map exactly; zero disables a layer wherever it was painted, which is what an author toggling a
 /// layer off wants and is why the constant was not dropped.
@@ -221,15 +229,30 @@ shader TexturedMaterialLayersSurface : MaterialTextures, IMaterialSurface {
     /// Which slot of the frame's table holds this material's splat map.
     var splatIndex: uint = 0u
 
+    /// How many of the splat map's channels actually carry a painted weight.
+    ///
+    /// ⚠ **Three, not four, and the default is the whole guard.** A one- or three-channel texture
+    /// samples alpha as 1, so a material that reaches `splat.a` without having a four-channel map is
+    /// not slightly wrong — layer 3 weighs 1 everywhere and, normalised, covers the surface. A value
+    /// rather than a permutation because it costs one comparison and no variant, and because the
+    /// number is a fact about *this material's* texture rather than about the frame.
+    var paintedChannels: int = 3
+
     var layers: MaterialLayer[LayerCount]
 
-    /// One layer's painted weight, by channel. Layers past the fourth are unpainted.
+    /// One layer's painted weight, by channel. Layers past `paintedChannels` are unpainted.
     ///
     /// A chain rather than a dynamic index into the vector, because a vector's components are not
     /// addressable by a runtime index in every backend this library targets — and `layer` *is* a
     /// runtime index here, since the loop above is emitted as a loop. Four comparisons a layer, which
     /// a driver that unrolls a constant-bound loop folds to one swizzle.
     func Painted(splat: float4, layer: int): float {
+        // ⚠ Zero rather than the channel, for a layer the map does not paint. See `paintedChannels`:
+        // the alpha of a map that has none reads 1, which is the widest possible wrong answer.
+        if (layer >= paintedChannels) {
+            return 0f
+        }
+
         if (layer == 0) {
             return splat.r
         }

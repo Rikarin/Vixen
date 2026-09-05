@@ -1245,6 +1245,78 @@ public class LibraryTreeTests {
         Assert.DoesNotContain("layers[2]", four, StringComparison.Ordinal);
     }
 
+    /// <summary>The painted stack's fourth channel is read through a value the material supplies.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A one- or three-channel texture samples alpha as 1</b>, which
+    ///         <c>TexturedOpacitySurface</c> argues at length about and reads <c>.r</c> to avoid.
+    ///         <c>Painted</c> returned <c>splat.a</c> for layer 3 unconditionally, so a four-layer
+    ///         material over an RGB splat map weighted its fourth layer 1 at every texel and, after the
+    ///         <c>1/total</c> normalisation, was that layer everywhere: a lit and plausible surface of
+    ///         the wrong material, on a map nothing constrained to have four channels.
+    ///     </para>
+    ///     <para>
+    ///         Asserted on the emitted unit rather than on the source, for the reason the sampling test
+    ///         above gives: a guard the lowering folded away is not a guard, and the widest variant —
+    ///         four layers, the only one that can reach the alpha at all — is the one that has to carry
+    ///         it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_painted_stacks_alpha_channel_is_gated_on_a_declared_channel_count() {
+        var four = ForwardPlusSource(
+            LowerTree(
+                PermutationValues.Parse(["LayerCount=4"]),
+                ("surface", "TexturedMaterialLayersSurface")
+            )
+        );
+
+        var painted = Body(four, "TexturedMaterialLayersSurface_Painted");
+
+        // ⚠ Inside the function, not merely in the unit. A uniform is emitted into the material block
+        // whether or not anything reads it, so `Assert.Contains` on the whole unit is green with the
+        // guard deleted — measured, on the way to writing this.
+        Assert.Contains("paintedChannels", painted, StringComparison.Ordinal);
+
+        // And the fourth channel is still reachable, so the guard is a gate rather than a removal:
+        // a material that declares four channels gets its fourth layer.
+        Assert.Contains("splat.w", painted, StringComparison.Ordinal);
+    }
+
+    /// <summary>One emitted function's body, so an assertion can be about what it reads.</summary>
+    /// <param name="source">The generated unit.</param>
+    /// <param name="name">The emitted function's name — the shader's, underscore, the method's.</param>
+    /// <returns>Everything between the declaration and the line that closes it.</returns>
+    /// <remarks>
+    ///     ⚠ The generator writes every function at column zero and closes it with a <c>}</c> at column
+    ///     zero, which is what makes this a substring rather than a parse. A name that is not in the
+    ///     unit fails here rather than returning an empty body that every <c>DoesNotContain</c> would
+    ///     be satisfied by — and it finds the <em>definition</em>, because every function is also
+    ///     forward-declared above and the prototype's "body" would be the next function's.
+    /// </remarks>
+    static string Body(string source, string name) {
+        var start = source.IndexOf(name + "(", StringComparison.Ordinal);
+
+        while (start >= 0) {
+            var brace = source.IndexOf('{', start);
+            var line = source.IndexOf('\n', start);
+
+            if (brace >= 0 && (line < 0 || brace < line)) {
+                break;
+            }
+
+            start = source.IndexOf(name + "(", start + 1, StringComparison.Ordinal);
+        }
+
+        Assert.True(start >= 0, $"The emitted unit has no definition of '{name}'.");
+
+        var end = source.IndexOf("\n}", start, StringComparison.Ordinal);
+
+        Assert.True(end > start, $"'{name}' is not closed in the emitted unit.");
+
+        return source[start..end];
+    }
+
     /// <summary>The resolve's compute unit, as GLSL.</summary>
     static string ResolveSource(IrModule module) {
         var bag = new DiagnosticBag();

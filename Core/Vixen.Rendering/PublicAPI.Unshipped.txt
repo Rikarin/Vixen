@@ -3483,6 +3483,7 @@ Vixen.Rendering.Materials.MaterialDiagnosticId.MaterialDiagnosticId() -> void
 Vixen.Rendering.Materials.MaterialDiagnosticId.NoFeatures = 2 -> Vixen.Rendering.Materials.MaterialDiagnosticId
 Vixen.Rendering.Materials.MaterialDiagnosticId.TooManyFeatures = 1 -> Vixen.Rendering.Materials.MaterialDiagnosticId
 Vixen.Rendering.Materials.MaterialDiagnosticId.UnnamedShader = 3 -> Vixen.Rendering.Materials.MaterialDiagnosticId
+Vixen.Rendering.Materials.MaterialDiagnosticId.UnpaintedLayer = 4 -> Vixen.Rendering.Materials.MaterialDiagnosticId
 Vixen.Rendering.Materials.MaterialKeys -> static class
 Vixen.Rendering.Materials.MaterialLayerValue -> readonly struct
 Vixen.Rendering.Materials.MaterialLayerValue : System.IEquatable<Vixen.Rendering.Materials.MaterialLayerValue>
@@ -3630,6 +3631,8 @@ Vixen.Rendering.Materials.TexturedMaterialLayersFeature : Vixen.Rendering.Materi
 Vixen.Rendering.Materials.TexturedMaterialLayersFeature.Compile(Vixen.Rendering.Materials.MaterialCompilationContext context) -> void
 Vixen.Rendering.Materials.TexturedMaterialLayersFeature.Layers.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Materials.MaterialLayerValue>
 Vixen.Rendering.Materials.TexturedMaterialLayersFeature.Layers.init -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Materials.MaterialLayerValue>
+Vixen.Rendering.Materials.TexturedMaterialLayersFeature.PaintedChannels.get -> int
+Vixen.Rendering.Materials.TexturedMaterialLayersFeature.PaintedChannels.init -> int
 Vixen.Rendering.Materials.TexturedMaterialLayersFeature.ShaderName.get -> string
 Vixen.Rendering.Materials.TexturedMaterialLayersFeature.SplatMap.get -> string
 Vixen.Rendering.Materials.TexturedMaterialLayersFeature.SplatMap.init -> string
