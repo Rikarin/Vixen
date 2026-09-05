@@ -63,6 +63,8 @@ Vixen.Ui.Controls.Advanced.CodeEditor.AutoIndent.get -> bool
 Vixen.Ui.Controls.Advanced.CodeEditor.AutoIndent.set -> bool
 Vixen.Ui.Controls.Advanced.CodeEditor.Buffer.get -> Vixen.Ui.Controls.Advanced.CodeBuffer
 Vixen.Ui.Controls.Advanced.CodeEditor.Buffer.set -> Vixen.Ui.Controls.Advanced.CodeBuffer
+Vixen.Ui.Controls.Advanced.CodeEditor.CanCopy.get -> bool
+Vixen.Ui.Controls.Advanced.CodeEditor.CanPaste.get -> bool
 Vixen.Ui.Controls.Advanced.CodeEditor.Caret.get -> Vixen.Ui.Controls.Advanced.TextPosition
 Vixen.Ui.Controls.Advanced.CodeEditor.CaretArea.get -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Controls.Advanced.CodeEditor.CaretBlink.get -> System.TimeSpan
@@ -81,6 +83,8 @@ Vixen.Ui.Controls.Advanced.CodeEditor.CompletionIndex.get -> int
 Vixen.Ui.Controls.Advanced.CodeEditor.CompletionProvider.get -> System.Func<Vixen.Ui.Controls.Advanced.CodeEditor, string, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.CompletionItem>>?
 Vixen.Ui.Controls.Advanced.CodeEditor.CompletionProvider.set -> System.Func<Vixen.Ui.Controls.Advanced.CodeEditor, string, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.CompletionItem>>?
 Vixen.Ui.Controls.Advanced.CodeEditor.Completions.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.CompletionItem>
+Vixen.Ui.Controls.Advanced.CodeEditor.Copy() -> bool
+Vixen.Ui.Controls.Advanced.CodeEditor.Cut() -> bool
 Vixen.Ui.Controls.Advanced.CodeEditor.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.CodeDiagnostic>
 Vixen.Ui.Controls.Advanced.CodeEditor.Erase(bool forward) -> void
 Vixen.Ui.Controls.Advanced.CodeEditor.FoldAt(int line) -> Vixen.Ui.Controls.Advanced.CodeFold?
@@ -93,6 +97,7 @@ Vixen.Ui.Controls.Advanced.CodeEditor.IsCollapsed(int line) -> bool
 Vixen.Ui.Controls.Advanced.CodeEditor.IsCompleting.get -> bool
 Vixen.Ui.Controls.Advanced.CodeEditor.Lines.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.CodeEditor.Move(Vixen.Ui.Controls.Advanced.TextPosition position, bool extend = false) -> void
+Vixen.Ui.Controls.Advanced.CodeEditor.Paste() -> bool
 Vixen.Ui.Controls.Advanced.CodeEditor.Pool.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.CodeLine>
 Vixen.Ui.Controls.Advanced.CodeEditor.ReadOnly.get -> bool
 Vixen.Ui.Controls.Advanced.CodeEditor.ReadOnly.set -> bool

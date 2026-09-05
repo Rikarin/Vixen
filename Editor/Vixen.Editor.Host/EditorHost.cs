@@ -202,6 +202,14 @@ sealed class EditorHost : IDisposable {
         windows = new PlatformWindowHost(platform, editor.Shell.Document, window);
         textInput = new PlatformTextInput(platform.TextInput);
 
+        // ⚠ **And the same for the pasteboard, in both hosts.** `UiApplication` carries the other
+        // copy of this line; a wire added to one host and not the other is silently absent from the
+        // other, which is the failure this repository has met most often. Without it the editor's
+        // own text fields would have the cut, copy and paste they have never had — the editor's
+        // `PropertyClipboard` and `NodeGraphClipboard` are in-process object stores and never touch
+        // the OS pasteboard.
+        PlatformClipboard.Install(editor.Shell.Document, platform);
+
         Fonts.Install(editor.Shell.Document);
 
         // ⚠ After the font, because how a shortcut should be written depends on what the face can

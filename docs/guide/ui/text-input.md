@@ -4,8 +4,8 @@ slug: ui/text-input
 kind: guide
 area: Core
 summary: How typed text reaches a control, why an input method's pre-edit is a different event from typed text and what a field does with it, why the pre-edit is shown but is not the value, where the caret goes while a composition is running, what a platform head has to do for any of it to arrive, and why a caret index alone cannot say where the caret is at a wrap or a change of direction.
-api: [T:Vixen.Ui.TextInputEvent, T:Vixen.Ui.TextCompositionEvent, T:Vixen.Ui.Text.CaretAffinity]
-tags: [ui, input, text, keyboard, ime, composition, caret, affinity, bidi]
+api: [T:Vixen.Ui.TextInputEvent, T:Vixen.Ui.TextCompositionEvent, T:Vixen.Ui.Text.CaretAffinity, T:Vixen.Ui.EditingCommands, T:Vixen.Ui.EditingCommand, T:Vixen.Ui.EditingKeymap]
+tags: [ui, input, text, keyboard, ime, composition, caret, affinity, bidi, keymap, shortcuts]
 since: 0.2
 status: preview
 related: [ui/commands, ui/accessibility]
@@ -130,6 +130,38 @@ field.On<TextCompositionEvent>(
 ⚠ A pre-edit is **not** typed text: it is what the input method is still deciding, it replaces
 whatever it showed last time, and committing it as input would leave every intermediate reading in
 the field. The two events exist to keep them apart.
+
+## The editing keymap
+
+A chord is not a verb. `EditingCommands.Resolve(key, modifiers, keymap)` turns one into an
+`EditingCommand` — `MoveWordLeft`, `DeleteToLineEnd`, `SelectAll` — and both text controls switch on
+the verb rather than on the key. `EditingCommands.Id` gives each one its canonical string
+(`text.move-word-left`, and `edit.copy` for the three verbs an application shares).
+
+⚠ **There are two tables, and there have to be.** `TextField` used to take `Control || Meta` for
+every verb with a comment saying the assembly could not know which platform it was on, and
+`CodeEditor` had a second copy of the same switch that took `Control` only — so ⌘← moved by a word in
+a text box and by a single character in the code editor. Neither could grow the AppKit emacs
+bindings, because ⌃A cannot be Select All and "move to the start of the line" in one table:
+
+| | Windows / Linux | macOS |
+|---|---|---|
+| Word left | Ctrl-← | ⌥← |
+| Line start | Home | ⌘←, Home, ⌃A |
+| Select all | Ctrl-A | ⌘A |
+| Delete to line end | — | ⌃K |
+
+`UiDocument.EditingKeymap` says which table a document reads; it defaults to
+`EditingCommands.Current`, which is the platform's.
+
+⚠ **Pin it in a test.** A suite that took the default would assert one keyboard on a Mac and another
+in CI, which is a red build whose cause is in neither the diff nor the test. Both control fixtures
+set `EditingKeymap.Windows`, and the platform question is answered by naming both tables directly.
+
+⚠ **Shift is stripped before the lookup and every other modifier must match exactly.** Extending a
+selection is orthogonal to every motion, so it is a bit the control reads rather than a second half
+of the vocabulary — and exactness is what lets ⌥← and ⌘← mean two different things at all. The
+switches this replaced used `HasFlag`, which made ⌃⌥← word motion.
 
 ## See also
 

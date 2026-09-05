@@ -181,6 +181,13 @@ Vixen.Ui.BoxStyle.Space.get -> Vixen.Ui.GradientSpace
 Vixen.Ui.BoxStyle.Space.init -> Vixen.Ui.GradientSpace
 Vixen.Ui.BoxStyle.Stops.get -> Vixen.Ui.GradientStops
 Vixen.Ui.BoxStyle.Stops.init -> Vixen.Ui.GradientStops
+Vixen.Ui.CloseRequestEvent -> sealed class
+Vixen.Ui.CloseRequestEvent : Vixen.Ui.UiEvent
+Vixen.Ui.CloseRequestEvent.Cancel() -> void
+Vixen.Ui.CloseRequestEvent.CloseRequestEvent() -> void
+Vixen.Ui.CloseRequestEvent.IsCancelled.get -> bool
+Vixen.Ui.CloseRequestEvent.Reason.get -> Vixen.Ui.UiCloseReason
+Vixen.Ui.CloseRequestEvent.Reason.init -> Vixen.Ui.UiCloseReason
 Vixen.Ui.CommandHandler -> readonly struct
 Vixen.Ui.CommandHandler : System.IEquatable<Vixen.Ui.CommandHandler>
 Vixen.Ui.CommandHandler.CanExecute.get -> bool
@@ -428,6 +435,43 @@ Vixen.Ui.DrawListBuilder.Compositing.get -> bool
 Vixen.Ui.DrawListBuilder.Compositing.set -> bool
 Vixen.Ui.DrawListBuilder.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Styling.SelectorDiagnostic>
 Vixen.Ui.DrawListBuilder.DrawListBuilder(Vixen.Ui.Styling.NameTable properties, Vixen.Ui.Styling.NameTable values, Vixen.Ui.Styling.NameTable keywords) -> void
+Vixen.Ui.EditingCommand -> enum : byte
+Vixen.Ui.EditingCommand.Cancel = 27 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.Copy = 23 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.Cut = 22 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.DeleteBackward = 13 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.DeleteForward = 14 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.DeleteToLineEnd = 18 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.DeleteToLineStart = 17 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.DeleteWordBackward = 15 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.DeleteWordForward = 16 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.EditingCommand() -> void
+Vixen.Ui.EditingCommand.InsertNewline = 19 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.InsertTab = 20 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MoveDocumentEnd = 12 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MoveDocumentStart = 11 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MoveDown = 4 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MoveLeft = 1 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MoveLineEnd = 8 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MoveLineStart = 7 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MovePageDown = 10 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MovePageUp = 9 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MoveRight = 2 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MoveUp = 3 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MoveWordLeft = 5 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.MoveWordRight = 6 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.None = 0 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.Paste = 24 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.Redo = 29 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.SelectAll = 21 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.ShowCompletion = 26 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.Submit = 25 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommand.Undo = 28 -> Vixen.Ui.EditingCommand
+Vixen.Ui.EditingCommands -> static class
+Vixen.Ui.EditingKeymap -> enum : byte
+Vixen.Ui.EditingKeymap.EditingKeymap() -> void
+Vixen.Ui.EditingKeymap.MacOs = 1 -> Vixen.Ui.EditingKeymap
+Vixen.Ui.EditingKeymap.Windows = 0 -> Vixen.Ui.EditingKeymap
 Vixen.Ui.EventRouter -> static class
 Vixen.Ui.FocusDirection -> enum : byte
 Vixen.Ui.FocusDirection.FocusDirection() -> void
@@ -530,6 +574,10 @@ Vixen.Ui.ICommandResponder.TryGetCommandHandler(string id, out Vixen.Ui.CommandH
 Vixen.Ui.ITextInputTarget -> interface
 Vixen.Ui.ITextInputTarget.AcceptsTextInput.get -> bool
 Vixen.Ui.ITextInputTarget.CaretArea.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.IUiClipboard -> interface
+Vixen.Ui.IUiClipboard.HasText.get -> bool
+Vixen.Ui.IUiClipboard.SetText(string text) -> bool
+Vixen.Ui.IUiClipboard.TryGetText(out string? text) -> bool
 Vixen.Ui.IUiWindow -> interface
 Vixen.Ui.IUiWindow : System.IDisposable
 Vixen.Ui.IUiWindow.Bounds.get -> (float X, float Y, float Width, float Height)
@@ -546,6 +594,13 @@ Vixen.Ui.IUiWindowHost -> interface
 Vixen.Ui.IUiWindowHost.CanOpen.get -> bool
 Vixen.Ui.IUiWindowHost.Open(Vixen.Ui.UiDocument document, in Vixen.Ui.UiWindowRequest request) -> Vixen.Ui.IUiWindow?
 Vixen.Ui.IUiWindowHost.TryLocate(Vixen.Ui.UiSurface surface, out float x, out float y) -> bool
+Vixen.Ui.IUndoManager -> interface
+Vixen.Ui.IUndoManager.CanRedo.get -> bool
+Vixen.Ui.IUndoManager.CanUndo.get -> bool
+Vixen.Ui.IUndoManager.IsPerforming.get -> bool
+Vixen.Ui.IUndoManager.Redo() -> bool
+Vixen.Ui.IUndoManager.Register(string name, System.Action undo, System.Action redo) -> void
+Vixen.Ui.IUndoManager.Undo() -> bool
 Vixen.Ui.KeyAction -> enum : byte
 Vixen.Ui.KeyAction.KeyAction() -> void
 Vixen.Ui.KeyAction.Pressed = 0 -> Vixen.Ui.KeyAction
@@ -1154,6 +1209,10 @@ Vixen.Ui.UiBoxModel.Padding.get -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.UiBoxModel.Padding.init -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.UiBoxModel.UiBoxModel() -> void
 Vixen.Ui.UiBoxModel.UiBoxModel(Vixen.Core.Mathematics.Rectangle Margin, Vixen.Core.Mathematics.Rectangle Border, Vixen.Core.Mathematics.Rectangle Padding, Vixen.Core.Mathematics.Rectangle Content) -> void
+Vixen.Ui.UiCloseReason -> enum : byte
+Vixen.Ui.UiCloseReason.Quit = 0 -> Vixen.Ui.UiCloseReason
+Vixen.Ui.UiCloseReason.UiCloseReason() -> void
+Vixen.Ui.UiCloseReason.WindowClosed = 1 -> Vixen.Ui.UiCloseReason
 Vixen.Ui.UiCursor -> enum : byte
 Vixen.Ui.UiCursor.Auto = 0 -> Vixen.Ui.UiCursor
 Vixen.Ui.UiCursor.ColumnResize = 12 -> Vixen.Ui.UiCursor
@@ -1206,6 +1265,9 @@ Vixen.Ui.UiDocument.Builder.get -> Vixen.Ui.LayoutStyleBuilder
 Vixen.Ui.UiDocument.CanOpenWindows.get -> bool
 Vixen.Ui.UiDocument.CapturePointer(Vixen.Ui.UiElement element) -> void
 Vixen.Ui.UiDocument.Captured.get -> Vixen.Ui.UiElement?
+Vixen.Ui.UiDocument.Clipboard.get -> Vixen.Ui.IUiClipboard?
+Vixen.Ui.UiDocument.Clipboard.set -> Vixen.Ui.IUiClipboard?
+Vixen.Ui.UiDocument.CloseRequested -> System.Action<Vixen.Ui.CloseRequestEvent>?
 Vixen.Ui.UiDocument.ColorOf(Vixen.Ui.Styling.ComputedStyle style, int property) -> Vixen.Core.Mathematics.Color4?
 Vixen.Ui.UiDocument.ColorScheme.get -> Vixen.Ui.Styling.ColorSchemePreference
 Vixen.Ui.UiDocument.ColorScheme.set -> Vixen.Ui.Styling.ColorSchemePreference
@@ -1236,6 +1298,8 @@ Vixen.Ui.UiDocument.Dispose() -> void
 Vixen.Ui.UiDocument.Draw() -> bool
 Vixen.Ui.UiDocument.Draw(Vixen.Ui.UiSurface surface) -> bool
 Vixen.Ui.UiDocument.Drawing.get -> Vixen.Ui.DrawList
+Vixen.Ui.UiDocument.EditingKeymap.get -> Vixen.Ui.EditingKeymap
+Vixen.Ui.UiDocument.EditingKeymap.set -> Vixen.Ui.EditingKeymap
 Vixen.Ui.UiDocument.Effects.get -> Vixen.Ui.Reactive.EffectScheduler
 Vixen.Ui.UiDocument.FindInDirection(Vixen.Ui.UiElement origin, Vixen.Ui.NavigationDirection direction) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Focus(Vixen.Ui.UiElement? element, bool force = false) -> bool
@@ -1246,6 +1310,7 @@ Vixen.Ui.UiDocument.ForgetPassRefusals() -> void
 Vixen.Ui.UiDocument.Gamut.get -> Vixen.Core.Mathematics.ColorGamut
 Vixen.Ui.UiDocument.Gamut.set -> Vixen.Core.Mathematics.ColorGamut
 Vixen.Ui.UiDocument.Gestures.get -> Vixen.Ui.GestureRecognizer
+Vixen.Ui.UiDocument.HasClipboard.get -> bool
 Vixen.Ui.UiDocument.HitTest(Vixen.Ui.UiSurface surface, float x, float y) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.HitTest(float x, float y) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Hovered.get -> Vixen.Ui.UiElement?
@@ -1280,6 +1345,7 @@ Vixen.Ui.UiDocument.ReloadStyles(int sheet, string css) -> void
 Vixen.Ui.UiDocument.Remove(Vixen.Ui.UiElement element) -> void
 Vixen.Ui.UiDocument.RemoveSurface(Vixen.Ui.UiSurface surface) -> bool
 Vixen.Ui.UiDocument.Reparent(Vixen.Ui.UiElement element, Vixen.Ui.UiElement parent, int index = -1) -> void
+Vixen.Ui.UiDocument.RequestClose(Vixen.Ui.UiCloseReason reason = Vixen.Ui.UiCloseReason.Quit) -> bool
 Vixen.Ui.UiDocument.Resize(Vixen.Ui.UiSurface surface, float width, float height, float dpiScale) -> void
 Vixen.Ui.UiDocument.Resize(float width, float height) -> void
 Vixen.Ui.UiDocument.Restyler.get -> Vixen.Ui.Styling.StyleUpdater
@@ -1299,6 +1365,8 @@ Vixen.Ui.UiDocument.TextAlignShift(Vixen.Ui.UiElement element, float slack) -> f
 Vixen.Ui.UiDocument.Tick(System.TimeSpan now) -> void
 Vixen.Ui.UiDocument.Ticked -> System.Action<Vixen.Ui.UiDocument, System.TimeSpan>?
 Vixen.Ui.UiDocument.UiDocument(float width, float height, float rootFontSize = 16, Microsoft.Extensions.Logging.ILogger? logger = null) -> void
+Vixen.Ui.UiDocument.UndoManager.get -> Vixen.Ui.IUndoManager?
+Vixen.Ui.UiDocument.UndoManager.set -> Vixen.Ui.IUndoManager?
 Vixen.Ui.UiDocument.Update() -> bool
 Vixen.Ui.UiDocument.Viewport.get -> Vixen.Ui.LengthContext
 Vixen.Ui.UiDocument.Windows.get -> Vixen.Ui.IUiWindowHost?
@@ -1347,6 +1415,7 @@ Vixen.Ui.UiElement.DeclaredAccessibleState.set -> Vixen.Ui.AccessibleStates
 Vixen.Ui.UiElement.Document.get -> Vixen.Ui.UiDocument
 Vixen.Ui.UiElement.EffectiveCommandScope.get -> string?
 Vixen.Ui.UiElement.Ellipsized(float contentWidth) -> Vixen.Ui.TextLayout?
+Vixen.Ui.UiElement.FindUndoManager() -> Vixen.Ui.IUndoManager?
 Vixen.Ui.UiElement.Focusable.get -> bool
 Vixen.Ui.UiElement.Focusable.set -> bool
 Vixen.Ui.UiElement.FontFeatures.get -> Vixen.Ui.Text.FontFeatureSet
@@ -1405,6 +1474,8 @@ Vixen.Ui.UiElement.Top.get -> float
 Vixen.Ui.UiElement.Transform.get -> Vixen.Ui.Rendering.UiTransform?
 Vixen.Ui.UiElement.TryGetCommandHandler(string id, out Vixen.Ui.CommandHandler handler) -> bool
 Vixen.Ui.UiElement.UiElement() -> void
+Vixen.Ui.UiElement.UndoManager.get -> Vixen.Ui.IUndoManager?
+Vixen.Ui.UiElement.UndoManager.set -> Vixen.Ui.IUndoManager?
 Vixen.Ui.UiElement.Width.get -> float
 Vixen.Ui.UiElement.WordSpacing.get -> float
 Vixen.Ui.UiElement.ZIndex.get -> int
@@ -1476,6 +1547,20 @@ Vixen.Ui.UiWindowRequest.X.get -> float
 Vixen.Ui.UiWindowRequest.X.init -> float
 Vixen.Ui.UiWindowRequest.Y.get -> float
 Vixen.Ui.UiWindowRequest.Y.init -> float
+Vixen.Ui.UndoManager -> sealed class
+Vixen.Ui.UndoManager : Vixen.Ui.IUndoManager
+Vixen.Ui.UndoManager.CanRedo.get -> bool
+Vixen.Ui.UndoManager.CanUndo.get -> bool
+Vixen.Ui.UndoManager.Clear() -> void
+Vixen.Ui.UndoManager.IsPerforming.get -> bool
+Vixen.Ui.UndoManager.Limit.get -> int
+Vixen.Ui.UndoManager.Limit.init -> int
+Vixen.Ui.UndoManager.Redo() -> bool
+Vixen.Ui.UndoManager.RedoName.get -> string?
+Vixen.Ui.UndoManager.Register(string name, System.Action undo, System.Action redo) -> void
+Vixen.Ui.UndoManager.Undo() -> bool
+Vixen.Ui.UndoManager.UndoManager() -> void
+Vixen.Ui.UndoManager.UndoName.get -> string?
 Vixen.Ui.WheelEvent -> sealed class
 Vixen.Ui.WheelEvent : Vixen.Ui.UiEvent
 Vixen.Ui.WheelEvent.DeltaX.get -> float
@@ -1546,6 +1631,9 @@ static Vixen.Ui.Composition.ScopedStyles.ScopeOf(System.Type component) -> strin
 static Vixen.Ui.CornerRadii.Circular(float topLeft, float topRight, float bottomRight, float bottomLeft) -> Vixen.Ui.CornerRadii
 static Vixen.Ui.CornerRadii.Uniform(float radius) -> Vixen.Ui.CornerRadii
 static Vixen.Ui.DrawBatcher.Build(System.Collections.Generic.IReadOnlyList<Vixen.Ui.DrawCommand> commands, System.Collections.Generic.List<Vixen.Ui.DrawBatch> into) -> void
+static Vixen.Ui.EditingCommands.Current.get -> Vixen.Ui.EditingKeymap
+static Vixen.Ui.EditingCommands.Id(Vixen.Ui.EditingCommand command) -> string?
+static Vixen.Ui.EditingCommands.Resolve(Vixen.Input.InputKey key, Vixen.Ui.ModifierKeys modifiers, Vixen.Ui.EditingKeymap keymap) -> Vixen.Ui.EditingCommand
 static Vixen.Ui.EventRouter.Direct<T>(Vixen.Ui.UiElement target, T args) -> void
 static Vixen.Ui.EventRouter.Raise<T>(Vixen.Ui.UiElement target, T args) -> void
 static Vixen.Ui.FontRegistry.Cover(string text, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Text.FontFace> chain, System.Collections.Generic.List<Vixen.Ui.FontSpan> into) -> void

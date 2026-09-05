@@ -8,6 +8,7 @@ Vixen.Ui.Desktop.UiApplication.Document.get -> Vixen.Ui.UiDocument
 Vixen.Ui.Desktop.UiApplication.Frame -> System.Action<Vixen.Ui.Desktop.UiApplication, Vixen.Ui.Desktop.UiFrame>?
 Vixen.Ui.Desktop.UiApplication.FrameCount.get -> int
 Vixen.Ui.Desktop.UiApplication.Platform.get -> Vixen.Platform.IPlatform
+Vixen.Ui.Desktop.UiApplication.Quit(Vixen.Ui.UiCloseReason reason = Vixen.Ui.UiCloseReason.Quit) -> bool
 Vixen.Ui.Desktop.UiApplication.Started -> System.Action<Vixen.Ui.Desktop.UiApplication>?
 Vixen.Ui.Desktop.UiApplication.Stop() -> void
 Vixen.Ui.Desktop.UiApplication.Stopping -> System.Action<Vixen.Ui.Desktop.UiApplication>?
