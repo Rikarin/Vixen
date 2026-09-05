@@ -534,4 +534,31 @@ bevy_issue_7976_4_level
 # Chrome's own behaviour is the spec's. The honest shape is to keep the offer for the measurement
 # but record the unclamped max-content size separately as the base — the same separation
 # LayoutResult.UnclampedMeasuredDimensions already made once, one question further out.
+#
+# ⚠ THAT SHAPE WAS BUILT AND MEASURED AND IS NOT LANDED, and the reason is worth more than the four
+# fixtures. Taking the base from an unbounded `Measure` of the leaf — cached, gated to an item with
+# no preferred main size, and only while the container's own main size is definite — closes all four
+# variants, 2 390 -> 2 394, and moves nothing else in the four Taffy corpora or Yoga's 534. It costs
+# FIVE tests one layer out, and three separate lessons came out of the attempt:
+#
+#   · A second `CalculateLayoutInternal` cannot be the vehicle. A layout pass WRITES — it fills
+#     MeasuredDimensions and seeds the measurement cache — so an unbounded one leaves a leaf
+#     remembering the size it wanted rather than the size it was given.
+#     Vixen.Ui.Tests.TextWrapTests.A_label_with_no_width_of_its_own_wraps_at_its_container came back
+#     one line tall instead of three. A bare `Measure` writes nothing and is the right instrument,
+#     but it also bypasses the measure cache, which LayoutPassTests.A_static_subtree_is_not_re_measured
+#     catches at once: the answer has to be cached on the node and cleared by the dirty flag.
+#   · §9.2 is what a container does once it knows its own main size. While it is being asked how big
+#     it WANTS to be, §9.9 wants each item's contribution, and this store answers that question by
+#     summing the same bases — so a max-content base under a min-content request made
+#     `width: min-content` report 30 where the answer is 10. Gating on the container's main-axis
+#     SizingMode being StretchFit fixes that, and is a symptom of the base and the contribution being
+#     one field where they are two numbers.
+#   · ⚠ THE FOUR THAT REMAIN ARE NOT FIXABLE HERE, and they are the finding.
+#     Vixen.Ui.Controls.Tests.TextWrappingPixelTests puts an unbreakable word with
+#     `overflow-wrap: break-word` in a fixed box. With a true max-content base the item's §4.5 floor
+#     is the whole word, so it never shrinks to the box and never wraps — and that floor is right
+#     only because this engine has no intrinsic-minimum stage that reads `overflow-wrap`, which
+#     The_two_breaking_keywords_are_one_behaviour_in_this_engine already documents as absent. §9.2
+#     step 3E cannot land before that stage exists. Filed as Rikarin/Vixen#682.
 measure_child_with_flex_shrink_hidden
