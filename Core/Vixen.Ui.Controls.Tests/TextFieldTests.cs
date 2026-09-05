@@ -352,8 +352,19 @@ public class TextFieldTests {
         Assert.Equal(-8d, field.Number);
     }
 
+    /// <summary>An assigned number is held whatever the bounds say, and the arrows are what clamp.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This test used to assert the opposite, and its premise is what expired rather than
+    ///     its intent.</b> It was written when the bounds lived in <c>CoerceNumber</c>, which made
+    ///     "the number is inside the range" true of every mutation — and therefore made
+    ///     <c>:out-of-range</c> a condition the control could not be in, for any length of time, by
+    ///     any route. The bounds moved to the verdict for that reason
+    ///     (<see href="https://github.com/Rikarin/Vixen/issues/812" />), so what the field promises
+    ///     now is that it <i>reports</i> a violation rather than that it cannot hold one. The half
+    ///     that did not move is asserted below it: a spinner still stops at the ends.
+    /// </remarks>
     [Fact]
-    public void A_number_is_clamped_to_its_range() {
+    public void A_number_outside_its_range_is_held_and_reported() {
         using var fixture = new ControlFixture();
 
         var field = fixture.Add<NumericInput>();
@@ -361,15 +372,61 @@ public class TextFieldTests {
         field.Maximum = 10d;
 
         field.Number = 50d;
-        Assert.Equal(10d, field.Number);
+        Assert.Equal(50d, field.Number);
+        Assert.False(field.IsInRange);
+        Assert.False(field.IsValid);
+        Assert.Equal(ControlStrings.FieldOutOfRange.Text, field.ValidationMessage);
+
+        field.Number = 5d;
+        Assert.True(field.IsInRange);
+        Assert.True(field.IsValid);
 
         field.Number = -50d;
-        Assert.Equal(0d, field.Number);
+        Assert.Equal(-50d, field.Number);
+        Assert.False(field.IsInRange);
 
-        // Moving the ceiling under the value brings it back inside.
+        // ⚠ Moving the ceiling under the value no longer un-says the value. It makes it
+        // unacceptable, which is a thing the field can now express and could not before.
         field.Number = 10d;
         field.Maximum = 4d;
-        Assert.Equal(4d, field.Number);
+
+        Assert.Equal(10d, field.Number);
+        Assert.False(field.IsInRange);
+    }
+
+    /// <summary>And the gestures that stop at the ends still stop at them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half of the clamp that was worth keeping</b>, and the reason the change is a
+    ///     split rather than a removal: a person pressing an arrow is pushing a number rather than
+    ///     saying one, so the key that would take it past the ceiling lands on the ceiling. It is
+    ///     also the way back from a number typed outside the bounds.
+    /// </remarks>
+    [Fact]
+    public void An_arrow_key_still_clamps_and_is_the_way_back_into_range() {
+        using var fixture = new ControlFixture();
+
+        var field = fixture.Add<NumericInput>();
+        field.RelativeStep = 0d;
+        field.Minimum = 0d;
+        field.Maximum = 10d;
+        field.Number = 10d;
+
+        fixture.Document.Focus(field);
+
+        fixture.Type(InputKey.Up);
+
+        Assert.Equal(10d, field.Number);
+        Assert.True(field.IsInRange);
+
+        // Typed past the ceiling, then walked back by one press — which lands on the end rather than
+        // one step below where it was.
+        field.Number = 50d;
+        Assert.False(field.IsInRange);
+
+        fixture.Type(InputKey.Down);
+
+        Assert.Equal(10d, field.Number);
+        Assert.True(field.IsInRange);
     }
 
     [Fact]

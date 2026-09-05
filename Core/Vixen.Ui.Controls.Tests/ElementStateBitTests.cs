@@ -426,6 +426,85 @@ public class ElementStateBitTests {
         Assert.False(group.State.HasFlag(ElementState.Valid));
     }
 
+    /// <summary>A number outside its bounds is <c>:out-of-range</c> and <c>:invalid</c> with it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The assertion that could not have been written a commit ago.</b>
+    ///         <c>NumericInput</c> clamped in its coerce, so the field arrived at the third line
+    ///         below holding ten and this whole condition was unreachable by any route — which is
+    ///         why the two variants were refused rather than registered.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And <c>:invalid</c> is asserted beside it deliberately. Selectors 4 § 10.7 makes a
+    ///         range violation a constraint violation, so a stylesheet that only knows how to colour
+    ///         an invalid field colours this one too — and a control that wrote the range bit without
+    ///         the verdict would look right in every by-hand test and be uncoloured in a real sheet.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_number_outside_its_bounds_is_out_of_range_and_invalid() {
+        using var ui = Opened();
+
+        var field = ui.Add<NumericInput>();
+        field.Minimum = 0d;
+        field.Maximum = 10d;
+
+        Assert.False(field.State.HasFlag(ElementState.OutOfRange));
+        Assert.True(field.State.HasFlag(ElementState.Valid));
+
+        field.Number = 50d;
+
+        Assert.True(field.State.HasFlag(ElementState.OutOfRange));
+        Assert.True(field.State.HasFlag(ElementState.Invalid));
+        Assert.False(field.State.HasFlag(ElementState.Valid));
+
+        field.Number = 5d;
+
+        Assert.False(field.State.HasFlag(ElementState.OutOfRange));
+        Assert.True(field.State.HasFlag(ElementState.Valid));
+        Assert.False(field.State.HasFlag(ElementState.Invalid));
+
+        // ⚠ The bounds moving under a value that has not moved, which is the case `OnRangeChanged`
+        // used to answer by rewriting the number.
+        field.Maximum = 4d;
+
+        Assert.True(field.State.HasFlag(ElementState.OutOfRange));
+        Assert.True(field.State.HasFlag(ElementState.Invalid));
+    }
+
+    /// <summary>And a stylesheet answers <c>:out-of-range</c>, with <c>:in-range</c> its negation.</summary>
+    /// <remarks>
+    ///     ⚠ The two rules run in opposite directions in one sheet, which is what a pair of
+    ///     independent bits would fail: a field is one or the other and never both, because
+    ///     <c>:in-range</c> compiles to the negation rather than to a bit of its own.
+    /// </remarks>
+    [Fact]
+    public void A_stylesheet_can_select_on_a_broken_bound() {
+        using var ui = ControlHarness.Open(
+            200f,
+            120f,
+            "numeric-input:out-of-range { opacity: 0.4 } numeric-input:in-range { opacity: 0.9 }");
+
+        var field = ui.Add<NumericInput>();
+        var opacity = ui.Document.PropertyId("opacity");
+
+        field.Minimum = 0d;
+        field.Maximum = 10d;
+        ui.Frame();
+
+        Assert.Equal(0.9f, ui.Document.NumberOf(field.Style, opacity) ?? 0f, 3);
+
+        field.Number = 50d;
+        ui.Frame();
+
+        Assert.Equal(0.4f, ui.Document.NumberOf(field.Style, opacity) ?? 0f, 3);
+
+        field.Number = 5d;
+        ui.Frame();
+
+        Assert.Equal(0.9f, ui.Document.NumberOf(field.Style, opacity) ?? 0f, 3);
+    }
+
     /// <summary>And a stylesheet reaches all three, which is what the bits are for.</summary>
     /// <remarks>
     ///     ⚠ End to end rather than on the bit, on the <c>:read-only</c> test's terms: a bit nothing

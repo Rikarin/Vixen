@@ -198,6 +198,7 @@ Vixen.Ui.Styling.ElementState.Hover = 1 -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.ElementState.Indeterminate = 512 -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.ElementState.Invalid = 4096 -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.ElementState.None = 0 -> Vixen.Ui.Styling.ElementState
+Vixen.Ui.Styling.ElementState.OutOfRange = 8192 -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.ElementState.PlaceholderShown = 256 -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.ElementState.ReadOnly = 128 -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.ElementState.Required = 1024 -> Vixen.Ui.Styling.ElementState

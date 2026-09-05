@@ -140,7 +140,13 @@ public class VariantCoverageTests {
                      // these rows cannot see, because this fixture sets the state by hand.
                      ("required", ElementState.Required),
                      ("valid", ElementState.Valid),
-                     ("invalid", ElementState.Invalid)
+                     ("invalid", ElementState.Invalid),
+
+                     // ⚠ The one of the eight whose blocker was the *control* rather than the
+                     // selector: `NumericInput` clamped in its coerce, so this bit could never be
+                     // set and a row here would have proved a variant nothing could ever match.
+                     // The clamp moved to the gestures and the bounds became a verdict.
+                     ("out-of-range", ElementState.OutOfRange)
                  }) {
             Row(variant, on, 0, 0, true);
             Row(variant, ElementState.None, 0, 0, false);
@@ -150,6 +156,12 @@ public class VariantCoverageTests {
         // `:enabled`'s arrangement, and a variant given a bit of its own fails exactly this pair.
         Row("optional", ElementState.None, 0, 0, true);
         Row("optional", ElementState.Required, 0, 0, false);
+
+        // ⚠ And `:in-range` is the absence of `:out-of-range`, which is the other way round from
+        // `:valid`/`:invalid` above: a range is declared rather than reached, so a control that has
+        // one always answers and the two are true complements. These are the rows a second bit fails.
+        Row("in-range", ElementState.None, 0, 0, true);
+        Row("in-range", ElementState.OutOfRange, 0, 0, false);
 
         // ⚠ `:enabled` is the *absence* of `:disabled`, which is what CSS means by it — so its two
         // rows are the other way round from every row above, and a variant that compiled to a state

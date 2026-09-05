@@ -50,6 +50,16 @@ public static class ControlStrings {
     /// </remarks>
     public static StringId FieldRequired { get; } = new("ui.control.field.required", "Required");
 
+    /// <summary>Why a number outside <c>Minimum</c> and <c>Maximum</c> is not acceptable.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The second of the two, and it exists because the field stopped rewriting the number
+    ///     instead.</b> <c>NumericInput</c> clamped in its coerce, so there was nothing to say — the
+    ///     value was already inside the bounds by the time anything could look. The words are as
+    ///     content-free as <see cref="FieldRequired" />'s for the same reason: this assembly knows the
+    ///     bounds were broken and nothing whatever about what the number is for.
+    /// </remarks>
+    public static StringId FieldOutOfRange { get; } = new("ui.control.field.out-of-range", "Out of range");
+
     /// <summary>A stepper's upward arrow.</summary>
     /// <remarks>
     ///     ⚠ <b>What the arrow does, not which way it points.</b> "Up" is a fact about the glyph and
@@ -241,6 +251,7 @@ public static class ControlStrings {
     public static IReadOnlyList<StringId> All { get; } = [
         TextInputClear,
         FieldRequired,
+        FieldOutOfRange,
         StepperIncrease,
         StepperDecrease,
         DialogClose,

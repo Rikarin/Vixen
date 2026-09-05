@@ -383,6 +383,7 @@ Vixen.Ui.Controls.NumericInput.ClearRelativeStep() -> void
 Vixen.Ui.Controls.NumericInput.ClearStep() -> void
 Vixen.Ui.Controls.NumericInput.Decimals.get -> int
 Vixen.Ui.Controls.NumericInput.Decimals.set -> int
+Vixen.Ui.Controls.NumericInput.IsInRange.get -> bool
 Vixen.Ui.Controls.NumericInput.Maximum.get -> double
 Vixen.Ui.Controls.NumericInput.Maximum.set -> double
 Vixen.Ui.Controls.NumericInput.Minimum.get -> double
@@ -1066,6 +1067,7 @@ override Vixen.Ui.Controls.NumericInput.OnCreated() -> void
 override Vixen.Ui.Controls.NumericInput.OnSubmit() -> void
 override Vixen.Ui.Controls.NumericInput.SelectAt(int index, int count) -> void
 override Vixen.Ui.Controls.NumericInput.TagName.get -> string
+override Vixen.Ui.Controls.NumericInput.Validate(string? value) -> string?
 override Vixen.Ui.Controls.Option.Label.get -> string?
 override Vixen.Ui.Controls.Option.Label.set -> string?
 override Vixen.Ui.Controls.Option.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
@@ -1269,6 +1271,7 @@ static Vixen.Ui.Controls.ControlStrings.DockPreviousTab.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.DocumentDiscard.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.DocumentSave.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.DocumentSavePrompt.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.FieldOutOfRange.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.FieldRequired.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.GradientEditorAlphaStops.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.GradientEditorColorStops.get -> Vixen.Ui.StringId

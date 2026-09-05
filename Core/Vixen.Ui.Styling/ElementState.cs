@@ -112,5 +112,28 @@ public enum ElementState : uint {
     ///         nothing selects on is the defect this family was filed to stop.
     ///     </para>
     /// </remarks>
-    Invalid = 1 << 12
+    Invalid = 1 << 12,
+
+    /// <summary>Its value is outside the bounds it carries.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A bit for the violation and not for the compliance, which is the opposite way
+    ///         round from <see cref="Valid" /> beside it — and the difference is not an
+    ///         inconsistency.</b> Selectors 4 § 10.7 gives <c>:in-range</c> and <c>:out-of-range</c>
+    ///         only to elements with a range, so an element with none is neither; but a range is
+    ///         <i>declared</i> rather than computed, and a control that has one always answers. So
+    ///         the pair collapses to one bit and its negation, <c>:read-write</c>'s arrangement,
+    ///         with the same stated divergence: everything that never declared bounds is
+    ///         <c>:in-range</c> here where a browser would say neither.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It could not be true at all until the control stopped clamping.</b>
+    ///         <c>NumericInput</c> used to bring the value back inside the bounds in its coerce, so
+    ///         the condition this bit describes could not be held for any length of time by any
+    ///         route — a variant registered against it would have compiled, indexed and matched
+    ///         nothing. What moved was the control: a typed or assigned number is now held and
+    ///         reported, and only the arrows, the spinner and the scrub still clamp.
+    ///     </para>
+    /// </remarks>
+    OutOfRange = 1 << 13
 }

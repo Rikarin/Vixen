@@ -90,18 +90,23 @@ public static class Variants {
         // `Validator`, `Validate`, `Revalidate`, `ValidationMessage` and `IsValid`, and it is the
         // writer for all four registered below.
         //
-        // ⚠ <b>Four of the eight and not six, and the two left out are refused for two different
-        // reasons — both measured rather than assumed.</b> `user-valid` and `user-invalid` are
-        // `:open`'s problem one layer out: ExCSS 4.3.2 does not know either name and hands the whole
-        // compound back as an `UnknownSelector`, so the bit and the writer for them were built and
-        // then taken back out. `in-range` and `out-of-range` parse perfectly well and fail on the
-        // control instead: `NumericInput` carries `Minimum` and `Maximum` and *clamps* to them in
-        // its coerce, so a value outside the range cannot be held long enough to be asked about and
-        // `:out-of-range` registered today would resolve and never match.
+        // ⚠ <b>Six of the eight now, and the two left out are refused one layer further out than the
+        // control.</b> `user-valid` and `user-invalid` are `:open`'s problem: ExCSS 4.3.2 does not
+        // know either name and hands the whole compound back as an `UnknownSelector`, so the bit and
+        // the writer for them were built and then taken back out.
         ["required"] = ":required",
         ["optional"] = ":optional",
         ["valid"] = ":valid",
-        ["invalid"] = ":invalid"
+        ["invalid"] = ":invalid",
+
+        // ⚠ <b>These two were refused for "the condition cannot be held", and the cure was in the
+        // control rather than here.</b> `NumericInput` clamped to `[Minimum, Maximum]` in its
+        // coerce, so a value outside the range could not exist for any length of time by any route
+        // and `:out-of-range` would have compiled, indexed and matched nothing — the exact failure
+        // this table exists to refuse. It now holds what it is given and reports the violation, and
+        // only the arrows, the spinner and the scrub still clamp.
+        ["in-range"] = ":in-range",
+        ["out-of-range"] = ":out-of-range"
     };
 
     /// <summary>The variants that are a media feature rather than a selector.</summary>

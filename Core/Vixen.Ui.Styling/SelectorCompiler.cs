@@ -637,6 +637,13 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             "required" => ElementState.Required,
             "valid" => ElementState.Valid,
             "invalid" => ElementState.Invalid,
+
+            // ⚠ `:out-of-range` is the positive of the pair and `:in-range` is its negation below,
+            // which is the other way round from `:valid`/`:invalid` two lines up. A range is
+            // declared rather than computed, so a control that has one always answers and the two
+            // are true complements; validity is a verdict, and an element that reaches no verdict
+            // has to be able to be neither.
+            "out-of-range" => ElementState.OutOfRange,
             _ => ElementState.None
         };
 
@@ -710,6 +717,19 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             // and here everything that never said it was required is.
             specificity = specificity with { Classes = specificity.Classes + 1 };
             var nested = table.AddNested(NegatedState(ElementState.Required));
+            compiled = new SimpleSelector(SimpleSelectorKind.Not, NestedStart: nested, NestedCount: 1);
+
+            return true;
+        }
+
+        if (name == "in-range") {
+            // ⚠ `:optional`'s arrangement, and it carries the divergence those two already carry:
+            // a browser gives neither pseudo-class to an element with no range, and here everything
+            // that never declared bounds is in range. Stated rather than smuggled — and unlike
+            // `:valid` there is nothing to lose by it, since a control with no bounds cannot be
+            // outside them.
+            specificity = specificity with { Classes = specificity.Classes + 1 };
+            var nested = table.AddNested(NegatedState(ElementState.OutOfRange));
             compiled = new SimpleSelector(SimpleSelectorKind.Not, NestedStart: nested, NestedCount: 1);
 
             return true;
