@@ -388,31 +388,49 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
             BaseHeight = Side,
             Images = [
                 new(TextureFormat.Rgba8, External: true),
-                // A flat half-grey, made by collapsing the ramp's input range onto one value.
+                // A flat 0.6, made by collapsing the ramp's *output* range onto one value — so the
+                // second input is a constant whatever the first one was.
                 new(TextureFormat.Rgba8),
                 new(TextureFormat.Rgba8)
             ],
             Ops = [
-                Levels(1, 0, 0.5f, 0.5f),
+                new() {
+                    Kernel = "Levels",
+                    Output = 1,
+                    Inputs = [0],
+                    Parameters = [
+                        new("inputBlack", 0f),
+                        new("inputWhite", 1f),
+                        new("gamma", 1f),
+                        new("outputBlack", 0.6f),
+                        new("outputWhite", 0.6f),
+                        new("dither", 0f)
+                    ]
+                },
                 Mix(2, 0, 1, 1, 1f)
             ],
-            Outputs = [2]
+            Outputs = [1, 2]
         };
 
         using var evaluator = new TexturePlanEvaluator(device);
         using var bake = evaluator.Evaluate(plan, new Dictionary<int, TextureHandle> { [0] = source });
 
-        var mask = bake.Read(1);
+        var constant = bake.Read(1);
         var picture = bake.Read(2);
 
-        // The degenerate levels is a step: black below 0.5, white at and above it. So the multiply is
-        // the ramp masked off on its left half and untouched on its right.
-        Assert.Equal(0, At(mask, 8, 8, 0));
-        Assert.Equal(255, At(mask, 56, 8, 0));
+        // 0.6 of 255, everywhere, whatever the ramp was under it.
+        Assert.InRange(At(constant, 8, 8, 0), 151, 155);
+        Assert.InRange(At(constant, 56, 8, 0), 151, 155);
 
-        Assert.Equal(0, At(picture, 8, 8, 0));
-        Assert.InRange(At(picture, 56, 8, 0), At(mask, 56, 8, 0) - 250 + 220, 255);
-        Assert.InRange(At(picture, 56, 8, 0), 220, 232);
+        // And the multiply is a product with one right answer at every column: ramp × 0.6.
+        for (var x = 0; x < Side; x += 8) {
+            var expected = (byte)Math.Round(x * 255f / (Side - 1) * 0.6f);
+
+            Assert.True(
+                Math.Abs(At(picture, x, 8, 0) - expected) <= 3,
+                $"column {x} is {At(picture, x, 8, 0)} and the product is {expected} ({Adapter(device)})"
+            );
+        }
 
         device.Destroy(staging);
         device.Destroy(source);
