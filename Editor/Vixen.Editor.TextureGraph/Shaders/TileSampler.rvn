@@ -1,0 +1,392 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § 4.7's `Tile Sampler`: a grid of cells, one instance of a pattern in each, with the
+// position, rotation, scale, colour and pattern index of every instance drawn from the op's seed.
+//
+// ## ⚠ This and `Splatter` are what replaces FX-Map, and the trade is written into the loop bounds
+//
+// § D7 refuses FX-Map's recursion. What is lost is unbounded subdivision and an instance count that
+// depends on the pattern; what is bought is a kernel whose cost is **knowable before it runs**, and
+// that promise is only worth anything if it is visible. It is: `MaxSearch` and `MaxSamples` below
+// bound the two nested loops, so the work per texel is at most `(2·MaxSearch+1)² · MaxSamples²`
+// pattern taps and there is no `while` anywhere. `TexturePlacement.TileSampler` refuses on the CPU
+// the parameters that would need more than that — a **refusal rather than a silent clamp**, which is
+// [#678](https://github.com/Rikarin/Vixen/issues/678)'s lesson applied one node over.
+//
+// ## A scatter written as a gather, because a compute kernel has no other choice
+//
+// An instance is *drawn* by a texel asking which instances could reach it, never by an instance
+// writing into the image — a storage image has no blend hardware and no ordering between
+// invocations. That is the same shape the engine's virtualized geometry uses for per-instance
+// deformation, for the same reason.
+//
+// So the cost of a bounded search radius is real: the pattern of the instance in cell `(i, j)` may
+// not reach further than `MaxSearch` cells from it, and everything below is arranged to make that
+// bound *one-sided and exact*. **Every random modulation shrinks the instance and none grows it** —
+// `scaleJitter` and `sizeMap` both multiply by something in 0..1 — so the largest footprint any
+// instance can have is `scale`, known on the CPU, and the search radius that covers it is arithmetic
+// rather than a guess.
+//
+// ## The grid wraps, so the image is tileable and the closed form is exact
+//
+// A cell index is folded into `0 .. grid-1` before it is hashed, but the *geometry* uses the
+// unfolded index — `Noise.rvn`'s arrangement. Two things follow. The image is seamless when repeated,
+// because the instance overhanging the left edge is the same instance found again one period to the
+// right. And no instance is ever clipped by the border, which is what makes the mean of an
+// accumulated field exactly `scale²` times the pattern's mean, whatever the grid — the closed form
+// `TexturePlacementDeviceTests` reads the whole node off.
+//
+// ## Nothing here is a length in texels
+//
+// `scale` is a fraction of a *cell*, the jitters are fractions of a cell or of a turn, and the grid
+// is a count. Doc 48 § D8's scaling therefore never touches this kernel, exactly as it never touches
+// § 4.1's sources: the same op is the same picture at 1K and at 4K by construction, and the only
+// resolution-dependent number in the file is the sub-sample count, which is an anti-aliasing budget
+// and not a shape.
+
+shader TileSampler {
+    /// The stamp. ⚠ Read as an **atlas of `patternCount` columns**, so one input carries the several
+    /// § 4.7 asks for — the evaluator binds an op's inputs positionally and refuses a count mismatch,
+    /// so six optional pattern ports would be six images every plan had to supply.
+    var pattern: Texture2D
+
+    /// Sampled once per instance, at the instance's centre: an instance whose mask is below
+    /// `maskThreshold` is not drawn at all.
+    ///
+    /// ⚠ **A cull and not a fade**, deliberately. Fading an instance out as the mask crosses the
+    /// threshold makes a mask's own gradient into a field of half-transparent stamps, which is the
+    /// artefact every "why is my scatter foggy" question is about. A graph that wants the fade
+    /// blends the result against the mask afterwards, where it is visible.
+    var mask: Texture2D
+
+    /// Sampled once per instance: multiplies its scale, under `sizeMapAmount`.
+    var sizeMap: Texture2D
+
+    /// Sampled once per instance: adds to its rotation, under `rotationMapAmount`.
+    var rotationMap: Texture2D
+
+    /// How many cells across.
+    var gridX: int = 8
+
+    /// How many cells down.
+    var gridY: int = 8
+
+    /// The instance's size as a fraction of its cell. 1 fills the cell; 0.5 quarters its area.
+    ///
+    /// ⚠ **Of the cell and not of the image**, which is the property that makes a pattern compound
+    /// scale: doubling the grid at a fixed `scale` gives four times as many instances at a quarter
+    /// of the area each, and the coverage is unchanged.
+    var scale: float = 1f
+
+    /// How much an instance may randomly **shrink**, 0..1. At 1 an instance can vanish.
+    ///
+    /// ⚠ One-sided on purpose — see the header. A jitter that could grow an instance would put the
+    /// search radius outside what the CPU can compute from `scale` alone.
+    var scaleJitter: float = 0f
+
+    /// How far an instance may randomly move inside its cell, 0..1 of the cell. At 1 its centre can
+    /// be anywhere in the cell.
+    var positionJitter: float = 0f
+
+    /// The rotation every instance starts at, in radians, clockwise on screen as in `Shape`.
+    var rotation: float = 0f
+
+    /// How much an instance's rotation may randomly differ, in turns. At 1 it is free.
+    var rotationJitter: float = 0f
+
+    /// How much an instance's colour may randomly darken, 0..1. At 1 an instance can be black.
+    var colourJitter: float = 0f
+
+    /// How many equal-width columns the pattern image holds. Each instance takes a random one.
+    var patternCount: int = 1
+
+    /// Non-zero to read the pattern's coverage from its alpha rather than from its luminance.
+    ///
+    /// ⚠ **Zero is right for a grey pattern and wrong for an imported one, and the two failures look
+    /// nothing alike.** `Shape` writes its value into rgb and 1 into alpha — a grey stamp read
+    /// through its alpha is an opaque *square*, which is what a splatter of squares means when
+    /// somebody expected discs. An imported RGBA decal read through its luminance is a decal whose
+    /// dark parts are transparent.
+    var alphaCoverage: int = 0
+
+    /// The mask value below which an instance is dropped.
+    var maskThreshold: float = 0f
+
+    /// How much of the size map is mixed into an instance's scale, 0..1.
+    var sizeMapAmount: float = 0f
+
+    /// How much of the rotation map is added to an instance's rotation, in turns.
+    var rotationMapAmount: float = 0f
+
+    /// 0 max · 1 add · 2 blend. See `Accumulate`.
+    var accumulation: int = 0
+
+    /// How much of each instance reaches the result.
+    var opacity: float = 1f
+
+    /// The op's own seed, already mixed. See `TexturePlan.SeedFor`.
+    var seed: float = 0f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The furthest, in cells, an instance's own cell may be from a texel it covers.
+    ///
+    /// ⚠ **A correctness ceiling and not a performance one**, `Blur.MaxRadius`'s argument: the search
+    /// is a loop and a `scale` arriving as a NaN would otherwise be a loop no invocation leaves,
+    /// which on a GPU is a device loss rather than a slow bake. Seven cells across covers a `scale`
+    /// of about 3.5 — an instance three and a half times its own cell — and
+    /// `TexturePlacement.TileSampler` refuses anything past it by name.
+    const val MaxSearch: int = 3
+
+    /// The most sub-samples per axis, whatever the minification says. `Transform2D`'s number, halved:
+    /// this kernel already runs its whole instance search once per sub-sample.
+    const val MaxSamples: int = 4
+
+    /// The odd constant from PCG's output stage — `Random.Multiplier`.
+    ///
+    /// ⚠ Copied, along with the two below and the three functions under them, because a texture-graph
+    /// kernel cannot reach `Raven/Library/Core/Random.rvn`: `TexturePlanEvaluator.VariantFor` hands
+    /// `RavenEffectCompiler.FromSources` one tree and no references. `Noise.rvn` says the same thing
+    /// at greater length and `TextureSourceKernelTests` holds the tripwire that goes red the day the
+    /// evaluator learns to bind the library.
+    const val Multiplier: uint = 0x2C9277B5u
+
+    /// The golden ratio's reciprocal, which is what makes `Combine` non-commutative.
+    const val Golden: uint = 0x9E3779B9u
+
+    /// 2^-24 — `Random.InvTwo24`.
+    const val InvTwo24: float = 5.9604645e-8f
+
+    const val Tau: float = 6.28318530718f
+
+    /// Half the diagonal of a unit square: how far a corner of an unrotated instance reaches once it
+    /// is turned. The search radius is derived from this rather than from `scale` alone, because a
+    /// rotated square is wider than it is.
+    const val HalfDiagonal: float = 0.70710678f
+
+    /// `Random.Hash` — one xorshift, one odd multiply, one xorshift.
+    func Hash(value: uint): uint {
+        var state = value
+        state = state ^ (state >> 16)
+        state = state * Multiplier
+        state = state ^ (state >> 16)
+
+        return state
+    }
+
+    /// `Random.Combine`.
+    func Mix(a: uint, b: uint): uint => Hash(a ^ (b * Golden))
+
+    /// `Random.ToFloat01`.
+    func ToFloat01(hash: uint): float => float(hash >> 8) * InvTwo24
+
+    /// The seed as the integer the hash wants.
+    func Seeded(): uint => uint(int(max(seed, 0f)))
+
+    /// One cell coordinate folded into the grid, so the image tiles.
+    ///
+    /// Twice, because `%` follows the sign of the dividend in both of Raven's backends and a cell
+    /// left of the origin would otherwise fold to a negative index — a different cell from the one
+    /// on the far side, so the seam comes back.
+    func Fold(value: int, period: int): int {
+        if (period <= 0) {
+            return value
+        }
+
+        return ((value % period) + period) % period
+    }
+
+    /// One of an instance's independent random numbers, in 0..1.
+    ///
+    /// `lane` is what keeps the position, the rotation, the scale, the tint and the pattern index
+    /// of one instance uncorrelated — a single hash reused for all five would put big instances only
+    /// where the rotation was also large, which reads as a pattern nobody authored.
+    func Draw(cell: uint, lane: uint): float => ToFloat01(Mix(Mix(cell, lane), Seeded()))
+
+    /// The identity of one cell, folded so that the border repeats rather than inventing.
+    func CellOf(x: int, y: int): uint => Mix(uint(Fold(x, gridX) + 1), uint(Fold(y, gridY) + 1))
+
+    /// One texel of a source, clamped to **that source's** dimensions.
+    ///
+    /// ⚠ The source's and never the target's. A kernel that clamped to the image it writes reads out
+    /// of bounds the moment it upsizes, which is [#618](https://github.com/Rikarin/Vixen/issues/618).
+    func Tap(image: Texture2D, x: int, y: int): float4 {
+        val size = image.GetDimensions(0)
+
+        return image.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+    }
+
+    /// A source at a normalised position, bilinear.
+    func At(image: Texture2D, u: float, v: float): float4 {
+        val size = image.GetDimensions(0)
+        val px = u * float(size.x) - 0.5f
+        val py = v * float(size.y) - 0.5f
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Tap(image, x0, y0), Tap(image, x0 + 1, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Tap(image, x0, y0 + 1), Tap(image, x0 + 1, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    /// How much of a texel one instance covers, from whichever channel carries it.
+    func Coverage(texel: float4): float {
+        if (alphaCoverage != 0) {
+            return texel.w
+        }
+
+        return dot(texel.xyz, float3(0.2126f, 0.7152f, 0.0722f))
+    }
+
+    /// One instance folded into the running result.
+    ///
+    /// **0 max** keeps the brightest of the overlapping stamps, which is what a grunge wants: two
+    /// discs overlapping look like two discs. **1 add** sums them, which is the only mode whose total
+    /// is a closed form and therefore the one every assertion here is written against. **2 blend**
+    /// composites each instance over the last, in cell raster order — an order that is the same for
+    /// every texel, because the neighbourhood is walked in absolute cell coordinates and not in
+    /// offsets from the texel's own cell.
+    func Accumulate(carried: float4, colour: float3, cover: float): float4 {
+        val weight = saturate(cover * saturate(opacity))
+
+        if (accumulation == 1) {
+            return float4(
+                carried.x + colour.x * saturate(opacity),
+                carried.y + colour.y * saturate(opacity),
+                carried.z + colour.z * saturate(opacity),
+                carried.w + weight
+            )
+        }
+
+        if (accumulation == 2) {
+            val mixed = lerp(carried.xyz, colour, float3(weight, weight, weight))
+
+            return float4(mixed.x, mixed.y, mixed.z, carried.w + (1f - carried.w) * weight)
+        }
+
+        val kept = max(carried.xyz, colour * saturate(opacity))
+
+        return float4(kept.x, kept.y, kept.z, max(carried.w, weight))
+    }
+
+    /// The whole instance search, for one point in the image.
+    ///
+    /// `p` is in **cell space** — the image is `gridX × gridY` units across — which is the frame the
+    /// grid is square in. ⚠ A grid whose cells are not square therefore stretches its instances, and
+    /// that is what a tile sampler is: `Brick` and `Panels` in § 4.9 are exactly a stretched stamp.
+    /// A graph that wants a round stamp on a non-square grid asks for a round *pattern* and a square
+    /// grid, and tiles the result.
+    func Gather(p: float2, radius: int): float4 {
+        val originX = int(floor(p.x))
+        val originY = int(floor(p.y))
+
+        var carried = float4(0f, 0f, 0f, 0f)
+
+        for (row in 0 .. MaxSearch * 2) {
+            if (row > radius * 2) {
+                break
+            }
+
+            for (column in 0 .. MaxSearch * 2) {
+                if (column > radius * 2) {
+                    break
+                }
+
+                val cellX = originX + column - radius
+                val cellY = originY + row - radius
+                val id = CellOf(cellX, cellY)
+
+                // The instance's centre, in cell space, from the cell it belongs to. `positionJitter`
+                // of 1 lets it be anywhere in its own cell and no further.
+                val jitterX = (Draw(id, 1u) - 0.5f) * saturate(positionJitter)
+                val jitterY = (Draw(id, 2u) - 0.5f) * saturate(positionJitter)
+                val centre = float2(float(cellX) + 0.5f + jitterX, float(cellY) + 0.5f + jitterY)
+
+                // The maps are read at the instance's centre, in the image's own normalised space.
+                val centreU = centre.x / float(max(gridX, 1))
+                val centreV = centre.y / float(max(gridY, 1))
+
+                if (Coverage(At(mask, centreU, centreV)) >= maskThreshold) {
+                    val sized = At(sizeMap, centreU, centreV).x
+                    val turned = At(rotationMap, centreU, centreV).x
+
+                    // Both modulations shrink and never grow, which is what keeps `radius` exact.
+                    val shrink = 1f - saturate(scaleJitter) * Draw(id, 3u)
+                    val mapped = 1f - saturate(sizeMapAmount) * (1f - saturate(sized))
+                    val size = max(scale, 0.000001f) * shrink * mapped
+
+                    val spun = (Draw(id, 4u) - 0.5f) * saturate(rotationJitter) * Tau
+                    val angle = rotation + spun + turned * rotationMapAmount * Tau
+                    val c = cos(angle)
+                    val s = sin(angle)
+                    val d = p - centre
+                    val local = float2(d.x * c + d.y * s, -d.x * s + d.y * c) / size
+
+                    // Outside its own square the instance contributes nothing at all — which is the
+                    // one line that makes the search radius a bound rather than a suggestion.
+                    if (abs(local.x) <= 0.5f && abs(local.y) <= 0.5f) {
+                        val slot = min(int(Draw(id, 5u) * float(max(patternCount, 1))), max(patternCount, 1) - 1)
+                        val u = (float(slot) + local.x + 0.5f) / float(max(patternCount, 1))
+                        val texel = At(pattern, u, local.y + 0.5f)
+                        val tint = 1f - saturate(colourJitter) * Draw(id, 6u)
+
+                        carried = Accumulate(carried, texel.xyz * tint, Coverage(texel))
+                    }
+                }
+            }
+        }
+
+        return carried
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        // The dispatch is rounded up to whole groups, so the tail invocations have no texel of their
+        // own. Storing outside a storage image is undefined in both targets.
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        // How far an instance can reach out of its own cell: half its rotated diagonal plus half the
+        // position jitter. Uniform across the dispatch, so the loops below never diverge.
+        val reach = max(scale, 0f) * HalfDiagonal + saturate(positionJitter) * 0.5f
+        val radius = clamp(int(ceil(reach)), 1, MaxSearch)
+
+        // How many pattern texels one output texel covers, so a minified stamp is boxed rather than
+        // point-sampled. An instance is `scale` of a cell and a cell is `width / gridX` texels.
+        val extent = pattern.GetDimensions(0)
+        val acrossX = max(scale, 0.000001f) * float(size.x) / float(max(gridX, 1))
+        val acrossY = max(scale, 0.000001f) * float(size.y) / float(max(gridY, 1))
+        val footX = float(extent.x) / float(max(patternCount, 1)) / max(acrossX, 1f)
+        val footY = float(extent.y) / max(acrossY, 1f)
+        val samples = clamp(int(ceil(max(footX, footY))), 1, MaxSamples)
+        val step = 1f / float(samples)
+
+        var sum = float4(0f, 0f, 0f, 0f)
+
+        for (jy in 0 .. MaxSamples) {
+            if (jy >= samples) {
+                break
+            }
+
+            for (jx in 0 .. MaxSamples) {
+                if (jx >= samples) {
+                    break
+                }
+
+                val u = (float(coord.x) + (float(jx) + 0.5f) * step) / float(size.x)
+                val v = (float(coord.y) + (float(jy) + 0.5f) * step) / float(size.y)
+
+                sum = sum + Gather(float2(u * float(max(gridX, 1)), v * float(max(gridY, 1))), radius)
+            }
+        }
+
+        target.Store(coord, sum / float(samples * samples))
+    }
+}
