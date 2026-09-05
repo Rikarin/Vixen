@@ -310,8 +310,10 @@ partial class Build {
                     continue;
                 }
 
-                // One walk, before the conditions, because two of the three branches below print
-                // the size and the fourth condition reads the same walk's other number.
+                // One walk, and before the conditions rather than inside them: both branches below
+                // print the size, the fourth condition reads the same walk's other number, and
+                // measuring first means no write this target itself provokes can be mistaken for a
+                // worker's.
                 var footprint = Measure(entry);
                 var reasons = new List<string>();
 
