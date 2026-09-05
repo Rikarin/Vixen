@@ -178,8 +178,31 @@ partial class Build : NukeBuild {
                 // the ones that survive to the process.
                 var workers = Workers > 0 ? $"-m:{Workers}" : string.Empty;
 
+                // ⚠ A generated traversal project rather than the solution, and the reason is
+                // scheduling and not taste: a solution build of a custom target walks each project's
+                // dependencies first, so the assembly referencing the most of the tree is dispatched
+                // last — and that assembly is, for the same reason, the slowest one. In the
+                // 2026-09-05 run it started 218 s in and was the only thing still running for the
+                // final five and a half minutes. Nothing here needs building, so the edges buy the
+                // schedule nothing. See Build.TestOrder.cs.
+                var projects = OrderedTestProjects();
+                var traversal = WriteTestTraversalProject(projects);
+
                 DotNet(
-                    $"msbuild \"{Solution.Path}\" -t:VSTest -nologo -p:Configuration={Configuration} -p:VSTestNoBuild=true -p:VSTestSetting=\"{RootDirectory / ".runsettings"}\" -p:VSTestResultsDirectory=\"{TestResultsDirectory}\" {workers}"
+                    $"msbuild \"{traversal}\" -t:VSTest -nologo -p:Configuration={Configuration} -p:VSTestNoBuild=true -p:VSTestSetting=\"{RootDirectory / ".runsettings"}\" -p:VSTestResultsDirectory=\"{TestResultsDirectory}\" {workers}"
+                );
+
+                // ⚠ The instrument, checked after it has run. A schedule that quietly dropped half
+                // the tree is indistinguishable from a schedule that worked — it is simply a faster
+                // green run — so the count of TRX is compared with the count of assemblies that were
+                // supposed to write one. This is only reached when MSBuild exited zero.
+                var written = TestResultsDirectory.GlobFiles("*.trx").Count;
+
+                Assert.True(
+                    written == projects.Count,
+                    $"{projects.Count} test assembly(ies) were scheduled and {written} TRX were "
+                    + $"written to {TestResultsDirectory}. A run that skips an assembly and exits "
+                    + "zero looks exactly like a fast one."
                 );
             }
         );
