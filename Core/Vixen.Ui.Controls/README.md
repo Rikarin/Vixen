@@ -128,6 +128,30 @@ them:
   scrolling, popup placement and drag previews are made of, and it costs a walk rather than a cascade
   and a relayout.
 
+## An overlay whose open state is a panel's own state
+
+`Overlay.IsOpen` is deliberately not a `[UiProperty]` — opening measures, places, moves the focus and
+may take a modal scope, so a settable property would be an invitation to write half of it — and that
+is why `bind:IsOpen` does not exist and is not an oversight. What a panel that owns the flag writes
+instead is two attributes:
+
+```vxml
+<Dialog use="@(overlay => overlay.Show(Wanted.Value))"
+        on:openchanged="@((OpenChangedEvent args) => Wanted.Value = args.IsOpen)">
+```
+
+- **`Show(bool)`** is the forward leg. It is a call rather than an assignment, so `Open`'s
+  measure-place-focus sequence is what actually happens, and it is idempotent — which it has to be,
+  because `use` is an effect and re-runs on every change of every signal the expression read.
+- **`on:openchanged`** is the write-back leg, and it is the half a forward-only implementation
+  fails. ⚠ `OpenChangedEvent` was raised all along, by `Overlay.Restate` and by `Disclosure`, and no
+  `.vxml` in the tree could hear it: the name was absent from the markup event table, so `on:` had
+  no entry to bind. Without it an overlay closed by Escape or by a click outside leaves the model
+  still saying `true`, and the effect puts it straight back up — a control the user cannot dismiss.
+
+The two converge rather than chatter: the write-back writes the value the effect just produced, which
+is a no-op, and a dismissal writes the one the effect then agrees with.
+
 ## What `ScrollView` reads out of the cascade
 
 ⚠ **It reads no `overflow`, and it does read seven scroll families.** The distinction is the whole of

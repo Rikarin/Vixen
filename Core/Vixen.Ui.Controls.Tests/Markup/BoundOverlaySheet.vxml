@@ -1,0 +1,42 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component BoundOverlaySheet
+@namespace Vixen.Ui.Controls.Tests
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<overlay-host>
+    <!--
+        An overlay whose open state is a function of the panel's own state, which is the arrangement
+        `Open()` and `Close()` alone could not express: the flag lives in the model, `use` is the
+        effect that keeps the control agreeing with it, and `on:openchanged` is what tells the model
+        when the control changed its own mind. Leave the second one out and Escape closes the dialog
+        for exactly one flush.
+    -->
+    <Dialog ref="@question"
+            Title="Delete it?"
+            use="@(overlay => overlay.Show(Wanted.Value))"
+            on:openchanged="@((OpenChangedEvent args) => Reported(args))">
+        <dialog-note>This cannot be undone.</dialog-note>
+    </Dialog>
+</overlay-host>
+
+@code {
+    Dialog question = null!;
+
+    /// <summary>Whether the panel wants the dialog up.</summary>
+    public Signal<bool> Wanted { get; } = new(false);
+
+    /// <summary>How many times the overlay reported a change of its own.</summary>
+    public int Reports { get; private set; }
+
+    /// <summary>The dialog itself, for a test that asserts on the control rather than the model.</summary>
+    public Dialog Question => question;
+
+    void Reported(OpenChangedEvent args) {
+        Reports++;
+        Wanted.Value = args.IsOpen;
+    }
+}

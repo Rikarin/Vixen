@@ -422,6 +422,7 @@ Vixen.Ui.Controls.Overlay.Overlay() -> void
 Vixen.Ui.Controls.Overlay.Placement.get -> Vixen.Ui.Controls.Placement
 Vixen.Ui.Controls.Overlay.Placement.set -> Vixen.Ui.Controls.Placement
 Vixen.Ui.Controls.Overlay.Reposition() -> void
+Vixen.Ui.Controls.Overlay.Show(bool open, Vixen.Ui.UiElement? target = null) -> void
 Vixen.Ui.Controls.OverscrollBehavior -> enum : byte
 Vixen.Ui.Controls.OverscrollBehavior.Auto = 0 -> Vixen.Ui.Controls.OverscrollBehavior
 Vixen.Ui.Controls.OverscrollBehavior.Contain = 1 -> Vixen.Ui.Controls.OverscrollBehavior
