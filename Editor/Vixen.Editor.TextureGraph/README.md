@@ -409,14 +409,50 @@ Both belong with the § M4 node classes, whose own closure already contains `Vix
 `Vixen.Editor.NodeGraph` — so neither reference costs anything *there*, and the evaluator keeps the
 property that makes every test in this project a test of the evaluator.
 
+## What a node may ask the plan for
+
+A node reads the image arriving at a port, asks for one to write and lists the dispatches between
+them — everything structural is the compiler's. Two of those asks were missing, and their absence was
+visible only as six kernels with no node.
+
+**⚠ An image the *caller* supplies** ([#732](https://github.com/Rikarin/Vixen/issues/732)).
+`TextureEmitter.External` allocates one and records what fills it on
+`TextureGraphCompiler.Externals`, in one of two shapes: a ramp or a curve table is baked here and now
+by `TextureRamp`, out of the editor's own gradient and Hermite evaluators, so the compiler carries the
+bytes; an imported image is a *reference*, because a compilation runs on every edit and must not open
+an asset database. `TextureGraphExternals.Upload` puts the first kind on a device and hands the second
+kind back for a host to resolve. ⚠ That last list has no in-tree consumer yet, so a graph containing a
+`Source/Bitmap` compiles and does not bake.
+
+**⚠ An image at a resolution of its own** ([#733](https://github.com/Rikarin/Vixen/issues/733)).
+`Write` and `Scratch` take a level offset. Before that every image any node allocated was at the
+plan's base, which made three kernels unreachable — a `MinMaxReduce` ladder onto same-sized images has
+a block of one texel and never converges, and a `Resample` writing at its input's level is an
+*identity copy*, because the target's size is the whole of the scale. ⚠ **A ladder is measured from
+the image the node reads, not from the graph's base**: counted from the base, an `Auto Levels` after a
+half-resolution `Resample` asks the kernel for a 16×16 block, the kernel clamps to its own 8×8
+`MaxBlock`, and three quarters of every block is never read — the extremes of a corner, and a slightly
+flat picture.
+
 ## The knobs, the expressions and the escape hatch — doc 48 § D6 and § D9
 
 A published graph is a node, and its **exposed parameters** are that node's settings:
 `TextureGraphParameter` carries a name, a type, a default, a range and a group, and
 `TextureGraphLibrary.Publish` registers the node type. ⚠ `SubGraphLibrary`'s own registration writes a
 definition with the interface as ports and **no settings**, which for a texture graph is a node with
-every knob missing — so the definition is built here instead. ⚠ `SettingDefinition` has nowhere to put
-a range or a group either, so those ride in its summary until [#730](https://github.com/Rikarin/Vixen/issues/730).
+every knob missing — so the definition is built here instead. ⚠ `SettingDefinition` carries a kind, a
+range and a group of its own since [#730](https://github.com/Rikarin/Vixen/issues/730), so all five
+of § D9's fields cross the node boundary; they used to ride in the setting's *summary*, which put a
+declared `0…1` in a tooltip and drew the row as a text box.
+
+**And the graph declares its own base resolution, seed and parameter list**
+([#719](https://github.com/Rikarin/Vixen/issues/719)) — `NodeGraphModel.Settings` and
+`.Parameters`, read by `TextureGraphSettings` and `TextureGraphParameters.Declared`. They were
+properties of the *compiler*, so a `.vxtexgraph` reopened at whatever its host defaulted to; ⚠ the
+seed is the half that mattered most, because § D5 says a texture whose output changes between runs is
+not a source asset and a seed the host chose is exactly that. `BakeLevelOffset` deliberately stays a
+property of the run: it says how big *this* bake is, and a saved one would be somebody's preview
+resolution baked into the asset.
 
 **Every scalar port accepts a Raven expression over those parameters** instead of a number, stored in
 `GraphNode.Texts` under the port's name with an `=` in front of it. The whole graph's expressions
@@ -442,10 +478,14 @@ the real `Compilation` binds, and the value read back is what `ConstantEvaluator
 The **Pixel Processor** is the same idea one layer down: its setting is a Raven expression compiled
 into a whole generated kernel of the same shape as the forty-five committed ones, and its complaints
 are Raven's own, carrying Raven's ids, addressed to the node and the setting.
-⚠ **The op it emits does not evaluate** — an op names a kernel and the evaluator resolves that name
-through this assembly's *embedded* sources, so an authored kernel has nowhere to be found. The source
-is on `TextureGraphCompiler.Kernels`, which is `Outputs`' shape and `Outputs`' gap —
-[#729](https://github.com/Rikarin/Vixen/issues/729).
+⚠ **The op it emits used to name a kernel nothing could resolve** — the evaluator read every name
+through this assembly's *embedded* sources, so a graph that looked complete threw at bake time about
+a manifest resource nobody could have added. `TexturePlan.Kernels` is where an authored source rides
+now ([#729](https://github.com/Rikarin/Vixen/issues/729)), and `TexturePlan.Source` is what both
+paths go through. ⚠ **A name is authored or embedded and never both**: a compiled module is cached on
+`(kernel name, output format)` across every plan an evaluator runs, so a plan redefining `Blur` would
+either take the module already built from the embedded source or leave its own behind for the next
+plan — one op, two pictures, decided by evaluation order. `Validate` refuses the collision.
 
 ## Per-node previews needed no split of `Evaluate`
 

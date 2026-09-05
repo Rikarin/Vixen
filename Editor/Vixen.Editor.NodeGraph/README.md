@@ -149,6 +149,25 @@ wired. Deliberately not a tenth `PortKind`: a kind that cannot be connected woul
 canvas that refuses every wire dropped on it. `NodeSettingMember` gives it a row in the ordinary
 inspector, and `SetPortTextCommand` makes the write undoable across a whole selection.
 
+⚠ **The storage is text and the *kind* is a separate question**
+([#730](https://github.com/Rikarin/Vixen/issues/730)). A setting's field stays a `string` — that is
+what survives a save, a merge and a node type that renamed a member — and `SettingKind`, a range and
+a group say how the string is *read*, so a declared flag draws as a checkbox and a declared `0…1`
+draws as a slider. Before that, every setting in every graph was a text box, including the ones whose
+legal values are two; a published texture graph's parameters lost their type, range and group at this
+boundary and had them written out in a tooltip instead. ⚠ Making a setting typed also exposed a defect
+that had been harmless while everything was a string: `NodeSettingMember` stored `value as string`,
+which is `null` for the `bool` or `double` a typed row hands back — so the first edit of a checkbox
+would have written the empty string over the setting while the row went on showing the new value.
+
+**A graph declares things too, not only its nodes.** `NodeGraphModel.Settings` is a string-keyed bag
+for what belongs to the *document* — a texture graph's base resolution and its seed — and
+`.Parameters` is `Interface`'s twin for the knobs a containing graph draws rather than wires. Both
+round-trip through `NodeGraphAsset`. ⚠ Neither is interpreted here: what a key means belongs to the
+front end that reads it, exactly as `GraphNode.Texts` does one level down, and a reader that refused
+an unrecognised key would refuse a file written by a newer version of the same editor
+([#719](https://github.com/Rikarin/Vixen/issues/719)).
+
 ⚠ **A key no setting claimed still reaches the binding.** The graphics compositor predates
 `[Setting]` and keys its settings by hand off `CompositorField`, so whatever a node carries in
 `Values` or `Texts` is readable through `NodeBinding` whether or not its type declares it. Those keys
