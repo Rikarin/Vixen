@@ -114,6 +114,15 @@ partial class Build {
     ///         <c>--report-only</c> is how you ask for numbers without a verdict, and
     ///         <c>--update-baseline</c> is how the file is written.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And so does one that ran and is in no baseline, which used to be an
+    ///         <c>Information</c> line on a green run</b> (#602). Both directions leave a benchmark
+    ///         outside the intersection the two numeric checks are computed over, so both are a
+    ///         benchmark nobody judged; the asymmetry meant every benchmark added after the baseline
+    ///         was taken was ungated for ever, and said so where nobody looks. See
+    ///         <see cref="BenchmarkInventory" /> for why the failure names <c>--update-baseline</c>
+    ///         rather than blocking the addition.
+    ///     </para>
     /// </remarks>
     void JudgeBenchmarks() {
         var reports = BenchmarkResultsDirectory.GlobFiles("**/*-report-full*.json");
@@ -158,12 +167,10 @@ partial class Build {
 
         var allocations = new List<string>();
         var timings = new List<string>();
-        var absent = new List<string>();
+        var (absent, added) = BenchmarkInventory.Drift(expected.Select(pair => pair.Key), recorded.Keys);
 
         foreach (var (name, node) in expected.Select(pair => (pair.Key, pair.Value!.AsObject()))) {
             if (!recorded.TryGetValue(name, out var actual)) {
-                absent.Add(name);
-
                 continue;
             }
 
@@ -184,17 +191,23 @@ partial class Build {
             }
         }
 
-        foreach (var added in recorded.Keys.Where(name => !expected.ContainsKey(name)).Order(StringComparer.Ordinal)) {
-            Log.Information("{Benchmark} is not in the baseline yet — nothing judged it", added);
-        }
-
         var fatal = new List<string>();
 
         if (absent.Count > 0) {
             fatal.Add(
                 $"{absent.Count} benchmark(s) are in the baseline and were not run — a renamed, "
                 + "deleted or unlaunched benchmark is judged by nobody, which is what this catches:"
-                + Environment.NewLine + "  " + string.Join(Environment.NewLine + "  ", absent.Order(StringComparer.Ordinal))
+                + Environment.NewLine + "  " + string.Join(Environment.NewLine + "  ", absent)
+            );
+        }
+
+        if (added.Count > 0) {
+            fatal.Add(
+                $"{added.Count} benchmark(s) ran and are in no baseline, so nothing judged them — "
+                + "which is the same defect as the line above, pointing the other way. Take a "
+                + "baseline that includes them with `nuke Benchmark --update-baseline`, on hardware "
+                + "that will run it again, and commit the diff:"
+                + Environment.NewLine + "  " + string.Join(Environment.NewLine + "  ", added)
             );
         }
 

@@ -841,14 +841,22 @@ ended the run, and repeats are counted rather than dropped in silence. On the sa
 the same seed, with the parser defect put back: **one** finding and sixty-six repeats, and the run
 goes the distance.
 
-**And one found and deliberately not fixed**, because the fix is not this harness's to make: the binder
-writes `null` into a member declared non-nullable. `subAssets: null` in a sidecar produces an
+**And one found here and fixed elsewhere**, because the fix was never this harness's to make: the
+binder wrote `null` into a member declared non-nullable. `subAssets: null` in a sidecar produced an
 `AssetMeta` whose `SubAssets` is null although the property is `SubAssetEntry[]` with a non-null
-default — nullability is decided from the CLR type, and the C# annotation contradicting it is not in
-the descriptor to read. Nothing throws at the parse; the crash lands in whichever consumer dereferences
-it first. Refusing a document `null` for a collection member is a decision about every `[DataContract]`
-type in the engine, so it belongs to `Vixen.Core.Yaml` rather than here. The input is in the corpus
-(`meta/26b80310961881ec.bin`) and the target folds the shape into its signature so it stays reachable.
+default — nullability was decided from the CLR type, to which every reference type is nullable, so the
+C# annotation contradicting it was not in the descriptor to read. Nothing threw at the parse; the crash
+landed in whichever consumer dereferenced it first.
+
+⚠ **Fixed in `0a905f21`, and this paragraph said otherwise for longer than the defect lasted.** The
+reflection generator reads the annotation while the member is still a symbol and puts it on
+`MemberDescriptor.IsNullable`, which `Bind` may only ever narrow the CLR answer with — carrying the
+annotation rather than the cheaper "a collection member may not be null", which would have refused
+`AssetMaterialSource.Slots`, `MoveQuery.Preferred` and `ResponseCurve.Keys`. It arrives at the target
+as a `YamlBindingException` now, `MetaTests.ANullAgainstANonNullableMemberIsRefused` asserts the three
+refusals, and `ANullAgainstANullableMemberIsStillBound` asserts the half a type-shaped rule gets wrong.
+The input is still in the corpus (`meta/26b80310961881ec.bin`) and the target still folds the shape
+into its signature, so a regression is a behaviour change this harness can see.
 
 ## The corpus on disk
 

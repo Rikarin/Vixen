@@ -141,11 +141,19 @@ plan did not previously account for. Consequences worth stating:
 - Metrics/health endpoints for orchestration, feeding from the existing
   `System.Diagnostics.Metrics` counters ([13](13-diagnostics.md)).
 
-## Editor-only code: feature switches, not two package flavours
+## Editor-only code: separate assemblies, not two package flavours
 
-The hard part of Q5. Editor builds need reflection, plugin loading, asset importers, undo/redo,
-ImageSharp, and Assimp. Shipped games must have **none** of those — for size, for AOT, and in
-ImageSharp's case for licensing (ADR-015).
+The hard part of Q5. Editor builds need reflection, plugin loading, asset importers, undo/redo, an
+image decoder, and Assimp. Shipped games must have **none** of those — for size and for AOT.
+
+⚠ **That sentence used to name ImageSharp, and rested its strongest leg on ImageSharp's licence**
+(#353). There is no ImageSharp: 4.0.0 fails the build without a purchased licence key — an error out of
+its own targets file — so the editor decodes with `StbImageSharp`, which is public domain and covers
+more of doc 08's importer table than ImageSharp reached. `Directory.Packages.props` § Imaging records
+the swap, and `CheckArchitecture`'s editor-only rule now carries `Silk.NET.Assimp` instead
+([12](12-build-ci-and-testing.md)). The licensing argument left with the package; size and AOT are the
+two that remain, and ADR-015's runtime half is unaffected — a shipped game reads KTX2 with Vixen's own
+code and never decodes an authoring format at all.
 
 Three ways to achieve that, and the choice matters:
 
@@ -153,11 +161,26 @@ Three ways to achieve that, and the choice matters:
 |---|---|
 | `#if VIXEN_EDITOR` inside runtime assemblies | **Rejected.** It requires publishing two flavours of every package, which doubles the version matrix, breaks NuGet caching semantics, and guarantees someone eventually ships the editor flavour. |
 | Separate editor assemblies only, no conditional code | **Primary mechanism.** Editor functionality lives in `Editor/*`; runtime assemblies expose extension points it hooks into. Enforced by `CheckArchitecture` ([12](12-build-ci-and-testing.md)). |
-| **Trimmer feature switches** for the residual cases | **Adopted for the remainder.** Where a runtime type genuinely needs an edit-time-only member (an asset that re-serialises at author time is the classic case), gate it behind an `AppContext` feature switch declared with `[FeatureSwitchDefinition]` and an ILLink substitution. In a published game the trimmer proves the switch is false and removes the code and everything it reachable-references. |
+| **Trimmer feature switches** for the residual cases | **Held in reserve — the residue never arose.** The mechanism is the right one if a runtime type ever genuinely needs an edit-time-only member: an `AppContext` switch declared with `[FeatureSwitchDefinition]` and an ILLink substitution, which the trimmer proves false in a published game and removes along with everything it reachable-references. ⚠ Nothing in the tree uses it, and that is the good outcome rather than a gap — see below. |
 
-So: **one set of packages, one version, and the editor-only paths are removed by the trimmer rather than
-by a compile-time flavour.** This is the modern .NET answer and it did not exist cleanly when Stride or
-Unity made their choices, which is why both carry heavier machinery here than we need to.
+So: **one set of packages, one version, and there is no editor-only path left in a runtime assembly for
+the trimmer to remove.** The separation carried the whole load.
+
+⚠ **This section used to say the switches were "adopted for the remainder", and there is no remainder**
+(#351). The case it named is *an asset that re-serialises at author time*, and every `ToYaml` on an asset
+is in `Editor/*` — `Vixen.Assets` and `Vixen.Engine` do not reference `Vixen.Core.Yaml` at all, so the
+edit-time re-serialiser is not merely unreachable in a shipped game, it is not linked into one. The one
+runtime assembly that does reference the YAML stack is `Vixen.Ui.Controls.Advanced`, whose `DockLayout`
+is reached from the public `DockingHost.Load`: a desktop application saving its own dock layout is a
+runtime feature of the framework, which is the whole claim [00](00-vision-and-principles.md) makes about
+it, and not editor residue.
+
+⚠ **Read as a reference-graph audit and not as a measurement.** What was proposed to settle this was a
+trimmed publish under the IL trimmer's `--dump-dependencies`, and that would answer a stronger question:
+which of the assemblies a game *does* link survive trimming. The claim above is the weaker and cheaper
+one — that the edit-time serialiser is in a different assembly from the ones a game references — which
+is enough to retire the adoption but not enough to close the measurement. `CheckArchitecture` is what
+keeps the boundary honest between audits.
 
 ## Play mode: in-process, with out-of-process as a real option
 
