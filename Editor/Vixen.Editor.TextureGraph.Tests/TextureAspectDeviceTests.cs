@@ -29,6 +29,13 @@ namespace Tests;
 ///     </para>
 /// </remarks>
 public class TextureAspectDeviceTests(ITestOutputHelper output) {
+    /// <summary>A quarter turn, in the radians `Transform2D` takes since #735.</summary>
+    /// <remarks>
+    ///     ⚠ It was <c>0.25f</c> here, because the kernel's rotation was in turns — the one thing
+    ///     that stayed the same across that change is what the picture has to look like.
+    /// </remarks>
+    const float QuarterTurn = MathF.PI / 2f;
+
     /// <summary>The wide axis. Four times the tall one, so a quarter turn is a 4× minification.</summary>
     const int Wide = 256;
 
@@ -139,7 +146,7 @@ public class TextureAspectDeviceTests(ITestOutputHelper output) {
             Tall,
             Wide,
             Tall,
-            Op("Transform2D", 1, [0], Transform(0.25f, TextureTiling.Wrap, TextureFilter.Point))
+            Op("Transform2D", 1, [0], Transform(QuarterTurn, TextureTiling.Wrap, TextureFilter.Point))
         );
 
         Assert.Equal(Wide, picture.Width);
@@ -173,7 +180,7 @@ public class TextureAspectDeviceTests(ITestOutputHelper output) {
             Wide,
             Tall,
             Wide,
-            Op("Transform2D", 1, [0], Transform(0.25f, TextureTiling.Wrap, TextureFilter.Point))
+            Op("Transform2D", 1, [0], Transform(QuarterTurn, TextureTiling.Wrap, TextureFilter.Point))
         );
 
         Assert.Equal(Tall, picture.Width);

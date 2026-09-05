@@ -30,10 +30,12 @@ namespace Vixen.Editor.TextureGraph.Nodes;
 ///         node runs.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>Rotation</c> is in radians and <c>Rotation Jitter</c> is in turns.</b> Both are
-///         the kernel's own units; a node that reconciled them would be the only place in the
-///         assembly where a number changes meaning between the graph and the plan —
-///         <a href="https://github.com/Rikarin/Vixen/issues/735">#735</a>.
+///         ⚠ <b><c>Rotation</c>, <c>Rotation Jitter</c> and <c>Rotation Map Amount</c> are all in
+///         radians, and two of the three were in turns until
+///         <a href="https://github.com/Rikarin/Vixen/issues/735">#735</a>.</b> This node was the worst
+///         case in the assembly: a rotation in radians immediately above a jitter in turns, with
+///         nothing on either to say so and a difference of 2π between them. No node converts, so what
+///         makes them agree is the kernels agreeing.
 ///     </para>
 /// </remarks>
 [Node("Placement/Tile Sampler", Preview = true, Summary = "A grid of cells with one jittered instance of a pattern in each.")]
@@ -82,7 +84,7 @@ sealed partial class TileSamplerNode : TextureNode {
     [Input]
     public Scalar Rotation = 0f;
 
-    /// <summary>How much it may randomly differ, in turns.</summary>
+    /// <summary>How much it may randomly differ, in radians. At 2π it is free. ⚠ Turns until #735.</summary>
     [Input(Name = "Rotation Jitter")]
     public Scalar RotationJitter = 0f;
 
@@ -106,7 +108,7 @@ sealed partial class TileSamplerNode : TextureNode {
     [Input(Name = "Size Map Amount")]
     public Scalar SizeMapAmount = 0f;
 
-    /// <summary>How much of the rotation map is added, in turns. ⚠ Zero ignores the map.</summary>
+    /// <summary>What a full rotation map is worth, in radians. ⚠ Zero ignores the map.</summary>
     [Input(Name = "Rotation Map Amount")]
     public Scalar RotationMapAmount = 0f;
 
@@ -229,7 +231,7 @@ sealed partial class SplatterNode : TextureNode {
     [Input]
     public Scalar Rotation = 0f;
 
-    /// <summary>How much it may randomly differ, in turns.</summary>
+    /// <summary>How much it may randomly differ, in radians. At 2π it is free. ⚠ Turns until #735.</summary>
     [Input(Name = "Rotation Jitter")]
     public Scalar RotationJitter = 0f;
 
@@ -253,7 +255,7 @@ sealed partial class SplatterNode : TextureNode {
     [Input(Name = "Size Map Amount")]
     public Scalar SizeMapAmount = 0f;
 
-    /// <summary>How much of the rotation map is added, in turns. ⚠ Zero ignores the map.</summary>
+    /// <summary>What a full rotation map is worth, in radians. ⚠ Zero ignores the map.</summary>
     [Input(Name = "Rotation Map Amount")]
     public Scalar RotationMapAmount = 0f;
 

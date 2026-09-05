@@ -36,7 +36,8 @@ package Vixen.Editor.TextureGraph.Shaders
 //
 // ## Nothing here is a length in texels
 //
-// `scale` is a fraction of the image and every jitter is a fraction of a turn or of itself, so doc 48
+// `scale` is a fraction of the image, the rotations are angles and every other jitter is a fraction of
+// itself, so doc 48
 // § D8's scaling never touches this kernel. ⚠ Which also means `count` is **not** scaled by the bake:
 // a splatter of forty stamps is forty stamps at 1K and at 4K, four times larger in texels each. That
 // is what makes the two bakes one material and it is the opposite of what "density" would mean.
@@ -74,7 +75,11 @@ shader Splatter {
     /// The rotation every instance starts at, in radians.
     var rotation: float = 0f
 
-    /// How much an instance's rotation may randomly differ, in turns.
+    /// How much an instance's rotation may randomly differ, in **radians**. At 2π it is free.
+    ///
+    /// ⚠ In turns until [#735](https://github.com/Rikarin/Vixen/issues/735), one line below a
+    /// `rotation` in radians. An artist could not see which was which and a node reading the wrong
+    /// one is out by 2π with no error anywhere.
     var rotationJitter: float = 0f
 
     /// How much an instance's colour may randomly darken, 0..1.
@@ -92,7 +97,8 @@ shader Splatter {
     /// How much of the size map is mixed into an instance's scale, 0..1.
     var sizeMapAmount: float = 0f
 
-    /// How much of the rotation map is added to an instance's rotation, in turns.
+    /// How much of the rotation map is added to an instance's rotation, in **radians** — the
+    /// map's channel is 0..1 and this is what a full one is worth. #735.
     var rotationMapAmount: float = 0f
 
     /// How far the placement map may move an instance, in fractions of the image. 0 ignores it.
@@ -130,8 +136,6 @@ shader Splatter {
 
     /// 2^-24 — `Random.InvTwo24`.
     const val InvTwo24: float = 5.9604645e-8f
-
-    const val Tau: float = 6.28318530718f
 
     func Hash(value: uint): uint {
         var state = value
@@ -276,8 +280,8 @@ shader Splatter {
                 val mapped = 1f - saturate(sizeMapAmount) * (1f - saturate(sized))
                 val size = max(scale, 0.000001f) * shrink * mapped
 
-                val spun = (Draw(id, 4u) - 0.5f) * saturate(rotationJitter) * Tau
-                val angle = rotation + spun + turned * rotationMapAmount * Tau
+                val spun = (Draw(id, 4u) - 0.5f) * max(rotationJitter, 0f)
+                val angle = rotation + spun + turned * rotationMapAmount
                 val c = cos(angle)
                 val s = sin(angle)
 

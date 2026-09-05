@@ -27,7 +27,13 @@ package Vixen.Editor.TextureGraph.Shaders
 shader Transform2D {
     var source: Texture2D
 
-    /// Rotation in **turns**, so an exposed 0…1 parameter covers the circle once.
+    /// Rotation in **radians**, clockwise on screen, as everywhere else in this folder.
+    ///
+    /// ⚠ It was in turns until [#735](https://github.com/Rikarin/Vixen/issues/735): one kernel's
+    /// number meant a whole circle where `Shape`'s meant a sixth of a degree, and `TileSampler` had
+    /// one of each a line apart. A 0…1 slider is a better argument for a turn than the trigonometry
+    /// is for a radian, but neither argument survives having both — and radians is what the majority
+    /// of these kernels already were.
     var rotation: float = 0f
 
     /// How much bigger the image gets along x. Below 1 minifies.
@@ -52,8 +58,6 @@ shader Transform2D {
     var filter: int = 1
 
     [Format("rgba16f")] var target: RWTexture2D<float4>
-
-    const val Tau: float = 6.28318530718f
 
     /// The most sub-samples per axis, whatever the footprint says.
     const val MaxSamples: int = 8
@@ -118,9 +122,8 @@ shader Transform2D {
             return
         }
 
-        val angle = rotation * Tau
-        val c = cos(angle)
-        val s = sin(angle)
+        val c = cos(rotation)
+        val s = sin(rotation)
 
         // Forward: rotate ∘ shear ∘ scale, as a 2×2 written out by hand. Column-major by lane name:
         // (m00 m01 / m10 m11) sends (x, y) to (m00·x + m01·y, m10·x + m11·y).

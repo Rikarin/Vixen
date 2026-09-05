@@ -57,7 +57,7 @@ internal enum TexturePlacementAccumulation {
 ///         <see cref="float" /> per uniform-block member: a <c>float2</c> would receive its x and a
 ///         zero. And <b>not one of them is a
 ///         <see cref="TextureParameterUnit.TexelsAtBase" /></b> — a grid is a count, a scale is a
-///         fraction of a cell or of the image, and a jitter is a fraction of a turn — so doc 48 § D8's
+///         fraction of a cell or of the image, and a rotation is an angle — so doc 48 § D8's
 ///         scaling never touches either kernel and the same op is the same picture at every bake
 ///         resolution by construction.
 ///     </para>
