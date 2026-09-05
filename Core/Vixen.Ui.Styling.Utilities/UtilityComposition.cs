@@ -810,13 +810,16 @@ public static class UtilityComposition {
     ///         absence looked exactly like the utility being broken.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A ring and a <c>shadow-*</c> on one element is the known limit, and it is the draw
-    ///         list's rather than this mechanism's.</b> CSS layers them by comma and
-    ///         <c>EmitShadow</c> refuses a list outright — deliberately, because drawing the first of
-    ///         several and dropping the rest looks like it worked. Here the two families write the
-    ///         same property, so the cascade picks one and the other is simply not applied. Composing
-    ///         them needs the multi-shadow draw path that refusal is holding open, not another
-    ///         fragment.
+    ///         ⚠ <b>A ring and a <c>shadow-*</c> on one element is still the known limit, and it is
+    ///         this mechanism's now rather than the draw list's.</b> It used to be both: CSS layers
+    ///         them by comma and <c>EmitShadow</c> refused a list outright. ⚠ <b>It does not any
+    ///         more</b> — a list is a command each, painted last to first, and a hand-written
+    ///         <c>box-shadow: a, b</c> in a <c>.vcss</c> draws both (`Rikarin/Vixen#279`). What is
+    ///         left is here: the two families write the same property, so the cascade picks one and
+    ///         the other is not applied. Composing them is v4's five-fragment shape —
+    ///         <c>--tw-shadow</c>, <c>--tw-inset-shadow</c>, <c>--tw-ring-shadow</c>,
+    ///         <c>--tw-inset-ring-shadow</c> and <c>--tw-ring-offset-shadow</c> assembled into one
+    ///         comma list — which is a fragment table and no longer a draw path.
     ///     </para>
     /// </remarks>
     public static string Ring() => $"0 0 0 {Reference(RingWidth)} {Reference(RingColor)}";

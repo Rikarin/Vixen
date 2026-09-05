@@ -860,7 +860,9 @@ misspelt-key bug three times this year in a navmesh, a security policy and a sha
 this finding leads with — had an **entirely empty `note` column** until now, which is why neither was
 ever re-read. ⚠ **Three more followed on 2026-09-05 with the `expires-when-read` kind**, and they are
 the citations that were already written in English: `border-s-*` and `border-e-*` name the two logical
-colours `InertProperties.txt` exempts under #21, and `select` names `user-select` under #24. Three of the nine share one anchor: `rotate-x-*`, `rotate-z-*` and `scale-z-*` are all
+colours `InertProperties.txt` exempts under #21, and `select` names `user-select` under #24. A fourth
+went on `ring-offset-*` the same day, when the refusal it carried lost one of its three blockers and
+kept the other two. Three of the nine share one anchor: `rotate-x-*`, `rotate-z-*` and `scale-z-*` are all
 waiting on a representation for transform functions, and a refusal that is one of several resting on a
 single premise is the one most likely to be read as settled.
 
@@ -1225,12 +1227,21 @@ does mirror that one.
    over a class that paints nothing.* The dangerous shape, and no per-property measurement can catch
    it. `inset-shadow-*` and `inset-ring-*` emit `box-shadow`, which is read — but
    `DrawListBuilder.EmitShadow` refuses the `inset` keyword outright, and `box-shadow: inset 0 2px
-   4px #000` moves no channel where the outer form moves paint. `ring-offset-*` is worse than inert:
-   an offset ring is a two-shadow *list*, `EmitShadow` refuses lists on the stated argument that
-   painting the first and dropping the rest looks like it worked, so a `ring-offset-2` beside a
-   `ring-2` would stop the ring painting. `stroke-none` is the same shape one file over — `stroke` is
-   read only as a colour, and `Icon.Resolve` falls back to the foreground for anything that is not
-   one.
+   4px #000` moves no channel where the outer form moves paint. ⚠ **`ring-offset-*` was worse than
+   inert and is not any more (2026-09-05, #279).** An offset ring is a two-shadow *list*, and
+   `EmitShadow` refused lists — so a `ring-offset-2` beside a `ring-2` would have stopped the ring
+   painting altogether. `EmitShadow` paints a list now, a command each, **last to first** because CSS
+   paints the first shadow on top and this draw list paints later commands over earlier ones, and it
+   refuses the *whole* declaration if any item fails, which is CSS's own rule and what stops half a
+   list looking like it worked. ⚠ **The refusal was never the branch its own remark described**: the
+   split had to be added over the declaration's text, counting parentheses, because
+   `StyleValueParser` splits on top-level *whitespace* — and ⚠ **not even the note on that was right**:
+   with hex colours a list did arrive as `Unknown`, but the cascade normalises `#000` to
+   `rgb(0, 0, 0)` and the same declaration then parses as a perfectly ordinary eight-item list whose
+   fourth item ends in a comma. Both drew nothing, so which one it was never mattered until it did.
+   What still blocks the root is `calc()` and the five-fragment composition. `stroke-none` is the same
+   shape one file over — `stroke` is read only as a colour, and `Icon.Resolve` falls back to the
+   foreground for anything that is not one.
 4. *The class is v4 compatibility surface, and § D5 already says not to implement it.*
    `flex-shrink-*`, `flex-grow-*` and `max-w-screen-*` are in `compat/legacy-utilities.ts`:
    registered, undocumented, superseded by `shrink-*`, `grow-*` and the sizing scale, all of which

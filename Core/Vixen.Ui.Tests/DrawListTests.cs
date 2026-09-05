@@ -628,15 +628,16 @@ public class DrawListTests {
     ///         class that paints nothing at all. See `Rikarin/Vixen#279`.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The list is refused earlier than the method's own remark suggests, and the
-    ///         difference matters to whoever lifts it.</b> The refusal is not a branch in
-    ///         <c>EmitShadow</c>: <c>StyleValueParser</c> splits a value on top-level <i>whitespace</i>
-    ///         only, so <c>#000,</c> is one token, is not a colour, and takes the whole value to
-    ///         <c>Unknown</c> before this method sees it. Supporting a list therefore means splitting
-    ///         on commas at depth here — not relaxing a check.
+    ///         ⚠ <b>The list is no longer one of them, and how it was refused is what made it
+    ///         cheap.</b> The refusal was never a branch in <c>EmitShadow</c>: <c>StyleValueParser</c>
+    ///         splits a value on top-level <i>whitespace</i> only, so <c>#000,</c> is one token, is
+    ///         not a colour, and takes the whole value to <c>Unknown</c> before that method sees it.
+    ///         Supporting a list was therefore <i>adding a depth-aware comma split</i> there — not
+    ///         relaxing a check, and emphatically not touching the whitespace split every other
+    ///         property in this engine depends on.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And <c>calc()</c> is a third blocker that is easy to miss.</b> Tailwind's
+    ///         ⚠ <b><c>calc()</c> is the blocker that is left, and it is easy to miss.</b> Tailwind's
     ///         <c>ring-offset-*</c> writes its outer ring's spread as
     ///         <c>calc(var(--tw-ring-offset-width) + var(--tw-ring-width))</c>, and nothing in
     ///         <c>StyleValueParser</c> reads <c>calc</c> — the substitution happens on the text and
@@ -645,10 +646,14 @@ public class DrawListTests {
     ///     </para>
     /// </remarks>
     [Theory]
-    [InlineData("0px 4px 12px #000000, 0px 8px 24px #ff0000")]
-    [InlineData("0 0 0 2px #000000, 0 0 0 4px #ff0000")]
     [InlineData("0 0 0 calc(2px + 2px) #000000")]
-    public void A_shadow_list_and_a_calculated_length_are_refused_whole(string shadow) {
+    [InlineData("0px 4px 12px #000000, 0 0 0 calc(2px + 2px) #ff0000")]
+    // ⚠ The same rule reached by the other road, and both roads are needed. A `calc()` makes the
+    // *item* unreadable before any shadow is read out of it; `90deg` is a well-formed item whose
+    // lengths are not distances, so it fails inside the reader with the first shadow already in
+    // hand. Only the second exercises "put the finished ones back".
+    [InlineData("0px 4px 12px #000000, 90deg 2px #00ff00")]
+    public void A_calculated_length_is_refused_whole(string shadow) {
         using var document = Drawn(
             $$"""
             root { width: 400px; height: 300px; }
@@ -660,9 +665,82 @@ public class DrawListTests {
             document => document.Root.Add("div", classNames: "card")
         );
 
-        // Nothing at all, rather than the first item of the list — which is the refusal being made
-        // deliberately: painting one shadow of two looks like it worked.
+        // ⚠ The second row is the half that a list makes newly expressible and that CSS is strict
+        // about: one unreadable item takes the whole declaration with it, so the perfectly good
+        // shadow written beside it paints nothing either. Drawing that one would be the "half a list
+        // looks like it worked" failure arriving through the feature written to prevent it.
         Assert.Equal(DrawCommandKind.Rectangle, Assert.Single(document.Drawing.Commands).Kind);
+    }
+
+    /// <summary>A list is a command each, and the first shadow written is the one on top.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The order is the assertion, not the count.</b> CSS Backgrounds 3 § 7.1.1 paints a
+    ///         list front to back in the order written; this draw list paints later commands over
+    ///         earlier ones. So the two orderings are opposite, and emitting the items as they are
+    ///         written gives a picture that is right whenever the shadows do not overlap and wrong
+    ///         the moment they do — which is precisely what a two-shadow list is written to do.
+    ///     </para>
+    ///     <para>
+    ///         The colours are what identify which is which, because the offsets alone would still
+    ///         match under a reversed reading of the same geometry.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_shadow_list_is_a_command_each_painted_last_to_first() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .card {
+                width: 100px; height: 60px; background-color: #ffffff;
+                box-shadow: 0px 4px 12px #ff0000, 0px 8px 24px #0000ff;
+            }
+            """,
+            document => document.Root.Add("div", classNames: "card")
+        );
+
+        var commands = document.Drawing.Commands;
+
+        Assert.Equal(3, commands.Count);
+        Assert.Equal(DrawCommandKind.Shadow, commands[0].Kind);
+        Assert.Equal(DrawCommandKind.Shadow, commands[1].Kind);
+        Assert.Equal(DrawCommandKind.Rectangle, commands[2].Kind);
+
+        // The blue one is written second and is painted first, so the red one lands on top of it.
+        Assert.Equal(0f, commands[0].Color.R, Tolerance);
+        Assert.Equal(1f, commands[0].Color.B, Tolerance);
+        Assert.Equal(8f, commands[0].Y, Tolerance);
+
+        Assert.Equal(1f, commands[1].Color.R, Tolerance);
+        Assert.Equal(0f, commands[1].Color.B, Tolerance);
+        Assert.Equal(4f, commands[1].Y, Tolerance);
+    }
+
+    /// <summary>The commas inside a colour are not the commas the list is split on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The shipped theme is written this way</b> — <c>--shadow: 0px 1px 2px rgba(0, 0, 0,
+    ///     0.3)</c> — so a split that counted every comma would make four items of one shadow, none
+    ///     of them readable, and refuse a declaration the engine has drawn since before this list
+    ///     existed. Two of them side by side is the case that needs both halves at once.
+    /// </remarks>
+    [Fact]
+    public void A_colour_with_commas_in_it_is_one_item_and_not_four() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .card {
+                width: 100px; height: 60px; background-color: #ffffff;
+                box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.3), 0px 8px 24px rgba(0, 0, 0, 0.45);
+            }
+            """,
+            document => document.Root.Add("div", classNames: "card")
+        );
+
+        var commands = document.Drawing.Commands;
+
+        Assert.Equal(3, commands.Count);
+        Assert.Equal(0.45f, commands[0].Color.A, Tolerance);
+        Assert.Equal(0.3f, commands[1].Color.A, Tolerance);
     }
 
     /// <summary>But a <c>var()</c> in the same position does resolve, which is what makes the ring work.</summary>

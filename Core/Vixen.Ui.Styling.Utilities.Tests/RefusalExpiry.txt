@@ -54,6 +54,7 @@ isolation	expires-with	mix-blend
 mix-blend	expires-on	Vixen.Ui.DrawCommand.Blend
 perspective-*	expires-on	Vixen.Ui.Rendering.UiVertex.W
 perspective-origin-*	expires-with	perspective-*
+ring-offset-*	expires-on	Vixen.Ui.Styling.StyleValueKind.Calculation
 rotate-x-*	expires-with	perspective-*
 rotate-y-*	expires-with	rotate-x-*
 scale-z-*	expires-with	perspective-*
