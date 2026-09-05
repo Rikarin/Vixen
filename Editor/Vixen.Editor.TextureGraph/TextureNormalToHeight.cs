@@ -99,7 +99,7 @@ sealed class NormalToHeightOperation : ITextureCpuOperation {
     ///     180 MB and 4096² would be about 2.9 GB, which is not a slow bake but a dead process. The
     ///     ceiling is 2048², it is refused with the number in the message rather than attempted, and
     ///     lifting it means giving the solver a matrix-free grid operator rather than raising a
-    ///     constant — <a href="https://github.com/Rikarin/Vixen/issues/757">#757</a>.
+    ///     constant — <a href="https://github.com/Rikarin/Vixen/issues/755">#755</a>.
     /// </remarks>
     public const int MaxTexels = 2048 * 2048;
 
@@ -137,7 +137,7 @@ sealed class NormalToHeightOperation : ITextureCpuOperation {
         if ((long)width * height > MaxTexels) {
             var message = string.Create(
                 CultureInfo.InvariantCulture,
-                $"Op {invocation.Op} runs '{Name}' over {width}×{height} texels, and the Poisson system that needs is more memory than a process should ask for — the ceiling is {MaxTexels} texels. Bake the height at a lower resolution and upscale, or see #757."
+                $"Op {invocation.Op} runs '{Name}' over {width}×{height} texels, and the Poisson system that needs is more memory than a process should ask for — the ceiling is {MaxTexels} texels. Bake the height at a lower resolution and upscale, or see #755."
             );
 
             throw new InvalidOperationException(message);

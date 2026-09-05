@@ -88,7 +88,7 @@
 
             ⚠ **Every type under `Solving/` is `internal`, which is why this is an
             `InternalsVisibleTo` rather than a reference.** That is a wart and it is recorded as
-            [#755](https://github.com/Rikarin/Vixen/issues/755): the honest fix is for the solver to
+            [#752](https://github.com/Rikarin/Vixen/issues/752): the honest fix is for the solver to
             live in an assembly of its own — nothing in `SparseMatrix`, `Preconditioner`,
             `ConjugateGradient` or `LeastSquaresSolver` mentions a chart, a triangle or a UV — and
             `Vixen.Geometry.Uv` would then be its first caller rather than its owner. Until then this

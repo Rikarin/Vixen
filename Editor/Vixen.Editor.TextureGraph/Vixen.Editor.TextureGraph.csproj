@@ -133,7 +133,7 @@
           started, with a fixed iteration budget rather than a residual test, which is exactly the
           determinism a bake wants. Its types are `internal`, so that assembly names this one in an
           `InternalsVisibleTo`; the wart and its fix are recorded there and in
-          [#755](https://github.com/Rikarin/Vixen/issues/755).
+          [#752](https://github.com/Rikarin/Vixen/issues/752).
 
           ⚠ **`Vixen.Core.Threading` is not optional even though nothing here starts a thread.**
           `ConjugateGradient.Solve` takes a `JobScheduler?` with a default of null, and C# cannot
@@ -160,7 +160,7 @@
           Only the text half is named, because only the text half is used. Glyph outlines and a
           scanline fill are `Vixen.Ui.Text`; `SvgPath` and `PathFlattener` are `Vixen.Ui` proper, and
           § 4.1's `Svg Path` stays unwritten for a reason that is about a rasteriser rather than
-          about a reference — [#756](https://github.com/Rikarin/Vixen/issues/756).
+          about a reference — [#753](https://github.com/Rikarin/Vixen/issues/753).
         -->
         <ProjectReference Include="..\..\Core\Vixen.Ui.Text\Vixen.Ui.Text.csproj" />
 
