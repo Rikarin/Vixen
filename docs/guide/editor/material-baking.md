@@ -84,10 +84,12 @@ slider that changes the compression.
 
 1. The name is sanitised, and the set's name is resolved against what is already in the folder.
 2. Any output whose bytes are not what the last bake wrote stops the run — see below.
-3. The maps are written, and the database is scanned.
-4. Each map's GUID is read back and its sidecar is finished with the settings that say what it is.
-5. The `.vxmat` is written, naming those GUIDs, and the database is scanned again.
-6. The material's GUID is read back and the `texturing:` block is written into its sidecar.
+3. Files under this set's names that the bake can prove it wrote and is not writing again are removed
+   — see below.
+4. The maps are written, and the database is scanned.
+5. Each map's GUID is read back and its sidecar is finished with the settings that say what it is.
+6. The `.vxmat` is written, naming those GUIDs, and the database is scanned again.
+7. The material's GUID is read back and the `texturing:` block is written into its sidecar.
 
 ⚠ **A scan rather than an import, and the difference is what mints the identity.** A file in
 `Assets/` has no `AssetId` until the database has seen it and written a `.meta` beside it. That is
@@ -105,9 +107,25 @@ correct behaviour above into a silent swap of one material's maps for another's,
 defect [#681](https://github.com/Rikarin/Vixen/issues/681) records against the mesh-map baker. A
 second source baking under a taken name gets `<name>_2` and a warning.
 
+⚠ **A folder is a source, and that is what makes the sentence above true of `vixen texture bake`.**
+The key is the graph's `AssetId` where a graph produced the maps and the `--from` path where the
+command line did — `MaterialProvenance.KeyOf`. Keyed on the asset alone it was a guard the only
+caller in existence could not reach: every command-line bake adopted whatever set was under `--name`,
+so two `--from` folders under one name overwrote each other and shared GUIDs
+([#725](https://github.com/Rikarin/Vixen/issues/725)).
+
 ⚠ **The bake owns the features and the textures; the shading model and the pass are the author's.** A
 re-bake replaces what the graph says and keeps what it cannot say, so a material somebody switched to
 `SubsurfaceShading` stays that way and a feature whose map the graph stopped producing goes.
+
+⚠ **A map the database did not pick up stops the bake rather than becoming a null.** Recording
+`AssetReference.Null` and carrying on wrote a `.vxmat` naming a texture that resolves to nothing —
+the feature is keyed on the map being *present*, so it was added with a null beside it, the index
+stayed zero, and the surface shaded from slot zero on every device with nothing reported
+([#724](https://github.com/Rikarin/Vixen/issues/724)). It is a state a project can be in: a scan will
+not replace a `.meta` whose GUID it cannot read, because minting a new one would break every
+reference through the old one. `--force` is not offered for it, because forcing cannot make the
+database name a file it would not read.
 
 ## Provenance, and the painted-over check
 
@@ -137,8 +155,16 @@ first artist with a different GPU a bug report.
 ⚠ **A file somebody painted over is refused, not regenerated.** Before writing anything, the bake
 compares each output's bytes with the digest it recorded. A mismatch stops the run and names the
 maps, because the most common reason for one is that a person painted on the file — and a bake that
-overwrote it would destroy that work in the moment it looked like success. `--force`, or the panel's
-equivalent, is how somebody says they meant it.
+overwrote it would destroy that work in the moment it looked like success. `--force` is how somebody
+says they meant it.
+
+⚠ **A recorded map is looked for under both extensions, and the one that agrees with the digest
+wins.** A set that used to be 4K is a container and the same set at 2K is a PNG, so a check that only
+looked under the extension this bake is about to write would call every output of a resized re-bake
+"not there". Taking the first extension found instead was just as wrong in the other direction: a PNG
+sitting beside a container this bake wrote was compared against the container's digest, disagreed by
+construction, and refused every further bake of that material as painted over — for a file the bake
+does not write.
 
 ⚠ **The digest covers the maps and not the `.vxmat`.** A material an artist edited in the inspector
 is not a painted-over map, and including it would make raising an emissive intensity look identical
@@ -146,6 +172,29 @@ to painting on a normal map.
 
 ⚠ **What "byte-identical" covers is the outputs and the material.** The sidecar carries the time the
 bake ran, so two runs differ there by construction.
+
+## Which files on disk this material owns
+
+Two things leave a file behind under a set's names: a map that crosses the 2K limit changes extension,
+and a re-bake stops producing an output. Either way the leftover is a project asset holding the
+previous bake's pixels under a name that says it is this one's — what a generator or a second material
+picks up by accident — and the dropped output is the worse of the two, because its digest key goes
+with the output and the painted-over check no longer covers it.
+
+⚠ **A file is removed only when the digest proves this bake wrote it.** The material's own sidecar
+recorded `texturing.digest.<suffix>` for the previous run; if the bytes on disk still hash to it, a
+previous run of this bake wrote that file, and it goes along with its `.meta`. Anything else is named
+in a warning and left where it is.
+
+⚠ **Removing on the name alone destroyed data.** The names come from the material's name, so the
+*first* bake of a material called `Rock` deleted a hand-authored `Rock_baseColor.png` **and its
+`.meta`** — and with it the `AssetId` every scene resolved that texture through
+([#723](https://github.com/Rikarin/Vixen/issues/723)). An orphan an artist can see and delete is a
+strictly better failure than one the bake deletes for them.
+
+⚠ **`--force` does not widen the removal.** Forcing says "overwrite what I painted", not "delete what
+I painted", and a painted file's bytes are by definition not the ones the bake wrote — so a painted
+output the bake has stopped producing survives a forced run, with a warning.
 
 ## From the command line
 
@@ -157,6 +206,11 @@ vixen texture bake --project . --from authored/ --name ShipHull --force
 The inputs are named `<anything>_<usage>.png` — `hull_roughness.png`, `hull_baseColor.png` — and
 everything else in the folder is ignored. Two files claiming one usage is refused rather than
 resolved by enumeration order.
+
+⚠ **`--from` is the set's identity, not just a note in the sidecar.** Baking the same folder again
+overwrites that set and keeps its GUIDs, which is what re-baking means; baking a *different* folder
+under the same `--name` writes `<name>_2` and says so on stderr, rather than handing the second folder
+the first one's GUIDs.
 
 ⚠ **The verb reads a folder of maps and does not evaluate a graph.** A `.vxtexgraph` is M4's document
 and does not exist yet, so `--graph` would be the flag that parses and then apologises — the same
@@ -172,3 +226,7 @@ because packing three inputs into one output is the work the verb exists to do.
 - **A bake panel.** M5 is the write; the panel that drives it arrives with M4's document.
 - **Evaluating a graph.** The seam is a dictionary of bitmaps by usage, and the evaluator fills it.
 - **A height feature.** [#615](https://github.com/Rikarin/Vixen/issues/615).
+- ⚠ **A frame that draws one of these.** What is proved is the chain as far as the asset: the files
+  exist, the database knows them by GUID, and the `.vxmat` compiles. Nothing yet renders a baked
+  material through the real `StandardFrame`, so "it shades correctly on a device" is a claim this
+  guide does not make.

@@ -31,6 +31,9 @@ public sealed record MaterialBakeRecord {
     ///     overwrote the first one's maps with the second's and handed back the first one's GUIDs —
     ///     <a href="https://github.com/Rikarin/Vixen/issues/681">#681</a>, on the mesh-map baker, for
     ///     exactly this reason. Empty means "nobody said", which the next bake may adopt.
+    ///     ⚠ <b>And it is not the whole of the identity</b>, because a folder bake has no asset to name:
+    ///     <see cref="MaterialProvenance.KeyOf" /> falls back to <see cref="Source" />, which is what
+    ///     makes the guard reach the only caller that exists.
     /// </remarks>
     public AssetId SourceAsset { get; init; }
 
@@ -100,6 +103,52 @@ public static class MaterialProvenance {
 
     /// <summary>What separates the entries of <see cref="OutputsKey" />.</summary>
     public const string Separator = ", ";
+
+    /// <summary>What identifies the source a set was baked from, for keying the set on.</summary>
+    /// <param name="record">What the bake was.</param>
+    /// <returns>The key, or an empty string where the record says nothing about where it came from.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="record" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A folder is a source too, and it is the only one a folder bake has.</b> Keying on
+    ///         <see cref="MaterialBakeRecord.SourceAsset" /> alone made this guard real and unreachable
+    ///         at once: <c>TextureRunner</c> — the only caller that exists — bakes from a directory
+    ///         that is not an asset, so every command-line bake adopted whatever set was under the
+    ///         name, and two <c>--from</c> folders under one <c>--name</c> shared GUIDs. That is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/725">#725</a>, and it is the shape of
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/621">#621</a>: a fix every real caller
+    ///         bypasses.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The asset wins where there is one</b>, because a graph that moves keeps its id and
+    ///         changes its path. Comparing the two forms is never needed — a bake that has an asset
+    ///         records one every time, and a bake that has not, never does.
+    ///     </para>
+    /// </remarks>
+    public static string KeyOf(MaterialBakeRecord record) {
+        ArgumentNullException.ThrowIfNull(record);
+
+        return record.SourceAsset.IsEmpty ? record.Source : record.SourceAsset.ToString();
+    }
+
+    /// <summary>And the same key as a written sidecar records it.</summary>
+    /// <param name="extensions">A material sidecar's extensions.</param>
+    /// <returns>The key, or an empty string where the block does not say.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="extensions" /> is null.</exception>
+    /// <remarks>
+    ///     An empty answer is the third one and means "a set is here and does not say what made it" —
+    ///     a set baked by hand, or before this block existed. The next bake adopts one of those, because
+    ///     leaving it alone would strand it under the name while the re-bake landed beside it.
+    /// </remarks>
+    public static string KeyIn(IReadOnlyDictionary<string, string> extensions) {
+        ArgumentNullException.ThrowIfNull(extensions);
+
+        if (extensions.TryGetValue(SourceAssetKey, out var asset) && asset.Length > 0) {
+            return asset;
+        }
+
+        return extensions.TryGetValue(SourceKey, out var source) ? source : string.Empty;
+    }
 
     /// <summary>The digest of some bytes, as the sidecar writes it.</summary>
     /// <param name="bytes">The bytes.</param>

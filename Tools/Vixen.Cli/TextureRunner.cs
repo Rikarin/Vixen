@@ -84,6 +84,12 @@ public static class TextureRunner {
         }
 
         var editor = new EditorProject(project.Paths);
+
+        // ⚠ `Source` is this bake's identity and not merely a note, because a folder bake has no
+        // source *asset* to be keyed on. Until MaterialProvenance.KeyOf fell back to it, the
+        // source-keying guard was real and unreachable from here — every run adopted whatever set was
+        // under --name, so two --from folders under one name overwrote each other and shared GUIDs.
+        // See #725, which is #621's shape: a fix the only caller bypasses.
         var record = new MaterialBakeRecord {
             Source = Relative(project, from),
             Adapter = adapter
@@ -107,6 +113,15 @@ public static class TextureRunner {
             // and that using it replaces somebody's painting.
             error.WriteLine(failure.Message);
             error.WriteLine("Pass --force to bake over it anyway.");
+
+            return ExitCode.Failed;
+        } catch (InvalidOperationException failure) {
+            // ⚠ And this one is deliberately not offered --force, because forcing would not help: a
+            // file the asset database did not pick up cannot be named by id however hard the bake
+            // insists, and the failure is in the project's sidecars rather than in anything the
+            // person running the verb chose. Reporting success over it is #724 — a material naming a
+            // texture that resolves to nothing, shading from the bindless fallback with nothing said.
+            error.WriteLine(failure.Message);
 
             return ExitCode.Failed;
         }

@@ -169,6 +169,97 @@ public sealed class TextureCommandTests : IDisposable {
         Assert.Contains("roughness", complaint, StringComparison.Ordinal);
     }
 
+    /// <summary>⚠ Two <c>--from</c> folders under one <c>--name</c> get a set each.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/725" />, and the point of asserting it
+    ///         <i>here</i> is that this is the caller the guard did not reach. The baker keyed a set on
+    ///         <c>MaterialBakeRecord.SourceAsset</c>, this verb has no asset to put there, and the only
+    ///         test of the guard built the record by hand — so every command-line bake adopted whatever
+    ///         set was under the name and two folders shared one material's GUIDs.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A folder is the source a folder bake has</b>, so that is what it is keyed on.
+    ///         <c>A_re_bake_writes_the_same_bytes</c> is the other direction of the same guard: one
+    ///         folder baked twice keeps its set rather than collecting a <c>_2</c> per run.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task Two_source_folders_under_one_name_do_not_share_a_material() {
+        var second = Path.Combine(root, "generated");
+
+        Directory.CreateDirectory(second);
+        Authored("hull_baseColor.png", 10);
+        File.WriteAllBytes(Path.Combine(second, "moss_baseColor.png"), PngCodec.Encode(Flat(60)));
+
+        Assert.Equal(ExitCode.Success, (await Bake()).Code);
+
+        var (code, said, complaint) = await Run(
+            "texture", "bake", "--project", root, "--from", second, "--name", "Hull"
+        );
+
+        Assert.Equal(ExitCode.Success, code);
+        Assert.Contains("Hull_2", said, StringComparison.Ordinal);
+        Assert.Contains("rename", complaint, StringComparison.Ordinal);
+
+        var directory = Path.Combine(root, "Assets", MaterialMapNaming.DefaultFolder);
+
+        Assert.True(File.Exists(Path.Combine(directory, "Hull_2.vxmat")));
+
+        // And the first folder's material still names the first folder's pixels, which is the whole
+        // of the defect: it used to be handed the second's, GUIDs and all.
+        var first = YamlSerializer.Parse<MaterialContent>(File.ReadAllText(Path.Combine(directory, "Hull.vxmat")));
+        var again = YamlSerializer.Parse<MaterialContent>(File.ReadAllText(Path.Combine(directory, "Hull_2.vxmat")));
+
+        Assert.NotEqual(first.Textures[0].Texture, again.Textures[0].Texture);
+        Assert.Equal(
+            10,
+            PngCodec.Decode(
+                File.ReadAllBytes(
+                    Path.Combine(
+                        directory,
+                        MaterialMapNaming.FileName(
+                            "Hull",
+                            MaterialMapTarget.BaseColor,
+                            MaterialMapNaming.PortableExtension
+                        )
+                    )
+                )
+            ).Pixels[0]
+        );
+    }
+
+    /// <summary>A map the database did not pick up fails the verb rather than reporting success.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see href="https://github.com/Rikarin/Vixen/issues/724" />, at the exit code.</b> The
+    ///     write recorded a null reference, the material named a texture resolving to nothing, and this
+    ///     verb printed the file list and returned <c>Success</c> — so a build script shipped a set
+    ///     whose surfaces shade from the bindless table's fallback. ⚠ <b>And <c>--force</c> is
+    ///     deliberately not offered</b>: forcing cannot make the database name a file it would not read.
+    /// </remarks>
+    [Fact]
+    public async Task A_map_the_database_did_not_pick_up_fails_the_verb() {
+        Authored("hull_baseColor.png", 10);
+
+        var directory = Path.Combine(root, "Assets", MaterialMapNaming.DefaultFolder);
+
+        Directory.CreateDirectory(directory);
+
+        // A sidecar with no readable GUID, which a scan refuses to replace rather than mint a new id
+        // and break every reference through the old one.
+        File.WriteAllText(
+            Path.Combine(directory, "Hull_baseColor.png" + AssetMetaFile.Extension),
+            "\0not a meta"
+        );
+
+        var (code, _, complaint) = await Bake();
+
+        Assert.Equal(ExitCode.Failed, code);
+        Assert.Contains("Hull_baseColor.png", complaint, StringComparison.Ordinal);
+        Assert.DoesNotContain("--force", complaint, StringComparison.Ordinal);
+        Assert.False(File.Exists(Path.Combine(directory, "Hull.vxmat")), "a material naming nothing was written");
+    }
+
     Task<(ExitCode Code, string Output, string Error)> Bake(params string[] extra) =>
         Run([.. new[] { "texture", "bake", "--project", root, "--from", Maps, "--name", "Hull" }, .. extra]);
 

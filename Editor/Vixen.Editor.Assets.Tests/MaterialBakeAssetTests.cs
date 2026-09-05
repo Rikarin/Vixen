@@ -305,26 +305,24 @@ public sealed class MaterialBakeAssetTests : IDisposable {
         }
     }
 
-    /// <summary>A set that crosses the container limit reports the old file and does not delete it.</summary>
+    /// <summary>A set that crosses the container limit removes the file it can prove it wrote.</summary>
     /// <remarks>
     ///     <para>
-    ///         The copy that stays behind is a project asset holding the previous bake's pixels under
-    ///         a name that says it is this one's, which is what a generator or a second material picks
-    ///         up by accident. It is still a hazard and it is still named in a warning.
+    ///         The copy that would stay behind is a project asset holding the previous bake's pixels
+    ///         under a name that says it is this one's, which is what a generator or a second material
+    ///         picks up by accident.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It is no longer deleted, and this test asserted the deletion.</b> Nothing here
-    ///         establishes that the file being removed was written by a previous run of this bake —
-    ///         the name comes from the material's name alone — so the first bake of a material called
-    ///         <c>Rock</c> deleted a hand-authored <c>Rock_basecolor.png</c> <em>and its
-    ///         <c>.meta</c></em>, destroying the id every scene resolved that texture through. See
-    ///         <see href="https://github.com/Rikarin/Vixen/issues/723" />. An orphan an artist can see
-    ///         is a strictly better failure than one this code deletes for them, so the assertion is
-    ///         inverted rather than removed: the file survives, and the warning has to say so.
+    ///         ⚠ <b>What makes the removal safe is the digest and not the name.</b> The material's own
+    ///         sidecar recorded <c>texturing.digest.baseColor</c> for the previous run, and the PNG on
+    ///         disk still hashes to it — which is proof this bake wrote it. See
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/723" /> for what the name alone
+    ///         bought: the first bake of a material called <c>Rock</c> deleting a hand-authored
+    ///         <c>Rock_baseColor.png</c> and its <c>.meta</c>.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void A_map_that_grew_past_the_limit_reports_the_old_file_and_keeps_it() {
+    public void A_map_that_grew_past_the_limit_removes_the_file_it_wrote() {
         var project = Project();
         var baker = new ProjectMaterialBaker(project);
 
@@ -342,9 +340,235 @@ public sealed class MaterialBakeAssetTests : IDisposable {
             Record()
         );
 
-        Assert.True(File.Exists(before), "the PNG under the old extension was deleted");
+        Assert.False(File.Exists(before), "the PNG this bake wrote last time is still there");
+        Assert.False(File.Exists(AssetMetaFile.PathFor(before)), "its sidecar is still there");
         Assert.Contains(set.Warnings, warning => warning.Contains(".ktx2", StringComparison.Ordinal));
+        Assert.Contains(set.Warnings, warning => warning.Contains("removed", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     ⚠ And a file under the other extension that this bake cannot prove it wrote survives — which
+    ///     is <see href="https://github.com/Rikarin/Vixen/issues/723" />'s destroyed asset, exactly.
+    /// </summary>
+    /// <remarks>
+    ///     A project holding a hand-authored <c>Rock_baseColor.png</c> that other materials reference by
+    ///     GUID, and somebody bakes a material called <c>Rock</c> whose base colour lands above the
+    ///     container limit. There is no sidecar on the material yet, so no digest names that PNG, so
+    ///     nothing here can tell it from a file a previous run wrote — and the answer to that is a
+    ///     warning, not a delete.
+    /// </remarks>
+    [Fact]
+    public void A_file_under_the_other_extension_the_bake_cannot_claim_survives() {
+        var project = Project();
+        var directory = Path.Combine(project.Paths.Assets, MaterialMapNaming.DefaultFolder);
+
+        Directory.CreateDirectory(directory);
+
+        var authored = Map(project, "Rock", MaterialMapTarget.BaseColor);
+
+        File.WriteAllBytes(authored, PngCodec.Encode(Flat(4, 77)));
+        AssetMetaFile.WriteFile(AssetMetaFile.PathFor(authored), new() { Guid = Asset(42) });
+
+        var set = new ProjectMaterialBaker(project).Write(
+            "Rock",
+            MaterialBake.Encode(
+                new Dictionary<MaterialMapUsage, Bitmap> { [MaterialMapUsage.BaseColor] = Wide(30) }
+            ),
+            Record()
+        );
+
+        Assert.True(File.Exists(authored), "a hand-authored map was deleted by the first bake of its name");
+        Assert.Equal(77, PngCodec.Decode(File.ReadAllBytes(authored)).Pixels[0]);
+
+        // ⚠ And the id every scene resolved that texture through is still on disk. Deleting the
+        // sidecar is what turned an orphan into destroyed data.
+        Assert.Equal(Asset(42), AssetMetaFile.ReadFile(AssetMetaFile.PathFor(authored)).Guid);
         Assert.Contains(set.Warnings, warning => warning.Contains("LEFT IN PLACE", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     A re-bake that stops producing an output removes the file it left under this material's name.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b><see href="https://github.com/Rikarin/Vixen/issues/726" />, and the same ownership check
+    ///     answers it.</b> The dropped target's digest is in the material's sidecar and the file still
+    ///     hashes to it, so this bake wrote it and may take it away. Left behind it is worse than an
+    ///     orphan: <c>Provenance</c> drops the digest key with the output, so the next bake would not
+    ///     even call it painted.
+    /// </remarks>
+    [Fact]
+    public void A_dropped_output_this_bake_wrote_is_removed() {
+        var project = Project();
+        var baker = new ProjectMaterialBaker(project);
+
+        baker.Write("Strip", Images(), Record());
+
+        var orm = Map(project, "Strip", MaterialMapTarget.Orm);
+        var opacity = Map(project, "Strip", MaterialMapTarget.Opacity);
+
+        Assert.True(File.Exists(orm));
+        Assert.True(File.Exists(opacity));
+
+        var set = baker.Write(
+            "Strip",
+            MaterialBake.Encode(
+                new Dictionary<MaterialMapUsage, Bitmap> { [MaterialMapUsage.BaseColor] = Flat(4, 30) }
+            ),
+            Record()
+        );
+
+        Assert.False(File.Exists(orm), "the orm map of a bake that no longer produces one is still there");
+        Assert.False(File.Exists(AssetMetaFile.PathFor(orm)));
+        Assert.False(File.Exists(opacity));
+        Assert.Contains(set.Warnings, warning => warning.Contains("orm", StringComparison.Ordinal));
+        Assert.Contains(set.Warnings, warning => warning.Contains("opacity", StringComparison.Ordinal));
+
+        // And the material no longer names them, which is the half that was already right.
+        Assert.Single(YamlSerializer.Parse<MaterialContent>(File.ReadAllText(Vxmat(project, "Strip"))).Textures);
+    }
+
+    /// <summary>A dropped output somebody painted over is kept, even when the bake was forced.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>force</c> says "overwrite what I painted", not "delete what I painted".</b> The
+    ///     digest is what proves the bake wrote a file, and a painted file's bytes are by definition
+    ///     not the ones it wrote — so this is the one direction in which forcing must not widen the
+    ///     removal.
+    /// </remarks>
+    [Fact]
+    public void A_dropped_output_somebody_painted_is_kept_even_when_forced() {
+        var project = Project();
+        var baker = new ProjectMaterialBaker(project);
+
+        baker.Write("Strip", Images(), Record());
+
+        var orm = Map(project, "Strip", MaterialMapTarget.Orm);
+
+        File.WriteAllBytes(orm, PngCodec.Encode(Flat(4, 99)));
+
+        var set = baker.Write(
+            "Strip",
+            MaterialBake.Encode(
+                new Dictionary<MaterialMapUsage, Bitmap> { [MaterialMapUsage.BaseColor] = Flat(4, 30) }
+            ),
+            Record(),
+            force: true
+        );
+
+        Assert.True(File.Exists(orm), "a map somebody painted was deleted because the bake was forced");
+        Assert.Equal(99, PngCodec.Decode(File.ReadAllBytes(orm)).Pixels[0]);
+        Assert.Contains(set.Warnings, warning => warning.Contains("LEFT IN PLACE", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     ⚠ A foreign file under the other extension does not make the set look painted over.
+    /// </summary>
+    /// <remarks>
+    ///     The second defect <see href="https://github.com/Rikarin/Vixen/issues/723" /> names: the
+    ///     painted-over check took the first extension it found and stopped, and the list starts at
+    ///     <c>.png</c>. So a PNG dropped beside a container this bake wrote was compared against the
+    ///     container's digest, disagreed, and refused every further bake of that material — permanently,
+    ///     and for a file the bake does not write.
+    /// </remarks>
+    [Fact]
+    public void A_foreign_png_beside_a_container_is_not_the_painted_over_check_s_business() {
+        var project = Project();
+        var baker = new ProjectMaterialBaker(project);
+        var wide = MaterialBake.Encode(
+            new Dictionary<MaterialMapUsage, Bitmap> { [MaterialMapUsage.BaseColor] = Wide(30) }
+        );
+
+        baker.Write("Strip", wide, Record());
+
+        var foreign = Map(project, "Strip", MaterialMapTarget.BaseColor);
+
+        File.WriteAllBytes(foreign, PngCodec.Encode(Flat(4, 77)));
+
+        var set = baker.Write("Strip", wide, Record());
+
+        Assert.True(File.Exists(foreign), "a file nothing proves the bake wrote was deleted");
+        Assert.Contains(set.Warnings, warning => warning.Contains("LEFT IN PLACE", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     A map the database did not pick up stops the bake instead of becoming a null in the material.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see href="https://github.com/Rikarin/Vixen/issues/724" />, and the input is a
+    ///         sidecar a scan refuses to touch.</b> <c>AssetDatabase</c> will not re-create a
+    ///         <c>.meta</c> whose GUID it cannot read — minting a new one would break every reference —
+    ///         so the file is ignored, the read-back misses, and the bake used to record
+    ///         <c>AssetReference.Null</c> and carry on.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What that produced is the bindless fallback.</b> A <c>.vxmat</c> naming a texture
+    ///         that resolves to nothing leaves the index at zero and shades the surface from slot zero,
+    ///         on every device, with nothing reported.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_map_the_database_did_not_pick_up_stops_the_bake() {
+        var project = Project();
+        var directory = Path.Combine(project.Paths.Assets, MaterialMapNaming.DefaultFolder);
+
+        Directory.CreateDirectory(directory);
+
+        // A sidecar with no readable GUID, which is what a truncated write or a bad merge leaves.
+        File.WriteAllText(AssetMetaFile.PathFor(Map(project, "ShipHull", MaterialMapTarget.BaseColor)), "\0not a meta");
+
+        Assert.ThrowsAny<Exception>(() => new ProjectMaterialBaker(project).Write("ShipHull", Images(), Record()));
+
+        // The material was not written, which is the point: an unfinished bake beats a material that
+        // names a texture resolving to nothing.
+        Assert.False(File.Exists(Vxmat(project, "ShipHull")), "a material naming an unresolved map was written");
+    }
+
+    /// <summary>
+    ///     ⚠ Two source folders under one name get a set each on the path the CLI actually takes.
+    /// </summary>
+    /// <remarks>
+    ///     <see href="https://github.com/Rikarin/Vixen/issues/725" />. The guard existed and keyed on
+    ///     <see cref="MaterialBakeRecord.SourceAsset" /> alone, which <c>TextureRunner</c> never sets —
+    ///     so every command-line bake adopted whatever set was under the name, and two folders baked
+    ///     under one name shared GUIDs. A folder is a source too, and it is the only one a folder bake
+    ///     has.
+    /// </remarks>
+    [Fact]
+    public void Two_source_folders_with_one_name_do_not_share_a_set() {
+        var project = Project();
+        var baker = new ProjectMaterialBaker(project);
+        var first = baker.Write("Material", Images(), Folder("authored/rock"));
+        var second = baker.Write("Material", Images(20), Folder("authored/moss"));
+
+        Assert.Equal("Material", first.Name);
+        Assert.Equal("Material_2", second.Name);
+        Assert.NotEqual(first.Material, second.Material);
+
+        foreach (var (target, reference) in first.Maps) {
+            Assert.NotEqual(reference, second.Maps[target]);
+        }
+
+        Assert.Equal(
+            10,
+            PngCodec.Decode(File.ReadAllBytes(Map(project, "Material", MaterialMapTarget.Orm))).Pixels[1]
+        );
+    }
+
+    /// <summary>And one folder baked twice adopts its own set, which is the guard's other direction.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A key that never matches is worse than no key.</b> It would give every re-bake a
+    ///     <c>_2</c> and leave the project full of sets nothing points at, so the adoption has to be
+    ///     proved as well as the refusal.
+    /// </remarks>
+    [Fact]
+    public void One_source_folder_baked_twice_keeps_its_set() {
+        var project = Project();
+        var baker = new ProjectMaterialBaker(project);
+        var first = baker.Write("Material", Images(), Folder("authored/rock"));
+        var second = baker.Write("Material", Images(20), Folder("authored/rock"));
+
+        Assert.Equal(first.Name, second.Name);
+        Assert.Equal(first.Material, second.Material);
     }
 
     static string Vxmat(EditorProject project, string name) =>
@@ -377,6 +601,9 @@ public sealed class MaterialBakeAssetTests : IDisposable {
 
     static MaterialBakeRecord Record() =>
         new() { Source = "Assets/Materials/ship-hull.vxtexgraph", SourceAsset = Asset(3) };
+
+    /// <summary>What a folder bake records: a path, and no asset, which is what the CLI builds.</summary>
+    static MaterialBakeRecord Folder(string from) => new() { Source = from };
 
     static AssetId Asset(int seed) => new(Guid.Parse($"{seed:D8}-0000-0000-0000-000000000000"));
 
