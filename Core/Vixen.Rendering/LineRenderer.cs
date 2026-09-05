@@ -47,10 +47,16 @@ public readonly record struct LineShaders(ShaderHandle Vertex, ShaderHandle Frag
     ///         ⚠ <b>Because until this existed a game could not build a <see cref="LineRenderer" />
     ///         at all.</b> The modules were committed under <c>Shaders/</c> and named by no project
     ///         file, so the only two things in the tree that ever loaded a line stage were the golden
-    ///         suite, which keeps a byte-identical copy beside its own fixtures, and the editor,
+    ///         suite, which kept a byte-identical copy beside its own fixtures, and the editor,
     ///         whose <c>Line.rvn</c> lives under <c>Editor/</c> where a game may not reach. Every
     ///         line <c>DebugDraw</c> has been accumulating since Phase 2 had a renderer written for
     ///         it and no shader a running game could feed it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>That copy is gone and the golden suite calls this instead</b> (#637), which is
+    ///         worth more than the four deleted files: every line picture in that suite is now also
+    ///         an answer to whether these resources are embedded at all. They were not, once, and
+    ///         the symptom of a missing one is a feature that looks unwired.
     ///     </para>
     ///     <para>
     ///         This is not the compiler these remarks refuse to grow: it reads two pre-compiled
