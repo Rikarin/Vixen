@@ -140,12 +140,19 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
             ]
         };
 
+    /// <summary>A <c>Blend</c> op written out by hand, deliberately not through the builder.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The kernel's uniforms are spelt here on purpose</b> — this file asserts what a plan
+    ///     means, and a plan is what a caller can write — so a uniform added to <c>Blend.rvn</c> makes
+    ///     this method fail to bind rather than pass reading the builder's opinion of it. <c>atop</c>
+    ///     is 0 in every case here: nothing in this file composites an adjustment of its own backdrop.
+    /// </remarks>
     static TextureOp Mix(int output, int background, int foreground, int mode, float opacity) =>
         new() {
             Kernel = "Blend",
             Output = output,
             Inputs = [background, foreground],
-            Parameters = [new("mode", mode), new("opacity", opacity)]
+            Parameters = [new("mode", mode), new("opacity", opacity), new("atop", 0f)]
         };
 
     static byte At(Bitmap picture, int x, int y, int channel) =>

@@ -332,20 +332,36 @@ public class TexturePlacementDeviceTests(ITestOutputHelper output) {
         );
     }
 
-    /// <summary>The three accumulation modes give three numbers, and each is only its own.</summary>
+    /// <summary>The three accumulation modes give three answers, and each is only its own.</summary>
     /// <remarks>
-    ///     ⚠ <b>Two instances at full scale cover every texel twice</b>, because the field wraps — so
-    ///     the whole image is the answer to "what do two overlapping stamps of 0.4 grey do". Max keeps
-    ///     0.4; add makes 0.8; blend composites 0.4 over 0.4 at a weight that is the stamp's own
-    ///     coverage, <c>lerp(lerp(0, 0.4, 0.4), 0.4, 0.4)</c>, which is 0.256. Nothing about a
-    ///     renumbering of <see cref="TexturePlacementAccumulation" /> would be visible without this:
-    ///     all three are perfectly plausible fields of stamps.
+    ///     <para>
+    ///         ⚠ <b>Two instances at full scale cover every texel twice</b>, because the field wraps —
+    ///         so the whole image is the answer to "what do two overlapping stamps of 0.4 grey do".
+    ///         Max keeps 0.4 at a coverage of 0.4; add makes 0.8 at 0.8; blend composites 0.4 over 0.4,
+    ///         which is <b>0.4 at a coverage of 0.64</b>. Nothing about a renumbering of
+    ///         <see cref="TexturePlacementAccumulation" /> would be visible without this: all three are
+    ///         perfectly plausible fields of stamps.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The coverage is asserted as well as the colour, and after
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/864">#864</a> it has to be.</b>
+    ///         Source-over of a colour onto <em>itself</em> is that colour whatever the weights, so a
+    ///         corrected <c>blend</c> agrees with <c>max</c> on the colour here and the pair is what
+    ///         separates them — 163 against 102. The number this case used to assert, 65, was
+    ///         <c>lerp(lerp(0, 0.4, 0.4), 0.4, 0.4)</c>: the running colour lerped towards an
+    ///         accumulator that was not there, which is 0.4 premultiplied by its own coverage twice
+    ///         over. It was the defect written down as the expectation.
+    ///     </para>
     /// </remarks>
     [Theory]
-    [InlineData((int)TexturePlacementAccumulation.Max, 102)]
-    [InlineData((int)TexturePlacementAccumulation.Add, 204)]
-    [InlineData((int)TexturePlacementAccumulation.Blend, 65)]
-    public void An_accumulation_mode_folds_two_full_scale_instances_its_own_way(int mode, int expected) {
+    [InlineData((int)TexturePlacementAccumulation.Max, 102, 102)]
+    [InlineData((int)TexturePlacementAccumulation.Add, 204, 204)]
+    [InlineData((int)TexturePlacementAccumulation.Blend, 102, 163)]
+    public void An_accumulation_mode_folds_two_full_scale_instances_its_own_way(
+        int mode,
+        int expected,
+        int coverage
+    ) {
         using var device = TextureKernelHarness.Open();
 
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
@@ -372,10 +388,135 @@ public class TexturePlacementDeviceTests(ITestOutputHelper output) {
 
         var picture = bake.Read(1);
         var actual = TextureKernelHarness.At(picture, 20, 44, 0);
+        var alpha = TextureKernelHarness.At(picture, 20, 44, 3);
 
         Assert.True(
             Math.Abs(actual - expected) <= 2,
             $"accumulation {mode} of two 0.4 stamps is {actual} and the closed form is {expected} "
+            + $"({TextureKernelHarness.Adapter(device)})"
+        );
+
+        Assert.True(
+            Math.Abs(alpha - coverage) <= 2,
+            $"accumulation {mode} of two 0.4 stamps covers {alpha} and the closed form is {coverage} "
+            + $"({TextureKernelHarness.Adapter(device)})"
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ Compositing one colour over itself is that colour, however many times and at whatever
+    ///     coverage — which is the whole of what "straight, not premultiplied" means.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A closed form with the swept parameter divided out</b>, which is what
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/864">#864</a> needed and what a
+    ///         differential against the kernel's own explosion could not have given. Every stamp here
+    ///         is the same 0.4 grey and every one lands on the whole image, so <c>blend</c> composites
+    ///         0.4 over 0.4 over 0.4 …; source-over of a colour onto itself is that colour for any
+    ///         weight, so the answer is 102 for <b>one</b> instance and for eight, and the coverage
+    ///         accumulating from 0.4 towards 1 as the count rises is exactly the thing the colour must
+    ///         be independent of. There is nothing to re-bless: 102 is the input.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The count of one is the case an artist reaches first and the case the old kernel
+    ///         got most wrong.</b> A splatter's accumulator starts at α = 0, so the first stamp
+    ///         composited against nothing came out <c>0.4 · 0.4 = 0.16</c> — 41 rather than 102. In
+    ///         <c>Blend.rvn</c> the same defect needed an isolated group to reach it; here it is the
+    ///         first dispatch anyone runs.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(5)]
+    [InlineData(8)]
+    public void Blending_a_stamp_over_itself_keeps_its_colour_whatever_the_count(int count) {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
+        var plan = new TexturePlan {
+            BaseWidth = Side,
+            BaseHeight = Side,
+            Images = [new(TextureFormat.Rgba16Float), new(TextureFormat.Rgba8)],
+            Ops = [
+                TextureSources.Uniform(0, 0.4f),
+                TexturePlacement.Splatter(
+                    1,
+                    0,
+                    count: count,
+                    scale: 1f,
+                    accumulation: TexturePlacementAccumulation.Blend
+                )
+            ],
+            Outputs = [1]
+        };
+
+        using var evaluator = new TexturePlanEvaluator(device);
+        using var bake = evaluator.Evaluate(plan, new Dictionary<int, TextureHandle>());
+
+        var picture = bake.Read(1);
+        var actual = TextureKernelHarness.At(picture, 20, 44, 0);
+
+        Assert.True(
+            Math.Abs(actual - 102) <= 2,
+            $"{count} stamps of 0.4 grey blended over one another read {actual}, and source-over of a "
+            + $"colour onto itself is that colour — 102 ({TextureKernelHarness.Adapter(device)})"
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ The same for <c>TileSampler</c>, because the two kernels carry the same function by copy
+    ///     and a fix applied to one of them is invisible in the other.
+    /// </summary>
+    /// <remarks>
+    ///     One cell, one instance at full scale, blended onto an accumulator that starts empty: the
+    ///     answer is the pattern, 0.4. The old rule made it <c>0.4 · 0.4</c> — 41. Kept as its own case
+    ///     rather than as a parameter of the sweep above because the two kernels take different
+    ///     arguments to mean "cover the whole image", and <c>TileSampler</c>'s cell is what makes one
+    ///     instance the whole of it. <a href="https://github.com/Rikarin/Vixen/issues/864">#864</a>.
+    /// </remarks>
+    [Fact]
+    public void A_tile_sampler_blends_its_first_instance_onto_nothing_as_a_straight_colour() {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
+        var plan = new TexturePlan {
+            BaseWidth = Side,
+            BaseHeight = Side,
+            Images = [new(TextureFormat.Rgba16Float), new(TextureFormat.Rgba8)],
+            Ops = [
+                TextureSources.Uniform(0, 0.4f),
+                TexturePlacement.TileSampler(
+                    1,
+                    0,
+                    gridX: 1,
+                    gridY: 1,
+                    scale: 1f,
+                    accumulation: TexturePlacementAccumulation.Blend
+                )
+            ],
+            Outputs = [1]
+        };
+
+        using var evaluator = new TexturePlanEvaluator(device);
+        using var bake = evaluator.Evaluate(plan, new Dictionary<int, TextureHandle>());
+
+        var picture = bake.Read(1);
+        var actual = TextureKernelHarness.At(picture, 20, 44, 0);
+        var alpha = TextureKernelHarness.At(picture, 20, 44, 3);
+
+        Assert.True(
+            Math.Abs(actual - 102) <= 2,
+            $"one 0.4 stamp blended onto an empty accumulator reads {actual} and a straight colour is "
+            + $"102 ({TextureKernelHarness.Adapter(device)})"
+        );
+
+        Assert.True(
+            Math.Abs(alpha - 102) <= 2,
+            $"and it covers {alpha} where its own coverage is 0.4 — 102 "
             + $"({TextureKernelHarness.Adapter(device)})"
         );
     }

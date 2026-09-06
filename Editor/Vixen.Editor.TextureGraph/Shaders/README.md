@@ -52,7 +52,14 @@ carries **all sixteen** of § 4.2's modes, and
 `TexturePlacementKernelTests.Every_blend_mode_named_in_C_sharp_has_a_case_in_the_kernel` counts them
 on both sides — the eight of § M1 are numbered 0–7 and the rest were **appended**, because a plan is
 a file and renumbering to match the prose would silently turn every plan already written into another
-perfectly plausible picture.
+perfectly plausible picture. ⚠ `Blend` also carries `atop`, which is a **different question from the
+mode**: whether the foreground *arrives on top of* the backdrop or *reinterprets* it. Over's alpha
+rule is monotonic, so a filter layer composited over the picture it adjusts raises the coverage it was
+handed and under-applies itself; no operator and no opacity can express "the coverage that leaves is
+the coverage that arrived" ([#845](https://github.com/Rikarin/Vixen/issues/845)). ⚠ And `Blend` is
+**not** the only kernel that reads `w` as coverage, however long this repository said so:
+`TileSampler` and `Splatter` fold overlapping instances under the same rule and carried the same
+premultiply defect because of that sentence ([#864](https://github.com/Rikarin/Vixen/issues/864)).
 
 **§ 4.3 space — five.** `Transform2D` · `Mirror` · `Tile` · `Crop` · `Resample`. ⚠ **Minification is
 supersampled by hand** in three of them, because the evaluator binds no samplers — there is no

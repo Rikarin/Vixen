@@ -166,6 +166,14 @@ internal static class TexturePlacement {
             Kernel = TileSamplerKernel,
             Output = output,
             Inputs = [pattern, mask, sizeMap, rotationMap],
+
+            // ⚠ #867. Every one of the four is read through **its own** extent — `Stamp` divides by
+            // `pattern.GetDimensions(0)` and `At` by the map's — so stamping a 64² pattern over a
+            // 1024² output is this node's ordinary use and not the smeared corner
+            // `TexturePlan.Check` cautions about. #801 landed the flag and the reader that puts a
+            // caution under the layer stack's pane, and missed these two, so the node an artist
+            // reaches for first was the one that complained.
+            ReadsOtherExtents = true,
             Parameters = [
                 new("gridX", gridX),
                 new("gridY", gridY),
@@ -311,6 +319,12 @@ internal static class TexturePlacement {
             Kernel = SplatterKernel,
             Output = output,
             Inputs = [pattern, mask, sizeMap, rotationMap, placement],
+
+            // ⚠ #867, `TileSampler`'s reason and one more input. All five are read through their own
+            // extent, so **every** input of this op is extent-agnostic and the per-op flag says
+            // exactly what is true here — see `TextureOp.ReadsOtherExtents` for why the granularity
+            // is the op and where that costs something.
+            ReadsOtherExtents = true,
             Parameters = [
                 new("count", count),
                 new("scale", scale),

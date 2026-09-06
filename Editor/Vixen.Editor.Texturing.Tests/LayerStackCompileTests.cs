@@ -259,7 +259,18 @@ public class LayerStackCompileTests {
         Assert.Equal(0.2f, Last(compilation.Plan, "Blend").Find("opacity")!.Value.Value, 6);
     }
 
-    /// <summary>An anchor onto a layer beneath is an edge, and it compiles.</summary>
+    /// <summary>An anchor onto a layer beneath is an edge, and it reads that layer's coverage too.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two shuffles rather than one, and the second one is
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/874">#874</a>.</b> An anchor resolves to
+    ///     another layer's evaluated result, whose alpha is that layer's <em>coverage</em>; a mask is
+    ///     a number, so what the entry contributes is <c>red · coverage</c> and this library has no
+    ///     arithmetic node — hence a shuffle lifting the red, a shuffle lifting the alpha, and the
+    ///     <c>Multiply</c> between them.
+    ///     <c>LayerCoverageDeviceTests.An_anchor_onto_a_partly_covered_layer_masks_by_its_coverage</c>
+    ///     is what says the product is the right one; this is what says both halves are wired to the
+    ///     anchored layer and not to something else in the plan.
+    /// </remarks>
     [Fact]
     public void An_anchor_reads_a_layer_beneath_it() {
         var stack = Stack(
@@ -277,18 +288,27 @@ public class LayerStackCompileTests {
         Assert.Empty(compilation.Problems);
         Assert.NotNull(compilation.Plan);
 
-        // The anchor reads the lower layer's *composite*, which is the first blend, and it arrives at
-        // the shuffle that lifts a mask's red into an opaque grey — selector 0 into red, 9 into
-        // alpha. ⚠ Found by what it does rather than by its position: a masked layer emits three
-        // shuffles and only this one reads the mask.
+        // The anchor reads the lower layer's *composite*, which is the first blend. ⚠ Found by what
+        // it reads rather than by what it does: `Mask` emits shuffles with both of these selector
+        // pairs itself — 0 into red and 9 into alpha lifts a mask's value, 3 and 9 lifts a
+        // foreground's coverage — so a predicate over the selectors alone matches four ops in this
+        // plan and only two of them are the anchor's.
         var under = Find(compilation.Plan, "Blend");
-        var opaque = Only(
-            compilation.Plan,
-            "ChannelShuffle",
-            op => op.Find("sourceR")!.Value.Value == 0f && op.Find("sourceA")!.Value.Value == 9f
-        );
+        var read = compilation
+            .Plan.Ops.Where(op =>
+                string.Equals(op.Kernel, "ChannelShuffle", StringComparison.Ordinal)
+                && op.Inputs[0] == under.Output
+            )
+            .ToArray();
 
-        Assert.Equal(under.Output, opaque.Inputs[0]);
+        Assert.Equal(2, read.Length);
+
+        // One lifts the anchored layer's red, the other its alpha, and both splat it across the
+        // colour lanes with an alpha of 1 so the Multiply between them reads two numbers.
+        Assert.Contains(read, op => op.Find("sourceR")!.Value.Value == 0f);
+        Assert.Contains(read, op => op.Find("sourceR")!.Value.Value == 3f);
+        Assert.All(read, op => Assert.Equal(9f, op.Find("sourceA")!.Value.Value));
+        Assert.All(read, op => Assert.Equal(op.Find("sourceR")!.Value.Value, op.Find("sourceB")!.Value.Value));
     }
 
     /// <summary>An anchor onto a layer above it is refused, by the graph model.</summary>
