@@ -151,6 +151,22 @@ a span with an out-of-flow child  refused, and the child is the reason rather th
                                   CSS's — so a flattened span, whose own `CalculateLayoutImpl`
                                   never runs, is where that walk stops. Refusing leaves a box
                                   un-split; flattening would leave the child positioned by nobody.
+                                  ⚠ RE-VERIFIED at HEAD rather than copied forward, and the shape
+                                  of the fix is worth writing down because the reading takes
+                                  three files: `LayoutStyle.cs:359` still writes `Relative` as the
+                                  default, `EstablishesAbsoluteContainingBlock` is still
+                                  `!= Static`, and `LayoutAbsoluteDescendants` descends into a
+                                  child only when that is false. So what a flattened span is
+                                  missing is one call: `CommitInlineBoxFragments` is where its
+                                  union — §10.1's containing block for exactly these children —
+                                  becomes final, and a `LayoutAbsoluteDescendants` from there
+                                  would put them somewhere. ⚠ It is NOT only that call. The static
+                                  position `HideAndPositionOutOfFlow` records for such a child is
+                                  the CONTAINER's content edge, in the container's coordinates, and
+                                  the commit rebases everything else it placed by the union's
+                                  origin — so a child with no insets would be positioned from an
+                                  origin nothing moved. Whoever takes this closes both halves or
+                                  neither.
 the strut's effect on a fragment  ⚠ CLOSED BY THE STRUT SECTION BELOW, and it closed for free: a
                                   fragment is exactly as tall as its line box, so a container with a
                                   strut now gives every fragment the strut's height without this
@@ -341,9 +357,17 @@ generated boxes (::before/after)  doc 43's A12. ⚠ ITS PRECONDITION IS NOW MET 
 #     against the span itself. Flattening it would rebase the float's position by the span's origin a
 #     second time, because the line walk writes a float in the CONTAINER's coordinates. It is the
 #     fifth restriction in that method's list and has the same shape as the fourth.
-#   · Text wrapping around a float's staircase (#901). A text leaf is one atomic item here and this
-#     walk never breaks inside one, so a paragraph beside a float re-flows as whole leaves.
-#     Shortening a leaf's first line is the fragmentation item three rows down and is the same item.
+#   · Text wrapping around a float's staircase (#901). ⚠ LANDED for a BLOCK-LEVEL text leaf, which
+#     is the case §9.5 is about: `LayoutTree.ContentBands` answers one band per line slot while the
+#     block walk is laying that leaf out, `UiElement.Block` breaks one line per band and then the
+#     rest in one pass, and the offset travels on `TextLine.Offset` — where `text-indent` already
+#     was, so the draw list, the caret, the selection band and the hit test place it unchanged.
+#     Chrome's own geometry is in `FloatBandQueryTests` and `TextFloatBandTests`.
+#     ⚠ WHAT IS STILL OWED IS THE INLINE-LEVEL CASE AND IT IS A DIFFERENT SHAPE: a text leaf that
+#     shares a line box with siblings is still one atomic item, sized in the pass BEFORE any line
+#     has a position, so there is no band to ask for at the moment it is measured. That is the
+#     fragmentation item three rows down, and it is now the only half of this left.
+#     The reading below is kept because the correction in it is worth more than the item was.
 #     ⚠⚠ WHAT THIS ROW SAID THE BLOCKER WAS IS NOT THE BLOCKER, and three separate readings of it
 #     have now been wrong in three different directions. Taking them in order:
 #       - "There must not be a second text wrapper disagreeing with `TextLayout` about UAX #14."
@@ -365,12 +389,14 @@ generated boxes (::before/after)  doc 43's A12. ⚠ ITS PRECONDITION IS NOW MET 
 #         even keyed on something that distinguishes" two float origins for one node. And
 #         `floatOriginY` is already the child's own top edge when its measure function runs
 #         (`LayoutTree.Block.cs`, the `floatsActive` assignment before `CalculateLayoutInternal`).
-#     So what is genuinely owed is a VALUE crossing a boundary this store already carries values
-#     across, which is the strut's shape after all: a band query on `LayoutTree`, a `LineWrapper`
-#     that takes a per-line available width rather than one, and a `TextLine` that carries a
-#     per-line inline offset so the draw list, the caret, the selection band and the hit test place
-#     it. That is three real pieces of work in `Vixen.Ui` and `Vixen.Ui.Text` and none in the
-#     protocol. ⚠ It is still not free, and the reason to be careful is unchanged: the moment a
+#     So what was genuinely owed is a VALUE crossing a boundary this store already carries values
+#     across, which is the strut's shape after all. ⚠ TWO OF THE THREE PIECES IT NAMED WERE NOT
+#     NEEDED. A `TextLine` carrying a per-line inline offset already existed — `text-indent` put it
+#     there and the caret, the selection and the hit test have read it all along. And `LineWrapper`
+#     did not have to take a list of widths: a greedy wrapper's state at a line boundary is one
+#     integer, so asking it for the FIRST line of what is left, at this line's own width, is the
+#     same answer — which is why the staircase landed with nothing changed below `Vixen.Ui` at all.
+#     What was real is the band query. ⚠ It is still not free, and the reason to be careful is unchanged: the moment a
 #     break POSITION moves, UAX #14 conformance stops being the right target, and Parley's
 #     `break_overrides.rs` or its 2 048 Chrome-recorded positions are the reference (#257).
 #   · `clear` on a line box, which is NOT owed and was measured rather than argued. §9.5.2 applies
@@ -517,11 +543,17 @@ a text leaf's first line          ⚠ STILL NOT shortened to the space left on t
                                   refused was never storage. ⚠ NOR IS IT A SECOND WRAPPER, which
                                   this row asserted until #901 was audited: `TextLayout` stays the
                                   only thing that breaks a string, and both routes to a staircase
-                                  call it rather than a rival. See the staircase entry in the
-                                  ABSENT section above for what the blocker actually reduces to —
-                                  a band on the question, which `MeasureRequest.Tree` can already
-                                  answer because the measure cache is bypassed in every
-                                  float-bearing tree. ⚠ AND THE MOMENT A BREAK POSITION MOVES,
+                                  call it rather than a rival. ⚠ AND IT IS NO LONGER THE SAME ITEM
+                                  AS THE STAIRCASE, which landed: a BLOCK-LEVEL leaf asks
+                                  `LayoutTree.ContentBands` from inside its own measure function,
+                                  and the answer is sound because the walk has already decided
+                                  where that box is. This row is the INLINE-LEVEL half, and the
+                                  reason the same query cannot serve it is a pass order rather
+                                  than a protocol: `WalkInlineLines` sizes every item BEFORE it
+                                  breaks a single line, so at the moment a leaf is measured there
+                                  is no line box for it to be shortened to. Whatever closes this
+                                  measures the leaf again once its line is known, or breaks the
+                                  line before it sizes what is on it. ⚠ AND THE MOMENT A BREAK POSITION MOVES,
                                   Vixen's UAX #14 conformance stops being the right target:
                                   browsers do not implement it as written, and Parley's
                                   `parley_engine/src/break_overrides.rs` documents the deltas with

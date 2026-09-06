@@ -2823,6 +2823,23 @@ claim before it is a break-position oracle** — and a disagreement in any of th
 1 024 rows for a reason that is nothing to do with UAX #14. That is the cost to weigh against
 re-recording, not the transcription.
 
+⚠ **A third re-measurement, and it moves the cost rather than the conclusion: a Chrome reading no
+longer has to come from anybody's recorder.** Chrome 148.0.7778.280 is reachable from an agent
+worktree — serve a fixture directory over `http://localhost` and drive the browser pane at it — and
+this batch took eight readings that way, five of which are now expectations in
+`InlineFragmentationTests`, `InlineFloatInteractionTests`, `FloatBandQueryTests` and
+`TextFloatBandTests`. So "re-record through their `index.html`" is not the cheapest path either: a
+fixture of our own, with our own strings and our own widths, is. What that does **not** buy is the
+half the row above identifies as the real cost. A break-position reading in a proportional font is a
+joint measurement of shaping *and* breaking, so it can only be taken against a face both sides load,
+and the committed faces are twenty shaping-harness and script fonts plus `OpenSans-Regular.ttf` under
+`Editor/Vixen.Editor.App/Fonts` — the only one shipped to set text rather than to exercise a shaper.
+⚠ And it must be recorded as a **ledger** rather than as an equality, for `ChromiumBreakDeltas.txt`'s
+reason: a run that disagrees in one advance disagrees in every line after it, and a red suite that
+says "shaping differs somewhere" is not an oracle for line breaking. What the eight readings taken
+this way did oracle is geometry — where a line box starts and how wide it is — which needs no font at
+all once the fixture sets `font-size: 0; line-height: 0`.
+
 ⚠ **And the single most valuable file is prose.** `parley_engine/src/break_overrides.rs` documents,
 with line-level citations into Chromium, exactly where browsers knowingly deviate from UAX #14 —
 Chrome always allowing a break after a space run in violation of LB13, the hyphen-before-digit rule,
@@ -3071,7 +3088,7 @@ conditional-group id since per-surface media landed; see F11. ⚠ The real findi
 | B2 🟡 | ⚠ **Grid landed and this row said 🔴 for months after it did.** `Vixen.Ui.Layout`'s README is the state: 2 038 of the 2 120 `grid`, `blockgrid` and `gridflex` fixtures pass, 40 are refused and 42 fail in named buckets, with placement, the bulk of track sizing, baseline alignment, the out-of-flow containing block and `grid-template-areas` all done. 🟡 rather than 🟢 because **named lines written into a track list** are still owed, which is the one part the README also names. The estimate below is what it cost, not what is left. **CSS Grid** — a separate algorithm; `grid-template-*`, `fr`, `minmax`, `repeat`, `auto-flow`, named lines and areas, placement, `justify/align-items/self`. Judged by B0's **2 040** plus WPT's 510 `check-layout` grid tests. ⚠ B0's corpus does **not** cover `grid-template-areas`: Taffy's own XML harness leaves it `Default::default()` and no fixture sets it, so named areas need their own oracle | **#27** | 3.5 |
 | B3 🟡 | **Inline formatting — partially landed.** Line boxes over the existing store: atomic inlines (`inline`, `inline-block`, `inline-flex`), §10.3.9 shrink-to-fit, §9.4.2 line breaking, §10.8.1 baselines including the last-line-box and `overflow` clauses, three of `vertical-align`'s eight values, and **fragmentation**. ⚠ **The boundary used to be one invariant** — every algorithm in the store preserved *one node produces one box*, and a non-replaced `inline` box crossing a line break is fragmented into several. **That invariant has now been relaxed for one arena and three ints** (offset, count and capacity, addressed exactly as `ChildArena` and `TrackArena` are). `FragmentArena` is variable-length *output*, the shape `TrackArena` is on the input side; `FragmentCount == 0` still means "one box, and it is `Position`", so `GetLeft`, the absolute walk and all four of `UiElement`'s rectangle properties were untouched, and a fragmented node's own rectangle is the **union** — which is CSS 2.1 §10.1's containing block for an abspos descendant of an inline box, so the absolute walk needed nothing. The zero-allocation gate holds with a span re-fragmenting every frame. ⚠ **Still owed under B3**: fragmentation of *nested* spans and of spans with an out-of-flow child (both producer scope, not representation); anonymous block boxes and generated boxes — which are the **opposite** direction, a box with *no node*, and are **not** unblocked by the arena; the strut and therefore the five font-relative `vertical-align` values; `text-align`, `white-space`, `text-overflow: ellipsis`, `line-clamp`. ⚠ **Zero fixtures**, confirmed by enumeration — Taffy's `display` attribute takes five values across all eight files and none is inline. Oracle fetched from WPT (`css-flexbox/inline-flex.html`); fragmentation is arithmetic over explicitly sized boxes in `InlineFragmentationTests`. See `InlineKnownGaps.txt`. | **#26** | 2.3 of 3.0 |
 | B3a 🟡 | The inline oracle: ICU4X's CSS line-break tailorings, Parley's 2 048 Chrome break cases, and Gecko's 68 `text-overflow` reftests transcribed | — | 0.5 |
-| B4 🟡 | `display: table` and the four table utilities | — | 1.0 |
+| B4 🟡 | `display: table` and the four table utilities. ⚠ **Audited five times and not started, and the fifth audit added the one measurement the other four did not take: nothing in this repository asks for it.** Across all 104 committed `.vxml` and `.vcss` files, not one writes `display: table`, `table-layout`, `caption-side`, `border-collapse` or `border-spacing`; the editor's own tabular panels are grid and flex. So this is a parity item rather than a blocked consumer, and the order it lands in is a choice rather than a dependency. ⚠ A `display: table` that is not in `LayoutStyleBuilder`'s eight keywords is dropped by `TryKeyword` and the element keeps the display it had — which is why aliasing it onto `Block` to make the keyword resolve would be worse than the silence: a box that reads as a table and lays out as a block. | — | 1.0 |
 | | | **B total** | **9.4** |
 
 ⚠ **B2 and B3 are each a subsystem and flattening them into a list of families would be the second

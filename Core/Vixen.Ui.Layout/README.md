@@ -323,9 +323,10 @@ written on. Eighteen tests in `InlineFloatInteractionTests` hold it, and their e
 read out of Chrome 148 case by case — because the reason the gap survived measurement is unchanged
 and is the thing worth keeping in this paragraph: `Corpus/float.xml` has no `<text>` element in it,
 so the corpus named after the feature is entirely block-level and cannot see the feature's headline
-rule. What is genuinely still absent is a text leaf breaking around a float's *staircase*; see
-`InlineKnownGaps.txt` and `Taffy/FloatKnownGaps.txt`, and `docs/guide/ui/floats.md` for the shape of
-what is there.
+rule. A text leaf breaking around a float's *staircase* has since landed for a **block-level** leaf, which
+is the case §9.5 is about — `LayoutTree.ContentBands` is the query it asks — and what is left is the
+**inline-level** one; see `InlineKnownGaps.txt` and `Taffy/FloatKnownGaps.txt`, and
+`docs/guide/ui/floats.md` for the shape of what is there.
 
 ⚠ **A float-bearing tree pays for the cache.** A cache hit returns a node's size without re-running
 its layout, and a block container's layout has the side effect of appending its floats to the
@@ -573,10 +574,14 @@ treats such a leaf as **one atomic item** and asks it exactly the question the m
 on. A second wrapper breaking text inside the line box would disagree with the first about kerning,
 fallback and UAX #14 the moment either changed.
 
-The cost is stated rather than hidden: **a text leaf's first line is not shortened to the space left
-on the line it lands on.** ⚠ And it is *still* not, now that fragmentation has landed — which is
-worth saying because the two were filed as the same blocker and are not. There is now somewhere to
-put a shortened first line, and the reason it was refused was never storage.
+The cost is stated rather than hidden: **an inline-level text leaf's first line is not shortened to
+the space left on the line box it lands on.** ⚠ And it is *still* not, now that fragmentation has
+landed — which is worth saying because the two were filed as the same blocker and are not. There is
+now somewhere to put a shortened first line, and the reason it was refused was never storage.
+⚠ Nor is it the same item as the float staircase any more, which landed: what stops the same band
+query serving this one is a **pass order** rather than a protocol, because `WalkInlineLines` sizes
+every item before it breaks a single line, so at the moment such a leaf is measured there is no line
+box for it to be shortened to.
 
 ⚠ **Nor was it a second wrapper, which this section asserted until #901 was audited.** Both routes to
 a staircase call `TextLayout` — the first wrapper — either once per line or once with a band list, so
@@ -588,10 +593,14 @@ band, and `MeasureRequest` already carries `Tree` and `Node`. The one thing that
 a query unsound — the measure cache serving one width's answer at a different `y` — is already gone:
 `CalculateLayoutInternal` bypasses the cache outright whenever `treeHasFloats`, for the reason two
 paragraphs up, and `floatOriginY` is the child's own top edge by the time its measure function runs.
-So what is owed is a band query on the store, a `LineWrapper` taking a per-line available width, and
-a `TextLine` carrying a per-line inline offset for the draw list, caret, selection and hit test —
-values crossing a boundary this store already carries values across, which is the strut's shape after
-all. ⚠ The day text breaking does move into the line box, Vixen's UAX #14 conformance stops being
+That is what landed, as `LayoutTree.ContentBands`: a block-level leaf asks for the room each of its
+own lines has, from inside its own measure function, and gets one entry per line slot for as long as
+a float takes any of it away. ⚠ **Two of the three things this paragraph used to say were owed were
+not needed.** A `TextLine` carrying a per-line inline offset already existed — `text-indent` put it
+there, and the draw list, the caret, the selection band and the hit test have read it all along. And
+`LineWrapper` did not have to take a per-line width: a greedy wrapper's state at a line boundary is
+one integer, so asking it for the *first* line of what is left, at this line's own width, is the same
+answer — which is why the staircase landed with nothing changed below `Vixen.Ui` at all. ⚠ The day text breaking does move into the line box, Vixen's UAX #14 conformance stops being
 the right target: browsers do not implement it as written, and the reference for any change to a
 break position is Parley's `break_overrides.rs` or the 2 048 Chrome-recorded positions beside it —
 not the algorithm.

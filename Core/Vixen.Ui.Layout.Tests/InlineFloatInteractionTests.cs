@@ -767,6 +767,58 @@ public class InlineFloatInteractionTests {
         AssertAt(tree, b, 80f, 0f);
     }
 
+    /// <summary>
+    ///     §9.5's shift-down clause counts the closing edge of the span the item is in.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>"Content" in §9.5 is the item <i>and</i> what the line will spend finishing the
+    ///         boxes it is in.</b> A 130-wide item in a span padded 30 at its end does not fit the 140
+    ///         a 60-wide float leaves, even though the item alone would — and Chrome drops the whole
+    ///         line below the float rather than placing the item beside it and hanging the padding off
+    ///         the right.
+    ///     </para>
+    ///     <para>
+    ///         Chrome 148.0.7778.280, both halves of the boundary: at <c>padding-right: 30px</c> the
+    ///         item lands at <c>x = 0, y = 20</c> and the container is 40 tall; at 5 it stays beside
+    ///         the float at <c>x = 60, y = 0</c> in a 20-tall container. The second half is what stops
+    ///         this from being a rule that shifts every line down.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_line_drops_below_a_float_when_its_closing_edge_will_not_fit_the_band() {
+        using var dropped = new LayoutTree();
+        var droppedRoot = Root(dropped, 200f);
+        Float(dropped, droppedRoot, FloatSide.Left, 60f, 20f);
+
+        var droppedSpan = Span(dropped, droppedRoot);
+        dropped.SetPadding(droppedSpan, Edge.Right, StyleLength.Points(30f));
+
+        var droppedItem = Inline(dropped, droppedSpan, 130f, 20f);
+
+        dropped.CalculateLayout(droppedRoot, 200f, float.NaN, Direction.Ltr);
+
+        // The span's union is the item plus its trailing padding, and the item sits at its origin.
+        AssertAt(dropped, droppedSpan, 0f, 20f);
+        AssertAt(dropped, droppedItem, 0f, 0f);
+        Assert.Equal(40f, dropped.GetHeight(droppedRoot), Tolerance);
+
+        using var beside = new LayoutTree();
+        var besideRoot = Root(beside, 200f);
+        Float(beside, besideRoot, FloatSide.Left, 60f, 20f);
+
+        var besideSpan = Span(beside, besideRoot);
+        beside.SetPadding(besideSpan, Edge.Right, StyleLength.Points(5f));
+
+        var besideItem = Inline(beside, besideSpan, 130f, 20f);
+
+        beside.CalculateLayout(besideRoot, 200f, float.NaN, Direction.Ltr);
+
+        AssertAt(beside, besideSpan, 60f, 0f);
+        AssertAt(beside, besideItem, 0f, 0f);
+        Assert.Equal(20f, beside.GetHeight(besideRoot), Tolerance);
+    }
+
     // ── Fixture helpers ─────────────────────────────────────────────────────────────────────────
 
     static LayoutNodeId Root(LayoutTree tree, float width) {
@@ -783,6 +835,15 @@ public class InlineFloatInteractionTests {
         tree.SetDisplay(node, Display.InlineBlock);
         tree.SetDimension(node, Dimension.Width, StyleLength.Points(width));
         tree.SetDimension(node, Dimension.Height, StyleLength.Points(height));
+        tree.AddChild(parent, node);
+
+        return node;
+    }
+
+    /// <summary>A non-replaced <c>inline</c> box, which is where a closing edge comes from.</summary>
+    static LayoutNodeId Span(LayoutTree tree, LayoutNodeId parent) {
+        var node = tree.CreateNode();
+        tree.SetDisplay(node, Display.Inline);
         tree.AddChild(parent, node);
 
         return node;
