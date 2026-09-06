@@ -269,6 +269,150 @@ public sealed class InterfaceInAWorldTests : IDisposable {
         Assert.Equal(0, ui.AtlasUploads);
     }
 
+    /// <summary>
+    ///     Two mounted interfaces are uploaded through two renderers, each into its own ring region.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>"Both drew" is what the broken arrangement prints too, so the assertion is about
+    ///         each renderer having consumed exactly one region.</b> A <c>UiRenderer</c> advances its
+    ///         region inside <c>Upload</c> and <c>Record</c> reads whatever the <em>last</em> upload
+    ///         wrote, so two interfaces through one renderer consume two regions in a frame and both
+    ///         come out drawn from the second one's geometry — the modal and the document behind it
+    ///         as two copies of the modal. Nothing reports it: not an error, not a validation
+    ///         warning, a picture.
+    ///     </para>
+    ///     <para>
+    ///         This is also what makes <c>Mount</c>'s <c>order</c> parameter mean anything. The
+    ///         ordering exists so that a modal can be drawn over a document and a tooltip over the
+    ///         modal, which is more than one mounted interface by definition.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TwoMountedInterfacesUploadThroughTheirOwnRenderers() {
+        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var behind = UiRendererFor(device);
+        using var front = UiRendererFor(device);
+
+        var system = renderer.Host.System;
+        var stage = system.AddStage(new("Ui", RenderSortMode.ByGroup));
+
+        var document = renderer.Ui.Mount(stage.Mask, order: 0, renderer: behind);
+        var modal = renderer.Ui.Mount(stage.Mask, order: 1, renderer: front);
+
+        Assert.Same(behind, renderer.Ui.RendererOf(document));
+        Assert.Same(front, renderer.Ui.RendererOf(modal));
+
+        var atlas = new GlyphAtlas(64, 64);
+
+        renderer.Ui.Set(document, new(Geometry(atlas), atlas, new Int2(400, 300), 0));
+        renderer.Ui.Set(modal, new(Geometry(atlas), atlas, new Int2(400, 300), 1));
+
+        var (first, second) = (behind.Region, front.Region);
+
+        using var commands = device.BeginCommandList(QueueKind.Graphics, "ui");
+
+        renderer.Ui.Upload(commands);
+
+        // One region each. Two on either of them is the bug: the second write would land in the
+        // region the first surface is being drawn out of, and one region further round is a region
+        // an unfinished frame may still be reading.
+        Assert.Equal((first + 1) % behind.Regions, behind.Region);
+        Assert.Equal((second + 1) % front.Regions, front.Region);
+
+        Assert.Equal(1, behind.AtlasUploads);
+        Assert.Equal(1, front.AtlasUploads);
+    }
+
+    /// <summary>
+    ///     Two interfaces through one renderer is refused, on the frame rather than in the picture.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A refusal and not a best effort, because the alternative is not a missing HUD but a
+    ///     convincing wrong one.</b> The failure has no error and no validation warning in it — the
+    ///     descriptor sets are valid, the draws are the right draws, and the vertices they read are
+    ///     the other surface's. A frame lost to an exception that names the cause is worth more than
+    ///     a frame spent drawing the modal twice.
+    /// </remarks>
+    [Fact]
+    public void TwoInterfacesThroughOneRendererAreRefusedRatherThanDrawnTwice() {
+        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var shared = UiRendererFor(device);
+
+        var system = renderer.Host.System;
+        var stage = system.AddStage(new("Ui", RenderSortMode.ByGroup));
+
+        renderer.Ui.Renderer = shared;
+
+        // Neither names a renderer, so both fall back to the one the feature holds. This is the
+        // arrangement a host reaches by mounting a second interface and changing nothing else.
+        var document = renderer.Ui.Mount(stage.Mask, order: 0);
+        var modal = renderer.Ui.Mount(stage.Mask, order: 1);
+
+        var atlas = new GlyphAtlas(64, 64);
+
+        renderer.Ui.Set(document, new(Geometry(atlas), atlas, new Int2(400, 300), 0));
+        renderer.Ui.Set(modal, new(Geometry(atlas), atlas, new Int2(400, 300), 1));
+
+        using var commands = device.BeginCommandList(QueueKind.Graphics, "ui");
+
+        var refused = Assert.Throws<InvalidOperationException>(() => renderer.Ui.Upload(commands));
+        Assert.Contains("UiRenderer", refused.Message, StringComparison.Ordinal);
+
+        // ⚠ And the same arrangement is refused when it is *recorded* rather than uploaded. A host
+        // that never uploaded is already drawing from a buffer nothing wrote, and that path must not
+        // be the one on which a shared renderer is quietly tolerated.
+        var camera = Camera(stage.Mask);
+        system.SetViews([camera]);
+        system.Draw();
+
+        var context = new RenderDrawContext(commands, effects);
+
+        Assert.Throws<InvalidOperationException>(() => system.Record(camera, stage, context));
+    }
+
+    /// <summary>An interface that names no renderer keeps using the feature's, which is one
+    /// interface's arrangement and stays free of ceremony.</summary>
+    /// <remarks>
+    ///     The half that makes the refusal above a rule about sharing rather than a rule about
+    ///     counting: mounting one and setting <c>Renderer</c> is what every host does today and must
+    ///     go on working untouched, and a third interface with a renderer of its own is fine.
+    /// </remarks>
+    [Fact]
+    public void AnInterfaceThatNamesNoRendererUsesTheFeaturesOwn() {
+        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var shared = UiRendererFor(device);
+        using var own = UiRendererFor(device);
+
+        var system = renderer.Host.System;
+        var stage = system.AddStage(new("Ui", RenderSortMode.ByGroup));
+
+        renderer.Ui.Renderer = shared;
+
+        var document = renderer.Ui.Mount(stage.Mask, order: 0);
+        var modal = renderer.Ui.Mount(stage.Mask, order: 1, renderer: own);
+
+        Assert.Same(shared, renderer.Ui.RendererOf(document));
+        Assert.Same(own, renderer.Ui.RendererOf(modal));
+
+        var atlas = new GlyphAtlas(64, 64);
+
+        renderer.Ui.Set(document, new(Geometry(atlas), atlas, new Int2(400, 300), 0));
+        renderer.Ui.Set(modal, new(Geometry(atlas), atlas, new Int2(400, 300), 1));
+
+        using var commands = device.BeginCommandList(QueueKind.Graphics, "ui");
+
+        renderer.Ui.Upload(commands);
+
+        Assert.Equal(1, shared.AtlasUploads);
+        Assert.Equal(1, own.AtlasUploads);
+
+        // ⚠ And unmounting gives the renderer back rather than leaving it bound to a dense index the
+        // store will hand out again.
+        renderer.Ui.Unmount(modal);
+        Assert.Same(shared, renderer.Ui.RendererOf(modal));
+    }
+
     static UiRenderer UiRendererFor(NullDevice device) =>
         new(
             device,
