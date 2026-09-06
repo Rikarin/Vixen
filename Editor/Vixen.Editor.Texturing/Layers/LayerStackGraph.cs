@@ -330,12 +330,19 @@ static class LayerStackGraph {
                 return cursor;
             }
 
-            foreground = Mask(layer, channel, foreground);
+            var opacity = Opacity(layer, channel);
+            var folded = Folds(layer.Mask, opacity);
+
+            if (folded is { } scaled) {
+                opacity = scaled;
+            } else {
+                foreground = Mask(layer, channel, foreground);
+            }
 
             var blend = Add("Colour/Blend");
 
             blend.SetText("Mode", layer.Blend.ToString());
-            blend.SetValue("Opacity", Opacity(layer, channel));
+            blend.SetValue("Opacity", opacity);
 
             // ⚠ **A filter layer's content *is* the backdrop, so it composites atop it and never over
             // it** — [#845](https://github.com/Rikarin/Vixen/issues/845). `Adjustment` wires the
@@ -363,6 +370,7 @@ static class LayerStackGraph {
                 $"Layer '{(layer.Name.Length > 0 ? layer.Name : layer.Id)}' · {layer.Kind} · {layer.Blend} at "
                 + $"{(layer.Opacity * 100f).ToString("0.#", CultureInfo.InvariantCulture)}%"
                 + (layer.Mask.Source == LayerMaskSource.None ? "" : $" · {layer.Mask.Source} mask")
+                + (folded is null ? "" : ", folded into the opacity")
                 + $" · channel '{channel.Usage}'."
             ));
 
@@ -676,10 +684,16 @@ static class LayerStackGraph {
         ///         reads an alpha it is handed as coverage rather than as a number. Hence a shuffle
         ///         that lifts the foreground's alpha into grey, a shuffle that lifts the mask's red
         ///         into grey, and a <c>Multiply</c> between them.
-        ///         <a href="https://github.com/Rikarin/Vixen/issues/789">#789</a>'s fold removes all
-        ///         four dispatches for a constant mask, and ⚠ that fold is <em>exact</em> under this
-        ///         rule and was not under the old one: <c>amount</c> is already
-        ///         <c>opacity · mask · alpha</c>.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>None of which happens for a mask that is one constant.</b>
+        ///         <a href="https://github.com/Rikarin/Vixen/issues/789">#789</a>'s fold is above, in
+        ///         <see cref="Folds" />: <c>amount</c> is already <c>opacity · mask · alpha</c>, so a
+        ///         constant mask is a number the layer's own opacity absorbs. It removes <b>five</b>
+        ///         ops per masked layer per channel and not the four these three nodes are — the
+        ///         mask's own <c>Source/Uniform</c> is the fifth, and it is a dispatch like any other.
+        ///         The fold is exact under this rule and was not under the old one, which is why it
+        ///         waited for <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a>.
         ///     </para>
         /// </remarks>
         PortRef Mask(LayerAsset layer, ChannelAsset channel, PortRef foreground) {
@@ -1241,6 +1255,72 @@ static class LayerStackGraph {
                 ));
             }
         }
+
+        /// <summary>
+        ///     The opacity a whole constant mask folds into, or <see langword="null" /> when the mask
+        ///     has to be compiled.
+        /// </summary>
+        /// <remarks>
+        ///     <para>
+        ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/789">#789</a>, and the
+        ///         objection that held it back is gone rather than answered.</b> The fold was refused
+        ///         while a mask <em>replaced</em> the foreground's alpha: replacing does not commute
+        ///         with an opacity, so the two were only arithmetically the same for a content whose
+        ///         alpha was already 1.
+        ///         <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a> made a mask
+        ///         <em>multiply</em> into that alpha — two coverages compose by multiplication — and
+        ///         multiplication commutes. <c>Blend.rvn</c> computes
+        ///         <c>amount = saturate(opacity) · saturate(b.w)</c> and reads <c>b.w</c> nowhere
+        ///         else, so folding is exactly a reassociation of one product.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>Which is why both numbers are range-checked, and why that is not
+        ///         defensiveness.</b> <c>saturate</c> is the identity only inside the unit interval,
+        ///         so an opacity of 2 with a mask of ½ is <c>saturate(2) · ½ = ½</c> unfolded and
+        ///         <c>saturate(1) = 1</c> folded. Both numbers come out of a YAML file a person can
+        ///         hand-edit. Outside the interval the mask is compiled, which keeps the fold an
+        ///         identity rather than an approximation that is usually right.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>It is <em>not</em> exact for a content whose own alpha exceeds one</b> —
+        ///         which a <c>Levels</c> filter over the alpha lane can produce, since the
+        ///         intermediates are <c>rgba16f</c>. There the two orders of saturation disagree, and
+        ///         both answers are arbitrary: a coverage above 1 is not a quantity either form of
+        ///         the arithmetic has a meaning for. Said here rather than guarded, because the guard
+        ///         would have to be a claim about what a node produces, which this file cannot make.
+        ///     </para>
+        ///     <para>
+        ///         <b>The other half of #789's reason for waiting was that folding makes the mask path
+        ///         unreachable for the one case a device-free test can build, "which is how a mask
+        ///         that never worked ships green".</b> That is no longer true: an anchor mask, a bake
+        ///         mask and any mask with two entries all reach the full path with no imported image,
+        ///         and <c>LayerStackCompileTests</c> now builds its shuffle assertions on a bake.
+        ///     </para>
+        /// </remarks>
+        static float? Folds(MaskAsset mask, float opacity) {
+            if (mask.Source != LayerMaskSource.Constant || !Unit(mask.Value) || !Unit(opacity)) {
+                return null;
+            }
+
+            // A disabled entry or effect is skipped by `MaskImage` and reports nothing, so a mask
+            // whose extras are all switched off really is the bare constant this folds.
+            foreach (var entry in mask.Layers) {
+                if (entry.Enabled) {
+                    return null;
+                }
+            }
+
+            foreach (var effect in mask.Effects) {
+                if (effect.Enabled) {
+                    return null;
+                }
+            }
+
+            return opacity * mask.Value;
+        }
+
+        /// <summary>Whether <c>saturate</c> would leave a number alone.</summary>
+        static bool Unit(float value) => value is >= 0f and <= 1f;
 
         /// <summary>The layer's opacity, with a constant fill's own alpha folded in.</summary>
         /// <remarks>
