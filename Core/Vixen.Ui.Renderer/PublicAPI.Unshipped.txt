@@ -15,6 +15,8 @@ Vixen.Ui.Renderer.UiInterface.Geometry.get -> Vixen.Ui.Rendering.UiGeometry
 Vixen.Ui.Renderer.UiInterface.Geometry.init -> Vixen.Ui.Rendering.UiGeometry
 Vixen.Ui.Renderer.UiInterface.Order.get -> uint
 Vixen.Ui.Renderer.UiInterface.Order.init -> uint
+Vixen.Ui.Renderer.UiInterface.Scale.get -> float
+Vixen.Ui.Renderer.UiInterface.Scale.init -> float
 Vixen.Ui.Renderer.UiInterface.Surface.get -> Vixen.Core.Mathematics.Int2
 Vixen.Ui.Renderer.UiInterface.Surface.init -> Vixen.Core.Mathematics.Int2
 Vixen.Ui.Renderer.UiInterface.UiInterface() -> void

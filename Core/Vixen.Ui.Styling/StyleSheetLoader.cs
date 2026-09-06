@@ -123,13 +123,206 @@ public sealed class StyleSheetLoader {
     public void Load(string css, StyleOrigin origin, MediaContext? media) {
         ArgumentNullException.ThrowIfNull(css);
         LoadInto(
-            Parser.Parse(RefuseRelativeHas(css)),
+            Parser.Parse(CarrySystemColours(RefuseRelativeHas(css))),
             origin,
             media,
             CascadeLayers.Unlayered,
             MediaConditions.Unconditional,
             ContainerConditions.Unconditional
         );
+    }
+
+    /// <summary>Renames every CSS system colour keyword in a value so that ExCSS leaves it alone.</summary>
+    /// <param name="css">The stylesheet text.</param>
+    /// <returns>The same text with the keywords carried, or the same instance when there are none.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Before the parser, for <see cref="RefuseRelativeHas" />'s reason: the parser is
+    ///         where the evidence is destroyed.</b> ExCSS normalises the CSS2 system colours it
+    ///         knows into fixed <c>rgb()</c> as it parses, so <c>background-color: Highlight</c>
+    ///         reached <c>StyleValueParser</c> as <c>rgb(181, 213, 255)</c> and
+    ///         <see cref="SystemPalette" /> was never asked. ⚠ <b>The five it froze are the five a
+    ///         control theme actually names</b> — <c>ButtonFace</c>, <c>ButtonText</c>,
+    ///         <c>Highlight</c>, <c>HighlightText</c>, <c>GrayText</c> — so the forced-colours mode
+    ///         and the platform palette were both a third smaller than they read, and a
+    ///         high-contrast user got a light grey button face on a black window with nothing
+    ///         anywhere to say so.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Undoing the normalisation afterwards is not the alternative, it is the wrong
+    ///         answer.</b> <c>rgb(221, 221, 221)</c> is also a colour an author may have written on
+    ///         purpose, and nothing downstream can tell the two apart. A rename before the parse
+    ///         guesses at nothing: this method is looking at the source.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Bounded to value positions, which is what keeps it from being a find-and-replace
+    ///         over the sheet.</b> A keyword is renamed only inside a block, after a <c>:</c> and
+    ///         before the <c>;</c> or <c>}</c> that ends the declaration — so a <c>Highlight</c> tag
+    ///         selector, a <c>.Highlight</c> class, a <c>--highlight</c> custom property <i>name</i>
+    ///         and a <c>content: "Highlight"</c> are all left as they are. Comments, quoted strings
+    ///         and <c>url(…)</c> are skipped for the same reason, and an identifier is taken whole,
+    ///         so <c>var(--canvas)</c> and <c>-vx-canvas</c> are one token each and match nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And bounded by property as well as by position</b>, because a value position is
+    ///         not enough: <c>animation-name: mark</c> and <c>grid-area: field</c> are names the
+    ///         author chose, and renaming one is an animation that never finds its
+    ///         <c>@keyframes</c> — see <see cref="NamesRatherThanPaints" />.
+    ///     </para>
+    ///     <para>
+    ///         The one text this cannot reach is an <c>@layer</c> body ExCSS hands back without a
+    ///         <c>StylesheetText</c>, where <see cref="LoadUnknown" /> falls back to <c>ToCss()</c> —
+    ///         serialised text, normalised already. That fallback is a last resort in a rule form
+    ///         ExCSS does not model, and it loses more than this.
+    ///     </para>
+    /// </remarks>
+    static string CarrySystemColours(string css) {
+        StringBuilder? carried = null;
+        var copied = 0;
+        var depth = 0;
+        var value = false;
+        var property = default(Range);
+
+        for (var i = 0; i < css.Length;) {
+            var c = css[i];
+
+            if (c == '/' && i + 1 < css.Length && css[i + 1] == '*') {
+                var end = css.IndexOf("*/", i + 2, StringComparison.Ordinal);
+                i = end < 0 ? css.Length : end + 2;
+                continue;
+            }
+
+            if (c is '"' or '\'') {
+                i = SkipQuoted(css, i);
+                continue;
+            }
+
+            switch (c) {
+                case '{':
+                    depth++;
+                    value = false;
+                    i++;
+                    continue;
+                case '}':
+                    depth = Math.Max(0, depth - 1);
+                    value = false;
+                    i++;
+                    continue;
+                case ';':
+                    value = false;
+                    i++;
+                    continue;
+                case ':':
+                    // ⚠ At depth zero this is a pseudo-class, not a declaration — `a:hover` is a
+                    // prelude. Only a block has declarations in it.
+                    value = depth > 0 && !NamesRatherThanPaints(css.AsSpan(property));
+                    i++;
+                    continue;
+            }
+
+            if (!IsIdentStart(c)) {
+                i++;
+                continue;
+            }
+
+            var start = i;
+
+            while (i < css.Length && IsIdentPart(css[i])) {
+                i++;
+            }
+
+            // The last identifier before a `:` is the property it declares — see the `:` arm.
+            property = start..i;
+
+            if (i < css.Length && css[i] == '(') {
+                // A function name is not a keyword. `url()` alone takes an unquoted argument that is
+                // not a token stream, so its contents are stepped over rather than walked.
+                if (css.AsSpan(start, i - start).Equals("url", StringComparison.OrdinalIgnoreCase)) {
+                    var close = css.IndexOf(')', i);
+                    i = close < 0 ? css.Length : close + 1;
+                }
+
+                continue;
+            }
+
+            if (!value || !SystemPalette.TryParse(css.AsSpan(start, i - start), out _)) {
+                continue;
+            }
+
+            carried ??= new StringBuilder(css.Length + 64);
+            carried.Append(css, copied, start - copied)
+                .Append(SystemPalette.Carrier)
+                .Append(css, start, i - start);
+
+            copied = i;
+        }
+
+        return carried is null ? css : carried.Append(css, copied, css.Length - copied).ToString();
+    }
+
+    /// <summary>Steps over a quoted string, escapes included.</summary>
+    /// <param name="css">The text.</param>
+    /// <param name="index">The opening quote.</param>
+    /// <returns>Just past the closing quote, or the end of the text.</returns>
+    static int SkipQuoted(string css, int index) {
+        var quote = css[index];
+
+        for (var i = index + 1; i < css.Length; i++) {
+            if (css[i] == '\\') {
+                i++;
+                continue;
+            }
+
+            if (css[i] == quote) {
+                return i + 1;
+            }
+        }
+
+        return css.Length;
+    }
+
+    static bool IsIdentStart(char c) => char.IsLetter(c) || c is '-' or '_' || c >= 0x80;
+
+    static bool IsIdentPart(char c) => char.IsLetterOrDigit(c) || c is '-' or '_' || c >= 0x80;
+
+    /// <summary>Whether a property's value is a name the author chose rather than anything paintable.</summary>
+    /// <param name="property">The property, as it was written.</param>
+    /// <remarks>
+    ///     ⚠ <b>The one way the rename can break a sheet that has nothing to do with colour.</b>
+    ///     <c>Mark</c>, <c>Field</c> and <c>Highlight</c> are perfectly ordinary names for an
+    ///     animation, a grid area or a font, and <c>animation-name: mark</c> renamed is an animation
+    ///     that no longer finds its <c>@keyframes</c> — a rule quietly doing nothing, which is worse
+    ///     than a wrong colour because nothing is left to look at.
+    ///     <para>
+    ///         Both shorthands are here as well as their longhands, because neither <c>font</c> nor
+    ///         <c>animation</c> can carry a colour and both can carry a name. ⚠ It is a list of
+    ///         properties whose value is <em>never</em> a colour, and not a list of properties that
+    ///         might take a name — the second would have to include <c>background</c>, which takes
+    ///         both, and excluding that would put the defect back.
+    ///     </para>
+    /// </remarks>
+    static bool NamesRatherThanPaints(ReadOnlySpan<char> property) {
+        // Lowered rather than compared case-insensitively because a span pattern is ordinal, and a
+        // CSS property name is ASCII case-insensitive like every other CSS keyword. Anything longer
+        // than the buffer is longer than every name below.
+        Span<char> lowered = stackalloc char[32];
+
+        if (property.Length is 0 or > 32) {
+            return false;
+        }
+
+        property.ToLowerInvariant(lowered);
+
+        return lowered[..property.Length] switch {
+            "animation" or "animation-name" => true,
+            "font" or "font-family" => true,
+            "container" or "container-name" => true,
+            "counter-increment" or "counter-reset" or "counter-set" => true,
+            "grid-area" or "grid-row" or "grid-column" => true,
+            "grid-row-start" or "grid-row-end" or "grid-column-start" or "grid-column-end" => true,
+            "transition-property" or "will-change" or "view-transition-name" => true,
+            _ => false
+        };
     }
 
     /// <summary>Drops every rule whose selector uses a relative <c>:has()</c> argument.</summary>
@@ -637,7 +830,11 @@ public sealed class StyleSheetLoader {
             return;
         }
 
-        if (Parser.Parse("*{" + css + "}").Children.FirstOrDefault() is IStyleRule rule) {
+        // ⚠ The braces go on before the carrier runs, not after: `CarrySystemColours` renames a
+        // keyword only inside a block, and an inline style is a declaration list with no block
+        // around it. Carrying the bare list would rename nothing and `style="color: Highlight"`
+        // would keep the one defect the sheet path has just lost.
+        if (Parser.Parse(CarrySystemColours("*{" + css + "}")).Children.FirstOrDefault() is IStyleRule rule) {
             foreach (var declaration in rule.Style) {
                 if (!TryReadValue(declaration, InlineStyleAttribute, out var value)) {
                     continue;

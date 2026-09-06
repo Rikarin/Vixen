@@ -224,4 +224,139 @@ public class ForcedColorsTests {
         // The property that makes an appearance switch one cache clear rather than fifteen mid-frame.
         Assert.Equal(before + 1, palette.Revision);
     }
+
+    /// <summary>Every one of the fifteen keywords reaches the palette, not only the ten ExCSS has
+    /// never heard of.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The walk is the point, and a per-role test is exactly what would have been
+    ///         written on the ten that already worked.</b> ExCSS normalises the CSS2 system colours
+    ///         it knows into fixed <c>rgb()</c> while it parses the sheet, so <c>ButtonFace</c>,
+    ///         <c>ButtonText</c>, <c>Highlight</c>, <c>HighlightText</c> and <c>GrayText</c> reached
+    ///         <c>StyleValueParser</c> as constants and never met <see cref="SystemPalette" /> at
+    ///         all. Nothing reported it — <c>rgb(221, 221, 221)</c> is a perfectly good colour — and
+    ///         every test #836 and #838 landed happens to be written on <c>Canvas</c> or
+    ///         <c>CanvasText</c>, two of the ten CSS Color 4 additions ExCSS passes through.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The five it froze were the five a control theme actually names, so the failure
+    ///         was an accessibility one.</b> The pairs travel together because a forced palette
+    ///         guarantees contrast <em>within</em> a pair, and <c>ButtonFace</c>/<c>ButtonText</c>
+    ///         and <c>Highlight</c>/<c>HighlightText</c> are two of the three — a high-contrast user
+    ///         on High Contrast Black got a light grey button face on a black window, and no
+    ///         instrument anywhere had anything to say about it.
+    ///     </para>
+    ///     <para>
+    ///         The whole table is compared at once rather than a role at a time, so a failure names
+    ///         every role that has stopped working instead of the first. The expectation is
+    ///         Chromium's default table rather than hand-written colours, because a value the sheet
+    ///         could have produced by itself is not evidence that the palette was consulted:
+    ///         <c>ButtonFace</c>'s default is <c>#EFEFEF</c> and the constant ExCSS substituted was
+    ///         <c>#DDDDDD</c>.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_system_colour_keyword_reaches_the_palette() {
+        var expected = new Dictionary<SystemColor, Color4>();
+        var drawn = new Dictionary<SystemColor, Color4>();
+
+        foreach (var role in Enum.GetValues<SystemColor>()) {
+            using var document = Drawn($".probe {{ background-color: {SystemPalette.NameOf(role)}; }}");
+
+            expected[role] = Srgb(SystemPalette.Light[(int)role]);
+            drawn[role] = Assert.Single(Fills(document)).Color;
+        }
+
+        Assert.Equal(expected, drawn);
+    }
+
+    /// <summary>The rename is bounded to values, so a selector spelt like a keyword still matches.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The failure mode a find-and-replace would have, and it is silent.</b> Carrying the
+    ///     keywords past ExCSS means rewriting the sheet's own text, and every one of the fifteen is
+    ///     also a plausible class name, id, tag or custom property — a rule renamed in its prelude
+    ///     matches nothing at all, and a stylesheet that quietly stops applying is harder to see
+    ///     than a colour that is wrong. <c>CarrySystemColours</c> only renames inside a block, after
+    ///     a <c>:</c> and before the <c>;</c> that ends the declaration, and this is that claim: a
+    ///     class selector spelt like a keyword and a custom property <em>named</em> after one, in the
+    ///     rule that paints the element.
+    ///     <para>
+    ///         ⚠ <b>This one was green before the carrier existed and is not evidence that it
+    ///         works</b> — the walk above is. What it guards is the direction the fix could go wrong
+    ///         in later: dropping the value-position condition turns it red, where every other test
+    ///         in this file stays green.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_class_spelt_like_a_system_colour_is_left_alone() {
+        using var document = Drawn(
+            ".highlight { width: 40px; height: 20px; --graytext: green; background-color: #00ff00; }",
+            classNames: "highlight"
+        );
+
+        Assert.Equal(Srgb(0x00FF00), Assert.Single(Fills(document)).Color);
+    }
+
+    /// <summary>An animation named after a system colour still finds its keyframes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A value position is not enough on its own, and this is the case that says so.</b>
+    ///     <c>Mark</c>, <c>Field</c> and <c>Highlight</c> are ordinary names for an animation or a
+    ///     grid area, and an <c>animation-name</c> renamed is an animation that never finds its
+    ///     <c>@keyframes</c> — a rule quietly doing nothing, which leaves less to look at than a
+    ///     wrong colour does. The width lives only in the keyframes, as <c>AnimationTests</c>
+    ///     arranges it, so an animation that was not found leaves it at zero rather than at
+    ///     something a rule could have set.
+    /// </remarks>
+    [Fact]
+    public void An_animation_named_after_a_system_colour_still_finds_its_keyframes() {
+        using var document = new UiDocument(200f, 200f);
+
+        document.Load(
+            """
+            .probe { height: 20px; animation: mark 200ms linear; }
+            @keyframes mark { from { width: 10px } to { width: 110px } }
+            """
+        );
+
+        var probe = document.Root.Add("div", classNames: "probe");
+
+        document.Tick(TimeSpan.Zero);
+        document.Update();
+
+        Assert.Equal(10f, probe.Width, 0.001f);
+
+        document.Tick(TimeSpan.FromMilliseconds(100));
+        document.Update();
+
+        Assert.Equal(60f, probe.Width, 0.5f);
+    }
+
+    /// <summary>An inline <c>style</c> attribute reaches the palette too.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A second call into ExCSS, and therefore a second place the keyword was frozen.</b>
+    ///     <c>StyleSheetLoader.ReadDeclarations</c> wraps the attribute in <c>*{…}</c> and parses it,
+    ///     so <c>style="background-color: Highlight"</c> lost the keyword exactly as a sheet did.
+    ///     Driven through <c>ReadDeclarations</c> and then <c>SetStyle</c> because that is the pair
+    ///     <c>BuildContext</c> uses for the attribute — <c>SetStyle</c> alone interns the text it is
+    ///     given and never meets ExCSS, so a test written on it would have passed against the defect.
+    /// </remarks>
+    [Fact]
+    public void An_inline_style_attribute_reaches_the_palette_too() {
+        var document = new UiDocument(200f, 200f);
+        document.Load(".probe { width: 40px; height: 20px; }");
+
+        var element = document.Root.Add("div", classNames: "probe");
+        var declarations = new List<InlineDeclaration>();
+
+        document.Styles.Loader.ReadDeclarations("background-color: Highlight", declarations);
+
+        var declaration = Assert.Single(declarations);
+        element.SetStyle(declaration.Property, declaration.Value);
+
+        document.Update();
+        document.Draw();
+
+        Assert.Equal(Srgb(SystemPalette.Light[(int)SystemColor.Highlight]), Assert.Single(Fills(document)).Color);
+        document.Dispose();
+    }
 }

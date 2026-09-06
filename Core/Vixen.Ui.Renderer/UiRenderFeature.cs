@@ -12,7 +12,11 @@ namespace Vixen.Ui.Renderer;
 /// <summary>One interface, as the renderer sees it.</summary>
 /// <param name="Geometry">This frame's geometry.</param>
 /// <param name="Atlas">The glyph atlas its text draws from.</param>
-/// <param name="Surface">How large the target is, in document pixels.</param>
+/// <param name="Surface">
+///     How large the target is, <b>in the units the geometry was laid out in</b> — the same
+///     rectangle <c>UiGeometryBuilder.Build</c> was given, which is not the framebuffer
+///     unless <see cref="Scale" /> is one. See <see cref="Scale" />.
+/// </param>
 /// <param name="Order">Where it sits among the interfaces, lowest drawn first.</param>
 /// <remarks>
 ///     ⚠ <b>Called <c>UiInterface</c> rather than <c>UiSurface</c>, which is what it was.</b>
@@ -21,7 +25,41 @@ namespace Vixen.Ui.Renderer;
 ///     ambiguity: a file that imports both compiles until somebody removes the wrong <c>using</c>,
 ///     and the two are close enough in meaning that the mistake reads as correct.
 /// </remarks>
-public readonly record struct UiInterface(UiGeometry Geometry, GlyphAtlas Atlas, Int2 Surface, uint Order);
+public readonly record struct UiInterface(UiGeometry Geometry, GlyphAtlas Atlas, Int2 Surface, uint Order) {
+    /// <summary>How many framebuffer pixels one of <see cref="Surface" />'s units is.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         One when the document was laid out in physical pixels, and the display's DPI scale
+    ///         when it was laid out in device-independent ones. ⚠ <b>Until this existed the feature
+    ///         had nowhere to put a density and both of its calls into the renderer took the
+    ///         default</b>, so a HUD laid out in points on a 2× display drew into the top-left
+    ///         quarter of the window and took the pointer with it — hit testing is done against the
+    ///         layout, and the layout was right. It reads as a renderer that is mysteriously small
+    ///         rather than as a unit mismatch; see <see cref="UiRenderer.Record" />'s remarks, which
+    ///         describe exactly this arrangement.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It has to reach <see cref="UiRenderFeature.Compose" /> and
+    ///         <c>UiRenderFeature.Draw</c> together, which is why it lives on the surface
+    ///         rather than being passed to one of them.</b> A group's surface is allocated at
+    ///         <c>Compose</c>'s scale and sampled at <c>Record</c>'s, so a density supplied to one
+    ///         and not the other is worse than no density at all: a whole interface at the wrong
+    ///         size is at least uniformly wrong, and a composited group at the wrong size is a panel
+    ///         that has come adrift from the rest of the frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An <c>init</c> property with a default rather than a fifth positional
+    ///         parameter</b> — the arrangement <see cref="UiShaders.Image" /> is in, and for the same
+    ///         reason: every existing four-argument construction goes on meaning what it meant.
+    ///         ⚠ <b>The default belongs to the primary constructor and not to
+    ///         <c>default(UiInterface)</c></b>, which has a scale of zero — but that value has a null
+    ///         geometry too and was never a surface anything could draw, and both
+    ///         <see cref="UiRenderer.Record" /> and <see cref="UiRenderer.Compose" /> refuse a
+    ///         non-positive scale by drawing nothing rather than by dividing by it.
+    ///     </para>
+    /// </remarks>
+    public float Scale { get; init; } = 1f;
+}
 
 /// <summary>Draws user interfaces inside somebody else's renderer.</summary>
 /// <remarks>
@@ -300,10 +338,13 @@ public sealed class UiRenderFeature : RootRenderFeature {
     ///         call, and is not made here.
     ///     </para>
     ///     <para>
-    ///         The scale is one, matching <see cref="Draw" />'s <c>Record</c>. The two agreeing is
-    ///         what matters — a group's surface is allocated at <c>Compose</c>'s scale and sampled at
-    ///         <c>Record</c>'s — and neither knows the display's, because
-    ///         <see cref="UiInterface" /> carries a size and not a density.
+    ///         The scale is <see cref="UiInterface.Scale" />, and so is <see cref="Draw" />'s. ⚠ The
+    ///         two agreeing is the whole reason it is a field of the surface rather than an argument
+    ///         here: a group's surface is allocated at <c>Compose</c>'s scale and sampled at
+    ///         <c>Record</c>'s, so a density given to one call and not the other is a composited
+    ///         panel adrift from the frame around it, which is a stranger picture than a uniformly
+    ///         small interface. Both took the default of one until the surface had somewhere to
+    ///         carry it.
     ///     </para>
     /// </remarks>
     public void Compose(ICommandList commands) {
@@ -321,7 +362,7 @@ public sealed class UiRenderFeature : RootRenderFeature {
                 continue;
             }
 
-            renderer.Compose(commands, surface.Geometry, surface.Surface);
+            renderer.Compose(commands, surface.Geometry, surface.Surface, surface.Scale);
         }
     }
 
@@ -346,7 +387,11 @@ public sealed class UiRenderFeature : RootRenderFeature {
                 continue;
             }
 
-            renderer.Record(context.CommandList, surface.Geometry, surface.Surface);
+            // ⚠ The surface's scale, and it must be the one `Compose` used — see
+            // `UiInterface.Scale`. `Upload` needs none: it writes the geometry in its own units and
+            // copies the atlas, and neither of those is a decision about the framebuffer, so the
+            // density enters the frame in exactly these two places.
+            renderer.Record(context.CommandList, surface.Geometry, surface.Surface, surface.Scale);
         }
     }
 
