@@ -111,7 +111,7 @@ public class LayerStackMeshTests {
         using var fixture = new TexturingFixture();
         var stack = Bound(fixture, Quad("hull", 0f, 1f, 0.5f, 1f), "Band.obj");
 
-        var mesh = LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], out var refusal);
+        var mesh = LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], null, out var refusal);
 
         Assert.Equal("", refusal);
         Assert.NotNull(mesh);

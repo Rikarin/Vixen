@@ -143,14 +143,14 @@ public class EditorUndoManagerTests {
         var main = fixture.Scene;
         var applied = 0;
 
-        ((IUndoManager) main.Stack).Register("Main edit", static () => { }, static () => { });
+        ((IUndoManager)main.Stack).Register("Main edit", static () => { }, static () => { });
         var mainDepth = main.Stack.Depth.Value;
         Assert.Equal(1, mainDepth);
 
         var second = new BlankDocument(fixture.Project, "Second");
         fixture.Project.Activate(second);
 
-        ((IUndoManager) second.Stack).Register("Second edit", () => applied--, () => applied++);
+        ((IUndoManager)second.Stack).Register("Second edit", () => applied--, () => applied++);
         applied = 1;
 
         Assert.True(fixture.Shell.Commands.CanExecute("edit.undo"));
@@ -172,7 +172,7 @@ public class EditorUndoManagerTests {
     public void Undo_is_greyed_when_the_active_document_has_nothing_to_take_back() {
         using var fixture = EditorSession.Start();
 
-        ((IUndoManager) fixture.Scene.Stack).Register("Main edit", static () => { }, static () => { });
+        ((IUndoManager)fixture.Scene.Stack).Register("Main edit", static () => { }, static () => { });
         Assert.True(fixture.Shell.Commands.CanExecute("edit.undo"));
 
         fixture.Project.Activate(new BlankDocument(fixture.Project, "Second"));

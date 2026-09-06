@@ -7,6 +7,7 @@ using Vixen.Editor.Core;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.TextureGraph;
 using Vixen.Editor.Texturing.Layers;
+using Vixen.Editor.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -62,7 +63,7 @@ public class LayerStackCompoundCacheTests {
         var document = Open(fixture);
 
         using LentEvaluator evaluators = new();
-        using LayerStackPreview preview = new(fixture.Graphics!, evaluators.Lease);
+        using LayerStackPreview preview = new(fixture.Graphics!, evaluators.Lease, new PaintCanvasStore());
 
         Assert.Empty(preview.Evaluate(document).Problems);
 

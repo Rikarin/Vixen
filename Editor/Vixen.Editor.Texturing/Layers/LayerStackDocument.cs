@@ -193,29 +193,6 @@ sealed class LayerStackDocument : EditorDocument {
         return true;
     }
 
-    /// <inheritdoc />
-    /// <remarks>
-    ///     ⚠ <b>A flag and no work, because this runs on the frame, once per drained change per open
-    ///     document.</b> Reading the folder here would make somebody else's Ctrl+S cost the editor a
-    ///     frame — <see cref="Republish" />'s own trap, moved one caller along. Null is "the watcher
-    ///     lost events" and marks stale, because the cost of being wrong is one republish and the
-    ///     cost of assuming the best is a picture baked from a compound nobody can see is old.
-    /// </remarks>
-    protected override void OnProjectFileChanged(string? path) {
-        base.OnProjectFileChanged(path);
-
-        if (compounds is null) {
-            return;
-        }
-
-        if (path is null) {
-            stale = true;
-
-            return;
-        }
-
-        stale = stale || Under(Path.GetFullPath(Project.Paths.Absolute(path)));
-    }
 
     /// <inheritdoc />
     protected override void OnClosed() {
@@ -326,10 +303,21 @@ sealed class LayerStackDocument : EditorDocument {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>Null means "events were lost" and has to count as a change.</b> <c>ExternalEdits</c>
-    ///     passes it when the watcher overflowed, at which point the only honest answer is that
-    ///     anything may have happened — and a picker that ignored it would be stale for the rest of
-    ///     the session with nothing saying so.
+    ///     <para>
+    ///         ⚠ <b>Two flags and no work, because this runs on the frame, once per drained change
+    ///         per open document.</b> Reading the compound folder or walking the project's assets
+    ///         here would make somebody else's Ctrl+S cost the editor a frame —
+    ///         <see cref="Republish" />'s own trap, moved one caller along. Both answers are set
+    ///         here and acted on by whoever needs them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null means "events were lost" and has to count as a change for both.</b>
+    ///         <c>ExternalEdits</c> passes it when the watcher overflowed, at which point the only
+    ///         honest answer is that anything may have happened. The cost of being wrong is one
+    ///         republish and one picker refill; the cost of assuming the best is a picture baked
+    ///         from a compound nobody can see is old, and a picker stale for the rest of the session
+    ///         with nothing saying so.
+    ///     </para>
     /// </remarks>
     protected override void OnProjectFileChanged(string? path) {
         base.OnProjectFileChanged(path);
@@ -337,6 +325,18 @@ sealed class LayerStackDocument : EditorDocument {
         if (path is null || LayerStackMesh.Extensions.Contains(Path.GetExtension(path).ToLowerInvariant())) {
             ModelsChanged = true;
         }
+
+        if (compounds is null) {
+            return;
+        }
+
+        if (path is null) {
+            stale = true;
+
+            return;
+        }
+
+        stale = stale || Under(Path.GetFullPath(Project.Paths.Absolute(path)));
     }
 
     /// <summary>The stack as it would be written.</summary>
