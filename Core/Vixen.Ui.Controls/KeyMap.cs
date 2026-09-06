@@ -273,7 +273,7 @@ public sealed class KeyMap {
     /// <returns>Whether a preset by that name was found, which <c>Vixen</c> answers true to.</returns>
     public bool UsePreset(string? name) {
         if (string.IsNullOrEmpty(name) || string.Equals(name, NoPreset, StringComparison.Ordinal)) {
-            UsePreset((KeyMapPreset?) null);
+            UsePreset((KeyMapPreset?)null);
             return true;
         }
 
