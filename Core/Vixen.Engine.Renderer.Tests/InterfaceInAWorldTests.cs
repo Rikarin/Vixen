@@ -486,6 +486,142 @@ public sealed class InterfaceInAWorldTests : IDisposable {
         Assert.Equal(0, ui.Composited);
     }
 
+    /// <summary>Both of the feature's calls into the renderer draw at the interface's own scale.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A scissor is the only place the two spaces are not the same, which is what makes
+    ///         it the instrument.</b> The projection maps geometry units onto clip space and needs
+    ///         the geometry's extent; a scissor is submitted in <em>framebuffer</em> pixels. So an
+    ///         interface laid out in device-independent units and drawn with a scale of one is not a
+    ///         renderer that looks slightly wrong — it clips to the top-left <c>1/scale</c> of the
+    ///         window, and the pointer goes with it, because hit testing is done against a layout
+    ///         that is right.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both phases, in one test, because the failure that matters is them
+    ///         disagreeing.</b> A group's surface is allocated at <c>Compose</c>'s scale and sampled
+    ///         at <c>Record</c>'s: a density that reached one and not the other would be a
+    ///         composited panel adrift from the frame around it, which is a stranger picture than a
+    ///         uniformly small interface and would pass a test that only looked at one of them.
+    ///     </para>
+    ///     <para>
+    ///         The assertion is a differential between two runs of the same frame rather than a
+    ///         hand-computed rectangle: every scissor is <c>floor</c>/<c>ceil</c> of a clip times the
+    ///         scale, clamped to the framebuffer, and all three of those commute with doubling when
+    ///         the clip is integral — which this geometry's is. The control is the line that says
+    ///         the scale-one run scissored a non-empty rectangle at all: doubling nothing is nothing,
+    ///         and "everything doubled" is true of an empty list.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AMountedInterfaceIsComposedAndRecordedAtItsOwnScale() {
+        var one = ScissorsOfAFrame(scale: 1f);
+        var two = ScissorsOfAFrame(scale: 2f);
+
+        // The instrument, before the measurement. A frame that set no scissor, or set an empty one,
+        // makes both halves below vacuous.
+        Assert.NotEmpty(one.Composed);
+        Assert.NotEmpty(one.Recorded);
+        Assert.All(one.Composed, rect => Assert.True(rect.Width > 0 && rect.Height > 0));
+        Assert.All(one.Recorded, rect => Assert.True(rect.Width > 0 && rect.Height > 0));
+
+        Assert.Equal(Doubled(one.Composed), two.Composed);
+        Assert.Equal(Doubled(one.Recorded), two.Recorded);
+    }
+
+    /// <summary>One frame of one mounted interface, and the scissors each of its two phases set.</summary>
+    /// <param name="scale">What the interface says one of its units is worth in framebuffer pixels.</param>
+    /// <remarks>
+    ///     Each phase gets a command list of its own, so that neither list of rectangles can be
+    ///     satisfied by the other's calls — <c>Compose</c> and <c>Record</c> both scissor, and a
+    ///     feature that passed the scale to one of them would otherwise still produce a stream in
+    ///     which "some scissor doubled" was true.
+    /// </remarks>
+    (List<ScissorRect> Composed, List<ScissorRect> Recorded) ScissorsOfAFrame(float scale) {
+        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var ui = UiRendererFor(device);
+
+        var system = renderer.Host.System;
+        var stage = system.AddStage(new("Ui", RenderSortMode.ByGroup));
+
+        renderer.Ui.Renderer = ui;
+
+        var id = renderer.Ui.Mount(stage.Mask);
+        var atlas = new GlyphAtlas(64, 64);
+
+        renderer.Ui.Set(id, new(Grouped(atlas), atlas, new Int2(400, 300), 0) { Scale = scale });
+
+        // ⚠ Two lists, and submitted rather than merely recorded into. A null command list keeps its
+        // own log and hands it to the device's recorder at submit, deliberately — lists are recorded
+        // on several threads at once and interleaving them live would make the stream's order the
+        // scheduler's. So a phase is isolated by giving it a list of its own, not by clearing the
+        // recorder half way through one.
+        var composed = Submitted(
+            "ui setup",
+            list => {
+                renderer.Ui.Upload(list);
+                renderer.Ui.Compose(list);
+            }
+        );
+
+        var camera = Camera(stage.Mask);
+
+        system.SetViews([camera]);
+        system.Draw();
+
+        // ⚠ A pass is opened for the second list, because that is where the feature's own `Draw`
+        // runs — the null backend refuses a `DrawIndexed` outside one, which is the same rule that
+        // keeps `Upload` and `Compose` on a list of their own.
+        var target = device.CreateTextureView(
+            device.CreateTexture(
+                new() {
+                    Width = 16,
+                    Height = 16,
+                    Depth = 1,
+                    MipLevels = 1,
+                    ArrayLayers = 1,
+                    SampleCount = 1,
+                    Format = PixelFormat.Bgra8UNorm,
+                    Usage = TextureUsage.ColourTarget
+                }
+            )
+        );
+
+        var recorded = Submitted(
+            "ui draw",
+            list => {
+                list.BeginRenderPass(new([new(target)], name: "Ui"));
+                system.Record(camera, stage, new RenderDrawContext(list, effects));
+                list.EndRenderPass();
+            }
+        );
+
+        return (composed, recorded);
+    }
+
+    /// <summary>Records one phase on a list of its own, submits it, and returns the scissors it set.</summary>
+    /// <param name="name">What to call the list.</param>
+    /// <param name="phase">What to record.</param>
+    List<ScissorRect> Submitted(string name, Action<ICommandList> phase) {
+        using var commands = device.BeginCommandList(QueueKind.Graphics, name);
+
+        phase(commands);
+        commands.Finish();
+
+        device.Recorder!.Clear();
+        device.GraphicsQueue.Submit([commands]);
+
+        return
+        [
+            .. device.Recorder.OfKind(RecordedCommandKind.SetScissor)
+                .Select(command => new ScissorRect((int)command.C, (int)command.D, (int)command.A, (int)command.B))
+        ];
+    }
+
+    /// <summary>The same rectangles at twice the density.</summary>
+    static List<ScissorRect> Doubled(List<ScissorRect> rects) =>
+        [.. rects.Select(rect => new ScissorRect(rect.X * 2, rect.Y * 2, rect.Width * 2, rect.Height * 2))];
+
     /// <remarks>
     ///     ⚠ <c>Image</c> is set, and without it <c>Compose</c> returns having done nothing — there
     ///     is no shader to composite a surface back with, so rendering the surfaces would cost a pass

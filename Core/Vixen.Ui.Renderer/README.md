@@ -22,11 +22,20 @@ framework into every renderer.
 | `UiShaders` | The modules a frame is drawn with, supplied rather than compiled — four required, `Image`, `Blur`, `Colour` and `Mask` optional |
 | `UiRenderer` | Pipelines, buffers, the atlas texture, and recording a frame |
 | `UiRenderFeature` | A `RootRenderFeature` so a `RenderSystem` can reach one |
-| `UiInterface` | One interface as the renderer sees it: geometry, atlas, size, order |
+| `UiInterface` | One interface as the renderer sees it: geometry, atlas, size, scale, order |
 
 ⚠ The last row said `UiSurface`, which is a different type in a different assembly — see
 `UiInterface`'s own remarks for why the name moved and why the two being confusable is a trap rather
 than a nuisance.
+
+⚠ **It said "size, order" and carried no scale, and that was the world-renderer path's third
+defect** — after the missing registration and the missing `Upload`. `UiRenderer.Record` and
+`UiRenderer.Compose` both take a density and both took the default, so a HUD laid out in
+device-independent units on a 2× display drew into the top-left quarter of the window and took the
+pointer with it: hit testing is done against the layout, and the layout was right. `UiInterface.Scale`
+is where a host puts it, and it reaches *both* calls — a group's surface is allocated at `Compose`'s
+scale and sampled at `Record`'s, so the two are not free to disagree. Nothing was ever wrong on
+screen, because `Vixen.Ui.Desktop` knows the density and paints through `UiRenderer` directly.
 
 ### Who registers the feature
 
