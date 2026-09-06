@@ -125,6 +125,16 @@
         -->
         <ProjectReference Include="..\..\Core\Vixen.Terrain\Vixen.Terrain.csproj" />
 
+        <!--
+            ⚠ And the reactive graph, for one type: `Effect`. `LayerStackView` follows the open
+            document's `CommandStack.Depth` so that an undo taken anywhere else reaches its rows —
+            #933 — and a signal has no other subscription mechanism. It arrives transitively through
+            `Vixen.Ui.Controls`, and is written down for the reason every other transitive reference
+            here is: the day somebody narrows that one is the day this file stops compiling for a
+            reason nothing states.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Reactive\Vixen.Ui.Reactive.csproj" />
+
         <!-- A graph is YAML on disk, the same as every other node document in the tree. -->
         <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
 

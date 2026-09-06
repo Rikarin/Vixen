@@ -22,11 +22,18 @@ namespace Vixen.Editor.Texturing.Layers;
 ///         remark here used to say it did</b>
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/893">#893</a>).
 ///         <c>LayerStackGraph.Duplicates</c> is a <em>compile refusal</em>, and the panel builds its
-///         rows from the document rather than from a compilation — so a stack that fails it is still
-///         a stack whose rows are drawn and clicked. Until the panel consults it, a duplicate id
-///         means the second layer's row drives the first, and the refusal is a message beside the
-///         rows rather than something that stops them. It did not cover the empty id at all until
-///         the same issue, which is how a file naming no ids got every layer the same one.
+///         rows from the document rather than from a compilation — so a stack that fails it was still
+///         a stack whose rows were drawn and clicked, and a duplicate id meant the second layer's row
+///         drove the first. It did not cover the empty id at all until the same issue, which is how a
+///         file naming no ids got every layer the same one.
+///     </para>
+///     <para>
+///         ⚠ <b>What closes it is <see cref="LayerStackEdit.Ambiguous" />, read by both halves.</b>
+///         The refusal and the panel now ask one function which ids name more than one layer;
+///         <c>LayerStackView</c> draws such a row with its name, a sentence and no controls at all,
+///         so this type still has no uniqueness guarantee and there is no longer a gesture that
+///         needs one. The addressing itself is unchanged: resolving an id still reaches the first
+///         match, which is why the row is disarmed rather than re-pointed.
 ///     </para>
 /// </remarks>
 readonly record struct LayerPath(string Set, string Id);
@@ -63,6 +70,50 @@ static class LayerStackEdit {
         }
 
         return Walk(set.Layers, path.Id, out parent, out index);
+    }
+
+    /// <summary>The ids that name more than one layer of a set, and therefore name none of them.</summary>
+    /// <param name="set">The texture set.</param>
+    /// <returns>Every id carried by two or more of its layers, the empty one included.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="set" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One rule with two readers, and that is the point of it being here</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/893">#893</a>).
+    ///         <c>LayerStackGraph.Duplicates</c> turns this into a compile refusal and
+    ///         <c>LayerStackView</c> turns it into a row with no controls on it; the two disagreeing
+    ///         about which ids are ambiguous is the failure mode — a stack the compiler refuses whose
+    ///         rows the panel still offers to move, or the reverse. Five exact-equality roll calls in
+    ///         this workstream have gone red on a second transcription of a known set, and this is a
+    ///         set.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The empty id is in it, and only when a second layer also has none.</b>
+    ///         <see cref="LayerAsset.Id" /> defaults to empty, so a hand-written file naming no ids
+    ///         gives every layer the same one — but a stack with a single unnamed layer addresses
+    ///         perfectly well, and <c>""</c> is what names it. What makes an id useless is that it is
+    ///         shared, not that it is short.
+    ///     </para>
+    /// </remarks>
+    public static IReadOnlySet<string> Ambiguous(TextureSetAsset set) {
+        ArgumentNullException.ThrowIfNull(set);
+
+        HashSet<string> seen = new(StringComparer.Ordinal);
+        HashSet<string> shared = new(StringComparer.Ordinal);
+
+        Walk(set.Layers);
+
+        return shared;
+
+        void Walk(List<LayerAsset> layers) {
+            foreach (var layer in layers) {
+                if (!seen.Add(layer.Id)) {
+                    shared.Add(layer.Id);
+                }
+
+                Walk(layer.Children);
+            }
+        }
     }
 
     /// <summary>The layer at a path, or <see langword="null" />.</summary>
