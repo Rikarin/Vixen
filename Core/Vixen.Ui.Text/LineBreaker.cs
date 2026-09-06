@@ -507,7 +507,8 @@ sealed class LineBreakRun {
         string? contentLanguage
     ) {
         var run = new LineBreakRun {
-            Strictness = strictness, ChineseOrJapanese = SelectsCjkTailoring(contentLanguage)
+            Strictness = strictness,
+            ChineseOrJapanese = SelectsCjkTailoring(contentLanguage)
         };
 
         var position = 0;

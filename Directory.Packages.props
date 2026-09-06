@@ -397,7 +397,7 @@
       xunit.v3 3.2.2 binds the 1.x platform (xunit.v3.core.mtp-v1 depends on
       Microsoft.Testing.Platform 1.9.1). It moves when xunit.v3 moves to mtp-v2.
     -->
-    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="1.9.1" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="$(VixenTrxReportVersion)" />
     <!--
       Property-based testing (docs/plan/01 § Test, docs/plan/12 § "Property-based").
       Pinned at the version current when Vixen.Core.Mathematics was written, which
