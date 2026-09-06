@@ -71,8 +71,9 @@ public class PaintCanvasStoreWiringTests {
         // `File.OpenRead` makes it smaller and an assertion wanting zero passes; a threshold on
         // `CanvasHits` passes too, as soon as the readers still wired clear it. `CanvasOpens` counts
         // the questions asked, so any reader that stops asking lowers it and an exact expectation
-        // goes red. Opening the pane is two, and each drag — six pointer events, each of which
-        // refreshes the paint pane and the map — is sixteen.
+        // goes red. Traced per event, opening the pane is two, a pointer-down is one, a pointer-move
+        // is none and a pointer-up is fifteen: the paint pane's refresh, plus two evaluations of the
+        // map, each of which asks about this one canvas once per channel of the set — seven.
         //
         // ⚠ These numbers are the shape of this scripted session and not the claim. A change to the
         // module's refresh policy moves them; what must not change is that they are exact, and a run
