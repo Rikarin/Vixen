@@ -97,6 +97,13 @@ sealed class TextureGraphView {
         // `Generators/Dirt`, compile it, bake it, and never see what it was.
         Canvas.SubGraphOpened += (_, type, child) => Descend(type, child);
 
+        // ⚠ The line that makes an edit on the canvas reach the picture, and it is worth nothing
+        // until the picture is the graph. While the pane drew a fixed checkerboard there was no
+        // difference between redrawing on every edit and redrawing never; now that it compiles the
+        // document (#792), a wire an author drags changes the map and this is what says so — which is
+        // `LayerStackView.Edited` one panel over, for #819's reason.
+        Canvas.GraphChanged += _ => Edited?.Invoke();
+
         var right = root.Add("texture-graph-preview");
 
         right.SetStyle("display", "flex");
@@ -132,6 +139,25 @@ sealed class TextureGraphView {
 
     /// <summary>The document currently on the canvas.</summary>
     public TextureGraphDocument? Document { get; private set; }
+
+    /// <summary>Called when the graph on the canvas changed, for whoever owns the evaluator.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The view cannot redraw its own picture and must not try.</b> Evaluating needs the
+    ///         module's <c>TexturePlanEvaluator</c> — there is one of those per session, not per view
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>) — so what this view
+    ///         can do about an edit is say that there was one. A tab built by the asset-editor
+    ///         factory leaves this null and simply does not redraw, which is what
+    ///         <see cref="TexturePreviewBlocker.AnotherPane" /> tells the reader.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It fires on every change to the model, including a node being dragged to a new
+    ///         position.</b> That is a compile and a dispatch for a move that cannot change a texel,
+    ///         and it is the layers panel's cost profile unchanged — the alternative is a pane that
+    ///         is right about some edits and stale about others, which is worse than slow.
+    ///     </para>
+    /// </remarks>
+    public Action? Edited { get; set; }
 
     /// <summary>Puts a graph on the canvas for a caller that has drawn nothing, and says why.</summary>
     /// <param name="document">The graph, or <see langword="null" /> for none.</param>

@@ -185,6 +185,56 @@ public class TexturePreviewDeviceTests {
         return changes;
     }
 
+    /// <summary>⚠ An edit on the canvas reaches the picture, without reopening the panel.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The graph pane's half of <a href="https://github.com/Rikarin/Vixen/issues/819">#819</a>,
+    ///         and it was worth nothing until the pane compiled the document.</b> While the picture
+    ///         was a fixed checkerboard there was no difference between redrawing on every edit and
+    ///         redrawing never; now a wire an author drags changes the map, and the pane has to say
+    ///         so without being reopened.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing here runs a command or opens the panel after the edit</b>, which is the
+    ///         whole assertion: the only thing between the model changing and a new upload is
+    ///         <c>NodeGraphView.GraphChanged</c> reaching <c>TexturingModule.Refresh</c>. The texels
+    ///         are read because an upload that happened and drew the old plan would pass a count.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_edit_on_the_canvas_redraws_the_pane_without_reopening_it() {
+        using var device = Open();
+        using var fixture = new TexturingFixture(device);
+
+        fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
+        fixture.Project.Selection.Set(fixture.AddGraph("Bricks"));
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenCommand));
+        Assert.NotNull(fixture.Shell.Workspace.Open(TexturingModule.GraphPanel));
+        Assert.NotNull(fixture.Graphics);
+
+        var document = Assert.Single(fixture.Project.Documents.OfType<TextureGraphDocument>());
+        var before = fixture.Graphics.Uploads.Count;
+
+        // The starter graph is a white uniform, so the checker below is a picture it cannot produce.
+        Assert.Equal(255, fixture.Graphics.Uploads[^1].Pixels[0]);
+
+        Checker(document);
+
+        Assert.True(
+            fixture.Graphics.Uploads.Count > before,
+            $"{Adapter(device)}: the graph changed and nothing was uploaded, so the pane is still showing "
+            + "the picture the panel was built with."
+        );
+
+        var picture = fixture.Graphics.Uploads[^1];
+
+        Assert.Equal(
+            (int)WiredCells - 1,
+            Transitions(picture.Pixels, picture.Width)
+        );
+    }
+
     /// <summary>⚠ A bitmap naming a picture this project has not got is a sentence, not a crash.</summary>
     /// <remarks>
     ///     <para>

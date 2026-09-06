@@ -281,6 +281,12 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             new StringId("editor.panel.texture-graph", "Texture Graph"),
             panel => {
                 view = new TextureGraphView(panel);
+
+                // ⚠ The graph pane's half of #819, which was worth nothing until #792. A canvas edit
+                // now changes the map, and without this line it changed the map only the next time
+                // the panel was built or `Open Texture Graph` was run.
+                view.Edited = Refresh;
+
                 Refresh();
             }
         );
