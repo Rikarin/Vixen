@@ -122,12 +122,63 @@ rather than an accident: `TexturePlanEvaluator.Evaluate` drives `BeginFrame`, `E
 command pool with work still executing in it. A command handler and a panel build both run from
 `EditorApplication.Update`, which is where `ThumbnailCache.Pump` runs and for the same reason.
 
+## Painting, and the three things a surface owes
+
+`Painting/` is doc 48 § M9. The brush, the stroke, the spacing, the jitter, the seam dilation, the
+cached composite, the one-undo-entry-per-drag and the `.vxpaint` were all built before anything could
+reach them; `PaintUvView` is § D13's **2D UV view**, and it is the first thing in this tree that turns
+a pointer position into a texel. `TexturingModule` registers it as `texturing.paint`, and
+`texturing.toggle-paint` opens it.
+
+`PaintSession`'s remarks name what a surface has to do. What a 2D view's answers turn out to be:
+
+1. **Pointer to texels** is `ImageView.ToImage`, which already existed — the control doc 48 § B6
+   asked for carries the pan, the zoom and the inverse.
+2. ⚠ **Screen radius to texels is the identity, which is not the obvious reading.**
+   `PaintBrush.Radius` is authored in *texels of the atlas*, so a 2D view has nothing to convert on
+   the way in. What it owes is the inverse — `ScreenRadius`, the cursor ring — so the artist can see
+   the stamp that would land. The hit triangle's texel density belongs to the 3D path, where a screen
+   radius really is what the artist is holding.
+3. ⚠ **There are no mirrors here, and that is a refusal.** Planar symmetry mirrors a point in
+   *object* space and the mirrored point lands on a different triangle in a different island. Only a
+   surface holding the mesh can supply one.
+
+⚠ **The pointer handler is on the capture leg and the ordinary registration could not have worked.**
+`UiElement.AddHandler` defaults to `handledEventsToo: false`, and `ImageView` marks every pointer
+event handled on its way to panning — so a `Bubble` handler is registered, reads correctly, compiles,
+and never once runs. Capture is also the only leg on which a paint drag can win a gesture the pan
+wants: in Select mode nothing is swallowed and the pane pans as it always did.
+
+Two seams are stated rather than papered over, and the line under the pane says which one you are
+looking at:
+
+* **The pane shows the layer, not the stack.** `PaintComposite`'s two halves come from an
+  `IPaintStack`, and the module supplies `PaintStackImages.Empty` — so the composite of the layer
+  between two transparent halves *is* the layer. Making them the plan's is
+  [#849](https://github.com/Rikarin/Vixen/issues/849); ⚠ what that needs is **not** the read-back
+  that issue names (`TextureBake.Read` already exists and `LayerStackPreview` already calls it) but
+  a seam that evaluates an arbitrary sliced `TextureSetAsset`.
+* **Every pointer move re-uploads the whole atlas.** `IEditorGraphics.Upload` has no sub-rectangle
+  form, so the rectangles `PaintComposite.Resolve` was given to keep a stamp's cost independent of
+  the atlas are paid back one level up —
+  [#912](https://github.com/Rikarin/Vixen/issues/912).
+
+And the canvas is written to disk at pointer-up, which is forced rather than chosen: a painted layer
+reaches the plan as a *path*, which `LayerStackPreview` opens off the disk on every evaluation, so a
+stroke held in memory is a stroke the map cannot show.
+
 ## What is not here
 
 * **No bake.** Doc 48 § D4's output — a folder of PNGs and a `.vxmat` — is the material bake in
   `Vixen.Editor.Assets/Materials` and the CLI's `texture` verb, not this.
 * **No layer stack.** § D10's `.vxlayers` is a second document over the same `TexturePlan`, and it is
   M7.
+* **No 3D projection painting.** Doc 48 § D13's *first* front end — a ray to the surface, the hit's
+  UV, a stamp in the atlas footprint the screen brush covers — is the half of M9 that is still owed
+  ([#574](https://github.com/Rikarin/Vixen/issues/574)). It is also where the coverage map stops
+  being `PaintCoverage.Everywhere` and becomes a mesh's, and where the mirrors come from.
+* **No layer selection.** Nothing in this plugin has one, so the brush aims at the first `Paint`
+  layer in composite order — [#910](https://github.com/Rikarin/Vixen/issues/910).
 * **No `.vxml`.** Doc 36 § P4 makes markup the authoring path and this panel is three elements; it is
   worth porting when it grows a form, not before.
 * **No base resolution in the file.** `NodeGraphModel` has nowhere to put one —
