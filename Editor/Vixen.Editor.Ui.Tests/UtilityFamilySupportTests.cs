@@ -937,25 +937,6 @@ public class UtilityFamilySupportTests {
         // computes `300ms` and not the bare count — the same shape `duration-150` above carries, and
         // the one thing about this family a row can state that its mere registration cannot.
         { "delay-300", "transition-delay", "300ms" },
-
-        // ⚠ <b>The fifth and sixth, and they are a different Tailwind root from the four above
-        // despite the spelling.</b> `transition-discrete` and `transition-normal` are v4's static
-        // `transition` root, which is `transition-behavior` — not the duration family. They are
-        // `Supported` rather than `Inert` because `Animator` interns `transition-behavior`, takes it
-        // from both the shorthand (`TransitionParser.TryParseOne`) and the longhand (`ReadSpecs`)
-        // and gates `Observe`'s `Start` on it, which `Vixen.Ui.Styling.Tests.TransitionTests` reads
-        // between the endpoints for both values.
-        //
-        // ⚠ <b>`UtilityConsumptionProbe` could not see that reader until a scene was built for it,
-        // and the scene needed a `from` value as well as a discrete change.</b> Every existing
-        // scene's mutation moves `background-color` and `margin-left`, both interpolable, so the
-        // behaviour that governs a pair with no midpoint was handed nothing to govern — the blind
-        // spot `grid-template-columns` and `vertical-align` were in. Its `discrete` scene declares
-        // `visibility: visible` and flips it to `hidden`; declaring only the second half measured
-        // inert, because a transition reads where it is coming from out of the previous computed
-        // style and a property the element never declared has no previous value.
-        { "transition-discrete", "transition-behavior", "allow-discrete" },
-        { "transition-normal", "transition-behavior", "normal" },
         { "cursor-pointer", "cursor", "pointer" },
 
         // ⚠ <b>`cursor-help` is here because it was the one keyword of the eight the ledger lists
