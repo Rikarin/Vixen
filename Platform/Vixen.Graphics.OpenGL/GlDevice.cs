@@ -795,11 +795,25 @@ public sealed partial class GlDevice : IGraphicsDevice {
     /// <inheritdoc />
     public void BeginFrame() {
         ObjectDisposedException.ThrowIf(disposed, this);
+
+        IsFrameOpen = true;
         FrameCount++;
     }
 
     /// <inheritdoc />
-    public void EndFrame() => ObjectDisposedException.ThrowIf(disposed, this);
+    /// <remarks>
+    ///     ⚠ <b>Kept even though nothing here nests badly</b> — GL has one implicit queue and no
+    ///     per-slot command pools to reset. It is stored because the contract has no default: a
+    ///     backend allowed to answer <see langword="false" /> for free is one that reports "no frame
+    ///     is open" on the day somebody ports the offending caller to it. See #775.
+    /// </remarks>
+    public bool IsFrameOpen { get; private set; }
+
+    /// <inheritdoc />
+    public void EndFrame() {
+        ObjectDisposedException.ThrowIf(disposed, this);
+        IsFrameOpen = false;
+    }
 
     /// <inheritdoc />
     /// <remarks>

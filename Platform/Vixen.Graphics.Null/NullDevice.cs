@@ -929,11 +929,25 @@ public sealed class NullDevice : IGraphicsDevice {
     /// <inheritdoc />
     public void BeginFrame() {
         ObjectDisposedException.ThrowIf(disposed, this);
+
+        IsFrameOpen = true;
         FrameCount++;
     }
 
     /// <inheritdoc />
-    public void EndFrame() => ObjectDisposedException.ThrowIf(disposed, this);
+    /// <remarks>
+    ///     ⚠ <b>Tracked properly rather than answered <see langword="false" />, and this is the device
+    ///     where that matters most.</b> Nothing nests badly here — which is exactly why every test of
+    ///     a caller's frame discipline runs on this device, and a stub that always said "no frame is
+    ///     open" would make all of them pass whatever the caller did. See #775.
+    /// </remarks>
+    public bool IsFrameOpen { get; private set; }
+
+    /// <inheritdoc />
+    public void EndFrame() {
+        ObjectDisposedException.ThrowIf(disposed, this);
+        IsFrameOpen = false;
+    }
 
     /// <inheritdoc />
     public void WaitIdle() { }

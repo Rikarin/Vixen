@@ -3,6 +3,7 @@
 
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.Loader;
 
 namespace Vixen.Core.Reflection;
 
@@ -37,6 +38,14 @@ public static class TypeRegistry {
     ///         behind keeps the whole context alive — which is the difference between an unload that
     ///         completes and a file the next build cannot overwrite.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An alias is only given up by whoever is holding it</b>, which matters exactly
+    ///         where <see cref="Claim" /> now lets one type be loaded twice —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/798">#798</a>. Unloading the
+    ///         collectible copy of a plugin assembly must not take the alias the default context's
+    ///         copy owns away with it, and an unconditional remove did exactly that: the plugin comes
+    ///         out, and the name it shares with the host stops resolving for the rest of the session.
+    ///     </para>
     /// </remarks>
     public static int Evict(System.Reflection.Assembly assembly) {
         ArgumentNullException.ThrowIfNull(assembly);
@@ -49,7 +58,10 @@ public static class TypeRegistry {
             }
 
             ByType.TryRemove(pair.Key, out _);
-            ByAlias.TryRemove(pair.Value.Alias, out _);
+
+            if (ByAlias.TryGetValue(pair.Value.Alias, out var holder) && holder.Type == pair.Key) {
+                ByAlias.TryRemove(pair.Value.Alias, out _);
+            }
 
             evicted++;
         }
@@ -138,13 +150,72 @@ public static class TypeRegistry {
     static void Claim(string alias, TypeDescriptor descriptor) {
         var existing = ByAlias.GetOrAdd(alias, descriptor);
 
-        if (existing.Type != descriptor.Type) {
-            throw new InvalidOperationException(
-                $"Both '{existing.Type}' and '{descriptor.Type}' claim the name '{alias}'. Give one of them "
-                + "an explicit [DataContract(\"…\")] alias; the name is what data and tools refer to it by."
-            );
+        if (existing.Type == descriptor.Type) {
+            ByAlias[alias] = descriptor;
+
+            return;
         }
 
-        ByAlias[alias] = descriptor;
+        if (IsOneTypeLoadedTwice(existing.Type, descriptor.Type)) {
+            // ⚠ The default context's copy wins, and "keep the first" would have been wrong. Which of
+            // the two arrives first depends on whether the host had touched the assembly before the
+            // plugin loaded — and everything that resolves a type by name afterwards (the serializer,
+            // the inspector, anything holding a `Type` it compiled against) resolves into the default
+            // context. An alias answering with the collectible copy hands back a type nothing else can
+            // use, and goes on doing so after the plugin has been unloaded.
+            if (IsDefaultContext(descriptor.Type)) {
+                ByAlias[alias] = descriptor;
+            }
+
+            return;
+        }
+
+        throw new InvalidOperationException(
+            $"Both '{existing.Type}' and '{descriptor.Type}' claim the name '{alias}'. Give one of them "
+            + "an explicit [DataContract(\"…\")] alias; the name is what data and tools refer to it by."
+        );
     }
+
+    /// <summary>Whether two claimants are one type that has been loaded into two contexts.</summary>
+    /// <param name="existing">What holds the alias.</param>
+    /// <param name="claiming">What is asking for it.</param>
+    /// <returns>Whether they are the same type from different load contexts.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The one arrangement that looks like an alias collision and is not</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/798">#798</a>. An editor plugin's
+    ///         entry assembly is loaded from its own path into a <em>collectible</em> context while
+    ///         every dependency goes to the default one — which is precisely what makes unloading a
+    ///         plugin mean anything — so the assembly exists twice and its generated module
+    ///         initializer runs twice. Refusing the second claim threw a
+    ///         <c>TypeInitializationException</c> out of <c>&lt;Module&gt;</c>, which took the whole
+    ///         plugin load down rather than the serializer, and made "a plugin may not declare a
+    ///         <c>[DataContract]</c>" a rule the plugin contract had to carry.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Assembly-qualified names would call these two the same and must not be used.</b>
+    ///         <c>Type.AssemblyQualifiedName</c> carries the name, version, culture and public key of
+    ///         the assembly and says nothing at all about the context it was loaded into — which is
+    ///         the whole of the difference here. The load context is asked for directly, and two
+    ///         assemblies of the same identity in <em>one</em> context cannot happen, so a
+    ///         <see langword="true" /> here is never a real collision being waved through.
+    ///     </para>
+    /// </remarks>
+    static bool IsOneTypeLoadedTwice(Type existing, Type claiming) =>
+        string.Equals(existing.FullName, claiming.FullName, StringComparison.Ordinal)
+        && string.Equals(
+            existing.Assembly.GetName().Name,
+            claiming.Assembly.GetName().Name,
+            StringComparison.Ordinal
+        )
+        && !ReferenceEquals(
+            AssemblyLoadContext.GetLoadContext(existing.Assembly),
+            AssemblyLoadContext.GetLoadContext(claiming.Assembly)
+        );
+
+    /// <summary>Whether a type came out of the context everything else resolves into.</summary>
+    /// <param name="type">The type.</param>
+    /// <returns>Whether its assembly is in the default load context.</returns>
+    static bool IsDefaultContext(Type type) =>
+        ReferenceEquals(AssemblyLoadContext.GetLoadContext(type.Assembly), AssemblyLoadContext.Default);
 }

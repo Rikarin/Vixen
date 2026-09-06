@@ -155,6 +155,15 @@ sealed class PaintSurface {
     ///         producing: a mechanism whose every production caller passes the default.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>A canvas is invented only for a layer that names none</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/976">#976</a>. A first stroke has to
+    ///         make one; a layer that already names a file and does not have it is a stack that was
+    ///         moved without its canvases, and the sentence is the useful answer. It is not only this
+    ///         method's answer either: an invented canvas is adopted into the shared store, so
+    ///         inventing one here <em>created</em> the entry <c>TextureExternalImages</c>'s own
+    ///         refusal tests for, and the layers pane drew the layer as empty.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b>And the resolved canvas is pinned.</b> A drag holds this object for as long as
     ///         the pointer is down; a store that evicted it under budget pressure would hand the next
     ///         open a second canvas for the same layer, and the stroke and the pane would be looking
@@ -223,10 +232,23 @@ sealed class PaintSurface {
         }
 
         if (canvas is null) {
-            // No such file and nothing open for it: a paint layer whose first stroke has not
-            // happened. It goes into the store now, so the second `Open` of this same drag —
-            // `RefreshPaint` at pointer-up — finds the canvas the stroke went into rather than
-            // making a second empty one.
+            // ⚠ A layer that already names its canvas is refused rather than given a fresh one —
+            // #976. Inventing one here made the *preview* wrong: `PaintSurface` adopted the invented
+            // canvas into the shared store, so by the time `TextureExternalImages` asked, the entry
+            // its own refusal tests for existed — and a stack whose `.vxpaint` had been left behind
+            // in another project previewed as an empty layer instead of saying the file was missing.
+            if (layer.Paint.Trim().Length > 0) {
+                refusal = $"'{relative}' is the painted canvas this layer names and there is no such file "
+                    + "beside the stack, so there is nothing to paint into. A stack copied without its "
+                    + "canvases is the usual reason.";
+
+                return null;
+            }
+
+            // No such file, nothing open for it, and the layer names nothing: a paint layer whose
+            // first stroke has not happened. It goes into the store now, so the second `Open` of this
+            // same drag — `RefreshPaint` at pointer-up — finds the canvas the stroke went into rather
+            // than making a second empty one.
             canvas = new PaintCanvas(stack.BaseWidth, stack.BaseHeight);
 
             canvases.Adopt(file, canvas);
@@ -249,57 +271,56 @@ sealed class PaintSurface {
     ///     Which texels a UV island covers, or <see langword="null" /> for
     ///     <see cref="PaintCoverage.Everywhere" />.
     /// </param>
-    /// <param name="stack">
-    ///     Where the two cached halves come from, or <see langword="null" /> for
-    ///     <see cref="PaintStackImages.Empty" />.
-    /// </param>
     /// <param name="gutter">How far a stamp is dilated past an island's edge, in texels.</param>
     /// <returns>The target.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The coverage and the halves are parameters because the surface cannot compute
-    ///         either, and for a batch the caller replaced one of them afterwards</b> —
+    ///         ⚠ <b>The coverage is a parameter because the surface cannot compute one, and for a
+    ///         batch the caller replaced it afterwards</b> —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/942">#942</a>. A coverage map comes
     ///         from a mesh, and resolving one reads a model file whose answer is cached across
-    ///         strokes, so it is the module's; the halves come from compiling the stack minus this
-    ///         layer and evaluating it on a device, which is <c>LayerStackPreview</c>'s. This method
-    ///         holds a canvas and a layer and knows neither. What it must not do is <em>look</em>
-    ///         like it decided them: the previous shape returned <c>Everywhere</c> unconditionally
-    ///         while <c>TexturingModule.BeginStroke</c> rewrote the record on the way out, so the
-    ///         remarks here described a behaviour no caller had.
+    ///         strokes, so it is the module's; this method holds a canvas and a layer and knows no
+    ///         geometry. What it must not do is <em>look</em> like it decided one: the previous shape
+    ///         returned <c>Everywhere</c> unconditionally while <c>TexturingModule.BeginStroke</c>
+    ///         rewrote the record on the way out, so the remarks here described a behaviour no caller
+    ///         had.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both defaults are honest answers rather than stand-ins, and that is why they are
-    ///         defaults rather than required arguments.</b> A 2D view over a stack that names no mesh
-    ///         has no islands, so every texel is paintable and the dilation finds nothing to do —
-    ///         which is what <c>PaintCoverage.Everywhere</c>'s own remarks say it is for. And two
-    ///         transparent halves make the composite of the layer <em>be</em> the layer, which is a
-    ///         smaller promise than doc 48 § D13's and is stated where the pane's reader is.
+    ///         ⚠ <b>The stack's two halves were a parameter here for one batch and are not one now</b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/977">#977</a>. It was added against
+    ///         a caller that <a href="https://github.com/Rikarin/Vixen/issues/849">#849</a> would
+    ///         supply, every caller passed the default, and #849 has now been refused a third time on
+    ///         the same measurement rather than deferred — so what stood here was this workstream's
+    ///         own named defect, in the method whose remarks name it. The halves are still where the
+    ///         composite takes them, <see cref="PaintTarget.Stack" />; what has gone is the pretence
+    ///         that this method could be told.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="PaintStackImages.Empty" /> is an honest answer rather than a stand-in,
+    ///         and so is the coverage's default.</b> A 2D view over a stack that names no mesh has no
+    ///         islands, so every texel is paintable and the dilation finds nothing to do — which is
+    ///         what <c>PaintCoverage.Everywhere</c>'s own remarks say it is for. And two transparent
+    ///         halves make the composite of the layer <em>be</em> the layer, which is a smaller
+    ///         promise than doc 48 § D13's and is stated where the pane's reader is.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The seed is the layer's own pixels, and it is only correct while the halves are
     ///         empty.</b> <see cref="PaintComposite.Seed" /> exists so the untouched atlas is a
     ///         picture rather than transparency; with <see cref="PaintStackImages.Empty" /> the
     ///         composite of the layer between two transparent halves <em>is</em> the layer, so the
-    ///         seeded region and a resolved one agree exactly. A caller that passes a real
-    ///         <paramref name="stack" /> has to seed from the picture the pane is showing instead, or
-    ///         the edge of what the drag has touched is a visible discontinuity — which is why
-    ///         <c>Shown</c> is set from the composite's own <c>Below</c>/<c>Above</c> join there
-    ///         rather than from this image.
+    ///         seeded region and a resolved one agree exactly. Whatever eventually hands a stroke
+    ///         real halves has to seed from the picture the pane is showing instead, or the edge of
+    ///         what the drag has touched is a visible discontinuity — which is the second of #849's
+    ///         two reasons and the one a parameter here would not have addressed.
     ///     </para>
     /// </remarks>
-    public PaintTarget Target(
-        string usage,
-        PaintCoverage? coverage = null,
-        IPaintStack? stack = null,
-        int gutter = 4
-    ) {
+    public PaintTarget Target(string usage, PaintCoverage? coverage = null, int gutter = 4) {
         var image = Canvas.Channel(usage);
 
         return new(
             image,
             coverage ?? PaintCoverage.Everywhere(Canvas.Width, Canvas.Height),
-            stack ?? PaintStackImages.Empty(Canvas.Width, Canvas.Height),
+            PaintStackImages.Empty(Canvas.Width, Canvas.Height),
             gutter,
             image
         );

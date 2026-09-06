@@ -106,6 +106,18 @@ sealed partial class EditorApplication {
     public IGraphicsDevice? GraphicsDevice {
         get => diagnostics.GraphicsDevice;
         set {
+            // ⚠ First, and while the old device is still what everything in this application answers
+            // with — that window is the whole of #968. `IEditorGraphics` invites a plugin to *hold* a
+            // device and published no way to hear that the loan had ended, so a plugin's pipelines,
+            // shader modules and `EffectLoader` outlived `vkDestroyDevice`, which the specification
+            // makes undefined and MoltenVK does not complain about. A notification raised after the
+            // line below would be one a plugin could do nothing with, which is the state the
+            // texturing module was already in: it noticed by comparing devices and could only *drop*
+            // what it was holding, because by the time it noticed the device had gone.
+            if (diagnostics.GraphicsDevice is { } going && !ReferenceEquals(going, value)) {
+                plugins.DeviceLost(going);
+            }
+
             diagnostics.GraphicsDevice = value;
             AttachRenderer(value);
         }

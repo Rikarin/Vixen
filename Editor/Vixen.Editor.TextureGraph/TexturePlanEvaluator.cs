@@ -86,6 +86,7 @@ public sealed class TextureBake : IDisposable {
     /// <returns>The picture, top row first.</returns>
     /// <exception cref="ArgumentException">The image is one the caller supplied, so this bake has no copy of it.</exception>
     /// <exception cref="ObjectDisposedException">The bake has been disposed.</exception>
+    /// <exception cref="InvalidOperationException">The device already has a frame open.</exception>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>This is an encoder and not a second implementation of anything.</b> Doc 48 § D3
@@ -109,6 +110,19 @@ public sealed class TextureBake : IDisposable {
     /// </remarks>
     public Core.Imaging.Bitmap Read(int image) {
         ObjectDisposedException.ThrowIf(disposed, this);
+
+        // ⚠ The same refusal `TexturePlanEvaluator.RefuseInsideAFrame` makes, and it belongs here as
+        // well rather than only there — #775 names this method's own `BeginFrame`/`EndFrame` pair
+        // beside the evaluator's. A caller reading a picture out of a bake it made earlier is a
+        // caller that has forgotten it is inside a frame, which is exactly the pane that wants the
+        // pixels while it is drawing.
+        if (device.IsFrameOpen) {
+            throw new InvalidOperationException(
+                "A bake cannot be read back inside a frame: this method opens and closes one of its "
+                + "own, which resets the command pools of the slot the caller is recording into and "
+                + "leaves the caller's fences a slot behind for the rest of the session."
+            );
+        }
 
         var texture = TextureOf(image);
 
@@ -201,6 +215,16 @@ public sealed class TextureBake : IDisposable {
 ///         called sixty times a second.
 ///     </para>
 ///     <para>
+///         ⚠ <b>That rule is now <em>checked</em>, and it was a sentence with nothing behind it for
+///         four batches</b> — <a href="https://github.com/Rikarin/Vixen/issues/775">#775</a>. The
+///         paragraph above has been here since this class was written and every route that obeyed it
+///         obeyed it by accident of where it was called from, because a caller had no way to ask:
+///         <see cref="IGraphicsDevice" /> published <c>BeginFrame</c>, <c>EndFrame</c>,
+///         <c>FrameCount</c> and <c>FramesInFlight</c>, and <c>FrameCount</c>'s own remarks forbid
+///         deriving the answer. <see cref="IGraphicsDevice.IsFrameOpen" /> is what closed that, and
+///         <see cref="RefuseInsideAFrame" /> is where the sentence became a refusal.
+///     </para>
+///     <para>
 ///         ⚠ <b>Every command list a bake records — the dispatches, and every later read-back — goes
 ///         to <see cref="IGraphicsDevice.ComputeQueue" />, recorded for that submitter's own
 ///         <see cref="ICommandSubmitter.Kind" />, and that is a correctness requirement rather than a
@@ -281,6 +305,7 @@ public sealed class TexturePlanEvaluator : IDisposable {
     /// <exception cref="ArgumentNullException"><paramref name="plan" /> is null.</exception>
     /// <exception cref="ArgumentException">The plan is unsound, or an external image was not supplied.</exception>
     /// <exception cref="ObjectDisposedException">The evaluator has been disposed.</exception>
+    /// <exception cref="InvalidOperationException">The device already has a frame open.</exception>
     /// <remarks>
     ///     ⚠ <b>A bare handle declares <see cref="TextureUsage.Sampled" /> and nothing else</b>, which
     ///     is the whole of what a dispatch needs and is <em>not</em> enough for a
@@ -312,6 +337,7 @@ public sealed class TexturePlanEvaluator : IDisposable {
     ///     usage the plan needs from it.
     /// </exception>
     /// <exception cref="ObjectDisposedException">The evaluator has been disposed.</exception>
+    /// <exception cref="InvalidOperationException">The device already has a frame open.</exception>
     /// <remarks>
     ///     <para>
     ///         <b>What the plan needs from a caller's texture, and where it comes from.</b> Every
@@ -334,6 +360,8 @@ public sealed class TexturePlanEvaluator : IDisposable {
         ObjectDisposedException.ThrowIf(disposed, this);
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(externals);
+
+        RefuseInsideAFrame();
 
         var problems = plan.Check();
         var refusals = problems
@@ -415,6 +443,48 @@ public sealed class TexturePlanEvaluator : IDisposable {
         }
 
         variants.Clear();
+    }
+
+    /// <summary>Refuses a caller who is already inside a frame of their own.</summary>
+    /// <exception cref="InvalidOperationException">The device has a frame open.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The check <a href="https://github.com/Rikarin/Vixen/issues/775">#775</a> asked for,
+    ///         and until <see cref="IGraphicsDevice.IsFrameOpen" /> existed a caller could not have
+    ///         written it either.</b> This class's own remarks have said "an evaluation is not a
+    ///         frame" since it was written; what they could not say was how to tell, so every route
+    ///         that is safe today is safe by accident of where it is called from. A panel build, a
+    ///         command handler and a thumbnail pump all run outside the editor's <c>Present</c>; a
+    ///         <c>Draw</c>, a measure pass or a render feature's extraction do not, and nothing
+    ///         distinguished them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A throw rather than a debug assertion, and rather than quietly working.</b> The
+    ///         damage is not a stall: the nested <c>BeginFrame</c> resets the command pools of the
+    ///         slot the caller still has lists executing in, and the nested <c>EndFrame</c> advances
+    ///         the frame index — so the caller's own <c>EndFrame</c> signals a different slot's
+    ///         fences and every frame after it waits on one nothing signalled. That outlives the
+    ///         evaluation, which is what makes a refusal cheaper than a diagnosis.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it is invisible on the machines this is developed on.</b> MoltenVK's queue
+    ///         families are unified and its layers do not model pool reuse the way a discrete
+    ///         driver's do, so the nesting reads as working here and corrupts somebody else's frame
+    ///         elsewhere — the same shape as four other defects in this workstream.
+    ///     </para>
+    /// </remarks>
+    void RefuseInsideAFrame() {
+        if (!device.IsFrameOpen) {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            "A texture plan cannot be evaluated inside a frame: this evaluator opens and closes one of "
+            + "its own, which resets the command pools of the slot the caller is recording into and "
+            + "leaves the caller's fences a slot behind for the rest of the session. Evaluate from "
+            + "outside BeginFrame/EndFrame — a command handler, a panel build or a background "
+            + "continuation — as the editor's own callers do."
+        );
     }
 
     /// <summary>Refuses a caller's texture that was not created for what the plan does to it.</summary>

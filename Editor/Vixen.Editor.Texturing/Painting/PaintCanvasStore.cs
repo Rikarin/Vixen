@@ -1,10 +1,24 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Imaging;
+
 namespace Vixen.Editor.Texturing.Painting;
 
-/// <summary>The <c>.vxpaint</c> canvases a session has open, keyed by where they are.</summary>
+/// <summary>The pixels a session has read off the disk, keyed by where they are.</summary>
 /// <remarks>
+///     <para>
+///         ⚠ <b>Two kinds of pixels and one store, and the name says only the first.</b> The
+///         <c>.vxpaint</c> canvases are the half with the design constraint below; the imported
+///         pictures a plan's externals name — a PNG a texture-fill layer reads — ride the same
+///         keying, the same <c>(LastWriteTimeUtc, Length)</c> stamp and the same byte budget, and
+///         they are here rather than in a second cache because the budget is what stops a session
+///         holding a gigabyte of pixels and two budgets do not add up to one. See
+///         <see cref="Picture" />: it is the last bullet of
+///         <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a>, which was left owed
+///         because an imported picture has no in-memory writer and so looked like a different
+///         problem. It is the same problem with the writer's half unused.
+///     </para>
 ///     <para>
 ///         <b>One store because <a href="https://github.com/Rikarin/Vixen/issues/948">#948</a> and
 ///         <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a> are one piece of work, and
@@ -76,7 +90,7 @@ sealed class PaintCanvasStore {
         this.budget = budget;
     }
 
-    /// <summary>How many times a canvas was read off the disk over this store's life.</summary>
+    /// <summary>How many times a canvas or a picture was read off the disk over this store's life.</summary>
     /// <remarks>
     ///     ⚠ <b>The number #948 is about, and it is a counter rather than a wall clock for this
     ///     repository's usual reason.</b> A stroke that reads the file three times and a stroke that
@@ -86,12 +100,24 @@ sealed class PaintCanvasStore {
     /// </remarks>
     public int Reads { get; private set; }
 
-    /// <summary>How many times an open canvas answered instead.</summary>
+    /// <summary>How many times something already held answered instead.</summary>
     /// <remarks>
     ///     Kept beside <see cref="Reads" /> because "one read" is also what a store that was never
     ///     consulted a second time reports. The two together say which.
     /// </remarks>
     public int Hits { get; private set; }
+
+    /// <summary>How many times this store was asked for anything at all.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Neither <see cref="Reads" /> nor <see cref="Hits" /> can see a caller that stopped
+    ///     asking, and that is the direction a wiring regression goes</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/978">#978</a>. A call site restored to
+    ///     <c>File.OpenRead</c> makes <see cref="Reads" /> <em>smaller</em>, so an assertion that
+    ///     wants it at zero passes; it makes <see cref="Hits" /> smaller too, so a threshold passes
+    ///     as soon as the remaining callers clear it. This counts every question asked, so an exact
+    ///     expectation over a scripted session goes red whichever call site stops asking.
+    /// </remarks>
+    public int Opens { get; private set; }
 
     /// <summary>How many canvases are open.</summary>
     public int Count => entries.Count;
@@ -115,13 +141,15 @@ sealed class PaintCanvasStore {
     public PaintCanvas? Open(string absolute) {
         ArgumentException.ThrowIfNullOrWhiteSpace(absolute);
 
+        Opens++;
+
         var stamp = Stamp(absolute);
 
-        if (entries.TryGetValue(absolute, out var open) && open.Stamp == stamp) {
+        if (entries.TryGetValue(absolute, out var open) && open.Canvas is { } held && open.Stamp == stamp) {
             Hits++;
             Touch(absolute);
 
-            return open.Canvas;
+            return held;
         }
 
         if (stamp is null) {
@@ -143,9 +171,69 @@ sealed class PaintCanvasStore {
         // ⚠ Stamped from *before* the read rather than after it. A file rewritten while it was being
         // read would otherwise be recorded under the state it ended in, and the half-old canvas this
         // read produced would be served as current for the rest of the session.
-        Put(absolute, canvas, stamp);
+        Put(absolute, new(canvas, null, stamp, Size(canvas)));
 
         return canvas;
+    }
+
+    /// <summary>The decoded picture at a path, decoding it only when nothing here holds a current one.</summary>
+    /// <param name="absolute">Where the picture is, absolute.</param>
+    /// <param name="decode">
+    ///     How to read one, called with <paramref name="absolute" /> and only on a miss. ⚠ It is a
+    ///     callback rather than a decoded image because the decision to read has to be made
+    ///     <em>after</em> the stamp is taken and before the bytes are: see <see cref="Open" />, whose
+    ///     comment says why the stamp is the earlier of the two.
+    /// </param>
+    /// <returns>The picture, which the caller must not mutate — every reader after it holds the same one.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="decode" /> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="absolute" /> is blank.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The last bullet of <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a>,
+    ///         and it is worth as much as the canvas half because a preview runs on every edit.</b>
+    ///         <c>TextureExternalImages</c> opened and decoded a texture-fill layer's PNG once per
+    ///         evaluation — so a stack with four imported pictures decoded four of them per frame of
+    ///         an opacity drag, none of which had changed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing is held for a file that does not exist, which is the asymmetry with a
+    ///         canvas.</b> An adopted canvas with no file is a layer whose first stroke is under the
+    ///         pointer and is the whole point of <see cref="Adopt" />; an imported picture has no
+    ///         in-memory writer, so an entry with no file could only ever be one nobody can refresh —
+    ///         and it would be served as current for the rest of the session.
+    ///     </para>
+    /// </remarks>
+    public TextureData Picture(string absolute, Func<string, TextureData> decode) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(absolute);
+        ArgumentNullException.ThrowIfNull(decode);
+
+        Opens++;
+
+        var stamp = Stamp(absolute);
+
+        if (entries.TryGetValue(absolute, out var open) && open.Picture is { } held && open.Stamp == stamp) {
+            Hits++;
+            Touch(absolute);
+
+            return held;
+        }
+
+        var picture = decode(absolute);
+
+        Reads++;
+
+        if (stamp is null) {
+            // Decoded from a file this store cannot stamp — it was gone when the stamp was taken and
+            // the decoder found something anyway. Holding it would be holding a picture nothing can
+            // invalidate, so it is handed back and forgotten.
+            Forget(absolute);
+
+            return picture;
+        }
+
+        Put(absolute, new(null, picture, stamp, picture.ByteLength));
+
+        return picture;
     }
 
     /// <summary>Puts a canvas that is not on disk yet into the store.</summary>
@@ -163,7 +251,7 @@ sealed class PaintCanvasStore {
         ArgumentException.ThrowIfNullOrWhiteSpace(absolute);
         ArgumentNullException.ThrowIfNull(canvas);
 
-        Put(absolute, canvas, Stamp(absolute));
+        Put(absolute, new(canvas, null, Stamp(absolute), Size(canvas)));
     }
 
     /// <summary>Records that the canvas at a path has just been written, so it stays current.</summary>
@@ -178,7 +266,7 @@ sealed class PaintCanvasStore {
     public void Saved(string absolute) {
         ArgumentException.ThrowIfNullOrWhiteSpace(absolute);
 
-        if (!entries.TryGetValue(absolute, out var open)) {
+        if (!entries.TryGetValue(absolute, out var open) || open.Canvas is null) {
             return;
         }
 
@@ -235,14 +323,12 @@ sealed class PaintCanvasStore {
         pinned = null;
     }
 
-    void Put(string absolute, PaintCanvas canvas, (DateTime Written, long Length)? stamp) {
+    void Put(string absolute, Entry entry) {
         Forget(absolute);
 
-        var size = Size(canvas);
-
-        entries[absolute] = new(canvas, stamp, size);
+        entries[absolute] = entry;
         order.Add(absolute);
-        Bytes += size;
+        Bytes += entry.Bytes;
 
         Evict(absolute);
     }
@@ -284,9 +370,21 @@ sealed class PaintCanvasStore {
     static long Size(PaintCanvas canvas) =>
         (long)canvas.Width * canvas.Height * PaintImage.BytesPerTexel * Math.Max(1, canvas.Channels.Count);
 
-    /// <summary>One open canvas, what the file looked like when it arrived, and what it costs.</summary>
-    /// <param name="Canvas">The canvas, which a live session may be writing into.</param>
+    /// <summary>One thing this store holds, what the file looked like when it arrived, and what it costs.</summary>
+    /// <param name="Canvas">The canvas, which a live session may be writing into, or null for a picture.</param>
+    /// <param name="Picture">The decoded imported picture, or null for a canvas.</param>
     /// <param name="Stamp">The file's state when this was read, or null when it was never on disk.</param>
     /// <param name="Bytes">What it was measured at, so <see cref="Forget" /> gives back what it took.</param>
-    readonly record struct Entry(PaintCanvas Canvas, (DateTime Written, long Length)? Stamp, long Bytes);
+    /// <remarks>
+    ///     ⚠ <b>Exactly one of the two payloads, and which one is asked rather than assumed.</b> A
+    ///     path holds a <c>.vxpaint</c> or a picture and never both, but the entries share one
+    ///     dictionary and one eviction order — so <see cref="Open" /> and <see cref="Picture" /> each
+    ///     test their own before serving, and a mismatch reads as a miss rather than as a cast.
+    /// </remarks>
+    readonly record struct Entry(
+        PaintCanvas? Canvas,
+        TextureData? Picture,
+        (DateTime Written, long Length)? Stamp,
+        long Bytes
+    );
 }

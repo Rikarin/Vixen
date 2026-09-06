@@ -29,10 +29,19 @@ namespace Vixen.Editor.Texturing;
 ///         spelling "this file is unreadable" unlike the other three, and that one is worse.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Those three siblings are still bare literals in <c>Vixen.Editor.AssetEditors</c>, and
-///         <c>LayerStackDocument</c> reports its own load failure with <em>no id at all</em></b> — its
-///         <c>LoadDiagnostics</c> is a list of strings, so a host has nothing to filter on. Neither is
-///         this file's to fix; both are recorded rather than absorbed.
+///         ⚠ <b>Both halves of that paragraph's successor are closed —
+///         <a href="https://github.com/Rikarin/Vixen/issues/963">#963</a>.</b> It said the three
+///         siblings were still bare literals and that <c>LayerStackDocument</c> reported its load
+///         failure with no id at all. <c>AssetEditorDiagnostics</c> now declares those three and the
+///         six the same assembly reports beside them — nine, not three, which the issue did not know
+///         — and <see cref="StackFileDoesNotParse" /> below is the fifth document kind's.
+///     </para>
+///     <para>
+///         ⚠ <b>And that is why the fifth one is not numbered <c>0000</c>.</b> The convention is
+///         per document <em>kind</em> and the prefix is per <em>assembly</em>, and this assembly
+///         holds two kinds — so a <c>.vxlayers</c> cannot spell "this file is unreadable" the way its
+///         four siblings do without colliding with the <c>.vxtexgraph</c> next to it. Two answers,
+///         and the collision is the one that cannot be lived with.
 ///     </para>
 ///     <para>
 ///         <b>The declaration is here and the check reads it.</b> Two members holding one id is not a
@@ -59,6 +68,18 @@ static class TexturingDiagnostics {
     ///     number an author learns once should mean the same thing in all four panels.
     /// </remarks>
     internal const string GraphFileDoesNotParse = "TX0000";
+
+    /// <summary>
+    ///     A <c>.vxlayers</c> did not parse, or names something this build does not have — a blend
+    ///     mode a later version added — so the document opened on an empty stack.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Wider than <see cref="GraphFileDoesNotParse" />, because <c>LayerStackYaml.Read</c>
+    ///     refuses rather than defaults.</b> A blend mode this build cannot spell would otherwise
+    ///     composite every layer using it as a <c>Copy</c>, which is a picture rather than an error —
+    ///     so an unreadable *value* lands here alongside bytes that are not YAML.
+    /// </remarks>
+    internal const string StackFileDoesNotParse = "TX0001";
 
     /// <summary>Every id declared above, read off the declarations rather than listed again.</summary>
     /// <remarks>

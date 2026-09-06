@@ -174,6 +174,8 @@ public sealed class TextureUploads : IDisposable {
     /// </exception>
     /// <exception cref="ObjectDisposedException">This set has been disposed.</exception>
     public TextureHandle Add(TexturePlan plan, int image, int width, int height, ReadOnlySpan<byte> texels) {
+        RefuseInsideAFrame();
+
         ObjectDisposedException.ThrowIf(disposed, this);
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
@@ -265,6 +267,8 @@ public sealed class TextureUploads : IDisposable {
         int height,
         ReadOnlySpan<float> coverage
     ) {
+        RefuseInsideAFrame();
+
         ObjectDisposedException.ThrowIf(disposed, this);
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
@@ -319,6 +323,31 @@ public sealed class TextureUploads : IDisposable {
     ///     which looks like a font weight rather than like a bug.
     /// </remarks>
     internal static byte Quantize(float coverage) => (byte)((Math.Clamp(coverage, 0f, 1f) * 255f) + 0.5f);
+
+
+    /// <summary>Refuses an upload made from inside a caller's own frame.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>TexturePlanEvaluator.RefuseInsideAFrame</c>'s refusal, on the path a guarded
+    ///     caller reaches first.</b> #775 put the sentence on this class and the check on
+    ///     <c>Evaluate</c> and <c>Read</c> only — and an upload is what a caller does *before* it
+    ///     evaluates, so the trap survived on the entry point that is used earliest. An upload opens
+    ///     a frame, submits one command list and waits, exactly as an evaluation does, so the damage
+    ///     is the same: the nested <c>BeginFrame</c> resets the command pools of the slot the caller
+    ///     is recording into, and every frame after the caller's own <c>EndFrame</c> waits on a fence
+    ///     nothing signalled.
+    /// </remarks>
+    void RefuseInsideAFrame() {
+        if (!device.IsFrameOpen) {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            "A texture cannot be uploaded inside a frame: this opens and closes one of its own, which "
+            + "resets the command pools of the slot the caller is recording into and leaves the "
+            + "caller's fences a slot behind for the rest of the session. Upload from outside "
+            + "BeginFrame/EndFrame, as the editor's own callers do."
+        );
+    }
 
     /// <inheritdoc />
     public void Dispose() {

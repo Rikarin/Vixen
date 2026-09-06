@@ -120,7 +120,9 @@ public sealed class VfxDocument : EditorDocument {
         } catch (Exception exception) when (exception is YamlBindingException
             or YamlParseException or NotSupportedException) {
             Graph = new() { Name = Path.GetFileNameWithoutExtension(path) };
-            LoadDiagnostics = [new("VF0000", exception.Message, NodeId.None)];
+            LoadDiagnostics = [
+                new(AssetEditorDiagnostics.VfxFileDoesNotParse, exception.Message, NodeId.None)
+            ];
         }
     }
 

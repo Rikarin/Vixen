@@ -264,7 +264,10 @@ public class LayerStackPanelDeviceTests {
         using var fixture = new TexturingFixture(device);
 
         using LentEvaluator evaluators = new();
-        using LayerStackPreview preview = new(fixture.Graphics!, evaluators.Lease, new PaintCanvasStore());
+
+        PaintCanvasStore canvases = new();
+
+        using LayerStackPreview preview = new(fixture.Graphics!, evaluators.Lease, canvases);
 
         // A 2×2 whose top-left is red and whose bottom-right is blue, written as a real PNG through
         // the project's own codec and scanned in as an asset the database can resolve by path.
@@ -328,6 +331,19 @@ public class LayerStackPanelDeviceTests {
             $"{TexturingDevice.Adapter(device)}: the third texel is ({uploaded.Pixels[8]}, {uploaded.Pixels[9]}, "
             + $"{uploaded.Pixels[10]}) and the imported picture's is blue."
         );
+
+        // ⚠ And a second evaluation decodes nothing — #885's last bullet, end to end through the
+        // resolver rather than against the store's own contract. A preview runs on every edit, so
+        // before this the PNG above was opened and decoded once per frame of an opacity drag. The
+        // hit is asserted beside the read because "one read" is also what a resolver that stopped
+        // asking the store would report.
+        Assert.Equal(1, canvases.Reads);
+
+        var again = preview.Evaluate(document);
+
+        Assert.True(again.Image is not null, again.Status);
+        Assert.Equal(1, canvases.Reads);
+        Assert.Equal(1, canvases.Hits);
     }
 
     /// <summary>A layer naming a picture the project has not got is a sentence, not a throw.</summary>

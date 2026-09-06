@@ -82,11 +82,13 @@ public sealed class TextureGraphDocument : EditorDocument {
     /// <summary>What a texture graph is written as.</summary>
     public const string Extension = ".vxtexgraph";
 
-    /// <summary>Where this document's compounds are read from, or null when it did not publish.</summary>
-    readonly string? compounds;
-
-    /// <summary>Whether a compound has been saved since the library was built.</summary>
-    bool stale;
+    /// <summary>What says a compound moved, or null when this document did not publish.</summary>
+    /// <remarks>
+    ///     One protocol rather than two — <a href="https://github.com/Rikarin/Vixen/issues/970">#970</a>.
+    ///     The folder, the flag and the "is that path under it" test used to be spelled here and
+    ///     again in <c>LayerStackDocument</c>, and #922 had to be taught to both by hand.
+    /// </remarks>
+    readonly CompoundWatch? compounds;
 
     /// <summary>What an unopened <c>.vxtexgraph</c> is: a zero-byte file.</summary>
     /// <remarks>
@@ -163,7 +165,7 @@ public sealed class TextureGraphDocument : EditorDocument {
             // ⚠ The project's assets folder, so that `Assets/Compounds` is published beside the four
             // this build ships. A caller that brought its own registry brings its own sub-graph
             // source too — or none, which is what a graph of atomic nodes needs.
-            compounds = TextureNodeLibrary.FolderOf(project.Paths.Assets);
+            compounds = CompoundWatch.Over(project.Paths.Assets);
 
             Adopt(TextureNodeLibrary.Publish(project.Paths.Assets));
 
@@ -209,34 +211,26 @@ public sealed class TextureGraphDocument : EditorDocument {
     ///         bake — and nothing said so. Reopening the graph was the only cure.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A flag set by a save and read here, rather than a check that walks the folder.</b>
-    ///         The obvious mistake is republishing whenever anybody asks whether the library is
-    ///         stale: this is asked from <see cref="Compile" /> and from the panel's every show, and
-    ///         a directory walk plus a <c>stat</c> per compound on every keystroke is the same trap
-    ///         as republishing on every keystroke wearing a hat. A save is the rare, deliberate act
-    ///         that can change a compound, so a save is what sets the flag.
+    ///         ⚠ <b>A flag set by a notification and read here, rather than a check that walks the
+    ///         folder.</b> The obvious mistake is republishing whenever anybody asks whether the
+    ///         library is stale: this is asked from <see cref="Compile" /> and from the panel's every
+    ///         show, and a directory walk plus a <c>stat</c> per compound on every keystroke is the
+    ///         same trap as republishing on every keystroke wearing a hat. <see cref="Saving" /> is
+    ///         one setter — a save is the rare, deliberate act that can change a compound — and
+    ///         <see cref="OnProjectFileChanged" /> is the other, because a <c>git checkout</c>, a
+    ///         text editor and a tool that writes <c>.vxtexgraph</c> files raise no
+    ///         <c>DocumentSaving</c> at all
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/922">#922</a>).
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And a compound changed <em>outside</em> the editor sets it too, which for a batch
-    ///         it did not</b> — <a href="https://github.com/Rikarin/Vixen/issues/922">#922</a>. A
-    ///         <c>git checkout</c>, a text editor and a tool that writes <c>.vxtexgraph</c> files
-    ///         raise no <c>DocumentSaving</c>, so a containing graph went on inlining the version
-    ///         that was on disk when it opened. <see cref="OnProjectFileChanged" /> is the other
-    ///         setter: <c>ExternalEdits</c> tells every open document what moved, and this one
-    ///         answers for its own folder.
+    ///         ⚠ <b>The flag itself lives in <see cref="CompoundWatch" /> now, and that is the whole
+    ///         of <a href="https://github.com/Rikarin/Vixen/issues/970">#970</a>.</b>
+    ///         <c>LayerStackDocument</c> carried a second copy of this protocol, so #922's lesson had
+    ///         to be taught twice by hand and a third publishing document would have been a third
+    ///         time. Nothing about the behaviour moved.
     ///     </para>
     /// </remarks>
-    public bool Republish() {
-        if (!stale) {
-            return false;
-        }
-
-        stale = false;
-
-        Adopt(TextureNodeLibrary.Publish(Project.Paths.Assets));
-
-        return true;
-    }
+    public bool Republish() => compounds?.Republish(Adopt) ?? false;
 
     /// <inheritdoc />
     /// <remarks>
@@ -275,16 +269,12 @@ public sealed class TextureGraphDocument : EditorDocument {
         }
 
         if (path is null) {
-            stale = true;
+            compounds.Lost();
 
             return;
         }
 
-        var absolute = Path.GetFullPath(Project.Paths.Absolute(path));
-        var folder = Path.TrimEndingDirectorySeparator(Path.GetFullPath(compounds));
-
-        stale = stale
-            || absolute.StartsWith(folder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+        compounds.Noticed(Project.Paths.Absolute(path));
     }
 
     /// <inheritdoc />
@@ -319,11 +309,7 @@ public sealed class TextureGraphDocument : EditorDocument {
             return;
         }
 
-        var saved = Path.GetFullPath(graph.AssetPath);
-        var folder = Path.TrimEndingDirectorySeparator(Path.GetFullPath(compounds));
-
-        stale = stale
-            || saved.StartsWith(folder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+        compounds.Noticed(graph.AssetPath);
     }
 
     /// <summary>The smallest graph that produces a map.</summary>

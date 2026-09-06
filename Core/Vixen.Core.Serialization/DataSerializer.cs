@@ -134,7 +134,14 @@ public static class SerializerRegistry {
             }
 
             AliasOfType.TryRemove(pair.Key, out _);
-            ByAlias.TryRemove(pair.Value, out _);
+
+            // ⚠ An alias is only given up by whoever is holding it — #798. Where one type has been
+            // loaded into two contexts the name belongs to the default context's copy, and an
+            // unconditional remove meant unloading the plugin took the *host's* name with it: the
+            // plugin comes out and a polymorphic stream stops loading for the rest of the session.
+            if (ByAlias.TryGetValue(pair.Value, out var holder) && holder.SerializedType == pair.Key) {
+                ByAlias.TryRemove(pair.Value, out _);
+            }
 
             evicted++;
         }
@@ -142,6 +149,17 @@ public static class SerializerRegistry {
         foreach (var type in ByType.Keys.ToArray()) {
             if (type.Assembly == assembly) {
                 ByType.TryRemove(type, out _);
+            }
+        }
+
+        // ⚠ And the by-id map, which this method did not touch at all. A serializer left here holds
+        // accessors over a type in the context being unloaded, which is exactly what
+        // `PluginHost.WaitForCollection` reports as a plugin that cannot be collected — and the
+        // runtime's answer to "why not" is silence. It is only reachable now that `Claim` lets one
+        // type be loaded twice: before that the second registration threw before it got here.
+        foreach (var pair in ByTypeId.ToArray()) {
+            if (pair.Value.SerializedType.Assembly == assembly) {
+                ByTypeId.TryRemove(pair.Key, out _);
             }
         }
 
@@ -158,7 +176,21 @@ public static class SerializerRegistry {
 
         // The chunk header carries this number and nothing else about the type, so a loader that
         // has an id and no static type — anything walking a dependency graph — needs the way back.
-        ByTypeId[Storage.ContentHash.TypeId(typeof(T))] = serializer;
+        var id = Storage.ContentHash.TypeId(typeof(T));
+
+        // ⚠ Two copies of one type hash to one id, and this map is the third place #798 reaches.
+        // `TypeId` is computed from the type's name, so a plugin's collectible copy and the host's
+        // copy are indistinguishable here — and the old `Claim` hid it by throwing first, which is
+        // why nothing had ever seen it. Left last-one-wins, a chunk read by id would come back as an
+        // instance of a type in a context nothing else can cast to, with a failure message naming
+        // the same type twice. The default context's copy holds the id, on the same grounds it holds
+        // the alias.
+        if (!ByTypeId.TryGetValue(id, out var held)
+            || held.SerializedType == typeof(T)
+            || !IsOneTypeLoadedTwice(held.SerializedType, typeof(T))
+            || IsDefaultContext(typeof(T))) {
+            ByTypeId[id] = serializer;
+        }
     }
 
     static readonly ConcurrentDictionary<ulong, DataSerializer> ByTypeId = new();
@@ -222,11 +254,28 @@ public static class SerializerRegistry {
         var existing = ByAlias.GetOrAdd(alias, serializer);
 
         if (!ReferenceEquals(existing, serializer) && existing.SerializedType != serializer.SerializedType) {
-            throw new SerializationException(
-                $"Both '{existing.SerializedType}' and '{serializer.SerializedType}' claim the serialised name "
-                + $"'{alias}'. Give one of them an explicit [DataContract(\"…\")] alias; the name is what "
-                + "polymorphic data carries, so two types cannot share it."
-            );
+            // ⚠ One type loaded into two contexts is not two types — #798, and this registry had the
+            // same refusal as `TypeRegistry.Claim` for the same reason. An editor plugin's entry
+            // assembly is loaded from its own path into a *collectible* context while every
+            // dependency goes to the default one, so it exists twice and its generated registrations
+            // run twice; refusing the second threw out of `<Module>` and took the whole plugin load
+            // down. The check still catches what it exists to catch: two genuinely different types
+            // claiming one serialised name, which is data that loads as the wrong type.
+            if (!IsOneTypeLoadedTwice(existing.SerializedType, serializer.SerializedType)) {
+                throw new SerializationException(
+                    $"Both '{existing.SerializedType}' and '{serializer.SerializedType}' claim the serialised "
+                    + $"name '{alias}'. Give one of them an explicit [DataContract(\"…\")] alias; the name is "
+                    + "what polymorphic data carries, so two types cannot share it."
+                );
+            }
+
+            // ⚠ And the default context's copy keeps the name, rather than the last one to arrive.
+            // Everything that reads a polymorphic stream resolves into the default context, so an
+            // alias answering with the collectible copy hands back a serializer for a type nothing
+            // else can use — and goes on doing so after the plugin has been unloaded.
+            if (!IsDefaultContext(serializer.SerializedType)) {
+                return;
+            }
         }
 
         ByAlias[alias] = serializer;
@@ -235,6 +284,41 @@ public static class SerializerRegistry {
             AliasOfType[serializer.SerializedType] = alias;
         }
     }
+
+    /// <summary>Whether two claimants are one type that has been loaded into two contexts.</summary>
+    /// <param name="existing">What holds the alias.</param>
+    /// <param name="claiming">What is asking for it.</param>
+    /// <returns>Whether they are the same type from different load contexts.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Assembly-qualified names would call these two the same and must not be used.</b>
+    ///     <c>Type.AssemblyQualifiedName</c> carries the name, version, culture and public key and
+    ///     says nothing at all about the context an assembly was loaded into, which is the whole of
+    ///     the difference here. The load context is asked for directly, and two assemblies of one
+    ///     identity in <em>one</em> context cannot happen — so a <see langword="true" /> here is never
+    ///     a real collision being waved through. <c>TypeRegistry</c> carries the twin of this method
+    ///     for the twin of this problem; they are two lines each and the alternative was a shared
+    ///     assembly one of them does not reference.
+    /// </remarks>
+    static bool IsOneTypeLoadedTwice(Type existing, Type claiming) =>
+        string.Equals(existing.FullName, claiming.FullName, StringComparison.Ordinal)
+        && string.Equals(
+            existing.Assembly.GetName().Name,
+            claiming.Assembly.GetName().Name,
+            StringComparison.Ordinal
+        )
+        && !ReferenceEquals(
+            System.Runtime.Loader.AssemblyLoadContext.GetLoadContext(existing.Assembly),
+            System.Runtime.Loader.AssemblyLoadContext.GetLoadContext(claiming.Assembly)
+        );
+
+    /// <summary>Whether a type came out of the context everything else resolves into.</summary>
+    /// <param name="type">The type.</param>
+    /// <returns>Whether its assembly is in the default load context.</returns>
+    static bool IsDefaultContext(Type type) =>
+        ReferenceEquals(
+            System.Runtime.Loader.AssemblyLoadContext.GetLoadContext(type.Assembly),
+            System.Runtime.Loader.AssemblyLoadContext.Default
+        );
 
     /// <summary>Finds the serializer for a type.</summary>
     /// <typeparam name="T">The type.</typeparam>

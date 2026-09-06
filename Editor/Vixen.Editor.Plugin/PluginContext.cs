@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Ui;
+using Vixen.Graphics;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -301,6 +302,57 @@ public sealed class PluginContext {
 
         Registrations.Updates.Add(update);
         Registrations.Add(() => Registrations.Updates.Remove(update));
+    }
+
+    /// <summary>Asks to be told that the device is going, while it is still valid.</summary>
+    /// <param name="release">
+    ///     What to give back. Handed the device that is going, which is the one
+    ///     <see cref="IEditorGraphics.Device" /> is still answering with.
+    /// </param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The half of <see cref="IEditorGraphics" />' loan that was missing</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/968">#968</a>. That interface invites
+    ///         a plugin to <i>hold</i> a device, on the grounds that a pipeline cache must survive
+    ///         across calls, and then published no way of learning that the loan had ended: the
+    ///         device simply started answering differently. So every pipeline, shader module and
+    ///         descriptor pool a plugin had built outlived <c>vkDestroyDevice</c>, which
+    ///         <c>VUID-vkDestroyDevice-device-00378</c> makes undefined and which MoltenVK does not
+    ///         complain about.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This runs while the device is still usable and that is the whole of the
+    ///         contract.</b> The host raises it before it stops answering with the device and long
+    ///         before it disposes it, so <c>Destroy</c> and <c>WaitIdle</c> are both legal here —
+    ///         which is what separates it from <see cref="OnUnload" />, that runs at module unload
+    ///         and therefore at the wrong time. A plugin noticing the change for itself, by comparing
+    ///         <see cref="IEditorGraphics.Device" /> against the one it built on, finds out only
+    ///         after the old device has gone and can do nothing but drop the objects.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A device <i>swap</i> raises it too, not only a shutdown.</b> A window that is
+    ///         suspended and comes back gets a second <c>VulkanDevice</c>, and a plugin told nothing
+    ///         would go on dispatching through pipelines belonging to the first — so the rule is that
+    ///         the argument is the device that is ending, and anything built on it must be given back
+    ///         before this returns.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Registered here rather than subscribed to, so unloading takes it out.</b> An
+    ///         event on the graphics service would be the editor holding a delegate over the plugin's
+    ///         own state for the rest of the session, which is precisely the reference that stops a
+    ///         collectible plugin being collected.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A throw is reported and does not stop the other plugins being told.</b> The
+    ///         device is going whatever happens, and a plugin that failed to give its objects back
+    ///         cannot be allowed to keep the next plugin from giving back its own.
+    ///     </para>
+    /// </remarks>
+    public void OnDeviceLost(Action<IGraphicsDevice> release) {
+        ArgumentNullException.ThrowIfNull(release);
+
+        Registrations.DeviceLost.Add(release);
+        Registrations.Add(() => Registrations.DeviceLost.Remove(release));
     }
 
     /// <summary>Records something to undo when the plugin is unloaded.</summary>

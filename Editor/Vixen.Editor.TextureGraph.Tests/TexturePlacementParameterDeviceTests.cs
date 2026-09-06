@@ -45,6 +45,99 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
 
     const byte Dim = 51;
 
+    /// <summary>The middle column of the three-column atlas.</summary>
+    const byte Middling = 128;
+
+    /// <summary>⚠ And it reads only its own column when the columns do not divide the atlas.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/757">#757</a> replaced the integer
+    ///         column with a fractional span, and the test above could not see either.</b> That
+    ///         fixture is two columns over a 64-texel atlas, where the boundary lands exactly on a
+    ///         texel edge — so integer division and a float span give the same answer and the bleed
+    ///         assertion passes under both. Three columns is the smallest count that does not divide
+    ///         it: the span is 21⅓ and the boundaries fall <em>inside</em> texels 21 and 42.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The first fractional implementation shared a texel between neighbours</b>, which
+    ///         is #709 again: taking <c>floor(start)</c> and <c>ceil(start + span) - 1</c> gives
+    ///         column 0 the range 0..21 and column 1 the range 21..42, and a bilinear tap at the edge
+    ///         then mixes a neighbour's constant in. A texel belongs to the column its <em>centre</em>
+    ///         falls in, so the ranges are 0..20, 21..42 and 43..63 — and this test is what says so,
+    ///         because a shared texel produces a value that is neither column's constant.
+    ///     </para>
+    /// </remarks>
+    /// <param name="splatter">Which kernel.</param>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_stamp_reads_only_its_own_column_when_the_columns_do_not_divide_the_atlas(bool splatter) {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
+        var (texture, staging) = TextureKernelHarness.Upload(device, ThreeColumns(Side), Side, Side);
+
+        try {
+            using var evaluator = new TexturePlanEvaluator(device);
+
+            foreach (var seed in (uint[])[4409u, 5501u, 7717u, 9013u, 41823u, 90101u]) {
+                var op = splatter
+                    ? TexturePlacement.Splatter(1, 0, count: 1, scale: 1f, patternCount: 3, alphaCoverage: true)
+                    : TexturePlacement.TileSampler(
+                        1,
+                        0,
+                        gridX: 1,
+                        gridY: 1,
+                        scale: 1f,
+                        patternCount: 3,
+                        alphaCoverage: true
+                    );
+
+                var plan = new TexturePlan {
+                    BaseWidth = Side,
+                    BaseHeight = Side,
+                    Seed = seed,
+                    Images = [new(TextureFormat.Rgba8, External: true), new(TextureFormat.Rgba8)],
+                    Ops = [op],
+                    Outputs = [1]
+                };
+
+                Assert.Empty(plan.Validate());
+
+                using var bake = evaluator.Evaluate(plan, new Dictionary<int, TextureHandle> { [0] = texture });
+
+                var picture = bake.Read(1);
+                var middle = TextureKernelHarness.At(picture, Side / 2, Side / 2, 0);
+
+                output.WriteLine($"seed {seed} drew column value {middle}");
+
+                Assert.True(
+                    middle == Bright || middle == Middling || middle == Dim,
+                    $"the middle of the stamp reads {middle}, which is none of the atlas's three columns "
+                    + $"({Bright}, {Middling} and {Dim}) — so the stamp is not reading one column"
+                );
+
+                for (var y = 0; y < Side; y++) {
+                    for (var x = 0; x < Side; x++) {
+                        var value = TextureKernelHarness.At(picture, x, y, 0);
+
+                        Assert.True(
+                            value == middle,
+                            $"seed {seed}: texel ({x}, {y}) reads {value} where the rest of the stamp reads "
+                            + $"{middle}. A value between two of the constants is a neighbouring column bled "
+                            + $"across a boundary that two columns share — #709 through #757's fractional "
+                            + $"span ({TextureKernelHarness.Adapter(device)})"
+                        );
+                    }
+                }
+            }
+        } finally {
+            device.Destroy(staging);
+            device.Destroy(texture);
+        }
+    }
+
     /// <summary>
     ///     ⚠ A stamp reads its <b>own</b> column of the atlas and no texel of a neighbouring one.
     /// </summary>
@@ -156,6 +249,118 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
             // reads the last column, which is what a widened column degenerates to once both taps
             // clamp to the image's edge — so the seeds have to have reached both of them.
             Assert.Equal([Bright, Dim], drawn.Order().Reverse());
+        } finally {
+            device.Destroy(staging);
+            device.Destroy(texture);
+        }
+    }
+
+    /// <summary>
+    ///     ⚠ An atlas whose width is not a multiple of its column count loses none of its texels.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/757">#757</a>, and it arrived with
+    ///         the fix above rather than before it.</b> The texel-space column that ended the bleed
+    ///         resolved its width as <c>extent.x / columns</c> in <em>integers</em>: 64 over 3 is 21,
+    ///         so the three columns ended at texel 62 and texel 63 was reachable from no slot at all.
+    ///         The count is closed-form — <c>extent.x mod columns</c> texels are lost — and it is
+    ///         worst on the last column, which is also the one an author notices last.
+    ///     </para>
+    ///     <para>
+    ///         <b>So the atlas is 64 wide with 3 columns and only its last texel is bright.</b> That
+    ///         makes the oracle two known numbers rather than a direction: a stamp on the last slot
+    ///         reaches texel 63 and its brightest texel is <see cref="Bright" />, and under the
+    ///         integer width it never gets there and its brightest texel is <see cref="Dim" /> — the
+    ///         same 204 against 51 the test above turns on. The first two slots are flat
+    ///         <see cref="Dim" /> either way, which is what makes the set of maxima the assertion.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves of the set, because either alone is satisfied by a kernel that is not
+    ///         reading columns at all.</b> One that ignored <c>patternCount</c> and stretched the
+    ///         whole atlas across every stamp reaches texel 63 from every slot, so its maxima are all
+    ///         <see cref="Bright" />; one whose columns never reach the end gives all
+    ///         <see cref="Dim" />. Only a kernel resolving three fractional columns over 64 texels
+    ///         produces both. And the bright bake's own left edge is asserted <see cref="Dim" />, so
+    ///         "reached texel 63" is not "read the whole atlas".
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void An_atlas_whose_width_is_not_a_multiple_of_its_columns_loses_no_texel(bool splatter) {
+        // 64 over 3 is 21 in integers, so the columns covered 63 texels and one was unreachable.
+        const int Columns = 3;
+
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+        Assert.Equal(1, Side - (Columns * (Side / Columns)));
+
+        var (texture, staging) = TextureKernelHarness.Upload(device, LastTexelBright(Side), Side, Side);
+
+        try {
+            using var evaluator = new TexturePlanEvaluator(device);
+
+            var maxima = new HashSet<int>();
+
+            foreach (var seed in (uint[])[4409u, 5501u, 7717u, 9013u, 41823u, 90101u, 130363u, 415601u]) {
+                var op = splatter
+                    ? TexturePlacement.Splatter(1, 0, count: 1, scale: 1f, patternCount: Columns, alphaCoverage: true)
+                    : TexturePlacement.TileSampler(
+                        1,
+                        0,
+                        gridX: 1,
+                        gridY: 1,
+                        scale: 1f,
+                        patternCount: Columns,
+                        alphaCoverage: true
+                    );
+
+                var plan = new TexturePlan {
+                    BaseWidth = Side,
+                    BaseHeight = Side,
+                    Seed = seed,
+                    Images = [new(TextureFormat.Rgba8, External: true), new(TextureFormat.Rgba8)],
+                    Ops = [op],
+                    Outputs = [1]
+                };
+
+                Assert.Empty(plan.Validate());
+
+                using var bake = evaluator.Evaluate(plan, new Dictionary<int, TextureHandle> { [0] = texture });
+
+                var picture = bake.Read(1);
+                var brightest = 0;
+
+                for (var y = 0; y < Side; y++) {
+                    for (var x = 0; x < Side; x++) {
+                        brightest = Math.Max(brightest, TextureKernelHarness.At(picture, x, y, 0));
+                    }
+                }
+
+                output.WriteLine($"seed {seed} reached {brightest}");
+
+                Assert.True(
+                    brightest == Bright || brightest == Dim,
+                    $"the brightest texel of the stamp is {brightest}, which is neither the atlas's flat "
+                    + $"{Dim} nor its one bright texel ({Bright}) — so this is not a stamp of one column "
+                    + $"({TextureKernelHarness.Adapter(device)})"
+                );
+
+                if (brightest == Bright) {
+                    // The last column and no wider than one: its own left edge is the flat value, so
+                    // reaching texel 63 is not the same as reading the whole atlas.
+                    Assert.Equal(Dim, TextureKernelHarness.At(picture, 0, Side / 2, 0));
+                }
+
+                maxima.Add(brightest);
+            }
+
+            // The closed form: the last slot's column ends at the atlas's last texel, and the other
+            // two hold none of it. A column width truncated to 21 texels never reaches it from any
+            // slot and this set is {Dim} alone.
+            Assert.Equal([Bright, Dim], maxima.Order().Reverse());
         } finally {
             device.Destroy(staging);
             device.Destroy(texture);
@@ -625,6 +830,68 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
             $"an opacity of {opacity} covers {covered:0.0000} and the closed form is {expected} "
             + $"({TextureKernelHarness.Adapter(device)})"
         );
+    }
+
+    /// <summary>A flat atlas whose <b>last texel column only</b> is bright.</summary>
+    /// <param name="side">Its width and height.</param>
+    /// <returns>The pixels.</returns>
+    /// <remarks>
+    ///     ⚠ <b>One texel and not one column, because the lost texels are the remainder.</b> An atlas
+    ///     of <c>side</c> texels in <c>columns</c> columns loses <c>side mod columns</c> of them to an
+    ///     integral column width, which for 64 and 3 is exactly the last one — so a fixture whose
+    ///     bright region were any wider would be reached by a truncated column too.
+    /// </remarks>
+    static byte[] LastTexelBright(int side) {
+        var pixels = new byte[side * side * 4];
+
+        for (var y = 0; y < side; y++) {
+            for (var x = 0; x < side; x++) {
+                var at = ((y * side) + x) * 4;
+                var value = x == side - 1 ? Bright : Dim;
+
+                pixels[at] = value;
+                pixels[at + 1] = value;
+                pixels[at + 2] = value;
+                pixels[at + 3] = 255;
+            }
+        }
+
+        return pixels;
+    }
+
+    /// <summary>An atlas of three flat columns, at a width that is not a multiple of three.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Three and not two, because two divides every atlas this suite uses and the
+    ///     fractional boundary is the whole subject.</b> <c>TwoColumns</c> over a 64-texel side puts
+    ///     its boundary exactly on a texel edge, so a column resolved by integer division and one
+    ///     resolved by a float agree — which is why the bleed's own test could not see
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/757">#757</a>'s span. At three columns
+    ///     the span is 21⅓ and the boundaries fall inside texels 21 and 42.
+    /// </remarks>
+    /// <param name="side">The atlas side.</param>
+    /// <returns>The pixels.</returns>
+    static byte[] ThreeColumns(int side) {
+        var pixels = new byte[side * side * 4];
+
+        for (var y = 0; y < side; y++) {
+            for (var x = 0; x < side; x++) {
+                var at = ((y * side) + x) * 4;
+                // ⚠ By the texel's CENTRE, which is the rule the kernel resolves a column with. A
+                // fixture painted with `x * 3 / side` disagrees with it on exactly the texels a
+                // fractional boundary falls inside — texel 21 of 64 — so it would report a bleed
+                // where the two conventions merely differ, which is a different bug from the one
+                // this test is for.
+                var column = (int)((x + 0.5) * 3 / side);
+                var value = column switch { 0 => Bright, 1 => Middling, _ => Dim };
+
+                pixels[at] = value;
+                pixels[at + 1] = value;
+                pixels[at + 2] = value;
+                pixels[at + 3] = 255;
+            }
+        }
+
+        return pixels;
     }
 
     /// <summary>An atlas of two flat columns: the left one bright, the right one dim.</summary>
