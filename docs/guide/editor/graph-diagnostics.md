@@ -4,7 +4,7 @@ slug: editor/graph-diagnostics
 kind: guide
 area: Editor
 summary: How a complaint about a line of generated shader source becomes a complaint about a node the author can select, across sub-graph inlining.
-api: [T:Vixen.Editor.NodeGraph.NodeSpan, T:Vixen.Editor.NodeGraph.NodeOrigin, T:Vixen.Editor.NodeGraph.NodeGraphInlining, T:Vixen.Editor.ShaderGraph.ShaderGraphSpan]
+api: [T:Vixen.Editor.NodeGraph.NodeSpan, T:Vixen.Editor.NodeGraph.NodeOrigin, T:Vixen.Editor.NodeGraph.NodeGraphInlining, T:Vixen.Editor.NodeGraph.SubGraphExpansion, T:Vixen.Editor.ShaderGraph.ShaderGraphSpan]
 tags: [editor, node-graph, shader-graph, diagnostics, raven, sub-graphs]
 since: 0.1
 status: preview
@@ -28,6 +28,12 @@ sub-graphs. `SubGraphs.Flatten` replaces a sub-graph node with the contents of t
 for, giving each copy a fresh identity — because the author's own graph already owns the ones it has.
 A `NodeOrigin` records where one of those copies came from: the sub-graph node in the author's graph,
 the node-type path of the sub-graph it was written in, and the identity it had there.
+
+`SubGraphExpansion` is the third record, and it answers a question the first two cannot: **what was
+that sub-graph node set to.** Inlining deletes the node, and the node is where a containing graph
+stores what it set the published graph's knobs to — so before it existed those numbers reached
+nothing at all, whatever a compiler did afterwards. `NodeGraphInlining.Expansions` holds one per
+expansion, and `NodeOrigin.Expansion` is the key.
 
 ## What it is for
 
@@ -101,6 +107,27 @@ more useful of the two lines to be sent to.
 resolves to the outermost sub-graph node, because that is the only one the open document has.
 `NodeOrigin.Type` is the innermost sub-graph's path, so the sentence appended to the diagnostic still
 says which graph the node was actually written in.
+
+⚠ **The settings are the other way round, and that is why they are a separate record.**
+`NodeGraphInlining.TryGetExpansion` answers with the sub-graph node the copy came *directly* out of,
+which two levels in is a node inside the published file rather than the one on the author's canvas.
+Reading them off `NodeOrigin.Source` would hand a nested graph a stranger's numbers.
+
+⚠ **And an expansion is per node, not per node type.** One graph may contain the same published
+graph twice with two sets of numbers, so anything keyed on `NodeOrigin.Type` gives both of them
+whichever set it read first — a failure every assertion about a single instance goes on passing over.
+
+```csharp no-compile="a fragment against an inlining a compiler already produced"
+if (inlining.TryGetExpansion(node.Id, out var expansion)
+    && expansion.Settings.TryGetValue("amount", out var typed)) {
+    Console.WriteLine($"'{expansion.Type}' was given amount = {typed}");
+}
+```
+
+What the table means is the containing language's question: `SubGraphExpansion.Settings` is the
+sub-graph node's `GraphNode.Texts`, copied whole, because which of its keys are parameters is
+something only that language's compiler knows. `TextureGraphCompiler` reads them as a texture graph's
+exposed parameters; a graph type with no parameters simply never looks.
 
 ## See also
 

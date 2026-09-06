@@ -37,6 +37,66 @@ public class MaskStackTests(ITestOutputHelper output) {
         Assert.NotEmpty(TextureCompoundLibrary.Shipped);
     }
 
+    /// <summary>A project's own compounds reach a stack, and only when the project is named.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One node type meant two different things depending on which panel an author was
+    ///         in</b> — <a href="https://github.com/Rikarin/Vixen/issues/858">#858</a>.
+    ///         <c>TextureGraphDocument</c> publishes <c>Assets/Compounds</c> beside the shipped four
+    ///         and the stack published <c>folder: null</c>, so a <c>LayerFillSource.Graph</c> fill or
+    ///         a <c>MaskEffectAsset.Node</c> naming a project compound compiled in the graph panel
+    ///         and was <c>TG0001</c> — "nothing inlined it" — in the layer stack.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves, because the second is what makes the first mean anything.</b> A
+    ///         library that published the folder unconditionally would pass the positive assertion
+    ///         and would also be a library nobody could ask for the shipped set alone; and this is a
+    ///         static method with no project, so what a null <c>assets</c> does is part of the
+    ///         contract rather than an accident.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <em>caller</em> that has a project still passes nothing.</b>
+    ///         <c>LayerStackPreview</c> is the one production caller and it is another slice's file
+    ///         this batch, so the wire is filed rather than made — see the issue. Until then this
+    ///         proves the mechanism and not the panel.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_projects_own_compound_reaches_a_stack_when_the_project_is_named() {
+        using var fixture = new TexturingFixture();
+
+        var folder = Path.Combine(fixture.Paths.Assets, TextureNodeLibrary.CompoundFolder);
+
+        Directory.CreateDirectory(folder);
+
+        // The smallest published graph: one interface output, one node feeding it.
+        var compound = new TextureGraphDocument(
+            fixture.Project,
+            fixture.AddGraph(TextureNodeLibrary.CompoundFolder + "/Grunge"),
+            Path.Combine(folder, "Grunge" + TextureGraphDocument.Extension)
+        );
+
+        compound.Graph.Interface.Add(new("Out", NodeGraph.PortDirection.Output, NodeGraph.PortKind.Image));
+        compound.Save();
+
+        var named = LayerStackCompiler.Library(out var withProject, fixture.Paths.Assets);
+
+        Assert.True(named.TryGet("Grunge", out _), "the project's own compound is not a node type");
+        Assert.True(withProject.TryGet("Grunge", out _), "the node type has no graph behind it");
+
+        // ⚠ And the shipped ones did not go away, which is the failure the fix could most easily
+        // have had: publishing the project folder *instead of* the embedded set.
+        Assert.All(
+            TextureCompoundLibrary.Shipped,
+            path => Assert.True(named.TryGet(path, out _), path + " stopped being published")
+        );
+
+        var shippedOnly = LayerStackCompiler.Library(out var withoutProject);
+
+        Assert.False(shippedOnly.TryGet("Grunge", out _));
+        Assert.False(withoutProject.TryGet("Grunge", out _));
+    }
+
     /// <summary>A generator mask compiles, and asks for the mesh maps it reads.</summary>
     /// <remarks>
     ///     ⚠ <b>The externals are the whole of why one generator works on every mesh.</b> A generator

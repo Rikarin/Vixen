@@ -425,14 +425,34 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             Report(new(TextureDiagnostics.ParameterOverrideIgnored, problem, NodeId.None, "", NodeSeverity.Warning));
         }
 
-        foreach (var (scope, expressions) in Collect(graph)) {
+        foreach (var (expansion, scope, expressions) in Collect(graph)) {
             var parameters = scope.Length == 0
                 ? declared
                 : (SubGraphSource as ITextureGraphLibrary)?.ParametersOf(scope) ?? [];
 
-            var values = scope.Length == 0
-                ? ParameterValues
-                : TextureGraphParameters.Read(parameters, null, out _);
+            var values = ParameterValues;
+
+            if (scope.Length > 0) {
+                // ⚠ The settings of the sub-graph node this expansion came out of, which used to be
+                // `null` — the declared defaults — for every published graph in every containing
+                // graph (#742). The node itself is gone by now: `Flatten` replaced it with the
+                // graph's contents, and `SubGraphExpansion` is what carried its numbers across.
+                Inlining.Expansions.TryGetValue(expansion, out var inlined);
+
+                values = TextureGraphParameters.Read(parameters, inlined.Settings, out var ignored);
+
+                foreach (var problem in ignored) {
+                    // Against the node the author can select rather than against no node, because
+                    // this one *is* somebody's typing and it is on a node they have.
+                    Report(new(
+                        TextureDiagnostics.ParameterOverrideIgnored,
+                        $"'{scope}': {problem}",
+                        inlined.Source,
+                        "",
+                        NodeSeverity.Warning
+                    ));
+                }
+            }
 
             var results = TextureGraphExpressions.Fold(parameters, values, expressions, out var diagnostics);
 
@@ -448,7 +468,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         }
     }
 
-    /// <summary>Every port of the graph whose value was written as an expression, by scope.</summary>
+    /// <summary>Every port of the graph whose value was written as an expression, by expansion.</summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Walked in <c>Ordered</c>'s order and each node's keys sorted</b>, because the
@@ -469,20 +489,27 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     ///         picture. <see cref="NodeGraphInlining" /> already says which graph each node came out
     ///         of; the scope is that path, and the empty string is the author's own graph.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Grouped by <see cref="NodeOrigin.Expansion" /> rather than by that path, because
+    ///         the path is what a knob is <em>declared</em> by and not what it is <em>set</em>
+    ///         to.</b> One graph may contain the same published graph twice with two sets of
+    ///         numbers, and grouping by path folds both against one of them. The scope travels beside
+    ///         the key because it is still what <c>ParametersOf</c> is asked.
+    ///     </para>
     /// </remarks>
-    List<(string Scope, List<TextureExpression> Expressions)> Collect(NodeGraphModel graph) {
-        List<(string Scope, List<TextureExpression> Expressions)> scopes = [];
+    List<(int Expansion, string Scope, List<TextureExpression> Expressions)> Collect(NodeGraphModel graph) {
+        List<(int Expansion, string Scope, List<TextureExpression> Expressions)> scopes = [];
 
-        List<TextureExpression> For(string scope) {
-            foreach (var (name, expressions) in scopes) {
-                if (string.Equals(name, scope, StringComparison.Ordinal)) {
+        List<TextureExpression> For(int expansion, string scope) {
+            foreach (var (key, _, expressions) in scopes) {
+                if (key == expansion) {
                     return expressions;
                 }
             }
 
             List<TextureExpression> made = [];
 
-            scopes.Add((scope, made));
+            scopes.Add((expansion, scope, made));
 
             return made;
         }
@@ -533,8 +560,13 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
                     continue;
                 }
 
-                For(Inlining.TryGet(node.Id, out var origin) ? origin.Type : "")
-                    .Add(new(node.Id, port, node.Texts[key]));
+                // ⚠ Keyed on the expansion and not on the node-type path. Two nodes of one published
+                // type in one graph are two sets of knob values, and a batch keyed on the path would
+                // fold both of them against whichever set the walk reached first — which is the
+                // shape of "the second Dirt silently uses the first one's amount".
+                var expansion = Inlining.TryGet(node.Id, out var origin) ? origin.Expansion : 0;
+
+                For(expansion, expansion == 0 ? "" : origin.Type).Add(new(node.Id, port, node.Texts[key]));
             }
         }
 

@@ -5,6 +5,7 @@ using System.Globalization;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Plugin;
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
 
 namespace Vixen.Editor.Texturing;
@@ -38,9 +39,11 @@ namespace Vixen.Editor.Texturing;
 ///     </para>
 /// </remarks>
 sealed class TextureGraphView {
+    readonly List<(string Label, NodeGraphModel Graph)> opened = [];
     readonly UiElement root;
     readonly UiElement status;
     readonly UiElement title;
+    readonly UiElement trail;
 
     /// <summary>Builds the view into a host element.</summary>
     /// <param name="host">Where it goes. A <c>DockPanel</c>, or anything inside one.</param>
@@ -68,7 +71,29 @@ sealed class TextureGraphView {
         left.SetStyle("flex-direction", "column");
         left.SetStyle("flex-grow", "1");
 
+        // ⚠ Above the canvas rather than beside it, and it is the whole of the way back out of a
+        // published graph. A trail that lived in the preview column would be a way back an author
+        // has to look for, on the opposite side of the panel from the thing that took them in.
+        trail = left.Add("texture-graph-trail");
+
+        trail.SetStyle("display", "none");
+        trail.SetStyle("flex-direction", "row");
+
         Canvas = left.Add<NodeGraphView>();
+
+        // ⚠ Inline, because `node-graph { flex-grow: 1 }` is in `NodeGraphTheme.vcss` and
+        // `NodeGraphTheme.Install` is called by one test fixture and by no editor host —
+        // <a href="https://github.com/Rikarin/Vixen/issues/917">#917</a>. The other three graph
+        // panels get it from `AssetEditorTheme.vcss`'s `<x>-editor > node-graph` rules, and no rule
+        // anywhere names this one: the canvas measured 990×0 in a shell with the panel open, which
+        // is a graph an author can neither see nor click, let alone double-click a compound in.
+        Canvas.SetStyle("flex-grow", "1");
+
+        // ⚠ The event had no subscriber anywhere in the tree —
+        // <a href="https://github.com/Rikarin/Vixen/issues/859">#859</a>. A double-click on a
+        // compound reached the framework, raised this, and stopped: an author could place
+        // `Generators/Dirt`, compile it, bake it, and never see what it was.
+        Canvas.SubGraphOpened += (_, type, child) => Descend(type, child);
 
         var right = root.Add("texture-graph-preview");
 
@@ -129,7 +154,22 @@ sealed class TextureGraphView {
         TexturePreviewBlocker blocker,
         IEditorImage? result = null
     ) {
+        // ⚠ Whether this is a *different* graph, not whether there is one. `Show` runs on every
+        // refresh — every edit, every evaluation — and a trail rebuilt each time would throw an
+        // author out of the compound they were looking inside the moment the preview redrew.
+        var arrived = !ReferenceEquals(Document, document);
+
         Document = document;
+
+        if (arrived) {
+            opened.Clear();
+
+            if (document is not null) {
+                opened.Add((Name(document), document.Graph));
+            }
+
+            Retrail();
+        }
 
         Empty.SetStyle("display", document is null ? "flex" : "none");
         root.SetStyle("display", document is null ? "none" : "flex");
@@ -147,6 +187,11 @@ sealed class TextureGraphView {
 
         title.Text = "Result — " + Resolution(document);
 
+        // ⚠ Before the registry is read, because a republish replaces it rather than adding to it —
+        // #803. A panel that read the old one would offer an author the menu a compound had before
+        // they edited it, and go on doing so until the graph was reopened.
+        var republished = document.Republish();
+
         // ⚠ The compounds that would not read, and this is the only place the loss is visible —
         // #803. `TextureCompoundLibrary.Publish` reports and skips rather than throwing, so that one
         // bad file in `Assets/Compounds` does not cost an author every other node in the menu; the
@@ -161,7 +206,6 @@ sealed class TextureGraphView {
             );
         }
 
-        Canvas.Graph = document.Graph;
         Canvas.Registry = document.Registry;
 
         // ⚠ What the *canvas* does with a published node type, which is the half of #803 the
@@ -171,10 +215,25 @@ sealed class TextureGraphView {
         // inside, on a canvas whose registry offers it.
         Canvas.SubGraphSource = document.SubGraphs;
 
-        // The document's own stack, which is what makes every gesture on the canvas one undo entry in
-        // the same history as everything else done to this asset.
-        Canvas.Stack = document.Stack;
-        Canvas.EditedDocument = document;
+        // ⚠ A republish builds a whole new library, so every graph the trail is holding belongs to
+        // the old one. An author who was looking inside a compound while it was saved elsewhere
+        // would go on inspecting a model nothing in the editor refers to any more — a picture of
+        // the version they were trying to change.
+        if (republished && opened.Count > 1) {
+            Resettle(document);
+        }
+
+        // ⚠ And only when the author is looking at their own graph. Inside a published one the
+        // canvas is showing the library's model, and re-seating it here would undo the descent on
+        // the next refresh — which for a panel that refreshes on every edit is immediately.
+        if (opened.Count <= 1) {
+            Canvas.Graph = document.Graph;
+
+            // The document's own stack, which is what makes every gesture on the canvas one undo
+            // entry in the same history as everything else done to this asset.
+            Canvas.Stack = document.Stack;
+            Canvas.EditedDocument = document;
+        }
 
         // ⚠ The extent comes from the *document* even when there is a picture, and the two agree only
         // because the plan is built at the document's resolution. `ImageView.Image` is a number the
@@ -190,6 +249,104 @@ sealed class TextureGraphView {
     /// <summary>What the status line under the preview says.</summary>
     /// <remarks>For a test, and for a panel that grows a second thing to say.</remarks>
     public string Status => status.Text ?? string.Empty;
+
+    /// <summary>What the canvas is inside, outermost first: the document, then each graph opened.</summary>
+    /// <remarks>
+    ///     One entry is the ordinary state — the author's own graph — and the trail strip is hidden
+    ///     for it. Anything more and the canvas is showing a published graph rather than the document.
+    /// </remarks>
+    public IReadOnlyList<string> Trail => [.. opened.Select(step => step.Label)];
+
+    /// <summary>What the trail says about the graph it took the author into.</summary>
+    public const string ReadOnly =
+        "A published graph is shown as it was published. Open its own asset to change it.";
+
+    /// <summary>Puts a published graph on the canvas, as the graph the node stands for.</summary>
+    /// <param name="type">Its node-type path, which is what the trail calls it.</param>
+    /// <param name="graph">The graph.</param>
+    /// <remarks>
+    ///     ⚠ <b>The model is the library's own and every graph containing that node type shares
+    ///     it</b>, which is why the canvas is put in its read-only state rather than merely being
+    ///     asked nicely: an edit here would rewrite a compound for every material in the project,
+    ///     with no undo entry and nothing to save it to. <c>NodeGraphView.IsReadOnly</c> is
+    ///     "there is no stack", so taking the stack away is the whole mechanism.
+    /// </remarks>
+    void Descend(string type, NodeGraphModel graph) {
+        opened.Add((type, graph));
+        Enter(opened.Count - 1);
+    }
+
+    /// <summary>Points the trail at a rebuilt library, and truncates it where it no longer reaches.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Re-resolved by node-type path rather than kept, because the path is the only part of
+    ///     a trail step that survives a republish.</b> A crumb's label <em>is</em> that path, which
+    ///     is what makes this possible at all; a compound that has been renamed or deleted resolves
+    ///     to nothing, and the trail is cut back to the last step that is still true rather than
+    ///     left pointing at a graph no library has.
+    /// </remarks>
+    void Resettle(TextureGraphDocument document) {
+        var kept = 1;
+
+        for (var step = 1; step < opened.Count; step++) {
+            if (document.SubGraphs?.TryGet(opened[step].Label, out var graph) != true) {
+                break;
+            }
+
+            opened[step] = (opened[step].Label, graph!);
+            kept = step + 1;
+        }
+
+        opened.RemoveRange(kept, opened.Count - kept);
+        Enter(opened.Count - 1);
+    }
+
+    /// <summary>Goes to one step of the trail, dropping everything past it.</summary>
+    void Enter(int step) {
+        opened.RemoveRange(step + 1, opened.Count - step - 1);
+
+        if (step == 0 && Document is { } document) {
+            Canvas.Graph = document.Graph;
+            Canvas.EditedDocument = document;
+        } else {
+            // Before the graph rather than after it, so there is no instant in which the library's
+            // model is on a canvas that would record an edit to it.
+            Canvas.EditedDocument = null;
+            Canvas.Graph = opened[step].Graph;
+        }
+
+        Retrail();
+    }
+
+    /// <summary>Rewrites the trail strip, which is hidden while there is nothing to go back to.</summary>
+    void Retrail() {
+        while (trail.Children.Count > 0) {
+            trail.Children[^1].Remove();
+        }
+
+        trail.SetStyle("display", opened.Count > 1 ? "flex" : "none");
+
+        if (opened.Count <= 1) {
+            return;
+        }
+
+        for (var step = 0; step < opened.Count; step++) {
+            if (step > 0) {
+                trail.Add("texture-graph-trail-separator").Text = "›";
+            }
+
+            var crumb = trail.Add<Button>();
+            var index = step;
+
+            crumb.Label = opened[step].Label;
+            crumb.Clicked += _ => Enter(index);
+        }
+
+        trail.Add("texture-graph-trail-note").Text = ReadOnly;
+    }
+
+    /// <summary>What the trail calls the document itself.</summary>
+    static string Name(TextureGraphDocument document) =>
+        document.Graph.Name.Length > 0 ? document.Graph.Name : document.Title.Value;
 
     /// <summary>The resolution readout, as the pane titles it.</summary>
     /// <param name="document">The graph.</param>

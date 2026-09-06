@@ -75,7 +75,40 @@ public sealed class SubGraphLibrary : ISubGraphSource {
 /// </param>
 /// <param name="Type">The node-type path of the sub-graph it was written in, which is the innermost.</param>
 /// <param name="Inner">The identity it had in that sub-graph's own file.</param>
-public readonly record struct NodeOrigin(NodeId Node, NodeId Source, string Type, NodeId Inner);
+/// <param name="Expansion">
+///     Which expansion of that sub-graph it came out of — a key into
+///     <see cref="NodeGraphInlining.Expansions" />, and never zero for a node that was inlined.
+///     ⚠ <b>Not the same question as <see cref="Type" />.</b> Two nodes of the same published type in
+///     one graph are two expansions with two sets of settings, so a caller that keyed anything on the
+///     path would give both of them whichever author's numbers it happened to read first.
+/// </param>
+public readonly record struct NodeOrigin(NodeId Node, NodeId Source, string Type, NodeId Inner, int Expansion);
+
+/// <summary>One sub-graph node, as it was expanded: the graph it stood for and what it was set to.</summary>
+/// <param name="Type">The node-type path of the sub-graph that was expanded.</param>
+/// <param name="Source">
+///     The node in the author's own graph to blame for it — the outermost one, exactly as
+///     <see cref="NodeOrigin.Source" /> is, because that is the only node a canvas has.
+/// </param>
+/// <param name="Settings">
+///     What the sub-graph node carried, by key: <see cref="GraphNode.Texts" />, copied. A published
+///     graph's knobs are stored there under their own names, so this is the author's overrides —
+///     and it holds whatever else that table held, because the flattener does not know which keys a
+///     given kind of graph calls parameters.
+/// </param>
+/// <remarks>
+///     ⚠ <b>The flattener throws the sub-graph node away, and this is what survives it.</b> Inlining
+///     replaces the node with the graph's contents, so the numbers an author typed on it reached
+///     nothing at all — a knob that accepted a value, saved it, and changed no picture
+///     (<a href="https://github.com/Rikarin/Vixen/issues/742">#742</a>). What is recorded is the
+///     table rather than an interpretation of it: which keys are parameters is a question only the
+///     graph's own compiler can answer.
+/// </remarks>
+public readonly record struct SubGraphExpansion(
+    string Type,
+    NodeId Source,
+    IReadOnlyDictionary<string, string> Settings
+);
 
 /// <summary>Which inlined node came out of which sub-graph node.</summary>
 /// <remarks>
@@ -95,14 +128,25 @@ public readonly record struct NodeOrigin(NodeId Node, NodeId Source, string Type
 /// </remarks>
 public sealed class NodeGraphInlining {
     /// <summary>Nothing was inlined.</summary>
-    public static NodeGraphInlining Empty { get; } = new(new Dictionary<NodeId, NodeOrigin>());
+    public static NodeGraphInlining Empty { get; } =
+        new(new Dictionary<NodeId, NodeOrigin>(), new Dictionary<int, SubGraphExpansion>());
 
     readonly IReadOnlyDictionary<NodeId, NodeOrigin> origins;
+    readonly IReadOnlyDictionary<int, SubGraphExpansion> expansions;
 
-    internal NodeGraphInlining(IReadOnlyDictionary<NodeId, NodeOrigin> origins) => this.origins = origins;
+    internal NodeGraphInlining(
+        IReadOnlyDictionary<NodeId, NodeOrigin> origins,
+        IReadOnlyDictionary<int, SubGraphExpansion> expansions
+    ) {
+        this.origins = origins;
+        this.expansions = expansions;
+    }
 
     /// <summary>Every node that came out of a sub-graph, by the identity it was given.</summary>
     public IReadOnlyDictionary<NodeId, NodeOrigin> Origins => origins;
+
+    /// <summary>Every sub-graph node that was expanded, by <see cref="NodeOrigin.Expansion" />.</summary>
+    public IReadOnlyDictionary<int, SubGraphExpansion> Expansions => expansions;
 
     /// <summary>Whether anything was inlined at all.</summary>
     public bool IsEmpty => origins.Count == 0;
@@ -117,6 +161,27 @@ public sealed class NodeGraphInlining {
     /// <param name="node">The identity in the flattened graph.</param>
     /// <returns>The sub-graph node it came out of, or the same identity when it was theirs already.</returns>
     public NodeId Resolve(NodeId node) => origins.TryGetValue(node, out var origin) ? origin.Source : node;
+
+    /// <summary>The expansion one inlined node came directly out of.</summary>
+    /// <param name="node">The identity in the flattened graph.</param>
+    /// <param name="expansion">The sub-graph node it was copied out of, and what that node was set to.</param>
+    /// <returns><see langword="true" /> if it was inlined.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Directly, which for a nested sub-graph is not the node the author can select.</b>
+    ///     <see cref="NodeOrigin.Source" /> is the outermost node because that is what a diagnostic
+    ///     has to name; the settings that apply to a node two levels in are the ones written on the
+    ///     inner sub-graph node, inside the published graph's own file, and answering with the
+    ///     outermost node's would hand a graph somebody else's numbers.
+    /// </remarks>
+    public bool TryGetExpansion(NodeId node, out SubGraphExpansion expansion) {
+        if (origins.TryGetValue(node, out var origin)) {
+            return expansions.TryGetValue(origin.Expansion, out expansion);
+        }
+
+        expansion = default;
+
+        return false;
+    }
 
     /// <summary>Where a node was, as a sentence to put on the end of a diagnostic.</summary>
     /// <param name="node">The identity in the flattened graph.</param>
@@ -547,13 +612,16 @@ public static class SubGraphs {
         readonly List<NodeDiagnostic> diagnostics = [];
         readonly HashSet<string> open = new(StringComparer.Ordinal);
         readonly Dictionary<NodeId, NodeOrigin> origins = [];
+        readonly Dictionary<int, SubGraphExpansion> expansions = [];
 
         NodeGraphModel result = null!;
         int next;
+        int expanded;
 
         public IReadOnlyList<NodeDiagnostic> Diagnostics => diagnostics;
 
-        public NodeGraphInlining Inlining => origins.Count == 0 ? NodeGraphInlining.Empty : new(origins);
+        public NodeGraphInlining Inlining =>
+            origins.Count == 0 ? NodeGraphInlining.Empty : new(origins, expansions);
 
         public NodeGraphModel Run(NodeGraphModel graph) {
             result = new() { Name = graph.Name };
@@ -565,7 +633,7 @@ public static class SubGraphs {
                 next = Math.Max(next, node.Id.Value);
             }
 
-            Expand(graph, default, [], [], preserve: true, depth: 0, NodeId.None, "");
+            Expand(graph, default, [], [], preserve: true, depth: 0, NodeId.None, "", expansion: 0);
 
             // Everything the author's own graph is besides its nodes and edges — its furniture, its
             // interface, its settings and its parameters. A group inside a sub-graph describes that
@@ -594,6 +662,11 @@ public static class SubGraphs {
         ///     however deep the nesting goes, because it is the only node the open document has.
         /// </param>
         /// <param name="type">And the node-type path of the sub-graph being copied, which is the innermost.</param>
+        /// <param name="expansion">
+        ///     Which expansion this walk is, or <c>0</c> for the author's own graph. It is the key
+        ///     every node copied here is stamped with, and what a compiler looks the sub-graph node's
+        ///     settings up by.
+        /// </param>
         Dictionary<string, PortRef> Expand(
             NodeGraphModel graph,
             Vector2 offset,
@@ -602,7 +675,8 @@ public static class SubGraphs {
             bool preserve,
             int depth,
             NodeId origin,
-            string type
+            string type,
+            int expansion
         ) {
             Dictionary<NodeId, NodeId> local = [];
             Dictionary<NodeId, Dictionary<string, PortRef>> nested = [];
@@ -649,7 +723,7 @@ public static class SubGraphs {
                 // line that knows both halves at once, and a synthetic identity that reached a
                 // diagnostic without one names a node on no canvas.
                 if (origin.IsValid) {
-                    origins[id] = new(id, origin, type, node.Id);
+                    origins[id] = new(id, origin, type, node.Id, expansion);
                 }
 
                 foreach (var (port, value) in node.Values) {
@@ -772,6 +846,18 @@ public static class SubGraphs {
                         : [.. port.Default];
                 }
 
+                // ⚠ Per expansion and not per type, and the settings are copied rather than held.
+                // Two `Generators/Dirt` nodes in one graph are two sets of numbers, and the table
+                // this reads is the live one on a node the author goes on editing — a reference kept
+                // here would make a finished compilation answer with what they typed afterwards.
+                var expansion = ++expanded;
+
+                expansions[expansion] = new(
+                    node.Type,
+                    blamed,
+                    new Dictionary<string, string>(node.Texts, StringComparer.Ordinal)
+                );
+
                 return Expand(
                     child,
                     offset + node.Position,
@@ -780,7 +866,8 @@ public static class SubGraphs {
                     preserve: false,
                     depth + 1,
                     blamed,
-                    node.Type
+                    node.Type,
+                    expansion
                 );
             } finally {
                 open.Remove(node.Type);

@@ -175,6 +175,104 @@ public class TextureGraphDocumentTests {
         Assert.True(document.Registry.TryGet("Source/Noise", out _));
     }
 
+    /// <summary>A compound saved in another tab reaches the graph that contains it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The remainder of <a href="https://github.com/Rikarin/Vixen/issues/803">#803</a>:
+    ///         a document published once, in its constructor.</b> An author who edited a compound and
+    ///         came back to the material saw the version that was on disk when the material opened —
+    ///         the old ports, the old defaults, the old contents inlined into every bake — and
+    ///         reopening the graph was the only cure. Nothing said so.
+    ///     </para>
+    ///     <para>
+    ///         <b>The assertion is the sub-graph's own contents rather than the registry's key.</b>
+    ///         A node type stays registered under one path however its graph changes, so counting
+    ///         menu entries would pass over exactly the staleness this is about.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_compound_saved_elsewhere_republishes_into_an_open_graph() {
+        using var fixture = new TexturingFixture();
+
+        var compound = Compound(fixture, "Grunge");
+        var document = Open(fixture, "Material");
+
+        Assert.True(document.SubGraphs!.TryGet("Grunge", out var before));
+        Assert.Equal(2, before!.Nodes.Count);
+
+        // Nothing has been saved, so there is nothing to do — and a flag is what says so, rather
+        // than a walk of the folder on every keystroke.
+        Assert.False(document.Republish());
+
+        compound.Graph.Add("Filters/Blur");
+        compound.Save();
+
+        Assert.True(document.Republish());
+        Assert.True(document.SubGraphs!.TryGet("Grunge", out var after));
+        Assert.Equal(3, after!.Nodes.Count);
+
+        // And once, not on every ask: the rebuild clears the flag that caused it.
+        Assert.False(document.Republish());
+    }
+
+    /// <summary>Saving the graph being edited changes no compound, so nothing is rebuilt.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A republish replaces the registry</b>, and the panel assigns that to the canvas,
+    ///     which reprojects every node — so a document that marked itself stale on its own save
+    ///     would rebuild the world on every Ctrl+S for nothing.
+    /// </remarks>
+    [Fact]
+    public void Saving_the_graph_itself_does_not_rebuild_the_library() {
+        using var fixture = new TexturingFixture();
+
+        Compound(fixture, "Grunge");
+
+        var document = Open(fixture, "Material");
+
+        document.Graph.Add("Filters/Blur");
+        document.Save();
+
+        Assert.False(document.Republish());
+    }
+
+    /// <summary>A graph saved outside the compound folder is not a compound.</summary>
+    [Fact]
+    public void Saving_a_graph_outside_the_compound_folder_does_not_rebuild_the_library() {
+        using var fixture = new TexturingFixture();
+
+        Compound(fixture, "Grunge");
+
+        var document = Open(fixture, "Material");
+        var other = Open(fixture, "Tiles");
+
+        other.Graph.Add("Filters/Blur");
+        other.Save();
+
+        Assert.False(document.Republish());
+    }
+
+    /// <summary>Writes a two-node published graph into the project's compound folder and opens it.</summary>
+    static TextureGraphDocument Compound(TexturingFixture fixture, string name) {
+        var relative = TextureNodeLibrary.CompoundFolder + "/" + name;
+
+        Directory.CreateDirectory(
+            System.IO.Path.Combine(fixture.Paths.Assets, TextureNodeLibrary.CompoundFolder)
+        );
+
+        var document = new TextureGraphDocument(
+            fixture.Project,
+            fixture.AddGraph(relative),
+            fixture.Paths.Absolute("Assets/" + relative + TextureGraphDocument.Extension)
+        );
+
+        // A published graph needs an interface to be a node with ports; the starter's uniform and
+        // output are the two nodes the count above is measured against.
+        document.Graph.Interface.Add(new("Out", PortDirection.Output, PortKind.Image));
+        document.Save();
+
+        return document;
+    }
+
     static string Path(TexturingFixture fixture, string name) =>
         fixture.Paths.Absolute("Assets/" + name + TextureGraphDocument.Extension);
 

@@ -37,13 +37,17 @@ interface ITextureGraphLibrary : ISubGraphSource {
 ///         what <c>TextureGraphCompiler</c> binds an inlined node's expressions against.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What an author types into those settings does not reach the inlined nodes.</b>
+///         ⚠ <b>This used to say that what an author types into those settings does not reach the
+///         inlined nodes, and it no longer does —
+///         <a href="https://github.com/Rikarin/Vixen/issues/742">#742</a>.</b>
 ///         <see cref="SubGraphs.Flatten(NodeGraphModel,ISubGraphSource,out IReadOnlyList{NodeDiagnostic})" />
-///         replaces the sub-graph node with the graph's contents and the node — which is where the
-///         overrides are stored — is then gone, so an expression inside
-///         a published graph folds against that graph's <em>declared defaults</em>. The knob is real,
-///         saved and shown, and turning it changes nothing until
-///         <a href="https://github.com/Rikarin/Vixen/issues/742">#742</a>.
+///         still replaces the sub-graph node with the graph's contents and the node — which is where
+///         the overrides are stored — is still gone afterwards; what changed is that
+///         <see cref="SubGraphExpansion" /> carries its <c>Texts</c> across, so
+///         <c>TextureGraphCompiler.Bind</c> folds an inlined expression against the numbers the
+///         author typed rather than against the published graph's declared defaults. ⚠ The knob was
+///         real, saved and shown for three batches before it changed a picture, which is worse than
+///         not having one: a field that accepts a number and does nothing says nothing.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The node type registered here is not <see cref="SubGraphs.Definition" />'s.</b>

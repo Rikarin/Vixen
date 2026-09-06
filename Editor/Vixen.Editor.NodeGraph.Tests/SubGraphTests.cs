@@ -422,6 +422,75 @@ public class SubGraphTests {
         Assert.False(compiled.Succeeded);
         Assert.Contains(compiled.Diagnostics, diagnostic => diagnostic.Id == "NG0001");
     }
+
+    /// <summary>The settings a sub-graph node carried survive the node itself.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Inlining deletes the one thing the author typed into.</b> A sub-graph node's
+    ///     <c>Texts</c> are where a containing graph stores what it set the published graph's knobs
+    ///     to, and <c>Flatten</c> replaces that node with the graph's contents — so before
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/742">#742</a> the values reached nothing
+    ///     at all and no compiler could have read them however it tried. The flattener records the
+    ///     table rather than interpreting it, because which keys are knobs is the containing
+    ///     language's question and not this assembly's.
+    /// </remarks>
+    [Fact]
+    public void An_expansion_carries_what_the_sub_graph_node_was_set_to() {
+        var library = new SubGraphLibrary();
+        library.Add("Sub-graphs/Tint", Tint());
+
+        var host = new NodeGraphModel();
+        var colour = host.Add("Test/Colour");
+        var first = host.Add("Sub-graphs/Tint");
+        var second = host.Add("Sub-graphs/Tint");
+
+        host.Connect(new(colour.Id, "Out"), new(first.Id, "Colour"));
+        host.Connect(new(colour.Id, "Out"), new(second.Id, "Colour"));
+        first.SetText("amount", "1");
+        second.SetText("amount", "5");
+
+        SubGraphs.Flatten(host, library, out _, out var inlining);
+
+        // Two expansions of one path, and each answers with its own node's table — the whole reason
+        // the key is an expansion rather than the type.
+        Assert.Equal(2, inlining.Expansions.Count);
+
+        var inlined = inlining.Origins.Keys.OrderBy(node => node.Value).ToArray();
+
+        Assert.Equal(2, inlined.Length);
+
+        var values = new List<string>();
+
+        foreach (var node in inlined) {
+            Assert.True(inlining.TryGetExpansion(node, out var expansion));
+            Assert.Equal("Sub-graphs/Tint", expansion.Type);
+            values.Add(expansion.Settings["amount"]);
+        }
+
+        Assert.Equal(["1", "5"], values.Order(StringComparer.Ordinal).ToArray());
+
+        // ⚠ Copied rather than held: a compilation is an answer about the graph as it was, and the
+        // table it read is one the author goes on editing.
+        first.SetText("amount", "9");
+
+        Assert.True(inlining.TryGetExpansion(inlined[0], out var again));
+        Assert.NotEqual("9", again.Settings["amount"]);
+    }
+
+    /// <summary>A node the author wrote themselves came out of no expansion.</summary>
+    [Fact]
+    public void A_node_the_author_wrote_has_no_expansion() {
+        var library = new SubGraphLibrary();
+        library.Add("Sub-graphs/Tint", Tint());
+
+        var host = new NodeGraphModel();
+        var colour = host.Add("Test/Colour");
+
+        host.Add("Sub-graphs/Tint");
+
+        SubGraphs.Flatten(host, library, out _, out var inlining);
+
+        Assert.False(inlining.TryGetExpansion(colour.Id, out _));
+    }
 }
 
 /// <summary>A compiler that produces the list of node types it walked, in order.</summary>
