@@ -366,10 +366,17 @@ jobs:
       # StringDeclarationAnalyzer, which runs inside the ordinary build and needs no leg of its own.
       # CheckDocsCoverage joins them and costs under a second, because it builds nothing at all: it
       # cross-checks the committed PublicAPI baselines against docs/DocsExempt.txt and the guide
-      # pages' `api:` lists. It cannot replace CheckDocs — it sees only the projects that keep a
-      # baseline — but it is the same question asked of text, so a developer can ask it before the
-      # push instead of learning the answer from an eleven-minute sweep. That is the recurrence #480
-      # records: four reds in one week, every one a subsystem landing with public types and no line.
+      # pages' `api:` lists. It cannot replace CheckDocs — it sees only the 132 projects that keep a
+      # baseline, of 421 in the tree — but it is the same question asked of text, so a developer can
+      # ask it before the push instead of learning the answer from an eleven-minute sweep.
+      #
+      # ⚠ WHAT IT IS NOT is "the commonest way to red CheckDocs has not happened", which this
+      # comment used to say. Of the six types that redded CheckDocs on 2026-09-03, two were in
+      # Vixen.Editor.Assets, which packs and keeps no baseline (#641, build/ApiUncovered.txt) and is
+      # invisible to this leg by construction; #686 is that half. ⚠ And the other four were visible
+      # and were still missed, because the reader dropped every `X -> sealed class` line as a member
+      # — 2 398 of 4 711 types read, and a plausible number printed for the rest. That is fixed, and
+      # Tools/Vixen.ApiCheck.Tests now compiles the same reader so the count has a fixture.
       - name: Architecture, API, format, docs and strings
         run: ./build.sh CheckArchitecture CheckApi CheckFormat CheckDocsCoverage CheckDocs CheckStrings --configuration Release
         shell: bash

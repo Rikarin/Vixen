@@ -109,6 +109,51 @@ It also needs `using Foundation;` in its entry point. That is not decoration —
 the platform assembly the managed registrar fails the link with `MT0099: No platform assembly!`, which
 is a confusing way to be told that a console `Main` is not an iOS application.
 
+### What the iOS gate checks, and the measurement it is waiting on
+
+`CheckAotIos` asserts the probe's rooting (21 references against 21 roots) and its four
+ahead-of-time properties, both read out of the csproj as XML, and then publishes. ⚠ **It does not
+read the publish's output, so those four properties are the whole of its enforcement** — where
+`CheckAot` also has `AssertAotOutput`, which is what caught the desktop publish exiting 0 in 17
+seconds having written 51 managed assemblies with `PublishAot` edited out.
+
+⚠ **That half is not blocked on writing it; it is blocked on a measurement, and four sessions in a
+row have now reached this line on a Mac where `dotnet workload list` prints an empty table.** An
+assertion over a path nobody has looked at fails for a reason that is not the defect, which is worse
+than the silence it replaces. So the recipe is here rather than the assertion, and it is one publish
+by anybody with the `ios` workload installed:
+
+```bash
+dotnet publish Tools/Vixen.AotProbe.iOS/Vixen.AotProbe.iOS.csproj -c Release -o /tmp/aot-ios
+find /tmp/aot-ios -type f | sed 's,^/tmp/aot-ios/,,' | sort
+find /tmp/aot-ios -type f -size +1M -exec ls -lh {} +
+```
+
+Four answers are what the assertion needs, and each one names a way it would otherwise be wrong:
+
+1. **Is `-o` honoured for a `net10.0-ios` publish, and what does it contain?** The desktop half
+   dictates its own directory (`SetOutput(ArtifactsDirectory / "aot")`) rather than guessing where
+   the SDK put things, and if that works here the iOS assertion needs no path guess at all — a
+   recursive search under a directory *we* chose is layout-independent. If it is not honoured, the
+   answer is the real path (`bin/Release/net10.0-ios/ios-arm64/publish/`, an `.app` bundle inside
+   it, and whether an `.ipa` appears at all without `ArchiveOnBuild`).
+2. **Does any managed `Vixen.*.dll` or `*.runtimeconfig.json` survive anywhere beneath it?** Their
+   absence is what says ILC ran on the desktop. ⚠ Nobody has confirmed that an iOS NativeAOT publish
+   emits neither — asserting it unverified is how a gate goes red for a reason that is not a
+   regression.
+3. **How large is the native binary, rooted?** The desktop floor of 4 MB is anchored on 8 MB rooted
+   against 1.3 MB unrooted, both measured on x64. Neither figure has been taken on arm64 iOS, and a
+   floor guessed from the desktop's is a flake waiting for an SDK that emits a smaller binary.
+4. **And the same publish with the `TrimmerRootAssembly` group commented out.** That pair — not the
+   rooted number alone — is what makes a floor mean "the roots are gone" rather than a size budget,
+   and it is the only one of the four that costs a second publish.
+
+Write the numbers into this section when you have them; the assertion is then the desktop one with
+different constants. Tracked as [#634](https://github.com/Rikarin/Vixen/issues/634), and no workflow
+runs the target either ([#327](https://github.com/Rikarin/Vixen/issues/327)) — it `.Requires` macOS
+and nothing invokes it, so "iOS is NativeAOT-only, and that is gated" is today true of a developer's
+Mac and of nowhere else.
+
 ## Why `PublishAot` is in the project file
 
 Not `-p:PublishAot=true` on the command line. A command-line property is a *global* property: MSBuild

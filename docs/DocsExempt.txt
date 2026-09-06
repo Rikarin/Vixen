@@ -2349,6 +2349,7 @@ T:Vixen.Platform.Linux.LinuxDialogs sweep-pending
 T:Vixen.Platform.Linux.LinuxPlatformSupplement sweep-pending
 T:Vixen.Platform.Linux.LinuxPowerInfo sweep-pending
 T:Vixen.Platform.Linux.LinuxProcessorTopology sweep-pending
+T:Vixen.Platform.MacOS.MacOSAccessibility	sweep-pending
 T:Vixen.Platform.MacOS.MacOSAppearance	the three appearance sources are documented together on IPlatform.ColorScheme
 T:Vixen.Platform.MacOS.MacOSClipboard sweep-pending
 T:Vixen.Platform.MacOS.MacOSDialogs sweep-pending
@@ -2387,6 +2388,7 @@ T:Vixen.Platform.Ui.PlatformUiWindow sweep-pending
 T:Vixen.Platform.Ui.PlatformWindowHost sweep-pending
 T:Vixen.Platform.WindowMode sweep-pending
 T:Vixen.Platform.WindowOptions sweep-pending
+T:Vixen.Platform.Windows.WindowsAccessibility	sweep-pending
 T:Vixen.Platform.Windows.WindowsAppearance	the three appearance sources are documented together on IPlatform.ColorScheme
 T:Vixen.Platform.Windows.WindowsClipboard sweep-pending
 T:Vixen.Platform.Windows.WindowsDialogs sweep-pending
