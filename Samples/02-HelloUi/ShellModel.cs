@@ -68,12 +68,15 @@ public sealed class ShellModel {
 
     /// <summary>How many copies the stepper's arrows are counting.</summary>
     /// <remarks>
-    ///     ⚠ <b>A <c>double</c> for a count, because <c>bind:</c> is exact and the property is a
-    ///     <c>double</c>.</b> A <c>Signal&lt;int&gt;</c> here would compose and then refuse at build
-    ///     with both type names — there is no coercion in a two-way binding (#663) — and
-    ///     <c>Decimals="0"</c> is what makes the field show it as the count it is.
+    ///     ⚠ <b>An <c>int</c>, and it used to be a <c>double</c> because <c>bind:</c> is exact.</b>
+    ///     The note that stood here said a <c>Signal&lt;int&gt;</c> would refuse at build with both
+    ///     type names, which is true of <c>bind:</c> and true of nothing else: the converter seam
+    ///     #663 asks for is the pair `Number="@…"` in and `change:Number="@(n => …)"` out, which the
+    ///     editor writes twenty-six times and which puts the narrowing where a reader can see it.
+    ///     So the model says what it means and the panel says where the cast is. <c>Samples</c>
+    ///     above stays a <c>double</c> bound with <c>bind:</c>, so the gallery shows both.
     /// </remarks>
-    public Signal<double> Copies { get; } = new(1d);
+    public Signal<int> Copies { get; } = new(1);
 
     /// <summary>Which blend mode is chosen.</summary>
     public Signal<string?> Blend { get; } = new("opaque");

@@ -35,6 +35,31 @@
     docking host that takes what is left.
 -->
 <shell-frame class="flex flex-col grow">
+    <!--
+        ⚠ **The model, handed to the whole frame instead of to each panel by name.** This one line
+        replaces `Model="@Model"` on three `<DockPanel>` children, and the panels stop mentioning the
+        shell at all: each one reads `Inject<ShellModel>()` and the walk finds this.
+
+        ⚠ **First line inside the element, because document order is the rule.** The tag emits
+        `shell-frame.Provide<ShellModel>(Model)` where it stands, so a component written above it is
+        built before the value exists and injects null — which is why the `<MenuBar>` follows rather
+        than precedes it, even though no menu asks for anything.
+
+        ⚠ **And it reaches a panel that has been torn into its own window**, which is not obvious and
+        is not guesswork: `AmbientAcrossDockingTests` walks the chain from a floated `DockPanel` and
+        finds `shell-frame` still on it, because a secondary surface's root hangs off the element
+        that asked for the window.
+
+        ⚠ **What this gives up, stated rather than discovered later: a statement is not an effect.**
+        `Model="@Model"` on a tag was a binding, so assigning `Model` after the shell was mounted
+        reached all three panels; a `<provide>` runs once where it stands and holds whatever it read.
+        Nothing reassigns it — `Program.cs` builds `new Shell { Model = model }`, an object
+        initialiser that runs before the mount — and an ambient value having no reactivity of its own
+        is the documented bargain. A model that had to be swapped at runtime would be provided as a
+        `Signal<ShellModel>` and read through `.Value`, which is the same rule one level along.
+    -->
+    <provide type="ShellModel" value="@Model" />
+
     <MenuBar>
         <Menu Label="File">
             <MenuItem Label="New" ref="@newItem" />
@@ -93,7 +118,7 @@
 
     <DockingHost ref="@docking" class="grow">
         <DockPanel Id="hierarchy" Title="Hierarchy">
-            <Hierarchy Model="@Model" />
+            <Hierarchy />
         </DockPanel>
 
         <!--
@@ -101,11 +126,11 @@
             the two does it rather than shipping a sample with one inside the other.
         -->
         <DockPanel Id="controls" Title="Controls" Scrolls="false">
-            <Gallery Model="@Model" />
+            <Gallery />
         </DockPanel>
 
         <DockPanel Id="inspector" Title="Inspector">
-            <Inspector Model="@Model" />
+            <Inspector />
         </DockPanel>
     </DockingHost>
 </shell-frame>

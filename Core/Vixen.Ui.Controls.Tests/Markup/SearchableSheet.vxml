@@ -30,6 +30,13 @@
     -->
     @for (var row in Rows.Value.Where(name => name.Contains(Filter.Value ?? "", System.StringComparison.OrdinalIgnoreCase))) {
         <search-row key="@row">@row</search-row>
+    } @empty {
+        <!--
+            ⚠ The third of `.searchable`'s parts, and the only one that was ever absent. It is the
+            loop's own arm rather than an `@if (!…Any())` beside it, so the sequence is walked once
+            and the two halves of the decision cannot disagree.
+        -->
+        <no-matches>No results.</no-matches>
     }
 </search-sheet>
 

@@ -218,5 +218,9 @@ public enum SyntaxKind : ushort {
     InjectDirective,
 
     /// <summary><c>@inject</c>.</summary>
-    InjectKeyword
+    InjectKeyword,
+
+    /// <summary><c>@empty</c>, the arm an <c>@for</c> draws when it drew no rows.</summary>
+    /// <remarks>At the end, on <see cref="CommaToken" />'s rule.</remarks>
+    EmptyKeyword
 }

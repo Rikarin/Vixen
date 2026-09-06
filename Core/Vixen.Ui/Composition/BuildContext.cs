@@ -1275,6 +1275,17 @@ public sealed class BuildContext {
     ///         something this method can invent.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>And the converter seam #663 asks for already exists, decomposed: it is the pair
+    ///         <c>Number="@expr"</c> in and <c>change:Number="@(v => …)"</c> out</b>, which is what
+    ///         the editor writes twenty-six times and <c>bind:</c> two. So the message names it. The
+    ///         in-leg is an ordinary parameter — an effect over whatever it read, so it stays live —
+    ///         and the out-leg is a lambda, which is where a narrowing cast, an undo entry or a
+    ///         validated rename can be written and *seen*. A coercion inside this method would be
+    ///         the same cast with nobody told. ⚠ It is also why the measurement reads the way it
+    ///         does: a real write-back is rarely an assignment, so the pair is not a workaround for
+    ///         <c>bind:</c> being narrow — it is the shape the work actually takes.
+    ///     </para>
+    ///     <para>
     ///         With no <paramref name="commits" /> the write-back arrives through
     ///         <see cref="UiElement.PropertyChanged" /> rather than through a poll, and is guarded so
     ///         that the assignment this binding just made does not come straight back as a change to
@@ -1316,8 +1327,9 @@ public sealed class BuildContext {
             throw new ArgumentException(
                 $"'{target.Tag}.{name}' is a {key.ValueType.Name} and the bound expression is a "
                 + $"{typeof(T).Name}. A two-way binding goes both ways through the property, and both "
-                + "are exact — bind an expression of the property's own type, or convert either side "
-                + "explicitly.",
+                + $"are exact. Write the pair the conversion can live in: {name}=\"@expr\" for the "
+                + $"value going in, and change:{name}=\"@(v => …)\" for the write-back, where the "
+                + "cast is a cast somebody can read.",
                 nameof(name)
             );
         }
@@ -1674,15 +1686,32 @@ public sealed class BuildContext {
     ///         it in the wrong place the moment anything else moved.
     ///     </para>
     /// </remarks>
+    /// <param name="empty">What to draw while the loop is drawing no rows, or null to draw nothing.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>"Drawing no rows" and not "the sequence is empty", and the two differ for as
+    ///         long as an <paramref name="exit" /> lasts.</b> A list whose last row is still leaving
+    ///         is empty by the sequence and not empty on screen, and putting <i>No results</i> beside
+    ///         a row that is still fading out shows the reader both answers at once. The arm is
+    ///         therefore decided by what the region holds — live rows and leaving ones together —
+    ///         which is also why it is settled in the same place a removal is rather than only on
+    ///         the reconciliation pass: the last exit to run out is what makes the list empty.
+    ///     </para>
+    ///     <para>
+    ///         It builds into a region of its own, opened after the rows, and is cleared and rebuilt
+    ///         only when the answer changes. A loop that never runs dry pays one boolean per pass.
+    ///     </para>
+    /// </remarks>
     public void For<T>(
         UiElement? parent,
         Func<IEnumerable<T>> items,
         Func<T, object> key,
         Action<BuildContext, UiElement, T> build,
-        ExitSpec? exit = null
+        ExitSpec? exit = null,
+        Action<BuildContext, UiElement>? empty = null
     ) {
         ArgumentNullException.ThrowIfNull(build);
-        Rows(parent, items, key, (context, at, item, _) => build(context, at, item), indexed: false, exit);
+        Rows(parent, items, key, (context, at, item, _) => build(context, at, item), indexed: false, exit, empty);
     }
 
     /// <summary>The same, with each row told where it is.</summary>
@@ -1729,15 +1758,26 @@ public sealed class BuildContext {
     ///     an exit is outstanding — the plausible cautious mistake — leaves every row below a
     ///     deletion showing a number that is one too high until the interval runs out.
     /// </remarks>
+    /// <param name="empty">What to draw while the loop is drawing no rows, or null to draw nothing.</param>
     public void For<T>(
         UiElement? parent,
         Func<IEnumerable<T>> items,
         Func<T, object> key,
         Action<BuildContext, UiElement, T, Signal<int>> build,
-        ExitSpec? exit = null
+        ExitSpec? exit = null,
+        Action<BuildContext, UiElement>? empty = null
     ) {
         ArgumentNullException.ThrowIfNull(build);
-        Rows(parent, items, key, (context, at, item, index) => build(context, at, item, index!), indexed: true, exit);
+
+        Rows(
+            parent,
+            items,
+            key,
+            (context, at, item, index) => build(context, at, item, index!),
+            indexed: true,
+            exit,
+            empty
+        );
     }
 
     void Rows<T>(
@@ -1746,13 +1786,25 @@ public sealed class BuildContext {
         Func<T, object> key,
         Action<BuildContext, UiElement, T, Signal<int>?> build,
         bool indexed,
-        ExitSpec? exit
+        ExitSpec? exit,
+        Action<BuildContext, UiElement>? empty = null
     ) {
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(key);
 
         var target = parent ?? Anchor;
         var region = Open(target);
+
+        // ⚠ Opened here and not on first use, because `Open` places a region after whatever is
+        // currently last — so a fallback opened once the rows exist would be pinned behind whatever
+        // row happened to be last when the list first ran dry.
+        var fallback = empty is null ? null : Open(target);
+        var showing = false;
+
+        // Whatever loop row this loop was declared in, on `Switch`'s reasoning: the fallback arm may
+        // be built long after the pass that opened it, and by then the context has moved on.
+        var declared = iteration;
+
         var live = new Dictionary<object, Region>();
         var leaving = new Dictionary<object, Region>();
 
@@ -1775,6 +1827,33 @@ public sealed class BuildContext {
 
             region.Reorder(order);
             region.Reposition();
+            Fallback();
+        }
+
+        // The `@empty` arm, put up or taken down. ⚠ Read off `order` rather than off `live`: a row
+        // that is still leaving is in the first and not the second, and it is on screen.
+        void Fallback() {
+            if (fallback is null || showing == (order.Count == 0)) {
+                return;
+            }
+
+            showing = order.Count == 0;
+            fallback.Clear();
+
+            if (!showing) {
+                return;
+            }
+
+            var outer = iteration;
+
+            iteration = declared;
+            try {
+                In(target, fallback, () => empty!(this, target));
+            } finally {
+                iteration = outer;
+            }
+
+            fallback.Reposition();
         }
 
         void Ended(object identity, Region ended) {

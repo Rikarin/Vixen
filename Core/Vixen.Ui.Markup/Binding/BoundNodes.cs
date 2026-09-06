@@ -421,6 +421,15 @@ public sealed record BoundFor(
     ///     default is how the two come to disagree, so the emitter omits the argument instead.
     /// </remarks>
     public string? ExitClass { get; init; }
+
+    /// <summary>The <c>@empty</c> arm's content; empty when the loop declares none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An empty array is "no arm", and that is sound because an arm that draws nothing and
+    ///     no arm at all are the same picture.</b> <c>BoundIf.Else</c> already makes this bargain
+    ///     for the same reason, and it is what lets this be an <c>ImmutableArray</c> rather than a
+    ///     nullable one every consumer would have to unwrap.
+    /// </remarks>
+    public ImmutableArray<BoundNode> Empty { get; init; } = ImmutableArray<BoundNode>.Empty;
 }
 
 /// <summary>One arm of an <c>@switch</c>.</summary>

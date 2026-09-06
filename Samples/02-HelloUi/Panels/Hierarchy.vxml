@@ -32,15 +32,20 @@
 <TreeView ref="@tree" on:drop="@((DropEvent args) => Dropped(args))" />
 
 @code {
-    readonly Signal<ShellModel> model = new(new());
+    ShellModel? standalone;
 
     TreeView tree = null!;
 
-    /// <summary>What it is showing.</summary>
-    public ShellModel Model {
-        get => model.Value;
-        set => model.Value = value;
-    }
+    /// <summary>What it is showing: the shell's model, or its own when nothing provides one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Ambient rather than a parameter, and the shell is what changed.</b> This used to be
+    ///     a signal-backed <c>Model</c> that <c>Shell.vxml</c> assigned on the tag, repeated on each
+    ///     of the three panels; the shell writes one <c>&lt;provide type="ShellModel" …&gt;</c> now
+    ///     and none of them is named. The fallback is what keeps a panel mountable on its own, which
+    ///     is what the default <c>new()</c> in the signal used to buy — <c>Inject</c> answering null
+    ///     is an ordinary case and what it should mean is the consumer's to say.
+    /// </remarks>
+    ShellModel Model => Inject<ShellModel>() ?? (standalone ??= new());
 
     partial void OnComposed() {
         var scene = tree.Root.Add("Scene");

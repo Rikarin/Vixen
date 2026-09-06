@@ -228,8 +228,8 @@ Vixen.Ui.Composition.BuildContext.Create<T>(Vixen.Ui.UiElement? parent) -> T
 Vixen.Ui.Composition.BuildContext.Create<T>(Vixen.Ui.UiElement? parent, string? tag) -> T
 Vixen.Ui.Composition.BuildContext.Document.get -> Vixen.Ui.UiDocument
 Vixen.Ui.Composition.BuildContext.Element(Vixen.Ui.UiElement? parent, string tag) -> Vixen.Ui.UiElement
-Vixen.Ui.Composition.BuildContext.For<T>(Vixen.Ui.UiElement? parent, System.Func<System.Collections.Generic.IEnumerable<T>> items, System.Func<T, object> key, System.Action<Vixen.Ui.Composition.BuildContext, Vixen.Ui.UiElement, T, Vixen.Ui.Reactive.Signal<int>> build, Vixen.Ui.Composition.ExitSpec? exit = null) -> void
-Vixen.Ui.Composition.BuildContext.For<T>(Vixen.Ui.UiElement? parent, System.Func<System.Collections.Generic.IEnumerable<T>> items, System.Func<T, object> key, System.Action<Vixen.Ui.Composition.BuildContext, Vixen.Ui.UiElement, T> build, Vixen.Ui.Composition.ExitSpec? exit = null) -> void
+Vixen.Ui.Composition.BuildContext.For<T>(Vixen.Ui.UiElement? parent, System.Func<System.Collections.Generic.IEnumerable<T>> items, System.Func<T, object> key, System.Action<Vixen.Ui.Composition.BuildContext, Vixen.Ui.UiElement, T, Vixen.Ui.Reactive.Signal<int>> build, Vixen.Ui.Composition.ExitSpec? exit = null, System.Action<Vixen.Ui.Composition.BuildContext, Vixen.Ui.UiElement>? empty = null) -> void
+Vixen.Ui.Composition.BuildContext.For<T>(Vixen.Ui.UiElement? parent, System.Func<System.Collections.Generic.IEnumerable<T>> items, System.Func<T, object> key, System.Action<Vixen.Ui.Composition.BuildContext, Vixen.Ui.UiElement, T> build, Vixen.Ui.Composition.ExitSpec? exit = null, System.Action<Vixen.Ui.Composition.BuildContext, Vixen.Ui.UiElement>? empty = null) -> void
 Vixen.Ui.Composition.BuildContext.Help(Vixen.Ui.UiElement target, System.Func<object?> text) -> void
 Vixen.Ui.Composition.BuildContext.Help(Vixen.Ui.UiElement target, string text) -> void
 Vixen.Ui.Composition.BuildContext.Load<T>(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<T>> load) -> Vixen.Ui.Reactive.IReadOnlySignal<Vixen.Ui.Reactive.AsyncValue<T>>

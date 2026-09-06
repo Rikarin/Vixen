@@ -295,7 +295,18 @@ sealed class VxmlLexer {
         }
     }
 
-    /// <summary>Closes a directive body, and takes an <c>else</c> arm with it if one follows.</summary>
+    /// <summary>
+    ///     Closes a directive body, and takes an <c>else</c> or an <c>@empty</c> arm with it if one
+    ///     follows.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Neither arm is looked for by the block it belongs to.</b> This runs for every
+    ///     <c>}</c> whatever opened it, so <c>@if (…) { } @empty { }</c> lexes its <c>@empty</c> as
+    ///     the keyword too — and the parser is what refuses it, with an id and a message. A lexer
+    ///     that only took the arm after the right kind of block would leave the wrong one as an
+    ///     interpolation of a variable called <c>empty</c>, which is a Roslyn error on generated
+    ///     code about a name nobody wrote.
+    /// </remarks>
     void LexBlockClose(List<LexedToken> tokens) {
         Emit(tokens, VxmlTokenKind.CloseBrace, 1);
         blocks.RemoveAt(blocks.Count - 1);
@@ -306,6 +317,16 @@ sealed class VxmlLexer {
         var gap = 0;
         while (IsWhitespace(window.Peek(gap))) {
             gap++;
+        }
+
+        // ⚠ `@empty` keeps its `@` where `else` dropped one, and that is not an inconsistency: a
+        // reader scanning a file for what draws sees every arm of an `@for` marked, and `empty` is
+        // an ordinary identifier that a file may well interpolate elsewhere.
+        if (window.Peek(gap) == '@' && AtWord("empty", gap + 1)) {
+            SkipWhitespace(tokens);
+            Emit(tokens, VxmlTokenKind.EmptyKeyword, 6);
+            LexBlockOpen(tokens, isSwitch: false);
+            return;
         }
 
         if (!AtWord("else", gap)) {
@@ -413,6 +434,15 @@ sealed class VxmlLexer {
             return;
         }
 
+        // An `@empty` that no `}` preceded — `LexBlockClose` has already taken the ones that follow
+        // a loop. ⚠ It is a keyword only when a brace follows, because `empty` is a legal C#
+        // identifier and every other directive here is spelled with a word that is not.
+        if (AtDirective("empty") && AtBraceAhead(6)) {
+            Emit(tokens, VxmlTokenKind.EmptyKeyword, 6);
+            LexBlockOpen(tokens, isSwitch: false);
+            return;
+        }
+
         LexInterpolation(tokens);
     }
 
@@ -484,6 +514,15 @@ sealed class VxmlLexer {
 
         SkipWhitespace(tokens);
         LexName(tokens);
+    }
+
+    /// <summary>Whether a <c>{</c> starts <paramref name="offset" /> characters ahead, past spaces.</summary>
+    bool AtBraceAhead(int offset) {
+        while (IsWhitespace(window.Peek(offset))) {
+            offset++;
+        }
+
+        return window.Peek(offset) == '{';
     }
 
     bool AtDirective(string name) {

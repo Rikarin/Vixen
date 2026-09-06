@@ -1,0 +1,64 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    A virtualised list reached from markup through the escape hatch #758 says is the only way.
+
+    ⚠ **The point of this file is the `@code` block, which is what a markup spelling would delete.**
+    Three audits have recorded that `VirtualizingPanel` is unreachable from a `.vxml` except through
+    `use=` and a pair of lambdas — and none of them checked whether that route works, because no
+    `.vxml` in the tree has ever taken it. It works, and this file is how much it costs: the tag, the
+    `ref` and the `use` are three ordinary attributes, and everything below is hand-written element
+    construction because **a row template is the one thing markup has no word for**.
+
+    ⚠ **Which is the gap stated as a measurement rather than as a claim.** `CreateRow` builds an
+    element tree in C#; a `@rows` block would be that tree written as markup, with the pool slot's
+    item and index arriving as signals. Nothing else here would change: `Count`, the scroller, the
+    pool and the rebinding are the control's and are already right.
+-->
+@component VirtualListSheet
+@namespace Vixen.Ui.Controls.Tests
+@using System.Collections.Generic
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+
+<virtual-sheet>
+    <!--
+        `use` hands the tag object to a method, which is markup's spelling for a control fed by calls
+        rather than by properties. It is an effect, so `Fill` runs on the first flush — after the
+        parameters this component was given, which is what makes reading `Items` in it correct.
+    -->
+    <VirtualizingPanel ref="@List" use="@(panel => Fill(panel))" />
+</virtual-sheet>
+
+@code {
+    /// <summary>The panel, so a test can scroll it the way a person would.</summary>
+    public VirtualizingPanel List { get; private set; } = null!;
+
+    /// <summary>What it is listing. Set before the sheet is built.</summary>
+    public string[] Items { get; set; } = [];
+
+    /// <summary>Every item index a row was bound to, which is the counter the test asserts on.</summary>
+    public List<int> Bound { get; } = [];
+
+    /// <summary>
+    ///     The whole of what markup cannot say, and the reason this issue exists.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b><c>CreateRow</c> is a row <i>template</i> and <c>BindRow</c> is a per-index
+    ///     binder.</b> Neither is a property, so neither is an attribute; both build and write
+    ///     elements, which is what markup is for and what it has no construct for here. A
+    ///     <c>@for</c> cannot be that construct — a pool slot is not an identity, so every rule the
+    ///     loop teaches about keys is false of it.
+    /// </remarks>
+    void Fill(VirtualizingPanel panel) {
+        panel.CreateRow = static owner => owner.Scroller.Content.Add<UiElement>("virtual-row");
+
+        panel.BindRow = (row, index) => {
+            Bound.Add(index);
+            row.Text = Items[index];
+        };
+
+        panel.Count = Items.Length;
+    }
+}

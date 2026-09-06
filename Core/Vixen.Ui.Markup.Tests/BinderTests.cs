@@ -764,6 +764,45 @@ public class BinderTests {
         Assert.Equal(200, loop.ExitAfter);
     }
 
+    // ================================================================== The @for empty arm
+
+    [Fact]
+    public void An_empty_arm_binds_beside_the_rows_and_not_inside_them() {
+        var component = BindClean("@component A\n@for (var i in xs) { <p key=\"@i\">@i</p> } @empty { <none /> }");
+        var loop = Assert.IsType<BoundFor>(Assert.Single(component.Content));
+
+        Assert.Equal("none", Assert.Single(loop.Empty.OfType<BoundElement>()).Tag);
+        Assert.Equal("p", Assert.Single(loop.Body.OfType<BoundElement>()).Tag);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The instrument.</b> A loop with no arm has an <i>empty</i> array rather than a
+    ///     default one — the emitter reads <c>IsDefaultOrEmpty</c>, so a <c>BoundFor</c> constructed
+    ///     without the initialiser would be a struct default that throws on enumeration.
+    /// </summary>
+    [Fact]
+    public void A_loop_with_no_arm_has_an_empty_one_rather_than_a_default_one() {
+        var loop = Assert.IsType<BoundFor>(
+            Assert.Single(BindClean("@component A\n@for (var i in xs) { <p key=\"@i\" /> }").Content)
+        );
+
+        Assert.False(loop.Empty.IsDefault);
+        Assert.Empty(loop.Empty);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The arm is outside the loop's scope, and this is what says so.</b> It draws when
+    ///     there is no row, so there is no row for a <c>refs</c> in it to belong to — the same
+    ///     <c>VXML2013</c> the loop's own surroundings get.
+    /// </summary>
+    [Fact]
+    public void A_refs_in_an_empty_arm_is_refused_the_way_one_outside_the_loop_is() {
+        const string Source = "@component A\n@code { ElementRefs<UiElement> r = new(); }\n"
+            + "@for (var i in xs) { <p key=\"@i\" /> } @empty { <none refs=\"@r\" /> }";
+
+        Assert.Contains("VXML2013", Ids(Source));
+    }
+
     static BoundComponent BindClean(string source) {
         var component = Binder.Bind(Vxml.Parse(source), out var diagnostics);
 

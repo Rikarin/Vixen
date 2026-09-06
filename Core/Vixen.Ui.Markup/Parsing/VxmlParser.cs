@@ -233,8 +233,19 @@ sealed class VxmlParser : SyntaxParser {
         };
 
     /// <summary>Skips one token during recovery; it becomes trivia on the next consumed token.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>@empty</c> gets its own message here rather than a branch in the content
+    ///     switch.</b> Every arm of that switch has to consume something, and this token must stay
+    ///     skipped so the file still round-trips — so the one place that can both name it and drop
+    ///     it is the recovery step everything unconsumable already reaches.
+    /// </remarks>
     void SkipCurrent() {
-        Report($"unexpected {Describe(Current)}");
+        if (At(VxmlTokenKind.EmptyKeyword)) {
+            Report(MarkupDiagnostics.EmptyOutsideLoop, CurrentSpan);
+        } else {
+            Report($"unexpected {Describe(Current)}");
+        }
+
         skipped.Add(Advance());
     }
 
@@ -698,6 +709,13 @@ sealed class VxmlParser : SyntaxParser {
         var sequence = Expect(VxmlTokenKind.Expression, SyntaxKind.ExpressionToken);
         var closeParen = Fabricate(VxmlTokenKind.CloseParen, SyntaxKind.CloseParenToken);
 
+        var body = ParseMarkupBlock();
+
+        // ⚠ Read after the body and not looked for by the lexer's block stack: `LexBlockClose` hands
+        // an `@empty` to whatever `}` preceded it, so one written after an `@if` reaches the content
+        // loop instead and is refused there. Here it can only belong to this loop.
+        var emptyKeyword = At(VxmlTokenKind.EmptyKeyword) ? Take(SyntaxKind.EmptyKeyword) : null;
+
         return SyntaxFactory.For(
             keyword,
             openParen,
@@ -708,7 +726,9 @@ sealed class VxmlParser : SyntaxParser {
             inKeyword,
             sequence,
             closeParen,
-            ParseMarkupBlock()
+            body,
+            emptyKeyword,
+            emptyKeyword is null ? null : ParseMarkupBlock()
         );
     }
 

@@ -1715,8 +1715,9 @@ plus a style-tree move.
 
 *(An ambient value used to be owed here and is not: `UiElement.Provide`/`Inject`, `Component.OnProvide`,
 the `<provide>` tag and the `@inject` header are all built — see the table at the top of this file and
-[the guide](../../docs/guide/ui/ambient-values.md). What is still unported is the consumer side of the
-example below: `Samples/02-HelloUi/Shell.vxml` does still repeat `Model="@Model"` on three panels.)*
+[the guide](../../docs/guide/ui/ambient-values.md). The example below is ported too:
+`Samples/02-HelloUi/Shell.vxml` writes one `<provide type="ShellModel" …>` on its frame and none of
+its three panels names the shell.)*
 
 ⚠ **Three ancestor walks existed before it and not one of them generalises**, which stays written down
 because each looks from a distance as if it might, and each keeps being mistaken for the thing that

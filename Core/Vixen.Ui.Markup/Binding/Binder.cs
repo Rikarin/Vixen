@@ -685,9 +685,21 @@ public sealed class Binder {
 
         var spec = exit is null ? null : Duration(exit.Value);
 
+        // ⚠ Bound *outside* the loop's scope, which the two lines above and below it are the whole
+        // evidence for: `inLoop` and `item` are back to what they were, so the fallback arm has no
+        // row variable to read, `refs` in it is `VXML2013` and an `exit` in it is `VXML2024` — all
+        // of which are true of it, because it is what the loop draws when there is no row.
+        var fallback = ImmutableArray<BoundNode>.Empty;
+
+        if (@for.EmptyBody is { } arm) {
+            RefuseSlotAttributes(arm.Content, "'@empty'");
+            fallback = BindContent(arm.Content);
+        }
+
         return new(variable, Expression(@for.Sequence), key, body, index) {
             ExitAfter = spec?.Milliseconds,
-            ExitClass = spec?.Class
+            ExitClass = spec?.Class,
+            Empty = fallback
         };
     }
 

@@ -20,15 +20,20 @@
 <PropertyGrid ref="@grid" />
 
 @code {
-    readonly Signal<ShellModel> model = new(new());
+    ShellModel? standalone;
 
     PropertyGrid grid = null!;
 
-    /// <summary>What it is showing.</summary>
-    public ShellModel Model {
-        get => model.Value;
-        set => model.Value = value;
-    }
+    /// <summary>What it is showing: the shell's model, or its own when nothing provides one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the panel that says the walk has to be connected during the build.</b>
+    ///     <c>OnComposed</c> below reads <c>Model.Material</c> synchronously, before any flush — so
+    ///     if a <c>DockPanel</c> were parked somewhere detached until the arrangement ran, this
+    ///     would inject null and throw.
+    ///     <c>AmbientAcrossDockingTests.A_child_added_inside_a_panel_sees_the_frame_before_any_flush</c>
+    ///     is that question asked rather than assumed.
+    /// </remarks>
+    ShellModel Model => Inject<ShellModel>() ?? (standalone ??= new());
 
     partial void OnComposed() {
         // ⚠ **Registered here rather than in a static constructor, and registered at all because the

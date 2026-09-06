@@ -456,6 +456,20 @@ watch — and the handler is given that property's own type, with no cast.
 Use `bind:X` when the change is an assignment to somewhere, and `change:X` when it has to *run*
 something: a method call, an undo entry, a write that touches two fields.
 
+⚠ **And the pair is where a conversion goes**, which is the answer to the commonest question `bind:`
+raises: `NumericInput.Number` is a `double` and your count is an `int`, and a two-way binding is
+exact both ways, so `bind:Number` refuses it by name. Write the two halves instead:
+
+```xml
+<NumericInput Number="@Model.Copies.Value" change:Number="@(n => Model.Copies.Value = (int) n)" />
+```
+
+The in-leg is an ordinary attribute — an effect over whatever it read, so it stays live exactly as a
+`bind:` would — and the out-leg is the lambda, where the narrowing is a cast somebody can read. That
+is deliberately not something `bind:` does for you: a coercion inside the binding would be the same
+cast with nobody told, and it is lossy in one direction whichever way you write it. It is also the
+shape most real panels end up in anyway, because a real write-back is rarely an assignment.
+
 ⚠ **A value arriving from the model does not fire it.** A change made while effects are draining came
 from a binding, so reporting it would be an undo entry for something the user never did. A change
 made by input, or by the panel's own code, does fire it.
@@ -700,6 +714,35 @@ with nothing on screen looking wrong. The reconciler writes the signal on each p
 that moved is re-read, a row that did not move costs an equality check, and a row that leaves takes
 its signal with it. The rule is the same one this section states, one step further along: *a binding
 may close over a region's identity and never over its position.*
+
+### `@empty`, for the list that has nothing in it
+
+A loop with no rows draws nothing, and a list that is empty because a filter matched nothing has to
+say so. `@empty` is the arm that says it, written where `else` is written:
+
+```vxml
+@for (var row in Visible.Value) {
+    <row-line key="@row">@row.Name</row-line>
+} @empty {
+    <hint>No results.</hint>
+}
+```
+
+The alternative an author reaches for — `@if (!Visible.Value.Any())` beside the loop — evaluates the
+sequence a second time and puts the two halves of one decision in two places that can disagree. The
+arm is a region of the loop's own, opened beside the rows and cleared when they arrive, so it keeps
+the loop's place among its siblings and costs a boolean per pass in a list that never runs dry.
+
+⚠ **The arm waits for the last leaving row, not for the sequence.** A loop with an
+[`exit`](exit-animations.md) holds a removed row on screen after the model has stopped containing
+it, so a list can be empty by the sequence and not empty to look at — and putting *No results* beside
+a row that is still fading shows the reader both answers at once. What decides the arm is what the
+region holds, live rows and leaving ones together.
+
+The arm is bound **outside** the loop's scope, which is what it means for it to be the thing drawn
+when there is no row: it cannot read the row variable, and `refs` in it is `VXML2013` exactly as it
+is anywhere else outside a loop. An `@empty` that no loop's closing brace precedes is `VXML1007`;
+`@if` takes `else` instead.
 
 ### Grouped lists are a nested `@for`
 

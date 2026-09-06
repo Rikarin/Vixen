@@ -419,6 +419,26 @@ reading the element's provided table — the same walk § 3.2 adds for responder
 implementation with it. Markup spelling: `<provide value="@theme" />` and a typed `@inject` in
 `@code`.
 
+**Built, and the sample is ported.** `UiElement.Provide`/`Inject`/`TryInject`/`Unprovide`,
+`Component.OnProvide`, the `<provide type="…" value="@…" />` tag and the `@inject` header all landed;
+`Shell.vxml` now writes one `<provide type="ShellModel" value="@Model" />` on its frame and its three
+panels read `Inject<ShellModel>()` without naming the shell.
+
+⚠ **The port turned on a question two tests had not asked: the value has to be there while the panel
+is being built, not after the next flush.** `Inspector.vxml`'s `OnComposed` calls
+`grid.Inspect(Model.Material)` synchronously, and a `DockPanel` is registered with the host and then
+*placed* by the arrangement — so a panel parked somewhere detached during its own construction would
+have injected null and thrown, invisibly to any test that flushed first.
+`AmbientAcrossDockingTests.A_child_added_inside_a_panel_sees_the_frame_before_any_flush` asks with no
+update between; the parking happens in `OnChildAdded`, into the host's own parts, so the walk is
+already connected.
+
+⚠ **And what the port gives up, which is the honest half: a statement is not an effect.**
+`Model="@Model"` on a tag was a binding, so a later assignment reached all three panels; a
+`<provide>` runs once where it stands. Nothing reassigns the sample's model — `Program.cs` uses an
+object initialiser, which runs before the mount — and a model that had to be swapped at runtime would
+be provided as a `Signal<T>` and read through `.Value`.
+
 ### 6.2 ⚠ Component props are assigned *after* `Build` runs
 
 `BuildContext.Child<T>` constructs, mounts (runs `Build`), and *then* assigns parameters
@@ -454,7 +474,7 @@ does nothing. No diagnostic. This is the same defect class the language already 
 | `.contextMenu` | `ContextMenu.Attach` is a C# call | ❌ |
 | `.help` (tooltip) | `Tooltip.Attach` is a C# call | ❌ |
 | `.alert` / `.confirmationDialog` / `.sheet` / `.popover` | `DialogService`/`Overlay` exist; nothing binds a presentation to state | ❌ markup |
-| `.searchable`, `.refreshable` | ❌ nothing | ❌ |
+| `.searchable`, `.refreshable` | a `SearchBox` over a filter signal; `Load` over a generation signal — both with committed fixtures. What is absent is placement and a gesture | ⚠ half |
 
 ⚠ **`.searchable`'s middle third is not missing, which narrows [#767](https://github.com/Rikarin/Vixen/issues/767).**
 Two audits called "what does it filter" the sharpest open question, on the grounds that a framework
@@ -466,6 +486,21 @@ into, with the predicate staying the author's `Where(...)`.
 thirds — where the field goes, and an empty state, which is genuinely absent: an `@for` has no
 fallback arm, so a filter that matches nothing leaves a list that is empty and silent. Filed as
 [#908](https://github.com/Rikarin/Vixen/issues/908).
+
+⚠ **And the empty state has since closed: `@for (…) { … } @empty { … }` is the loop's own fallback
+arm.** `SearchableSheet.vxml` writes one and `SearchableReachTests` asserts it, so of `.searchable`'s
+three named parts only *placement* is left — which is taste rather than a missing mechanism.
+
+⚠ **`.refreshable`'s open question is a gesture, and a gesture is not the row.** Two audits stopped
+on "what is a desktop pull-to-refresh", which is a question about the *trigger*. What a refresh
+**is** — a re-request of work that supersedes and cancels the one before it — is `BuildContext.Load`:
+its request expression runs with tracking on, so a signal read inside it re-asks when it is bumped,
+and `AsyncComputed.Start` cancels the overtaken run's token. `Markup/RefreshableSheet.vxml` is a
+`@for` over an `AsyncValue<T>`, an `@if` over `IsLoading` and one button;
+`RefreshableReachTests` asserts the rows and a deterministic `Starts`/`Cancellations` counter rather
+than an interval, and both sabotages — a trigger that bumps nothing, and `Start` not cancelling —
+take it red. So both of #767's rows turn out to be spellings over runtimes that already exist, which
+is the same conclusion `.searchable`'s middle third reached.
 | `.draggable` / `.dropDestination` | `on:dragstart/drag/dragend` exist; **no drop target, no payload type, no `AllowDrop`** | ⚠ half |
 
 For a project whose thesis is *markup is the authoring path*, that ❌ column is the parity claim's
@@ -507,6 +542,21 @@ that behaves is a per-row **signal** the reconciler writes when it repositions, 
 feature from the one the spelling suggests; `docs/guide/ui/markup-panels.md` and
 `Core/Vixen.Ui.Markup/README.md` both carry the trap.
 
+⚠ **"Reachable only through `use=`" was written three times and never run, and now it has been.**
+`Core/Vixen.Ui.Controls.Tests/Markup/VirtualListSheet.vxml` is a markup panel over ten thousand items
+that virtualises — about a dozen elements, rebinding as it scrolls — and `VirtualListReachTests`
+counts them, which is #758's own criterion. So the escape hatch works, no `.vxml` had ever taken it,
+and the gap is not *reach*: it is that a row **template** has no markup construct. `CreateRow` builds
+an element tree in C# and `BindRow` writes it by index, and both sit in `@code` in a file whose whole
+subject is the tree. That is ergonomics — real ergonomics, and the whole of what a `@rows` block
+would buy — rather than a control an author cannot get at.
+
+⚠ **And it is why the block cannot be a modifier on `@for`.** A pool slot is not an identity: the
+pool only ever grows and `VirtualizingPanel.Rows` is documented as pool order, so every rule the loop
+teaches — a surviving key keeps its region, a key's body is not re-run, `refs` files under the
+matched key, `VXML2011` warns about projecting one — is false of it. A modifier would make all of
+them conditional on one attribute.
+
 The four are one issue each, because each is its own design piece and none of them is blocked on the
 others: #758 (a markup spelling for the virtualizing controls), #759 (the index, as a signal),
 #760 (sections, and whether a nested `@for` is already the answer), #761 (deferring `Region.Clear`
@@ -521,7 +571,30 @@ against 26 `change:` and 239 `ref`, and **all eight `bind:` attributes are in on
 `Samples/02-HelloUi/Panels/Gallery.vxml`. Two-way binding is nominally present and practically absent.
 (Those three numbers are the audit's, kept as written; the first correction below recounts them.)
 
-Four corrections to the paragraph above, from #663 and `BindReachTests`:
+⚠ **The fifth correction is the one that changes the conclusion: the converter seam this section asks
+for already exists, decomposed, and it is what the editor writes.** `Value="@expr"` in — an ordinary
+parameter, which the emitter writes as an assignment *and* a `Bind`, so it is an effect over whatever
+it read and stays live — and `change:Value="@(v => …)"` out, where the conversion is a lambda. That
+pair is 26 attributes in thirteen files against `bind:`'s 13 in two, and it carries `double`/`int`
+in both directions with the narrowing written where a reader can see it
+(`Core/Vixen.Ui.Controls.Tests/TwoWayTypeTests.The_pair_the_refusal_names_carries_the_conversion_both_ways`).
+
+So the measurement does not say `bind:` is too narrow to be used; it says **a real write-back is
+rarely an assignment**. Every one of the editor's 26 `change:` handlers is an undo entry, a validated
+rename, a row's `WriteGain(column, gain)` or a cast — none of which an lvalue can express, and all of
+which the pair can. What was missing was that nothing said so: `TwoWay`'s refusal now names the pair
+instead of saying "convert either side explicitly", and the sample stops paying for the silence —
+`Samples/02-HelloUi/ShellModel.cs` declared **two** counts as `Signal<double>` with a remark
+explaining that `bind:` is exact, and `Copies` is now the `Signal<int>` it always meant, written with
+the pair. `Samples` stays a `bind:` over a `double` so the gallery shows both shapes side by side.
+
+⚠ **What that leaves owed is smaller than the "Work" line, and is still a decision.** A coercion
+*inside* `bind:` would be the same cast with nobody told — the objection three passes raised, and the
+pair is why it is not needed rather than merely unsafe. `change:` on a component tag remains
+deliberate (`ComponentEmitter.cs:643-648`) and its diagnostic still cannot live in the binder, which
+resolves no types.
+
+Four earlier corrections to the paragraph above, from #663 and `BindReachTests`:
 
 - ⚠ **The measurement has moved twice and the conclusion has hardened.** Recounted over the 83
   committed `.vxml` at this writing: **13 `bind:` attributes in two files** —

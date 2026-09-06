@@ -25,8 +25,9 @@ panel.Unprovide<ITheme>();                   // reveals the application's again
 ```
 
 Every cross-cutting value in this framework was threaded through props by hand before this —
-`Samples/02-HelloUi/Shell.vxml` repeats `Model="@Model"` on three panels in a row, and each panel
-that gains a child gains another copy of the line.
+`Samples/02-HelloUi/Shell.vxml` repeated `Model="@Model"` on three panels in a row, and each panel
+that gained a child gained another copy of the line. It writes one `<provide>` on its frame now, and
+none of the three panels mentions the shell at all.
 
 ⚠ **The key is the type argument, not the value's runtime type.** `Provide<ITheme>(new DarkTheme())`
 is found by `Inject<ITheme>` and not by `Inject<DarkTheme>`. That is what makes an interface the
