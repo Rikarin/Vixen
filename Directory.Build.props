@@ -181,6 +181,52 @@
       MSBuildProjectName, which only means anything inside the project being built.
     -->
     <VSTestLogger>trx%3bLogFileName=$(MSBuildProjectName).trx</VSTestLogger>
+
+    <!--
+      The root `.runsettings`, for the command CLAUDE.md actually recommends.
+
+      ⚠ Nothing discovers this file. `dotnet test` does not look for a
+      `.runsettings` beside the solution, and until this line existed the file
+      reached exactly four call sites, all inside `build/` — `Test`,
+      `GoldenImages`, `AffectedTests` and `Coverage`. So
+      `dotnet test Platform/Vixen.Graphics.Vulkan.Tests`, which the working
+      agreement prefers over `./build.sh`, ran the Vulkan suite with the Khronos
+      validation layer enumerated and inert, and
+      `VulkanInstanceTests.ValidationIsOnWhereTheLayerIsInstalled` — which fails
+      rather than skips where a layer is installed and off — went red saying
+      nothing was wrong with the code.
+
+      ⚠ And it was invisible from a developer's own terminal, which is the half
+      worth writing down. `DYLD_LIBRARY_PATH=/opt/homebrew/lib` exported from a
+      shell profile makes that test pass whatever the settings say, so the
+      question "are the validation layers on?" answered yes here and no in an
+      IDE, in a `launchctl` session and on a runner. Measured both ways on
+      2026-09-06: green with the ambient variable, red with `DYLD_LIBRARY_PATH=`
+      in front of the same command. That is precisely the drift `.runsettings`
+      says it exists to remove, and it had removed it for four callers out of
+      five.
+
+      Here rather than in each test project for the reason `VSTestLogger` above
+      is: 178 projects cannot be relied on to remember, and the one that forgets
+      is invisible.
+
+      The four explicit callers keep working and keep winning:
+      `Microsoft.TestPlatform.targets` resolves the task's settings as
+      `ValueOrDefault($(VSTestSetting), '$(RunSettingsFilePath)')`, so a
+      `-p:VSTestSetting=` or the settings switch on the command line overrides
+      this, and this only fills in when neither was given. (⚠ Spelling that
+      switch out is not an option: XML forbids a double hyphen inside a comment,
+      which is the same trap `.runsettings` and `Directory.Build.targets` both
+      record — and it makes every project in the tree fail to evaluate with an
+      error about the XML rather than about the build.)
+
+      ⚠ It is a runsettings property, so #560's Microsoft.Testing.Platform
+      migration discards it — MTP reads no `.runsettings` at all, and
+      `_ValidateVSTestProperties` downgrades this family to warning MTP0001
+      rather than erroring. Whatever starts the test host under MTP has to set
+      the variable itself, in one place, or this comes back.
+    -->
+    <RunSettingsFilePath>$(MSBuildThisFileDirectory).runsettings</RunSettingsFilePath>
   </PropertyGroup>
 
   <!--
