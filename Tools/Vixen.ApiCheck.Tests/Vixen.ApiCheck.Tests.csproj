@@ -66,4 +66,15 @@
     <ItemGroup>
         <Compile Include="..\..\build\CoverageReport.cs" Link="CoverageReport.cs" />
     </ItemGroup>
+
+    <!--
+        ⚠ And the membership half of the `Benchmark` gate, which decides which drift is fatal. The
+        target it belongs to has never been run by anybody — there is no committed baseline, so it
+        fails outright — and that is precisely why the one call site in build/ that broke Nuke's
+        argument-quoting rule was in it. A judgement nobody has watched fail is indistinguishable
+        from one that cannot.
+    -->
+    <ItemGroup>
+        <Compile Include="..\..\build\BenchmarkInventory.cs" Link="BenchmarkInventory.cs" />
+    </ItemGroup>
 </Project>
