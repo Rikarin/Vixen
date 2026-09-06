@@ -283,6 +283,95 @@ public class DocumentClosePromptTests : IDisposable {
         Assert.Equal(0, left.Saves);
     }
 
+    /// <summary>One panel's document is shut while the other stays open and the head is never asked.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The case the framework could not express, and the prompt could already serve.</b>
+    ///         <see cref="UiDocument.RequestClose" /> starts at the focus and ends at
+    ///         <see cref="UiDocument.CloseRequested" />, because its subject is the application —
+    ///         so a tab shutting on its own had no way to ask, and the prompt's own remarks about
+    ///         installing on a panel described something no caller could reach.
+    ///         <see cref="UiElement.RequestClose" /> raises it from the element that holds the
+    ///         document instead.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The focus is deliberately in the <i>other</i> panel.</b> That is what separates
+    ///         "the element asked" from "the focus asked": a request that still started at the focus
+    ///         would prompt about the wrong document and this test would name the wrong document in
+    ///         its dialog.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And the head's listener must not fire, because a tab closing is not the application
+    ///         going away — a host given that event for both could not tell the two apart.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_element_can_ask_about_its_own_document_without_asking_the_application() {
+        var mine = new Note();
+        var neighbour = new Note();
+
+        var panel = document.Root.Add<Panel>();
+        var other = document.Root.Add<Panel>();
+
+        panel.HostedDocument = mine;
+        other.HostedDocument = neighbour;
+
+        var field = other.Add<TextBox>();
+        field.Focusable = true;
+
+        var heads = 0;
+        document.CloseRequested += _ => heads++;
+
+        using var prompt = DocumentClosePrompt.Install(panel, dialogs, Close, answers.Add);
+
+        document.Update();
+        document.Focus(field);
+
+        mine.MarkDirty();
+        neighbour.MarkDirty();
+
+        Assert.False(panel.RequestClose());
+
+        // ⚠ Asserted here rather than at the end, where `Close`'s own document-wide retry would have
+        // moved it. Nothing outside the element tree has been told a panel is closing.
+        Assert.Equal(0, heads);
+
+        dialogs.Pump();
+        Assert.Equal(mine.Name.Value, DialogMessage());
+
+        Press(ControlStrings.DocumentSave.Text);
+        dialogs.Pump();
+
+        Assert.Equal(1, mine.Saves);
+        Assert.Equal(0, neighbour.Saves);
+        Assert.Equal(1, closed);
+
+        // One, from `Close` — which calls `document.RequestClose()` the way a host's quit does, and
+        // that one is the application's question and does reach the head. Two would mean the
+        // element's request had reached it as well.
+        Assert.Equal(1, heads);
+    }
+
+    /// <summary>The reason carried is the document's, and the default says so without being written.</summary>
+    /// <remarks>
+    ///     A handler that treats a quit and a tab close alike is a handler that cannot offer "Save
+    ///     All" for one and not the other, so the reason has to survive the raise.
+    /// </remarks>
+    [Fact]
+    public void An_element_request_carries_the_document_reason() {
+        var reasons = new List<UiCloseReason>();
+
+        var panel = document.Root.Add<Panel>();
+        panel.AddHandler<CloseRequestEvent>((_, args) => reasons.Add(args.Reason));
+
+        document.Update();
+
+        Assert.True(panel.RequestClose());
+        Assert.True(panel.RequestClose(UiCloseReason.WindowClosed));
+
+        Assert.Equal([UiCloseReason.DocumentClosed, UiCloseReason.WindowClosed], reasons);
+    }
+
     (Note Note, IDisposable Prompt) Installed() {
         var note = new Note();
         document.HostedDocument = note;

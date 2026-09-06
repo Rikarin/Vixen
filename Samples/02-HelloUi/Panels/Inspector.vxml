@@ -14,10 +14,19 @@
 @namespace Vixen.Samples.HelloUi.Panels
 @tag inspector-panel
 @using Vixen.Core.Reflection
+@using Vixen.Ui
+@using Vixen.Ui.Controls
 @using Vixen.Ui.Controls.Advanced
 @using Vixen.Ui.Reactive
 
-<PropertyGrid ref="@grid" />
+<!--
+    ⚠ **The other end of the first in-app drag in the repository.** `AllowDrop` is what makes an
+    element a candidate at all — the hit test walks up looking for one, so a grid without it is a
+    hole the drag falls through to whatever is behind. The three feedback names (`dragenter`,
+    `dragover`, `dragleave`) are optional; a target that says nothing accepts the effect the source
+    preferred, which is why this needs `on:drop` and no negotiation.
+-->
+<PropertyGrid ref="@grid" AllowDrop="true" on:drop="@((DropEvent args) => Named(args))" />
 
 @code {
     ShellModel? standalone;
@@ -52,5 +61,33 @@
         // are two separate things, and a sample where every scope came with a handler would suggest
         // they were one.
         Root.CommandScope = "inspector";
+    }
+
+    /// <summary>Names the material after whatever was dropped on the grid.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One handler, two sources, and it cannot tell them apart — which is the point of
+    ///         <c>DataObject</c>.</b> Rows dragged out of the Hierarchy arrive as text and so does a
+    ///         line dragged out of a text editor on the desktop; the target asks for the flavour it
+    ///         can read and never asks where the drag came from. <c>DropEvent.DragSource</c> is
+    ///         there for the target that does care, and is <c>null</c> for an OS drop.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Re-inspected rather than mutated in place.</b> A <c>PropertyGrid</c> draws from a
+    ///         descriptor over a plain object, and a plain object raises nothing when a property is
+    ///         assigned — so a sample that set <c>Name</c> and stopped would leave the grid showing
+    ///         the old one and look exactly like a drop that did nothing.
+    ///     </para>
+    /// </remarks>
+    void Named(DropEvent args) {
+        if (args.Data.Text is not { Length: > 0 } text) {
+            return;
+        }
+
+        Model.Material.Name = text.Split('\n')[0].Trim();
+        grid.Inspect(Model.Material);
+
+        args.Handled = true;
+        Model.Notify($"Named the material after {Model.Material.Name}", ControlVariant.Default);
     }
 }

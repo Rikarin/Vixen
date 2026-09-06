@@ -110,6 +110,62 @@ public class ResponderReachTests {
     }
 
     /// <summary>
+    ///     ⚠ <b><see cref="UiElement.AccessKey" /> had been answered but never asked.</b>
+    ///     <c>ButtonBase</c> has handled an <c>AccessKeyEvent</c> since the property existed and
+    ///     <c>AccessKeys.Collect</c> walks the focus scope looking for a match, so holding Alt did the
+    ///     whole search and found nothing — every element's key was <c>'\0'</c>, because nothing in
+    ///     the repository ever set one. <c>Samples/02-HelloUi</c>'s shell is the first thing to, on
+    ///     the three names on its menu bar.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The leading dot again, and here it also excludes the type.</b>
+    ///     <c>AccessKey.Parse(</c> is a static on the class of the same name and says nothing about
+    ///     whether an element carries a key — a sweep for the bare word would be satisfied by a
+    ///     caller that parsed a label and threw the answer away, which is the one shape of this
+    ///     defect that looks most like a fix.
+    /// </remarks>
+    [Fact]
+    public void Something_outside_a_test_project_gives_an_element_an_access_key() {
+        Assert.NotEmpty(ProductionCallers(".AccessKey = "));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The one modal every desktop application has, and it had never been installed.</b>
+    ///     <c>DocumentClosePrompt</c> was written, tested and documented with no caller outside its
+    ///     own suite — so a close request reaching a dirty document was refused by nothing, anywhere,
+    ///     and the Save / Don't Save / Cancel flow this issue exists to provide had never run in a
+    ///     real application. <c>Samples/02-HelloUi</c>'s File ▸ Close is the first.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The call and not the type: the name <c>DocumentClosePrompt</c> alone appears in remarks
+    ///     all over <c>Core/Vixen.Ui</c> — a sweep for it would be satisfied by the prose explaining
+    ///     why nothing calls it.
+    /// </remarks>
+    [Fact]
+    public void Something_outside_a_test_project_installs_the_close_prompt() {
+        Assert.NotEmpty(ProductionCallers("DocumentClosePrompt.Install("));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The in-app drag had a model, a router, a keyboard leg and no producer.</b>
+    ///     <c>UiDocument.BeginDrag</c> is what fills a <c>DataObject</c> and starts a session, and
+    ///     outside its own tests the only thing that named it was a comment in
+    ///     <c>Editor/Vixen.Editor.App/AssetFieldDrop.cs</c> saying what a port would do — so
+    ///     <c>AllowDrop</c>, the <c>DropEffect</c> negotiation and every <c>dragenter</c> in the
+    ///     framework had only ever been driven by a line of C# inside an assertion.
+    ///     <c>Samples/02-HelloUi</c>'s Hierarchy is the first source.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The call with its open bracket, because <c>BeginDrag</c> as a bare word is what that
+    ///     comment contains — a sweep for the name would have been satisfied by the note explaining
+    ///     why nothing called it, which is the exact failure this file was rewritten once to avoid.
+    /// </remarks>
+    [Fact]
+    public void Something_outside_a_test_project_begins_an_in_app_drag() {
+        Assert.NotEmpty(ProductionCallers("BeginDrag("));
+    }
+
+    /// <summary>
     ///     The instrument, checked before the thing it measures: the sweep must be able to tell a
     ///     production file from a test one, or the theory above is green on the test projects alone.
     /// </summary>

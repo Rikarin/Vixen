@@ -4,7 +4,7 @@ slug: ui/commands
 kind: guide
 area: Core
 summary: A menu declares what, and the focus decides who — a command id resolved by walking outwards from the focused element and on past the root to the document and the application, so two views can answer the same verb without knowing each other exists and an item nothing handles greys itself out.
-api: [T:Vixen.Ui.CommandRoute, T:Vixen.Ui.CommandHandler, T:Vixen.Ui.IResponder, T:Vixen.Ui.CommandResponder, T:Vixen.Ui.ShortcutFormat, T:Vixen.Ui.Controls.EditorCommand, T:Vixen.Ui.Controls.CommandRegistry]
+api: [T:Vixen.Ui.CommandRoute, T:Vixen.Ui.CommandHandler, T:Vixen.Ui.IResponder, T:Vixen.Ui.CommandResponder, T:Vixen.Ui.ShortcutFormat, T:Vixen.Ui.Controls.EditorCommand, T:Vixen.Ui.Controls.CommandRegistry, T:Vixen.Ui.Controls.KeyMap]
 tags: [ui, commands, focus, input, menus]
 since: 0.2
 status: preview
@@ -159,8 +159,8 @@ an id, a title, what it does, and a predicate that says whether it can run.
 `MenuItem.ShowShortcut` could draw a shortcut that nothing dispatched** — the drawing was in the
 controls library and every part of the machinery behind it was in the editor, so an application that
 was not the editor could render "⌘S" beside a menu item and pressing it did nothing. They are named
-`EditorCommand` and `CommandRegistry` because that is what the editor called them; the names are
-kept while the remaining files of that move are still in flight.
+`EditorCommand` and `CommandRegistry` because that is what the editor called them, and the names are
+kept: renaming a type on the way down would break every editor call site for no gain in what it does.
 
 ```csharp compile
 using Vixen.Ui;
@@ -184,6 +184,48 @@ public sealed class Actions {
 
 `Enablement` is asked rather than pushed, for the reason the rest of this page gives: a flag set on
 every state change is right only if every path that changes state remembered to set it.
+
+### What a keystroke means: `KeyMap` and `CommandDispatcher`
+
+A registry says what the verbs are; a `KeyMap` says which chord runs each of them, and a
+`CommandDispatcher` attached to a document turns a `KeyEvent` into a chord and asks.
+
+```csharp compile
+using Vixen.Input;
+using Vixen.Ui;
+using Vixen.Ui.Controls;
+
+public sealed class Accelerators {
+    public static CommandDispatcher Attach(UiDocument document, CommandRegistry commands) {
+        var keys = new KeyMap();
+
+        keys.SetDefault("file.save", new KeyChord(InputKey.S, ModifierKeys.Control));
+
+        var dispatcher = new CommandDispatcher(commands, keys);
+        dispatcher.Attach(document);
+
+        return dispatcher;
+    }
+}
+```
+
+**A map is three layers, not a table.** `SetDefault` is what the application ships, a `KeyMapPreset`
+is a named set over it, and `Bind` is the user's own — and only the last is `Overrides`. ⚠ **That is
+what makes "we moved Save All in 0.3" reach everybody who had not deliberately rebound it**: a file
+holding every binding freezes the defaults at the version its owner first ran.
+
+⚠ **A keymap cannot read or write a file, deliberately.** `Overrides` and `Restore` are the two
+halves of the round trip and neither names a format, because *where* an application keeps its
+preferences is the application's question — the editor answers it in `Vixen.Editor.Ui.KeyMapYaml`,
+beside the presets it ships, and a control library that answered it would put a YAML parser in the
+dependency closure of every application that has a button. `KeyMap.PresetSource` is the same seam for
+the names: left alone it resolves nothing, because the presets are the application's too.
+
+⚠ **The dispatcher listens on the bubble leg, at the root.** A key event is routed from the focus
+outwards, so by the time it arrives every control that might have wanted it has had its turn — which
+is what makes `Ctrl+Z` undo in the scene *and* undo the typing inside a text box with no list of
+exceptions anywhere. An unmodified chord is refused while the focus path holds an `ITextInputTarget`,
+which is how a bare `F` for frame-selection stays out of what somebody is typing.
 
 ### A responder in the middle of the walk
 
@@ -363,8 +405,8 @@ twenty items on the tick allocates nothing.
 
 ## See also
 
-* [The editor shell](/docs/guide/editor/index) — `CommandRegistry` and `KeyMap`, which are the
-  editor's layer above this: a title, a category, an icon and a keybinding for an id.
+* [The editor shell](/docs/guide/editor/index) — what the editor adds over the table and the map:
+  its three keymap presets, and `KeyMapYaml`, the file a user's bindings are kept in.
 * [Panels in markup](/docs/guide/ui/markup-panels) — where the elements that declare handlers
   usually come from.
 * [Dialogs that answer](/docs/guide/ui/dialogs) — what a command does when it has to ask something

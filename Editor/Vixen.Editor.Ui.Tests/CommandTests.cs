@@ -106,7 +106,7 @@ public class CommandTests {
 
         keys.Bind("edit.undo", new KeyChord(InputKey.U, ModifierKeys.Control));
 
-        var text = keys.Save();
+        var text = KeyMapYaml.Write(keys);
 
         Assert.Contains("edit.undo", text, StringComparison.Ordinal);
 
@@ -117,7 +117,7 @@ public class CommandTests {
         var reloaded = new KeyMap();
         reloaded.SetDefault("file.save", new KeyChord(InputKey.S, ModifierKeys.Control));
         reloaded.SetDefault("edit.undo", new KeyChord(InputKey.Z, ModifierKeys.Control));
-        reloaded.Load(text);
+        KeyMapYaml.Read(reloaded, text);
 
         Assert.Equal(new KeyChord(InputKey.U, ModifierKeys.Control), reloaded.ChordFor("edit.undo"));
         Assert.Equal(new KeyChord(InputKey.S, ModifierKeys.Control), reloaded.ChordFor("file.save"));
@@ -133,7 +133,7 @@ public class CommandTests {
 
         var reloaded = new KeyMap();
         reloaded.SetDefault("file.save", new KeyChord(InputKey.S, ModifierKeys.Control));
-        reloaded.Load(keys.Save());
+        KeyMapYaml.Read(reloaded, KeyMapYaml.Write(keys));
 
         // Written as an empty chord rather than omitted: omitting it would mean "use the default",
         // and the user said the opposite.

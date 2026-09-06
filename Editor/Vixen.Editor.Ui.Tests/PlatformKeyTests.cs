@@ -144,8 +144,8 @@ public class PlatformKeyTests : IDisposable {
         // ⚠ `Ctrl+K` on every platform. The swap happens at the keyboard and at the label; what is
         // stored — and what somebody may check into a repository their colleagues open on Linux —
         // is the one portable spelling.
-        Assert.Contains("Ctrl+K", keys.Save(), StringComparison.Ordinal);
-        Assert.DoesNotContain("Meta+K", keys.Save(), StringComparison.Ordinal);
+        Assert.Contains("Ctrl+K", KeyMapYaml.Write(keys), StringComparison.Ordinal);
+        Assert.DoesNotContain("Meta+K", KeyMapYaml.Write(keys), StringComparison.Ordinal);
     }
 
     void Press(KeyChord chord) =>

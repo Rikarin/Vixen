@@ -1,11 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Core.Yaml;
 using Vixen.Ui;
-using Vixen.Ui.Controls;
 
-namespace Vixen.Editor.Ui;
+namespace Vixen.Ui.Controls;
 
 /// <summary>What happens when a chord and a command disagree about who has it.</summary>
 public enum BindResult : byte {
@@ -108,18 +106,34 @@ public sealed class KeyMap {
     /// <summary>Which preset is in force, or <see langword="null" /> for the shipped defaults.</summary>
     public KeyMapPreset? Preset => preset;
 
-    /// <summary>What <see cref="Preset" /> is called, or <see cref="KeyMapPresets.Vixen" />.</summary>
-    public string PresetName => preset?.Name ?? KeyMapPresets.Vixen;
+    /// <summary>The name <see cref="PresetName" /> gives to no preset at all.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A written-down constant because it is written down in the user's file.</b> A keymap
+    ///     that records <c>preset: "Vixen"</c> means "the bindings the application itself declares",
+    ///     which is the absence of a layer rather than a layer that happens to be empty — so the
+    ///     name has to survive a round trip even though nothing resolves it.
+    /// </remarks>
+    public const string NoPreset = "Vixen";
+
+    /// <summary>What <see cref="Preset" /> is called, or <see cref="NoPreset" />.</summary>
+    public string PresetName => preset?.Name ?? NoPreset;
 
     /// <summary>Where a preset named in a keymap file is looked up.</summary>
     /// <remarks>
-    ///     ⚠ <b>A delegate rather than a hard reference to <see cref="KeyMapPresets" />, because a
-    ///     team's own preset is a file rather than a constant.</b> Doc 20 asks for three shipped
-    ///     presets and says the format is the one the override layer already reads — which means a
-    ///     studio can ship a fourth, and the only thing standing between them and it is where the
-    ///     name is resolved. The default answers the three this assembly ships.
+    ///     <para>
+    ///         ⚠ <b>A delegate rather than a table here, because a team's own preset is a file rather
+    ///         than a constant.</b> Doc 20 asks for three shipped presets and says the format is the
+    ///         one the override layer already reads — which means a studio can ship a fourth, and the
+    ///         only thing standing between them and it is where the name is resolved.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Left unset it finds nothing, and that is not a stub.</b> The presets an
+    ///         application ships are the application's — <c>Vixen.Editor.Ui.KeyMapPresets</c> is the
+    ///         editor's three, and <c>EditorShell</c> is what points this at them. A default that
+    ///         reached for a particular set would make this class know one application's names.
+    ///     </para>
     /// </remarks>
-    public Func<string, KeyMapPreset?> PresetSource { get; set; } = KeyMapPresets.Find;
+    public Func<string, KeyMapPreset?> PresetSource { get; set; } = _ => null;
 
     /// <summary>Which context a command belongs to, asked whenever a chord is claimed or resolved.</summary>
     /// <remarks>
@@ -255,10 +269,10 @@ public sealed class KeyMap {
     }
 
     /// <summary>Puts a preset in force by name, through <see cref="PresetSource" />.</summary>
-    /// <param name="name">Its name. <see cref="KeyMapPresets.Vixen" /> means no preset.</param>
+    /// <param name="name">Its name. <see cref="NoPreset" /> means no preset.</param>
     /// <returns>Whether a preset by that name was found, which <c>Vixen</c> answers true to.</returns>
     public bool UsePreset(string? name) {
-        if (string.IsNullOrEmpty(name) || string.Equals(name, KeyMapPresets.Vixen, StringComparison.Ordinal)) {
+        if (string.IsNullOrEmpty(name) || string.Equals(name, NoPreset, StringComparison.Ordinal)) {
             UsePreset((KeyMapPreset?) null);
             return true;
         }
@@ -395,7 +409,7 @@ public sealed class KeyMap {
     ///     ⚠ <b>The preset survives.</b> "Reset" means "undo what I changed", and somebody who chose
     ///     the Unreal preset and then made a mess of three keys is asking for Unreal back rather than
     ///     for a keymap they have never used. <see cref="UsePreset(string?)" /> with
-    ///     <see cref="KeyMapPresets.Vixen" /> is the other verb.
+    ///     <see cref="NoPreset" /> is the other verb.
     /// </remarks>
     public void Reset() {
         overrides.Clear();
@@ -404,57 +418,48 @@ public sealed class KeyMap {
         Changed?.Invoke(this);
     }
 
-    /// <summary>The user's overrides and their chosen preset, as YAML.</summary>
-    /// <returns>The text.</returns>
+    /// <summary>Just the bindings the user moved themselves, as command id to chord.</summary>
     /// <remarks>
-    ///     Only what the user did: the preset's name, and the bindings they moved themselves —
-    ///     including a command deliberately unbound, which is written as an empty chord rather than
-    ///     omitted, because omitting it would mean "use the layer underneath" and the user said the
-    ///     opposite.
+    ///     <para>
+    ///         <b>The layer that gets saved, and the only one that does.</b> A keymap file holding
+    ///         every binding freezes the defaults at the version the user first ran, so "we moved
+    ///         Save All in 0.3" reaches nobody — every editor that shipped one has a support burden
+    ///         to prove it. A command deliberately unbound is in here as
+    ///         <see cref="KeyChord.None" /> rather than absent, because absent means "use the layer
+    ///         underneath" and the user said the opposite.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Exposed rather than written out here, because the format is not this
+    ///         assembly's.</b> See <see cref="KeyMapPreset" />: persisting a keymap is a choice about
+    ///         where an application keeps preferences, and the editor makes it in
+    ///         <c>Vixen.Editor.Ui.KeyMapYaml</c>. This property and <see cref="Restore" /> are the
+    ///         two halves of the round trip, and nothing between them names a file format.
+    ///     </para>
     /// </remarks>
+    public IReadOnlyDictionary<string, KeyChord> Overrides => overrides;
+
+    /// <summary>Puts a saved preset choice and set of overrides back, replacing whatever is there.</summary>
+    /// <param name="presetName">
+    ///     The preset's name, or <see langword="null" /> for the application's own defaults. One
+    ///     <see cref="PresetSource" /> does not know is dropped, which is what happens to a team
+    ///     preset on a machine that has not got it.
+    /// </param>
+    /// <param name="bindings">The user's own bindings, as <see cref="Overrides" /> reported them.</param>
     /// <remarks>
-    ///     ⚠ <b>The bindings block is <see cref="KeyMapPreset" />'s, written by it.</b> A preset is
-    ///     the same file — its own remarks say so, and that is what lets a user export their map and
-    ///     hand it to somebody as one — so a second writer here would be a second thing to keep in
-    ///     step with a format whose whole point is that there is one.
+    ///     ⚠ <b>One <see cref="Changed" /> for the whole restore, not one per binding.</b> A keymap
+    ///     is loaded while the menus are already listening, and raising the event per entry would
+    ///     re-label every shortcut in the application a few hundred times on startup.
     /// </remarks>
-    public string Save() {
-        var document = new YamlMapping();
-
-        if (preset is not null) {
-            document.Set("preset", new YamlScalar(preset.Name, YamlScalarStyle.DoubleQuoted));
-        }
-
-        return YamlWriter.Write(document.Set("bindings", KeyMapPreset.Write(overrides)));
-    }
-
-    /// <summary>Applies a user keymap over the defaults.</summary>
-    /// <param name="yaml">What <see cref="Save" /> wrote.</param>
-    /// <remarks>
-    ///     ⚠ <b>Never throws on a keymap that has gone stale.</b> A chord that will not parse is
-    ///     dropped — the alternative is an editor that will not start because somebody mistyped a
-    ///     line in a preferences file, and the binding they lose is the one they can see is missing.
-    ///     A <c>preset:</c> naming something <see cref="PresetSource" /> does not know is dropped on
-    ///     the same terms, which is what happens to a team preset on a machine that has not got it.
-    /// </remarks>
-    public void Load(string yaml) {
-        ArgumentNullException.ThrowIfNull(yaml);
+    public void Restore(string? presetName, IEnumerable<KeyValuePair<string, KeyChord>> bindings) {
+        ArgumentNullException.ThrowIfNull(bindings);
 
         overrides.Clear();
-        preset = null;
+        preset = string.IsNullOrEmpty(presetName) ? null : PresetSource(presetName);
 
-        if (YamlReader.Read(yaml) is not YamlMapping document) {
-            Recompose();
-            Changed?.Invoke(this);
-
-            return;
+        foreach (var (commandId, chord) in bindings) {
+            overrides[commandId] = chord;
         }
 
-        if (document["preset"] is YamlScalar { Value: { Length: > 0 } name }) {
-            preset = PresetSource(name);
-        }
-
-        KeyMapPreset.Read(document["bindings"], overrides);
         Recompose();
         Changed?.Invoke(this);
     }

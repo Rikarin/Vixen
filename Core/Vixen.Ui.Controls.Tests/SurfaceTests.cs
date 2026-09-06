@@ -387,6 +387,47 @@ public class SurfaceTests {
         Assert.False(file.IsOpen);
     }
 
+    /// <summary>Alt and a menu's marked letter drop that menu, as Alt+F does everywhere else.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Through the document with a real chord, not by raising an
+    ///         <c>AccessKeyEvent</c>.</b> The document is what decides which element a key names —
+    ///         it walks the focus scope, skips what has no box and cycles between elements that
+    ///         share a letter — so a test that raised the event by hand would pass against a bar
+    ///         nothing could ever reach.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The bar's item and not the menu.</b> A <see cref="MenuBarItem" /> is the
+    ///         <see cref="ButtonBase" /> carrying the word, and a <see cref="Menu" /> is an overlay
+    ///         that draws none — so the key belongs on the half that can answer it, and putting it
+    ///         on the other half fails silently.
+    ///     </para>
+    ///     <para>
+    ///         The marker is stripped by <see cref="AccessKey.Parse" />, which nothing calls
+    ///         automatically: a label of <c>snake_case</c> would otherwise claim <c>c</c>, and the
+    ///         collision would surface only when somebody held Alt.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_menu_bar_item_with_an_access_key_drops_its_menu_on_alt() {
+        using var fixture = new ControlFixture();
+
+        var bar = fixture.Add<MenuBar>();
+        var file = bar.AddMenu(AccessKey.Parse("_File", out var key));
+        file.AddItem("Open");
+
+        bar.Items[0].AccessKey = key;
+        fixture.Update();
+
+        Assert.Equal('F', key);
+        Assert.Equal("File", bar.Items[0].Label);
+
+        fixture.KeyDown(InputKey.F, ModifierKeys.Alt);
+
+        Assert.True(file.IsOpen);
+        Assert.Same(file, bar.Current);
+    }
+
     /// <summary>
     ///     ⚠ <b>A menu bar is not an ancestor of its own menus</b>, so a click handler belongs on the
     ///     menu <see cref="MenuBar.AddMenu" /> returns and not on the bar it was added to.

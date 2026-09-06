@@ -3,6 +3,7 @@
 
 using Vixen.Input;
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 using Xunit;
 
 namespace Vixen.Editor.Ui.Tests;
@@ -20,7 +21,11 @@ public class KeyMapPresetTests {
     static KeyChord Play => new(InputKey.P, ModifierKeys.Control);
 
     static KeyMap Shipped() {
-        var keys = new KeyMap();
+        // ⚠ `PresetSource` explicitly, the way `EditorShell` sets it. `KeyMap` is a `Vixen.Ui.Controls`
+        // type now (#650) and knows no application's preset names, so a keymap built without this
+        // line reads `preset: "Unity"` back as no preset at all — which is what a game shipping its
+        // own presets wants and what a test about the editor's three must not quietly get.
+        var keys = new KeyMap { PresetSource = KeyMapPresets.Find };
 
         keys.SetDefault("file.save", Save);
         keys.SetDefault("file.save-all", SaveAll);
@@ -33,7 +38,7 @@ public class KeyMapPresetTests {
     public void A_preset_moves_a_binding_and_the_default_underneath_it_is_untouched() {
         var keys = Shipped();
 
-        keys.UsePreset(KeyMapPreset.Parse("Test", "bindings:\n  file.save: \"Ctrl+W\"\n"));
+        keys.UsePreset(KeyMapYaml.ReadPreset("Test", "bindings:\n  file.save: \"Ctrl+W\"\n"));
 
         Assert.Equal(new KeyChord(InputKey.W, ModifierKeys.Control), keys.ChordFor("file.save"));
         Assert.Equal(BindingSource.Preset, keys.SourceOf("file.save"));
@@ -51,7 +56,7 @@ public class KeyMapPresetTests {
     public void Rebinding_one_key_leaves_the_rest_following_the_preset() {
         var keys = Shipped();
 
-        keys.UsePreset(KeyMapPreset.Parse("Test", "bindings:\n  file.save: \"Ctrl+W\"\n  file.save-all: \"Ctrl+Shift+S\"\n"));
+        keys.UsePreset(KeyMapYaml.ReadPreset("Test", "bindings:\n  file.save: \"Ctrl+W\"\n  file.save-all: \"Ctrl+Shift+S\"\n"));
         keys.Bind("file.save", new KeyChord(InputKey.K, ModifierKeys.Control));
 
         Assert.Equal(BindingSource.User, keys.SourceOf("file.save"));
@@ -87,7 +92,7 @@ public class KeyMapPresetTests {
     public void A_preset_takes_a_chord_off_the_default_that_had_it() {
         var keys = Shipped();
 
-        keys.UsePreset(KeyMapPreset.Parse("Test", "bindings:\n  play.play: \"Ctrl+P\"\n"));
+        keys.UsePreset(KeyMapYaml.ReadPreset("Test", "bindings:\n  play.play: \"Ctrl+P\"\n"));
 
         Assert.Equal("play.play", keys.CommandFor(Play));
         Assert.False(keys.ChordFor("view.palette").IsBound);
@@ -97,7 +102,7 @@ public class KeyMapPresetTests {
     public void Reset_throws_away_the_users_overrides_and_keeps_the_preset() {
         var keys = Shipped();
 
-        keys.UsePreset(KeyMapPreset.Parse("Test", "bindings:\n  file.save: \"Ctrl+W\"\n"));
+        keys.UsePreset(KeyMapYaml.ReadPreset("Test", "bindings:\n  file.save: \"Ctrl+W\"\n"));
         keys.Bind("file.save", new KeyChord(InputKey.K, ModifierKeys.Control));
 
         keys.Reset();
@@ -120,7 +125,7 @@ public class KeyMapPresetTests {
         // which is the conflict rule working and would make this test about the wrong thing.
         Assert.Equal(BindResult.Bound, keys.Bind("file.save", new KeyChord(InputKey.J, ModifierKeys.Control)));
 
-        var text = keys.Save();
+        var text = KeyMapYaml.Write(keys);
 
         Assert.Contains("Unity", text, StringComparison.Ordinal);
         Assert.Contains("file.save", text, StringComparison.Ordinal);
@@ -130,7 +135,7 @@ public class KeyMapPresetTests {
         Assert.DoesNotContain("view.palette", text, StringComparison.Ordinal);
 
         var reloaded = Shipped();
-        reloaded.Load(text);
+        KeyMapYaml.Read(reloaded, text);
 
         Assert.Equal(KeyMapPresets.Unity, reloaded.PresetName);
         Assert.Equal(new KeyChord(InputKey.J, ModifierKeys.Control), reloaded.ChordFor("file.save"));
@@ -143,7 +148,7 @@ public class KeyMapPresetTests {
     public void A_keymap_naming_a_preset_this_editor_has_not_got_loads_without_it() {
         var keys = Shipped();
 
-        keys.Load("preset: \"Studio\"\nbindings:\n  file.save: \"Ctrl+K\"\n");
+        KeyMapYaml.Read(keys, "preset: \"Studio\"\nbindings:\n  file.save: \"Ctrl+K\"\n");
 
         // ⚠ Dropped rather than fatal, for the reason a stale chord is: a team preset on a machine
         // that has not got it must not be an editor that will not start. What survives is the part
@@ -156,7 +161,7 @@ public class KeyMapPresetTests {
     public void Resetting_one_row_puts_it_back_to_the_layer_underneath() {
         var keys = Shipped();
 
-        keys.UsePreset(KeyMapPreset.Parse("Test", "bindings:\n  file.save: \"Ctrl+W\"\n"));
+        keys.UsePreset(KeyMapYaml.ReadPreset("Test", "bindings:\n  file.save: \"Ctrl+W\"\n"));
         keys.Bind("file.save", new KeyChord(InputKey.K, ModifierKeys.Control));
 
         Assert.True(keys.ResetBinding("file.save"));
