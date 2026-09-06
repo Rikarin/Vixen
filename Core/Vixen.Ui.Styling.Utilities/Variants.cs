@@ -72,9 +72,9 @@ public static class Variants {
         // ⚠ The three of A13's seventeen that had a control behind them, and the ratio was the
         // finding rather than the count. Of the fourteen that named a model this framework did not
         // have: there is no navigation model, so `visited` and `target` are refused rather than
-        // owed; `autofill` needs a credential store, `default` needs a form, `inert` needs a subtree
-        // flag nothing carries, and `open` is refused one layer further out, by the parser — ExCSS
-        // 4.3.2 hands `:open` back as an `UnknownSelector`.
+        // owed; `autofill` needs a credential store, `default` needs a form, and `inert` needs a
+        // subtree flag nothing carries. `open` was the fourth of those and is registered below — its
+        // refusal named the parser, which is still true and is no longer a blocker.
         //
         // ⚠ <b>A table entry here is worth nothing without a writer</b>, which is what the item this
         // came from underestimated: `:read-only` compiled against a bit no control sets resolves,
@@ -114,7 +114,16 @@ public static class Variants {
         // `TextField` is the writer, and it never clears the interaction — what changes back is the
         // verdict, since having been in a field is not something that stops being true.
         ["user-valid"] = ":user-valid",
-        ["user-invalid"] = ":user-invalid"
+        ["user-invalid"] = ":user-invalid",
+
+        // ⚠ <b>The refusal above says `open` is "refused one layer further out, by the parser", and
+        // that sentence is true and stopped being a blocker in the same batch that wrote it.</b>
+        // `:user-valid` had the identical problem and was not solved by a parser upgrade — it rides
+        // `SelectorCompiler.TryRewrite`, which re-reads a selector ExCSS could not parse, and there
+        // is nothing about `:open` that needs a second mechanism. The bit is `ElementState.Open`;
+        // `Expander` and `SelectBase` are the writers, which is the half a table entry cannot be
+        // worth anything without.
+        ["open"] = ":open"
     };
 
     /// <summary>The variants that are a media feature rather than a selector.</summary>

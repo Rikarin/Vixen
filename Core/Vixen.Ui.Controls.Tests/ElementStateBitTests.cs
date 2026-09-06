@@ -660,4 +660,94 @@ public class ElementStateBitTests {
 
         Assert.Null(ui.Document.NumberOf(field.Style, opacity));
     }
+
+    /// <summary>An expanded disclosure is <c>:open</c>, and it is the disclosure rather than its header.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The <c>open</c> class is asserted beside the bit for the same reason the read-only
+    ///     row above asserts its class: this control has written the class since it was made and the
+    ///     bit arrived beside it, not in place of it.</b> The header's <c>:checked</c> is asserted
+    ///     too, and it is the row that says these are two statements and not one — a commit that
+    ///     moved the new bit onto the header, where the chevron already reads a state, would leave
+    ///     every <c>expander:open</c> rule in the tree matching nothing and pass every other
+    ///     assertion here.
+    /// </remarks>
+    [Fact]
+    public void An_expanded_disclosure_carries_the_open_state_and_its_header_does_not() {
+        using var ui = Opened();
+
+        var expander = ui.Add<Expander>();
+
+        Assert.False(expander.State.HasFlag(ElementState.Open));
+
+        expander.IsExpanded = true;
+
+        Assert.True(expander.State.HasFlag(ElementState.Open));
+        Assert.True(expander.HasClass("open"));
+        Assert.False(expander.Header.State.HasFlag(ElementState.Open));
+        Assert.True(expander.Header.State.HasFlag(ElementState.Checked));
+
+        expander.IsExpanded = false;
+
+        Assert.False(expander.State.HasFlag(ElementState.Open));
+        Assert.False(expander.HasClass("open"));
+    }
+
+    /// <summary>A select showing its list is <c>:open</c>, however the list came to shut.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The dismissal is the half worth writing, and an implementation that set the bit in
+    ///     <c>Open()</c> and cleared it in <c>CloseList()</c> passes everything before it.</b> The
+    ///     popover closes itself on a light dismiss and on Escape without this control being asked,
+    ///     so the bit is written from the overlay's own notification; one written at the call sites
+    ///     would say open over a list that is gone, which is the stale-state failure rather than a
+    ///     missing one.
+    /// </remarks>
+    [Fact]
+    public void A_select_showing_its_list_is_open_and_stops_being_it_when_the_list_dismisses_itself() {
+        using var ui = Opened();
+
+        var select = ui.Add<Select>();
+        select.AddOption("one");
+        select.AddOption("two");
+
+        Assert.False(select.State.HasFlag(ElementState.Open));
+
+        select.Open();
+        ui.Frame();
+
+        Assert.True(select.IsOpen);
+        Assert.True(select.State.HasFlag(ElementState.Open));
+
+        // ⚠ Through the popover rather than through `CloseList`, which is what a light dismiss and
+        // the Escape key both do.
+        select.List.Close();
+        ui.Frame();
+
+        Assert.False(select.IsOpen);
+        Assert.False(select.State.HasFlag(ElementState.Open));
+    }
+
+    /// <summary>And a stylesheet can say <c>:open</c>, which ExCSS cannot parse either.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>:open</c> was recorded as owed a parser and it was owed a rewrite.</b> ExCSS 4.3.2
+    ///     hands <c>expander:open</c> back as one <c>UnknownSelector</c> covering the whole compound,
+    ///     exactly as it does <c>:user-valid</c> — and that stopped being a blocker the day the
+    ///     repair for the latter landed. This is the end-to-end row: it fails on a bit with no writer
+    ///     and it fails on a writer with no repair, which are the two halves that were owed.
+    /// </remarks>
+    [Fact]
+    public void A_stylesheet_can_select_on_openness() {
+        using var ui = ControlHarness.Open(200f, 160f, "expander:open { opacity: 0.4 }");
+
+        var expander = ui.Add<Expander>();
+        var opacity = ui.Document.PropertyId("opacity");
+
+        ui.Frame();
+
+        Assert.Null(ui.Document.NumberOf(expander.Style, opacity));
+
+        expander.IsExpanded = true;
+        ui.Frame();
+
+        Assert.Equal(0.4f, ui.Document.NumberOf(expander.Style, opacity) ?? 0f, 3);
+    }
 }

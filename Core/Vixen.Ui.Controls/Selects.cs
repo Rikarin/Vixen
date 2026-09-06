@@ -120,6 +120,15 @@ public abstract partial class SelectBase : Control {
         List.AddClass("select-list");
         List.Placement = Placement.Bottom;
 
+        // ⚠ <b>`:open` is written from the overlay's own notification and not from `Open()` and
+        // `CloseList()`, because those are two of the four ways this list shuts.</b> Light dismiss
+        // and Escape close the popover directly, so a bit set where this class calls `Close` would
+        // be stale exactly when a user dismisses one — the state would say open over a list that is
+        // gone, which is worse than never having had the bit. The pseudo-class goes on the control
+        // rather than on the popover for HTML's reason: `select:open` is the rule an author writes,
+        // and the list is a child of the document root that no rule about this element reaches.
+        List.OpenChanged += (_, open) => State = open ? State | ElementState.Open : State & ~ElementState.Open;
+
         // ⚠ **The one relation this control cannot do without, and the reason is the comment three
         // lines up.** The list is a child of the document *root*, so in the element tree the options
         // are nowhere near the control they belong to — no walk over `Parent` from either end finds
@@ -767,6 +776,10 @@ public sealed partial class ComboBox : Control {
         List = Document.Root.Add<Popover>();
         List.AddClass("select-list");
         List.Placement = Placement.Bottom;
+
+        // `SelectBase`'s arrangement for `:open`, and this class is a sibling of it rather than a
+        // subclass — which is the reason the line is here twice rather than once.
+        List.OpenChanged += (_, open) => State = open ? State | ElementState.Open : State & ~ElementState.Open;
 
         // The list is a root child for the reason `SelectBase` gives, so the same two statements
         // are needed: what the list *is*, and whose it is. `Owns` hangs off the editor rather than

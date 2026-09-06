@@ -112,6 +112,14 @@ public class DisclosureMarkupTests {
     ///     <c>Label</c>, <c>State</c> and <c>IsExpanded</c>, so a port that lost a header's text or
     ///     left every section collapsed is byte-identical in every state anybody dumped — which is
     ///     the failure doc 36 § F7 wave 8 added <see cref="UiTest.Flags" /> for.
+    ///     <para>
+    ///         ⚠ <b>The expander's own <c>State=Open</c> is new and the header's <c>State=Checked</c>
+    ///         beside it is not, which is the pair worth reading.</b> <c>:open</c> is CSS's name for
+    ///         the disclosure being expanded and it belongs to the disclosure; the header's
+    ///         <c>Checked</c> is what turns the chevron and is a statement about a control's value.
+    ///         A change that collapsed the two into one bit shows up here as a line losing half its
+    ///         flags.
+    ///     </para>
     /// </summary>
     [Fact]
     public void The_flags_dump_carries_what_the_tree_dump_cannot() {
@@ -119,10 +127,10 @@ public class DisclosureMarkupTests {
 
         Assert.Equal(
             """
-            <expander .open .size-md .variant-default> IsExpanded=True Label="Transform"
+            <expander .open .size-md .variant-default> State=Open IsExpanded=True Label="Transform"
             <expander-header .size-md .variant-default> State=Checked Label="Transform"
             <icon-button .section-remove .size-md .variant-default> Label="Remove"
-            <expander .open .size-md .variant-default> IsExpanded=True Label="Light"
+            <expander .open .size-md .variant-default> State=Open IsExpanded=True Label="Light"
             <expander-header .size-md .variant-default> State=Checked Label="Light"
             <icon-button .section-remove .size-md .variant-default> Label="Remove"
             """,
