@@ -39,11 +39,13 @@ the formatter and the key-name table as statics. So anything that only wanted th
 a command palette row, a keymap editor, a log line, a tooltip built by hand — had to reference the
 control library and, through it, an element tree it had no use for.
 
-⚠ **What that cost was a layering answer nobody could reach.** `Vixen.Editor.Ui`'s `KeyChord` is a
-`readonly record struct` over an `InputKey` and a `ModifierKeys` and is the most obviously movable
-type in that assembly — and it could not move down into `Vixen.Ui`, because four of its lines went
-through those two statics and `Vixen.Ui` does not reference `Vixen.Ui.Controls` and must not. One
-`using` was the whole of the blockage.
+⚠ **What that cost was a layering answer nobody could reach, and it has since been collected.**
+`KeyChord` is a `readonly record struct` over an `InputKey` and a `ModifierKeys` and was the most
+obviously movable type in `Vixen.Editor.Ui` — and it could not move down into `Vixen.Ui`, because
+four of its lines went through those two statics and `Vixen.Ui` does not reference
+`Vixen.Ui.Controls` and must not. One `using` was the whole of the blockage. It is
+`Vixen.Ui.KeyChord` now, so an application that never references an editor assembly can parse,
+store, adapt and draw a chord.
 
 `KeyboardShortcut.Formatter` and `KeyboardShortcut.Describe` are still there and still mean what they
 meant. They forward here, so there is **one** formatter in the process rather than two that can
@@ -63,8 +65,8 @@ ShortcutFormat.Formatter = (key, modifiers) => MyOwnFormat(key, modifiers);
 ⚠ **The default is deliberately not platform-adapted.** `Vixen.Ui` sits below `Vixen.Platform` and
 does not know what it is running on, so `Describe` writes `Meta+S` — which is what the modifier is
 called in a `KeyEvent` and not what it is called on the key. A Mac reading `⌘S` is something the
-application says; `KeyChord.UsePlatformFormat` in the editor is that sentence, and it is where the
-decision belongs.
+application says; `KeyChord.UsePlatformFormat`, called once by a shell, is that sentence, and it is
+where the decision belongs.
 
 ⚠ **A platform formatter wants `Name` and not `Describe`.** The macOS form is glyphs for the
 modifiers in a fixed order and then the ordinary legend for the key, so the part it needs is the part

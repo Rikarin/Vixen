@@ -1621,7 +1621,6 @@ T:Vixen.Editor.Ui.FuzzyMatcher sweep-pending
 T:Vixen.Editor.Ui.IPaletteSource sweep-pending
 T:Vixen.Editor.Ui.KeyBindingRow sweep-pending
 T:Vixen.Editor.Ui.KeyBindingsView sweep-pending
-T:Vixen.Editor.Ui.KeyChord sweep-pending
 T:Vixen.Editor.Ui.KeyMapPreset sweep-pending
 T:Vixen.Editor.Ui.KeyMapPresets sweep-pending
 T:Vixen.Editor.Ui.LayoutPresets sweep-pending
@@ -3427,6 +3426,7 @@ T:Vixen.Ui.ITextInputTarget	the framework half of ITextInput; documented on Plat
 T:Vixen.Ui.IUiWindow sweep-pending
 T:Vixen.Ui.IUiWindowHost sweep-pending
 T:Vixen.Ui.KeyAction sweep-pending
+T:Vixen.Ui.KeyChord sweep-pending
 T:Vixen.Ui.KeyEvent sweep-pending
 T:Vixen.Ui.Layout.Align sweep-pending
 T:Vixen.Ui.Layout.BaselineFunction sweep-pending

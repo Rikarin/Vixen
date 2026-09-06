@@ -3,22 +3,24 @@
 
 using System.Text;
 using Vixen.Input;
-using Vixen.Ui;
 
-namespace Vixen.Editor.Ui;
+namespace Vixen.Ui;
 
-// ⚠ **The `using Vixen.Ui.Controls` that used to be here is gone, and it was the whole of what
-// stopped this type moving.** `Describe()`, `UsePlatformFormat` and both `MacFormat`/`MacWords` went
-// through `KeyboardShortcut.Formatter` and `KeyboardShortcut.Describe` — two statics on a *Control*
-// in `Vixen.Ui.Controls`, an assembly above `Vixen.Ui`, which references neither it nor anything in
-// it — so #650's "move the self-contained leaf first" could not start here, and the real leaf was
-// the split rather than this type. They are `Vixen.Ui`'s `ShortcutFormat` now, the control's two members
-// forward to it, and nothing in this file names anything above `Vixen.Ui`.
+// ⚠ **This file used to be `Editor/Vixen.Editor.Ui/Commands/KeyChord.cs`, and what kept it there
+// for four sessions was a `using Vixen.Ui.Controls` and an unmeasured fear.** The `using` was real:
+// `Describe()`, `UsePlatformFormat` and both `MacFormat`/`MacWords` went through
+// `KeyboardShortcut.Formatter` and `KeyboardShortcut.Describe` — two statics on a *Control* in an
+// assembly above this one — and `ShortcutFormat` is the split that discharged it. The fear was that
+// changing the namespace of a type named from thirteen files across five editor assemblies could
+// not be checked without building `Vixen.Editor.App`'s whole closure. It could: **every one of
+// those files already carried `using Vixen.Ui;`**, so the name resolves in its new home from the
+// directive that was already there, and one `grep -L` is the whole proof.
 //
-// The same shape still blocks two of the other four: `EditorCommand` holds an `IconArt`, also
-// `Vixen.Ui.Controls`, and `KeyMap` reads `Vixen.Core.Yaml`, which `Vixen.Ui` does not reference
-// either. Only `CommandRegistry` and `CommandDispatcher` name nothing above `Vixen.Ui` — and they
-// name `EditorCommand`, so they cannot land below it.
+// The same shape still holds the other four back for a different reason. `EditorCommand` holds an
+// `IconArt`, also `Vixen.Ui.Controls`, and `KeyMap` reads `Vixen.Core.Yaml`, which `Vixen.Ui` does
+// not reference either — so their honest destination is `Vixen.Ui.Controls` rather than here.
+// `CommandRegistry` and `CommandDispatcher` name nothing above `Vixen.Ui` and name `EditorCommand`,
+// so they cannot land below it.
 
 /// <summary>A key and what is held with it.</summary>
 /// <param name="Key">The physical key, by its US-QWERTY legend.</param>
@@ -113,7 +115,7 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
     /// <returns>Something like <c>Ctrl+Shift+S</c>.</returns>
     /// <remarks>
     ///     ⚠ <b>Through <see cref="ShortcutFormat.Formatter" /> and after
-    ///     <see cref="ForPlatform" />, which is the two halves of writing a shortcut the way the
+    ///     <see cref="ForPlatform()" />, which is the two halves of writing a shortcut the way the
     ///     machine's other applications do.</b> The swap turns the stored <c>Ctrl+S</c> into the
     ///     <c>Meta+S</c> a Mac user actually presses; the formatter turns that into <c>⌘S</c>. A
     ///     chord in a menu, in a toolbar tooltip and in the palette all go through here, so they
@@ -161,15 +163,6 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
         && face.Supports('⇧')
         && face.Supports('⌘');
 
-    /// <summary>Writes a combination the way macOS has written them since 1984.</summary>
-    /// <param name="key">The key.</param>
-    /// <param name="modifiers">What is held with it.</param>
-    /// <returns>Something like <c>⇧⌘S</c>.</returns>
-    /// <remarks>
-    ///     Glyphs, in the platform's fixed order, with no separators — which is what a user of that
-    ///     machine reads without stopping. Public and pure so it can be checked without replacing a
-    ///     process-wide formatter.
-    /// </remarks>
     /// <summary>The same combination in words, for a face that cannot draw the glyphs.</summary>
     /// <param name="key">The key.</param>
     /// <param name="modifiers">What is held with it.</param>
@@ -202,6 +195,21 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
         return text.Append(ShortcutFormat.Name(key)).ToString();
     }
 
+    /// <summary>Writes a combination the way macOS has written them since 1984.</summary>
+    /// <param name="key">The key.</param>
+    /// <param name="modifiers">What is held with it.</param>
+    /// <returns>Something like <c>⇧⌘S</c>.</returns>
+    /// <remarks>
+    ///     ⚠ <b>This summary was attached to <see cref="MacWords" /> until this type moved.</b> Two
+    ///     doc blocks had run together above that method and this one had none — invisible under
+    ///     <c>Editor/</c>, where <c>GenerateDocumentationFile</c> is false, and a CS1591 the moment
+    ///     the file landed in an assembly that documents itself.
+    ///     <para>
+    ///         Glyphs, in the platform's fixed order, with no separators — which is what a user of
+    ///         that machine reads without stopping. Public and pure so it can be checked without
+    ///         replacing a process-wide formatter.
+    ///     </para>
+    /// </remarks>
     public static string MacFormat(InputKey key, ModifierKeys modifiers) {
         var text = new StringBuilder();
 

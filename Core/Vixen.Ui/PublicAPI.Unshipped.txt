@@ -710,6 +710,19 @@ Vixen.Ui.KeyAction -> enum : byte
 Vixen.Ui.KeyAction.KeyAction() -> void
 Vixen.Ui.KeyAction.Pressed = 0 -> Vixen.Ui.KeyAction
 Vixen.Ui.KeyAction.Released = 1 -> Vixen.Ui.KeyAction
+Vixen.Ui.KeyChord -> readonly struct
+Vixen.Ui.KeyChord : System.IEquatable<Vixen.Ui.KeyChord>
+Vixen.Ui.KeyChord.Describe() -> string
+Vixen.Ui.KeyChord.ForPlatform() -> Vixen.Ui.KeyChord
+Vixen.Ui.KeyChord.ForPlatform(Vixen.Ui.ModifierKeys primary) -> Vixen.Ui.KeyChord
+Vixen.Ui.KeyChord.IsBound.get -> bool
+Vixen.Ui.KeyChord.Key.get -> Vixen.Input.InputKey
+Vixen.Ui.KeyChord.Key.init -> Vixen.Input.InputKey
+Vixen.Ui.KeyChord.KeyChord() -> void
+Vixen.Ui.KeyChord.KeyChord(Vixen.Input.InputKey Key, Vixen.Ui.ModifierKeys Modifiers) -> void
+Vixen.Ui.KeyChord.Modifiers.get -> Vixen.Ui.ModifierKeys
+Vixen.Ui.KeyChord.Modifiers.init -> Vixen.Ui.ModifierKeys
+Vixen.Ui.KeyChord.Save() -> string
 Vixen.Ui.KeyEvent -> sealed class
 Vixen.Ui.KeyEvent : Vixen.Ui.UiEvent
 Vixen.Ui.KeyEvent.Action.get -> Vixen.Ui.KeyAction
@@ -1785,6 +1798,7 @@ const Vixen.Ui.UndoCommands.Undo = "edit.undo" -> string
 override Vixen.Ui.CommandHandler.Equals(object? obj) -> bool
 override Vixen.Ui.CommandHandler.GetHashCode() -> int
 override Vixen.Ui.CommandHandler.ToString() -> string
+override Vixen.Ui.KeyChord.ToString() -> string
 override Vixen.Ui.StringId.ToString() -> string
 override Vixen.Ui.UiPropertyKey.ToString() -> string
 static Vixen.Ui.AccessKey.Parse(string? label, out char key) -> string
@@ -1836,6 +1850,14 @@ static Vixen.Ui.EventRouter.Raise<T>(Vixen.Ui.UiElement target, T args) -> void
 static Vixen.Ui.FontRegistry.Cover(string text, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Text.FontFace> chain, System.Collections.Generic.List<Vixen.Ui.FontSpan> into) -> void
 static Vixen.Ui.GestureSettings.Default.get -> Vixen.Ui.GestureSettings
 static Vixen.Ui.GradientStops.Default.get -> Vixen.Ui.GradientStops
+static Vixen.Ui.KeyChord.MacFormat(Vixen.Input.InputKey key, Vixen.Ui.ModifierKeys modifiers) -> string
+static Vixen.Ui.KeyChord.MacWords(Vixen.Input.InputKey key, Vixen.Ui.ModifierKeys modifiers) -> string
+static Vixen.Ui.KeyChord.None.get -> Vixen.Ui.KeyChord
+static Vixen.Ui.KeyChord.Of(Vixen.Ui.KeyEvent args) -> Vixen.Ui.KeyChord
+static Vixen.Ui.KeyChord.Primary.get -> Vixen.Ui.ModifierKeys
+static Vixen.Ui.KeyChord.Primary.set -> Vixen.Ui.ModifierKeys
+static Vixen.Ui.KeyChord.TryParse(string? text, out Vixen.Ui.KeyChord chord) -> bool
+static Vixen.Ui.KeyChord.UsePlatformFormat(Vixen.Ui.UiDocument? document = null) -> void
 static Vixen.Ui.LengthContext.ForViewport(float width, float height, float rootFontSize = 16) -> Vixen.Ui.LengthContext
 static Vixen.Ui.Rendering.PathFlattener.Flatten(System.Collections.Generic.IReadOnlyList<Vixen.Ui.PathSegment> segments, int offset, int length, float tolerance, System.Collections.Generic.List<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.List<Vixen.Ui.Rendering.Contour> contours) -> void
 static Vixen.Ui.Rendering.PathTessellator.Fill(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.Contour> contours, Vixen.Ui.PathFillRule rule, System.Collections.Generic.List<Vixen.Ui.Rendering.PathVertex> triangles) -> void
