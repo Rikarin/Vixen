@@ -252,7 +252,7 @@ public sealed class ComponentsViewDumpTests {
         <expander-header .size-md .variant-default> State=Checked Label="Primitive Shape"
         <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <select .size-md .variant-default> Value="Cube"
+        <select .size-md .variant-default> State=Valid Value="Cube"
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
         <icon-button .size-sm .variant-subtle> Label="Pick"
@@ -262,7 +262,7 @@ public sealed class ComponentsViewDumpTests {
         <expander-header .size-md .variant-default> State=Checked Label="Light"
         <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <select .size-md .variant-default> Value="Point"
+        <select .size-md .variant-default> State=Valid Value="Point"
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
         <color-input .size-md .variant-default> Value=(1, 1, 1, 1)
@@ -271,7 +271,7 @@ public sealed class ComponentsViewDumpTests {
         <numeric-input .size-md .variant-default> State=Valid Value="127.324" Number=127.324
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <select .size-md .variant-default> Value="Candela"
+        <select .size-md .variant-default> State=Valid Value="Candela"
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
         <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
@@ -303,7 +303,7 @@ public sealed class ComponentsViewDumpTests {
         <expander-header .size-md .variant-default> State=Focus, FocusWithin Label="Primitive Shape"
         <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <select .size-md .variant-default> Value="Cube"
+        <select .size-md .variant-default> State=Valid Value="Cube"
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
         <icon-button .size-sm .variant-subtle> Label="Pick"
@@ -313,7 +313,7 @@ public sealed class ComponentsViewDumpTests {
         <expander-header .size-md .variant-default> State=Checked Label="Light"
         <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <select .size-md .variant-default> Value="Point"
+        <select .size-md .variant-default> State=Valid Value="Point"
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
         <color-input .size-md .variant-default> Value=(1, 1, 1, 1)
@@ -322,7 +322,7 @@ public sealed class ComponentsViewDumpTests {
         <numeric-input .size-md .variant-default> State=Valid Value="127.324" Number=127.324
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <select .size-md .variant-default> Value="Candela"
+        <select .size-md .variant-default> State=Valid Value="Candela"
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
         <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
@@ -354,7 +354,7 @@ public sealed class ComponentsViewDumpTests {
         <expander-header .size-md .variant-default> State=Focus, Checked, FocusWithin Label="Primitive Shape"
         <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <select .size-md .variant-default> Value="Cube"
+        <select .size-md .variant-default> State=Valid Value="Cube"
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
         <icon-button .size-sm .variant-subtle> Label="Pick"
@@ -364,7 +364,7 @@ public sealed class ComponentsViewDumpTests {
         <expander-header .size-md .variant-default> State=Checked Label="Light"
         <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <select .size-md .variant-default> Value="Point"
+        <select .size-md .variant-default> State=Valid Value="Point"
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
         <color-input .size-md .variant-default> Value=(1, 1, 1, 1)
@@ -373,7 +373,7 @@ public sealed class ComponentsViewDumpTests {
         <numeric-input .size-md .variant-default> State=Valid Value="127.324" Number=127.324
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <select .size-md .variant-default> Value="Candela"
+        <select .size-md .variant-default> State=Valid Value="Candela"
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
         <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
@@ -405,7 +405,7 @@ public sealed class ComponentsViewDumpTests {
         <expander-header .size-md .variant-default> State=Focus, Checked, FocusWithin Label="Light"
         <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <select .size-md .variant-default> Value="Point"
+        <select .size-md .variant-default> State=Valid Value="Point"
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
         <color-input .size-md .variant-default> Value=(1, 1, 1, 1)
@@ -414,7 +414,7 @@ public sealed class ComponentsViewDumpTests {
         <numeric-input .size-md .variant-default> State=Valid Value="127.324" Number=127.324
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <select .size-md .variant-default> Value="Candela"
+        <select .size-md .variant-default> State=Valid Value="Candela"
         <icon-button .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
         <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
@@ -438,7 +438,7 @@ public sealed class ComponentsViewDumpTests {
         <expander-header .size-md .variant-default> State=Checked Label="Primitive Shape"
         <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <select .size-md .variant-default> Value="Cube"
+        <select .size-md .variant-default> State=Valid Value="Cube"
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
         <icon-button .size-sm .variant-subtle> Label="Pick"
