@@ -808,6 +808,101 @@ public class LayerStackEditingTests {
         Assert.Equal(framed, view.Preview.Zoom);
     }
 
+    /// <summary>⚠ Choosing a texture set changes every control on the panel, not only the list.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>: seven places took
+    ///         <c>Sets[0]</c> and it is one decision rather than seven edits.</b> Sets are
+    ///         independent — a set is a material slot with its own atlas, its own channels and its own
+    ///         <c>.vxpaint</c> files — so the editor works on one at a time, chosen once and read by
+    ///         everything. Four of the seven are this panel's and are what this reads.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two sets differ in <em>everything</em> the panel reads, which is the issue's
+    ///         own warning.</b> A fixture whose sets carry the same channels and the same layer ids is
+    ///         passed by a panel still pinned to the first — the shape of a test that cannot see its
+    ///         subject, which this workstream has shipped twice. So the second set has a different
+    ///         channel list, a different layer id and a different <c>Mesh</c>, and all three are read.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The layer ids differing is also what the row-shape comparison needs.</b>
+    ///         <c>Show</c> keeps the rows when the shape is unchanged, and two sets copied from one
+    ///         another have an identical shape — so the set's own name is in it, and a stack whose two
+    ///         sets really were identical would still swap correctly.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Choosing_a_set_changes_the_rows_the_ticks_and_the_part_picker() {
+        using var fixture = new TexturingFixture();
+
+        Open(fixture, TwoSets());
+
+        var panel = Panel(fixture);
+
+        // The state before, so that every assertion after it is about a change.
+        Assert.Contains(Texts(panel, "layer-stack-row-name"), row => row.Contains("Body", StringComparison.Ordinal));
+        Assert.Single(Ticks(panel, "layer-stack-channel"));
+        Assert.Equal(LayerStackView.EveryMesh, Find<Select>(panel, "layer-stack-set-mesh").Value);
+        Assert.Empty(Texts(panel, "layer-stack-row-refusal"));
+
+        Find<Select>(panel, "layer-stack-set").Value = "Head";
+
+        panel = Panel(fixture);
+
+        Assert.Contains(Texts(panel, "layer-stack-row-name"), row => row.Contains("Head", StringComparison.Ordinal));
+
+        Assert.DoesNotContain(
+            Texts(panel, "layer-stack-row-name"),
+            row => row.Contains("Body", StringComparison.Ordinal)
+        );
+
+        Assert.Equal(2, Ticks(panel, "layer-stack-channel").Count);
+        Assert.Equal("head", Find<Select>(panel, "layer-stack-set-mesh").Value);
+
+        // ⚠ And the honest half: the brush is still aimed at the first set, so a row of this one
+        // cannot be selected — an id both sets carried would send the stroke to the wrong one.
+        Assert.True(Buttons(panel, "layer-stack-select")[0].Disabled);
+        Assert.Contains(LayerStackView.OtherSet, Texts(panel, "layer-stack-row-refusal"));
+    }
+
+    /// <summary>⚠ And two sets of identical shape still swap, which the test above cannot see.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The rows are rebuilt only when their <em>shape</em> changed</b> — a correctness
+    ///         property, because rebuilding unconditionally destroys the control an artist is holding
+    ///         — and two sets copied from one another have the same channels, the same layer ids and
+    ///         the same mask counts. So the shape string carries the set's own name, and without it
+    ///         the panel would keep the rows and leave every control editing the set the artist
+    ///         navigated away from.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What differs here is a layer's <em>name</em>, which is deliberately not in the
+    ///         shape.</b> The shape is identity and structure only; a name is a value, read by the
+    ///         row's binding. That is what makes this fixture indistinguishable to everything except
+    ///         the term under test — the sabotage that removes the set name from the shape leaves
+    ///         <c>Choosing_a_set_changes_the_rows_the_ticks_and_the_part_picker</c> green and this
+    ///         one red.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Two_sets_of_identical_shape_still_swap_their_rows() {
+        using var fixture = new TexturingFixture();
+
+        Open(fixture, TwinSets());
+
+        var panel = Panel(fixture);
+
+        Assert.Contains("Body layer", Assert.Single(Texts(panel, "layer-stack-row-name")), StringComparison.Ordinal);
+
+        Find<Select>(panel, "layer-stack-set").Value = "Head";
+
+        Assert.Contains(
+            "Head layer",
+            Assert.Single(Texts(Panel(fixture), "layer-stack-row-name")),
+            StringComparison.Ordinal
+        );
+    }
+
     /// <summary>⚠ Adding a layer changes the compiled composite, and undo takes it back out.</summary>
     /// <remarks>
     ///     <para>
@@ -1356,6 +1451,59 @@ public class LayerStackEditingTests {
             },
             Fill("top", "Top", 0.75f)
         );
+
+    /// <summary>⚠ Two sets that differ in every single thing the panel reads off one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A different channel list, a different layer id and a different <c>Mesh</c>.</b> Two
+    ///     sets alike in any of those make the corresponding assertion true of a panel that never
+    ///     changed set at all — which is what <a href="https://github.com/Rikarin/Vixen/issues/927">
+    ///     #927</a> asks a fixture for in so many words.
+    /// </remarks>
+    static LayerStackAsset TwoSets() =>
+        new() {
+            Name = "Hull",
+            BaseWidth = 32,
+            BaseHeight = 32,
+            Seed = 7u,
+            Sets = [
+                new() {
+                    Name = "Body",
+                    Channels = [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
+                    Layers = [Fill("body", "Body", 0.25f)]
+                },
+                new() {
+                    Name = "Head",
+                    Mesh = "head",
+                    Channels = [
+                        new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] },
+                        new() { Usage = "roughness", Default = [0f, 0f, 0f, 1f] }
+                    ],
+                    Layers = [Fill("head", "Head", 0.75f)]
+                }
+            ]
+        };
+
+    /// <summary>⚠ Two sets a copy apart: same channels, same layer id, different layer name.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The state a duplicated material slot is really in</b>, and the one
+    ///     <c>LayerStackView.Shape</c> cannot tell apart without the set's own name in it. The layer
+    ///     <em>name</em> is what differs because a name is a value rather than structure, so it is
+    ///     deliberately absent from the shape — nothing else here can move the comparison.
+    /// </remarks>
+    static LayerStackAsset TwinSets() {
+        List<ChannelAsset> channels = [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }];
+
+        return new() {
+            Name = "Hull",
+            BaseWidth = 32,
+            BaseHeight = 32,
+            Seed = 7u,
+            Sets = [
+                new() { Name = "Body", Channels = channels, Layers = [Fill("only", "Body layer", 0.25f)] },
+                new() { Name = "Head", Channels = channels, Layers = [Fill("only", "Head layer", 0.25f)] }
+            ]
+        };
+    }
 
     /// <summary>Two paint layers, the upper of which has no id at all.</summary>
     /// <remarks>

@@ -177,6 +177,41 @@ static class LayerStackEdit {
         return true;
     }
 
+    /// <summary>The set a name chooses, or the first one when it chooses none.</summary>
+    /// <param name="stack">The stack.</param>
+    /// <param name="name">The <see cref="TextureSetAsset.Name" /> wanted, or empty for no choice.</param>
+    /// <returns>The set, or <see langword="null" /> when the stack has none at all.</returns>
+    /// <exception cref="ArgumentNullException">The stack or the name is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>'s decision, in one
+    ///         function so that seven call sites cannot each make it differently.</b> A texture set is
+    ///         a material slot of the model — <see cref="TextureSetAsset.Mesh" /> narrows it to one of
+    ///         the model's meshes — so each set has its own atlas, its own channels, its own layers and
+    ///         its own <c>.vxpaint</c> files. Two things follow and neither is a preference: a stroke
+    ///         is texels in <em>one</em> atlas, so painting cannot span sets; and one list holding two
+    ///         independent composites would be two orders in one list, with "move up" across the
+    ///         boundary meaning nothing. So the editor works on one set at a time, chosen once and read
+    ///         by everything.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The fallback is required rather than defensive.</b> A stack whose set was renamed,
+    ///         or one opened while the chooser still names the set of the stack before it, has to open
+    ///         rather than refuse — and the fallback is what makes this change a no-op for every
+    ///         single-set stack, which is every stack that exists today.
+    ///     </para>
+    /// </remarks>
+    public static TextureSetAsset? SetFor(LayerStackAsset stack, string name) {
+        ArgumentNullException.ThrowIfNull(stack);
+        ArgumentNullException.ThrowIfNull(name);
+
+        if (name.Length > 0 && stack.SetNamed(name) is { } named) {
+            return named;
+        }
+
+        return stack.Sets.Count > 0 ? stack.Sets[0] : null;
+    }
+
     /// <summary>The list a slot names, whether or not anything is in it.</summary>
     /// <param name="stack">The stack.</param>
     /// <param name="slot">Which list.</param>
