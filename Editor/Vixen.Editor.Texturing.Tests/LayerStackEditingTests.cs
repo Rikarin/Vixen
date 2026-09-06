@@ -409,6 +409,33 @@ public class LayerStackEditingTests {
         Assert.NotSame(slider, Find<Slider>(panel, "layer-stack-opacity"));
     }
 
+    /// <summary>⚠ An edit made in the panel is in the file after a save.</summary>
+    /// <remarks>
+    ///     <b>The sentence <a href="https://github.com/Rikarin/Vixen/issues/819">#819</a> was written
+    ///     to avoid</b> — "a panel that let an artist drag a row and quietly dropped it on save would
+    ///     be worse than one that does not offer the drag". Every other test here reads the document
+    ///     in memory, which is exactly the half a dropped save would still satisfy; this one reads
+    ///     the bytes back off disk through the same YAML the next session will.
+    /// </remarks>
+    [Fact]
+    public void An_edit_is_in_the_file_after_a_save() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Two());
+        var panel = Panel(fixture);
+
+        Buttons(panel, "layer-stack-move-up")[1].Activate();
+
+        document.Save();
+
+        Assert.False(document.IsDirty.Value);
+
+        var written = LayerStackYaml.Read(File.ReadAllText(document.AssetPath));
+        var layers = written.Sets[0].Layers;
+
+        Assert.Equal("top", layers[0].Id);
+        Assert.Equal("bottom", layers[1].Id);
+    }
+
     /// <summary>⚠ A second stack of the same shape gets its own rows, not the first one's.</summary>
     /// <remarks>
     ///     <b>A shape is not an identity, and the rebuild rule is written on the shape.</b> Every

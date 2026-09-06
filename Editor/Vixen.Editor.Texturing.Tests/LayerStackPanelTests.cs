@@ -268,7 +268,29 @@ public class LayerStackPanelTests {
     static string Status(UiElement panel) => Find(panel, "layer-stack-status")?.Text ?? "";
 
     /// <summary>The rows the panel drew.</summary>
-    static IReadOnlyList<string> Rows(UiElement panel) => Lines(panel, "layer-stack-list");
+    /// <remarks>
+    ///     ⚠ <b>The name element inside each row, not the row.</b> A row carries controls now —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/819">#819</a> — and an element with text
+    ///     may not have children, so the summary moved into a child of its own. Reading the row would
+    ///     hand back a list of empty strings, which every <c>NotEmpty</c> here would still pass.
+    /// </remarks>
+    static IReadOnlyList<string> Rows(UiElement panel) {
+        List<string> lines = [];
+
+        Walk(panel);
+
+        return lines;
+
+        void Walk(UiElement element) {
+            if (string.Equals(element.Tag, "layer-stack-row-name", StringComparison.Ordinal)) {
+                lines.Add(element.Text ?? "");
+            }
+
+            foreach (var child in element.Children) {
+                Walk(child);
+            }
+        }
+    }
 
     /// <summary>Everything the compile had to say, as the panel drew it.</summary>
     static IReadOnlyList<string> Messages(UiElement panel) => Lines(panel, "layer-stack-messages");

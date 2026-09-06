@@ -85,7 +85,6 @@ sealed class LayerStackView {
         "Every channel ticked means the layer is unrestricted — it also writes a channel the set gains later. "
         + "A layer that should write nothing is switched off instead, so the last tick cannot be cleared.";
 
-    readonly UiElement legend;
     readonly UiElement messages;
     readonly UiElement root;
     readonly UiElement rows;
@@ -146,8 +145,7 @@ sealed class LayerStackView {
         rows.SetStyle("flex-direction", "column");
         rows.SetStyle("flex-grow", "1");
 
-        legend = left.Add("layer-stack-legend");
-        legend.Text = ChannelLegend;
+        left.Add("layer-stack-legend").Text = ChannelLegend;
 
         // ⚠ Under the rows and not under the preview, and the reason is what a diagnostic names. A
         // layer problem names a row that is directly above it and a node diagnostic names a node in
