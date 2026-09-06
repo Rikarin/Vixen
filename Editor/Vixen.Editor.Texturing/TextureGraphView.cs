@@ -187,6 +187,11 @@ sealed class TextureGraphView {
 
         title.Text = "Result — " + Resolution(document);
 
+        // ⚠ Before the registry is read, because a republish replaces it rather than adding to it —
+        // #803. A panel that read the old one would offer an author the menu a compound had before
+        // they edited it, and go on doing so until the graph was reopened.
+        document.Republish();
+
         // ⚠ The compounds that would not read, and this is the only place the loss is visible —
         // #803. `TextureCompoundLibrary.Publish` reports and skips rather than throwing, so that one
         // bad file in `Assets/Compounds` does not cost an author every other node in the menu; the
