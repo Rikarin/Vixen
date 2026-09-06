@@ -82,6 +82,17 @@ static unsafe partial class ObjC {
     [LibraryImport(Runtime, EntryPoint = "objc_msgSend", StringMarshalling = StringMarshalling.Utf8)]
     public static partial nint SendUtf8(nint receiver, nint selector, string value);
 
+    /// <summary>A message whose return type is a <c>CGFloat</c> — a colour component, say.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>objc_msgSend</c> and not <c>objc_msgSend_fpret</c>, and only because this engine's
+    ///     Mac is arm64.</b> The floating-point variant exists because the x86-64 ABI returns a
+    ///     <c>double</c> on the x87 stack, which the integer entry point cannot describe; on arm64
+    ///     the value comes back in <c>d0</c> like any other and the plain symbol is correct.
+    ///     Declaring this one on an Intel Mac would read a register that holds nothing.
+    /// </remarks>
+    [LibraryImport(Runtime, EntryPoint = "objc_msgSend")]
+    public static partial double SendDouble(nint receiver, nint selector);
+
     /// <summary>
     ///     <c>-[NSBitmapImageRep initWithBitmapDataPlanes:pixelsWide:pixelsHigh:bitsPerSample:
     ///     samplesPerPixel:hasAlpha:isPlanar:colorSpaceName:bitmapFormat:bytesPerRow:bitsPerPixel:]</c>,

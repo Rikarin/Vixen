@@ -349,4 +349,71 @@ public class StyleValueTests {
     [InlineData("+2px", StyleValueKind.Length)]
     public void A_hyphen_starts_an_identifier_unless_a_number_follows_it(string text, StyleValueKind expected) =>
         Assert.Equal(expected, Parser().Parse(text).Kind);
+
+    /// <summary>A keyword is one interned id however its case is written.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The general form of a defect that made a hand-written declaration paint
+    ///         nothing.</b> CSS Values 4 § 3.1 makes a keyword ASCII case-insensitive; the intern
+    ///         table is ordinal, so before the fold two spellings were two ids and every reader in
+    ///         the engine held exactly one of them. An identifier in the other case reached its
+    ///         consumer <i>unrecognised</i> — not wrong, not diagnosed, just absent — so the frame
+    ///         looked like the declaration had never been written.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Written at the parser and not per property, because there is one intern.</b>
+    ///         <c>currentcolor</c> is the row the bug was found on, but <c>solid</c>,
+    ///         <c>underline</c>, <c>flex</c> and every other keyword in the language came through the
+    ///         same line — which is why pinning the one keyword in <c>DrawListBuilder</c> fixed
+    ///         <c>box-shadow</c> and nothing else.
+    ///     </para>
+    ///     <para>
+    ///         The vendor-prefixed row is here on purpose: the fold must not eat the leading hyphen
+    ///         the theory above exists to protect.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("currentcolor", "CurrentColor", "CURRENTCOLOR")]
+    [InlineData("solid", "Solid", "SOLID")]
+    [InlineData("underline", "Underline", "UNDERLINE")]
+    [InlineData("flex", "Flex", "FLEX")]
+    [InlineData("-webkit-center", "-WebKit-Center", "-WEBKIT-CENTER")]
+    public void A_keyword_is_one_id_however_its_case_is_written(string lower, string mixed, string upper) {
+        var keywords = new NameTable();
+        var parser = new StyleValueParser(new NameTable(), keywords);
+
+        var first = parser.Parse(lower);
+        Assert.Equal(StyleValueKind.Keyword, first.Kind);
+
+        foreach (var spelling in new[] { mixed, upper }) {
+            var other = parser.Parse(spelling);
+
+            Assert.Equal(StyleValueKind.Keyword, other.Kind);
+            Assert.Equal(first.Keyword, other.Keyword);
+        }
+
+        // And the id a consumer interns to compare against is the lowercase spelling, which is the
+        // half that makes the fold usable: a reader writes the keyword the way CSS spells it.
+        Assert.Equal(lower, keywords.NameOf(first.Keyword));
+        Assert.Equal(first.Keyword, keywords.Intern(lower));
+    }
+
+    /// <summary>Only ASCII letters fold, and a non-keyword value is not touched at all.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>ToLowerInvariant</c> would have been wrong and would have looked right.</b> CSS
+    ///     folds exactly the twenty-six ASCII letters; a Turkish <c>İ</c> or a Greek <c>Σ</c> in an
+    ///     identifier is a different character from its lowercase form as far as the language is
+    ///     concerned, and a table keyed on the folded text would answer for a name nobody wrote.
+    /// </remarks>
+    [Fact]
+    public void The_fold_is_ASCII_and_reaches_only_identifiers() {
+        var keywords = new NameTable();
+        var parser = new StyleValueParser(new NameTable(), keywords);
+
+        Assert.Equal("stra\u00dfe-\u00c4", keywords.NameOf(parser.Parse("Stra\u00dfe-\u00c4").Keyword));
+
+        // A colour, a length and a number never reach the intern, so nothing about them changes.
+        Assert.Equal(StyleValueKind.Color, parser.Parse("#AABBCC").Kind);
+        Assert.Equal(StyleValueKind.Length, parser.Parse("12PX").Kind);
+    }
 }

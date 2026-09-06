@@ -2288,6 +2288,35 @@ public static class UtilityFamilies {
             Alongside: [new UtilityDeclaration("box-shadow", UtilityComposition.Shadows())]
         ));
 
+        // ⚠ <b>The last of doc 43 § F8's three shape-3 refusals, and it closed on a decision rather
+        // than on a mechanism.</b> Everything mechanical had already expired: `EmitShadow` paints a
+        // comma list, so a `ring-offset-2` beside a `ring-2` no longer stops the ring painting;
+        // `StyleValueParser` folds `calc(2px + 2px)`, so v4's
+        // `calc(var(--tw-ring-offset-width) + var(--tw-ring-width))` spread arrives as a length. What
+        // was left was the colour of the gap. v4's `--tw-ring-offset-color` is `#fff`, which is not a
+        // choice but an assumption — that the page behind the element is white — and this chrome is
+        // dark, so copying it would put a white halo round every focused control. `Canvas` is CSS's
+        // own name for the answer and `SystemPalette` gives it per document, following the platform's
+        // appearance. See `UtilityComposition.RingOffsetColor`.
+        //
+        // ⚠ <b>Registering it also needed a drop in the draw list, and that is the half a
+        // registration alone would have got wrong.</b> The gap's colour is opaque by necessity — a
+        // transparent one makes `ring-2 ring-offset-2` paint a four-point ring with no gap — so the
+        // unset slot is made free by its zero WIDTH, and `EmitOneShadow` had to learn what CSS
+        // Backgrounds 3 § 7.1.1 says about an outer shadow with no offset, no blur and no spread: it
+        // is clipped to outside the border box and therefore renders nothing.
+        //
+        // `BorderEdge` for `ring-*`'s reason — `ring-offset-2` is a width and `ring-offset-accent` is
+        // a colour, one prefix, told apart by the value's shape. `SplitName` takes the longest
+        // registered prefix, so this wins over `ring` wherever both match.
+        Register(new Family(
+            "ring-offset",
+            ValueKind.BorderEdge,
+            [UtilityComposition.RingOffsetWidth],
+            ColorProperties: [UtilityComposition.RingOffsetColor],
+            Alongside: [new UtilityDeclaration("box-shadow", UtilityComposition.Shadows())]
+        ));
+
         // ── Transforms ──────────────────────────────────────────────────────────────────────
         //
         // ⚠ <b>All four of these emitted a <c>--</c> name of their own invention, and only two of
@@ -2701,16 +2730,17 @@ public static class UtilityFamilies {
         //   scene while `box-shadow: 0 2px 4px #000` moved paint — so a registration would have scored
         //   the gate green over a class that painted nothing. `EmitShadow` reads the keyword since
         //   2026-09-06 and both roots are registered above, each with a per-value pixel assertion the
-        //   gate could not make. ⚠ <b>`ring-offset-*` is the one still open, and it has been worse
-        //   than inert and is not any more.</b> An offset ring is a two-shadow *list*, and
-        //   `EmitShadow` refused lists — so a `ring-offset-2` beside a `ring-2` would have stopped the
-        //   ring painting at all. Lists are painted now, a command each, last to first
-        //   (`Rikarin/Vixen#279`), and ⚠ <b>the `calc()` clause that used to stand here expired on
-        //   2026-09-05</b>: v4 writes the outer ring's spread as
-        //   `calc(var(--tw-ring-offset-width) + var(--tw-ring-width))`, and `StyleValueParser` folds
-        //   that now — fold or refuse, so a mixed-unit expression is still `Unknown`. What is left is
-        //   a `--tw-ring-offset-width` fragment and the second shadow that reads it; the collision the
-        //   five slots were wanted for closed with four. ⚠ <b>`stroke-none` was the third example here and is now closed, which is worth
+        //   gate could not make. ⚠ <b>All THREE of this shape's examples are now closed, and
+        //   `ring-offset-*` — which was worse than inert, because an offset ring is a two-shadow
+        //   *list* and `EmitShadow` refused lists, so a `ring-offset-2` beside a `ring-2` stopped the
+        //   ring painting at all — closed on a DECISION rather than on a mechanism.</b> Lists were
+        //   painted first, a command each, last to first; then the `calc()` clause expired, because
+        //   v4 writes the outer ring's spread as
+        //   `calc(var(--tw-ring-offset-width) + var(--tw-ring-width))` and `StyleValueParser` folds
+        //   that — fold or refuse, so a mixed-unit expression is still `Unknown`. What was left after
+        //   both was the colour of the gap, which v4 answers `#fff` because a stylesheet generator
+        //   cannot see the page: `Canvas` is the answer an engine with a `SystemPalette` can give, and
+        //   it is registered above. ⚠ <b>`stroke-none` was the third example here and is now closed, which is worth
         //   keeping because of *how*: not by a registration but by a reading.</b> `Icon.Resolve`
         //   asked `ColorOf` for the slot and fell back to the foreground for anything that was not
         //   a colour, so `stroke: none` stroked. `UiDocument.KeywordOf` — the fourth reading beside

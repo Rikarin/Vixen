@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using CsCheck;
+using Vixen.Ui.Layout.Tests.Taffy;
 using Xunit;
 
 namespace Vixen.Ui.Layout.Tests;
@@ -458,6 +459,76 @@ public class GridBlindSpotTests {
         Assert.Equal(100f, tree.GetWidth(root), Tolerance);
         Assert.Equal(0f, tree.GetLeft(first), Tolerance);
         Assert.Equal(50f, tree.GetLeft(second), Tolerance);
+    }
+
+    /// <summary>
+    ///     A turned item is measured against the COLUMN, and the column is its block axis — recorded
+    ///     as the gap it is rather than asserted as the rule.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This test asserts what this store DOES and not what CSS says, and the day
+    ///         <c>LayoutStyle</c> carries a writing mode it must go red and be rewritten to 40.</b>
+    ///         It is the same kind of record as
+    ///         <c>Vixen.Ui.Controls.Tests.TextWrappingPixelTests</c>' stated deviations: a gap with
+    ///         no witness is a gap that gets rediscovered. <c>Rikarin/Vixen#952</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The corpus cannot be that witness, which is why this file is where it goes.</b>
+    ///         Sixteen of Taffy's twenty <c>vertical-lr</c> fixtures are green <i>with</i> the gap
+    ///         present — a turned leaf's own measurement has been modelled by
+    ///         <see cref="TaffyAhemMeasure" /> since it was written — and the four that are not are
+    ///         <c>grid_relayout_vertical_text</c>, which is this shape with a second, unturned item
+    ///         under it whose 20 points of min-content hide half the difference.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The oracle is a property and not a recorded number: this store's answer does not
+    ///         depend on the row at all, and Chrome's is a function of it.</b> Seven two-character
+    ///         words at ten points a character, in a row of a stated <i>r</i> points. The row is the
+    ///         item's INLINE axis once it is turned, so Chrome fits <i>r</i>/10 characters to a line
+    ///         and the column — the item's BLOCK axis — is ten points per line it needs: 40 for a
+    ///         40-point row (two words a line, four lines), 20 for 80, and 10 for 200, where the
+    ///         whole text fits one line and the two answers finally agree. This store hands the item
+    ///         the COLUMN as its inline constraint, and the column is what the measurement is being
+    ///         taken in order to decide, so the constraint is unbounded and the answer is one line in
+    ///         every row of this theory.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The row is not missing — it is present, definite and unused</b>, which is the
+    ///         whole shape of the defect and why the second assertion is here. The item comes out
+    ///         exactly as tall as its area, so the number Chrome measures the text against was
+    ///         available to the pass that did not ask for it.
+    ///     </para>
+    /// </remarks>
+    /// <param name="row">The stated row height, which is the turned item's inline size.</param>
+    [Theory]
+    [InlineData(40f)]
+    [InlineData(80f)]
+    [InlineData(200f)]
+    public void A_turned_grid_item_is_measured_against_the_column_where_its_inline_axis_is_the_row(float row) {
+        using var tree = new LayoutTree();
+
+        var grid = tree.CreateNode();
+        tree.SetDisplay(grid, Display.Grid);
+        tree.SetGridTemplateRows(grid, [GridTrackSize.Single(GridSizingFunction.Points(row))]);
+        tree.SetGridTemplateColumns(grid, [GridTrackSize.Single(GridSizingFunction.MinContent)]);
+
+        // Seven two-character words, separated by the zero-width space Taffy's generator used.
+        var turned = tree.CreateNode();
+        tree.SetContext(turned, new TaffyText("HH​HH​HH​HH​HH​HH​HH", true));
+        tree.SetMeasureFunction(turned, TaffyAhemMeasure.Measure);
+        tree.AddChild(grid, turned);
+
+        tree.CalculateLayout(grid, float.NaN, float.NaN, Direction.Ltr);
+
+        // The constraint Chrome measures the text against, sitting in the tree unread.
+        Assert.Equal(row, tree.GetHeight(turned), Tolerance);
+
+        // ⚠ One line, whatever the row says — the item was asked how wide it wants to be with no
+        // bound on the axis that is really its inline one. Chrome answers 40, 20 and 10 to the same
+        // three questions, so two rows of this theory are a divergence and the third is agreement
+        // arrived at for the wrong reason.
+        Assert.Equal(10f, tree.GetWidth(grid), Tolerance);
     }
 
     static void AssertSameLayout(LayoutTree left, LayoutNodeId leftNode, LayoutTree right, LayoutNodeId rightNode) {

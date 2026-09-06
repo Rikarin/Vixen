@@ -4,7 +4,7 @@ slug: editor/index
 kind: guide
 area: Editor
 summary: The window the editor is made of, and the command registry every part of it is a view over.
-api: [T:Vixen.Editor.Ui.EditorShell, T:Vixen.Editor.Ui.KeyMap]
+api: [T:Vixen.Editor.Ui.EditorShell]
 tags: [editor, shell, commands, keybindings]
 since: 0.1
 status: preview
@@ -16,7 +16,8 @@ related: [ui/commands, ui/dialogs, ui/strings, ui/background-tasks, editor/modes
 `EditorShell` is the editor's window: a menu bar, a mode bar, a toolbar, a docking workspace and a
 status bar, built into a `UiDocument` and nothing else — no platform, no device, no window. Inside it
 are `CommandRegistry`, the one table of everything the editor can be asked to do; `EditorCommand`,
-one entry in it; and `KeyMap`, which says what runs each of them from the keyboard.
+one entry in it; and `KeyMap`, which says what runs each of them from the keyboard. All three are
+`Vixen.Ui.Controls` types, so an application that is not the editor has them too.
 
 ## What it is for
 
@@ -56,7 +57,11 @@ runs often and has to be cheap.
 **A command carries no keybinding.** That is `KeyMap`'s, because a binding is the user's and a
 command is the application's. The map is three layers — the defaults the application ships, a chosen
 preset, and the user's own overrides — and only the last is saved, so a default moved in a release
-reaches everyone who had not deliberately rebound it.
+reaches everyone who had not deliberately rebound it. ⚠ `KeyMap`, `KeyMapPreset` and
+`CommandDispatcher` are `Vixen.Ui.Controls` types and are described in
+[commands and the focus route](/docs/guide/ui/commands); what stays here is the editor's own data —
+`KeyMapPresets`, its three shipped presets, and `KeyMapYaml`, the file they and a user's keymap are
+both written in.
 
 **A command may declare a context.** Delete in the outliner and Delete in the content browser are two
 commands and one key. `EditorCommand.Context` names the place a verb belongs, `EditorShell.Context`

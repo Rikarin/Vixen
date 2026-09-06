@@ -45,15 +45,17 @@
 #                                 owns what is left. ⚠ TWO OF THE THREE THINGS THAT ROW USED TO NAME
 #                                 HAVE SINCE CLOSED TOO — a float declared INSIDE a run (§9.5.1's
 #                                 rules 5 and 6) and the intrinsic width of a shrink-to-fit container
-#                                 that holds one. What is left is the staircase a broken text leaf
-#                                 would wrap around (#901). ⚠ THIS ROW STILL SAID "it needs a text
-#                                 wrapper below `Vixen.Ui`, which is the same wall §10.8's strut is
-#                                 behind" AFTER THE OTHER THREE FILES HAD STOPPED SAYING IT, which
-#                                 is why the sentence is written out here rather than cross-
-#                                 referenced: it needs no second wrapper at all. Both routes call
-#                                 the FIRST one, `TextLayout`, through the measure function that is
-#                                 already there. See `InlineKnownGaps.txt` for what is genuinely
-#                                 left, which is narrower than either sentence.
+#                                 that holds one. ⚠ AND SO HAS THE THIRD: the staircase a broken
+#                                 text leaf wraps around (#901) landed for a BLOCK-LEVEL leaf, which
+#                                 is the case §9.5 is about — `LayoutTree.ContentBands` is the band
+#                                 query and `FloatBandQueryTests` holds Chrome's geometry. ⚠ THIS ROW
+#                                 STILL SAID "it needs a text wrapper below `Vixen.Ui`, which is the
+#                                 same wall §10.8's strut is behind" AFTER THE OTHER THREE FILES HAD
+#                                 STOPPED SAYING IT, and it needed no second wrapper and no wrapper
+#                                 change at all: one call per band gets the same answer a per-line
+#                                 width would have. What is left is the INLINE-LEVEL leaf, which is
+#                                 a pass-order problem rather than this one; `InlineKnownGaps.txt`
+#                                 owns it.
 #
 # ── OWED ROWS THAT HAVE SINCE CLOSED, KEPT BECAUSE THE REFUTATION IS THE FINDING ─────────────────
 #

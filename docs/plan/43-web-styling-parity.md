@@ -84,7 +84,7 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **331** | 310 families |
+| Utility **roots** (the unit of this table) | **331** | 311 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
 | Variant keys | **88** | **54** |
@@ -107,10 +107,10 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **247** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **248** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **24** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **56** |
+| **absent** | not emitted at all | **55** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 
 ⚠ **There was a sixth, `unknown`, and it described a row rather than a state.** Exactly one row held
@@ -489,10 +489,10 @@ refusal block, which already says so for the same reason.
 
 | Category | roots | works | partial | inert | absent | composed |
 |---|--:|--:|--:|--:|--:|--:|
-| Layout | 50 | 35 | 2 | 0 | 10 | 3 |
+| Layout | 49 | 35 | 2 | 0 | 9 | 3 |
 | Interactivity | 40 | 30 | 0 | 1 | 9 | 0 |
 | Borders | 34 | 28 | 2 | 0 | 4 | 0 |
-| Effects | 34 | 29 | 2 | 0 | 3 | 0 |
+| Effects | 35 | 30 | 2 | 0 | 3 | 0 |
 | Flexbox and Grid | 34 | 30 | 2 | 0 | 2 | 0 |
 | Typography | 34 | 23 | 2 | 0 | 9 | 0 |
 | Spacing | 24 | 24 | 0 | 0 | 0 | 0 |
@@ -504,10 +504,10 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 |
 | Accessibility | 1 | 1 | 0 | 0 | 0 | 0 |
-| **Total** | **331** | **247** | **24** | **1** | **56** | **3** |
+| **Total** | **331** | **248** | **24** | **1** | **55** | **3** |
 
 Flexbox and Grid leads at 30 of 34, with only two absent roots left and both of those refused on
-policy rather than owed; then Layout at 35 of 50, Interactivity at 30 of 40, Borders at 28 of 34,
+policy rather than owed; then Layout at 35 of 49, Interactivity at 30 of 40, Borders at 28 of 34,
 and Effects at 27 of 34. ⚠ Accessibility is 1 of 1 as of 2026-09-06 — `forced-color-adjust` landed the
 day its last blocker (#836) closed, and this paragraph said it had "no working root at all" for as long
 as the refusal outlived its reason. **Tables** is the one category still at zero.
@@ -971,7 +971,8 @@ ever re-read. ⚠ **Three more followed on 2026-09-05 with the `expires-when-rea
 the citations that were already written in English: `border-s-*` and `border-e-*` name the two logical
 colours `InertProperties.txt` exempts under #21, and `select` names `user-select` under #24. A fourth
 went on `ring-offset-*` the same day, when the refusal it carried lost one of its three blockers and
-kept the other two. Three of the nine share one anchor: `rotate-x-*`, `rotate-z-*` and `scale-z-*` are all
+kept the other two; ⚠ **that clause is gone again on 2026-09-06, the root having closed, which is the
+only way a clause is meant to leave this file.** Three of the nine share one anchor: `rotate-x-*`, `rotate-z-*` and `scale-z-*` are all
 waiting on a representation for transform functions, and a refusal that is one of several resting on a
 single premise is the one most likely to be read as settled.
 
@@ -1289,8 +1290,8 @@ one could not answer, so by construction the shorter one still cannot.
 **The `shadowed_by` column is 38 rows, not 39, and its composition is not what this section said.**
 The four groups named here — logical insets, logical radii, per-axis transforms, `border-spacing-*` —
 are 19 of the 38. The other 19 are `border-bs/be-*`, `font-stretch-*`, `text-shadow-*`,
-`inset-shadow-*`, `inset-ring-*` (both registered on 2026-09-06 and out of the column since),
-`ring-offset-*`, `max-w-screen-*`, `flex-shrink/grow-*`, the `bg`
+`inset-shadow-*`, `inset-ring-*` and `ring-offset-*` (all three registered by 2026-09-06 and out of
+the column since), `max-w-screen-*`, `flex-shrink/grow-*`, the `bg`
 keyword sets (`bg-clip`, `bg-origin`, `bg-blend`, `bg-repeat`), `stroke-none` and `content-none`.
 Three of those 38 the column *calls* shadowed are not: `bg-size-[auto]`, `bg-position-[center]` and
 `font-features-[normal]` carry an arbitrary value, and `UtilityParser` sets `Arbitrary` before
@@ -1367,12 +1368,17 @@ does mirror that one.
    `rgb(0, 0, 0)` and the same declaration then parses as a perfectly ordinary eight-item list whose
    fourth item ends in a comma. Both drew nothing, so which one it was never mattered until it did.
    ⚠ **`calc()` has since gone the same way** — `StyleValueParser` folds one, on the fold-or-refuse
-   rule that keeps `calc(100% - 10px)` `Unknown` because a `StyleValue` is one number and one unit —
-   so what still blocks the root is the composition alone — and ⚠ **that is now a narrower thing than
-   "the five-fragment composition"**. `shadow-*` and `ring-*` share one assembled `box-shadow` and
-   `shadow-lg ring-2` on one element paints both, so the collision the five slots were wanted for is
-   closed with two; what `ring-offset-*` is still missing is its own `--tw-ring-offset-width` fragment
-   and the second shadow that reads it, which is why the row's anchor names that and not the count.
+   rule that keeps `calc(100% - 10px)` `Unknown` because a `StyleValue` is one number and one unit.
+   ⚠ **So the root closed on a DECISION rather than on a mechanism, and it is the only one of the
+   three that did.** What was left after both expiries was v4's `--tw-ring-offset-color: #fff`, which
+   is not a colour anybody chose but the assumption that the page behind the element is white — and
+   this chrome is dark. `Canvas` is CSS's own name for that answer, `SystemPalette` resolves it per
+   document and follows the platform appearance, and one stylesheet is then right in both. ⚠ **An
+   opaque gap colour then forced a matching drop in the draw list**: the unset offset slot cannot be
+   dropped for being invisible the way `--tw-shadow`'s is, so `EmitOneShadow` learned that an outer
+   shadow with no offset, no blur and no spread renders nothing — which is what § 7.1.1 already says,
+   because an outer shadow is clipped to outside the border box. Without it, registering the family
+   would have put a page-coloured rectangle under every shadowed element in the editor.
    `stroke-none` is the same
    shape one file over — `stroke` is read only as a colour, and `Icon.Resolve` falls back to the
    foreground for anything that is not one.
@@ -2823,6 +2829,23 @@ claim before it is a break-position oracle** — and a disagreement in any of th
 1 024 rows for a reason that is nothing to do with UAX #14. That is the cost to weigh against
 re-recording, not the transcription.
 
+⚠ **A third re-measurement, and it moves the cost rather than the conclusion: a Chrome reading no
+longer has to come from anybody's recorder.** Chrome 148.0.7778.280 is reachable from an agent
+worktree — serve a fixture directory over `http://localhost` and drive the browser pane at it — and
+this batch took eight readings that way, five of which are now expectations in
+`InlineFragmentationTests`, `InlineFloatInteractionTests`, `FloatBandQueryTests` and
+`TextFloatBandTests`. So "re-record through their `index.html`" is not the cheapest path either: a
+fixture of our own, with our own strings and our own widths, is. What that does **not** buy is the
+half the row above identifies as the real cost. A break-position reading in a proportional font is a
+joint measurement of shaping *and* breaking, so it can only be taken against a face both sides load,
+and the committed faces are twenty shaping-harness and script fonts plus `OpenSans-Regular.ttf` under
+`Editor/Vixen.Editor.App/Fonts` — the only one shipped to set text rather than to exercise a shaper.
+⚠ And it must be recorded as a **ledger** rather than as an equality, for `ChromiumBreakDeltas.txt`'s
+reason: a run that disagrees in one advance disagrees in every line after it, and a red suite that
+says "shaping differs somewhere" is not an oracle for line breaking. What the eight readings taken
+this way did oracle is geometry — where a line box starts and how wide it is — which needs no font at
+all once the fixture sets `font-size: 0; line-height: 0`.
+
 ⚠ **And the single most valuable file is prose.** `parley_engine/src/break_overrides.rs` documents,
 with line-level citations into Chromium, exactly where browsers knowingly deviate from UAX #14 —
 Chrome always allowing a break after a space run in violation of LB13, the hyphen-before-digit rule,
@@ -3071,7 +3094,7 @@ conditional-group id since per-surface media landed; see F11. ⚠ The real findi
 | B2 🟡 | ⚠ **Grid landed and this row said 🔴 for months after it did.** `Vixen.Ui.Layout`'s README is the state: 2 038 of the 2 120 `grid`, `blockgrid` and `gridflex` fixtures pass, 40 are refused and 42 fail in named buckets, with placement, the bulk of track sizing, baseline alignment, the out-of-flow containing block and `grid-template-areas` all done. 🟡 rather than 🟢 because **named lines written into a track list** are still owed, which is the one part the README also names. The estimate below is what it cost, not what is left. **CSS Grid** — a separate algorithm; `grid-template-*`, `fr`, `minmax`, `repeat`, `auto-flow`, named lines and areas, placement, `justify/align-items/self`. Judged by B0's **2 040** plus WPT's 510 `check-layout` grid tests. ⚠ B0's corpus does **not** cover `grid-template-areas`: Taffy's own XML harness leaves it `Default::default()` and no fixture sets it, so named areas need their own oracle | **#27** | 3.5 |
 | B3 🟡 | **Inline formatting — partially landed.** Line boxes over the existing store: atomic inlines (`inline`, `inline-block`, `inline-flex`), §10.3.9 shrink-to-fit, §9.4.2 line breaking, §10.8.1 baselines including the last-line-box and `overflow` clauses, three of `vertical-align`'s eight values, and **fragmentation**. ⚠ **The boundary used to be one invariant** — every algorithm in the store preserved *one node produces one box*, and a non-replaced `inline` box crossing a line break is fragmented into several. **That invariant has now been relaxed for one arena and three ints** (offset, count and capacity, addressed exactly as `ChildArena` and `TrackArena` are). `FragmentArena` is variable-length *output*, the shape `TrackArena` is on the input side; `FragmentCount == 0` still means "one box, and it is `Position`", so `GetLeft`, the absolute walk and all four of `UiElement`'s rectangle properties were untouched, and a fragmented node's own rectangle is the **union** — which is CSS 2.1 §10.1's containing block for an abspos descendant of an inline box, so the absolute walk needed nothing. The zero-allocation gate holds with a span re-fragmenting every frame. ⚠ **Still owed under B3**: fragmentation of *nested* spans and of spans with an out-of-flow child (both producer scope, not representation); anonymous block boxes and generated boxes — which are the **opposite** direction, a box with *no node*, and are **not** unblocked by the arena; the strut and therefore the five font-relative `vertical-align` values; `text-align`, `white-space`, `text-overflow: ellipsis`, `line-clamp`. ⚠ **Zero fixtures**, confirmed by enumeration — Taffy's `display` attribute takes five values across all eight files and none is inline. Oracle fetched from WPT (`css-flexbox/inline-flex.html`); fragmentation is arithmetic over explicitly sized boxes in `InlineFragmentationTests`. See `InlineKnownGaps.txt`. | **#26** | 2.3 of 3.0 |
 | B3a 🟡 | The inline oracle: ICU4X's CSS line-break tailorings, Parley's 2 048 Chrome break cases, and Gecko's 68 `text-overflow` reftests transcribed | — | 0.5 |
-| B4 🟡 | `display: table` and the four table utilities | — | 1.0 |
+| B4 🟡 | `display: table` and the four table utilities. ⚠ **Audited five times and not started, and the fifth audit added the one measurement the other four did not take: nothing in this repository asks for it.** Across all 104 committed `.vxml` and `.vcss` files, not one writes `display: table`, `table-layout`, `caption-side`, `border-collapse` or `border-spacing`; the editor's own tabular panels are grid and flex. So this is a parity item rather than a blocked consumer, and the order it lands in is a choice rather than a dependency. ⚠ A `display: table` that is not in `LayoutStyleBuilder`'s eight keywords is dropped by `TryKeyword` and the element keeps the display it had — which is why aliasing it onto `Block` to make the keyword resolve would be worse than the silence: a box that reads as a table and lays out as a block. | — | 1.0 |
 | | | **B total** | **9.4** |
 
 ⚠ **B2 and B3 are each a subsystem and flattening them into a list of families would be the second

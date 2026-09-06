@@ -180,3 +180,6 @@ joining them directly would make one of them need the other.
   what makes a task list a panel rather than a rebuild.
 - [The editor shell](../editor/index.md) — the task centre and the status bar built over this model,
   and a host that pumps its own manager rather than using `UiApplication`'s.
+- [Loading when a panel appears](async-loading.md) — the feature this one is mistaken for. A panel's
+  own arrival hook, cancelled when its region goes and with no progress and no queue; reach for that
+  when the work belongs to one panel rather than to the application.

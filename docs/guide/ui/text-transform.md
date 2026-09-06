@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.Text.TextTransform, T:Vixen.Ui.Text.TransformedText]
 tags: [ui, text, typography, vcss, utilities, unicode, caret]
 since: 0.2
 status: preview
-related: [ui/text-decoration, ui/text-input, editor/utility-styles]
+related: [ui/text-decoration, ui/text-input, editor/utility-styles, ui/text-wrapping]
 ---
 
 ## What it is

@@ -167,6 +167,32 @@ public class TextDecorationTests {
         }
     }
 
+    /// <summary>A keyword written in the wrong case is still the keyword.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A second property to go with <c>box-shadow</c>'s, because the defect was never about
+    ///     <c>currentcolor</c>.</b> <c>StyleValueParser</c> interned an identifier's text verbatim
+    ///     into an ordinal table, so <i>every</i> keyword in the language had two ids and every reader
+    ///     held one of them — an author who wrote the other got no line, no diagnostic, and a frame
+    ///     identical to one with no <c>text-decoration</c> at all. CSS Values 4 § 3.1 makes a keyword
+    ///     ASCII case-insensitive.
+    ///     <para>
+    ///         The <c>var()</c> row is what makes this a test rather than a measurement of ExCSS.
+    ///         Substitution runs on the declaration's text after the sheet is parsed, so whatever is
+    ///         written in the fallback reaches the parser character for character — no library in the
+    ///         middle can quietly normalise the case away and leave the row green.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("UNDERLINE")]
+    [InlineData("Underline")]
+    [InlineData("var(--nothing, UNDERLINE)")]
+    public void A_decoration_line_is_the_keyword_however_its_case_is_written(string line) {
+        using var document = Documented($"font-size: 40px; text-decoration-line: {line};");
+
+        var bar = Assert.Single(Bars(document));
+        Assert.True(bar.Y > Glyphs(document).Y, "an underline belongs below the baseline");
+    }
+
     /// <summary>An underline goes under the glyphs and a line-through goes over them.</summary>
     /// <remarks>
     ///     ⚠ <b>CSS Text Decoration 3 § 4.1's painting order, and the only reason a descender

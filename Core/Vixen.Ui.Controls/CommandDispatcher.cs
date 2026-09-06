@@ -3,9 +3,8 @@
 
 using Vixen.Input;
 using Vixen.Ui;
-using Vixen.Ui.Controls;
 
-namespace Vixen.Editor.Ui;
+namespace Vixen.Ui.Controls;
 
 /// <summary>Turns keystrokes into commands.</summary>
 /// <remarks>
@@ -134,7 +133,7 @@ public sealed class CommandDispatcher {
     ///     <para>
     ///         ⚠ <b>The whole route and not an element-only walk, filtered on
     ///         <see cref="CommandHandler.Element" />.</b> The tail of the chain is
-    ///         <see cref="CommandRegistry" /> itself — <see cref="EditorShell" /> installs it as the
+    ///         <see cref="CommandRegistry" /> itself — the application installs it as the
     ///         document's <see cref="UiDocument.ApplicationCommandResponder" /> — so a resolve that
     ///         reached the end would hand back the very command this method exists to fall through
     ///         to, and running it here would skip the scope gate below. A non-element answer means

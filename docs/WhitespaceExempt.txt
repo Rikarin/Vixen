@@ -481,7 +481,6 @@ Editor/Vixen.Editor.Terrain.Tests/TerrainPanelTests.cs
 Editor/Vixen.Editor.Ui.Tests/ConsoleTests.cs
 Editor/Vixen.Editor.Ui.Tests/KeyMapPresetTests.cs
 Editor/Vixen.Editor.Ui.Tests/TaskCenterTests.cs
-Editor/Vixen.Editor.Ui/Commands/KeyMap.cs
 Editor/Vixen.Editor.Ui/Console/ConsoleModel.cs
 Editor/Vixen.Editor.Ui/EditorShell.cs
 Editor/Vixen.Editor.Ui/Menus/EditorIcons.cs

@@ -53,6 +53,17 @@ public sealed class PackagedAnalyzerTests : IDisposable {
     static readonly string Repository = Path.GetFullPath(Metadata("VixenRepositoryRoot"));
 
     /// <summary>
+    ///     The configuration this test assembly was compiled in, which is the one the tree around it
+    ///     has bin/ directories for. Written by the SDK from <c>$(Configuration)</c>.
+    /// </summary>
+    static readonly string Configuration =
+        Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyConfigurationAttribute>()?.Configuration
+        ?? throw new InvalidOperationException(
+            "This assembly carries no AssemblyConfigurationAttribute, so the pack below cannot know which "
+            + "bin/ the generator projects were built into."
+        );
+
+    /// <summary>
     ///     The packages that carry a generator today — a floor under the census, not the list under
     ///     test.
     /// </summary>
@@ -219,7 +230,17 @@ public sealed class PackagedAnalyzerTests : IDisposable {
 
         var output = Path.Combine(root, package);
 
-        var pack = Run("pack", project, "-c", "Debug", "--nologo", "-o", output);
+        // ⚠ The configuration this assembly was built in, not a hard-coded `Debug`, and the
+        // difference is what made master's `Test` leg red on all three operating systems (#943).
+        // `PackNetGenerators` and its six siblings ask the generator project for `GetTargetPath`
+        // rather than `Build` — deliberately, since `NoBuild` is global and asking for `Build` here
+        // is NETSDK1085 — so packing lists a path the pack itself does not produce. A developer
+        // machine defaults `Configuration` to Debug and has therefore built that path already; CI
+        // builds Release and only Release, so a Debug pack named
+        // `Core/Vixen.Net.Generators/bin/Debug/netstandard2.1` and NuGet refused a directory that
+        // was never going to exist. Packing what the tree in front of the test was actually built
+        // in is true on both.
+        var pack = Run("pack", project, "-c", Configuration, "--nologo", "-o", output);
 
         // ⚠ Only the output directory is redirected, not obj/ and bin/. PackagedToolTests packs with
         // BaseIntermediateOutputPath pointed at its own temporary directory; doing that here is

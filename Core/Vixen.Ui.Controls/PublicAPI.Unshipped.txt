@@ -34,6 +34,17 @@ Vixen.Ui.Controls.Avatar.Name.set -> string?
 Vixen.Ui.Controls.Badge -> sealed class
 Vixen.Ui.Controls.Badge : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.Badge.Badge() -> void
+Vixen.Ui.Controls.BindResult -> enum : byte
+Vixen.Ui.Controls.BindResult.BindResult() -> void
+Vixen.Ui.Controls.BindResult.Bound = 0 -> Vixen.Ui.Controls.BindResult
+Vixen.Ui.Controls.BindResult.Conflict = 1 -> Vixen.Ui.Controls.BindResult
+Vixen.Ui.Controls.BindResult.Replaced = 2 -> Vixen.Ui.Controls.BindResult
+Vixen.Ui.Controls.BindResult.Unchanged = 3 -> Vixen.Ui.Controls.BindResult
+Vixen.Ui.Controls.BindingSource -> enum : byte
+Vixen.Ui.Controls.BindingSource.BindingSource() -> void
+Vixen.Ui.Controls.BindingSource.Default = 0 -> Vixen.Ui.Controls.BindingSource
+Vixen.Ui.Controls.BindingSource.Preset = 1 -> Vixen.Ui.Controls.BindingSource
+Vixen.Ui.Controls.BindingSource.User = 2 -> Vixen.Ui.Controls.BindingSource
 Vixen.Ui.Controls.Breadcrumb -> sealed class
 Vixen.Ui.Controls.Breadcrumb : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.Breadcrumb.AddStep(string? label, string? value = null) -> Vixen.Ui.Controls.BreadcrumbItem
@@ -107,6 +118,11 @@ Vixen.Ui.Controls.ComboBox.Toggle.get -> Vixen.Ui.Controls.IconButton
 Vixen.Ui.Controls.ComboBox.Value.get -> string?
 Vixen.Ui.Controls.ComboBox.Value.set -> string?
 Vixen.Ui.Controls.ComboBox.ValueChanged -> System.Action<Vixen.Ui.Controls.ComboBox, string?>?
+Vixen.Ui.Controls.CommandDispatcher -> sealed class
+Vixen.Ui.Controls.CommandDispatcher.Attach(Vixen.Ui.UiDocument document) -> void
+Vixen.Ui.Controls.CommandDispatcher.CommandDispatcher(Vixen.Ui.Controls.CommandRegistry commands, Vixen.Ui.Controls.KeyMap keys) -> void
+Vixen.Ui.Controls.CommandDispatcher.Pressed(Vixen.Ui.UiDocument document, Vixen.Ui.KeyEvent args) -> bool
+Vixen.Ui.Controls.CommandDispatcher.Refused -> System.Action<Vixen.Ui.Controls.EditorCommand>?
 Vixen.Ui.Controls.CommandRegistry -> sealed class
 Vixen.Ui.Controls.CommandRegistry : Vixen.Ui.IResponder
 Vixen.Ui.Controls.CommandRegistry.Add(Vixen.Ui.Controls.EditorCommand command) -> Vixen.Ui.Controls.EditorCommand
@@ -362,6 +378,35 @@ Vixen.Ui.Controls.Image.SourceRectangle.get -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Controls.Image.SourceRectangle.set -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Controls.Image.Texture.get -> ulong
 Vixen.Ui.Controls.Image.Texture.set -> ulong
+Vixen.Ui.Controls.KeyMap -> sealed class
+Vixen.Ui.Controls.KeyMap.Bind(string commandId, Vixen.Ui.KeyChord chord, bool replace = false) -> Vixen.Ui.Controls.BindResult
+Vixen.Ui.Controls.KeyMap.Bindings.get -> System.Collections.Generic.IReadOnlyDictionary<string, Vixen.Ui.KeyChord>
+Vixen.Ui.Controls.KeyMap.Changed -> System.Action<Vixen.Ui.Controls.KeyMap>?
+Vixen.Ui.Controls.KeyMap.ChordFor(string commandId) -> Vixen.Ui.KeyChord
+Vixen.Ui.Controls.KeyMap.CommandFor(Vixen.Ui.KeyChord chord, string? context = null) -> string?
+Vixen.Ui.Controls.KeyMap.ContextOf.get -> System.Func<string, string?>?
+Vixen.Ui.Controls.KeyMap.ContextOf.set -> System.Func<string, string?>?
+Vixen.Ui.Controls.KeyMap.Defaults.get -> System.Collections.Generic.IReadOnlyDictionary<string, Vixen.Ui.KeyChord>
+Vixen.Ui.Controls.KeyMap.Ids() -> System.Collections.Generic.IEnumerable<string>
+Vixen.Ui.Controls.KeyMap.IsCustomised(string commandId) -> bool
+Vixen.Ui.Controls.KeyMap.IsReserved(string commandId) -> bool
+Vixen.Ui.Controls.KeyMap.KeyMap() -> void
+Vixen.Ui.Controls.KeyMap.Overrides.get -> System.Collections.Generic.IReadOnlyDictionary<string, Vixen.Ui.KeyChord>
+Vixen.Ui.Controls.KeyMap.Preset.get -> Vixen.Ui.Controls.KeyMapPreset?
+Vixen.Ui.Controls.KeyMap.PresetName.get -> string
+Vixen.Ui.Controls.KeyMap.PresetSource.get -> System.Func<string, Vixen.Ui.Controls.KeyMapPreset?>
+Vixen.Ui.Controls.KeyMap.PresetSource.set -> System.Func<string, Vixen.Ui.Controls.KeyMapPreset?>
+Vixen.Ui.Controls.KeyMap.Reserve(string commandId) -> void
+Vixen.Ui.Controls.KeyMap.Reset() -> void
+Vixen.Ui.Controls.KeyMap.ResetBinding(string commandId) -> bool
+Vixen.Ui.Controls.KeyMap.Restore(string? presetName, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string, Vixen.Ui.KeyChord>> bindings) -> void
+Vixen.Ui.Controls.KeyMap.SetDefault(string commandId, Vixen.Ui.KeyChord chord) -> Vixen.Ui.Controls.BindResult
+Vixen.Ui.Controls.KeyMap.SourceOf(string commandId) -> Vixen.Ui.Controls.BindingSource
+Vixen.Ui.Controls.KeyMap.UsePreset(Vixen.Ui.Controls.KeyMapPreset? chosen) -> void
+Vixen.Ui.Controls.KeyMap.UsePreset(string? name) -> bool
+Vixen.Ui.Controls.KeyMapPreset -> sealed class
+Vixen.Ui.Controls.KeyMapPreset.Bindings.get -> System.Collections.Generic.IReadOnlyDictionary<string, Vixen.Ui.KeyChord>
+Vixen.Ui.Controls.KeyMapPreset.Name.get -> string
 Vixen.Ui.Controls.KeyValueList -> sealed class
 Vixen.Ui.Controls.KeyValueList : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.KeyValueList.AddRow(string? key = null, string? value = null) -> Vixen.Ui.Controls.KeyValueRow
@@ -1022,6 +1067,7 @@ Vixen.Ui.Controls.VirtualizingPanel.TotalHeight.get -> float
 Vixen.Ui.Controls.VirtualizingPanel.VirtualizingPanel() -> void
 abstract Vixen.Ui.Controls.SelectBase.OnOptionChosen(Vixen.Ui.Controls.Option option) -> void
 const Vixen.Ui.Controls.Expander.HeaderSlot = "header" -> string
+const Vixen.Ui.Controls.KeyMap.NoPreset = "Vixen" -> string
 const Vixen.Ui.Controls.ScrollView.AnchorEpsilon = 0.01 -> float
 const Vixen.Ui.Controls.ScrollView.FlingDecayConstant = 0.325 -> float
 const Vixen.Ui.Controls.ScrollView.FlingStopSpeed = 8 -> float
@@ -1128,6 +1174,7 @@ override Vixen.Ui.Controls.Image.NativeAccessibleName.get -> string?
 override Vixen.Ui.Controls.Image.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Image.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.Image.TagName.get -> string
+override Vixen.Ui.Controls.KeyMapPreset.ToString() -> string
 override Vixen.Ui.Controls.KeyValueList.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.KeyValueList.TagName.get -> string
 override Vixen.Ui.Controls.KeyValueRow.AcceptsFocus.get -> bool
@@ -1409,6 +1456,7 @@ static Vixen.Ui.Controls.IconPaint.Foreground.get -> Vixen.Ui.Controls.IconPaint
 static Vixen.Ui.Controls.IconPaint.Named(string token) -> Vixen.Ui.Controls.IconPaint
 static Vixen.Ui.Controls.IconPaint.None.get -> Vixen.Ui.Controls.IconPaint
 static Vixen.Ui.Controls.IconPaint.Of(Vixen.Core.Mathematics.Color4 color) -> Vixen.Ui.Controls.IconPaint
+static Vixen.Ui.Controls.KeyMapPreset.Of(string name, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string, Vixen.Ui.KeyChord>> bindings) -> Vixen.Ui.Controls.KeyMapPreset
 static Vixen.Ui.Controls.KeyboardShortcut.Describe(Vixen.Input.InputKey key, Vixen.Ui.ModifierKeys modifiers) -> string
 static Vixen.Ui.Controls.KeyboardShortcut.Formatter.get -> System.Func<Vixen.Input.InputKey, Vixen.Ui.ModifierKeys, string>
 static Vixen.Ui.Controls.KeyboardShortcut.Formatter.set -> System.Func<Vixen.Input.InputKey, Vixen.Ui.ModifierKeys, string>

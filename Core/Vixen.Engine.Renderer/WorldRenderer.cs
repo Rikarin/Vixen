@@ -543,7 +543,12 @@ public sealed class WorldRenderer : IDisposable {
     ///         <see cref="UiRenderFeature.Mount" />, once, with the stages that draw it. Then
     ///         <see cref="UiRenderFeature.Set" /> every frame, with the geometry the document's
     ///         builder produced — the geometry holds the builder's own lists and is valid for one
-    ///         frame, which is why it is pushed per frame rather than held. And then
+    ///         frame, which is why it is pushed per frame rather than held — and with
+    ///         <see cref="UiInterface.Scale" />, ⚠ <b>which is not optional on a display that has
+    ///         more than one pixel per layout unit</b>: it defaults to one, and one is right only
+    ///         for a document laid out in physical pixels. A HUD in points on a 2× display drawn at
+    ///         a scale of one clips to the top-left quarter of the window and takes the pointer with
+    ///         it, because hit testing is done against a layout that is right. And then
     ///         <see cref="UiRenderFeature.Upload" /> and <see cref="UiRenderFeature.Compose" />,
     ///         every frame, on a list that is not inside a render pass.
     ///     </para>

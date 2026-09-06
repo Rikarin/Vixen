@@ -104,10 +104,32 @@ public static class PlatformInput {
     ///     <para>
     ///         ⚠ <b>These are defaults and not a platform read.</b> They are the tables a browser
     ///         uses; the platform's own semantic colours — AppKit's <c>labelColor</c>, Windows'
-    ///         <c>UISettings</c> accent — are not read here, and the AppKit half is not merely
-    ///         unwritten but blocked: <c>MacOSAppearance</c> and <c>MacOSAccessibility</c> both reach
-    ///         Foundation and deliberately not AppKit, because an SDL process has no
-    ///         <c>NSApplication</c> and <c>NSColor</c> wants one.
+    ///         <c>UISettings</c> accent — are not read here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><s>And the AppKit half is not merely unwritten but blocked, because an SDL
+    ///         process has no <c>NSApplication</c> and <c>NSColor</c> wants one.</s> Measured on
+    ///         2026-09-06 and false.</b> A process that never made an <c>NSApplication</c> — <c>NSApp</c>
+    ///         nil throughout — resolves <c>+[NSColor labelColor]</c>,
+    ///         <c>secondaryLabelColor</c>, <c>separatorColor</c>, <c>textBackgroundColor</c>,
+    ///         <c>selectedContentBackgroundColor</c>, <c>controlAccentColor</c> and
+    ///         <c>windowBackgroundColor</c> through <c>colorUsingColorSpace:</c> perfectly well, and
+    ///         gets the <em>system's</em> appearance rather than a message to nil: on a Mac in dark
+    ///         mode with no appearance set at all, <c>labelColor</c> came back white at 84.7% alpha
+    ///         and <c>textBackgroundColor</c> at 0.1176 grey. <c>+[NSAppearance setCurrentAppearance:]</c>
+    ///         then switches the answers deterministically — the same reads under
+    ///         <c>NSAppearanceNameAqua</c> gave black-on-white — and all of it works on a secondary
+    ///         thread, so a test can assert it without a runner on the main thread.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What is genuinely blocked is <c>NSApp.effectiveAppearance</c>, which is a
+    ///         different claim and is the one <c>MacOSAppearance</c> makes.</b> That is a
+    ///         message to a nil <c>NSApp</c> and returns zero, which reads as light. The two were run
+    ///         together and only the first half survives: a semantic <em>colour</em> is a class
+    ///         method that resolves against <c>NSAppearance.currentDrawingAppearance</c>, which has a
+    ///         sensible value with no application object in sight. So the platform read this method
+    ///         does not do is unblocked and owed, and it is not limited to the two roles
+    ///         <c>NSGlobalDomain</c> can spell.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A host that has read a real palette writes it with

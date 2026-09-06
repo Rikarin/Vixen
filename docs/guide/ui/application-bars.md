@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.Controls.Toolbar, T:Vixen.Ui.Controls.StatusBar, T:Vixen.Ui.Con
 tags: [ui, controls, toolbar, accessibility, application]
 since: 0.2
 status: preview
-related: [ui/split-view, ui/commands, ui/accessibility]
+related: [ui/split-view, ui/commands, ui/accessibility, ui/shortcut-formatting]
 ---
 
 ## What it is

@@ -625,6 +625,22 @@ public sealed class ComponentEmitter {
         element.IsComponent ? $"{RuntimeNamespace}.BuildContext.Host({name})" : name;
 
     /// <summary>
+    ///     The same choice for <c>bind:</c> and <c>change:</c>, which a component tag cannot carry.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="Target" /> redirects a component tag to its root; this one refuses it.</b>
+    ///     A <c>class</c> means something on the element a component drew, so redirecting is right.
+    ///     A <c>bind:</c> and a <c>change:</c> name a <c>[UiProperty]</c>, which no
+    ///     <c>Component</c> has, so redirecting to the root only moved the failure somewhere the
+    ///     author cannot see it — <c>KeyOf</c> threw at compose naming a tag that is not in their
+    ///     file. <c>Bindable</c>'s other overload is obsolete-as-error, so the same overload
+    ///     resolution that answers <c>Host</c>'s question answers this one, at compile time and with
+    ///     a sentence in it.
+    /// </remarks>
+    static string Bindable(BoundElement element, string name) =>
+        element.IsComponent ? $"{RuntimeNamespace}.BuildContext.Bindable({name})" : name;
+
+    /// <summary>
     ///     Attributes that mean the same thing on a component as on an element, and are therefore
     ///     never parameters.
     /// </summary>
@@ -755,7 +771,7 @@ public sealed class ComponentEmitter {
                 // stay: a control with no commit moment would otherwise never write.
                 var commits = string.Concat(attribute.Modifiers.Select(m => $", {Quote(m)}"));
 
-                Mapped(bound, $"{context}.TwoWay({Target(element, name)}, {Quote(attribute.Name)}, () => ", ",");
+                Mapped(bound, $"{context}.TwoWay({Bindable(element, name)}, {Quote(attribute.Name)}, () => ", ",");
                 Indented(() => Mapped(bound, "__v => ", $" = __v{commits});"));
                 break;
             }
@@ -768,13 +784,18 @@ public sealed class ComponentEmitter {
                 // `bind:` emits, and it buys the same three things: the property must exist, it must
                 // be readable, and no cast or box appears in the delivery path.
                 //
-                // ⚠ And the tag object rather than `Target(element, name)`, unlike `bind:`. A
-                // `change:` names a `[UiProperty]`, which a `Component` does not have — so a
-                // component tag has to fail, and it fails here as "cannot convert", on the
-                // attribute's own characters.
+                // ⚠ And `Bindable` rather than `Target(element, name)`, unlike every other
+                // directive. A `change:` names a `[UiProperty]`, which a `Component` does not have,
+                // so a component tag has to fail — and it used to fail as Roslyn's "cannot convert
+                // Callout to UiElement", which says nothing about properties. `Bindable`'s
+                // component overload is obsolete-as-error, so the failure now carries a sentence.
                 var named = new BoundExpression(attribute.Name, attribute.NamePosition);
 
-                Mapped(named, $"{context}.Changed({name}, {Quote(attribute.Name)}, () => {name}.", ",");
+                Mapped(
+                    named,
+                    $"{context}.Changed({Bindable(element, name)}, {Quote(attribute.Name)}, () => {name}.",
+                    ","
+                );
                 Indented(() => Mapped(handler, string.Empty, ");"));
                 break;
             }

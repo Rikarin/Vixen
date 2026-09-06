@@ -238,6 +238,15 @@ against the outer scale's seven, and much tighter, because every pixel of an inn
 where an outer one is seen at its edge. `inset-ring-*` is `ring-*`'s width and colour with the
 keyword in front. All four compose: `inset-shadow-sm inset-ring-2 ring-2 shadow-lg` is four things.
 
+⚠ **`ring-offset-*` is the fifth slot, and the gap it draws is not a hole.** Nothing in a
+`box-shadow` list can punch through what is behind it, so `ring-2 ring-offset-2` paints a two-point
+ring in the offset colour *over* a four-point ring in the ring colour — the offset's width appears
+twice, once as its own shadow and once inside the ring's spread. ⚠ **Its colour is `Canvas` and not
+Tailwind's `#fff`.** v4's white is the assumption that the page is white, which is the only answer a
+stylesheet generator can give; `Canvas` is CSS's name for the same thing, `SystemPalette` resolves it
+per document, and it follows the platform's light and dark appearance — so one stylesheet is right in
+both, where a literal white would put a halo round every focused control in this chrome.
+
 ⚠ **`fill-*` and `stroke-*` reach `Icon`, and they inherit** — which is what makes them useful, since
 the class goes on the button and the `<icon>` is a child. They override the paints an icon declared
 as *foreground* (SVG's `currentColor`) and deliberately leave a literal colour alone, so the

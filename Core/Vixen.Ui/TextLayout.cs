@@ -232,7 +232,11 @@ public sealed class TextLayout {
         // decided anything, and sabotaging it failed no test. One condition, one meaning.
         var width = request.WidthMode == MeasureMode.Undefined ? float.PositiveInfinity : request.AvailableWidth;
 
-        if (element.Block(width) is not { } block) {
+        // ⚠ The tree goes in, and this call site is the only one that may hand it over: a measure
+        // function runs while the store is laying this very element out, which is the one moment
+        // `LayoutTree.ContentBands` can say where its lines sit among the floats. Everywhere else
+        // the paragraph reuses what this pass decided — see `UiElement.Block(float, LayoutTree?)`.
+        if (element.Block(width, request.Tree) is not { } block) {
             return new LayoutSize(0f, 0f);
         }
 

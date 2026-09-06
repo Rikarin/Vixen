@@ -779,6 +779,12 @@ public sealed partial class LayoutTree {
     ///         <see cref="ShiftLinePastFloats" /> — and only overflows once there is no float left to
     ///         get out from under.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The fit test is run against what the line will have spent by the time it ends,
+    ///         not against what it has spent so far</b> — see <see cref="ClosingEdgesAfter" />. The
+    ///         two differ by the end edges of the boxes that close after this item, which the walk
+    ///         does not reach until the item is already on the line.
+    ///     </para>
     /// </remarks>
     (int End, int Placed) BreakLine(int lineStart, int streamEnd, Direction direction, float innerWidth, float availableWidth) {
         var cursor = lineStart;
@@ -810,7 +816,9 @@ public sealed partial class LayoutTree {
             // resolved percentages and a line that fits exactly is the commonest case in a
             // hand-written layout. Breaking `width: 50%` twice into two lines because the two halves
             // add to 100.00001 is the failure this prevents.
-            if (placed > 0 && lineWidth + advance > availableWidth + LineFitTolerance) {
+            if (placed > 0
+                && lineWidth + advance + ClosingEdgesAfter(cursor + 1, streamEnd, direction, innerWidth)
+                > availableWidth + LineFitTolerance) {
                 break;
             }
 
@@ -824,9 +832,19 @@ public sealed partial class LayoutTree {
 
     /// <summary>How much room a line box needs before it can hold anything at all.</summary>
     /// <remarks>
-    ///     §9.5's shift-down clause is stated against "content", and the smallest unit of content this
-    ///     walk can put on a line is one atomic item — plus whichever inline box edges open before it,
-    ///     which are charged to the line wherever they fall and cannot be deferred to the next one.
+    ///     <para>
+    ///         §9.5's shift-down clause is stated against "content", and the smallest unit of content
+    ///         this walk can put on a line is one atomic item — plus whichever inline box edges open
+    ///         before it, which are charged to the line wherever they fall and cannot be deferred to
+    ///         the next one, and whichever close straight after it (see
+    ///         <see cref="ClosingEdgesAfter" />).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The closing half is measured rather than assumed.</b> Chrome, in a 200-wide box
+    ///         with a 60-wide left float: a 130-wide item in a span padded 30 at its end drops
+    ///         <i>below</i> the float, because 130 + 30 does not fit the 140 the float leaves — and
+    ///         the same item in a span padded 5 stays beside it at x = 60.
+    ///     </para>
     /// </remarks>
     float FirstChunkWidth(int lineStart, int streamEnd, Direction direction, float innerWidth) {
         var width = 0f;
@@ -844,10 +862,62 @@ public sealed partial class LayoutTree {
                 continue;
             }
 
-            return width + InlineOuterWidth(item.Node, direction, innerWidth);
+            return width + InlineOuterWidth(item.Node, direction, innerWidth) + ClosingEdgesAfter(i + 1, streamEnd, direction, innerWidth);
         }
 
         return width;
+    }
+
+    /// <summary>
+    ///     What the boxes that close immediately after an item will spend on the line it ends.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An inline box's end edge is charged to the line when the walk <i>reaches</i> its
+    ///         <see cref="InlineItemKind.Close" />, which is after the item before it has already been
+    ///         fitted — so without this the fit test is run against a width that omits padding the
+    ///         line is about to spend, and the line overflows by exactly that sum, silently.</b> A
+    ///         200-wide box, a span padded 10 on each side and three 60-wide items: 10 + 60 + 60 + 60
+    ///         fits, and then the closing 10 takes the line to 210.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only the boxes that would close before the next item, which is not the same as
+    ///         "the boxes that are open".</b> A box whose content continues onto the next line does
+    ///         not draw an end edge at the break (§9.2.1.1), so charging every open box would wrap
+    ///         items a browser keeps. Chrome, measured: an outer span padded 30 at its end holding
+    ///         four 60-wide items in a 200-wide box puts <i>three</i> on the first line — the 30 is
+    ///         spent on the second line, where the span really ends. Stopping at the first item that
+    ///         is not a close is what expresses that: if the line breaks here instead, the still-open
+    ///         boxes are still open, and they cost this line nothing.
+    ///     </para>
+    ///     <para>
+    ///         A float in between is stepped over rather than ending the run, for the same reason it
+    ///         advances no pen: it is out of flow, and what it takes from the line it takes by
+    ///         narrowing the band.
+    ///     </para>
+    /// </remarks>
+    /// <param name="after">The first stream entry past the item being fitted.</param>
+    /// <param name="streamEnd">One past the last entry of this container's stream.</param>
+    /// <param name="direction">The container's inline direction.</param>
+    /// <param name="innerWidth">The containing block's inner width, which percentages resolve against.</param>
+    float ClosingEdgesAfter(int after, int streamEnd, Direction direction, float innerWidth) {
+        var edges = 0f;
+
+        for (var i = after; i < streamEnd; i++) {
+            var item = inlineItems[i];
+
+            if (item.Kind == InlineItemKind.Float) {
+                continue;
+            }
+
+            if (item.Kind != InlineItemKind.Close) {
+                break;
+            }
+
+            edges += InlineBoxEndEdge(item.Node, direction, innerWidth);
+        }
+
+        return edges;
     }
 
     /// <summary>How much of a line box the floats crossing it leave, and where it starts.</summary>

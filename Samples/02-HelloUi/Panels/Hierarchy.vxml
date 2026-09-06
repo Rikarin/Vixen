@@ -29,7 +29,9 @@
     markup half of drag and drop was a spelling nobody had ever asked to compile. Dropping files from
     Finder or Explorer onto this panel puts a row in for each of them.
 -->
-<TreeView ref="@tree" on:drop="@((DropEvent args) => Dropped(args))" />
+<TreeView ref="@tree"
+          on:dragstart="@((DragEvent args) => Pick(args))"
+          on:drop="@((DropEvent args) => Dropped(args))" />
 
 @code {
     ShellModel? standalone;
@@ -96,6 +98,39 @@
             CopySelection,
             () => !tree.SelectedNodes.IsDefaultOrEmpty && Root.Document.HasClipboard
         );
+    }
+
+    /// <summary>Picks the selected rows up as a drag the rest of the window can accept.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>UiDocument.BeginDrag</c> had no production caller anywhere in the
+    ///         repository.</b> The whole in-app half of drag and drop — <c>DataObject</c>,
+    ///         <c>AllowDrop</c>, the <c>DropEffect</c> a source offers and a target narrows, the
+    ///         Escape that cancels and the Enter that drops — was built, routed and tested against
+    ///         nothing that had ever started a session. This is the first, and the Inspector is what
+    ///         it lands on.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>From <c>dragstart</c> and not from a press.</b> The gesture recogniser is what
+    ///         decides a press has wandered further than <c>GestureSettings.TouchSlop</c> and is
+    ///         therefore a drag rather than a wobble; a source that began a session on
+    ///         <c>pointerdown</c> would begin one for every click in the panel.
+    ///     </para>
+    ///     <para>
+    ///         The payload is text because that is what any target can read — the same flavour an OS
+    ///         drop and the clipboard both speak. A source with a richer representation offers both
+    ///         and lets the target pick, which is what <c>DataObject</c>'s ordered formats are for.
+    ///     </para>
+    /// </remarks>
+    void Pick(DragEvent args) {
+        if (tree.SelectedNodes.IsDefaultOrEmpty) {
+            return;
+        }
+
+        var data = new DataObject();
+        data.SetText(string.Join(Environment.NewLine, tree.SelectedNodes.Select(node => node.Text)));
+
+        Root.Document.BeginDrag(tree, data, DropEffect.Copy);
     }
 
     /// <summary>Takes files dragged in from the desktop and puts a row in for each.</summary>

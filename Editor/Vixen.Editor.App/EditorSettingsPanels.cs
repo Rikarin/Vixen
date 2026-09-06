@@ -210,14 +210,22 @@ sealed partial class EditorApplication {
                 // ⚠ Through `KeyMap.Load`, which is what the user's own file goes through — so an
                 // imported map names a preset the same way, drops a stale chord the same way, and
                 // cannot put the editor into a state its own file could not.
-                path => OnFile(() => Shell.Keys.Load(File.ReadAllText(path)), path, "Could not read the keymap"),
+                path => OnFile(
+                    () => KeyMapYaml.Read(Shell.Keys, File.ReadAllText(path)),
+                    path,
+                    "Could not read the keymap"
+                ),
                 "Could not import the keymap"
             );
 
         view.ExportRequested += _ =>
             Picked(
                 dialogs => dialogs.SaveFileAsync(Keymap("Export Keymap") with { SuggestedFileName = EditorUserStore.KeyMapFile }),
-                path => OnFile(() => File.WriteAllText(path, Shell.Keys.Save()), path, "Could not write the keymap"),
+                path => OnFile(
+                    () => File.WriteAllText(path, KeyMapYaml.Write(Shell.Keys)),
+                    path,
+                    "Could not write the keymap"
+                ),
                 "Could not export the keymap"
             );
 

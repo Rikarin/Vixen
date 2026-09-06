@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.Layout.OverflowAlignment, T:Vixen.Ui.Layout.LegacyTextAlign]
 tags: [ui, layout, css, alignment, overflow, text-align]
 since: 0.2
 status: preview
-related: [ui/grid-layout, ui/inline-layout, ui/utility-composition]
+related: [ui/grid-layout, ui/inline-layout, ui/utility-composition, ui/containment]
 ---
 
 ## What it is

@@ -147,12 +147,15 @@ the clearance is inserted into the middle of it, with the box's border edges at 
 
 ## What is not implemented
 
-⚠ **A text leaf does not break around a float's staircase.** §9.5's main clause — a line box is
-shortened to the band the floats crossing it leave — landed, along with the shift-downward clause and
-a float declared inside a run; what is left is the one piece that is structural rather than
-unwritten. A text leaf reaches this store as a measure function and is one atomic item, so a
-paragraph beside a float re-flows as whole leaves and a leaf's own first line is not shortened to the
-room left beside the float.
+⚠ **An inline-level text leaf does not break around a float's staircase.** §9.5's main clause — a
+line box is shortened to the band the floats crossing it leave — landed, along with the
+shift-downward clause and a float declared inside a run; and so has the staircase itself, for a
+**block-level** paragraph, which is the arrangement §9.5 is about. What is left is a text leaf that
+shares a line box with other inline-level boxes: it reaches this store as a measure function and is
+one atomic item, so it re-flows whole and its first line is not shortened to the room left beside the
+float. ⚠ The reason the block-level query cannot serve that case is a **pass order** rather than a
+protocol — the inline walk sizes every item before it breaks a line, so there is no line box to
+shorten to at the moment the leaf is measured.
 
 ⚠ **What this paragraph said the blocker was has now been wrong twice, and the second correction is
 the useful one.** It first read "the same wall §10.8's strut is behind"; the strut's wall was font
@@ -164,8 +167,14 @@ because §9.5 shortens **line boxes** and leaves the block box full width, so a 
 size is one rectangle whatever happens inside it. What is left is a band on the *question* — and
 `MeasureRequest` already carries the tree, the measure cache is already bypassed in every
 float-bearing tree, and the float origin is already the leaf's own top edge when it is measured. So
-it is the strut's shape after all: a band query, a per-line available width in `LineWrapper`, and a
-per-line inline offset on `TextLine`. ⚠ None
+it is the strut's shape after all — and that is what landed, as `LayoutTree.ContentBands`: a
+block-level leaf asks, from inside its own measure function, for the room each of its own lines has,
+and gets one entry per line slot for as long as a float takes any of it away. ⚠ **Two of the three
+pieces this paragraph named were not needed.** `TextLine` already carried a per-line inline offset,
+because `text-indent` put one there and the draw list, the caret, the selection band and the hit test
+have read it all along; and `LineWrapper` did not have to take a per-line width, because a greedy
+wrapper's state at a line boundary is one integer — asking it for the *first* line of what is left,
+at this line's own width, is the same answer. ⚠ None
 of the 92 Chrome-derived fixtures has any text in it, which is how the whole clause survived being
 measured for as long as it did; the expectations for the part that landed had to be read out of
 Chrome case by case instead.

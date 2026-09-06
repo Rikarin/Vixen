@@ -29,6 +29,15 @@ namespace Vixen.Ui.Layout.Tests;
 ///         the addition.
 ///     </para>
 ///     <para>
+///         ⚠ <b>Four cases at the end of the file are the exception, and had to be.</b> Whether an
+///         inline box's closing edge takes part in the fit test for the item before it is a question
+///         arithmetic cannot answer — both answers are self-consistent and they disagree about where
+///         a line breaks — so those four were read out of Chrome 148.0.7778.280 the way
+///         <see cref="InlineFloatInteractionTests" /> reads its numbers, with the same
+///         <c>font-size: 0; line-height: 0</c> fixture that takes §10.8's strut out of a Chrome line
+///         box. They are named individually below.
+///     </para>
+///     <para>
 ///         ⚠ <b>The container is padded in most of these deliberately.</b> A fragment is stored
 ///         relative to its own node and the node's box is the union of its fragments, so a union whose
 ///         origin is (0, 0) tests none of the rebasing — and rebasing is the step that, omitted, makes
@@ -681,6 +690,197 @@ public class InlineFragmentationTests {
 
         // ⚠ And it actually moved: the second line's raw top is 10.1, which is not on the grid.
         Assert.Equal(10f, tree.GetFragment(span, 1).Top, Tolerance);
+    }
+
+    /// <summary>
+    ///     The end edge a span will spend when it closes decides whether the item before it fits.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Read out of Chrome 148.0.7778.280, and it is the first number in this file that
+    ///         was.</b> The rest of the file is closed-form arithmetic because no browser reading was
+    ///         taken; this one had to be, because the arithmetic alone cannot say <i>which</i> of two
+    ///         defensible rules a browser implements — and the two differ, see
+    ///         <see cref="A_box_that_carries_on_past_the_break_spends_no_end_edge_on_the_line" />.
+    ///         Fixture: a 200-wide <c>flow-root</c> at <c>font-size: 0; line-height: 0</c>, a
+    ///         <c>display: inline</c> span with <c>padding: 0 12px</c>, three 60×20 <c>inline-block</c>
+    ///         children, and every rectangle differenced against the container's.
+    ///     </para>
+    ///     <para>
+    ///         Chrome puts <b>two</b> items on the first line: 12 + 60 + 60 = 132 and the third would
+    ///         take the line to 192, which fits — until the span's closing 12 takes it to 204. Before
+    ///         this was charged, Vixen placed all three and then overflowed the box by 4, silently.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_closing_edge_that_will_not_fit_wraps_the_item_before_it() {
+        using var tree = new LayoutTree();
+        var root = PaddedRoot(tree, width: 200f, padding: 0f);
+        var span = Span(tree, root);
+        tree.SetPadding(span, Edge.Left, StyleLength.Points(12f));
+        tree.SetPadding(span, Edge.Right, StyleLength.Points(12f));
+
+        var first = Item(tree, span, 60f, 20f);
+        var second = Item(tree, span, 60f, 20f);
+        var third = Item(tree, span, 60f, 20f);
+
+        tree.CalculateLayout(root, 200f, float.NaN, Direction.Ltr);
+
+        // Chrome: (12, 0), (72, 0), (0, 20) — and the union starts at the container's origin, so the
+        // children's own rectangles are those numbers unchanged.
+        Assert.Equal(12f, tree.GetLeft(first), Tolerance);
+        Assert.Equal(0f, tree.GetTop(first), Tolerance);
+        Assert.Equal(72f, tree.GetLeft(second), Tolerance);
+        Assert.Equal(0f, tree.GetTop(second), Tolerance);
+        Assert.Equal(0f, tree.GetLeft(third), Tolerance);
+        Assert.Equal(20f, tree.GetTop(third), Tolerance);
+
+        // Chrome's two span rectangles are 132 and 72 wide: the start padding plus two items, then
+        // one item plus the end padding.
+        Assert.Equal(2, tree.GetFragmentCount(span));
+        Assert.Equal(132f, tree.GetFragment(span, 0).Width, Tolerance);
+        Assert.Equal(72f, tree.GetFragment(span, 1).Width, Tolerance);
+
+        // And the line no longer hangs off the box, which is what the overflow was.
+        Assert.Equal(132f, tree.GetWidth(span), Tolerance);
+    }
+
+    /// <summary>A span that carries on to the next line draws no end edge at the break, and is charged none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the case that refutes the obvious fix.</b> "Charge the end edges of every
+    ///         box that is open" is one line shorter and wrong: §9.2.1.1 draws an inline box's two
+    ///         horizontal edges at the two ends of the <i>whole</i> box, so a span whose content
+    ///         continues below spends nothing at the break — and charging it would wrap items Chrome
+    ///         keeps.
+    ///     </para>
+    ///     <para>
+    ///         Chrome 148.0.7778.280, same fixture with <c>padding-right: 30px</c> and four children:
+    ///         <b>three</b> on the first line at x = 0, 60, 120, the fourth on the second — 180 on a
+    ///         200-wide line, with the 30 spent on the second line where the span really ends. A
+    ///         pessimistic rule would have stopped at two, because 120 + 60 + 30 is 210.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_box_that_carries_on_past_the_break_spends_no_end_edge_on_the_line() {
+        using var tree = new LayoutTree();
+        var root = PaddedRoot(tree, width: 200f, padding: 0f);
+        var span = Span(tree, root);
+        tree.SetPadding(span, Edge.Right, StyleLength.Points(30f));
+
+        var first = Item(tree, span, 60f, 20f);
+        var second = Item(tree, span, 60f, 20f);
+        var third = Item(tree, span, 60f, 20f);
+        var fourth = Item(tree, span, 60f, 20f);
+
+        tree.CalculateLayout(root, 200f, float.NaN, Direction.Ltr);
+
+        Assert.Equal(0f, tree.GetLeft(first), Tolerance);
+        Assert.Equal(60f, tree.GetLeft(second), Tolerance);
+        Assert.Equal(120f, tree.GetLeft(third), Tolerance);
+        Assert.Equal(0f, tree.GetTop(third), Tolerance);
+        Assert.Equal(0f, tree.GetLeft(fourth), Tolerance);
+        Assert.Equal(20f, tree.GetTop(fourth), Tolerance);
+
+        // Chrome's two span rectangles: 180 with no end padding on it, then 60 + 30.
+        Assert.Equal(2, tree.GetFragmentCount(span));
+        Assert.Equal(180f, tree.GetFragment(span, 0).Width, Tolerance);
+        Assert.Equal(90f, tree.GetFragment(span, 1).Width, Tolerance);
+    }
+
+    /// <summary>With two spans open, the one that closes here is charged and the one that does not is not.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The case the two rules above only look like they cover between them.</b> An outer
+    ///         span padded 40 at its end holds an inner span padded 6 at its end over the first two
+    ///         items, then two more items of its own. When the third item is fitted, one box would
+    ///         close before it and one would not — so exactly 6 of the 46 open end edges is the line's
+    ///         to spend.
+    ///     </para>
+    ///     <para>
+    ///         Chrome 148.0.7778.280: items at x = 0, 60, 126 on the first line and the fourth on the
+    ///         second; the outer span is 186 then 100 wide, the inner a single 126. The 126 is the
+    ///         inner span's 6 landing between the second item and the third, which is the whole of
+    ///         what makes this case different from the previous one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Only_the_boxes_that_close_before_the_next_item_are_charged_to_the_line() {
+        using var tree = new LayoutTree();
+        var root = PaddedRoot(tree, width: 200f, padding: 0f);
+
+        var outer = Span(tree, root);
+        tree.SetPadding(outer, Edge.Right, StyleLength.Points(40f));
+
+        var inner = Span(tree, outer);
+        tree.SetPadding(inner, Edge.Right, StyleLength.Points(6f));
+
+        var first = Item(tree, inner, 60f, 20f);
+        var second = Item(tree, inner, 60f, 20f);
+        var third = Item(tree, outer, 60f, 20f);
+        var fourth = Item(tree, outer, 60f, 20f);
+
+        tree.CalculateLayout(root, 200f, float.NaN, Direction.Ltr);
+
+        // The first two are relative to the inner span's union, which starts at the container's own
+        // origin; the last two are relative to the outer's, which starts there too.
+        Assert.Equal(0f, tree.GetLeft(first), Tolerance);
+        Assert.Equal(60f, tree.GetLeft(second), Tolerance);
+        Assert.Equal(126f, tree.GetLeft(third), Tolerance);
+        Assert.Equal(0f, tree.GetTop(third), Tolerance);
+        Assert.Equal(0f, tree.GetLeft(fourth), Tolerance);
+        Assert.Equal(20f, tree.GetTop(fourth), Tolerance);
+
+        Assert.Equal(1, tree.GetFragmentCount(inner));
+        Assert.Equal(126f, tree.GetWidth(inner), Tolerance);
+
+        Assert.Equal(2, tree.GetFragmentCount(outer));
+        Assert.Equal(186f, tree.GetFragment(outer, 0).Width, Tolerance);
+        Assert.Equal(100f, tree.GetFragment(outer, 1).Width, Tolerance);
+    }
+
+    /// <summary>The end edge is charged at the boundary itself: 200 on a 200-wide line still fits.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both halves, because a rule that is one point out passes either of them alone.</b>
+    ///     Chrome 148.0.7778.280, three 60×20 children in a span whose <c>padding-right</c> is the
+    ///     only variable: at 20 all three stay on the line and the span is exactly 200 wide — the
+    ///     line is full and is not over — and at 21 the third wraps. This is also what pins
+    ///     <c>LineFitTolerance</c> to the side it is on: a line that fits exactly is not a break.
+    /// </remarks>
+    [Fact]
+    public void The_end_edge_is_charged_at_the_boundary_and_an_exact_fit_is_not_a_break() {
+        using var exact = new LayoutTree();
+        var exactRoot = PaddedRoot(exact, width: 200f, padding: 0f);
+        var exactSpan = Span(exact, exactRoot);
+        exact.SetPadding(exactSpan, Edge.Right, StyleLength.Points(20f));
+
+        Item(exact, exactSpan, 60f, 20f);
+        Item(exact, exactSpan, 60f, 20f);
+        var exactThird = Item(exact, exactSpan, 60f, 20f);
+
+        exact.CalculateLayout(exactRoot, 200f, float.NaN, Direction.Ltr);
+
+        Assert.Equal(1, exact.GetFragmentCount(exactSpan));
+        Assert.Equal(200f, exact.GetWidth(exactSpan), Tolerance);
+        Assert.Equal(120f, exact.GetLeft(exactThird), Tolerance);
+        Assert.Equal(0f, exact.GetTop(exactThird), Tolerance);
+
+        using var over = new LayoutTree();
+        var overRoot = PaddedRoot(over, width: 200f, padding: 0f);
+        var overSpan = Span(over, overRoot);
+        over.SetPadding(overSpan, Edge.Right, StyleLength.Points(21f));
+
+        Item(over, overSpan, 60f, 20f);
+        Item(over, overSpan, 60f, 20f);
+        var overThird = Item(over, overSpan, 60f, 20f);
+
+        over.CalculateLayout(overRoot, 200f, float.NaN, Direction.Ltr);
+
+        Assert.Equal(2, over.GetFragmentCount(overSpan));
+        Assert.Equal(120f, over.GetFragment(overSpan, 0).Width, Tolerance);
+        Assert.Equal(81f, over.GetFragment(overSpan, 1).Width, Tolerance);
+        Assert.Equal(0f, over.GetLeft(overThird), Tolerance);
+        Assert.Equal(20f, over.GetTop(overThird), Tolerance);
     }
 
     static LayoutNodeId PaddedRoot(LayoutTree tree, float width, float padding) {

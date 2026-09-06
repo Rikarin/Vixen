@@ -1038,7 +1038,6 @@ T:Vixen.Editor.AssetEditors.Animation.ShapeVocabularyView sweep-pending
 T:Vixen.Editor.AssetEditors.Animation.StateMapView sweep-pending
 T:Vixen.Editor.AssetEditors.Animation.VariationHarnessView sweep-pending
 T:Vixen.Editor.AssetEditors.Animation.VocabularyMember sweep-pending
-T:Vixen.Editor.AssetEditors.AssetEditorRegistry sweep-pending
 T:Vixen.Editor.AssetEditors.AssetEditorRequest sweep-pending
 T:Vixen.Editor.AssetEditors.AssetEditorTheme sweep-pending
 T:Vixen.Editor.AssetEditors.AssetFile sweep-pending
@@ -1089,7 +1088,6 @@ T:Vixen.Editor.AssetEditors.Fonts.FontDocument sweep-pending
 T:Vixen.Editor.AssetEditors.Fonts.FontEditorFactory sweep-pending
 T:Vixen.Editor.AssetEditors.Fonts.FontRangeData sweep-pending
 T:Vixen.Editor.AssetEditors.Fonts.FontView sweep-pending
-T:Vixen.Editor.AssetEditors.IAssetEditorFactory sweep-pending
 T:Vixen.Editor.AssetEditors.Importing.AddTargetCommand sweep-pending
 T:Vixen.Editor.AssetEditors.Importing.AddressableEdits sweep-pending
 T:Vixen.Editor.AssetEditors.Importing.ImportSettingsDocument sweep-pending
@@ -1602,9 +1600,6 @@ T:Vixen.Editor.Testing.EditorSession sweep-pending
 T:Vixen.Editor.Testing.EditorSessionException sweep-pending
 T:Vixen.Editor.Testing.EditorSessionOptions sweep-pending
 T:Vixen.Editor.TextureGraph.NodeTypes generated — the assembly's [Node] registration list, emitted by Vixen.Editor.NodeGraph.Generator; the same line Vixen.Editor.ShaderGraph.NodeTypes has
-T:Vixen.Editor.Ui.BindResult sweep-pending
-T:Vixen.Editor.Ui.BindingSource sweep-pending
-T:Vixen.Editor.Ui.CommandDispatcher sweep-pending
 T:Vixen.Editor.Ui.CommandPalette sweep-pending
 T:Vixen.Editor.Ui.CommandPaletteSource sweep-pending
 T:Vixen.Editor.Ui.ConsoleLevels sweep-pending
@@ -1621,8 +1616,8 @@ T:Vixen.Editor.Ui.FuzzyMatcher sweep-pending
 T:Vixen.Editor.Ui.IPaletteSource sweep-pending
 T:Vixen.Editor.Ui.KeyBindingRow sweep-pending
 T:Vixen.Editor.Ui.KeyBindingsView sweep-pending
-T:Vixen.Editor.Ui.KeyMapPreset sweep-pending
 T:Vixen.Editor.Ui.KeyMapPresets sweep-pending
+T:Vixen.Editor.Ui.KeyMapYaml sweep-pending
 T:Vixen.Editor.Ui.LayoutPresets sweep-pending
 T:Vixen.Editor.Ui.MenuCommand sweep-pending
 T:Vixen.Editor.Ui.MenuDynamic sweep-pending
@@ -2325,7 +2320,6 @@ T:Vixen.Platform.Headless.HeadlessPowerInfo sweep-pending
 T:Vixen.Platform.Headless.HeadlessProcessorTopology sweep-pending
 T:Vixen.Platform.Headless.HeadlessTextInput sweep-pending
 T:Vixen.Platform.Headless.HeadlessWindow sweep-pending
-T:Vixen.Platform.IClipboard sweep-pending
 T:Vixen.Platform.IDisplayInfo sweep-pending
 T:Vixen.Platform.IFileSystemHost sweep-pending
 T:Vixen.Platform.IGamepad sweep-pending
@@ -3309,6 +3303,8 @@ T:Vixen.Ui.Controls.Advanced.ViewportGizmo sweep-pending
 T:Vixen.Ui.Controls.Alert sweep-pending
 T:Vixen.Ui.Controls.Avatar sweep-pending
 T:Vixen.Ui.Controls.Badge sweep-pending
+T:Vixen.Ui.Controls.BindResult sweep-pending
+T:Vixen.Ui.Controls.BindingSource sweep-pending
 T:Vixen.Ui.Controls.Breadcrumb sweep-pending
 T:Vixen.Ui.Controls.BreadcrumbItem sweep-pending
 T:Vixen.Ui.Controls.Button sweep-pending
@@ -3318,6 +3314,7 @@ T:Vixen.Ui.Controls.CheckBox sweep-pending
 T:Vixen.Ui.Controls.ClickEvent sweep-pending
 T:Vixen.Ui.Controls.CloseReason sweep-pending
 T:Vixen.Ui.Controls.ComboBox sweep-pending
+T:Vixen.Ui.Controls.CommandDispatcher sweep-pending
 T:Vixen.Ui.Controls.ContextMenu sweep-pending
 T:Vixen.Ui.Controls.Control sweep-pending
 T:Vixen.Ui.Controls.ControlIcons sweep-pending
@@ -3336,6 +3333,7 @@ T:Vixen.Ui.Controls.IconPaint sweep-pending
 T:Vixen.Ui.Controls.IconPaintKind sweep-pending
 T:Vixen.Ui.Controls.IconPath sweep-pending
 T:Vixen.Ui.Controls.Image sweep-pending
+T:Vixen.Ui.Controls.KeyMapPreset sweep-pending
 T:Vixen.Ui.Controls.KeyboardShortcut sweep-pending
 T:Vixen.Ui.Controls.Link sweep-pending
 T:Vixen.Ui.Controls.Menu sweep-pending
@@ -3527,9 +3525,6 @@ T:Vixen.Ui.PointerAction sweep-pending
 T:Vixen.Ui.PointerButton sweep-pending
 T:Vixen.Ui.PointerEvent sweep-pending
 T:Vixen.Ui.PositionedGlyph sweep-pending
-T:Vixen.Ui.Reactive.AsyncComputed`2 sweep-pending
-T:Vixen.Ui.Reactive.AsyncStatus sweep-pending
-T:Vixen.Ui.Reactive.AsyncValue`1 sweep-pending
 T:Vixen.Ui.Reactive.Computed`1 sweep-pending
 T:Vixen.Ui.Reactive.Effect sweep-pending
 T:Vixen.Ui.Reactive.EffectScheduler sweep-pending
@@ -3581,12 +3576,10 @@ T:Vixen.Ui.Styling.KeyframesTable sweep-pending
 T:Vixen.Ui.Styling.LayerRule sweep-pending
 T:Vixen.Ui.Styling.LayerRuleParser sweep-pending
 T:Vixen.Ui.Styling.MediaConditions sweep-pending
-T:Vixen.Ui.Styling.MediaContext sweep-pending
 T:Vixen.Ui.Styling.MediaPreferences sweep-with-MediaContext — the platform-settings half of a MediaContext and exempt on its terms; why these six travel as one value while the other five axes do not is on the type and in Core/Vixen.Ui/Media.cs
 T:Vixen.Ui.Styling.MediaQuery sweep-pending
 T:Vixen.Ui.Styling.MediaScopes sweep-pending
 T:Vixen.Ui.Styling.MediaVerdicts sweep-pending
-T:Vixen.Ui.Styling.MotionPreference sweep-with-MediaContext — one axis of MediaPreferences and exempt on MediaContext's terms; it is what motion-safe and motion-reduce ask
 T:Vixen.Ui.Styling.NameTable sweep-pending
 T:Vixen.Ui.Styling.NamedColors sweep-pending
 T:Vixen.Ui.Styling.PointerCapability sweep-with-MediaContext — one axis of MediaPreferences and exempt on MediaContext's terms; why its zero is Unspecified rather than the empty set CSS calls none is on the type
@@ -3704,8 +3697,6 @@ T:Vixen.Ui.TextLine sweep-pending
 T:Vixen.Ui.TextRun sweep-pending
 T:Vixen.Ui.TransformEvent sweep-pending
 T:Vixen.Ui.TransformStage sweep-pending
-T:Vixen.Ui.UiDocument sweep-pending
-T:Vixen.Ui.UiElement sweep-pending
 T:Vixen.Ui.UiEvent sweep-pending
 T:Vixen.Ui.UiPropertyAttribute sweep-pending
 T:Vixen.Ui.UiPropertyKey sweep-pending

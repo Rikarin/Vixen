@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.IEditableDocument, T:Vixen.Ui.EditableDocument, T:Vixen.Ui.Docu
 tags: [ui, documents, commands, save, windows]
 since: 0.2
 status: preview
-related: [ui/commands, ui/undo, ui/desktop-application]
+related: [ui/commands, ui/undo, ui/desktop-application, ui/ambient-values]
 ---
 
 ## What it is
@@ -142,6 +142,24 @@ what the bool on `Save` is for.
 and this walks up from `Source`. In a window with two panels and two documents, quitting asks about
 the one being worked in.
 
+### Closing a document without quitting
+
+The same three buttons in front of a different action. `UiElement.RequestClose` raises the request on
+the element that holds the document, so a tab, a panel or a File ▸ Close item asks about *its* own:
+
+```csharp no-compile="a fragment; `tab` is the element a document is hosted on"
+using var prompt = DocumentClosePrompt.Install(tab, dialogs, () => tab.Remove());
+
+// …and what the close button does:
+tab.RequestClose();
+```
+
+⚠ **`UiDocument.CloseRequested` is not raised by this one.** That event is the head answering about
+the *application* — an object outside the element tree, with no opinion about one panel — so a host
+that saw it for a tab as well as for a quit could not tell the two apart. The reason carried is
+`UiCloseReason.DocumentClosed`, which is what a handler distinguishes on when it wants to offer
+"Save All" for one and not the other.
+
 ⚠ **The retry re-enters the handler and "Don't Save" leaves the document dirty.** A prompt is
 answered frames later, so `close` is the second ask — and the second ask meets the same dirty
 document. `DocumentClosePrompt` latches over it; a hand-rolled version that does not is an
@@ -178,10 +196,15 @@ frame late.
 
 ## What is deliberately not here yet
 
-**Closing one document out of several.** `DocumentClosePrompt` asks about the document under the
-focus and then hands the close to its caller, which in every host today means the application. A tab
-that shuts on its own — asking about *its* document while the rest stay open — is the same three
-buttons in front of a different action, and nothing offers it yet.
+⚠ **Closing one document out of several is no longer missing, and what was missing was the *raise*.**
+`DocumentClosePrompt.Install` has always taken the element to listen on and the close action to run,
+so a tab could host its own prompt — but the only thing that raised a `CloseRequestEvent` was
+`UiDocument.RequestClose`, which starts at the focus and ends at the head's own listener because its
+subject is the application. `UiElement.RequestClose` is the same question about a different subject:
+raised on the element that holds the document, so the prompt's walk finds *that* document, and
+`UiDocument.CloseRequested` is deliberately not invoked — a host given that event for a tab as well
+as for a quit could not tell the two apart. `UiCloseReason.DocumentClosed` is its default reason, and
+`Samples/02-HelloUi`'s File ▸ Close is the first caller either has had.
 
 **A proxy icon and a recent-documents list.** Both are platform seams with no interface here.
 

@@ -427,6 +427,37 @@ channel is outside `[0, 1]`, and keeps the short `rgba()` spelling — one small
 colour — for everything else. The test is on the colour and not on alpha on purpose: a spring
 overshoots alpha past `1`, and `rgba()` carries that where `color()` would clamp it.
 
+### System colours, and why they are renamed before the parser sees them
+
+A sixth syntax: the fifteen CSS system colour keywords (`Canvas`, `CanvasText`, `ButtonFace`, …),
+resolved against `SystemPalette` in `StyleValueParser.ParseOne` and turned into an ordinary
+`StyleValueKind.Color` — which is what makes them cost nothing downstream, since `color-mix()`, the
+gradient reader and the animator all already know what a colour is.
+
+⚠ **Ten of them worked and five did not, and the five were the ones a control theme actually names.**
+ExCSS knows the CSS2 system colours — `ButtonFace`, `ButtonText`, `Highlight`, `HighlightText`,
+`GrayText` — and normalises them into fixed `rgb()` *while it parses the sheet*, so the keyword was
+gone before `SystemPalette` was ever asked and `background-color: Highlight` arrived as
+`rgb(181, 213, 255)`. The ten that survived are exactly the CSS Color 4 additions ExCSS has never
+heard of. Nothing reported it, because a constant is a perfectly good colour — the forced-colours
+mode and the platform palette were both a third smaller than they read, and a high-contrast user got
+a light grey button face on a black window.
+
+`StyleSheetLoader.CarrySystemColours` fixes it by renaming every one of the fifteen to
+`-vx-system-<keyword>` *before* `Parser.Parse`, which `SystemPalette.TryParseCarried` then strips.
+⚠ **The direction is the design**: turning `rgb(221, 221, 221)` back into `ButtonFace` after the
+parse is not the conservative alternative, it is wrong — that is also a colour an author may have
+written on purpose, and nothing downstream can tell the two apart. All fifteen are carried rather
+than the five that need it, because which keywords ExCSS knows is ExCSS's business and can change
+with an upgrade.
+
+The rename is bounded twice, and both bounds have a test: **by position**, to inside a block after a
+`:` and before the `;` — so a `.highlight` class, a `Field` tag selector and a `--graytext` custom
+property *name* are left alone, with comments, strings and `url()` skipped — and **by property**, so
+that `animation-name: mark` and `grid-area: field` keep the name the author chose. A renamed
+animation name is a rule that quietly does nothing, which leaves less to look at than a wrong colour
+does.
+
 ## What the spike did not say
 
 **ExCSS normalises what it can see, and it cannot see through a `var()`.** `color: red` reaches Vixen

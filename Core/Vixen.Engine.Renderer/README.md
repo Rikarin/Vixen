@@ -145,6 +145,17 @@ the first draws a HUD out of memory nothing has written. Skipping the second dra
 group **opaque** rather than approximately faded, because `UiGeometryBuilder` emits a group's
 contents at alpha one so the surface can carry the fade. Neither failure raises anything.
 
+⚠ **The surface carries the display's density, and both of those calls read it.** `UiInterface.Scale`
+is how many framebuffer pixels one of the geometry's units is; it defaults to one, which is right
+only for a document laid out in physical pixels. A projection is a pure mapping from geometry units
+to clip space and does not care, but a scissor is submitted in framebuffer pixels and cares about
+nothing else — so a HUD laid out in points on a 2× display and drawn at a scale of one clips to the
+top-left quarter of the window. `Compose` allocates each group's surface at that scale and `Record`
+samples it at that scale, which is why it is a property of the surface rather than an argument to
+either: the two disagreeing is a composited panel adrift from the frame around it.
+`AMountedInterfaceIsComposedAndRecordedAtItsOwnScale` is the assertion, and it is a differential
+between two runs of one frame rather than a hand-computed rectangle.
+
 ## Drawing a frame
 
 `SceneRenderHost` is the other join this assembly makes, and it is the same shape as the first: a

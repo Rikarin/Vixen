@@ -232,15 +232,19 @@ slot rather than a second rectangle.
 
 ⚠ **Text is not re-wrapped here.** `Vixen.Ui`'s `TextLayout` already breaks a string into lines across
 a font-fallback chain and reaches the store the way every leaf does — as a measure function. This
-algorithm treats such a leaf as one atomic item. The cost is stated rather than hidden: a text leaf's
-first line is not shortened to the space left on the line it lands on. ⚠ That is still true now that
-fragmentation has landed, and the two were filed as the same blocker but are not: there is somewhere
-to put a shortened first line, and the reason it was refused was never storage.
+algorithm treats such a leaf as one atomic item. The cost is stated rather than hidden: an
+inline-level text leaf's first line is not shortened to the space left on the line box it lands on.
+⚠ That is still true now that fragmentation has landed, and the two were filed as the same blocker
+but are not: there is somewhere to put a shortened first line, and the reason it was refused was
+never storage.
 
 ⚠ **And it was not "a second wrapper" either**, which this page asserted until #901 was audited: both
-routes to a staircase call `TextLayout` itself rather than a rival. What is left is narrower — a band
-on the measure question, a per-line available width in the wrapper, and a per-line inline offset on a
-line — and `Core/Vixen.Ui.Layout/README.md` carries the evidence for each.
+routes to a staircase call `TextLayout` itself rather than a rival. A **block-level** leaf beside a
+float now wraps to a width per line — it asks `LayoutTree.ContentBands` from inside its own measure
+function, and the offset travels on `TextLine.Offset`, where `text-indent` already put one. What is
+left is this page's own case, the inline-level leaf, and what stops the same query serving it is a
+pass order rather than a protocol: this algorithm sizes every item before it breaks a single line,
+so at the moment such a leaf is measured there is no line box for it to be shortened to.
 
 ## Examples
 
@@ -281,8 +285,9 @@ tree.SetVerticalAlign(short_, VerticalAlign.Top);     // top = 0, not 20
 
 - [Floats and clear](floats.md) — ⚠ this entry used to say a line box does not shorten as it passes
   a float. It does: `WalkInlineLines` asks the exclusion list for the band at each line's own top and
-  height. What a line still does not do is break *inside* a text leaf, so a paragraph beside a float
-  re-flows as whole leaves rather than as a staircase.
+  height. What a line still does not do is break *inside* a text leaf, so a paragraph that shares a
+  line box with other inline-level boxes re-flows as whole leaves. A **block-level** paragraph beside
+  a float does step down it, line by line — see `LayoutTree.ContentBands`.
 - [Grid layout](grid-layout.md) — the store's third algorithm, and what *it* cost.
 - [Utility composition](utility-composition.md) — the `inline`, `inline-block`, `inline-flex` and
   `align-*` utilities.

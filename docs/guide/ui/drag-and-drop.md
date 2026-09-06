@@ -238,10 +238,21 @@ neither the seam nor a backend exists.
 **A drag image.** A source draws its own ghost from `UiDocument.CurrentDrag` and `UiElement.OffsetX/Y`;
 nothing carries a picture for it.
 
-⚠ **The OS drop now has a consumer and the in-app drag still has none.** `Samples/02-HelloUi`'s
-Hierarchy panel writes `on:drop` and adds a row per dropped path, which is the first use of any of
-the four target names outside a test — until it, the markup half of this page was a spelling nobody
-had asked to compile, and the example above was wrong about how to write it. The editor's two drags — `TreeView`'s node reordering and
+⚠ **Both halves have a consumer now, and the in-app one had never had a producer at all.**
+`UiDocument.BeginDrag` is what fills a `DataObject` and starts a session, and outside its own tests
+the only thing in the repository that named it was a comment saying what a port *would* do — so
+`AllowDrop`, the effect negotiation, the Escape that cancels and the Enter that drops had only ever
+been driven by a line of C# inside an assertion. `Samples/02-HelloUi`'s Hierarchy picks its selected
+rows up from `on:dragstart` and its Inspector takes them on a `<PropertyGrid AllowDrop="true">`.
+
+⚠ **`AllowDrop` as an attribute means two different things and only one of them works.** On a
+lowercase tag every non-directive attribute is inert — it becomes data a selector can match — so
+`AllowDrop="true"` on `<drop-zone>` compiles, matches `[AllowDrop]` and leaves the element out of
+the hit test; on a control tag it is the `[UiProperty]` itself. `on:` is a directive and is not
+affected either way. `Core/Vixen.Ui.Controls.Tests/Markup/DropSheet.vxml` writes both spellings so
+the difference is asserted rather than remembered.
+
+The editor's two drags — `TreeView`'s node reordering and
 `Editor/Vixen.Editor.App/AssetFieldDrop.cs` — still hit-test by hand, and the *reason* the second one
 gives has expired: its remarks say a field cannot hear its own drop because "a drag belongs to the
 element the press landed on for its whole life", which is exactly what `TrackDrag`'s hit test past

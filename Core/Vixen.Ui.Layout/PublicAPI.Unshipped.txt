@@ -305,6 +305,7 @@ Vixen.Ui.Layout.LayoutTree : System.IDisposable
 Vixen.Ui.Layout.LayoutTree.AddChild(Vixen.Ui.Layout.LayoutNodeId parent, Vixen.Ui.Layout.LayoutNodeId child) -> void
 Vixen.Ui.Layout.LayoutTree.CalculateLayout(Vixen.Ui.Layout.LayoutNodeId node, float ownerWidth, float ownerHeight, Vixen.Ui.Layout.Direction ownerDirection) -> void
 Vixen.Ui.Layout.LayoutTree.ClearNewLayout(Vixen.Ui.Layout.LayoutNodeId node) -> void
+Vixen.Ui.Layout.LayoutTree.ContentBands(Vixen.Ui.Layout.LayoutNodeId node, float lineHeight, float width, System.Collections.Generic.List<(float Start, float Available)> bands) -> int
 Vixen.Ui.Layout.LayoutTree.CreateNode() -> Vixen.Ui.Layout.LayoutNodeId
 Vixen.Ui.Layout.LayoutTree.DestroyRecursive(Vixen.Ui.Layout.LayoutNodeId node) -> void
 Vixen.Ui.Layout.LayoutTree.Dispose() -> void
