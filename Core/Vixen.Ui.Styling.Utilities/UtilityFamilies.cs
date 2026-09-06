@@ -2577,26 +2577,6 @@ public static class UtilityFamilies {
             ["linear"] = "linear", ["in"] = "ease-in", ["out"] = "ease-out", ["in-out"] = "ease-in-out"
         });
 
-        // ⚠ <b>`transition-behavior` is a DIFFERENT Tailwind root from the `transition-*` family
-        // above, despite sharing its first word</b> — v4's static `transition` root is this property,
-        // and `transition-discrete` and `transition-normal` are the only two classes on it. They are
-        // registered as roots of their own rather than as keywords of `transition`, because
-        // `transition` is `ValueKind.Static` and a static family answers only the bare class;
-        // `SplitName`'s longest-first sort is what then sends `transition-discrete` here instead of
-        // reading it as `transition` with the value `discrete`, the same rule `mbs` beside `mb`
-        // records and `ShadowedFamilyTests` holds.
-        //
-        // ⚠ <b>The refusal that held these back expired rather than being answered, and the
-        // mechanism it named was wrong.</b> The ledger said the family "lands with a third arm in
-        // `StyleValue.Lerp` that takes the behaviour"; #861 refuted that — a 50% flip for a
-        // non-interpolable pair already *is* discrete interpolation, so one `Lerp` serves both
-        // behaviours. What was missing was a gate one level out, and `Animator.Observe`'s `Start`
-        // has it: under `normal` a non-interpolable pair starts no transition and the new value
-        // shows at once, under `allow-discrete` it runs. So these two classes are a registration and
-        // nothing more.
-        Static("transition-discrete", "transition-behavior", "allow-discrete");
-        Static("transition-normal", "transition-behavior", "normal");
-
         // ── Interactivity ───────────────────────────────────────────────────────────────────
         // The set `UiCursor` has a reading of, and no more — a keyword the document cannot map is a
         // rule that resolves to the host's default, which is indistinguishable from having written

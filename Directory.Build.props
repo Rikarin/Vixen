@@ -307,8 +307,21 @@
     Here rather than in 180 csproj files for the reason `VSTestLogger` is: the one
     project that forgets is the one whose results go missing, and nothing says so.
   -->
+  <!--
+    ⚠ The version is a property rather than a `PackageVersion` alone, because two test projects turn
+    central package management OFF for their own reasons — `Vixen.DocGen.Tests` and
+    `Vixen.Templates.Tests`, each of which needs a Roslyn version the central pin forbids. A
+    version-less `PackageReference` has nothing to inherit there, and the failure is `NU1015` at
+    restore for the whole solution rather than anything about those two. `Directory.Packages.props`
+    reads the same property, so the pin is still written once.
+  -->
+  <PropertyGroup>
+    <VixenTrxReportVersion>1.9.1</VixenTrxReportVersion>
+  </PropertyGroup>
+
   <ItemGroup Condition="($(MSBuildProjectName.EndsWith('.Tests')) OR '$(MSBuildProjectName)' == 'Tests') AND '$(TestingPlatformDotnetTestSupport)' == 'true'">
-    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Condition="'$(ManagePackageVersionsCentrally)' != 'false'" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="$(VixenTrxReportVersion)" Condition="'$(ManagePackageVersionsCentrally)' == 'false'" />
   </ItemGroup>
 
   <!--

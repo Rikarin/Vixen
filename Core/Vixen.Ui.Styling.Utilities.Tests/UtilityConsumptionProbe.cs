@@ -441,39 +441,6 @@ static class UtilityConsumptionProbe {
             """
         ),
 
-        // ⚠ <b>Discrete: a running transition over a property that has no midpoint, which is the only
-        // arrangement in which `transition-behavior` can decide anything at all.</b> `animated` has
-        // `transition-property: all` and `primed` has a duration, and neither can see this: the
-        // mutation `Common` carries changes `background-color` and `margin-left`, both of them
-        // interpolable, so the behaviour that governs a NON-interpolable pair is handed nothing to
-        // govern and measures inert with `Animator` reading it perfectly. That is the fourth time a
-        // scene has been the missing half rather than the engine — see the three the gate's own
-        // control test names.
-        //
-        // `visibility` because it is a keyword the paint reads and `StyleValue` cannot halve. The
-        // scene's own `#probe.moved` rule is what supplies the discrete change; putting it in
-        // `Common` would have re-timed every other scene's baseline.
-        //
-        // ⚠ <b>The observable is that the box is STILL DRAWN, which is the opposite way round from
-        // how it reads.</b> Under the initial `transition-behavior: normal` the animator declines the
-        // pair and `hidden` applies on the frame the class lands, so the baseline stops painting the
-        // probe at once. Under an injected `allow-discrete` the transition runs, and `StyleValue.Lerp`
-        // holds the *from* value until halfway — 200 ms against three recorded 16 ms frames, so every
-        // sample is under 0.5 and the probe goes on being painted. Paint therefore differs, and it
-        // differs for the reason the property exists.
-        new(
-            "discrete",
-            """
-            #host  { display: flex; flex-direction: row; width: 120px; height: 46px; align-items: stretch; }
-            #probe { display: flex; flex-direction: row; flex-wrap: wrap; width: 44px;
-                     background-color: #204080; color: #e0e0e0; visibility: visible;
-                     transition-property: all; transition-duration: 200ms;
-                     transition-timing-function: linear; }
-            #probe.moved { visibility: hidden; }
-            #after { width: 96px; height: 20px; background-color: #a0a040; }
-            """
-        ),
-
         // ⚠ <b>Gridded, and it is the only scene in which a grid property can move anything at all.</b>
         // Every scene above makes `#probe` a flex container inside a flex host, and on a flex box a
         // track list is not wrong — it is simply not read, by CSS as much as by this engine. So
