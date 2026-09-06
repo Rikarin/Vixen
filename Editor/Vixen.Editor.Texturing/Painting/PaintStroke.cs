@@ -63,6 +63,13 @@ sealed class PaintStroke {
     ///     <see cref="gutter" /> however many stamps have crossed the seam. Kept beside
     ///     <see cref="reached" /> and not folded into it because the two answer different questions:
     ///     a reach may rise as later stamps paint the island harder, and a distance may only fall.
+    ///     <para>
+    ///         ⚠ <b>And "may only fall" was a claim rather than a behaviour until
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/896">#896</a>.</b> The write lived in
+    ///         the commit loop, which the scan's <c>already &gt;= best</c> early-out jumps over — so
+    ///         a distance fell only when the reach also rose, which for a uniform opaque stroke is
+    ///         almost never. It is written in the scan now, where the proof of the shorter path is.
+    ///     </para>
     /// </remarks>
     readonly Dictionary<int, int> distance = [];
     readonly float smoothing;
@@ -397,6 +404,25 @@ sealed class PaintStroke {
                         continue;
                     }
 
+                    // ⚠ Here, before the early-out, and not in the commit loop below — #896. A
+                    // round that got a source has *proved* this texel is `round + 1` from coverage,
+                    // whether or not it also has colour to add; recording that only where the reach
+                    // rose left a texel an earlier stamp reached the long way round holding the long
+                    // distance, and for a uniform opaque stroke, where every stamp contributes reach
+                    // 1, the guard below fires on almost every one. `Neighbour` only lets a texel at
+                    // distance `r` seed round `r`, so the stale number breaks the chain and the
+                    // gutter stops short.
+                    //
+                    // Writing it mid-scan cannot bias this round: the value written is `round + 1`
+                    // and a neighbour is read at `== round`, so nothing filled here becomes a source
+                    // until the next round — which is the same "committed after the round finishes"
+                    // rule the reaches keep.
+                    var steps = round + 1;
+
+                    distance[index] = distance.TryGetValue(index, out var known)
+                        ? Math.Min(known, steps)
+                        : steps;
+
                     if (reached.TryGetValue(index, out var already) && already >= best) {
                         continue;
                     }
@@ -417,13 +443,6 @@ sealed class PaintStroke {
                 Record(index);
                 reached[index] = reach;
                 image[index] = PaintImage.Mix(before[index], colour, reach);
-
-                // The lower of the two, because a round's window is the stamp's own grown rectangle:
-                // a texel whose shortest path to coverage left that window was reached the long way
-                // round by an earlier stamp, and a later stamp that can see the short one corrects it.
-                distance[index] = distance.TryGetValue(index, out var known)
-                    ? Math.Min(known, round + 1)
-                    : round + 1;
 
                 var x = index % image.Width;
                 var y = index / image.Width;

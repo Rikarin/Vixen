@@ -79,24 +79,47 @@ public class PaintStackSlicesTests {
         Assert.Equal(["c", "d"], slices.Above!.Layers.Select(layer => layer.Id));
     }
 
-    /// <summary>⚠ A group that really is a compositing boundary still refuses, and says which of the four.</summary>
+    /// <summary>⚠ A group that really is a compositing boundary still refuses, and says which of the five.</summary>
     /// <remarks>
-    ///     Each of these puts an operation between the painted layer and the canvas that no prefix
-    ///     and suffix can express. The message names the property rather than the group, because
-    ///     "move the layer out" is the wrong advice when setting the opacity back to one would do.
+    ///     <para>
+    ///         Each of these puts an operation between the painted layer and the canvas that no
+    ///         prefix and suffix can express. The message names the property rather than the group,
+    ///         because "move the layer out" is the wrong advice when setting the opacity back to one
+    ///         would do.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <c>channels</c> case is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/890">#890</a>, and the enumeration
+    ///         asserted itself complete without it.</b> The other four say how a group composites;
+    ///         that one says which channels it composites into at all, which
+    ///         <c>LayerStackGraph.Layer</c> applies to a group exactly as it applies to a leaf —
+    ///         asserted one test along, because a refusal for a restriction the compiler did not
+    ///         honour would be a refusal for no reason.
+    ///     </para>
+    ///     <para>
+    ///         The issue number is a parameter rather than an <c>if</c>, so a case added without one
+    ///         has to say which citation it expects instead of inheriting a neighbour's.
+    ///     </para>
     /// </remarks>
+    /// <param name="what">Which property is broken.</param>
+    /// <param name="issue">The issue the refusal must cite, or empty when it cites none.</param>
     [Theory]
-    [InlineData("blend")]
-    [InlineData("opacity")]
-    [InlineData("mask")]
-    [InlineData("disabled")]
-    public void A_group_that_composites_is_refused_and_the_refusal_names_what_made_it_one(string what) {
+    [InlineData("blend", "#851")]
+    [InlineData("opacity", "#851")]
+    [InlineData("mask", "#851")]
+    [InlineData("channels", "#890")]
+    [InlineData("disabled", "")]
+    public void A_group_that_composites_is_refused_and_the_refusal_names_what_made_it_one(
+        string what,
+        string issue
+    ) {
         var set = Grouped();
 
         set.Layers[1] = what switch {
             "blend" => set.Layers[1] with { Blend = LayerBlendMode.Multiply },
             "opacity" => set.Layers[1] with { Opacity = 0.5f },
             "mask" => set.Layers[1] with { Mask = new() { Source = LayerMaskSource.Constant, Value = 0.5f } },
+            "channels" => set.Layers[1] with { Channels = ["baseColor"] },
             _ => set.Layers[1] with { Enabled = false }
         };
 
@@ -105,11 +128,64 @@ public class PaintStackSlicesTests {
         Assert.False(slices.Succeeded);
         Assert.Contains("Wrap", slices.Refusal, StringComparison.Ordinal);
 
-        // A switched-off group is a different problem with different advice, so it is the one that
-        // does not cite the issue about compiling over a backdrop.
-        if (what != "disabled") {
-            Assert.Contains("#851", slices.Refusal, StringComparison.Ordinal);
+        // A switched-off group and a channel-restricted one are different problems with different
+        // advice, so they are not the ones citing the issue about compiling over a backdrop.
+        if (issue.Length > 0) {
+            Assert.Contains(issue, slices.Refusal, StringComparison.Ordinal);
         }
+    }
+
+    /// <summary>⚠ The compiler really does apply a group's channel restriction to the group.</summary>
+    /// <remarks>
+    ///     <b>The instrument for the refusal above, and the half a slices test cannot see.</b>
+    ///     <c>PaintStackSlices</c> refuses a channel-restricted group because
+    ///     <c>LayerStackGraph.Layer</c> gates every layer — groups included — on
+    ///     <c>Writes(channel.Usage)</c>, so a group restricted to <c>baseColor</c> composites nothing
+    ///     into <c>roughness</c> while its flattened children, whose own channel lists are empty and
+    ///     therefore mean all, would. If that gate ever stopped applying to groups the refusal would
+    ///     be a refusal for no reason, and nothing else in this file would notice: the same set is
+    ///     built twice here, once restricted and once not, so the expected value is a comparison
+    ///     rather than a node count anybody has to re-bless.
+    /// </remarks>
+    [Fact]
+    public void A_channel_restricted_group_composites_into_fewer_channels_than_an_unrestricted_one() {
+        var open = Painting();
+        var restricted = open with { Layers = [open.Layers[0] with { Channels = ["baseColor"] }] };
+
+        var whole = Nodes(open);
+        var half = Nodes(restricted);
+
+        Assert.True(
+            half < whole,
+            $"A group restricted to baseColor built {half} nodes and an unrestricted one {whole}. The "
+            + "compiler is not applying a group's channel restriction to the group, so PaintStackSlices "
+            + "refuses a stack that would have sliced correctly."
+        );
+    }
+
+    /// <summary>⚠ A non-group carrying children is refused, not reported as a success with nothing in it.</summary>
+    /// <remarks>
+    ///     <b>The defect this is written against reports <c>Succeeded</c>.</b> <c>Cut</c> skipped any
+    ///     carrier that was not a group and fell off the end of the loop with both halves still
+    ///     empty; the missing-id guard then did not fire either, because <c>Contains</c> walks
+    ///     <c>Children</c> whatever the layer's kind — so <c>Split</c> returned two empty stacks and
+    ///     every other layer in the set silently gone, which composites as a stroke on an empty
+    ///     canvas. <a href="https://github.com/Rikarin/Vixen/issues/892">#892</a>. Only a hand-edited
+    ///     <c>.vxlayers</c> makes one, which is exactly why it must not be the silent case.
+    /// </remarks>
+    [Fact]
+    public void A_layer_nested_under_something_that_is_not_a_group_is_refused() {
+        var set = Grouped();
+
+        set.Layers[1] = set.Layers[1] with { Kind = LayerKind.Fill, Name = "Painted" };
+
+        var slices = PaintStackSlices.Split(set, "inner");
+
+        Assert.False(slices.Succeeded);
+        Assert.Null(slices.Below);
+        Assert.Null(slices.Above);
+        Assert.Contains("Painted", slices.Refusal, StringComparison.Ordinal);
+        Assert.Contains("Fill", slices.Refusal, StringComparison.Ordinal);
     }
 
     /// <summary>⚠ The upper half starts from nothing, or the painted layer is invisible under it.</summary>
@@ -133,6 +209,37 @@ public class PaintStackSlicesTests {
         Assert.Equal([0.5f, 0.5f, 0.5f, 1f], slices.Below!.Channels[0].Default);
         Assert.Equal([0f, 0f, 0f, 0f], slices.Above!.Channels[0].Default);
     }
+
+    /// <summary>A group over two channels holding one fill that writes both of them.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>Grouped</c> would not do, and finding out why is worth the second fixture.</b> Its
+    ///     layers carry no <c>Values</c>, and a fill with no entry for a channel is a fill that does
+    ///     not write it — so that set builds four nodes whatever the group says, and a node count
+    ///     over it is a number that cannot move. The layers here paint.
+    /// </remarks>
+    static TextureSetAsset Painting() =>
+        new() {
+            Name = "body",
+            Channels = [new() { Usage = "baseColor" }, new() { Usage = "roughness" }],
+            Layers = [
+                new() {
+                    Id = "wrap",
+                    Name = "Wrap",
+                    Kind = LayerKind.Group,
+                    Children = [
+                        new() {
+                            Id = "fill",
+                            Kind = LayerKind.Fill,
+                            Values = { ["baseColor"] = [1f, 0f, 0f, 1f], ["roughness"] = [0.4f, 0f, 0f, 1f] }
+                        }
+                    ]
+                }
+            ]
+        };
+
+    /// <summary>How many nodes one set builds.</summary>
+    static int Nodes(TextureSetAsset set) =>
+        LayerStackGraph.Build(new() { Name = "stack", Sets = [set] }, set).Graph.Nodes.Count;
 
     /// <summary>A set with a group in it, painted layer inside, one sibling either side of each.</summary>
     static TextureSetAsset Grouped() =>

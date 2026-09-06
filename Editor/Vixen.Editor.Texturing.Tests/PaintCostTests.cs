@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using Vixen.Core.Mathematics;
+using Vixen.Editor.Core;
 using Vixen.Editor.Texturing.Painting;
 using Xunit;
 
@@ -47,6 +48,9 @@ namespace Vixen.Editor.Texturing.Tests;
 /// </remarks>
 public class PaintCostTests(ITestOutputHelper output) {
     const uint Opaque = 0xFF0000FFu;
+
+    /// <summary>An undo entry's <c>Do</c> and <c>Undo</c> read no context, and this says so.</summary>
+    static readonly EditorContext NoContext = null!;
 
     /// <summary>A stamp's work is bounded by its own footprint, at the criterion's size.</summary>
     [Fact]
@@ -202,6 +206,50 @@ public class PaintCostTests(ITestOutputHelper output) {
         );
     }
 
+    /// <summary>
+    ///     ⚠ Undo and redo of two mirrored paths cost the same however far apart they are, which is
+    ///     the half #871 did not reach.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The same oracle as the test above, driven through the undo entry instead of
+    ///         through the pointer —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/891">#891</a>.</b>
+    ///         <c>PaintStrokeCommand</c> rebuilt exactly the bounding-box union that #871 removed
+    ///         from <c>PaintSession.MoveAll</c>: <c>rect.Union(stroke.Undo())</c> over every stroke
+    ///         and one resolve on the result. So an artist who painted a symmetric model and pressed
+    ///         Ctrl+Z paid the whole-atlas cost the drag itself had just stopped paying.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Per stroke and deliberately not per stamp.</b> The rectangles a stroke's stamps
+    ///         earned are handed to the caller as they happen and kept by nobody;
+    ///         <c>PaintStroke.Undo</c> and <c>PaintStrokeRedo.Redo</c> return the stroke's own
+    ///         rectangle, which already exists. Recording every stamp's rectangle for the life of an
+    ///         undo entry would add a list per stroke to a record whose size is already #850's
+    ///         complaint, to save re-compositing inside one path's own swept area — and undo runs
+    ///         once where a stamp runs hundreds of times. Symmetry is the case where the union is
+    ///         unbounded, and symmetry is exactly what the plural is for.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Undoing_two_mirrored_paths_costs_the_same_however_far_apart_the_atlas_puts_them() {
+        var near = MirroredUndo(separation: 64f);
+        var far = MirroredUndo(separation: 900f);
+
+        Assert.Equal(near.Undone, far.Undone);
+        Assert.Equal(near.Redone, far.Redone);
+        Assert.True(near.Undone > 0, "nothing was recomposited on undo at all, so this proves nothing.");
+        Assert.True(near.Redone > 0, "nothing was recomposited on redo at all, so this proves nothing.");
+
+        // The instrument, as above: the far pair really is far apart, so a union would have been
+        // enormous and the equality could not have survived it.
+        Assert.True(
+            far.Undone < 900 * 900 / 4,
+            $"{far.Undone} texels to undo two strokes 900 apart on a 1024² atlas — that is the bounding "
+            + "box between them rather than the two rectangles."
+        );
+    }
+
     /// <summary>⚠ Pointer-down does not composite the atlas, which is #853's 1.9 seconds.</summary>
     /// <remarks>
     ///     <b>A counter, for this file's whole argument.</b> The measurement in #853 is a wall clock
@@ -242,6 +290,34 @@ public class PaintCostTests(ITestOutputHelper output) {
             + $"whole-atlas pass it used to make costs {resolving.TotalMilliseconds:F1} ms; what is left is "
             + "the two slice evaluations, which are the stack's own cost and #849's."
         );
+    }
+
+    /// <summary>What one undo and the redo after it recomposite, for a drag with one mirror.</summary>
+    static (long Undone, long Redone) MirroredUndo(float separation) {
+        const int Size = 1024;
+
+        FlatStack stack = new(Size, Size, layers: 2);
+        PaintImage layer = new(Size, Size);
+        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), stack, Gutter: 2);
+        var session = PaintSession.Begin(target, PaintStrokeTests.Hard(12f), Opaque);
+
+        Span<Vector2> both = [new(60f, 512f), new(60f + separation, 512f)];
+
+        session.MoveAll(both);
+
+        var command = session.End("Paint");
+
+        Assert.NotNull(command);
+
+        var painted = session.Composite.TexelsResolved;
+
+        command.Undo(NoContext);
+
+        var undone = session.Composite.TexelsResolved - painted;
+
+        command.Do(NoContext);
+
+        return (undone, session.Composite.TexelsResolved - painted - undone);
     }
 
     static (long Weights, long Resolved) Mirrored(float separation) {
