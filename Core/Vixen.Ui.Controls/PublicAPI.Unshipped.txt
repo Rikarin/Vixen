@@ -330,6 +330,20 @@ Vixen.Ui.Controls.KeyboardShortcut.Key.set -> Vixen.Input.InputKey
 Vixen.Ui.Controls.KeyboardShortcut.KeyboardShortcut() -> void
 Vixen.Ui.Controls.KeyboardShortcut.Modifiers.get -> Vixen.Ui.ModifierKeys
 Vixen.Ui.Controls.KeyboardShortcut.Modifiers.set -> Vixen.Ui.ModifierKeys
+Vixen.Ui.Controls.LabeledContent -> sealed class
+Vixen.Ui.Controls.LabeledContent : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.LabeledContent.Adopt(Vixen.Ui.UiElement field) -> void
+Vixen.Ui.Controls.LabeledContent.Caption.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.LabeledContent.ClearDescription() -> void
+Vixen.Ui.Controls.LabeledContent.ClearLabel() -> void
+Vixen.Ui.Controls.LabeledContent.Content.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.LabeledContent.Description.get -> string?
+Vixen.Ui.Controls.LabeledContent.Description.set -> string?
+Vixen.Ui.Controls.LabeledContent.Field.get -> Vixen.Ui.UiElement?
+Vixen.Ui.Controls.LabeledContent.Label.get -> string?
+Vixen.Ui.Controls.LabeledContent.Label.set -> string?
+Vixen.Ui.Controls.LabeledContent.LabeledContent() -> void
+Vixen.Ui.Controls.LabeledContent.Message.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Link -> sealed class
 Vixen.Ui.Controls.Link : Vixen.Ui.Controls.ButtonBase
 Vixen.Ui.Controls.Link.ClearHref() -> void
@@ -1046,6 +1060,11 @@ override Vixen.Ui.Controls.KeyValueRow.OnCreated() -> void
 override Vixen.Ui.Controls.KeyValueRow.TagName.get -> string
 override Vixen.Ui.Controls.KeyboardShortcut.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.KeyboardShortcut.TagName.get -> string
+override Vixen.Ui.Controls.LabeledContent.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.LabeledContent.ContentHost.get -> Vixen.Ui.UiElement
+override Vixen.Ui.Controls.LabeledContent.NativeRole.get -> Vixen.Ui.AccessibleRole
+override Vixen.Ui.Controls.LabeledContent.OnCreated() -> void
+override Vixen.Ui.Controls.LabeledContent.TagName.get -> string
 override Vixen.Ui.Controls.Link.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Link.TagName.get -> string
 override Vixen.Ui.Controls.Menu.IsOutside(Vixen.Ui.UiElement? hit) -> bool
@@ -1338,6 +1357,8 @@ static readonly Vixen.Ui.Controls.KeyValueRow.KeyProperty -> Vixen.Ui.UiProperty
 static readonly Vixen.Ui.Controls.KeyValueRow.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.KeyboardShortcut.KeyProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.KeyboardShortcut.ModifiersProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.LabeledContent.DescriptionProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.LabeledContent.LabelProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Link.HrefProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.MultiSelect.PlaceholderProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.MultiSelect.RequiredProperty -> Vixen.Ui.UiPropertyKey

@@ -91,7 +91,20 @@
                 it — and the bullets exist only in what is drawn and in what the accessibility tree
                 is told. There is no reveal button and its absence is deliberate.
             -->
-            <SecureTextBox Placeholder="Password" bind:Value="@Model.Secret.Value" />
+            <!--
+                ⚠ **The row wraps a field so that the caption *names* it, which no stylesheet can
+                do.** A `SecureTextBox`, like every field in this column, deliberately answers
+                nothing to its own accessible name — a placeholder is a hint and vanishes the moment
+                there is a value — so a word drawn beside one is a word nothing in the tree connects
+                to it. `LabeledContent` writes the `LabelledBy` relation for whatever is nested in
+                it, and `Description` is a *separate* element the field points at with
+                `DescribedBy`, which is where a validation message belongs. Clicking the caption
+                focuses the field, exactly as `<label for>` does.
+            -->
+            <LabeledContent Label="Password" Description="At least eight characters.">
+                <SecureTextBox Placeholder="Password" bind:Value="@Model.Secret.Value" />
+            </LabeledContent>
+
             <SearchBox Placeholder="Filter assets" bind:Value="@Model.Filter.Value" />
             <NumericInput Minimum="0" Maximum="64" bind:Number="@Model.Samples.Value" />
 

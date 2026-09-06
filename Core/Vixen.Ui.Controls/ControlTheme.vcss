@@ -573,6 +573,33 @@ status-bar {
 status-message { flex-grow: 1; min-width: 0px; overflow: hidden; }
 status-trailing { flex-direction: row; align-items: center; gap: 12px; flex-shrink: 0; }
 
+/* ── Form rows ───────────────────────────────────────────────────────
+   ⚠ Stacked by default and there is no `Orientation` property, which is
+   the one place this differs from `toolbar` above. A toolbar's axis also
+   decides which arrow keys walk it, so the control has to know; a form
+   row's axis decides nothing but where the caption sits, and a property
+   would be a second way to say `flex-direction` that a stylesheet then
+   has to agree with. A row of labels down the left is
+   `labeled-content { flex-direction: row } field-content { flex-grow: 1 }`
+   in the application's own sheet. */
+labeled-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+}
+
+field-label { color: var(--text); flex-shrink: 0; }
+
+/* A row, because a field is often a control and a unit, or two numbers. */
+field-content { flex-direction: row; align-items: center; gap: 6px; }
+
+/* ⚠ Muted rather than red, and the colour is the application's to add. The
+   same element carries the hint that was there before the form was refused
+   and the message that replaced it — see `LabeledContent.Description` for
+   why it is one element — so a stylesheet that reddened it unconditionally
+   would draw every hint in the form as an error. */
+field-message { color: var(--text-muted); font-size: 0.85em; }
+
 /* ── Segmented control ──────────────────────────────────────────────── */
 
 segmented-control {
