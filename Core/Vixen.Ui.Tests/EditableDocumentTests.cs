@@ -375,7 +375,7 @@ public class EditableDocumentTests {
         // platform with one canvas.
         Assert.Null(document.WindowOf(field));
         Assert.Null(document.WindowOf(document.Primary));
-        Assert.Null(document.WindowOf((UiSurface?) null));
+        Assert.Null(document.WindowOf((UiSurface?)null));
 
         // Installed, and older than the question.
         document.Windows = new NoWindows();

@@ -117,7 +117,7 @@ public sealed partial class LabeledContent : Control {
         // `Control.RaiseClick` — and a caption is a bare part, so a row listening for one hears
         // nothing at all and the label silently does not work. The gesture is what actually
         // happened, and it routes through the tree from whatever was under the pointer.
-        AddHandler<TapEvent>(static (element, args) => ((LabeledContent) element).Pressed(args));
+        AddHandler<TapEvent>(static (element, args) => ((LabeledContent)element).Pressed(args));
     }
 
     /// <summary>Joins a field in this row to the caption and the message.</summary>
