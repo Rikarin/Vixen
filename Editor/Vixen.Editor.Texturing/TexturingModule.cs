@@ -230,6 +230,13 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             new StringId("editor.panel.layer-stack", "Layer Stack"),
             panel => {
                 stackView = new LayerStackView(panel);
+
+                // ⚠ The one line that makes the panel's edits reach the picture. `LayerStackView`
+                // holds no evaluator — two of them over one device would be two pipeline caches,
+                // which is `stackPreview`'s own stated reason — so an edit made in a row can redraw
+                // the rows and cannot redraw the map. #819.
+                stackView.Edited = RefreshStack;
+
                 RefreshStack();
             }
         );
