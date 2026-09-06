@@ -244,6 +244,13 @@ Vixen.Ui.Text.LineBreakClass.WJ = 46 -> Vixen.Ui.Text.LineBreakClass
 Vixen.Ui.Text.LineBreakClass.XX = 47 -> Vixen.Ui.Text.LineBreakClass
 Vixen.Ui.Text.LineBreakClass.ZW = 48 -> Vixen.Ui.Text.LineBreakClass
 Vixen.Ui.Text.LineBreakClass.ZWJ = 49 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakStrictness -> enum : byte
+Vixen.Ui.Text.LineBreakStrictness.Anywhere = 4 -> Vixen.Ui.Text.LineBreakStrictness
+Vixen.Ui.Text.LineBreakStrictness.Auto = 0 -> Vixen.Ui.Text.LineBreakStrictness
+Vixen.Ui.Text.LineBreakStrictness.LineBreakStrictness() -> void
+Vixen.Ui.Text.LineBreakStrictness.Loose = 1 -> Vixen.Ui.Text.LineBreakStrictness
+Vixen.Ui.Text.LineBreakStrictness.Normal = 2 -> Vixen.Ui.Text.LineBreakStrictness
+Vixen.Ui.Text.LineBreakStrictness.Strict = 3 -> Vixen.Ui.Text.LineBreakStrictness
 Vixen.Ui.Text.LineBreaker -> static class
 Vixen.Ui.Text.LineWrapper -> static class
 Vixen.Ui.Text.Outlines.GlyphBounds -> readonly struct
@@ -734,12 +741,13 @@ static Vixen.Ui.Text.GraphemeBreaker.Count(System.ReadOnlySpan<char> text) -> in
 static Vixen.Ui.Text.GraphemeBreaker.IsBoundary(System.ReadOnlySpan<char> text, int index) -> bool
 static Vixen.Ui.Text.LineBreaker.Collect(System.ReadOnlySpan<char> text, System.Collections.Generic.List<int> opportunities) -> void
 static Vixen.Ui.Text.LineBreaker.Collect(System.ReadOnlySpan<char> text, System.Collections.Generic.List<int> opportunities, Vixen.Ui.Text.WordBreakMode mode) -> void
+static Vixen.Ui.Text.LineBreaker.Collect(System.ReadOnlySpan<char> text, System.Collections.Generic.List<int> opportunities, Vixen.Ui.Text.WordBreakMode mode, Vixen.Ui.Text.LineBreakStrictness strictness) -> void
 static Vixen.Ui.Text.LineBreaker.IsMandatory(System.ReadOnlySpan<char> text, int index) -> bool
 static Vixen.Ui.Text.LineBreaker.Opportunities(string text) -> System.Collections.Generic.List<int>
 static Vixen.Ui.Text.LineWrapper.Advances(Vixen.Ui.Text.ShapedText shaped) -> float[]
 static Vixen.Ui.Text.LineWrapper.Lines(Vixen.Ui.Text.ShapedText shaped, float maxAdvance, Vixen.Ui.Text.TextWrapMode mode = Vixen.Ui.Text.TextWrapMode.Word, Vixen.Ui.Text.WordBreakMode wordBreak = Vixen.Ui.Text.WordBreakMode.Normal) -> System.Collections.Generic.List<Vixen.Ui.Text.WrappedLine>
-static Vixen.Ui.Text.LineWrapper.Wrap(Vixen.Ui.Text.ShapedText shaped, float maxAdvance, System.Collections.Generic.List<Vixen.Ui.Text.WrappedLine> lines, Vixen.Ui.Text.TextWrapMode mode = Vixen.Ui.Text.TextWrapMode.Word, Vixen.Ui.Text.WordBreakMode wordBreak = Vixen.Ui.Text.WordBreakMode.Normal, float indent = 0, float tabStop = 0, Vixen.Ui.Text.HyphenMode hyphens = Vixen.Ui.Text.HyphenMode.Manual, Vixen.Ui.Text.TextWrapStyle style = Vixen.Ui.Text.TextWrapStyle.Auto) -> void
-static Vixen.Ui.Text.LineWrapper.Wrap(string text, System.ReadOnlySpan<float> advances, float maxAdvance, System.Collections.Generic.List<Vixen.Ui.Text.WrappedLine> lines, Vixen.Ui.Text.TextWrapMode mode = Vixen.Ui.Text.TextWrapMode.Word, Vixen.Ui.Text.WordBreakMode wordBreak = Vixen.Ui.Text.WordBreakMode.Normal, float indent = 0, float tabStop = 0, Vixen.Ui.Text.HyphenMode hyphens = Vixen.Ui.Text.HyphenMode.Manual, float hyphen = 0, Vixen.Ui.Text.TextWrapStyle style = Vixen.Ui.Text.TextWrapStyle.Auto) -> void
+static Vixen.Ui.Text.LineWrapper.Wrap(Vixen.Ui.Text.ShapedText shaped, float maxAdvance, System.Collections.Generic.List<Vixen.Ui.Text.WrappedLine> lines, Vixen.Ui.Text.TextWrapMode mode = Vixen.Ui.Text.TextWrapMode.Word, Vixen.Ui.Text.WordBreakMode wordBreak = Vixen.Ui.Text.WordBreakMode.Normal, float indent = 0, float tabStop = 0, Vixen.Ui.Text.HyphenMode hyphens = Vixen.Ui.Text.HyphenMode.Manual, Vixen.Ui.Text.TextWrapStyle style = Vixen.Ui.Text.TextWrapStyle.Auto, Vixen.Ui.Text.LineBreakStrictness strictness = Vixen.Ui.Text.LineBreakStrictness.Auto) -> void
+static Vixen.Ui.Text.LineWrapper.Wrap(string text, System.ReadOnlySpan<float> advances, float maxAdvance, System.Collections.Generic.List<Vixen.Ui.Text.WrappedLine> lines, Vixen.Ui.Text.TextWrapMode mode = Vixen.Ui.Text.TextWrapMode.Word, Vixen.Ui.Text.WordBreakMode wordBreak = Vixen.Ui.Text.WordBreakMode.Normal, float indent = 0, float tabStop = 0, Vixen.Ui.Text.HyphenMode hyphens = Vixen.Ui.Text.HyphenMode.Manual, float hyphen = 0, Vixen.Ui.Text.TextWrapStyle style = Vixen.Ui.Text.TextWrapStyle.Auto, Vixen.Ui.Text.LineBreakStrictness strictness = Vixen.Ui.Text.LineBreakStrictness.Auto) -> void
 static Vixen.Ui.Text.Outlines.GlyphOutline.Empty.get -> Vixen.Ui.Text.Outlines.GlyphOutline
 static Vixen.Ui.Text.Outlines.GlyphOutline.FromSegments(System.Collections.Generic.IEnumerable<Vixen.Ui.Text.Outlines.OutlineSegment> segments) -> Vixen.Ui.Text.Outlines.GlyphOutline
 static Vixen.Ui.Text.Rasterizing.DistanceField.Generate(Vixen.Ui.Text.Outlines.GlyphOutline outline, int width, int height, float scale, System.Numerics.Vector2 origin, float range = 4) -> Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap

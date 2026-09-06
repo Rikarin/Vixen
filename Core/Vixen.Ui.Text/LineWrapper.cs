@@ -155,6 +155,7 @@ public static class LineWrapper {
     /// <param name="tabStop">How far apart the tab stops are, or zero for a tab of no width.</param>
     /// <param name="hyphens">Whether a soft hyphen may end a line. CSS's <c>hyphens</c>.</param>
     /// <param name="style">Which of the legal breaks to prefer. CSS's <c>text-wrap-style</c>.</param>
+    /// <param name="strictness">How strict the typography is. CSS's <c>line-break</c>.</param>
     public static void Wrap(
         ShapedText shaped,
         float maxAdvance,
@@ -164,7 +165,8 @@ public static class LineWrapper {
         float indent = 0f,
         float tabStop = 0f,
         HyphenMode hyphens = HyphenMode.Manual,
-        TextWrapStyle style = TextWrapStyle.Auto
+        TextWrapStyle style = TextWrapStyle.Auto,
+        LineBreakStrictness strictness = LineBreakStrictness.Auto
     ) {
         ArgumentNullException.ThrowIfNull(shaped);
 
@@ -179,7 +181,8 @@ public static class LineWrapper {
             tabStop,
             hyphens,
             hyphen: 0f,
-            style
+            style,
+            strictness
         );
     }
 
@@ -263,6 +266,19 @@ public static class LineWrapper {
     ///         the line then draws it anyway, overflowing its box by exactly one hyphen.
     ///     </para>
     /// </param>
+    /// <param name="strictness">
+    ///     <para>
+    ///         How strict the typography is. CSS Text 3 § 5.2's <c>line-break</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Passed through to <see cref="LineBreaker.Collect(System.ReadOnlySpan{char},System.Collections.Generic.List{int},WordBreakMode,LineBreakStrictness)" /> rather
+    ///         than applied here</b>, which is where <c>word-break</c> goes and where
+    ///         <c>hyphens</c> deliberately does not: this property changes which opportunities the
+    ///         algorithm offers, so it belongs to the opportunity finder. <c>hyphens: none</c>
+    ///         removes one the algorithm was right to offer, which is a decision about this
+    ///         paragraph and stays in this file.
+    ///     </para>
+    /// </param>
     public static void Wrap(
         string text,
         ReadOnlySpan<float> advances,
@@ -274,7 +290,8 @@ public static class LineWrapper {
         float tabStop = 0f,
         HyphenMode hyphens = HyphenMode.Manual,
         float hyphen = 0f,
-        TextWrapStyle style = TextWrapStyle.Auto
+        TextWrapStyle style = TextWrapStyle.Auto,
+        LineBreakStrictness strictness = LineBreakStrictness.Auto
     ) {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(lines);
@@ -293,7 +310,7 @@ public static class LineWrapper {
         }
 
         var opportunities = new List<int>();
-        LineBreaker.Collect(text, opportunities, wordBreak);
+        LineBreaker.Collect(text, opportunities, wordBreak, strictness);
 
         // ⚠ <b>`hyphens: none` is a filter over the opportunities and not a mode inside UAX#14</b>,
         // which is the same shape `keep-all` takes and for a different reason. `keep-all` changes
@@ -333,7 +350,7 @@ public static class LineWrapper {
 
     /// <summary>Greedy first-fit: every line takes as much as it can hold.</summary>
     /// <remarks>
-    ///     The body this method holds was <see cref="Wrap(string,System.ReadOnlySpan{float},float,System.Collections.Generic.List{WrappedLine},TextWrapMode,WordBreakMode,float,float,HyphenMode,float,TextWrapStyle)" />'s
+    ///     The body this method holds was <see cref="Wrap(string,System.ReadOnlySpan{float},float,System.Collections.Generic.List{WrappedLine},TextWrapMode,WordBreakMode,float,float,HyphenMode,float,TextWrapStyle,LineBreakStrictness)" />'s
     ///     own for the whole of its life, and it moved for one reason: <see cref="TextWrapStyle.Balance" />
     ///     has to run it several times at several widths over the <i>same</i> opportunities, and
     ///     collecting those again per attempt would make a bisection quadratic in the paragraph.

@@ -46,6 +46,7 @@ public sealed partial class UiDocument : IDisposable {
     readonly int textWrap;
     readonly int overflowWrap;
     readonly int wordBreak;
+    readonly int lineBreak;
     readonly int textOverflow;
     readonly int lineClamp;
     readonly int tabSize;
@@ -61,6 +62,9 @@ public sealed partial class UiDocument : IDisposable {
     readonly int breakWord;
     readonly int breakAll;
     readonly int keepAll;
+    readonly int loose;
+    readonly int strict;
+    readonly int normal;
     readonly int textTransform;
     readonly int uppercase;
     readonly int lowercase;
@@ -159,6 +163,7 @@ public sealed partial class UiDocument : IDisposable {
         pretty = Styles.Values.Intern("pretty");
         overflowWrap = Styles.Properties.Intern("overflow-wrap");
         wordBreak = Styles.Properties.Intern("word-break");
+        lineBreak = Styles.Properties.Intern("line-break");
         textOverflow = Styles.Properties.Intern("text-overflow");
         lineClamp = Styles.Properties.Intern("-webkit-line-clamp");
         tabSize = Styles.Properties.Intern("tab-size");
@@ -169,6 +174,9 @@ public sealed partial class UiDocument : IDisposable {
         breakWord = Styles.Values.Intern("break-word");
         breakAll = Styles.Values.Intern("break-all");
         keepAll = Styles.Values.Intern("keep-all");
+        loose = Styles.Values.Intern("loose");
+        strict = Styles.Values.Intern("strict");
+        normal = Styles.Values.Intern("normal");
         textTransform = Styles.Properties.Intern("text-transform");
         uppercase = Styles.Values.Intern("uppercase");
         lowercase = Styles.Values.Intern("lowercase");
@@ -2353,6 +2361,41 @@ public sealed partial class UiDocument : IDisposable {
 
         return value == breakAll ? WordBreakMode.BreakAll :
             value == keepAll ? WordBreakMode.KeepAll : WordBreakMode.Normal;
+    }
+
+    /// <summary>How strict the typography is. CSS Text 3 § 5.2's <c>line-break</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A third reader beside <see cref="WrapModeOf" /> and <see cref="WordBreakOf" />,
+    ///         and the one the <c>CJ</c> line break class was waiting for.</b> UAX#14 § 6.1 declines
+    ///         to resolve a conditional Japanese starter on its own — it says the class resolves to
+    ///         <c>NS</c> or <c>ID</c> "depending on the desired line breaking strictness" — so a
+    ///         breaker with no <c>line-break</c> is one that has picked an answer and stopped saying
+    ///         it was a choice.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>anywhere</c> is the value this reader and <see cref="WrapModeOf" /> both spell,
+    ///         and they mean different things.</b> <c>overflow-wrap: anywhere</c> is a last resort the
+    ///         line filler takes when a run is wider than the whole column;
+    ///         <c>line-break: anywhere</c> puts an opportunity around every typographic character
+    ///         unit whether anything overflows or not. The keyword is interned once and read by
+    ///         whichever property it was written on, which is why the value id can be shared and the
+    ///         two readers cannot.
+    ///     </para>
+    ///     <para>
+    ///         <c>auto</c> is the initial value and needs no test: anything that is not one of the
+    ///         four keywords is it.
+    ///     </para>
+    /// </remarks>
+    internal LineBreakStrictness LineBreakOf(ComputedStyle style) {
+        if (!style.TryGet(lineBreak, out var value)) {
+            return LineBreakStrictness.Auto;
+        }
+
+        return value == loose ? LineBreakStrictness.Loose :
+            value == normal ? LineBreakStrictness.Normal :
+            value == strict ? LineBreakStrictness.Strict :
+            value == anywhere ? LineBreakStrictness.Anywhere : LineBreakStrictness.Auto;
     }
 
     /// <summary>What to do to the characters before they are shaped. CSS Text 3 § 2.1.</summary>

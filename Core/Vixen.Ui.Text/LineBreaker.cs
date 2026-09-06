@@ -103,6 +103,94 @@ public enum HyphenMode : byte {
     None
 }
 
+/// <summary>How strict a line break is. CSS Text 3 § 5.2's <c>line-break</c>.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The property <c>CJ</c> is conditional on, and until this existed the class had no
+///         condition to read.</b> A conditional Japanese starter — the small kana, the prolonged
+///         sound mark, the iteration marks — is the one line break class UAX#14 declines to resolve
+///         on its own: § 6.1 says it resolves to <c>NS</c> or to <c>ID</c> "depending on the desired
+///         line breaking strictness", and this is the sentence that says which. Resolving it
+///         unconditionally, which is what this store did, is picking one of the two answers and
+///         calling it the algorithm.
+///     </para>
+///     <para>
+///         ⚠ <b>Not <see cref="WordBreakMode" /> under another name, and CSS Text § 5.2 puts them
+///         side by side for the same reason this file keeps three enums apart.</b> <c>word-break</c>
+///         says what counts as a <i>word</i> — whether two letters may be parted — and knows nothing
+///         about kana; this says how <i>strict</i> the typography is, which is a question about a
+///         small set of characters that are almost all Japanese. They compose, and where they
+///         disagree about <c>CJ</c> the word-breaking tailoring wins, because <c>break-all</c> and
+///         <c>keep-all</c> are statements about every character and this one is a statement about
+///         these.
+///     </para>
+///     <para>
+///         ⚠ <b>No utility class emits any of the four, and that is a decision rather than an
+///         omission.</b> Tailwind has no <c>line-break</c> root in v3 or v4, so a family invented for
+///         it would be a spelling this store made up — the parity ledger is a comparison with
+///         Tailwind and a row nothing outside this repository could write is not a comparison. The
+///         property is reachable the way every un-utilitied CSS property is, by writing it in a
+///         <c>.vcss</c> rule.
+///     </para>
+/// </remarks>
+public enum LineBreakStrictness : byte {
+    /// <summary>The user agent decides. CSS's <c>line-break: auto</c>, and the initial value.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Deliberately identical to <see cref="Strict" /> rather than to <see cref="Normal" />,
+    ///     which is a choice and not an oversight.</b> CSS leaves <c>auto</c> to the implementation;
+    ///     ICU's untailored rules and ICU4X's default both resolve <c>CJ</c> to <c>NS</c>, and so did
+    ///     every line this store has broken since it had a line breaker. Making the initial value
+    ///     mean anything else would have moved 19 338 conformance cases and every existing wrap, to
+    ///     buy a preference the specification does not express.
+    /// </remarks>
+    Auto,
+
+    /// <summary>The least strict. CSS's <c>line-break: loose</c>.</summary>
+    /// <remarks>
+    ///     What a newspaper column does: short lines want every opportunity they can get. Three
+    ///     tailorings, all of them from ICU's <c>line_loose.txt</c> — <c>CJ</c> behaves as
+    ///     <c>ID</c>, the six iteration marks stop being <c>NS</c>, and a run of inseparables (an
+    ///     ellipsis, a two-dot leader) may be broken inside.
+    /// </remarks>
+    Loose,
+
+    /// <summary>The common tailoring. CSS's <c>line-break: normal</c>.</summary>
+    /// <remarks>
+    ///     <c>CJ</c> behaves as <c>ID</c>, so a line may begin with a small kana, and nothing else
+    ///     moves. ICU's <c>line_normal.txt</c> for languages other than Chinese and Japanese is this
+    ///     sentence and no other.
+    /// </remarks>
+    Normal,
+
+    /// <summary>The strictest. CSS's <c>line-break: strict</c>.</summary>
+    /// <remarks>
+    ///     <c>CJ</c> behaves as <c>NS</c>: a small kana may not open a line, which is what Japanese
+    ///     typography traditionally asks for and what UAX#14's own default tables assume.
+    /// </remarks>
+    Strict,
+
+    /// <summary>A break around every typographic character unit. CSS Text 4 § 5.1's <c>anywhere</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not <see cref="WordBreakMode.BreakAll" /> and not
+    ///         <see cref="TextWrapMode.Anywhere" />, and it is the only value here that is not a class
+    ///         substitution at all.</b> CSS Text 4 § 5.1 says the opportunity is there "disregarding
+    ///         any prohibition against line breaks, even those introduced by characters with the GL,
+    ///         WJ, or ZWJ character class or mandated by the <c>word-break</c> property" — so a line
+    ///         may begin with a comma, a word joiner does not join, and <c>keep-all</c> is overruled.
+    ///         Every other tailoring in this enum keeps UAX#14's rules and changes what the
+    ///         characters are; this one keeps the characters and discards the rules.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Which is why it is implemented as grapheme cluster segmentation, and that is not an
+    ///         approximation — "typographic character unit" is the specification's name for an
+    ///         extended grapheme cluster, and ICU4X answers <c>line-break: anywhere</c> by handing
+    ///         back a grapheme segmenter wearing a line segmenter's coat.
+    ///     </para>
+    /// </remarks>
+    Anywhere
+}
+
 /// <summary>Where a line may be broken, and where it must be.</summary>
 /// <remarks>
 ///     <para>
@@ -147,7 +235,27 @@ public static class LineBreaker {
     ///     <see cref="TextWrapMode.Anywhere" /> suppresses the breaks between CJK characters and still
     ///     squeezes an over-long run, which is what CSS says and what one merged enum could not say.
     /// </remarks>
-    public static void Collect(ReadOnlySpan<char> text, List<int> opportunities, WordBreakMode mode) {
+    public static void Collect(ReadOnlySpan<char> text, List<int> opportunities, WordBreakMode mode) =>
+        Collect(text, opportunities, mode, LineBreakStrictness.Auto);
+
+    /// <summary>Collects every line break opportunity, under a <c>word-break</c> and a strictness.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="opportunities">Receives the positions, ascending, ending with the text length.</param>
+    /// <param name="mode">Whether breaking inside a word is allowed, forbidden, or left to UAX#14.</param>
+    /// <param name="strictness">How strict the typography is. CSS's <c>line-break</c>.</param>
+    /// <remarks>
+    ///     ⚠ <b>Two CSS properties reach the same list and they are asked in this order</b>:
+    ///     <see cref="LineBreakStrictness.Anywhere" /> is answered first and alone, because CSS Text 4
+    ///     § 5.1 says it disregards the prohibitions <c>word-break</c> mandates; everywhere else the
+    ///     two are class substitutions that compose, and where both have an opinion about <c>CJ</c>
+    ///     the <c>word-break</c> tailoring wins — see <see cref="LineBreakStrictness" />.
+    /// </remarks>
+    public static void Collect(
+        ReadOnlySpan<char> text,
+        List<int> opportunities,
+        WordBreakMode mode,
+        LineBreakStrictness strictness
+    ) {
         ArgumentNullException.ThrowIfNull(opportunities);
 
         opportunities.Clear();
@@ -156,7 +264,22 @@ public static class LineBreaker {
             return;
         }
 
-        var run = LineBreakRun.Resolve(text, mode);
+        // CSS Text 4 § 5.1 — `anywhere` is not a tailoring of UAX#14, it is a refusal of it. Every
+        // typographic character unit offers a break on both sides, which is the definition of a
+        // grapheme cluster boundary; the only edit is dropping the boundary at zero, which LB2 says
+        // is not an opportunity and which every caller of this method reads as "the first line is
+        // empty".
+        if (strictness == LineBreakStrictness.Anywhere) {
+            GraphemeBreaker.Collect(text, opportunities);
+
+            if (opportunities.Count > 0 && opportunities[0] == 0) {
+                opportunities.RemoveAt(0);
+            }
+
+            return;
+        }
+
+        var run = LineBreakRun.Resolve(text, mode, strictness);
 
         for (var i = 1; i < run.Count; i++) {
             if (!run.ShouldBreak(i)) {
@@ -270,6 +393,13 @@ sealed class LineBreakRun {
     readonly List<LineBreakClass> original = [];
     readonly List<bool> attached = [];
 
+    // ⚠ The one CSS tailoring that could not be expressed as a class substitution, kept on the run so
+    // that `ShouldBreak` can read it. `line-break: loose` allows a break *between* two inseparables —
+    // a two-dot leader broken across lines — and LB22 is written as "× IN" with no left-hand side, so
+    // there is no class either character could be given that would relax the pair without also
+    // relaxing `ID IN`, which loose does not.
+    internal LineBreakStrictness strictness;
+
     /// <summary>How many code points there are.</summary>
     public int Count => classes.Count;
 
@@ -292,8 +422,16 @@ sealed class LineBreakRun {
     /// <param name="text">The text.</param>
     /// <param name="mode">Whether breaking inside a word is allowed, forbidden, or left to UAX#14.</param>
     /// <returns>The resolved run.</returns>
-    public static LineBreakRun Resolve(ReadOnlySpan<char> text, WordBreakMode mode) {
-        var run = new LineBreakRun();
+    public static LineBreakRun Resolve(ReadOnlySpan<char> text, WordBreakMode mode) =>
+        Resolve(text, mode, LineBreakStrictness.Auto);
+
+    /// <summary>Decodes and resolves a string under a <c>word-break</c> and a <c>line-break</c>.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="mode">Whether breaking inside a word is allowed, forbidden, or left to UAX#14.</param>
+    /// <param name="strictness">How strict the typography is. CSS's <c>line-break</c>.</param>
+    /// <returns>The resolved run.</returns>
+    public static LineBreakRun Resolve(ReadOnlySpan<char> text, WordBreakMode mode, LineBreakStrictness strictness) {
+        var run = new LineBreakRun { strictness = strictness };
         var position = 0;
 
         while (position < text.Length) {
@@ -301,7 +439,7 @@ sealed class LineBreakRun {
 
             var codePoint = GraphemeBreaker.Decode(text, ref position);
             run.codePoints.Add(codePoint);
-            run.original.Add(Ideographic(Substitute(codePoint, mode), mode));
+            run.original.Add(Ideographic(Substitute(codePoint, mode, strictness), mode));
         }
 
         // LB9, LB10 — a combining mark takes the class of its base, unless there is nothing to
@@ -332,8 +470,25 @@ sealed class LineBreakRun {
     /// <param name="mode">
     ///     The <c>word-break</c> in force, which decides what a conditional Japanese starter is.
     /// </param>
-    static LineBreakClass Substitute(int codePoint, WordBreakMode mode) {
+    /// <param name="strictness">
+    ///     The <c>line-break</c> in force, which is what the class is conditional <i>on</i> where
+    ///     <paramref name="mode" /> has no opinion.
+    /// </param>
+    static LineBreakClass Substitute(int codePoint, WordBreakMode mode, LineBreakStrictness strictness) {
         var value = LineBreakClassTable.Of(codePoint);
+
+        // CSS Text 3 § 5.2 `line-break: loose`, from ICU's `line_loose.txt`: "allows breaks before
+        // iteration marks 3005, 303B, 309D, 309E, 30FD, 30FE (all NS)".
+        //
+        // ⚠ <b>Six code points named one by one rather than a class, because there is no class they
+        // are alone in.</b> `NS` holds the closing brackets and the centred punctuation too, and a
+        // loose line may still not begin with one of those — ICU expresses this by subtracting the
+        // six from `$NS` and putting them in no set at all, which leaves no rule mentioning them.
+        // `ID` is the same answer said positively: an ideograph offers a break on both sides and is
+        // named by no prohibition either.
+        if (strictness == LineBreakStrictness.Loose && IsIterationMark(codePoint)) {
+            return LineBreakClass.ID;
+        }
 
         return value switch {
             // `AI` is ambiguous-width, `SG` is a surrogate and `XX` is unassigned. All three take the
@@ -364,10 +519,26 @@ sealed class LineBreakRun {
             // segments as `フ|ォ` and `keep_all("しょう。")` stays whole, and this store gave the
             // opposite of each. ⚠ `Normal` is untouched, which is what keeps the Consortium's 19 338
             // cases out of it — they are judged with no tailoring at all.
-            LineBreakClass.CJ => mode == WordBreakMode.Normal ? LineBreakClass.NS : LineBreakClass.ID,
+            // ⚠ And `line-break` is the property the class is *named* for, which arrived after the
+            // `word-break` half above and does not displace it: a tailoring that has resolved every
+            // letter to `ID` or suppressed every letter break has already answered for the kana, so
+            // the strictness is only asked where `word-break` had no opinion.
+            LineBreakClass.CJ => mode != WordBreakMode.Normal
+                || strictness is LineBreakStrictness.Loose or LineBreakStrictness.Normal
+                    ? LineBreakClass.ID
+                    : LineBreakClass.NS,
             _ => value
         };
     }
+
+    /// <summary>The six iteration marks CSS's <c>line-break: loose</c> lets a line begin with.</summary>
+    /// <remarks>
+    ///     U+3005 IDEOGRAPHIC ITERATION MARK, U+303B VERTICAL IDEOGRAPHIC ITERATION MARK, and the two
+    ///     hiragana and two katakana iteration marks. All six are <c>NS</c> in the Unicode tables;
+    ///     ICU's <c>line_loose.txt</c> subtracts exactly these from <c>$NS</c> and nothing else.
+    /// </remarks>
+    static bool IsIterationMark(int codePoint) =>
+        codePoint is 0x3005 or 0x303B or 0x309D or 0x309E or 0x30FD or 0x30FE;
 
     /// <summary>CSS Text 3 § 5.2 <c>break-all</c> — every letter behaves as an ideograph.</summary>
     /// <remarks>
@@ -569,7 +740,13 @@ sealed class LineBreakRun {
         }
 
         // LB22 — never break before an inseparable, which is what an ellipsis is.
-        if (after == LineBreakClass.IN) {
+        //
+        // ⚠ Except between two of them under `line-break: loose`, which is ICU's `line_loose.txt`
+        // "allows breaks between characters of LineBreak class IN". A two-dot leader may be split
+        // across lines in a loose column and an ellipsis after an ideograph may still not be pulled
+        // off it, so the relaxation is about the *pair* and not about the class.
+        if (after == LineBreakClass.IN
+            && !(strictness == LineBreakStrictness.Loose && before == LineBreakClass.IN)) {
             return false;
         }
 
