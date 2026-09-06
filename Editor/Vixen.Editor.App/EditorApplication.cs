@@ -557,6 +557,20 @@ sealed partial class EditorApplication : IDisposable {
         };
 
         project.Activate(scene);
+
+        // ⚠ The install #647 has been owed for four sessions, and it is one line because the manager
+        // follows the tab by construction — see `ActiveDocumentUndo`. Until this, `FindUndoManager`
+        // walked the editor's whole tree and found nothing: every text field in the editor recorded
+        // its edits nowhere, and correctly left ⌘Z to the shell's `edit.undo` because there was no
+        // manager to give it to. Now a field's edit and a command's edit are one history in the
+        // order they happened, which is the property `CommandStack : IUndoManager` was for.
+        //
+        // ⚠ On the `UiDocument` and not on `Shell.Document.Root`. `FindUndoManager` walks the element
+        // and its ancestors and asks the document last, so a panel that owns a stack of its own can
+        // still outrank this by setting `UndoManager` on itself — which is the arrangement
+        // `UndoCommands` describes and would be closed off by claiming the root.
+        Shell.Document.UndoManager = new ActiveDocumentUndo(project);
+
         picker = new ScenePicker(scene);
         probe = new SceneProbe(scene);
 
