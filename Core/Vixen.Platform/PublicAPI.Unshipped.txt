@@ -504,6 +504,7 @@ Vixen.Platform.PlatformEvent.DeviceId.get -> int
 Vixen.Platform.PlatformEvent.DpiScale.get -> float
 Vixen.Platform.PlatformEvent.GamepadAxis.get -> Vixen.Platform.GamepadAxis
 Vixen.Platform.PlatformEvent.GamepadButton.get -> Vixen.Platform.GamepadButton
+Vixen.Platform.PlatformEvent.IsNotched.get -> bool
 Vixen.Platform.PlatformEvent.IsRepeat.get -> bool
 Vixen.Platform.PlatformEvent.Key.get -> Vixen.Platform.Key
 Vixen.Platform.PlatformEvent.Kind.get -> Vixen.Platform.PlatformEventKind
@@ -682,7 +683,7 @@ static Vixen.Platform.PlatformEvent.GamepadConnection(Vixen.Platform.PlatformEve
 static Vixen.Platform.PlatformEvent.Keyboard(Vixen.Platform.PlatformEventKind kind, uint windowId, long timestamp, Vixen.Platform.Key key, Vixen.Platform.KeyModifiers modifiers, bool isRepeat = false) -> Vixen.Platform.PlatformEvent
 static Vixen.Platform.PlatformEvent.MouseButtonChanged(Vixen.Platform.PlatformEventKind kind, uint windowId, long timestamp, Vixen.Platform.MouseButton button, Vixen.Core.Mathematics.Vector2 position, int clickCount = 1, Vixen.Platform.KeyModifiers modifiers = Vixen.Platform.KeyModifiers.None) -> Vixen.Platform.PlatformEvent
 static Vixen.Platform.PlatformEvent.MouseMoved(uint windowId, long timestamp, Vixen.Core.Mathematics.Vector2 position, Vixen.Core.Mathematics.Vector2 delta, Vixen.Platform.KeyModifiers modifiers = Vixen.Platform.KeyModifiers.None) -> Vixen.Platform.PlatformEvent
-static Vixen.Platform.PlatformEvent.MouseWheel(uint windowId, long timestamp, Vixen.Core.Mathematics.Vector2 position, Vixen.Core.Mathematics.Vector2 delta, Vixen.Platform.KeyModifiers modifiers = Vixen.Platform.KeyModifiers.None) -> Vixen.Platform.PlatformEvent
+static Vixen.Platform.PlatformEvent.MouseWheel(uint windowId, long timestamp, Vixen.Core.Mathematics.Vector2 position, Vixen.Core.Mathematics.Vector2 delta, Vixen.Platform.KeyModifiers modifiers = Vixen.Platform.KeyModifiers.None, bool notched = false) -> Vixen.Platform.PlatformEvent
 static Vixen.Platform.PlatformEvent.TextEditing(uint windowId, long timestamp, string text, int selectionStart, int selectionLength) -> Vixen.Platform.PlatformEvent
 static Vixen.Platform.PlatformEvent.TextInput(uint windowId, long timestamp, string text) -> Vixen.Platform.PlatformEvent
 static Vixen.Platform.PlatformEvent.Touch(Vixen.Platform.PlatformEventKind kind, uint windowId, long timestamp, int fingerId, Vixen.Core.Mathematics.Vector2 position, Vixen.Core.Mathematics.Vector2 delta = default(Vixen.Core.Mathematics.Vector2), float pressure = 1) -> Vixen.Platform.PlatformEvent

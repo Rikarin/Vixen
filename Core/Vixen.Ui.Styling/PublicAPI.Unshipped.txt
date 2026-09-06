@@ -670,9 +670,13 @@ Vixen.Ui.Styling.SystemColor.Mark = 11 -> Vixen.Ui.Styling.SystemColor
 Vixen.Ui.Styling.SystemColor.MarkText = 12 -> Vixen.Ui.Styling.SystemColor
 Vixen.Ui.Styling.SystemColor.SystemColor() -> void
 Vixen.Ui.Styling.SystemPalette -> sealed class
+Vixen.Ui.Styling.SystemPalette.ClearPlatform() -> bool
+Vixen.Ui.Styling.SystemPalette.ClearPlatform(Vixen.Ui.Styling.SystemColor colour) -> bool
+Vixen.Ui.Styling.SystemPalette.IsFromPlatform(Vixen.Ui.Styling.SystemColor colour) -> bool
 Vixen.Ui.Styling.SystemPalette.Reset(System.ReadOnlySpan<uint> srgb) -> bool
 Vixen.Ui.Styling.SystemPalette.Revision.get -> int
 Vixen.Ui.Styling.SystemPalette.Set(Vixen.Ui.Styling.SystemColor colour, Vixen.Core.Mathematics.Color4 value) -> bool
+Vixen.Ui.Styling.SystemPalette.SetPlatform(Vixen.Ui.Styling.SystemColor colour, Vixen.Core.Mathematics.Color4 value) -> bool
 Vixen.Ui.Styling.SystemPalette.SystemPalette() -> void
 Vixen.Ui.Styling.SystemPalette.this[Vixen.Ui.Styling.SystemColor colour].get -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.Styling.TimingFunction -> readonly struct

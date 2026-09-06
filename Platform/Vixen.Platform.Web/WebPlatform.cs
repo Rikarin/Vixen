@@ -481,7 +481,8 @@ public sealed class WebPlatform : IPlatform {
                         timestamp,
                         record.First,
                         record.Second,
-                        record.Modifiers
+                        record.Modifiers,
+                        record.Code != 0
                     )
                 );
 

@@ -107,6 +107,8 @@ public sealed class SystemPalette {
     static readonly Dictionary<string, SystemColor> Lookup = Build();
 
     readonly Color4[] entries = new Color4[Count];
+    readonly Color4[] supplied = new Color4[Count];
+    readonly bool[] fromPlatform = new bool[Count];
 
     /// <summary>Creates a palette holding the light defaults.</summary>
     public SystemPalette() {
@@ -175,10 +177,16 @@ public sealed class SystemPalette {
     /// <returns>Its CSS spelling.</returns>
     public static string NameOf(SystemColor colour) => Names[(int)colour];
 
-    /// <summary>Sets one role.</summary>
+    /// <summary>Sets one role, until the next <see cref="Reset" />.</summary>
     /// <param name="colour">The role.</param>
     /// <param name="value">Its colour, linear.</param>
     /// <returns>Whether that changed anything.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A one-off write and not a claim about the platform</b>: the next
+    ///     <see cref="Reset" /> — an appearance change, a contrast change — puts the default table
+    ///     back over it. A host that has read a colour <i>from the operating system</i> wants
+    ///     <see cref="SetPlatform" /> instead, which survives.
+    /// </remarks>
     public bool Set(SystemColor colour, Color4 value) {
         if (entries[(int)colour].Equals(value)) {
             return false;
@@ -189,12 +197,97 @@ public sealed class SystemPalette {
         return true;
     }
 
+    /// <summary>Fills one role from what the operating system says it is.</summary>
+    /// <param name="colour">The role.</param>
+    /// <param name="value">Its colour, linear.</param>
+    /// <returns>Whether that changed anything.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The difference from <see cref="Set" /> is that this one outlives a
+    ///         <see cref="Reset" />, and without that the platform read this class exists for could
+    ///         not work at all.</b> A host reads its platform's palette once and on each change; the
+    ///         default tables are re-applied on every appearance <i>and</i> every contrast change,
+    ///         which arrive from a different place and on a different cadence. A host writing over
+    ///         the top of <see cref="Reset" /> therefore holds its colours only until the user next
+    ///         toggles dark mode — the same two-writers failure <c>PlatformInput.Repalette</c> is
+    ///         arranged to avoid one level up, and it is not a failure a picture announces: the
+    ///         window simply goes back to Chromium's blue.
+    ///     </para>
+    ///     <para>
+    ///         So the platform's answers are held apart from the table and re-applied after it. A
+    ///         role nobody has supplied is untouched by this and keeps following the tables, which is
+    ///         what makes a partial read — an accent and a highlight and nothing else, which is all
+    ///         <c>NSGlobalDomain</c> can give without AppKit — the normal case rather than a special
+    ///         one.
+    ///     </para>
+    /// </remarks>
+    public bool SetPlatform(SystemColor colour, Color4 value) {
+        var index = (int)colour;
+
+        supplied[index] = value;
+        fromPlatform[index] = true;
+
+        if (entries[index].Equals(value)) {
+            return false;
+        }
+
+        entries[index] = value;
+        Revision++;
+        return true;
+    }
+
+    /// <summary>Gives one role back to the default tables.</summary>
+    /// <param name="colour">The role.</param>
+    /// <returns>Whether that changed anything.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The role does not revert here; it reverts at the next <see cref="Reset" />.</b> This
+    ///     class holds no memory of which table it was last filled from — light, dark or forced is
+    ///     a question about the document, not about the palette — so inventing a value to fall back
+    ///     to would be guessing at one of three. Forgetting the platform's answer is the whole of
+    ///     what a host that has stopped being able to read one can honestly say.
+    /// </remarks>
+    public bool ClearPlatform(SystemColor colour) {
+        if (!fromPlatform[(int)colour]) {
+            return false;
+        }
+
+        fromPlatform[(int)colour] = false;
+        return true;
+    }
+
+    /// <summary>Gives every role back to the default tables.</summary>
+    /// <returns>Whether any role was being supplied.</returns>
+    public bool ClearPlatform() {
+        var any = false;
+
+        for (var i = 0; i < Count; i++) {
+            any |= fromPlatform[i];
+            fromPlatform[i] = false;
+        }
+
+        return any;
+    }
+
+    /// <summary>Whether one role is being filled by the platform rather than by a default table.</summary>
+    /// <param name="colour">The role.</param>
+    /// <returns>Whether a host has supplied it.</returns>
+    public bool IsFromPlatform(SystemColor colour) => fromPlatform[(int)colour];
+
     /// <summary>Replaces every role at once, from a table of sRGB bytes.</summary>
     /// <param name="srgb">Fifteen packed <c>0xRRGGBB</c> values, in <see cref="SystemColor" /> order.</param>
     /// <returns>Whether that changed anything.</returns>
     /// <remarks>
-    ///     ⚠ <b>One <see cref="Revision" /> bump for the whole table and not fifteen</b>, which is
-    ///     what makes an appearance switch a single cache clear rather than fifteen of them mid-frame.
+    ///     <para>
+    ///         ⚠ <b>One <see cref="Revision" /> bump for the whole table and not fifteen</b>, which
+    ///         is what makes an appearance switch a single cache clear rather than fifteen of them
+    ///         mid-frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A role the platform has supplied is <i>not</i> replaced</b> — see
+    ///         <see cref="SetPlatform" />. The table is the fallback for the roles nobody has read
+    ///         from the operating system, and a reset that overwrote the read ones would make an
+    ///         appearance change the moment a real palette is lost.
+    ///     </para>
     /// </remarks>
     public bool Reset(ReadOnlySpan<uint> srgb) {
         ArgumentOutOfRangeException.ThrowIfNotEqual(srgb.Length, Count, nameof(srgb));
@@ -203,7 +296,10 @@ public sealed class SystemPalette {
 
         for (var i = 0; i < Count; i++) {
             var packed = srgb[i];
-            var colour = new Color((byte)(packed >> 16), (byte)(packed >> 8), (byte)packed).ToLinear();
+
+            var colour = fromPlatform[i]
+                ? supplied[i]
+                : new Color((byte)(packed >> 16), (byte)(packed >> 8), (byte)packed).ToLinear();
 
             if (!entries[i].Equals(colour)) {
                 entries[i] = colour;

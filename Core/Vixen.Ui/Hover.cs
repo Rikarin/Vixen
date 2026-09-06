@@ -36,6 +36,34 @@ public sealed class WheelEvent : UiEvent {
     /// <summary>Ditto, vertically.</summary>
     public float DeltaY { get; init; }
 
+    /// <summary>Whether a notched wheel produced this, rather than a continuous surface such as a
+    /// trackpad.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Only <see langword="true" /> is a claim, and the default is deliberately the
+    ///         other one.</b> False means "a continuous device, <i>or</i> a backend that could not
+    ///         tell" — so every behaviour that keys off this has to put the unchanged, direct
+    ///         manipulation treatment on the false arm. A synthesised event that says nothing about
+    ///         its device therefore behaves exactly as every event did before this property existed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The distinction is not free, and no backend here gets it for nothing.</b>
+    ///         <c>SDL_MouseWheelEvent</c> carries no phase and no device class, so the desktop
+    ///         backend reads it off the shape of the delta — an exactly integral precise delta is a
+    ///         notch, a fractional one is a surface — and the browser reads
+    ///         <c>WheelEvent.deltaMode</c>, which is decisive in one direction only. Both are written
+    ///         down where they are made.
+    ///     </para>
+    ///     <para>
+    ///         It matters because the two want opposite treatment. A trackpad flick is direct
+    ///         manipulation that the operating system has already given momentum to, so easing it
+    ///         again would lag the fingers and compound the deceleration; a wheel notch is a discrete
+    ///         request for a distance, with momentum from nowhere, and is the one scroll
+    ///         <c>scroll-behavior: smooth</c> is actually about.
+    ///     </para>
+    /// </remarks>
+    public bool Notched { get; init; }
+
     /// <summary>What was held on the keyboard at the time.</summary>
     /// <remarks>
     ///     Here for the same reason it is on <see cref="PointerEvent" />: a modified wheel is one

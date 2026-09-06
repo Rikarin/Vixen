@@ -286,7 +286,128 @@ public class ScrollViewTests {
         Assert.Equal(before, outer.ScrollTop, 1);
     }
 
+    /// <summary>`scroll-behavior: smooth` reaches the wheel a notched device turned, and nothing
+    /// else.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The whole point of <see cref="WheelEvent.Notched" /> is in the difference between
+    ///         these two rows, and a build that threw the distinction away — carried it as a constant,
+    ///         dropped it in the backend, or read it in the wrong sense — fails one of them whichever
+    ///         constant it picked.</b> That is what makes this a test of the fact travelling rather
+    ///         than of the smoothing.
+    ///     </para>
+    ///     <para>
+    ///         A trackpad is direct manipulation that macOS has already given a deceleration to, so
+    ///         easing it here would lag the fingers and compound two curves; a notch is a discrete
+    ///         request with momentum from nowhere, and is the scroll `scroll-behavior` is about.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public void Smooth_behaviour_eases_a_notched_wheel_and_never_a_trackpad(bool notched, bool eased) {
+        var (fixture, _, inner, _) = Nest("#inner { scroll-behavior: smooth; }");
+        using var scope = fixture;
+
+        Reveal(fixture, inner);
+        fixture.Wheel(inner, 10f, notched: notched);
+
+        Assert.Equal(eased, inner.IsScrolling);
+        Assert.Equal(eased ? 0f : 10f, inner.ScrollTop, 1);
+
+        // Either way the content ends up where the wheel asked for; the eased one just takes frames
+        // to get there. An assertion that only read the first tick would pass against a smoothing
+        // that never arrived.
+        for (var frame = 0; frame < 40; frame++) {
+            fixture.Advance(TimeSpan.FromMilliseconds(16));
+        }
+
+        Assert.Equal(10f, inner.ScrollTop, 1);
+    }
+
+    /// <summary>A notch turned during the ease adds a whole notch to where it was already going.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The failure this rules out is subtle and is what a naive implementation does.</b>
+    ///     Adding the delta to the <i>current</i> offset rather than to the outstanding destination
+    ///     makes every notch after the first travel less than a notch, so a wheel turned fast covers
+    ///     less ground than the same wheel turned slowly — which reads as the smoothing eating input.
+    /// </remarks>
+    [Fact]
+    public void A_second_notch_mid_ease_extends_the_destination_rather_than_restarting_it() {
+        var (fixture, _, inner, _) = Nest("#inner { scroll-behavior: smooth; }");
+        using var scope = fixture;
+
+        Reveal(fixture, inner);
+
+        fixture.Wheel(inner, 10f, notched: true);
+        fixture.Advance(TimeSpan.FromMilliseconds(16));
+
+        var part = inner.ScrollTop;
+        Assert.True(part > 0f && part < 10f, "the first notch is part way there");
+
+        fixture.Wheel(inner, 10f, notched: true);
+
+        for (var frame = 0; frame < 40; frame++) {
+            fixture.Advance(TimeSpan.FromMilliseconds(16));
+        }
+
+        Assert.Equal(20f, inner.ScrollTop, 1);
+    }
+
+    /// <summary>With no `scroll-behavior` declared a notch is still a jump, which is what shipped.
+    /// </summary>
+    [Fact]
+    public void A_notched_wheel_still_jumps_where_nothing_asked_for_smooth() {
+        var (fixture, _, inner, _) = Nest("");
+        using var scope = fixture;
+
+        Reveal(fixture, inner);
+        fixture.Wheel(inner, 10f, notched: true);
+
+        Assert.False(inner.IsScrolling);
+        Assert.Equal(10f, inner.ScrollTop, 1);
+    }
+
+    /// <summary>A smoothed notch that has run out still chains, and the destination is what says so.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The chaining test used to read the offset, and the smooth path does not move the
+    ///     offset in the frame the wheel arrives.</b> Left that way, every smoothed notch would have
+    ///     looked like a scroll that went nowhere and been passed to the parent as well — so a page
+    ///     containing a smooth list would scroll twice as far as it was asked to.
+    /// </remarks>
+    [Fact]
+    public void A_smoothed_notch_chains_only_when_the_destination_could_not_move() {
+        var (fixture, outer, inner, _) = Nest("#inner { scroll-behavior: smooth; }");
+        using var scope = fixture;
+
+        Reveal(outer);
+        fixture.Update();
+
+        var before = outer.ScrollTop;
+
+        // Room left: the inner takes it and the outer must not move, even though the inner's own
+        // offset is still zero at this instant.
+        fixture.Wheel(inner, 10f, notched: true);
+
+        Assert.True(inner.IsScrolling);
+        Assert.Equal(before, outer.ScrollTop, 1);
+
+        // Out of room: now it chains.
+        inner.Settle();
+        inner.ScrollTop = inner.MaximumTop;
+        fixture.Update();
+
+        fixture.Wheel(inner, 30f, notched: true);
+        Assert.Equal(before + 30f, outer.ScrollTop, 1);
+    }
+
     /// <summary>The wheel abandons an easing in flight rather than fighting it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A trackpad, and that is now load-bearing rather than incidental.</b> Direct
+    ///     manipulation still takes the content off any easing running; a notch no longer does,
+    ///     because the easing it would be cancelling is its own.
+    /// </remarks>
     [Fact]
     public void A_wheel_settles_a_smooth_scroll_that_was_still_running() {
         var (fixture, _, inner, mark) = Nest("#inner { scroll-behavior: smooth; }");

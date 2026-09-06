@@ -244,6 +244,7 @@ public sealed class UiGeometryBuilder {
             }
 
             field = value;
+            handedOver = true;
 
             // ⚠ The cache holds answers to "where does this colour land on *that* surface", so the
             // gamut is not part of the key — it is what makes the whole table stale at once. Keeping
@@ -287,7 +288,32 @@ public sealed class UiGeometryBuilder {
     ///         rather than at the final blend.
     ///     </para>
     /// </remarks>
-    public float WhiteLevel { get; set; } = 1f;
+    public float WhiteLevel {
+        get;
+        set {
+            if (field.Equals(value)) {
+                return;
+            }
+
+            field = value;
+            handedOver = true;
+        }
+    } = 1f;
+
+    /// <summary>Whether the surface's colour handover has moved since the geometry was built.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The fourth part of <see cref="TryBuild" />'s key, and the one whose absence is
+    ///     invisible on the machine most of this is developed on.</b> <see cref="Gamut" /> and
+    ///     <see cref="WhiteLevel" /> are handed over by the host from the swapchain it was
+    ///     <i>granted</i>, and that grant is not known until the swapchain exists — which happens
+    ///     inside the host's present, after the frame's tessellation has already run. So the first
+    ///     frame of every window is built against the sRGB default and the second frame is the one
+    ///     that would use the real values; on a still window the second frame is a skip, and the
+    ///     window then draws sRGB-mapped colour at the wrong white level for as long as nothing else
+    ///     changes its drawing. An sRGB display hides it completely, because there the handover is
+    ///     the default it replaces.
+    /// </remarks>
+    bool handedOver;
 
     /// <summary>How many of the last frame's colours were outside <see cref="Gamut" /> and repaired.</summary>
     /// <remarks>
@@ -339,15 +365,18 @@ public sealed class UiGeometryBuilder {
     /// <returns>Whether anything was rebuilt.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The key is three things and each of the three has been the one that was
-    ///         missing.</b> The draw list's <c>Version</c> says the drawing changed; the extent says
+    ///         ⚠ <b>The key is four things and each of them has been the one that was missing.</b>
+    ///         The draw list's <c>Version</c> says the drawing changed; the extent says
     ///         a window was resized without its contents changing, which keeps the version and still
     ///         needs new vertices because the builder is what turns a command's clip into a scissor
     ///         in the new extent; and <see cref="AtlasChanged" /> says the last build repacked the
     ///         glyph texture, which moves every region already baked into the vertices — so a frame
     ///         that skipped after a repack would draw the right letters read out of the wrong places.
     ///         The atlas is the one part of the key that is not a property of the window, because the
-    ///         cache is shared.
+    ///         cache is shared. The fourth is the colour handover — see <c>handedOver</c> — which is
+    ///         the one that arrives <i>late</i> rather than changing later: a host cannot hand over a
+    ///         gamut it has not been granted yet, and the grant comes from a swapchain built after
+    ///         the first frame was already tessellated.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Here rather than in a host, and that is this method's whole reason for
@@ -367,7 +396,7 @@ public sealed class UiGeometryBuilder {
     public bool TryBuild(DrawList list, GlyphFieldCache glyphs, Rectangle viewport, ref UiGeometry frame) {
         ArgumentNullException.ThrowIfNull(list);
 
-        if (Built == (list.Version, viewport) && !AtlasChanged) {
+        if (Built == (list.Version, viewport) && !AtlasChanged && !handedOver) {
             TessellationsSkipped++;
             return false;
         }
@@ -404,6 +433,11 @@ public sealed class UiGeometryBuilder {
         layerNumber = 0;
         DroppedGlyphs = 0;
         AtlasChanged = false;
+
+        // ⚠ Cleared here rather than in `TryBuild`, so that a host calling `Build` directly also
+        // consumes it. `AtlasChanged` one line up is an *output* of this method and this is an
+        // input; they read alike and are opposite, which is why the clear is not beside the skip.
+        handedOver = false;
         TessellatedPaths = 0;
         RefusedFields = 0;
         FieldPaths = 0;

@@ -51,21 +51,41 @@ public readonly record struct UiInterface(UiGeometry Geometry, GlyphAtlas Atlas,
 /// </remarks>
 public sealed class UiRenderFeature : RootRenderFeature {
     readonly Dictionary<int, UiInterface> surfaces = [];
+    readonly Dictionary<int, UiRenderer> renderers = [];
+
+    // Reused rather than built per frame: this runs twice a frame for every mounted interface, and
+    // an interface is mounted in ones and twos.
+    readonly HashSet<UiRenderer> serving = [];
 
     /// <inheritdoc />
     public override string Name => "Ui";
 
-    /// <summary>What actually draws. Set before the first frame that draws.</summary>
+    /// <summary>What draws an interface that named no renderer of its own. Set before the first
+    /// frame that draws.</summary>
     /// <remarks>
-    ///     Supplied rather than created here, because building it needs shader modules and the
-    ///     formats of the pass — neither of which a feature knows and both of which belong to
-    ///     whoever assembled the compositor.
+    ///     <para>
+    ///         Supplied rather than created here, because building it needs shader modules and the
+    ///         formats of the pass — neither of which a feature knows and both of which belong to
+    ///         whoever assembled the compositor.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The default for <em>one</em> interface, and not a renderer the feature shares
+    ///         out.</b> A <see cref="UiRenderer" /> is per-surface state: it advances its ring region
+    ///         inside <c>Upload</c> and <c>Record</c> draws from the region the last upload wrote, so
+    ///         two interfaces uploaded through one of these come out as two copies of the second. A
+    ///         second interface therefore brings its own — see <see cref="Mount" /> — and this stays
+    ///         what the first one uses so that the single-surface arrangement needs no ceremony.
+    ///     </para>
     /// </remarks>
     public UiRenderer? Renderer { get; set; }
 
     /// <summary>Adds the render object one interface is drawn as, and returns its id.</summary>
     /// <param name="stages">Which stages draw it — see the remarks on sorting.</param>
     /// <param name="order">Where it sits among the interfaces, lowest drawn first.</param>
+    /// <param name="renderer">
+    ///     What draws this interface, or <see langword="null" /> to use <see cref="Renderer" />.
+    ///     Every mounted interface needs one nobody else is using; see the remarks.
+    /// </param>
     /// <returns>The object to hand <see cref="Set" /> every frame the interface is drawn.</returns>
     /// <exception cref="InvalidOperationException">The feature is not in a render system yet.</exception>
     /// <remarks>
@@ -94,8 +114,19 @@ public sealed class UiRenderFeature : RootRenderFeature {
     ///         sort — <see cref="SortGroupOf" /> falls back to the object's own group, and the two
     ///         disagreeing is a first frame in the wrong order.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A renderer belongs to one interface, and that is what makes the
+    ///         <paramref name="order" /> above mean anything.</b> The ordering exists so that a modal
+    ///         can be drawn over a document and a tooltip over the modal — which is more than one
+    ///         mounted interface, and is the arrangement a shared <see cref="UiRenderer" /> cannot
+    ///         serve: it advances its ring region inside <c>Upload</c> and <c>Record</c> draws from
+    ///         the region the <em>last</em> upload wrote, so both surfaces come out as two copies of
+    ///         the second. Not an error, not a validation warning — a picture. So the second
+    ///         interface brings its own renderer here, and <see cref="Upload" /> refuses a frame in
+    ///         which two of them would share one rather than drawing that picture.
+    ///     </para>
     /// </remarks>
-    public RenderObjectId Mount(RenderStageMask stages, uint order = 0) {
+    public RenderObjectId Mount(RenderStageMask stages, uint order = 0, UiRenderer? renderer = null) {
         if (System is null) {
             throw new InvalidOperationException(
                 "A UiRenderFeature can only mount a surface once it is in a render system: the object "
@@ -104,7 +135,7 @@ public sealed class UiRenderFeature : RootRenderFeature {
             );
         }
 
-        return System.Objects.Add(
+        var id = System.Objects.Add(
             new() {
                 Bounds = new(Vector3.Zero, float.MaxValue),
                 Stages = stages,
@@ -113,6 +144,12 @@ public sealed class UiRenderFeature : RootRenderFeature {
                 IsAlive = true
             }
         );
+
+        if (renderer is not null) {
+            renderers[id.Index] = renderer;
+        }
+
+        return id;
     }
 
     /// <summary>Takes an interface out of the frame, object and surface together.</summary>
@@ -128,6 +165,12 @@ public sealed class UiRenderFeature : RootRenderFeature {
         System?.Objects.Remove(id);
     }
 
+    /// <summary>What draws one mounted interface: its own renderer, or the shared default.</summary>
+    /// <param name="id">What <see cref="Mount" /> returned.</param>
+    /// <returns>The renderer, or <see langword="null" /> if there is none yet.</returns>
+    public UiRenderer? RendererOf(RenderObjectId id) =>
+        renderers.TryGetValue(id.Index, out var own) ? own : Renderer;
+
     /// <summary>Points an object at the surface it draws.</summary>
     /// <param name="id">The object.</param>
     /// <param name="surface">What it draws.</param>
@@ -140,7 +183,14 @@ public sealed class UiRenderFeature : RootRenderFeature {
     public void Set(RenderObjectId id, in UiInterface surface) => surfaces[id.Index] = surface;
 
     /// <summary>Forgets a surface, for an object that has gone away.</summary>
-    public void Remove(RenderObjectId id) => surfaces.Remove(id.Index);
+    /// <remarks>
+    ///     The renderer it named goes with it. Left behind, the next object to be given that dense
+    ///     index — the store reuses them — would inherit a renderer somebody else's window built.
+    /// </remarks>
+    public void Remove(RenderObjectId id) {
+        surfaces.Remove(id.Index);
+        renderers.Remove(id.Index);
+    }
 
     /// <summary>Puts every mounted interface's frame where the GPU can read it.</summary>
     /// <param name="commands">
@@ -166,25 +216,58 @@ public sealed class UiRenderFeature : RootRenderFeature {
     ///         glyphs in it would the picture have looked right.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>One <see cref="Renderer" /> serves one surface, whatever <see cref="Mount" />
-    ///         allows.</b> <c>UiRenderer</c> advances its ring region inside <c>Upload</c> and
-    ///         <c>Record</c> draws from the region the <em>last</em> upload wrote, so two mounted
-    ///         interfaces uploaded through one renderer are both drawn from the second one's
-    ///         geometry. That is a renderer-per-surface arrangement this feature does not have yet
-    ///         and is tracked separately; the loop here is written for the arrangement that exists,
-    ///         which is one mounted interface, and does not pretend the second one works.
+    ///         ⚠ <b>One <see cref="UiRenderer" /> serves one surface, and this is where that is
+    ///         enforced rather than described.</b> A renderer advances its ring region inside
+    ///         <c>Upload</c> and <c>Record</c> draws from the region the <em>last</em> upload wrote,
+    ///         so two mounted interfaces uploaded through one of them are both drawn from the second
+    ///         one's geometry — the modal and the document behind it come out as two copies of the
+    ///         modal. That is a picture and not an error, which is why the arrangement that produces
+    ///         it is refused here instead: a frame is worth losing to an exception that names the
+    ///         cause, and is not worth spending on a HUD that is quietly wrong.
     ///     </para>
     /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     Two mounted interfaces resolve to the same <see cref="UiRenderer" />.
+    /// </exception>
     public void Upload(ICommandList commands) {
         ArgumentNullException.ThrowIfNull(commands);
 
-        if (Renderer is null) {
-            return;
+        serving.Clear();
+
+        foreach (var (index, surface) in surfaces) {
+            if (Serve(index) is not { } renderer) {
+                continue;
+            }
+
+            renderer.Upload(commands, surface.Geometry, surface.Atlas);
+        }
+    }
+
+    /// <summary>Resolves one interface's renderer, refusing to hand the same one out twice.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Reference identity, not a count of mounted surfaces.</b> Two interfaces are fine and
+    ///     are what the sort order is for; two interfaces <i>through one renderer</i> is the
+    ///     arrangement that draws the wrong picture, and the two are not the same question — a caller
+    ///     that mounts three and gives each its own is correct, and a caller that mounts two and
+    ///     leaves both on <see cref="Renderer" /> is not.
+    /// </remarks>
+    UiRenderer? Serve(int index) {
+        var renderer = renderers.TryGetValue(index, out var own) ? own : Renderer;
+
+        if (renderer is null) {
+            return null;
         }
 
-        foreach (var surface in surfaces.Values) {
-            Renderer.Upload(commands, surface.Geometry, surface.Atlas);
+        if (!serving.Add(renderer)) {
+            throw new InvalidOperationException(
+                "Two mounted interfaces resolve to the same UiRenderer. A UiRenderer holds the ring "
+                + "region its last Upload wrote and Record draws from that region, so both surfaces "
+                + "would be drawn from whichever uploaded second. Pass a UiRenderer of its own to "
+                + "UiRenderFeature.Mount for every interface after the first."
+            );
         }
+
+        return renderer;
     }
 
     /// <inheritdoc />
@@ -193,16 +276,22 @@ public sealed class UiRenderFeature : RootRenderFeature {
         RenderDrawContext context,
         ReadOnlySpan<RenderNode> nodes
     ) {
-        if (Renderer is null) {
-            return;
-        }
+        serving.Clear();
 
         foreach (var node in nodes) {
             if (!surfaces.TryGetValue(node.Object.Index, out var surface)) {
                 continue;
             }
 
-            Renderer.Record(context.CommandList, surface.Geometry, surface.Surface);
+            // ⚠ Checked here as well as in `Upload`, and not because the two can disagree. A host
+            // that never uploaded reaches this method having drawn from a buffer nothing wrote —
+            // which is the failure the upload half exists to stop — and it must not be the path on
+            // which a shared renderer is quietly tolerated.
+            if (Serve(node.Object.Index) is not { } renderer) {
+                continue;
+            }
+
+            renderer.Record(context.CommandList, surface.Geometry, surface.Surface);
         }
     }
 

@@ -617,8 +617,15 @@ function attach(canvas) {
         const scale = event.deltaMode === 1 ? 1 / 3 : event.deltaMode === 2 ? 1 : 1 / 100;
         const [x, y] = pointInCanvas(event);
 
+        // The same field says which kind of device produced it, and it says so in one direction
+        // only. Lines and pages are units no continuous surface reports, so a non-pixel deltaMode
+        // is a notched wheel; pixels are what a trackpad reports *and* what Chrome reports for a
+        // wheel, so the pixel case is an absence of evidence rather than evidence of a trackpad.
+        // PlatformEvent.IsNotched is documented on exactly those terms.
+        const notched = event.deltaMode !== 0 ? 1 : 0;
+
         push(Kind.mouseWheel, canvas.handle, event.timeStamp, modifiersOf(event),
-            x, y, -event.deltaX * scale, -event.deltaY * scale, 0, 0, 0);
+            x, y, -event.deltaX * scale, -event.deltaY * scale, 0, notched, 0);
 
         // Otherwise the page scrolls under the game. Only when the canvas has focus, so a canvas
         // embedded in a document does not trap the reader's scroll wheel.

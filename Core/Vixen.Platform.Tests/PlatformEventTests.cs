@@ -87,6 +87,31 @@ public class PlatformEventTests {
         Assert.Equal(0.125f, wheel.Delta.Y);
     }
 
+    /// <summary>
+    ///     Which kind of device turned the wheel travels with the event, and the default is the
+    ///     silent one.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>False is not "a trackpad"; it is "nobody said".</b> No backend is handed this fact by
+    ///     the platform outright — SDL2 carries neither a phase nor a device class on
+    ///     <c>SDL_MouseWheelEvent</c> — so the pair is one positive claim and one absence of one, and
+    ///     an omitted argument has to mean the absence or every synthesised event would start
+    ///     claiming to be a mouse wheel.
+    /// </remarks>
+    [Fact]
+    public void AWheelSaysWhetherItWasNotchedAndSaysNothingByDefault() {
+        Assert.False(PlatformEvent.MouseWheel(1, 0, Vector2.Zero, new(0f, 1f)).IsNotched);
+        Assert.True(PlatformEvent.MouseWheel(1, 0, Vector2.Zero, new(0f, 1f), notched: true).IsNotched);
+
+        // And it shares its slot with nothing a wheel also carries.
+        var wheel = PlatformEvent.MouseWheel(1, 0, new(4f, 5f), new(0f, 0.125f), KeyModifiers.Shift, true);
+
+        Assert.True(wheel.IsNotched);
+        Assert.Equal(new Vector2(4f, 5f), wheel.Position);
+        Assert.Equal(0.125f, wheel.Delta.Y);
+        Assert.Equal(KeyModifiers.Shift, wheel.Modifiers);
+    }
+
     [Fact]
     public void ACompositionCarriesItsTextAndTheCursorWithinIt() {
         var editing = PlatformEvent.TextEditing(1, 0, "にほ", 1, 1);

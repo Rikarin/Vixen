@@ -129,6 +129,30 @@ public readonly struct PlatformEvent {
         }
     }
 
+    /// <summary>Whether a <see cref="PlatformEventKind.MouseWheel" /> came from a notched wheel
+    /// rather than from a continuous surface such as a trackpad.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Only <see langword="true" /> is a claim.</b> False means "a continuous device,
+    ///         <i>or</i> a backend that cannot tell" — no backend here is asked a question the
+    ///         platform answers outright, so the honest reading of the pair is one positive fact and
+    ///         one absence of one. A consumer that wants to treat a wheel differently must therefore
+    ///         put the unchanged behaviour on the false arm.
+    ///     </para>
+    ///     <para>
+    ///         It exists because a mouse wheel and a trackpad flick arrive here as the same event
+    ///         and want opposite treatment: the flick is direct manipulation the operating system has
+    ///         already given momentum to, and the notch is a discrete request that has momentum from
+    ///         nowhere.
+    ///     </para>
+    /// </remarks>
+    public bool IsNotched {
+        get {
+            AssertKind(PlatformEventKind.MouseWheel);
+            return code != 0;
+        }
+    }
+
     /// <summary>The button, for <see cref="PlatformEventKind.GamepadButtonDown" /> and
     /// <see cref="PlatformEventKind.GamepadButtonUp" />.</summary>
     public GamepadButton GamepadButton {
@@ -373,14 +397,25 @@ public readonly struct PlatformEvent {
         );
 
     /// <summary>A wheel or trackpad scroll, in notches.</summary>
+    /// <remarks><c>notched</c> is passed <see langword="true" /> only where the backend can say the
+    /// delta came from a notched wheel; see <see cref="IsNotched" />.</remarks>
     public static PlatformEvent MouseWheel(
         uint windowId,
         long timestamp,
         Vector2 position,
         Vector2 delta,
-        KeyModifiers modifiers = KeyModifiers.None
+        KeyModifiers modifiers = KeyModifiers.None,
+        bool notched = false
     ) =>
-        new(PlatformEventKind.MouseWheel, windowId, timestamp, position, delta, modifiers: modifiers);
+        new(
+            PlatformEventKind.MouseWheel,
+            windowId,
+            timestamp,
+            position,
+            delta,
+            code: notched ? 1 : 0,
+            modifiers: modifiers
+        );
 
     /// <summary>A touch down, move or up.</summary>
     public static PlatformEvent Touch(

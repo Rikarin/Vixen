@@ -107,8 +107,19 @@ public static class PlatformInput {
     ///         <c>UISettings</c> accent — are not read here, and the AppKit half is not merely
     ///         unwritten but blocked: <c>MacOSAppearance</c> and <c>MacOSAccessibility</c> both reach
     ///         Foundation and deliberately not AppKit, because an SDL process has no
-    ///         <c>NSApplication</c> and <c>NSColor</c> wants one. A host that has read a real palette
-    ///         writes it to <c>UiDocument.SystemColors</c> itself, after this.
+    ///         <c>NSApplication</c> and <c>NSColor</c> wants one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A host that has read a real palette writes it with
+    ///         <c>SystemPalette.SetPlatform</c>, and <i>not</i> over the top of this call.</b> This
+    ///         runs on both a colour-scheme change and an accessibility change — two events from two
+    ///         places on two cadences — so a colour written after one of them lives until the other
+    ///         arrives. That is the same two-writers failure this method exists to prevent one level
+    ///         up, and its symptom is quieter: the window silently returns to Chromium's defaults
+    ///         the first time the user toggles dark mode. <c>SetPlatform</c> is held apart from the
+    ///         tables and re-applied by <c>Reset</c>, so a partial read — the roles
+    ///         <c>NSGlobalDomain</c> can answer and no others — is the normal case rather than a
+    ///         special one.
     ///     </para>
     /// </remarks>
     public static void Repalette(UiDocument document) {
@@ -278,6 +289,7 @@ public static class PlatformInput {
                         Y = platformEvent.Position.Y,
                         DeltaX = -platformEvent.Delta.X * wheelLineHeight,
                         DeltaY = -platformEvent.Delta.Y * wheelLineHeight,
+                        Notched = platformEvent.IsNotched,
                         Modifiers = modifiers,
                         Timestamp = when
                     }

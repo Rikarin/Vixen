@@ -219,7 +219,10 @@ sealed class ControlFixture : IDisposable {
         Update();
     }
 
-    public void Wheel(UiElement over, float deltaY, float deltaX = 0f) {
+    /// <summary>Sends a wheel over an element, from a continuous device unless told otherwise.</summary>
+    /// <param name="notched">Whether it came from a notched wheel rather than a trackpad. The
+    /// default is the one that changes nothing: see <see cref="WheelEvent.Notched" />.</param>
+    public void Wheel(UiElement over, float deltaY, float deltaX = 0f, bool notched = false) {
         var bounds = over.Bounds;
         clock += TimeSpan.FromMilliseconds(16);
 
@@ -229,6 +232,7 @@ sealed class ControlFixture : IDisposable {
                 Y = bounds.Y + (bounds.Height * 0.5f),
                 DeltaX = deltaX,
                 DeltaY = deltaY,
+                Notched = notched,
                 Timestamp = clock
             }
         );

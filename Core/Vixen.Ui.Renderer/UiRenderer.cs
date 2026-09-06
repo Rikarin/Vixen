@@ -959,11 +959,13 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>Which of them the last <see cref="Upload" /> wrote.</summary>
     /// <remarks>
-    ///     ⚠ <b>It advances per upload, which assumes one upload per frame.</b> That is what a
-    ///     renderer per surface gives, and it is the only arrangement there is today. A caller that
-    ///     drew two surfaces through one renderer would consume two regions a frame and could come
-    ///     back round to one an unfinished frame is still reading — the fix for which is a renderer
-    ///     each, not a bigger ring, because the two surfaces have different geometry anyway.
+    ///     ⚠ <b>It advances per upload, which assumes one upload per frame.</b> A caller that drew
+    ///     two surfaces through one renderer would consume two regions a frame and could come back
+    ///     round to one an unfinished frame is still reading — and would draw both of them from the
+    ///     second one's, since <see cref="Record" /> reads whatever the last upload left. The fix is
+    ///     a renderer each rather than a bigger ring, because the two surfaces have different
+    ///     geometry anyway; <c>UiRenderFeature.Mount</c> takes one per interface and refuses a frame
+    ///     in which two of them would share.
     /// </remarks>
     public int Region => slot;
 
