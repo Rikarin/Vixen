@@ -1287,7 +1287,8 @@ one could not answer, so by construction the shorter one still cannot.
 **The `shadowed_by` column is 38 rows, not 39, and its composition is not what this section said.**
 The four groups named here — logical insets, logical radii, per-axis transforms, `border-spacing-*` —
 are 19 of the 38. The other 19 are `border-bs/be-*`, `font-stretch-*`, `text-shadow-*`,
-`inset-shadow-*`, `inset-ring-*`, `ring-offset-*`, `max-w-screen-*`, `flex-shrink/grow-*`, the `bg`
+`inset-shadow-*`, `inset-ring-*` (both registered on 2026-09-06 and out of the column since),
+`ring-offset-*`, `max-w-screen-*`, `flex-shrink/grow-*`, the `bg`
 keyword sets (`bg-clip`, `bg-origin`, `bg-blend`, `bg-repeat`), `stroke-none` and `content-none`.
 Three of those 38 the column *calls* shadowed are not: `bg-size-[auto]`, `bg-position-[center]` and
 `font-features-[normal]` carry an arbitrary value, and `UtilityParser` sets `Arbitrary` before
@@ -1344,9 +1345,14 @@ does mirror that one.
    that had not caught up.
 3. ⚠ *The property is **read** and the **value** is refused, so a registration keeps the gate green
    over a class that paints nothing.* The dangerous shape, and no per-property measurement can catch
-   it. `inset-shadow-*` and `inset-ring-*` emit `box-shadow`, which is read — but
-   `DrawListBuilder.EmitShadow` refuses the `inset` keyword outright, and `box-shadow: inset 0 2px
-   4px #000` moves no channel where the outer form moves paint. ⚠ **`ring-offset-*` was worse than
+   it. ⚠ **Two of this shape's three examples closed on 2026-09-06, and neither closed by being
+   registered — each closed by the value becoming one the engine reads.** `inset-shadow-*` and
+   `inset-ring-*` emit `box-shadow`, which has always been read, and `box-shadow: inset 0 2px 4px
+   #000` moved no channel where the outer form moved paint — so registering either would have scored
+   the gate green over a class that painted nothing. `EmitShadow` reads the keyword now, both roots
+   are registered with a per-value pixel assertion apiece, and the ten-month-old refusal turned out to
+   be a claim about the lanes `UiShape` has rather than about the record it is (#279).
+   ⚠ **`ring-offset-*` was worse than
    inert and is not any more (2026-09-05, #279).** An offset ring is a two-shadow *list*, and
    `EmitShadow` refused lists — so a `ring-offset-2` beside a `ring-2` would have stopped the ring
    painting altogether. `EmitShadow` paints a list now, a command each, **last to first** because CSS
