@@ -20,6 +20,14 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         which ones it does not.
 ///     </para>
 ///     <para>
+///         ⚠ <b>The third of those took a fixture the first two did not.</b> Every quad below spans
+///         the whole of <c>v</c> except one, and against the others alone a map flipped in <c>v</c>
+///         is pixel-identical to a correct one — the remark above claimed a coverage the suite did
+///         not have until <a href="https://github.com/Rikarin/Vixen/issues/955">#955</a>.
+///         <c>A_quad_in_the_top_half_of_v_covers_the_top_rows_and_not_the_bottom</c> is the one that
+///         settles it.
+///     </para>
+///     <para>
 ///         ⚠ <b>The models are OBJ text written by the test, parsed by the same
 ///         <c>ModelReader.Read</c> the importer uses.</b> A hand-built <c>MeshData</c> would prove the
 ///         arithmetic and not the join, and the join is where #920 lived: nothing anywhere turned a
@@ -76,6 +84,52 @@ public class LayerStackMeshTests {
         // ⚠ Conservative rasterisation makes this a bound rather than an equality — a texel a
         // triangle clips the corner of is marked, which is `PaintCoverage`'s own stated direction.
         // Half of 4096 with one boundary column of slop is the window a correct map lands in.
+        Assert.InRange(coverage.CoveredTexels, 64 * 32, 64 * 33);
+    }
+
+    /// <summary>A quad in the top half of the file's <c>v</c> covers the top rows and not the bottom.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one claim every other fixture in this file is blind to.</b> Every other quad
+    ///         here spans the whole of <c>v</c>, so a coverage map rasterised upside down is
+    ///         indistinguishable from a correct one and the suite's own remark about ruling that out
+    ///         was three quarters true — <a href="https://github.com/Rikarin/Vixen/issues/955">#955</a>.
+    ///         It is a live hazard rather than a tidy-up because this engine's UV convention is not
+    ///         uniform: clip <c>y</c> = +1 is the top, the screen helpers negate <c>y</c>, and the
+    ///         cluster grid deliberately does not.
+    ///     </para>
+    ///     <para>
+    ///         <b>The chain has two links and they point opposite ways, which is why the whole of it
+    ///         has to be asserted rather than either end.</b> An OBJ's <c>v</c> counts up from the
+    ///         bottom, <c>ModelReader</c> asks Assimp for <c>FlipUVs</c>, and a coverage row counts
+    ///         down from the top — so <c>vt … 1</c> is row 0 and this quad is the atlas's top half.
+    ///         Invert either link on its own and the covered rows are the other half.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_quad_in_the_top_half_of_v_covers_the_top_rows_and_not_the_bottom() {
+        using var fixture = new TexturingFixture();
+        var stack = Bound(fixture, Quad("hull", 0f, 1f, 0.5f, 1f), "Band.obj");
+
+        var mesh = LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], out var refusal);
+
+        Assert.Equal("", refusal);
+        Assert.NotNull(mesh);
+
+        var coverage = mesh.Coverage(64, 64);
+
+        // The extremes first: an upside-down map has these two exactly the wrong way round.
+        Assert.True(coverage.IsCovered(32, 0), "the atlas's first row is not covered.");
+        Assert.False(coverage.IsCovered(32, 63), "the atlas's last row is covered.");
+
+        // And well inside each half, so the claim does not rest on the boundary row conservative
+        // rasterisation is allowed to over-mark.
+        Assert.True(coverage.IsCovered(32, 8), "a row the island occupies is not covered.");
+        Assert.False(coverage.IsCovered(32, 56), "a row no triangle reaches is covered.");
+
+        // ⚠ The count is what stops "covered" and "not covered" both being satisfied by a map that
+        // covers everything: half the atlas, plus the one boundary row of slop `FromTriangles` is
+        // conservative by. It is the same window the u-narrowed fixture above lands in, transposed.
         Assert.InRange(coverage.CoveredTexels, 64 * 32, 64 * 33);
     }
 
@@ -222,21 +276,27 @@ public class LayerStackMeshTests {
     }
 
     /// <summary>
-    ///     A named quad spanning <paramref name="from" />…<paramref name="to" /> in <c>u</c> and the
-    ///     whole of <c>v</c>.
+    ///     A named quad spanning <paramref name="from" />…<paramref name="to" /> in <c>u</c> and
+    ///     <paramref name="low" />…<paramref name="high" /> in the file's own <c>v</c>.
     /// </summary>
+    /// <param name="name">What the object is called, which is the mesh name a set narrows to.</param>
+    /// <param name="from">Where the island starts in <c>u</c>.</param>
+    /// <param name="to">Where it ends.</param>
+    /// <param name="low">Where it starts in the OBJ's <c>v</c>, which counts up from the bottom.</param>
+    /// <param name="high">Where it ends. ⚠ <c>1</c> is the atlas's <em>first</em> row, not its last.</param>
+    /// <returns>The OBJ text.</returns>
     /// <remarks>
     ///     ⚠ <b>OBJ indices are one-based and <em>file-wide</em>, so two quads in one file do not
     ///     both start at 1.</b> The offset is what makes a two-object fixture describe two islands
     ///     rather than one object and one degenerate triangle, and getting it wrong is a fixture that
     ///     silently proves less than it says.
     /// </remarks>
-    static string Quad(string name, float from, float to) {
+    static string Quad(string name, float from, float to, float low = 0f, float high = 1f) {
         var index = name == "right" ? 4 : 0;
 
         return $"o {name}\n"
             + $"v {from} 0 0\nv {to} 0 0\nv {to} 1 0\nv {from} 1 0\n"
-            + $"vt {from} 0\nvt {to} 0\nvt {to} 1\nvt {from} 1\n"
+            + $"vt {from} {low}\nvt {to} {low}\nvt {to} {high}\nvt {from} {high}\n"
             + $"f {index + 1}/{index + 1} {index + 2}/{index + 2} {index + 3}/{index + 3}\n"
             + $"f {index + 1}/{index + 1} {index + 3}/{index + 3} {index + 4}/{index + 4}\n";
     }
