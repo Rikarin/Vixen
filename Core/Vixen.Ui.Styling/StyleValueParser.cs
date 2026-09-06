@@ -159,7 +159,10 @@ public sealed class StyleValueParser {
         //
         // ⚠ What it costs is that the resolution is frozen into the parse cache, which is why
         // `Parse(int)` above watches <see cref="SystemPalette.Revision" />.
-        if (SystemPalette.TryParse(text, out var system)) {
+        // ⚠ The carried spelling as well as the plain one — see `SystemPalette.Carrier`. Five of the
+        // fifteen keywords never arrived here at all: ExCSS froze them into `rgb()` at sheet-parse
+        // time, so `StyleSheetLoader` renames every one of them before the parser can see it.
+        if (SystemPalette.TryParseCarried(text, out var system)) {
             return StyleValue.FromColor(Palette[system]);
         }
 

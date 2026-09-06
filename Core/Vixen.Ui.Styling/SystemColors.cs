@@ -172,6 +172,49 @@ public sealed class SystemPalette {
     public static bool TryParse(ReadOnlySpan<char> name, out SystemColor colour) =>
         Lookup.GetAlternateLookup<ReadOnlySpan<char>>().TryGetValue(name, out colour);
 
+    /// <summary>The prefix a keyword wears between the sheet loader and the value parser.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Five of the fifteen keywords never reached this class, and the reason was ExCSS
+    ///         rather than anything here.</b> It normalises the CSS2 system colours it knows —
+    ///         <c>ButtonFace</c>, <c>ButtonText</c>, <c>Highlight</c>, <c>HighlightText</c> and
+    ///         <c>GrayText</c> — into fixed <c>rgb()</c> while it parses the sheet, so by the time a
+    ///         value reached <c>StyleValueParser</c> the keyword was gone and a constant stood in its
+    ///         place. Nothing reported it, because a constant is a perfectly good colour. The ten
+    ///         that worked are exactly the CSS Color 4 additions ExCSS has never heard of.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the keyword is renamed on the way in rather than recovered on the way out,
+    ///         and that direction is the whole design.</b> Turning <c>rgb(221, 221, 221)</c> back
+    ///         into <c>ButtonFace</c> after the parse cannot be right: it is also a colour an author
+    ///         may have written on purpose, and a rule that could not tell the two apart would move
+    ///         a hand-picked grey onto the palette. A rename before the parse is not a guess about
+    ///         anything — <c>StyleSheetLoader.CarrySystemColours</c> sees the source.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>All fifteen are carried, not the five that need it.</b> Which keywords ExCSS
+    ///         knows is ExCSS's business and can change with a package upgrade; a list here of the
+    ///         ones it happens to normalise today would be a second copy of that, and its failure
+    ///         mode is the silent one this issue already was.
+    ///     </para>
+    /// </remarks>
+    internal const string Carrier = "-vx-system-";
+
+    /// <summary>Looks up a keyword that may still be wearing <see cref="Carrier" />.</summary>
+    /// <param name="name">The value text, prefixed or not.</param>
+    /// <param name="colour">Receives the role.</param>
+    /// <returns>Whether it is one.</returns>
+    /// <remarks>
+    ///     Both spellings, because the carrier is put on by the sheet loader and a declaration can
+    ///     reach the value parser without passing through it — <c>StyleAccess</c> and the animator
+    ///     both hand it text of their own.
+    /// </remarks>
+    internal static bool TryParseCarried(ReadOnlySpan<char> name, out SystemColor colour) =>
+        TryParse(
+            name.StartsWith(Carrier, StringComparison.OrdinalIgnoreCase) ? name[Carrier.Length..] : name,
+            out colour
+        );
+
     /// <summary>The keyword a role is spelt with.</summary>
     /// <param name="colour">The role.</param>
     /// <returns>Its CSS spelling.</returns>
