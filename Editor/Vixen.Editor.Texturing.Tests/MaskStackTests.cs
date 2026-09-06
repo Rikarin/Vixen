@@ -431,8 +431,11 @@ public class MaskStackTests(ITestOutputHelper output) {
     ///     ⚠ <b>A mask stack is where the round trip is most likely to lose something</b>, because it
     ///     is the newest shape in the file: an entry's blend mode, an effect's node path and its
     ///     numbers all have to survive being written as YAML and read back, and every one of them
-    ///     changes an op if it does not. <c>TexturePlan.SeedFor</c> mixes an op's index into its seed,
-    ///     so a single dropped setting moves every procedural op after it.
+    ///     changes an op if it does not. ⚠ A dropped setting used to move every procedural op after it,
+    ///     because <c>TexturePlan.SeedFor</c> mixed an op's <em>index</em> into its seed; since
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a> it mixes the node that
+    ///     emitted the op, so the blast radius is the changed node rather than everything downstream —
+    ///     and the plan comparison is what catches it either way.
     /// </remarks>
     [Fact]
     public void A_stack_with_masks_and_its_explosion_compile_to_the_same_plan() {

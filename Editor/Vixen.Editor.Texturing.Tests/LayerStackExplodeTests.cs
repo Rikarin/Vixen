@@ -108,10 +108,12 @@ public class LayerStackExplodeTests {
     /// <summary>The decoration is comments, and comments only.</summary>
     /// <remarks>
     ///     ⚠ <b>The property the differential rests on, asserted rather than assumed.</b> An
-    ///     explosion that inserted a node would move every op index, and <c>TexturePlan.SeedFor</c>
-    ///     mixes the op's index into its seed — so a noise several layers up would draw a different
-    ///     picture. This says the decoration touched no node and no wire; the differential says the
-    ///     compilation agrees. Either one alone leaves a hole.
+    ///     explosion that inserted a node would emit an op nothing on the other side emits, and an
+    ///     op's seed is mixed from the node that emitted it —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>. ⚠ Before it the seed came from
+    ///     the op's <em>index</em>, so one inserted node redrew every noise above it. This says the
+    ///     decoration touched no node and no wire; the differential says the compilation agrees, and
+    ///     it now compares each op's seed as well. Either one alone leaves a hole.
     /// </remarks>
     [Fact]
     public void Exploding_adds_no_node_and_no_wire() {
