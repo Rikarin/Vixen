@@ -185,6 +185,89 @@ public sealed class CoverageReportTests : IDisposable {
         Assert.Equal("Vixen.Ecs", CoverageReport.Subject(project));
     }
 
+    /// <summary>
+    ///     ⚠ The rate is computed from the counts and cannot be handed in beside them.
+    /// </summary>
+    /// <remarks>
+    ///     Which is the lesson of both defects above stated as a type: each was a reader whose
+    ///     <i>rate</i> was right while the counts under it were wrong, so a row carrying its own
+    ///     percentage is a row that can disagree with itself. 740 of 916 is the real
+    ///     <c>Vixen.Graphics.Null</c> measurement doc 12 quotes.
+    /// </remarks>
+    [Fact]
+    public void TheRateIsDerivedFromTheCountsRatherThanCarriedBesideThem() {
+        var row = new CoverageReport.Row("Vixen.Graphics.Null.Tests", "Vixen.Graphics.Null", 740, 916);
+
+        Assert.Equal(740d / 916d, CoverageReport.Rate(row));
+
+        // Both counts and the rate to three figures, written out rather than re-derived from the
+        // same format string — a test that recomputed the cell it is checking would agree with any
+        // arithmetic at all. The trailing separator is left off because the invariant culture's
+        // percent pattern, not this table, decides whether a space precedes the sign.
+        Assert.StartsWith(
+            "| `Vixen.Graphics.Null` | 740 | 916 | 80.8",
+            Assert.Single(CoverageReport.Summary([row]), line => line.StartsWith("| `", StringComparison.Ordinal)),
+            StringComparison.Ordinal
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ A row over no lines is refused rather than printed as nought per cent.
+    /// </summary>
+    /// <remarks>
+    ///     The target already refuses such a suite by name — a report that does not list its own
+    ///     subject means the suite never loaded it — and this is the same refusal one layer down, so
+    ///     that a row reaching the table anyway cannot be written as <c>0.0%</c> or <c>NaN%</c>.
+    ///     That number would be indistinguishable from a real one, which is the whole failure this
+    ///     target was designed around.
+    /// </remarks>
+    [Fact]
+    public void ARowOverNoLinesIsRefusedRatherThanPrintedAsZeroPercent() {
+        var row = new CoverageReport.Row("Vixen.Nothing.Tests", "Vixen.Nothing", 0, 0);
+
+        Assert.Throws<ArgumentException>(() => CoverageReport.Rate(row));
+        Assert.Throws<ArgumentException>(() => CoverageReport.Summary([row]));
+    }
+
+    /// <summary>
+    ///     ⚠ Worst first, and ties broken by name, so two runs over an unchanged tree write the same
+    ///     document.
+    /// </summary>
+    /// <remarks>
+    ///     Ordering on the rate alone left every fully-covered suite in whatever order
+    ///     <c>OrderedTestProjects</c> happened to hand them over, and a generated report that
+    ///     reorders between runs is one whose diff says nothing. Two rows at exactly 100 % is not a
+    ///     contrived case — it is what a small assembly with a thorough suite looks like.
+    /// </remarks>
+    [Fact]
+    public void TheTableIsWorstFirstAndTiesBreakByName() {
+        var lines = CoverageReport.Summary([
+            new CoverageReport.Row("Zebra.Tests", "Zebra", 4, 4),
+            new CoverageReport.Row("Middle.Tests", "Middle", 1, 2),
+            new CoverageReport.Row("Alpha.Tests", "Alpha", 3, 3)
+        ]);
+
+        var subjects = lines
+            .Where(line => line.StartsWith("| `", StringComparison.Ordinal))
+            .Select(line => line.Split('`')[1])
+            .ToArray();
+
+        Assert.Equal(["Middle", "Alpha", "Zebra"], subjects);
+    }
+
+    /// <summary>
+    ///     And the table says in its own text that it gates nothing, because a table of percentages
+    ///     in a repository of gates is read as a gate unless it says otherwise.
+    /// </summary>
+    [Fact]
+    public void TheTableSaysItGatesNothing() {
+        var lines = CoverageReport.Summary([new CoverageReport.Row("A.Tests", "A", 1, 2)]);
+
+        Assert.Equal("# Coverage", lines[0]);
+        Assert.Contains(lines, line => line.Contains("gates anything", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.Contains("| Subject | Lines covered | Lines | Rate |", StringComparison.Ordinal));
+    }
+
     static string RepositoryRoot() {
         var directory = AppContext.BaseDirectory;
 

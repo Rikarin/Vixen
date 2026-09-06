@@ -444,11 +444,26 @@ the assembly-name lookup turns exactly one red. That is the only part of `Covera
 forbidden `build.sh` can prove; the fluent `DotNetTest` settings and the `artifacts/coverage` layout
 were checked by running the equivalent `dotnet test` invocation by hand (the attachment landed where
 `Measure` globs for it, and the class lists summed to the header's 978 of 1 193 where the descendants
-walk gave 1 957 of 2 387), and **Nuke's own traversal and the `coverage.md` it writes are still
-unproved**.
+walk gave 1 957 of 2 387), and **Nuke's own traversal is still unproved**.
 
-**And where "is this line reached" is a real question, the answer is a test.** ✅ Two of the three
-places ([#338](https://github.com/Rikarin/Vixen/issues/338)) are done, and the first is the worked
+⚠️ **The `coverage.md` the target writes is no longer part of that residue, because the table moved
+out of the target's body.** `CoverageReport.Summary` builds the document from
+`CoverageReport.Row(Project, Subject, Covered, Total)` and `WriteCoverageSummary` keeps only the two
+things a test cannot reach — the file it lands in and the log it prints. ⚠️ **A row carries no rate**,
+which is this section's own history stated as a type: both of the reader's defects were a percentage
+that stayed right while the counts under it were wrong, so the one number anybody reads is the one
+nobody can pass in. `CoverageReport.Rate` **throws** on a row of no lines rather than writing `0.0%`
+or `NaN%` — zero over zero is the absence of a measurement, which is the distinction the whole target
+is built around — and the table is ordered worst-first **with ties broken by subject**, because
+ordering on the rate alone left every fully-covered suite in file-system order and made two runs over
+an unchanged tree write two different documents. Three sabotages in `CoverageReportTests`, each red
+alone: dropping the tiebreak, accepting a zero-line row, and dividing by `Total + 1`. What is left of
+`Coverage` unproved is exactly `OrderedTestProjects`, the `--coverage-project` filter and the fluent
+`DotNetTest` call, all of which need one `./build.sh Coverage` run.
+
+**And where "is this line reached" is a real question, the answer is a test.** ✅ All three places
+([#338](https://github.com/Rikarin/Vixen/issues/338)) are done — this sentence said *two* after the
+cascade landed three paragraphs below it — and the first is the worked
 example of the shape: the generated ECS query surface, driven rather than counted, by
 `Vixen.Ecs.Tests/QueryAritySurfaceTests` and `Vixen.Ecs.Tests/QueryAritySweepTests`.
 
