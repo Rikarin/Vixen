@@ -27,10 +27,21 @@ namespace Tests;
 ///         the graph's shape.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And every graph here is compiled for real, so a compiler that stopped folding would
-///         fail rather than pass.</b> Each test asserts the plan came out and the diagnostics are
-///         empty beside the count: a count of one over a compilation that produced nothing would be
-///         a number about a compiler that had given up.
+///         ⚠ <b>And every graph here is compiled for real, so a compiler that stopped folding fails
+///         rather than passes — which was false for the batch this suite was written in</b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/974">#974</a>). The count is incremented
+///         <em>before</em> <c>Fold</c> runs, so it says nothing whatever about the fold's result:
+///         discarding every folded value left all four tests green while the counter went on
+///         counting the compilations it had made. A count of one over a compilation that produced
+///         nothing is a number about a compiler that had given up.
+///     </para>
+///     <para>
+///         <b>So each test reads the radius back off the plan beside the count.</b>
+///         <c>Filters/Blur</c>'s own <c>Radius</c> is 8, the node value inside the compound is 2 and
+///         the parameter every expression here names is 0.5 — three numbers that are never each
+///         other, so a fold whose result never reached <c>TextureEmitter.Number</c> emits the wrong
+///         one. That is an assertion about what the fold <em>produced</em> rather than that it was
+///         attempted, and the diagnostics the older remark claimed were checked are now checked.
 ///     </para>
 /// </remarks>
 public class TextureExpressionCostTests {
@@ -68,7 +79,17 @@ public class TextureExpressionCostTests {
         var compilation = compiler.Compile(graph);
 
         Assert.NotNull(compilation.Artefact);
+        Assert.Empty(compilation.Diagnostics);
         Assert.Equal(1, compiler.ExpressionCompilations);
+
+        // ⚠ The fold's *effect* and not its occurrence — #974. Every one of these blurs asked for
+        // `amount`, which is 0.5; the node's own `Radius` is 8, so a compiler that folded and threw
+        // the answer away writes 8 here and this is what tells the two apart. Two ops per blur,
+        // because the box is separable.
+        var radii = Radii(compilation.Artefact);
+
+        Assert.Equal(Fields * 2, radii.Count);
+        Assert.All(radii, radius => Assert.Equal(0.5f, radius));
     }
 
     /// <summary>The same fields spread over ten compound instances are ten, and not forty.</summary>
@@ -113,6 +134,14 @@ public class TextureExpressionCostTests {
         // them. And ten rather than one, because the author's own graph holds no expression here —
         // "plus one for the author's own graph" is a term that is only there when there is one.
         Assert.Equal(10, compiler.ExpressionCompilations);
+
+        // ⚠ And the fold reached the plan — #974. Inside the compound each blur carries an authored
+        // `Radius` of 2 *and* an expression folding to 0.5, so an expression the compiler folded and
+        // discarded is not the absence of a number here: it is the number 2, forty times over.
+        var radii = Radii(compilation.Artefact);
+
+        Assert.Equal(10 * 4 * 2, radii.Count);
+        Assert.All(radii, radius => Assert.Equal(0.5f, radius));
     }
 
     /// <summary>⚠ And a graph with no expressions compiles none, which a constant cannot do.</summary>
@@ -143,7 +172,13 @@ public class TextureExpressionCostTests {
         var compilation = compiler.Compile(graph);
 
         Assert.NotNull(compilation.Artefact);
+        Assert.Empty(compilation.Diagnostics);
         Assert.Equal(0, compiler.ExpressionCompilations);
+
+        // The other half of the same claim: with nothing to fold, the authored 2 is what arrives.
+        // A "folder" that wrote 0.5 over every radius it saw would pass both tests above and fail
+        // here, which is why this one reads the number too.
+        Assert.All(Radii(compilation.Artefact), radius => Assert.Equal(2f, radius));
     }
 
     /// <summary>⚠ And the count is the last compilation's, not the compiler's life.</summary>
@@ -168,9 +203,11 @@ public class TextureExpressionCostTests {
 
         var compiler = Compiler(registry);
 
-        compiler.Compile(expressive);
+        var first = compiler.Compile(expressive);
 
+        Assert.NotNull(first.Artefact);
         Assert.Equal(1, compiler.ExpressionCompilations);
+        Assert.All(Radii(first.Artefact), radius => Assert.Equal(0.5f, radius));
 
         NodeGraphModel bare = new();
         var flat = bare.Add("Source/Noise");
@@ -180,6 +217,27 @@ public class TextureExpressionCostTests {
         compiler.Compile(bare);
 
         Assert.Equal(0, compiler.ExpressionCompilations);
+    }
+
+    /// <summary>The radius every <c>Blur</c> op in a plan carries, in emission order.</summary>
+    /// <param name="plan">The compiled plan.</param>
+    /// <returns>One number per dispatch, so two per node.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Read off the op rather than through <c>TexturePlan.Resolve</c></b>, which scales a
+    ///     <c>TexelsAtBase</c> parameter to the resolution of the image the op writes. Every fixture
+    ///     here is at the base resolution and the scale is 1, so the two agree today — and a suite
+    ///     about what an expression folded to should not go red the day somebody adds a rescale.
+    /// </remarks>
+    static List<float> Radii(TexturePlan plan) {
+        List<float> radii = [];
+
+        foreach (var op in plan.Ops) {
+            if (op.Kernel == "Blur" && op.Find("radius") is { } radius) {
+                radii.Add(radius.Value);
+            }
+        }
+
+        return radii;
     }
 
     /// <summary>A compiler with one parameter every expression here is written over.</summary>
