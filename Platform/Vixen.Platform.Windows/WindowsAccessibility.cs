@@ -29,8 +29,50 @@ namespace Vixen.Platform.Windows;
 /// </remarks>
 [SupportedOSPlatform("windows")]
 public static class WindowsAccessibility {
+    const string Accessibility = @"Software\Microsoft\Accessibility";
+
     /// <summary>Reads the current settings.</summary>
-    public static unsafe SystemAccessibility Read() => new(ReduceMotion(), HighContrast());
+    public static unsafe SystemAccessibility Read() => new(ReduceMotion(), HighContrast(), TextScale());
+
+    /// <summary>The "Make text bigger" slider, as a multiplier.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A registry value and not a <c>SystemParametersInfo</c> action, unlike the two
+    ///         above, because Windows has no API for this outside WinRT.</b>
+    ///         <c>UISettings.TextScaleFactor</c> is the documented reader and it is a Windows Runtime
+    ///         type; the slider writes <c>HKCU\Software\Microsoft\Accessibility\TextScaleFactor</c>
+    ///         and WinUI reads the same key underneath. Taking the registry keeps this assembly free
+    ///         of a WinRT dependency for one integer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An absent value is one and not <c>null</c>.</b> The key is written when the
+    ///         slider is first moved and simply does not exist until then, so a missing value is a
+    ///         genuine "the user is at the default", exactly the reading <c>MacOSAccessibility</c>
+    ///         applies to an absent defaults domain. <c>null</c> is kept for a read that <i>failed</i>
+    ///         — a policy denying the key — because that is the case a host might want to log.
+    ///     </para>
+    /// </remarks>
+    static unsafe float? TextScale() {
+        var size = (uint)sizeof(uint);
+
+        var status = Win32.RegGetValue(
+            Win32.HkeyCurrentUser,
+            Accessibility,
+            "TextScaleFactor",
+            Win32.RrfRtRegDword,
+            out _,
+            out var percent,
+            ref size
+        );
+
+        // ERROR_FILE_NOT_FOUND (2) is the slider never having been moved, which is a scale of one.
+        // Every other failure is a read this could not make.
+        return status switch {
+            0 => percent / 100f,
+            2 => 1f,
+            _ => null
+        };
+    }
 
     static unsafe bool? ReduceMotion() {
         var animate = 0;

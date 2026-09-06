@@ -1514,6 +1514,8 @@ Vixen.Ui.UiDocument.Resize(Vixen.Ui.UiSurface surface, float width, float height
 Vixen.Ui.UiDocument.Resize(float width, float height) -> void
 Vixen.Ui.UiDocument.Restyler.get -> Vixen.Ui.Styling.StyleUpdater
 Vixen.Ui.UiDocument.Root.get -> Vixen.Ui.UiElement
+Vixen.Ui.UiDocument.RootFontSize.get -> float
+Vixen.Ui.UiDocument.RootFontSize.set -> float
 Vixen.Ui.UiDocument.Settled.get -> bool
 Vixen.Ui.UiDocument.SettlingPasses.get -> int
 Vixen.Ui.UiDocument.Shaping.get -> Vixen.Ui.Text.ShapingCache

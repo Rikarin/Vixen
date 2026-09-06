@@ -29,6 +29,16 @@ namespace Vixen.Platform.MacOS;
 ///         it as a forced-colours mode would make a stylesheet throw away its own colours because
 ///         somebody turned off a blur.
 ///     </para>
+///     <para>
+///         ⚠ <b><see cref="SystemAccessibility.TextScale" /> is left <c>null</c> here and there is
+///         nothing to write instead.</b> macOS has no system-wide text scale: Dynamic Type is a UIKit
+///         API and the Mac's equivalents are per-application (a font size in each app's own
+///         preferences) or a display-resolution change, neither of which is a multiplier an
+///         application can read. So "no source" is the honest answer, and it is the same
+///         <c>null</c>-is-not-<c>1.0</c> reading the two flags below already carry — Windows and
+///         GNOME both answer this and macOS does not, which is a difference between platforms rather
+///         than a hole in this file.
+///     </para>
 /// </remarks>
 [SupportedOSPlatform("macos")]
 public static class MacOSAccessibility {

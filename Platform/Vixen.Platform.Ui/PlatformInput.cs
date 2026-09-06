@@ -155,9 +155,18 @@ public static class PlatformInput {
     ///         their palette to be replaced.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>The text scale is not a media preference and is applied to the document's root
+    ///         font size instead.</b> CSS has no query for it — there is no
+    ///         <c>prefers-larger-text</c> — because the setting is not something a sheet answers, it
+    ///         is something every <c>rem</c> in the sheet already means. So this is the one axis here
+    ///         that changes a measurement rather than a media condition, and
+    ///         <c>UiDocument.RootFontSize</c> is where it lands.
+    ///     </para>
+    ///     <para>
     ///         Every surface rather than the primary one, on the same terms as the appearance: these
     ///         are settings of the machine, so a torn-off panel cannot be running under different
-    ///         ones.
+    ///         ones. <c>RootFontSize</c> reaches every surface for the same reason and by its own
+    ///         loop — the number is copied into each surface's <c>LengthContext</c>.
     ///     </para>
     /// </remarks>
     public static void ApplyAccessibility(UiDocument document, SystemAccessibility accessibility) {
@@ -174,6 +183,18 @@ public static class PlatformInput {
                 ForcedColors = forced
             };
         }
+
+        // ⚠ <b>A multiplier over the document's own root size and not a replacement for it.</b> An
+        // application that chose a fourteen-pixel root chose its proportions; the platform is saying
+        // "half as big again as whatever you use", so multiplying keeps that choice and setting an
+        // absolute size would silently overrule it. `LengthContext.InitialFontSize` is the base
+        // because that is what the document was constructed with when nobody said otherwise, and a
+        // scale that compounded — multiplying the *current* value each time the setting is re-read —
+        // would grow the text a little more on every poll.
+        //
+        // ⚠ An unread scale is `1` here and not "leave it alone", so that a platform which stops
+        // reporting one puts the text back rather than freezing it at the last value it saw.
+        document.RootFontSize = LengthContext.InitialFontSize * (accessibility.TextScale ?? 1f);
 
         Repalette(document);
     }

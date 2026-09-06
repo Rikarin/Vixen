@@ -611,7 +611,9 @@ Vixen.Platform.SystemAccessibility.HighContrast.init -> bool?
 Vixen.Platform.SystemAccessibility.ReduceMotion.get -> bool?
 Vixen.Platform.SystemAccessibility.ReduceMotion.init -> bool?
 Vixen.Platform.SystemAccessibility.SystemAccessibility() -> void
-Vixen.Platform.SystemAccessibility.SystemAccessibility(bool? ReduceMotion = null, bool? HighContrast = null) -> void
+Vixen.Platform.SystemAccessibility.SystemAccessibility(bool? ReduceMotion = null, bool? HighContrast = null, float? TextScale = null) -> void
+Vixen.Platform.SystemAccessibility.TextScale.get -> float?
+Vixen.Platform.SystemAccessibility.TextScale.init -> float?
 Vixen.Platform.SystemColorScheme -> enum : byte
 Vixen.Platform.SystemColorScheme.Dark = 2 -> Vixen.Platform.SystemColorScheme
 Vixen.Platform.SystemColorScheme.Light = 1 -> Vixen.Platform.SystemColorScheme

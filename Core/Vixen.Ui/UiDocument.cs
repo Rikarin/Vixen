@@ -227,7 +227,55 @@ public sealed partial class UiDocument : IDisposable {
     }
 
     /// <summary>What <c>rem</c> measures against, kept because a new surface needs it too.</summary>
-    readonly float rootFontSize;
+    float rootFontSize;
+
+    /// <summary>The font size <c>rem</c> measures against, for every surface of this document.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Settable, and it was a <c>readonly</c> constructor parameter — which meant no
+    ///         operating-system text-size preference could reach <c>rem</c> at all.</b> A user who had
+    ///         enlarged text system-wide got the same sixteen pixels as everyone else, and an
+    ///         application that wanted to honour the setting had to know to pass a different number at
+    ///         construction and then rebuild its document when the setting changed. The read is
+    ///         <c>SystemAccessibility.TextScale</c> and <c>PlatformInput.ApplyAccessibility</c> is what
+    ///         multiplies by it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every surface, because the number is passed <i>by value</i> into
+    ///         <c>LengthContext.ForViewport</c> at <c>UiSurface.Measure</c>.</b> A surface holds its own
+    ///         copy, so writing the field alone would leave every window measuring against the old
+    ///         one — and a torn-off panel, which is measured once when it is created, would keep the
+    ///         old number for ever.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="Forget()" /> alone is enough and a <c>Layout.Invalidate</c> beside it
+    ///         is not, which is the opposite of what <see cref="Resize(UiSurface, float, float, float)" />
+    ///         needs one line over — measured, by removing it and watching nothing go red.</b> A
+    ///         scale change is invisible to the layout because it moves the pixel <i>grid</i> rather
+    ///         than any value an element declared; a root size change moves the values themselves, so
+    ///         every length that has to move arrives at the layout tree as a layout style that
+    ///         differs, or as a measure function re-run against a new font size. Kept out rather than
+    ///         kept in: an invalidation nothing needs is a line the next reader has to disprove.
+    ///     </para>
+    /// </remarks>
+    public float RootFontSize {
+        get => rootFontSize;
+        set {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value);
+
+            if (rootFontSize.Equals(value)) {
+                return;
+            }
+
+            rootFontSize = value;
+
+            foreach (var surface in surfaces) {
+                surface.Measure(surface.Width, surface.Height, surface.DpiScale, value);
+            }
+
+            Forget();
+        }
+    }
 
     /// <summary>The cascade.</summary>
     public StyleEngine Styles { get; }
