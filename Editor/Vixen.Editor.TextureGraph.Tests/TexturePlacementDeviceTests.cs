@@ -635,6 +635,102 @@ public class TexturePlacementDeviceTests(ITestOutputHelper output) {
         Assert.Equal(expected, TextureKernelHarness.At(bake.Read(2), 31, 17, 0));
     }
 
+    /// <summary>
+    ///     ⚠ A minified stamp is its own colour at every coverage, and a coverage under one is not a
+    ///     darker colour.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/888">#888</a>, and it is
+    ///         <c>Accumulate</c>'s defect one level out.</b> Both kernels box-filter their
+    ///         sub-samples, and a sub-sample no instance reached is <c>float4(0, 0, 0, 0)</c> — under
+    ///         <c>max</c> and <c>blend</c> that is a straight colour beside a coverage of zero and not
+    ///         a black texel. Averaging it into the colour composited the stamp against transparent
+    ///         black, so every minified instance carried a rim of itself darkened in proportion to how
+    ///         little of the texel it covered: a pure red stamp with a maroon edge, which reads as
+    ///         anti-aliasing and is a wrong colour.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The oracle is an equality with the swept quantity divided out.</b> The stamp is
+    ///         one flat colour, so <em>every</em> texel it reaches must carry exactly that colour
+    ///         whatever fraction of the texel it covers — the partial coverage belongs in the alpha
+    ///         and nowhere else. Before the fix an edge texel's red equalled its own alpha, which is
+    ///         what the assertion below reads.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the count of partly covered texels is the instrument.</b> A scale that put the
+    ///         stamp's edge on a texel boundary, or one large enough for the derived sub-sample count
+    ///         to collapse to 1, would make every texel fully covered or empty and the colour
+    ///         assertion vacuous — a pass over no work. <c>0.3</c> of a 64-texel image is neither:
+    ///         the edge lands at 22.4 texels and the footprint asks for four sub-samples per axis.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(TexturePlacement.TileSamplerKernel)]
+    [InlineData(TexturePlacement.SplatterKernel)]
+    public void A_minified_stamp_keeps_its_colour_where_it_only_partly_covers_a_texel(string kernel) {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
+        var placement = string.Equals(kernel, TexturePlacement.TileSamplerKernel, StringComparison.Ordinal)
+            ? TexturePlacement.TileSampler(1, 0, gridX: 1, gridY: 1, scale: 0.3f, alphaCoverage: true)
+            : TexturePlacement.Splatter(1, 0, count: 1, scale: 0.3f, alphaCoverage: true);
+
+        var plan = new TexturePlan {
+            BaseWidth = Side,
+            BaseHeight = Side,
+            Seed = 5501u,
+            Images = [new(TextureFormat.Rgba16Float), new(TextureFormat.Rgba8)],
+
+            // Pure red at full opacity, so the colour and the coverage are two different numbers and
+            // a kernel that confused them cannot pass by accident.
+            Ops = [TextureSources.Uniform(0, 1f, 0f, 0f), placement],
+            Outputs = [1]
+        };
+
+        Assert.Empty(plan.Validate());
+
+        using var evaluator = new TexturePlanEvaluator(device);
+        using var bake = evaluator.Evaluate(plan, new Dictionary<int, TextureHandle>());
+
+        var picture = bake.Read(1);
+        var partly = 0;
+        var worst = (X: -1, Y: -1, Red: 255, Alpha: 255);
+
+        for (var y = 0; y < Side; y++) {
+            for (var x = 0; x < Side; x++) {
+                var alpha = TextureKernelHarness.At(picture, x, y, 3);
+                var red = TextureKernelHarness.At(picture, x, y, 0);
+
+                if (alpha == 0) {
+                    continue;
+                }
+
+                if (alpha < 255) {
+                    partly++;
+                }
+
+                if (red < worst.Red) {
+                    worst = (x, y, red, alpha);
+                }
+            }
+        }
+
+        Assert.True(
+            partly >= 16,
+            $"'{kernel}' left {partly} texels partly covered, so nothing here was box-filtered and the "
+            + $"assertion below is a pass over no work ({TextureKernelHarness.Adapter(device)})"
+        );
+
+        Assert.True(
+            worst.Red >= 250,
+            $"'{kernel}' drew a pure red stamp and texel ({worst.X}, {worst.Y}) came out {worst.Red} red at "
+            + $"{worst.Alpha} coverage. A colour does not darken with its coverage — that is the sub-samples "
+            + $"averaged against transparent black ({TextureKernelHarness.Adapter(device)})"
+        );
+    }
+
     /// <summary>A scatter of small stamps, which two seeds have to disagree about.</summary>
     static TexturePlan Scatter(uint seed) =>
         new() {
