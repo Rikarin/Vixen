@@ -398,6 +398,29 @@ describes neither project and moves
 whenever an unrelated dependency grows. A "per-project coverage" table built from a document's own
 `line-rate` would be that second number.
 
+⚠️ **And running it a second time found the second reader defect: cobertura names a package by
+*assembly* name, and this tree renames ten of them.** `Measure` derived the subject by stripping
+`.Tests` off the project name, which is right for `Core/Vixen.Ecs.Tests` and wrong for every tool —
+`Tools/Vixen.ApiCheck` builds `vixen-api-check.dll`, so a real document from `Vixen.ApiCheck.Tests`
+carries the packages `vixen-api-check` and `Vixen.ApiCheck.Tests` and nothing called
+`Vixen.ApiCheck` at all. The target's own "does not name its subject, so the suite never loaded the
+assembly it is named after" then fires — a finding about the reader wearing a finding about the
+suite, which is the exact failure the paragraph above warns about, arriving one round later in a new
+place. `CoverageReport.Subject` now asks the sibling project file for its `<AssemblyName>` (as XML,
+the way `AotProbeProjectFile` reads the probe) and falls back to the convention.
+
+⚠️ **Both of those were found by linking the reader into a throwaway harness, and both proofs left
+nothing behind — so the harness is committed now.** `Tools/Vixen.ApiCheck.Tests/CoverageReportTests`
+links `build/CoverageReport.cs` the way that project already links `build/AotProbeProjectFile.cs`,
+over a fixture cut from a real attachment that keeps the duplicate listing. Restoring the descendants
+walk turns three of its six tests red on the counts while leaving the *rate* untouched, and dropping
+the assembly-name lookup turns exactly one red. That is the only part of `Coverage` a session
+forbidden `build.sh` can prove; the fluent `DotNetTest` settings and the `artifacts/coverage` layout
+were checked by running the equivalent `dotnet test` invocation by hand (the attachment landed where
+`Measure` globs for it, and the class lists summed to the header's 978 of 1 193 where the descendants
+walk gave 1 957 of 2 387), and **Nuke's own traversal and the `coverage.md` it writes are still
+unproved**.
+
 **And where "is this line reached" is a real question, the answer is a test.** ✅ Two of the three
 places ([#338](https://github.com/Rikarin/Vixen/issues/338)) are done, and the first is the worked
 example of the shape: the generated ECS query surface, driven rather than counted, by

@@ -3,6 +3,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Xml.Linq;
 
 /// <summary>
@@ -15,14 +17,55 @@ using System.Xml.Linq;
 ///     file can.
 /// </remarks>
 static class CoverageReport {
-    /// <summary>The assembly a test project is named after.</summary>
-    /// <param name="project">The test project's assembly name, e.g. <c>Vixen.Ecs.Tests</c>.</param>
-    public static string Subject(string project) {
-        ArgumentNullException.ThrowIfNull(project);
+    /// <summary>The assembly a test project is named after, under the name the collector writes.</summary>
+    /// <param name="testProject">
+    ///     Path of the test project file, e.g. <c>Tools/Vixen.ApiCheck.Tests/Vixen.ApiCheck.Tests.csproj</c>.
+    ///     A bare name is accepted and resolves by convention alone.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <b>cobertura names a package by ASSEMBLY name, and this repository renames assemblies.</b>
+    ///     Stripping <c>.Tests</c> off the project name is right for most of the tree and wrong for
+    ///     every tool: <c>Tools/Vixen.ApiCheck</c> builds <c>vixen-api-check.dll</c>, so a report of
+    ///     <c>Vixen.ApiCheck.Tests</c> carries the packages <c>vixen-api-check</c> and
+    ///     <c>Vixen.ApiCheck.Tests</c> and nothing called <c>Vixen.ApiCheck</c> at all. The convention
+    ///     alone therefore made <c>Build.Measure</c> fail that suite with "never loaded the
+    ///     assembly it is named after" — a finding about the reader wearing a finding about the
+    ///     suite, which is exactly the shape this file's other remark warns about. Measured on a real
+    ///     document from <c>Vixen.ApiCheck.Tests</c>; there are ten renamed assemblies under
+    ///     <c>Tools/</c> and <c>Raven/</c>.
+    ///     <para>
+    ///         So the sibling project file is asked, and the convention is only the fallback. Read as
+    ///         XML rather than grepped, the way <c>AotProbeProjectFile</c> reads the probe.
+    ///     </para>
+    /// </remarks>
+    public static string Subject(string testProject) {
+        ArgumentNullException.ThrowIfNull(testProject);
 
-        return project.EndsWith(".Tests", StringComparison.Ordinal)
-            ? project[..^".Tests".Length]
-            : project;
+        var name = Path.GetFileNameWithoutExtension(testProject);
+
+        var stem = name.EndsWith(".Tests", StringComparison.Ordinal)
+            ? name[..^".Tests".Length]
+            : name;
+
+        var parent = Path.GetDirectoryName(Path.GetDirectoryName(testProject));
+
+        if (string.IsNullOrEmpty(parent)) {
+            return stem;
+        }
+
+        var sibling = Path.Combine(parent, stem, stem + ".csproj");
+
+        if (!File.Exists(sibling)) {
+            return stem;
+        }
+
+        var declared = XDocument.Load(sibling)
+            .Descendants()
+            .Where(element => element.Name.LocalName == "AssemblyName")
+            .Select(element => element.Value.Trim())
+            .FirstOrDefault(value => value.Length > 0);
+
+        return declared ?? stem;
     }
 
     /// <summary>Covered and total lines of one assembly, across however many documents a run wrote.</summary>
