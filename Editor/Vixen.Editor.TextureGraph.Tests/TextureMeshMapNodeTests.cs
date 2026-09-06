@@ -187,29 +187,27 @@ public class TextureMeshMapNodeTests {
         Assert.Null(compilation.Artefact);
     }
 
-    /// <summary>
-    ///     Two nodes asking for the same map ask for it twice, and that is stated rather than
-    ///     asserted away.
-    /// </summary>
+    /// <summary>Two nodes asking for the same map are handed one external image.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A limitation, written down as one.</b> Each <c>Mesh Map</c> allocates its own
-    ///         external image, so a generator reading curvature in two places makes a host upload one
-    ///         PNG twice — and a compound library will make that the normal case, because § 4.9's
-    ///         Dirt reads curvature and occlusion and a graph containing both Dirt and Curvature Edge
-    ///         Wear reads curvature twice after inlining.
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/800">#800</a>, and this case is the
+    ///         tripwire that was written to go red when it landed.</b> It asserted two entries and two
+    ///         images, and said in its own remarks that a generator reading curvature in two places
+    ///         makes a host upload one PNG twice — which § 4.9's compounds turn into the normal case,
+    ///         because Dirt reads curvature and occlusion and a stack containing both Dirt and
+    ///         Curvature Edge Wear reads curvature twice after inlining.
     ///     </para>
     ///     <para>
-    ///         It is a cost rather than a defect: the pictures are identical, so no bake is wrong. De-
-    ///         duplicating means the compiler keying externals by their reference, which is
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/800">#800</a> and a change to
-    ///         <c>TextureGraphCompiler.External</c> rather than to the node. ⚠ This case goes red when
-    ///         #800 lands, which is what it is for — a tripwire that names the issue that removes
-    ///         it.
+    ///         ⚠ <b>One entry is not the assertion; one entry that both nodes read is.</b> A compiler
+    ///         that pooled the list and went on allocating an image per asker would look
+    ///         de-duplicated from <c>Externals</c> and cost exactly what it did before — and the
+    ///         second image would be one nothing ever supplies a texture for, which
+    ///         <c>ExternalViews</c> refuses. So what is read here is the op list: both resamples take
+    ///         their input from the same image.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void Two_nodes_asking_for_one_map_ask_for_it_twice_until_the_compiler_pools_externals() {
+    public void Two_nodes_asking_for_one_map_are_handed_one_external_image() {
         NodeGraphModel graph = new();
         var first = graph.Add("Source/Mesh Map");
         var second = graph.Add("Source/Mesh Map");
@@ -224,11 +222,18 @@ public class TextureMeshMapNodeTests {
         var compilation = compiler.Compile(graph);
 
         Assert.Empty(compilation.Diagnostics);
-        Assert.Equal(2, compiler.Externals.Length);
-        Assert.All(compiler.Externals, external => Assert.Equal("meshmap:curvature", external.Asset));
 
-        // Two entries, two images: a host uploads the same file twice. #800 is what makes this
-        // one, and this line is where to start when it does.
-        Assert.Equal(2, compiler.Externals.Select(external => external.Image).Distinct().Count());
+        var external = Assert.Single(compiler.Externals);
+
+        Assert.Equal("meshmap:curvature", external.Asset);
+        Assert.Single(compilation.Value.Images, image => image.External);
+
+        // ⚠ Two resamples still, and that is right rather than a leftover: a mesh map is uploaded at
+        // the bake's resolution and each node resamples it into the graph's, so what is shared is the
+        // upload and not the dispatch. Both of them read the one image, which is the claim.
+        var resamples = compilation.Value.Ops.Where(op => op.Kernel == "Bitmap").ToList();
+
+        Assert.Equal(2, resamples.Count);
+        Assert.All(resamples, op => Assert.Equal([external.Image], op.Inputs));
     }
 }

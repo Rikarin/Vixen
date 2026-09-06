@@ -136,6 +136,19 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     readonly List<TextureGraphOutput> outputs = [];
     readonly List<TextureGraphExternal> externals = [];
 
+    /// <summary>Which external image a reference already has, so two askers share one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Keyed by the reference and only for entries that <em>have</em> one</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/800">#800</a>. An entry naming no asset
+    ///     carries baked <see cref="TextureGraphExternal.Texels" /> — a ramp, a curve table — and two
+    ///     of those are equal only if their bytes are, so keying them on the reference alone would
+    ///     merge two different gradients that both name nothing. The format and the channel count are
+    ///     in the key beside it because they decide what <c>Allocate</c> produces: one file read as
+    ///     grey and as colour is two images, correctly.
+    /// </remarks>
+    readonly Dictionary<(string Asset, TextureFormat Format, TextureChannels Carried, int Width, int Height), int>
+        pooled = [];
+
     /// <summary>Which image an output port's variable names.</summary>
     readonly Dictionary<string, int> imageOf = new(StringComparer.Ordinal);
 
@@ -328,6 +341,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         channels.Clear();
         outputs.Clear();
         externals.Clear();
+        pooled.Clear();
         imageOf.Clear();
         promotions.Clear();
         rescales.Clear();
@@ -1117,9 +1131,25 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             }
         }
 
+        var key = (asset, format, carried, width, height);
+
+        // ⚠ The first asker's image, and the first asker's node with it — #800. `Generators/Dirt`
+        // reads curvature and occlusion and `Generators/Curvature Edge Wear` reads curvature, so a
+        // layer stack containing both reads one file twice after inlining; a fresh entry per call
+        // cost a decode, an upload and a texture at bake resolution for a picture the host already
+        // had. The diagnostics keep pointing at whoever asked first because a merged entry has to
+        // name one node and the earlier one is the one an author reading the graph reaches first.
+        if (asset.Length > 0 && pooled.TryGetValue(key, out var shared)) {
+            return shared;
+        }
+
         var image = Allocate(format, carried, 0, external: true);
 
         externals.Add(new(image, Inlining.Resolve(node.Id), asset, width, height, [.. texels]));
+
+        if (asset.Length > 0) {
+            pooled[key] = image;
+        }
 
         return image;
     }
