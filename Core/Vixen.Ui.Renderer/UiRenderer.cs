@@ -887,10 +887,27 @@ public sealed class UiRenderer : IDisposable {
     ///         the attachment it is writing" is perfectly true and is not the blocker, because CSS
     ///         Compositing 1 § 5.1 asks for no read of the destination at all. It is a change of
     ///         <i>source</i> colour followed by an ordinary source-over, and the backdrop can arrive as
-    ///         a texture. What is missing is the composite pipeline variant that samples two of them —
-    ///         and, under it, a fourth binding on the deliberately shared <c>ui atlas</c> layout, which
-    ///         declares exactly one sampled texture. So the composite is submitted unchanged and the
-    ///         picture is the one the frame would have had without the declaration.
+    ///         a texture. What is missing is the composite pipeline variant that samples two of them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the cost recorded under that in four places until 2026-09-06 — "a fourth
+    ///         binding on the deliberately shared <c>ui atlas</c> layout, which declares exactly one
+    ///         sampled texture" — is not reachable, because Raven cannot spell it.</b>
+    ///         <c>BindingPlan.Of</c> numbers a set's bindings <i>by kind</i>: every texture in
+    ///         declaration order, then every sampler, then every storage buffer. So a module declaring
+    ///         a second <c>Texture2D</c> gets the backdrop at binding 1 and its <i>sampler</i> moves to
+    ///         2 — the shared layout's sampler slot and its shape buffer's, both renumbered by a
+    ///         declaration in one shader. Every shipped reflection agrees: <c>UiMask</c> is
+    ///         texture/sampler/storage at 0/1/2, and the library's <c>Underwater</c> is
+    ///         block/texture/texture/texture/sampler/sampler at 0–5.
+    ///     </para>
+    ///     <para>
+    ///         So the backdrop belongs in a <i>second</i> descriptor set rather than a fourth binding
+    ///         on this one, and that is the cheaper shape besides: a module that does not declare set 1
+    ///         does not statically use it, so leaving it unbound for every other pipeline is valid and
+    ///         no pipeline change disturbs set 0 — which is the property the shared layout exists to
+    ///         guarantee. The alternative is to renumber the shared layout to
+    ///         texture/texture/sampler/storage and recompile all eight modules, which buys nothing.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Which needs saying out loud for <see cref="Backdropped" />'s reason and a sharper

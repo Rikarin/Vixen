@@ -743,6 +743,18 @@ comparison of the two executors can tell. **Closing it is a shader change and no
 the capture `UiRenderer.Capture` already performs for `backdrop-filter` is precisely the backdrop
 picture the formula wants, so the missing piece is a composite variant that samples two textures.
 
+⚠ **The price written here until 2026-09-06 — "a fourth binding on the shared `ui atlas` layout" —
+was not a price, it was an impossibility.** Raven's `BindingPlan.Of` numbers a descriptor set by
+*kind*: textures in declaration order, then samplers, then storage buffers. A module that declares a
+second `Texture2D` therefore takes binding 1 for the backdrop and pushes its own sampler to 2, which
+is the shared layout's sampler slot and its shape buffer's — one declaration in one shader renumbers
+the set every UI pipeline shares. Every shipped reflection shows it: `UiMask` is
+texture/sampler/storage at 0/1/2 and the library's `Underwater` is
+block/texture/texture/texture/sampler/sampler at 0–5. The backdrop belongs in a **second descriptor
+set**, which is also the cheaper answer — a module that does not declare set 1 does not statically
+use it, so leaving it unbound for every other pipeline is valid and set 0 is still never disturbed by
+a pipeline change.
+
 ### Isolating which backdrop a blend reaches
 
 `isolation: isolate` is the seventh reason to open a group and it changes no pixel of the group it
