@@ -42,6 +42,49 @@ public class TextureGraphPanelTests {
         Assert.NotNull(Find<ImageView>(panel));
     }
 
+    /// <summary>⚠ And a tab opened by a double-click says which pane holds the picture.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/841">#841</a>, and nothing had ever
+    ///         called <see cref="TextureGraphEditorFactory.CreateView" /> from a test.</b> It passed
+    ///         <c>TexturePreviewBlocker.NoGraphics</c>, whose sentence is "this host publishes no
+    ///         IEditorGraphics to plugins" — and a double-click happens in the editor, which publishes
+    ///         one. So the sentence was false in the only host that ever renders it, and it sent the
+    ///         one reader who could act on it to look for a plugin point already there.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves, because a tab carrying the wrong sentence passes either alone.</b>
+    ///         The pane has to name the panel that does hold the evaluator, <em>and</em> must not
+    ///         claim the host publishes no graphics. This is the layers side's
+    ///         <c>A_tab_opened_by_a_double_click_says_which_pane_holds_the_picture</c>, which is the
+    ///         test the issue names as the one to copy.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_tab_opened_by_a_double_click_says_which_pane_holds_the_picture() {
+        using var fixture = new TexturingFixture(editors: true);
+
+        fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
+
+        var asset = fixture.AddGraph("Bricks");
+
+        Assert.True(
+            fixture.Editors.TryGetForFile("Assets/Bricks" + TextureGraphDocument.Extension, out var editor)
+        );
+
+        Assert.True(fixture.Editors.TryOpen(fixture.Project, asset, out var document));
+
+        var host = fixture.Shell.Document.Root.Add<UiElement>();
+
+        editor.CreateView(document, host);
+
+        var status = Status(host);
+
+        Assert.NotNull(Find<NodeGraphView>(host));
+        Assert.Contains("Texture Graph", status, StringComparison.Ordinal);
+        Assert.DoesNotContain("publishes no IEditorGraphics", status, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void With_no_graph_open_it_says_so_and_shows_no_extent() {
         using var fixture = new TexturingFixture();
@@ -514,4 +557,30 @@ public class TextureGraphPanelTests {
 
         return null;
     }
+
+    /// <summary>The first element in the tree with that tag.</summary>
+    static UiElement? Find(UiElement element, string tag) {
+        if (string.Equals(element.Tag, tag, StringComparison.Ordinal)) {
+            return element;
+        }
+
+        foreach (var child in element.Children) {
+            if (Find(child, tag) is { } found) {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The sentence under this tab's preview pane.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Off the tree the factory built, not off <c>TextureGraphView.Status</c>.</b> A test
+    ///     that constructed its own view would pass in an editor where the factory was never
+    ///     registered, and one asserting on <c>TexturePreview.Describe(AnotherPane)</c> directly would
+    ///     be the predicate-that-cannot-fail
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/831">#831</a> found on the layers side:
+    ///     it is a claim about a switch statement rather than about which case the factory picks.
+    /// </remarks>
+    static string Status(UiElement host) => Find(host, "texture-graph-status")?.Text ?? "";
 }
