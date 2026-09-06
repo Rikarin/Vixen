@@ -52,9 +52,18 @@ public class PaintCanvasTests {
         Assert.Throws<InvalidDataException>(() => PaintCanvas.Read(stream));
     }
 
-    /// <summary>A truncated file is refused rather than read as a half-painted layer.</summary>
+    /// <summary>A file cut off in its header is refused rather than read as a half-painted layer.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the <em>header</em> case and it is now named as one</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/959">#959</a>. It cut a constant 64 bytes
+    ///     and was written when a channel was raw texels, so the cut landed in 4 KiB of them. Version
+    ///     2 deflates, and a flat 32² mask compresses to 44 bytes in a 77-byte file — so the same cut
+    ///     started landing thirteen bytes in, before the width field, and the two truncation paths
+    ///     compression introduced went unexercised while this stayed green. The measurement is in the
+    ///     assertion below rather than in a comment, so the day the framing changes it says so.
+    /// </remarks>
     [Fact]
-    public void A_truncated_paint_file_is_refused() {
+    public void A_paint_file_cut_off_in_its_header_is_refused() {
         PaintCanvas canvas = new(32, 32);
 
         canvas.Channel("mask").Fill(0xFFFFFFFFu);
@@ -65,9 +74,107 @@ public class PaintCanvasTests {
 
         var bytes = stream.ToArray();
 
+        // The instrument. `Read` walks magic · version · width, so a cut that left more than sixteen
+        // bytes would be refused somewhere else and this test would be about somewhere else.
+        Assert.InRange(bytes.Length - 64, 9, 16);
+
         using MemoryStream cut = new(bytes[..(bytes.Length - 64)]);
 
-        Assert.Throws<InvalidDataException>(() => PaintCanvas.Read(cut));
+        var refused = Assert.Throws<InvalidDataException>(() => PaintCanvas.Read(cut));
+
+        Assert.Contains("ends before the canvas its header describes", refused.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>⚠ And a file cut off inside a channel's compressed block is refused too.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The path <a href="https://github.com/Rikarin/Vixen/issues/959">#959</a> found
+    ///         unreachable.</b> <c>PaintCanvas.Inflate</c> takes the block whole and refuses one
+    ///         shorter than its own declared length — a guard whose message names two byte counts and
+    ///         which nothing had ever produced, because the only truncation test cut a file so small
+    ///         that the cut never reached a block.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A fraction rather than a constant, and a canvas that does not compress to
+    ///         nothing.</b> Those are the same defect twice: a constant cut is a cut whose meaning
+    ///         changes when the format's density changes, and a flat canvas is one whose body is
+    ///         smaller than any interesting constant. The stroke is what <c>PaintStroke</c> writes,
+    ///         which is the least compressible content this format holds.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two byte counts are on the <em>inner</em> exception and that is a finding
+    ///         rather than a detail of this test.</b> <c>Read</c> wraps every
+    ///         <see cref="EndOfStreamException" /> in one sentence about a truncated file — which is
+    ///         the right thing for a caller, since both are the same fact — so the guard's own message
+    ///         reaches a log and never a person. Asserting on the inner is what makes this test about
+    ///         the block path rather than about the wrapper, which a header cut produces too.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_paint_file_cut_off_inside_a_compressed_channel_is_refused() {
+        const int Side = 128;
+
+        PaintCanvas canvas = new(Side, Side);
+        var colour = canvas.Channel("baseColor");
+
+        PaintStroke stroke = new(
+            colour,
+            PaintCoverage.Everywhere(Side, Side),
+            PaintStrokeTests.Hard(Side / 8f) with { Spacing = 0.5f },
+            0xFF3366CCu
+        );
+
+        stroke.MoveTo(new(16f, 16f));
+        stroke.MoveTo(new(Side - 16f, Side - 16f));
+
+        using MemoryStream stream = new();
+
+        canvas.Write(stream);
+
+        var bytes = stream.ToArray();
+
+        // The instrument, and it is the whole point of this test. 33 bytes of magic, version, extent,
+        // channel count, the channel's name and its declared compressed length come before the block;
+        // half the file has to be past that or the cut is the header case one test up.
+        Assert.True(bytes.Length / 2 > 64, $"a stroked {Side}² channel wrote {bytes.Length} bytes, which is "
+            + "small enough that half of it is still the header — so this cut lands where the test above "
+            + "already cuts.");
+
+        using MemoryStream cut = new(bytes[..(bytes.Length / 2)]);
+
+        var refused = Assert.Throws<InvalidDataException>(() => PaintCanvas.Read(cut));
+        var inner = Assert.IsType<EndOfStreamException>(refused.InnerException);
+
+        Assert.Contains("compressed bytes for a channel and holds", inner.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>⚠ A channel declaring a negative compressed length is refused, not allocated for.</summary>
+    /// <remarks>
+    ///     The third path compression introduced, and the one a corrupt or hostile file reaches first:
+    ///     <c>BinaryReader.ReadBytes</c> takes an <see langword="int" /> and a negative one throws an
+    ///     <see cref="ArgumentOutOfRangeException" />, which is not what a caller of a file reader
+    ///     catches. The guard turns it into the same <see cref="InvalidDataException" /> every other
+    ///     malformed <c>.vxpaint</c> produces.
+    /// </remarks>
+    [Fact]
+    public void A_channel_declaring_a_negative_compressed_length_is_refused() {
+        using MemoryStream stream = new();
+
+        using (BinaryWriter writer = new(stream, System.Text.Encoding.UTF8, leaveOpen: true)) {
+            writer.Write(PaintCanvas.Magic);
+            writer.Write(PaintCanvas.CurrentVersion);
+            writer.Write(8);
+            writer.Write(4);
+            writer.Write(1);
+            writer.Write("baseColor");
+            writer.Write(-1);
+        }
+
+        stream.Position = 0;
+
+        var refused = Assert.Throws<InvalidDataException>(() => PaintCanvas.Read(stream));
+
+        Assert.Contains("-1 compressed bytes", refused.Message, StringComparison.Ordinal);
     }
 
     /// <summary>⚠ A stream that hands back one byte at a time still reads a whole canvas.</summary>

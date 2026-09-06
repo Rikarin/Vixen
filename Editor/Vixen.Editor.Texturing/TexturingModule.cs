@@ -481,16 +481,14 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             return null;
         }
 
-        var target = surface.Target(tool.Channel);
-
-        // ⚠ The coverage is replaced here rather than inside `PaintSurface.Target`, and the reason is
-        // which type knows what. A surface holds a canvas and a layer; the mesh is the *module's*,
-        // because resolving one reads a file and the answer is cached across strokes. `Target`'s own
-        // remarks say a surface that does hold a mesh hands its raster in instead — this is the
-        // caller doing it, and #920's dilation is unexercisable until somebody does.
-        return Mesh() is { } bound
-            ? target with { Coverage = bound.Coverage(target.Layer.Width, target.Layer.Height) }
-            : target;
+        // ⚠ The coverage is passed *in* rather than rewritten on the record afterwards — #942. The
+        // reason it is the module's at all is which type knows what: a surface holds a canvas and a
+        // layer, and the mesh is this module's because resolving one reads a model file whose answer
+        // is cached across strokes. For a batch this read `surface.Target(...) with { Coverage = … }`,
+        // which left `Target`'s own remarks claiming a coverage of `Everywhere` that no stroke ever
+        // got. #920's dilation is unexercisable until somebody hands a real raster in, and this is
+        // the somebody.
+        return surface.Target(tool.Channel, Mesh()?.Coverage(surface.Canvas.Width, surface.Canvas.Height));
     }
 
     /// <summary>The geometry the open stack is painted on, resolved once per binding.</summary>
