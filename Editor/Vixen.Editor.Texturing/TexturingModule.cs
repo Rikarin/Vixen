@@ -1125,7 +1125,7 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         // asks for one precisely so that pane is not silent.
         stackView.Show(
             stack,
-            stackPreview?.Evaluate(stack)
+            stackPreview?.Evaluate(stack, LayerStackPreview.DefaultUsage, stackView?.SetName ?? "")
             ?? new LayerStackPicture(
                 null,
                 LayerStackPreview.DefaultUsage,

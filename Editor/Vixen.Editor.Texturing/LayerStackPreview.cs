@@ -150,8 +150,13 @@ sealed class LayerStackPreview : IDisposable {
     ///     <a href="https://github.com/Rikarin/Vixen/issues/805">#805</a> is about one layer down,
     ///     and it is why the terminus rule had to stop being a hard mismatch.
     /// </remarks>
-    public LayerStackPicture Evaluate(LayerStackDocument document, string usage = DefaultUsage) {
+    public LayerStackPicture Evaluate(
+        LayerStackDocument document,
+        string usage = DefaultUsage,
+        string setName = ""
+    ) {
         ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(setName);
 
         var stack = document.Document;
         var width = stack.BaseWidth;
@@ -179,7 +184,16 @@ sealed class LayerStackPreview : IDisposable {
         // case; it does the walk only after something said a compound was written.
         document.Republish();
 
-        var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0], document.Library);
+        // ⚠ The set the panel is showing, not the first one. The rows moved when a set was chosen
+        // and the picture beside them did not, so the pane drew the Head set's map under the Body
+        // set's rows and printed diagnostics naming layers that were not in the list. `SetFor`
+        // falls back to the first set for a name nothing matches, which is what an empty name means.
+        // ⚠ Never null here — the empty-stack case returned above — but resolved rather than
+        // indexed, because `SetFor` is the one function that says what a set name means and an
+        // unmatched name has to mean the first set rather than an exception.
+        var chosen = LayerStackEdit.SetFor(stack, setName) ?? stack.Sets[0];
+
+        var compilation = LayerStackCompiler.Compile(stack, chosen, document.Library);
 
         // Everything either half said travels with every answer below, because a compilation that
         // produced a plan still has things to say and the sentence is not where they fit.

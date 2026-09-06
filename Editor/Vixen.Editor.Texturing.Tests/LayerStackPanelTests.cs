@@ -5,6 +5,7 @@ using Vixen.Core;
 using Vixen.Editor.Core;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -161,6 +162,77 @@ public class LayerStackPanelTests {
         Assert.NotEmpty(Rows(host));
         Assert.Contains("Layer Stack", status, StringComparison.Ordinal);
         Assert.DoesNotContain("publishes no IEditorGraphics", status, StringComparison.Ordinal);
+    }
+
+    /// <summary>⚠ Choosing a set moves the picture and its diagnostics, not only the rows.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The half of the set picker that was missing.</b> The rows, the channel ticks and the
+    ///         part picker all followed the chosen set; the preview beside them went on compiling
+    ///         <c>Sets[0]</c>. So a panel showing the Head set's rows drew the Body set's map and
+    ///         listed the Body set's diagnostics — naming layers that were not in the list in front of
+    ///         the reader, with nothing saying why.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The warning is the instrument, because it is the one thing that names a set
+    ///         without a device.</b> Only the second set has the bad setting, so the message can only
+    ///         appear once the preview has compiled that set — a picture assertion would need a
+    ///         device and a row assertion would pass against the defect.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Choosing_a_set_moves_the_previews_diagnostics_too() {
+        using var fixture = new TexturingFixture(graphics: true);
+        var document = Open(fixture, "Hull");
+
+        LayerStackAsset stack = new() {
+            Name = "Hull",
+            BaseWidth = 32,
+            BaseHeight = 32,
+            Seed = 7u,
+            Sets = [
+                new() {
+                    Name = "Body",
+                    Channels = [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
+                    Layers = [new() { Id = "body", Name = "Body", Kind = LayerKind.Fill }]
+                },
+                new() {
+                    Name = "Head",
+                    Channels = [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
+
+                    // 'Wobble' is not a port `Filters/Blur` declares, so this set — and only this
+                    // set — produces a warning when it is the one compiled.
+                    Layers = [
+                        new() {
+                            Id = "haze",
+                            Name = "Haze",
+                            Kind = LayerKind.Filter,
+                            Filter = LayerFilterKind.Blur,
+                            Settings = { ["Wobble"] = [1f] }
+                        }
+                    ]
+                }
+            ]
+        };
+
+        document.Document = stack;
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenStackCommand));
+
+        var panel = fixture.Shell.Workspace.Open(TexturingModule.StackPanel);
+
+        Assert.NotNull(panel);
+        Assert.Empty(Messages(panel));
+
+        var picker = Assert.IsType<Select>(Find(panel, "layer-stack-set"));
+
+        picker.Value = "Head";
+
+        panel = fixture.Shell.Workspace.Open(TexturingModule.StackPanel)!;
+
+        var message = Assert.Single(Messages(panel));
+
+        Assert.Contains("Wobble", message, StringComparison.Ordinal);
     }
 
     /// <summary>⚠ A warning the compile produced is on the screen, which is what #830 found missing.</summary>

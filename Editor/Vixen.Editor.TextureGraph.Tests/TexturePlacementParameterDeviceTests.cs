@@ -45,6 +45,99 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
 
     const byte Dim = 51;
 
+    /// <summary>The middle column of the three-column atlas.</summary>
+    const byte Middling = 128;
+
+    /// <summary>⚠ And it reads only its own column when the columns do not divide the atlas.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/757">#757</a> replaced the integer
+    ///         column with a fractional span, and the test above could not see either.</b> That
+    ///         fixture is two columns over a 64-texel atlas, where the boundary lands exactly on a
+    ///         texel edge — so integer division and a float span give the same answer and the bleed
+    ///         assertion passes under both. Three columns is the smallest count that does not divide
+    ///         it: the span is 21⅓ and the boundaries fall <em>inside</em> texels 21 and 42.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The first fractional implementation shared a texel between neighbours</b>, which
+    ///         is #709 again: taking <c>floor(start)</c> and <c>ceil(start + span) - 1</c> gives
+    ///         column 0 the range 0..21 and column 1 the range 21..42, and a bilinear tap at the edge
+    ///         then mixes a neighbour's constant in. A texel belongs to the column its <em>centre</em>
+    ///         falls in, so the ranges are 0..20, 21..42 and 43..63 — and this test is what says so,
+    ///         because a shared texel produces a value that is neither column's constant.
+    ///     </para>
+    /// </remarks>
+    /// <param name="splatter">Which kernel.</param>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_stamp_reads_only_its_own_column_when_the_columns_do_not_divide_the_atlas(bool splatter) {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
+        var (texture, staging) = TextureKernelHarness.Upload(device, ThreeColumns(Side), Side, Side);
+
+        try {
+            using var evaluator = new TexturePlanEvaluator(device);
+
+            foreach (var seed in (uint[])[4409u, 5501u, 7717u, 9013u, 41823u, 90101u]) {
+                var op = splatter
+                    ? TexturePlacement.Splatter(1, 0, count: 1, scale: 1f, patternCount: 3, alphaCoverage: true)
+                    : TexturePlacement.TileSampler(
+                        1,
+                        0,
+                        gridX: 1,
+                        gridY: 1,
+                        scale: 1f,
+                        patternCount: 3,
+                        alphaCoverage: true
+                    );
+
+                var plan = new TexturePlan {
+                    BaseWidth = Side,
+                    BaseHeight = Side,
+                    Seed = seed,
+                    Images = [new(TextureFormat.Rgba8, External: true), new(TextureFormat.Rgba8)],
+                    Ops = [op],
+                    Outputs = [1]
+                };
+
+                Assert.Empty(plan.Validate());
+
+                using var bake = evaluator.Evaluate(plan, new Dictionary<int, TextureHandle> { [0] = texture });
+
+                var picture = bake.Read(1);
+                var middle = TextureKernelHarness.At(picture, Side / 2, Side / 2, 0);
+
+                output.WriteLine($"seed {seed} drew column value {middle}");
+
+                Assert.True(
+                    middle == Bright || middle == Middling || middle == Dim,
+                    $"the middle of the stamp reads {middle}, which is none of the atlas's three columns "
+                    + $"({Bright}, {Middling} and {Dim}) — so the stamp is not reading one column"
+                );
+
+                for (var y = 0; y < Side; y++) {
+                    for (var x = 0; x < Side; x++) {
+                        var value = TextureKernelHarness.At(picture, x, y, 0);
+
+                        Assert.True(
+                            value == middle,
+                            $"seed {seed}: texel ({x}, {y}) reads {value} where the rest of the stamp reads "
+                            + $"{middle}. A value between two of the constants is a neighbouring column bled "
+                            + $"across a boundary that two columns share — #709 through #757's fractional "
+                            + $"span ({TextureKernelHarness.Adapter(device)})"
+                        );
+                    }
+                }
+            }
+        } finally {
+            device.Destroy(staging);
+            device.Destroy(texture);
+        }
+    }
+
     /// <summary>
     ///     ⚠ A stamp reads its <b>own</b> column of the atlas and no texel of a neighbouring one.
     /// </summary>
@@ -755,6 +848,41 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
             for (var x = 0; x < side; x++) {
                 var at = ((y * side) + x) * 4;
                 var value = x == side - 1 ? Bright : Dim;
+
+                pixels[at] = value;
+                pixels[at + 1] = value;
+                pixels[at + 2] = value;
+                pixels[at + 3] = 255;
+            }
+        }
+
+        return pixels;
+    }
+
+    /// <summary>An atlas of three flat columns, at a width that is not a multiple of three.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Three and not two, because two divides every atlas this suite uses and the
+    ///     fractional boundary is the whole subject.</b> <c>TwoColumns</c> over a 64-texel side puts
+    ///     its boundary exactly on a texel edge, so a column resolved by integer division and one
+    ///     resolved by a float agree — which is why the bleed's own test could not see
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/757">#757</a>'s span. At three columns
+    ///     the span is 21⅓ and the boundaries fall inside texels 21 and 42.
+    /// </remarks>
+    /// <param name="side">The atlas side.</param>
+    /// <returns>The pixels.</returns>
+    static byte[] ThreeColumns(int side) {
+        var pixels = new byte[side * side * 4];
+
+        for (var y = 0; y < side; y++) {
+            for (var x = 0; x < side; x++) {
+                var at = ((y * side) + x) * 4;
+                // ⚠ By the texel's CENTRE, which is the rule the kernel resolves a column with. A
+                // fixture painted with `x * 3 / side` disagrees with it on exactly the texels a
+                // fractional boundary falls inside — texel 21 of 64 — so it would report a bleed
+                // where the two conventions merely differ, which is a different bug from the one
+                // this test is for.
+                var column = (int)((x + 0.5) * 3 / side);
+                var value = column switch { 0 => Bright, 1 => Middling, _ => Dim };
 
                 pixels[at] = value;
                 pixels[at + 1] = value;

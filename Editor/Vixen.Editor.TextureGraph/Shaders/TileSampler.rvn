@@ -270,8 +270,17 @@ shader TileSampler {
         val columns = max(patternCount, 1)
         val span = float(extent.x) / float(columns)
         val start = float(min(slot, columns - 1)) * span
-        val first = min(int(floor(start)), extent.x - 1)
-        val last = max(first, min(int(ceil(start + span)) - 1, extent.x - 1))
+        val next = float(min(slot, columns - 1) + 1) * span
+
+        // ⚠ A texel belongs to the column its CENTRE falls in, which is why both bounds are
+        // `ceil(x - 0.5)` and not `floor`/`ceil` of the boundary itself. Taking `floor(start)` and
+        // `ceil(next) - 1` gives adjacent columns a texel in common wherever the boundary is
+        // fractional — at 64 texels over 3 columns, column 0 ends at 21 and column 1 begins at 21 —
+        // and a bilinear tap at the edge then reads its neighbour's pixels, which is #709 exactly.
+        // Under this rule the three columns are 0..20, 21..42 and 43..63: nothing shared, nothing
+        // lost, and the last column ends at `extent.x - 1` because `next` is `extent.x` there.
+        val first = clamp(int(ceil(start - 0.5f)), 0, extent.x - 1)
+        val last = max(first, min(int(ceil(next - 0.5f)) - 1, extent.x - 1))
 
         val px = start + (local.x + 0.5f) * span - 0.5f
         val py = (local.y + 0.5f) * float(extent.y) - 0.5f
