@@ -50,8 +50,8 @@ public class TaffyGridConformanceTests {
     // inside the padding edge an `auto` grid line resolves to, and the RTL mirror in
     // `PlaceGridItemBoxes` had to have its origin clamped into a box narrower than its own scrollbar.
     // See the flex suite's note on why an engine gap converts differently from a harness one.
-    const int ExpectedPassing = 2080;
-    const int ExpectedFailing = 40;
+    const int ExpectedPassing = 2104;
+    const int ExpectedFailing = 16;
     const int ExpectedUnsupported = 0;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();

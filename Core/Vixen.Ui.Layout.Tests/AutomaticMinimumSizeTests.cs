@@ -269,21 +269,34 @@ public class AutomaticMinimumSizeTests {
         Assert.Equal(50f, tree.GetWidth(holder), Tolerance);
     }
 
+    /// <summary>
+    ///     A scroll container's contents are excluded from its own automatic minimum and from
+    ///     nothing else — its intrinsic size is still the size of what is inside it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This test used to assert 50 and 50, and the number was never measured.</b> It was
+    ///         written from the editor's docking chain, on the reading that CSS Sizing §5.2.2's
+    ///         exclusion of scrollable overflow applies to a box's min-content CONTRIBUTION as well
+    ///         as to §4.5's automatic minimum. Measured in Chrome, this markup gives 40 and 60: the
+    ///         500-point row inside the scroll container does reach the item's §4.5 floor, the
+    ///         floor is capped at the item's own <c>width: 60px</c> specified size suggestion, and
+    ///         the sibling absorbs all twenty points of overflow rather than half. The same numbers
+    ///         come back with <c>overflow: hidden</c> instead of <c>scroll</c>, and with no scroll
+    ///         container at all — which is the point: the container changes nothing here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The direct question, also measured: a <c>width: min-content</c> box wrapped
+    ///         around a scroll container holding a 500-point box is 500 wide in Chrome</b> (515 with
+    ///         a classic scrollbar), not zero. A scroll container being allowed to be smaller than
+    ///         its contents is §4.5's sentence about its OWN automatic minimum, which
+    ///         <c>ComputeAutoMinMainSize</c> and <c>LayoutTree.Grid</c>'s <c>AutomaticMinimumIsZero</c>
+    ///         each say for themselves. Saying it a second time in the probe cost 24 grid fixtures.
+    ///         <c>Rikarin/Vixen#259</c>.
+    ///     </para>
+    /// </remarks>
     [Fact]
-    public void A_clipping_descendant_contributes_nothing_but_its_own_edges() {
-        // ⚠ A box that clips or scrolls an axis contributes nothing along it but its padding and
-        // border. Its contents are scrollable overflow, which CSS Sizing §5.2.2 excludes from an
-        // intrinsic size — being allowed to be smaller than what is inside it is the entire point
-        // of a scroll container. §4.5 already says this one level out, where an item with
-        // `overflow` other than visible opts out of its own automatic minimum; this is the same
-        // sentence applied where the recursion reads it.
-        //
-        // ⚠ <b>Neither corpus asks for this and the editor found it.</b> Both stayed at exactly
-        // 2 818 and 534 green with the rule present and absent. Every box in the docking chain
-        // declares `overflow: hidden`, so the moment descendants began contributing their real
-        // sizes the hierarchy tree's rows propagated to the shell and it came out 2 385 points wide
-        // inside a 1 100-point window, inspector off the side. Four committed screenshots caught
-        // what 2 742 browser-derived fixtures could not.
+    public void A_clipping_descendant_still_contributes_what_is_inside_it() {
         using var tree = new LayoutTree();
         var root = tree.CreateNode();
         tree.SetFlexDirection(root, FlexDirection.Row);
@@ -303,9 +316,6 @@ public class AutomaticMinimumSizeTests {
         tree.SetDimension(clipping, Dimension.Height, StyleLength.Points(20f));
         tree.AddChild(root, clipping);
 
-        // A scrolling box between the item and the wide thing inside it. Without the rule the
-        // 500-point row reaches the item's floor and freezes it at 60, and its sibling absorbs all
-        // 20 points of overflow instead of half.
         var viewport = tree.CreateNode();
         tree.SetOverflow(viewport, Overflow.Scroll);
         tree.AddChild(clipping, viewport);
@@ -317,8 +327,70 @@ public class AutomaticMinimumSizeTests {
 
         tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
 
-        Assert.Equal(50f, tree.GetWidth(plain), Tolerance);
-        Assert.Equal(50f, tree.GetWidth(clipping), Tolerance);
+        Assert.Equal(40f, tree.GetWidth(plain), Tolerance);
+        Assert.Equal(60f, tree.GetWidth(clipping), Tolerance);
+    }
+
+    /// <summary>
+    ///     The editor's docking chain, which is what the deleted exclusion was written for: every box
+    ///     clips, so every one of them opts out of §4.5 on its own account.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The symptom this stands in for is a picture and it never had a test.</b> Once
+    ///         descendants began contributing their real sizes the hierarchy tree's rows propagated
+    ///         to the shell, which came out 2 385 points wide inside a 1 100-point window with the
+    ///         inspector pushed off the side; four committed screenshots caught what 2 742
+    ///         browser-derived fixtures could not, and the answer was a clause in the min-content
+    ///         probe that turned out to be wrong about a browser. This is the property that actually
+    ///         protects the chain, and it holds without that clause: a box whose own overflow is not
+    ///         visible has NO automatic minimum — <c>ComputeAutoMinMainSize</c> returns zero before
+    ///         it ever asks what is inside — so a chain of clipping boxes shrinks to its window
+    ///         however wide its contents are.
+    ///     </para>
+    ///     <para>
+    ///         The oracle is the window: the shell is exactly as wide as the room it was given, at
+    ///         every depth, and the 2 385-point leaf is still 2 385 points wide inside it. A test
+    ///         that only asserted the shell could be satisfied by a store that had lost the content.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    [InlineData(6)]
+    public void A_chain_of_clipping_boxes_shrinks_to_its_window(int depth) {
+        using var tree = new LayoutTree();
+
+        var window = tree.CreateNode();
+        tree.SetFlexDirection(window, FlexDirection.Row);
+        tree.SetDimension(window, Dimension.Width, StyleLength.Points(1100f));
+        tree.SetDimension(window, Dimension.Height, StyleLength.Points(700f));
+
+        var parent = window;
+        var shell = window;
+
+        for (var i = 0; i < depth; i++) {
+            var box = tree.CreateNode();
+            tree.SetFlexDirection(box, FlexDirection.Row);
+            tree.SetFlexShrink(box, 1f);
+            tree.SetOverflow(box, Overflow.Hidden);
+            tree.AddChild(parent, box);
+            parent = box;
+
+            if (i == 0) {
+                shell = box;
+            }
+        }
+
+        var content = tree.CreateNode();
+        tree.SetDimension(content, Dimension.Width, StyleLength.Points(2385f));
+        tree.SetDimension(content, Dimension.Height, StyleLength.Points(20f));
+        tree.AddChild(parent, content);
+
+        tree.CalculateLayout(window, float.NaN, float.NaN, Direction.Ltr);
+
+        Assert.Equal(1100f, tree.GetWidth(shell), Tolerance);
+        Assert.Equal(2385f, tree.GetWidth(content), Tolerance);
     }
 
     [Fact]
@@ -667,8 +739,103 @@ public class AutomaticMinimumSizeTests {
         Assert.Equal(tree.GetHeight(text), tree.GetHeight(row), Tolerance);
     }
 
+    /// <summary>
+    ///     The one rule in <c>ComputeAutoMinMainSize</c> that is a decision rather than a
+    ///     specification sentence: §4.5's floor is held down to what the item was measured at when
+    ///     its content cannot shrink.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Chrome does not do this, and the divergence is deliberate.</b> One unbreakable
+    ///         word under <c>overflow-wrap: break-word</c> has an intrinsic minimum that CSS Sizing
+    ///         §5.2 specifies NOT to shrink, so a browser's <c>flex-direction: row</c> item keeps the
+    ///         whole word and overflows its container — measured, and the table is in
+    ///         <c>Taffy/KnownGaps.txt</c>. The wrapping picture a browser draws for the same markup
+    ///         comes from the CROSS axis, where there is no §4.5 floor at all. This engine's initial
+    ///         <c>Display</c> is <c>Flex</c> and its initial <c>FlexDirection</c> is <c>Row</c> where
+    ///         a browser's initial display is <c>block</c>, so every plain element here is the row
+    ///         case and would get the overflowing picture for markup whose author wrote no flex
+    ///         container at all. The cap is what keeps the block-ish answer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing in this project asserted that until now, which is why it is here.</b>
+    ///         Deleting the cap leaves the whole layout suite green — all eight corpora included —
+    ///         and costs three <c>TextWrappingPixelTests</c> in <i>Vixen.Ui.Controls.Tests</i>, a
+    ///         different assembly two layers out. A rule whose only witness is a pixel test in
+    ///         another project is one an agent deletes in good faith while every layout fixture
+    ///         agrees with them. So this test is not evidence that the cap is right; it is the
+    ///         record that removing it is a framework call about the initial display, to be made
+    ///         deliberately and by whoever owns that divergence. <c>Rikarin/Vixen#265</c>.
+    ///     </para>
+    ///     <para>
+    ///         The oracle is a contradiction rather than a recorded number. The measurer is an
+    ///         unbreakable word: it answers the whole word's width at every available width, EXCEPT
+    ///         that a definite offer breaks it across lines at line layout — which is what a browser
+    ///         does with an overflowing <c>break-word</c> run. So the item's min-content size and its
+    ///         max-content size are the same number, the floor is the whole word, and the only thing
+    ///         that can put the item inside its container is the cap. The height moves with it: an
+    ///         item held to a third of the word is three lines tall, and one that keeps the word is
+    ///         one line tall. Both halves are arithmetic in the container's width.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(240f, 10f)]
+    [InlineData(120f, 20f)]
+    [InlineData(80f, 30f)]
+    public void An_item_whose_content_refuses_to_shrink_is_still_floored_at_what_it_was_measured_at(
+        float containerWidth,
+        float expectedHeight
+    ) {
+        using var tree = new LayoutTree();
+
+        var root = tree.CreateNode();
+        tree.SetFlexDirection(root, FlexDirection.Row);
+        tree.SetDimension(root, Dimension.Width, StyleLength.Points(containerWidth));
+        tree.SetDimension(root, Dimension.Height, StyleLength.Points(100f));
+
+        // Not stretched, so the item keeps the height its own content takes and the second half of
+        // the oracle is about the word rather than about the container.
+        tree.SetAlignItems(root, Align.FlexStart);
+
+        // No declared basis: the basis is MEASURED, which is the only case the cap applies to.
+        var word = tree.CreateNode();
+        tree.SetFlexShrink(word, 1f);
+        tree.SetMeasureFunction(word, MeasureUnbreakableWord);
+        tree.AddChild(root, word);
+
+        tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
+
+        // The decision: the item is inside its container at every width, where §4.5 read literally
+        // would leave it 240 wide in all three columns.
+        Assert.Equal(containerWidth, tree.GetWidth(word), Tolerance);
+        Assert.Equal(expectedHeight, tree.GetHeight(word), Tolerance);
+    }
+
     static LayoutSize MeasureFixedContent(in MeasureRequest request) =>
         new((float) (request.Context ?? 0f), 20f);
+
+    /// <summary>
+    ///     Two hundred and forty points of one unbreakable word, ten points to the line.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The intrinsic sizes are equal on purpose: this run's min-content size IS its
+    ///     max-content size.</b> That is <c>overflow-wrap: break-word</c>'s own rule — the breaking
+    ///     keyword changes where line layout may break a run that already overflows, and CSS Sizing
+    ///     §5.2 says it does not change the intrinsic minimum. A definite offer is the one thing that
+    ///     wraps it, so the height is the ink over the width the item is finally given.
+    /// </remarks>
+    static LayoutSize MeasureUnbreakableWord(in MeasureRequest request) {
+        const float word = 240f;
+        const float line = 10f;
+
+        if (request.WidthMode == MeasureMode.Undefined || float.IsNaN(request.AvailableWidth) || request.AvailableWidth <= 0f) {
+            return new LayoutSize(word, line);
+        }
+
+        var available = MathF.Min(request.AvailableWidth, word);
+
+        return new LayoutSize(available, MathF.Ceiling(word / available) * line);
+    }
 
     /// <summary>Six hundred points of run that breaks anywhere, ten points to the line.</summary>
     /// <remarks>

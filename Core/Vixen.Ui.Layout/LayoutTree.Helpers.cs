@@ -110,12 +110,78 @@ public sealed partial class LayoutTree {
     }
 
     /// <summary>How a child should be aligned on the cross axis, once <c>auto</c> is resolved.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A column container's <c>baseline</c> degrades to <c>flex-start</c> and that is only
+    ///     half of the rule</b> — see <see cref="DegradedBaselineShift" />, which supplies the other
+    ///     half in RTL. The items of such a group share their LINE-LEFT edge, which
+    ///     <c>direction</c> does not mirror, and the group as a whole is then aligned flow-start.
+    ///     Flow-start is all this method can say; the shift is a function of the group.
+    /// </remarks>
     Align ResolveChildAlignment(int index, int child) {
         var align = styles[child].AlignSelf == Align.Auto ? styles[index].AlignItems : styles[child].AlignSelf;
 
         // A baseline is a property of a line of text, and a column container has no line to align
         // to, so the request degrades rather than being ignored.
         return align == Align.Baseline && FlexAxis.IsColumn(styles[index].FlexDirection) ? Align.FlexStart : align;
+    }
+
+    /// <summary>Whether this child asked for a baseline its container's cross axis cannot give.</summary>
+    bool IsDegradedBaseline(int index, int child) =>
+        FlexAxis.IsColumn(styles[index].FlexDirection)
+        && (styles[child].AlignSelf == Align.Auto ? styles[index].AlignItems : styles[child].AlignSelf) == Align.Baseline;
+
+    /// <summary>
+    ///     How far a degraded-baseline item moves off its line's cross-start edge, which is nothing
+    ///     at all except in RTL.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The items of a baseline-sharing group share their LINE-LEFT edge, and
+    ///         <c>direction</c> does not mirror that edge.</b> CSS Writing Modes §6.3 makes line-left
+    ///         and line-right depend on the writing mode alone, and a baseline is line-relative by
+    ///         construction. So in a column container — where the cross axis is the inline axis and
+    ///         there is no real baseline to share — every item in the group is placed with its
+    ///         line-left edge on the group's, and the GROUP is what the flow-relative
+    ///         <c>flex-start</c> fallback then aligns. In LTR the two statements coincide and the
+    ///         shift is zero; in RTL the group's flow-start edge is its line-right one, so an item
+    ///         narrower than the group hangs back by the difference.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The group's extent is the widest item in the LINE, and it is emphatically not the
+    ///         line's cross size.</b> `align_baseline_column__border_box_rtl` is the fixture that
+    ///         tells them apart: a single-line column has a line as wide as the container by CSS
+    ///         Flexbox §9.4 step 8, and Chrome still puts two 50-wide items at x=50 in a 100-wide
+    ///         container rather than at 0. Measured with a 30-wide second item, which the corpus does
+    ///         not have: Chrome puts it at 50 too — the group is 50 wide, sits against the flow-start
+    ///         edge, and every item's left edge is on the group's left edge.
+    ///     </para>
+    /// </remarks>
+    float DegradedBaselineShift(int index, int child, FlexDirection crossAxis, float groupExtent, float availableInnerWidth) {
+        if (results[index].Direction != Direction.Rtl || !IsDegradedBaseline(index, child)) {
+            return 0f;
+        }
+
+        return MathF.Max(0f, groupExtent - DimensionWithMargin(child, crossAxis, availableInnerWidth));
+    }
+
+    /// <summary>The cross-axis extent of the degraded baseline group formed by one line's items.</summary>
+    float BaselineGroupExtent(int index, int startChild, int endChild, FlexDirection crossAxis, float availableInnerWidth) {
+        if (results[index].Direction != Direction.Rtl || !FlexAxis.IsColumn(styles[index].FlexDirection)) {
+            return 0f;
+        }
+
+        var children = ChildIds(index);
+        var extent = 0f;
+
+        for (var i = startChild; i < endChild && i < children.Length; i++) {
+            var child = children[i];
+
+            if (IsInFlow(child) && IsDegradedBaseline(index, child)) {
+                extent = MathF.Max(extent, DimensionWithMargin(child, crossAxis, availableInnerWidth));
+            }
+        }
+
+        return extent;
     }
 
     /// <summary>Whether that alignment was written <c>safe</c>.</summary>
@@ -693,6 +759,15 @@ public sealed partial class LayoutTree {
         // table and gets the last row's picture. Dropping the term would be right about Chrome and
         // wrong about the markup an author believes they wrote, which is a framework call and not a
         // measurement.
+        //
+        // ⚠ <b>AND UNTIL NOW NOTHING IN THIS PROJECT SAID SO.</b> With this term deleted the whole
+        // layout suite is green — eight corpora and 6 431 tests — and the only red is three
+        // `TextWrappingPixelTests` in `Vixen.Ui.Controls.Tests`, a different assembly two layers
+        // out. A decision whose only witness lives in another project is one the next reader deletes
+        // in good faith while every fixture in front of them agrees. `AutomaticMinimumSizeTests.
+        // An_item_whose_content_refuses_to_shrink_is_still_floored_at_what_it_was_measured_at` is the
+        // pin: it is not evidence that the cap is right, it is the record that removing it is the
+        // framework call above rather than a cleanup.
         if (results[index].FlexBasisFromContent) {
             var cap = results[index].ComputedFlexBasis;
             var offered = results[index].UnclampedMeasuredDimensions[(int) mainDimension];
@@ -972,36 +1047,22 @@ public sealed partial class LayoutTree {
     ) {
         var wantRow = FlexAxis.IsRow(requestedAxis);
 
-        // ⚠ A box that clips or scrolls an axis contributes nothing along it but its own edges. Its
-        // contents are *scrollable overflow*, which CSS Sizing §5.2.2 excludes from an intrinsic
-        // size: being allowed to be smaller than what is inside it is the whole meaning of a scroll
-        // container. §4.5 already says this one level out — ComputeAutoMinMainSize returns 0 for any
-        // overflow other than visible — and this is that same sentence where the recursion reads it.
+        // ⚠ <b>A BOX THAT CLIPS OR SCROLLS STILL CONTRIBUTES WHAT IS INSIDE IT, and a clause here
+        // used to say otherwise.</b> It returned a scroll container's own padding and border and
+        // nothing else, reading CSS Sizing §5.2.2's exclusion of scrollable overflow as a rule about
+        // intrinsic sizes in general. It is not: it is §4.5's rule about a box's OWN automatic
+        // minimum, which `ComputeAutoMinMainSize` and `LayoutTree.Grid`'s `AutomaticMinimumIsZero`
+        // each say for themselves — and since the former returns 0 before it ever calls this method,
+        // every firing of the clause was already somebody else's contribution.
         //
-        // ⚠ Nothing in either corpus asks for this, and the editor is what found it. Every box in
-        // the docking chain declares `overflow: hidden`, so once descendants began contributing
-        // their real sizes the hierarchy tree's rows propagated all the way to the shell and the
-        // window came out 2 385 points wide inside a 1 100-point root, with the inspector pushed off
-        // the side. That is not a control compensating for a bug — it is this rule being missing.
-        //
-        // ⚠ <b>BOTH SENTENCES ABOVE HAVE EXPIRED, AND THE SECOND MAY BE BACKWARDS.</b> Twenty-four
-        // grid fixtures ask for it now — they were refused on `scrollbar-width` when this was
-        // written — and deleting this clause turns exactly those from red to green and moves nothing
-        // else in 6 420 layout tests except `AutomaticMinimumSizeTests.
-        // A_clipping_descendant_contributes_nothing_but_its_own_edges`, which is the editor's chain
-        // in six boxes and whose 50/50 expectation has never been put in front of a browser. A
-        // scroll container's `width: min-content` is not zero in any browser, so this clause is very
-        // likely §5.2.2 applied a second time where §4.5 had already applied it — and there is no
-        // seam to split it on, because `ComputeAutoMinMainSize` returns 0 for an item's own overflow
-        // before it ever reaches here, which makes every firing of this clause a CONTRIBUTION
-        // already. ⚠ The next move is a browser measurement of those six boxes, not a code change:
-        // see `Rikarin/Vixen#259` and the §5.2.2 heading in GridKnownGaps.txt.
-        if (OverflowOn(index, FlexAxis.DimensionOf(requestedAxis)) != Overflow.Visible) {
-            var clipDirection = StyleResolution.ResolveDirection(in styles[index], ownerDirection);
-            return StyleResolution.FlexStartContentInset(in styles[index], requestedAxis, clipDirection, ownerWidth)
-                + StyleResolution.FlexEndContentInset(in styles[index], requestedAxis, clipDirection, ownerWidth);
-        }
-
+        // ⚠ Measured in Chrome rather than argued: a `width: min-content` box around an
+        // `overflow: scroll` container holding a 500-point box is 500 wide, not zero, and `hidden`,
+        // `scroll` and no scroll container at all give identical numbers. It cost 24 grid fixtures
+        // and its only witness was a hand-written test whose expectation had never been put in front
+        // of a browser and turned out to be the defect. The editor's docking chain, which the clause
+        // was written for, never needed it: every box in it clips, so §4.5 opts every one of them out
+        // one level up — `AutomaticMinimumSizeTests.A_chain_of_clipping_boxes_shrinks_to_its_window`.
+        // `Rikarin/Vixen#259`, and the whole write-up is under §5.2.2 in `Taffy/GridKnownGaps.txt`.
         if ((flags[index] & LayoutNodeState.HasMeasureFunction) != 0) {
             // ⚠ <b>A leaf's min-content size in the BLOCK axis is the height its content takes at the
             // inline size it has, not at an unbounded one.</b> There is no such thing as the
