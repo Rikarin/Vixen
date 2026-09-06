@@ -269,6 +269,84 @@ public sealed class InterfaceInAWorldTests : IDisposable {
         Assert.Equal(0, ui.AtlasUploads);
     }
 
+    /// <summary>A mounted interface's composited groups are rendered into surfaces of their own.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The third outside-the-pass half, and the one whose absence is a picture rather
+    ///         than an absence of one.</b> <c>UiRenderer.Compose</c> documents itself as optional and
+    ///         is, read alone: <c>Record</c> skips a group's own draws only where a surface exists,
+    ///         so a host that never composes still draws every one of them. What it draws is the
+    ///         defect. <c>UiGeometryBuilder</c> emits a group's contents at alpha <em>one</em>
+    ///         precisely so the group's surface can carry the fade, so the flat walk over a
+    ///         half-transparent panel is not an approximation of it — it is an opaque panel.
+    ///     </para>
+    ///     <para>
+    ///         <c>Composited</c> is the only observer the arrangement has, which is why the frame is
+    ///         asserted to have a group in it before anything is asked of it: a geometry that opened
+    ///         none makes both halves below read zero and one, and a test that skipped that line
+    ///         would pass against a feature whose <c>Compose</c> was empty.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AMountedInterfacesGroupsAreComposedIntoSurfacesOfTheirOwn() {
+        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var ui = UiRendererFor(device);
+
+        var system = renderer.Host.System;
+        var stage = system.AddStage(new("Ui", RenderSortMode.ByGroup));
+
+        renderer.Ui.Renderer = ui;
+
+        var id = renderer.Ui.Mount(stage.Mask);
+        var atlas = new GlyphAtlas(64, 64);
+        var geometry = Grouped(atlas);
+
+        // The instrument, before the measurement.
+        Assert.Single(geometry.Layers);
+
+        renderer.Ui.Set(id, new(geometry, atlas, new Int2(400, 300), 0));
+
+        using var commands = device.BeginCommandList(QueueKind.Graphics, "ui");
+
+        renderer.Ui.Upload(commands);
+
+        // The control the assertion below needs: uploading a frame with a group in it is not
+        // composing it, and a counter that was already non-zero here would prove nothing after.
+        Assert.Equal(0, ui.Composited);
+
+        renderer.Ui.Compose(commands);
+
+        Assert.Equal(1, ui.Composited);
+    }
+
+    /// <summary>A feature with nothing mounted composes nothing, and one with no renderer says nothing.</summary>
+    /// <remarks>
+    ///     <c>NothingMountedUploadsNothing</c>'s pair, and for its reason: the constructor registers
+    ///     the feature whether or not the application has an interface, so a game with no HUD calls
+    ///     this every frame and must not be told off for it.
+    /// </remarks>
+    [Fact]
+    public void NothingMountedComposesNothing() {
+        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var ui = UiRendererFor(device);
+        using var commands = device.BeginCommandList(QueueKind.Graphics, "ui");
+
+        renderer.Ui.Compose(commands);
+
+        Assert.Equal(0, ui.Composited);
+
+        renderer.Ui.Renderer = ui;
+        renderer.Ui.Compose(commands);
+
+        Assert.Equal(0, ui.Composited);
+    }
+
+    /// <remarks>
+    ///     ⚠ <c>Image</c> is set, and without it <c>Compose</c> returns having done nothing — there
+    ///     is no shader to composite a surface back with, so rendering the surfaces would cost a pass
+    ///     each and put nothing on screen. It is an <c>init</c> property rather than a fifth
+    ///     positional argument, which is why the four-argument construction is still the shape here.
+    /// </remarks>
     static UiRenderer UiRendererFor(NullDevice device) =>
         new(
             device,
@@ -277,7 +355,9 @@ public sealed class InterfaceInAWorldTests : IDisposable {
                 device.CreateShader(ShaderStage.Fragment, [1, 2, 3, 4], "ui box"),
                 device.CreateShader(ShaderStage.Fragment, [1, 2, 3, 4], "ui text"),
                 device.CreateShader(ShaderStage.Fragment, [1, 2, 3, 4], "ui solid")
-            ),
+            ) {
+                Image = device.CreateShader(ShaderStage.Fragment, [1, 2, 3, 4], "ui image")
+            },
             new RenderOutput([PixelFormat.Bgra8UNorm])
         );
 
@@ -289,6 +369,38 @@ public sealed class InterfaceInAWorldTests : IDisposable {
         // ⚠ Qualified: `Vixen.Rendering` has a `DrawCommand` of its own, and the two mean different
         // things — one is an element's paint, the other an indirect draw's arguments.
         list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.Rectangle, 8f, 8f, 120f, 40f, Color4.White, 0f, 0f));
+        list.EndFrame();
+
+        return new UiGeometryBuilder().Build(list, new GlyphFieldCache(atlas), new Rectangle(0, 0, 400, 300));
+    }
+
+    /// <summary>The same frame with its rectangle inside a half-transparent group.</summary>
+    /// <remarks>
+    ///     The alpha is on the <c>LayerPush</c>'s colour, which is where <c>UiGeometryBuilder</c>
+    ///     reads a group's opacity from — and it is what makes the group a layer worth compositing
+    ///     rather than one the builder collapses. A group whose ink is clipped to nothing keeps no
+    ///     layer at all, so the rectangle is inside the push's box.
+    /// </remarks>
+    static UiGeometry Grouped(GlyphAtlas atlas) {
+        var list = new DrawList();
+
+        list.BeginFrame();
+
+        list.Add(
+            new Vixen.Ui.DrawCommand(
+                DrawCommandKind.LayerPush,
+                8f,
+                8f,
+                160f,
+                80f,
+                new Color4(1f, 1f, 1f, 0.5f),
+                0f,
+                0f
+            )
+        );
+
+        list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.Rectangle, 16f, 16f, 120f, 40f, Color4.White, 0f, 0f));
+        list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.LayerPop, 0f, 0f, 0f, 0f, Color4.White, 0f, 0f));
         list.EndFrame();
 
         return new UiGeometryBuilder().Build(list, new GlyphFieldCache(atlas), new Rectangle(0, 0, 400, 300));

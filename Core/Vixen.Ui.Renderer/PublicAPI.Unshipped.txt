@@ -21,6 +21,7 @@ Vixen.Ui.Renderer.UiInterface.UiInterface() -> void
 Vixen.Ui.Renderer.UiInterface.UiInterface(Vixen.Ui.Rendering.UiGeometry Geometry, Vixen.Ui.Text.Rasterizing.GlyphAtlas Atlas, Vixen.Core.Mathematics.Int2 Surface, uint Order) -> void
 Vixen.Ui.Renderer.UiRenderFeature -> sealed class
 Vixen.Ui.Renderer.UiRenderFeature : Vixen.Rendering.RootRenderFeature
+Vixen.Ui.Renderer.UiRenderFeature.Compose(Vixen.Graphics.ICommandList commands) -> void
 Vixen.Ui.Renderer.UiRenderFeature.Mount(Vixen.Rendering.RenderStageMask stages, uint order = 0) -> Vixen.Rendering.RenderObjectId
 Vixen.Ui.Renderer.UiRenderFeature.Remove(Vixen.Rendering.RenderObjectId id) -> void
 Vixen.Ui.Renderer.UiRenderFeature.Renderer.get -> Vixen.Ui.Renderer.UiRenderer?

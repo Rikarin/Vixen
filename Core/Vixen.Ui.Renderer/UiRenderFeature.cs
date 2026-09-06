@@ -187,6 +187,54 @@ public sealed class UiRenderFeature : RootRenderFeature {
         }
     }
 
+    /// <summary>Renders every mounted interface's composited groups into surfaces of their own.</summary>
+    /// <param name="commands">
+    ///     The same kind of list <see cref="Upload" /> takes and, in practice, the same one: a list
+    ///     that is <b>not inside a render pass</b>, because each group opens one and passes do not
+    ///     nest. Call it after <see cref="Upload" /> and before the frame's own passes begin.
+    /// </param>
+    /// <exception cref="ArgumentNullException"><paramref name="commands" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The third outside-the-pass half, and skipping it does not degrade a frame — it
+    ///         draws a different one.</b> <see cref="UiRenderer.Compose" />'s own remarks call itself
+    ///         optional, and read alone that is true: <c>Record</c> skips a group's draws only where
+    ///         a surface exists, so a host that never composes gets the flat walk. But
+    ///         <c>UiGeometryBuilder</c> emits a group's contents at <i>alpha one</i> precisely so the
+    ///         surface can carry the fade, so the flat walk over a faded panel is not a faded panel
+    ///         drawn approximately — it is an <b>opaque</b> one. A HUD's half-transparent inventory
+    ///         panel comes out solid, and nothing anywhere says so.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The backdrop is left at its default here, which is a picture and not an
+    ///         oversight.</b> <see cref="UiRenderer.Compose" />'s <c>beneath</c> wants what the host
+    ///         had already painted where the interface will be, and inside a world renderer that is
+    ///         the scene — which at this point in the frame <em>has not been drawn</em>, because
+    ///         these passes are recorded ahead of the caller's own. So a <c>backdrop-filter</c> over
+    ///         a HUD blurs the interface above it and reads a transparent field for the world behind
+    ///         it. Every other group composites correctly. Supplying it needs the scene's colour
+    ///         target from the frame before, which is a decision about latency rather than a missing
+    ///         call, and is not made here.
+    ///     </para>
+    ///     <para>
+    ///         The scale is one, matching <see cref="Draw" />'s <c>Record</c>. The two agreeing is
+    ///         what matters — a group's surface is allocated at <c>Compose</c>'s scale and sampled at
+    ///         <c>Record</c>'s — and neither knows the display's, because
+    ///         <see cref="UiInterface" /> carries a size and not a density.
+    ///     </para>
+    /// </remarks>
+    public void Compose(ICommandList commands) {
+        ArgumentNullException.ThrowIfNull(commands);
+
+        if (Renderer is null) {
+            return;
+        }
+
+        foreach (var surface in surfaces.Values) {
+            Renderer.Compose(commands, surface.Geometry, surface.Surface);
+        }
+    }
+
     /// <inheritdoc />
     protected override void Draw(
         RenderSystem system,
