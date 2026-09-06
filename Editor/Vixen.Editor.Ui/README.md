@@ -1120,6 +1120,13 @@ legal. What markup cannot express is the **row template and its per-index binder
 `BindRow`, and a pool indexed by scroll position. `ConsoleView` is the same panel with five columns
 instead of four, and is the least suitable file in the editor.
 
+⚠ **And the half that is not excluded now has a fixture rather than a claim.**
+`Core/Vixen.Ui.Controls.Tests/Markup/VirtualListSheet.vxml` is a markup panel over ten thousand items
+that virtualises through `use=` and a pair of lambdas in `@code`, counted by `VirtualListReachTests`.
+So the exclusion is exactly and only the two delegates: everything else about a virtualised list is
+already sayable, and a port would move the tag, the `ref`, the toolbar and the detail pane and leave
+`CreateRow`/`BindRow` in the code-behind — which is the shape #758's `@rows` block would finish.
+
 **`SettingsView` — no longer excluded.** `SettingsCategory.Build` is still an `Action<UiElement>`,
 invoked at one site (`Reload()`), from seven callers in `EditorSettingsPanels`. But the factory never
 had to be *invoked from* the `.vxml` — it needs a host element to be invoked *into*, and `ref` gives

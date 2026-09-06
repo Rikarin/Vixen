@@ -542,6 +542,21 @@ that behaves is a per-row **signal** the reconciler writes when it repositions, 
 feature from the one the spelling suggests; `docs/guide/ui/markup-panels.md` and
 `Core/Vixen.Ui.Markup/README.md` both carry the trap.
 
+⚠ **"Reachable only through `use=`" was written three times and never run, and now it has been.**
+`Core/Vixen.Ui.Controls.Tests/Markup/VirtualListSheet.vxml` is a markup panel over ten thousand items
+that virtualises — about a dozen elements, rebinding as it scrolls — and `VirtualListReachTests`
+counts them, which is #758's own criterion. So the escape hatch works, no `.vxml` had ever taken it,
+and the gap is not *reach*: it is that a row **template** has no markup construct. `CreateRow` builds
+an element tree in C# and `BindRow` writes it by index, and both sit in `@code` in a file whose whole
+subject is the tree. That is ergonomics — real ergonomics, and the whole of what a `@rows` block
+would buy — rather than a control an author cannot get at.
+
+⚠ **And it is why the block cannot be a modifier on `@for`.** A pool slot is not an identity: the
+pool only ever grows and `VirtualizingPanel.Rows` is documented as pool order, so every rule the loop
+teaches — a surviving key keeps its region, a key's body is not re-run, `refs` files under the
+matched key, `VXML2011` warns about projecting one — is false of it. A modifier would make all of
+them conditional on one attribute.
+
 The four are one issue each, because each is its own design piece and none of them is blocked on the
 others: #758 (a markup spelling for the virtualizing controls), #759 (the index, as a signal),
 #760 (sections, and whether a nested `@for` is already the answer), #761 (deferring `Region.Clear`
