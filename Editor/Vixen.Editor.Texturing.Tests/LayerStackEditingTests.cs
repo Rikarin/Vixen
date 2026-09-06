@@ -5,6 +5,7 @@ using Vixen.Core;
 using Vixen.Editor.Core;
 using Vixen.Editor.TextureGraph;
 using Vixen.Editor.Texturing.Layers;
+using Vixen.Editor.Texturing.Painting;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Xunit;
@@ -807,6 +808,60 @@ public class LayerStackEditingTests {
         Assert.Equal(framed, view.Preview.Zoom);
     }
 
+    /// <summary>⚠ An id-less layer's row refuses to be selected, and says why.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/966">#966</a>.</b>
+    ///         <c>PaintTool.LayerId</c> being empty already means <em>the first paint layer in
+    ///         composite order</em> — <c>PaintSurface.Find</c> returns on <c>layerId.Length == 0</c>
+    ///         before comparing anything — so clicking an id-less row wrote a value indistinguishable
+    ///         from having selected nothing, and on this stack the brush would then aim at
+    ///         <c>'lower'</c> while the artist believed they had picked the row above it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only the select button, and the rest of the row still edits.</b> A single id-less
+    ///         layer addresses perfectly well and the compiler accepts it, so disarming the whole row
+    ///         the way an ambiguous id does would make a one-layer file uneditable — that is the line
+    ///         between this and <a href="https://github.com/Rikarin/Vixen/issues/893">#893</a>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The named row is activated too, and that is the instrument.</b> A view that had
+    ///         simply stopped selecting anything passes every assertion above on its own.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_id_less_layers_row_refuses_selection_rather_than_aiming_the_brush_elsewhere() {
+        using var fixture = new TexturingFixture();
+        using UiDocument ui = new(1280f, 800f);
+
+        var document = Open(fixture, TwoPaintLayers());
+        PaintTool tool = new();
+        LayerStackView view = new(ui.Root, tool);
+
+        view.Show(document);
+
+        // Topmost first, so row 0 is the id-less layer and row 1 is 'lower'.
+        var selects = Buttons(view.Root, "layer-stack-select");
+
+        Assert.True(selects[0].Disabled);
+        Assert.False(selects[1].Disabled);
+        Assert.Contains(LayerStackView.Unnamed, Texts(view.Root, "layer-stack-row-refusal"));
+
+        // ⚠ Activated rather than only inspected, because `Disabled` is a style on some controls and
+        // the refusal on others: `ToggleBase.Activate` flips first and asks afterwards. `Button` does
+        // not, and this is what says so — a `Disabled` that were decoration leaves this line selecting
+        // the row.
+        selects[0].Activate();
+
+        Assert.Null(view.Selected);
+        Assert.Equal("", tool.LayerId);
+
+        selects[1].Activate();
+
+        Assert.Equal("lower", view.Selected?.Id);
+        Assert.Equal("lower", tool.LayerId);
+    }
+
     /// <summary>⚠ A row whose id names two layers is listed and carries no controls.</summary>
     /// <remarks>
     ///     <para>
@@ -1105,6 +1160,20 @@ public class LayerStackEditingTests {
                 Mask = new() { Source = LayerMaskSource.Anchor, Anchor = "top" }
             },
             Fill("top", "Top", 0.75f)
+        );
+
+    /// <summary>Two paint layers, the upper of which has no id at all.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two, and both painted, because one of either makes the defect invisible.</b> With one
+    ///     paint layer the brush's fallback reaches the layer the artist clicked and everything looks
+    ///     right; with the id-less one at the bottom the fallback reaches it as well. The damage needs
+    ///     a second paint layer <em>below</em> the id-less one, which is the one the fallback finds.
+    /// </remarks>
+    static LayerStackAsset TwoPaintLayers() =>
+        Stack(
+            [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
+            new LayerAsset { Id = "lower", Name = "Lower", Kind = LayerKind.Paint },
+            new LayerAsset { Name = "Upper", Kind = LayerKind.Paint }
         );
 
     /// <summary>⚠ A group, whose second child anchors — the case a flat stack cannot express.</summary>

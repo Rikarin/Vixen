@@ -930,8 +930,50 @@ sealed class LayerStackView : IDisposable {
         + ", so this row cannot say which of them it is. Every edit here is addressed by id and would "
         + "move the first of them — give each layer its own 'id' in the file, and the controls come back.";
 
+    /// <summary>What a row says in place of selecting, when the layer it draws has no id.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/966">#966</a>, and it is the tail
+    ///         of #893 rather than a second case of it.</b> A <em>single</em> id-less layer addresses
+    ///         perfectly well — <c>LayerStackEdit.Find</c> resolves <c>""</c>, the compiler accepts
+    ///         it, and every other control on the row works — so refusing the whole row the way
+    ///         <see cref="Ambiguity" /> does would turn a schema nicety into a panel that cannot edit
+    ///         a one-layer file. The one gesture it cannot make is a selection, and only because
+    ///         <c>PaintTool.LayerId</c> already gives <c>""</c> a second meaning: <em>the first paint
+    ///         layer in composite order</em>. So clicking the row would set a value indistinguishable
+    ///         from having selected nothing, the marker would come back off at the next refresh, and
+    ///         on a stack with a second paint layer the brush would aim at <em>that</em> one — which
+    ///         is #910's "silently painting somewhere else" reached by another door.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The button is disarmed rather than <c>PaintTool.LayerId</c> being split, which is
+    ///         the other way out the issue names and the better one.</b> A member whose two meanings
+    ///         collide should stop colliding; what stops that happening here is ownership —
+    ///         <c>PaintTool</c> is the paint slice's file — so this is the half the panel can make
+    ///         true on its own, and it leaves the artist a layer they cannot paint on and a reason
+    ///         rather than a click that silently did something else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Disabling the button is the whole of the refusal, and a second one in
+    ///         <c>Choose</c> would be unreachable.</b> The channel ticks a few elements along say the
+    ///         opposite about themselves and are right to: <c>ToggleBase.Activate</c> flips
+    ///         <c>IsChecked</c> before it asks about <c>Disabled</c>, so a tick has to be put back
+    ///         from the document. <c>ButtonBase.Activate</c> runs neither the bound command nor the
+    ///         click when it is disabled — proved by sabotage, which is how this remark stopped
+    ///         saying the reverse.
+    ///     </para>
+    /// </remarks>
+    public const string Unnamed =
+        "This layer has no 'id', and an empty id already means 'the first paint layer' to the brush — "
+        + "so selecting this row would aim it at whichever paint layer comes first instead. Give the "
+        + "layer its own 'id' in the file, and it can be selected.";
+
     void LayerRow(LayerStackDocument document, TextureSetAsset set, LayerAsset layer, int depth) {
         LayerPath path = new(set.Name, layer.Id);
+
+        // ⚠ Decided once, from the layer the row was built for, because an id is structure rather
+        // than a value: `Shape` carries it, so a layer that gained or lost one rebuilt this row.
+        var named = layer.Id.Length > 0;
 
         var row = rows.Add("layer-stack-row");
 
@@ -946,6 +988,20 @@ sealed class LayerStackView : IDisposable {
         var select = row.Add<Button>("layer-stack-select");
 
         select.Clicked += _ => Choose(path);
+
+        // ⚠ The button IS the guard here, which is NOT what the channel tick two elements along
+        // says about itself — and the difference is real rather than an inconsistency.
+        // `ToggleBase.Activate` flips `IsChecked` before it asks about `Disabled`, so a tick needs
+        // the model to refuse as well; `ButtonBase.Activate` runs neither the command nor the click
+        // when it is disabled, so a second refusal inside `Choose` would be a branch nothing in this
+        // file can reach.
+        select.Disabled = !named;
+
+        if (!named) {
+            // The same tag an ambiguous row's sentence uses, because it is the same kind of thing in
+            // the same place — a control that is not there, and why.
+            row.Add("layer-stack-row-refusal").Text = Unnamed;
+        }
 
         var up = row.Add<Button>("layer-stack-move-up");
         var down = row.Add<Button>("layer-stack-move-down");
@@ -1070,7 +1126,7 @@ sealed class LayerStackView : IDisposable {
             // The marker is in the row's own text rather than a style, so what the panel says about
             // which layer the brush is aimed at is something a test can read.
             name.Text = (chosen ? "● " : "") + Line(current, depth);
-            select.Label = chosen ? "Selected" : "Select";
+            select.Label = named ? chosen ? "Selected" : "Select" : "Cannot select";
             enabled.IsChecked = current.Enabled;
             blend.Value = current.Blend.ToString();
             opacity.Value = current.Opacity;
