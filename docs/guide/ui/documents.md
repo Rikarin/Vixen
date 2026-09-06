@@ -185,10 +185,14 @@ buttons in front of a different action, and nothing offers it yet.
 
 **A proxy icon and a recent-documents list.** Both are platform seams with no interface here.
 
-**A window title bound to a document, from inside a component.** `UiWindowTitle.Bind` takes an
-`IUiWindow`, and a document has no way to reach the window its surface is in — `UiDocument.Windows`
-opens windows and does not name the main one. So the binding is the application head's to make, and
-`Samples/02-HelloUi` does not make it.
+⚠ **A window title bound to a document from inside a component is no longer missing, and this entry
+was the last thing still saying it was.** The obstacle was real when it was written — `UiWindowTitle.Bind`
+takes an `IUiWindow`, and everything that held one held it because it had *opened* one, so only the
+application head ever had a window to name. `IUiWindowHost.WindowOf` is the direction that was
+absent; `UiDocument.WindowOf(element)` reaches it from any element, and `Samples/02-HelloUi`'s
+`Shell.vxml` binds its own title with it. `null` is still a real answer — a platform with one canvas
+has no window to name — so the call sits behind a pattern match rather than a null-forgiving
+dereference.
 
 **External-modification detection.** `EditorDocument` has it against an asset database; the
 framework has no file watcher and does not want one in `Core/`. ⚠ What is missing is not the
