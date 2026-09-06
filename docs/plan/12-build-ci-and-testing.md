@@ -307,7 +307,7 @@ files.
   a type you own and can construct** — a mocked `Signal<T>` or mocked `LayoutStore` tests the mock.
 - ⚠️ **Proposed, and implemented by nothing** — traits for filtering:
   `[Trait("Category","Unit|Integration|Golden|Perf|Platform")]`. `Trait(` appears in **zero** of the
-  5 201 tracked `.cs` files (searched with `git grep -a`, so a NUL byte in a literal cannot be hiding
+  5 291 tracked `.cs` files (searched with `git grep -a`, so a NUL byte in a literal cannot be hiding
   one); no test in this repository has ever carried a trait of any kind. It is listed among the
   conventions above, which read as *in force*, and it is not one — which is why it is marked here
   rather than left to be discovered by somebody writing `--filter Category=Unit` and getting an empty
@@ -331,6 +331,17 @@ files.
   replacement it names — a direct `dotnet test --filter` — is exactly what would consume a trait.
   Were these categories ever applied, `dotnet test <project> --filter "Category=Unit"` is the command,
   and `nuke Test --filter` remains a switch that does not exist.
+  ⚠️ **But that command is now the *wrong* spelling of the lane, and the reason is
+  [#560](https://github.com/Rikarin/Vixen/issues/560).** `dotnet test --filter` builds
+  `VSTestTestCaseFilter`, and a VSTest-only switch takes the whole invocation back to VSTest — so a
+  `Speed!=Slow` lane written that way would hand back the per-assembly second the platform runner
+  just bought, on every assembly it ran. xunit's own runner takes the same question directly:
+  `--filter-not-trait Speed=Slow` (also `--filter-trait`, `--filter-class`, `--filter-method`,
+  `--filter-query`, each with a `not` form — read off `--help` on a built test assembly on
+  2026-09-06). It reaches the run through `TestingPlatformCommandLineArguments`, which is where
+  `Directory.Build.props` already spells the TRX name, and it stays on the fast path. Nothing about
+  the threshold or the tagging is settled by this; it only means the command in the bullet above is
+  not the one to write down.
 - Deterministic: no `DateTime.Now`, no unseeded random, no `Thread.Sleep`, no real network, no ambient
   filesystem (an in-memory `IFileProvider` is the default).
 - Every test project runs green with `VIXEN_JOB_WORKERS=0` (single-threaded) as a separate CI leg.
