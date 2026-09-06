@@ -50,10 +50,15 @@ readonly record struct TextureExpressionValue(NodeId Node, string Port, float Va
 ///         which every shader in the repository would also get.
 ///     </para>
 ///     <para>
-///         ⚠ <b>One compilation for the whole graph, not one per expression.</b> Every parameter and
-///         every expression goes into a single source, so a graph with forty expression fields costs
-///         one parse and one bind — and, more importantly, the parameters are declared once, in one
-///         place, in an order a diagnostic's line number can be mapped back through.
+///         ⚠ <b>One compilation for a whole scope, not one per expression.</b> Every parameter and
+///         every expression handed to <see cref="Fold" /> goes into a single source, so forty
+///         expression fields written against one parameter list cost one parse and one bind — and,
+///         more importantly, the parameters are declared once, in one place, in an order a
+///         diagnostic's line number can be mapped back through. ⚠ <b>A scope is not a graph.</b>
+///         <c>TextureGraphCompiler.Collect</c> groups by expansion, because two instances of one
+///         compound are two sets of numbers, so a graph containing compounds that hold expressions
+///         is that many calls to this and not one
+///         (<a href="https://github.com/Rikarin/Vixen/issues/931">#931</a>).
 ///     </para>
 ///     <para>
 ///         ⚠ <b>An expression is one line because a newline ends a statement in Raven.</b> Text with

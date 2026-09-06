@@ -146,10 +146,23 @@ public sealed class NodeGraphInlining {
     public IReadOnlyDictionary<NodeId, NodeOrigin> Origins => origins;
 
     /// <summary>Every sub-graph node that was expanded, by <see cref="NodeOrigin.Expansion" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every one, including a sub-graph that expanded to no nodes.</b> The two tables are
+    ///     not written together — an expansion is recorded when the node is reached and an origin
+    ///     when a node comes out of it — so a published graph with nothing in it produces an
+    ///     expansion and no origins. <c>Flatten</c> used to answer that case with
+    ///     <see cref="Empty" />, which threw the expansion away and made this accessor's own summary
+    ///     false (<a href="https://github.com/Rikarin/Vixen/issues/931">#931</a>).
+    /// </remarks>
     public IReadOnlyDictionary<int, SubGraphExpansion> Expansions => expansions;
 
     /// <summary>Whether anything was inlined at all.</summary>
-    public bool IsEmpty => origins.Count == 0;
+    /// <remarks>
+    ///     ⚠ Both tables, for the same reason: a sub-graph node that expanded to nothing is still a
+    ///     node the flattener removed from the author's graph, so an inlining holding one is not
+    ///     the same thing as an inlining that never ran.
+    /// </remarks>
+    public bool IsEmpty => origins.Count == 0 && expansions.Count == 0;
 
     /// <summary>Where one node came from, if it came from a sub-graph.</summary>
     /// <param name="node">The identity in the flattened graph.</param>
@@ -620,8 +633,14 @@ public static class SubGraphs {
 
         public IReadOnlyList<NodeDiagnostic> Diagnostics => diagnostics;
 
+        // ⚠ Both tables, because they are not filled together: an expansion is recorded on the way
+        // into a sub-graph node and an origin only when a node comes out of it. A published graph
+        // with nothing in it therefore has an expansion and no origins, and keying this on `origins`
+        // alone dropped the whole table for it (#931).
         public NodeGraphInlining Inlining =>
-            origins.Count == 0 ? NodeGraphInlining.Empty : new(origins, expansions);
+            origins.Count == 0 && expansions.Count == 0
+                ? NodeGraphInlining.Empty
+                : new(origins, expansions);
 
         public NodeGraphModel Run(NodeGraphModel graph) {
             result = new() { Name = graph.Name };

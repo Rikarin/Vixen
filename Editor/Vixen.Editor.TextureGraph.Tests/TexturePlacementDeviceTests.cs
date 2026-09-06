@@ -527,8 +527,11 @@ public class TexturePlacementDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     Doc 48 § D5: a procedural texture whose output changes between runs is not a source asset.
-    ///     The seed is the plan's, mixed with the op's index on the CPU by
-    ///     <c>TexturePlan.SeedFor</c> — so this is an assertion about the whole path from that method
+    ///     The seed is the plan's, mixed on the CPU by <c>TexturePlan.SeedFor</c> with the op's
+    ///     <c>Identity</c> when the emitter supplied one and with its index when it did not
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>) — ⚠ the unconditional
+    ///     index this used to describe is the fallback now, and it is the half that moves when a plan
+    ///     gains an op above this one. So this is an assertion about the whole path from that method
     ///     to the hash in the kernel, and it is an equality over every texel.
     /// </remarks>
     [Fact]

@@ -491,6 +491,68 @@ public class SubGraphTests {
 
         Assert.False(inlining.TryGetExpansion(colour.Id, out _));
     }
+
+    /// <summary>⚠ A sub-graph that expands to no nodes is still an expansion.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The two tables are not written together</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/931">#931</a>). An expansion is
+    ///         recorded on the way <em>into</em> a sub-graph node, before anything is copied; an
+    ///         origin is recorded per node that comes out. A published graph with nothing in it
+    ///         produces one of the first and none of the second, and the flattener answered that by
+    ///         returning <c>NodeGraphInlining.Empty</c> — throwing away the settings of a node the
+    ///         author typed into and had just had deleted from under them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The graph is empty rather than merely output-less, deliberately.</b> A sub-graph
+    ///         with an exit node and no body would still copy the exit node and produce an origin,
+    ///         so it does not reach the case. This is the one arrangement where the flattener has
+    ///         something to record and nothing to record it against.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_sub_graph_that_inlines_to_nothing_keeps_its_expansion() {
+        var library = new SubGraphLibrary();
+        library.Add("Sub-graphs/Hollow", new() { Name = "Hollow" });
+
+        var host = new NodeGraphModel();
+        var hollow = host.Add("Sub-graphs/Hollow");
+
+        hollow.SetText("amount", "7");
+
+        SubGraphs.Flatten(host, library, out _, out var inlining);
+
+        // Nothing came out, which is what used to take the table with it.
+        Assert.Empty(inlining.Origins);
+
+        var expansion = Assert.Single(inlining.Expansions);
+
+        Assert.Equal("Sub-graphs/Hollow", expansion.Value.Type);
+        Assert.Equal("7", expansion.Value.Settings["amount"]);
+        Assert.Equal(hollow.Id, expansion.Value.Source);
+
+        // And "nothing was inlined at all" is false: the author's node is gone from the graph.
+        Assert.False(inlining.IsEmpty);
+    }
+
+    /// <summary>And a graph with no sub-graph node in it still answers with nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The other half, without which the one above is satisfied by never returning
+    ///     <c>Empty</c>.</b> A widened condition that let every flattening carry a table would pass
+    ///     the test above and be a worse answer than the defect it replaced.
+    /// </remarks>
+    [Fact]
+    public void A_graph_with_no_sub_graph_node_is_an_empty_inlining() {
+        var host = new NodeGraphModel();
+
+        host.Add("Test/Colour");
+
+        SubGraphs.Flatten(host, new SubGraphLibrary(), out _, out var inlining);
+
+        Assert.True(inlining.IsEmpty);
+        Assert.Empty(inlining.Origins);
+        Assert.Empty(inlining.Expansions);
+    }
 }
 
 /// <summary>A compiler that produces the list of node types it walked, in order.</summary>
