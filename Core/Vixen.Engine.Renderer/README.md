@@ -137,6 +137,14 @@ The shaders stay the host's. Building a `UiRenderer` needs the modules and the f
 the interface is drawn in, and this assembly knows neither; see `Vixen.Ui.Renderer`'s README on why
 that assembly must not grow a compiler. The stage the interface is drawn in has to sort `ByGroup`.
 
+⚠ **Two of the five host steps are outside the pass, and both were added after the registration
+was.** `UiRenderFeature.Draw` runs inside the frame's pass, where a texture copy is forbidden and a
+second pass cannot be opened — so it can only `Record`. `Upload` writes this frame's vertices and
+copies the glyph atlas; `Compose` renders each composited group into a surface of its own. Skipping
+the first draws a HUD out of memory nothing has written. Skipping the second draws every faded
+group **opaque** rather than approximately faded, because `UiGeometryBuilder` emits a group's
+contents at alpha one so the surface can carry the fade. Neither failure raises anything.
+
 ## Drawing a frame
 
 `SceneRenderHost` is the other join this assembly makes, and it is the same shape as the first: a

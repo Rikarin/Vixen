@@ -224,26 +224,66 @@ public sealed class DiagnosticOverlayTests {
     /// </summary>
     /// <remarks>
     ///     ⚠ <b>Both halves, because the stamp is a claim that ink reached the screen.</b> The
-    ///     assertion is not that a property is set — that would pass over an overlay that drew
-    ///     nothing — but that drawing it puts lines on the surface in the alarming colour that the
-    ///     same overlay, on the same frame time, does not otherwise use. The frame is a healthy
-    ///     16 ms one precisely so that <c>theme.Bad</c> cannot arrive from the frame-time readout.
+    ///     assertion is not that a property is set — that would pass over a notice that drew
+    ///     nothing — but that raising it puts lines on the surface in the alarming colour that the
+    ///     same frame, at the same frame time, does not otherwise use. The frame is a healthy 16 ms
+    ///     one precisely so that <c>theme.Bad</c> cannot arrive from the frame-time readout.
     /// </remarks>
     [Fact]
-    public void TheStatsOverlayStampsALooseContentBuild() {
+    public void ALooseContentBuildIsStamped() {
         Assert.Equal(0, BadLines(loose: false));
-        Assert.True(BadLines(loose: true) > 0, "the LOOSE stamp put no ink on the panel");
+        Assert.True(BadLines(loose: true) > 0, "the LOOSE stamp put no ink on the screen");
         Assert.True(
             Lines(loose: true) > Lines(loose: false),
-            "the stamped panel drew no more than the unstamped one"
+            "the stamped frame drew no more than the unstamped one"
         );
+    }
+
+    /// <summary>The stamp survives every way a panel can be taken off the screen.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>#919, and the reason the stamp is not a row on the frame-statistics panel any
+    ///         more.</b> It was, and <c>overlay stats off</c> at the console erased it — after which
+    ///         a Release build reading a directory somebody left on disk was again indistinguishable
+    ///         from one reading its own bundles, which is the exact condition doc 17 Q5b traded the
+    ///         "release reads only bundles" invariant away to avoid.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The fifth way is the one that decided the design</b>, and it is not in #919's
+    ///         table of four: <c>IDiagnosticOverlay.Enabled</c> is a settable property on the
+    ///         interface, so anything holding an overlay can switch it off without
+    ///         <c>DiagnosticOverlays</c> ever seeing the write. That is what rules out the issue's
+    ///         middle option — "log when the panel carrying the stamp is turned off" has no call to
+    ///         log at.
+    ///     </para>
+    ///     <para>
+    ///         The last case is the control. <c>Enabled = false</c> on the registry means "draw no
+    ///         diagnostics at all", and a notice that survived <em>that</em> would not be a stronger
+    ///         guarantee — it would be evidence that this counts ink the surface never received.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheStampSurvivesEveryWayOfHidingAPanel() {
+        Assert.True(BadLines(loose: true) > 0, "the unhidden frame was not stamped");
+
+        Assert.True(BadLines(loose: true, o => o.Set("stats", false)) > 0, "'overlay stats off' erased it");
+        Assert.True(BadLines(loose: true, o => o.Remove("stats")) > 0, "removing the panel erased it");
+        Assert.True(BadLines(loose: true, o => o.DisableAll()) > 0, "DisableAll erased it");
+
+        // The fifth path, which the registry never sees.
+        Assert.True(
+            BadLines(loose: true, o => o.Registered[0].Enabled = false) > 0,
+            "writing Enabled straight onto the overlay erased it"
+        );
+
+        Assert.Equal(0, BadLines(loose: true, o => o.Enabled = false));
     }
 
     static int Lines(bool loose) => Stamped(loose).ScreenCount;
 
-    /// <summary>How many of the panel's lines are drawn in the theme's alarm colour.</summary>
-    static int BadLines(bool loose) {
-        var draw = Stamped(loose);
+    /// <summary>How many of the frame's lines are drawn in the theme's alarm colour.</summary>
+    static int BadLines(bool loose, Action<DiagnosticOverlays>? hide = null) {
+        var draw = Stamped(loose, hide);
         var bad = OverlayTheme.Default.Bad;
         var counted = 0;
 
@@ -257,9 +297,15 @@ public sealed class DiagnosticOverlayTests {
     }
 
     /// <summary>One healthy 16 ms frame of the stats panel, with or without the stamp.</summary>
-    static DebugDraw Stamped(bool loose) {
+    static DebugDraw Stamped(bool loose, Action<DiagnosticOverlays>? hide = null) {
         var overlays = new DiagnosticOverlays();
-        overlays.Add(new FrameStatsOverlay { LooseContent = loose });
+        overlays.Add(new FrameStatsOverlay());
+
+        if (loose) {
+            overlays.Notice("content", "CONTENT LOOSE");
+        }
+
+        hide?.Invoke(overlays);
 
         var draw = new DebugDraw();
         overlays.Draw(draw, Screen, GameTime.Zero.Advance(TimeSpan.FromMilliseconds(16d)));

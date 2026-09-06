@@ -216,18 +216,23 @@ public sealed class HostedOverlayTests : IDisposable {
     }
 
     /// <summary>
-    ///     Doc 17 Q5b's second surface reaches the panel: a Release build pointed at a directory
-    ///     stamps the overlay a screenshot will carry.
+    ///     Doc 17 Q5b's second surface is raised: a Release build pointed at a directory carries a
+    ///     standing notice a screenshot will show.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The negative is the half worth having.</b> A stamp that is set on every build says
-    ///     nothing, and this is the wiring — not the drawing, which is
-    ///     <c>Vixen.Engine.Tests</c>' <c>TheStatsOverlayStampsALooseContentBuild</c>. Found through
-    ///     the registry rather than a field, because the object the frame draws is the only one
-    ///     worth setting.
+    ///     <para>
+    ///         ⚠ <b>The negative is the half worth having.</b> A stamp that is set on every build
+    ///         says nothing, and this is the wiring — not the drawing, which is
+    ///         <c>Vixen.Engine.Tests</c>' <c>ALooseContentBuildIsStamped</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A notice on the registry, and no longer a property on the frame-statistics
+    ///         panel</b> — see #919. The panel could be taken off the screen by four published calls
+    ///         and by a write the registry never sees, after which the build was silent again.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void ALooseContentBuildStampsTheStatsPanel() {
+    public void ALooseContentBuildRaisesTheNotice() {
         var loose = Directory
             .CreateDirectory(Path.Combine(files.ApplicationDirectory, "..", "Loose"))
             .FullName;
@@ -236,17 +241,17 @@ public sealed class HostedOverlayTests : IDisposable {
         stamped.Initialise();
 
         Assert.True(stamped.Services.Content.IsLoose);
-        Assert.True(Stats(stamped).LooseContent);
+        Assert.Contains("LOOSE", Assert.Single(Notices(stamped)), StringComparison.Ordinal);
 
         using var ordinary = Build(new SilentGame(), ["--vixen-overlays"]);
         ordinary.Initialise();
 
         Assert.False(ordinary.Services.Content.IsLoose);
-        Assert.False(Stats(ordinary).LooseContent);
+        Assert.Empty(Notices(ordinary));
     }
 
-    static FrameStatsOverlay Stats(VixenApplication application) =>
-        Assert.IsType<FrameStatsOverlay>(application.Services.Graphics!.Overlays!.Find("stats"));
+    static IReadOnlyList<string> Notices(VixenApplication application) =>
+        application.Services.Graphics!.Overlays!.Notices;
 
     static IEnumerable<SceneRenderer> Walk(SceneRenderer node) {
         yield return node;

@@ -1885,8 +1885,11 @@ holds the overlays and no document; `UiApplication` holds the document and may n
 `Vixen.Ui.Desktop` starts with `Vixen.Ui`. So an `IDiagnosticOverlay` written today would be
 registered nowhere, which is this repository's commonest defect wearing a diagnostics badge. The two
 honest homes are the editor's panel system, which already has somewhere to put a view, and a game
-host that mounts a document through `UiRenderFeature` — and ⚠ that feature has no registration
-anywhere in the tree either, so the second one is a claim about a path nothing currently takes.
+host that mounts a document through `UiRenderFeature`. ⚠ **That second home used to be a claim about
+a path nothing took, and is not any more**: `WorldRenderer.Ui` is a registered `UiRenderFeature`, and
+`Mount`/`Set`/`Upload`/`Compose` are the host contract for putting a document in a scene's frame.
+What is still true is that no *sample* takes it, so the arrangement is proved by tests rather than
+by a picture.
 
 Three constraints decide the shape, and each of them rules something out.
 

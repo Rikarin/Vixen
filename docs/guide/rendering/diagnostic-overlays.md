@@ -110,6 +110,29 @@ A name whose panel does not exist yet is kept rather than refused, and applied w
 — which is what makes `audio` work when the game adds it from `OnInitialise`, long after the command
 line was read.
 
+### Standing notices, which are not panels
+
+A **notice** is one line about the build itself, drawn by `DiagnosticOverlays.Draw` rather than by
+any overlay:
+
+```csharp no-compile="a host's own registry, wired up by VixenApplication"
+overlays.Notice("content", "CONTENT LOOSE");
+overlays.Forget("content");
+```
+
+⚠ **The point of a notice is that a panel cannot carry it.** Every overlay can be taken off the
+screen — `overlay <name> off` at the console, `Remove`, `DisableAll`, and `Enabled = false` written
+straight onto an overlay somebody is holding, which the registry never sees at all — so a standing
+statement about the build that lives on a panel is a statement any of those erases, silently. That is
+what happened to the `--vixen-loose-content` stamp
+([#919](https://github.com/Rikarin/Vixen/issues/919)), which is why the one notice in the engine
+today is that one.
+
+A notice is still inside `Enabled`, the registry's own master switch. Hiding a panel must not take a
+notice with it; asking for no diagnostics at all is a different request, and there is no honest way to
+draw on a surface nobody is drawing. Notices are drawn at the top of the top-left stack, above
+whatever is pinned there, and `NoticesDrawn` says how many reached the screen.
+
 ### The GPU panel
 
 `GpuOverlay` draws one bar per render-graph pass, and it is built to be *watched* rather than

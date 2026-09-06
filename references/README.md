@@ -36,7 +36,7 @@ implementation is built from:
 
 ```bash
 mkdir -p references/unicode && cd references/unicode
-base=https://www.unicode.org/Public/UCD/latest/ucd
+base=https://www.unicode.org/Public/17.0.0/ucd
 for f in auxiliary/GraphemeBreakTest.txt auxiliary/GraphemeBreakProperty.txt \
          auxiliary/WordBreakTest.txt auxiliary/WordBreakProperty.txt \
          auxiliary/LineBreakTest.txt LineBreak.txt \
@@ -44,6 +44,14 @@ for f in auxiliary/GraphemeBreakTest.txt auxiliary/GraphemeBreakProperty.txt \
          EastAsianWidth.txt Scripts.txt PropertyValueAliases.txt SpecialCasing.txt \
          emoji/emoji-data.txt ReadMe.txt; do curl -sSO "$base/$f"; done
 ```
+
+⚠ **The version is pinned rather than `latest`, and the partial re-run below is why.** A full fetch of
+`latest` gives ten files that agree with each other whatever release it is, so the version gate would
+be happy; the `SpecialCasing`-only command underneath would not be, because it writes *one* table from
+whatever is on disk. The day 18.0.0 ships, the blessed one-table command run against a `latest` fetch
+lands an 18.0.0 header beside nine 17.0.0 siblings and turns `GeneratedUnicodeVersionTests` red — which
+is the failure that gate was built for, arrived at by following the instructions. Moving to a new
+release is an edit here and a full run, deliberately.
 
 **`SpecialCasing.txt` is the one file whose table can be regenerated on its own**, because it is also
 the one that arrived after the rest:
@@ -59,6 +67,20 @@ came from 17.0.0. ⚠ **All ten now say 17.0.0, and regenerating changed the hea
 the unconditional rows of `SpecialCasing.txt` had not moved across four major versions. That is worth
 knowing before anyone spends a run chasing a suspected casing difference: the table has been right the
 whole time, and it was the header that lied.
+
+⚠ **Two files the loop above deliberately does not fetch, and the one task that wants them.**
+`UnicodeData.txt` (field 3 is the canonical combining class) and `PropList.txt` (`Soft_Dotted`) are
+not in the list because no generated table reads them today — and that absence is
+[#913](https://github.com/Rikarin/Vixen/issues/913), which blocks all four remaining UAX #21 casing
+conditions at once. `After_I`, `Not_Before_Dot`, `lt More_Above` and `lt After_Soft_Dotted` are each
+phrased as *"with no intervening character of combining class 0 or 230"*, so one table unblocks four
+rows and no subset of them can be done first. .NET exposes no public canonical-combining-class API, so
+there is no way to answer the question without the data. Whoever does it fetches these beside the
+rest, at the same pinned release, and runs the generator whole:
+
+```bash
+for f in UnicodeData.txt PropList.txt; do curl -sSO "$base/$f"; done
+```
 
 ## What each one is for
 
