@@ -22,10 +22,11 @@ namespace Vixen.ApiCheck.Tests;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>It fails on the runner having passed on every developer box</b>, which is what made it
-///         expensive: four such tests went red on ubuntu, macOS and Windows at once in run
-///         <c>34003375702</c>, a shape that reads like a shared runtime defect and is really one
-///         MSBuild default. Nothing on a developer machine can reproduce it, because nothing on a
-///         developer machine sets <c>CI</c>.
+///         expensive: four such tests went red on <c>ubuntu-latest</c> and <c>windows-latest</c> at
+///         once in run <c>34003375702</c> — that run's <c>macos-14</c> leg was cancelled rather than
+///         completed, so it is two runners observed and not three. A shape that reads like a shared
+///         runtime defect and is really one MSBuild default. Nothing on a developer machine
+///         reproduces it by accident, because nothing on a developer machine sets <c>CI</c>.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>So the two cases below are deliberately not the same check.</b>

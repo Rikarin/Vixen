@@ -180,8 +180,10 @@
       compiled path therefore reads `/_/Editor/Vixen.Editor.TextureGraph`, which
       exists on no machine, and fails on the runner having passed on every developer
       box. Four such tests did exactly that in run 34003375702, with the same message
-      on ubuntu, macOS and Windows — a shape that reads like a shared runtime bug and
-      is really one MSBuild default.
+      on ubuntu-latest and windows-latest — a shape that reads like a shared runtime
+      bug and is really one MSBuild default. (⚠ That run's macos-14 leg was cancelled
+      rather than completed, so it is two runners observed and not three; nothing
+      about the mechanism is per-platform.)
 
       The property buys nothing here in exchange: it exists so a NuGet package built
       on two machines is byte-identical, and `IsPackable` is false three lines up.
