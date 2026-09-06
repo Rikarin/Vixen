@@ -61,13 +61,25 @@ static class LayerStackCompiler {
     ///     How much bigger this bake is than the resolution the stack was authored at: <c>0</c> at
     ///     the authoring resolution, <c>-2</c> to bake a 1K stack at 4K.
     /// </param>
+    /// <param name="assets">
+    ///     The project's <c>Assets/</c> folder, whose <c>Compounds</c> subfolder is published beside
+    ///     the shipped ones, or <see langword="null" /> for the shipped compounds alone.
+    /// </param>
     /// <returns>The plan, the graph it came from, and everything either half had to say.</returns>
     /// <exception cref="ArgumentNullException">The stack or the set is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>A parameter rather than a project, because this is a static method with no
+    ///     document</b> — which is exactly how the two panels came to publish two different libraries
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/858">#858</a>). What a caller has to know
+    ///     is that leaving it null means a fill or a mask effect naming a project compound compiles
+    ///     in the graph panel and is <c>TG0001</c> — "nothing inlined it" — here.
+    /// </remarks>
     public static LayerStackCompilation Compile(
         LayerStackAsset stack,
         TextureSetAsset set,
         NodeTypeRegistry? registry = null,
-        int bakeLevelOffset = 0
+        int bakeLevelOffset = 0,
+        string? assets = null
     ) {
         ArgumentNullException.ThrowIfNull(stack);
         ArgumentNullException.ThrowIfNull(set);
@@ -77,35 +89,48 @@ static class LayerStackCompiler {
         // ⚠ Built once and used twice. The build needs the registry to know which port of a generator
         // carries its image; the compile needs the same registry *and* the sub-graph source that came
         // with it, or every compound node in the graph is a type the compiler does not know.
-        registry ??= Library(out subGraphs);
+        registry ??= Library(out subGraphs, assets);
 
         var build = LayerStackGraph.Build(stack, set, registry);
 
         return Compile(stack, build, registry, bakeLevelOffset, subGraphs);
     }
 
-    /// <summary>This build's node types, with the shipped compounds published into them.</summary>
+    /// <summary>This build's node types, with the compounds published into them.</summary>
     /// <param name="subGraphs">What a compiler needs to inline those compounds.</param>
+    /// <param name="assets">
+    ///     The project's <c>Assets/</c> folder, or <see langword="null" /> for the shipped compounds
+    ///     alone.
+    /// </param>
     /// <returns>The registry.</returns>
     /// <remarks>
-    ///     ⚠ <b>The call to <c>TextureCompoundLibrary.Publish</c> that
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/799">#799</a> says nothing in this tree
-    ///     makes.</b> Without it the three shipped generator compounds are embedded in the assembly,
-    ///     loadable, compilable and unreachable — a mask naming <c>Generators/Dirt</c> resolves to no
-    ///     node type, and a graph containing one reaches a compiler with no <c>SubGraphSource</c> and
-    ///     fails on every node it cannot inline. That is why doc 48 § D10's "a generator authored
-    ///     once works on two meshes" had never been shown: there was no way to author one.
     ///     <para>
-    ///         A project's own compound folder is not read here. It is a path a project supplies and
-    ///         this overload has no project; a caller with one passes its own registry.
+    ///         ⚠ <b>The call to <c>TextureCompoundLibrary.Publish</c> that
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/799">#799</a> says nothing in this
+    ///         tree makes.</b> Without it the three shipped generator compounds are embedded in the
+    ///         assembly, loadable, compilable and unreachable — a mask naming <c>Generators/Dirt</c>
+    ///         resolves to no node type, and a graph containing one reaches a compiler with no
+    ///         <c>SubGraphSource</c> and fails on every node it cannot inline. That is why doc 48
+    ///         § D10's "a generator authored once works on two meshes" had never been shown: there
+    ///         was no way to author one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This used to read the shipped compounds and only those, and that made one node
+    ///         type mean two different things depending on which panel an author was in</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/858">#858</a>.
+    ///         <c>TextureGraphDocument</c> publishes <c>Assets/Compounds</c> beside the shipped four,
+    ///         so a fill or a mask effect naming a project compound compiled in the graph panel and
+    ///         was <c>TG0001</c> in the layer stack. Both documents go through
+    ///         <see cref="TextureNodeLibrary.Publish" /> now, so the two sets cannot drift; what is
+    ///         left is that a caller with a project has to say so, because a static method has none.
     ///     </para>
     /// </remarks>
-    public static NodeTypeRegistry Library(out ISubGraphSource subGraphs) {
-        var registry = TextureNodeLibrary.Create();
+    public static NodeTypeRegistry Library(out ISubGraphSource subGraphs, string? assets = null) {
+        var library = TextureNodeLibrary.Publish(assets);
 
-        subGraphs = TextureCompoundLibrary.Publish(registry, null, out _);
+        subGraphs = library.SubGraphs;
 
-        return registry;
+        return library.Registry;
     }
 
     /// <summary>Compiles a graph a stack already produced, or one read back off a file.</summary>
