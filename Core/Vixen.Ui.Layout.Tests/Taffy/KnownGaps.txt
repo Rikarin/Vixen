@@ -228,6 +228,14 @@
 # wrong number and become a ceiling with a real rule behind it — which means the next move is to
 # NAME it rather than to delete it, and the measurement that would decide its shape is a browser one
 # (what does Chrome do with an unbreakable `break-word` word in a fixed box) that nobody has taken.
+#
+# ⚠ <b>BOTH OF THOSE ARE DONE NOW, AND NEITHER MOVED A PIXEL.</b> The browser measurement is the
+# table further down this file — Chrome does not cap the floor, and the wrapping picture everyone
+# reads as the cap's job comes from the CROSS axis. And the cap is named:
+# `LayoutTree.MeasuredContentCeiling`, whose own remark carries the rule and the divergence, so a
+# reader meets "a ceiling with a rule" before they meet sixty lines of archaeology. ⚠ That naming
+# is the whole of what was safe to do here: what is left is the framework call below, and it is
+# not a measurement anybody can take.
 # ⚠ Do not read "the layout corpus is green without the cap" as permission: the corpus has no text
 # leaf that cannot break, so it cannot see the case that holds it up.
 #

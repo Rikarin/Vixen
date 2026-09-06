@@ -1,0 +1,114 @@
+# Every `A > B` the committed stylesheets declare between two bare type selectors.
+#
+#     <parent> > <child>  <sheet>
+#
+# Held against the measured set by
+# `CombinatorPairTests.Every_child_combinator_pair_is_in_the_committed_census`, EXACTLY and in both
+# directions. Derived: re-run that test with VIXEN_REGENERATE=1 to write this back, and read the diff.
+#
+# ⚠ This is the DOMAIN and not a verdict. Nothing here says a pairing is live. A rule whose parent
+# and child are both real tags that never meet fires on nothing, silently, and both known instances
+# were found by a person reading a sheet — `compositor-editor > node-canvas` was one, and the
+# compositor's graph was drawn at zero width for as long as it stood. See `Rikarin/Vixen#531`.
+#
+# ⚠ Why a committed set rather than a count: four audits of this same question reported 88, 72, 75
+# and 70 pairs, from four hand-rolled parsers over the same seventeen sheets. A count agrees with all
+# four. A set agrees with one, and it is read out of the compiled selector table rather than off the
+# sheet's text — so `:is()`, `:not()` and a compound carrying classes beside its tag are decided by
+# the compiler and not by a regular expression.
+#
+# ⚠ A row arriving here is a claim worth one minute of somebody's attention: that an element with the
+# parent tag can hold a child with the child tag. Markup nesting proves 14 of these (3 without the
+# type->tag map); the other 74 have parents built in C#, most of them a control assembling its own
+# parts, which no markup scan can reach.
+#
+# Child combinators only. A descendant pairing is a weaker claim and was not what the four
+# measurements above were of.
+add-component-list > scroll-content	Editor/Vixen.Editor.Inspector/BrowserTheme.vcss
+add-component-menu > search-box	Editor/Vixen.Editor.Inspector/BrowserTheme.vcss
+add-component-row > icon	Editor/Vixen.Editor.Inspector/BrowserTheme.vcss
+add-component-row > label	Editor/Vixen.Editor.Inspector/BrowserTheme.vcss
+animation-body > animation-stage	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+animation-stage > curve-editor	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+animation-stage > timeline	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+animgraph-body > state-map	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+asset-field > icon-button	Editor/Vixen.Editor.Inspector/InspectorTheme.vcss
+asset-grid > asset-path	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+asset-tile > icon	Editor/Vixen.Editor.Inspector/BrowserTheme.vcss
+asset-tile > image	Editor/Vixen.Editor.Inspector/BrowserTheme.vcss
+behaviortree-body > node-canvas	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+browser-filters > search-box	Editor/Vixen.Editor.Inspector/BrowserTheme.vcss
+browser-filters > select	Editor/Vixen.Editor.Inspector/BrowserTheme.vcss
+button > icon	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+choice-list > button	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+code-editor-pane > code-editor	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+color-input > color-swatch	Core/Vixen.Ui.Controls.Advanced/AdvancedTheme.vcss
+compiled-scene-diagnostic > compiled-scene-severity	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+compositor-editor > node-graph	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+debugger-body > tree-view	Editor/Vixen.Editor.Debugger/DebuggerTheme.vcss
+device-manager > data-grid	Editor/Vixen.Editor.Debugger/DebuggerTheme.vcss
+dock-guide > dock-hint	Core/Vixen.Ui.Controls.Advanced/AdvancedTheme.vcss
+dock-split > dock-splitter	Core/Vixen.Ui.Controls.Advanced/AdvancedTheme.vcss
+dock-tabstrip > icon-button	Core/Vixen.Ui.Controls.Advanced/AdvancedTheme.vcss
+editor-shell > menu-bar	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+expander > expander-header	Editor/Vixen.Editor.Inspector/BrowserTheme.vcss
+expander-header > label	Editor/Vixen.Editor.Inspector/BrowserTheme.vcss
+fact-row > fact-value	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+fact-value > numeric-input	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+font-body > font-atlas	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+frame-editor > scroll-view	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+group-editor > tree-view	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+import-settings > scroll-view	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+input-body > tree-view	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+inspector > scroll-view	Editor/Vixen.Editor.Inspector/InspectorTheme.vcss
+inspector-header > search-box	Editor/Vixen.Editor.Inspector/InspectorTheme.vcss
+inspector-row > icon-button	Editor/Vixen.Editor.Inspector/InspectorTheme.vcss
+inspector-row > inspector-editor	Editor/Vixen.Editor.Inspector/InspectorTheme.vcss
+inspector-row > inspector-label	Editor/Vixen.Editor.Inspector/InspectorTheme.vcss
+material-bar > textbox	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+material-editor > image	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+memory-view > scroll-view	Editor/Vixen.Editor.Profiler/ProfilerTheme.vcss
+mixer-body > mixer-strips	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+mixer-strip > slider	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+mode-bar > toolbar	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+model-editor > tree-view	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+moveset-bar > textbox	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+node-graph > node-canvas	Editor/Vixen.Editor.NodeGraph/NodeGraphTheme.vcss
+outliner-filters > search-box	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+outliner-filters > select	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+override-bar > textbox	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+override-body > override-row	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+override-cell > checkbox	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+override-cell > numeric-input	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+override-cell > select	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+override-cell > textbox	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+override-row > override-cell	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+palette-row > text	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+profiler-body > scroll-view	Editor/Vixen.Editor.Profiler/ProfilerTheme.vcss
+profiler-view > data-grid	Editor/Vixen.Editor.Profiler/ProfilerTheme.vcss
+radial-item > icon	Core/Vixen.Ui.Controls/ControlTheme.vcss
+remote-body > tree-view	Editor/Vixen.Editor.Debugger/DebuggerTheme.vcss
+remote-write > textbox	Editor/Vixen.Editor.Debugger/DebuggerTheme.vcss
+scroll-view > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+sequence-body > timeline	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+settings-rail > button	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+shadergraph-editor > node-graph	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+shadergraph-source > code-editor	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+shape-stage > viewport	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+split-view > split-bar	Core/Vixen.Ui.Controls/ControlTheme.vcss
+sprite-canvas > image	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+sprite-field-row > numeric-input	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+sprite-field-row > textbox	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+sprite-rect > sprite-rect-label	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+sprite-toolbar > numeric-input	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+sprite-toolbar > select	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+status-bar > status-trailing	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+tab-panels > tab-panel	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+tabs > tab-panels	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+task-center > text	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+task-row > task-line	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+toolbar > toolbar-group	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+toolbar-group > button	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+vector-component > text	Editor/Vixen.Editor.Inspector/InspectorTheme.vcss
+vfx-editor > node-graph	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+viewport-bar > toolbar	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
