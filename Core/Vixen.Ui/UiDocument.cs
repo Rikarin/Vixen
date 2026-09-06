@@ -2741,11 +2741,33 @@ public sealed partial class UiDocument : IDisposable {
         return axes.Vertical && (y < element.AbsoluteTop || y >= element.AbsoluteTop + element.Height);
     }
 
-    static bool Contains(UiElement element, float x, float y) =>
-        x >= element.AbsoluteLeft
-        && y >= element.AbsoluteTop
-        && x < element.AbsoluteLeft + element.Width
-        && y < element.AbsoluteTop + element.Height;
+    /// <summary>Whether a point is inside any box this element was laid out as.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Any box, not the union of them, and that is the half of fragment painting that keeps
+    ///     the click where the ink is.</b> <c>DrawListBuilder</c> makes paint order and hit-test order
+    ///     agreeing the guarantee that a click lands on what is drawn; the painter walks
+    ///     <see cref="LayoutTree.GetFragment" /> now, so this has to as well or a two-line
+    ///     <c>&lt;span&gt;</c> answers a pointer in the ragged part of its second line — a point inside
+    ///     the union, inside no fragment, and where a browser hits nothing.
+    ///     ⚠ <see cref="LayoutTree.GetFragmentCount" /> is one for every node that did not cross a line
+    ///     break, and its single fragment is <c>(0, 0, Width, Height)</c>, so the loop is the
+    ///     three-comparison test it replaces on every other element in the tree.
+    /// </remarks>
+    bool Contains(UiElement element, float x, float y) {
+        var count = Layout.GetFragmentCount(element.LayoutNode);
+
+        for (var index = 0; index < count; index++) {
+            var (left, top, width, height, _) = Layout.GetFragment(element.LayoutNode, index);
+            var originX = element.AbsoluteLeft + left;
+            var originY = element.AbsoluteTop + top;
+
+            if (x >= originX && y >= originY && x < originX + width && y < originY + height) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Turns the parent-relative layout results into document-space rectangles.</summary>
     /// <remarks>

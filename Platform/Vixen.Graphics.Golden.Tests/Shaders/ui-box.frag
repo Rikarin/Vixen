@@ -15,7 +15,7 @@ layout(location = 0) out vec4 target;
 // and a three-stop gradient would take the vertex from forty-eight bytes to well past a hundred, and
 // every glyph in the frame would carry fields no shader reads on them.
 //
-// ⚠ **`Shape` is 144 bytes and this is not the only place that has to agree about that.** Which the
+// ⚠ **`Shape` is 160 bytes and this is not the only place that has to agree about that.** Which the
 // others are, what pins each of them, and what it cost when they disagreed, is recorded in
 // `SharedUiShaderTests` — where correcting a sentence does not oblige anybody to recompile a module.
 struct Shape {
@@ -28,6 +28,7 @@ struct Shape {
     vec4 stops;      // where the three stops sit, then whether the middle one exists
     vec4 paint;      // the ramp's centre from the tile's centre, then its reach. Zero reach = the box
     vec4 area;       // the first tile's centre, then half the tile — signed by `background-repeat`
+    vec4 inset;      // an inset shadow's offset, then its spread, then whether it is one. Zero = not
 };
 
 layout(std430, set = 0, binding = 2) readonly buffer Shapes {
@@ -271,6 +272,31 @@ void main() {
     // elliptical distance — is the same work, and a shadow that disagreed with its own box about
     // where the boundary is would sit visibly off it.
     float coverage = blur > 0.0 ? shadow_coverage(distance, blur) : coverage_of(distance, width);
+
+    // An `inset` shadow is the complement of that, in a second rectangle, masked by the first.
+    //
+    // ⚠ **The complement is the whole of the maths and the mask is the whole of the correctness.**
+    // CSS Backgrounds 3 § 7.1.1 paints an inner shadow between the border box and a rectangle offset
+    // by the shadow's offsets and shrunk by its spread; the ink is *outside* that rectangle, so the
+    // coverage is one minus what an outer shadow of it would have. Without the mask it is one
+    // everywhere outside the box too — a shadow-coloured plane with a hole in it.
+    //
+    // ⚠ **The corner is picked in the inner rectangle's own frame**, or a shadow offset far enough to
+    // cross the box's centre takes its radius from the corner it came from rather than the one it is
+    // at.
+    if (shape.inset.w > 0.0) {
+        vec2 shifted = varying_texcoord - shape.inset.xy;
+        vec2 inner = max(half_size - shape.inset.z, vec2(0.0));
+        vec2 inner_radius = max(corner_radius(shape, shifted) - shape.inset.z, vec2(0.0));
+        float inner_distance = box_distance(shifted, inner, inner_radius);
+        float inner_width = max(fwidth(inner_distance), 1e-4);
+
+        float cast_coverage = blur > 0.0
+            ? shadow_coverage(inner_distance, blur)
+            : coverage_of(inner_distance, inner_width);
+
+        coverage = (1.0 - cast_coverage) * coverage_of(distance, width);
+    }
 
     float thickness = shape.size.z;
 

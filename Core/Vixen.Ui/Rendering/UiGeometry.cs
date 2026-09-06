@@ -320,9 +320,31 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     ///         ⚠ <b>Rectangular, including where the element is rounded, and that is a stated
     ///         divergence rather than an oversight.</b> A <c>UiLayer</c> carries no corner radius, and
     ///         <c>rounded-2xl backdrop-blur-md</c> is the canonical use of the feature — so the
-    ///         filtered backdrop shows square corners just outside the rounded ones. Closing it needs
-    ///         a rounded-rect distance in the composite fragment, which is a change to three shipped
-    ///         shader modules; <c>docs/guide/ui/compositing.md</c> prices it.
+    ///         filtered backdrop shows square corners just outside the rounded ones.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the price this used to quote — "a rounded-rect distance in the composite
+    ///         fragment" — leaves out the half that is actually missing, which is a <i>channel</i> to
+    ///         tell the fragment where the rounded box is.</b> Measured rather than assumed, 2026-09-06:
+    ///         a composite quad has no <c>UiShape</c> at all, because an image descriptor set's storage
+    ///         binding never points at the box buffer — see <c>UiRenderer</c>'s remark on it. The push
+    ///         constants are full: <c>Ui.rvn</c>'s <c>MaskEntry</c> records that <c>UiMask</c>'s
+    ///         forty-eight-byte matrix plus the vertex stage's sixteen is 16 + 112, which is exactly
+    ///         the 128 bytes Vulkan guarantees on every device. And the quad's own <c>shape</c> stream
+    ///         has three free lanes — <c>shape.x</c> is already the premultiplied flag
+    ///         <c>UiGeometryBuilder.Layer</c> sets — which is not enough: a backdrop quad's <c>uv</c> is
+    ///         <i>viewport</i>-relative, so the fragment would need the box's centre as well as its
+    ///         half-size and four elliptical radii.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The channel that does exist is <c>MaskEntry</c>, and it costs no lane anywhere.</b>
+    ///         That record already rides a binding every composite draw has bound, already carries the
+    ///         border box as centre and half in document pixels, and already discriminates on
+    ///         <c>ramp.z</c> — so a fourth shape beside linear, radial and conic can spend the stop
+    ///         lanes, which a shape that is not a ramp does not read, on four radii. What it costs
+    ///         instead is routing: only <c>UiMask</c> reads entries, so a rounded backdrop would
+    ///         composite through the mask pipeline whether or not it has a <c>mask-image</c>.
+    ///         <c>docs/guide/ui/compositing.md</c> carries the same measurement.
     ///     </para>
     /// </remarks>
     public Rectangle BackdropBounds { get; init; }

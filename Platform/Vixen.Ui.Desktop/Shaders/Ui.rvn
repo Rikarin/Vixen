@@ -79,6 +79,19 @@ struct UiShape {
     /// tile is the box and there is neither, which is the fast path every gradient in the interface
     /// takes.
     var area: float4
+
+    /// An inset shadow's offset in pixels, then how far its rectangle shrinks from the box, then
+    /// whether it is an inset shadow at all.
+    ///
+    /// ⚠ **All zero is every box and every outer shadow**, which is why this lane could be appended
+    /// rather than carved out of one already spoken for. An inner shadow is the region between the
+    /// border box and a rectangle offset and shrunk inside it — two rectangles in one draw — so
+    /// unlike an outer shadow it cannot put its offset in the quad's position: the quad has to be the
+    /// box, because the box is the clip.
+    ///
+    /// ⚠ **`w` is a flag rather than "the offset or the spread is non-zero"**, for `stops.w`'s
+    /// reason: `inset 0 0 4px` is a legal centred inner shadow and a sentinel would erase it.
+    var inset: float4
 }
 
 /// What the four fragment stages share.
@@ -186,6 +199,34 @@ shader UiBox {
         // the elliptical distance — is the same work, and a shadow that disagreed with its own box
         // about where the boundary is would sit visibly off it.
         var coverage = blur > 0f ? ShadowCoverage(distance, blur) : Ui.Coverage(distance, width)
+
+        // An `inset` shadow is the complement of that, in a second rectangle, masked by the first.
+        //
+        // ⚠ **The complement is the whole of the maths and the mask is the whole of the correctness.**
+        // CSS Backgrounds 3 § 7.1.1 paints an inner shadow between the border box and a rectangle
+        // offset by the shadow's offsets and shrunk by its spread; the ink is *outside* the inner
+        // rectangle, so the coverage is one minus what an outer shadow of the same rectangle would
+        // have. Without the mask it would be one everywhere outside the box as well — a shadow-coloured
+        // plane with a hole in it, which is not a near miss.
+        //
+        // ⚠ **The corner is picked in the inner rectangle's own frame**, from the shifted point, or a
+        // shadow offset far enough to cross the box's centre would take its radius from the corner it
+        // came from rather than the one it is at.
+        if (box.inset.w > 0f) {
+            val shifted = uv - box.inset.xy
+            val inner = max(halfSize - box.inset.z, float2(0f, 0f))
+            val innerRadius = max(CornerRadius(box, shifted) - box.inset.z, float2(0f, 0f))
+            val innerDistance = BoxDistance(shifted, inner, innerRadius)
+
+            // ⚠ Hoisted out of the conditional below rather than written into its unused branch: a
+            // derivative taken inside divergent control flow is undefined, and while every fragment of
+            // a quad belongs to one box and takes the same branch, a reader should not have to know
+            // that to be sure.
+            val innerWidth = max(Ui.PixelWidth(innerDistance), 0.0001f)
+            val cast = blur > 0f ? ShadowCoverage(innerDistance, blur) : Ui.Coverage(innerDistance, innerWidth)
+
+            coverage = (1f - cast) * Ui.Coverage(distance, width)
+        }
 
         val thickness = box.size.z
 

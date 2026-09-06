@@ -304,6 +304,42 @@ public static class SoftwareUiRasterizer {
         // own remarks warn about, one level down.
         var blur = shape.Axis.Z;
         var coverage = blur > 0f ? ShadowCoverage(distance, blur) : Coverage(distance, width);
+
+        // ⚠ <b>An <c>inset</c> shadow is the complement of that, in a second rectangle, masked by the
+        // first — and the mask is the whole of the correctness.</b> CSS Backgrounds 3 § 7.1.1 paints
+        // an inner shadow between the border box and a rectangle offset by the shadow's offsets and
+        // shrunk by its spread, so the ink is <i>outside</i> that rectangle; without the mask the
+        // coverage is one everywhere outside the box too, which is a shadow-coloured plane with a hole
+        // in it rather than a near miss.
+        //
+        // ⚠ The corner is picked in the inner rectangle's own frame, from the shifted point, or a
+        // shadow offset far enough to cross the box's centre takes its radius from the corner it came
+        // from rather than the one it is at. This is `ui-box.frag`'s branch line for line.
+        if (shape.Inset.W > 0f) {
+            var shifted = texture - new Vector2(shape.Inset.X, shape.Inset.Y);
+            var spread = shape.Inset.Z;
+
+            var inner = new Vector2(MathF.Max(half.X - spread, 0f), MathF.Max(half.Y - spread, 0f));
+            var shiftedRadius = CornerRadius(shape, shifted);
+
+            var innerRadius = new Vector2(
+                MathF.Max(shiftedRadius.X - spread, 0f),
+                MathF.Max(shiftedRadius.Y - spread, 0f)
+            );
+
+            var innerDistance = BoxDistance(shifted, inner, innerRadius);
+
+            var innerWidth = MathF.Max(
+                MathF.Abs(BoxDistance(shifted + new Vector2(sx, 0f), inner, innerRadius) - innerDistance)
+                + MathF.Abs(BoxDistance(shifted + new Vector2(0f, sy), inner, innerRadius) - innerDistance),
+                1e-4f
+            );
+
+            var cast = blur > 0f ? ShadowCoverage(innerDistance, blur) : Coverage(innerDistance, innerWidth);
+
+            coverage = (1f - cast) * Coverage(distance, width);
+        }
+
         var thickness = shape.Size.Z;
 
         if (thickness > 0f) {

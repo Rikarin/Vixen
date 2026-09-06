@@ -390,9 +390,10 @@ public sealed class UiRenderer : IDisposable {
     /// <remarks>
     ///     ⚠ <b>A record of what this renderer is <i>not</i> doing, which is the only kind of entry a
     ///     set like this should ever be.</b> <c>mix-blend-mode</c> reaches the frame as
-    ///     <see cref="UiLayer.Blend" /> and the software rasteriser applies it; the device cannot,
-    ///     because a blend is a function of its destination and the UI pass has no read of the
-    ///     attachment it is writing. Keeping the numbers anyway is what lets
+    ///     <see cref="UiLayer.Blend" /> and the software rasteriser applies it; the device does not,
+    ///     for want of a composite pipeline variant that samples the group's surface and a backdrop
+    ///     together — <i>not</i>, as this said until 2026-09-06, for want of a read of the attachment
+    ///     it is writing, which § 5.1 never asks for. See <see cref="Unblended" />. Keeping the numbers anyway is what lets
     ///     <see cref="SubmitDraw" /> say out loud that a composite went out source-over — the same job
     ///     <see cref="Backdropped" /> does for a capture that never ran, and needed here for the same
     ///     reason: a blend over a flat backdrop is often the identity, so a screenshot cannot tell.
@@ -880,9 +881,15 @@ public sealed class UiRenderer : IDisposable {
     ///         it is not a bug report — it is the honest shape of a feature that is implemented on one
     ///         executor and not the other.</b> <c>mix-blend-mode</c> reaches the frame as
     ///         <see cref="UiLayer.Blend" />; <c>SoftwareUiRasterizer</c> applies it, because it owns
-    ///         the destination buffer and can read it. This renderer cannot: a blend is a function of
-    ///         both operands, and the UI pass has no subpass input, no framebuffer fetch and no copy
-    ///         of the attachment it is writing into. So the composite is submitted unchanged and the
+    ///         the destination buffer and can read it. This renderer does not — and ⚠ <b>the reason
+    ///         written here until 2026-09-06 was one this class's own remarks refute two paragraphs
+    ///         further down</b>: "the UI pass has no subpass input, no framebuffer fetch and no copy of
+    ///         the attachment it is writing" is perfectly true and is not the blocker, because CSS
+    ///         Compositing 1 § 5.1 asks for no read of the destination at all. It is a change of
+    ///         <i>source</i> colour followed by an ordinary source-over, and the backdrop can arrive as
+    ///         a texture. What is missing is the composite pipeline variant that samples two of them —
+    ///         and, under it, a fourth binding on the deliberately shared <c>ui atlas</c> layout, which
+    ///         declares exactly one sampled texture. So the composite is submitted unchanged and the
     ///         picture is the one the frame would have had without the declaration.
     ///     </para>
     ///     <para>

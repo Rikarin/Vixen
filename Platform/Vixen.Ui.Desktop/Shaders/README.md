@@ -106,3 +106,17 @@ them.
 `spirv-val --target-env vulkan1.2` over the eight `.spv` is worth running after: Raven's SPIR-V is
 checked against the validator in its own tests, but these are the modules an application actually
 loads.
+
+⚠ **The by-hand form is not a poor substitute for the gate, and three sessions in a row refused work
+believing it was.** `CheckShaders` builds `Vixen.Raven.Cli` in Release and runs exactly the command
+above; the compiler is deterministic, so the modules it writes are byte-identical to the committed
+ones. That is checkable in about two minutes and worth checking before trusting it — compile `Ui.rvn`
+into a scratch directory with the source *unedited* and `cmp` all sixteen artefacts against the
+committed ones. If they match, a regenerated module is a faithful one and the only thing the gate adds
+is the other sources and the both-directions floor. It matches on this machine today.
+
+⚠ **The same holds for the golden suite's GLSL copy**, whose ledger is
+`Platform/Vixen.Graphics.Golden.Tests/Shaders/modules.sha256`: recompiling an unedited `ui-box.frag`
+with a local `glslc` reproduced the committed `.spv` exactly, so a shader change there is not gated on
+a device either. What a device is still needed for is the **picture** — no byte comparison anywhere
+says a shader draws the right thing, which is the gap the first section of this file names.

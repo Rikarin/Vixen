@@ -14,12 +14,12 @@ namespace Vixen.Ui.Rendering;
 ///         fifteen, and a box is four vertices — so carrying them on the vertex would take it from
 ///         forty-eight bytes to well past a hundred, and every glyph and every path triangle in the
 ///         frame would pay for fields no shader reads on them. One record per box costs a hundred and
-///         forty-four bytes against the sixty-four the four vertices already spend on <c>Shape</c>, and
+///         sixty bytes against the sixty-four the four vertices already spend on <c>Shape</c>, and
 ///         the vertex layout does not move at all: a box's <c>Shape.X</c> becomes the index of its
 ///         record.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nine <c>Vector4</c>s, written out rather than left to a struct layout to work out.</b>
+///         ⚠ <b>Ten <c>Vector4</c>s, written out rather than left to a struct layout to work out.</b>
 ///         This is copied into a storage buffer with <c>MemoryMarshal</c> and read back by a shader
 ///         whose own alignment rules are not C#'s — a <c>float</c> beside a <c>Vector2</c> lays out
 ///         differently under std430 than under sequential, and the failure is a box drawn with
@@ -50,8 +50,8 @@ namespace Vixen.Ui.Rendering;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Every lane this record has ever grown was <i>appended</i>, and the two repurposed ones
-///         were both zero.</b> Growing from eighty bytes to a hundred and twelve, and then to a
-///         hundred and forty-four, left every existing offset exactly where the shader already read
+///         were both zero.</b> Growing from eighty bytes to a hundred and twelve, then to a
+///         hundred and forty-four and then to a hundred and sixty, left every existing offset exactly where the shader already read
 ///         it: <c>Axis.w</c> was declared padding and is now the interpolation
 ///         space, whose zero is <see cref="GradientSpace.Linear" /> — which is what the shader did
 ///         before there was a choice — and <c>Size.w</c> was a zero-or-one gradient flag and is now
@@ -122,6 +122,15 @@ public readonly record struct UiShape {
     ///     Half the tile, signed — positive tiles along that axis and negative clips. Zero means the
     ///     tile is the box and there is neither.
     /// </param>
+    /// <param name="inset">
+    ///     Whether this record is an <c>inset</c> shadow, which is drawn inside the box rather than
+    ///     around it.
+    /// </param>
+    /// <param name="insetOffset">An inset shadow's offset, in pixels. Read only when it is one.</param>
+    /// <param name="insetSpread">
+    ///     How far an inset shadow's rectangle is shrunk from the box, in pixels. Read only when it is
+    ///     one.
+    /// </param>
     public UiShape(
         Vector2 half,
         float thickness,
@@ -137,7 +146,10 @@ public readonly record struct UiShape {
         Vector2 paintCentre = default,
         Vector2 paintExtent = default,
         Vector2 areaCentre = default,
-        Vector2 areaHalf = default
+        Vector2 areaHalf = default,
+        bool inset = false,
+        Vector2 insetOffset = default,
+        float insetSpread = 0f
     ) {
         // ⚠ The shape goes in the lane that was a zero-or-one gradient flag, and `Linear` is one, so
         // the sentinel the shader already tests — `size.w > 0` — keeps meaning exactly what it meant.
@@ -168,6 +180,18 @@ public readonly record struct UiShape {
         // a nine-lane record can be added to eight files one at a time.
         Paint = new Vector4(paintCentre.X, paintCentre.Y, paintExtent.X, paintExtent.Y);
         Area = new Vector4(areaCentre.X, areaCentre.Y, areaHalf.X, areaHalf.Y);
+
+        // ⚠ <b>Appended, which is the answer #279 could not find while it was looking for a lane to
+        // reuse.</b> Both sentinels it argued out are genuinely unsound — a negative blur cannot
+        // express `inset-shadow-2xs`, which is `inset 0 1px` with no blur at all, and `Stops.x` is the
+        // lane reuse this repository keeps finding bugs in. The third option is the one this record
+        // has taken every time it grew: a new lane whose all-zero is what every writer before it
+        // meant. An outer shadow writes `(0, 0, 0, 0)` and a stale shader reading it takes the branch
+        // it already took.
+        // ⚠ The flag is a lane of its own rather than "the offset or the spread is non-zero", for the
+        // reason `hasVia` is: `inset 0 0 4px` is a legal centred inner shadow, and a sentinel would
+        // erase it.
+        Inset = new Vector4(insetOffset.X, insetOffset.Y, insetSpread, inset ? 1f : 0f);
     }
 
     /// <summary>Half width, half height, border thickness, and which family of gradient.</summary>
@@ -199,4 +223,17 @@ public readonly record struct UiShape {
     ///     zero means the tile is the box.
     /// </summary>
     public Vector4 Area { get; }
+
+    /// <summary>
+    ///     An inset shadow's offset and spread, then whether it is one at all. All zero is every box
+    ///     and every outer shadow.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>An inner shadow is two rectangles in one draw, which is why an offset that is already
+    ///     in the geometry has to be in the record as well.</b> An outer shadow puts its offset in the
+    ///     quad's position and needs no second rectangle; an inner one is the region between the box
+    ///     and a rectangle offset and shrunk inside it, so the quad is the box — for the clip — and
+    ///     these three numbers are the other rectangle.
+    /// </remarks>
+    public Vector4 Inset { get; }
 }

@@ -562,7 +562,10 @@ public class StyleDiagnosticDrainTests {
     // reach. The row is kept on that spelling rather than deleted, because "one item of a list is
     // unreadable, so the whole declaration is" is still the case worth a warning.
     [InlineData("box-shadow: 0px 4px 12px #000000, 0 0 0 calc(100% - 10px) #ff0000")]
-    [InlineData("box-shadow: inset 0px 4px 12px #000000")]
+    // ⚠ The `inset` row that used to stand here is drawn now, so what stands in for "a keyword this
+    // cannot draw" is a keyword that is genuinely neither of the two the property takes. Deleting the
+    // row instead would have left the keyword arm of `TryShadow` with no fixture at all.
+    [InlineData("box-shadow: outset 0px 4px 12px #000000")]
     public void A_shadow_the_draw_list_cannot_paint_reaches_the_log(string declaration) {
         var (document, sink) = Watched();
         using var owned = document;

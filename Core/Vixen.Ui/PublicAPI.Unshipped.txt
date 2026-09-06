@@ -171,6 +171,12 @@ Vixen.Ui.BoxStyle.GradientVia.init -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.BoxStyle.HasGradient.get -> bool
 Vixen.Ui.BoxStyle.HasVia.get -> bool
 Vixen.Ui.BoxStyle.HasVia.init -> bool
+Vixen.Ui.BoxStyle.Inset.get -> bool
+Vixen.Ui.BoxStyle.Inset.init -> bool
+Vixen.Ui.BoxStyle.InsetOffset.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.BoxStyle.InsetOffset.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.BoxStyle.InsetSpread.get -> float
+Vixen.Ui.BoxStyle.InsetSpread.init -> float
 Vixen.Ui.BoxStyle.PaintCentre.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.BoxStyle.PaintCentre.init -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.BoxStyle.PaintExtent.get -> Vixen.Core.Mathematics.Vector2
@@ -1115,6 +1121,7 @@ Vixen.Ui.Rendering.UiShape : System.IEquatable<Vixen.Ui.Rendering.UiShape>
 Vixen.Ui.Rendering.UiShape.Area.get -> Vixen.Core.Mathematics.Vector4
 Vixen.Ui.Rendering.UiShape.Axis.get -> Vixen.Core.Mathematics.Vector4
 Vixen.Ui.Rendering.UiShape.End.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Ui.Rendering.UiShape.Inset.get -> Vixen.Core.Mathematics.Vector4
 Vixen.Ui.Rendering.UiShape.Mid.get -> Vixen.Core.Mathematics.Vector4
 Vixen.Ui.Rendering.UiShape.Paint.get -> Vixen.Core.Mathematics.Vector4
 Vixen.Ui.Rendering.UiShape.RadiiX.get -> Vixen.Core.Mathematics.Vector4
@@ -1123,7 +1130,7 @@ Vixen.Ui.Rendering.UiShape.Size.get -> Vixen.Core.Mathematics.Vector4
 Vixen.Ui.Rendering.UiShape.Stops.get -> Vixen.Core.Mathematics.Vector4
 Vixen.Ui.Rendering.UiShape.UiShape() -> void
 Vixen.Ui.Rendering.UiShape.UiShape(Vixen.Core.Mathematics.Vector2 half, float thickness, Vixen.Ui.CornerRadii corners, Vixen.Core.Mathematics.Color4 gradientEnd, Vixen.Core.Mathematics.Vector2 gradientAxis, float blur = 0) -> void
-Vixen.Ui.Rendering.UiShape.UiShape(Vixen.Core.Mathematics.Vector2 half, float thickness, Vixen.Ui.CornerRadii corners, Vixen.Ui.GradientShape shape, Vixen.Ui.GradientSpace space, Vixen.Core.Mathematics.Vector2 gradientAxis, Vixen.Core.Mathematics.Color4 gradientEnd, Vixen.Core.Mathematics.Color4 gradientVia, bool hasVia, Vixen.Ui.GradientStops stops, float blur = 0, Vixen.Core.Mathematics.Vector2 paintCentre = default(Vixen.Core.Mathematics.Vector2), Vixen.Core.Mathematics.Vector2 paintExtent = default(Vixen.Core.Mathematics.Vector2), Vixen.Core.Mathematics.Vector2 areaCentre = default(Vixen.Core.Mathematics.Vector2), Vixen.Core.Mathematics.Vector2 areaHalf = default(Vixen.Core.Mathematics.Vector2)) -> void
+Vixen.Ui.Rendering.UiShape.UiShape(Vixen.Core.Mathematics.Vector2 half, float thickness, Vixen.Ui.CornerRadii corners, Vixen.Ui.GradientShape shape, Vixen.Ui.GradientSpace space, Vixen.Core.Mathematics.Vector2 gradientAxis, Vixen.Core.Mathematics.Color4 gradientEnd, Vixen.Core.Mathematics.Color4 gradientVia, bool hasVia, Vixen.Ui.GradientStops stops, float blur = 0, Vixen.Core.Mathematics.Vector2 paintCentre = default(Vixen.Core.Mathematics.Vector2), Vixen.Core.Mathematics.Vector2 paintExtent = default(Vixen.Core.Mathematics.Vector2), Vixen.Core.Mathematics.Vector2 areaCentre = default(Vixen.Core.Mathematics.Vector2), Vixen.Core.Mathematics.Vector2 areaHalf = default(Vixen.Core.Mathematics.Vector2), bool inset = false, Vixen.Core.Mathematics.Vector2 insetOffset = default(Vixen.Core.Mathematics.Vector2), float insetSpread = 0) -> void
 Vixen.Ui.Rendering.UiTransform -> readonly struct
 Vixen.Ui.Rendering.UiTransform : System.IEquatable<Vixen.Ui.Rendering.UiTransform>
 Vixen.Ui.Rendering.UiTransform.About(Vixen.Core.Mathematics.Vector2 origin) -> Vixen.Ui.Rendering.UiTransform

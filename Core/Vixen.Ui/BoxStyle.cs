@@ -200,6 +200,27 @@ public readonly record struct BoxStyle(CornerRadii Corners, Color4 GradientEnd, 
     /// </remarks>
     public Vector2 AreaHalf { get; init; }
 
+    /// <summary>Whether this box is an <c>inset</c> shadow, drawn inside the box rather than around it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A flag of its own rather than "the offset or the spread is set", for
+    ///     <see cref="HasVia" />'s reason.</b> <c>inset 0 0 4px</c> is a legal centred inner shadow
+    ///     with a zero offset and a zero spread, and a sentinel would erase exactly the declaration
+    ///     <c>inset-shadow-*</c> is written as.
+    /// </remarks>
+    public bool Inset { get; init; }
+
+    /// <summary>An inset shadow's offset, in pixels. Read only when <see cref="Inset" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An outer shadow puts its offset in the quad and needs nothing here; an inner one
+    ///     cannot.</b> An inner shadow is the region between the border box and a rectangle offset and
+    ///     shrunk inside it — two rectangles in one draw — so the quad has to be the box, for the
+    ///     clip, and the other rectangle has to be described.
+    /// </remarks>
+    public Vector2 InsetOffset { get; init; }
+
+    /// <summary>How far an inset shadow's rectangle shrinks from the box. Read only when <see cref="Inset" />.</summary>
+    public float InsetSpread { get; init; }
+
     /// <summary>Corners and nothing else.</summary>
     /// <param name="corners">The radii.</param>
     /// <returns>The style.</returns>

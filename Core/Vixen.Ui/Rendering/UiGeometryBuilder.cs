@@ -1262,11 +1262,17 @@ public sealed class UiGeometryBuilder {
 
         var half = new Vector2(command.Width / 2, command.Height / 2);
         var blur = MathF.Max(command.Thickness, 0f);
-        var margin = blur * 2f;
 
         var style = command.HasStyle && (uint) command.Offset < (uint) list.Boxes.Count
             ? list.Boxes[command.Offset]
             : BoxStyle.Rounded(CornerRadii.Uniform(command.Radius));
+
+        // ⚠ <b>An inner shadow has no margin, and that is not an optimisation.</b> An outer shadow's
+        // ink spreads outward, so the quad is grown by twice the blur to hold it. An inner one is
+        // clipped to the border box by definition — CSS Backgrounds 3 § 7.1.1 paints it inside the
+        // padding box — so a grown quad would be blur-wide bands of nothing around every element that
+        // has one, each of them a fragment the rasteriser still runs.
+        var margin = style.Inset ? 0f : blur * 2f;
 
         // Thickness zero: a shadow is a fill, and a border's band would hollow it out.
         shapes.Add(Shape(half, 0f, style, blur));
@@ -1819,7 +1825,10 @@ public sealed class UiGeometryBuilder {
             style.PaintCentre,
             style.PaintExtent,
             style.AreaCentre,
-            style.AreaHalf
+            style.AreaHalf,
+            style.Inset,
+            style.InsetOffset,
+            style.InsetSpread
         );
 
     /// <summary>A gradient's far colour, brought into the surface's gamut — if there is a gradient.</summary>
