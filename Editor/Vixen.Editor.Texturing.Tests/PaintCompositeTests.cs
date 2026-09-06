@@ -45,8 +45,9 @@ public class PaintCompositeTests {
         PaintTarget target = new(new(512, 512), PaintCoverage.Everywhere(512, 512), stack);
         var session = PaintSession.Begin(target, PaintStrokeTests.Hard(16f), Opaque);
 
-        // The composite's first resolve is the whole atlas, once, and it is part of the stroke's
-        // start rather than of a stamp. Measured from after it, for that reason.
+        // ⚠ Zero at pointer-down since #853 — the constructor's whole-atlas pass is gone — but still
+        // read rather than assumed, because what this test is about is the *delta* one stamp makes
+        // and a baseline it took on faith would be the one thing it could not see change.
         var start = session.Composite.TexelsResolved;
 
         session.Move(new(256f, 256f));

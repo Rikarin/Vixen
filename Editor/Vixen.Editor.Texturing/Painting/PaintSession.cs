@@ -15,7 +15,19 @@ namespace Vixen.Editor.Texturing.Painting;
 ///     gutter the atlas was packed with: a dilation shorter than the packer's spacing leaves the
 ///     outermost gutter texels unpainted, which is the hairline at a higher mip rather than at mip 1.
 /// </param>
-sealed record PaintTarget(PaintImage Layer, PaintCoverage Coverage, IPaintStack Stack, int Gutter = 4);
+/// <param name="Shown">
+///     The picture the view is already displaying, or <see langword="null" />.
+///     <see cref="PaintComposite.Result" /> is seeded from it by a copy, which is what stops
+///     pointer-down being a full-atlas source-over —
+///     <a href="https://github.com/Rikarin/Vixen/issues/853">#853</a>.
+/// </param>
+sealed record PaintTarget(
+    PaintImage Layer,
+    PaintCoverage Coverage,
+    IPaintStack Stack,
+    int Gutter = 4,
+    PaintImage? Shown = null
+);
 
 /// <summary>
 ///     One drag, from pointer-down to pointer-up: the seam a viewport drives painting through.
@@ -66,6 +78,10 @@ sealed record PaintTarget(PaintImage Layer, PaintCoverage Coverage, IPaintStack 
 sealed class PaintSession {
     readonly PaintTarget target;
     readonly List<PaintStroke> strokes = [];
+
+    /// <summary>Each stamp's own rectangle, for the move being processed. Reused, never handed out.</summary>
+    readonly List<PaintRect> regions = [];
+
     readonly PaintBrush brush;
     readonly uint colour;
     readonly float smoothing;
@@ -78,7 +94,7 @@ sealed class PaintSession {
         this.smoothing = smoothing;
         this.seed = seed;
 
-        Composite = new(target.Stack, target.Layer);
+        Composite = new(target.Stack, target.Layer, target.Shown);
     }
 
     /// <summary>The stack, evaluated once, with the painted layer between its halves.</summary>
@@ -102,8 +118,12 @@ sealed class PaintSession {
 
     /// <summary>How many texel weights the drag has evaluated, mirrors included.</summary>
     /// <remarks>
-    ///     Exit criterion 8's counter, on the surface a test drives. See
-    ///     <see cref="PaintStroke.WeightsEvaluated" /> for why it is a counter and not a stopwatch.
+    ///     ⚠ <b>Half of exit criterion 8's work and not all of it</b> — see
+    ///     <see cref="TexelsScanned" />, which is the one to gate on. A weight is evaluated only
+    ///     inside a stamp's footprint and only on a covered texel, so this is the number that stays
+    ///     comparable across atlas sizes and layer counts, and it is the wrong number to call the
+    ///     cost. See <see cref="PaintStroke.WeightsEvaluated" /> for why either is a counter rather
+    ///     than a stopwatch.
     /// </remarks>
     public long WeightsEvaluated {
         get {
@@ -111,6 +131,27 @@ sealed class PaintSession {
 
             foreach (var stroke in strokes) {
                 total += stroke.WeightsEvaluated;
+            }
+
+            return total;
+        }
+    }
+
+    /// <summary>How many texels the drag's two loops have looked at, mirrors included.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What exit criterion 8 should have been gated on, and
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/871">#871</a> is why.</b>
+    ///     <see cref="WeightsEvaluated" /> counts the weight function's calls, which happen only
+    ///     inside a stamp's footprint and only where an island covers the texel; the dilation scan
+    ///     beside it is the larger of the two and was in no counter at all.
+    ///     <see cref="PaintStroke.TexelsScanned" /> says what the closed form is and by how much.
+    /// </remarks>
+    public long TexelsScanned {
+        get {
+            var total = 0L;
+
+            foreach (var stroke in strokes) {
+                total += stroke.TexelsScanned;
             }
 
             return total;
@@ -185,13 +226,42 @@ sealed class PaintSession {
             );
         }
 
+        regions.Clear();
+
         var dirty = PaintRect.Empty;
 
         for (var index = 0; index < positions.Length; index++) {
-            dirty = dirty.Union(strokes[index].MoveTo(positions[index]));
+            dirty = dirty.Union(strokes[index].MoveTo(positions[index], regions));
         }
 
-        Composite.Resolve(dirty);
+        // ⚠ The regions and not their union — #871. Two mirrored paths on opposite sides of the
+        // atlas have a bounding box spanning it, so resolving the union made symmetry, the feature
+        // the plural exists for, recomposite roughly the whole atlas per pointer move.
+        Composite.Resolve(regions);
+
+        return dirty;
+    }
+
+    /// <summary>Pointer-move, with symmetry, telling a caller each stamp's own rectangle.</summary>
+    /// <param name="positions">Where the pointer is, in texels — the hit, then one per mirror.</param>
+    /// <param name="dirtied">
+    ///     Cleared and filled with one rectangle per stamp this move laid down, mirrors included.
+    /// </param>
+    /// <returns>Their union.</returns>
+    /// <remarks>
+    ///     ⚠ <b>For the caller that re-uploads, which has the composite's problem one layer up.</b>
+    ///     A view given the union alone re-uploads the bounding box of both mirrors, which is the
+    ///     cost <see cref="PaintComposite.Resolve(IReadOnlyList{PaintRect})" /> was just taken off
+    ///     the composite. The union is still returned, because a small stroke is one rectangle and
+    ///     one upload is cheaper than two.
+    /// </remarks>
+    public PaintRect MoveAll(ReadOnlySpan<Vector2> positions, List<PaintRect> dirtied) {
+        ArgumentNullException.ThrowIfNull(dirtied);
+
+        var dirty = MoveAll(positions);
+
+        dirtied.Clear();
+        dirtied.AddRange(regions);
 
         return dirty;
     }
