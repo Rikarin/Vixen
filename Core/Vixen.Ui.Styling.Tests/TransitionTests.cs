@@ -259,6 +259,138 @@ public class TransitionTests {
         Assert.Same(style, animator.Apply(element, style, 0.5f));
     }
 
+    /// <summary>⚠ A discrete pair does not transition, which is what <c>normal</c> means.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The engine used to run one, and the wrong behaviour was a transition rather than
+    ///         a missing one — which is why nothing noticed.</b> <c>Observe</c> skipped a property
+    ///         only when an end was unknown or the two ends were equal, and never asked
+    ///         <see cref="StyleValue.CanInterpolate" />; <c>StyleValue.Lerp</c>'s non-interpolable
+    ///         arm then flipped at the halfway mark. So <c>display: none</c> → <c>display: flex</c>
+    ///         under <c>transition: all 1s</c> spent half a second with the box still gone, where a
+    ///         browser shows it on the first frame. Transitions 2 § 3 makes <c>normal</c> the initial
+    ///         value of <c>transition-behavior</c>, and <c>normal</c> means <i>not transitionable at
+    ///         all</i> rather than "transitions instantly".
+    ///     </para>
+    ///     <para>
+    ///         The measured numbers are the issue's own: <c>RunningCount == 1</c>, and the keyword
+    ///         <c>none</c> a quarter of the way through.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_discrete_property_takes_its_new_value_at_once() {
+        var fixture = TransitionFixture("""
+            .a { display: none; transition: all 1s linear }
+            .a.shown { display: flex }
+            """);
+
+        var element = fixture.Tree.CreateElement("div", classNames: ["a"]);
+        var animator = Animator(fixture);
+
+        var hidden = fixture.Engine.Resolver.Resolve(fixture.Tree, element);
+        animator.Observe(element, null, hidden, 0f);
+
+        fixture.Tree.AddClass(element, "shown");
+        animator.Observe(element, hidden, fixture.Engine.Resolver.Resolve(fixture.Tree, element), 0f);
+
+        Assert.Equal(0, animator.RunningCount);
+        Assert.True(animator.IsIdle);
+        Assert.False(animator.TryGetCurrent(element, fixture.Engine.Properties.Lookup("display"), 0.25f, out _));
+    }
+
+    /// <summary>And <c>allow-discrete</c> lets it run, flipping at the halfway mark.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half that says the gate is a gate and not a deletion.</b> A change that simply
+    ///     stopped starting transitions for non-interpolable pairs passes the test above and fails
+    ///     this one — and that distinction is the whole of what this property is for. The flip at
+    ///     0.5 needed nothing new: <c>StyleValue.Lerp</c> has always interpolated a discrete pair
+    ///     that way, and what was missing was permission to reach it. The parity ledger's row for
+    ///     the utility family said the family "lands with a third arm in <c>Lerp</c> that takes the
+    ///     behaviour", and that is refuted by these two rows sharing one <c>Lerp</c>.
+    /// </remarks>
+    [Fact]
+    public void A_discrete_property_told_to_allow_it_transitions_and_flips_halfway() {
+        var fixture = TransitionFixture("""
+            .a { display: none; transition: all 1s linear allow-discrete }
+            .a.shown { display: flex }
+            """);
+
+        var element = fixture.Tree.CreateElement("div", classNames: ["a"]);
+        var animator = Animator(fixture);
+
+        var hidden = fixture.Engine.Resolver.Resolve(fixture.Tree, element);
+        animator.Observe(element, null, hidden, 0f);
+
+        fixture.Tree.AddClass(element, "shown");
+        animator.Observe(element, hidden, fixture.Engine.Resolver.Resolve(fixture.Tree, element), 0f);
+
+        Assert.Equal(1, animator.RunningCount);
+
+        var display = fixture.Engine.Properties.Lookup("display");
+
+        Assert.True(animator.TryGetCurrent(element, display, 0.25f, out var quarter));
+        Assert.Equal("none", fixture.Engine.Names.NameOf(quarter.Keyword));
+
+        Assert.True(animator.TryGetCurrent(element, display, 0.75f, out var threeQuarters));
+        Assert.Equal("flex", fixture.Engine.Names.NameOf(threeQuarters.Keyword));
+    }
+
+    /// <summary>The keyword reaches the parser as a component of the shorthand rather than a name.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>allow-discrete</c> is an unrecognised word to a loop that decides by what a token
+    ///     parses as, and every unrecognised word in that grammar is the property.</b> Without its
+    ///     own arm it would have been interned as a property called <c>allow-discrete</c>, giving a
+    ///     spec that matches a longhand nothing writes — a transition that silently covers nothing,
+    ///     which is indistinguishable from one that works until somebody changes the value.
+    /// </remarks>
+    [Fact]
+    public void The_behaviour_keyword_is_not_read_as_a_property_name() {
+        var properties = new NameTable();
+        var parser = new TransitionParser(properties);
+        var specs = new List<TransitionSpec>();
+
+        Assert.True(parser.TryParseShorthand("display 1s allow-discrete", specs));
+
+        var spec = Assert.Single(specs);
+
+        Assert.Equal(properties.Lookup("display"), spec.Property);
+        Assert.True(spec.AllowDiscrete);
+        Assert.Equal(1f, spec.Duration, Tolerance);
+
+        // And `normal` is the initial value written out, which has to be read and discarded rather
+        // than interned for the same reason.
+        specs.Clear();
+        Assert.True(parser.TryParseShorthand("display 1s normal", specs));
+        Assert.Equal(properties.Lookup("display"), specs[0].Property);
+        Assert.False(specs[0].AllowDiscrete);
+    }
+
+    /// <summary>The longhand says the same thing, for the sheets ExCSS did expand.</summary>
+    /// <remarks>
+    ///     ⚠ Whether the longhands exist depends on whether the author used a value ExCSS could
+    ///     read, which is the split this whole parser exists for — so the gate has to be reachable
+    ///     from both sides or `transition-behavior` would work only beside a `spring()`.
+    /// </remarks>
+    [Fact]
+    public void The_longhand_reaches_the_gate_too() {
+        var fixture = TransitionFixture("""
+            .a { display: none; transition-property: display; transition-duration: 1s;
+                 transition-behavior: allow-discrete }
+            .a.shown { display: flex }
+            """);
+
+        var element = fixture.Tree.CreateElement("div", classNames: ["a"]);
+        var animator = Animator(fixture);
+
+        var hidden = fixture.Engine.Resolver.Resolve(fixture.Tree, element);
+        animator.Observe(element, null, hidden, 0f);
+
+        fixture.Tree.AddClass(element, "shown");
+        animator.Observe(element, hidden, fixture.Engine.Resolver.Resolve(fixture.Tree, element), 0f);
+
+        Assert.Equal(1, animator.RunningCount);
+    }
+
     static CascadeFixture TransitionFixture(string css) {
         var fixture = new CascadeFixture();
         fixture.Load(css);

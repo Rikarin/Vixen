@@ -676,6 +676,8 @@ Vixen.Ui.Styling.TransitionParser.TransitionParser(Vixen.Ui.Styling.NameTable pr
 Vixen.Ui.Styling.TransitionParser.TryParseShorthand(string text, System.Collections.Generic.List<Vixen.Ui.Styling.TransitionSpec> specs) -> bool
 Vixen.Ui.Styling.TransitionSpec -> readonly struct
 Vixen.Ui.Styling.TransitionSpec : System.IEquatable<Vixen.Ui.Styling.TransitionSpec>
+Vixen.Ui.Styling.TransitionSpec.AllowDiscrete.get -> bool
+Vixen.Ui.Styling.TransitionSpec.AllowDiscrete.init -> bool
 Vixen.Ui.Styling.TransitionSpec.Delay.get -> float
 Vixen.Ui.Styling.TransitionSpec.Delay.init -> float
 Vixen.Ui.Styling.TransitionSpec.Duration.get -> float
@@ -685,7 +687,7 @@ Vixen.Ui.Styling.TransitionSpec.Property.init -> int
 Vixen.Ui.Styling.TransitionSpec.Timing.get -> Vixen.Ui.Styling.TimingFunction
 Vixen.Ui.Styling.TransitionSpec.Timing.init -> Vixen.Ui.Styling.TimingFunction
 Vixen.Ui.Styling.TransitionSpec.TransitionSpec() -> void
-Vixen.Ui.Styling.TransitionSpec.TransitionSpec(int Property, float Duration, float Delay, Vixen.Ui.Styling.TimingFunction Timing) -> void
+Vixen.Ui.Styling.TransitionSpec.TransitionSpec(int Property, float Duration, float Delay, Vixen.Ui.Styling.TimingFunction Timing, bool AllowDiscrete = false) -> void
 Vixen.Ui.Styling.VarSubstitution -> static class
 const Vixen.Ui.Styling.CascadeLayers.Unlayered = -1 -> int
 const Vixen.Ui.Styling.CascadeRanks.Animation = 50 -> int

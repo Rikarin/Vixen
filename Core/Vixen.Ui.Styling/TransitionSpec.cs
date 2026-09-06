@@ -10,7 +10,27 @@ namespace Vixen.Ui.Styling;
 /// <param name="Duration">How long, in seconds.</param>
 /// <param name="Delay">How long to wait first, in seconds.</param>
 /// <param name="Timing">The easing.</param>
-public readonly record struct TransitionSpec(int Property, float Duration, float Delay, TimingFunction Timing);
+/// <param name="AllowDiscrete">
+///     Whether a property with no midpoint may transition at all — <c>transition-behavior:
+///     allow-discrete</c>. False is CSS's initial value and, since this parameter landed, this
+///     engine's.
+/// </param>
+/// <remarks>
+///     ⚠ <b>The default was the opposite of CSS's until <paramref name="AllowDiscrete" /> existed,
+///     and nothing said so.</b> <c>Animator.Observe</c> started a transition for any pair of unequal
+///     known values and never asked <see cref="StyleValue.CanInterpolate" />, so
+///     <c>transition: all 1s</c> over <c>display: none</c> → <c>display: flex</c> ran for a second
+///     and flipped at the halfway mark, where a browser shows <c>flex</c> on the first frame.
+///     Transitions 2 § 3 makes <c>normal</c> the initial value and <c>normal</c> means <i>not
+///     transitionable</i> rather than "transitions instantly".
+/// </remarks>
+public readonly record struct TransitionSpec(
+    int Property,
+    float Duration,
+    float Delay,
+    TimingFunction Timing,
+    bool AllowDiscrete = false
+);
 
 /// <summary>Reads <c>transition</c>, <c>animation</c> and the timing-function grammar.</summary>
 /// <remarks>
@@ -115,9 +135,25 @@ public sealed class TransitionParser {
         var timing = TimingFunction.Ease;
         float? duration = null;
         float? delay = null;
+        var allowDiscrete = false;
 
         foreach (var token in Tokens(text)) {
             var part = text[token];
+
+            // ⚠ Before the property arm below, which would otherwise intern `allow-discrete` as a
+            // property name and produce a spec matching a longhand nothing has. The shorthand's
+            // grammar has no ambiguity here — Transitions 2 lists the behaviour keyword as its own
+            // component — but this loop decides by what a token *parses as*, and every unrecognised
+            // word falls through to the property.
+            if (part.Equals("allow-discrete", StringComparison.OrdinalIgnoreCase)) {
+                allowDiscrete = true;
+                continue;
+            }
+
+            if (part.Equals("normal", StringComparison.OrdinalIgnoreCase)) {
+                allowDiscrete = false;
+                continue;
+            }
 
             if (TryDuration(part, out var seconds)) {
                 // CSS's rule, and it is positional rather than named: the first time is the
@@ -149,7 +185,7 @@ public sealed class TransitionParser {
                 : properties.Intern(part.ToString());
         }
 
-        spec = new TransitionSpec(property, duration ?? 0f, delay ?? 0f, timing);
+        spec = new TransitionSpec(property, duration ?? 0f, delay ?? 0f, timing, allowDiscrete);
         return true;
     }
 
