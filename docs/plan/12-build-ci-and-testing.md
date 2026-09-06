@@ -146,6 +146,18 @@ form parses **true**. So the target would have run no benchmark at all, and
 the symptom and not the cause. Five rounds of this issue recorded the baseline as blocked on hardware;
 it was also blocked on this.
 
+⚠️ **Nothing prevented the next one, so `BuildArgumentQuotingTests` does.** `build/_build.csproj` is
+outside the solution and has no test project, which is why the only call site in `build/` that broke
+the rule was in the only target nobody had run. The check is over the *syntax* of `build/**/*.cs` and
+holds both spellings of the same trap: `SetApplicationArguments` may not be handed a string with a
+space in the text the author typed (interpolation holes are exactly what Nuke quotes correctly, so
+they are ignored), and `DotNet(…)` — whose `ArgumentStringHandler` quotes the holes and leaves the
+literal text alone — may only be handed a string written at the call site, never one built into a
+variable first. ⚠️ Both sabotages are the historical defect itself: restoring `Benchmark`'s single
+interpolated string, and hoisting `CheckWhitespace`'s command line into a local, each go red naming
+the file and line. It lives in `Tools/Vixen.ApiCheck.Tests` beside `AotProbeProjectFileTests` and
+`CoverageReportTests` — the two other build files that acquired a fixture the same way.
+
 **Still owed** ([#339](https://github.com/Rikarin/Vixen/issues/339)): the baseline itself, taken on
 hardware that will run the suite again — and now, first, one real `Benchmark` run to confirm the
 arguments reach BenchmarkDotNet end to end, which needs `build.sh`; and the `benchmark` CI job, which
