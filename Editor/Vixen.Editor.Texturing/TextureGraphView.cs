@@ -83,9 +83,10 @@ sealed class TextureGraphView {
 
         Canvas = left.Add<NodeGraphView>();
 
-        // ⚠ Inline, because `node-graph { flex-grow: 1 }` is in `NodeGraphTheme.vcss` and
-        // `NodeGraphTheme.Install` is called by one test fixture and by no editor host —
-        // <a href="https://github.com/Rikarin/Vixen/issues/917">#917</a>. The other three graph
+        // ⚠ Inline, and it is belt and braces rather than the only thing holding the graph open.
+        // `node-graph { flex-grow: 1 }` is in `NodeGraphTheme.vcss`, which the editor host installs
+        // as of #917 — but this line predates that and stays, because a plugin's panel should not
+        // depend on a host stylesheet it does not own. The other three graph
         // panels get it from `AssetEditorTheme.vcss`'s `<x>-editor > node-graph` rules, and no rule
         // anywhere names this one: the canvas measured 990×0 in a shell with the panel open, which
         // is a graph an author can neither see nor click, let alone double-click a compound in.
@@ -170,6 +171,16 @@ sealed class TextureGraphView {
     public void Show(TextureGraphDocument? document, TexturePreviewBlocker blocker) =>
         Show(document, new TextureGraphPicture(null, TexturePreview.Describe(blocker)));
 
+    /// <summary>Set by a caller that compiled before showing, to say the compile republished.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Cleared by the next <see cref="Show" />, so it cannot answer twice.</b>
+    ///     <c>TextureGraphDocument.Republish</c> is a one-shot: it returns true once per change and
+    ///     false afterwards. Anything that compiles — which is what producing a picture means —
+    ///     consumes it, so a caller that produces the picture first has to carry the answer across
+    ///     rather than let this view ask a question already answered.
+    /// </remarks>
+    public bool Republished { get; set; }
+
     /// <summary>Puts a graph on the canvas, with whatever evaluating it produced.</summary>
     /// <param name="document">The graph, or <see langword="null" /> for none.</param>
     /// <param name="picture">What the evaluation produced, or <see langword="null" /> for nothing.</param>
@@ -232,7 +243,15 @@ sealed class TextureGraphView {
         // ⚠ Before the registry is read, because a republish replaces it rather than adding to it —
         // #803. A panel that read the old one would offer an author the menu a compound had before
         // they edited it, and go on doing so until the graph was reopened.
-        var republished = document.Republish();
+        //
+        // ⚠ **And `Republished` is what a caller who compiled first must tell us**, because
+        // `TextureGraphDocument.Compile` republishes too. A caller that writes
+        // `Show(document, preview.Evaluate(document))` has already consumed the stale flag by the
+        // time this line runs — C# evaluates the argument first — so asking here answered false on
+        // the one path that matters and `Resettle` was unreachable in the real editor.
+        var republished = Republished || document.Republish();
+
+        Republished = false;
 
         // ⚠ The compounds that would not read, and this is the only place the loss is visible —
         // #803. `TextureCompoundLibrary.Publish` reports and skips rather than throwing, so that one

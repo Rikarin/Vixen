@@ -648,12 +648,22 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
         stack.Stack.Execute(command);
 
-        // ⚠ One call and not two. `RefreshStack` now ends in `RefreshPaint` — binding a mesh is an
-        // edit in the rows whose effect is entirely on the paint pane — and asking twice at
-        // pointer-up would re-open the surface and re-upload the channel a second time, which at 4K
-        // is 67 MB per stroke bought by a duplicated line.
+        // ⚠ Both, because they answer to different things. `RefreshStack` rebuilds the map from the
+        // stack, and it refreshes the paint pane only when the *binding* moved — the model, the
+        // mesh, the layer or the channel — since it also runs once per frame of an opacity drag. A
+        // stroke moves none of those and changes the pixels, so the pane is asked directly here.
         RefreshStack();
+        RefreshPaint();
     }
+
+    /// <summary>What the paint pane was last built for: the model, the mesh, the layer and the channel.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A layer-stack edit refreshes that pane only when one of these four moved.</b>
+    ///     <c>RefreshStack</c> runs from <c>LayerStackView.Edited</c>, which an opacity slider raises
+    ///     once per frame — and rebuilding the pane reads a <c>.vxpaint</c> off the disk and uploads a
+    ///     channel. Nothing else an artist can change in those rows alters what that pane shows.
+    /// </remarks>
+    (string Model, string Mesh, string Layer, string Channel) paintBinding;
 
     /// <summary>Puts the painted layer's own pixels in the paint pane.</summary>
     /// <remarks>
@@ -888,6 +898,12 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         // graph with a message about the window not being up yet. `LayerStackPreview` was moved off
         // that order first, and the fallback below is the state where there is no preview at all,
         // which is a host publishing no graphics rather than the editor.
+        // ⚠ Asked before the picture is made, and handed across. Producing the picture compiles,
+        // and compiling republishes — so a `Show(document, Evaluate(document))` written the obvious
+        // way consumes the stale flag in its own argument list and leaves the view's re-seat of an
+        // author who is inside a republished compound unreachable.
+        view.Republished = document.Republish();
+
         view.Show(
             document,
             preview?.Evaluate(document)
@@ -937,12 +953,21 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             )
         );
 
-        // ⚠ And the paint pane, because binding a mesh is an edit made in these rows whose whole
-        // effect is on that pane: the islands under the brush and the texels it will accept. The
-        // call is cheap when nothing changed — the mesh is cached on its key and the islands on
-        // theirs — and without it the artist binds a model and the pane says "names no model" until
-        // something else happens to refresh it.
-        RefreshPaint();
+        // ⚠ And the paint pane — but only when the binding moved, which is the whole correction.
+        // This runs from `stackView.Edited`, and an opacity slider raises that once per frame of a
+        // drag; `RefreshPaint` opens the layer's `.vxpaint` off the disk and uploads a channel, so
+        // calling it unconditionally put a 64 MB read and a 64 MB upload on the slider's per-frame
+        // path. The mesh and the islands are cached on their keys, which is what the first version
+        // of this comment relied on — but `PaintSurface.Open` and `Show` are not, and they are the
+        // expensive half. What an edit to these rows can change for that pane is which model, which
+        // mesh and which layer, so that triple is what is compared.
+        var binding = (stack.Document.Model, stack.Document.Sets[0].Mesh, tool.LayerId, tool.Channel);
+
+        if (binding != paintBinding) {
+            paintBinding = binding;
+
+            RefreshPaint();
+        }
     }
 
     /// <summary>Opens the selected <c>.vxtexgraph</c> on the canvas.</summary>

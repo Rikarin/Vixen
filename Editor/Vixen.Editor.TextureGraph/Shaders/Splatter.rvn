@@ -369,6 +369,14 @@ shader Splatter {
         // The premultiplied resolve below is what a straight pair means — `Σ(cᵢ·αᵢ) / Σαᵢ` for the
         // colour, the plain mean for the coverage — and at `samples == 1` it is the identity.
         //
+        // ⚠ **Under `alphaCoverage == 0` that `α` is the colour's own luminance**, because that is
+        // what `Coverage` returns there — so this is a luminance-weighted mean rather than a box
+        // mean, and a minified greyscale pattern resolves brighter than the pattern. Whether that is
+        // right is the kernel's coverage model rather than this filter's arithmetic: under
+        // luminance-as-coverage a dark texel *is* less covered and should weigh less. It is
+        // unasserted either way — the test that pins this fix passes `alphaCoverage: true` — and is
+        // recorded at <https://github.com/Rikarin/Vixen/issues/950> rather than settled here.
+        //
         // ⚠ **`add` keeps the unweighted mean and that is not an oversight.** Its running colour is a
         // *sum* of light rather than a colour over a backdrop, so an empty sub-sample contributes a
         // true zero; the header's closed form — the mean of the result is `count · scale²` times the

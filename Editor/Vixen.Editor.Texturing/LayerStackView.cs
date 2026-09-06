@@ -1123,7 +1123,17 @@ sealed class LayerStackView {
             }
 
             model.Value = bound.Length > 0 ? bound : NoMesh;
-            meshStatus.Text = bound.Length > 0 ? "" : "Unbound: no islands, no coverage map, no 3D paint.";
+
+            // ⚠ Three states rather than two, and `offered` is what separates the middle one. A
+            // stack whose model was renamed, moved or deleted still names it, so the picker shows
+            // the path and reads as bound — while every stroke is refused and no island is drawn.
+            // Saying nothing there is the same silence as saying nothing about an unbound stack.
+            meshStatus.Text = bound.Length == 0
+                ? "Unbound: no islands, no coverage map, no 3D paint."
+                : offered
+                    ? ""
+                    : $"'{bound}' is not in this project's assets, so there are no islands and every "
+                    + "stroke is refused. Re-bind it, or restore the file.";
         } finally {
             writing = false;
         }
