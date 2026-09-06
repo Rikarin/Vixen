@@ -134,11 +134,22 @@ built to prevent: for an assembly `CheckApi` has never heard of it prints *nothi
 is one project or fifty.
 
 So the skipped set is committed. [`build/ApiUncovered.txt`](../../build/ApiUncovered.txt) names every
-project in `Vixen.slnx` that packs and has no baseline — twenty-nine of them, twenty-one being the
+project in `Vixen.slnx` that packs and has no baseline — thirty-one of them, twenty-three being the
 `Editor/` assemblies of #641 — each with a reason token, and `ApiCoverageTests` holds the list to the
 tree in **both** directions: a project that starts packing with nobody checking it fails, and so does
 a line for a project that has since been covered, stopped packing, or been deleted. A stale exemption
-list is one more instrument reporting success.
+list is one more instrument reporting success. ⚠ It grew from twenty-nine by itself: the `TOOLING`
+profile sets no `IsPackable`, so two projects added under `Editor/` were packing before anybody had
+an opinion, and the assertion going red is the only reason it was noticed.
+
+⚠ **Two of those lines are not free to take the other option.** A `ProjectReference` without
+`PrivateAssets=all` becomes a `<dependency>` in the `.nuspec`, and `Vixen.Editor.Plugin` — the one
+Editor assembly named below — depends on `Vixen.Editor.Ui`, while `Vixen.Live.Realm` depends on
+`Tools/Vixen.App`. Un-packing either would leave a published package declaring a dependency that does
+not exist, so for those two "cover it or stop packing it" has one answer rather than two, and the
+strictest compatibility promise in the tree currently rests on an assembly approved by nobody.
+`ApiCoverageTests.APublishedDependencyOfACoveredPackageIsCoveredToo` holds that set at exactly those
+two.
 
 Two projects outside those folders are named explicitly, each because it makes a promise the folder
 rule would miss.

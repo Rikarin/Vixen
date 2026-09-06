@@ -80,7 +80,14 @@
 #                      ⚠ This refutes the Coverage section of Tools/Vixen.ApiCheck/README.md,
 #                      which says Tools/ "ships to nobody": seven Tools projects declare
 #                      IsPackable=true, and two of them are libraries a consumer compiles
-#                      against. (#749)
+#                      against. (#749) ⚠ The two are not one question: Vixen.App is a published
+#                      dependency of Vixen.Live.Realm, which IS covered, so only "cover it" is
+#                      available there. Vixen.ShaderCompiler is reachable from no covered package
+#                      — its consumers are two dotnet tools (which bundle rather than depend),
+#                      three samples, the tests, and Vixen.Editor.ShaderGraph and
+#                      .TextureGraph, both of which are `editor-undecided` above. So #749's second
+#                      half is downstream of #641: cover the Editor set and ShaderCompiler becomes
+#                      a published dependency too; un-pack it and ShaderCompiler is genuinely free.
 #
 #   tool-command-line  Packed with PackAsTool. What a `dotnet tool install` promises is a
 #                      command line and its arguments, not a type; the assembly is an
