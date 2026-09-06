@@ -396,12 +396,34 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         shell.Notifications.Show(
             mode == PaintToolMode.Paint ? "Painting" : "Not painting",
             NotificationSeverity.Info,
+            // ⚠ It names the layer the brush is really aimed at rather than "the first paint layer",
+            // which is what it said and is no longer true — a row's Select button writes
+            // `PaintTool.LayerId` (#910). It also names the *set*, because there is still no way to
+            // choose one and every path here takes `Sets[0]` — #927 asks for exactly this sentence
+            // where a selector is not built.
             mode == PaintToolMode.Paint
-                ? "The brush is " + tool.Describe()
-                + ". Drag in the Paint pane to lay a stroke into this stack's first paint layer. ⚠ The 3D "
-                + "projection path is still doc 48 § D13 (#574), so a drag in the scene paints nothing."
+                ? "The brush is " + tool.Describe() + ". Drag in the Paint pane to lay a stroke into "
+                + Aimed()
+                + ". ⚠ The 3D projection path is still doc 48 § D13 (#574), so a drag in the scene "
+                + "paints nothing."
                 : "A drag selects rows and pans the preview."
         );
+    }
+
+    /// <summary>Which set and which layer a drag would reach, as a person reads it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The set is named even though it cannot be chosen, and that is the point of naming
+    ///     it.</b> <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>: every path in this
+    ///     plugin takes <c>Sets[0]</c> and the messages read as though one had been picked, so a
+    ///     multi-set stack paints into the first one and says nothing about it. Saying which is the
+    ///     honest half of the fix; the selector is the other and is not built.
+    /// </remarks>
+    string Aimed() {
+        var set = stack?.Document.Sets is { Count: > 0 } sets ? $"set '{sets[0].Name}'" : "this stack";
+
+        return tool.LayerId.Length > 0
+            ? $"the layer '{tool.LayerId}' of {set}"
+            : $"the first paint layer of {set} — no layer is selected, so the brush takes the first one";
     }
 
     /// <summary>Pointer-down in the paint pane: what to paint into, or nothing with a reason.</summary>
@@ -589,7 +611,8 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
         Show(
             opened.Canvas.Channel(tool.Channel),
-            $"'{opened.Layer.Name}' · {tool.Channel} · this layer's own pixels, not the stack's composite (#849)."
+            $"'{opened.Set.Name}' · '{opened.Layer.Name}' · {tool.Channel} · this layer's own pixels, not "
+            + "the stack's composite (#849)."
             + " " + (bound is null ? meshRefusal : $"Painting on '{bound.Model}' — {bound.Triangles} triangles.")
         );
 

@@ -647,21 +647,32 @@ sealed class LayerStackView {
         // half-loaded stack rather than a bug in a panel.
         Clear();
 
-        // ⚠ The selection goes with the rows, because a `LayerPath` is a set name and a layer id and
-        // two stacks made from `LayerStackDocument.Starter` have the same ones. A selection kept
-        // across a rebuild would point at the layer of that name in whichever stack is open now,
-        // which is the same trap `built` exists for one line up.
         Selected = null;
 
-        if (tool is not null) {
-            tool.LayerId = "";
-        }
-
         if (document.Document.Sets.Count == 0) {
+            if (tool is not null) {
+                tool.LayerId = "";
+            }
+
             return;
         }
 
         var set = document.Document.Sets[0];
+
+        // ⚠ The selection is recovered from the brush rather than reset, and which of the two is the
+        // durable copy is the decision. A panel's factory re-runs whenever the workspace relays out
+        // — opening the paint pane does it — so a view that cleared the selection on every build
+        // would take the artist's chosen layer away every time they opened another panel. The brush
+        // is the module's and survives that; this view is the presenter of it. What is *not* kept is
+        // an id no layer of this stack answers to, which is what opening a second stack looks like:
+        // two stacks made from `LayerStackDocument.Starter` have the same layer ids, so the check has
+        // to be against this document rather than against a remembered one.
+        if (tool is { LayerId.Length: > 0 }
+            && LayerStackEdit.Find(document.Document, new(set.Name, tool.LayerId)) is not null) {
+            Selected = new LayerPath(set.Name, tool.LayerId);
+        } else if (tool is not null) {
+            tool.LayerId = "";
+        }
 
         Walk(set.Layers, 0);
 

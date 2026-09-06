@@ -186,6 +186,99 @@ public class LayerStackBindingTests {
 
         Assert.Contains("Assets/Hull.obj", Status(pane), StringComparison.Ordinal);
         Assert.Contains("2 triangles", Status(pane), StringComparison.Ordinal);
+
+        // ⚠ And the *set*, which is #927's other half. Every path here takes `Sets[0]` and the
+        // messages used to read as though one had been chosen.
+        Assert.Contains("'Default'", Status(pane), StringComparison.Ordinal);
+    }
+
+    /// <summary>The paint verb names the set and the layer a drag would reach.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It said "this stack's first paint layer", which stopped being true the moment a row
+    ///     could be selected</b> — <a href="https://github.com/Rikarin/Vixen/issues/910">#910</a> —
+    ///     and never said which set, which is
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>. A sentence that describes
+    ///     a behaviour the build no longer has is worse than no sentence, because an artist acts on
+    ///     it.
+    /// </remarks>
+    [Fact]
+    public void The_paint_verb_names_the_set_and_the_layer_it_would_paint_into() {
+        using var fixture = new TexturingFixture();
+
+        Paintable(fixture, "Hull", "rust", "grime");
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.PaintCommand));
+
+        // ⚠ `[0]`, because `NotificationCenter.Show` inserts at the front. Reading `[^1]` gets the
+        // *oldest* notification of the session, which for the first assertion here is the same entry
+        // — so the mistake is invisible until a test makes two.
+        var unselected = fixture.Shell.Notifications.History[0].Detail ?? "";
+
+        Assert.Contains("set 'Default'", unselected, StringComparison.Ordinal);
+        Assert.Contains("no layer is selected", unselected, StringComparison.Ordinal);
+
+        // ⚠ The panel is looked up again rather than held. Opening the paint pane rebuilds the
+        // workspace, which re-runs the layers panel's factory — so a button captured before it is a
+        // button in a tree nobody is showing, and clicking it proves nothing about the panel that is.
+        // Row 0 is the topmost, which is the layer added last: "Grime".
+        Selects(Panel(fixture))[0].Activate();
+
+        // Toggled off and on again, because the sentence is written when the verb runs.
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.PaintCommand));
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.PaintCommand));
+
+        var selected = fixture.Shell.Notifications.History[0].Detail ?? "";
+
+        Assert.Contains("the layer 'grime'", selected, StringComparison.Ordinal);
+        Assert.Contains("set 'Default'", selected, StringComparison.Ordinal);
+    }
+
+    /// <summary>Closing and reopening the layers panel keeps the layer the brush is aimed at.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A dock panel's factory runs again on every reopen, so a view that reset the selection
+    ///     when it built its rows would take the artist's chosen layer away whenever they closed the
+    ///     panel.</b> Which of the two copies is durable is the decision: <c>PaintTool</c> is the
+    ///     module's and outlives the panel — its own remarks say so about the brush — so the tool is
+    ///     the model and the rows are its presenter, and the new view recovers the marker from it.
+    /// </remarks>
+    [Fact]
+    public void Reopening_the_layers_panel_keeps_the_selected_layer() {
+        using var fixture = new TexturingFixture();
+
+        Paintable(fixture, "Hull", "rust", "grime");
+        Selects(Panel(fixture))[0].Activate();
+
+        Assert.Contains("●", Names(Panel(fixture))[0], StringComparison.Ordinal);
+        Assert.True(fixture.Shell.Workspace.Close(TexturingModule.StackPanel));
+
+        var reopened = Panel(fixture);
+
+        Assert.Contains("●", Names(reopened)[0], StringComparison.Ordinal);
+        Assert.Equal("Selected", Selects(reopened)[0].Label);
+    }
+
+    /// <summary>⚠ And a second stack does not inherit it, because two stacks share layer ids.</summary>
+    /// <remarks>
+    ///     <b>The half that makes the recovery above safe.</b> Every stack from
+    ///     <c>LayerStackDocument.Starter</c> has a layer called <c>base</c>, and a selection recovered
+    ///     by id alone would silently follow the artist from one file into another. The check is
+    ///     against the document being built rather than against a remembered one, which is the only
+    ///     form that can tell the two apart.
+    /// </remarks>
+    [Fact]
+    public void A_second_stack_does_not_inherit_the_first_stacks_selection() {
+        using var fixture = new TexturingFixture();
+        var first = Paintable(fixture, "Hull", "rust");
+
+        Selects(Panel(fixture))[0].Activate();
+
+        Assert.Contains("●", Names(Panel(fixture))[0], StringComparison.Ordinal);
+
+        // A second stack with no layer of that id in it.
+        first.Document = LayerStackDocument.Starter("Other") with { BaseWidth = 64, BaseHeight = 64 };
+        Refresh(fixture);
+
+        Assert.DoesNotContain("●", Names(Panel(fixture))[0], StringComparison.Ordinal);
     }
 
     /// <summary>Selecting a row aims the brush at that layer, and it is not an edit.</summary>
