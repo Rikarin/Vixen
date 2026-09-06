@@ -25,6 +25,40 @@ namespace Vixen.Editor.Core;
 ///         together would make <see cref="EditorProject.SaveAll" /> write this document over the
 ///         edit somebody else made to its file. <see cref="ExternalEdits" /> is what sets it.
 ///     </para>
+///     <para>
+///         ⚠ <b>This is not <c>Vixen.Ui</c>'s <c>IEditableDocument</c>, and #656 asks for the port.
+///         Measured, the two disagree in two places and only two.</b> <c>Name</c> is
+///         <see cref="Title" /> under another name, and <c>Revert</c> is <see cref="Reload" />
+///         exactly — including the promise that <see langword="false" /> leaves the document dirty
+///         and covers both "cannot" and "tried and declined". Neither needs a decision.
+///     </para>
+///     <para>
+///         ⚠ <b>The first real disagreement is what a failed save is.</b>
+///         <c>IEditableDocument.Save</c> returns <see langword="bool" /> and its <see langword="false" />
+///         means "not written, still dirty". <see cref="Save" /> here returns nothing and
+///         <i>throws through</i> — deliberately, because "a subscriber that cannot write its file is
+///         a failed save, and the caller's own error handling is what turns that into a
+///         notification". Catching that to answer <see langword="false" /> is the swallow that remark
+///         forbids; letting it propagate means an editor document's <c>Save</c> never answers
+///         <see langword="false" /> at all, so <c>document.save</c>'s failure leg is unreachable
+///         here. One of the two has to move, and which is a decision about error reporting rather
+///         than a line of glue.
+///     </para>
+///     <para>
+///         ⚠ <b>The second is that this model has no location.</b> A document's identity is
+///         <see cref="Asset" />, and the only route from one to a path is
+///         <c>AssetDatabase.TryGetByGuid</c> plus <c>AssetEntry.Path</c>. <see cref="Asset" /> is
+///         immutable, and <c>EditorApplication</c> opens the main scene as
+///         <c>new SceneDocument(project, world, AssetId.Empty, "Main")</c> with the real path held by
+///         its <c>Writer</c> — so a straight mapping would have the editor's own scene report
+///         <c>Location</c> null, which in <c>IEditableDocument</c>'s vocabulary means "never saved"
+///         and is what makes Save mean Save As.
+///     </para>
+///     <para>
+///         ⚠ <b>And <see cref="IsStale" /> has no counterpart there at all</b>, which is the same
+///         gap as <c>documents.md</c>'s owed "external-modification detection" seen from this side:
+///         the mechanism exists here and the framework model has nowhere to put the answer.
+///     </para>
 /// </remarks>
 public abstract class EditorDocument {
     readonly Signal<bool> modifiedExternally = new(false);
