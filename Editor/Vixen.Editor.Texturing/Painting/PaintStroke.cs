@@ -381,6 +381,9 @@ sealed class PaintStroke {
         for (var round = 0; round < gutter; round++) {
             pending.Clear();
 
+            // ⚠ What the round changed, and not what it painted — #926. See the break below.
+            var shortened = false;
+
             for (var y = grown.Y; y < grown.EndY; y++) {
                 for (var x = grown.X; x < grown.EndX; x++) {
                     var index = (y * image.Width) + x;
@@ -419,9 +422,10 @@ sealed class PaintStroke {
                     // rule the reaches keep.
                     var steps = round + 1;
 
-                    distance[index] = distance.TryGetValue(index, out var known)
-                        ? Math.Min(known, steps)
-                        : steps;
+                    if (!distance.TryGetValue(index, out var known) || steps < known) {
+                        distance[index] = steps;
+                        shortened = true;
+                    }
 
                     if (reached.TryGetValue(index, out var already) && already >= best) {
                         continue;
@@ -431,7 +435,17 @@ sealed class PaintStroke {
                 }
             }
 
-            if (pending.Count == 0) {
+            // ⚠ Nothing *changed*, not nothing was painted — #926. A round can find every candidate
+            // already at the reach it offers, queue none of them, and still have proved a shorter
+            // path for each: that is the round #896 moved the distance write into, and ending the
+            // dilation on it threw the write away before the round that reads it ever ran. The
+            // saturated frontier is not the corner case — for a uniform opaque stroke it is what a
+            // second stamp beside the first always finds.
+            //
+            // The break stays load-bearing for the cost ceiling #871 rests on, and this keeps it:
+            // over coverage with no seam in it the scan `continue`s before the distance write, so a
+            // barren round is still barren and still stops the loop after one pass.
+            if (pending.Count == 0 && !shortened) {
                 break;
             }
 
