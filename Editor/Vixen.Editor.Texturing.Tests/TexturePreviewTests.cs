@@ -50,11 +50,21 @@ public class TexturePreviewTests {
 
     /// <summary>And with a device nothing is in the way — which is the half #737 closed.</summary>
     /// <remarks>
-    ///     ⚠ <b>The sentence still names the compiler</b>, because the picture is the graph's base
-    ///     layer rather than the wired graph: <c>TextureGraphCompiler</c> is <c>internal</c> to
-    ///     <c>Vixen.Editor.TextureGraph</c>, whose <c>InternalsVisibleTo</c> names only its own test
-    ///     project. Doc 48 § D14 named the device and did not name this, which is what makes it a
-    ///     finding rather than a restatement — <c>#738</c>.
+    ///     <para>
+    ///         <b>The sentence says the picture is the graph's base layer rather than the wired
+    ///         graph</b>, which is the gap doc 48 § D14 named the device and did not name.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It used to name the wrong reason, and the assertion held it there —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/816">#816</a>.</b> It said
+    ///         <c>TextureGraphCompiler</c> was <c>internal</c>, and this test asserted the type's
+    ///         name appeared in it. <a href="https://github.com/Rikarin/Vixen/issues/738">#738</a>
+    ///         made it public and <c>TextureGraphDocument.Compile</c> in the assembly under test
+    ///         compiles through it, so for a whole batch a user-visible line sent its one actionable
+    ///         reader to reopen a closed issue — and the test would have gone red on the fix. What is
+    ///         asserted now is the number of the gap that is still open, and that the closed one is
+    ///         not cited.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_host_with_a_device_is_not_blocked_and_says_what_it_is_showing() {
@@ -67,7 +77,8 @@ public class TexturePreviewTests {
         var sentence = TexturePreview.Describe(TexturePreviewBlocker.None);
 
         Assert.Contains("base layer", sentence, StringComparison.Ordinal);
-        Assert.Contains("TextureGraphCompiler", sentence, StringComparison.Ordinal);
+        Assert.Contains("#792", sentence, StringComparison.Ordinal);
+        Assert.DoesNotContain("#738", sentence, StringComparison.Ordinal);
     }
 
     /// <summary>The contract refuses a service the host did not publish, by name.</summary>

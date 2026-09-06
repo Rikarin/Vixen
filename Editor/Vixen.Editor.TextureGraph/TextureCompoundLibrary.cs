@@ -44,13 +44,15 @@ public readonly record struct TextureCompoundProblem(string Path, string Source,
 ///         arrives by accident.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing in this tree calls <see cref="Publish" /> outside its own tests —
-///         <a href="https://github.com/Rikarin/Vixen/issues/799">#799</a>.</b>
-///         <c>TextureNodeLibrary.Create</c> in <c>Vixen.Editor.Texturing</c> registers the generated
-///         <c>NodeTypes</c> and nothing else, so the shipped compounds are in the assembly, loadable,
-///         compilable and <em>not in the panel's search</em> — and a <c>TextureGraphDocument</c> has
-///         no <c>SubGraphSource</c> to give a compiler either. That is one call in a file this slice
-///         does not own; it is written down here rather than left to be rediscovered.
+///         ⚠ <b>This used to say nothing in the tree called <see cref="Publish" /> outside its own
+///         tests, and all three of its claims are now false —
+///         <a href="https://github.com/Rikarin/Vixen/issues/799">#799</a> closed and this did not.</b>
+///         <c>TextureNodeLibrary.Publish</c> in <c>Vixen.Editor.Texturing</c> calls this and is the
+///         production caller; <c>TextureNodeLibrary.Create</c> is no longer the only thing there —
+///         it is the cheap half, for a caller that needs the node <em>types</em> and no sub-graph
+///         source; and <c>TextureGraphDocument</c> takes both halves from <c>Publish</c> and hands
+///         the source to its compiler as <c>SubGraphSource</c>. The shipped compounds are in the
+///         panel's search.
 ///     </para>
 /// </remarks>
 public static class TextureCompoundLibrary {

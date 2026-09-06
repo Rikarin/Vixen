@@ -546,8 +546,14 @@ visible only as six kernels with no node.
 by `TextureRamp`, out of the editor's own gradient and Hermite evaluators, so the compiler carries the
 bytes; an imported image is a *reference*, because a compilation runs on every edit and must not open
 an asset database. `TextureGraphExternals.Upload` puts the first kind on a device and hands the second
-kind back for a host to resolve. ⚠ That last list has no in-tree consumer yet, so a graph containing a
-`Source/Bitmap` compiles and does not bake.
+kind back for a host to resolve. ⚠ That last sentence used to end *"has no in-tree consumer yet, so a
+graph containing a `Source/Bitmap` compiles and does not bake"*, and
+[#818](https://github.com/Rikarin/Vixen/issues/818) made it one:
+`LayerStackPreview.Evaluate` walks the owed list, reads each named asset out of the project and
+uploads it, and turns every one it cannot read into a sentence naming all of them at once. A stack's
+texture-fill layers bake. ⚠ The *graph* panel still does not, and that is a different gap — it
+evaluates a fixed checkerboard and never asks the document for its plan
+([#792](https://github.com/Rikarin/Vixen/issues/792)).
 
 **⚠ An image at a resolution of its own** ([#733](https://github.com/Rikarin/Vixen/issues/733)).
 `Write` and `Scratch` take a level offset. Before that every image any node allocated was at the

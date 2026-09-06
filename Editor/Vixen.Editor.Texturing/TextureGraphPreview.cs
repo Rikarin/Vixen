@@ -18,13 +18,21 @@ namespace Vixen.Editor.Texturing;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>What it evaluates is the graph's <i>base layer</i>, not the wired graph, and the
-///         status line says so.</b> <c>TextureGraphCompiler</c> is <c>internal</c> to
-///         <c>Vixen.Editor.TextureGraph</c> and this assembly is not on its
-///         <c>InternalsVisibleTo</c> list, so nothing here can turn a canvas into a
-///         <see cref="TexturePlan" /> — <a href="https://github.com/Rikarin/Vixen/issues/738">#738</a>.
-///         A pane that showed a made-up thumbnail would hide that; a pane that stayed empty would
-///         hide whether the device half works at all. What it shows is a real dispatch at the
-///         document's own resolution, and a sentence naming what is missing.
+///         status line says so.</b> A pane that showed a made-up thumbnail would hide that; a pane
+///         that stayed empty would hide whether the device half works at all. What it shows is a real
+///         dispatch at the document's own resolution, and a sentence naming what is missing.
+///     </para>
+///     <para>
+///         ⚠ <b>The reason written here was false, and it is the reason a closed issue kept being
+///         cited — <a href="https://github.com/Rikarin/Vixen/issues/816">#816</a>.</b> This said
+///         <c>TextureGraphCompiler</c> was <c>internal</c> and that "nothing here can turn a canvas
+///         into a <see cref="TexturePlan" />". It has been public since
+///         <a href="https://github.com/Rikarin/Vixen/issues/738">#738</a>, and two things in this
+///         very assembly turn a canvas into a plan through it: <c>TextureGraphDocument.Compile</c>
+///         and <c>LayerStackCompiler</c>. What is missing is one call — <see cref="Evaluate" />
+///         builds <see cref="Base" /> and never asks the document for its plan, which is
+///         <a href="https://github.com/Rikarin/Vixen/issues/792">#792</a> and needs the external
+///         upload and resolve loop <c>LayerStackPreview</c> already has.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The evaluator is held across evaluations and that is the reason
