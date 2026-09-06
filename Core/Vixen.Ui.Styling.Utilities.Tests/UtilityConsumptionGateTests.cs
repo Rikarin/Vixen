@@ -453,6 +453,61 @@ public class UtilityConsumptionGateTests {
     public void The_scrollport_scene_can_observe_a_scrollbar_gutter() =>
         Assert.Contains("layout", UtilityConsumptionProbe.Channels("scrollbar-width", "10px"), StringComparer.Ordinal);
 
+    /// <summary>The <c>forced</c> scene can observe a palette substitution.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The sixth of these controls, and the first whose scene is not a stylesheet at
+    ///         all.</b> Forced-colours mode is a property of the SURFACE — <c>DrawListBuilder</c> asks
+    ///         <c>Preferences.ForcedColors</c> once a frame and substitutes <c>Canvas</c> and
+    ///         <c>CanvasText</c> for every authored colour — so no declaration the probe can inject
+    ///         puts a document into it, and <c>forced-color-adjust</c> measured inert with its reader
+    ///         plainly present until the scene carried a flag instead of CSS.
+    ///     </para>
+    ///     <para>
+    ///         That flag is exactly what can be lost without anything else noticing, which is why this
+    ///         asks the arrangement directly rather than trusting the ledger row to keep asking. A
+    ///         scene whose <c>Forced</c> went back to its default would leave the property inert, and
+    ///         the gate would then report a closed gap as an open one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_forced_scene_can_observe_a_palette_substitution() =>
+        Assert.Contains("paint", UtilityConsumptionProbe.Channels("forced-color-adjust", "none"), StringComparer.Ordinal);
+
+    /// <summary>The <c>discrete</c> scene can observe a transition that has no midpoint.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The seventh control, and the property it guards is the one this file has already
+    ///         been wrong about twice.</b> <c>transition-behavior</c> decides what happens to a pair
+    ///         with no midpoint, and every transition scene before <c>discrete</c> moved a colour and
+    ///         a length — both of which interpolate — so <c>allow-discrete</c> and <c>normal</c> drew
+    ///         the identical frames and the property measured inert with <c>Animator</c> reading it
+    ///         perfectly.
+    ///     </para>
+    ///     <para>
+    ///         <c>layout</c> and not <c>paint</c>, which is the scene's whole design rather than a
+    ///         weaker assertion: <c>align-items</c> is discrete AND relocates every child, so
+    ///         declining the transition moves boxes on the first frame after the class lands. A
+    ///         mutation that only recoloured would be observable in paint alone and indistinguishable
+    ///         from the two scenes that already do that.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An earlier attempt at this scene transitioned <c>visibility</c> instead, and it
+    ///         made every property in the table read as consumed</b> — <c>Channels</c> unions its
+    ///         verdict over every scene, so one scene that reacts to any injected declaration poisons
+    ///         the whole gate. <c>ArbitraryPropertyTests</c>'s <c>mask-type</c> canary is what caught
+    ///         it and is the other half of this control: this says the scene still sees what it was
+    ///         built for, and that one says it sees nothing else.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_discrete_scene_can_observe_a_transition_with_no_midpoint() =>
+        Assert.Contains(
+            "layout",
+            UtilityConsumptionProbe.Channels("transition-behavior", "allow-discrete"),
+            StringComparer.Ordinal
+        );
+
     /// <summary>What the run measured, printed whether it passed or not.</summary>
     /// <remarks>
     ///     ⚠ <b>The allow-list is only a deterrent if somebody sees it.</b> A silent pass is how a list
