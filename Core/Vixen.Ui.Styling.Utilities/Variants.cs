@@ -71,10 +71,35 @@ public static class Variants {
 
         // ⚠ The three of A13's seventeen that had a control behind them, and the ratio was the
         // finding rather than the count. Of the fourteen that named a model this framework did not
-        // have: there is no navigation model, so `visited` and `target` are refused rather than
-        // owed; `autofill` needs a credential store, `default` needs a form, and `inert` needs a
-        // subtree flag nothing carries. `open` was the fourth of those and is registered below — its
-        // refusal named the parser, which is still true and is no longer a blocker.
+        // have, five are still refused and each one now carries the condition that reverses it —
+        // because this table's own history is refusals expiring unobserved. `open` was refused for
+        // "ExCSS cannot parse `:open`", which is still literally true and stopped being a blocker
+        // the day `:user-valid` shipped with the identical problem; the eight form-validity names
+        // were refused for "there is no validation anywhere in `Vixen.Ui.Controls`", which stopped
+        // being true without anyone coming back here. ⚠ <b>Both were found by a person re-reading
+        // the sentence, and a fourth audit would have been the only thing standing between the next
+        // one and another year.</b> Re-checked at HEAD on 2026-09-06 and all five still hold —
+        // `Forms.cs` is `LabeledContent` and not a form, and `Vixen.Ui.Controls/Navigation.cs` is a
+        // breadcrumb and a pager over `ButtonBase` with no URL, no history and no fragment anywhere
+        // behind them:
+        //
+        //   `visited` — nothing records that a place has been visited
+        //     [expires-on Vixen.Ui.Styling.ElementState.Visited]
+        //   `target` — no fragment identifies an element as the one navigated to
+        //     [expires-on Vixen.Ui.Styling.ElementState.Target]
+        //   `autofill` — no credential store, so no field is ever filled by one
+        //     [expires-on Vixen.Ui.Controls.TextField.Autofilled]
+        //   `default` — Selectors 4 § 11.4 is the default button of a form, and there is no form
+        //     [expires-on Vixen.Ui.Controls.Button.IsDefault]
+        //   `inert` — a subtree flag nothing carries; `Disabled` is per control and does not descend
+        //     [expires-on Vixen.Ui.UiElement.Inert]
+        //
+        // ⚠ <b>The two navigation anchors name the BIT rather than the model, and that is a
+        // limitation of the clause grammar rather than a choice.</b> `expires-on` requires the type
+        // half to resolve today, so a refusal waiting on a whole concept that has no type yet — a
+        // URL, a history — has nothing to hang on but the state bit the concept would eventually
+        // write. It is the weaker tripwire: it fires on whoever lands the bit, not on whoever lands
+        // the model. The other three name a member of a type that exists, which is the stronger form.
         //
         // ⚠ <b>A table entry here is worth nothing without a writer</b>, which is what the item this
         // came from underestimated: `:read-only` compiled against a bit no control sets resolves,
