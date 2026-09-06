@@ -105,6 +105,8 @@ Vixen.Ui.Markup.Binding.BoundFor : Vixen.Ui.Markup.Binding.BoundNode
 Vixen.Ui.Markup.Binding.BoundFor.Body.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
 Vixen.Ui.Markup.Binding.BoundFor.Body.init -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
 Vixen.Ui.Markup.Binding.BoundFor.BoundFor(string Variable, Vixen.Ui.Markup.Binding.BoundExpression Sequence, Vixen.Ui.Markup.Binding.BoundExpression? Key, System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode> Body, string? Index = null) -> void
+Vixen.Ui.Markup.Binding.BoundFor.Empty.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
+Vixen.Ui.Markup.Binding.BoundFor.Empty.init -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
 Vixen.Ui.Markup.Binding.BoundFor.ExitAfter.get -> int?
 Vixen.Ui.Markup.Binding.BoundFor.ExitAfter.init -> int?
 Vixen.Ui.Markup.Binding.BoundFor.ExitClass.get -> string?
