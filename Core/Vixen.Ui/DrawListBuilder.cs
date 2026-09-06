@@ -1027,7 +1027,8 @@ public sealed class DrawListBuilder {
                     down,
                     sliced,
                     count == 1 ? radius : sliced.IsUniformCircular(out var sameCircle) ? sameCircle : 0f,
-                    ends
+                    ends,
+                    count > 1
                 );
             }
         }
@@ -1093,7 +1094,8 @@ public sealed class DrawListBuilder {
             float boxHeight,
             CornerRadii boxCorners,
             float boxRadius,
-            LayoutFragmentEnds ends
+            LayoutFragmentEnds ends,
+            bool fragmented
         ) {
             // Below the background, which is where CSS paints an *outer* shadow: it is cast by the
             // box and therefore lies under it, and an element with a translucent background shows its
@@ -1124,7 +1126,26 @@ public sealed class DrawListBuilder {
                 );
             }
 
-            EmitGradient(element, into, boxX, boxY, boxWidth, boxHeight, boxCorners, boxRadius, alpha);
+            // ⚠ <b>The union goes with the fragment, and this is the one decoration that reads both.</b>
+            // CSS Display §2.2's `slice` — the initial `box-decoration-break` — paints the background
+            // as though the box were never broken and then cuts it at the breaks, so a
+            // `linear-gradient` runs ONE ramp from the start of the first fragment to the end of the
+            // last. Every other call in this block is a function of the fragment alone; a gradient is
+            // a function of the fragment (what it covers) and of the union (where along the ramp it
+            // is), and passing only the first was `clone`'s answer on a box painting `slice`
+            // everywhere else.
+            EmitGradient(
+                element,
+                into,
+                boxX,
+                boxY,
+                boxWidth,
+                boxHeight,
+                boxCorners,
+                boxRadius,
+                alpha,
+                fragmented ? (x, y, width, height) : null
+            );
 
             // ⚠ <b>Above the background and below the border, and the whole feature turns on it.</b> An
             // `inset` shadow is drawn inside the box, so a list emitted whole before the background
@@ -3731,6 +3752,7 @@ public sealed class DrawListBuilder {
     ///         <see cref="GradientRefusal" /> for the whole argument.
     ///     </para>
     /// </remarks>
+    // `union` is the whole unbroken box this rectangle is a fragment of, or null where it *is* the box.
     void EmitGradient(
         UiElement element,
         DrawList into,
@@ -3740,7 +3762,8 @@ public sealed class DrawListBuilder {
         float height,
         CornerRadii corners,
         float radius,
-        float alpha
+        float alpha,
+        (float X, float Y, float Width, float Height)? union = null
     ) {
         if (!element.Style.TryGet(backgroundImage, out var id)) {
             return;
@@ -3752,7 +3775,15 @@ public sealed class DrawListBuilder {
             return;
         }
 
-        var axis = gradient.Axis(width, height);
+        // ⚠ <b>Every question about the ramp is asked of the unbroken box and every question about
+        // the shape is asked of the fragment</b> — the direction a `to bottom right` resolves to, the
+        // positioning area a `background-size` lands in, and how far a radial one reaches are all
+        // properties of the box CSS says was never broken. `null` is the ordinary case and is
+        // literally the fragment, so the four algorithms with one box are byte for byte what they
+        // were.
+        var (rampX, rampY, rampWidth, rampHeight) = union ?? (x, y, width, height);
+
+        var axis = gradient.Axis(rampWidth, rampHeight);
 
         // ⚠ A degenerate box has no direction to run a linear ramp along, and there is nothing to see
         // at this size either way; not emitting says so honestly. Tested on the *shape* rather than on
@@ -3762,8 +3793,34 @@ public sealed class DrawListBuilder {
             return;
         }
 
-        var (areaCentre, areaHalf) = PaintArea(element, width, height);
-        var (paintCentre, paintExtent) = RampFrame(gradient, areaHalf, new Vector2(width, height) * 0.5f);
+        var (areaCentre, areaHalf) = PaintArea(element, rampWidth, rampHeight);
+        var (paintCentre, paintExtent) = RampFrame(gradient, areaHalf, new Vector2(rampWidth, rampHeight) * 0.5f);
+
+        if (union is not null) {
+            // ⚠ <b>The cut is expressed as the tile lane rather than as a clip, and that is what keeps
+            // the fragment's own rounded ends.</b> `AreaCentre` is where the tile's centre sits
+            // relative to the box the command draws, so moving it by the offset between the two
+            // centres puts every pixel of this fragment where it would have been in the unbroken box —
+            // and the fragment's rectangle still decides what is covered, so the "cut" costs nothing.
+            // Emitting the ramp over the union and clipping it per fragment — the shape this was
+            // filed as — would have thrown away exactly that: `DrawCommandKind.ClipPush` carries one
+            // scalar radius, and a fragment's four corners deliberately disagree (see `Slice`).
+            //
+            // ⚠ <b>And the tile is positive on both axes when nothing stated one, which is the
+            // sentinel's other reading rather than a choice about `background-repeat`.</b> `PaintArea`
+            // writes nothing at all for a box that stated neither a size nor a position, because a
+            // negative — clipping — half whose tile IS the box multiplies the box's own antialiased
+            // edge by itself and darkens every gradient in the interface by a quarter of a pixel. A
+            // tiling half cannot clip, so it reaches this fragment with the coverage it had.
+            if (areaHalf == Vector2.Zero) {
+                areaHalf = new Vector2(rampWidth, rampHeight) * 0.5f;
+            }
+
+            areaCentre += new Vector2(
+                rampX + (rampWidth * 0.5f) - x - (width * 0.5f),
+                rampY + (rampHeight * 0.5f) - y - (height * 0.5f)
+            );
+        }
 
         // ⚠ Unconditionally into the side buffer, unlike `Styled`. The cheap path exists because a
         // uniformly rounded box needs nothing but its scalar radius — and a gradient is precisely a
