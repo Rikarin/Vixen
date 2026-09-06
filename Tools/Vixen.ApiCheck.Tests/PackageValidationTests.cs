@@ -8,7 +8,7 @@ using Xunit;
 namespace Vixen.ApiCheck.Tests;
 
 /// <summary>
-///     The two refusals that stand in for `PackageValidation`, made to expire loudly.
+///     The three refusals doc 12 § NuGet package layout carries, made to expire loudly.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -90,8 +90,50 @@ public sealed class PackageValidationTests {
     }
 
     /// <summary>
-    ///     The guard on both of the above: a walk that found no projects, or no archive, would agree
-    ///     with everything.
+    ///     ⚠ And the third refusal in the same paragraph: no package declares an icon.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Doc 12 used to claim every package ships one, and #337's first round refuted it by
+    ///         grepping — the same shape as the two premises above, and left behind in the same way,
+    ///         which is to say not at all. It is refused rather than owed for a reason a test cannot
+    ///         settle: NuGet takes a PNG or JPEG and this tree owns no such asset (<c>git ls-files</c>
+    ///         finds one image with a brand in its name, <c>www/public/favicon.svg</c>, and NuGet does
+    ///         not accept SVG), so closing it means drawing something and that is a decision rather
+    ///         than a task.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ What this catches is the state nobody would notice: <em>one</em> project declaring a
+    ///         <c>PackageIcon</c>. The claim in the layout table is about "every package", so a single
+    ///         declaration makes the paragraph wrong in both directions at once — the refusal has
+    ///         expired and the promise is still unkept — and nothing else in the tree looks at the
+    ///         property. Fails naming whichever project got there first.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void NoPackageDeclaresAnIconSoTheLayoutTablesRefusalStillHolds() {
+        var declared = ProjectFiles()
+            .Where(project => XDocument.Load(project)
+                .Descendants()
+                .Any(element => element.Name.LocalName is "PackageIcon" or "PackageIconUrl")
+            )
+            .Select(Path.GetFileName)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(
+            declared.Count == 0,
+            $"{string.Join(", ", declared)} declares a package icon. docs/plan/12 § NuGet package "
+            + "layout records that no package does, and its table promises one for every package — so "
+            + "an icon in one project makes that paragraph wrong twice over. Set it once in "
+            + "Directory.Build.props for all of them and delete the bullet, or move this premise. "
+            + "See #337."
+        );
+    }
+
+    /// <summary>
+    ///     The guard on all three of the above: a walk that found no projects, or no archive, would
+    ///     agree with everything.
     /// </summary>
     [Fact]
     public void TheWalksAboveActuallyReadSomething() {

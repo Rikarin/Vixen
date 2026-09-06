@@ -205,7 +205,13 @@ the answer is real is inside the archive.
 ⚠️ **Three things this paragraph used to claim, that are not true and are owed rather than done**
 ([#337](https://github.com/Rikarin/Vixen/issues/337)):
 
-- **No package declares an icon.** There is no `PackageIcon` anywhere in the tree.
+- **No package declares an icon.** There is no `PackageIcon` anywhere in the tree. ⚠️ **And this one
+  is refused rather than owed, for a reason no session can settle by working harder**: NuGet takes a
+  PNG or a JPEG, and the only brand-shaped image this repository owns is `www/public/favicon.svg`,
+  which it does not accept. Closing it means drawing something, which is a decision. So it is guarded
+  the same way the two below are — `PackageValidationTests` fails naming the first project to declare
+  a `PackageIcon`, because the table above promises one for *every* package and a single declaration
+  makes this paragraph wrong in both directions at once.
 - **`PackageValidation` against the previous release is not switched on.** `EnablePackageValidation`
   appears nowhere. It is the natural companion to `CheckApi` — which catches a source-level break in
   the tree, where this catches a binary one against what was shipped — and it needs a published
