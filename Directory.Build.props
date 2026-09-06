@@ -308,20 +308,22 @@
     project that forgets is the one whose results go missing, and nothing says so.
   -->
   <!--
-    ⚠ The version is a property rather than a `PackageVersion` alone, because two test projects turn
-    central package management OFF for their own reasons — `Vixen.DocGen.Tests` and
-    `Vixen.Templates.Tests`, each of which needs a Roslyn version the central pin forbids. A
-    version-less `PackageReference` has nothing to inherit there, and the failure is `NU1015` at
-    restore for the whole solution rather than anything about those two. `Directory.Packages.props`
-    reads the same property, so the pin is still written once.
-  -->
-  <PropertyGroup>
-    <VixenTrxReportVersion>1.9.1</VixenTrxReportVersion>
-  </PropertyGroup>
+    ⚠ Two test projects turn central package management OFF for their own reasons —
+    `Vixen.DocGen.Tests` and `Vixen.Templates.Tests`, each of which needs a Roslyn version the
+    central pin forbids — so a version-less `PackageReference` has nothing to inherit there and
+    restore fails with `NU1015` for the WHOLE solution rather than saying anything about those two.
+    The second line is for them.
 
+    ⚠ The version is written out rather than read from a `$(property)` shared with
+    `Directory.Packages.props`, and that is deliberate after trying it the other way:
+    `CheckAttributionManifest` reads the pinned version out of `Directory.Packages.props` as TEXT to
+    compare it with `docs/manual/third-party.md`, so an indirection there makes the licence manifest
+    unable to see what is pinned — a gate defeated by a tidier spelling. The two literals are held
+    together by `TrxReporterPinTests`, which is where a bump gets caught.
+  -->
   <ItemGroup Condition="($(MSBuildProjectName.EndsWith('.Tests')) OR '$(MSBuildProjectName)' == 'Tests') AND '$(TestingPlatformDotnetTestSupport)' == 'true'">
     <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Condition="'$(ManagePackageVersionsCentrally)' != 'false'" />
-    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="$(VixenTrxReportVersion)" Condition="'$(ManagePackageVersionsCentrally)' == 'false'" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="1.9.1" Condition="'$(ManagePackageVersionsCentrally)' == 'false'" />
   </ItemGroup>
 
   <!--
