@@ -35,6 +35,13 @@ public sealed class DrawListBuilder {
     /// </remarks>
     internal const float UnboundedClip = 1_000_000f;
 
+    /// <summary>How thick a ring <c>outline-hidden</c> restores under <c>forced-colors: active</c>.</summary>
+    /// <remarks>
+    ///     Tailwind v4's own two pixels. It is a fallback rather than a policy: an author who wrote a
+    ///     width keeps it — see <see cref="EmitOutline" />.
+    /// </remarks>
+    internal const float ForcedRingWidth = 2f;
+
     /// <summary>How many shadows one <c>box-shadow</c> may list.</summary>
     /// <remarks>
     ///     ⚠ <b>Five is the number that has to fit and eight is what is allowed.</b> Tailwind v4
@@ -241,17 +248,35 @@ public sealed class DrawListBuilder {
     readonly int boxShadow;
     readonly int currentColor;
     readonly int rtl;
+    readonly int forcedColorAdjust;
+    readonly SystemPalette palette;
+    bool forced;
 
     /// <summary>Creates a builder over a style engine's name tables.</summary>
     /// <param name="properties">The table property names are interned in.</param>
     /// <param name="values">The table declaration values are interned in.</param>
     /// <param name="keywords">The table identifiers are interned in.</param>
-    public DrawListBuilder(NameTable properties, NameTable values, NameTable keywords) {
+    public DrawListBuilder(NameTable properties, NameTable values, NameTable keywords)
+        : this(properties, values, keywords, null) { }
+
+    /// <summary>Creates a builder that resolves and forces system colours against a palette.</summary>
+    /// <param name="properties">The table property names are interned in.</param>
+    /// <param name="values">The table declaration values are interned in.</param>
+    /// <param name="keywords">The table identifiers are interned in.</param>
+    /// <param name="palette">The document's system palette, or <c>null</c> for a private default one.</param>
+    public DrawListBuilder(
+        NameTable properties,
+        NameTable values,
+        NameTable keywords,
+        SystemPalette? palette
+    ) {
         ArgumentNullException.ThrowIfNull(properties);
         ArgumentNullException.ThrowIfNull(values);
         ArgumentNullException.ThrowIfNull(keywords);
 
-        parser = new StyleValueParser(values, keywords);
+        this.palette = palette ?? new SystemPalette();
+        parser = new StyleValueParser(values, keywords, this.palette);
+        forcedColorAdjust = properties.Intern("forced-color-adjust");
         propertyNames = properties;
         valueNames = values;
 
@@ -604,6 +629,13 @@ public sealed class DrawListBuilder {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(into);
+
+        // ⚠ <b>Per surface and not per document, because <c>forced-colors</c> is a media feature and
+        // media features are answered by the surface a thing is shown in.</b> `PlatformInput` writes
+        // the same value to every surface today — it is a setting of the machine — but a test drives
+        // one surface at a time, and reading the primary's preferences here would have made a
+        // torn-off window draw the main window's palette.
+        forced = document.SurfaceOf(root)?.Preferences.ForcedColors ?? false;
 
         into.BeginFrame();
         Emit(document, root, into, 1f);
@@ -1496,15 +1528,13 @@ public sealed class DrawListBuilder {
     ///         ⚠ <b><c>outline-style</c> is read for exactly two keywords and every other value draws
     ///         solid.</b> <c>none</c> and <c>hidden</c> switch the ring off — CSS UI 4 makes them
     ///         synonyms on an outline, unlike on a border — and that pair is what <c>outline-none</c>
-    ///         and <c>outline-hidden</c> compile to. <b>The forced-colors half of Tailwind's
-    ///         <c>outline-hidden</c> is not emulated, and the reason has changed:</b> v4 pairs the
-    ///         <c>none</c> with a transparent two-pixel ring inside
-    ///         <c>@media (forced-colors: active)</c>. ⚠ <c>MediaQuery</c> <i>does</i> evaluate
-    ///         <c>forced-colors</c> now and <c>IPlatform.Accessibility</c> feeds it, so a sheet can
-    ///         write that block and it will apply — what is still missing is a forced-colours
-    ///         <i>mode</i> in this builder for the ring to be visible against, so the class still
-    ///         collapses to <c>outline-none</c> exactly. Said here because the two spellings being
-    ///         indistinguishable is the thing a reader will otherwise assume is a bug.
+    ///         and <c>outline-hidden</c> compile to. <b>They are synonyms in every mode but one, and
+    ///         the exception is the forced-colours half of Tailwind's <c>outline-hidden</c>, which
+    ///         this method now emulates.</b> v4 pairs the <c>none</c> with a transparent two-pixel
+    ///         ring inside <c>@media (forced-colors: active)</c> so a high-contrast user keeps the
+    ///         focus indicator the sighted default hid; a sheet could write that block long before
+    ///         there was a mode for it to mean anything in. With one, the two spellings can be told
+    ///         apart, and <c>hidden</c> is the one that comes back — see the branch below.
     ///     </para>
     /// </remarks>
     void EmitOutline(
@@ -1519,14 +1549,39 @@ public sealed class DrawListBuilder {
     ) {
         var style = Stroke(element, outlineStyle);
 
+        // ⚠ <b><c>outline-style: hidden</c> and <c>outline-style: none</c> stop being synonyms in
+        // forced-colours mode, and that asymmetry is the whole of Tailwind's <c>outline-hidden</c>.</b>
+        // CSS UI 4 makes the two words mean the same thing on an outline, and they still do
+        // everywhere else in this file — `Stroke` answers `None` for both. What v4's class needs is a
+        // ring that is invisible to a sighted user and present to one running high contrast, which it
+        // writes as `outline: 2px solid transparent` inside `@media (forced-colors: active)`; the
+        // engine cannot tell that block from any other, but it *can* tell the two spellings apart, so
+        // `outline-hidden` compiles to `hidden` and `outline-none` to `none` and the restoration
+        // happens here. See `UtilityFamilies`' entry for the class.
+        var restored = false;
+
         if (style == StrokeStyle.None) {
-            return;
+            if (!forced
+                || Preserved(element)
+                || !element.Style.TryGet(outlineStyle, out var authored)
+                || authored != hidden) {
+                return;
+            }
+
+            style = StrokeStyle.Solid;
+            restored = true;
         }
 
         var thickness = OutlineLength(element, outlineWidth);
 
         if (thickness <= 0f) {
-            return;
+            if (!restored) {
+                return;
+            }
+
+            // v4's two pixels, and a width the author *did* give wins over it — `outline-hidden
+            // outline-4` is a wider ring and not a refusal.
+            thickness = ForcedRingWidth;
         }
 
         // ⚠ <b>Falls back to the text colour and not to a fixed one, because that is what
@@ -1535,7 +1590,13 @@ public sealed class DrawListBuilder {
         // engine has no focus colour of its own, so the foreground is the whole of the answer.
         // `Fade` is applied last so a group's opacity reaches the ring the same way it reaches the
         // border.
-        var stroke = Color(element, outlineColor) ?? Color(element, textColor) ?? Color4.Black;
+        // ⚠ A restored ring takes <c>CanvasText</c> outright and does not read <c>outline-color</c>,
+        // because the colour the class wrote there is `transparent` and `Force` deliberately keeps a
+        // zero alpha. Reading it would give a ring that is drawn and cannot be seen, which is the
+        // state this branch exists to leave.
+        var stroke = restored
+            ? palette[SystemColor.CanvasText]
+            : Color(element, outlineColor) ?? Color(element, textColor) ?? Color4.Black;
 
         // ⚠ Negative offsets are real and are not clamped. `-outline-offset-2` pulls the ring inside
         // the border box, which CSS allows and which is how a ring is drawn on an element that has
@@ -2961,7 +3022,54 @@ public sealed class DrawListBuilder {
         }
 
         var value = parser.Parse(id);
-        return value.Kind == StyleValueKind.Color ? value.Color : null;
+
+        if (value.Kind != StyleValueKind.Color) {
+            return null;
+        }
+
+        return forced ? Force(element, property, value.Color) : value.Color;
+    }
+
+    /// <summary>Whether an element has opted out of the forced palette.</summary>
+    /// <remarks>
+    ///     <c>forced-color-adjust: none</c>, inherited — see <see cref="InheritedProperties" />, where
+    ///     the reason the property has to inherit is that it is written on containers.
+    /// </remarks>
+    bool Preserved(UiElement element) =>
+        element.Style.TryGet(forcedColorAdjust, out var adjust) && adjust == styleNone;
+
+    /// <summary>Substitutes one authored colour for the forced palette's.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A zero alpha survives, and that exception is what stops the mode turning the frame
+    ///         into one flat rectangle.</b> Almost every element in a real tree has
+    ///         <c>background-color: transparent</c> — it is the initial value — so forcing every
+    ///         parsed colour without this would paint <c>Canvas</c> behind every one of them, and the
+    ///         result would not read as a high-contrast theme, it would read as a blank window.
+    ///         Browsers keep a transparent background transparent for the same reason.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two roles and not fifteen, and the fourteen this does not use are still worth
+    ///         having.</b> The mapping here is CSS Color Adjust 1's generic one — a background becomes
+    ///         <c>Canvas</c> and everything else in the box model becomes <c>CanvasText</c> — because
+    ///         this builder draws boxes and does not know a button from a panel. <c>ButtonFace</c> and
+    ///         its siblings are what a <i>control</i> names for itself in a sheet, which is the other
+    ///         half of the feature (see <c>SystemPalette</c>) and is reached through ordinary
+    ///         <c>color: ButtonText</c> declarations rather than through this substitution.
+    ///     </para>
+    /// </remarks>
+    Color4 Force(UiElement element, int property, Color4 authored) {
+        if (authored.A <= 0f || Preserved(element)) {
+            return authored;
+        }
+
+        var role = property == backgroundColor ? SystemColor.Canvas : SystemColor.CanvasText;
+        var substitute = palette[role];
+
+        // The authored alpha rather than the palette's, so a half-transparent overlay stays an
+        // overlay. CSS Color Adjust says the used value is the system colour; it says nothing that
+        // requires discarding a translucency the layout was built around.
+        return new Color4(substitute.R, substitute.G, substitute.B, authored.A);
     }
 
     /// <summary>An element's four corner radii, each elliptical.</summary>

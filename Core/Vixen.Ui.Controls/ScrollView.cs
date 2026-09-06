@@ -389,10 +389,12 @@ public sealed partial class ScrollView : Control {
     ///         is four lines.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The wheel is deliberately <i>not</i> given a fling.</b> On macOS AppKit generates
-    ///         the trackpad's own momentum phase and SDL forwards it as ordinary wheel deltas, so a
-    ///         curve added on that path would run on top of the operating system's and the two would
-    ///         compound. A drag is the platform-neutral gesture that carries no momentum of its own.
+    ///         ⚠ <b>The wheel is deliberately <i>not</i> given a fling, and that is now
+    ///         <i>measured</i> on macOS rather than expected.</b> AppKit's momentum phase arrives at
+    ///         the wheel handler as an ordinary wheel delta, so a curve added on that path would run
+    ///         on top of the operating system's and the two would compound. A drag is the
+    ///         platform-neutral gesture that carries no momentum of its own. See
+    ///         <see cref="Wheeled" /> for what was measured and how.
     ///     </para>
     /// </remarks>
     [UiProperty]
@@ -1741,6 +1743,43 @@ public sealed partial class ScrollView : Control {
         Scrolled?.Invoke(this);
     }
 
+    /// <summary>Scrolls from a wheel notch or a trackpad scroll, with no fling and no bounce.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Measured on macOS 15 (arm64) against the SDL this repository ships — 2.32.70 —
+    ///         rather than expected, which is what three passes over the momentum work said was
+    ///         owed.</b> The claim under test was that AppKit generates the trackpad's momentum phase
+    ///         itself and SDL forwards it as ordinary wheel deltas, so a deceleration curve here
+    ///         would compound with the operating system's. It holds, and the measurement is a
+    ///         mechanical one that needs no hands on the glass: a <c>CGEvent</c> scroll carrying
+    ///         <c>momentumPhase</c> handed to the SDL window's own <c>NSView</c> produces exactly one
+    ///         <c>SDL_MOUSEWHEEL</c> — the same one a finger-on-the-glass event produces, and the same
+    ///         one a mouse wheel produces.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two facts came out of it, and the second is the sharper one.</b> First, SDL does
+    ///         not suppress momentum: it registers no <c>AppleMomentumScrollSupported</c> app default
+    ///         at all — the key reads <c>nil</c> after <c>SDL_Init(SDL_INIT_VIDEO)</c> — so the
+    ///         process takes the system behaviour and AppKit keeps delivering after the fingers
+    ///         leave. Second, <c>SDL_MouseWheelEvent</c> carries <b>no phase</b>, so the three cases
+    ///         are indistinguishable by the time they reach this method. That is the real constraint:
+    ///         a fling here could not be given only to the devices that lack one, because this path
+    ///         cannot tell a mouse wheel from a trackpad flick.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Windows and Linux are <i>not</i> measured and the refusal above is written as
+    ///         though the three platforms agree, which they may not.</b> A Windows precision touchpad
+    ///         produces its inertia in the driver and it arrives as <c>WM_MOUSEWHEEL</c>, which would
+    ///         give the same answer; libinput generates no kinetic scrolling for a touchpad — GTK
+    ///         does that in the toolkit — which would give the opposite one. Neither has been put on
+    ///         a machine, so neither is asserted here.
+    ///     </para>
+    ///     <para>
+    ///         The rubber band is refused on the same evidence and for the same reason: the wheel
+    ///         path has no gesture end to spring back from, because it cannot see the phase that
+    ///         would tell it where the gesture ended.
+    ///     </para>
+    /// </remarks>
     void Wheeled(WheelEvent args) {
         // A hand on the wheel takes the content off any easing still running, and the wheel itself is
         // never smoothed — see `ScrollBehavior`.

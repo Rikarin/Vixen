@@ -494,6 +494,7 @@ Vixen.Ui.DrawListBuilder.Compositing.get -> bool
 Vixen.Ui.DrawListBuilder.Compositing.set -> bool
 Vixen.Ui.DrawListBuilder.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Styling.SelectorDiagnostic>
 Vixen.Ui.DrawListBuilder.DrawListBuilder(Vixen.Ui.Styling.NameTable properties, Vixen.Ui.Styling.NameTable values, Vixen.Ui.Styling.NameTable keywords) -> void
+Vixen.Ui.DrawListBuilder.DrawListBuilder(Vixen.Ui.Styling.NameTable properties, Vixen.Ui.Styling.NameTable values, Vixen.Ui.Styling.NameTable keywords, Vixen.Ui.Styling.SystemPalette? palette) -> void
 Vixen.Ui.DropEffect -> enum : byte
 Vixen.Ui.DropEffect.Copy = 1 -> Vixen.Ui.DropEffect
 Vixen.Ui.DropEffect.DropEffect() -> void
@@ -1409,6 +1410,7 @@ Vixen.Ui.UiDocument.AccessibilityInvalidated -> System.Action<Vixen.Ui.UiDocumen
 Vixen.Ui.UiDocument.Adopt(Vixen.Ui.UiElement element, string? tag, Vixen.Ui.UiElement? parent, string? id = null, params System.ReadOnlySpan<string> classNames) -> Vixen.Ui.UiElement
 Vixen.Ui.UiDocument.ApplicationCommandResponder.get -> Vixen.Ui.IResponder?
 Vixen.Ui.UiDocument.ApplicationCommandResponder.set -> Vixen.Ui.IResponder?
+Vixen.Ui.UiDocument.BaseFontSize.get -> float
 Vixen.Ui.UiDocument.BeginDrag(Vixen.Ui.UiElement source, Vixen.Ui.DataObject data, Vixen.Ui.DropEffect allowed = Vixen.Ui.DropEffect.Copy) -> Vixen.Ui.DragSession
 Vixen.Ui.UiDocument.Builder.get -> Vixen.Ui.LayoutStyleBuilder
 Vixen.Ui.UiDocument.CanOpenWindows.get -> bool
@@ -1514,6 +1516,8 @@ Vixen.Ui.UiDocument.Resize(Vixen.Ui.UiSurface surface, float width, float height
 Vixen.Ui.UiDocument.Resize(float width, float height) -> void
 Vixen.Ui.UiDocument.Restyler.get -> Vixen.Ui.Styling.StyleUpdater
 Vixen.Ui.UiDocument.Root.get -> Vixen.Ui.UiElement
+Vixen.Ui.UiDocument.RootFontSize.get -> float
+Vixen.Ui.UiDocument.RootFontSize.set -> float
 Vixen.Ui.UiDocument.Settled.get -> bool
 Vixen.Ui.UiDocument.SettlingPasses.get -> int
 Vixen.Ui.UiDocument.Shaping.get -> Vixen.Ui.Text.ShapingCache
@@ -1525,6 +1529,7 @@ Vixen.Ui.UiDocument.SurfaceAdded -> System.Action<Vixen.Ui.UiDocument, Vixen.Ui.
 Vixen.Ui.UiDocument.SurfaceOf(Vixen.Ui.UiElement element) -> Vixen.Ui.UiSurface?
 Vixen.Ui.UiDocument.SurfaceRemoved -> System.Action<Vixen.Ui.UiDocument, Vixen.Ui.UiSurface>?
 Vixen.Ui.UiDocument.Surfaces.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.UiSurface>
+Vixen.Ui.UiDocument.SystemColors.get -> Vixen.Ui.Styling.SystemPalette
 Vixen.Ui.UiDocument.TextAlignShift(Vixen.Ui.UiElement element, float slack) -> float
 Vixen.Ui.UiDocument.Tick(System.TimeSpan now) -> void
 Vixen.Ui.UiDocument.Ticked -> System.Action<Vixen.Ui.UiDocument, System.TimeSpan>?

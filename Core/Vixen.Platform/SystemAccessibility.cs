@@ -11,6 +11,10 @@ namespace Vixen.Platform;
 ///     Whether the user has asked for a forced high-contrast palette, or <c>null</c> where the
 ///     platform cannot say.
 /// </param>
+/// <param name="TextScale">
+///     How much larger than normal the user wants text, as a multiplier — <c>1.5</c> for fifty per
+///     cent larger — or <c>null</c> where the platform cannot say.
+/// </param>
 /// <remarks>
 ///     <para>
 ///         <b>The platform half of <c>prefers-reduced-motion</c> and <c>forced-colors</c>, and the
@@ -36,13 +40,29 @@ namespace Vixen.Platform;
 ///         than three.
 ///     </para>
 ///     <para>
-///         What is deliberately <i>not</i> here: the system accent colour, the semantic palette
-///         (AppKit's <c>labelColor</c> and friends) and the OS text scale. Each needs a renderer-side
-///         mode to be worth reading, and a setting nothing honours is the state this type was
-///         written to leave.
+///         ⚠ <b><see cref="TextScale" /> is a multiplier and not a font size, which is what lets one
+///         number mean the same thing on three platforms.</b> Windows keeps a percentage from 100 to
+///         225, GNOME a factor around one; both are a scale of whatever the application's own base
+///         is, and neither is a point size. A host multiplies <c>UiDocument.RootFontSize</c> by it,
+///         so an application that chose a fourteen-pixel root keeps its own proportions.
+///     </para>
+///     <para>
+///         ⚠ <b>macOS has no source for it and that is the honest answer rather than a gap.</b>
+///         Dynamic Type is an iOS API; the Mac has no system-wide text scale to read, so
+///         <c>MacOSAccessibility</c> leaves this <c>null</c> — the same <c>null</c>-is-not-<c>no</c>
+///         reading the two flags above already carry.
+///     </para>
+///     <para>
+///         What is deliberately <i>not</i> here: the system accent colour and the platform's semantic
+///         palette (AppKit's <c>labelColor</c> and friends). Both need a platform read this type
+///         cannot make on its own terms — see <c>SystemPalette</c>, which is where they would land.
 ///     </para>
 /// </remarks>
-public readonly record struct SystemAccessibility(bool? ReduceMotion = null, bool? HighContrast = null) {
+public readonly record struct SystemAccessibility(
+    bool? ReduceMotion = null,
+    bool? HighContrast = null,
+    float? TextScale = null
+) {
     /// <summary>What a platform that cannot read any of this reports.</summary>
     /// <remarks>
     ///     Named rather than left as <c>default</c> so that a platform saying "I have no source for

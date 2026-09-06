@@ -86,6 +86,43 @@ public static class PlatformInput {
         foreach (var surface in document.Surfaces) {
             surface.ColorScheme = preference;
         }
+
+        Repalette(document);
+    }
+
+    /// <summary>Refills the document's system colours from the appearance and the contrast setting.</summary>
+    /// <param name="document">The document.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One function reading <i>both</i> settings back off the document, rather than each
+    ///         of the two <c>Apply…</c> methods writing the half it knows.</b> The palette is a
+    ///         product of the two — a high-contrast machine wants the forced table whichever
+    ///         appearance it is in — so two independent writers would have made the answer depend on
+    ///         which platform event arrived last, and the symptom would be a window that comes up in
+    ///         high contrast and loses it the first time the user toggles dark mode.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>These are defaults and not a platform read.</b> They are the tables a browser
+    ///         uses; the platform's own semantic colours — AppKit's <c>labelColor</c>, Windows'
+    ///         <c>UISettings</c> accent — are not read here, and the AppKit half is not merely
+    ///         unwritten but blocked: <c>MacOSAppearance</c> and <c>MacOSAccessibility</c> both reach
+    ///         Foundation and deliberately not AppKit, because an SDL process has no
+    ///         <c>NSApplication</c> and <c>NSColor</c> wants one. A host that has read a real palette
+    ///         writes it to <c>UiDocument.SystemColors</c> itself, after this.
+    ///     </para>
+    /// </remarks>
+    public static void Repalette(UiDocument document) {
+        ArgumentNullException.ThrowIfNull(document);
+
+        var primary = document.Primary;
+
+        document.SystemColors.Reset(
+            primary.Preferences.ForcedColors
+                ? SystemPalette.HighContrast
+                : primary.ColorScheme == ColorSchemePreference.Dark
+                    ? SystemPalette.Dark
+                    : SystemPalette.Light
+        );
     }
 
     /// <summary>Tells every one of a document's surfaces which accessibility settings are on.</summary>
@@ -118,9 +155,18 @@ public static class PlatformInput {
     ///         their palette to be replaced.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>The text scale is not a media preference and is applied to the document's root
+    ///         font size instead.</b> CSS has no query for it — there is no
+    ///         <c>prefers-larger-text</c> — because the setting is not something a sheet answers, it
+    ///         is something every <c>rem</c> in the sheet already means. So this is the one axis here
+    ///         that changes a measurement rather than a media condition, and
+    ///         <c>UiDocument.RootFontSize</c> is where it lands.
+    ///     </para>
+    ///     <para>
     ///         Every surface rather than the primary one, on the same terms as the appearance: these
     ///         are settings of the machine, so a torn-off panel cannot be running under different
-    ///         ones.
+    ///         ones. <c>RootFontSize</c> reaches every surface for the same reason and by its own
+    ///         loop — the number is copied into each surface's <c>LengthContext</c>.
     ///     </para>
     /// </remarks>
     public static void ApplyAccessibility(UiDocument document, SystemAccessibility accessibility) {
@@ -137,6 +183,19 @@ public static class PlatformInput {
                 ForcedColors = forced
             };
         }
+
+        // ⚠ <b>A multiplier over the document's own constructed root size and not a replacement for
+        // it.</b> An application that chose a fourteen-pixel root chose its proportions; the platform
+        // is saying "half again as large as whatever you use", so an absolute size would silently
+        // overrule it. ⚠ And the base is `BaseFontSize` rather than the *current* `RootFontSize`,
+        // which is the difference between applying a scale and compounding one — this is re-read
+        // four times a second on a desktop, so the second reading would grow the text without bound.
+        //
+        // ⚠ An unread scale is `1` here and not "leave it alone", so that a platform which stops
+        // reporting one puts the text back rather than freezing it at the last value it saw.
+        document.RootFontSize = document.BaseFontSize * (accessibility.TextScale ?? 1f);
+
+        Repalette(document);
     }
 
     /// <summary>Sends one platform event to a document's primary surface.</summary>

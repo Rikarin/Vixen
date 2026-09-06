@@ -646,9 +646,34 @@ Vixen.Ui.Styling.StyleValueKind.Number = 1 -> Vixen.Ui.Styling.StyleValueKind
 Vixen.Ui.Styling.StyleValueKind.StyleValueKind() -> void
 Vixen.Ui.Styling.StyleValueKind.Unknown = 0 -> Vixen.Ui.Styling.StyleValueKind
 Vixen.Ui.Styling.StyleValueParser -> sealed class
+Vixen.Ui.Styling.StyleValueParser.Palette.get -> Vixen.Ui.Styling.SystemPalette
 Vixen.Ui.Styling.StyleValueParser.Parse(System.ReadOnlySpan<char> text) -> Vixen.Ui.Styling.StyleValue
 Vixen.Ui.Styling.StyleValueParser.Parse(int value) -> Vixen.Ui.Styling.StyleValue
 Vixen.Ui.Styling.StyleValueParser.StyleValueParser(Vixen.Ui.Styling.NameTable values, Vixen.Ui.Styling.NameTable keywords) -> void
+Vixen.Ui.Styling.StyleValueParser.StyleValueParser(Vixen.Ui.Styling.NameTable values, Vixen.Ui.Styling.NameTable keywords, Vixen.Ui.Styling.SystemPalette? palette) -> void
+Vixen.Ui.Styling.SystemColor -> enum : byte
+Vixen.Ui.Styling.SystemColor.AccentColor = 13 -> Vixen.Ui.Styling.SystemColor
+Vixen.Ui.Styling.SystemColor.AccentColorText = 14 -> Vixen.Ui.Styling.SystemColor
+Vixen.Ui.Styling.SystemColor.ButtonBorder = 5 -> Vixen.Ui.Styling.SystemColor
+Vixen.Ui.Styling.SystemColor.ButtonFace = 3 -> Vixen.Ui.Styling.SystemColor
+Vixen.Ui.Styling.SystemColor.ButtonText = 4 -> Vixen.Ui.Styling.SystemColor
+Vixen.Ui.Styling.SystemColor.Canvas = 0 -> Vixen.Ui.Styling.SystemColor
+Vixen.Ui.Styling.SystemColor.CanvasText = 1 -> Vixen.Ui.Styling.SystemColor
+Vixen.Ui.Styling.SystemColor.Field = 6 -> Vixen.Ui.Styling.SystemColor
+Vixen.Ui.Styling.SystemColor.FieldText = 7 -> Vixen.Ui.Styling.SystemColor
+Vixen.Ui.Styling.SystemColor.GrayText = 10 -> Vixen.Ui.Styling.SystemColor
+Vixen.Ui.Styling.SystemColor.Highlight = 8 -> Vixen.Ui.Styling.SystemColor
+Vixen.Ui.Styling.SystemColor.HighlightText = 9 -> Vixen.Ui.Styling.SystemColor
+Vixen.Ui.Styling.SystemColor.LinkText = 2 -> Vixen.Ui.Styling.SystemColor
+Vixen.Ui.Styling.SystemColor.Mark = 11 -> Vixen.Ui.Styling.SystemColor
+Vixen.Ui.Styling.SystemColor.MarkText = 12 -> Vixen.Ui.Styling.SystemColor
+Vixen.Ui.Styling.SystemColor.SystemColor() -> void
+Vixen.Ui.Styling.SystemPalette -> sealed class
+Vixen.Ui.Styling.SystemPalette.Reset(System.ReadOnlySpan<uint> srgb) -> bool
+Vixen.Ui.Styling.SystemPalette.Revision.get -> int
+Vixen.Ui.Styling.SystemPalette.Set(Vixen.Ui.Styling.SystemColor colour, Vixen.Core.Mathematics.Color4 value) -> bool
+Vixen.Ui.Styling.SystemPalette.SystemPalette() -> void
+Vixen.Ui.Styling.SystemPalette.this[Vixen.Ui.Styling.SystemColor colour].get -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.Styling.TimingFunction -> readonly struct
 Vixen.Ui.Styling.TimingFunction : System.IEquatable<Vixen.Ui.Styling.TimingFunction>
 Vixen.Ui.Styling.TimingFunction.Damping.get -> float
@@ -753,6 +778,11 @@ static Vixen.Ui.Styling.StyleValue.Lerp(Vixen.Ui.Styling.StyleValue from, Vixen.
 static Vixen.Ui.Styling.StyleValue.Unknown.get -> Vixen.Ui.Styling.StyleValue
 static Vixen.Ui.Styling.StyleValue.operator !=(Vixen.Ui.Styling.StyleValue left, Vixen.Ui.Styling.StyleValue right) -> bool
 static Vixen.Ui.Styling.StyleValue.operator ==(Vixen.Ui.Styling.StyleValue left, Vixen.Ui.Styling.StyleValue right) -> bool
+static Vixen.Ui.Styling.SystemPalette.Dark.get -> System.ReadOnlySpan<uint>
+static Vixen.Ui.Styling.SystemPalette.HighContrast.get -> System.ReadOnlySpan<uint>
+static Vixen.Ui.Styling.SystemPalette.Light.get -> System.ReadOnlySpan<uint>
+static Vixen.Ui.Styling.SystemPalette.NameOf(Vixen.Ui.Styling.SystemColor colour) -> string
+static Vixen.Ui.Styling.SystemPalette.TryParse(System.ReadOnlySpan<char> name, out Vixen.Ui.Styling.SystemColor colour) -> bool
 static Vixen.Ui.Styling.TimingFunction.Bezier(float x1, float y1, float x2, float y2) -> Vixen.Ui.Styling.TimingFunction
 static Vixen.Ui.Styling.TimingFunction.Ease.get -> Vixen.Ui.Styling.TimingFunction
 static Vixen.Ui.Styling.TimingFunction.EaseIn.get -> Vixen.Ui.Styling.TimingFunction

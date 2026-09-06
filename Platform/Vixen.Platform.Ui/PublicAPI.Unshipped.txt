@@ -51,5 +51,6 @@ static Vixen.Platform.Ui.PlatformInput.ApplyAccessibility(Vixen.Ui.UiDocument do
 static Vixen.Platform.Ui.PlatformInput.ApplyColorScheme(Vixen.Ui.UiDocument document, Vixen.Platform.SystemColorScheme scheme) -> void
 static Vixen.Platform.Ui.PlatformInput.Dispatch(Vixen.Ui.UiDocument document, Vixen.Ui.UiSurface surface, in Vixen.Platform.PlatformEvent platformEvent, float wheelLineHeight = 48) -> bool
 static Vixen.Platform.Ui.PlatformInput.Dispatch(Vixen.Ui.UiDocument document, in Vixen.Platform.PlatformEvent platformEvent) -> bool
+static Vixen.Platform.Ui.PlatformInput.Repalette(Vixen.Ui.UiDocument document) -> void
 static Vixen.Platform.Ui.PlatformWindowHost.IsReachable(System.Collections.Generic.IReadOnlyList<Vixen.Platform.DisplayInfo> displays, float x, float y, float width, float height) -> bool
 static Vixen.Platform.Ui.PlatformWindowHost.IsReachable(Vixen.Platform.IPlatform platform, float x, float y, float width, float height) -> bool
