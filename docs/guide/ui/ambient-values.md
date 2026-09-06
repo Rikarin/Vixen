@@ -38,9 +38,18 @@ wearing a C# name — its only producers in the whole tree are three test fixtur
 inherits a property at all.
 
 ⚠ **Walked on every ask rather than cached**, which is `FindUndoManager`'s rule and
-`FindEditedDocument`'s: an element is reparented, a panel is torn off into its own window, and a
-cached answer is the one that was nearest when the control was built. All three are deliberately the
-same walk — nearest declaration wins, and the document is the last word.
+`FindEditedDocument`'s: an element is reparented and a cached answer is the one that was nearest when
+the control was built. All three are deliberately the same walk — nearest declaration wins, and the
+document is the last word.
+
+⚠ **A value provided above a docking host survives both the arrangement and a tear-out**, and the
+second half is not obvious. A `DockPanel` is parked and then placed, so it never stays where it was
+written — but `Detached` and every group body are parts of the host, so a docked panel is always
+under it. Torn into its own window it moves to a second `UiSurface`, and the value still reaches it:
+a secondary surface's root is parented under the element that asked for the window, so the chain runs
+`row < dock-panel < dock-body < dock-group < ui-surface < docking-host < shell-frame`. The element
+tree spans surfaces even though the windows do not, so a shell can provide on its own frame rather
+than on the document and a torn-off panel keeps the answer.
 
 ## What it is for
 
