@@ -51,24 +51,105 @@ public class PaintStackSlicesTests {
         Assert.Equal(["baseColor", "roughness"], slices.Above!.Channels.Select(channel => channel.Usage));
     }
 
-    /// <summary>⚠ A nested paint layer is refused, and the refusal names the issue that removes it.</summary>
+    /// <summary>A layer inside a plain organising group is sliced, flattened in composite order.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This test used to assert the opposite, and it firing is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/851">#851</a>'s answer.</b> The
+    ///         refusal it guarded said a group is a compositing boundary; that is true of an isolated
+    ///         one and false of the kind artists actually make. <c>LayerStackGraph.Group</c> passes a
+    ///         <c>Copy</c> group's children straight onto the cursor, so a group at Copy, opacity 1,
+    ///         no mask and switched on <em>is</em> its flattened children as far as the composite is
+    ///         concerned.
+    ///     </para>
+    ///     <para>
+    ///         <b>The shape is what makes it an assertion about order rather than membership.</b>
+    ///         Two siblings inside the group, one either side of the painted layer, and two layers
+    ///         outside it, one either side of the group — so the two halves have to interleave
+    ///         correctly, and a flattening that appended the outer suffix before the inner one gets
+    ///         <c>["d", "c"]</c> here.
+    ///     </para>
+    /// </remarks>
     [Fact]
-    public void A_layer_inside_a_group_is_refused_by_name() {
-        TextureSetAsset set = new() {
-            Name = "body",
-            Channels = [new() { Usage = "baseColor" }],
-            Layers = [
-                new() { Id = "a" },
-                new() { Id = "group", Kind = LayerKind.Group, Children = [new() { Id = "inner" }] }
-            ]
+    public void A_layer_inside_a_plain_group_is_sliced_in_composite_order() {
+        var slices = PaintStackSlices.Split(Grouped(), "inner");
+
+        Assert.True(slices.Succeeded, slices.Refusal);
+        Assert.Equal(["a", "b"], slices.Below!.Layers.Select(layer => layer.Id));
+        Assert.Equal(["c", "d"], slices.Above!.Layers.Select(layer => layer.Id));
+    }
+
+    /// <summary>⚠ A group that really is a compositing boundary still refuses, and says which of the four.</summary>
+    /// <remarks>
+    ///     Each of these puts an operation between the painted layer and the canvas that no prefix
+    ///     and suffix can express. The message names the property rather than the group, because
+    ///     "move the layer out" is the wrong advice when setting the opacity back to one would do.
+    /// </remarks>
+    [Theory]
+    [InlineData("blend")]
+    [InlineData("opacity")]
+    [InlineData("mask")]
+    [InlineData("disabled")]
+    public void A_group_that_composites_is_refused_and_the_refusal_names_what_made_it_one(string what) {
+        var set = Grouped();
+
+        set.Layers[1] = what switch {
+            "blend" => set.Layers[1] with { Blend = LayerBlendMode.Multiply },
+            "opacity" => set.Layers[1] with { Opacity = 0.5f },
+            "mask" => set.Layers[1] with { Mask = new() { Source = LayerMaskSource.Constant, Value = 0.5f } },
+            _ => set.Layers[1] with { Enabled = false }
         };
 
         var slices = PaintStackSlices.Split(set, "inner");
 
         Assert.False(slices.Succeeded);
-        Assert.Contains("#851", slices.Refusal);
-        Assert.Contains("group", slices.Refusal);
+        Assert.Contains("Wrap", slices.Refusal, StringComparison.Ordinal);
+
+        // A switched-off group is a different problem with different advice, so it is the one that
+        // does not cite the issue about compiling over a backdrop.
+        if (what != "disabled") {
+            Assert.Contains("#851", slices.Refusal, StringComparison.Ordinal);
+        }
     }
+
+    /// <summary>⚠ The upper half starts from nothing, or the painted layer is invisible under it.</summary>
+    /// <remarks>
+    ///     <b>The defect this is written against is silent and total.</b>
+    ///     <c>LayerStackGraph</c> starts every channel from <c>ChannelAsset.Default</c>, and every
+    ///     default a stack ships with is opaque — so an upper half compiled with the authored
+    ///     defaults bakes an opaque picture, and <c>PaintComposite</c>'s source-over of it onto
+    ///     anything returns it unchanged. Every stroke would land in the layer, be recorded, undo
+    ///     correctly, and never appear.
+    /// </remarks>
+    [Fact]
+    public void The_upper_half_starts_from_transparency_and_the_lower_half_does_not() {
+        var set = Set("a", "b", "c") with {
+            Channels = [new() { Usage = "baseColor", Default = [0.5f, 0.5f, 0.5f, 1f] }]
+        };
+
+        var slices = PaintStackSlices.Split(set, "b");
+
+        Assert.True(slices.Succeeded, slices.Refusal);
+        Assert.Equal([0.5f, 0.5f, 0.5f, 1f], slices.Below!.Channels[0].Default);
+        Assert.Equal([0f, 0f, 0f, 0f], slices.Above!.Channels[0].Default);
+    }
+
+    /// <summary>A set with a group in it, painted layer inside, one sibling either side of each.</summary>
+    static TextureSetAsset Grouped() =>
+        new() {
+            Name = "body",
+            Channels = [new() { Usage = "baseColor" }],
+            Layers = [
+                new() { Id = "a" },
+                new() {
+                    Id = "wrap",
+                    Name = "Wrap",
+                    Kind = LayerKind.Group,
+                    Children = [new() { Id = "b" }, new() { Id = "inner" }, new() { Id = "c" }]
+                },
+                new() { Id = "d" }
+            ]
+        };
 
     /// <summary>An id nothing in the set has is a different refusal.</summary>
     /// <remarks>
