@@ -85,7 +85,6 @@ list-style-position	expires-with	list-*
 perspective-*	expires-on	Vixen.Ui.Rendering.UiVertex.W
 perspective-origin-*	expires-with	perspective-*
 placeholder-*	expires-on	Vixen.Ui.Styling.Selector.PseudoElement
-ring-offset-*	expires-on	Vixen.Ui.Styling.Utilities.UtilityComposition.RingOffsetWidth
 rotate-x-*	expires-with	perspective-*
 rotate-y-*	expires-with	rotate-x-*
 scale-*	expires-on	Vixen.Ui.Rendering.UiVertex.W

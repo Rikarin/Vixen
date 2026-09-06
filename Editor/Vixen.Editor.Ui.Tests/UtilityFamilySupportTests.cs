@@ -717,7 +717,7 @@ public class UtilityFamilySupportTests {
         {
             "shadow-elevation",
             "box-shadow",
-            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 0px currentcolor, 0px 10px 26px rgba(12, 14, 18, 0.22)"
+            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 0px Canvas, 0 0 0 calc(0px + 0px) currentcolor, 0px 10px 26px rgba(12, 14, 18, 0.22)"
         },
 
         // ⚠ <b>`fill-*` and `stroke-*` are the first rows here to move because a <i>consumer</i> was
@@ -1081,12 +1081,12 @@ public class UtilityFamilySupportTests {
         {
             "ring-2",
             "box-shadow",
-            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 2px currentcolor, 0 0 transparent"
+            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 0px Canvas, 0 0 0 calc(0px + 2px) currentcolor, 0 0 transparent"
         },
         {
             "ring-accent",
             "box-shadow",
-            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 0px #2f6ecd, 0 0 transparent"
+            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 0px Canvas, 0 0 0 calc(0px + 0px) #2f6ecd, 0 0 transparent"
         },
 
         // ⚠ <b>The two inner families fill two more slots of the one assembled list, which is what
@@ -1100,17 +1100,39 @@ public class UtilityFamilySupportTests {
         {
             "inset-shadow-sm",
             "box-shadow",
-            "inset 0 2px 4px rgb(0 0 0 / 0.05), inset 0 0 0 0px currentcolor, 0 0 0 0px currentcolor, 0 0 transparent"
+            "inset 0 2px 4px rgb(0 0 0 / 0.05), inset 0 0 0 0px currentcolor, 0 0 0 0px Canvas, 0 0 0 calc(0px + 0px) currentcolor, 0 0 transparent"
         },
         {
             "inset-ring-2",
             "box-shadow",
-            "0 0 transparent, inset 0 0 0 2px currentcolor, 0 0 0 0px currentcolor, 0 0 transparent"
+            "0 0 transparent, inset 0 0 0 2px currentcolor, 0 0 0 0px Canvas, 0 0 0 calc(0px + 0px) currentcolor, 0 0 transparent"
         },
         {
             "inset-ring-accent",
             "box-shadow",
-            "0 0 transparent, inset 0 0 0 0px #2f6ecd, 0 0 0 0px currentcolor, 0 0 transparent"
+            "0 0 transparent, inset 0 0 0 0px #2f6ecd, 0 0 0 0px Canvas, 0 0 0 calc(0px + 0px) currentcolor, 0 0 transparent"
+        },
+
+        // ⚠ <b>The fifth slot, and the pair of rows says the thing the family is for: the offset's
+        // width appears TWICE.</b> Once as its own shadow, in the page colour, and once inside the
+        // ring's spread — `calc(2px + 0px)` here and `calc(2px + 2px)` on an element that also wrote
+        // `ring-2`. A gap is not a hole: nothing in a `box-shadow` list can punch through what is
+        // behind it, so the gap is a smaller ring drawn over a larger one. See
+        // <see cref="A_ring_offset_is_the_page_colour_between_the_element_and_its_ring" />.
+        //
+        // ⚠ And the colour is `Canvas` rather than v4's `#fff`, which is the decision this family
+        // waited on rather than a mechanism — see `UtilityComposition.RingOffsetColor`. It stays a
+        // keyword in the computed value and resolves against the document's `SystemPalette` at the
+        // draw list, which is what lets one stylesheet be right in light and in dark.
+        {
+            "ring-offset-2",
+            "box-shadow",
+            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 2px Canvas, 0 0 0 calc(2px + 0px) currentcolor, 0 0 transparent"
+        },
+        {
+            "ring-offset-accent",
+            "box-shadow",
+            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 0px #2f6ecd, 0 0 0 calc(0px + 0px) currentcolor, 0 0 transparent"
         },
 
         // Masks. ⚠ <b>Twenty-two rows the previous draft of this file said could not be written, and
@@ -2870,7 +2892,7 @@ public class UtilityFamilySupportTests {
         // point of making both of them assemblers. ⚠ The second item is `shadow-*`'s slot resolving
         // to its initial, and the `Single` below is what says an unwritten slot costs no command.
         Assert.Equal(
-            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 2px #2f6ecd, 0 0 transparent",
+            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 0px Canvas, 0 0 0 calc(0px + 2px) #2f6ecd, 0 0 transparent",
             ui.StyleOf(ringed, "box-shadow")
         );
 
@@ -2893,6 +2915,64 @@ public class UtilityFamilySupportTests {
         // have put the sibling at 36 — and every other assertion here would still have passed.
         Assert.Equal(32f, beside.AbsoluteLeft);
         Assert.Equal(32f, ringed.Width);
+    }
+
+    /// <summary>The gap under a ring is a smaller ring painted over it, in the page's own colour.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The assertion a row cannot make, and the number that makes it is the ring's
+    ///         spread rather than the offset's own.</b> Both classes on one element resolve to two
+    ///         perfectly good <c>box-shadow</c> items whichever way round the arithmetic went — an
+    ///         offset ring of two points and a ring of two, or an offset ring of two and a ring of
+    ///         <i>four</i>. Only the second draws a gap. The first draws them on top of one another
+    ///         and looks exactly like <c>ring-offset-*</c> being ignored, which is what a per-property
+    ///         gate would have scored green.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the paint order is the other half, in the same direction.</b> CSS Backgrounds
+    ///         3 § 7.1.1 paints a list front to back and this draw list paints later commands over
+    ///         earlier ones, so <c>EmitShadow</c> emits the list backwards and the offset ring — third
+    ///         of five, one nearer the front than the ring — has to arrive <i>after</i> it. Reversed,
+    ///         the four-point ring covers the two-point gap and the element gains a thicker ring
+    ///         instead of a gap.
+    ///     </para>
+    ///     <para>
+    ///         The oracle is closed form: a 32-point box, a two-point offset and a two-point ring
+    ///         give 36 and 40, and no other pairing of these numbers produces both.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_ring_offset_is_the_page_colour_between_the_element_and_its_ring() {
+        using var ui = Sheet("ring-2", "ring-offset-2", "w-8", "h-8");
+
+        var probe = ui.Create("probe", ui.Document.Root, null, "ring-2", "ring-offset-2", "w-8", "h-8");
+
+        ui.Frame();
+
+        var shadows = ui.Document.Drawing.Commands
+            .ToArray()
+            .Index()
+            .Where(entry => entry.Item.Kind == DrawCommandKind.Shadow)
+            .ToList();
+
+        // Two, not three: the inner ring and the elevation slot are both unwritten, and the drops in
+        // `EmitOneShadow` are what keep an unset slot from costing a command.
+        Assert.Equal(2, shadows.Count);
+
+        var ring = shadows[0].Item;
+        var gap = shadows[1].Item;
+
+        // The ring is spread by the offset AND its own width; the gap only by the offset.
+        Assert.Equal(probe.Width + 8f, ring.Width);
+        Assert.Equal(probe.AbsoluteLeft - 4f, ring.X);
+        Assert.Equal(probe.Width + 4f, gap.Width);
+        Assert.Equal(probe.AbsoluteLeft - 2f, gap.X);
+
+        // And the gap is painted over the ring rather than under it.
+        Assert.True(
+            shadows[1].Index > shadows[0].Index,
+            "the offset ring belongs above the ring, or there is no gap"
+        );
     }
 
     /// <summary>

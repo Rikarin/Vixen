@@ -906,7 +906,9 @@ public class DrawListTests {
     [Theory]
     [InlineData("currentcolor")]
     [InlineData("currentColor")]
+    [InlineData("CURRENTCOLOR")]
     [InlineData("var(--nothing, currentcolor)")]
+    [InlineData("var(--nothing, CurrentColor)")]
     public void A_shadow_in_the_current_colour_paints_however_the_keyword_is_spelt(string colour) {
         using var document = Drawn(
             $$"""
@@ -970,6 +972,62 @@ public class DrawListTests {
         // and a refusal is a different bug with the same picture.
         Assert.DoesNotContain(document.Drawing.Commands, command => command.Kind == DrawCommandKind.Shadow);
         Assert.Single(document.Drawing.Commands);
+    }
+
+    /// <summary>And the outer twin, which is where the shape was actually wrong.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>CSS Backgrounds 3 § 7.1.1 clips an <i>outer</i> shadow to outside the border box,
+    ///         so a shadow that is exactly the border box has no region left and a browser renders
+    ///         nothing for it. This engine painted the rectangle.</b> It was invisible for as long as
+    ///         every element carrying one had an opaque background — which is the argument
+    ///         <c>UtilityComposition.RingWidth</c>'s remark recorded as acceptable, and it is only
+    ///         true of the elements somebody happened to look at.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What forced it is <c>ring-offset-*</c>, and the forcing is worth reading.</b> An
+    ///         offset ring's colour has to be opaque — a transparent one makes
+    ///         <c>ring-2 ring-offset-2</c> paint a four-point ring with no gap in it — so its unset
+    ///         slot cannot be dropped for its colour the way <c>--tw-shadow</c>'s is. It is dropped
+    ///         for its <i>geometry</i> instead, by this branch, and without it registering the family
+    ///         would have put an opaque page-coloured rectangle under every shadowed element in the
+    ///         editor.
+    ///     </para>
+    ///     <para>
+    ///         The negative rows are the ones that make it a rule rather than a special case: a
+    ///         spread, a blur or an offset each rescue the shadow on their own, and a negative spread
+    ///         is degenerate in the same way a zero one is because the rectangle shrinks inside the
+    ///         box it is clipped out of.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("0 0 0 0 #ff0000", false)]
+    [InlineData("0 0 0 #ff0000", false)]
+    [InlineData("0 0 #ff0000", false)]
+    [InlineData("0 0 0 -3px #ff0000", false)]
+    [InlineData("0 0 0 1px #ff0000", true)]
+    [InlineData("0 0 4px #ff0000", true)]
+    [InlineData("0 2px 0 #ff0000", true)]
+    public void An_outer_shadow_with_no_region_outside_the_box_is_dropped(string shadow, bool painted) {
+        using var document = Drawn(
+            $$"""
+            root { width: 400px; height: 300px; }
+            .card {
+                width: 100px; height: 60px; background-color: #ffffff;
+                box-shadow: {{shadow}};
+            }
+            """,
+            document => document.Root.Add("div", classNames: "card")
+        );
+
+        // ⚠ The absence of a `Shadow` command rather than a count, for the inner twin's reason: the
+        // count is also one for a declaration `EmitShadow` refused whole, and a refusal is a
+        // different bug wearing the same picture. The positive rows are what tell them apart — a
+        // refusal would drop those too.
+        Assert.Equal(
+            painted,
+            document.Drawing.Commands.ToArray().Any(command => command.Kind == DrawCommandKind.Shadow)
+        );
     }
 
     /// <summary>But a blur is a real inner shadow at a zero offset, and it is not dropped with them.</summary>
