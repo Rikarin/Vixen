@@ -2881,30 +2881,75 @@ sealed partial class EditorApplication : IDisposable {
         SceneMenu();
     }
 
+    /// <summary>The undo manager these two verbs mean right now.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Resolved per invocation, and it used to be captured.</b> Both commands closed
+    ///         over the <c>scene</c> field — the main scene, set once in the constructor — so ⌘Z with
+    ///         an asset editor or an additively-opened scene in front of the user stepped back
+    ///         through a history they were not looking at, and the enablement predicate read the same
+    ///         wrong stack, so the item could be live with nothing to take back. The method's own
+    ///         summary said "over whichever document is active" the whole time.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>From the focus and not from the project, which is a stronger answer than
+    ///         <c>ActiveDocument</c> alone.</b> <see cref="UiElement.FindUndoManager" /> walks the
+    ///         focused element's ancestors and asks the document last, so a panel that owns a stack
+    ///         of its own outranks the shell's — the arrangement <c>UndoCommands</c> describes — and
+    ///         the document's answer is <c>ActiveDocumentUndo</c>, which is what makes the fallback
+    ///         the active document rather than the first one opened. A field's ⌘Z and this menu item
+    ///         are now one verb reaching one manager, which is what #642 closed on the other leg.
+    ///     </para>
+    /// </remarks>
+    IUndoManager? Undoing() => (Shell.Document.Focused ?? Shell.Document.Root).FindUndoManager();
+
     /// <summary>Undo and redo, over whichever document is active.</summary>
     /// <remarks>
-    ///     Bound to the document's stack rather than to a global one, and enabled from the stack's
-    ///     own signal — which is what makes the menu item grey itself out with no code here saying
-    ///     when. <c>UndoName</c> is read for the same reason: the label is "Undo Set Roughness"
-    ///     because the command said so, not because a menu was told.
+    ///     <para>
+    ///         Bound to the nearest undo manager rather than to a global stack, and enabled from that
+    ///         same manager — which is what makes the menu item grey itself out with no code here
+    ///         saying when. <c>UndoName</c> is read for the same reason: the label is "Undo Set
+    ///         Roughness" because the command said so, not because a menu was told.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Registered here rather than left to <c>UndoCommands.Install</c> on the shell's
+    ///         root, and that is a decision rather than an omission.</b> The editor's menu bar, its
+    ///         command palette and its keybindings view are all views over <c>CommandRegistry</c>,
+    ///         and a line whose id nothing registered is skipped when the bar is built — so an
+    ///         install that gave <c>CommandRoute</c> an answer would have left all three of them with
+    ///         none, and Edit ▸ Undo would have disappeared from the menu. What was wrong was the
+    ///         stack these commands ran on, not where they live.
+    ///     </para>
     /// </remarks>
     void EditCommands() {
         Shell.Commands.Add(
-            new EditorCommand("edit.undo", EditorStrings.CommandUndo, () => scene.Stack.Undo()) {
+            new EditorCommand("edit.undo", EditorStrings.CommandUndo, () => Perform(m => m.Undo())) {
                 Category = EditorStrings.CategoryEdit,
-                Enablement = () => scene.Stack.CanUndo.Value
+                Enablement = () => Undoing() is { CanUndo: true }
             }
         );
 
         Shell.Commands.Add(
-            new EditorCommand("edit.redo", EditorStrings.CommandRedo, () => scene.Stack.Redo()) {
+            new EditorCommand("edit.redo", EditorStrings.CommandRedo, () => Perform(m => m.Redo())) {
                 Category = EditorStrings.CategoryEdit,
-                Enablement = () => scene.Stack.CanRedo.Value
+                Enablement = () => Undoing() is { CanRedo: true }
             }
         );
 
         Shell.Keys.SetDefault("edit.undo", new KeyChord(InputKey.Z, ModifierKeys.Control));
         Shell.Keys.SetDefault("edit.redo", new KeyChord(InputKey.Z, ModifierKeys.Control | ModifierKeys.Shift));
+    }
+
+    /// <summary>Runs one step of history and tells the menus that the other item's state moved.</summary>
+    /// <remarks>
+    ///     ⚠ The invalidation is <c>UndoCommands.Perform</c>'s, for its reason: command state is
+    ///     pulled once per raise rather than observed, so undoing the only edit has to grey Undo and
+    ///     un-grey Redo in the same breath or the bar keeps whatever it had when it was opened.
+    /// </remarks>
+    void Perform(Func<IUndoManager, bool> step) {
+        if (Undoing() is { } manager && step(manager)) {
+            Shell.Document.InvalidateCommands();
+        }
     }
 
     /// <summary>What the viewport can be told to do, as commands rather than as a second keymap.</summary>
