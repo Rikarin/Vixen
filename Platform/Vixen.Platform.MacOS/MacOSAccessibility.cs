@@ -12,8 +12,19 @@ namespace Vixen.Platform.MacOS;
 ///         <c>NSWorkspace.accessibilityDisplayShouldReduceMotion</c>.</b> The two agree, and only one
 ///         of them is reachable from a process that never made an <c>NSApplication</c> — which is
 ///         every SDL application, this engine's included. It is the same choice
-///         <see cref="MacOSAppearance" /> makes and for the same reason: Foundation answers, AppKit
-///         wants a main thread and an application object.
+///         <see cref="MacOSAppearance" /> makes and for the same reason: Foundation answers, and
+///         <c>NSWorkspace.sharedWorkspace</c> is one of the AppKit singletons that does not.
+///     </para>
+///     <para>
+///         ⚠ <b>"AppKit wants an application object" is <s>the general rule</s> true of this class
+///         and not of AppKit, and the difference was measured on 2026-09-06.</b> <c>NSColor</c>'s
+///         semantic colours — <c>labelColor</c>, <c>controlAccentColor</c> and the rest — resolve
+///         perfectly well with <c>NSApp</c> nil, follow the system appearance, and follow
+///         <c>+[NSAppearance setCurrentAppearance:]</c> on a secondary thread. So the sentence above
+///         is a fact about the two <em>singletons</em> this file and
+///         <see cref="MacOSAppearance" /> would otherwise have used, and it must not be read as a
+///         reason the platform's palette cannot be read at all — it was, in two other files, and
+///         they were wrong.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>An absent key is <c>false</c>, not unknown.</b> These defaults are written when the

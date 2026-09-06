@@ -128,17 +128,25 @@ public class SystemPaletteWiringTests {
     ///     <para>
     ///         ⚠ <b>The roles nobody supplied still have to move</b>, which is the half that makes
     ///         this a substitution rather than a freeze. A partial read is the normal case rather
-    ///         than a special one: <c>NSGlobalDomain</c> can answer the accent and the highlight and
-    ///         no others, because <c>NSColor</c> wants an <c>NSApplication</c> an SDL process has not
-    ///         made.
+    ///         than a special one — a platform answers the roles it has and no others.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>Canvas</c> and not <c>Highlight</c>, and that is not a free choice.</b> ExCSS
-    ///         normalises the five CSS2 system colours it knows — <c>ButtonFace</c>,
-    ///         <c>ButtonText</c>, <c>Highlight</c>, <c>HighlightText</c>, <c>GrayText</c> — into
-    ///         fixed <c>rgb()</c> at stylesheet parse time, so those five never reach
-    ///         <c>SystemPalette</c> at all and no palette work can move them. Filed separately; a
-    ///         test written on one of the five would have been asserting the CSS parser's constants.
+    ///         ⚠ <b><s>On macOS that is the accent and the highlight and no more, because
+    ///         <c>NSColor</c> wants an <c>NSApplication</c> an SDL process has not made.</s>
+    ///         Measured on 2026-09-06 and false</b> — see <c>PlatformInput.Repalette</c>'s remarks.
+    ///         With <c>NSApp</c> nil, <c>+[NSColor labelColor]</c> and its siblings resolve, follow
+    ///         the system appearance, and follow <c>+[NSAppearance setCurrentAppearance:]</c> when
+    ///         one is named, on a secondary thread. The refusal was true of
+    ///         <c>NSApp.effectiveAppearance</c> and was carried across to <c>NSColor</c>, which is a
+    ///         class method and does not need the application object.
+    ///     </para>
+    ///     <para>
+    ///         <c>Canvas</c> rather than <c>Highlight</c>, ⚠ <b>which used to be forced and is now
+    ///         only a habit.</b> ExCSS normalised the five CSS2 system colours it knows into fixed
+    ///         <c>rgb()</c> at stylesheet parse time, so a test written on one of them was asserting
+    ///         the CSS parser's constants against a palette nothing filled;
+    ///         <c>StyleSheetLoader.CarrySystemColours</c> closed that, and all fifteen keywords reach
+    ///         <see cref="SystemPalette" /> now.
     ///     </para>
     /// </remarks>
     [Fact]
