@@ -709,6 +709,85 @@ public class LayerStackCompileTests {
         Assert.Contains(compilation.Problems, problem => problem.Message.Contains("share the id", StringComparison.Ordinal));
     }
 
+    /// <summary>⚠ And two layers with no id are refused, which the check used to exempt.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The exemption was the hole</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/893">#893</a>).
+    ///         <c>LayerAsset.Id</c> defaults to empty and the walk skipped an empty one, so a
+    ///         hand-written file that names no ids — which is every file somebody writes without
+    ///         reading the schema — gave every layer the same id and was the one shape the check let
+    ///         through. It is not a hypothetical: nothing in the editor adds a layer yet, so a
+    ///         written file is the only way a second one arrives at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The defect is stated as behaviour below rather than only as a diagnostic</b> —
+    ///         see <see cref="Two_layers_with_no_id_are_one_layer_to_every_editing_command" />. A test
+    ///         that asserted only the message would pass on a build where the refusal was correct and
+    ///         the addressing still wrong, which is the state this is in until the panel reads it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Two_layers_with_no_id_are_refused_too() {
+        var stack = Stack(new() { Kind = LayerKind.Fill }, new() { Kind = LayerKind.Fill });
+
+        var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        Assert.Null(compilation.Plan);
+        Assert.Contains(compilation.Problems, problem => problem.Message.Contains("have no id", StringComparison.Ordinal));
+    }
+
+    /// <summary>⚠ One layer with no id is not, because it is still the only thing "" names.</summary>
+    /// <remarks>
+    ///     The other half, and the reason the fix is "the empty id counts" rather than "the empty id
+    ///     is refused": a stack with a single unnamed layer addresses perfectly well, and refusing it
+    ///     would turn a schema nicety into a compile error for every file that has one layer.
+    /// </remarks>
+    [Fact]
+    public void One_layer_with_no_id_compiles() {
+        var stack = One(new() { Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } });
+
+        var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        Assert.NotNull(compilation.Plan);
+        Assert.DoesNotContain(compilation.Problems, problem => problem.Message.Contains("no id", StringComparison.Ordinal));
+    }
+
+    /// <summary>⚠ Two id-less layers are one layer to every editing command, which is the defect.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a duplicate id actually costs, written as the thing that happens rather than
+    ///         as the message about it</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/893">#893</a>). <c>LayerPath</c>
+    ///         addresses a layer by id and <c>LayerStackEdit</c> resolves it by walking to the first
+    ///         match — so the panel's second row and its first row are the same address, and moving
+    ///         the second moves the first. An artist reorders row four and row two moves.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is asserted as still true, not as fixed.</b> The refusal above is a compile
+    ///         diagnostic and the panel builds its rows from the document, so nothing yet stops the
+    ///         rows being drawn and clicked. When the panel is made to consult the compilation, this
+    ///         test is the one that has to change, and its name says what it is recording.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Two_layers_with_no_id_are_one_layer_to_every_editing_command() {
+        var stack = Stack(
+            new() { Name = "Lower", Kind = LayerKind.Fill },
+            new() { Name = "Upper", Kind = LayerKind.Fill }
+        );
+
+        Assert.True(LayerStackEdit.TryFind(stack, new("S", ""), out var parent, out var index));
+
+        // The first, in the file's own order — so the row an artist points at is not the one that
+        // moves, whichever of the two they meant.
+        Assert.Equal(0, index);
+        Assert.Equal("Lower", parent[index].Name);
+
+        Assert.True(LayerStackEdit.Move(stack, new("S", ""), 1));
+        Assert.Equal(["Upper", "Lower"], stack.Sets[0].Layers.Select(layer => layer.Name).ToArray());
+    }
+
     /// <summary>Every channel of the default set is a usage the Output node accepts.</summary>
     /// <remarks>
     ///     ⚠ <b>Derived rather than compared against a copy of the list.</b> <c>TextureUsages.Known</c>

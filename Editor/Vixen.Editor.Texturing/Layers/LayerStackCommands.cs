@@ -10,13 +10,24 @@ namespace Vixen.Editor.Texturing.Layers;
 /// <param name="Set">The <see cref="TextureSetAsset.Name" />.</param>
 /// <param name="Id">The <see cref="LayerAsset.Id" />.</param>
 /// <remarks>
-///     ⚠ <b>An id and not an index, and that is the whole reason <see cref="LayerAsset.Id" />
-///     exists.</b> A command records where it acted so that its undo can act in the same place, and
-///     both of the obvious coordinates move: an index moves when anything under the layer is
-///     reordered, and a name moves when somebody renames it. An anchor already names a layer this
-///     way for exactly that reason, and <c>LayerStackGraph.Duplicates</c> refuses a stack in which
-///     the key is not unique — so an addressing scheme built on it inherits a check that already
-///     exists rather than needing one of its own.
+///     <para>
+///         ⚠ <b>An id and not an index, and that is the whole reason <see cref="LayerAsset.Id" />
+///         exists.</b> A command records where it acted so that its undo can act in the same place,
+///         and both of the obvious coordinates move: an index moves when anything under the layer is
+///         reordered, and a name moves when somebody renames it. An anchor already names a layer
+///         this way for exactly that reason.
+///     </para>
+///     <para>
+///         ⚠ <b>What this does <em>not</em> inherit is a guarantee that the key is unique, and the
+///         remark here used to say it did</b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/893">#893</a>).
+///         <c>LayerStackGraph.Duplicates</c> is a <em>compile refusal</em>, and the panel builds its
+///         rows from the document rather than from a compilation — so a stack that fails it is still
+///         a stack whose rows are drawn and clicked. Until the panel consults it, a duplicate id
+///         means the second layer's row drives the first, and the refusal is a message beside the
+///         rows rather than something that stops them. It did not cover the empty id at all until
+///         the same issue, which is how a file naming no ids got every layer the same one.
+///     </para>
 /// </remarks>
 readonly record struct LayerPath(string Set, string Id);
 
