@@ -67,6 +67,17 @@ partial class Build : NukeBuild {
     ///         that costs the machine; see the last two paragraphs for what it is worth now.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>The first of those two landed on 2026-09-06 and the numbers above predate it.</b>
+    ///         The assemblies no longer run through VSTest (#560), so the two extra processes per
+    ///         assembly and their ~1 s of protocol are gone from every figure quoted here — summed
+    ///         wall most of all. Nothing in this remark has been re-measured against that, because
+    ///         re-measuring it is a full <c>Test</c> run; treat the walls as an upper bound until
+    ///         somebody makes one and reruns <c>TestOrder --update-test-cost</c>. ⚠ #863's guard is
+    ///         not what will tell you: it fails only on a gap over <i>both</i> 60 s and 1.5×, and a
+    ///         second an assembly no longer spends is neither. A saving spread evenly over 180
+    ///         assemblies is exactly the shape that guard cannot see.
+    ///     </para>
+    ///     <para>
     ///         <b>Measured again after the cap landed</b>, from the 178 TRX of the 2026-09-05 23:04
     ///         run — the run's own interval arithmetic rather than a stopwatch, so it is
     ///         reproducible from committed artefacts. Per-assembly wall sums to 1 956 s; the window
