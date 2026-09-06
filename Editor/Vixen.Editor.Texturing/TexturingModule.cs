@@ -110,6 +110,16 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// </remarks>
     public const string PaintCommand = "texturing.toggle-paint";
 
+    /// <summary>The pane a stroke is made in: doc 48 § D13's 2D UV view.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Its own panel rather than a mode of the layers pane, and the reason is that both are
+    ///     wanted at once.</b> An artist paints while reading the stack — which layer is selected,
+    ///     what is over it, what the map looks like — so a pane that replaced the rows with a canvas
+    ///     would make the two halves of one task exclusive. It is also the seam between two slices'
+    ///     files: <see cref="LayerStackView" /> owns the rows and this owns the pointer.
+    /// </remarks>
+    public const string PaintPanel = "texturing.paint";
+
     EditorProject project = null!;
     EditorShell shell = null!;
 
@@ -163,6 +173,21 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     ///     brush in and gone looking for something else.
     /// </remarks>
     readonly PaintTool tool = new();
+
+    /// <summary>The 2D UV pane, once the panel has been opened at least once.</summary>
+    PaintUvView? paintView;
+
+    /// <summary>The paint layer the last drag opened, and the canvas behind it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Re-opened at every pointer-down rather than held across drags.</b> The layer, the
+    ///     canvas on disk and the stack's resolution are all things that change with the pointer up
+    ///     — an undo of a layer edit, a re-import, another panel — and a surface captured once would
+    ///     paint into whichever state the first stroke found.
+    /// </remarks>
+    PaintSurface? surface;
+
+    /// <summary>What the paint pane is showing, so it can be given back.</summary>
+    IEditorImage? painted;
 
     /// <inheritdoc />
     public void Activate(PluginContext context) {
@@ -261,6 +286,20 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             }
         );
 
+        context.AddPanel(
+            PaintPanel,
+            new StringId("editor.panel.texture-paint", "Paint"),
+            panel => {
+                paintView = new PaintUvView(panel, tool) {
+                    Target = BeginStroke,
+                    Painted = Redraw,
+                    Finished = Recorded
+                };
+
+                RefreshPaint();
+            }
+        );
+
         context.AddCommand(OpenCommand, new StringId("editor.command." + OpenCommand, "Open Texture Graph"), Open);
         context.AddCommand(
             OpenStackCommand,
@@ -286,12 +325,12 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
     /// <summary>Swaps the pointer between selecting and painting.</summary>
     /// <remarks>
-    ///     ⚠ <b>The notification is the whole of what this verb can honestly do today, and saying so
-    ///     is the point.</b> Doc 48 § D13's two front ends — the 3D projection path and the 2D UV
-    ///     view — are what a paint mode would be <em>for</em>, and neither exists: nothing in this
-    ///     tree turns a pointer position into a texel. So the mode is held, the brush is dialled in
-    ///     against it, and the artist is told which of the two states the tool is in rather than
-    ///     being left to discover that a drag does nothing.
+    ///     ⚠ <b>It opens the pane the brush works in, and until <see cref="PaintUvView" /> existed
+    ///     there was none.</b> This verb used to say, in the notification, that no viewport drove the
+    ///     brush and that a drag would paint nothing. The 2D UV view is doc 48 § D13's second front
+    ///     end and is that viewport; the 3D projection path is still owed
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/574">#574</a>), and a mode with no pane
+    ///     open would still be a mode nothing can be done in — so switching it on shows the pane.
     /// </remarks>
     void TogglePaint() {
         var mode = tool.Toggle();
@@ -301,15 +340,159 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         // the panel is in exactly when somebody used the shortcut instead.
         stackView?.Brush?.Refresh();
 
+        if (mode == PaintToolMode.Paint) {
+            // Opened rather than toggled, for `Open`'s reason: the verb means "let me paint", and a
+            // toggle would close the pane for anybody who ran it while it was already open.
+            shell.Workspace.Open(PaintPanel);
+            RefreshPaint();
+        }
+
         shell.Notifications.Show(
             mode == PaintToolMode.Paint ? "Painting" : "Not painting",
             NotificationSeverity.Info,
             mode == PaintToolMode.Paint
                 ? "The brush is " + tool.Describe()
-                + ". ⚠ No viewport drives it yet — the 3D projection path and the 2D UV view are doc 48 § D13 "
-                + "(#574), so a drag paints nothing until one of them lands."
+                + ". Drag in the Paint pane to lay a stroke into this stack's first paint layer. ⚠ The 3D "
+                + "projection path is still doc 48 § D13 (#574), so a drag in the scene paints nothing."
                 : "A drag selects rows and pans the preview."
         );
+    }
+
+    /// <summary>Pointer-down in the paint pane: what to paint into, or nothing with a reason.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every refusal is a sentence under the pane rather than an exception</b>, for
+    ///     <c>LayerStackPreview.Evaluate</c>'s reason: this runs from a pointer event, and a throw
+    ///     out of one takes the editor's frame with it.
+    /// </remarks>
+    PaintTarget? BeginStroke() {
+        if (paintView is null) {
+            return null;
+        }
+
+        if (stack is null) {
+            paintView.Say("No stack is open. Select a .vxlayers and run Open Layer Stack.");
+
+            return null;
+        }
+
+        surface = PaintSurface.Open(stack, tool.LayerId, out var refusal);
+
+        if (surface is null) {
+            paintView.Say(refusal);
+
+            return null;
+        }
+
+        return surface.Target(tool.Channel);
+    }
+
+    /// <summary>A move, an undo or a redo dirtied a rectangle: put the composite back on the screen.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The whole picture is re-uploaded and the rectangle is only what says one is needed.</b>
+    ///     <c>IEditorGraphics.Upload</c> takes a whole image and has no sub-rectangle form, so a
+    ///     pointer move at 4K moves 67 MB whatever the stamp covered — which is the cost
+    ///     <c>PaintComposite.Resolve</c>'s rectangles were bought to avoid, paid one level up.
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/912">#912</a>.
+    /// </remarks>
+    void Redraw(PaintRect rect) {
+        if (paintView?.Live is not { } composite || rect.IsEmpty) {
+            return;
+        }
+
+        Show(composite.Result, "Painting: " + tool.Describe());
+    }
+
+    /// <summary>Pointer-up: the canvas goes to disk, the drag goes on the undo stack, the map redraws.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The naming edit is executed <em>before</em> the stroke and that ordering is the
+    ///         whole of it.</b> A paint layer that named no canvas gets one written down here, and it
+    ///         is a change to the <c>.vxlayers</c> rather than to the pixels — so it is its own entry.
+    ///         Pushed after the stroke, the artist's first undo would take the name away and leave a
+    ///         layer pointing at nothing with the stroke still in it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The file is written before either.</b> <c>LayerStackPreview</c> resolves a paint
+    ///         layer by opening the <c>.vxpaint</c> off the disk, so a stroke that is only in memory
+    ///         is a stroke the map cannot show — see <see cref="PaintSurface" />'s remarks for why
+    ///         that is forced rather than chosen.
+    ///     </para>
+    /// </remarks>
+    void Recorded(IEditorCommand command) {
+        if (stack is null || surface is null) {
+            return;
+        }
+
+        surface.Save();
+
+        if (surface.NeedsNaming) {
+            stack.Stack.Execute(
+                new SetLayerCommand(
+                    stack,
+                    new LayerPath(surface.Set.Name, surface.Layer.Id),
+                    surface.Layer,
+                    surface.Named(),
+                    "Name paint canvas"
+                )
+            );
+        }
+
+        stack.Stack.Execute(command);
+
+        RefreshStack();
+        RefreshPaint();
+    }
+
+    /// <summary>Puts the painted layer's own pixels in the paint pane.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The layer and not the stack, and that is a smaller promise than doc 48 § D13's.</b>
+    ///     What a live composite would show is the layer between the stack's two halves; those halves
+    ///     have to come out of the plan, which is
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/849">#849</a> and is not built. With
+    ///     <see cref="PaintStackImages.Empty" /> under and over it, the composite of the layer <em>is
+    ///     the layer</em> — so this pane and the drag agree exactly, and both of them differ from the
+    ///     map in the layers pane by whatever the stack does. Saying which of the two an artist is
+    ///     looking at is what the sentence under the pane is for.
+    /// </remarks>
+    void RefreshPaint() {
+        if (paintView is null) {
+            return;
+        }
+
+        if (stack is null) {
+            paintView.Show(0, 1, 1, "No stack is open. Select a .vxlayers and run Open Layer Stack.");
+
+            return;
+        }
+
+        var opened = PaintSurface.Open(stack, tool.LayerId, out var refusal);
+
+        if (opened is null) {
+            paintView.Show(0, stack.Document.BaseWidth, stack.Document.BaseHeight, refusal);
+
+            return;
+        }
+
+        Show(
+            opened.Canvas.Channel(tool.Channel),
+            $"'{opened.Layer.Name}' · {tool.Channel} · this layer's own pixels, not the stack's composite (#849)."
+        );
+    }
+
+    /// <summary>Uploads a paint image and hands it to the pane.</summary>
+    void Show(PaintImage image, string status) {
+        if (paintView is null) {
+            return;
+        }
+
+        var uploaded = graphics?.Upload(image.Width, image.Height, image.Texels);
+
+        // One live upload per redraw: a pane re-uploaded on every pointer move would otherwise hold
+        // a texture and a descriptor set per frame of the drag. `LayerStackPreview` says the same.
+        painted?.Dispose();
+        painted = uploaded;
+
+        paintView.Show(uploaded?.Image ?? 0ul, image.Width, image.Height, status);
     }
 
     /// <inheritdoc />
@@ -322,6 +505,12 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     public void Deactivate() {
         view = null;
         stackView = null;
+        paintView = null;
+
+        // ⚠ The surface and not only the pane. It holds a `PaintCanvas`, which at 4K is 67 MB a
+        // channel — a module that let the pane go and kept the canvas would leave the largest thing
+        // it ever allocated alive for the session.
+        surface = null;
 
         if (document is { IsOpen: true }) {
             document.Close();
@@ -360,6 +549,11 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
         stackPreview?.Dispose();
         stackPreview = null;
+
+        // The paint pane's own upload: it is made here rather than by a preview, so nothing else
+        // would ever give it back.
+        painted?.Dispose();
+        painted = null;
 
         graphics = null;
     }
@@ -500,5 +694,10 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
         shell.Workspace.Open(StackPanel);
         RefreshStack();
+
+        // ⚠ The paint pane too, and it is the same document. Opening a second stack while the pane
+        // was showing the first one's canvas would leave the brush aiming at a layer of a file
+        // nobody has open — and the pixels under the pointer would be the old stack's.
+        RefreshPaint();
     }
 }
