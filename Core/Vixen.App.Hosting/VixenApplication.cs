@@ -268,15 +268,23 @@ public sealed class VixenApplication : IDisposable {
         // check rather than an assertion.
         console = Services.Graphics?.Overlays?.Find("console") as ConsoleOverlay;
 
-        // docs/plan/17 Q5b's second surface, found the same way and for the same reason. Set once
-        // rather than per frame: a mount does not become loose halfway through a run, and the panel
-        // holds the flag rather than reading it.
+        // docs/plan/17 Q5b's second surface. Set once rather than per frame: a mount does not become
+        // loose halfway through a run.
         //
         // ⚠ The log line above is not enough on its own. It says so in a file nobody attaches to a
         // bug report; this says so in the screenshot they do attach, which is what makes "the trade
         // is deliberate and visible" true of the second reader as well as the first.
-        if (Services.Content.IsLoose && Services.Graphics?.Overlays?.Find("stats") is FrameStatsOverlay stats) {
-            stats.LooseContent = true;
+        //
+        // ⚠ <b>A notice on the registry and no longer a row on the stats panel.</b> The row was the
+        // right words in a place that can be taken away: `overlay stats off` at the console, a
+        // `Remove`, a `DisableAll`, or `Enabled = false` written straight onto the overlay all erase
+        // it, and none of them says anything — so the build went back to being indistinguishable
+        // from one reading its own bundles, which is the exact condition Q5b traded the invariant
+        // away to avoid. A notice is drawn by `DiagnosticOverlays.Draw` itself and survives all
+        // four. It does not survive `Overlays.Enabled = false`, which asks for no diagnostics at
+        // all and is a different request.
+        if (Services.Content.IsLoose && Services.Graphics?.Overlays is { } overlays) {
+            overlays.Notice("content", "CONTENT LOOSE");
         }
 
         clock.Start();
@@ -496,9 +504,12 @@ public sealed class VixenApplication : IDisposable {
     ///     only acceptable while it is visible. Once at startup is not visible — a build left running
     ///     overnight in a QA lab scrolled that line away hours ago — so it repeats every minute.
     ///     <para>
-    ///         This is the surface a log carries. The one a screenshot carries is
-    ///         <see cref="FrameStatsOverlay.LooseContent" />, stamped in <see cref="Initialise" />.
-    ///         The third — the crash report — waits on crash reports existing at all (#331).
+    ///         This is the surface a log carries. The one a screenshot carries is the standing
+    ///         notice <see cref="Initialise" /> raises through
+    ///         <see cref="DiagnosticOverlays.Notice" /> — which is where it moved to from a row on
+    ///         the frame-statistics panel, because a panel can be switched off at the console and a
+    ///         notice cannot. The third — the crash report — waits on crash reports existing at all
+    ///         (#331).
     ///     </para>
     /// </remarks>
     void WarnAboutLooseContent() {

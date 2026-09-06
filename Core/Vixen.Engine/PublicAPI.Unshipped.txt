@@ -505,6 +505,10 @@ Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.DrawnCount.get -> int
 Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.Enabled.get -> bool
 Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.Enabled.set -> bool
 Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.Find(string? name) -> Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay?
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.Forget(string key) -> bool
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.Notice(string key, string text) -> void
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.Notices.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.NoticesDrawn.get -> int
 Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.RegisterCommands(Vixen.Engine.Diagnostics.Overlays.ConsoleCommands commands) -> void
 Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.Registered.get -> System.Collections.Generic.IReadOnlyList<Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay>
 Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.Remove(string name) -> bool
@@ -555,8 +559,6 @@ Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.Draw(Vixen.Engine.Diagnostic
 Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.Enabled.get -> bool
 Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.Enabled.set -> bool
 Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.FrameStatsOverlay() -> void
-Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.LooseContent.get -> bool
-Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.LooseContent.set -> bool
 Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.Name.get -> string
 Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.PeakMilliseconds.get -> float
 Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.Reset() -> void

@@ -55,9 +55,19 @@ public interface IDiagnosticOverlay {
 ///     </para>
 /// </remarks>
 public sealed class DiagnosticOverlays {
+    /// <summary>How wide the notice panel is, in pixels.</summary>
+    /// <remarks>
+    ///     Narrower than <c>FrameStatsOverlay.Width</c>, because a notice is a short phrase and not a
+    ///     column of numbers, and a panel sized for the numbers would put a stripe of empty
+    ///     background above the frame statistics on every loose-content build.
+    /// </remarks>
+    const float NoticeWidth = 150f;
+
     readonly List<IDiagnosticOverlay> overlays = [];
     readonly OverlaySurface surface = new();
     readonly HashSet<string> requested = new(StringComparer.OrdinalIgnoreCase);
+    readonly List<string> noticeKeys = [];
+    readonly List<string> noticeTexts = [];
 
     /// <summary>Whether any overlay is drawn at all — the single switch, for a shipping build.</summary>
     public bool Enabled { get; set; } = true;
@@ -69,7 +79,81 @@ public sealed class DiagnosticOverlays {
     public IReadOnlyList<IDiagnosticOverlay> Registered => overlays;
 
     /// <summary>How many panels the last <see cref="Draw" /> actually put on screen.</summary>
+    /// <remarks>
+    ///     ⚠ Panels from <see cref="Registered" /> only. The notice panel is not one of them and is
+    ///     counted by <see cref="NoticesDrawn" /> — because the number a caller wants here is how
+    ///     many of the overlays it switched on are visible, and a standing notice is precisely the
+    ///     thing it did not switch on.
+    /// </remarks>
     public int DrawnCount { get; private set; }
+
+    /// <summary>How many standing notices the last <see cref="Draw" /> put on screen.</summary>
+    public int NoticesDrawn { get; private set; }
+
+    /// <summary>The standing notices, in the order they were first raised.</summary>
+    /// <remarks>
+    ///     Two parallel lists behind it rather than a list of pairs, so that this is the list itself
+    ///     and not a projection of one — a diagnostics property that allocated on every read is the
+    ///     shape of an overlay that measures itself.
+    /// </remarks>
+    public IReadOnlyList<string> Notices => noticeTexts;
+
+    /// <summary>Raises a standing notice, or replaces the one already under that key.</summary>
+    /// <param name="key">What the notice is about, so it can be replaced or withdrawn.</param>
+    /// <param name="text">The line to draw. Short — it shares a panel with the others.</param>
+    /// <exception cref="ArgumentException"><paramref name="key" /> is blank.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A notice is not an overlay, and that is the whole of why it exists.</b> Every
+    ///         panel here can be taken off the screen — <see cref="Set" /> (which the console
+    ///         publishes as <c>overlay &lt;name&gt; off</c>), <see cref="Remove" />,
+    ///         <see cref="DisableAll" />, and <c>Enabled = false</c> written straight onto an overlay
+    ///         a caller is holding, which this class never sees at all. So a standing statement about
+    ///         the build that lives <em>on</em> a panel is a statement any of those five acts erases,
+    ///         and none of them is unusual. This one is drawn by <see cref="Draw" /> itself.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is still inside <see cref="Enabled" />, deliberately, and that is the line.</b>
+    ///         Hiding a <i>panel</i> must not take a notice with it; asking for no diagnostics at all
+    ///         is a different act, and there is no honest way to draw on a surface that is not being
+    ///         drawn. What this guarantees is that a screenshot with any overlay in it carries the
+    ///         notice, which is the condition doc 17 Q5b traded the "release reads only bundles"
+    ///         invariant for — see <c>VixenApplication</c>, its only caller today.
+    ///     </para>
+    ///     <para>
+    ///         Nothing here knows what a notice is about. The engine does not know how content was
+    ///         mounted and should not learn; the host raises the line and this draws it.
+    ///     </para>
+    /// </remarks>
+    public void Notice(string key, string text) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        ArgumentNullException.ThrowIfNull(text);
+
+        for (var at = 0; at < noticeKeys.Count; at++) {
+            if (string.Equals(noticeKeys[at], key, StringComparison.OrdinalIgnoreCase)) {
+                noticeTexts[at] = text;
+                return;
+            }
+        }
+
+        noticeKeys.Add(key);
+        noticeTexts.Add(text);
+    }
+
+    /// <summary>Withdraws a standing notice.</summary>
+    /// <param name="key">What <see cref="Notice" /> was given.</param>
+    /// <returns><see langword="true" /> if one was withdrawn.</returns>
+    public bool Forget(string key) {
+        for (var at = 0; at < noticeKeys.Count; at++) {
+            if (string.Equals(noticeKeys[at], key, StringComparison.OrdinalIgnoreCase)) {
+                noticeKeys.RemoveAt(at);
+                noticeTexts.RemoveAt(at);
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Adds an overlay, at the end of its corner's stack.</summary>
     /// <param name="overlay">The overlay.</param>
@@ -224,12 +308,14 @@ public sealed class DiagnosticOverlays {
         ArgumentNullException.ThrowIfNull(draw);
 
         DrawnCount = 0;
+        NoticesDrawn = 0;
 
         if (!Enabled || !draw.Enabled || viewport.X <= 0f || viewport.Y <= 0f) {
             return;
         }
 
         surface.Begin(draw, viewport, Theme);
+        DrawNotices();
 
         foreach (var overlay in overlays) {
             if (!overlay.Enabled) {
@@ -239,5 +325,38 @@ public sealed class DiagnosticOverlays {
             overlay.Draw(surface, time);
             DrawnCount++;
         }
+    }
+
+    /// <summary>Draws the standing notices, above whatever is stacked in the top-left corner.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Before the panels rather than after, because a corner is a stack in the order things
+    ///         are drawn — so this puts the notice at the top of the screen where the frame statistics
+    ///         usually start, and pushes them down rather than sitting under them. A notice that
+    ///         scrolled below three panels would be a notice somebody has to look for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="OverlayTheme.Bad" />, not <see cref="OverlayTheme.Warning" />.</b> The
+    ///         one caller today is a build whose content did not come from its own bundles, which is
+    ///         a statement about what the picture <i>is</i> rather than a number near a limit — and
+    ///         the colour is what makes a screenshot answer the question before anybody asks it.
+    ///     </para>
+    /// </remarks>
+    void DrawNotices() {
+        if (noticeTexts.Count == 0) {
+            return;
+        }
+
+        var region = surface.Panel(OverlayAnchor.TopLeft, NoticeWidth, noticeTexts.Count, "BUILD");
+
+        if (region.IsEmpty) {
+            return;
+        }
+
+        for (var at = 0; at < noticeTexts.Count; at++) {
+            region.Text(at, noticeTexts[at], Theme.Bad);
+        }
+
+        NoticesDrawn = noticeTexts.Count;
     }
 }
