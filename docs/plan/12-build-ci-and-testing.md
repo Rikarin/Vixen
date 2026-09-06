@@ -92,7 +92,7 @@ item, and `CheckAttribution` is ADR-015's enforcement.
 | `PruneWorktrees` | reports the agent worktrees under `.claude/worktrees` that are **merged into master, clean, unlocked and unwritten for `--idle-minutes`** (30), and with `--remove-merged` removes those and only those. ⚠️ **The fourth condition is the only one about the worker rather than the work** ([#770](https://github.com/Rikarin/Vixen/issues/770)): the lock is what "somebody is still using this" is read off, and two of thirteen live agent worktrees carried none on 2026-09-05 — while merged-and-clean is precisely the state a live agent is in between the orchestrator merging its branch and its own process ending. The signal is the newest write anywhere under the worktree, free because the size report already walks every file; the pid in the lock reason is deliberately not consulted, since a recycled pid is a worse oracle than a missing lock and there is no lock to read one out of in the case this is about. ⚠️ The ordering hazard is that merge-then-prune now reports those worktrees as `keep` for up to the window — which costs a sweep and not the disk, since #561's worktrees had been held for days — and `--idle-minutes 0` restores the three-condition behaviour exactly. ⚠️ **Nothing else in the repository reclaims that disk**: on 2026-09-04 it was 105 GB of a 132 GB tree, ~25 GB per worktree, three of them merged and clean for days. ⚠️ It enumerates *directory entries* and not `git worktree list`, because one 3.8 GB directory in there was not a registered worktree at all — and git run from inside such a directory answers about the parent repository, so it reported itself clean and on master while being neither. Those are warned about and never removed. Removal is `git worktree remove`, so git's own dirtiness refusal stays behind the filter rather than being replaced by it. Not on the graph and never in CI: it deletes checkouts, so it is a target somebody types on purpose ([#561](https://github.com/Rikarin/Vixen/issues/561)). ⚠️ **The removable verdict is unreachable on a real machine** — a removable worktree is one nobody has — so four audits could only see that branch by sabotaging a predicate. The four conditions are now a pure function in `build/WorktreeSafety.cs`, linked into `Vixen.ApiCheck.Tests`, and the positive case, each refusal on its own, the reversed-recency direction and the empty-HEAD short circuit are ordinary tests |
 | `GoldenImages` | ✅ renders the fixture suite on the local backend — lavapipe on the Linux leg, MoltenVK on macOS — and compares it with the committed references; writes the rendering, the reference and a diff into `artifacts/golden-diff/` on failure, which CI uploads. `--update-golden` rewrites the references. The fixtures also run under `Test`, so a wrong picture fails an ordinary build; the separate target exists for the diffs and the switch. |
 | `CheckAot` / `CheckAotIos` | `PublishAot` + `PublishTrimmed` of a probe that roots the runtime assemblies; **any IL2xxx/IL3xxx warning fails**. ⚠️ **Two targets and not one `AotSmoke`**, because iOS is the NativeAOT-only platform and `CheckAotIos` `.Requires` macOS — a single target would have been silently half a gate on every other runner. ⚠️ The probe roots 29 of 95 runtime assemblies rather than all of them ([#506](https://github.com/Rikarin/Vixen/issues/506)) |
-| `Benchmark` | BenchmarkDotNet over `Benchmarks/*`, then judged against `Benchmarks/baseline.json`: **any** allocation growth fails, a mean more than 10 % above the baseline fails only under `--gate-timing`, and a benchmark that is in the baseline and did not run fails too. ⚠️ **There is no committed baseline yet, and the target therefore fails rather than passing** — a comparison with nothing to compare against is the shape of a gate that did not run, and this row described one for as long as it had described anything. `--update-baseline` writes the file, stamped with the machine, the runtime, the BenchmarkDotNet version and the commit out of BenchmarkDotNet's own `HostEnvironmentInfo`; `--report-only` asks for numbers without a verdict. The comparison alone, over whatever is already in `artifacts/benchmarks`, is `CheckBenchmarks` |
+| `Benchmark` | BenchmarkDotNet over `Benchmarks/*`, then judged against `Benchmarks/baseline.json`: **any** allocation growth fails, a mean more than 10 % above the baseline fails only under `--gate-timing`, and a benchmark that is in the baseline and did not run fails too. ⚠️ **There is no committed baseline yet, and the target therefore fails rather than passing** — a comparison with nothing to compare against is the shape of a gate that did not run, and this row described one for as long as it had described anything. `--update-baseline` writes the file, stamped with the machine, the runtime, the BenchmarkDotNet version and the commit out of BenchmarkDotNet's own `HostEnvironmentInfo`; `--report-only` asks for numbers without a verdict. ⚠️ **Under `--benchmark-filter` the "did not run" half is reported rather than fatal**, because every unselected benchmark is absent by construction — the check that catches a renamed benchmark otherwise fires on all of them, and the only documented way round that was `--report-only`, which switches off the allocation comparison too. No CI job passes a filter, so the gate is unchanged where it gates; `build/BenchmarkInventory.cs` carries the rule and `Tools/Vixen.ApiCheck.Tests/BenchmarkInventoryTests` is its fixture. The comparison alone, over whatever is already in `artifacts/benchmarks`, is `CheckBenchmarks` |
 | `Pack` | produces every NuGet package, then opens every one of them. Four checks, each written from a failure that had already happened or from an obligation that cannot be satisfied by memory: `CheckApacheObligations` asserts the Apache-2.0 licence expression in each manifest and a non-empty `NOTICE` at its root (ADR-015); `CheckPackedToolsAreComplete` is the **expected-files manifest** this row asks for — ⚠️ **the manifest is the tool's own `.deps.json`**, so every assembly in the closure and every `runtimes/<rid>/native/` payload it names has to be in the package, and nothing is hand-maintained (`build/PackageContents.cs`); `CheckStyleGenIsShippable` names the five files `Vixen.Ui.Styling.Utilities` must carry for its `tools/` to start; `CheckCliIsShippable` extracts `Vixen.Sdk` and **runs** the CLI out of it. All four are reachable alone as `CheckPackages`, over whatever is already in `artifacts/packages` — an instrument nobody can run alone is one nobody has watched fail. Still owed: `PackageValidation` ([#337](https://github.com/Rikarin/Vixen/issues/337)) |
 | `CheckTemplates` | ✅ scaffolds every `dotnet new` template from the feed `Pack` just wrote, into a directory outside the repository, with an **empty package cache**, and builds each one. On the `pack` leg, in the same invocation as `Pack` — a second invocation would clean the feed it consumes. ⚠️ **The assertion that carries this target is the negative control, not the six builds**: a scaffolded project restores perfectly well outside the repository on any machine that has ever run `Pack`, because ~57 `Vixen.*` packages are sitting in the global NuGet cache, so "it restored" is a statement about the cache. The target therefore first requires a restore to **fail** with the feed unwired, and refuses to continue if it succeeds. Source mapping pins `Vixen.*` to the local feed so a package this build failed to produce cannot be supplied by a published one. Still owed on [#114](https://github.com/Rikarin/Vixen/issues/114): the Android, iOS and Web *platform* heads, which need workloads no desktop leg has |
 | `PublishEditor` | per-RID single-file publish of `Vixen.Editor.App`; `.app` bundle + `.dmg` on macOS, AppImage on Linux, MSI/zip on Windows |
@@ -205,7 +205,13 @@ the answer is real is inside the archive.
 ⚠️ **Three things this paragraph used to claim, that are not true and are owed rather than done**
 ([#337](https://github.com/Rikarin/Vixen/issues/337)):
 
-- **No package declares an icon.** There is no `PackageIcon` anywhere in the tree.
+- **No package declares an icon.** There is no `PackageIcon` anywhere in the tree. ⚠️ **And this one
+  is refused rather than owed, for a reason no session can settle by working harder**: NuGet takes a
+  PNG or a JPEG, and the only brand-shaped image this repository owns is `www/public/favicon.svg`,
+  which it does not accept. Closing it means drawing something, which is a decision. So it is guarded
+  the same way the two below are — `PackageValidationTests` fails naming the first project to declare
+  a `PackageIcon`, because the table above promises one for *every* package and a single declaration
+  makes this paragraph wrong in both directions at once.
 - **`PackageValidation` against the previous release is not switched on.** `EnablePackageValidation`
   appears nowhere. It is the natural companion to `CheckApi` — which catches a source-level break in
   the tree, where this catches a binary one against what was shipped — and it needs a published
@@ -444,11 +450,26 @@ the assembly-name lookup turns exactly one red. That is the only part of `Covera
 forbidden `build.sh` can prove; the fluent `DotNetTest` settings and the `artifacts/coverage` layout
 were checked by running the equivalent `dotnet test` invocation by hand (the attachment landed where
 `Measure` globs for it, and the class lists summed to the header's 978 of 1 193 where the descendants
-walk gave 1 957 of 2 387), and **Nuke's own traversal and the `coverage.md` it writes are still
-unproved**.
+walk gave 1 957 of 2 387), and **Nuke's own traversal is still unproved**.
 
-**And where "is this line reached" is a real question, the answer is a test.** ✅ Two of the three
-places ([#338](https://github.com/Rikarin/Vixen/issues/338)) are done, and the first is the worked
+⚠️ **The `coverage.md` the target writes is no longer part of that residue, because the table moved
+out of the target's body.** `CoverageReport.Summary` builds the document from
+`CoverageReport.Row(Project, Subject, Covered, Total)` and `WriteCoverageSummary` keeps only the two
+things a test cannot reach — the file it lands in and the log it prints. ⚠️ **A row carries no rate**,
+which is this section's own history stated as a type: both of the reader's defects were a percentage
+that stayed right while the counts under it were wrong, so the one number anybody reads is the one
+nobody can pass in. `CoverageReport.Rate` **throws** on a row of no lines rather than writing `0.0%`
+or `NaN%` — zero over zero is the absence of a measurement, which is the distinction the whole target
+is built around — and the table is ordered worst-first **with ties broken by subject**, because
+ordering on the rate alone left every fully-covered suite in file-system order and made two runs over
+an unchanged tree write two different documents. Three sabotages in `CoverageReportTests`, each red
+alone: dropping the tiebreak, accepting a zero-line row, and dividing by `Total + 1`. What is left of
+`Coverage` unproved is exactly `OrderedTestProjects`, the `--coverage-project` filter and the fluent
+`DotNetTest` call, all of which need one `./build.sh Coverage` run.
+
+**And where "is this line reached" is a real question, the answer is a test.** ✅ All three places
+([#338](https://github.com/Rikarin/Vixen/issues/338)) are done — this sentence said *two* after the
+cascade landed three paragraphs below it — and the first is the worked
 example of the shape: the generated ECS query surface, driven rather than counted, by
 `Vixen.Ecs.Tests/QueryAritySurfaceTests` and `Vixen.Ecs.Tests/QueryAritySweepTests`.
 
@@ -882,7 +903,7 @@ dotnet tool restore
 nuke Compile
 nuke Test                                              # or dotnet test <one project> --filter <name>
 nuke GoldenImages --update-golden                      # then review the diff
-nuke Benchmark --benchmark-filter '*Layout*' --report-only
+nuke Benchmark --benchmark-filter '*Layout*'          # allocation still gates; --report-only drops that too
 
 # run things
 dotnet run --project Samples/03-PbrShowcase

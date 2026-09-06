@@ -3184,11 +3184,6 @@ T:Vixen.Shaders.Generated.TaaConstants sweep-pending
 T:Vixen.Shaders.Generated.TaaKeys sweep-pending
 T:Vixen.Shaders.Generated.TonemapConstants sweep-pending
 T:Vixen.Shaders.Generated.TonemapKeys sweep-pending
-T:Vixen.Shaders.Generated.UiBoxKeys sweep-pending
-T:Vixen.Shaders.Generated.UiImageKeys sweep-pending
-T:Vixen.Shaders.Generated.UiSolidKeys sweep-pending
-T:Vixen.Shaders.Generated.UiTextKeys sweep-pending
-T:Vixen.Shaders.Generated.UiVertexKeys sweep-pending
 T:Vixen.Shaders.Generated.VignetteConstants sweep-pending
 T:Vixen.Shaders.Generated.VignetteKeys sweep-pending
 T:Vixen.Shaders.Generated.VirtualShadowMarkConstants sweep-pending

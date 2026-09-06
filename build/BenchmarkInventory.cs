@@ -33,25 +33,57 @@ using System.Linq;
 ///     </para>
 /// </remarks>
 static class BenchmarkInventory {
+    /// <summary>The <c>--benchmark-filter</c> that selects the whole suite, which is the default.</summary>
+    public const string EverySelector = "*";
+
+    /// <summary>Whether a filter asks for less than the whole suite.</summary>
+    /// <param name="filter">What <c>--benchmark-filter</c> was given, if anything.</param>
+    /// <remarks>
+    ///     ⚠ Deliberately crude: a filter that narrows nothing in practice — <c>Vixen*</c>, say —
+    ///     reads as narrowing here. That errs towards not crying wolf, and it costs nothing where it
+    ///     matters, because no CI job passes a filter at all.
+    /// </remarks>
+    public static bool Narrows(string? filter) =>
+        !string.IsNullOrEmpty(filter) && !string.Equals(filter, EverySelector, StringComparison.Ordinal);
+
     /// <summary>
-    ///     Compares the two name sets.
+    ///     Compares the two name sets, and says whether the absences among them mean anything.
     /// </summary>
     /// <param name="expected">The benchmark names the baseline holds.</param>
     /// <param name="recorded">The benchmark names this run produced reports for.</param>
+    /// <param name="filter">The <c>--benchmark-filter</c> the run was given.</param>
     /// <returns>
-    ///     <c>Absent</c> is in the baseline and did not run; <c>Added</c> ran and is in no baseline.
-    ///     Both sorted, so a failure message reads the same on every machine.
+    ///     <c>Absent</c> is in the baseline and did not run; <c>Added</c> ran and is in no baseline;
+    ///     <c>AbsenceIsFatal</c> is whether the first of those is a finding rather than an
+    ///     explanation. Both lists sorted, so a failure message reads the same on every machine.
     /// </returns>
-    public static (List<string> Absent, List<string> Added) Drift(
+    /// <remarks>
+    ///     ⚠ <b>Absence means "judged by nobody" only when the run was asked for everything.</b>
+    ///     Under a filter every unselected benchmark is absent by construction, so the check that
+    ///     exists to catch a renamed or unlaunched benchmark instead fires on all of them — and the
+    ///     documented way out was <c>--report-only</c>, which silences the allocation comparison too.
+    ///     So the everyday local loop doc 12 recommends could not report the one regression that is
+    ///     the same number on every machine. A gate whose only defence against a false positive is
+    ///     switching the gate off is not a gate.
+    ///     <para>
+    ///         ⚠ <b>The other direction stays fatal under a filter</b>, and that is not an oversight:
+    ///         a benchmark that <em>ran</em> and is in no baseline was judged by nothing whether or
+    ///         not it was selected deliberately, and selecting it deliberately makes the omission
+    ///         more pointed rather than less.
+    ///     </para>
+    /// </remarks>
+    public static (List<string> Absent, List<string> Added, bool AbsenceIsFatal) Drift(
         IEnumerable<string> expected,
-        IEnumerable<string> recorded
+        IEnumerable<string> recorded,
+        string? filter
     ) {
         var baseline = expected.ToHashSet(StringComparer.Ordinal);
         var results = recorded.ToHashSet(StringComparer.Ordinal);
 
         return (
             baseline.Except(results, StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList(),
-            results.Except(baseline, StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList()
+            results.Except(baseline, StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList(),
+            !Narrows(filter)
         );
     }
 }

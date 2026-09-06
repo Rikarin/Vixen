@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
@@ -17,6 +18,19 @@ using System.Xml.Linq;
 ///     file can.
 /// </remarks>
 static class CoverageReport {
+    /// <summary>One measured suite, as <c>coverage.md</c> reports it.</summary>
+    /// <param name="Project">The test project that was run.</param>
+    /// <param name="Subject">The assembly it is named after, under the name the collector writes.</param>
+    /// <param name="Covered">Lines of <paramref name="Subject" /> the run reached.</param>
+    /// <param name="Total">Lines of <paramref name="Subject" /> the document lists.</param>
+    /// <remarks>
+    ///     ⚠ <b>No rate field, deliberately.</b> A row that carried its own percentage could disagree
+    ///     with its own counts, and this file's whole history is two readers whose <i>rate</i> was
+    ///     right while the counts underneath it were doubled. The one number a reader trusts is
+    ///     therefore the one nobody can pass in.
+    /// </remarks>
+    public readonly record struct Row(string Project, string Subject, int Covered, int Total);
+
     /// <summary>The assembly a test project is named after, under the name the collector writes.</summary>
     /// <param name="testProject">
     ///     Path of the test project file, e.g. <c>Tools/Vixen.ApiCheck.Tests/Vixen.ApiCheck.Tests.csproj</c>.
@@ -150,6 +164,65 @@ static class CoverageReport {
         }
 
         return (covered, total);
+    }
+
+    /// <summary>The rate of one row, which is the only place a percentage is ever computed.</summary>
+    /// <param name="row">A measured suite.</param>
+    /// <exception cref="ArgumentException">
+    ///     When the row lists no lines at all. ⚠ Zero over zero is not nought per cent — it is the
+    ///     absence of a measurement, and this file exists because that difference kept being lost.
+    ///     <c>Build.Measure</c> already refuses such a row by name; this refuses to invent a number
+    ///     for one that reached here anyway, rather than writing <c>NaN%</c> or <c>0.0%</c> into a
+    ///     table somebody reads.
+    /// </exception>
+    public static double Rate(Row row) => row.Total > 0
+        ? (double)row.Covered / row.Total
+        : throw new ArgumentException(
+            $"{row.Subject} is {row.Covered} of {row.Total} lines, and a rate over no lines is not a "
+            + "rate. A suite whose subject the document does not list has not measured zero.",
+            nameof(row));
+
+    /// <summary>
+    ///     <c>artifacts/coverage/coverage.md</c>, as lines, from the rows a run measured.
+    /// </summary>
+    /// <param name="rows">One per test project the run pointed the collector at.</param>
+    /// <remarks>
+    ///     ⚠ <b>Worst first, and ties broken by name.</b> Ordering on the rate alone left every
+    ///     hundred-per-cent suite in whatever order the file system handed them over, so two runs
+    ///     over an unchanged tree produced two different documents and the diff of a committed report
+    ///     said nothing. The subject is the tiebreak because it is what the row is about.
+    ///     <para>
+    ///         Here rather than in the target's body for the reason the rest of this file is: a
+    ///         static method over values can be run in a test, and a Nuke target's body cannot be run
+    ///         at all without <c>build.sh</c>.
+    ///     </para>
+    /// </remarks>
+    public static IReadOnlyList<string> Summary(IEnumerable<Row> rows) {
+        ArgumentNullException.ThrowIfNull(rows);
+
+        var lines = new List<string> {
+            "# Coverage",
+            string.Empty,
+            "Line coverage of each test project's own subject assembly, as last measured. No number "
+            + "here gates anything — see docs/plan/12 § \"Coverage, and why there is no `Coverage` "
+            + "target\" for why a floor would be worse than the gap it fills.",
+            string.Empty,
+            "| Subject | Lines covered | Lines | Rate |",
+            "| --- | ---: | ---: | ---: |"
+        };
+
+        foreach (var row in rows
+            .OrderBy(Rate)
+            .ThenBy(row => row.Subject, StringComparer.Ordinal)) {
+            lines.Add(
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"| `{row.Subject}` | {row.Covered} | {row.Total} | {Rate(row):P1} |"
+                )
+            );
+        }
+
+        return lines;
     }
 
     /// <summary>The lines of one package, taken from each class's own list rather than its methods'.</summary>

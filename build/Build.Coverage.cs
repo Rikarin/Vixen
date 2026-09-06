@@ -3,7 +3,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using Nuke.Common;
 using Nuke.Common.IO;
@@ -82,7 +81,7 @@ partial class Build {
 
             CoverageDirectory.CreateOrCleanDirectory();
 
-            var rows = new List<(string Project, string Subject, double Rate, int Covered, int Total)>();
+            var rows = new List<CoverageReport.Row>();
 
             foreach (var project in projects) {
                 var results = CoverageDirectory / project.NameWithoutExtension;
@@ -120,10 +119,7 @@ partial class Build {
     ///     rather than its name: a package is named for the <i>assembly</i>, and ten projects here
     ///     rename theirs, so on the convention alone that finding fired on the reader's mistake.
     /// </remarks>
-    static (string Project, string Subject, double Rate, int Covered, int Total) Measure(
-        AbsolutePath testProject,
-        AbsolutePath results
-    ) {
+    static CoverageReport.Row Measure(AbsolutePath testProject, AbsolutePath results) {
         var project = testProject.NameWithoutExtension;
         var documents = results.GlobFiles("**/*.cobertura.xml");
 
@@ -164,41 +160,32 @@ partial class Build {
             + "about the assembly."
         );
 
-        return (project, subject, (double)covered / total, covered, total);
+        return new CoverageReport.Row(project, subject, covered, total);
     }
 
     /// <summary>Writes the table, and logs it, and asserts nothing about any number in it.</summary>
-    void WriteCoverageSummary(List<(string Project, string Subject, double Rate, int Covered, int Total)> rows) {
-        var lines = new List<string> {
-            "# Coverage",
-            string.Empty,
-            "Line coverage of each test project's own subject assembly, as last measured. No number "
-            + "here gates anything — see docs/plan/12 § \"Coverage, and why there is no `Coverage` "
-            + "target\" for why a floor would be worse than the gap it fills.",
-            string.Empty,
-            "| Subject | Lines covered | Lines | Rate |",
-            "| --- | ---: | ---: | ---: |"
-        };
-
-        foreach (var row in rows.OrderBy(row => row.Rate)) {
-            lines.Add(
-                string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"| `{row.Subject}` | {row.Covered} | {row.Total} | {row.Rate:P1} |"
-                )
-            );
-
+    /// <param name="rows">What <see cref="Measure" /> returned, one per project.</param>
+    /// <remarks>
+    ///     ⚠ The table itself is <see cref="CoverageReport.Summary" />, which is a static method over
+    ///     values in a file with no Nuke in it — so its ordering and its arithmetic are asserted by
+    ///     <c>Tools/Vixen.ApiCheck.Tests/CoverageReportTests</c>, and what is left here is the two
+    ///     things a test cannot reach: the file it lands in and the log it prints. That is the same
+    ///     split the reading side of this target already had, and for the same reason: a target's
+    ///     body cannot be run without <c>build.sh</c>.
+    /// </remarks>
+    void WriteCoverageSummary(List<CoverageReport.Row> rows) {
+        foreach (var row in rows) {
             Log.Information(
                 "{Subject}: {Covered}/{Total} lines ({Rate:P1}) from {Project}",
                 row.Subject,
                 row.Covered,
                 row.Total,
-                row.Rate,
+                CoverageReport.Rate(row),
                 row.Project
             );
         }
 
-        (CoverageDirectory / "coverage.md").WriteAllLines(lines);
+        (CoverageDirectory / "coverage.md").WriteAllLines(CoverageReport.Summary(rows));
 
         Log.Information("Wrote {File}", CoverageDirectory / "coverage.md");
     }

@@ -143,6 +143,16 @@ partial class Build {
     ///         <see cref="BenchmarkInventory" /> for why the failure names <c>--update-baseline</c>
     ///         rather than blocking the addition.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Except under <c>--benchmark-filter</c>, where absence is what was asked for.</b>
+    ///         A narrowed run leaves every unselected benchmark absent by construction, so the check
+    ///         above fired on all of them — and the documented way round it was <c>--report-only</c>,
+    ///         which switches off the allocation comparison too. The everyday local loop doc 12
+    ///         recommends therefore could not report the one regression that is the same number on
+    ///         every machine. Absence is now reported rather than fatal when the run was narrowed;
+    ///         <c>added</c> stays fatal either way, and no CI job passes a filter, so the gate is
+    ///         unchanged where it gates.
+    ///     </para>
     /// </remarks>
     void JudgeBenchmarks() {
         var reports = BenchmarkResultsDirectory.GlobFiles("**/*-report-full*.json");
@@ -187,7 +197,11 @@ partial class Build {
 
         var allocations = new List<string>();
         var timings = new List<string>();
-        var (absent, added) = BenchmarkInventory.Drift(expected.Select(pair => pair.Key), recorded.Keys);
+        var (absent, added, absenceIsFatal) = BenchmarkInventory.Drift(
+            expected.Select(pair => pair.Key),
+            recorded.Keys,
+            BenchmarkFilter
+        );
 
         foreach (var (name, node) in expected.Select(pair => (pair.Key, pair.Value!.AsObject()))) {
             if (!recorded.TryGetValue(name, out var actual)) {
@@ -213,11 +227,24 @@ partial class Build {
 
         var fatal = new List<string>();
 
-        if (absent.Count > 0) {
+        if (absent.Count > 0 && absenceIsFatal) {
             fatal.Add(
                 $"{absent.Count} benchmark(s) are in the baseline and were not run — a renamed, "
                 + "deleted or unlaunched benchmark is judged by nobody, which is what this catches:"
                 + Environment.NewLine + "  " + string.Join(Environment.NewLine + "  ", absent)
+            );
+        } else if (absent.Count > 0) {
+            // ⚠ Under a filter every unselected benchmark is absent by construction, so the check
+            // that catches a renamed one fires on all of them instead. The documented way out was
+            // --report-only, which switches off the allocation comparison as well — so the local
+            // loop doc 12 recommends could not report the one regression that is the same number on
+            // every machine. Said rather than swallowed: this run judged a subset and knows it.
+            Log.Warning(
+                "{Count} benchmark(s) in the baseline did not run, which is what --benchmark-filter "
+                + "'{Filter}' asked for. Not failed on, and not judged either: an unfiltered run is "
+                + "the only one that can tell a benchmark nobody selected from one nobody can find.",
+                absent.Count,
+                BenchmarkFilter
             );
         }
 
@@ -281,8 +308,13 @@ partial class Build {
             return;
         }
 
+        // ⚠ The count is the intersection and not the baseline's size, which is what it used to be.
+        // The two numbers are the same on an unfiltered run and only ever differ on the run that
+        // judged least — so the version that could not tell them apart said its most reassuring
+        // sentence on exactly the occasion it had done the least work.
         Log.Information(
-            "{Count} benchmarks judged against {File}: no allocation growth{Timing}",
+            "{Count} of {Baselined} benchmarks judged against {File}: no allocation growth{Timing}",
+            expected.Count - absent.Count,
             expected.Count,
             BenchmarkBaselineFile.Name,
             GateTiming && sameMachine ? " and no timing regression" : ", timing reported only"
