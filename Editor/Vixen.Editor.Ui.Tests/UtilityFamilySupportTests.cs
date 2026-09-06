@@ -714,7 +714,11 @@ public class UtilityFamilySupportTests {
         // ⚠ Two families composing into one declaration is the case this theory cannot state — a row
         // here is one class — so it is
         // <see cref="Two_filter_families_compose_into_one_declaration_and_one_matrix" /> instead.
-        { "shadow-elevation", "box-shadow", "0 0 0 0px currentcolor, 0px 10px 26px rgba(12, 14, 18, 0.22)" },
+        {
+            "shadow-elevation",
+            "box-shadow",
+            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 0px currentcolor, 0px 10px 26px rgba(12, 14, 18, 0.22)"
+        },
 
         // ⚠ <b>`fill-*` and `stroke-*` are the first rows here to move because a <i>consumer</i> was
         // found rather than written.</b> Everything the pair needed already existed: `IconPath`
@@ -1053,8 +1057,40 @@ public class UtilityFamilySupportTests {
         // so `shadow-lg ring-2` resolved to whichever rule the cascade picked and the other class
         // did nothing — `filter`'s failure, in the one place the fragment table had not reached.
         // See <see cref="A_ring_and_an_elevation_shadow_on_one_element_are_both_painted" />.
-        { "ring-2", "box-shadow", "0 0 0 2px currentcolor, 0 0 transparent" },
-        { "ring-accent", "box-shadow", "0 0 0 0px #2f6ecd, 0 0 transparent" },
+        {
+            "ring-2",
+            "box-shadow",
+            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 2px currentcolor, 0 0 transparent"
+        },
+        {
+            "ring-accent",
+            "box-shadow",
+            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 0px #2f6ecd, 0 0 transparent"
+        },
+
+        // ⚠ <b>The two inner families fill two more slots of the one assembled list, which is what
+        // makes `inset-shadow-sm shadow-lg ring-2 inset-ring-2` four things on one element rather
+        // than whichever rule the cascade kept.</b> ⚠ And the named inner shadow comes out of
+        // `--inset-shadow-*`, a namespace of its own: reading `--shadow-*` instead would resolve just
+        // as cleanly and put a twenty-five-point blur inside a button. See
+        // <see cref="A_named_inner_shadow_comes_out_of_its_own_namespace" /> for the half a row
+        // cannot make, and <see cref="An_inner_ring_and_an_outer_one_land_on_opposite_sides_of_the_background" />
+        // for the one § 7.1.1 turns on.
+        {
+            "inset-shadow-sm",
+            "box-shadow",
+            "inset 0 2px 4px rgb(0 0 0 / 0.05), inset 0 0 0 0px currentcolor, 0 0 0 0px currentcolor, 0 0 transparent"
+        },
+        {
+            "inset-ring-2",
+            "box-shadow",
+            "0 0 transparent, inset 0 0 0 2px currentcolor, 0 0 0 0px currentcolor, 0 0 transparent"
+        },
+        {
+            "inset-ring-accent",
+            "box-shadow",
+            "0 0 transparent, inset 0 0 0 0px #2f6ecd, 0 0 0 0px currentcolor, 0 0 transparent"
+        },
 
         // Masks. ⚠ <b>Twenty-two rows the previous draft of this file said could not be written, and
         // the reason it gave is refuted by the values below.</b> `Uncovered` held the whole mask and
@@ -2812,7 +2848,10 @@ public class UtilityFamilySupportTests {
         // Both classes wrote the same declaration and neither zeroed the other, which is the whole
         // point of making both of them assemblers. ⚠ The second item is `shadow-*`'s slot resolving
         // to its initial, and the `Single` below is what says an unwritten slot costs no command.
-        Assert.Equal("0 0 0 2px #2f6ecd, 0 0 transparent", ui.StyleOf(ringed, "box-shadow"));
+        Assert.Equal(
+            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 2px #2f6ecd, 0 0 transparent",
+            ui.StyleOf(ringed, "box-shadow")
+        );
 
         var ring = Assert.Single(
             ui.Document.Drawing.Commands,
@@ -2907,6 +2946,122 @@ public class UtilityFamilySupportTests {
         // And the ring the composition produced is the same ring it produces alone: sharing the
         // property cost the family nothing.
         Assert.Equal(ringOnly.Width + 4f, ring.Width);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>An inner ring and an outer one are on opposite sides of the background, which is the
+    ///     claim no computed value and no command count can make.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The two differ by one keyword in the declaration and by everything downstream. CSS
+    ///         Backgrounds 3 § 7.1.1 paints an outer shadow <i>below</i> the background and an inner
+    ///         one <i>above</i> it, so a builder that emitted the whole list in one pass — the obvious
+    ///         implementation, and the one this had — hides every inner shadow behind the element
+    ///         casting it. On an opaque element that is a picture identical to the one with no
+    ///         declaration at all, which is to say: identical on every element these classes are
+    ///         written on.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two commands and two rectangles is not enough on its own.</b> An implementation
+    ///         that drew the inner ring as an outer one would emit two commands in two colours and
+    ///         land the second at the border box, because an inner shadow's quad <i>is</i> the border
+    ///         box — every assertion but the ordering one would pass. The index against the background
+    ///         rectangle is the assertion; the rest is what makes it legible when it fails.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_inner_ring_and_an_outer_one_land_on_opposite_sides_of_the_background() {
+        using var ui = Sheet("ring-2", "inset-ring-2", "bg-accent", "w-8", "h-8");
+
+        var both = ui.Create(
+            "probe",
+            ui.Document.Root,
+            null,
+            "ring-2",
+            "inset-ring-2",
+            "bg-accent",
+            "w-8",
+            "h-8"
+        );
+
+        ui.Frame();
+
+        var commands = ui.Document.Drawing.Commands.ToArray();
+        var shadows = commands.Where(command => command.Kind == DrawCommandKind.Shadow).ToArray();
+
+        Assert.Equal(2, shadows.Length);
+
+        // The outer one is grown by its spread on all four sides; the inner one's quad is the border
+        // box, because the border box is what clips it and the rectangle it is measured against is
+        // described in the side buffer rather than drawn.
+        var outer = Assert.Single(shadows, command => command.X < both.AbsoluteLeft);
+        var inner = Assert.Single(shadows, command => command.X == both.AbsoluteLeft);
+
+        Assert.Equal(both.Width + 4f, outer.Width);
+        Assert.Equal(both.Width, inner.Width);
+        Assert.True(inner.HasStyle, "an inner shadow carries its inner rectangle in the side buffer");
+
+        var fill = Array.FindIndex(
+            commands,
+            command => command.Kind == DrawCommandKind.Rectangle
+                && command.Color == ui.ColorOf(both, "background-color")
+        );
+
+        Assert.True(fill >= 0, "the probe painted no background, so there is nothing to be on a side of");
+
+        Assert.True(
+            Array.IndexOf(commands, outer) < fill,
+            "an outer shadow is painted below the background"
+        );
+
+        Assert.True(
+            Array.IndexOf(commands, inner) > fill,
+            "an inner shadow is painted above the background — § 7.1.1, and the feature turns on it"
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ <b>An <c>inset-shadow-*</c> is a token out of a namespace of its own, and the blur is
+    ///     what says the right one was read.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <c>--inset-shadow-*</c> and <c>--shadow-*</c> are different v4 namespaces holding
+    ///     different numbers — three steps against seven, none of the inner ones offset by more than
+    ///     two points — because an outer shadow is seen at its edge and an inner one is seen whole
+    ///     over the element's own background. A family that read the wrong dictionary would resolve, a
+    ///     row asserting a command kind would pass, and a button would have a twenty-five-point blur
+    ///     inside it. The offset, the blur and the quad together are the row that cannot.
+    /// </remarks>
+    [Fact]
+    public void A_named_inner_shadow_comes_out_of_its_own_namespace() {
+        using var ui = Sheet("inset-shadow-sm", "bg-accent", "w-8", "h-8");
+
+        var probe = ui.Create("probe", ui.Document.Root, null, "inset-shadow-sm", "bg-accent", "w-8", "h-8");
+
+        ui.Frame();
+
+        // ⚠ Two shadow commands and not one, and the other is not this family's: every element
+        // carrying any of the four classes emits the whole assembly, and the ring slot's initial is a
+        // ZERO-spread shadow in `currentcolor` — an opaque rectangle the exact size of the border box,
+        // painted behind it and covered by the background. That is v4's own nothing arrived at
+        // differently (see `UtilityComposition.RingWidth`), and it is why the inner one is selected by
+        // its side-buffer entry rather than by being the only shadow there is.
+        var shadow = Assert.Single(
+            ui.Document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.Shadow && command.HasStyle
+        );
+
+        // The quad is the border box and NOT the box displaced by the token's two-point offset, which
+        // is what an outer shadow of the same declaration would be. The displacement is in the record.
+        Assert.Equal(probe.AbsoluteLeft, shadow.X);
+        Assert.Equal(probe.AbsoluteTop, shadow.Y);
+        Assert.Equal(probe.Width, shadow.Width);
+
+        // ⚠ Half the CSS blur radius, which is what `EmitShadow` passes: `--inset-shadow-sm` is a
+        // four-point blur, so a two-point falloff says this token and not `--shadow-sm` beside it.
+        Assert.Equal(2f, shadow.Thickness);
+        Assert.True(shadow.HasStyle, "an inner shadow carries its inner rectangle in the side buffer");
     }
 
     /// <summary>

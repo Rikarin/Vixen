@@ -28,6 +28,7 @@ Vixen.Ui.Styling.Utilities.ThemeTokens.DropShadow.get -> System.Collections.Gene
 Vixen.Ui.Styling.Utilities.ThemeTokens.FontFamily.get -> System.Collections.Generic.Dictionary<string, string>
 Vixen.Ui.Styling.Utilities.ThemeTokens.FontSize.get -> System.Collections.Generic.Dictionary<string, Vixen.Ui.Styling.Utilities.FontSizeToken>
 Vixen.Ui.Styling.Utilities.ThemeTokens.FontWeight.get -> System.Collections.Generic.Dictionary<string, float>
+Vixen.Ui.Styling.Utilities.ThemeTokens.InsetShadow.get -> System.Collections.Generic.Dictionary<string, string>
 Vixen.Ui.Styling.Utilities.ThemeTokens.Radius.get -> System.Collections.Generic.Dictionary<string, string>
 Vixen.Ui.Styling.Utilities.ThemeTokens.RootRuleFor(string css) -> string
 Vixen.Ui.Styling.Utilities.ThemeTokens.Screens.get -> System.Collections.Generic.Dictionary<string, float>
@@ -129,6 +130,9 @@ const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientVia = "--tw-gradient
 const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientViaPosition = "--tw-gradient-via-position" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Grayscale = "--tw-grayscale" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.HueRotate = "--tw-hue-rotate" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.InsetRingColor = "--tw-inset-ring-color" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.InsetRingWidth = "--tw-inset-ring-width" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.InsetShadow = "--tw-inset-shadow" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Invert = "--tw-invert" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.MaskConic = "--tw-mask-conic" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.MaskConicAngle = "--tw-mask-conic-angle" -> string
@@ -172,6 +176,7 @@ static Vixen.Ui.Styling.Utilities.UtilityComposition.BackdropFilter() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Filter() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Fragments.get -> System.Collections.Generic.IReadOnlyList<string>
 static Vixen.Ui.Styling.Utilities.UtilityComposition.InitialValueOf(string fragment) -> string
+static Vixen.Ui.Styling.Utilities.UtilityComposition.InsetRing() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.IsFragment(string property) -> bool
 static Vixen.Ui.Styling.Utilities.UtilityComposition.MaskEdge(string edge) -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.MaskEdgeFrom(string edge) -> string

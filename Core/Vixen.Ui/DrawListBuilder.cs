@@ -247,6 +247,7 @@ public sealed class DrawListBuilder {
     readonly int keywordDotted;
     readonly int boxShadow;
     readonly int currentColor;
+    readonly int currentColorSpelt;
     readonly int inset;
     readonly int rtl;
     readonly int forcedColorAdjust;
@@ -504,6 +505,23 @@ public sealed class DrawListBuilder {
         // are separate — interning here from the wrong one gives an id that can never compare equal
         // and a `currentcolor` that silently refuses the declaration instead of resolving it.
         currentColor = keywords.Intern("currentcolor");
+
+        // ⚠ <b>And the same keyword spelt the way ExCSS hands it over, which is the only spelling a
+        // hand-written stylesheet can ever produce.</b> A CSS keyword is ASCII case-insensitive, and
+        // `StyleValueParser` interns the identifier's text verbatim — so the two spellings are two
+        // ids. ExCSS canonicalises the author's `currentcolor` to `currentColor` while parsing, and
+        // the lowercase one only ever arrives through a `var()` fallback, which is substituted after
+        // parsing and therefore keeps whatever `UtilityComposition` wrote. So
+        // `box-shadow: 0 0 0 2px currentcolor` written in a `.vcss` refused the whole declaration and
+        // painted NOTHING, while `ring-2` — the same keyword, arriving inside a `var()` — painted
+        // perfectly. Two spellings of one keyword hid it: every fixture in the tree reaches this
+        // through the composition.
+        //
+        // ⚠ This pins one keyword rather than folding every identifier's case at the intern, which is
+        // the general fix and is not this file's to make: a keyword there is any identifier the parser
+        // did not recognise, custom idents included, and lowercasing those changes what every other
+        // consumer compares. Filed separately.
+        currentColorSpelt = keywords.Intern("currentColor");
 
         // ⚠ The keywords table for `currentcolor`'s reason, and it is the same trap: `inset` is an
         // identifier `StyleValueParser` does not recognise as a colour, so it arrives interned there.
@@ -2240,7 +2258,8 @@ public sealed class DrawListBuilder {
                 // — resolves through this branch. Without it the fallback would have had to be some
                 // concrete colour nobody chose, or `transparent`, which would make `ring-2` cascade
                 // perfectly and paint nothing.
-                case StyleValueKind.Keyword when item.Keyword == currentColor:
+                case StyleValueKind.Keyword when item.Keyword == currentColor
+                    || item.Keyword == currentColorSpelt:
                     shade = document.ForegroundOf(element);
                     continue;
 
@@ -2351,6 +2370,21 @@ public sealed class DrawListBuilder {
         // and the offset and the spread go in the record for the fragment stage to build the other
         // one from. Every other lane is exactly what an unshadowed box of this size would write.
         if (shadow.Inset) {
+            // ⚠ <b>An inner shadow with nothing to draw between covers no area at all, and left in it
+            // paints a rim.</b> The region is the border box minus the border box displaced by the
+            // offset and shrunk by the spread — so with no offset, no spread and no blur the two
+            // rectangles are the same one and CSS renders nothing. The fragment stage cannot say that:
+            // it takes one minus the inner rectangle's coverage and masks it to the box, and at an
+            // antialiased edge both numbers are a half, so a quarter of the shadow's colour survives
+            // all the way round. A hand-written `box-shadow: inset 0 0 0 0 red` drew that ring, and
+            // `UtilityComposition.Shadows` would have put one under every element carrying a
+            // `shadow-*` or a `ring-*` the moment an inner slot joined the list with a zero-width
+            // initial — the same shape of cost the transparent drop above exists for, arriving
+            // through the geometry rather than through the colour.
+            if (spread <= 0f && shadow.Falloff <= 0f && shadow.X == 0f && shadow.Y == 0f) {
+                return;
+            }
+
             into.Add(
                 Styled(
                     new DrawCommand(
@@ -2965,7 +2999,12 @@ public sealed class DrawListBuilder {
                     shade = item.Color;
                     continue;
 
-                case StyleValueKind.Keyword when item.Keyword == currentColor && shade is null:
+                // Both spellings, for the reason the constructor gives — and here it is a prediction
+                // rather than a measurement: this text reaches the parser out of a function's
+                // arguments, which ExCSS may or may not canonicalise the way it does a plain value.
+                // Accepting the keyword either way costs a comparison and cannot be wrong.
+                case StyleValueKind.Keyword
+                    when (item.Keyword == currentColor || item.Keyword == currentColorSpelt) && shade is null:
                     shade = document.ForegroundOf(element);
                     continue;
 

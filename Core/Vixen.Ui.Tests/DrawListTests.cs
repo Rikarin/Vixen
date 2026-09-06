@@ -883,6 +883,124 @@ public class DrawListTests {
         Assert.Equal(106f, shadow.Width, Tolerance);
     }
 
+    /// <summary><c>currentcolor</c> is the keyword either way it is spelt, and one way was silent.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A hand-written <c>box-shadow: 0 0 0 2px currentcolor</c> painted NOTHING, while
+    ///         <c>ring-2</c> — the same keyword in the same position — painted perfectly.</b> A CSS
+    ///         keyword is ASCII case-insensitive and <c>StyleValueParser</c> interns the identifier's
+    ///         text verbatim, so the two spellings are two ids. ExCSS canonicalises an author's
+    ///         <c>currentcolor</c> to <c>currentColor</c> while parsing the sheet; the lowercase one
+    ///         only ever arrives through a <c>var()</c> fallback, substituted after parsing, which is
+    ///         where every fixture in this repository met it. So the id the reader held was the one
+    ///         nothing could produce from a stylesheet, the unknown keyword refused the whole
+    ///         declaration, and the frame looked exactly like an element with no <c>box-shadow</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <c>var()</c> row is the control and it is the half that makes the pair a
+    ///         test.</b> Both rows red is a broken reader; the lowercase row alone red is what the
+    ///         defect looked like, and it is invisible to any fixture that only ever writes the
+    ///         utility.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("currentcolor")]
+    [InlineData("currentColor")]
+    [InlineData("var(--nothing, currentcolor)")]
+    public void A_shadow_in_the_current_colour_paints_however_the_keyword_is_spelt(string colour) {
+        using var document = Drawn(
+            $$"""
+            root { width: 400px; height: 300px; }
+            .card {
+                width: 100px; height: 60px; background-color: #ffffff; color: #00ff00;
+                box-shadow: 0 0 0 2px {{colour}};
+            }
+            """,
+            document => document.Root.Add("div", classNames: "card")
+        );
+
+        var shadow = Assert.Single(
+            document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.Shadow
+        );
+
+        // The element's own `color`, which is what CSS Color 4 § 6.2 says the keyword means — and not
+        // a colour this test chose, so a reader that defaulted to black rather than resolving fails.
+        Assert.Equal(1f, shadow.Color.G, Tolerance);
+        Assert.Equal(0f, shadow.Color.R, Tolerance);
+        Assert.Equal(104f, shadow.Width, Tolerance);
+    }
+
+    /// <summary>An inner shadow with nothing between its two rectangles is not a faint ring.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>CSS renders nothing for <c>inset 0 0 0 0</c>, and the fragment stage cannot say
+    ///         so.</b> The region is the border box minus the border box displaced by the offset and
+    ///         shrunk by the spread — with all three zero, the same rectangle twice. What the shader
+    ///         computes is one minus the inner rectangle's coverage masked to the box, and at an
+    ///         antialiased edge both numbers are a half, so a quarter of the colour survives all the
+    ///         way round the element.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is the composition that makes this worth a branch rather than an author.</b>
+    ///         <c>UtilityComposition.Shadows</c> puts an inner ring slot in the list on every element
+    ///         carrying a <c>shadow-*</c>, a <c>ring-*</c> or either inset class, and an unwritten one
+    ///         resolves to exactly this shadow in an opaque <c>currentcolor</c> — so without the drop
+    ///         every shadowed element in the editor would gain a one-pixel ring in the text colour.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("inset 0 0 0 0 #ff0000")]
+    [InlineData("inset 0 0 0 0px currentcolor")]
+    [InlineData("inset 0 0 0 -4px #ff0000")]
+    public void An_inner_shadow_with_no_region_between_its_rectangles_is_dropped(string shadow) {
+        using var document = Drawn(
+            $$"""
+            root { width: 400px; height: 300px; }
+            .card {
+                width: 100px; height: 60px; background-color: #ffffff; color: #00ff00;
+                box-shadow: {{shadow}};
+            }
+            """,
+            document => document.Root.Add("div", classNames: "card")
+        );
+
+        // The background and nothing else. ⚠ Asserted as the absence of a `Shadow` command rather
+        // than as a count, because the count is also one for a declaration that was refused whole —
+        // and a refusal is a different bug with the same picture.
+        Assert.DoesNotContain(document.Drawing.Commands, command => command.Kind == DrawCommandKind.Shadow);
+        Assert.Single(document.Drawing.Commands);
+    }
+
+    /// <summary>But a blur is a real inner shadow at a zero offset, and it is not dropped with them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half the drop above must not take with it.</b> <c>inset 0 0 4px</c> has no offset
+    ///     and no spread either, and it is CSS's ordinary inner glow: the region is still empty, but
+    ///     the blur is a falloff <i>from the boundary inwards</i>, so what it paints is the edge fading
+    ///     over four points. A drop written on the offset and the spread alone would erase it.
+    /// </remarks>
+    [Fact]
+    public void A_blurred_inner_shadow_at_a_zero_offset_still_paints() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .card {
+                width: 100px; height: 60px; background-color: #ffffff;
+                box-shadow: inset 0 0 4px #ff0000;
+            }
+            """,
+            document => document.Root.Add("div", classNames: "card")
+        );
+
+        var shadow = Assert.Single(
+            document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.Shadow
+        );
+
+        // Half the CSS blur radius, which is what says the falloff reached the command at all.
+        Assert.Equal(2f, shadow.Thickness, Tolerance);
+    }
+
     /// <summary>A shadow measured in something that is not a distance draws nothing.</summary>
     /// <remarks>
     ///     <para>

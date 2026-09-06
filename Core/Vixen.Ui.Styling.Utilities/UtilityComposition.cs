@@ -485,6 +485,33 @@ public static class UtilityComposition {
     /// </remarks>
     public const string Shadow = Prefix + "shadow";
 
+    /// <summary>The <c>inset-shadow-*</c> token, which is a whole <c>inset</c> shadow.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="Shadow" />'s arrangement against the other theme namespace, and the
+    ///     <c>inset</c> keyword lives in the token rather than here.</b> A <c>--inset-shadow-*</c> is a
+    ///     designed thing the way a <c>--shadow-*</c> is — the offset, the blur and the alpha are
+    ///     chosen together to read as one depth <i>below</i> the surface — and the keyword is part of
+    ///     what was designed. Assembling it here instead would mean this slot's initial had to carry
+    ///     the keyword too, which would make the unset slot an inner shadow rather than an absent one.
+    /// </remarks>
+    public const string InsetShadow = Prefix + "inset-shadow";
+
+    /// <summary>How thick an inner ring is, as a length.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="RingWidth" />'s shape, and the zero initial is only sound because
+    ///     <c>EmitOneShadow</c> drops a degenerate inner shadow.</b> A zero-spread <i>outer</i> ring is
+    ///     a shadow the exact size of the border box, painted behind it and covered by it. Its inner
+    ///     twin is not harmless in the same way: the region between the box and the box is empty, but
+    ///     the fragment stage reaches that answer as one minus the box's own coverage, which at an
+    ///     antialiased edge is a quarter of the ring's colour all the way round. CSS renders nothing
+    ///     for it, so `DrawListBuilder` now does too — and this initial is what made that worth
+    ///     fixing rather than a curiosity of a hand-written declaration.
+    /// </remarks>
+    public const string InsetRingWidth = Prefix + "inset-ring-width";
+
+    /// <summary>What colour it is. <see cref="RingColor" />'s <c>currentcolor</c>, for its reason.</summary>
+    public const string InsetRingColor = Prefix + "inset-ring-color";
+
     // ── The filter ──────────────────────────────────────────────────────────────────────────
     //
     // ⚠ <b>One fragment and one property, which looks like it did not need the mechanism at all —
@@ -725,6 +752,19 @@ public static class UtilityComposition {
         // whole. A bare `ring-2` would then cascade perfectly and paint nothing — the failure this
         // table exists to make impossible.
         [Shadow] = "0 0 transparent",
+
+        // ⚠ <b>An <i>outer</i> transparent shadow in a slot that holds inner ones, deliberately.</b>
+        // The unset state of `inset-shadow-*` is no shadow rather than an invisible inner one, and
+        // writing `inset` here would say the opposite — a difference nothing can see today, because
+        // both are dropped for their colour, and one that would matter the moment anything read the
+        // list rather than painting it.
+        [InsetShadow] = "0 0 transparent",
+
+        // ⚠ `RingWidth`'s zero for `RingWidth`'s reason, and it is sound here only because a
+        // degenerate inner shadow is dropped — see `InsetRingWidth`, where the argument is written
+        // out, and `DrawListBuilder.EmitOneShadow`, which is where it is enforced.
+        [InsetRingWidth] = "0px",
+        [InsetRingColor] = "currentcolor",
         [Blur] = "0px",
 
         // ⚠ <b>Each initial is the identity of <i>its own</i> function, which is one for four of
@@ -1044,26 +1084,38 @@ public static class UtilityComposition {
     /// </remarks>
     public static string Ring() => $"0 0 0 {Reference(RingWidth)} {Reference(RingColor)}";
 
+    /// <summary>The <c>box-shadow</c> an inner ring is: <see cref="Ring" /> with the keyword.</summary>
+    /// <returns>The assembled value.</returns>
+    /// <remarks>
+    ///     ⚠ <b>One keyword's difference from <see cref="Ring" /> and an entirely different draw
+    ///     path.</b> An outer ring is the border box grown by the spread and painted behind it; an
+    ///     inner one is the region between the border box and the border box shrunk by the spread,
+    ///     painted <i>over</i> the background — CSS Backgrounds 3 § 7.1.1's other answer, which is why
+    ///     `DrawListBuilder` makes two passes over one list. So the family is a spread and a colour
+    ///     exactly as <c>ring-*</c> is, and nothing else about it is shared.
+    /// </remarks>
+    public static string InsetRing() => $"inset 0 0 0 {Reference(InsetRingWidth)} {Reference(InsetRingColor)}";
+
     /// <summary>The one <c>box-shadow</c> that <c>ring-*</c> and <c>shadow-*</c> both emit.</summary>
     /// <returns>The assembled comma list.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The ring is written inline and the shadow is a fragment, which is deliberately
-    ///         not v4's arrangement.</b> v4 keeps five <c>--tw-*-shadow</c> slots and assembles all
-    ///         five; four of them belong to families this engine does not register —
-    ///         <c>inset-shadow-*</c>, <c>inset-ring-*</c> and <c>ring-offset-*</c>, which are blocked
-    ///         on an inner-shadow draw path and on an offset fragment that does not exist. A slot for
-    ///         a family nobody can write is a lane reserved for a guess, and it is not free: every
-    ///         unset slot substitutes a transparent shadow into this list on every element that
-    ///         carries either class. Each of the four joins this string on the day its family is
-    ///         registered, exactly as <see cref="Transform" />'s four missing functions do.
+    ///         ⚠ <b>Four items rather than v4's five, and the missing one is the offset ring.</b> A
+    ///         slot for a family nobody can write is a lane reserved for a guess, and it is not free:
+    ///         every unset slot substitutes a shadow into this list on every element that carries any
+    ///         of these classes. So each joins on the day its family is registered, exactly as
+    ///         <see cref="Transform" />'s missing functions do — the two inner slots arrived with
+    ///         `inset-shadow-*` and `inset-ring-*`, and <c>ring-offset-*</c> is still absent because
+    ///         <c>UtilityComposition</c> carries no offset width at all.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The ring comes first because a draw list paints later commands over earlier ones
-    ///         and <c>EmitShadow</c> therefore emits a list backwards.</b> CSS Backgrounds 3 § 7.1.1
-    ///         paints a shadow list front to back in the order written, so the ring being item one is
-    ///         what puts it *over* the elevation shadow — which is v4's order too, and is the way
-    ///         round anybody writing <c>shadow-lg ring-2</c> on a focused card means.
+    ///         ⚠ <b>The order is v4's, and it is a paint order rather than a list.</b> CSS Backgrounds
+    ///         3 § 7.1.1 paints a shadow list front to back in the order written and this draw list
+    ///         paints later commands over earlier ones, so <c>EmitShadow</c> emits a list backwards —
+    ///         which is what puts the ring *over* the elevation shadow for anybody writing
+    ///         <c>shadow-lg ring-2</c> on a focused card. The two inner items lead because § 7.1.1
+    ///         paints every inner shadow above the background and every outer one below it, so their
+    ///         position among the outer ones settles nothing but their order against each other.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Both items are always present, and the transparent one costs nothing only because
@@ -1073,7 +1125,8 @@ public static class UtilityComposition {
     ///         see, and the kind of thing that is only ever noticed in a profile.
     ///     </para>
     /// </remarks>
-    public static string Shadows() => $"{Ring()}, {Reference(Shadow)}";
+    public static string Shadows() =>
+        $"{Reference(InsetShadow)}, {InsetRing()}, {Ring()}, {Reference(Shadow)}";
 
     /// <summary>The <c>filter</c> declaration the eight filter families assemble into.</summary>
     /// <returns>The assembled value.</returns>

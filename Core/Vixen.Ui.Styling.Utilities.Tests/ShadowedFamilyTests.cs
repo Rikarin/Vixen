@@ -22,7 +22,7 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         <see cref="A_shorter_prefix_would_rescue_nothing" /> sweeps every nesting pair the
 ///         registry contains against every token key both shipped themes contain, and asserts that no
 ///         class exists which the longest-first rule refuses and a shorter prefix would answer. The
-///         shadowed roots — <c>border-spacing-*</c>, <c>inset-ring-*</c>, <c>ring-offset-*</c> and the
+///         shadowed roots — <c>border-spacing-*</c>, <c>ring-offset-*</c>, <c>text-shadow-*</c> and the
 ///         rest — are shadowed by a family that is the <i>only</i> registered prefix they have, so
 ///         there is nothing shorter to retry: whatever closes them, it is not the retry, and the
 ///         retry is a separate question with the answer "no".
@@ -174,6 +174,17 @@ public class ShadowedFamilyTests {
     ///         no-op.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b><c>inset-ring-0</c> and <c>inset-shadow-2xs</c> left the same way, and they are
+    ///         the pair this remark's prediction is worth reading against.</b> Neither was waiting on
+    ///         a registration either: both were waiting on <c>DrawListBuilder.EmitShadow</c> learning
+    ///         the <c>inset</c> keyword, which is why registering them before 2026-09-06 would have
+    ///         produced two families that resolved, cascaded and painted nothing — the failure the
+    ///         theory below exists to catch. What holds them now is a per-value pixel assertion in
+    ///         <c>Vixen.Editor.Ui.Tests.UtilityFamilySupportTests</c> rather than a row here, because
+    ///         each emits a fragment <i>and</i> the assembled <c>box-shadow</c> and the theory below
+    ///         asserts one declaration.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b><c>stroke-none</c> is closed and stays in the rows below, which is what pins
     ///         down what "shadowed" means here.</b> It resolves — the <c>stroke</c> family answers
     ///         it through a <c>none</c> keyword, and <c>Icon.IsNone</c> reads it — but it never
@@ -183,8 +194,6 @@ public class ShadowedFamilyTests {
     ///     </para>
     /// </remarks>
     [Theory]
-    [InlineData("inset-ring-0", "inset")]
-    [InlineData("inset-shadow-2xs", "inset")]
     [InlineData("border-spacing-0", "border")]
     [InlineData("flex-shrink-0", "flex")]
     [InlineData("flex-grow-0", "flex")]
