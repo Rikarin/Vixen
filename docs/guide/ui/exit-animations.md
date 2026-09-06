@@ -107,16 +107,31 @@ written the same way and read when the file is compiled:
 | `exit="200"` | **VXML2025** — a bare number is refused, on CSS's rule |
 | `exit="@Duration"` | **VXML2025** — there is nothing per-row for an expression to read |
 
-Two more refusals, both of which would otherwise be silence:
+One more refusal, which would otherwise be silence:
 
 - **`VXML2024` — `exit` outside an `@for`.** The interval is the reconciler's, and an `@if` arm that
   is swapped out is cleared rather than reconciled. Left as an ordinary attribute the word `exit`
   would have gone into the style tree as selector data and the build would have called that success.
-- **`VXML2026` — `exit` in a loop that also declares an index.** `BuildContext.For`'s indexed
-  overload takes no `ExitSpec`: a leaving row is no longer in the sequence, so what its index signal
-  should read while it animates out was never decided. Refused rather than dropped, because an
-  `exit` that compiled and did nothing is a row that vanishes — which is indistinguishable from not
-  having written it.
+  It stands after a second look: what an `@if` lacks is not the deferral but an identity for an arm,
+  so that a branch which comes back mid-exit has an answer the way a returning key does.
+
+⚠ **`VXML2026` is gone, and its premise was wrong rather than merely inconvenient.** It refused an
+`exit` in a loop that also declares an index, on the grounds that what a leaving row's index signal
+should read had never been decided. Nothing can read it: `Region.Leave` stops the region's bindings
+before it defers the removal, so a leaving row's body has already stopped subscribing to anything and
+shows the last frame the model produced for it. All three candidate answers — the index it left with,
+a sentinel, a detached signal — are the same picture. There was one reconciler all along; the indexed
+overload of `BuildContext.For` now takes an `ExitSpec` like the other one, and
+
+```vxml no-compile="a fragment; the row element of a loop that declares both"
+@for (var row, position in Rows) {
+    <div key="@row.Id" exit="200ms">@position.Value. @row.Name</div>
+}
+```
+
+compiles. What the reconciler does guarantee is the half that *is* observable: a row that survives is
+written the position a leaving row vacated on the same pass that let it go, so the numbers below a
+deletion are right immediately rather than a fifth of a second later.
 
 ## Examples
 

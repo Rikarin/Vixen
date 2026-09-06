@@ -1696,26 +1696,32 @@ public sealed class BuildContext {
     ///         the way the two come to disagree about what a move is.
     ///     </para>
     /// </remarks>
+    /// <param name="exit">How long a removed row stays on screen, or null to remove it at once.</param>
+    /// <remarks>
+    ///     ⚠ <b>What a leaving row's index reads was called an open question, and it is not one:
+    ///     nothing can observe it.</b> The three candidate answers — the index it left with, a
+    ///     sentinel, or a signal detached from the reconciler — differ only to something still
+    ///     reading the signal, and <c>Region.Leave</c> calls <c>Stop</c> before it defers anything,
+    ///     so the row's bindings are dead the moment it is let go of. What is on screen during the
+    ///     interval is the last frame the model produced, index included, whichever of the three is
+    ///     implemented. Writing a sentinel into it changes no pixel — which is what makes this
+    ///     overload's exit a mechanical addition rather than a design decision.
+    ///
+    ///     ⚠ <b>The half that <i>is</i> load-bearing is the live rows.</b> A pending exit must not
+    ///     stop the survivors re-indexing: a leaving row is not in the new sequence, so whoever took
+    ///     its place is written the position it vacated on that same pass. Freezing the write while
+    ///     an exit is outstanding — the plausible cautious mistake — leaves every row below a
+    ///     deletion showing a number that is one too high until the interval runs out.
+    /// </remarks>
     public void For<T>(
         UiElement? parent,
         Func<IEnumerable<T>> items,
         Func<T, object> key,
-        Action<BuildContext, UiElement, T, Signal<int>> build
+        Action<BuildContext, UiElement, T, Signal<int>> build,
+        ExitSpec? exit = null
     ) {
         ArgumentNullException.ThrowIfNull(build);
-
-        Rows(
-            parent,
-            items,
-            key,
-            (context, at, item, index) => build(context, at, item, index!),
-            indexed: true,
-
-            // ⚠ No exit on the indexed spelling yet, and it is a gap rather than a decision: a row
-            // that is leaving has no place in the sequence, so what its index signal should read
-            // while it animates out is a question neither branch answered. Filed rather than guessed.
-            exit: null
-        );
+        Rows(parent, items, key, (context, at, item, index) => build(context, at, item, index!), indexed: true, exit);
     }
 
     void Rows<T>(

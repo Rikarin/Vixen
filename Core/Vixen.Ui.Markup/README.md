@@ -1113,14 +1113,13 @@ of a string.
   where it raises `Submitted` — the moment a `.vxml` had no way to hear at all.
 - **A generic base.** `@inherits` takes a `NameToken`, which carries dots and not angle brackets, so
   `@inherits Row<T>` does not lex. Same limit `@using` has, and nothing has needed it.
-- **An exit on the indexed `@for`.** `exit` reaches the four-argument reconciler and `VXML2026`
-  refuses it on the five-argument one, because `BuildContext.For`'s indexed overload takes no
-  `ExitSpec`: a leaving row is no longer in the sequence, so what its index signal should read while
-  it animates out was never decided. Refused rather than dropped, since an `exit` that compiled and
-  did nothing is a row that vanishes — the exact symptom the attribute exists to remove.
-- **An exit on an `@if` arm.** `VXML2024` says so: the interval belongs to the reconciler, and an arm
-  that is swapped out is cleared rather than reconciled. The runtime half would have to grow a second
-  caller before the language could have a second spelling.
+- **An exit on an `@if` arm.** `VXML2024` says so, and the refusal stands after being looked at
+  again: the interval belongs to the reconciler, and an arm that is swapped out is cleared rather
+  than reconciled. What it would take is not the deferral — `Region.Leave` is already general — but a
+  second region per branch and an identity for an arm, so that "the same arm came back mid-exit" has
+  an answer. `Switch` holds one region and one `current`; giving it the pair `Rows` keeps is a second
+  copy of keyed reconciliation, which is the thing this file spent an `indexed:` flag avoiding.
+  Refused until something wants it enough to pay that.
 
 ## A row's exit is written where its key is
 

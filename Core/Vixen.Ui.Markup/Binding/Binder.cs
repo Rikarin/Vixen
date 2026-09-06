@@ -111,15 +111,6 @@ public sealed class Binder {
     /// <summary>The innermost <c>@for</c>'s variable, so a key can be compared against it.</summary>
     string? item;
 
-    /// <summary>The innermost <c>@for</c>'s index name, or null where it declares none.</summary>
-    /// <remarks>
-    ///     ⚠ Kept beside <see cref="item" /> so that <c>exit</c> can be refused where the author
-    ///     wrote it rather than where the loop is assembled — a bound attribute carries a
-    ///     <c>LinePositionSpan</c> and the diagnostic bag wants the token's own span, so the check
-    ///     has to happen while the syntax is still in hand.
-    /// </remarks>
-    string? itemIndex;
-
     /// <summary>Whether the file declared <c>@inherits</c>, so its class is an element.</summary>
     /// <remarks>Read before the content is bound, because <c>&lt;slot&gt;</c> means less on one.</remarks>
     bool isElement;
@@ -664,16 +655,13 @@ public sealed class Binder {
 
         var outer = inLoop;
         var outerVariable = item;
-        var outerIndex = itemIndex;
 
         inLoop = true;
         item = variable;
-        itemIndex = index;
         loops++;
         RefuseSlotAttributes(@for.Body.Content, "'@for'");
         var body = BindContent(@for.Body.Content);
         loops--;
-        itemIndex = outerIndex;
         item = outerVariable;
         inLoop = outer;
 
@@ -889,15 +877,6 @@ public sealed class Binder {
         // reconciler out here.
         if (kind == BoundAttributeKind.Exit && loops == 0) {
             Report(MarkupDiagnostics.ExitOutsideLoop, attribute.Name.Span);
-            return null;
-        }
-
-        // ⚠ Refused rather than dropped. `BuildContext.For`'s indexed overload takes no `ExitSpec` —
-        // what a leaving row's index signal should read is undecided, because the row is no longer in
-        // the sequence — and an `exit` that compiled and did nothing would be a row that vanishes,
-        // which is exactly the symptom the attribute exists to remove.
-        if (kind == BoundAttributeKind.Exit && itemIndex is { } declared) {
-            Report(MarkupDiagnostics.ExitWithIndex, attribute.Name.Span, item ?? "item", declared);
             return null;
         }
 
