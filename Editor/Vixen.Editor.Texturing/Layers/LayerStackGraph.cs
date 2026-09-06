@@ -1172,7 +1172,12 @@ static class LayerStackGraph {
                     node.SetText("Space", "Linear");
                     node.SetText("Filter", "Bilinear");
 
-                    return new(new PortRef(node.Id, "Out"), "");
+                    // ⚠ Not opaque, for the `Bake` case's reason exactly. A `.vxpaint` channel is
+                    // Rgba8 and its alpha is whatever the strokes put there — a canvas nobody has
+                    // painted the corners of carries alpha 0 in them — so this is a picture whose
+                    // alpha is data rather than coverage, and #874's rule says say so. The mask is
+                    // read for its red in any case.
+                    return new(new PortRef(node.Id, "Out"), false);
                 }
 
                 default:

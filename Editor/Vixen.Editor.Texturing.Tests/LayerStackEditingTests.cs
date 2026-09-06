@@ -278,7 +278,16 @@ public class LayerStackEditingTests {
     ///     passes against a module that never subscribed to <c>Edited</c> — and an artist would see
     ///     the row move and the picture stay. What is read here is a message that can only appear if
     ///     the stack was compiled <em>again</em> after the edit: the layer switched on is a Paint
-    ///     layer, which <c>LayerStackGraph</c> refuses by name.
+    ///     layer with no canvas yet, which <c>LayerStackGraph</c> has something to say about by name.
+    ///     <para>
+    ///         ⚠ <b>A warning rather than an error, and the severity is not incidental.</b> This was
+    ///         written when a Paint layer was refused outright; #852 wired the layer kind and chose to
+    ///         warn instead, because <c>LayerStackCompiler</c> throws the whole plan away on any
+    ///         error — so a Paint layer that refused until its first stroke would blank every other
+    ///         layer's preview at the one moment it can happen, which is when a panel has just
+    ///         created one. What this test needs is only that the message is <em>new</em>, and a
+    ///         warning is as new as an error.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void An_edit_re_evaluates_the_map() {
@@ -302,7 +311,7 @@ public class LayerStackEditingTests {
 
         var message = Assert.Single(Texts(panel, "layer-stack-message"));
 
-        Assert.StartsWith("Error", message, StringComparison.Ordinal);
+        Assert.StartsWith("Warning", message, StringComparison.Ordinal);
         Assert.Contains("paint", message, StringComparison.Ordinal);
     }
 
