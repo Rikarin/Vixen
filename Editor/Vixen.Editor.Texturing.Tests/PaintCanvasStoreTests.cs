@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Imaging;
 using Vixen.Editor.Texturing.Painting;
+using Vixen.Graphics;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -250,6 +252,121 @@ public class PaintCanvasStoreTests : IDisposable {
 
         Assert.NotNull(store.Open(file));
         Assert.Equal(2, store.Reads);
+    }
+
+    /// <summary>An imported picture is decoded once however often a plan's externals ask for it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The last bullet of <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a>,
+    ///         which was left owed on the argument that an imported picture is a different problem
+    ///         from a canvas.</b> It is the same problem with one half unused: the key, the stamp and
+    ///         the budget are shared, and only the in-memory writer is missing. Before this,
+    ///         <c>TextureExternalImages</c> re-decoded a texture-fill layer's PNG once per
+    ///         evaluation, and a preview evaluates on every edit.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The decode is counted in the callback rather than inferred from
+    ///         <c>Reads</c>.</b> A store that answered every call by decoding would report the same
+    ///         <em>picture</em> as one that answered from memory — that is the defect — so what is
+    ///         asserted is how many times the file was actually opened, and separately that the
+    ///         store's own counters agree with it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_imported_picture_is_decoded_once_however_often_it_is_asked_for() {
+        var file = Path.Combine(folder, "Rust.png");
+
+        File.WriteAllBytes(file, [1, 2, 3, 4]);
+
+        PaintCanvasStore store = new();
+
+        var decodes = 0;
+
+        TextureData Decode(string path) {
+            decodes++;
+
+            // Opened, so that a missing file is a throw here exactly as a real decoder's would be.
+            using var stream = File.OpenRead(path);
+
+            return new(PixelFormat.Rgba8UNorm, 2, 2, levelCount: 1);
+        }
+
+        var first = store.Picture(file, Decode);
+        var second = store.Picture(file, Decode);
+        var third = store.Picture(file, Decode);
+
+        Assert.Equal(1, decodes);
+        Assert.Same(first, second);
+        Assert.Same(first, third);
+
+        Assert.Equal(1, store.Reads);
+        Assert.Equal(2, store.Hits);
+        Assert.Equal(3, store.Opens);
+    }
+
+    /// <summary>⚠ And a picture somebody else rewrote is decoded again.</summary>
+    /// <remarks>
+    ///     <b>The same stamp as a canvas's, and it has to be: an imported picture is the one an
+    ///     artist edits in another application while the editor is open.</b> The rewrite changes the
+    ///     file's length rather than only its content, for
+    ///     <see cref="A_file_rewritten_underneath_is_read_again" />'s reason — a test that relied on
+    ///     the clock moving would be a test of the file system's timestamp resolution.
+    /// </remarks>
+    [Fact]
+    public void A_picture_rewritten_underneath_is_decoded_again() {
+        var file = Path.Combine(folder, "Rust.png");
+
+        File.WriteAllBytes(file, [1, 2, 3, 4]);
+
+        PaintCanvasStore store = new();
+
+        var first = store.Picture(file, Decoded);
+
+        File.WriteAllBytes(file, [1, 2, 3, 4, 5, 6, 7, 8]);
+
+        var second = store.Picture(file, Decoded);
+
+        Assert.NotSame(first, second);
+        Assert.Equal(2, store.Reads);
+        Assert.Equal(0, store.Hits);
+    }
+
+    /// <summary>⚠ A picture with no file is handed back and not held, which is the asymmetry with a canvas.</summary>
+    /// <remarks>
+    ///     <b>An adopted canvas with no file is a layer whose first stroke is under the pointer, and
+    ///     serving it is the whole point of <c>Adopt</c>.</b> There is no such thing for an imported
+    ///     picture: nothing in this process writes one, so an entry with no file could only be one
+    ///     nothing can ever invalidate — and it would be served as current for the rest of the
+    ///     session. So a decoder that produced something anyway is believed once and forgotten.
+    /// </remarks>
+    [Fact]
+    public void A_picture_the_store_cannot_stamp_is_never_held() {
+        var file = Path.Combine(folder, "Gone.png");
+
+        PaintCanvasStore store = new();
+
+        var decodes = 0;
+
+        TextureData Decode(string path) {
+            decodes++;
+
+            return new(PixelFormat.Rgba8UNorm, 2, 2, levelCount: 1);
+        }
+
+        Assert.NotNull(store.Picture(file, Decode));
+        Assert.Equal(0, store.Count);
+        Assert.Equal(0L, store.Bytes);
+
+        Assert.NotNull(store.Picture(file, Decode));
+        Assert.Equal(2, decodes);
+        Assert.Equal(0, store.Hits);
+    }
+
+    /// <summary>Decodes a two-by-two picture, opening the file the way a real decoder would.</summary>
+    static TextureData Decoded(string path) {
+        using var stream = File.OpenRead(path);
+
+        return new(PixelFormat.Rgba8UNorm, 2, 2, levelCount: 1);
     }
 
     /// <summary>Writes a one-channel canvas into the throwaway folder and returns its absolute path.</summary>

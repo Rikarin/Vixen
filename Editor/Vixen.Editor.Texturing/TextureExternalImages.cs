@@ -104,7 +104,10 @@ static class TextureExternalImages {
     /// <param name="uploads">Where the texture is made, and what owns it.</param>
     /// <param name="plan">The plan the image belongs to, which says what format and size it is.</param>
     /// <param name="entry">The external the compilation could not fill.</param>
-    /// <param name="canvases">The session's open <c>.vxpaint</c> canvases.</param>
+    /// <param name="canvases">
+    ///     The session's pixels: the open <c>.vxpaint</c> canvases, and the imported pictures this
+    ///     resolver decodes into it rather than re-reading per evaluation.
+    /// </param>
     /// <returns>Null when it was uploaded, or the sentence saying why it was not.</returns>
     /// <remarks>
     ///     ⚠ <b>A mesh map is not a file and is refused as one.</b> A <c>Source/Mesh Map</c> crosses
@@ -146,9 +149,18 @@ static class TextureExternalImages {
         TextureData decoded;
 
         try {
-            using var stream = File.OpenRead(file);
+            // ⚠ Through the store rather than straight off the disk — #885's last bullet. A preview
+            // runs on every edit and this decoded the same unchanged PNG once per evaluation; the
+            // callback is what a miss costs, and the stamp is taken before it. `Picture` never holds
+            // one it cannot invalidate, so a deleted file is decoded — and refused — every time.
+            decoded = canvases.Picture(
+                file,
+                path => {
+                    using var stream = File.OpenRead(path);
 
-            decoded = decoder.Decode(stream, extension);
+                    return decoder.Decode(stream, extension);
+                }
+            );
         } catch (Exception failure) when (failure is IOException
             or InvalidDataException or NotSupportedException or ArgumentException
             or UnauthorizedAccessException) {
@@ -218,10 +230,14 @@ static class TextureExternalImages {
     ///         than for every stack whose first stroke is still under the pointer.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The imported-picture path above still decodes its PNG on every evaluation, and
-    ///         that is now the asymmetric half.</b> It is left alone deliberately: an imported
-    ///         picture has no in-memory writer, so it is an ordinary cache rather than this store,
-    ///         and #885's measurement says the <c>.vxpaint</c> is the expensive one.
+    ///         ⚠ <b>The imported-picture path above no longer decodes its PNG on every evaluation
+    ///         either, and the asymmetry that argument rested on was smaller than it looked.</b> It
+    ///         was left alone for a batch on the grounds that an imported picture has no in-memory
+    ///         writer and so wants an ordinary content cache rather than a store of live objects —
+    ///         true, and beside the point: what the two share is the key, the stamp and the budget,
+    ///         and the writer's half simply goes unused. <see cref="PaintCanvasStore.Picture" />
+    ///         holds it, and the one behaviour that does not carry across is stated there — a
+    ///         picture with no file is never held.
     ///     </para>
     /// </remarks>
     static string? Painted(

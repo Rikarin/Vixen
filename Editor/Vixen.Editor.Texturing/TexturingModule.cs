@@ -992,6 +992,17 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// </remarks>
     internal int CanvasHits => canvases.Hits;
 
+    /// <summary>How many times anything in this session asked the store for pixels at all.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The only one of the three that a call site going back to <c>File.OpenRead</c> moves
+    ///     in a direction an assertion can catch</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/978">#978</a>. Un-wiring a reader lowers
+    ///     <see cref="CanvasReads" />, which a suite wanting it at zero reads as success, and lowers
+    ///     <see cref="CanvasHits" />, which a threshold reads as success as soon as the remaining
+    ///     readers clear it. An exact expectation over a scripted drag goes red on any of them.
+    /// </remarks>
+    internal int CanvasOpens => canvases.Opens;
+
     /// <summary>Hands a pane the one evaluator for the device it found, building it on demand.</summary>
     /// <param name="device">The device the pane found on the host.</param>
     /// <returns>The evaluator, which the caller does not own.</returns>
