@@ -382,6 +382,14 @@ costed this migration and each declined it; what they got wrong is worth recordi
   `<Counters>` and `<Times>` in VSTest's shape, into a TRX named after its project in the directory
   `-p:VSTestResultsDirectory` named. So `TestOrder --update-test-cost`, `AffectedTests`, #863's cost
   guard and the read-the-outcome-not-the-counters rule all keep working.
+- ⚠️ **A run given a VSTest-only switch falls back to VSTest for that invocation**, and finding out
+  why is the sharpest illustration of the hazard below. `dotnet test <project>` with a test-case
+  filter — the command this repository's own CLAUDE.md hands every reader — sets
+  `VSTestTestCaseFilter`, which the platform ignores: the first filtered run after the switch landed
+  ran **95 tests having been asked for 8**, exited green, and said so only in an `MTP0001` line. So
+  `VSTestTestCaseFilter`, `VSTestSetting` and `VSTestCollect` each turn `TestingPlatformDotnetTestSupport`
+  back off for that one invocation. It costs a second on a single project, which is the run where a
+  second does not matter, and it is why `Coverage` keeps working even without asking.
 - ⚠️ **`MTP0001` is a warning, not an error**, and it is what the platform says when a VSTest property
   is set and ignored — `VSTestSetting`, `VSTestLogger`, `VSTestResultsDirectory`. That is the failure
   mode this change is most exposed to: one warning line inside a five-hundred-second log. Two of the

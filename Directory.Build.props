@@ -197,6 +197,21 @@
       collector, not something the platform has.
       ============================================================================
     -->
+    <!--
+      ⚠ **A VSTest-only switch on the command line takes the whole invocation back to VSTest**, and
+      this line is the difference between the inner loop working and looking like it worked.
+      `dotnet test <project>` with a test-case filter is the command CLAUDE.md hands every reader;
+      that switch sets `VSTestTestCaseFilter`, which the platform does not read, and `MTP0001` is a
+      *warning* rather than an error — so a filtered run silently became the whole assembly and
+      exited green having done far more than it was asked. (Caught here by the warning line on a
+      95-test assembly that had been asked for 8.) The settings-file and data-collector switches are
+      the same shape; `Coverage` depends on the second and asks for this explicitly rather than
+      relying on it. Falling back costs the ~1 s of VSTest protocol on one project, which is exactly
+      the run where a second does not matter. The switch names are spelled around rather than
+      written: XML forbids a double hyphen inside a comment, which is the trap the results-directory
+      note below and `Directory.Build.targets` both record.
+    -->
+    <TestingPlatformDotnetTestSupport Condition="'$(TestingPlatformDotnetTestSupport)' == '' AND ('$(VSTestTestCaseFilter)' != '' OR '$(VSTestSetting)' != '' OR '$(VSTestCollect)' != '')">false</TestingPlatformDotnetTestSupport>
     <TestingPlatformDotnetTestSupport Condition="'$(TestingPlatformDotnetTestSupport)' == ''">true</TestingPlatformDotnetTestSupport>
     <UseMicrosoftTestingPlatformRunner Condition="'$(TestingPlatformDotnetTestSupport)' == 'true'">true</UseMicrosoftTestingPlatformRunner>
     <!--
