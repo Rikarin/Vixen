@@ -86,6 +86,43 @@ public static class PlatformInput {
         foreach (var surface in document.Surfaces) {
             surface.ColorScheme = preference;
         }
+
+        Repalette(document);
+    }
+
+    /// <summary>Refills the document's system colours from the appearance and the contrast setting.</summary>
+    /// <param name="document">The document.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One function reading <i>both</i> settings back off the document, rather than each
+    ///         of the two <c>Apply…</c> methods writing the half it knows.</b> The palette is a
+    ///         product of the two — a high-contrast machine wants the forced table whichever
+    ///         appearance it is in — so two independent writers would have made the answer depend on
+    ///         which platform event arrived last, and the symptom would be a window that comes up in
+    ///         high contrast and loses it the first time the user toggles dark mode.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>These are defaults and not a platform read.</b> They are the tables a browser
+    ///         uses; the platform's own semantic colours — AppKit's <c>labelColor</c>, Windows'
+    ///         <c>UISettings</c> accent — are not read here, and the AppKit half is not merely
+    ///         unwritten but blocked: <c>MacOSAppearance</c> and <c>MacOSAccessibility</c> both reach
+    ///         Foundation and deliberately not AppKit, because an SDL process has no
+    ///         <c>NSApplication</c> and <c>NSColor</c> wants one. A host that has read a real palette
+    ///         writes it to <c>UiDocument.SystemColors</c> itself, after this.
+    ///     </para>
+    /// </remarks>
+    public static void Repalette(UiDocument document) {
+        ArgumentNullException.ThrowIfNull(document);
+
+        var primary = document.Primary;
+
+        document.SystemColors.Reset(
+            primary.Preferences.ForcedColors
+                ? SystemPalette.HighContrast
+                : primary.ColorScheme == ColorSchemePreference.Dark
+                    ? SystemPalette.Dark
+                    : SystemPalette.Light
+        );
     }
 
     /// <summary>Tells every one of a document's surfaces which accessibility settings are on.</summary>
@@ -137,6 +174,8 @@ public static class PlatformInput {
                 ForcedColors = forced
             };
         }
+
+        Repalette(document);
     }
 
     /// <summary>Sends one platform event to a document's primary surface.</summary>
