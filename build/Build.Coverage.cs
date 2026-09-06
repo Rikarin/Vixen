@@ -100,7 +100,7 @@ partial class Build {
                     .SetDataCollector("Code Coverage;Format=cobertura")
                 );
 
-                rows.Add(Measure(project.NameWithoutExtension, results));
+                rows.Add(Measure(project, results));
             }
 
             WriteCoverageSummary(rows);
@@ -108,7 +108,7 @@ partial class Build {
         );
 
     /// <summary>Reads one project's cobertura document and picks its subject assembly out of it.</summary>
-    /// <param name="project">The test project's name, e.g. <c>Vixen.Ecs.Tests</c>.</param>
+    /// <param name="testProject">The test project file, e.g. <c>Core/Vixen.Ecs.Tests/Vixen.Ecs.Tests.csproj</c>.</param>
     /// <param name="results">Where that project's run wrote its attachments.</param>
     /// <remarks>
     ///     ⚠ The subject is the test project's name less <c>.Tests</c>, which is a convention rather
@@ -116,12 +116,15 @@ partial class Build {
     ///     <see cref="SolutionTestProjects" /> already relies on the same rule. Where a suite's
     ///     subject is genuinely absent from its own report, that is the finding, not an inconvenience:
     ///     a test assembly that never loaded the assembly it is named after is measuring something
-    ///     else.
+    ///     else. ⚠ Which is why the whole project file goes to <see cref="CoverageReport.Subject" />
+    ///     rather than its name: a package is named for the <i>assembly</i>, and ten projects here
+    ///     rename theirs, so on the convention alone that finding fired on the reader's mistake.
     /// </remarks>
     static (string Project, string Subject, double Rate, int Covered, int Total) Measure(
-        string project,
+        AbsolutePath testProject,
         AbsolutePath results
     ) {
+        var project = testProject.NameWithoutExtension;
         var documents = results.GlobFiles("**/*.cobertura.xml");
 
         Assert.True(
@@ -151,7 +154,7 @@ partial class Build {
             );
         }
 
-        var subject = CoverageReport.Subject(project);
+        var subject = CoverageReport.Subject(testProject);
         var (covered, total) = CoverageReport.SubjectLines(documents.Select(path => path.ToString()), subject);
 
         Assert.True(

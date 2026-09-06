@@ -54,4 +54,16 @@
              linked fixture the only way anyone has ever seen that branch is by sabotage (#561). -->
         <Compile Include="..\..\build\WorktreeSafety.cs" Link="WorktreeSafety.cs" />
     </ItemGroup>
+
+    <!--
+        ⚠ The Coverage target's cobertura reader, for the same reason and with the same shape. Its
+        first version counted every line twice at a rate that was right to three decimal places, and
+        the only thing that found that was somebody linking this source into a throwaway harness by
+        hand — a proof that left nothing behind. This is that harness, committed: the reader is
+        dependency-free on purpose, so linking it here costs nothing and cannot drift from the source
+        the target runs.
+    -->
+    <ItemGroup>
+        <Compile Include="..\..\build\CoverageReport.cs" Link="CoverageReport.cs" />
+    </ItemGroup>
 </Project>

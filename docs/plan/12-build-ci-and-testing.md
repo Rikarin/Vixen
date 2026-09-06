@@ -146,6 +146,18 @@ form parses **true**. So the target would have run no benchmark at all, and
 the symptom and not the cause. Five rounds of this issue recorded the baseline as blocked on hardware;
 it was also blocked on this.
 
+⚠️ **Nothing prevented the next one, so `BuildArgumentQuotingTests` does.** `build/_build.csproj` is
+outside the solution and has no test project, which is why the only call site in `build/` that broke
+the rule was in the only target nobody had run. The check is over the *syntax* of `build/**/*.cs` and
+holds both spellings of the same trap: `SetApplicationArguments` may not be handed a string with a
+space in the text the author typed (interpolation holes are exactly what Nuke quotes correctly, so
+they are ignored), and `DotNet(…)` — whose `ArgumentStringHandler` quotes the holes and leaves the
+literal text alone — may only be handed a string written at the call site, never one built into a
+variable first. ⚠️ Both sabotages are the historical defect itself: restoring `Benchmark`'s single
+interpolated string, and hoisting `CheckWhitespace`'s command line into a local, each go red naming
+the file and line. It lives in `Tools/Vixen.ApiCheck.Tests` beside `AotProbeProjectFileTests` and
+`CoverageReportTests` — the two other build files that acquired a fixture the same way.
+
 **Still owed** ([#339](https://github.com/Rikarin/Vixen/issues/339)): the baseline itself, taken on
 hardware that will run the suite again — and now, first, one real `Benchmark` run to confirm the
 arguments reach BenchmarkDotNet end to end, which needs `build.sh`; and the `benchmark` CI job, which
@@ -213,6 +225,19 @@ the answer is real is inside the archive.
   packable projects under warnings-as-errors turns `Pack` red is at least not universal. The day it
   starts mattering is the day a package multi-targets or ships a RID-specific assembly, which is
   exactly when nobody will remember this paragraph.
+
+  ⚠️ **So both halves of the refusal now expire loudly instead of being re-derived by hand.**
+  [#337](https://github.com/Rikarin/Vixen/issues/337) recorded the same two facts through six separate
+  rounds — no release to be a baseline, no multi-target to be an input — and each round established
+  them by grepping and left nothing behind, which is the shape of a refusal that quietly becomes an
+  oversight. `Tools/Vixen.ApiCheck.Tests/PackageValidationTests` asserts the two premises rather than
+  the property: it fails naming the first project to declare `TargetFrameworks`, and it fails when
+  `docs/api-history/index.json` archives any release other than the `VersionPrefix` this tree builds
+  — the ritual's own committed record being the one statement about "has this repository released"
+  that is readable without a network. ⚠️ Its third test is the guard the other two need, and it
+  earned its place immediately: the first version of the walk excluded any path containing `.claude`,
+  which excludes *the entire tree* when the tree is an agent worktree under `.claude/worktrees`, so
+  both premises were being asserted over nothing and both were green.
 - **The third-party attribution manifest is in no package.** `docs/manual/third-party.md` is packed by
   nothing, so "fails if any of the three is missing" could never have held for it. Whether it belongs
   inside every package, or whether the `NOTICE` discharges §4(d) on its own, is a licence question and
@@ -398,6 +423,29 @@ loaded (3 689 of 11 322), because the same document carries `Vixen.Core` at 0.1 
 describes neither project and moves
 whenever an unrelated dependency grows. A "per-project coverage" table built from a document's own
 `line-rate` would be that second number.
+
+⚠️ **And running it a second time found the second reader defect: cobertura names a package by
+*assembly* name, and this tree renames ten of them.** `Measure` derived the subject by stripping
+`.Tests` off the project name, which is right for `Core/Vixen.Ecs.Tests` and wrong for every tool —
+`Tools/Vixen.ApiCheck` builds `vixen-api-check.dll`, so a real document from `Vixen.ApiCheck.Tests`
+carries the packages `vixen-api-check` and `Vixen.ApiCheck.Tests` and nothing called
+`Vixen.ApiCheck` at all. The target's own "does not name its subject, so the suite never loaded the
+assembly it is named after" then fires — a finding about the reader wearing a finding about the
+suite, which is the exact failure the paragraph above warns about, arriving one round later in a new
+place. `CoverageReport.Subject` now asks the sibling project file for its `<AssemblyName>` (as XML,
+the way `AotProbeProjectFile` reads the probe) and falls back to the convention.
+
+⚠️ **Both of those were found by linking the reader into a throwaway harness, and both proofs left
+nothing behind — so the harness is committed now.** `Tools/Vixen.ApiCheck.Tests/CoverageReportTests`
+links `build/CoverageReport.cs` the way that project already links `build/AotProbeProjectFile.cs`,
+over a fixture cut from a real attachment that keeps the duplicate listing. Restoring the descendants
+walk turns three of its six tests red on the counts while leaving the *rate* untouched, and dropping
+the assembly-name lookup turns exactly one red. That is the only part of `Coverage` a session
+forbidden `build.sh` can prove; the fluent `DotNetTest` settings and the `artifacts/coverage` layout
+were checked by running the equivalent `dotnet test` invocation by hand (the attachment landed where
+`Measure` globs for it, and the class lists summed to the header's 978 of 1 193 where the descendants
+walk gave 1 957 of 2 387), and **Nuke's own traversal and the `coverage.md` it writes are still
+unproved**.
 
 **And where "is this line reached" is a real question, the answer is a test.** ✅ Two of the three
 places ([#338](https://github.com/Rikarin/Vixen/issues/338)) are done, and the first is the worked
