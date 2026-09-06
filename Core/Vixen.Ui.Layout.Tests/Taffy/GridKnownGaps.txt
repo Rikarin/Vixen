@@ -15,7 +15,16 @@
 # corollary is the one rule that matters: a gap that closes comes off this file in the same commit
 # as it closes, and a gap that opens does not get added without a heading explaining it.
 #
-# 2 080 of the 2 120 grid, blockgrid and gridflex fixtures pass, 40 fail and none is refused.
+# 2 104 of the 2 120 grid, blockgrid and gridflex fixtures pass, 16 fail and none is refused.
+#
+# ⚠ FOUR NAMES ARE LEFT IN THIS FILE AND NOT ONE OF THEM IS ARITHMETIC A READER COULD GO AND FIX,
+# which is the answer to the question the file exists to answer and is worth stating before the
+# archaeology rather than after it. Eight of the sixteen are `grid_available_space_*`, a settled
+# decision about how a Vixen surface root is sized that must not be "fixed"; four are
+# `chrome_issue_325928327`, genuinely cyclic and named after the browser's own bug tracker; four are
+# `grid_relayout_vertical_text`, which is a missing layout FEATURE filed as `Rikarin/Vixen#952` and
+# is not grid's. So `Rikarin/Vixen#259`'s four rules stand at: §5.2.2 closed (#932), the RTL
+# percentage margin closed, the writing mode split out, and the cyclic one classified and refused.
 #
 # ⚠ 76 → 40 most recently, and unlike the batch described below all 36 of them passed. They are the
 # `safe` alignment families, which were an ENGINE gap rather than a harness one — `OverflowAlignment`
