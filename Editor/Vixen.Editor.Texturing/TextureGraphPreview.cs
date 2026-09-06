@@ -5,8 +5,29 @@ using System.Collections.Immutable;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.TextureGraph;
+using Vixen.Graphics;
 
 namespace Vixen.Editor.Texturing;
+
+/// <summary>Lends the one evaluator a module holds to a pane that is about to dispatch.</summary>
+/// <param name="device">The device the pane found on the host, this evaluation.</param>
+/// <returns>The evaluator, which the caller does not own.</returns>
+/// <remarks>
+///     <para>
+///         ⚠ <b>A lease and not a constructor argument, because the device arrives after the module
+///         does.</b> <c>EditorApplication</c> builds its plugin host in its constructor and acquires a
+///         device when the window can present — <a href="https://github.com/Rikarin/Vixen/issues/737">#737</a>
+///         — so a pane handed an evaluator at activation would be handed one built on nothing.
+///     </para>
+///     <para>
+///         ⚠ <b>The caller does not own it and must not dispose it</b>, which is the trap
+///         <a href="https://github.com/Rikarin/Vixen/issues/820">#820</a> records: both previews used
+///         to dispose an evaluator of their own, so a shared one freed by the first pane closed would
+///         destroy the pipelines the second is still dispatching through — a use-after-free on the
+///         device rather than a slow first open.
+///     </para>
+/// </remarks>
+delegate TexturePlanEvaluator TextureEvaluatorLease(IGraphicsDevice device);
 
 /// <summary>What one attempt at a graph's picture produced, and the sentence that goes under it.</summary>
 /// <param name="Image">The picture, or <see langword="null" /> when there is none.</param>
@@ -59,7 +80,9 @@ sealed record TextureGraphPicture(IEditorImage? Image, string Status) {
 ///         ⚠ <b>The evaluator is held across evaluations and that is the reason
 ///         <see cref="IEditorGraphics" /> lends a device rather than a call.</b> It caches one
 ///         compiled pipeline per kernel and output format, so an evaluator built per preview would
-///         recompile every kernel the plan touches on every keystroke.
+///         recompile every kernel the plan touches on every keystroke — and it is held by the
+///         <em>module</em> rather than here, because two panes over one device were two of those
+///         caches (<a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>).
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Never call this from inside the host's own frame.</b>
@@ -81,17 +104,20 @@ sealed class TextureGraphPreview : IDisposable {
     public const float Cells = 8f;
 
     readonly IEditorGraphics graphics;
+    readonly TextureEvaluatorLease evaluators;
 
-    TexturePlanEvaluator? evaluator;
     IEditorImage? shown;
 
     /// <summary>Builds a preview over the graphics a host lent the plugin.</summary>
     /// <param name="graphics">The host's graphics.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="graphics" /> is null.</exception>
-    public TextureGraphPreview(IEditorGraphics graphics) {
+    /// <param name="evaluators">Where the one evaluator comes from — see <see cref="TextureEvaluatorLease" />.</param>
+    /// <exception cref="ArgumentNullException">Either argument is null.</exception>
+    public TextureGraphPreview(IEditorGraphics graphics, TextureEvaluatorLease evaluators) {
         ArgumentNullException.ThrowIfNull(graphics);
+        ArgumentNullException.ThrowIfNull(evaluators);
 
         this.graphics = graphics;
+        this.evaluators = evaluators;
     }
 
     /// <summary>How many plans have been evaluated over this preview's life.</summary>
@@ -200,10 +226,10 @@ sealed class TextureGraphPreview : IDisposable {
 
         var output = compilation.Outputs[0];
 
-        // ⚠ Built on the first evaluation rather than in the constructor, because the constructor
-        // runs while the host may still have no device — see `PluginGraphics` — and an evaluator is
-        // bound to the device it was made on for the life of its pipeline cache.
-        evaluator ??= new TexturePlanEvaluator(device);
+        // ⚠ Asked for on every evaluation and owned by nobody here — #820. The module holds one for
+        // both panes, because an evaluator is a pipeline cache per kernel and output format and two
+        // of them over one device compile the whole overlap twice.
+        var evaluator = evaluators(device);
 
         using TextureUploads uploads = new(device);
 
@@ -268,15 +294,13 @@ sealed class TextureGraphPreview : IDisposable {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     Both halves: the picture, so the editor stops holding a texture for a plugin that has
-    ///     gone, and the evaluator, so its pipelines and modules are destroyed on the device that
-    ///     made them.
+    ///     ⚠ <b>The picture and not the evaluator.</b> The editor stops holding a texture for a plugin
+    ///     that has gone — but the evaluator is the module's, lent to both panes, and a pane that
+    ///     freed it would take the other pane's pipelines with it. <c>TexturingModule.Release</c> is
+    ///     what disposes it, through the registration scope. #820.
     /// </remarks>
     public void Dispose() {
         shown?.Dispose();
         shown = null;
-
-        evaluator?.Dispose();
-        evaluator = null;
     }
 }

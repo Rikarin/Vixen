@@ -100,17 +100,20 @@ sealed class LayerStackPreview : IDisposable {
     public const string DefaultUsage = "baseColor";
 
     readonly IEditorGraphics graphics;
+    readonly TextureEvaluatorLease evaluators;
 
-    TexturePlanEvaluator? evaluator;
     IEditorImage? shown;
 
     /// <summary>Builds a preview over the graphics a host lent the plugin.</summary>
     /// <param name="graphics">The host's graphics.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="graphics" /> is null.</exception>
-    public LayerStackPreview(IEditorGraphics graphics) {
+    /// <param name="evaluators">Where the one evaluator comes from — see <see cref="TextureEvaluatorLease" />.</param>
+    /// <exception cref="ArgumentNullException">Either argument is null.</exception>
+    public LayerStackPreview(IEditorGraphics graphics, TextureEvaluatorLease evaluators) {
         ArgumentNullException.ThrowIfNull(graphics);
+        ArgumentNullException.ThrowIfNull(evaluators);
 
         this.graphics = graphics;
+        this.evaluators = evaluators;
     }
 
     /// <summary>How many plans have been evaluated over this preview's life.</summary>
@@ -201,10 +204,10 @@ sealed class LayerStackPreview : IDisposable {
             );
         }
 
-        // ⚠ Built on the first evaluation rather than in the constructor, because the constructor
-        // runs while the host may still have no device and an evaluator is bound to the device it
-        // was made on for the life of its pipeline cache.
-        evaluator ??= new TexturePlanEvaluator(device);
+        // ⚠ Asked for on every evaluation and owned by nobody here — #820. The module holds one for
+        // both panes, because an evaluator is a pipeline cache per kernel and output format and two
+        // of them over one device compile the whole overlap twice.
+        var evaluator = evaluators(device);
 
         using TextureUploads uploads = new(device);
 
@@ -288,15 +291,13 @@ sealed class LayerStackPreview : IDisposable {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     Both halves: the picture, so the editor stops holding a texture for a plugin that has
-    ///     gone, and the evaluator, so its pipelines and modules are destroyed on the device that
-    ///     made them.
+    ///     ⚠ <b>The picture and not the evaluator.</b> The editor stops holding a texture for a plugin
+    ///     that has gone — but the evaluator is the module's, lent to both panes, and a pane that
+    ///     freed it would take the other pane's pipelines with it. <c>TexturingModule.Release</c> is
+    ///     what disposes it, through the registration scope. #820.
     /// </remarks>
     public void Dispose() {
         shown?.Dispose();
         shown = null;
-
-        evaluator?.Dispose();
-        evaluator = null;
     }
 }

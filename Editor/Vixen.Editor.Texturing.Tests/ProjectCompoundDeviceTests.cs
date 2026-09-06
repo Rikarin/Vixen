@@ -123,7 +123,8 @@ public class ProjectCompoundDeviceTests {
 
         document.Document = Filled(64);
 
-        using LayerStackPreview preview = new(fixture.Graphics!);
+        using LentEvaluator evaluators = new();
+        using LayerStackPreview preview = new(fixture.Graphics!, evaluators.Lease);
 
         var picture = preview.Evaluate(document);
 

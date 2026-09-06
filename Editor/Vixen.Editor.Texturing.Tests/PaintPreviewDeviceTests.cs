@@ -44,7 +44,8 @@ public class PaintPreviewDeviceTests {
         using var device = Open();
         using var fixture = new TexturingFixture(device);
 
-        using LayerStackPreview preview = new(fixture.Graphics!);
+        using LentEvaluator evaluators = new();
+        using LayerStackPreview preview = new(fixture.Graphics!, evaluators.Lease);
 
         var document = Opened(fixture, "Hull");
 
@@ -104,7 +105,8 @@ public class PaintPreviewDeviceTests {
         using var device = Open();
         using var fixture = new TexturingFixture(device);
 
-        using LayerStackPreview preview = new(fixture.Graphics!);
+        using LentEvaluator evaluators = new();
+        using LayerStackPreview preview = new(fixture.Graphics!, evaluators.Lease);
 
         var document = Opened(fixture, "Hull");
 
@@ -127,7 +129,8 @@ public class PaintPreviewDeviceTests {
         using var device = Open();
         using var fixture = new TexturingFixture(device);
 
-        using LayerStackPreview preview = new(fixture.Graphics!);
+        using LentEvaluator evaluators = new();
+        using LayerStackPreview preview = new(fixture.Graphics!, evaluators.Lease);
 
         var document = Opened(fixture, "Hull");
 
