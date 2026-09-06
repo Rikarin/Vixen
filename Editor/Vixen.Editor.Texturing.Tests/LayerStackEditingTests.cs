@@ -423,6 +423,330 @@ public class LayerStackEditingTests {
         Assert.NotSame(slider, Find<Slider>(panel, "layer-stack-opacity"));
     }
 
+    /// <summary>⚠ An undo taken outside the panel puts the document's value back on the control.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/933">#933</a>, and it is the defect
+    ///         the whole undoable model was built for.</b> Every other test in this file presses a
+    ///         control and then reads the <em>document</em> — so all of them are green against a
+    ///         panel that never reads the document back. What a person does is press Ctrl+Z, which
+    ///         reaches <c>CommandStack.Undo</c> through the editor's own verb and not through
+    ///         anything in these rows.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The flush is what a frame does, and it is not test ceremony.</b> Writing a signal
+    ///         only queues; <c>EditorShell</c> drains its own document's queue once per frame —
+    ///         <c>UiDocument.Effects</c> says why it is the document's queue and not the thread's —
+    ///         so a test that asserted without flushing would be asserting that the refresh happened
+    ///         at a moment the editor never assigns work to.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_undo_taken_outside_the_panel_reaches_the_controls() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Two());
+        var panel = Panel(fixture);
+
+        // The top row's tick, pressed the way an artist presses it.
+        Ticks(panel, "layer-stack-enabled")[0].Activate();
+
+        Assert.False(Ticks(panel, "layer-stack-enabled")[0].IsChecked);
+        Assert.False(Top(document).Enabled);
+
+        Assert.True(document.Stack.Undo());
+        fixture.Shell.Document.Effects.Flush();
+
+        // ⚠ The document, first: an assertion on the tick alone would pass against a panel that had
+        // simply failed to write the edit through in the first place.
+        Assert.True(Top(document).Enabled);
+        Assert.True(Ticks(panel, "layer-stack-enabled")[0].IsChecked);
+    }
+
+    /// <summary>⚠ And an undone reorder puts the rows back in the order the file has them.</summary>
+    /// <remarks>
+    ///     <b>The other half of <a href="https://github.com/Rikarin/Vixen/issues/933">#933</a>, and a
+    ///     different code path.</b> A value edit is re-read by the row's own binding; a reorder
+    ///     changes the shape signature, so what has to run is the rebuild. A panel that re-read its
+    ///     values and never rebuilt would pass the test above and leave the layers on screen in an
+    ///     order the file no longer has.
+    /// </remarks>
+    [Fact]
+    public void An_undone_reorder_puts_the_rows_back() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Two());
+        var panel = Panel(fixture);
+
+        Buttons(panel, "layer-stack-move-up")[1].Activate();
+
+        Assert.StartsWith("Bottom", Texts(panel, "layer-stack-row-name")[0], StringComparison.Ordinal);
+
+        Assert.True(document.Stack.Undo());
+        fixture.Shell.Document.Effects.Flush();
+
+        Assert.StartsWith("Top", Texts(panel, "layer-stack-row-name")[0], StringComparison.Ordinal);
+    }
+
+    /// <summary>What a mask row reads can be changed, and the base can be switched off and back on.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/882">#882</a>.</b> The panel listed
+    ///         a mask's entries and its base as sentences with no control on them, so an artist could
+    ///         see that a layer had a generator mask and could not point it anywhere else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And back on is the half that decides the row is drawn unconditionally.</b>
+    ///         Switching a base off means setting its source to <c>None</c>; the base row used to
+    ///         exist only when the source was not <c>None</c>, so the one gesture that turns a mask
+    ///         off would have removed the control that turns it back on.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_masks_base_source_changes_and_switches_off_and_back_on() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Masked());
+        var panel = Panel(fixture);
+
+        // The entry's editor comes first and the base's is last, which is the order the rows are in.
+        var sources = Controls<Select>(panel, "layer-stack-mask-source");
+
+        Assert.Equal(2, sources.Count);
+        Assert.Equal(nameof(LayerMaskSource.Bake), sources[1].Value);
+
+        sources[1].Value = nameof(LayerMaskSource.None);
+
+        Assert.Equal(LayerMaskSource.None, Mask(document).Source);
+        Assert.Equal(1, document.Stack.Depth.Value);
+
+        // ⚠ The row is still there with its selector on it, which is the whole reason it is drawn
+        // for a mask that reads nothing.
+        Controls<Select>(panel, "layer-stack-mask-source")[^1].Value = nameof(LayerMaskSource.Bake);
+
+        Assert.Equal(LayerMaskSource.Bake, Mask(document).Source);
+
+        // ⚠ And the map survived the round trip through None: switching a source is not a reset, so
+        // an artist who turns a mask off and on again has the mask they had.
+        Assert.Equal("curvature", Mask(document).Map);
+
+        Assert.True(document.Stack.Undo());
+        Assert.Equal(LayerMaskSource.None, Mask(document).Source);
+    }
+
+    /// <summary>A constant mask's number is a slider, and a drag is one undo entry.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The merge key is per row rather than per layer, which is what the slot in it buys.</b>
+    ///     A layer's mask base and its entries all share one <c>LayerPath</c>, so a key of
+    ///     <c>mask-value</c> alone would collapse a drag on one row into the drag on another and
+    ///     undo both at once.
+    /// </remarks>
+    [Fact]
+    public void A_constant_masks_number_is_editable() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Masked());
+        var panel = Panel(fixture);
+
+        var numbers = Controls<Slider>(panel, "layer-stack-mask-value");
+
+        Assert.Equal(0.5f, numbers[0].Value);
+
+        numbers[0].Value = 0.25f;
+
+        Assert.Equal(0.25f, Mask(document).Layers[0].Value);
+        Assert.Equal(1, document.Stack.Depth.Value);
+
+        Assert.True(document.Stack.Undo());
+        Assert.Equal(0.5f, Mask(document).Layers[0].Value);
+    }
+
+    /// <summary>A bake mask's map is typed, and what is typed is what the compile reads.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A field and not a list of the nine, which is a limit rather than a preference.</b>
+    ///     <c>TextureMeshMaps.Known</c> is <c>internal</c> to <c>Vixen.Editor.TextureGraph</c> and
+    ///     visible to its own tests alone, so this assembly cannot ask for the names — and writing
+    ///     them here would be the second transcription of a known set that five roll calls in this
+    ///     workstream have gone red on. The assertion is therefore that a typed name reaches the
+    ///     plan's external, which is the thing an artist is actually after.
+    /// </remarks>
+    [Fact]
+    public void A_bake_masks_map_is_typed_and_reaches_the_external() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Masked());
+        var panel = Panel(fixture);
+
+        var reference = Controls<TextBox>(panel, "layer-stack-mask-text")[^1];
+
+        Assert.Equal("curvature", reference.Value);
+
+        reference.Value = "thickness";
+
+        Assert.Equal("thickness", Mask(document).Map);
+
+        var compilation = LayerStackCompiler.Compile(document.Document, document.Document.Sets[0]);
+
+        Assert.Contains(compilation.Externals, external => external.Asset.EndsWith("thickness", StringComparison.Ordinal));
+
+        Assert.True(document.Stack.Undo());
+        Assert.Equal("curvature", Mask(document).Map);
+    }
+
+    /// <summary>⚠ The anchor picker offers the layers whose result exists before this one's.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>An anchor onto a layer at or above its own is a loop</b>, which
+    ///         <c>LayerStackGraph.Anchors</c> refuses through the graph model. A picker that offered
+    ///         one would be a dropdown every entry of which fails, so what it offers is what the
+    ///         model accepts.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Composite order and not row order, and a group is where the two differ.</b> A
+    ///         group's blend node is emitted <em>after</em> its children's, so a child may anchor
+    ///         onto nothing in its own group — which a picker built on the panel's top-to-bottom
+    ///         order would get exactly backwards.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_anchor_picker_offers_only_the_layers_below() {
+        using var fixture = new TexturingFixture();
+
+        Open(fixture, Anchored());
+
+        var panel = Panel(fixture);
+        // The rows are topmost first, so the mask pickers are the top layer's, the middle's and the
+        // bottom's — and only the middle one's mask is an anchor, so only it is filled.
+        var picker = Controls<Select>(panel, "layer-stack-mask-anchor")[1];
+
+        var offered = picker.Options.Select(option => option.Value ?? "").ToArray();
+
+        // Neither 'middle', which is itself, nor 'top', which is composited after it.
+        Assert.Equal([LayerStackView.NoAnchor, "bottom"], offered);
+        Assert.Equal("bottom", picker.Value);
+
+        picker.Value = LayerStackView.NoAnchor;
+
+        var document = fixture.Project.Documents.OfType<LayerStackDocument>().Single();
+
+        Assert.Equal("", document.Document.Sets[0].Layers[1].Mask.Anchor);
+    }
+
+    /// <summary>⚠ And the bottom layer of a stack is offered nothing to anchor onto.</summary>
+    /// <remarks>
+    ///     <b>The predicate that could not be false if the picker simply listed the set.</b> Every
+    ///     assertion above is satisfied by a picker that offered every layer except the one holding
+    ///     it; the bottom layer is the case where "everything else" and "everything below" differ by
+    ///     the whole list.
+    /// </remarks>
+    [Fact]
+    public void The_bottom_layers_anchor_picker_offers_nothing() {
+        using var fixture = new TexturingFixture();
+
+        Open(fixture, AnchoredFromTheBottom());
+
+        var picker = Controls<Select>(Panel(fixture), "layer-stack-mask-anchor")[^1];
+
+        // ⚠ The stored anchor is kept as an option even though nothing below can be named, so that
+        // the picker does not read as unanchored and then unanchor it on the next click — the mesh
+        // picker's three-state rule. What is not there is a layer this one could legally read.
+        var offered = picker.Options.Select(option => option.Value ?? "").ToArray();
+
+        Assert.Equal([LayerStackView.NoAnchor, "top"], offered);
+        Assert.Empty(LayerStackView.Anchorable(fixture.Project.Documents.OfType<LayerStackDocument>()
+            .Single()
+            .Document.Sets[0], "bottom"));
+    }
+
+    /// <summary>⚠ A row whose id names two layers is listed and carries no controls.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/893">#893</a>'s panel half.</b>
+    ///         <c>LayerStackGraph.Duplicates</c> refuses the stack, and a refusal is a message beside
+    ///         a list of rows that are still drawn and still clicked — the panel builds its rows from
+    ///         the document rather than from a compilation. Against the code before this,
+    ///         <c>Buttons(panel, "layer-stack-move-up")[0].Activate()</c> moved the <em>other</em>
+    ///         layer, because <c>LayerStackEdit</c> resolves an id to the first match.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both rows are still there, which is half the assertion.</b> Refusing by dropping
+    ///         the row would leave an artist with a file whose shape they cannot see, and the shape
+    ///         is the thing they have to fix.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_row_whose_id_names_two_layers_is_listed_without_controls() {
+        using var fixture = new TexturingFixture();
+
+        Open(fixture, Shared());
+
+        var panel = Panel(fixture);
+
+        Assert.Equal(2, Texts(panel, "layer-stack-row-name").Count);
+
+        // Not one button, one tick, one slider or one selector between them: every control on this
+        // row is addressed by the id that names both layers.
+        Assert.Empty(All(panel, "layer-stack-move-up"));
+        Assert.Empty(All(panel, "layer-stack-move-down"));
+        Assert.Empty(All(panel, "layer-stack-enabled"));
+        Assert.Empty(All(panel, "layer-stack-opacity"));
+        Assert.Empty(All(panel, "layer-stack-blend"));
+        Assert.Empty(All(panel, "layer-stack-select"));
+
+        var refusals = Texts(panel, "layer-stack-row-refusal");
+
+        Assert.Equal(2, refusals.Count);
+        Assert.Contains("dup", refusals[0], StringComparison.Ordinal);
+        Assert.Equal(LayerStackView.Ambiguity("dup"), refusals[0]);
+    }
+
+    /// <summary>⚠ And the same panel over a stack with distinct ids is fully editable.</summary>
+    /// <remarks>
+    ///     <b>The half that makes the assertion above a finding rather than a description of a panel
+    ///     that draws no controls at all.</b> Every <c>Assert.Empty</c> above is satisfied by a build
+    ///     in which the rows were never populated, which is what a refusal written one line too high
+    ///     in <c>Build</c> would produce.
+    /// </remarks>
+    [Fact]
+    public void A_stack_with_distinct_ids_keeps_every_control() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Two());
+        var panel = Panel(fixture);
+
+        Assert.Equal(2, Buttons(panel, "layer-stack-move-up").Count);
+        Assert.Empty(Texts(panel, "layer-stack-row-refusal"));
+
+        Buttons(panel, "layer-stack-move-up")[1].Activate();
+
+        Assert.Equal(0.25f, TopColour(document));
+    }
+
+    /// <summary>⚠ The panel disarms exactly the ids the compiler refuses, and no others.</summary>
+    /// <remarks>
+    ///     <b>The two are one rule — <c>LayerStackEdit.Ambiguous</c> — and this is what says so.</b>
+    ///     A panel with its own copy of the rule can drift into either failure: offering to reorder a
+    ///     layer the compiler will not build, or disarming a row of a stack that compiles. The
+    ///     third layer here has an id of its own, so the set contains both answers at once.
+    /// </remarks>
+    [Fact]
+    public void The_disarmed_rows_are_the_ones_the_compiler_refuses() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Shared("solo"));
+        var panel = Panel(fixture);
+
+        var compilation = LayerStackCompiler.Compile(document.Document, document.Document.Sets[0]);
+
+        Assert.Null(compilation.Plan);
+
+        var refused = compilation.Problems
+            .Where(problem => problem.Message.Contains("share the id", StringComparison.Ordinal))
+            .Select(problem => problem.Layer)
+            .ToArray();
+
+        Assert.Equal(["dup"], refused);
+
+        // Three rows, one of which is the layer nothing shares an id with — and it is the only one
+        // with a `Move up` on it.
+        Assert.Equal(3, Texts(panel, "layer-stack-row-name").Count);
+        Assert.Equal(2, Texts(panel, "layer-stack-row-refusal").Count);
+        Assert.Single(Buttons(panel, "layer-stack-move-up"));
+    }
+
     /// <summary>⚠ An edit made in the panel is in the file after a save.</summary>
     /// <remarks>
     ///     <b>The sentence <a href="https://github.com/Rikarin/Vixen/issues/819">#819</a> was written
@@ -537,6 +861,20 @@ public class LayerStackEditingTests {
             Fill("top", "Top", 0.75f)
         );
 
+    /// <summary>Two layers carrying one id, and optionally a third that carries its own.</summary>
+    /// <param name="third">
+    ///     An id for a layer nothing shares one with, or empty for a stack that is entirely ambiguous.
+    /// </param>
+    static LayerStackAsset Shared(string third = "") {
+        List<LayerAsset> layers = [Fill("dup", "Lower", 0.25f), Fill("dup", "Upper", 0.75f)];
+
+        if (third.Length > 0) {
+            layers.Add(Fill(third, "Solo", 0.5f));
+        }
+
+        return Stack([new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }], [.. layers]);
+    }
+
     static LayerStackAsset Three() =>
         Stack(
             [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
@@ -575,6 +913,44 @@ public class LayerStackEditingTests {
                     ]
                 }
             }
+        );
+
+    /// <summary>Three layers, the middle of which anchors its mask onto the bottom one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The middle one, deliberately: for the topmost layer "everything below" and
+    ///     "everything but itself" are the same list</b>, so a picker that only excluded self would
+    ///     pass a test built on the top row. Here they differ by the layer above.
+    /// </remarks>
+    static LayerStackAsset Anchored() =>
+        Stack(
+            [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
+            Fill("bottom", "Bottom", 0.25f),
+            new LayerAsset {
+                Id = "middle",
+                Name = "Middle",
+                Kind = LayerKind.Fill,
+                Values = { ["baseColor"] = [0.5f, 0.5f, 0.5f, 1f] },
+                Mask = new() { Source = LayerMaskSource.Anchor, Anchor = "bottom" }
+            },
+            Fill("top", "Top", 0.75f)
+        );
+
+    /// <summary>⚠ The same anchor the wrong way round: the bottom layer reading the top one.</summary>
+    /// <remarks>
+    ///     A file can say this and the compile refuses it; what it is here for is the picker, whose
+    ///     honest answer for the bottom layer of a stack is that there is nothing to offer.
+    /// </remarks>
+    static LayerStackAsset AnchoredFromTheBottom() =>
+        Stack(
+            [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
+            new LayerAsset {
+                Id = "bottom",
+                Name = "Bottom",
+                Kind = LayerKind.Fill,
+                Values = { ["baseColor"] = [0.25f, 0.25f, 0.25f, 1f] },
+                Mask = new() { Source = LayerMaskSource.Anchor, Anchor = "top" }
+            },
+            Fill("top", "Top", 0.75f)
         );
 
     static LayerStackAsset Grouped() =>
@@ -679,6 +1055,20 @@ public class LayerStackEditingTests {
         Assert.NotEmpty(found);
 
         return Assert.IsType<T>(found[0]);
+    }
+
+    /// <summary>The only layer's mask, for a stack made by <see cref="Masked" />.</summary>
+    static MaskAsset Mask(LayerStackDocument document) => document.Document.Sets[0].Layers[^1].Mask;
+
+    /// <summary>Every control of one kind the panel drew under that tag, in layout order.</summary>
+    static List<T> Controls<T>(UiElement root, string tag) where T : UiElement {
+        List<T> found = [];
+
+        foreach (var element in All(root, tag)) {
+            found.Add(Assert.IsType<T>(element));
+        }
+
+        return found;
     }
 
     static List<Button> Buttons(UiElement root, string tag) {

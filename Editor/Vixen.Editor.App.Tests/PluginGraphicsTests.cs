@@ -99,6 +99,123 @@ public class PluginGraphicsTests {
         Assert.Equal([image.Image], surface.Released);
     }
 
+    /// <summary>A partial update reaches the surface with the rectangle and the handle's own number.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The host half of <a href="https://github.com/Rikarin/Vixen/issues/912">#912</a> had no
+    ///     test at all, and the double added beside it collected updates nothing read</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/958">#958</a>. What is asserted is the
+    ///     forwarding, because the alternative to forwarding is a plugin whose stroke never reaches
+    ///     the screen and whose fallback path — a whole re-upload — hides it perfectly.
+    /// </remarks>
+    [Fact]
+    public void A_partial_update_is_forwarded_to_the_surface_that_made_the_image() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("project");
+
+        var surface = new Recording();
+
+        editor.Application.ThumbnailSurface = surface;
+
+        var graphics = editor.Application.PluginHost.Services.Require<IEditorGraphics>();
+        var image = graphics.Upload(4, 4, new byte[4 * 4 * 4]);
+
+        Assert.NotNull(image);
+        Assert.True(graphics.Update(image, 1, 2, 2, 1, [9, 9, 9, 9, 8, 8, 8, 8]));
+
+        var update = Assert.Single(surface.Updates);
+
+        Assert.Equal((image.Image, 1, 2, 2, 1), (update.Image, update.X, update.Y, update.Width, update.Height));
+        Assert.Equal([9, 9, 9, 9, 8, 8, 8, 8], update.Pixels);
+    }
+
+    /// <summary>⚠ A handle made against one surface is refused by the next one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The stale-handle guard, which is the whole justification for the host half of
+    ///         #912's contract and had nothing exercising it</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/958">#958</a>. An image number is a
+    ///         number: the window goes and comes back, the editor builds a new surface, and the
+    ///         number a plugin is still holding names a live image of that new one. Without the
+    ///         identity check a paint stroke would write its texels into somebody else's picture and
+    ///         be told it succeeded.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two surfaces hand out the same numbers on purpose</b>, because that is the
+    ///         only arrangement in which the check can be wrong: two <c>Recording</c>s both start at
+    ///         one, so the stale handle names a real image of the new surface and a guard comparing
+    ///         numbers rather than surfaces would accept it.
+    ///     </para>
+    ///     <para>
+    ///         And the refusal is a <c>false</c> rather than a throw, because <c>Update</c>'s contract
+    ///         says a caller that gets one must re-upload — a caller that had to catch would be a
+    ///         caller that leaves the screen showing the pixels from before the stroke.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_image_from_a_previous_surface_is_refused_rather_than_written_into_the_new_one() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("project");
+
+        var gone = new Recording();
+
+        editor.Application.ThumbnailSurface = gone;
+
+        var graphics = editor.Application.PluginHost.Services.Require<IEditorGraphics>();
+        var stale = graphics.Upload(4, 4, new byte[4 * 4 * 4]);
+
+        Assert.NotNull(stale);
+
+        // The window went and came back: a different surface, handing out numbers from one again.
+        var now = new Recording();
+
+        editor.Application.ThumbnailSurface = now;
+
+        var live = graphics.Upload(4, 4, new byte[4 * 4 * 4]);
+
+        Assert.NotNull(live);
+
+        // The instrument, and it is what makes the refusal below mean anything: the stale handle's
+        // number is a live image of the new surface, so a guard that compared numbers would pass.
+        Assert.Equal(stale.Image, live.Image);
+
+        Assert.False(graphics.Update(stale, 0, 0, 1, 1, [1, 2, 3, 4]));
+        Assert.Empty(now.Updates);
+
+        // And the live one still works, so the refusal is about the handle rather than about the
+        // surface having changed at all.
+        Assert.True(graphics.Update(live, 0, 0, 1, 1, [1, 2, 3, 4]));
+        Assert.Single(now.Updates);
+    }
+
+    /// <summary>⚠ And with no surface an update is refused rather than silently dropped as done.</summary>
+    /// <remarks>
+    ///     <c>Update</c>'s contract says <c>false</c> obliges the caller to fall back to
+    ///     <see cref="IEditorGraphics.Upload" />; a host with nothing to draw on returning
+    ///     <c>true</c> would be a caller told its pixels landed when there is no picture at all.
+    /// </remarks>
+    [Fact]
+    public void With_no_surface_an_update_is_refused() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("project");
+
+        var surface = new Recording();
+
+        editor.Application.ThumbnailSurface = surface;
+
+        var graphics = editor.Application.PluginHost.Services.Require<IEditorGraphics>();
+        var image = graphics.Upload(4, 4, new byte[4 * 4 * 4]);
+
+        Assert.NotNull(image);
+
+        editor.Application.ThumbnailSurface = null;
+
+        Assert.False(graphics.Update(image, 0, 0, 1, 1, [1, 2, 3, 4]));
+        Assert.Empty(surface.Updates);
+    }
+
     /// <summary>⚠ And with no surface there is no image, rather than a number nothing can draw.</summary>
     /// <remarks>
     ///     Null is the ordinary state headless and in every test, exactly as it is for the browser's

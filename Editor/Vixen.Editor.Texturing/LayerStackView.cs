@@ -9,8 +9,41 @@ using Vixen.Editor.Texturing.Painting;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
+using Vixen.Ui.Reactive;
 
 namespace Vixen.Editor.Texturing;
+
+/// <summary>What a mask row reads, as the one value an editor writes back.</summary>
+/// <param name="Source">Which of the six a mask reads.</param>
+/// <param name="Value">The number, when it is <see cref="LayerMaskSource.Constant" />.</param>
+/// <param name="Asset">The imported image, when it is <see cref="LayerMaskSource.Texture" />.</param>
+/// <param name="Anchor">The layer read, when it is <see cref="LayerMaskSource.Anchor" />.</param>
+/// <param name="Generator">The published compound, when it is <see cref="LayerMaskSource.Generator" />.</param>
+/// <param name="Map">What the bake measures, when it is <see cref="LayerMaskSource.Bake" />.</param>
+/// <remarks>
+///     <para>
+///         ⚠ <b>One shape for two records, which is what makes a single source editor possible</b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/882">#882</a>). <c>MaskAsset</c> and
+///         <c>MaskLayerAsset</c> carry the same discriminator and the same five members behind it, and
+///         differ in what a mask <em>base</em> does not have — an <c>Enabled</c>, a blend mode and an
+///         opacity. Reading and writing the half they share through one value is what lets the base
+///         row and an entry row be the same six controls with two different write-backs.
+///     </para>
+///     <para>
+///         ⚠ <b><c>Paint</c> is in the discriminator and has no editor.</b> A painted mask's canvas is
+///         named by <c>MaskAsset.Paint</c>, and that name is written by the brush at the first stroke
+///         — <c>TexturingModule.Recorded</c> — rather than typed. Offering a field for it would be
+///         offering to point a layer at somebody else's pixels.
+///     </para>
+/// </remarks>
+readonly record struct MaskSourceEdit(
+    LayerMaskSource Source,
+    float Value,
+    string Asset,
+    string Anchor,
+    string Generator,
+    string Map
+);
 
 /// <summary>A layer stack, open: the rows in composite order, and the map they make.</summary>
 /// <remarks>
@@ -71,7 +104,7 @@ namespace Vixen.Editor.Texturing;
 ///         is the shape of "the panel is blank".
 ///     </para>
 /// </remarks>
-sealed class LayerStackView {
+sealed class LayerStackView : IDisposable {
     /// <summary>What the legend under the rows says about an unrestricted layer.</summary>
     /// <remarks>
     ///     ⚠ <b>The one defaulting decision in <c>.vxlayers</c> a reader could get wrong, said where
@@ -95,6 +128,15 @@ sealed class LayerStackView {
     /// </remarks>
     public const string NoMesh = "(none)";
 
+    /// <summary>What the part picker calls "every mesh in the model".</summary>
+    /// <remarks>
+    ///     ⚠ <b>An option and not an empty entry, for <see cref="NoMesh" />'s reason and one more.</b>
+    ///     Every mesh is the <em>default</em> state of a set rather than an absence — a stack with one
+    ///     texture set wants the whole model, and a picker whose first entry was the model's first
+    ///     mesh would narrow every stack the moment its model was imported.
+    /// </remarks>
+    public const string EveryMesh = "(all)";
+
     readonly UiElement messages;
     readonly UiElement meshStatus;
     readonly UiElement root;
@@ -104,6 +146,18 @@ sealed class LayerStackView {
 
     /// <summary>The mesh picker. Its options are the project's models, and they are re-read per stack.</summary>
     readonly Select model;
+
+    /// <summary>Which of the model's meshes the shown set is narrowed to.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The set is <c>Sets[0]</c>, which is the same pin every other control on this panel
+    ///     has</b> — <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>. That is why #941
+    ///     called this control gated: a per-set picker on a panel that shows one set is a control for
+    ///     a set nobody chose. It is here anyway because the alternative is worse and is what was
+    ///     shipping — the only way to narrow a set was to edit the <c>.vxlayers</c> by hand, and a
+    ///     two-set stack that has not been narrowed lets <c>Body</c> be painted anywhere <c>Head</c>
+    ///     has surface. When #927 gives the panel a set to choose, this reads it like the rows do.
+    /// </remarks>
+    readonly Select part;
 
     /// <summary>The brush this panel drives, or null in a host that never paints.</summary>
     /// <remarks>
@@ -133,11 +187,34 @@ sealed class LayerStackView {
     /// <summary>Which document the mesh picker's options were filled for.</summary>
     LayerStackDocument? bound;
 
-    /// <summary>What the picker was last told the binding is, so a rebind is not per keystroke.</summary>
+    /// <summary>What the pickers were last told the binding is, so a rebind is not per keystroke.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The model <em>and</em> the shown set's mesh, because there are two pickers.</b> An
+    ///     undo of a narrowing changes neither the document reference nor the model path, and a gate
+    ///     that watched only the model would leave the part picker showing the value the artist had
+    ///     just taken back — the state <c>LayerStackBindingTests</c> describes for every other
+    ///     control on this panel, which is a separate finding and not one to add to.
+    /// </remarks>
     string boundModel = "";
 
     /// <summary>The last picture, so an edit this view made can redraw without one being handed back.</summary>
     LayerStackPicture? shown;
+
+    /// <summary>What makes an undo taken anywhere else reach these rows. See <see cref="Watch" />.</summary>
+    Effect? watch;
+
+    /// <summary>Which document <see cref="watch" /> is subscribed to.</summary>
+    LayerStackDocument? watched;
+
+    /// <summary>The undo depth these rows were last drawn at.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What keeps the panel's own edits out of its own subscription.</b> A row's edit
+    ///     executes a command and then refreshes on the spot, so the effect that wakes on the same
+    ///     write would recompile the stack a second time on the next frame. Recording the depth on
+    ///     the way through <see cref="Show" /> is what makes the effect fire for changes this view
+    ///     did <em>not</em> make — which is the whole of what it is for.
+    /// </remarks>
+    int watchedDepth;
 
     /// <summary>Whether a control is being written to rather than read from.</summary>
     /// <remarks>
@@ -186,9 +263,17 @@ sealed class LayerStackView {
         binding.Add("layer-stack-binding-label").Text = "Mesh";
 
         model = binding.Add<Select>("layer-stack-model");
+
+        // ⚠ Beside the model and not on the set's own row, because the two are one decision read
+        // left to right: which file, and which of the meshes in it. #941's own summary is that a set
+        // narrowed to a mesh is what stops one coverage map covering every island in the model.
+        binding.Add("layer-stack-binding-label").Text = "Part";
+
+        part = binding.Add<Select>("layer-stack-set-mesh");
         meshStatus = binding.Add("layer-stack-binding-status");
 
         model.SelectionChanged += (_, value) => Bind(value ?? "");
+        part.SelectionChanged += (_, value) => Narrow(value ?? "");
 
         rows = left.Add("layer-stack-list");
 
@@ -232,6 +317,24 @@ sealed class LayerStackView {
         Empty = host.Add("layer-stack-empty");
         Empty.Text = "No layer stack is open. Select a .vxlayers in the Project panel and run Open Layer Stack.";
         Empty.SetStyle("display", "none");
+    }
+
+    /// <summary>Stops following the open document's undo stack.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What a caller that <em>replaces</em> this view owes it, and nothing else.</b> The
+    ///     elements go with the panel they were built into; the one thing that outlives them is the
+    ///     edge from <c>CommandStack.Depth</c> into <see cref="Watch" />'s effect, which keeps this
+    ///     view — and therefore every row's closure — alive for as long as the document is open.
+    ///     <c>TexturingModule</c>'s panel factory re-runs on every workspace relayout, so that is the
+    ///     caller with a previous view to end. A view built by
+    ///     <see cref="LayerStackEditorFactory" /> has no such caller and does not need one: its
+    ///     effect stops reading the signal once the root has left the tree, which drops the last edge.
+    /// </remarks>
+    public void Dispose() {
+        watch?.Dispose();
+
+        watch = null;
+        watched = null;
     }
 
     /// <summary>Everything this view built, for a caller that has to hand a root back.</summary>
@@ -347,6 +450,8 @@ sealed class LayerStackView {
         Document = document;
         shown = picture;
 
+        Watch(document);
+
         Empty.SetStyle("display", document is null ? "flex" : "none");
         root.SetStyle("display", document is null ? "none" : "flex");
 
@@ -392,11 +497,18 @@ sealed class LayerStackView {
         // `ClearOptions` under an open dropdown is the same defect the shape comparison above exists
         // to prevent one level up.
         if (!ReferenceEquals(bound, document)
-            || !string.Equals(boundModel, document.Document.Model, StringComparison.Ordinal)) {
+            || document.ModelsChanged
+            || !string.Equals(boundModel, Binding(document), StringComparison.Ordinal)) {
             Rebind(document);
 
             bound = document;
-            boundModel = document.Document.Model;
+            boundModel = Binding(document);
+
+            // ⚠ Cleared here and not where it is set — #954. The document is told a model file moved
+            // by `ExternalEdits`, on the frame, once per drained change; this is the one place that
+            // has done something about it, and clearing it at the notification would mean a stack
+            // whose panel is closed forgets what happened before it is opened.
+            document.ModelsChanged = false;
         }
 
         Restate();
@@ -617,8 +729,14 @@ sealed class LayerStackView {
                     .Append(':')
                     .Append((int)layer.Kind)
                     .Append(':')
-                    .Append((int)layer.Mask.Source)
-                    .Append(':')
+
+                    // ⚠ `Mask.Source` is deliberately NOT here, and it used to be. It belonged while
+                    // `MaskRows` returned early for `None`, because the source then decided whether a
+                    // base row existed at all. The base row is unconditional now and every source's
+                    // control is created with it, so the source changes what a row *shows* and not
+                    // which elements exist — and leaving it in made the source dropdown tear down and
+                    // rebuild the whole tree from inside its own `SelectionChanged`, which is exactly
+                    // what this signature exists to prevent.
                     .Append(layer.Mask.Layers.Count)
                     .Append(':')
                     .Append(layer.Mask.Effects.Count)
@@ -659,6 +777,11 @@ sealed class LayerStackView {
 
         var set = document.Document.Sets[0];
 
+        // ⚠ Asked once per build rather than once per row, and asked of `LayerStackEdit` rather than
+        // answered here — #893. The compiler refuses the same set on the same rule, and a panel with
+        // its own copy of it is a panel that can offer to move a layer the compiler will not build.
+        var ambiguous = LayerStackEdit.Ambiguous(set);
+
         // ⚠ The selection is recovered from the brush rather than reset, and which of the two is the
         // durable copy is the decision. A panel's factory re-runs whenever the workspace relays out
         // — opening the paint pane does it — so a view that cleared the selection on every build
@@ -667,7 +790,11 @@ sealed class LayerStackView {
         // an id no layer of this stack answers to, which is what opening a second stack looks like:
         // two stacks made from `LayerStackDocument.Starter` have the same layer ids, so the check has
         // to be against this document rather than against a remembered one.
+        // ⚠ And an ambiguous id is not recovered either: the brush would be aimed at whichever of
+        // the layers sharing it the walk reaches first, which is the same wrong answer the rows are
+        // refusing to give.
         if (tool is { LayerId.Length: > 0 }
+            && !ambiguous.Contains(tool.LayerId)
             && LayerStackEdit.Find(document.Document, new(set.Name, tool.LayerId)) is not null) {
             Selected = new LayerPath(set.Name, tool.LayerId);
         } else if (tool is not null) {
@@ -680,12 +807,71 @@ sealed class LayerStackView {
             for (var index = layers.Count - 1; index >= 0; index--) {
                 var layer = layers[index];
 
-                LayerRow(document, set, layer, depth);
-                MaskRows(document, set, layer, depth + 1);
+                if (ambiguous.Contains(layer.Id)) {
+                    AmbiguousRow(layer, depth);
+                } else {
+                    LayerRow(document, set, layer, depth);
+                    MaskRows(document, set, layer, depth + 1);
+                }
+
                 Walk(layer.Children, depth + 1);
             }
         }
     }
+
+    /// <summary>A row for a layer whose id names more than one layer: what it is, and no controls.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/893">#893</a>'s panel half, and
+    ///         the reason the compile refusal was not enough.</b> <c>LayerPath</c> addresses a layer
+    ///         by id and <c>LayerStackEdit</c> resolves it to the <em>first</em> match, so every
+    ///         control on the second such row drives the first: an artist reorders row four and row
+    ///         two moves. <c>LayerStackGraph.Duplicates</c> refuses the stack, but a refusal is a
+    ///         message beside a list of rows that are still drawn and still clicked — the panel
+    ///         builds its rows from the document rather than from a compilation.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Listed and disarmed rather than hidden</b>, which is the same rule a disabled
+    ///         layer's row follows: a row that vanished would leave an artist with a file they cannot
+    ///         see the shape of, and the shape is what they have to fix.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And its mask rows are not drawn at all.</b> Every one of them describes itself
+    ///         through <c>LayerStackEdit.Find</c>, so under an ambiguous id they would render the
+    ///         <em>first</em> such layer's mask under the second one's name — a sentence that is
+    ///         simply false rather than merely uneditable.
+    ///     </para>
+    ///     <para>
+    ///         The text is written once rather than through <c>bindings</c>, because nothing this
+    ///         panel offers can change a layer it refuses to edit; a change made to one from
+    ///         somewhere else arrives on the next rebuild.
+    ///     </para>
+    /// </remarks>
+    void AmbiguousRow(LayerAsset layer, int depth) {
+        var row = rows.Add("layer-stack-row");
+
+        row.SetStyle("display", "flex");
+        row.SetStyle("flex-direction", "row");
+        row.SetStyle("padding-left", (depth * 12).ToString(CultureInfo.InvariantCulture) + "px");
+
+        row.Add("layer-stack-row-name").Text = Line(layer, depth);
+        row.Add("layer-stack-row-refusal").Text = Ambiguity(layer.Id);
+    }
+
+    /// <summary>What a row says in place of its controls when its id names more than one layer.</summary>
+    /// <param name="id">The shared <see cref="LayerAsset.Id" />.</param>
+    /// <returns>The sentence.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Public because it is what a test reads off the tree, and what a person reads is the
+    ///     only evidence that the row was disarmed for a reason.</b> A row with no buttons and no
+    ///     sentence is indistinguishable from a panel that failed to build.
+    /// </remarks>
+    public static string Ambiguity(string id) =>
+        (id.Length > 0
+            ? $"More than one layer has the id '{id}'"
+            : "More than one layer has no id at all")
+        + ", so this row cannot say which of them it is. Every edit here is addressed by id and would "
+        + "move the first of them — give each layer its own 'id' in the file, and the controls come back.";
 
     void LayerRow(LayerStackDocument document, TextureSetAsset set, LayerAsset layer, int depth) {
         LayerPath path = new(set.Name, layer.Id);
@@ -875,8 +1061,6 @@ sealed class LayerStackView {
             var position = index;
 
             MaskRow(
-                document,
-                path,
                 depth,
                 () => Describe(document, path, effect: position),
                 () => LayerStackEdit.Find(document.Document, path)?.Mask.Effects is { } effects
@@ -893,9 +1077,7 @@ sealed class LayerStackView {
         for (var index = mask.Layers.Count - 1; index >= 0; index--) {
             var position = index;
 
-            MaskRow(
-                document,
-                path,
+            var entry = MaskRow(
                 depth,
                 () => Describe(document, path, entry: position),
                 () => LayerStackEdit.Find(document.Document, path)?.Mask.Layers is { } entries
@@ -907,31 +1089,355 @@ sealed class LayerStackView {
                     value ? "Show Mask Entry" : "Hide Mask Entry"
                 )
             );
+
+            SourceEditor(
+                entry,
+                document,
+                set,
+                path,
+                position.ToString(CultureInfo.InvariantCulture),
+                () => LayerStackEdit.Find(document.Document, path)?.Mask.Layers is { } entries
+                    && position < entries.Count
+                        ? Read(entries[position])
+                        : null,
+                (value, name, key) => Set(
+                    document,
+                    path,
+                    current => current with { Mask = WithEntry(current.Mask, position, value) },
+                    name,
+                    key
+                )
+            );
         }
 
-        if (mask.Source == LayerMaskSource.None) {
-            return;
-        }
-
-        // ⚠ The base has no `Enabled` of its own and therefore no tick, which is a fact about
-        // `MaskAsset` rather than an omission here: its source, its value and its asset are the
-        // mask's own members, kept flat because every `.vxlayers` that exists names a mask that way.
-        // Switching a base off is done by setting its source to None, which wants an editor for the
-        // source — #882.
+        // ⚠ The base row is drawn whatever the source is, and that is the change #882 asked for
+        // rather than a longer list for its own sake. Switching a base off means setting its source
+        // to `None`, and a row that then vanished would be a trapdoor: an artist could take a mask
+        // off a layer and never put one back. A mask slot on every layer is what both references do.
         var row = rows.Add("layer-stack-mask-row");
 
         row.SetStyle("display", "flex");
         row.SetStyle("flex-direction", "row");
         row.SetStyle("padding-left", (depth * 12).ToString(CultureInfo.InvariantCulture) + "px");
 
+        // ⚠ The base has no `Enabled` of its own and therefore no tick, which is a fact about
+        // `MaskAsset` rather than an omission here: its source, its value and its asset are the
+        // mask's own members, kept flat because every `.vxlayers` that exists names a mask that way.
         var name = row.Add("layer-stack-mask-name");
 
         bindings.Add(() => name.Text = Describe(document, path));
+
+        SourceEditor(
+            row,
+            document,
+            set,
+            path,
+            "base",
+            () => LayerStackEdit.Find(document.Document, path)?.Mask is { } current ? Read(current) : null,
+            (value, undo, key) => Set(
+                document,
+                path,
+                current => current with { Mask = WithBase(current.Mask, value) },
+                undo,
+                key
+            )
+        );
     }
 
-    void MaskRow(
+    /// <summary>What a mask base reads, as the value a source editor writes back.</summary>
+    static MaskSourceEdit Read(MaskAsset mask) =>
+        new(mask.Source, mask.Value, mask.Asset, mask.Anchor, mask.Generator, mask.Map);
+
+    /// <summary>What one mask entry reads, as the value a source editor writes back.</summary>
+    static MaskSourceEdit Read(MaskLayerAsset entry) =>
+        new(entry.Source, entry.Value, entry.Asset, entry.Anchor, entry.Generator, entry.Map);
+
+    /// <summary>A mask whose base reads something else.</summary>
+    static MaskAsset WithBase(MaskAsset mask, MaskSourceEdit value) =>
+        mask with {
+            Source = value.Source,
+            Value = value.Value,
+            Asset = value.Asset,
+            Anchor = value.Anchor,
+            Generator = value.Generator,
+            Map = value.Map
+        };
+
+    /// <summary>A mask one of whose entries reads something else.</summary>
+    /// <remarks>
+    ///     ⚠ A new list, for <see cref="ToggleEntry" />'s reason: <c>with</c> shares every collection
+    ///     member, so writing into the one this mask holds would change the layer the undo entry is
+    ///     holding as its before-image.
+    /// </remarks>
+    static MaskAsset WithEntry(MaskAsset mask, int index, MaskSourceEdit value) {
+        if (index < 0 || index >= mask.Layers.Count) {
+            return mask;
+        }
+
+        List<MaskLayerAsset> entries = [.. mask.Layers];
+
+        entries[index] = entries[index] with {
+            Source = value.Source,
+            Value = value.Value,
+            Asset = value.Asset,
+            Anchor = value.Anchor,
+            Generator = value.Generator,
+            Map = value.Map
+        };
+
+        return mask with { Layers = entries };
+    }
+
+    /// <summary>What no anchor reads, as the picker's first option.</summary>
+    /// <remarks>
+    ///     The mesh picker's <see cref="NoMesh" /> argument, one level down: a dropdown whose first
+    ///     entry is a real layer makes "anchored at nothing" unreachable the moment a stack has two.
+    /// </remarks>
+    public const string NoAnchor = "(none)";
+
+    /// <summary>The layers of a set an anchor on one layer may name, in composite order.</summary>
+    /// <param name="set">The texture set.</param>
+    /// <param name="id">The <see cref="LayerAsset.Id" /> doing the anchoring.</param>
+    /// <returns>Every id whose result exists before this layer's does.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="set" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Post-order, because that is the order results are emitted in.</b>
+    ///         <c>LayerStackGraph.Stack</c> composites a list bottom first and a group's children
+    ///         <em>inside</em> the group's own composite — so a group's blend node exists only after
+    ///         every child's does. A picker built on the panel's own top-to-bottom row order would
+    ///         offer a group to its own children, which is a cycle.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Strictly before, and the refusal says why:</b> "an anchor onto a layer at or above
+    ///         its own is a loop, and the graph model is what says so". So the picker offers what the
+    ///         model would accept rather than everything and a refusal afterwards — a dropdown that
+    ///         lists an option which always fails is a dropdown that lied.
+    ///     </para>
+    ///     <para>
+    ///         An id no layer can be addressed by is left out for the same reason: an empty one names
+    ///         nothing, and one <c>LayerStackEdit.Ambiguous</c> reports names more than one.
+    ///     </para>
+    /// </remarks>
+    public static IReadOnlyList<string> Anchorable(TextureSetAsset set, string id) {
+        ArgumentNullException.ThrowIfNull(set);
+
+        var ambiguous = LayerStackEdit.Ambiguous(set);
+        List<string> before = [];
+        var reached = false;
+
+        Walk(set.Layers);
+
+        return before;
+
+        void Walk(List<LayerAsset> layers) {
+            foreach (var layer in layers) {
+                if (reached) {
+                    return;
+                }
+
+                Walk(layer.Children);
+
+                if (reached) {
+                    return;
+                }
+
+                if (string.Equals(layer.Id, id, StringComparison.Ordinal)) {
+                    reached = true;
+
+                    return;
+                }
+
+                if (layer.Id.Length > 0 && !ambiguous.Contains(layer.Id)) {
+                    before.Add(layer.Id);
+                }
+            }
+        }
+    }
+
+    /// <summary>The controls that change what one mask row reads, and the one that says which.</summary>
+    /// <param name="row">The row they go on.</param>
+    /// <param name="document">The stack being edited.</param>
+    /// <param name="set">The texture set the row's layer is in — what an anchor picker offers from.</param>
+    /// <param name="path">Which layer.</param>
+    /// <param name="slot">
+    ///     What tells two rows of one layer apart in a merge key: an entry's index, or <c>base</c>.
+    /// </param>
+    /// <param name="read">The row's current source, or <see langword="null" /> when it is gone.</param>
+    /// <param name="write">Puts one back, with the undo entry's name and its merge key.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/882">#882</a>, and the issue's own
+    ///         warning is the shape: a source editor is not one control.</b> The discriminator is a
+    ///         <c>Select</c>; behind it a constant wants a number, an anchor wants a picker over the
+    ///         layers below it, and a texture, a generator and a bake each want a reference that is a
+    ///         name. All of them are built and all but the relevant one is hidden, rather than the
+    ///         row being rebuilt when the source changes — a rebuild while a slider is captured is
+    ///         the defect <see cref="Show" />'s shape comparison exists to prevent, one level down.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The three reference kinds share one <c>TextBox</c> and that is a limit rather
+    ///         than a design.</b> A bake wants the nine names <c>TextureMeshMaps.Known</c> holds and
+    ///         they are <c>internal</c> to <c>Vixen.Editor.TextureGraph</c>, whose
+    ///         <c>InternalsVisibleTo</c> names its own tests alone — so this assembly cannot ask for
+    ///         the list, and writing the nine here is the second transcription of a known set that
+    ///         five roll calls in this workstream have gone red on. The node refuses a name nothing
+    ///         bakes and says all nine in the message, and that message reaches the list under these
+    ///         rows. The same argument covers a generator, whose compounds are published by a
+    ///         library this view must not acquire (#820).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A keystroke is one undo entry per typing run, not per character</b> — the merge
+    ///         key the slider taught, keyed by the row so that two entries of one layer do not
+    ///         collapse into each other. Enter seals it; so does releasing the slider.
+    ///     </para>
+    /// </remarks>
+    void SourceEditor(
+        UiElement row,
         LayerStackDocument document,
+        TextureSetAsset set,
         LayerPath path,
+        string slot,
+        Func<MaskSourceEdit?> read,
+        Action<MaskSourceEdit, string, string> write
+    ) {
+        var kind = row.Add<Select>("layer-stack-mask-source");
+
+        foreach (var source in Enum.GetValues<LayerMaskSource>()) {
+            kind.AddOption(source.ToString());
+        }
+
+        kind.SelectionChanged += (_, chosen) => {
+            if (read() is { } current && Enum.TryParse<LayerMaskSource>(chosen, out var source)) {
+                write(current with { Source = source }, "Set Mask Source", "");
+            }
+        };
+
+        var number = row.Add<Slider>("layer-stack-mask-value");
+
+        number.Minimum = 0f;
+        number.Maximum = 1f;
+
+        number.ValueChanged += (_, value) => {
+            if (read() is { } current) {
+                write(current with { Value = value }, "Set Mask Value", "mask-value:" + slot);
+            }
+        };
+
+        number.AddHandler<PointerEvent>(
+            (_, args) => {
+                if (args.Action == PointerAction.Released) {
+                    document.Stack.Seal();
+                }
+            },
+            RoutingStrategy.Bubble,
+            handledEventsToo: true
+        );
+
+        var anchor = row.Add<Select>("layer-stack-mask-anchor");
+
+        anchor.SelectionChanged += (_, chosen) => {
+            if (read() is not { } current) {
+                return;
+            }
+
+            var wanted = chosen is null || string.Equals(chosen, NoAnchor, StringComparison.Ordinal) ? "" : chosen;
+
+            write(current with { Anchor = wanted }, "Set Mask Anchor", "");
+        };
+
+        var reference = row.Add<TextBox>("layer-stack-mask-text");
+
+        reference.ValueChanged += (_, typed) => {
+            if (read() is not { } current) {
+                return;
+            }
+
+            var written = typed ?? "";
+
+            var after = current.Source switch {
+                LayerMaskSource.Texture => current with { Asset = written },
+                LayerMaskSource.Generator => current with { Generator = written },
+                LayerMaskSource.Bake => current with { Map = written },
+                _ => current
+            };
+
+            write(after, "Set Mask Reference", "mask-reference:" + slot);
+        };
+
+        reference.Submitted += _ => document.Stack.Seal();
+
+        // What the anchor picker was last offered, so the options are not rebuilt per refresh —
+        // `Rebind`'s argument, and `ClearOptions` under an open dropdown is the same defect.
+        var offered = "";
+
+        bindings.Add(() => {
+            if (read() is not { } current) {
+                return;
+            }
+
+            kind.Value = current.Source.ToString();
+
+            number.SetStyle("display", current.Source == LayerMaskSource.Constant ? "flex" : "none");
+            anchor.SetStyle("display", current.Source == LayerMaskSource.Anchor ? "flex" : "none");
+
+            reference.SetStyle(
+                "display",
+                current.Source is LayerMaskSource.Texture or LayerMaskSource.Generator or LayerMaskSource.Bake
+                    ? "flex"
+                    : "none"
+            );
+
+            number.Value = current.Value;
+
+            reference.Value = current.Source switch {
+                LayerMaskSource.Texture => current.Asset,
+                LayerMaskSource.Generator => current.Generator,
+                LayerMaskSource.Bake => current.Map,
+                _ => ""
+            };
+
+            reference.Placeholder = current.Source switch {
+                LayerMaskSource.Texture => "Assets/Textures/rust.png",
+                LayerMaskSource.Generator => "Generators/Dirt",
+                LayerMaskSource.Bake => "curvature",
+                _ => ""
+            };
+
+            if (current.Source != LayerMaskSource.Anchor) {
+                return;
+            }
+
+            List<string> targets = [.. Anchorable(set, path.Id)];
+
+            // ⚠ A stored anchor this stack cannot offer is kept as an option rather than dropped,
+            // which is `Rebind`'s three-state rule: a picker that silently showed `(none)` would say
+            // the mask is unanchored and then unanchor it on the next click. What the anchor really
+            // is stays on the screen, and the refusal beneath the rows is what says it is wrong.
+            if (current.Anchor.Length > 0 && !targets.Contains(current.Anchor, StringComparer.Ordinal)) {
+                targets.Add(current.Anchor);
+            }
+
+            var wanted = string.Join('\n', targets);
+
+            if (!string.Equals(wanted, offered, StringComparison.Ordinal)) {
+                offered = wanted;
+
+                anchor.ClearOptions();
+                anchor.AddOption(NoAnchor);
+
+                foreach (var target in targets) {
+                    anchor.AddOption(target);
+                }
+            }
+
+            anchor.Value = current.Anchor.Length > 0 ? current.Anchor : NoAnchor;
+        });
+    }
+
+    /// <summary>One switchable mask row — an effect, or an entry a source editor is added to.</summary>
+    /// <returns>The row, so that a caller with more to put on it can.</returns>
+    UiElement MaskRow(
         int depth,
         Func<string> describe,
         Func<bool> enabled,
@@ -954,6 +1460,8 @@ sealed class LayerStackView {
             name.Text = describe();
             tick.IsChecked = enabled();
         });
+
+        return row;
     }
 
     /// <summary>One mask row's sentence: the base, one entry, or one effect.</summary>
@@ -1079,13 +1587,27 @@ sealed class LayerStackView {
         return chosen.Count == set.Channels.Count ? [] : chosen;
     }
 
+    /// <summary>What the two pickers are showing, as one string, so a change to either is one test.</summary>
+    /// <remarks>
+    ///     The newline is a separator no path and no mesh name can contain, which is
+    ///     <c>TexturingModule</c>'s own key one assembly along and the same argument: a sentinel a
+    ///     value can produce turns a comparison into a coincidence.
+    /// </remarks>
+    static string Binding(LayerStackDocument document) =>
+        document.Document.Model + "\n" + (document.Document.Sets.Count > 0 ? document.Document.Sets[0].Mesh : "");
+
     /// <summary>Puts the project's models in the picker and the stack's own binding on it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The options are re-read per stack rather than once, because the project's models
-    ///         are not fixed.</b> Importing a model is an ordinary thing to do while a stack is open,
-    ///         and a picker filled when the panel was built would not have the mesh the artist just
-    ///         added — which reads as the import having failed.
+    ///         ⚠ <b>Re-read when the project's models change, which is what
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/954">#954</a> found this did not
+    ///         do.</b> Importing a model is an ordinary thing to do while a stack is open, and the
+    ///         gate above this used to be the document reference and the bound path alone — while
+    ///         the module hands the same reference to every refresh. So the mesh an artist had just
+    ///         added was the one mesh the picker did not offer, which reads as the import having
+    ///         failed. <c>LayerStackDocument.ModelsChanged</c> is the third term, and it is a flag
+    ///         rather than a walk because this walks every asset in the project and a show runs on
+    ///         every edit.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A binding this build cannot offer is kept as an option rather than dropped.</b> A
@@ -1124,6 +1646,8 @@ sealed class LayerStackView {
 
             model.Value = bound.Length > 0 ? bound : NoMesh;
 
+            Parts(document);
+
             // ⚠ Three states rather than two, and `offered` is what separates the middle one. A
             // stack whose model was renamed, moved or deleted still names it, so the picker shows
             // the path and reads as bound — while every stroke is refused and no island is drawn.
@@ -1160,6 +1684,73 @@ sealed class LayerStackView {
 
         document.Stack.Execute(
             new SetModelCommand(document, wanted, wanted.Length == 0 ? "Unbind Mesh" : "Bind Mesh")
+        );
+
+        Refresh();
+    }
+
+    /// <summary>Puts the model's meshes in the part picker and the set's own narrowing on it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The names come from the sidecar and never from the model file, which is what
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/941">#941</a> assumed was impossible.</b>
+    ///         That issue declined this control because offering the names means knowing them and
+    ///         knowing them means an Assimp parse — <c>ModelReader.Read</c> on a hero asset is
+    ///         seconds, and this runs from a panel build. It is not: an import writes the sub-asset
+    ///         names it declared back into the <c>.meta</c>, so <c>LayerStackMesh.Names</c> is one
+    ///         small YAML file and no geometry at all. The objection was true of the file and false
+    ///         of the project.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A model whose import has not run offers nothing, and says so rather than
+    ///         emptying the field.</b> There is nowhere but the file to read a name from before an
+    ///         import, so the picker keeps whatever the set already names as its own option — a
+    ///         control that silently showed <see cref="EveryMesh" /> would tell an artist the set is
+    ///         un-narrowed and then un-narrow it on the next click, which is exactly the failure the
+    ///         model picker's third state exists to prevent.
+    ///     </para>
+    /// </remarks>
+    void Parts(LayerStackDocument document) {
+        var set = document.Document.Sets.Count > 0 ? document.Document.Sets[0] : null;
+        var narrowed = (set?.Mesh ?? "").Trim();
+
+        part.ClearOptions();
+        part.AddOption(EveryMesh);
+
+        var offered = false;
+
+        foreach (var name in LayerStackMesh.Names(document.Project, document.Document)) {
+            part.AddOption(name);
+            offered |= string.Equals(name, narrowed, StringComparison.Ordinal);
+        }
+
+        if (narrowed.Length > 0 && !offered) {
+            part.AddOption(narrowed);
+        }
+
+        part.Value = narrowed.Length > 0 ? narrowed : EveryMesh;
+        part.Disabled = set is null;
+    }
+
+    /// <summary>Narrows the shown set to one mesh, as one undo entry.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Through the document's command stack, like the binding above it.</b> Narrowing
+    ///     changes which islands are drawn and which texels a stroke is allowed to reach, so it is
+    ///     the same kind of change <see cref="Bind" /> is and takes the same answer.
+    /// </remarks>
+    void Narrow(string value) {
+        if (writing || Document is not { } document || document.Document.Sets.Count == 0) {
+            return;
+        }
+
+        var wanted = string.Equals(value, EveryMesh, StringComparison.Ordinal) ? "" : value;
+
+        if (string.Equals(wanted, document.Document.Sets[0].Mesh, StringComparison.Ordinal)) {
+            return;
+        }
+
+        document.Stack.Execute(
+            new SetMeshCommand(document, 0, wanted, wanted.Length == 0 ? "Widen to Every Mesh" : "Narrow to Mesh")
         );
 
         Refresh();
@@ -1226,6 +1817,82 @@ sealed class LayerStackView {
 
         document.Stack.Execute(new MoveLayerCommand(document, path, delta, name));
         Refresh();
+    }
+
+    /// <summary>Follows a document's undo stack, so a change made anywhere else reaches these rows.</summary>
+    /// <param name="document">The stack to follow, or <see langword="null" /> to stop following one.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/933">#933</a>, and it is the
+    ///         defect this panel's whole undoable model was built for.</b> Every edit a row makes
+    ///         ends in <see cref="Refresh" />, and nothing else did — so Ctrl+Z, taken through the
+    ///         editor's own verb or from any other panel, changed the document and left the
+    ///         <c>Select</c>, the <c>Slider</c>, the ticks and the row order showing what was last
+    ///         clicked. It survived because every test drove a control and then asserted on the
+    ///         <em>document</em>, which is exactly the shape a panel that never reads the document
+    ///         back still satisfies.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Here and not in <c>TexturingModule</c>, which is where the issue proposed it.</b>
+    ///         <see cref="LayerStackEditorFactory" /> builds a view with no module at all — that is
+    ///         the tab a double-click opens — so a subscription owned by the module would leave the
+    ///         one route an artist reaches without opening a panel exactly as broken as before. The
+    ///         view is also the thing that already knows which document its controls close over.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The depth is compared rather than the run counted, and a flag saying "not the
+    ///         first run" is what this had and why it did not work.</b> An effect is <em>queued</em>
+    ///         when it is created rather than executed — <c>EffectScheduler</c>'s first sentence — so
+    ///         its first run is not the constructor, it is the first flush after one, which in a
+    ///         panel that has just been built is the same frame as the artist's first undo. The flag
+    ///         swallowed exactly the refresh it was meant to allow. <c>Depth</c> is also a
+    ///         <c>Computed</c>, so an opacity drag — one merged command — moves the count once and
+    ///         the equality short-circuit stops the effect being woken for the rest of the gesture.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The effect belongs to the host document's queue, not the thread's.</b>
+    ///         <c>UiDocument.Effects</c> says why: an editor has several documents on one thread, and
+    ///         flushing the thread's queue runs the bindings of every one of them including the
+    ///         disposed. A view whose root has left the tree stops reading <c>Depth</c> altogether,
+    ///         which drops the last edge and is what unsubscribes it — there is no teardown hook on a
+    ///         panel factory to do it from.
+    ///     </para>
+    /// </remarks>
+    void Watch(LayerStackDocument? document) {
+        if (ReferenceEquals(watched, document)) {
+            // Every refresh comes through here, so this is where "what is on the screen" is recorded.
+            watchedDepth = document?.Stack.Depth.Peek() ?? 0;
+
+            return;
+        }
+
+        watch?.Dispose();
+        watch = null;
+        watched = document;
+
+        if (document is null || root.IsRemoved) {
+            return;
+        }
+
+        watchedDepth = document.Stack.Depth.Peek();
+
+        watch = new Effect(
+            () => {
+                if (root.IsRemoved) {
+                    return;
+                }
+
+                var depth = document.Stack.Depth.Value;
+
+                if (depth == watchedDepth) {
+                    return;
+                }
+
+                watchedDepth = depth;
+                Refresh();
+            },
+            root.Document.Effects
+        );
     }
 
     /// <summary>Redraws after an edit this view made.</summary>

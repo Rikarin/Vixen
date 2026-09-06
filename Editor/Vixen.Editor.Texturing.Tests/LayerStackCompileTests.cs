@@ -764,10 +764,13 @@ public class LayerStackCompileTests {
     ///         the second moves the first. An artist reorders row four and row two moves.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This is asserted as still true, not as fixed.</b> The refusal above is a compile
-    ///         diagnostic and the panel builds its rows from the document, so nothing yet stops the
-    ///         rows being drawn and clicked. When the panel is made to consult the compilation, this
-    ///         test is the one that has to change, and its name says what it is recording.
+    ///         ⚠ <b>This is still true of the addressing, and it is no longer reachable from the
+    ///         panel.</b> Resolving an id still walks to the first match — that is what the two
+    ///         assertions below read — but <c>LayerStackView</c> now asks
+    ///         <c>LayerStackEdit.Ambiguous</c>, the same function the refusal above asks, and draws
+    ///         a row that shares an id with no controls on it. So the gesture that used to move the
+    ///         wrong layer has nothing to press; the resolution rule was left alone deliberately,
+    ///         because a duplicate id has no right answer to re-point it at.
     ///     </para>
     /// </remarks>
     [Fact]

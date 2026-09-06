@@ -191,15 +191,17 @@ union cannot bound is a diagonal jump between two frames or a mirrored pair on o
 atlas. The caller keeps a whole-picture fallback, because `Update` refuses an image made before the
 atlas changed size and refuses everything in a host with no surface.
 
-And the canvas is written to disk at pointer-up, which is forced rather than chosen: a painted layer
-reaches the plan as a *path*, which `LayerStackPreview` opens off the disk on every evaluation, so a
-stroke held in memory is a stroke the map cannot show. Since format version 2 the file is Deflated per
-channel at `Fastest` — a stroked 4K channel is 4.09 MB rather than 64 MiB, for the same wall clock,
-because the raw write it replaces is I/O-bound ([#850](https://github.com/Rikarin/Vixen/issues/850)).
-⚠ What is still read whole, on every stroke and every evaluation, is the *decoded* canvas:
+**The canvas is an object the editor holds open, not a file it re-reads.** `PaintCanvasStore` is
+where the open canvases live, and the paint session, the preview and the pane all reach the same one
+— which is why the store had to be *the* answer to both
 [#885](https://github.com/Rikarin/Vixen/issues/885) and
-[#948](https://github.com/Rikarin/Vixen/issues/948) are the one store both halves want, and neither is
-worth doing alone.
+[#948](https://github.com/Rikarin/Vixen/issues/948) rather than a cache owned by either. ⚠ A cache
+the preview owned would have served a **stale** canvas the moment a live session was wired to it,
+because a session writes texels in memory and does not touch the file until save.
+
+It is still written at pointer-up, and since format version 2 it is Deflated per channel at `Fastest`
+— a stroked 4K channel is 4.09 MB rather than 64 MiB, for the same wall clock, because the raw write
+it replaces is I/O-bound ([#850](https://github.com/Rikarin/Vixen/issues/850)).
 
 ## What is not here
 
@@ -215,10 +217,6 @@ worth doing alone.
   `PaintCoverage.Everywhere` — [#920](https://github.com/Rikarin/Vixen/issues/920). What #574 still
   owes on its own is the raycast, the screen-radius-to-texels conversion through the hit triangle's
   density, and the mirrors, none of which an atlas can supply.
-* **No per-set mesh picker.** `TextureSetAsset.Mesh` narrows a set to one mesh of the model — a model
-  file splits into one mesh per material slot, which is what a texture set *is* — and the panel binds
-  the model only. Offering the mesh names would mean parsing the model during a panel build, which
-  for a hero asset is seconds.
 * **⚠ No refresh on an undo taken elsewhere.** Nothing here subscribes to `EditorDocument.Stack`, so
   an undo made through the editor's own verb leaves every control in the layers panel showing the
   value it had — the blend mode and the opacity as much as the mesh picker. An edit made *in* a row

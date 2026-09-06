@@ -105,19 +105,33 @@ sealed class TextureGraphPreview : IDisposable {
 
     readonly IEditorGraphics graphics;
     readonly TextureEvaluatorLease evaluators;
+    readonly Painting.PaintCanvasStore canvases;
 
     IEditorImage? shown;
 
     /// <summary>Builds a preview over the graphics a host lent the plugin.</summary>
     /// <param name="graphics">The host's graphics.</param>
     /// <param name="evaluators">Where the one evaluator comes from — see <see cref="TextureEvaluatorLease" />.</param>
-    /// <exception cref="ArgumentNullException">Either argument is null.</exception>
-    public TextureGraphPreview(IEditorGraphics graphics, TextureEvaluatorLease evaluators) {
+    /// <param name="canvases">
+    ///     The session's open <c>.vxpaint</c> canvases. ⚠ Wired here as well as on the layers pane,
+    ///     even though a hand-authored graph names no painted canvas: a graph produced by
+    ///     <c>LayerStackExplode</c> carries whatever <c>vxpaint:</c> references the stack had, so a
+    ///     pane that passed nothing would be the copy of this loop that forgot a case — which is the
+    ///     defect <see cref="TextureExternalImages" /> exists to make impossible.
+    /// </param>
+    /// <exception cref="ArgumentNullException">Any argument is null.</exception>
+    public TextureGraphPreview(
+        IEditorGraphics graphics,
+        TextureEvaluatorLease evaluators,
+        Painting.PaintCanvasStore canvases
+    ) {
         ArgumentNullException.ThrowIfNull(graphics);
         ArgumentNullException.ThrowIfNull(evaluators);
+        ArgumentNullException.ThrowIfNull(canvases);
 
         this.graphics = graphics;
         this.evaluators = evaluators;
+        this.canvases = canvases;
     }
 
     /// <summary>How many plans have been evaluated over this preview's life.</summary>
@@ -241,7 +255,8 @@ sealed class TextureGraphPreview : IDisposable {
             document.AssetPath,
             uploads,
             plan,
-            compilation.Externals
+            compilation.Externals,
+            canvases
         );
 
         if (unresolved.Count > 0) {

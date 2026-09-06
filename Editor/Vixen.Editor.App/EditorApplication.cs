@@ -2447,8 +2447,45 @@ sealed partial class EditorApplication : IDisposable {
             );
         }
 
+        Place(id);
         Shell.Workspace.Open(id);
         project.Activate(document);
+    }
+
+    /// <summary>Puts a document panel where the documents are, before it is first opened.</summary>
+    /// <param name="id">The panel's id.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Without this a shader graph opens into the browser column and its canvas is zero
+    ///         pixels wide</b> — <a href="https://github.com/Rikarin/Vixen/issues/939">#939</a>.
+    ///         <c>DockingHost.Rekey</c> puts a panel the arrangement does not mention into
+    ///         <c>Layout.Groups()[0]</c>, and in every <c>LayoutPresets.Standard</c> preset the first
+    ///         group is the <em>left browser</em>, at <c>0.2</c> of the width. 320 px is less than
+    ///         <c>shadergraph-side</c>'s own 300 px column, so the graph — which is the one child
+    ///         with <c>flex-grow</c> and <c>min-width: 0</c> — shrinks to nothing and the panel shows
+    ///         its side strip with an empty space where the nodes should be.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The cause is the placement and not the stylesheet, which is worth saying because
+    ///         the <c>min-width: 0</c> looks like the culprit.</b> Giving the graph a minimum would
+    ///         make it overflow a 320 px column instead of vanishing from it; the panel would still
+    ///         be in the wrong place. A document belongs where the viewport is, which is what every
+    ///         preset's <em>centre</em> means, so that is where it is put.
+    ///     </para>
+    ///     <para>
+    ///         Before <c>Open</c>, because the placement happens the moment <c>Id</c> is assigned
+    ///         inside <c>AddPanel</c> — a group named in the layout is one <c>Rekey</c> leaves alone.
+    ///         An arrangement with no scene panel in it keeps the old behaviour rather than guessing.
+    ///     </para>
+    /// </remarks>
+    void Place(string id) {
+        var layout = Shell.Workspace.Host.Layout;
+
+        if (layout.Find(id) is not null || layout.Find("scene") is not { } scene) {
+            return;
+        }
+
+        scene.Group.Add(id);
     }
 
     /// <summary>Connects an asset editor's view to the things only this assembly can answer.</summary>

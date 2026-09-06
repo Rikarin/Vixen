@@ -22,11 +22,18 @@ namespace Vixen.Editor.Texturing.Layers;
 ///         remark here used to say it did</b>
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/893">#893</a>).
 ///         <c>LayerStackGraph.Duplicates</c> is a <em>compile refusal</em>, and the panel builds its
-///         rows from the document rather than from a compilation — so a stack that fails it is still
-///         a stack whose rows are drawn and clicked. Until the panel consults it, a duplicate id
-///         means the second layer's row drives the first, and the refusal is a message beside the
-///         rows rather than something that stops them. It did not cover the empty id at all until
-///         the same issue, which is how a file naming no ids got every layer the same one.
+///         rows from the document rather than from a compilation — so a stack that fails it was still
+///         a stack whose rows were drawn and clicked, and a duplicate id meant the second layer's row
+///         drove the first. It did not cover the empty id at all until the same issue, which is how a
+///         file naming no ids got every layer the same one.
+///     </para>
+///     <para>
+///         ⚠ <b>What closes it is <see cref="LayerStackEdit.Ambiguous" />, read by both halves.</b>
+///         The refusal and the panel now ask one function which ids name more than one layer;
+///         <c>LayerStackView</c> draws such a row with its name, a sentence and no controls at all,
+///         so this type still has no uniqueness guarantee and there is no longer a gesture that
+///         needs one. The addressing itself is unchanged: resolving an id still reaches the first
+///         match, which is why the row is disarmed rather than re-pointed.
 ///     </para>
 /// </remarks>
 readonly record struct LayerPath(string Set, string Id);
@@ -63,6 +70,50 @@ static class LayerStackEdit {
         }
 
         return Walk(set.Layers, path.Id, out parent, out index);
+    }
+
+    /// <summary>The ids that name more than one layer of a set, and therefore name none of them.</summary>
+    /// <param name="set">The texture set.</param>
+    /// <returns>Every id carried by two or more of its layers, the empty one included.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="set" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One rule with two readers, and that is the point of it being here</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/893">#893</a>).
+    ///         <c>LayerStackGraph.Duplicates</c> turns this into a compile refusal and
+    ///         <c>LayerStackView</c> turns it into a row with no controls on it; the two disagreeing
+    ///         about which ids are ambiguous is the failure mode — a stack the compiler refuses whose
+    ///         rows the panel still offers to move, or the reverse. Five exact-equality roll calls in
+    ///         this workstream have gone red on a second transcription of a known set, and this is a
+    ///         set.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The empty id is in it, and only when a second layer also has none.</b>
+    ///         <see cref="LayerAsset.Id" /> defaults to empty, so a hand-written file naming no ids
+    ///         gives every layer the same one — but a stack with a single unnamed layer addresses
+    ///         perfectly well, and <c>""</c> is what names it. What makes an id useless is that it is
+    ///         shared, not that it is short.
+    ///     </para>
+    /// </remarks>
+    public static IReadOnlySet<string> Ambiguous(TextureSetAsset set) {
+        ArgumentNullException.ThrowIfNull(set);
+
+        HashSet<string> seen = new(StringComparer.Ordinal);
+        HashSet<string> shared = new(StringComparer.Ordinal);
+
+        Walk(set.Layers);
+
+        return shared;
+
+        void Walk(List<LayerAsset> layers) {
+            foreach (var layer in layers) {
+                if (!seen.Add(layer.Id)) {
+                    shared.Add(layer.Id);
+                }
+
+                Walk(layer.Children);
+            }
+        }
     }
 
     /// <summary>The layer at a path, or <see langword="null" />.</summary>
@@ -318,6 +369,77 @@ sealed class SetModelCommand : IEditorCommand {
         merged = null;
 
         return false;
+    }
+}
+
+/// <summary>Which of the model's meshes a set is narrowed to, as one undo entry.</summary>
+/// <remarks>
+///     <para>
+///         <b><a href="https://github.com/Rikarin/Vixen/issues/941">#941</a>'s edit, and it is
+///         <see cref="SetModelCommand" /> one level down.</b> A model file splits into one mesh per
+///         material slot, which is what a texture set is; without narrowing, a two-set stack gets one
+///         coverage map over every island in the model and the <c>Body</c> set can be painted
+///         anywhere <c>Head</c> has surface.
+///     </para>
+///     <para>
+///         ⚠ <b>Keyed by the set's position rather than by the set object</b>, because
+///         <c>TextureSetAsset</c> is a record the document replaces wholesale on every edit — an undo
+///         holding the object would write into a set the stack no longer contains, and the panel
+///         would go on showing the value it had.
+///     </para>
+/// </remarks>
+sealed class SetMeshCommand : IEditorCommand {
+    readonly LayerStackDocument document;
+    readonly int set;
+    readonly string before;
+    readonly string after;
+
+    /// <summary>Records a narrowing.</summary>
+    /// <param name="document">The stack.</param>
+    /// <param name="set">Which set, by index.</param>
+    /// <param name="mesh">The mesh's name in the project, or empty for every mesh in the model.</param>
+    /// <param name="name">What the undo entry says.</param>
+    /// <exception cref="ArgumentNullException">The document or the mesh is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">There is no set at that index.</exception>
+    /// <exception cref="ArgumentException"><paramref name="name" /> is empty.</exception>
+    public SetMeshCommand(LayerStackDocument document, int set, string mesh, string name) {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(mesh);
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentOutOfRangeException.ThrowIfNegative(set);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(set, document.Document.Sets.Count);
+
+        this.document = document;
+        this.set = set;
+        before = document.Document.Sets[set].Mesh;
+        after = mesh;
+
+        Name = name;
+    }
+
+    /// <inheritdoc />
+    public string Name { get; }
+
+    /// <inheritdoc />
+    public void Do(EditorContext context) => Write(after);
+
+    /// <inheritdoc />
+    public void Undo(EditorContext context) => Write(before);
+
+    /// <inheritdoc />
+    /// <inheritdoc cref="SetModelCommand.TryMergeWith" path="/remarks" />
+    public bool TryMergeWith(IEditorCommand previous, [NotNullWhen(true)] out IEditorCommand? merged) {
+        merged = null;
+
+        return false;
+    }
+
+    /// <summary>Puts one set back with a different mesh, leaving the others as they are.</summary>
+    void Write(string mesh) {
+        var sets = document.Document.Sets.ToList();
+
+        sets[set] = sets[set] with { Mesh = mesh };
+        document.Document = document.Document with { Sets = sets };
     }
 }
 

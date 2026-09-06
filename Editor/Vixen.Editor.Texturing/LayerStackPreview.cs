@@ -101,19 +101,33 @@ sealed class LayerStackPreview : IDisposable {
 
     readonly IEditorGraphics graphics;
     readonly TextureEvaluatorLease evaluators;
+    readonly PaintCanvasStore canvases;
 
     IEditorImage? shown;
 
     /// <summary>Builds a preview over the graphics a host lent the plugin.</summary>
     /// <param name="graphics">The host's graphics.</param>
     /// <param name="evaluators">Where the one evaluator comes from — see <see cref="TextureEvaluatorLease" />.</param>
-    /// <exception cref="ArgumentNullException">Either argument is null.</exception>
-    public LayerStackPreview(IEditorGraphics graphics, TextureEvaluatorLease evaluators) {
+    /// <param name="canvases">
+    ///     The session's open <c>.vxpaint</c> canvases. ⚠ The module's and not this pane's, which is
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a>'s finding rather than a
+    ///     wiring detail: a cache this pane owned would serve the picture from before the stroke,
+    ///     because a live paint session writes texels in memory and does not touch the file until
+    ///     pointer-up.
+    /// </param>
+    /// <exception cref="ArgumentNullException">Any argument is null.</exception>
+    public LayerStackPreview(
+        IEditorGraphics graphics,
+        TextureEvaluatorLease evaluators,
+        PaintCanvasStore canvases
+    ) {
         ArgumentNullException.ThrowIfNull(graphics);
         ArgumentNullException.ThrowIfNull(evaluators);
+        ArgumentNullException.ThrowIfNull(canvases);
 
         this.graphics = graphics;
         this.evaluators = evaluators;
+        this.canvases = canvases;
     }
 
     /// <summary>How many plans have been evaluated over this preview's life.</summary>
@@ -153,16 +167,19 @@ sealed class LayerStackPreview : IDisposable {
         // cannot draw. Asking for the device first meant an editor between construction and its
         // window coming up showed a stack in silence, and it is the state the editor starts in.
         //
-        // ⚠ `assets` is the whole of #924, and leaving it out was not a smaller version of the same
-        // behaviour: the compiler's default is the four compounds this build ships, so a graph fill
-        // or a mask effect naming a compound out of `Assets/Compounds` refused here while compiling
-        // in the graph panel next door. The parameter existed for a batch and nothing production
-        // passed it, which is #858's fix reaching nobody.
-        var compilation = LayerStackCompiler.Compile(
-            stack,
-            stack.Sets[0],
-            assets: document.Project.Paths.Assets
-        );
+        // ⚠ The project's compounds are the whole of #924, and leaving them out was not a smaller
+        // version of the same behaviour: the compiler's default is the four this build ships, so a
+        // graph fill or a mask effect naming a compound out of `Assets/Compounds` refused here while
+        // compiling in the graph panel next door. The parameter existed for a batch and nothing
+        // production passed it, which is #858's fix reaching nobody.
+        //
+        // ⚠ And the library comes off the document rather than out of an `assets:` argument, because
+        // publishing one is a recursive directory walk plus a YAML parse per compound and this method
+        // runs once per frame of an opacity drag — #956. `Republish` is a flag test in the ordinary
+        // case; it does the walk only after something said a compound was written.
+        document.Republish();
+
+        var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0], document.Library);
 
         // Everything either half said travels with every answer below, because a compilation that
         // produced a plan still has things to say and the sentence is not where they fit.
@@ -218,7 +235,8 @@ sealed class LayerStackPreview : IDisposable {
             document.AssetPath,
             uploads,
             plan,
-            compilation.Externals
+            compilation.Externals,
+            canvases
         );
 
         if (unresolved.Count > 0) {

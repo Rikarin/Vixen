@@ -136,6 +136,19 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     readonly List<TextureGraphOutput> outputs = [];
     readonly List<TextureGraphExternal> externals = [];
 
+    /// <summary>Which external image a reference already has, so two askers share one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Keyed by the reference and only for entries that <em>have</em> one</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/800">#800</a>. An entry naming no asset
+    ///     carries baked <see cref="TextureGraphExternal.Texels" /> — a ramp, a curve table — and two
+    ///     of those are equal only if their bytes are, so keying them on the reference alone would
+    ///     merge two different gradients that both name nothing. The format and the channel count are
+    ///     in the key beside it because they decide what <c>Allocate</c> produces: one file read as
+    ///     grey and as colour is two images, correctly.
+    /// </remarks>
+    readonly Dictionary<(string Asset, TextureFormat Format, TextureChannels Carried, int Width, int Height), int>
+        pooled = [];
+
     /// <summary>Which image an output port's variable names.</summary>
     readonly Dictionary<string, int> imageOf = new(StringComparer.Ordinal);
 
@@ -320,6 +333,32 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     /// </remarks>
     public ImmutableArray<TextureGraphExternal> Externals { get; private set; } = [];
 
+    /// <summary>How many times the last compilation asked Raven to compile an expression source.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The instrument for <see cref="Bind" />'s cost sentence, which until now was
+    ///         asserted on exactly the evidence the <em>wrong</em> version of it had: none</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/940">#940</a>). That sentence said
+    ///         "once per graph" for a batch after re-keying <c>Collect</c> on the expansion made it
+    ///         false, and the correction is the kind of thing somebody quotes when deciding whether
+    ///         to put an expression on forty node fields. A bound nothing measures drifts the next
+    ///         time the grouping key moves, which is precisely what happened.
+    ///     </para>
+    ///     <para>
+    ///         <b>A count of compilations and not a stopwatch</b>, because the property being claimed
+    ///         is work rather than time: one <c>TextureGraphExpressions.Fold</c> per group
+    ///         <see cref="Collect" /> returns, and a group is a scope holding at least one
+    ///         expression. A graph with no expressions in it compiles zero sources, which is the half
+    ///         that separates this from a constant.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Reset by <c>Begin</c> like everything else here</b>, so it describes the last
+    ///         compilation rather than the compiler's life — a compiler is reused across a panel's
+    ///         edits, and a running total would answer a question nobody asked.
+    ///     </para>
+    /// </remarks>
+    public int ExpressionCompilations { get; private set; }
+
     /// <inheritdoc />
     protected override void Begin(NodeGraphModel graph) {
         this.graph = graph;
@@ -328,6 +367,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         channels.Clear();
         outputs.Clear();
         externals.Clear();
+        pooled.Clear();
         imageOf.Clear();
         promotions.Clear();
         rescales.Clear();
@@ -340,6 +380,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         emitted.Clear();
         nodeImages.Clear();
         kernels.Clear();
+        ExpressionCompilations = 0;
         Outputs = [];
         NodeImages = [];
         Kernels = [];
@@ -427,6 +468,15 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     ///         the number of fields: ten instances of a compound with four expression fields each are
     ///         ten compilations, not forty.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And that bound is now counted rather than asserted</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/940">#940</a>.
+    ///         <see cref="ExpressionCompilations" /> is the number, <c>TextureExpressionCostTests</c>
+    ///         holds all three of the cases above, and the third of them — a graph with no
+    ///         expressions compiling none — is what stops the other two from being satisfied by a
+    ///         constant. The wrong version of this sentence survived a whole batch on exactly the
+    ///         evidence the right one had: none.
+    ///     </para>
     /// </remarks>
     void Bind(NodeGraphModel graph) {
         foreach (var problem in TextureGraphParameters.Check(declared)) {
@@ -473,6 +523,15 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
                     ));
                 }
             }
+
+            // ⚠ Counted here rather than inside `Fold`, because this loop is what the sentence above
+            // is about: one compilation per group, and a group is one expansion holding at least one
+            // expression — #940. `Fold` itself has no idea how many times it is being called.
+            //
+            // Unconditional, and that is a claim about `Collect` rather than an oversight: `For`
+            // makes a group only to add an expression to it, so no group here is empty and none
+            // takes `Fold`'s "nothing to compile" early return.
+            ExpressionCompilations++;
 
             var results = TextureGraphExpressions.Fold(parameters, values, expressions, out var diagnostics);
 
@@ -1117,9 +1176,25 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             }
         }
 
+        var key = (asset, format, carried, width, height);
+
+        // ⚠ The first asker's image, and the first asker's node with it — #800. `Generators/Dirt`
+        // reads curvature and occlusion and `Generators/Curvature Edge Wear` reads curvature, so a
+        // layer stack containing both reads one file twice after inlining; a fresh entry per call
+        // cost a decode, an upload and a texture at bake resolution for a picture the host already
+        // had. The diagnostics keep pointing at whoever asked first because a merged entry has to
+        // name one node and the earlier one is the one an author reading the graph reaches first.
+        if (asset.Length > 0 && pooled.TryGetValue(key, out var shared)) {
+            return shared;
+        }
+
         var image = Allocate(format, carried, 0, external: true);
 
         externals.Add(new(image, Inlining.Resolve(node.Id), asset, width, height, [.. texels]));
+
+        if (asset.Length > 0) {
+            pooled[key] = image;
+        }
 
         return image;
     }

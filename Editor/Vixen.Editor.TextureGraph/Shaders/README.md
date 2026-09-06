@@ -113,9 +113,15 @@ theirs is ever empty; a placement gather that reaches no instance returns `float
 under `max` and `blend` is a *straight* colour beside zero coverage and not a black texel. Averaged
 straight it composited every minified stamp against transparent black and rimmed it in a darker copy
 of itself, at exactly the coverage of the rim. The colour is resolved premultiplied —
-`Σ(cᵢ·αᵢ) / Σαᵢ` — and the coverage is the plain mean. ⚠ **`add` keeps the unweighted mean**: its
-running colour is a sum of light rather than a colour over a backdrop, and the closed form the whole
-suite reads these two off is a statement about that mean.
+`Σ(cᵢ·αᵢ) / Σαᵢ` — and the coverage is the plain mean.
+
+⚠ **Two modes are exceptions and both are deliberate.** `add` keeps the unweighted mean: its running
+colour is a sum of light rather than a colour over a backdrop, and the closed form the whole suite
+reads these two off is a statement about that mean. And **`alphaCoverage == 0` keeps it too**, because
+under that mode `Coverage` returns the texel's own luminance — so weighting the colour by it would be
+weighting a colour by itself, and a minified greyscale pattern would resolve brighter than the pattern
+([#950](https://github.com/Rikarin/Vixen/issues/950)). The premultiplied resolve is for a *straight
+pair*, and that mode does not have one.
 
 ## No `.spv` is committed here, and that is the one real departure
 

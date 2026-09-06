@@ -75,6 +75,12 @@ static class LayerPaint {
 ///     </para>
 /// </remarks>
 sealed class LayerStackDocument : EditorDocument {
+    /// <summary>Where this document's compounds are read from, or null when it has no project path.</summary>
+    readonly string? compounds;
+
+    /// <summary>Whether a compound has been written since the library was built.</summary>
+    bool stale;
+
     /// <summary>What a layer stack is written as.</summary>
     public const string Extension = ".vxlayers";
 
@@ -99,6 +105,26 @@ sealed class LayerStackDocument : EditorDocument {
     /// </remarks>
     public IReadOnlyList<string> LoadDiagnostics { get; } = [];
 
+    /// <summary>The node types this stack compiles against, and what inlines the compounds in them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Held by the document, because the alternative is a directory walk per frame.</b>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/924">#924</a> passed the project's
+    ///         assets folder down <c>LayerStackCompiler.Compile</c> on every evaluation, and
+    ///         <c>TextureCompoundLibrary.Publish</c> at the bottom of that is
+    ///         <c>EnumerateFiles(AllDirectories)</c> plus a <c>File.ReadAllText</c> and a YAML parse
+    ///         per project compound. <c>LayerStackPreview.Evaluate</c> runs from
+    ///         <c>LayerStackView.Edited</c>, which an opacity slider raises once per frame of a drag
+    ///         — so the fix for a correctness gap put the filesystem on the interactive path
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/956">#956</a>).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Replaced rather than mutated when a compound changes</b> — see
+    ///         <see cref="Republish" /> — so a caller that cached it holds an old menu.
+    ///     </para>
+    /// </remarks>
+    internal TextureLibrary Library { get; private set; }
+
     /// <summary>Opens a layer stack.</summary>
     /// <param name="project">The project it belongs to.</param>
     /// <param name="asset">Its identity.</param>
@@ -109,6 +135,17 @@ sealed class LayerStackDocument : EditorDocument {
         ArgumentException.ThrowIfNullOrEmpty(path);
 
         AssetPath = path;
+
+        // ⚠ Once, here, and then only when something says a compound moved. `TextureNodeLibrary`'s
+        // own `FolderOf` is asked for the folder rather than a second `Path.Combine`, because a
+        // second spelling of "which folder" is a second answer to "did that file change".
+        compounds = TextureNodeLibrary.FolderOf(project.Paths.Assets);
+        Library = TextureNodeLibrary.Publish(project.Paths.Assets);
+
+        // ⚠ Before the write rather than after it, which is why marking is all this does: the
+        // project raises this so a watcher can be told to ignore a path it is about to see change,
+        // so the bytes are not on disk yet. `TextureGraphDocument`'s constructor says the same.
+        project.DocumentSaving += Saving;
 
         var name = Path.GetFileNameWithoutExtension(path);
         var text = File.Exists(path) ? File.ReadAllText(path) : string.Empty;
@@ -127,6 +164,65 @@ sealed class LayerStackDocument : EditorDocument {
             LoadDiagnostics = [exception.Message];
         }
     }
+
+    /// <summary>Rebuilds the node library if a compound has been written since it was built.</summary>
+    /// <returns><see langword="true" /> if it was rebuilt, so a caller can re-read what it cached.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b><c>TextureGraphDocument.Republish</c>'s shape, on the tool that needed it more.</b>
+    ///         A graph panel compiles when the canvas changes; a layer stack's preview compiles on
+    ///         every edit, and an opacity drag is an edit per frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A flag set by a write and read here, rather than a check that walks the
+    ///         folder.</b> The obvious mistake is asking the disk whether the library is stale, which
+    ///         is the directory walk this exists to remove wearing a hat. A save is the rare,
+    ///         deliberate act that can change a compound, so a save is what sets the flag — and so is
+    ///         a change from outside the editor, because a <c>git checkout</c> raises no
+    ///         <c>DocumentSaving</c> at all.
+    ///     </para>
+    /// </remarks>
+    internal bool Republish() {
+        if (!stale) {
+            return false;
+        }
+
+        stale = false;
+        Library = TextureNodeLibrary.Publish(Project.Paths.Assets);
+
+        return true;
+    }
+
+
+    /// <inheritdoc />
+    protected override void OnClosed() {
+        base.OnClosed();
+
+        Project.DocumentSaving -= Saving;
+    }
+
+    /// <summary>Notices that a graph in this project's compound folder is about to be written.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not this document's own save.</b> A <c>.vxlayers</c> is not a compound, so saving the
+    ///     stack being edited changes no node type — and republishing the library for it would
+    ///     rebuild every one of them because a layer's opacity moved.
+    /// </remarks>
+    void Saving(EditorDocument document) {
+        if (compounds is null || document is not TextureGraphDocument graph) {
+            return;
+        }
+
+        stale = stale || Under(Path.GetFullPath(graph.AssetPath));
+    }
+
+    /// <summary>Whether an absolute path is inside this project's compound folder.</summary>
+    /// <param name="absolute">The path.</param>
+    /// <returns>Whether it is.</returns>
+    bool Under(string absolute) =>
+        absolute.StartsWith(
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(compounds!)) + Path.DirectorySeparatorChar,
+            StringComparison.OrdinalIgnoreCase
+        );
 
     /// <summary>The seven channels doc 48 § D11 names, and what each starts from.</summary>
     /// <remarks>
@@ -184,6 +280,64 @@ sealed class LayerStackDocument : EditorDocument {
                 }
             ]
         };
+
+    /// <summary>Whether a model has appeared, moved or gone since the picker was last filled.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A flag set by a notification and cleared by whoever acts on it</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/954">#954</a>. <c>LayerStackView</c>
+    ///         refilled the mesh picker only when the document reference or the bound path changed,
+    ///         and the module hands the same reference to every refresh — so importing a model while
+    ///         a stack was open never added it to the list, which is exactly the failure the remark
+    ///         above <c>Rebind</c> claimed the design prevented.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A flag rather than the refill itself, which is <c>OnProjectFileChanged</c>'s own
+    ///         instruction.</b> That runs on the frame, once per drained change per open document,
+    ///         and the refill walks every asset in the project — so doing it there would make an
+    ///         external program's Ctrl+S cost a project walk per open stack, several times over for
+    ///         a checkout that touched a hundred files.
+    ///     </para>
+    /// </remarks>
+    public bool ModelsChanged { get; set; } = true;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two flags and no work, because this runs on the frame, once per drained change
+    ///         per open document.</b> Reading the compound folder or walking the project's assets
+    ///         here would make somebody else's Ctrl+S cost the editor a frame —
+    ///         <see cref="Republish" />'s own trap, moved one caller along. Both answers are set
+    ///         here and acted on by whoever needs them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null means "events were lost" and has to count as a change for both.</b>
+    ///         <c>ExternalEdits</c> passes it when the watcher overflowed, at which point the only
+    ///         honest answer is that anything may have happened. The cost of being wrong is one
+    ///         republish and one picker refill; the cost of assuming the best is a picture baked
+    ///         from a compound nobody can see is old, and a picker stale for the rest of the session
+    ///         with nothing saying so.
+    ///     </para>
+    /// </remarks>
+    protected override void OnProjectFileChanged(string? path) {
+        base.OnProjectFileChanged(path);
+
+        if (path is null || LayerStackMesh.Extensions.Contains(Path.GetExtension(path).ToLowerInvariant())) {
+            ModelsChanged = true;
+        }
+
+        if (compounds is null) {
+            return;
+        }
+
+        if (path is null) {
+            stale = true;
+
+            return;
+        }
+
+        stale = stale || Under(Path.GetFullPath(Project.Paths.Absolute(path)));
+    }
 
     /// <summary>The stack as it would be written.</summary>
     /// <returns>The YAML.</returns>

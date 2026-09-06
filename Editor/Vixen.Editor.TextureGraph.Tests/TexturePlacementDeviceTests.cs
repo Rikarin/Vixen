@@ -734,6 +734,109 @@ public class TexturePlacementDeviceTests(ITestOutputHelper output) {
         );
     }
 
+    /// <summary>
+    ///     ⚠ With no alpha the colour <em>is</em> the coverage, so a minified stamp darkens with it
+    ///     and the two channels come out equal.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The other half of <a href="https://github.com/Rikarin/Vixen/issues/888">#888</a>,
+    ///         and it is the path every graph that does not tick <c>Alpha Coverage</c> takes</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/950">#950</a>. The test above passes
+    ///         <c>alphaCoverage: true</c>, which is the only configuration in which a colour and a
+    ///         coverage are two independent numbers; with the flag off <c>Coverage</c> derives the
+    ///         coverage from the colour's own luminance, so weighting the colour by it would be
+    ///         weighting a quantity by a function of itself and the resolve would rim every minified
+    ///         instance in a brighter version of itself — a one-texel dilation, which is #888's
+    ///         defect with the sign flipped.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The oracle is an equality between two channels, and it is exact rather than
+    ///         approximate.</b> A flat grey stamp at full opacity contributes <c>(g, g, g)</c> beside
+    ///         a coverage of <c>lum(g, g, g) == g</c>, so every sub-sample this kernel folds has its
+    ///         colour equal to its coverage and a filter that is linear in both keeps them equal
+    ///         through the resolve. The output is <c>Rgba8UNorm</c> and not sRGB, so the two channels
+    ///         quantise identically and the assertion is a byte equality, not a tolerance.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it is the same stamp and scale as the test above, so the pair differs only in
+    ///         the flag.</b> That is what makes the decision legible rather than two unrelated
+    ///         numbers: with a declared alpha the colour survives its own coverage, and without one it
+    ///         cannot, because there is nowhere else for the coverage to live. The count of partly
+    ///         covered texels is floored for the same reason it is there — a scale whose edge landed
+    ///         on a texel boundary would make the equality a statement about fully covered texels,
+    ///         where it holds under any resolve whatever.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(TexturePlacement.TileSamplerKernel)]
+    [InlineData(TexturePlacement.SplatterKernel)]
+    public void A_minified_stamp_with_no_alpha_darkens_with_its_coverage(string kernel) {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
+        var placement = string.Equals(kernel, TexturePlacement.TileSamplerKernel, StringComparison.Ordinal)
+            ? TexturePlacement.TileSampler(1, 0, gridX: 1, gridY: 1, scale: 0.3f)
+            : TexturePlacement.Splatter(1, 0, count: 1, scale: 0.3f);
+
+        var plan = new TexturePlan {
+            BaseWidth = Side,
+            BaseHeight = Side,
+            Seed = 5501u,
+            Images = [new(TextureFormat.Rgba16Float), new(TextureFormat.Rgba8)],
+
+            // Mid grey rather than white, so a fully covered texel is half covered under this model
+            // and "the colour is the coverage" is a claim about a number rather than about 1 == 1.
+            Ops = [TextureSources.Uniform(0, 0.5f), placement],
+            Outputs = [1]
+        };
+
+        Assert.Empty(plan.Validate());
+
+        using var evaluator = new TexturePlanEvaluator(device);
+        using var bake = evaluator.Evaluate(plan, new Dictionary<int, TextureHandle>());
+
+        var picture = bake.Read(1);
+        var partly = 0;
+        var worst = (X: -1, Y: -1, Grey: 0, Alpha: 0, Apart: -1);
+
+        for (var y = 0; y < Side; y++) {
+            for (var x = 0; x < Side; x++) {
+                var alpha = TextureKernelHarness.At(picture, x, y, 3);
+                var grey = TextureKernelHarness.At(picture, x, y, 0);
+
+                if (alpha == 0) {
+                    continue;
+                }
+
+                // A fully covered texel of a half-grey stamp is 128 of coverage, not 255 — the model
+                // this kernel is built on is that a dark texel is a partly covered one.
+                if (alpha < 120) {
+                    partly++;
+                }
+
+                if (Math.Abs(grey - alpha) > worst.Apart) {
+                    worst = (x, y, grey, alpha, Math.Abs(grey - alpha));
+                }
+            }
+        }
+
+        Assert.True(
+            partly >= 16,
+            $"'{kernel}' left {partly} texels partly covered, so nothing here was box-filtered and the "
+            + $"assertion below is a pass over no work ({TextureKernelHarness.Adapter(device)})"
+        );
+
+        Assert.True(
+            worst.Apart == 0,
+            $"'{kernel}' drew a flat grey stamp with no alpha and texel ({worst.X}, {worst.Y}) came out "
+            + $"{worst.Grey} against {worst.Alpha} of coverage. With no alpha the luminance is the coverage, "
+            + "so a partly covered texel is a darker one and the two channels cannot come apart — a resolve "
+            + $"that divides the colour by its own weight dilates the stamp by a texel ({TextureKernelHarness.Adapter(device)})"
+        );
+    }
+
     /// <summary>A scatter of small stamps, which two seeds have to disagree about.</summary>
     static TexturePlan Scatter(uint seed) =>
         new() {

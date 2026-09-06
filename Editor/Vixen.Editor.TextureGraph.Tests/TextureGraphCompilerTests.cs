@@ -43,6 +43,47 @@ public class TextureGraphCompilerTests {
     static TextureGraphCompiler Compiler(int baseWidth = 256, int baseHeight = 256, int bake = 0) =>
         new(Registry()) { BaseWidth = baseWidth, BaseHeight = baseHeight, BakeLevelOffset = bake, Seed = 41823 };
 
+    /// <summary>Two baked tables that name no asset are two images, however alike their references.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The half of <a href="https://github.com/Rikarin/Vixen/issues/800">#800</a> that
+    ///         needs care, and it is a correctness claim rather than a cost one.</b> The pooling that
+    ///         issue asks for keys an external image by the asset it names — and an entry that names
+    ///         <em>no</em> asset carries bytes the compiler baked from a control an artist dragged. A
+    ///         key on the reference alone makes every one of those the empty string, so a graph with
+    ///         a gradient and a curve table would evaluate both through whichever of the two happened
+    ///         to compile first.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The bytes are compared and not merely the count.</b> Two entries with one image
+    ///         index is the shape that would ship a wrong bake; two images carrying identical texels
+    ///         is the same defect wearing the right count, and only reading them tells the two apart.
+    ///         A default gradient is black to white and a default curve table is the identity through
+    ///         <c>CurveEvaluation</c>, so they are the cheapest pair that must not merge.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Two_baked_tables_naming_no_asset_are_never_pooled_into_one() {
+        NodeGraphModel graph = new();
+        var gradient = graph.Add("Source/Gradient");
+        var curves = graph.Add("Colour/Curve");
+        var output = graph.Add("Output/Output");
+
+        graph.Connect(new(gradient.Id, "Out"), new(curves.Id, "Input"));
+        graph.Connect(new(curves.Id, "Out"), new(output.Id, "Input"));
+
+        var compiler = Compiler();
+        var compilation = compiler.Compile(graph);
+
+        Assert.Empty(compilation.Diagnostics);
+
+        var baked = compiler.Externals.Where(external => external.Asset.Length == 0).ToList();
+
+        Assert.Equal(2, baked.Count);
+        Assert.Equal(2, baked.Select(external => external.Image).Distinct().Count());
+        Assert.NotEqual(baked[0].Texels, baked[1].Texels);
+    }
+
     /// <summary>Every node type the generator found, so a node reaches the registry by existing.</summary>
     /// <remarks>
     ///     <para>

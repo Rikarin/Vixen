@@ -58,7 +58,12 @@ readonly record struct TextureExpressionValue(NodeId Node, string Port, float Va
 ///         <c>TextureGraphCompiler.Collect</c> groups by expansion, because two instances of one
 ///         compound are two sets of numbers, so a graph containing compounds that hold expressions
 ///         is that many calls to this and not one
-///         (<a href="https://github.com/Rikarin/Vixen/issues/931">#931</a>).
+///         (<a href="https://github.com/Rikarin/Vixen/issues/931">#931</a>). ⚠ <b>Both halves of that
+///         are counted now</b> — <c>TextureGraphCompiler.ExpressionCompilations</c> and
+///         <c>TextureExpressionCostTests</c> — because until
+///         <a href="https://github.com/Rikarin/Vixen/issues/940">#940</a> this paragraph and the one
+///         it restates were the only record of a number nothing measured, and the version of it that
+///         was wrong read exactly as confidently.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>An expression is one line because a newline ends a statement in Raven.</b> Text with

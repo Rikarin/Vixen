@@ -133,10 +133,20 @@ public class PaintWiringTests {
 
     /// <summary>A painted mask compiles to a bitmap over the mask channel of its canvas.</summary>
     /// <remarks>
-    ///     ⚠ <b>The usage is <c>mask</c> and not the layer's channel, and that is the one asymmetry
-    ///     between the two paint sources.</b> A mask is one image whatever the layer under it writes
-    ///     — <c>PaintCanvas</c>' degenerate case — so a mask compiled per channel would name seven
-    ///     images in a file that holds one and refuse six of them.
+    ///     <para>
+    ///         ⚠ <b>The usage is <c>mask</c> and not the layer's channel, and that is the one asymmetry
+    ///         between the two paint sources.</b> A mask is one image whatever the layer under it
+    ///         writes — <c>PaintCanvas</c>' degenerate case — so a mask compiled per channel would name
+    ///         seven images in a file that holds one and refuse six of them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This asserted two entries, and the sentence beside them said they were one image
+    ///         — which they were not until <a href="https://github.com/Rikarin/Vixen/issues/800">#800</a>
+    ///         landed.</b> A two-channel layer made a host decode and upload one <c>.vxpaint</c> twice,
+    ///         and a seven-channel one seven times; the compiler now hands the second asker the first
+    ///         asker's image. What both counts have to be is the point of the two assertions below: one
+    ///         upload, and still one bitmap per channel reading it.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_painted_mask_names_the_mask_channel_once_however_many_channels_the_layer_writes() {
@@ -153,12 +163,14 @@ public class PaintWiringTests {
         Assert.NotNull(compilation.Plan);
         Assert.Empty(compilation.Problems);
 
-        // Two channels, so two bitmap nodes — and both of them name the same one image in the file.
-        Assert.Equal(2, compilation.Externals.Length);
-        Assert.All(
-            compilation.Externals,
-            external => Assert.Equal("vxpaint:mask|Hull.l.mask.vxpaint", external.Asset)
-        );
+        var external = Assert.Single(compilation.Externals);
+
+        Assert.Equal("vxpaint:mask|Hull.l.mask.vxpaint", external.Asset);
+        Assert.Single(compilation.Plan.Images, image => image.External);
+
+        // ⚠ And the second channel still reads it, which is what tells a de-duplication from a
+        // dropped node: two ops take the one image as an input, one per channel the layer writes.
+        Assert.Equal(2, compilation.Plan.Ops.Count(op => op.Inputs.Contains(external.Image)));
     }
 
     /// <summary>A painted mask with no canvas warns and leaves the layer unmasked.</summary>

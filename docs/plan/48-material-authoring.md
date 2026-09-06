@@ -585,12 +585,20 @@ reader stops trusting the rest of the section, which is why it says so here.
    therefore evaluated the graph's *base layer* and said so. ✅ The type is `public` now
    ([#738](https://github.com/Rikarin/Vixen/issues/738)).
 
-   ⚠ **Closing a visibility is not the same as closing a gap, and this one shows the difference.**
-   Nothing in the plugin has been changed to use it: six places in `Vixen.Editor.Texturing` still say
-   the compiler is internal, including a **status line the user reads**, and the preview is still the
-   base layer ([#792](https://github.com/Rikarin/Vixen/issues/792)). This document's own standing
-   warning — that the commonest defect here is a finished thing nothing calls — applies to the fix
-   for it as much as to the feature.
+   ⚠ **Closing a visibility is not the same as closing a gap, and this one showed the difference for
+   three batches.** For that whole span nothing in the plugin had been changed to use it: six places
+   in `Vixen.Editor.Texturing` went on saying the compiler was internal, one of them a **status line
+   the user reads**, and the pane went on drawing a fixed picture rather than the wired graph. This
+   document's own standing warning — that the commonest defect here is a finished thing nothing calls
+   — applied to the fix for it as much as to the feature.
+
+   ✅ **Both halves closed 2026-09-07.** The sentences were corrected
+   ([#816](https://github.com/Rikarin/Vixen/issues/816)) and then the caller landed:
+   `TextureGraphPreview.Evaluate` compiles `TextureGraphDocument.Compile()`'s plan, resolves its
+   external images and evaluates it ([#792](https://github.com/Rikarin/Vixen/issues/792)).
+   ⚠ **This paragraph itself outlived the fix by a batch** and is what
+   [#944](https://github.com/Rikarin/Vixen/issues/944) was filed about — which is #816's own failure
+   mode one file along, and the reason `docs/overview.md` rather than this document is the state.
 
    ⚠ **Four findings from one plugin, three of them unpredicted**, which is the measurement § D14 was
    written to take. The claim it was testing — that the plugin surface is sufficient for what the
@@ -1066,9 +1074,11 @@ plugin host and the asset write already exist, and every one of them would other
    24–74 ms for forty ops at 1K–4K on an M1 Max is a usable bake and a poor interaction, so the honest
    statement of the gap is that **knob-turn latency is not a criterion this plan makes**, and pretending
    otherwise is what let six audits score it. When it becomes one it wants its own criterion, its own
-   measurement and its own issue, and it interacts with two things already recorded — the two
-   evaluators of [#820](https://github.com/Rikarin/Vixen/issues/820), which compile every kernel twice,
-   and the paint latency of criterion 8, which is the same question one tool along.
+   measurement and its own issue, and it interacts with one thing already recorded: the paint latency
+   of criterion 8, which is the same question one tool along. ⚠ **It used to interact with a second,
+   and that one is closed**: the module held two `TexturePlanEvaluator`s and so compiled every kernel
+   twice, because the variant cache is an instance field — it now lends one to both panes
+   ([#820](https://github.com/Rikarin/Vixen/issues/820)).
 2. **Scale invariance.** Every atomic node, baked at 1K and at 4K, agrees within 2/255 after
    downsampling. ⚠ A node that fails this has D8's bug and no other test finds it.
 3. **Every node is covered by an assertion that would notice its picture changing, and the library is

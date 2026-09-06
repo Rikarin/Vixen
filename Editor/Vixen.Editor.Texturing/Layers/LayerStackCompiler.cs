@@ -107,6 +107,41 @@ static class LayerStackCompiler {
         return Compile(stack, build, registry, bakeLevelOffset, subGraphs);
     }
 
+    /// <summary>Compiles one texture set's stack against a library somebody else already published.</summary>
+    /// <param name="stack">The document.</param>
+    /// <param name="set">Which of its sets.</param>
+    /// <param name="library">The node types and what inlines the compounds in them.</param>
+    /// <param name="bakeLevelOffset">How much bigger this bake is than the authoring resolution.</param>
+    /// <returns>The plan, the graph it came from, and everything either half had to say.</returns>
+    /// <exception cref="ArgumentNullException">The stack, the set or the library is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>The overload a caller that compiles more than once should use, and every interactive
+    ///     one does.</b> The <c>assets</c> parameter above publishes the library on the spot, which
+    ///     is a recursive directory walk plus a <c>File.ReadAllText</c> and a YAML parse per project
+    ///     compound — affordable for a bake and not for
+    ///     <c>LayerStackPreview.Evaluate</c>, which runs once per frame of an opacity drag
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/956">#956</a>).
+    ///     <para>
+    ///         <b>A <see cref="TextureLibrary" /> rather than a registry and a source, for that
+    ///         type's own reason</b>: a registry holding a published node type the compiler cannot
+    ///         resolve is worse than one without it, so the two are never passed apart.
+    ///     </para>
+    /// </remarks>
+    public static LayerStackCompilation Compile(
+        LayerStackAsset stack,
+        TextureSetAsset set,
+        TextureLibrary library,
+        int bakeLevelOffset = 0
+    ) {
+        ArgumentNullException.ThrowIfNull(stack);
+        ArgumentNullException.ThrowIfNull(set);
+        ArgumentNullException.ThrowIfNull(library);
+
+        var build = LayerStackGraph.Build(stack, set, library.Registry);
+
+        return Compile(stack, build, library.Registry, bakeLevelOffset, library.SubGraphs);
+    }
+
     /// <summary>This build's node types, with the compounds published into them.</summary>
     /// <param name="subGraphs">What a compiler needs to inline those compounds.</param>
     /// <param name="assets">

@@ -29,11 +29,31 @@ for, giving each copy a fresh identity — because the author's own graph alread
 A `NodeOrigin` records where one of those copies came from: the sub-graph node in the author's graph,
 the node-type path of the sub-graph it was written in, and the identity it had there.
 
-`SubGraphExpansion` is the third record, and it answers a question the first two cannot: **what was
-that sub-graph node set to.** Inlining deletes the node, and the node is where a containing graph
-stores what it set the published graph's knobs to — so before it existed those numbers reached
-nothing at all, whatever a compiler did afterwards. `NodeGraphInlining.Expansions` holds one per
-expansion, and `NodeOrigin.Expansion` is the key.
+`SubGraphExpansion` is the third record, and it answers two questions the first two cannot.
+
+The first is **what was that sub-graph node set to.** Inlining deletes the node, and the node is where
+a containing graph stores what it set the published graph's knobs to — so before `Settings` existed
+those numbers reached nothing at all, whatever a compiler did afterwards.
+`NodeGraphInlining.Expansions` holds one expansion per sub-graph node reached, and
+`NodeOrigin.Expansion` is the key.
+
+The second is **which instance of a nested compound this is**, and `Path` is the answer: every
+sub-graph node walked through to reach the expansion, outermost first and this expansion's own node
+last. One element for a compound in the author's graph, two for one nested inside it, and so on.
+
+⚠ **`Source` and `NodeOrigin.Inner` are the two *ends* of that walk, and the ends are not enough.**
+Take one compound used twice inside another compound: both instances resolve to the same outermost
+node the author can click on, both carry the same innermost identity out of the same published file,
+and both have the same `Type` — so to anything reading only the ends they are one expansion, and two
+noise generators draw one picture. `Path` is what tells them apart, because it contains the *middle*:
+the identity of the inner sub-graph node, which differs between the two.
+
+⚠ **`NodeOrigin.Expansion` also distinguishes them, and must not be used for it.** It is a
+walk-ordered counter, so inserting anything upstream that reorders the walk renumbers every expansion
+after it — a key that is correct for exactly as long as the graph is not edited, which is
+[#875](https://github.com/Rikarin/Vixen/issues/875) one level in. Every element of `Path`, by
+contrast, is a `NodeId` read out of the containing graph's own document, and a document never
+renumbers or reuses one — so the chain moves only when an author moves the compound node it names.
 
 ## What it is for
 
@@ -116,6 +136,12 @@ Reading them off `NodeOrigin.Source` would hand a nested graph a stranger's numb
 ⚠ **And an expansion is per node, not per node type.** One graph may contain the same published
 graph twice with two sets of numbers, so anything keyed on `NodeOrigin.Type` gives both of them
 whichever set it read first — a failure every assertion about a single instance goes on passing over.
+
+⚠ **Which is why a key built from an inlined node uses `Path` rather than `Source`.**
+`TextureGraphCompiler.Identify` names every op of a compiled plan, and it folds the chain in order —
+in order, because two compounds that swapped places are two different pictures, and `Path` subsumes
+`Source` as its own first element rather than joining it. Naming an op from the walk's two ends alone
+is what made two sibling noise generators draw one picture.
 
 ```csharp no-compile="a fragment against an inlining a compiler already produced"
 if (inlining.TryGetExpansion(node.Id, out var expansion)
