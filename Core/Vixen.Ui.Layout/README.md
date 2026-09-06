@@ -38,7 +38,11 @@ in this store has produced more than one rectangle. ⚠ **And so is the strut**,
 as structurally out of reach for as long as inline formatting has been here: §10.8's strut is font
 metrics, this store has no font, and neither of those facts stopped it — a strut is five *numbers*,
 so `StrutMetrics` is a computed value the layer with the `FontRegistry` writes down, and every rule
-that depends on one is arithmetic. What is still owed is nested spans and generated boxes. See
+that depends on one is arithmetic. ⚠ **And so are nested spans**, which this sentence listed as owed
+until the blocker was read rather than repeated: it was never the rebasing of a union inside a union,
+which was already free — it was one box's fragments being a contiguous slice of a shared scratch,
+which two boxes open at the same line's end cannot both have. What is still owed is generated boxes,
+a span with an out-of-flow child, and a span's own strut. See
 [the inline section](#inline-formatting-and-the-invariant-nobody-had-written-down) and
 `InlineKnownGaps.txt`.
 
@@ -572,9 +576,22 @@ fallback and UAX #14 the moment either changed.
 The cost is stated rather than hidden: **a text leaf's first line is not shortened to the space left
 on the line it lands on.** ⚠ And it is *still* not, now that fragmentation has landed — which is
 worth saying because the two were filed as the same blocker and are not. There is now somewhere to
-put a shortened first line; what has not changed is the reason it was refused, which was never
-storage but the fact that two wrappers disagreeing about kerning, fallback and UAX #14 is worse than
-one. ⚠ The day text breaking does move into the line box, Vixen's UAX #14 conformance stops being
+put a shortened first line, and the reason it was refused was never storage.
+
+⚠ **Nor was it a second wrapper, which this section asserted until #901 was audited.** Both routes to
+a staircase call `TextLayout` — the first wrapper — either once per line or once with a band list, so
+no rival is created and the paragraph above is a true statement about a thing nobody proposed. What
+the refusal reduces to is narrower and worth writing down: the *answer* never had to change, because
+CSS 2.1 §9.5 shortens **line boxes** beside a float and leaves the block box itself full width, so a
+text leaf's measured size is one rectangle either way; only the *question* would have to carry the
+band, and `MeasureRequest` already carries `Tree` and `Node`. The one thing that would have made such
+a query unsound — the measure cache serving one width's answer at a different `y` — is already gone:
+`CalculateLayoutInternal` bypasses the cache outright whenever `treeHasFloats`, for the reason two
+paragraphs up, and `floatOriginY` is the child's own top edge by the time its measure function runs.
+So what is owed is a band query on the store, a `LineWrapper` taking a per-line available width, and
+a `TextLine` carrying a per-line inline offset for the draw list, caret, selection and hit test —
+values crossing a boundary this store already carries values across, which is the strut's shape after
+all. ⚠ The day text breaking does move into the line box, Vixen's UAX #14 conformance stops being
 the right target: browsers do not implement it as written, and the reference for any change to a
 break position is Parley's `break_overrides.rs` or the 2 048 Chrome-recorded positions beside it —
 not the algorithm.

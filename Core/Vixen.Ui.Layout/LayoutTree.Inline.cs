@@ -356,12 +356,13 @@ public sealed partial class LayoutTree {
         // inline box puts its *children* on the line and only its two edges.
         var streamBase = inlineItemTop;
         var fragmentBase = fragmentScratchTop;
+        var openBase = openBoxTop;
 
         // ⚠ Copied out of the style once rather than read through `styles[index]` at each of the two
         // call sites below, because sizing an item runs a whole nested layout and a nested layout can
         // add nodes — which reallocates the style array out from under a `ref` into it.
         var strut = styles[index].Strut;
-        BuildInlineItems(index, childStart, childEnd, nested: false);
+        BuildInlineItems(index, childStart, childEnd);
         var streamEnd = inlineItemTop;
 
         try {
@@ -400,7 +401,6 @@ public sealed partial class LayoutTree {
             var y = contentTop;
             var lastBaseline = float.NaN;
             var cursor = streamBase;
-            var open = OpenInlineBox.None;
 
             // ⚠ Monotone, and that is the whole of what stops a float being placed twice. A line is
             // re-broken up to three times and a narrower band can move its end backwards, so "the
@@ -529,7 +529,7 @@ public sealed partial class LayoutTree {
                         lineTop,
                         in metrics,
                         in strut,
-                        ref open
+                        openBase
                     );
                 }
 
@@ -539,13 +539,17 @@ public sealed partial class LayoutTree {
 
             return new InlineWalk(y, lastBaseline);
         } finally {
-            // ⚠ Both watermarks, and the second one is belt and braces rather than reachable today:
-            // every Open in a well-formed stream has a Close that commits its fragments and rewinds
-            // the scratch. Restoring anyway costs an assignment and means a future producer that
-            // learns to abandon a box cannot turn that into an arena that grows every frame — which
-            // would surface as the zero-allocation gate going red a long way from the cause.
+            // ⚠ All three watermarks, and the fragment one is no longer belt and braces: a commit
+            // used to rewind the scratch to the box it was committing, which nesting had to give up —
+            // an inner box closes while its outer still holds fragments further up the array. So this
+            // is now the only place the line walk's fragment allocation is released, and a walk that
+            // returned without restoring it would be an arena that grows every frame, which surfaces
+            // as the zero-allocation gate going red a long way from the cause. The box stack is
+            // restored for the original reason: a stream that abandoned an open box must not leak it
+            // into the walk that resumes outside this one.
             inlineItemTop = streamBase;
             fragmentScratchTop = fragmentBase;
+            openBoxTop = openBase;
         }
     }
 
@@ -1033,20 +1037,33 @@ public sealed partial class LayoutTree {
         return new LineMetrics(ascent, ascent + descent);
     }
 
-    /// <summary>Which non-atomic inline box the walk is currently inside, and where it started.</summary>
+    /// <summary>One non-atomic inline box the walk is currently inside, and where it started.</summary>
     /// <remarks>
-    ///     ⚠ <b>It outlives a line, which is the whole point of it.</b> A span that crosses a break is
-    ///     open at the end of one line and still open at the start of the next, and the two rectangles
-    ///     that come out of that are exactly the fragmentation this file exists to produce. One box at
-    ///     a time is enough because flattening is one level deep; see <c>IsNonAtomicInline</c>.
+    ///     <para>
+    ///         ⚠ <b>It outlives a line, which is the whole point of it.</b> A span that crosses a
+    ///         break is open at the end of one line and still open at the start of the next, and the
+    ///         two rectangles that come out of that are exactly the fragmentation this file exists to
+    ///         produce.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A stack of these rather than one, since spans inside spans are flattened too.</b>
+    ///         The remark here used to say one at a time was enough. <c>Start</c> is per box and
+    ///         <c>IsFirstFragment</c> is per box, and on a continuation line every open box reopens at
+    ///         the <i>same</i> x — the line's content start — because a continuation carries no start
+    ///         edge, which is why the reopening loop needs no nesting arithmetic.
+    ///     </para>
     /// </remarks>
     struct OpenInlineBox {
         public int Node;
         public float Start;
-        public int ScratchBase;
-        public bool IsFirstFragment;
 
-        public static OpenInlineBox None => new() { Node = -1 };
+        /// <summary>The first and last slots of this box's chain in <c>fragmentScratch</c>, or -1.</summary>
+        public int First;
+
+        /// <inheritdoc cref="First" />
+        public int Last;
+
+        public bool IsFirstFragment;
     }
 
     /// <summary>How far along the inline axis a line's items are pushed by <c>text-align</c>.</summary>
@@ -1143,15 +1160,19 @@ public sealed partial class LayoutTree {
         float lineTop,
         in LineMetrics metrics,
         in StrutMetrics strut,
-        ref OpenInlineBox open
+        int openBase
     ) {
         var x = lineStartInset + TextAlignOffset(textAlign, direction, lineStart, lineEnd, innerWidth, lineAvailable);
 
-        // ⚠ A box that was still open when the last line ended reopens at THIS line's start edge, and
-        // beside a float that is not the same place the last one started. Resetting it when the
+        // ⚠ Every box that was still open when the last line ended reopens at THIS line's start edge,
+        // and beside a float that is not the same place the last one started. Resetting one when its
         // fragment was emitted could only guess at an inset the next line had not chosen yet.
-        if (open.Node >= 0) {
-            open.Start = x;
+        //
+        // ⚠ All of them at the same x, however deeply they nest, because a continuation fragment
+        // carries no start edge — CSS 2.1 §9.2.1.1's border and padding are drawn at the two ends of
+        // the whole box and not at the ends of each piece. So there is no nesting arithmetic here.
+        for (var b = openBase; b < openBoxTop; b++) {
+            openBoxes[b].Start = x;
         }
 
         for (var i = lineStart; i < lineEnd; i++) {
@@ -1164,10 +1185,14 @@ public sealed partial class LayoutTree {
             }
 
             if (item.Kind == InlineItemKind.Open) {
-                open.Node = item.Node;
-                open.Start = x;
-                open.ScratchBase = fragmentScratchTop;
-                open.IsFirstFragment = true;
+                if (openBoxTop == openBoxes.Length) {
+                    Array.Resize(ref openBoxes, openBoxes.Length * 2);
+                }
+
+                openBoxes[openBoxTop++] = new OpenInlineBox {
+                    Node = item.Node, Start = x, First = -1, Last = -1, IsFirstFragment = true
+                };
+
                 x += InlineBoxStartEdge(item.Node, direction, innerWidth);
 
                 continue;
@@ -1175,8 +1200,12 @@ public sealed partial class LayoutTree {
 
             if (item.Kind == InlineItemKind.Close) {
                 x += InlineBoxEndEdge(item.Node, direction, innerWidth);
+
+                // The innermost open box, which is this one: the stream nests, so a `Close` always
+                // names the top of the stack. Popping first would lose the chain the commit needs.
+                var closing = --openBoxTop;
                 EmitInlineBoxFragment(
-                    ref open,
+                    ref openBoxes[closing],
                     direction,
                     outerWidth,
                     insetLeft,
@@ -1187,8 +1216,7 @@ public sealed partial class LayoutTree {
                     LayoutFragmentEnds.End
                 );
 
-                CommitInlineBoxFragments(item.Node, open.ScratchBase, direction, innerWidth);
-                open.Node = -1;
+                CommitInlineBoxFragments(item.Node, openBoxes[closing].First, direction, innerWidth);
 
                 continue;
             }
@@ -1246,9 +1274,14 @@ public sealed partial class LayoutTree {
         // ⚠ A box still open when the line ends is the fragmentation case itself: it gets a fragment
         // that carries neither real end unless this was also its first, and it reopens at the content
         // start of the next line. Nothing else in this store produces a second rectangle for a node.
-        if (open.Node >= 0) {
+        //
+        // ⚠ Every open box, not one, and they all end at the same x — a nested span and the span
+        // around it both run to the end of the line they were cut on. The order they are appended in
+        // does not matter because each box owns a chain rather than a slice; it was exactly this loop
+        // that a shared contiguous slice could not express, and that kept flattening one level deep.
+        for (var b = openBoxTop - 1; b >= openBase; b--) {
             EmitInlineBoxFragment(
-                ref open,
+                ref openBoxes[b],
                 direction,
                 outerWidth,
                 insetLeft,
@@ -1259,7 +1292,7 @@ public sealed partial class LayoutTree {
                 LayoutFragmentEnds.None
             );
 
-            open.IsFirstFragment = false;
+            openBoxes[b].IsFirstFragment = false;
         }
     }
 
@@ -1285,7 +1318,7 @@ public sealed partial class LayoutTree {
     ) {
         var ends = closing | (open.IsFirstFragment ? LayoutFragmentEnds.Start : LayoutFragmentEnds.None);
 
-        AppendFragmentScratch(
+        var at = AppendFragmentScratch(
             new LayoutFragment {
                 Left = direction == Direction.Ltr ? insetLeft + open.Start : outerWidth - insetRight - xEnd,
                 Top = lineTop,
@@ -1294,6 +1327,16 @@ public sealed partial class LayoutTree {
                 Ends = ends
             }
         );
+
+        // Linked to this box's own chain rather than left to be found by position; see
+        // `fragmentScratchNext`.
+        if (open.First < 0) {
+            open.First = at;
+        } else {
+            fragmentScratchNext[open.Last] = at;
+        }
+
+        open.Last = at;
     }
 
     /// <summary>An item's resolved vertical margins.</summary>
@@ -1443,7 +1486,7 @@ public sealed partial class LayoutTree {
         var minimum = 0f;
 
         var streamBase = inlineItemTop;
-        BuildInlineItems(index, childStart, childEnd, nested: false);
+        BuildInlineItems(index, childStart, childEnd);
         var streamEnd = inlineItemTop;
 
         try {

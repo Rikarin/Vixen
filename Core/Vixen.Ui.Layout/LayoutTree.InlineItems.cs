@@ -65,7 +65,24 @@ public sealed partial class LayoutTree {
     int inlineItemTop;
 
     LayoutFragment[] fragmentScratch = new LayoutFragment[8];
+
+    // ⚠ <b>A per-owner chain rather than a per-owner range, and nesting is the whole reason.</b> One
+    // box's fragments used to be the contiguous slice `[base, top)`, which held while only one box
+    // could be open: a `Close` was always the innermost thing outstanding. With spans inside spans
+    // both are open when a line ends and both want a continuation fragment, so whichever appends
+    // second lands inside the other's slice. Linking each owner's fragments instead makes the order
+    // they were appended in irrelevant — the only thing a commit needs is its own chain.
+    int[] fragmentScratchNext = new int[8];
     int fragmentScratchTop;
+
+    // Where a chain is copied to so `WriteFragments` gets one span. Reused; never read across calls.
+    LayoutFragment[] fragmentGather = new LayoutFragment[4];
+
+    // The non-atomic inline boxes a line walk is currently inside, outermost first. A field with a
+    // watermark rather than a local, for `inlineItems`' reason: a nested container's walk runs inside
+    // this one's, so the two need one buffer and a saved top rather than an array each.
+    OpenInlineBox[] openBoxes = new OpenInlineBox[4];
+    int openBoxTop;
 
     /// <summary>
     ///     Whether this box's children join its parent's lines instead of the box itself doing so.
@@ -84,13 +101,20 @@ public sealed partial class LayoutTree {
     ///         wrapper in <c>Vixen.Ui</c> the only thing that breaks a string.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Three restrictions, each one a place where the honest answer today is "still
+    ///         ⚠ <b>Two restrictions, each one a place where the honest answer today is "still
     ///         atomic" rather than a guess.</b> An <i>out-of-flow</i> box is not on a line at all. A
     ///         box with a <i>measure function</i> stays atomic, because a measure function is what
-    ///         makes a node a leaf. And a non-atomic inline box <i>inside</i> another one stays atomic
-    ///         — one level of flattening, not a recursion — which is scope rather than a limit of the
-    ///         representation: the arena holds any number of fragments for any node, and what is
-    ///         missing is the rebasing of a nested union, not somewhere to put it.
+    ///         makes a node a leaf.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A third one is gone: a non-atomic inline box inside another one is flattened
+    ///         too, to any depth.</b> This paragraph used to say the missing piece was "the rebasing
+    ///         of a nested union", and that was already free — an inner box commits first, writing
+    ///         its position in the container's coordinates, and the outer's commit then rebases it
+    ///         like any other child. What actually held was the fragment scratch: one box's
+    ///         fragments were the contiguous slice <c>[base, top)</c>, and two boxes open when a
+    ///         line ends both want a continuation fragment, so the second to append lands inside the
+    ///         first's slice. Chaining each owner's fragments instead makes append order irrelevant.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And a fourth, which is not scope but a hole that would swallow a child
@@ -140,13 +164,12 @@ public sealed partial class LayoutTree {
 
     /// <summary>Flattens a container's children into the stream a line walk consumes.</summary>
     /// <returns>Where this container's range starts; it runs to <c>inlineItemTop</c>.</returns>
-    int BuildInlineItems(int index, bool nested) => BuildInlineItems(index, 0, links[index].ChildCount, nested);
+    int BuildInlineItems(int index) => BuildInlineItems(index, 0, links[index].ChildCount);
 
     /// <summary>Flattens a <i>sub-range</i> of a container's children into that same stream.</summary>
     /// <param name="index">The container.</param>
     /// <param name="childStart">The first child position to take, inclusive.</param>
     /// <param name="childEnd">The last child position to take, exclusive.</param>
-    /// <param name="nested">Whether this call is already inside a non-atomic inline box.</param>
     /// <returns>Where this range starts in the stream; it runs to <c>inlineItemTop</c>.</returns>
     /// <remarks>
     ///     ⚠ <b>The sub-range is the whole of what CSS 2.1 §9.2.1.1's anonymous block box costs.</b>
@@ -157,7 +180,7 @@ public sealed partial class LayoutTree {
     ///     part of a child list rather than all of it. Everything downstream — <c>MeasureLine</c>,
     ///     <c>PlaceLine</c>, the fragment scratch — already worked on a range and did not move.
     /// </remarks>
-    int BuildInlineItems(int index, int childStart, int childEnd, bool nested) {
+    int BuildInlineItems(int index, int childStart, int childEnd) {
         var start = inlineItemTop;
         var childIds = ChildIds(index);
 
@@ -178,11 +201,13 @@ public sealed partial class LayoutTree {
                 continue;
             }
 
-            // One level only: a span inside a span is an ordinary atomic item, which is what it was
-            // before any of this and is still a correct box — just one that does not split.
-            if (!nested && IsNonAtomicInline(child)) {
+            // ⚠ Any depth. A span inside a span used to stop here and be an atomic item — a correct
+            // box that could not split — and what kept it there was the shared fragment scratch,
+            // not the arena: two boxes open at one line's end both want a continuation fragment and
+            // only one of them could own the contiguous slice. `fragmentScratchNext` retires that.
+            if (IsNonAtomicInline(child)) {
                 AppendInlineItem(new InlineItem(child, InlineItemKind.Open));
-                BuildInlineItems(child, nested: true);
+                BuildInlineItems(child);
                 AppendInlineItem(new InlineItem(child, InlineItemKind.Close));
 
                 continue;
@@ -202,12 +227,17 @@ public sealed partial class LayoutTree {
         inlineItems[inlineItemTop++] = item;
     }
 
-    void AppendFragmentScratch(in LayoutFragment fragment) {
+    /// <summary>Records one fragment and returns its slot, so its owner can chain it.</summary>
+    int AppendFragmentScratch(in LayoutFragment fragment) {
         if (fragmentScratchTop == fragmentScratch.Length) {
             Array.Resize(ref fragmentScratch, fragmentScratch.Length * 2);
+            Array.Resize(ref fragmentScratchNext, fragmentScratch.Length);
         }
 
-        fragmentScratch[fragmentScratchTop++] = fragment;
+        fragmentScratch[fragmentScratchTop] = fragment;
+        fragmentScratchNext[fragmentScratchTop] = -1;
+
+        return fragmentScratchTop++;
     }
 
     /// <summary>How much the inline-start edge of a non-atomic inline box advances the line.</summary>
@@ -279,12 +309,27 @@ public sealed partial class LayoutTree {
     ///         at zero and wrong everywhere else, which is the failure mode that survives a demo.
     ///     </para>
     /// </remarks>
-    void CommitInlineBoxFragments(int index, int scratchBase, Direction direction, float innerWidth) {
-        var count = fragmentScratchTop - scratchBase;
-        if (count <= 0) {
+    void CommitInlineBoxFragments(int index, int first, Direction direction, float innerWidth) {
+        var count = 0;
+
+        for (var at = first; at >= 0; at = fragmentScratchNext[at]) {
+            count++;
+        }
+
+        if (count == 0) {
             WriteFragments(index, default);
 
             return;
+        }
+
+        if (fragmentGather.Length < count) {
+            Array.Resize(ref fragmentGather, Math.Max(count, fragmentGather.Length * 2));
+        }
+
+        var written = 0;
+
+        for (var at = first; at >= 0; at = fragmentScratchNext[at]) {
+            fragmentGather[written++] = fragmentScratch[at];
         }
 
         var left = float.PositiveInfinity;
@@ -292,17 +337,17 @@ public sealed partial class LayoutTree {
         var right = float.NegativeInfinity;
         var bottom = float.NegativeInfinity;
 
-        for (var i = scratchBase; i < fragmentScratchTop; i++) {
-            ref var box = ref fragmentScratch[i];
+        for (var i = 0; i < count; i++) {
+            ref var box = ref fragmentGather[i];
             left = MathF.Min(left, box.Left);
             top = MathF.Min(top, box.Top);
             right = MathF.Max(right, box.Left + box.Width);
             bottom = MathF.Max(bottom, box.Top + box.Height);
         }
 
-        for (var i = scratchBase; i < fragmentScratchTop; i++) {
-            fragmentScratch[i].Left -= left;
-            fragmentScratch[i].Top -= top;
+        for (var i = 0; i < count; i++) {
+            fragmentGather[i].Left -= left;
+            fragmentGather[i].Top -= top;
         }
 
         foreach (var child in ChildIds(index)) {
@@ -345,7 +390,12 @@ public sealed partial class LayoutTree {
         flags[index] |= LayoutNodeState.HasNewLayout;
         flags[index] &= ~LayoutNodeState.Dirty;
 
-        WriteFragments(index, fragmentScratch.AsSpan(scratchBase, count));
-        fragmentScratchTop = scratchBase;
+        // ⚠ No rewind of `fragmentScratchTop` here, and its absence is what makes nesting work. An
+        // inner box closes while its outer is still open and still holding fragments further up the
+        // array; rewinding to the inner's first slot would drop them. The whole line walk's
+        // allocation is released at once by `WalkInlineLines`' `finally`, which is where the
+        // watermark belonged all along — the per-box rewind was an optimisation that only happened
+        // to be sound while a box could not contain one.
+        WriteFragments(index, fragmentGather.AsSpan(0, count));
     }
 }

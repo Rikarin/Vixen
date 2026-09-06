@@ -156,6 +156,13 @@ public static class LineWrapper {
     /// <param name="hyphens">Whether a soft hyphen may end a line. CSS's <c>hyphens</c>.</param>
     /// <param name="style">Which of the legal breaks to prefer. CSS's <c>text-wrap-style</c>.</param>
     /// <param name="strictness">How strict the typography is. CSS's <c>line-break</c>.</param>
+    /// <param name="contentLanguage">
+    ///     The language the content is written in, as a BCP-47 tag, or <see langword="null" /> for
+    ///     undetermined. Passed through to <see cref="LineBreaker" /> for
+    ///     <paramref name="strictness" />'s reason and read for a different one: it selects between
+    ///     ICU's six rule files rather than among four, and a Japanese column breaks where an
+    ///     English one may not.
+    /// </param>
     public static void Wrap(
         ShapedText shaped,
         float maxAdvance,
@@ -166,7 +173,8 @@ public static class LineWrapper {
         float tabStop = 0f,
         HyphenMode hyphens = HyphenMode.Manual,
         TextWrapStyle style = TextWrapStyle.Auto,
-        LineBreakStrictness strictness = LineBreakStrictness.Auto
+        LineBreakStrictness strictness = LineBreakStrictness.Auto,
+        string? contentLanguage = null
     ) {
         ArgumentNullException.ThrowIfNull(shaped);
 
@@ -182,7 +190,8 @@ public static class LineWrapper {
             hyphens,
             hyphen: 0f,
             style,
-            strictness
+            strictness,
+            contentLanguage
         );
     }
 
@@ -279,6 +288,20 @@ public static class LineWrapper {
     ///         paragraph and stays in this file.
     ///     </para>
     /// </param>
+    /// <param name="contentLanguage">
+    ///     <para>
+    ///         The language the content is written in, as a BCP-47 tag —
+    ///         <c>UiElement.ResolvedLanguage</c> — or <see langword="null" /> for undetermined.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The second tailoring axis, and it is a fact about the <i>document</i> rather than
+    ///         a preference about the typography.</b> ICU ships six line-breaking rule files, not
+    ///         four: <c>ja</c> and <c>zh</c> select a <c>_cj</c> sibling that breaks before U+301C,
+    ///         between an ideograph and a hyphen, before the centred punctuation and around the wide
+    ///         currency signs. Passed through to <see cref="LineBreaker" /> for
+    ///         <paramref name="strictness" />'s reason: it changes which opportunities exist.
+    ///     </para>
+    /// </param>
     public static void Wrap(
         string text,
         ReadOnlySpan<float> advances,
@@ -291,7 +314,8 @@ public static class LineWrapper {
         HyphenMode hyphens = HyphenMode.Manual,
         float hyphen = 0f,
         TextWrapStyle style = TextWrapStyle.Auto,
-        LineBreakStrictness strictness = LineBreakStrictness.Auto
+        LineBreakStrictness strictness = LineBreakStrictness.Auto,
+        string? contentLanguage = null
     ) {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(lines);
@@ -310,7 +334,7 @@ public static class LineWrapper {
         }
 
         var opportunities = new List<int>();
-        LineBreaker.Collect(text, opportunities, wordBreak, strictness);
+        LineBreaker.Collect(text, opportunities, wordBreak, strictness, contentLanguage);
 
         // ⚠ <b>`hyphens: none` is a filter over the opportunities and not a mode inside UAX#14</b>,
         // which is the same shape `keep-all` takes and for a different reason. `keep-all` changes
@@ -350,7 +374,7 @@ public static class LineWrapper {
 
     /// <summary>Greedy first-fit: every line takes as much as it can hold.</summary>
     /// <remarks>
-    ///     The body this method holds was <see cref="Wrap(string,System.ReadOnlySpan{float},float,System.Collections.Generic.List{WrappedLine},TextWrapMode,WordBreakMode,float,float,HyphenMode,float,TextWrapStyle,LineBreakStrictness)" />'s
+    ///     The body this method holds was <see cref="Wrap(string,System.ReadOnlySpan{float},float,System.Collections.Generic.List{WrappedLine},TextWrapMode,WordBreakMode,float,float,HyphenMode,float,TextWrapStyle,LineBreakStrictness,string)" />'s
     ///     own for the whole of its life, and it moved for one reason: <see cref="TextWrapStyle.Balance" />
     ///     has to run it several times at several widths over the <i>same</i> opportunities, and
     ///     collecting those again per attempt would make a bisection quadratic in the paragraph.

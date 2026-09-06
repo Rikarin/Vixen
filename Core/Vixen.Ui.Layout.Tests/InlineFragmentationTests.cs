@@ -402,21 +402,31 @@ public class InlineFragmentationTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Scope, pinned so that it fails the day it is lifted.</b> A non-atomic inline box
-    ///     inside another one is laid out atomically — one level of flattening, not a recursion.
+    ///     ⚠ <b>A span inside a span fragments too, and this test is the inverted form of the one
+    ///     that used to pin the opposite.</b>
     /// </summary>
     /// <remarks>
-    ///     This is a limit of the producer and not of the representation: the arena holds any number
-    ///     of fragments for any node, and what a nested span needs is the rebasing of a union inside a
-    ///     union. Written as an assertion rather than a comment so that the entry in
-    ///     <c>InlineKnownGaps.txt</c> has something holding it honest — when nesting lands, this test
-    ///     goes red and gets inverted, exactly as
-    ///     <c>Mixed_content_stacks_because_there_are_no_anonymous_boxes</c> did when anonymous boxes
-    ///     landed and became
-    ///     <c>InlineFormattingTests.Mixed_content_wraps_each_inline_run_in_an_anonymous_block_box</c>.
+    ///     <para>
+    ///         <b>The premise moved rather than the assertion being weakened, and it is worth saying
+    ///         which premise.</b> This was <c>A_span_inside_a_span_is_still_atomic</c>, whose own
+    ///         remark said it would go red and be inverted the day nesting landed — the same
+    ///         arrangement <c>Mixed_content_stacks_because_there_are_no_anonymous_boxes</c> had before
+    ///         anonymous boxes. What it blamed was wrong: it said the missing piece was "the rebasing
+    ///         of a union inside a union", and that was already free, because an inner box commits
+    ///         first and the outer's commit then rebases it like any other child. What actually held
+    ///         was the fragment scratch — one box's fragments were a contiguous slice, and two boxes
+    ///         open at one line's end both want a continuation fragment.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The geometry is closed-form and every number is forced: three 40-wide items in a
+    ///         100-wide root put two on the first line and one on the second, so both spans are cut in
+    ///         exactly the same place and both come out as an 80 and a 40. What distinguishes them is
+    ///         <see cref="A_nested_span_carries_its_own_edges_and_the_outer_carries_the_outer_ones" />
+    ///         below, which gives each one padding.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void A_span_inside_a_span_is_still_atomic() {
+    public void A_span_inside_a_span_fragments_with_it() {
         using var tree = new LayoutTree();
         var root = PaddedRoot(tree, width: 100f, padding: 0f);
         var outer = Span(tree, root);
@@ -428,10 +438,133 @@ public class InlineFragmentationTests {
 
         tree.CalculateLayout(root, 100f, float.NaN, Direction.Ltr);
 
-        // The inner span ran its own inline formatting context and came back as one box, so the outer
-        // one has nothing to split around and is one box too.
-        Assert.Equal(1, tree.GetFragmentCount(inner));
-        Assert.Equal(1, tree.GetFragmentCount(outer));
+        Assert.Equal(2, tree.GetFragmentCount(inner));
+        Assert.Equal(2, tree.GetFragmentCount(outer));
+
+        // Both are the union of an 80 and a 40 stacked, so both unions are 80 by 40 at the origin.
+        Assert.Equal(0f, tree.GetLeft(outer), Tolerance);
+        Assert.Equal(0f, tree.GetTop(outer), Tolerance);
+        Assert.Equal(80f, tree.GetWidth(outer), Tolerance);
+        Assert.Equal(40f, tree.GetHeight(outer), Tolerance);
+
+        // ⚠ And the inner span's own position is measured from the outer's union rather than from the
+        // container's content edge, which is the rebasing the old remark said was missing. The two
+        // unions coincide here, so the answer is zero — and it is zero for a reason rather than
+        // because nothing was subtracted, which the padded case below is what proves.
+        Assert.Equal(0f, tree.GetLeft(inner), Tolerance);
+        Assert.Equal(0f, tree.GetTop(inner), Tolerance);
+
+        foreach (var span in new[] { outer, inner }) {
+            var (firstLeft, firstTop, firstWidth, _, firstEnds) = tree.GetFragment(span, 0);
+            Assert.Equal(0f, firstLeft, Tolerance);
+            Assert.Equal(0f, firstTop, Tolerance);
+            Assert.Equal(80f, firstWidth, Tolerance);
+            Assert.Equal(LayoutFragmentEnds.Start, firstEnds);
+
+            var (secondLeft, secondTop, secondWidth, _, secondEnds) = tree.GetFragment(span, 1);
+            Assert.Equal(0f, secondLeft, Tolerance);
+            Assert.Equal(20f, secondTop, Tolerance);
+            Assert.Equal(40f, secondWidth, Tolerance);
+            Assert.Equal(LayoutFragmentEnds.End, secondEnds);
+        }
+    }
+
+    /// <summary>
+    ///     Each span in a nest draws its own two edges, at the two ends of its own content, and the
+    ///     continuation line carries neither.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The test that would fail if the reopening loop did nesting arithmetic.</b> On the
+    ///         second line the outer span contributes no start edge — CSS 2.1 §9.2.1.1 draws border
+    ///         and padding at the two ends of the whole box and not at the ends of each piece — so the
+    ///         inner span reopens at the line's content start and <i>not</i> ten points inside it. An
+    ///         implementation that reopened each box inside the one around it would put the inner
+    ///         fragment at 10 on the second line and pass every count-only assertion above.
+    ///     </para>
+    ///     <para>
+    ///         The numbers: a 200-wide root, the outer padded 10 and the inner padded 6, three 70-wide
+    ///         items. The first line spends 10 + 6 + 70 + 70 = 156 and cannot take a third 70, so the
+    ///         outer's first fragment is 156 wide and the inner's is 146, starting at the outer's own
+    ///         left padding. The second line opens at zero and the last item closes both boxes:
+    ///         70 + 6 = 76 for the inner and 70 + 6 + 10 = 86 for the outer.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_nested_span_carries_its_own_edges_and_the_outer_carries_the_outer_ones() {
+        using var tree = new LayoutTree();
+        var root = PaddedRoot(tree, width: 200f, padding: 0f);
+        var outer = Span(tree, root);
+        tree.SetPadding(outer, Edge.Left, StyleLength.Points(10f));
+        tree.SetPadding(outer, Edge.Right, StyleLength.Points(10f));
+
+        var inner = Span(tree, outer);
+        tree.SetPadding(inner, Edge.Left, StyleLength.Points(6f));
+        tree.SetPadding(inner, Edge.Right, StyleLength.Points(6f));
+
+        Item(tree, inner, 70f, 20f);
+        Item(tree, inner, 70f, 20f);
+        Item(tree, inner, 70f, 20f);
+
+        tree.CalculateLayout(root, 200f, float.NaN, Direction.Ltr);
+
+        Assert.Equal(2, tree.GetFragmentCount(outer));
+        Assert.Equal(2, tree.GetFragmentCount(inner));
+
+        var (outerFirstLeft, _, outerFirstWidth, _, outerFirstEnds) = tree.GetFragment(outer, 0);
+        Assert.Equal(0f, outerFirstLeft, Tolerance);
+        Assert.Equal(156f, outerFirstWidth, Tolerance);
+        Assert.Equal(LayoutFragmentEnds.Start, outerFirstEnds);
+
+        var (outerSecondLeft, _, outerSecondWidth, _, outerSecondEnds) = tree.GetFragment(outer, 1);
+        Assert.Equal(0f, outerSecondLeft, Tolerance);
+        Assert.Equal(86f, outerSecondWidth, Tolerance);
+        Assert.Equal(LayoutFragmentEnds.End, outerSecondEnds);
+
+        // Measured from the outer's union, whose left edge is the container's content edge, so the
+        // inner's first fragment starts at the outer's own left padding and its second at zero.
+        var (innerFirstLeft, _, innerFirstWidth, _, innerFirstEnds) = tree.GetFragment(inner, 0);
+        Assert.Equal(10f, innerFirstLeft, Tolerance);
+        Assert.Equal(146f, innerFirstWidth, Tolerance);
+        Assert.Equal(LayoutFragmentEnds.Start, innerFirstEnds);
+
+        var (innerSecondLeft, _, innerSecondWidth, _, innerSecondEnds) = tree.GetFragment(inner, 1);
+        Assert.Equal(0f, innerSecondLeft, Tolerance);
+        Assert.Equal(76f, innerSecondWidth, Tolerance);
+        Assert.Equal(LayoutFragmentEnds.End, innerSecondEnds);
+    }
+
+    /// <summary>Three levels, because two could be a special case of one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The depth guard on the flattening, and the reason it is a separate test.</b> The
+    ///     change that lifted the one-level rule was one deleted condition, and a producer that
+    ///     flattened <i>two</i> levels rather than any number would satisfy both tests above. Three
+    ///     spans deep also puts three boxes on the open stack when the line ends, which is the first
+    ///     arrangement in which the continuation loop's order could matter and the chain per owner is
+    ///     what makes it not.
+    /// </remarks>
+    [Fact]
+    public void Flattening_recurses_rather_than_going_one_level_deeper() {
+        using var tree = new LayoutTree();
+        var root = PaddedRoot(tree, width: 100f, padding: 0f);
+        var first = Span(tree, root);
+        var second = Span(tree, first);
+        var third = Span(tree, second);
+
+        Item(tree, third, 40f, 20f);
+        Item(tree, third, 40f, 20f);
+        Item(tree, third, 40f, 20f);
+
+        tree.CalculateLayout(root, 100f, float.NaN, Direction.Ltr);
+
+        Assert.Equal(2, tree.GetFragmentCount(first));
+        Assert.Equal(2, tree.GetFragmentCount(second));
+        Assert.Equal(2, tree.GetFragmentCount(third));
+
+        // Two lines of one line-height each, at every depth — a nest that had gone atomic anywhere
+        // would report one 120-wide box there and a 120-wide line above it.
+        Assert.Equal(40f, tree.GetHeight(first), Tolerance);
+        Assert.Equal(80f, tree.GetWidth(first), Tolerance);
     }
 
     /// <summary>

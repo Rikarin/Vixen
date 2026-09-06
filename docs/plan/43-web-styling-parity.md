@@ -2806,6 +2806,17 @@ and openly licensed. ⚠ Its inputs are regenerated from the seed by a **ChaCha8
 the CSVs verbatim means reimplementing that generator bit-exactly; re-recording with Vixen's own
 generator through their `index.html` harness is the cheaper path.
 
+⚠ **Re-verified against the files, and it is a whole-stack oracle rather than a line-breaking one.**
+`Roboto.csv` at Parley's `main` is 1 024 rows under `# font_family: Roboto` / `# chrome_version:
+149.0.0.0`, with exactly the three columns above — and **the text is not in it**. So consuming a row
+means agreeing with Chrome about three separate things: the ChaCha8 stream that turns a seed into a
+string, the font, and the shaping that turns that string into an advance in sub-pixels. Neither
+Roboto nor Arimo is committed to this repository (`git ls-files` over `*.ttf`/`*.otf` finds twenty
+harness faces and neither of these), so **taking this source is a font decision and a shaping-parity
+claim before it is a break-position oracle** — and a disagreement in any of the three reddens all
+1 024 rows for a reason that is nothing to do with UAX #14. That is the cost to weigh against
+re-recording, not the transcription.
+
 ⚠ **And the single most valuable file is prose.** `parley_engine/src/break_overrides.rs` documents,
 with line-level citations into Chromium, exactly where browsers knowingly deviate from UAX #14 —
 Chrome always allowing a break after a space run in violation of LB13, the hyphen-before-digit rule,

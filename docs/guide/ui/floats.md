@@ -152,12 +152,20 @@ shortened to the band the floats crossing it leave — landed, along with the sh
 a float declared inside a run; what is left is the one piece that is structural rather than
 unwritten. A text leaf reaches this store as a measure function and is one atomic item, so a
 paragraph beside a float re-flows as whole leaves and a leaf's own first line is not shortened to the
-room left beside the float. Breaking inside one would mean a second text wrapper below `Vixen.Ui`
-disagreeing with `TextLayout` about UAX #14. ⚠ This sentence used to end "which is the same wall
-§10.8's strut is behind", and that comparison is now wrong twice over: the strut's wall was font
-*metrics*, which crossed the boundary as five numbers and is down, and this one is text *breaking*,
-which is a protocol rather than a value — a measure function answers one size for one width, and a
-staircase is a different width per line. They were never the same wall. ⚠ None
+room left beside the float.
+
+⚠ **What this paragraph said the blocker was has now been wrong twice, and the second correction is
+the useful one.** It first read "the same wall §10.8's strut is behind"; the strut's wall was font
+*metrics*, which crossed as five numbers, so that went. It then read "breaking inside one would mean
+a second text wrapper below `Vixen.Ui` disagreeing with `TextLayout` about UAX #14 — a protocol
+rather than a value". That is true of a wrapper nobody proposed: both routes to a staircase call
+`TextLayout` itself, once per line or once with a band list. The *answer* never had to change either,
+because §9.5 shortens **line boxes** and leaves the block box full width, so a text leaf's measured
+size is one rectangle whatever happens inside it. What is left is a band on the *question* — and
+`MeasureRequest` already carries the tree, the measure cache is already bypassed in every
+float-bearing tree, and the float origin is already the leaf's own top edge when it is measured. So
+it is the strut's shape after all: a band query, a per-line available width in `LineWrapper`, and a
+per-line inline offset on `TextLine`. ⚠ None
 of the 92 Chrome-derived fixtures has any text in it, which is how the whole clause survived being
 measured for as long as it did; the expectations for the part that landed had to be read out of
 Chrome case by case instead.
