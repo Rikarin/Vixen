@@ -111,14 +111,18 @@ for (const page of guideIndex) {
 const nodesById = new Map(graph.Nodes.map(node => [node.Id, node]));
 const chunkCache = new Map();
 
-/** The page tier, one namespace chunk at a time — the same unit the site loads. */
+/** The page tier, one chunk at a time — the same unit the site loads. */
 function chunkFor(node) {
   const directory = join(docs, 'pages');
+
+  // ⚠ From the slug, not from `Namespace`: the writer names a chunk after the segment the site
+  // routes on, and for a shader (`Raven.Library.Pipeline` → `shaders/…`) or a log event those two
+  // are different strings. A split group takes a `.1`-style suffix, hence the prefix arm.
+  const chunk = node.Slug.slice(0, node.Slug.lastIndexOf('/')).toLowerCase();
   const candidates = readdirSync(directory).filter(file => {
     const base = file.slice(0, -'.json'.length).toLowerCase();
-    const namespace = node.Namespace.toLowerCase();
 
-    return base === namespace || base.startsWith(`${namespace}.`) || base.startsWith(`${namespace}-`);
+    return base === chunk || base.startsWith(`${chunk}.`);
   });
 
   for (const file of candidates) {

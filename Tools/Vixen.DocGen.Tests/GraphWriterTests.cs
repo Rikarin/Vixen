@@ -127,6 +127,55 @@ public class GraphWriterTests : IDisposable {
         Assert.Contains("slug collisions", failure.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     ⚠ A chunk is named after the URL segment the site routes on, not after the namespace.
+    /// </summary>
+    /// <remarks>
+    ///     They are the same string for a C# type and a different one for everything else the graph
+    ///     carries: a shader's namespace is <c>Raven.Library.Pipeline</c> and its page is
+    ///     <c>/docs/api/shaders/pipeline.forwardplus</c>. The site's resolver has only the URL, so a
+    ///     chunk named <c>raven.library.pipeline</c> is one it never asks for — which is what left
+    ///     all 30 shader pages and all 64 log-event pages saying "No symbol at this address".
+    /// </remarks>
+    [Fact]
+    public void AChunkIsNamedAfterTheSlugRatherThanTheNamespace() {
+        var shader = Node("ForwardPlus", "Raven.Library.Pipeline") with {
+            Kind = DocKind.Shader,
+            Slug = "shaders/pipeline.forwardplus"
+        };
+
+        new GraphWriter().Write(Graph(shader), directory);
+
+        Assert.True(File.Exists(Path.Combine(directory, "pages", "shaders.json")));
+        Assert.False(File.Exists(Path.Combine(directory, "pages", "raven.library.pipeline.json")));
+    }
+
+    /// <summary>
+    ///     And the segment is the whole grouping key, so kinds that share one share a chunk however
+    ///     many namespaces they came from.
+    /// </summary>
+    [Fact]
+    public void NodesSharingASlugSegmentShareAChunk() {
+        var first = Node("ForwardPlus", "Raven.Library.Pipeline") with {
+            Kind = DocKind.Shader,
+            Slug = "shaders/pipeline.forwardplus"
+        };
+
+        var second = Node("IrradianceFill", "Raven.Library.IrradianceFields") with {
+            Kind = DocKind.Shader,
+            Slug = "shaders/irradiancefields.irradiancefill"
+        };
+
+        var written = new GraphWriter().Write(Graph(first, second), directory);
+
+        Assert.Equal(1, written.Chunks);
+
+        var page = JsonSerializer.Deserialize<DocNode[]>(
+            File.ReadAllText(Path.Combine(directory, "pages", "shaders.json")), GraphWriter.Options);
+
+        Assert.Equal(2, page!.Length);
+    }
+
     /// <summary>A stale page from a previous run is a page the site still serves.</summary>
     [Fact]
     public void PagesFromAPreviousRunAreRemoved() {

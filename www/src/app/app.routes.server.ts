@@ -18,7 +18,16 @@ export const serverRoutes: ServerRoute[] = [
   {
     path: 'docs/api/:namespace',
     renderMode: RenderMode.Prerender,
-    getPrerenderParams: async () => GRAPH.namespaces.map(entry => ({ namespace: entry.slug }))
+    // ⚠ The union, because the two disagree for anything that is not a C# type. A shader's namespace
+    // is `Raven.Library.Pipeline` and its page is `/docs/api/shaders/…`, so the segment its own
+    // breadcrumb links to is one `GRAPH.namespaces` has never heard of — and nginx serves an
+    // unprerendered path as a hard 404 rather than falling back to the shell.
+    getPrerenderParams: async () => [
+      ...new Set([
+        ...GRAPH.namespaces.map(entry => entry.slug),
+        ...NODES.map(node => node.slug.slice(0, node.slug.lastIndexOf('/')))
+      ])
+    ].map(namespace => ({ namespace }))
   },
   {
     path: 'docs/api/:namespace/:type',

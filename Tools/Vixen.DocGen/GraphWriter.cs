@@ -10,7 +10,8 @@ namespace Vixen.DocGen;
 /// <remarks>
 ///     Two tiers, because they are loaded at different times. <c>graph.json</c> is the index — every
 ///     type, enough of each to render a nav tree, a breadcrumb and a search result — and the site
-///     holds all of it. <c>pages/&lt;namespace&gt;.json</c> carries the detail, and a route loads one.
+///     holds all of it. <c>pages/&lt;segment&gt;.json</c> carries the detail, and a route loads one —
+///     the segment being the one the site routed on, which is <see cref="ChunkOf" />'s whole point.
 /// </remarks>
 sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
     /// <summary>
@@ -71,7 +72,7 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
     /// <param name="IndexBytes">Size of the index tier.</param>
     /// <param name="PageBytes">Total size of the page tier.</param>
     /// <param name="Chunks">How many page files were written.</param>
-    /// <param name="SplitChunks">How many namespaces had to be split by the budget.</param>
+    /// <param name="SplitChunks">How many groups had to be split by the budget.</param>
     public sealed record Written(long IndexBytes, long PageBytes, int Chunks, int SplitChunks);
 
     public Written Write(DocGraph graph, string outputDirectory) {
@@ -129,7 +130,7 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
         long pageBytes = 0;
 
         foreach (var group in graph.Nodes
-            .GroupBy(node => node.Namespace, StringComparer.Ordinal)
+            .GroupBy(ChunkOf, StringComparer.Ordinal)
             .OrderBy(group => group.Key, StringComparer.Ordinal)) {
             // § 8.1, forced by the spike: per namespace, because per type the median chunk is 428
             // bytes and the chunking would cost more than the content — but the largest namespace is
@@ -143,7 +144,7 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
 
             for (var index = 0; index < parts.Count; index++) {
                 var suffix = index == 0 ? string.Empty : $".{index}";
-                var path = Path.Combine(pagesDirectory, $"{Slugs.ForNamespace(group.Key)}{suffix}.json");
+                var path = Path.Combine(pagesDirectory, $"{group.Key}{suffix}.json");
 
                 File.WriteAllText(path, JsonSerializer.Serialize(parts[index], Options));
                 pageBytes += new FileInfo(path).Length;
@@ -212,10 +213,25 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
         return bytes + new FileInfo(indexPath).Length;
     }
 
-    /// <summary>Splits a namespace's nodes into parts that each fit the budget.</summary>
+    /// <summary>The chunk a node belongs to — the first segment of its own slug.</summary>
+    /// <remarks>
+    ///     ⚠ <b>From the slug and not from the namespace</b>, which is the same string for a C# type
+    ///     and a different one for everything else the graph carries. A shader is
+    ///     <c>Raven.Library.Pipeline</c> and lives at <c>/docs/api/shaders/pipeline.forwardplus</c>; a
+    ///     log event is <c>LogEvents</c> and lives under <c>log-events/</c>. The site's resolver has
+    ///     only the URL, so it asks for the chunk named by the segment it routed on — and named by
+    ///     the namespace those 94 pages resolved to nothing.
+    /// </remarks>
+    static string ChunkOf(DocNode node) {
+        var separator = node.Slug.LastIndexOf('/');
+
+        return separator < 0 ? "global" : node.Slug[..separator];
+    }
+
+    /// <summary>Splits a group's nodes into parts that each fit the budget.</summary>
     /// <remarks>
     ///     One type never splits, however large: a page is the unit a route loads, and half a type is
-    ///     not a page. A namespace whose single type exceeds the budget is a fact worth seeing in the
+    ///     not a page. A group whose single type exceeds the budget is a fact worth seeing in the
     ///     summary rather than an error.
     /// </remarks>
     List<List<DocNode>> Split(List<DocNode> nodes, out bool wasSplit) {

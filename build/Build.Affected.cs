@@ -132,7 +132,10 @@ partial class Build {
             || relative.StartsWith(".nuke/", StringComparison.Ordinal)
             || relative.StartsWith(".config/", StringComparison.Ordinal)
             || relative.StartsWith("references/", StringComparison.Ordinal)
-            || relative.StartsWith("artifacts/", StringComparison.Ordinal);
+            || relative.StartsWith("artifacts/", StringComparison.Ordinal)
+            // The site is TypeScript and its own build; no .csproj owns a line of it, so without
+            // this any change under www/ makes `--since` refuse rather than narrow.
+            || relative.StartsWith("www/", StringComparison.Ordinal);
     }
 
     /// <summary>
