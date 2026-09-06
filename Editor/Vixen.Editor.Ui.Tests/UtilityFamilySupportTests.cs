@@ -717,7 +717,7 @@ public class UtilityFamilySupportTests {
         {
             "shadow-elevation",
             "box-shadow",
-            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 0px Canvas, 0 0 0 calc(0px + 0px) currentcolor, 0px 10px 26px rgba(12, 14, 18, 0.22)"
+            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 0px -vx-system-Canvas, 0 0 0 calc(0px + 0px) currentcolor, 0px 10px 26px rgba(12, 14, 18, 0.22)"
         },
 
         // ⚠ <b>`fill-*` and `stroke-*` are the first rows here to move because a <i>consumer</i> was
@@ -1081,12 +1081,12 @@ public class UtilityFamilySupportTests {
         {
             "ring-2",
             "box-shadow",
-            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 0px Canvas, 0 0 0 calc(0px + 2px) currentcolor, 0 0 transparent"
+            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 0px -vx-system-Canvas, 0 0 0 calc(0px + 2px) currentcolor, 0 0 transparent"
         },
         {
             "ring-accent",
             "box-shadow",
-            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 0px Canvas, 0 0 0 calc(0px + 0px) #2f6ecd, 0 0 transparent"
+            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 0px -vx-system-Canvas, 0 0 0 calc(0px + 0px) #2f6ecd, 0 0 transparent"
         },
 
         // ⚠ <b>The two inner families fill two more slots of the one assembled list, which is what
@@ -1100,17 +1100,17 @@ public class UtilityFamilySupportTests {
         {
             "inset-shadow-sm",
             "box-shadow",
-            "inset 0 2px 4px rgb(0 0 0 / 0.05), inset 0 0 0 0px currentcolor, 0 0 0 0px Canvas, 0 0 0 calc(0px + 0px) currentcolor, 0 0 transparent"
+            "inset 0 2px 4px rgb(0 0 0 / 0.05), inset 0 0 0 0px currentcolor, 0 0 0 0px -vx-system-Canvas, 0 0 0 calc(0px + 0px) currentcolor, 0 0 transparent"
         },
         {
             "inset-ring-2",
             "box-shadow",
-            "0 0 transparent, inset 0 0 0 2px currentcolor, 0 0 0 0px Canvas, 0 0 0 calc(0px + 0px) currentcolor, 0 0 transparent"
+            "0 0 transparent, inset 0 0 0 2px currentcolor, 0 0 0 0px -vx-system-Canvas, 0 0 0 calc(0px + 0px) currentcolor, 0 0 transparent"
         },
         {
             "inset-ring-accent",
             "box-shadow",
-            "0 0 transparent, inset 0 0 0 0px #2f6ecd, 0 0 0 0px Canvas, 0 0 0 calc(0px + 0px) currentcolor, 0 0 transparent"
+            "0 0 transparent, inset 0 0 0 0px #2f6ecd, 0 0 0 0px -vx-system-Canvas, 0 0 0 calc(0px + 0px) currentcolor, 0 0 transparent"
         },
 
         // ⚠ <b>The fifth slot, and the pair of rows says the thing the family is for: the offset's
@@ -1127,7 +1127,7 @@ public class UtilityFamilySupportTests {
         {
             "ring-offset-2",
             "box-shadow",
-            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 2px Canvas, 0 0 0 calc(2px + 0px) currentcolor, 0 0 transparent"
+            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 2px -vx-system-Canvas, 0 0 0 calc(2px + 0px) currentcolor, 0 0 transparent"
         },
         {
             "ring-offset-accent",
@@ -2892,7 +2892,7 @@ public class UtilityFamilySupportTests {
         // point of making both of them assemblers. ⚠ The second item is `shadow-*`'s slot resolving
         // to its initial, and the `Single` below is what says an unwritten slot costs no command.
         Assert.Equal(
-            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 0px Canvas, 0 0 0 calc(0px + 2px) #2f6ecd, 0 0 transparent",
+            "0 0 transparent, inset 0 0 0 0px currentcolor, 0 0 0 0px -vx-system-Canvas, 0 0 0 calc(0px + 2px) #2f6ecd, 0 0 transparent",
             ui.StyleOf(ringed, "box-shadow")
         );
 
