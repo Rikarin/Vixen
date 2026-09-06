@@ -2823,6 +2823,23 @@ claim before it is a break-position oracle** — and a disagreement in any of th
 1 024 rows for a reason that is nothing to do with UAX #14. That is the cost to weigh against
 re-recording, not the transcription.
 
+⚠ **A third re-measurement, and it moves the cost rather than the conclusion: a Chrome reading no
+longer has to come from anybody's recorder.** Chrome 148.0.7778.280 is reachable from an agent
+worktree — serve a fixture directory over `http://localhost` and drive the browser pane at it — and
+this batch took eight readings that way, five of which are now expectations in
+`InlineFragmentationTests`, `InlineFloatInteractionTests`, `FloatBandQueryTests` and
+`TextFloatBandTests`. So "re-record through their `index.html`" is not the cheapest path either: a
+fixture of our own, with our own strings and our own widths, is. What that does **not** buy is the
+half the row above identifies as the real cost. A break-position reading in a proportional font is a
+joint measurement of shaping *and* breaking, so it can only be taken against a face both sides load,
+and the committed faces are twenty shaping-harness and script fonts plus `OpenSans-Regular.ttf` under
+`Editor/Vixen.Editor.App/Fonts` — the only one shipped to set text rather than to exercise a shaper.
+⚠ And it must be recorded as a **ledger** rather than as an equality, for `ChromiumBreakDeltas.txt`'s
+reason: a run that disagrees in one advance disagrees in every line after it, and a red suite that
+says "shaping differs somewhere" is not an oracle for line breaking. What the eight readings taken
+this way did oracle is geometry — where a line box starts and how wide it is — which needs no font at
+all once the fixture sets `font-size: 0; line-height: 0`.
+
 ⚠ **And the single most valuable file is prose.** `parley_engine/src/break_overrides.rs` documents,
 with line-level citations into Chromium, exactly where browsers knowingly deviate from UAX #14 —
 Chrome always allowing a break after a space run in violation of LB13, the hyphen-before-digit rule,
