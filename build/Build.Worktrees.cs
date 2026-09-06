@@ -239,8 +239,14 @@ partial class Build {
     /// <summary>What one walk of a directory learns about it.</summary>
     /// <param name="Size">Its size, already worded for a log line.</param>
     /// <param name="NewestWrite">
-    ///     The newest last-write time under it, or <see langword="null" /> when the walk could not
-    ///     read the directory at all.
+    ///     The newest last-write time under it, or <see langword="null" /> when the walk found no
+    ///     files — or could not finish, which <paramref name="Read" /> is what tells the two apart.
+    /// </param>
+    /// <param name="Read">
+    ///     Whether the walk completed. ⚠ Load-bearing rather than cosmetic: a walk that threw
+    ///     halfway leaves the same <see langword="null" /> a genuinely untouched directory does, and
+    ///     the fourth safety condition would otherwise read that as "idle" and offer the checkout up
+    ///     for removal.
     /// </param>
     /// <remarks>
     ///     ⚠ Two numbers out of one walk deliberately. The size is what a person reads to decide
@@ -248,7 +254,7 @@ partial class Build {
     ///     traversal of ~100 000 files to get it would have made the condition look expensive
     ///     enough to turn off.
     /// </remarks>
-    sealed record Footprint(string Size, DateTime? NewestWrite);
+    sealed record Footprint(string Size, DateTime? NewestWrite, bool Read);
 
     /// <summary>
     ///     Walks <paramref name="directory" /> once for its size and its newest write.
@@ -278,11 +284,11 @@ partial class Build {
                 }
             }
 
-            return new Footprint($"{bytes / 1024.0 / 1024.0 / 1024.0:0.0} GB", newest);
+            return new Footprint($"{bytes / 1024.0 / 1024.0 / 1024.0:0.0} GB", newest, Read: true);
         } catch (IOException) {
-            return new Footprint("size unknown", null);
+            return new Footprint("size unknown", null, Read: false);
         } catch (UnauthorizedAccessException) {
-            return new Footprint("size unknown", null);
+            return new Footprint("size unknown", null, Read: false);
         }
     }
 
@@ -342,6 +348,7 @@ partial class Build {
                     worktree.Head,
                     IsMergedIntoMaster,
                     () => IsClean(entry),
+                    footprint.Read,
                     footprint.NewestWrite,
                     DateTime.UtcNow,
                     IdleMinutes
