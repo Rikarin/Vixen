@@ -149,6 +149,32 @@ public static class Variants {
         // `Expander` and `SelectBase` are the writers, which is the half a table entry cannot be
         // worth anything without.
         ["open"] = ":open"
+
+        // ⚠ <b>`placeholder` and `selection` are NOT here, and the reason is not the one A12's audit
+        // trail records.</b> `Rikarin/Vixen#233` is refused as a whole on the generated box — nothing
+        // materialises `::before`, `::after` or `::marker` — and its last pass offers these two as
+        // the lead that could land without that machinery, because each "names a box or a run that
+        // already exists". Measured at HEAD, they are two different problems and only one of them is
+        // a selector problem at all:
+        //
+        //   `::placeholder` really is an element. `TextField` builds it as `Part("field-placeholder")`
+        //   — a direct child with its own tag, styled by `ControlTheme.vcss` at `field-placeholder`
+        //   and `.empty field-placeholder`. So a variant for it is a selector rewrite and nothing
+        //   more. ⚠ But it cannot be a row in THIS table, and that is the trap: four other variants
+        //   compose over it. `not-`, `has-`, `group-` and `peer-` all read a `States` value and wrap
+        //   or prefix it, so a DESCENDANT-shaped suffix gives `not-placeholder:` the selector
+        //   `:not( field-placeholder)` — an element that is not a placeholder, rather than a field
+        //   with no placeholder — and `group-placeholder:` the prefix `.group field-placeholder `.
+        //   Every one of those is valid CSS meaning something else, which is F6's own failure mode
+        //   one level up. It needs a category of its own, with coverage rows of its own.
+        //
+        //   `::selection` is not a box. `TextField` paints the highlight itself, from a colour it
+        //   reads off its OWN style as the custom property `--selection-color` — see the
+        //   `selectionColor` id it interns and the `ColorOf` beside the fallback. So
+        //   `selection:bg-blue-200` would have to rewrite the utility's PROPERTY rather than its
+        //   selector, and `VariantEffect` is three strings that can only append to a selector,
+        //   prepend to it, or wrap it in an at-rule. No variant can express it, and the missing piece
+        //   is a fourth shape rather than a generated box.
     };
 
     /// <summary>The variants that are a media feature rather than a selector.</summary>
