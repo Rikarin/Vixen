@@ -19,6 +19,11 @@ package Vixen.Editor.TextureGraph.Shaders
 // (`Invert`'s `invertA`, `Curve`'s fourth curve) — neither is an interpretation of coverage, and a
 // kernel that starts doing one belongs in this list.
 //
+// ⚠ **And source-over is not the only thing a layer can want, which `mode` cannot say and `atop`
+// can.** A foreground either *arrives on top of* the backdrop or *reinterprets* it; every one of the
+// sixteen operators is available under either. The second is what a filter layer is, and the over
+// rule cannot approximate it at any opacity because its alpha is monotonic — see `atop`. #845.
+//
 // ⚠ **It used to implement only the opaque-backdrop specialisation of that**, which is exact
 // wherever the backdrop is opaque and silently premultiplying wherever it is not — see the two terms
 // in `Main`. Every chain in a texture graph starts from an opaque source, so the specialisation was
@@ -63,6 +68,27 @@ shader Blend {
 
     /// How much of the result is the foreground's, before the foreground's own alpha.
     var opacity: float = 1f
+
+    /// Non-zero to composite the foreground **atop** the backdrop rather than **over** it.
+    ///
+    /// **The second half of the model, and it is a different question from `mode`.** `mode` says what
+    /// the operator does where the two overlap; this says what the foreground *is*. Over: it arrived
+    /// on top, it brings coverage of its own, and the result covers `αb + (1 − αb)·αs`. Atop: it is a
+    /// **reinterpretation of the backdrop** — an adjustment of what is already there — so it covers
+    /// exactly what the backdrop covered and its own alpha is read as *how much of the backdrop it
+    /// speaks for*, `αs / αb`, rather than as new coverage.
+    ///
+    /// ⚠ **No arrangement of `mode` and `opacity` can express atop, and that is why this exists**
+    /// rather than being a sixteenth operator — [#845](https://github.com/Rikarin/Vixen/issues/845).
+    /// The over rule's alpha is monotonic: `αo ≥ αb` for every input there is, so a filter layer
+    /// inside an isolated group *raised the group's coverage* by compositing the adjusted picture back
+    /// over the picture it adjusted — `K + (1 − K)·K`, three quarters where the group covered a half —
+    /// and under-applied its own adjustment by the same construction. A filter is not a thing arriving
+    /// on top of a group; it is the group, seen differently.
+    ///
+    /// ⚠ **A uniform and not a `[Permutation]`, for `mode`'s reason doubled**: it would multiply the
+    /// variant count of the whole kernel by two for one comparison against zero.
+    var atop: int = 0
 
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
@@ -210,6 +236,27 @@ shader Blend {
         // every mode agreeing about what a transparent foreground texel means.
         val amount = saturate(opacity) * saturate(b.w)
         val backdrop = saturate(a.w)
+
+        if (atop != 0) {
+            // ⚠ **The coverage that leaves is the coverage that arrived**, and nothing else in this
+            // kernel can say that. The foreground's alpha is divided by the backdrop's rather than
+            // accumulated with it, because atop reads it as the *fraction of the backdrop* the
+            // adjustment speaks for: a filter passes its input's alpha straight through, so the
+            // quotient is exactly 1 and the adjustment is applied in full — and a mask on the filter
+            // layer, which multiplies that alpha, comes through as the fraction it is.
+            //
+            // No divide by `alpha` afterwards and no `(1 − backdrop)` term: both belong to the over
+            // rule, where the foreground can reach a texel the backdrop does not cover. Atop cannot,
+            // so where `backdrop` is 0 the guard leaves `within` at 0 and this stores the transparent
+            // texel it was handed.
+            val within = saturate(amount / max(backdrop, 0.000001f))
+            val kept = lerp(a.xyz, blended.xyz, float3(within, within, within))
+
+            target.Store(coord, float4(kept.x, kept.y, kept.z, backdrop))
+
+            return
+        }
+
         val alpha = backdrop + (1f - backdrop) * amount
 
         // ⚠ **The operator only means something where there is a backdrop to apply it to.** Where

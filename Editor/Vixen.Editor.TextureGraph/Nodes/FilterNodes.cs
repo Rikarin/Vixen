@@ -20,6 +20,21 @@ sealed partial class BlendNode : TextureNode {
     [Setting]
     public string Mode = "Copy";
 
+    /// <summary>
+    ///     Whether the foreground arrives on top of the backdrop — <c>Over</c> — or reinterprets it —
+    ///     <c>Atop</c>. One of <c>TextureBlendCoverage</c>'s two names.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A different question from <see cref="Mode" />, and the default is the only answer that
+    ///     was expressible before <a href="https://github.com/Rikarin/Vixen/issues/845">#845</a>.</b>
+    ///     A graph author reaches for <c>Atop</c> when the foreground is an <em>adjustment</em> of the
+    ///     background — the same image, filtered — because <c>Over</c>'s alpha rule can only raise
+    ///     coverage and would have the adjustment cover more than the thing it adjusts. A layer stack
+    ///     sets it on every filter layer's blend.
+    /// </remarks>
+    [Setting]
+    public string Coverage = "Over";
+
     /// <summary>What is underneath.</summary>
     [Input(Name = "Background")]
     public Image Background;
@@ -41,6 +56,7 @@ sealed partial class BlendNode : TextureNode {
         ArgumentNullException.ThrowIfNull(emitter);
 
         var mode = TextureSettings.Enum(emitter, nameof(Mode), TextureBlendMode.Copy);
+        var coverage = TextureSettings.Enum(emitter, nameof(Coverage), TextureBlendCoverage.Over);
         var background = emitter.Read("Background");
         var foreground = emitter.Read("Foreground");
         var target = emitter.Write("Out");
@@ -49,7 +65,9 @@ sealed partial class BlendNode : TextureNode {
             return;
         }
 
-        emitter.Dispatch(TextureBlend.Mix(target, background, foreground, mode, emitter.Number(nameof(Opacity))));
+        emitter.Dispatch(
+            TextureBlend.Mix(target, background, foreground, mode, emitter.Number(nameof(Opacity)), coverage)
+        );
     }
 }
 

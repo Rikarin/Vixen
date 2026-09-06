@@ -72,6 +72,32 @@ internal enum TextureBlendMode {
     SignedAdd = 15
 }
 
+/// <summary>Whether a <c>Blend</c>'s foreground arrives on top of its backdrop or reinterprets it.</summary>
+/// <remarks>
+///     <para>
+///         <b>Orthogonal to <see cref="TextureBlendMode" /> and asking a different question.</b> The
+///         mode says what the operator does where the two overlap; this says what the foreground
+///         <em>is</em>. <see cref="Over" /> brings coverage of its own and the composite covers
+///         <c>αb + (1 − αb)·αs</c>. <see cref="Atop" /> covers exactly what the backdrop covered and
+///         reads the foreground's alpha as the fraction of the backdrop the adjustment speaks for.
+///     </para>
+///     <para>
+///         ⚠ <b>It exists because <see cref="Over" />'s alpha rule is monotonic</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/845">#845</a>. A filter layer's content is
+///         the layers beneath it, adjusted, so compositing it back <em>over</em> them raises the
+///         coverage it was handed: <c>K + (1 − K)·K</c>, three quarters where a group covered a half.
+///         No mode and no opacity can express "the coverage that leaves is the coverage that
+///         arrived", so this is a second uniform rather than a seventeenth operator.
+///     </para>
+/// </remarks>
+internal enum TextureBlendCoverage {
+    /// <summary>Source-over: the foreground arrives on top and brings its own coverage.</summary>
+    Over = 0,
+
+    /// <summary>The foreground is a reinterpretation of the backdrop, and the coverage is unchanged.</summary>
+    Atop = 1
+}
+
 /// <summary>The <c>Blend</c> kernel, as ops a plan can hold.</summary>
 /// <remarks>
 ///     <para>
@@ -92,19 +118,25 @@ internal static class TextureBlend {
     /// <param name="foreground">What is on top.</param>
     /// <param name="mode">Which operator.</param>
     /// <param name="opacity">How much of the result is the foreground's, before its own alpha.</param>
+    /// <param name="coverage">Whether the foreground arrives on top of the backdrop or reinterprets it.</param>
     /// <returns>The op.</returns>
     public static TextureOp Mix(
         int output,
         int background,
         int foreground,
         TextureBlendMode mode = TextureBlendMode.Copy,
-        float opacity = 1f
+        float opacity = 1f,
+        TextureBlendCoverage coverage = TextureBlendCoverage.Over
     ) =>
         new() {
             Kernel = "Blend",
             Output = output,
             Inputs = [background, foreground],
-            Parameters = [new("mode", (float)(int)mode), new("opacity", opacity)]
+            Parameters = [
+                new("mode", (float)(int)mode),
+                new("opacity", opacity),
+                new("atop", (float)(int)coverage)
+            ]
         };
 
     /// <summary>Every op this class can build, for a test that wants to walk them.</summary>

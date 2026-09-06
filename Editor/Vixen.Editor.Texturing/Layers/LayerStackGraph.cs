@@ -44,18 +44,30 @@ readonly record struct LayerStackProblem(NodeSeverity Severity, string Layer, st
 /// </remarks>
 readonly record struct LayerNote(NodeId Node, string Text);
 
-/// <summary>Where one mask entry's pixels come from: a wire, or an anchor still waiting for one.</summary>
-/// <param name="Port">The port carrying the image, or <see langword="null" /> for an anchor.</param>
-/// <param name="Anchor">The <c>LayerAsset.Id</c> an anchor reads, or empty.</param>
+/// <summary>Where one mask entry's pixels come from, and whether a compositor may read it.</summary>
+/// <param name="Port">The port carrying the image.</param>
+/// <param name="Opaque">Whether its alpha is 1 everywhere, so a compositor may read it as a number.</param>
 /// <remarks>
-///     ⚠ <b>An anchor has no port yet <em>on purpose</em>, and this type is what carries that.</b>
-///     Every anchor edge is deferred to the end of the build so that <c>NodeGraphModel.TryConnect</c>
-///     is what refuses a loop — doc 48 § D10's rule that the stack compiles <em>through</em> the graph
-///     model rather than growing a second cycle check. A mask stack multiplies the number of places
-///     an anchor can appear (the base, any entry, either side of any of its blends), so the deferral
-///     became a value rather than one special case in one method.
+///     <para>
+///         ⚠ <b><paramref name="Opaque" /> is what stops a mask entry disappearing into the mask
+///         stack's own blends</b> — <a href="https://github.com/Rikarin/Vixen/issues/874">#874</a>.
+///         A mask is a <em>number</em>, and the stack that composites mask entries composites them
+///         with <c>Colour/Blend</c>, which is a compositor: it reads the alpha it is handed as
+///         coverage, so an entry whose alpha is 0 blends by nothing however bright its red is. A
+///         constant and a folded anchor are opaque by construction; a bitmap's alpha is a PNG's, a
+///         generator's is whatever the compound wrote, and a mesh map's is whatever the <em>baker</em>
+///         wrote — so those three are forced before they meet a blend, and this says which is which.
+///     </para>
+///     <para>
+///         ⚠ <b>An anchor used to arrive here as a slot with no port at all, and no longer
+///         does.</b> The deferral that keeps <c>NodeGraphModel.TryConnect</c> the only thing refusing
+///         a loop — doc 48 § D10 — now lives in <c>LayerStackGraph.Anchored</c>, which builds the
+///         fold an anchor's coverage needs and defers only the edges into it. Every slot therefore
+///         carries a real port, and wiring one is <c>graph.Connect</c> rather than a branch that
+///         might connect nothing.
+///     </para>
 /// </remarks>
-readonly record struct MaskSlot(PortRef? Port, string Anchor);
+readonly record struct MaskSlot(PortRef Port, bool Opaque);
 
 /// <summary>The graph a texture set's stack is, and what building it had to say.</summary>
 /// <param name="Graph">The nodes and wires.</param>
@@ -323,6 +335,18 @@ static class LayerStackGraph {
 
             blend.SetText("Mode", layer.Blend.ToString());
             blend.SetValue("Opacity", Opacity(layer, channel));
+
+            // ⚠ **A filter layer's content *is* the backdrop, so it composites atop it and never over
+            // it** — [#845](https://github.com/Rikarin/Vixen/issues/845). `Adjustment` wires the
+            // cursor into the filter node and hands the node back, so the foreground here carries the
+            // cursor's own coverage; blending it over the cursor accumulated that coverage with
+            // itself. Over an opaque canvas the two rules agree exactly, which is why this was
+            // invisible until a group isolated a chain: at K = ½ a filter left the group ¾ covered and
+            // applied a third less adjustment than it was asked for. Every other kind of layer *does*
+            // arrive on top and keeps `Over`.
+            if (layer.Kind == LayerKind.Filter) {
+                blend.SetText("Coverage", "Atop");
+            }
 
             graph.Connect(cursor, new(blend.Id, "Background"));
             graph.Connect(foreground, new(blend.Id, "Foreground"));
@@ -648,7 +672,7 @@ static class LayerStackGraph {
             opaque.SetText("Blue From", "FirstRed");
             opaque.SetText("Alpha From", "One");
 
-            Into(mask, channel, layer.Id, new(opaque.Id, "First"));
+            graph.Connect(mask.Port, new(opaque.Id, "First"));
 
             var product = Add("Colour/Blend");
 
@@ -675,6 +699,24 @@ static class LayerStackGraph {
         }
 
         /// <summary>The mask's own composited image, or <see langword="null" /> for no mask at all.</summary>
+        /// <remarks>
+        ///     <para>
+        ///         ⚠ <b>The entries are composited by <c>Colour/Blend</c>, so every operand of one of
+        ///         those blends is forced opaque first</b> —
+        ///         <a href="https://github.com/Rikarin/Vixen/issues/874">#874</a>, which is
+        ///         <see cref="Mask" />'s rule (#832) one level down. <c>Blend</c> is a compositor: it
+        ///         reads the alpha it is handed as coverage rather than as a number, so a bitmap
+        ///         entry whose PNG happens to be transparent composited by nothing at all — the
+        ///         *exact* failure <see cref="Mask" />'s own <c>opaque</c> shuffle exists to prevent,
+        ///         arriving one level up where nothing forced it.
+        ///     </para>
+        ///     <para>
+        ///         <b>Forced where it is needed and not everywhere</b>, which is what
+        ///         <c>MaskSlot.Opaque</c> is for: a constant, a mesh map and a folded anchor are
+        ///         opaque by construction, and a one-entry mask reaches no blend here at all — so the
+        ///         plain single-source mask #789 costs out compiles to exactly the nodes it did.
+        ///     </para>
+        /// </remarks>
         MaskSlot? MaskImage(LayerAsset layer, ChannelAsset channel) {
             var mask = layer.Mask;
             List<MaskLayerAsset> entries = [];
@@ -709,7 +751,7 @@ static class LayerStackGraph {
             MaskSlot? cursor = null;
 
             foreach (var entry in entries) {
-                var source = MaskSource(entry, layer.Id);
+                var source = MaskSource(entry, channel, layer.Id);
 
                 if (source is not { } wire) {
                     // Already reported. A refusal stops the compile, so there is no picture to be
@@ -738,10 +780,13 @@ static class LayerStackGraph {
                 blend.SetText("Mode", entry.Blend.ToString());
                 blend.SetValue("Opacity", entry.Opacity);
 
-                Into(beneath, channel, layer.Id, new(blend.Id, "Background"));
-                Into(wire, channel, layer.Id, new(blend.Id, "Foreground"));
+                graph.Connect(Opaque(beneath).Port, new(blend.Id, "Background"));
+                graph.Connect(Opaque(wire).Port, new(blend.Id, "Foreground"));
 
-                cursor = new(new PortRef(blend.Id, "Out"), "");
+                // A composite of two opaque operands is opaque — `Blend`'s alpha rule is
+                // `αb + (1 − αb)·αs`, which is 1 whenever both are — so a three-entry stack forces
+                // the bottom one once and never the running result.
+                cursor = new(new PortRef(blend.Id, "Out"), true);
             }
 
             if (cursor is not { } composited) {
@@ -755,6 +800,94 @@ static class LayerStackGraph {
             }
 
             return composited;
+        }
+
+        /// <summary>The same mask entry with its alpha replaced by 1, or the entry unchanged.</summary>
+        /// <param name="slot">The entry.</param>
+        /// <returns>A slot a compositor may read as a number.</returns>
+        /// <remarks>
+        ///     ⚠ <b>The red is splatted across the colour lanes as well, so that this is the same
+        ///     shuffle <see cref="Mask" /> ends with rather than a second convention.</b> A mask is
+        ///     read for its red everywhere in this file; carrying green and blue through would make a
+        ///     coloured bitmap entry composite differently under <c>Multiply</c> from the way the same
+        ///     bitmap composites as the only entry, and nothing downstream would say so. #874.
+        /// </remarks>
+        MaskSlot Opaque(MaskSlot slot) {
+            if (slot.Opaque) {
+                return slot;
+            }
+
+            var node = Add("Colour/Channel Shuffle");
+
+            node.SetText("Red From", "FirstRed");
+            node.SetText("Green From", "FirstRed");
+            node.SetText("Blue From", "FirstRed");
+            node.SetText("Alpha From", "One");
+
+            graph.Connect(slot.Port, new(node.Id, "First"));
+
+            return new(new PortRef(node.Id, "Out"), true);
+        }
+
+        /// <summary>An anchored layer's result, as the opaque number a mask entry is.</summary>
+        /// <param name="anchor">The <see cref="LayerAsset.Id" /> being anchored.</param>
+        /// <param name="channel">Which channel's chain to read that layer's result from.</param>
+        /// <param name="layerId">The layer the mask belongs to, for a diagnostic.</param>
+        /// <returns>The port carrying <c>red · coverage</c>.</returns>
+        /// <remarks>
+        ///     <para>
+        ///         ⚠ <b>An anchor is the one mask source whose alpha <em>is</em> meaningful, and
+        ///         folding it into the value is what #832 stopped doing by accident</b> —
+        ///         <a href="https://github.com/Rikarin/Vixen/issues/874">#874</a>. An anchor resolves
+        ///         to another layer's <em>evaluated result</em>, and for a layer inside an isolated
+        ///         group that result's alpha is the group's coverage. Read for its red alone, an
+        ///         anchor onto a layer covering a quarter of the texel masks as though it covered all
+        ///         of it — "use that layer as a mask" quietly becoming "use the colour that layer
+        ///         would have had".
+        ///     </para>
+        ///     <para>
+        ///         <b>The product rather than the coverage alone, and it is the answer that changes
+        ///         nothing for every stack that already worked.</b> Anchoring a generator or a fill —
+        ///         opaque, coverage 1 — gives <c>red · 1</c>, which is the red it gave before; the
+        ///         coverage only bites where the anchored layer does not cover, which is where the
+        ///         old kernel's premultiplied result also faded. Reading the alpha alone would make
+        ///         an anchor onto any ordinary layer a constant 1, which is not a mask.
+        ///     </para>
+        ///     <para>
+        ///         <b>Three nodes, for <see cref="Mask" />'s reason: this library has no arithmetic
+        ///         node</b>, so a product is computed in a colour lane by a <c>Multiply</c> between
+        ///         two operands that have each been made opaque first. ⚠ <b>Two deferred edges out of
+        ///         one anchor</b>, because both shuffles read the same result and a shuffle selects
+        ///         rather than multiplies; <see cref="Anchors" /> reports a refused anchor once.
+        ///     </para>
+        /// </remarks>
+        PortRef Anchored(string anchor, ChannelAsset channel, string layerId) {
+            var value = Add("Colour/Channel Shuffle");
+
+            value.SetText("Red From", "FirstRed");
+            value.SetText("Green From", "FirstRed");
+            value.SetText("Blue From", "FirstRed");
+            value.SetText("Alpha From", "One");
+
+            var covered = Add("Colour/Channel Shuffle");
+
+            covered.SetText("Red From", "FirstAlpha");
+            covered.SetText("Green From", "FirstAlpha");
+            covered.SetText("Blue From", "FirstAlpha");
+            covered.SetText("Alpha From", "One");
+
+            anchors.Add((channel.Usage, anchor, layerId, new(value.Id, "First")));
+            anchors.Add((channel.Usage, anchor, layerId, new(covered.Id, "First")));
+
+            var product = Add("Colour/Blend");
+
+            product.SetText("Mode", nameof(LayerBlendMode.Multiply));
+            product.SetValue("Opacity", 1f);
+
+            graph.Connect(new(value.Id, "Out"), new(product.Id, "Background"));
+            graph.Connect(new(covered.Id, "Out"), new(product.Id, "Foreground"));
+
+            return new(product.Id, "Out");
         }
 
         /// <summary>One adjustment over a mask, as any node with one image in and one image out.</summary>
@@ -801,7 +934,7 @@ static class LayerStackGraph {
 
             var node = Add(path);
 
-            Into(cursor, channel, layerId, new(node.Id, input.Name));
+            graph.Connect(cursor.Port, new(node.Id, input.Name));
 
             foreach (var (port, value) in effect.Values) {
                 // ⚠ Derived from the type rather than from a list per effect, and what it is
@@ -836,14 +969,20 @@ static class LayerStackGraph {
                 node.SetText(setting, value);
             }
 
-            return new(new PortRef(node.Id, output.Name), "");
+            // ⚠ Not opaque: an effect is *any* single-image node, so what it leaves in alpha is the
+            // node's business — `Colour/Invert` with its alpha flag set turns a fully covered mask
+            // into a transparent one. Effects run after the entries are composited, so the only
+            // consumer downstream is `Mask`, which forces the result opaque itself; the flag is here
+            // so that a future caller that composites an effect's output cannot forget. #874.
+            return new(new PortRef(node.Id, output.Name), false);
         }
 
         /// <summary>
         ///     The node one mask entry reads, or <see langword="null" /> when it was refused. An
-        ///     anchor comes back as a slot with no port, which <see cref="Into" /> defers.
+        ///     anchor comes back as the node that folded it, with its edge deferred by
+        ///     <see cref="Into" />.
         /// </summary>
-        MaskSlot? MaskSource(MaskLayerAsset entry, string layerId) {
+        MaskSlot? MaskSource(MaskLayerAsset entry, ChannelAsset channel, string layerId) {
             switch (entry.Source) {
                 case LayerMaskSource.None:
                     return null;
@@ -854,7 +993,7 @@ static class LayerStackGraph {
 
                     node.SetValue("Colour", value, value, value, 1f);
 
-                    return new(new PortRef(node.Id, "Out"), "");
+                    return new(new PortRef(node.Id, "Out"), true);
                 }
 
                 case LayerMaskSource.Texture: {
@@ -874,7 +1013,9 @@ static class LayerStackGraph {
                     node.SetText("Space", "Linear");
                     node.SetText("Filter", "Bilinear");
 
-                    return new(new PortRef(node.Id, "Out"), "");
+                    // ⚠ Not opaque: a PNG carries whatever alpha it was authored with, and a mask's
+                    // alpha is not part of what it means — a bitmap mask is read for its red. #874.
+                    return new(new PortRef(node.Id, "Out"), false);
                 }
 
                 case LayerMaskSource.Anchor:
@@ -888,7 +1029,7 @@ static class LayerStackGraph {
                         return null;
                     }
 
-                    return new(null, entry.Anchor);
+                    return new(Anchored(entry.Anchor, channel, layerId), true);
 
                 case LayerMaskSource.Bake: {
                     var node = Add("Source/Mesh Map");
@@ -898,7 +1039,12 @@ static class LayerStackGraph {
                     // opinion about `TextureMeshMaps.Known` that could disagree with it.
                     node.SetText("Map", entry.Map.Trim());
 
-                    return new(new PortRef(node.Id, "Out"), "");
+                    // ⚠ Not opaque, and this one is worth saying out loud: `Source/Mesh Map` compiles
+                    // to a `Bitmap` over an external image, so a bake's alpha is whatever the baker
+                    // wrote into that PNG rather than 1. The four grey maps are forced opaque by the
+                    // compiler's own promotion shuffle — but only when they meet a wider image, which
+                    // is not something this file can promise. #874.
+                    return new(new PortRef(node.Id, "Out"), false);
                 }
 
                 case LayerMaskSource.Generator: {
@@ -937,7 +1083,9 @@ static class LayerStackGraph {
 
                     var node = Add(path);
 
-                    return new(new PortRef(node.Id, output.Name), "");
+                    // ⚠ Not opaque: a generator is a published compound, and nothing constrains what
+                    // it writes into alpha. #874.
+                    return new(new PortRef(node.Id, output.Name), false);
                 }
 
                 case LayerMaskSource.Paint:
@@ -956,17 +1104,6 @@ static class LayerStackGraph {
                         "Not a mask this build knows."
                     );
             }
-        }
-
-        /// <summary>Wires a slot into a port, deferring an anchor to the end of the build.</summary>
-        void Into(MaskSlot slot, ChannelAsset channel, string layerId, PortRef target) {
-            if (slot.Port is { } from) {
-                graph.Connect(from, target);
-
-                return;
-            }
-
-            anchors.Add((channel.Usage, slot.Anchor, layerId, target));
         }
 
         /// <summary>The one image port of a type in one direction, or null when it has none or many.</summary>
@@ -1002,7 +1139,16 @@ static class LayerStackGraph {
         }
 
         /// <summary>Wires every anchor, and lets the graph model refuse the ones that loop.</summary>
+        /// <remarks>
+        ///     ⚠ <b>One anchor is more than one edge, so a refusal is reported once</b> —
+        ///     <see cref="Anchored" /> wires the same result into two shuffles to fold its coverage
+        ///     into its value (<a href="https://github.com/Rikarin/Vixen/issues/874">#874</a>). Without
+        ///     the set below, one anchor onto a layer above its own would put the same sentence in
+        ///     front of an artist twice, per channel — which is #842's shape and worth not repeating.
+        /// </remarks>
         void Anchors() {
+            HashSet<(string Channel, string Anchor, string Layer)> reported = [];
+
             foreach (var (channel, anchor, layer, to) in anchors) {
                 if (anchor.Length == 0) {
                     // Already reported by `MaskSource`; the edge has nowhere to come from.
@@ -1010,17 +1156,23 @@ static class LayerStackGraph {
                 }
 
                 if (!results.TryGetValue((channel, anchor), out var from)) {
-                    problems.Add(LayerStackProblem.Refusal(
-                        layer,
-                        $"The anchor names layer '{anchor}', which writes nothing to channel '{channel}' — it is "
-                        + "disabled, restricted to other channels, or not in this set. An anchor reads a layer's "
-                        + "result, so there has to be one."
-                    ));
+                    if (reported.Add((channel, anchor, layer))) {
+                        problems.Add(LayerStackProblem.Refusal(
+                            layer,
+                            $"The anchor names layer '{anchor}', which writes nothing to channel '{channel}' — it "
+                            + "is disabled, restricted to other channels, or not in this set. An anchor reads a "
+                            + "layer's result, so there has to be one."
+                        ));
+                    }
 
                     continue;
                 }
 
                 if (graph.TryConnect(from, to, out _, out var error)) {
+                    continue;
+                }
+
+                if (!reported.Add((channel, anchor, layer))) {
                     continue;
                 }
 

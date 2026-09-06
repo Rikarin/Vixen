@@ -466,6 +466,88 @@ public class MaskStackTests(ITestOutputHelper output) {
         LayerStackDifferential.AssertSamePlan(direct.Plan!, exploded.Plan!);
     }
 
+    /// <summary>
+    ///     ⚠ #874 — every operand of one of the mask stack's own blends is forced opaque, and only
+    ///     the ones that need it are.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><c>Colour/Blend</c> is a compositor and the mask stack is using it to combine
+    ///         numbers</b>, which is the pairing <c>LayerStackGraph.Mask</c> already forces one level
+    ///         up for exactly this reason (#832). An entry whose alpha is not 1 composites by that
+    ///         alpha as though it were coverage — so a bake, a bitmap and a generator, none of whose
+    ///         alpha this file controls, are lifted into an opaque grey before they meet a blend.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The second half is what makes this an assertion about the rule and not about a
+    ///         blanket.</b> A constant is opaque by construction, so it gets no shuffle: the mask
+    ///         below has a bake entry and a constant entry, and exactly one of the two is forced. A
+    ///         version of this file that shuffled everything would cost #789's fold a dispatch per
+    ///         entry and would be indistinguishable here without that count.
+    ///     </para>
+    ///     <para>
+    ///         <b>Structural rather than a picture, deliberately.</b> Producing an entry whose alpha
+    ///         is really zero needs a PNG with a transparent region uploaded as an external, and the
+    ///         thing under test is which operands the builder forces — not what the kernel does with
+    ///         an alpha, which <c>Blend.rvn</c>'s own suite covers.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>normal</c> and not <c>curvature</c>, and the first draft of this test was
+    ///         green under sabotage because of it.</b> The four grey maps reach a blend through
+    ///         <c>TextureGraphCompiler</c>'s own promotion, which is a <c>ChannelShuffle</c> with
+    ///         selectors 0, 0, 0, 9 over the same image twice — <em>byte-identical</em> to the one
+    ///         this asserts, and emitted whether or not the builder forces anything. So a grey map
+    ///         cannot distinguish the two, and it is also the case where the forcing is redundant: a
+    ///         one-channel image has no alpha to be wrong, and the promotion is what gives it one. A
+    ///         colour map is where the entry really carries an alpha nobody chose.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_mask_entry_that_could_carry_an_alpha_is_forced_opaque_before_it_is_composited() {
+        var stack = Masked(new() {
+            Source = LayerMaskSource.Bake,
+            Map = "normal",
+            Layers = [
+                new() { Source = LayerMaskSource.Constant, Value = 0.5f, Blend = LayerBlendMode.Multiply }
+            ]
+        });
+
+        var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        Assert.Empty(compilation.Problems);
+        Assert.NotNull(compilation.Plan);
+
+        // The bake is the only Bitmap in this plan, and the shuffle that forces it opaque is the one
+        // reading it: red splatted across the colour lanes, alpha replaced by the constant one —
+        // selectors 0, 0, 0 and 9.
+        var bake = Assert.Single(Ops(compilation.Plan, "Bitmap"));
+        var forced = Ops(compilation.Plan, "ChannelShuffle")
+            .Where(op => op.Inputs[0] == bake.Output)
+            .ToArray();
+
+        var shuffle = Assert.Single(forced);
+
+        Assert.Equal(0f, shuffle.Find("sourceR")!.Value.Value);
+        Assert.Equal(0f, shuffle.Find("sourceG")!.Value.Value);
+        Assert.Equal(0f, shuffle.Find("sourceB")!.Value.Value);
+        Assert.Equal(9f, shuffle.Find("sourceA")!.Value.Value);
+
+        // And the constant entry beside it is opaque by construction, so nothing forces it. ⚠ Found
+        // by its value: the plan holds three Uniforms — the channel's own black base, the layer's
+        // white fill and this entry's half — and the white one *is* read by a shuffle, because
+        // `Mask` lifts the foreground's own coverage out of it. Only the mask entry's is the claim
+        // here.
+        var constant = Assert.Single(
+            Ops(compilation.Plan, "Uniform"),
+            op => op.Find("red")!.Value.Value == 0.5f
+        );
+
+        Assert.DoesNotContain(
+            Ops(compilation.Plan, "ChannelShuffle"),
+            op => op.Inputs[0] == constant.Output
+        );
+    }
+
     /// <summary>A stack of one white layer under the given mask.</summary>
     static LayerStackAsset Masked(MaskAsset mask) =>
         new() {
