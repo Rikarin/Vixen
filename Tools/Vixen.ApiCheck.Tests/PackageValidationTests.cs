@@ -102,26 +102,37 @@ public sealed class PackageValidationTests {
 
     /// <summary>Every project file this tree owns.</summary>
     /// <remarks>
-    ///     ⚠ The exclusions are matched on the path <em>relative to the root</em> and not on the
-    ///     absolute one, and the difference is not cosmetic: this repository's agent worktrees live
-    ///     under <c>.claude/worktrees/&lt;branch&gt;</c>, so an absolute <c>Contains(".claude")</c>
-    ///     excludes every file in the tree whenever the tree *is* one of those worktrees — which is
-    ///     what happened the first time this ran, and is why the walk states a floor it must clear.
+    ///     <para>
+    ///         ⚠ <b>The excluded directories are pruned rather than filtered, and both halves of that
+    ///         matter.</b> <c>.claude/worktrees</c> holds a whole checkout per agent — fifteen of them
+    ///         at once on this machine — so a walk that recurses into it and discards the results
+    ///         afterwards reads every one of those trees' <c>bin</c> and <c>obj</c> before deciding it
+    ///         did not want them. Pruning at the directory is the difference between milliseconds and
+    ///         a walk nobody wants in a test.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And the name is matched on the <em>segment</em>, never on the absolute path: this
+    ///         tree may itself live at <c>…/.claude/worktrees/&lt;branch&gt;</c>, so an absolute
+    ///         <c>Contains(".claude")</c> excludes everything — which is what happened the first time
+    ///         this ran, and is why <see cref="TheWalksAboveActuallyReadSomething" /> states a floor.
+    ///     </para>
     /// </remarks>
     static List<string> ProjectFiles() {
-        var root = RepositoryRoot();
+        var found = new List<string>();
+        var pending = new Stack<string>([RepositoryRoot()]);
 
-        return Directory.EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories)
-            .Select(project => (Path: project, Relative: Path.GetRelativePath(root, project)))
-            // A whole checkout per agent lives under .claude/worktrees, and a walk that reads those
-            // is comparing other branches' copies of these files with this tree's.
-            .Where(project => !Segments(project.Relative).Overlaps([".claude", "artifacts", "bin", "obj"]))
-            .Select(project => project.Path)
-            .ToList();
+        while (pending.TryPop(out var directory)) {
+            found.AddRange(Directory.EnumerateFiles(directory, "*.csproj"));
+
+            foreach (var child in Directory.EnumerateDirectories(directory)) {
+                if (Path.GetFileName(child) is not (".claude" or "artifacts" or "bin" or "obj" or ".git")) {
+                    pending.Push(child);
+                }
+            }
+        }
+
+        return found;
     }
-
-    static HashSet<string> Segments(string relative) =>
-        new(relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), StringComparer.Ordinal);
 
     static List<string> ArchivedReleases() {
         using var index = JsonDocument.Parse(
