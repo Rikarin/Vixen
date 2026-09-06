@@ -184,8 +184,11 @@ sealed class PaintUvView {
     ///     per pointer move during a drag, and re-uploads a rectangle. This fires once per undo or
     ///     redo of a whole stroke, and its caller writes a 64 MB canvas to disk — which is affordable
     ///     at that rate and ruinous at the other. Without it an undone stroke stays in the
-    ///     <c>.vxpaint</c>, and the layers pane, which resolves a paint layer by opening that file,
-    ///     goes on showing the stroke the artist just took back.
+    ///     <c>.vxpaint</c>, and a session reopened later brings it back. ⚠ This used to say the
+    ///     layers pane would go on showing the stroke, which is no longer true: both panes read the
+    ///     canvas through <see cref="PaintCanvasStore" /> rather than the file
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/885">#885</a>), so the redraw the caller
+    ///     does beside the save is what mends the picture. The save is about the next session.
     /// </remarks>
     public Action? Reverted { get; set; }
 

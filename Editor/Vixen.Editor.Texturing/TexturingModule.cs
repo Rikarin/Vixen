@@ -162,6 +162,15 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// </remarks>
     TexturePlanEvaluator? evaluator;
 
+    /// <summary>Which device <see cref="evaluator" /> was built on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An evaluator is bound to its device for the life of its pipeline cache, and
+    ///     <c>IEditorGraphics.Device</c> is a <em>live view</em> that can answer with a different
+    ///     one</b> — <a href="https://github.com/Rikarin/Vixen/issues/945">#945</a>. See
+    ///     <see cref="Evaluator" /> for the route that does it and what is done about it.
+    /// </remarks>
+    IGraphicsDevice? evaluatorDevice;
+
     /// <summary>The view, once the panel has been opened at least once.</summary>
     /// <remarks>
     ///     ⚠ <b>Null until then, and replaced every time the panel is reopened.</b> A dock panel's
@@ -189,6 +198,19 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     ///     brush in and gone looking for something else.
     /// </remarks>
     readonly PaintTool tool = new();
+
+    /// <summary>The <c>.vxpaint</c> canvases this session has open.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The module's, and that placement is the whole of
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a> and
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/948">#948</a> rather than a convenience.</b>
+    ///     Three things read a paint layer's canvas — <see cref="BeginStroke" /> at pointer-down,
+    ///     <see cref="RefreshPaint" /> at pointer-up, and the layers pane on the way to the map — and
+    ///     each of them opened the file. A cache owned by any one of them would serve the other two a
+    ///     picture from before the stroke, because a session writes texels in memory and does not
+    ///     touch the file until it saves. Here, all three hold the same object.
+    /// </remarks>
+    readonly PaintCanvasStore canvases = new();
 
     /// <summary>The 2D UV pane, once the panel has been opened at least once.</summary>
     PaintUvView? paintView;
@@ -280,8 +302,8 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         geometry = context.Services.TryGet<IMeshSource>(out var meshes) ? meshes : null;
 
         if (graphics is not null) {
-            preview = new TextureGraphPreview(graphics, Evaluator);
-            stackPreview = new LayerStackPreview(graphics, Evaluator);
+            preview = new TextureGraphPreview(graphics, Evaluator, canvases);
+            stackPreview = new LayerStackPreview(graphics, Evaluator, canvases);
 
             // ⚠ Through the scope rather than in `Deactivate`, because it holds device resources: an
             // evaluator's pipelines and one uploaded image. `Deactivate` runs first and this runs
@@ -497,7 +519,7 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             return null;
         }
 
-        surface = PaintSurface.Open(stack, tool.LayerId, out var refusal);
+        surface = PaintSurface.Open(stack, tool.LayerId, canvases, out var refusal);
 
         if (surface is null) {
             paintView.Say(refusal);
@@ -505,16 +527,14 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             return null;
         }
 
-        var target = surface.Target(tool.Channel);
-
-        // ⚠ The coverage is replaced here rather than inside `PaintSurface.Target`, and the reason is
-        // which type knows what. A surface holds a canvas and a layer; the mesh is the *module's*,
-        // because resolving one reads a file and the answer is cached across strokes. `Target`'s own
-        // remarks say a surface that does hold a mesh hands its raster in instead — this is the
-        // caller doing it, and #920's dilation is unexercisable until somebody does.
-        return Mesh() is { } bound
-            ? target with { Coverage = bound.Coverage(target.Layer.Width, target.Layer.Height) }
-            : target;
+        // ⚠ The coverage is passed *in* rather than rewritten on the record afterwards — #942. The
+        // reason it is the module's at all is which type knows what: a surface holds a canvas and a
+        // layer, and the mesh is this module's because resolving one reads a model file whose answer
+        // is cached across strokes. For a batch this read `surface.Target(...) with { Coverage = … }`,
+        // which left `Target`'s own remarks claiming a coverage of `Everywhere` that no stroke ever
+        // got. #920's dilation is unexercisable until somebody hands a real raster in, and this is
+        // the somebody.
+        return surface.Target(tool.Channel, Mesh()?.Coverage(surface.Canvas.Width, surface.Canvas.Height));
     }
 
     /// <summary>The geometry the open stack is painted on, resolved once per binding.</summary>
@@ -618,11 +638,13 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
     /// <summary>An undo or a redo moved texels, so the canvas goes back to disk and the map redraws.</summary>
     /// <remarks>
-    ///     ⚠ <b>Without this an undo is invisible where it matters most.</b> Undoing a stroke mends
-    ///     the <c>PaintImage</c> in memory and nothing else, and <c>LayerStackPreview</c> resolves a
-    ///     paint layer by opening the <c>.vxpaint</c> off the disk — so the layers pane went on
-    ///     showing the stroke the artist had just taken back, until the next pointer-up happened to
-    ///     write the file for its own reasons.
+    ///     ⚠ <b>The <c>RefreshStack</c> is what this is for, and the save beside it is no longer the
+    ///     reason</b> — <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a>. Undoing a
+    ///     stroke mends the <c>PaintImage</c> in memory, and until <see cref="PaintCanvasStore" /> the
+    ///     layers pane resolved a paint layer by opening the <c>.vxpaint</c> off the disk — so
+    ///     without the write the pane went on showing the stroke the artist had just taken back. The
+    ///     pane now reads the same canvas the undo mended, so the redraw alone would do it; the save
+    ///     stays because an undone stroke that is only in memory is one a crash brings back.
     ///     <para>
     ///         The save is the same one <see cref="Recorded" /> does and is idempotent, so an undo
     ///         immediately after a stroke writes the same bytes twice rather than doing something
@@ -645,10 +667,13 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     ///         layer pointing at nothing with the stroke still in it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The file is written before either.</b> <c>LayerStackPreview</c> resolves a paint
-    ///         layer by opening the <c>.vxpaint</c> off the disk, so a stroke that is only in memory
-    ///         is a stroke the map cannot show — see <see cref="PaintSurface" />'s remarks for why
-    ///         that is forced rather than chosen.
+    ///         ⚠ <b>The file is still written first, and the reason it had to be is gone</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a>. This said that
+    ///         <c>LayerStackPreview</c> resolves a paint layer by opening the <c>.vxpaint</c> off the
+    ///         disk, so a stroke only in memory was a stroke the map could not show. Both panes now
+    ///         read the session's own <see cref="PaintCanvasStore" />, which is why the map redraws
+    ///         mid-drag. The save is what makes the stroke outlast the session, which is why it is
+    ///         still here and why its position no longer matters.
     ///     </para>
     /// </remarks>
     void Recorded(IEditorCommand command) {
@@ -684,8 +709,11 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// <remarks>
     ///     ⚠ <b>A layer-stack edit refreshes that pane only when one of these four moved.</b>
     ///     <c>RefreshStack</c> runs from <c>LayerStackView.Edited</c>, which an opacity slider raises
-    ///     once per frame — and rebuilding the pane reads a <c>.vxpaint</c> off the disk and uploads a
-    ///     channel. Nothing else an artist can change in those rows alters what that pane shows.
+    ///     once per frame — and rebuilding the pane uploads a whole channel, which at 4K is 67 MB per
+    ///     frame of the drag. Nothing else an artist can change in those rows alters what that pane
+    ///     shows. ⚠ The <em>read</em> half of that cost is gone —
+    ///     <see cref="PaintCanvasStore" /> answers from memory — and the upload half is not, so this
+    ///     comparison still earns its place.
     /// </remarks>
     (string Model, string Mesh, string Layer, string Channel) paintBinding;
 
@@ -712,7 +740,7 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             return;
         }
 
-        var opened = PaintSurface.Open(stack, tool.LayerId, out var refusal);
+        var opened = PaintSurface.Open(stack, tool.LayerId, canvases, out var refusal);
 
         if (opened is null) {
             paintView.Show(0, stack.Document.BaseWidth, stack.Document.BaseHeight, refusal);
@@ -805,6 +833,12 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         // it ever allocated alive for the session.
         surface = null;
 
+        // ⚠ And every *other* open canvas, for the same reason one size larger — #948. The store
+        // holds the largest allocations this plugin makes and its budget is a ceiling rather than a
+        // schedule, so nothing in it goes on its own; a module deactivated with a stack open would
+        // otherwise keep that stack's paintings for the life of the process.
+        canvases.Clear();
+
         // ⚠ And the resolved mesh, for the same reason one size larger: it holds three `Vector2`
         // per triangle of the model plus a `bool` per texel of the atlas, which for a hero asset at
         // 4K is tens of megabytes that outlive every panel that could have used them.
@@ -857,6 +891,12 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         evaluator?.Dispose();
         evaluator = null;
 
+        // ⚠ And the device it was built on, or the module holds the last one it saw for the rest of
+        // the process. That is a reference to an `IGraphicsDevice` this module does not own, kept
+        // past the point where it gave everything else back — and it would compare equal to a device
+        // the host happened to hand over again, which is #945 with the fix in place.
+        evaluatorDevice = null;
+
         // The paint pane's own upload: it is made here rather than by a preview, so nothing else
         // would ever give it back.
         painted?.Dispose();
@@ -885,15 +925,65 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// </remarks>
     internal int KernelCompilations => evaluator?.Compilations ?? 0;
 
-    /// <summary>Hands a pane the one evaluator, building it the first time a device is seen.</summary>
+    /// <summary>How many <c>.vxpaint</c> files this session has read off the disk.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The number <a href="https://github.com/Rikarin/Vixen/issues/948">#948</a> is, and a
+    ///     counter rather than a clock for the reason <see cref="EvaluatorsBuilt" /> is one.</b> A
+    ///     stroke that reads its canvas three times and a stroke that reads it once produce the same
+    ///     picture, the same undo entry and the same file — so nothing about the result can tell them
+    ///     apart, and at 4K the difference is 134 MB of read and of allocation per stroke.
+    /// </remarks>
+    internal int CanvasReads => canvases.Reads;
+
+    /// <summary>How many times an already-open canvas answered instead of the disk.</summary>
+    /// <remarks>
+    ///     Beside <see cref="CanvasReads" /> because one read is also what a session that only ever
+    ///     asked once reports, and the two together say which of the two happened.
+    /// </remarks>
+    internal int CanvasHits => canvases.Hits;
+
+    /// <summary>Hands a pane the one evaluator for the device it found, building it on demand.</summary>
     /// <param name="device">The device the pane found on the host.</param>
     /// <returns>The evaluator, which the caller does not own.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One per <em>device</em> rather than one per module, and for a batch it was the
+    ///         latter</b> — <a href="https://github.com/Rikarin/Vixen/issues/945">#945</a>. An
+    ///         evaluator caches a compiled pipeline and a shader module per kernel and output format,
+    ///         and an <c>EffectLoader</c>, all built on the device it was constructed with; there is
+    ///         no route by which any of that is replayed onto another. So a module that returned its
+    ///         first evaluator whatever it was asked handed a pane pipelines belonging to a device
+    ///         that is gone, and what a dispatch does through those is a crash somewhere else
+    ///         entirely.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>That the device really can change inside one session was checked rather than
+    ///         assumed, because the issue's own first question was whether it can.</b>
+    ///         <c>EditorHost</c> answers <c>PlatformEventKind.Suspending</c> with <c>Release</c>,
+    ///         which sets <c>EditorApplication.GraphicsDevice</c> to null and disposes the
+    ///         <c>VulkanDevice</c>; the next <c>Present</c> calls <c>EnsureDevice</c>, which sees a
+    ///         null device and a surface that can present and creates a <em>new</em> one. The plugin
+    ///         is told nothing at any point — <c>IEditorGraphics.Device</c> simply starts answering
+    ///         differently, which is exactly what that member's remarks say it is for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The stale evaluator is dropped and <em>not</em> disposed, which is the opposite
+    ///         of what this type does everywhere else.</b> <c>TexturePlanEvaluator.Dispose</c> calls
+    ///         <c>WaitIdle</c> and <c>Destroy</c> on the device it holds — and the only route that
+    ///         reaches this branch is the one above, where that device was disposed before the
+    ///         replacement existed. Destroying a pipeline through a destroyed device is the crash
+    ///         this is avoiding rather than a tidier version of it. Nothing outlives the device: a
+    ///         Vulkan device's objects go when it does, and what stays behind is a managed wrapper
+    ///         holding invalid handles that the next collection takes.
+    ///     </para>
+    /// </remarks>
     TexturePlanEvaluator Evaluator(IGraphicsDevice device) {
-        if (evaluator is not null) {
+        if (evaluator is not null && ReferenceEquals(evaluatorDevice, device)) {
             return evaluator;
         }
 
         EvaluatorsBuilt++;
+        evaluatorDevice = device;
 
         return evaluator = new TexturePlanEvaluator(device);
     }
@@ -979,12 +1069,13 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
         // ⚠ And the paint pane — but only when the binding moved, which is the whole correction.
         // This runs from `stackView.Edited`, and an opacity slider raises that once per frame of a
-        // drag; `RefreshPaint` opens the layer's `.vxpaint` off the disk and uploads a channel, so
-        // calling it unconditionally put a 64 MB read and a 64 MB upload on the slider's per-frame
-        // path. The mesh and the islands are cached on their keys, which is what the first version
-        // of this comment relied on — but `PaintSurface.Open` and `Show` are not, and they are the
-        // expensive half. What an edit to these rows can change for that pane is which model, which
-        // mesh and which layer, so that triple is what is compared.
+        // drag; `RefreshPaint` resolves the layer's canvas and uploads a channel, so calling it
+        // unconditionally put a 64 MB read and a 64 MB upload on the slider's per-frame path. The
+        // mesh and the islands are cached on their keys, which is what the first version of this
+        // comment relied on — but `PaintSurface.Open` and `Show` are not, and they are the expensive
+        // half. ⚠ The read is now the store's and costs nothing (#948); the upload is unchanged, so
+        // the comparison is still worth making. What an edit to these rows can change for that pane
+        // is which model, which mesh and which layer, so that triple is what is compared.
         var binding = (stack.Document.Model, stack.Document.Sets[0].Mesh, tool.LayerId, tool.Channel);
 
         if (binding != paintBinding) {
@@ -1056,10 +1147,20 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             return;
         }
 
+        var previous = stack;
+
         if (project.TryGetDocument(asset, out var existing) && existing is LayerStackDocument opened) {
             stack = opened;
         } else {
             stack = new LayerStackDocument(project, asset, project.Paths.Absolute(entry.Path));
+        }
+
+        // ⚠ A different stack's canvases are not this stack's, and the store is keyed by absolute
+        // path rather than by document — so nothing would evict them except the budget, which is a
+        // ceiling and not a schedule. The paint pane is refreshed below and re-pins whatever it
+        // opens, so this costs one read of one canvas and gives back the whole of the last stack's.
+        if (!ReferenceEquals(previous, stack)) {
+            canvases.Clear();
         }
 
         project.Activate(stack);

@@ -3,6 +3,7 @@
 
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Texturing.Layers;
+using Vixen.Editor.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -124,7 +125,7 @@ public class ProjectCompoundDeviceTests {
         document.Document = Filled(64);
 
         using LentEvaluator evaluators = new();
-        using LayerStackPreview preview = new(fixture.Graphics!, evaluators.Lease);
+        using LayerStackPreview preview = new(fixture.Graphics!, evaluators.Lease, new PaintCanvasStore());
 
         var picture = preview.Evaluate(document);
 

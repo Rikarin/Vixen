@@ -65,6 +65,7 @@ static class TextureExternalImages {
     /// <param name="uploads">Where the textures are made, and what owns them.</param>
     /// <param name="plan">The plan, which says what format and size each image is.</param>
     /// <param name="externals">What the compilation said fills each of them.</param>
+    /// <param name="canvases">The session's open <c>.vxpaint</c> canvases — see <see cref="Painted" />.</param>
     /// <returns>One sentence per external that could not be filled, in the order the plan names them.</returns>
     /// <exception cref="ArgumentNullException">Any argument is null.</exception>
     /// <remarks>
@@ -77,17 +78,19 @@ static class TextureExternalImages {
         string documentPath,
         TextureUploads uploads,
         TexturePlan plan,
-        ImmutableArray<TextureGraphExternal> externals
+        ImmutableArray<TextureGraphExternal> externals,
+        PaintCanvasStore canvases
     ) {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(uploads);
         ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(canvases);
 
         var owed = TextureGraphExternals.Upload(uploads, plan, externals);
         List<string> unresolved = [];
 
         foreach (var entry in owed) {
-            if (Resolve(project, documentPath, uploads, plan, entry) is { } why) {
+            if (Resolve(project, documentPath, uploads, plan, entry, canvases) is { } why) {
                 unresolved.Add(why);
             }
         }
@@ -101,6 +104,7 @@ static class TextureExternalImages {
     /// <param name="uploads">Where the texture is made, and what owns it.</param>
     /// <param name="plan">The plan the image belongs to, which says what format and size it is.</param>
     /// <param name="entry">The external the compilation could not fill.</param>
+    /// <param name="canvases">The session's open <c>.vxpaint</c> canvases.</param>
     /// <returns>Null when it was uploaded, or the sentence saying why it was not.</returns>
     /// <remarks>
     ///     ⚠ <b>A mesh map is not a file and is refused as one.</b> A <c>Source/Mesh Map</c> crosses
@@ -113,7 +117,8 @@ static class TextureExternalImages {
         string documentPath,
         TextureUploads uploads,
         TexturePlan plan,
-        TextureGraphExternal entry
+        TextureGraphExternal entry,
+        PaintCanvasStore canvases
     ) {
         var reference = entry.Asset.Trim();
 
@@ -124,7 +129,7 @@ static class TextureExternalImages {
         }
 
         if (PaintReference.Claims(reference)) {
-            return Painted(documentPath, uploads, plan, entry, reference);
+            return Painted(documentPath, uploads, plan, entry, reference, canvases);
         }
 
         if (!project.Assets.TryGetByPath(reference, out var asset)) {
@@ -170,6 +175,7 @@ static class TextureExternalImages {
     /// <param name="plan">The plan the image belongs to.</param>
     /// <param name="entry">The external to fill.</param>
     /// <param name="reference">Its <c>vxpaint:</c> reference.</param>
+    /// <param name="canvases">The session's open canvases, which this consults before the disk.</param>
     /// <returns>Null when it was uploaded, or the sentence saying why it was not.</returns>
     /// <remarks>
     ///     <para>
@@ -195,13 +201,27 @@ static class TextureExternalImages {
     ///         contributes nothing, which is what not having painted it means.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Read from disk on every evaluation, which is a real cost and a deliberate
-    ///         match.</b> The imported-picture path decodes its PNG on every evaluation too, and a
-    ///         preview runs on every edit. A 4K canvas is 67 MB a channel, so this is the more
-    ///         expensive of the two and the one worth caching first —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a>. It is filed rather
-    ///         than done here because a cache that this pane owns and the paint session does not
-    ///         would serve a stale canvas the moment the two are wired to each other.
+    ///         ⚠ <b>Asked of the session's open canvases rather than of the disk, and where that
+    ///         store lives is the whole of <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a>.</b>
+    ///         This used to open and read the file on every evaluation — a preview runs on every
+    ///         edit, and a 4K canvas is 67 MB a channel. The cache #885 asked for was deliberately
+    ///         not written into this resolver, and the reason it gives is the design: a cache this
+    ///         pane owned and the paint session did not would serve the picture from <em>before</em>
+    ///         the stroke, because a session writes <c>PaintImage.Texels</c> in memory and does not
+    ///         touch the file until pointer-up. <c>PaintCanvasStore</c> holds the canvas objects
+    ///         themselves, so the pane and the drag read the same texels and staleness cannot arise.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An open canvas is served even when there is no file, which is a behaviour change
+    ///         and the point of it.</b> The refusal below now fires only when a layer names a canvas
+    ///         nothing has open <em>and</em> nothing wrote — a stack moved between projects — rather
+    ///         than for every stack whose first stroke is still under the pointer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The imported-picture path above still decodes its PNG on every evaluation, and
+    ///         that is now the asymmetric half.</b> It is left alone deliberately: an imported
+    ///         picture has no in-memory writer, so it is an ordinary cache rather than this store,
+    ///         and #885's measurement says the <c>.vxpaint</c> is the expensive one.
     ///     </para>
     /// </remarks>
     static string? Painted(
@@ -209,7 +229,8 @@ static class TextureExternalImages {
         TextureUploads uploads,
         TexturePlan plan,
         TextureGraphExternal entry,
-        string reference
+        string reference,
+        PaintCanvasStore canvases
     ) {
         if (!PaintReference.TryParse(reference, out var relative, out var usage)) {
             return $"a layer reads '{reference}', which claims to be painted pixels and does not name both a "
@@ -225,20 +246,18 @@ static class TextureExternalImages {
 
         var file = Path.GetFullPath(Path.Combine(folder, relative));
 
-        if (!File.Exists(file)) {
-            return $"'{relative}' is the painted canvas this layer names and there is no such file beside the "
-                + "stack, so its pixels cannot be read.";
-        }
-
-        PaintCanvas canvas;
+        PaintCanvas? canvas;
 
         try {
-            using var stream = File.OpenRead(file);
-
-            canvas = PaintCanvas.Read(stream);
+            canvas = canvases.Open(file);
         } catch (Exception failure) when (failure is IOException
             or InvalidDataException or UnauthorizedAccessException or EndOfStreamException) {
             return $"'{relative}' would not read: {failure.Message}";
+        }
+
+        if (canvas is null) {
+            return $"'{relative}' is the painted canvas this layer names and there is no such file beside the "
+                + "stack, so its pixels cannot be read.";
         }
 
         if (!canvas.Has(usage)) {
