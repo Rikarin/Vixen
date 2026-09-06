@@ -3222,27 +3222,6 @@ public sealed class DrawListBuilder {
         return new Color4(substitute.R, substitute.G, substitute.B, authored.A);
     }
 
-    /// <summary>An element's four corner radii, each elliptical.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>A corner arrives as <i>two</i> lengths — <c>8px 8px</c> — even when the stylesheet
-    ///         wrote one</b>, because that is what the shorthand expands to. Both are read now: the pair
-    ///         is the horizontal and vertical radius of an ellipse, which is CSS's
-    ///         <c>border-radius: 40px / 20px</c> and what a pill-shaped button whose height is not its
-    ///         width actually needs. Taking the first and dropping the second drew every such corner as a
-    ///         circle.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The logical longhand wins over the physical one, which is CSS Cascade's rule read
-    ///         the only way this cascade can read it.</b> CSS settles a conflict between
-    ///         <c>border-start-start-radius</c> and <c>border-top-left-radius</c> by declaration
-    ///         order, because they are two properties writing one used value. This cascade stores a
-    ///         property-to-value map with no order in it, so declaration order is not recoverable
-    ///         here — and the same problem was already settled for the logical insets, where
-    ///         <c>StyleResolution.LeftEdge</c> gives the logical edge precedence outright. Following
-    ///         it costs the rarer conflict and keeps one rule in the engine rather than two.
-    ///     </para>
-    /// </remarks>
     /// <summary>The radii a single fragment of a box may curve, which is the ends it really has.</summary>
     /// <param name="corners">The whole box's radii.</param>
     /// <param name="ends">Which of the box's two real ends this fragment carries.</param>
@@ -3264,6 +3243,27 @@ public sealed class DrawListBuilder {
             (ends & LayoutFragmentEnds.Start) != 0 ? corners.BottomLeft : Vector2.Zero
         );
 
+    /// <summary>An element's four corner radii, each elliptical.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A corner arrives as <i>two</i> lengths — <c>8px 8px</c> — even when the stylesheet
+    ///         wrote one</b>, because that is what the shorthand expands to. Both are read now: the pair
+    ///         is the horizontal and vertical radius of an ellipse, which is CSS's
+    ///         <c>border-radius: 40px / 20px</c> and what a pill-shaped button whose height is not its
+    ///         width actually needs. Taking the first and dropping the second drew every such corner as a
+    ///         circle.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The logical longhand wins over the physical one, which is CSS Cascade's rule read
+    ///         the only way this cascade can read it.</b> CSS settles a conflict between
+    ///         <c>border-start-start-radius</c> and <c>border-top-left-radius</c> by declaration
+    ///         order, because they are two properties writing one used value. This cascade stores a
+    ///         property-to-value map with no order in it, so declaration order is not recoverable
+    ///         here — and the same problem was already settled for the logical insets, where
+    ///         <c>StyleResolution.LeftEdge</c> gives the logical edge precedence outright. Following
+    ///         it costs the rarer conflict and keeps one rule in the engine rather than two.
+    ///     </para>
+    /// </remarks>
     CornerRadii Corners(UiElement element) {
         // ⚠ Stack-allocated, because this runs for every element in the frame and the overwhelming
         // majority of them have no radius at all. A `Vector2[4]` here was four hundred allocations a
