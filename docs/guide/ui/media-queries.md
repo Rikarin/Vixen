@@ -4,7 +4,7 @@ slug: ui/media-queries
 kind: guide
 area: Core
 summary: What `@media` can ask about in Vixen — the size, resolution and gamut of the surface a panel is on rather than of the monitor, the colour-scheme preference, and `prefers-reduced-motion`, which is a query and a switch the animator honours because a toolkit whose default is to animate anyway ignores the preference in every application that forgot.
-api: [T:Vixen.Ui.Styling.MediaContext, T:Vixen.Ui.Styling.ColorSchemePreference, T:Vixen.Ui.Styling.MotionPreference]
+api: [T:Vixen.Ui.Styling.MediaContext, T:Vixen.Ui.Styling.ColorSchemePreference, T:Vixen.Ui.Styling.MotionPreference, T:Vixen.Platform.MacOS.MacOSAccessibility, T:Vixen.Platform.Windows.WindowsAccessibility, T:Vixen.Platform.Linux.LinuxAccessibility]
 tags: [ui, styling, css, media-queries, accessibility, reduced-motion]
 since: 0.2
 status: preview
@@ -95,6 +95,42 @@ hosts do it, so an application built on either honours reduced motion without as
 ```csharp no-compile="a fragment; `platform` is an IPlatform and `document` a UiDocument"
 PlatformInput.ApplyAccessibility(document, platform.Accessibility);
 ```
+
+Behind `IPlatform.Accessibility` are three readers, one per desktop platform, each returning the
+same `SystemAccessibility`. They are worth knowing individually, because what each operating system
+*can* answer differs — and an axis nobody can read is `null` rather than a default.
+
+| Reader | Reduced motion | Forced colours / contrast | Text scale |
+|---|---|---|---|
+| `MacOSAccessibility` | `reduceMotion` in `com.apple.universalaccess` | `increaseContrast` in the same domain | **nothing to read** — `null` |
+| `WindowsAccessibility` | `SPI_GETCLIENTAREAANIMATION` | `SPI_GETHIGHCONTRAST` | `HKCU\Software\Microsoft\Accessibility\TextScaleFactor` |
+| `LinuxAccessibility` | `org.gnome.desktop.interface enable-animations` | `org.gnome.desktop.a11y.interface high-contrast` | `org.gnome.desktop.interface text-scaling-factor` |
+
+⚠ **Two of the three motion settings are the *inverse* of the preference.** Windows'
+`SPI_GETCLIENTAREAANIMATION` and GNOME's `enable-animations` both answer *may I animate*, so `true`
+is the user having said nothing. Reading either straight through ships more animation to precisely
+the people who asked for less, which is the failure this whole path exists to prevent.
+
+⚠ **macOS is read out of `NSUserDefaults` and not `NSWorkspace`.** The two agree, and only the
+Foundation one is reachable from a process that never created an `NSApplication` — which is every
+SDL application, this engine's included. In that domain an *absent* key genuinely means off: the
+defaults are written when the setting is first turned on. What is unknown is failing to reach the
+Objective-C runtime at all.
+
+⚠ **macOS answers no text scale, and that is a difference between platforms rather than a hole.**
+Dynamic Type is a UIKit API; the Mac's equivalents are per-application font sizes or a resolution
+change, neither of which is a multiplier a process can read. Windows and GNOME both answer, so
+`TextScale` is `null` on one desktop and a number on the other two — never `1.0` standing in for
+"did not ask", because a `1.0` cannot be told apart from a user who chose it.
+
+⚠ **`increaseContrast`, not `reduceTransparency`.** They sit beside each other on the same macOS
+settings pane and only the first is what `forced-colors` describes: Reduce Transparency changes
+materials rather than the palette, and reporting it here would make a stylesheet throw its own
+colours away because somebody switched off a blur.
+
+⚠ **Linux costs two subprocesses, so it is read once and never polled.** Following a change there
+needs a portal subscription, which these do not have; a missing schema or no `gsettings` at all is
+`SystemAccessibility.Unknown` rather than a set of `false`s.
 
 ⚠ **Two of the six preference axes have an operating system behind them and four do not.** Reduced
 motion and the forced-colours pair are read; `inverted-colors` and the two pointer axes have no

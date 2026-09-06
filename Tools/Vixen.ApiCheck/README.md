@@ -126,6 +126,17 @@ promises is a command line). **Two are libraries a consumer compiles against** �
 `VixenApp.Run<TGame>` is a game's entry point, and `Vixen.ShaderCompiler` — and they are in exactly
 the condition `Vixen.Raven` was in before it was named here. That is #749.
 
+⚠ **The two halves of #749 are not one question, and the templates settle the first of them.**
+`Tools/Vixen.Templates` is where this repository tells somebody outside it which packages to
+install, and across all six templates that is ten `Vixen.*` ids — `Vixen.App` among them. So it is
+not merely referenced by six samples by path: it is a package `dotnet new` puts in a stranger's
+csproj, on top of being a published dependency of the covered `Vixen.Live.Realm`. Both routes rule
+out un-packing it, and `ApiCoverageTests.EveryPackageATemplateReferencesStillPacks` now fails if a
+future answer to #641 or #749 un-packs anything on that list. `Vixen.ShaderCompiler` is on neither
+route — no template names it, and no covered package's closure reaches it — so its half stays
+downstream of #641, exactly as `build/ApiUncovered.txt` records against the `library-undecided`
+token.
+
 ## What is skipped, written down
 
 ⚠ A glob says nothing about what it does not match, which is the failure mode this gate is otherwise

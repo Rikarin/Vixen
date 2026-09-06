@@ -200,6 +200,70 @@ public sealed class ApiCoverageTests {
     }
 
     /// <summary>
+    ///     ⚠ The other list of packages this repository promises, and the one that is a promise to
+    ///     an outsider rather than to itself: what <c>dotnet new</c> puts in a scaffolded csproj.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         #641 and #749 both offer "stop packing it" as the cheap way out, and it has exactly
+    ///         one way to go wrong: un-pack something a template references and every project
+    ///         scaffolded from that template fails to restore, against a package id that no longer
+    ///         exists. The templates are the only place this repository tells somebody outside it
+    ///         which packages to install, so their <c>PackageReference</c>s are the floor under any
+    ///         answer to those issues — and across all six templates that floor is ten names, of
+    ///         which exactly one, <c>Vixen.Editor.Plugin</c>, is under <c>Editor/</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing cheap asked this before.</b> <c>CheckTemplates</c> does ask it, properly
+    ///         and end-to-end — but only against the feed a full <c>Pack</c> has just written, so
+    ///         nobody runs it per branch and <c>docs/overview.md</c> records that the target has
+    ///         never been executed at all. A csproj is XML and the solution is a list; the
+    ///         name-level half of the question needs neither a build nor a feed.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void EveryPackageATemplateReferencesStillPacks() {
+        var packable = PackableProjects().ToHashSet(StringComparer.Ordinal);
+        var referenced = TemplatePackageReferences();
+
+        Assert.True(
+            referenced.Count > 5,
+            $"The templates yielded {referenced.Count} Vixen package references, which is too few "
+            + "to be the six templates. The reader has stopped matching and the assertion below "
+            + "would pass over nothing."
+        );
+
+        var missing = referenced
+            .Where(name => !packable.Any(project =>
+                string.Equals(Path.GetFileNameWithoutExtension(project), name, StringComparison.Ordinal)))
+            .ToList();
+
+        Assert.True(
+            missing.Count == 0,
+            "A template scaffolds a csproj referencing these package ids, and no project in "
+            + "Vixen.slnx both bears the name and packs — so `dotnet new` produces a project that "
+            + "cannot restore. If this went red while answering #641 or #749, the IsPackable=false "
+            + "went one project too far: this is the set that has to keep packing whatever else "
+            + "does not.\n  "
+            + string.Join("\n  ", missing)
+        );
+    }
+
+    /// <summary>The <c>Vixen.*</c> package ids the shipped templates reference, deduplicated.</summary>
+    static List<string> TemplatePackageReferences() =>
+        Directory
+            .EnumerateFiles(
+                Path.Combine(RepositoryRoot(), "Tools", "Vixen.Templates", "templates"),
+                "*.csproj",
+                SearchOption.AllDirectories)
+            .SelectMany(template => XDocument.Load(template).Descendants("PackageReference"))
+            .Select(element => (string?)element.Attribute("Include") ?? string.Empty)
+            .Where(name => name.StartsWith("Vixen.", StringComparison.Ordinal))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToList();
+
+    /// <summary>
     ///     Every packable project reachable from a covered one through references that survive into
     ///     the package — <c>ReferenceOutputAssembly=false</c> (an analyzer) and
     ///     <c>PrivateAssets=all</c> do not, and are the two ways to depend on something without
