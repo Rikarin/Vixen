@@ -1266,7 +1266,7 @@ sealed partial class EditorApplication {
             // there has ever been, and four buttons with gaps between them read as four unrelated
             // verbs that happen to be adjacent. What still tells them apart is colour, which is why
             // the box does not have to.
-            new ToolbarGroup("play.play", "play.pause", "play.step", "play.stop"),
+            new ToolbarBox("play.play", "play.pause", "play.step", "play.stop"),
             new ToolbarSeparator(),
             new ToolbarDropdown(
                 new StringId("editor.toolbar.layout", "Layout"),

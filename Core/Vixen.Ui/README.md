@@ -1968,8 +1968,25 @@ rather than an `IDiagnosticOverlay`, and item 3 is composing it into a host's tr
 registering it in `BuildOverlays`. The reason for writing the seam answer into the README rather than
 into a session is that the last two attempts each re-derived one that was already there.
 
-⚠ **Item 2 has since landed as `DiagnosticsPanel` and item 3 half has**: the snapshot is taken by the
+⚠ **Item 2 has since landed as `DiagnosticsPanel` and item 3 half had**: the snapshot is taken by the
 host — `UiApplication` refreshes an assigned panel before `Document.Update` — and the "snapshot at
 the top of the frame" trade is kept by *when* the read happens rather than by a copy of the numbers,
-which is what makes the read path still allocate nothing. What is not done is an application in this
-tree that assigns one.
+which is what makes the read path still allocate nothing.
+
+⚠ **Item 3 is now taken as well as reachable, and the caller is the editor.** `EditorShell` holds a
+`Diagnostics` panel and refreshes it first in `Tick` — which is the whole of that method's position:
+`EditorHost` calls `Tick` before `Document.Update`, so any point in it is the top of the frame for
+the layout pass, and everything after that first line writes elements the reading would then be
+describing after the fact. `EditorApplication` registers it as the `ui-diagnostics` panel, so it is a
+tab in the Window menu like every other, and clears the shell's reference when the panel closes —
+without which the tick writes rows into an element that is out of the tree for the rest of the
+session.
+
+⚠ The editor's panel deliberately sets no `Subject`. Pointed at another document the readings would
+be exact; pointed at its own they are the shell's, which is the document somebody debugging the
+editor's interface is asking about — and the panel's own remarks already name the cost of being an
+element of what it measures. `Subject` is what `DiagnosticsPanelTests` uses to get the exact reading,
+and what a second window would use.
+
+⚠ Still owed: the **drawn** half. Element outlines and the dirty-region highlight are boxes in the
+subject's coordinates rather than rows in a list, and nothing draws either yet.

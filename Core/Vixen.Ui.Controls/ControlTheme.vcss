@@ -600,6 +600,30 @@ field-content { flex-direction: row; align-items: center; gap: 6px; }
    would draw every hint in the form as an error. */
 field-message { color: var(--text-muted); font-size: 0.85em; }
 
+/* ⚠ A box that looks like `card` and is not one, and the difference is in the
+   accessibility tree rather than in these five declarations. A card is layout —
+   it is in the coverage sweep's exemption table for it — where a group box is
+   `fieldset`: `AccessibleRole.Group` named by its legend, so a reader entering
+   it is told what the controls inside it are for. Drawn the same way for the
+   same reason a card is: the border is what says "these belong together" to
+   everyone who is not using a screen reader. */
+group-box {
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 6px;
+}
+
+/* ⚠ Not `display: none` here. The legend is hidden by the control when there is
+   nothing to say — an empty flex item still takes the column's `gap`, which is a
+   blank line above the first control that nothing in the tree explains — and a
+   stylesheet that also decided it would be a second opinion about the same fact. */
+group-legend { color: var(--text); font-weight: 600; flex-shrink: 0; }
+
+group-content { flex-direction: column; align-items: stretch; gap: 8px; }
+
 /* ── Segmented control ──────────────────────────────────────────────── */
 
 segmented-control {

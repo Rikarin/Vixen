@@ -2363,7 +2363,38 @@ sealed partial class EditorApplication : IDisposable {
                 console.Activated += (_, record) => Reveal(record);
             }
         );
+
+        Shell.RegisterPanel(
+            new PanelDescriptor(
+                UiDiagnosticsPanel,
+                new StringId("editor.panel.ui-diagnostics", "UI Diagnostics"),
+                panel => {
+                    // ⚠ **The first caller this control has had, and that is the point of the
+                    // registration rather than a side effect of it.** `DiagnosticsPanel`,
+                    // `UiDiagnostics` and `UiApplication.Diagnostics` all landed with tests and
+                    // nothing in the tree assigned one — which is exactly what this repository calls
+                    // "a finished thing nothing calls". The editor is the host that draws the
+                    // biggest `UiDocument` in the tree and is where doc 13's UI-debug reading is
+                    // actually wanted.
+                    //
+                    // ⚠ No `Subject`, deliberately, and it is a decision rather than an omission.
+                    // Pointed at another document the readings would be exact; pointed at its own
+                    // they are the shell's, which is the document somebody debugging the editor's
+                    // interface is asking about. The panel's own remarks name the cost — it is an
+                    // element of what it measures — and the alternative here is a panel that
+                    // reports a document nobody is looking at.
+                    Shell.Diagnostics = panel.Add<DiagnosticsPanel>();
+                }
+            ) {
+                // ⚠ Cleared on close, or the shell keeps refreshing rows in a panel that has been
+                // torn out of the tree — sixty times a second, for the rest of the session.
+                Closed = () => Shell.Diagnostics = null
+            }
+        );
     }
+
+    /// <summary>The panel that reads <c>UiDocument.Diagnostics</c> for the shell's own document.</summary>
+    public const string UiDiagnosticsPanel = "ui-diagnostics";
 
     /// <summary>Opens an asset in whatever editor claims it, for a caller outside this class.</summary>
     /// <remarks>

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Input;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Styling;
@@ -36,16 +37,16 @@ public class ToolbarSectionTests : IDisposable {
 
     ToolbarPresenter Toolbar() => new(document.Root, commands, keys);
 
-    void Mode(string id, string label, Func<bool> on) =>
+    void Mode(string id, string label, Func<bool> on, Action? run = null) =>
         commands.Add(
-            new EditorCommand(id, Title(label), () => { }) {
+            new EditorCommand(id, Title(label), run ?? (() => { })) {
                 Checked = on,
                 RadioGroup = "gizmo"
             }
         );
 
     [Fact]
-    public void A_group_is_one_box_with_the_members_inside_it() {
+    public void A_group_is_one_segmented_control_with_the_members_inside_it() {
         var mode = "translate";
 
         Mode("scene.translate", "Translate", () => mode == "translate");
@@ -59,20 +60,89 @@ public class ToolbarSectionTests : IDisposable {
             new ToolbarGroup("scene.translate", "scene.rotate", "scene.scale")
         );
 
-        var group = Assert.Single(toolbar.Strip.Children, child => child.Tag == "toolbar-group");
-        Assert.Equal(3, group.Children.Count);
+        var group = Assert.Single(toolbar.Strip.Children.OfType<SegmentedControl>());
+        Assert.Equal(3, group.Segments.Count);
 
-        // The state the theme's `:checked` reads, which is what draws the current mode pressed. It
-        // is refreshed on the tick rather than pushed, so a mode changed anywhere shows here.
+        // ⚠ One question with three answers, which is the whole of why this is a control rather than
+        // a class on a box. Three toggle buttons are announced as three independent pressed-or-not
+        // buttons and say nothing about being alternatives.
+        Assert.Equal(AccessibleRole.RadioGroup, group.Role);
+        Assert.Equal(AccessibleRole.Radio, group.Segments[0].Role);
+
+        // The value the control draws its chosen member from, refreshed on the tick rather than
+        // pushed, so a mode changed anywhere shows here.
         toolbar.Refresh();
-        Assert.True(group.Children[0].State.HasFlag(ElementState.Checked));
-        Assert.False(group.Children[1].State.HasFlag(ElementState.Checked));
+        Assert.Equal("scene.translate", group.Value);
+        Assert.True(group.Segments[0].IsChecked);
+        Assert.False(group.Segments[1].IsChecked);
 
         mode = "rotate";
         toolbar.Refresh();
 
-        Assert.False(group.Children[0].State.HasFlag(ElementState.Checked));
-        Assert.True(group.Children[1].State.HasFlag(ElementState.Checked));
+        Assert.Equal("scene.rotate", group.Value);
+        Assert.False(group.Segments[0].IsChecked);
+        Assert.True(group.Segments[1].IsChecked);
+    }
+
+    [Fact]
+    public void Choosing_a_segment_runs_its_command_and_a_refresh_does_not() {
+        var mode = "translate";
+        var ran = 0;
+
+        Mode("scene.translate", "Translate", () => mode == "translate", () => { mode = "translate"; ran++; });
+        Mode("scene.rotate", "Rotate", () => mode == "rotate", () => { mode = "rotate"; ran++; });
+
+        var toolbar = Toolbar();
+        toolbar.Show(new ToolbarGroup("scene.translate", "scene.rotate"));
+
+        var group = Assert.Single(toolbar.Strip.Children.OfType<SegmentedControl>());
+
+        toolbar.Refresh();
+        Assert.Equal("scene.translate", group.Value);
+
+        // ⚠ Zero, and this is the assertion the guard in `Choose` exists for. `Refresh` assigns
+        // `Value` from whichever command reports itself checked, and that assignment raises the same
+        // event a click does — an ungated handler would re-run the current mode every tick.
+        Assert.Equal(0, ran);
+
+        group.Segments[1].Activate();
+
+        Assert.Equal(1, ran);
+        Assert.Equal("rotate", mode);
+
+        // And the route is what ran it: the segments carry no `Command` of their own, because a
+        // bound button writes `:checked` straight into the element and the control writes it from
+        // `Value` — two writers on one appearance.
+        Assert.Null(group.Segments[1].Command);
+    }
+
+    [Fact]
+    public void The_arrows_move_between_the_members_and_wrap() {
+        var mode = "translate";
+
+        Mode("scene.translate", "Translate", () => mode == "translate", () => mode = "translate");
+        Mode("scene.rotate", "Rotate", () => mode == "rotate", () => mode = "rotate");
+        Mode("scene.scale", "Scale", () => mode == "scale", () => mode = "scale");
+
+        var toolbar = Toolbar();
+        toolbar.Show(new ToolbarGroup("scene.translate", "scene.rotate", "scene.scale"));
+
+        var group = Assert.Single(toolbar.Strip.Children.OfType<SegmentedControl>());
+        toolbar.Refresh();
+
+        Key(group, InputKey.Right);
+        Assert.Equal("rotate", mode);
+
+        Key(group, InputKey.Right);
+        Assert.Equal("scale", mode);
+
+        // Wrapping, which is the half a row of independent buttons could never have: the last
+        // member's Right is the first member and not the end of the strip.
+        Key(group, InputKey.Right);
+        Assert.Equal("translate", mode);
+
+        Key(group, InputKey.Left);
+        Assert.Equal("scale", mode);
     }
 
     [Fact]
@@ -80,8 +150,30 @@ public class ToolbarSectionTests : IDisposable {
         var toolbar = Toolbar();
         toolbar.Show(new ToolbarGroup("plugin.gone", "plugin.also-gone"));
 
-        Assert.DoesNotContain(toolbar.Strip.Children, child => child.Tag == "toolbar-group");
+        Assert.Empty(toolbar.Strip.Children.OfType<SegmentedControl>());
     }
+
+    [Fact]
+    public void A_box_is_the_run_of_ordinary_buttons_a_group_used_to_be() {
+        commands.Add("play.play", Title("Play"), () => { });
+        commands.Add("play.stop", Title("Stop"), () => { });
+
+        var toolbar = Toolbar();
+        toolbar.Show(new ToolbarBox("play.play", "play.stop"));
+
+        // ⚠ Not a segmented control, and the transport is why the two records are separate. Play,
+        // Pause, Step and Stop want the box because a transport is one object; they are four verbs
+        // and not four alternatives, so announcing them as a question with one answer — and letting
+        // an arrow key "choose" Stop — would be a lie the box does not tell.
+        var box = Assert.Single(toolbar.Strip.Children, child => child.Tag == "toolbar-group");
+
+        Assert.Empty(toolbar.Strip.Children.OfType<SegmentedControl>());
+        Assert.Equal(2, box.Children.Count);
+        Assert.All(box.Children, child => Assert.IsAssignableFrom<ButtonBase>(child));
+    }
+
+    static void Key(UiElement element, InputKey key) =>
+        element.Raise(new KeyEvent { Key = key, Action = KeyAction.Pressed, Modifiers = ModifierKeys.None });
 
     [Fact]
     public void A_dropdown_opens_a_menu_over_the_same_registry() {

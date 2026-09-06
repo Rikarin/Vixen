@@ -71,7 +71,10 @@ public class ModeStripTests {
 
         shell.Document.Update();
 
-        var buttons = Find<Button>(shell.Document.Root)
+        // ⚠ `ButtonBase` rather than `Button`: the mode strip is a `SegmentedControl` now, so its
+        // members are `Segment`s. What is being asserted — a picture and a caption on the same face —
+        // is `ButtonBase`'s, and was never `Button`'s.
+        var buttons = Find<ButtonBase>(shell.Document.Root)
             .Where(button => button.LeadingIcon.Art is not null)
             .ToList();
 

@@ -6,6 +6,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Editor.AssetEditors.Importing;
 using Vixen.Editor.Assets.Textures;
 using Vixen.Ui.Controls;
+using Vixen.Ui.Styling;
 using Xunit;
 
 namespace Vixen.Editor.AssetEditors.Tests;
@@ -308,6 +309,61 @@ public class SpriteViewTests {
         // Which means it is undoable, because it went through the document rather than around it.
         document.Stack.Undo();
         Assert.Equal(0, document.Sprites[0].X);
+    }
+
+    [Fact]
+    public void ANegativeWidthStaysInTheFieldRatherThanInTheSprite() {
+        using var harness = new ViewHarness();
+        var (view, document) = Build(harness);
+
+        document.SetSprites([new() { Name = "hero", X = 0, Y = 0, Width = 32, Height = 32 }]);
+        view.Select(0);
+
+        // ⚠ `NumericInput` holds and reports an out-of-range number rather than clamping it, so this
+        // is what the field now carries — the panel is what has to refuse it. `W` declares
+        // `minimum: 0`.
+        view.RectWidth.Number = -4;
+
+        Assert.Equal(-4, view.RectWidth.Number);
+        Assert.False(view.RectWidth.IsValid);
+        Assert.True(view.RectWidth.State.HasFlag(ElementState.OutOfRange));
+
+        Assert.Equal(32, document.Sprites[0].Width);
+
+        // And no undo step was pushed for it either: the only one on the stack is the slice above.
+        var depth = 0;
+
+        while (document.Stack.Undo()) {
+            depth++;
+        }
+
+        Assert.Equal(1, depth);
+    }
+
+    [Fact]
+    public void AnOutOfRangePivotIsRefusedAndAGoodNeighbourDoesNotSmuggleItThrough() {
+        using var harness = new ViewHarness();
+        var (view, document) = Build(harness);
+
+        document.SetSprites([new() { Name = "hero", X = 0, Y = 0, Width = 32, Height = 32, PivotX = 0.5f }]);
+        view.Select(0);
+
+        view.PivotX.Number = 5;
+
+        Assert.Equal(0.5f, document.Sprites[0].PivotX, 3);
+
+        // ⚠ The record is built from all ten fields at once, so a commit driven by a field that *is*
+        // valid would carry the bad pivot with it. A per-field guard would have missed exactly this.
+        view.RectY.Number = 7;
+
+        Assert.Equal(0, document.Sprites[0].Y);
+        Assert.Equal(0.5f, document.Sprites[0].PivotX, 3);
+
+        // And correcting the number commits the lot, including the edit that was held back.
+        view.PivotX.Number = 0.25;
+
+        Assert.Equal(0.25f, document.Sprites[0].PivotX, 3);
+        Assert.Equal(7, document.Sprites[0].Y);
     }
 
     [Fact]
