@@ -110,6 +110,26 @@ public class ResponderReachTests {
     }
 
     /// <summary>
+    ///     ⚠ <b><see cref="UiElement.AccessKey" /> had been answered but never asked.</b>
+    ///     <c>ButtonBase</c> has handled an <c>AccessKeyEvent</c> since the property existed and
+    ///     <c>AccessKeys.Collect</c> walks the focus scope looking for a match, so holding Alt did the
+    ///     whole search and found nothing — every element's key was <c>'\0'</c>, because nothing in
+    ///     the repository ever set one. <c>Samples/02-HelloUi</c>'s shell is the first thing to, on
+    ///     the three names on its menu bar.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The leading dot again, and here it also excludes the type.</b>
+    ///     <c>AccessKey.Parse(</c> is a static on the class of the same name and says nothing about
+    ///     whether an element carries a key — a sweep for the bare word would be satisfied by a
+    ///     caller that parsed a label and threw the answer away, which is the one shape of this
+    ///     defect that looks most like a fix.
+    /// </remarks>
+    [Fact]
+    public void Something_outside_a_test_project_gives_an_element_an_access_key() {
+        Assert.NotEmpty(ProductionCallers(".AccessKey = "));
+    }
+
+    /// <summary>
     ///     The instrument, checked before the thing it measures: the sweep must be able to tell a
     ///     production file from a test one, or the theory above is green on the test projects alone.
     /// </summary>

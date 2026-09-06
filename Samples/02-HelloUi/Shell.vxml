@@ -60,8 +60,8 @@
     -->
     <provide type="ShellModel" value="@Model" />
 
-    <MenuBar>
-        <Menu Label="File">
+    <MenuBar ref="@menus">
+        <Menu Label="_File">
             <MenuItem Label="New" ref="@newItem" />
             <MenuItem Label="Open…" ref="@openItem" />
             <Separator />
@@ -97,11 +97,11 @@
             because until an element in this tree answered a verb, an item claiming to run one would
             have been lying about it.
         -->
-        <Menu Label="Edit">
+        <Menu Label="_Edit">
             <MenuItem Label="Copy" Command="edit.copy" />
         </Menu>
 
-        <Menu Label="View">
+        <Menu Label="_View">
             <!--
                 ⚠ `on:click` on the item rather than one handler for the whole bar, which is what the
                 C# this replaces had to do. A menu's dropdown is parented to the root so it can
@@ -154,6 +154,7 @@
     DockingHost docking = null!;
     ToastHost toasts = null!;
 
+    MenuBar menus = null!;
     MenuItem newItem = null!;
     MenuItem openItem = null!;
     MenuItem saveItem = null!;
@@ -245,6 +246,8 @@
         // from the short-lived thing at the long-lived one; `UiDocument.Dispose` drops the slot.
         Root.Document.CommandResponder = shellCommands;
 
+        Mnemonics();
+
         // ⚠ **The shell hosts a document, and that one line is what makes ⌘S mean something.**
         // `DocumentCommands.Install` registers `document.save` and `document.revert` on this element
         // for the document `HostedDocument` names, so the two File items above are answered by the
@@ -323,6 +326,30 @@
 
     /// <summary>Lets the toasts count down.</summary>
     void Expire(UiDocument document, TimeSpan now) => toasts.Tick(now);
+
+    /// <summary>Turns the <c>_</c> in each menu's name into an access key, and takes the marker out.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Explicit, because <c>AccessKey.Parse</c> is a convention and not a behaviour.</b>
+    ///         Nothing in the framework reads a marker out of a label on its own, deliberately: a
+    ///         control that did would claim <c>c</c> as the access key of a button labelled
+    ///         <c>snake_case</c>, and the collision would only show up when somebody held Alt. So the
+    ///         rule is written down once in <c>Vixen.Ui</c> and applied by whoever wants it — which
+    ///         until this method was nobody, leaving <c>UiElement.AccessKey</c> a property that
+    ///         <c>ButtonBase</c> knew how to answer and nothing ever set.
+    ///     </para>
+    ///     <para>
+    ///         The bar's items rather than the menus: a <c>MenuBarItem</c> is the <c>ButtonBase</c>
+    ///         that has the name on it and answers an <c>AccessKeyEvent</c> by opening its menu, and
+    ///         a <c>Menu</c> is an overlay that never draws the word at all.
+    ///     </para>
+    /// </remarks>
+    void Mnemonics() {
+        foreach (var item in menus.Items) {
+            item.Label = AccessKey.Parse(item.Label, out var key);
+            item.AccessKey = key;
+        }
+    }
 
     void ResetLayout() {
         docking.SetLayout(ShellModel.DefaultLayout());
