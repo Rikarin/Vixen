@@ -8,7 +8,9 @@ namespace Vixen.DocGen.Tests;
 
 /// <summary>Resolution and orphans — docs/plan/25 § Part 5, read in both directions.</summary>
 public class PageLinkTests {
-    static GuidePage Page(string slug, string body = "", params string[] related) => new() {
+    static GuidePage Page(string slug, string body = "", params string[] related) => Page(slug, body, related, []);
+
+    static GuidePage Page(string slug, string body, string[] related, IReadOnlyList<DocHeading> headings) => new() {
         Front = new FrontMatter(
             Title: slug,
             Slug: slug,
@@ -23,7 +25,7 @@ public class PageLinkTests {
             Breaking: []),
         Path = $"docs/guide/{slug}.md",
         Body = body,
-        Headings = [],
+        Headings = headings,
         Examples = []
     };
 
@@ -87,11 +89,114 @@ public class PageLinkTests {
     }
 
     /// <summary>External links rot on someone else's schedule; a gate that watched them would be flaky.</summary>
+    [Fact]
+    public void AnExternalLinkIsPassedOver() {
+        Assert.Empty(Check([Page("ecs/index", "See [spec](https://example.org/spec).")]));
+    }
+
+    /// <summary>A slug written whole, and a sibling named by its last segment. Both are in the tree.</summary>
+    [Theory]
+    [InlineData("rendering/materials")]
+    [InlineData("../rendering/materials")]
+    public void ASlugWithoutAnExtensionResolves(string href) {
+        Assert.Empty(Check([Page("ecs/index", $"See [materials]({href})."), Page("rendering/materials")]));
+    }
+
+    [Fact]
+    public void ASiblingNamedByItsLastSegmentResolves() {
+        Assert.Empty(Check([Page("ecs/index", "See [queries](queries)."), Page("ecs/queries")]));
+    }
+
+    [Fact]
+    public void ASlugThatNamesNoPageIsReported() {
+        var problems = Check([Page("ecs/index", "See [chunks](ecs/chunks).")]);
+
+        Assert.Contains(problems, problem => problem.Contains("names no guide page", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     A heading is renamed far more often than a page is, and a dead anchor lands the reader at
+    ///     the top of the right page — which reads as having worked.
+    /// </summary>
+    [Fact]
+    public void AnAnchorThatNamesNoHeadingIsReported() {
+        var problems = Check([
+            Page("ecs/index", "See [that bit](queries#chunks)."),
+            Page("ecs/queries", "", [], [new DocHeading("what-it-is", "What it is", 2)])
+        ]);
+
+        Assert.Contains(problems, problem => problem.Contains("names no heading", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void AnAnchorThatNamesAHeadingResolves() {
+        Assert.Empty(Check([
+            Page("ecs/index", "See [that bit](queries#what-it-is)."),
+            Page("ecs/queries", "", [], [new DocHeading("what-it-is", "What it is", 2)])
+        ]));
+    }
+
+    // ── Rewriting — the same resolution, written into the body ──────────────────────────────────
+
+    /// <summary>
+    ///     ⚠ The three relative shapes are all 404s in a browser as written, and each was in the tree
+    ///     in the hundreds.
+    /// </summary>
+    [Theory]
+    [InlineData("[queries](queries.md)", "[queries](/docs/guide/ecs/queries)")]
+    [InlineData("[materials](../rendering/materials.md)", "[materials](/docs/guide/rendering/materials)")]
+    [InlineData("[materials](rendering/materials)", "[materials](/docs/guide/rendering/materials)")]
+    [InlineData("[queries](queries)", "[queries](/docs/guide/ecs/queries)")]
+    [InlineData("[queries](queries.md#what-it-is)", "[queries](/docs/guide/ecs/queries#what-it-is)")]
+    public void AnInTreeLinkIsRewrittenToTheRouteTheSiteServes(string written, string served) {
+        var pages = PageLinks.WithSiteLinks([
+            Page("ecs/index", $"See {written}."),
+            Page("ecs/queries", "", [], [new DocHeading("what-it-is", "What it is", 2)]),
+            Page("rendering/materials")
+        ]);
+
+        Assert.Equal($"See {served}.", pages[0].Body);
+    }
+
+    /// <summary>
+    ///     ⚠ A bare `#anchor` is the one that looks fine and is not: the application ships
+    ///     <c>&lt;base href="/"&gt;</c>, so it resolves to the site root.
+    /// </summary>
+    [Fact]
+    public void ABareAnchorIsRewrittenToHangOffThePageItIsOn() {
+        var pages = PageLinks.WithSiteLinks([
+            Page("ecs/queries", "See [below](#what-it-is).", [], [new DocHeading("what-it-is", "What it is", 2)])
+        ]);
+
+        Assert.Equal("See [below](/docs/guide/ecs/queries#what-it-is).", pages[0].Body);
+    }
+
     [Theory]
     [InlineData("[spec](https://example.org/spec)")]
-    [InlineData("[the heading](#what-it-is)")]
-    public void LinksThisPassDoesNotOwnArePassedOver(string link) {
-        Assert.Empty(Check([Page("ecs/index", $"See {link}.")]));
+    [InlineData("[World](/docs/api/vixen.ecs/world)")]
+    [InlineData("[the shaders](/docs/shaders)")]
+    public void ALinkThisPassDoesNotOwnIsLeftAsWritten(string link) {
+        var pages = PageLinks.WithSiteLinks([Page("ecs/index", $"See {link}.")]);
+
+        Assert.Equal($"See {link}.", pages[0].Body);
+    }
+
+    /// <summary>An unresolved link keeps what its author wrote, so the message can name that string.</summary>
+    [Fact]
+    public void AnUnresolvedLinkIsLeftAsWritten() {
+        var pages = PageLinks.WithSiteLinks([Page("ecs/index", "See [chunks](chunks.md).")]);
+
+        Assert.Equal("See [chunks](chunks.md).", pages[0].Body);
+    }
+
+    [Fact]
+    public void ALinkTitleSurvivesTheRewrite() {
+        var pages = PageLinks.WithSiteLinks([
+            Page("ecs/index", """See [queries](queries.md "Entity queries")."""),
+            Page("ecs/queries")
+        ]);
+
+        Assert.Equal("""See [queries](/docs/guide/ecs/queries "Entity queries").""", pages[0].Body);
     }
 
     [Fact]

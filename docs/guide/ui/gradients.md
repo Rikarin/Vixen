@@ -17,7 +17,7 @@ Three small types that say everything about a gradient beyond its colours: `Grad
 whether it runs along a line, out from the centre, or around it; `GradientStops` is where its three
 stops sit along that ramp; and `GradientSpace` is which colour space the stops are interpolated in.
 
-They live on [`BoxStyle`](../../../Core/Vixen.Ui/BoxStyle.cs), the draw list's side-buffer entry for a
+They live on [`BoxStyle`](/docs/api/vixen.ui/boxstyle), the draw list's side-buffer entry for a
 box that needs more than a colour and a radius, and they are written into `UiShape` for the shader
 to read.
 

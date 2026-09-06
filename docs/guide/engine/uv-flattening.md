@@ -85,7 +85,7 @@ So a chart the ladder cannot bring to zero **produces no island at all**. It is 
 `UvReport.Warnings` with the reason, and the answer to it is a smaller chart — which is the charter's
 recursion, not the flattener's.
 
-The test is [`ExactPredicates.Orient2D`](../../api/Vixen.Core.Mathematics.ExactPredicates.html) on the
+The test is [`ExactPredicates.Orient2D`](/docs/api/vixen.core.mathematics/exactpredicates) on the
 coordinates that ship, not a `float` cross product: three points that are exactly collinear can give a
 naive cross product of `16` in one argument order and `-67108864` in another, and a triangle that is
 exactly degenerate in the parameterization is both the case that matters and the case the naive test

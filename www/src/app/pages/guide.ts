@@ -5,6 +5,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, input } f
 import { RouterLink } from '@angular/router';
 import { slugOf, type GuidePage } from '../core/model';
 import { PageMeta } from '../core/page-meta';
+import { GUIDE } from '../../generated/manifest';
 import { XuiToc, type XuiTocEntry } from '@xui/toc';
 import { Prose } from '../shared/prose';
 
@@ -52,15 +53,25 @@ import { Prose } from '../shared/prose';
             </section>
           }
 
-          <docs-prose [markdown]="guide.Body" [basePath]="path()" [tokens]="guide.Tokens" />
+          <docs-prose
+            [markdown]="guide.Body"
+            [basePath]="path()"
+            [headings]="guide.Headings"
+            [tokens]="guide.Tokens"
+          />
 
-          @if (guide.Related.length > 0) {
+          @if (related().length > 0) {
             <footer class="border-border border-t pt-4">
               <h2 class="text-foreground-muted mb-2 text-xs font-semibold tracking-wide uppercase">Next</h2>
               <ul class="space-y-1">
-                @for (slug of guide.Related; track slug) {
+                @for (page of related(); track page.slug) {
                   <li>
-                    <a [routerLink]="['/docs/guide', ...slug.split('/')]" class="text-primary text-sm hover:underline">{{ slug }}</a>
+                    <a [routerLink]="['/docs/guide', ...page.slug.split('/')]" class="text-primary text-sm hover:underline">
+                      {{ page.title }}
+                    </a>
+                    @if (page.summary) {
+                      <span class="text-foreground-subtle text-sm"> — {{ page.summary }}</span>
+                    }
                   </li>
                 }
               </ul>
@@ -96,6 +107,21 @@ export class GuidePageComponent {
 
   /** The page's own path, so a heading's self-link goes down the page rather than to the root. */
   protected readonly path = computed(() => `/docs/guide/${this.page()?.Slug ?? ''}`);
+
+  /**
+   * `related:` as pages rather than as slugs.
+   *
+   * The slug is the id, not the label: a reader deciding where to go next is choosing between
+   * titles, and `engine/terrain-heightfield` in a list of links reads like one that is broken. The
+   * index is already loaded for the nav, so this costs a lookup.
+   */
+  protected readonly related = computed(() =>
+    (this.page()?.Related ?? []).map(slug => {
+      const found = GUIDE.find(entry => entry.slug === slug);
+
+      return { slug, title: found?.title ?? slug, summary: found?.summary ?? '' };
+    })
+  );
 
   protected readonly symbols = computed(() =>
     (this.page()?.Api ?? []).map(id => {

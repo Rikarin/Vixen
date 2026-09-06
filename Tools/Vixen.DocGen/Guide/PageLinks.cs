@@ -30,8 +30,33 @@ static partial class PageLinks {
     ];
 
     /// <summary>Markdown inline links, with the optional title the syntax allows.</summary>
-    [GeneratedRegex(@"\]\((?<href>[^)\s]+)(?:\s+""[^""]*"")?\)")]
+    [GeneratedRegex(@"\]\((?<href>[^)\s]+)(?<title>\s+""[^""]*"")?\)")]
     private static partial Regex Link();
+
+    /// <summary>What a link in a body turns out to point at.</summary>
+    enum LinkKind {
+        /// <summary>Off the site, or a shape this pass does not own.</summary>
+        Ignored,
+
+        /// <summary>A guide page, which the site serves at a route derived from its slug.</summary>
+        Guide,
+
+        /// <summary>Guide-shaped, and naming nothing — the 404 this pass exists to catch.</summary>
+        Missing,
+
+        /// <summary>A symbol page, checked against the graph rather than against the pages.</summary>
+        Api,
+
+        /// <summary>One of the site's fixed routes.</summary>
+        Route
+    }
+
+    /// <summary>Where a link goes once the tree's conventions have been applied.</summary>
+    /// <param name="Kind">Which of the five shapes it turned out to be.</param>
+    /// <param name="Href">What the body should carry — rewritten for a guide page, as written otherwise.</param>
+    /// <param name="Slug">The guide page or symbol it names; empty when it names neither.</param>
+    /// <param name="Fragment">The anchor it lands on, without the <c>#</c>; empty when it has none.</param>
+    readonly record struct Destination(LinkKind Kind, string Href, string Slug, string Fragment);
 
     /// <summary>Checks every link, and then every page's inbound count.</summary>
     /// <param name="pages">Every page that parsed.</param>
@@ -60,37 +85,37 @@ static partial class PageLinks {
 
             foreach (Match match in Link().Matches(page.Body)) {
                 var href = match.Groups["href"].Value;
-                var anchor = href.IndexOf('#', StringComparison.Ordinal);
-                var target = anchor >= 0 ? href[..anchor] : href;
+                var destination = Where(page, href, byPath, bySlug);
 
-                if (target.Length == 0 || Uri.IsWellFormedUriString(target, UriKind.Absolute)) {
-                    // A bare `#anchor`, or a link off the site. Neither is this pass's business:
-                    // external links rot on someone else's schedule and would make the gate flaky.
-                    continue;
-                }
+                switch (destination.Kind) {
+                    case LinkKind.Guide:
+                        Reached(destination.Slug, page.Front.Slug);
 
-                var slug = Resolve(page, target, byPath);
+                        // ⚠ The anchor too, because a heading is renamed far more often than a page
+                        // is, and a link that lands on the right page at the top of it looks like it
+                        // worked.
+                        if (destination.Fragment.Length > 0
+                            && !bySlug[destination.Slug].Headings.Any(heading =>
+                                string.Equals(heading.Id, destination.Fragment, StringComparison.Ordinal))) {
+                            problems.Add($"{page.Path}: `{href}` names no heading on that page");
+                        }
 
-                if (slug is not null) {
-                    if (bySlug.ContainsKey(slug)) {
-                        Reached(slug, page.Front.Slug);
-                    } else {
+                        break;
+
+                    case LinkKind.Missing:
                         problems.Add($"{page.Path}: `{href}` names no guide page");
-                    }
 
-                    continue;
-                }
+                        break;
 
-                if (target.StartsWith("/docs/api/", StringComparison.Ordinal)) {
-                    if (!nodeSlugs.Contains(target["/docs/api/".Length..].TrimEnd('/'))) {
+                    case LinkKind.Api when !nodeSlugs.Contains(destination.Slug):
                         problems.Add($"{page.Path}: `{href}` names nothing the graph has");
-                    }
 
-                    continue;
-                }
+                        break;
 
-                if (target.StartsWith('/') && !SiteRoutes.Contains(target.TrimEnd('/'), StringComparer.Ordinal)) {
-                    problems.Add($"{page.Path}: `{href}` is not a route the site serves");
+                    case LinkKind.Route when !SiteRoutes.Contains(destination.Slug, StringComparer.Ordinal):
+                        problems.Add($"{page.Path}: `{href}` is not a route the site serves");
+
+                        break;
                 }
             }
         }
@@ -105,24 +130,128 @@ static partial class PageLinks {
         return problems;
     }
 
-    /// <summary>The guide slug a link points at, or null when it points somewhere else.</summary>
-    static string? Resolve(GuidePage page, string target, IReadOnlyDictionary<string, GuidePage> byPath) {
+    /// <summary>
+    ///     The same pages, with every link the site has to serve rewritten to the URL it serves it at.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The bodies as written do not work in a browser</b>, and nothing counted it: 558 links
+    ///     are <c>queries.md</c>, which is what the page looks like on GitHub and therefore how they
+    ///     get written; 191 are a bare slug; 12 are a bare <c>#anchor</c>, which resolves against the
+    ///     application's <c>&lt;base href="/"&gt;</c> and lands on the site root. The resolution this
+    ///     file already does for <see cref="Check" /> is the same resolution, so it is done once and
+    ///     the answer is written into the body rather than checked and thrown away.
+    /// </remarks>
+    public static IReadOnlyList<GuidePage> WithSiteLinks(IReadOnlyList<GuidePage> pages) {
+        var bySlug = pages.ToDictionary(page => page.Front.Slug, StringComparer.Ordinal);
+        var byPath = pages.ToDictionary(page => page.Path, StringComparer.OrdinalIgnoreCase);
+
+        return [
+            .. pages.Select(page => page with {
+                Body = Link().Replace(page.Body, match => {
+                    var destination = Where(page, match.Groups["href"].Value, byPath, bySlug);
+
+                    // Only a link that resolves: an unresolved one keeps what its author wrote, so
+                    // the message `Check` prints names the string in the file.
+                    return destination.Kind == LinkKind.Guide
+                        ? $"]({destination.Href}{match.Groups["title"].Value})"
+                        : match.Value;
+                })
+            })
+        ];
+    }
+
+    /// <summary>Where one link points, by the conventions the tree is written in.</summary>
+    /// <remarks>
+    ///     Four relative shapes reach here and all four are in the tree today: <c>queries.md</c> and
+    ///     <c>../rendering/materials.md</c> resolve against the page's real <em>path</em>, because
+    ///     that is what makes them work on GitHub; <c>animation/move-sets</c> is a slug written
+    ///     whole; and <c>writing-a-realm</c> is a sibling named by its last segment, which resolves
+    ///     against the page's own area.
+    /// </remarks>
+    static Destination Where(
+        GuidePage page,
+        string href,
+        IReadOnlyDictionary<string, GuidePage> byPath,
+        IReadOnlyDictionary<string, GuidePage> bySlug
+    ) {
+        var hash = href.IndexOf('#', StringComparison.Ordinal);
+        var target = hash >= 0 ? href[..hash] : href;
+        var fragment = hash >= 0 ? href[(hash + 1)..] : string.Empty;
+
+        Destination Guide(string slug) => new(
+            LinkKind.Guide,
+            fragment.Length == 0 ? $"/docs/guide/{slug}" : $"/docs/guide/{slug}#{fragment}",
+            slug,
+            fragment);
+
+        // External links rot on someone else's schedule; a gate that watched them would be flaky.
+        if (Uri.IsWellFormedUriString(target, UriKind.Absolute)) {
+            return new Destination(LinkKind.Ignored, href, string.Empty, string.Empty);
+        }
+
+        // ⚠ A bare `#anchor` is not left alone. The site ships `<base href="/">`, against which a
+        // bare fragment resolves to the site root rather than to a heading on the page it is on.
+        if (target.Length == 0) {
+            return Guide(page.Front.Slug);
+        }
+
+        if (target.StartsWith("/docs/api/", StringComparison.Ordinal)) {
+            return new Destination(LinkKind.Api, href, target["/docs/api/".Length..].TrimEnd('/'), fragment);
+        }
+
         if (target.StartsWith("/docs/guide/", StringComparison.Ordinal)) {
-            return target["/docs/guide/".Length..].TrimEnd('/');
+            var written = target["/docs/guide/".Length..].TrimEnd('/');
+
+            return bySlug.ContainsKey(written)
+                ? Guide(written)
+                : new Destination(LinkKind.Missing, href, written, fragment);
         }
 
-        if (!target.EndsWith(".md", StringComparison.OrdinalIgnoreCase)) {
-            return null;
+        if (target.StartsWith('/')) {
+            return new Destination(LinkKind.Route, href, target.TrimEnd('/'), fragment);
         }
 
-        // A relative link between two files in the tree, which is what the page looks like on GitHub
-        // and is therefore how most of them get written. Normalised by hand rather than through
-        // `Path.GetFullPath`, which would drag the host's separator and drive letter into a value
-        // that has to compare equal to a repository-relative path on three operating systems.
+        if (target.EndsWith(".md", StringComparison.OrdinalIgnoreCase)) {
+            // Resolved against the page's real path so that `../rendering/materials.md` lands where
+            // the reader's click on GitHub would, rather than being pattern-matched on the slug and
+            // quietly agreeing.
+            var path = Normalize(Path.GetDirectoryName(page.Path) ?? string.Empty, target);
+
+            return byPath.TryGetValue(path, out var found)
+                ? Guide(found.Front.Slug)
+                : new Destination(LinkKind.Missing, href, path, fragment);
+        }
+
+        // A slug, written whole or named from beside it.
+        if (bySlug.ContainsKey(target)) {
+            return Guide(target);
+        }
+
+        var sibling = Normalize(Directory(page.Front.Slug), target);
+
+        return bySlug.ContainsKey(sibling)
+            ? Guide(sibling)
+            : new Destination(LinkKind.Missing, href, sibling, fragment);
+    }
+
+    /// <summary>Everything before the last <c>/</c>, which for a slug is its area.</summary>
+    static string Directory(string path) {
+        var separator = path.LastIndexOf('/');
+
+        return separator < 0 ? string.Empty : path[..separator];
+    }
+
+    /// <summary>
+    ///     <paramref name="target" /> resolved against <paramref name="from" />, dot segments and all.
+    /// </summary>
+    /// <remarks>
+    ///     By hand rather than through <c>Path.GetFullPath</c>, which would drag the host's separator
+    ///     and drive letter into a value that has to compare equal to a repository-relative path on
+    ///     three operating systems.
+    /// </remarks>
+    static string Normalize(string from, string target) {
         var segments = new List<string>(
-            (Path.GetDirectoryName(page.Path) ?? string.Empty)
-            .Replace('\\', '/')
-            .Split('/', StringSplitOptions.RemoveEmptyEntries));
+            from.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries));
 
         foreach (var part in target.Split('/', StringSplitOptions.RemoveEmptyEntries)) {
             switch (part) {
@@ -141,11 +270,7 @@ static partial class PageLinks {
             }
         }
 
-        var relative = string.Join('/', segments);
-
-        // Resolved against the page's real path so that `../rendering/materials.md` lands where the
-        // reader's click would, rather than being pattern-matched on the slug and quietly agreeing.
-        return byPath.TryGetValue(relative, out var found) ? found.Front.Slug : relative;
+        return string.Join('/', segments);
     }
 
     static bool IsIndex(string slug) =>

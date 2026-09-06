@@ -274,7 +274,10 @@ static async Task<int> Run(Arguments arguments) {
     problems.AddRange(Coverage.Check(nodes, exemptions));
 
     var written = new GraphWriter().Write(graph, arguments.Output);
-    var guideWritten = GraphWriter.WriteGuide(pages, arguments.Output);
+
+    // After the check rather than before it, so a message names the href its author wrote rather
+    // than the URL this turned it into.
+    var guideWritten = GraphWriter.WriteGuide(PageLinks.WithSiteLinks(pages), arguments.Output);
 
     // ── The release, § 6 ────────────────────────────────────────────────────────────────────────
     // Written before the summary so the numbers the summary prints include it, and after the graph

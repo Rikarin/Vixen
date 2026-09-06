@@ -10,6 +10,27 @@ import { RELEASES } from '../../generated/releases';
 import { TAXONOMY } from '../core/model';
 
 /**
+ * The guide's pages, grouped by the area they belong to.
+ *
+ * ⚠ Flat, this is 225 rows of four domains running into each other — "Environment queries" sits two
+ * rows above "Move sets", and nothing on screen says one is AI and the other animation. The area is
+ * on every page already, so the grouping is read rather than maintained; `xuiTreeRouter` opens the
+ * one the reader is in, so the list stays a list of a dozen until they pick a domain.
+ */
+function guideAreas(): XuiTreeNode[] {
+  const areas = [...new Set(GUIDE.map(page => page.area))].sort((left, right) => left.localeCompare(right));
+
+  return areas.map(area => ({
+    id: `guide-area/${area.toLowerCase()}`,
+    label: area,
+    secondaryLabel: String(GUIDE.filter(page => page.area === area).length),
+    children: GUIDE.filter(page => page.area === area)
+      .map(page => ({ id: `guide/${page.slug}`, label: page.title }))
+      .sort((left, right) => left.label.localeCompare(right.label))
+  }));
+}
+
+/**
  * The documentation frame: the areas on the left, the page in the middle, and whatever outline the
  * page provides on the right.
  *
@@ -108,7 +129,7 @@ export class DocsLayout {
             id: 'guide',
             label: 'Guide',
             isExpanded: true,
-            children: GUIDE.map(page => ({ id: `guide/${page.slug}`, label: page.title }))
+            children: guideAreas()
           }
         ]
       : []),
