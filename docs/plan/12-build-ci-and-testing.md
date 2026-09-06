@@ -724,7 +724,16 @@ always loses.) Tracked as [#336](https://github.com/Rikarin/Vixen/issues/336).
   appears somewhere earlier.
 - **`GoldenFile`** — ✅ the snapshot helper, in [`Testing/GoldenFile.cs`](../../Testing/GoldenFile.cs),
   linked the way `Measured` is and adopted by the four `Golden*Tests` in `Vixen.Raven.Tests`, which
-  are what it was taken out of: each had written the same fifteen lines by hand.
+  are what it was taken out of: each had written the same fifteen lines by hand — and, since
+  2026-09-06, by the two `Vixen.Net` wire suites through `WireGolden`
+  ([#843](https://github.com/Rikarin/Vixen/issues/843)), which was the last hand-rolled copy of the
+  comparison in the tree. ⚠️ **`WireGolden` did not go away and should not**: what is domain-shaped
+  there is the *rendering* — hex for bytes, raw bits for a float rather than a formatted one, a case
+  name that says which encoder and which input — and that is what makes a failure name
+  `encode/unit8/minus-one`. Only the comparison was shared. The suites' corpus stays at
+  `Wire/__wire__/` and no call site changed; what they gained is the empty-rendering refusal, checked
+  by handing the helper a listing with no cases in it and watching it fail instead of committing an
+  empty file that would have agreed with it for ever.
 
   **Two of the three specified parts landed and the third was refused.** The unified diff is here and
   is the half `Assert.Equal` cannot do — over a few kilobytes of syntax tree or SPIR-V listing its
