@@ -2398,6 +2398,23 @@ public sealed class DrawListBuilder {
             return;
         }
 
+        // ⚠ <b>An outer shadow with no offset, no blur and no spread is not a rectangle behind the
+        // element — it is nothing, and this engine used to paint it.</b> CSS Backgrounds 3 § 7.1.1
+        // clips an outer shadow to <i>outside</i> the border box, so a shadow that is exactly the
+        // border box has no region left; a browser renders nothing for `box-shadow: 0 0 0 0 red`. The
+        // shader does not clip, and the remark on `UtilityComposition.RingWidth` recorded the
+        // consequence as acceptable — the shadow "the exact size of the border box that the background
+        // then covers" — which holds only while the element HAS an opaque background. It is the inner
+        // twin at the top of this branch wearing the other hat, and the same slot arithmetic forces
+        // it: `UtilityComposition.Shadows` substitutes an unset ring and an unset offset ring into the
+        // list on every element carrying any `shadow-*` or `ring-*`, and those two carry
+        // `currentcolor` and `Canvas` — opaque, so the transparent drop above cannot reach them.
+        // Without this, registering `ring-offset-*` would have put an opaque page-coloured rectangle
+        // under every shadowed element in the editor.
+        if (spread <= 0f && shadow.Falloff <= 0f && shadow.X == 0f && shadow.Y == 0f) {
+            return;
+        }
+
         // The spread grows the box in every direction, and the corner radius with it: a spread that
         // kept the original corner would give a shadow visibly squarer than the thing casting it.
         var wide = width + (spread * 2f);

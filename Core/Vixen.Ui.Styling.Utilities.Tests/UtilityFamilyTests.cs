@@ -120,22 +120,31 @@ public class UtilityFamilyTests {
     [InlineData(
         "shadow",
         "--tw-shadow: 0px 1px 2px rgba(0, 0, 0, 0.3)"
-        + "|box-shadow: var(--tw-inset-shadow, 0 0 transparent), inset 0 0 0 var(--tw-inset-ring-width, 0px) var(--tw-inset-ring-color, currentcolor), 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
+        + "|box-shadow: var(--tw-inset-shadow, 0 0 transparent), inset 0 0 0 var(--tw-inset-ring-width, 0px) var(--tw-inset-ring-color, currentcolor), 0 0 0 var(--tw-ring-offset-width, 0px) var(--tw-ring-offset-color, Canvas), 0 0 0 calc(var(--tw-ring-offset-width, 0px) + var(--tw-ring-width, 0px)) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
     )]
     [InlineData(
         "shadow-lg",
         "--tw-shadow: 0px 8px 24px rgba(0, 0, 0, 0.45)"
-        + "|box-shadow: var(--tw-inset-shadow, 0 0 transparent), inset 0 0 0 var(--tw-inset-ring-width, 0px) var(--tw-inset-ring-color, currentcolor), 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
+        + "|box-shadow: var(--tw-inset-shadow, 0 0 transparent), inset 0 0 0 var(--tw-inset-ring-width, 0px) var(--tw-inset-ring-color, currentcolor), 0 0 0 var(--tw-ring-offset-width, 0px) var(--tw-ring-offset-color, Canvas), 0 0 0 calc(var(--tw-ring-offset-width, 0px) + var(--tw-ring-width, 0px)) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
     )]
     [InlineData(
         "shadow-none",
         "--tw-shadow: 0 0 transparent"
-        + "|box-shadow: var(--tw-inset-shadow, 0 0 transparent), inset 0 0 0 var(--tw-inset-ring-width, 0px) var(--tw-inset-ring-color, currentcolor), 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
+        + "|box-shadow: var(--tw-inset-shadow, 0 0 transparent), inset 0 0 0 var(--tw-inset-ring-width, 0px) var(--tw-inset-ring-color, currentcolor), 0 0 0 var(--tw-ring-offset-width, 0px) var(--tw-ring-offset-color, Canvas), 0 0 0 calc(var(--tw-ring-offset-width, 0px) + var(--tw-ring-width, 0px)) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
+    )]
+    // ⚠ <b>The fifth slot, and the row worth reading is the ring's spread rather than the offset's
+    // own fragment.</b> `ring-offset-2` writes only a width; what makes it a gap and not a wider ring
+    // is that `Ring()` spreads by `calc(offset + width)`, so the two classes on one element give a
+    // ring whose outer edge has moved out by the offset and whose inner edge has not.
+    [InlineData(
+        "ring-offset-2",
+        "--tw-ring-offset-width: 2px"
+        + "|box-shadow: var(--tw-inset-shadow, 0 0 transparent), inset 0 0 0 var(--tw-inset-ring-width, 0px) var(--tw-inset-ring-color, currentcolor), 0 0 0 var(--tw-ring-offset-width, 0px) var(--tw-ring-offset-color, Canvas), 0 0 0 calc(var(--tw-ring-offset-width, 0px) + var(--tw-ring-width, 0px)) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
     )]
     [InlineData(
         "ring-2",
         "--tw-ring-width: 2px"
-        + "|box-shadow: var(--tw-inset-shadow, 0 0 transparent), inset 0 0 0 var(--tw-inset-ring-width, 0px) var(--tw-inset-ring-color, currentcolor), 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
+        + "|box-shadow: var(--tw-inset-shadow, 0 0 transparent), inset 0 0 0 var(--tw-inset-ring-width, 0px) var(--tw-inset-ring-color, currentcolor), 0 0 0 var(--tw-ring-offset-width, 0px) var(--tw-ring-offset-color, Canvas), 0 0 0 calc(var(--tw-ring-offset-width, 0px) + var(--tw-ring-width, 0px)) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
     )]
     // ⚠ <b>The two inner families emit into the same assembled `box-shadow`, which is the whole
     // reason they are fragments rather than a second declaration.</b> `inset-shadow-sm shadow-lg
@@ -146,12 +155,12 @@ public class UtilityFamilyTests {
     [InlineData(
         "inset-shadow-none",
         "--tw-inset-shadow: 0 0 transparent"
-        + "|box-shadow: var(--tw-inset-shadow, 0 0 transparent), inset 0 0 0 var(--tw-inset-ring-width, 0px) var(--tw-inset-ring-color, currentcolor), 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
+        + "|box-shadow: var(--tw-inset-shadow, 0 0 transparent), inset 0 0 0 var(--tw-inset-ring-width, 0px) var(--tw-inset-ring-color, currentcolor), 0 0 0 var(--tw-ring-offset-width, 0px) var(--tw-ring-offset-color, Canvas), 0 0 0 calc(var(--tw-ring-offset-width, 0px) + var(--tw-ring-width, 0px)) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
     )]
     [InlineData(
         "inset-ring-2",
         "--tw-inset-ring-width: 2px"
-        + "|box-shadow: var(--tw-inset-shadow, 0 0 transparent), inset 0 0 0 var(--tw-inset-ring-width, 0px) var(--tw-inset-ring-color, currentcolor), 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
+        + "|box-shadow: var(--tw-inset-shadow, 0 0 transparent), inset 0 0 0 var(--tw-inset-ring-width, 0px) var(--tw-inset-ring-color, currentcolor), 0 0 0 var(--tw-ring-offset-width, 0px) var(--tw-ring-offset-color, Canvas), 0 0 0 calc(var(--tw-ring-offset-width, 0px) + var(--tw-ring-width, 0px)) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
     )]
     [InlineData("mask-none", "mask-image: none")]
     // ⚠ The assembled `mask-image` is what these rows are really about. Each stop family sets one

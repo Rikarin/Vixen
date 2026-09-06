@@ -22,7 +22,7 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         <see cref="A_shorter_prefix_would_rescue_nothing" /> sweeps every nesting pair the
 ///         registry contains against every token key both shipped themes contain, and asserts that no
 ///         class exists which the longest-first rule refuses and a shorter prefix would answer. The
-///         shadowed roots — <c>border-spacing-*</c>, <c>ring-offset-*</c>, <c>text-shadow-*</c> and the
+///         shadowed roots — <c>border-spacing-*</c>, <c>bg-blend-*</c>, <c>text-shadow-*</c> and the
 ///         rest — are shadowed by a family that is the <i>only</i> registered prefix they have, so
 ///         there is nothing shorter to retry: whatever closes them, it is not the retry, and the
 ///         retry is a separate question with the answer "no".
@@ -198,7 +198,6 @@ public class ShadowedFamilyTests {
     [InlineData("flex-shrink-0", "flex")]
     [InlineData("flex-grow-0", "flex")]
     [InlineData("max-w-screen-md", "max-w")]
-    [InlineData("ring-offset-0", "ring")]
     [InlineData("text-shadow-2xs", "text")]
     [InlineData("font-stretch-50%", "font")]
     [InlineData("bg-clip-text", "bg")]
@@ -355,20 +354,21 @@ public class ShadowedFamilyTests {
         // ⚠ <c>rounded-ss-lg</c> was the second of these, then <c>scale-x-0</c>, then
         // <c>rotate-z-0</c>, and all three are rules now — the six logical radii landed, then the
         // per-axis scales once <c>scale</c> acquired a reader, then <c>rotate-z</c> once somebody
-        // noticed the parser it was waiting on had already shipped. <c>ring-offset-0</c> replaces it
-        // rather than the list shrinking to one: the claim is that *two* shadowed classes are
-        // separated from *two* English words, and a single-element list would still pass if the
-        // partition collapsed the wrong way. That this line has now been rewritten three times by a
+        // noticed the parser it was waiting on had already shipped, then <c>ring-offset-0</c> once
+        // somebody decided the colour of the gap rather than copying v4's white. <c>text-shadow-2xs</c>
+        // replaces it rather than the list shrinking to one: the claim is that *two* shadowed classes
+        // are separated from *two* English words, and a single-element list would still pass if the
+        // partition collapsed the wrong way. That this line has now been rewritten four times by a
         // root closing is the healthy version of the failure <c>UtilityFamilies</c>' category 2
         // records — here the test says so.
-        generator.Generate(["bg-clip-text", "ring-offset-0", "flexx-4", "however", "p-4"]);
+        generator.Generate(["bg-clip-text", "text-shadow-2xs", "flexx-4", "however", "p-4"]);
 
         Assert.Equal(1, generator.RuleCount);
 
         Assert.Equal(
             [
                 new UtilityRefusal("bg-clip-text", "bg", "clip-text", UtilityRefusalKind.Value),
-                new UtilityRefusal("ring-offset-0", "ring", "offset-0", UtilityRefusalKind.Value)
+                new UtilityRefusal("text-shadow-2xs", "text", "shadow-2xs", UtilityRefusalKind.Value)
             ],
             generator.Unresolved
         );

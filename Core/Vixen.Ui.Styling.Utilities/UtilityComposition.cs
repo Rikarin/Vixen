@@ -464,6 +464,45 @@ public static class UtilityComposition {
     /// </remarks>
     public const string RingColor = Prefix + "ring-color";
 
+    /// <summary>How wide the gap between the element and its ring is, as a length.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The offset is not a property of the ring — it is a <i>second</i> ring underneath it,
+    ///     and that is the whole of why this family needed a fifth slot rather than a wider
+    ///     <see cref="Ring" />.</b> v4 draws <c>0 0 0 &lt;offset&gt; &lt;offset-colour&gt;</c> and then
+    ///     the ring itself at <c>calc(offset + width)</c>, so the near half of the larger ring is
+    ///     covered by the smaller one and what survives is a band of the offset colour with the ring
+    ///     outside it. There is no gap anywhere in the arithmetic: a "gap" that is really a hole would
+    ///     need a shadow to punch through what is behind it, which no compositing operator in a
+    ///     <c>box-shadow</c> list can do.
+    /// </remarks>
+    public const string RingOffsetWidth = Prefix + "ring-offset-width";
+
+    /// <summary>What colour the gap is painted in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>Canvas</c>, and not v4's <c>#fff</c> — this is the decision the family waited
+    ///         on rather than an implementation of it.</b> Tailwind's white is not a colour anybody
+    ///         chose either; it is the assumption that the page behind the element is white, which is
+    ///         the only answer a stylesheet generator with no view of the document can give. This
+    ///         engine has one: <c>Canvas</c> is CSS's own name for the background of application
+    ///         content, <c>SystemPalette</c> answers it per document, and it follows the platform's
+    ///         light and dark appearance. So the gap is the page in both, where a literal
+    ///         <c>#fff</c> would put a white halo round every focused control in this dark chrome.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Opaque, and it has to be, which is what forced a matching drop in the draw
+    ///         list.</b> The obvious safe initial is <c>transparent</c> — an unset slot that paints
+    ///         nothing — and it is wrong here in a way no other slot in this table is: with the
+    ///         offset ring transparent, <c>ring-2 ring-offset-2</c> paints a four-point ring with no
+    ///         gap in it, which reads as the offset class being ignored rather than as an unset
+    ///         fragment. So the colour is opaque and the <i>width</i>'s zero is what makes the unset
+    ///         state free: <c>DrawListBuilder.EmitOneShadow</c> drops an outer shadow with no offset,
+    ///         no blur and no spread, which CSS Backgrounds 3 § 7.1.1 already renders as nothing
+    ///         because an outer shadow is clipped to outside the border box.
+    ///     </para>
+    /// </remarks>
+    public const string RingOffsetColor = Prefix + "ring-offset-color";
+
     /// <summary>The <c>shadow-*</c> token, held as a fragment so a ring can be layered over it.</summary>
     /// <remarks>
     ///     <para>
@@ -744,6 +783,15 @@ public static class UtilityComposition {
         // `ring-accent` draw a ring nobody asked for.
         [RingWidth] = "0px",
         [RingColor] = "currentcolor",
+
+        // ⚠ <b>Zero for `RingWidth`'s reason, and an <i>opaque</i> colour beside it — the one slot in
+        // this table whose unset state is made free by the width rather than by the colour.</b> See
+        // `RingOffsetColor`, where both halves are argued: `transparent` would make
+        // `ring-2 ring-offset-2` paint a four-point ring with no gap, and the zero width is what stops
+        // `Canvas` becoming a rectangle under every ringed element — `EmitOneShadow` drops an outer
+        // shadow with no offset, no blur and no spread, which is what CSS renders for one.
+        [RingOffsetWidth] = "0px",
+        [RingOffsetColor] = "Canvas",
 
         // ⚠ <b>A transparent shadow and not <c>none</c></b>, which is the same trap `DropShadow`'s
         // initial is written up under and is sharper here, because this slot is one item of a comma
@@ -1082,7 +1130,22 @@ public static class UtilityComposition {
     ///         (`Rikarin/Vixen#279` item 1); what was left was here, and is <see cref="Shadows" />.
     ///     </para>
     /// </remarks>
-    public static string Ring() => $"0 0 0 {Reference(RingWidth)} {Reference(RingColor)}";
+    public static string Ring() =>
+        $"0 0 0 calc({Reference(RingOffsetWidth)} + {Reference(RingWidth)}) {Reference(RingColor)}";
+
+    /// <summary>The <c>box-shadow</c> the gap under a ring is.</summary>
+    /// <returns>The assembled value.</returns>
+    /// <remarks>
+    ///     ⚠ <b><see cref="Ring" />'s shape in the offset's two fragments, and it is painted
+    ///     <i>over</i> the ring rather than under it.</b> It is written earlier in
+    ///     <see cref="Shadows" />, and CSS Backgrounds 3 § 7.1.1 paints a shadow list front to back in
+    ///     the order written — so the smaller ring covers the near half of the larger one and what is
+    ///     left is a band of the offset colour with the ring outside it. Reversing the two would put
+    ///     the ring under the gap and paint no ring at all, which is the failure that makes the order
+    ///     in <see cref="Shadows" /> an assertion rather than a listing.
+    /// </remarks>
+    public static string RingOffset() =>
+        $"0 0 0 {Reference(RingOffsetWidth)} {Reference(RingOffsetColor)}";
 
     /// <summary>The <c>box-shadow</c> an inner ring is: <see cref="Ring" /> with the keyword.</summary>
     /// <returns>The assembled value.</returns>
@@ -1100,13 +1163,13 @@ public static class UtilityComposition {
     /// <returns>The assembled comma list.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Four items rather than v4's five, and the missing one is the offset ring.</b> A
-    ///         slot for a family nobody can write is a lane reserved for a guess, and it is not free:
-    ///         every unset slot substitutes a shadow into this list on every element that carries any
-    ///         of these classes. So each joins on the day its family is registered, exactly as
-    ///         <see cref="Transform" />'s missing functions do — the two inner slots arrived with
-    ///         `inset-shadow-*` and `inset-ring-*`, and <c>ring-offset-*</c> is still absent because
-    ///         <c>UtilityComposition</c> carries no offset width at all.
+    ///         ⚠ <b>Five items, which is v4's, and every one of them arrived on the day its family
+    ///         was registered rather than in advance.</b> A slot for a family nobody can write is a
+    ///         lane reserved for a guess, and it is not free: every unset slot substitutes a shadow
+    ///         into this list on every element that carries any of these classes. So they joined in
+    ///         three steps — <c>ring-*</c> and <c>shadow-*</c> first, then the two inner ones with
+    ///         `inset-shadow-*` and `inset-ring-*`, then the offset ring with <c>ring-offset-*</c> —
+    ///         exactly as <see cref="Transform" />'s missing functions still wait.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The order is v4's, and it is a paint order rather than a list.</b> CSS Backgrounds
@@ -1118,15 +1181,18 @@ public static class UtilityComposition {
     ///         position among the outer ones settles nothing but their order against each other.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both items are always present, and the transparent one costs nothing only because
-    ///         <c>EmitOneShadow</c> drops a shadow whose colour is fully transparent.</b> Without that
-    ///         drop this composition would put a second, invisible <c>Shadow</c> command under every
-    ///         shadowed and every ringed element in the editor — a real cost for a picture nobody can
-    ///         see, and the kind of thing that is only ever noticed in a profile.
+    ///         ⚠ <b>Every item is always present, and the unset ones cost nothing only because
+    ///         <c>EmitOneShadow</c> drops all three degenerate shapes they take.</b> A fully
+    ///         transparent shadow is dropped for the two <c>--tw-*-shadow</c> slots, an inner shadow
+    ///         covering no area for the inner ring, and an outer shadow with no offset, no blur and no
+    ///         spread for the ring and the offset ring — whose colours are <c>currentcolor</c> and
+    ///         <c>Canvas</c> and therefore cannot be dropped for being invisible. Without those three
+    ///         drops this composition would put four extra <c>Shadow</c> commands under every shadowed
+    ///         and every ringed element in the editor, two of them opaque.
     ///     </para>
     /// </remarks>
     public static string Shadows() =>
-        $"{Reference(InsetShadow)}, {InsetRing()}, {Ring()}, {Reference(Shadow)}";
+        $"{Reference(InsetShadow)}, {InsetRing()}, {RingOffset()}, {Ring()}, {Reference(Shadow)}";
 
     /// <summary>The <c>filter</c> declaration the eight filter families assemble into.</summary>
     /// <returns>The assembled value.</returns>

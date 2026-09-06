@@ -64,10 +64,13 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         who caught it, which is the thing the mechanism exists to stop being necessary.
 ///     </para>
 ///     <para>
-///         <b>The lesson is about <i>what</i> an anchor names, not about the kind.</b> The clause now
+///         <b>The lesson is about <i>what</i> an anchor names, not about the kind.</b> The clause read
 ///         reads <c>[expires-on Vixen.Ui.Styling.Utilities.UtilityComposition.RingOffsetWidth]</c> —
-///         the <c>--tw-*</c> fragment that is genuinely missing rather than a plausible spelling of a
-///         parser feature. A tripwire on a thing whose <i>name</i> is forced by an external
+///         the <c>--tw-*</c> fragment that was genuinely missing rather than a plausible spelling of a
+///         parser feature — and ⚠ <b>it FIRED, on 2026-09-06.</b> The member arrived under exactly
+///         that name, the clause went red, and the refusal left the file in the commit that closed the
+///         root, which is the only way a clause is meant to go. A tripwire on a thing whose
+///         <i>name</i> is forced by an external
 ///         specification is far harder to walk around than one on a thing whose implementation is a
 ///         design decision, because the first has one spelling and the second has as many as there
 ///         are designs. ⚠ A fourth kind — <c>expires-when-parsed</c>, measured by parsing a value —

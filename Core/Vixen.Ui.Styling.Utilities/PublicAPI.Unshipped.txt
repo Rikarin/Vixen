@@ -153,6 +153,8 @@ const Vixen.Ui.Styling.Utilities.UtilityComposition.NumericSpacing = "--tw-numer
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Ordinal = "--tw-ordinal" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Prefix = "--tw-" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.RingColor = "--tw-ring-color" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.RingOffsetColor = "--tw-ring-offset-color" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.RingOffsetWidth = "--tw-ring-offset-width" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.RingWidth = "--tw-ring-width" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.RotateZ = "--tw-rotate-z" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Saturate = "--tw-saturate" -> string
@@ -190,6 +192,7 @@ static Vixen.Ui.Styling.Utilities.UtilityComposition.MaskLayers() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.NumericFigures() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Reference(string fragment) -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Ring() -> string
+static Vixen.Ui.Styling.Utilities.UtilityComposition.RingOffset() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Scaling() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Shadows() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.StopList(bool via) -> string
