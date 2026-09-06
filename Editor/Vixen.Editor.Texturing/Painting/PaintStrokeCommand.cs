@@ -36,17 +36,39 @@ namespace Vixen.Editor.Texturing.Painting;
 ///         is not called, which is why the constructor captures the after-image rather than replaying
 ///         the brush.
 ///     </para>
+///     <para>
+///         ⚠ <b>The change callback fires once per stroke, and the union it used to fire once with is
+///         the very thing <a href="https://github.com/Rikarin/Vixen/issues/871">#871</a> took off the
+///         pointer path — <a href="https://github.com/Rikarin/Vixen/issues/891">#891</a>.</b> A union
+///         of rectangles is a rectangle, and a mirrored drag's two strokes sit wherever the atlas
+///         packer put their islands: undoing one paid for the bounding box between them, which is
+///         most of the atlas. <see cref="Rect" /> is still the union, because a name for "everything
+///         this entry touched" is a different question from "what to recomposite".
+///     </para>
+///     <para>
+///         ⚠ <b>Per stroke and deliberately not per stamp, which is where this stops.</b>
+///         <c>PaintStroke.MoveTo</c> hands its per-stamp rectangles to the caller as they happen and
+///         keeps none; carrying them here would add a list per stroke to a record whose size is
+///         already <a href="https://github.com/Rikarin/Vixen/issues/850">#850</a>'s complaint, to
+///         save recompositing inside one path's own swept area — and an undo runs once where a stamp
+///         runs hundreds of times. The unbounded case is the mirror, and the mirror is what the
+///         plural covers.
+///     </para>
 /// </remarks>
 sealed class PaintStrokeCommand : IEditorCommand {
     readonly IReadOnlyList<PaintStroke> strokes;
     readonly List<PaintStrokeRedo> redo;
     readonly Action<PaintRect>? changed;
 
+    /// <summary>What the last <see cref="Do" /> or <see cref="Undo" /> moved, one entry per stroke.</summary>
+    readonly List<PaintRect> moved = [];
+
     /// <summary>Records an applied drag.</summary>
     /// <param name="strokes">The stroke and its mirrors, already applied.</param>
     /// <param name="name">What the undo entry says.</param>
     /// <param name="changed">
-    ///     Told which texels moved, on undo and on redo. Where a re-upload and a recomposite hang.
+    ///     Told which texels moved, on undo and on redo — <b>once per stroke</b>, not once per call.
+    ///     Where a re-upload and a recomposite hang.
     /// </param>
     /// <exception cref="ArgumentException">Every stroke touched nothing.</exception>
     public PaintStrokeCommand(IReadOnlyList<PaintStroke> strokes, string name, Action<PaintRect>? changed = null) {
@@ -114,24 +136,24 @@ sealed class PaintStrokeCommand : IEditorCommand {
 
     /// <inheritdoc />
     public void Do(EditorContext context) {
-        var rect = PaintRect.Empty;
+        moved.Clear();
 
         foreach (var entry in redo) {
-            rect = rect.Union(entry.Redo());
+            moved.Add(entry.Redo());
         }
 
-        changed?.Invoke(rect);
+        Announce();
     }
 
     /// <inheritdoc />
     public void Undo(EditorContext context) {
-        var rect = PaintRect.Empty;
+        moved.Clear();
 
         foreach (var stroke in strokes) {
-            rect = rect.Union(stroke.Undo());
+            moved.Add(stroke.Undo());
         }
 
-        changed?.Invoke(rect);
+        Announce();
     }
 
     /// <inheritdoc />
@@ -143,6 +165,19 @@ sealed class PaintStrokeCommand : IEditorCommand {
         merged = null;
 
         return false;
+    }
+
+    /// <summary>Hands out one rectangle per stroke, skipping the ones that moved nothing.</summary>
+    void Announce() {
+        if (changed is null) {
+            return;
+        }
+
+        foreach (var rect in moved) {
+            if (!rect.IsEmpty) {
+                changed(rect);
+            }
+        }
     }
 
     PaintRect Union() {
