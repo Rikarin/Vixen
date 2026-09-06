@@ -39,7 +39,6 @@ asset-tile > image	Editor/Vixen.Editor.Inspector/BrowserTheme.vcss
 behaviortree-body > node-canvas	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 browser-filters > search-box	Editor/Vixen.Editor.Inspector/BrowserTheme.vcss
 browser-filters > select	Editor/Vixen.Editor.Inspector/BrowserTheme.vcss
-button > icon	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 choice-list > button	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 code-editor-pane > code-editor	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 color-input > color-swatch	Core/Vixen.Ui.Controls.Advanced/AdvancedTheme.vcss
@@ -90,6 +89,8 @@ radial-item > icon	Core/Vixen.Ui.Controls/ControlTheme.vcss
 remote-body > tree-view	Editor/Vixen.Editor.Debugger/DebuggerTheme.vcss
 remote-write > textbox	Editor/Vixen.Editor.Debugger/DebuggerTheme.vcss
 scroll-view > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+segment > icon	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+segmented-control > segment	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 sequence-body > timeline	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 settings-rail > button	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 shadergraph-editor > node-graph	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
@@ -107,8 +108,7 @@ tab-panels > tab-panel	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 tabs > tab-panels	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 task-center > text	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 task-row > task-line	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
-toolbar > toolbar-group	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
-toolbar-group > button	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+toolbar > segmented-control	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 vector-component > text	Editor/Vixen.Editor.Inspector/InspectorTheme.vcss
 vfx-editor > node-graph	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 viewport-bar > toolbar	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
