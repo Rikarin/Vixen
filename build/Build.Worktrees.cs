@@ -80,33 +80,39 @@ using Serilog;
 ///         different directions, and removal needs all of them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Of those three, only two are properties of the work; the lock is a property of the
-///         runner, and the runner does not always set it.</b> Read on 2026-09-05, 2 of 13 live agent
-///         worktrees carried no lock at all (#770). Both were unmerged, so nothing was at risk — but
-///         the window this target is meant to be run in is exactly the one between the orchestrator
-///         merging a branch and the agent's process ending, and in that window a missing lock leaves
-///         "merged" and "clean" doing the whole job. <c>git worktree remove</c> is not a second line
-///         of defence here either: a merged, clean worktree passes its dirtiness check too.
+///         ⚠ <b>This block used to end by <em>refusing</em> the fourth condition, and that refusal has
+///         expired rather than been overruled.</b> Its argument was that a recency guard fails on its
+///         own terms — an agent's last act is to commit, so at the moment its branch is merged its
+///         worktree is the <i>most</i> recently touched thing on the disk, and the guard would refuse
+///         every worktree in precisely the merge-then-prune window the target exists to serve. That
+///         is still true, and it is now a <em>described consequence</em> rather than a reason not to
+///         have the condition: it refuses that window, the paragraph above says so, and
+///         <c>--idle-minutes 0</c> is the way past it. The half of the old argument that did not
+///         survive is the conclusion, because the risk on the other side is deleting a live checkout
+///         and the cost on this side is waiting half an hour for disk that had been held for days.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The obvious fourth condition — refusing anything whose files were touched recently —
-///         is refused, and not on this repository's general dislike of wall-clock predicates.</b> It
-///         fails on its own terms: an agent's last act is to commit, so at the moment its branch is
-///         merged its worktree is the <i>most</i> recently touched thing on the disk. A recency guard
-///         would therefore refuse every worktree in precisely the merge-then-prune window the target
-///         exists to serve, and would only start allowing removals once the checkouts had been idle
-///         long enough to have been forgotten about. It cannot be repaired by reading the git index
-///         instead, either: <see cref="IsClean" /> runs <c>git status</c> against each worktree
-///         moments before the decision, and that refreshes the index — the instrument would be
+///         ⚠ Its second half stands and is why the condition reads file timestamps rather than the
+///         git index: <see cref="IsClean" /> runs <c>git status</c> against each worktree moments
+///         before the decision, and that refreshes the index — an index-mtime instrument would be
 ///         reading its own footprint.
 ///     </para>
 ///     <para>
-///         <b>So the decision is that merge implies the agent has finished</b>, and it is written here
-///         rather than left to be re-derived: a branch reaches master only after the orchestrator has
-///         read the agent's report, so a merged and clean worktree is one whose owner has said it is
-///         done. The lock remains the intended signal and is honoured when present; it is not the one
-///         being relied on. Removal stays behind an explicit <c>--remove-merged</c> typed on purpose,
-///         which is the actual guard.
+///         <b>Underneath all four, the decision is that merge implies the agent has finished</b>: a
+///         branch reaches master only after the orchestrator has read the agent's report, so a merged
+///         and clean worktree is one whose owner has said it is done. The lock remains the intended
+///         signal and is honoured when present; it is not the one being relied on. Removal stays
+///         behind an explicit <c>--remove-merged</c> typed on purpose, which is the actual guard.
+///     </para>
+///     <para>
+///         ⚠ <b>The four conditions themselves are in <see cref="WorktreeSafety" />, not here, and
+///         that is a testability split rather than a tidiness one.</b> The removable verdict is
+///         unreachable on any real machine — a removable worktree is one nobody has — so every audit
+///         of this target has had to sabotage a predicate to see the branch at all, and sabotage
+///         leaves nothing behind that would notice the next edit. As a pure function over five
+///         answers it is an ordinary test, including the case that has to hold: an empty HEAD must
+///         mean git is never asked, because <c>rev-list --count "master.."</c> would answer about
+///         the checkout the target is running in.
 ///     </para>
 /// </remarks>
 partial class Build {
@@ -280,43 +286,6 @@ partial class Build {
         }
     }
 
-    /// <summary>
-    ///     Why a worktree is still in use according to its files, or <see langword="null" /> when
-    ///     nothing under it has been written inside the window.
-    /// </summary>
-    /// <param name="newestWrite">The newest write under it, UTC, or <see langword="null" />.</param>
-    /// <param name="now">The moment to measure against, UTC.</param>
-    /// <param name="idleMinutes">The window; <c>0</c> or less turns the condition off.</param>
-    /// <remarks>
-    ///     ⚠ Its own method and not three lines inside the loop, because it is the one condition
-    ///     here with arithmetic in it and the only one that can be got backwards without anything
-    ///     failing to build: a reversed comparison keeps every busy worktree's neighbour and removes
-    ///     the busy one, and the target would print a plausible-looking table either way.
-    /// </remarks>
-    static string? StillBeingWrittenTo(DateTime? newestWrite, DateTime now, int idleMinutes) {
-        if (idleMinutes <= 0 || newestWrite is not { } written) {
-            return null;
-        }
-
-        var age = now - written;
-
-        return age < TimeSpan.FromMinutes(idleMinutes)
-            ? $"written {Ago(age)} ago, inside --idle-minutes {idleMinutes}"
-            : null;
-    }
-
-    /// <summary>
-    ///     How long ago <paramref name="written" /> was, worded for a log line.
-    /// </summary>
-    static string Ago(TimeSpan written) =>
-        written < TimeSpan.FromMinutes(1)
-            ? "under a minute"
-            : written < TimeSpan.FromHours(1)
-                ? $"{(int)written.TotalMinutes} min"
-                : written < TimeSpan.FromDays(1)
-                    ? $"{written.TotalHours:0.0} h"
-                    : $"{written.TotalDays:0.0} days";
-
     Target PruneWorktrees => definition => definition
         .Description("Reports the agent worktrees under .claude/worktrees that are merged, clean, unlocked and idle — and removes them with --remove-merged")
         .Executes(() => {
@@ -361,34 +330,22 @@ partial class Build {
                 // measuring first means no write this target itself provokes can be mistaken for a
                 // worker's.
                 var footprint = Measure(entry);
-                var reasons = new List<string>();
 
-                if (worktree.Locked is not null) {
-                    reasons.Add($"locked ({worktree.Locked})");
-                }
-
-                if (string.IsNullOrWhiteSpace(worktree.Head)) {
-                    // Distinct from "has commits master does not", because it is not a fact about the
-                    // branch — it is the parse having nothing to ask about. `IsMergedIntoMaster`
-                    // refuses the same input for the same reason; this says so out loud, because a
-                    // worktree kept for a reason nobody can act on is a worktree kept for ever.
-                    reasons.Add("git reported no HEAD for it");
-                } else if (!IsMergedIntoMaster(worktree.Head)) {
-                    reasons.Add("has commits master does not");
-                }
-
-                if (!IsClean(entry)) {
-                    reasons.Add("has uncommitted changes");
-                }
-
-                // ⚠ Fourth, and the only one that is about the worker rather than the work: an
-                // agent whose runner set no lock is invisible to the other three the moment its
-                // branch is merged. Compared against the walk's own clock — the newest write is a
-                // file's UTC timestamp, so the comparison is UTC too and not the local one a log
-                // line would show.
-                if (StillBeingWrittenTo(footprint.NewestWrite, DateTime.UtcNow, IdleMinutes) is { } busy) {
-                    reasons.Add(busy);
-                }
+                // ⚠ The four conditions live in WorktreeSafety and not here, and the split is the
+                // only way the removable verdict is ever exercised: a removable worktree is by
+                // definition one nobody has, so on a real machine this loop's other branch is
+                // unreachable and every audit of it so far has had to sabotage a predicate to see
+                // it. Compared against UTC — the newest write is a file's UTC timestamp, not the
+                // local time a log line shows.
+                var reasons = WorktreeSafety.KeepReasons(
+                    worktree.Locked,
+                    worktree.Head,
+                    IsMergedIntoMaster,
+                    () => IsClean(entry),
+                    footprint.NewestWrite,
+                    DateTime.UtcNow,
+                    IdleMinutes
+                );
 
                 if (reasons.Count > 0) {
                     Log.Information("  keep            {Name}  {Size} — {Reasons}.", entry.Name, footprint.Size, string.Join("; ", reasons));
