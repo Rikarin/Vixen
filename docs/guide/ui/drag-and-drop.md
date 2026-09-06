@@ -217,6 +217,15 @@ neither the seam nor a backend exists.
 **A drag image.** A source draws its own ghost from `UiDocument.CurrentDrag` and `UiElement.OffsetX/Y`;
 nothing carries a picture for it.
 
+⚠ **No production consumer.** The editor's two drags — `TreeView`'s node reordering and
+`Editor/Vixen.Editor.App/AssetFieldDrop.cs` — still hit-test by hand, and the *reason* the second one
+gives has expired: its remarks say a field cannot hear its own drop because "a drag belongs to the
+element the press landed on for its whole life", which is exactly what `TrackDrag`'s hit test past
+`Captured` was written to stop being true. Porting it is a behaviour change in three places at once —
+`ProjectBrowser` would `BeginDrag` a `DataObject` instead of raising its own event, and the editor's
+rule that *a field which refused a drop still consumes it* has to become a refusal the route can
+express — so the note lives beside the code rather than here.
+
 ⚠ **One event per file.** SDL 2 posts one `SDL_DROPFILE` per path and brackets a group with
 `SDL_DROPBEGIN`/`SDL_DROPCOMPLETE`, which the desktop backend does not yet forward — so a five-file
 drop arrives as five `DropEvent`s and a handler that creates a document per drop creates five.
