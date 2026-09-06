@@ -3,7 +3,6 @@
 
 using Vixen.Core.Imaging;
 using Vixen.Editor.Texturing.Layers;
-using Vixen.Graphics.Vulkan;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
 using Xunit;
@@ -38,7 +37,7 @@ namespace Vixen.Editor.Texturing.Tests;
 public class LayerStackPanelDeviceTests {
     [Fact]
     public void Opening_a_stack_bakes_it_and_the_pane_shows_the_map() {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
         using var fixture = new TexturingFixture(device);
 
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
@@ -76,7 +75,7 @@ public class LayerStackPanelDeviceTests {
 
         Assert.True(
             red < green && green < blue,
-            $"{Adapter(device)}: the baked base colour's first texel is ({red}, {green}, {blue}), and the "
+            $"{TexturingDevice.Adapter(device)}: the baked base colour's first texel is ({red}, {green}, {blue}), and the "
             + "stack's one fill layer authored an ordered quarter/half/three-quarters. A flat picture is what "
             + "a plan that never ran, a fill that never reached it and an unwritten image all produce."
         );
@@ -103,7 +102,7 @@ public class LayerStackPanelDeviceTests {
     /// </remarks>
     [Fact]
     public void The_pane_says_it_compiled_the_stack_rather_than_a_base_layer() {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
         using var fixture = new TexturingFixture(device);
 
         using LayerStackPreview preview = new(fixture.Graphics!);
@@ -132,7 +131,7 @@ public class LayerStackPanelDeviceTests {
     /// <summary>⚠ Re-evaluating releases the picture it replaces: one live upload, however many runs.</summary>
     [Fact]
     public void Re_evaluating_gives_the_previous_picture_back() {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
         using var fixture = new TexturingFixture(device);
 
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
@@ -157,7 +156,7 @@ public class LayerStackPanelDeviceTests {
     /// </remarks>
     [Fact]
     public void Unloading_gives_the_last_picture_back() {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
         using var fixture = new TexturingFixture(device);
 
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
@@ -190,7 +189,7 @@ public class LayerStackPanelDeviceTests {
     /// </remarks>
     [Fact]
     public void A_plans_caution_reaches_the_panes_sentence() {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
         using var fixture = new TexturingFixture(device);
 
         using LayerStackPreview preview = new(fixture.Graphics!);
@@ -258,7 +257,7 @@ public class LayerStackPanelDeviceTests {
     /// </remarks>
     [Fact]
     public void A_texture_fill_layer_reads_the_picture_the_project_holds() {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
         using var fixture = new TexturingFixture(device);
 
         using LayerStackPreview preview = new(fixture.Graphics!);
@@ -316,13 +315,13 @@ public class LayerStackPanelDeviceTests {
         // a picture". Bilinear at matching extents lands each texel on its own centre.
         Assert.True(
             uploaded.Pixels[0] > 200 && uploaded.Pixels[1] < 60,
-            $"{Adapter(device)}: the first texel is ({uploaded.Pixels[0]}, {uploaded.Pixels[1]}, "
+            $"{TexturingDevice.Adapter(device)}: the first texel is ({uploaded.Pixels[0]}, {uploaded.Pixels[1]}, "
             + $"{uploaded.Pixels[2]}) and the imported picture's is red."
         );
 
         Assert.True(
             uploaded.Pixels[10] > 200 && uploaded.Pixels[8] < 60,
-            $"{Adapter(device)}: the third texel is ({uploaded.Pixels[8]}, {uploaded.Pixels[9]}, "
+            $"{TexturingDevice.Adapter(device)}: the third texel is ({uploaded.Pixels[8]}, {uploaded.Pixels[9]}, "
             + $"{uploaded.Pixels[10]}) and the imported picture's is blue."
         );
     }
@@ -336,7 +335,7 @@ public class LayerStackPanelDeviceTests {
     /// </remarks>
     [Fact]
     public void A_texture_fill_naming_nothing_the_project_holds_says_so_and_does_not_throw() {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
         using var fixture = new TexturingFixture(device);
 
         using LayerStackPreview preview = new(fixture.Graphics!);
@@ -374,25 +373,6 @@ public class LayerStackPanelDeviceTests {
 
         return stack with { BaseWidth = side, BaseHeight = side };
     }
-
-    /// <summary>A device, or a loud skip — or, when one was required, a failure.</summary>
-    static VulkanDevice Open() {
-        if (VulkanDevice.TryCreate(new(), out var device, out var reason)) {
-            return device!;
-        }
-
-        if (Environment.GetEnvironmentVariable("VIXEN_REQUIRE_VULKAN") is "1" or "true" or "TRUE") {
-            Assert.Fail($"VIXEN_REQUIRE_VULKAN is set and no device could be opened: {reason}");
-        }
-
-        Assert.Skip(reason ?? "no Vulkan device, so nothing here can be proved");
-
-        throw new InvalidOperationException("unreachable");
-    }
-
-    static string Adapter(VulkanDevice device) =>
-        $"{device.Adapter.Name} ({device.Adapter.Kind}, {device.Adapter.DriverVersion})";
-
     static T? Find<T>(UiElement element) where T : UiElement {
         if (element is T found) {
             return found;

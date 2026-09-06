@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.NodeGraph;
-using Vixen.Graphics.Vulkan;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
 using Xunit;
@@ -26,25 +25,6 @@ namespace Vixen.Editor.Texturing.Tests;
 ///     </para>
 /// </remarks>
 public class TexturePreviewDeviceTests {
-    /// <summary>A device, or a loud skip — or, when one was required, a failure.</summary>
-    /// <returns>The device.</returns>
-    static VulkanDevice Open() {
-        if (VulkanDevice.TryCreate(new(), out var device, out var reason)) {
-            return device!;
-        }
-
-        if (Environment.GetEnvironmentVariable("VIXEN_REQUIRE_VULKAN") is "1" or "true" or "TRUE") {
-            Assert.Fail($"VIXEN_REQUIRE_VULKAN is set and no device could be opened: {reason}");
-        }
-
-        Assert.Skip(reason ?? "no Vulkan device, so nothing here can be proved");
-
-        throw new InvalidOperationException("unreachable");
-    }
-
-    static string Adapter(VulkanDevice device) =>
-        $"{device.Adapter.Name} ({device.Adapter.Kind}, {device.Adapter.DriverVersion})";
-
     /// <summary>Opening a graph in a host with a device puts real texels in the pane.</summary>
     /// <remarks>
     ///     <para>
@@ -62,7 +42,7 @@ public class TexturePreviewDeviceTests {
     /// </remarks>
     [Fact]
     public void Opening_a_graph_evaluates_it_and_the_pane_shows_the_result() {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
         using var fixture = new TexturingFixture(device);
 
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
@@ -98,7 +78,7 @@ public class TexturePreviewDeviceTests {
 
         Assert.True(
             values.SetEquals([(byte)0, (byte)255]),
-            $"the base layer on {Adapter(device)} holds {values.Count} distinct reds: "
+            $"the base layer on {TexturingDevice.Adapter(device)} holds {values.Count} distinct reds: "
             + string.Join(", ", values.Order())
         );
 
@@ -114,7 +94,7 @@ public class TexturePreviewDeviceTests {
     /// </remarks>
     [Fact]
     public void Re_evaluating_gives_the_previous_picture_back() {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
         using var fixture = new TexturingFixture(device);
 
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
@@ -132,7 +112,7 @@ public class TexturePreviewDeviceTests {
     /// <summary>And unloading the module gives the last one back too.</summary>
     [Fact]
     public void Unloading_gives_the_last_picture_back() {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
         using var fixture = new TexturingFixture(device);
 
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());

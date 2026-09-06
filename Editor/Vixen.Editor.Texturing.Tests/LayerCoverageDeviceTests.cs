@@ -56,7 +56,7 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
     /// </remarks>
     [Fact]
     public void A_group_that_covers_nothing_leaves_the_canvas_alone() {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
 
         var stack = Grey(
             new LayerAsset {
@@ -76,11 +76,11 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
 
         var red = BakeRed(device, stack, "baseColor");
 
-        output.WriteLine($"{Adapter(device)}: a Multiply group covering nothing baked red {red}");
+        output.WriteLine($"{TexturingDevice.Adapter(device)}: a Multiply group covering nothing baked red {red}");
 
         Assert.True(
             red is >= 126 and <= 130,
-            $"{Adapter(device)}: the canvas is ½ and the group's one child is masked to nothing, so the "
+            $"{TexturingDevice.Adapter(device)}: the canvas is ½ and the group's one child is masked to nothing, so the "
             + $"group covers no texel and a correct composite leaves ½ — 128. It baked {red}. A group "
             + "whose children are composited onto the cursor and whose *result* is then blended applies "
             + "its mode to the whole canvas: ½ multiplied by ½ is ¼, which is 64. #807 · 1."
@@ -96,7 +96,7 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
     /// </remarks>
     [Fact]
     public void A_fill_that_authors_no_colour_for_a_channel_leaves_that_channel_alone() {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
 
         LayerStackAsset stack = new() {
             Name = "Coverage",
@@ -133,11 +133,11 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
 
         var red = BakeRed(device, stack, "roughness");
 
-        output.WriteLine($"{Adapter(device)}: roughness baked {red} under a base-colour-only layer");
+        output.WriteLine($"{TexturingDevice.Adapter(device)}: roughness baked {red} under a base-colour-only layer");
 
         Assert.True(
             red is >= 49 and <= 53,
-            $"{Adapter(device)}: the layer beneath set roughness to 0.2 — 51 — and the layer above it "
+            $"{TexturingDevice.Adapter(device)}: the layer beneath set roughness to 0.2 — 51 — and the layer above it "
             + $"authors base colour and no roughness at all. Roughness baked {red}. A fill that falls "
             + "back to the channel's own Default composites 0.9 over it, which is 230: the channel's "
             + "base default arriving as though an artist had asked for it. #807 · 2."
@@ -167,7 +167,7 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
     [Theory]
     [MemberData(nameof(Coverages))]
     public void A_white_group_multiplied_into_the_canvas_is_the_identity_at_every_coverage(float coverage) {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
 
         var stack = Grey(
             new LayerAsset {
@@ -187,11 +187,11 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
 
         var red = BakeRed(device, stack, "baseColor");
 
-        output.WriteLine($"{Adapter(device)}: a white Multiply group at coverage {coverage} baked red {red}");
+        output.WriteLine($"{TexturingDevice.Adapter(device)}: a white Multiply group at coverage {coverage} baked red {red}");
 
         Assert.True(
             red is >= 126 and <= 130,
-            $"{Adapter(device)}: the canvas is ½ and the group holds white, which is Multiply's own "
+            $"{TexturingDevice.Adapter(device)}: the canvas is ½ and the group holds white, which is Multiply's own "
             + $"neutral, so a correct composite leaves ½ — 128 — at every coverage. At {coverage} it "
             + $"baked {red}. A group whose children composite onto a transparent constant hand back a "
             + "premultiplied colour, and a blend that consumes it as a straight one darkens it by "
@@ -214,7 +214,7 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
     /// </remarks>
     [Fact]
     public void A_masked_group_that_covers_nothing_still_leaves_the_canvas_alone() {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
 
         var stack = Grey(
             new LayerAsset {
@@ -235,11 +235,11 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
 
         var red = BakeRed(device, stack, "baseColor");
 
-        output.WriteLine($"{Adapter(device)}: a masked Multiply group covering nothing baked red {red}");
+        output.WriteLine($"{TexturingDevice.Adapter(device)}: a masked Multiply group covering nothing baked red {red}");
 
         Assert.True(
             red is >= 126 and <= 130,
-            $"{Adapter(device)}: the group's one child is masked to nothing, so the group covers no "
+            $"{TexturingDevice.Adapter(device)}: the group's one child is masked to nothing, so the group covers no "
             + $"texel and its own mask of 1 has nothing to reveal — ½ survives, which is 128. It baked "
             + $"{red}. A mask shuffled *over* the foreground's alpha replaces the coverage the group "
             + "accumulated with the mask's own value, so a group covering nothing multiplies at full "
@@ -260,7 +260,7 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
     /// </remarks>
     [Fact]
     public void A_half_covered_grey_group_multiplies_its_own_colour() {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
 
         var stack = Grey(
             new LayerAsset {
@@ -280,11 +280,11 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
 
         var red = BakeRed(device, stack, "baseColor");
 
-        output.WriteLine($"{Adapter(device)}: a half-covered grey Multiply group baked red {red}");
+        output.WriteLine($"{TexturingDevice.Adapter(device)}: a half-covered grey Multiply group baked red {red}");
 
         Assert.True(
             red is >= 94 and <= 98,
-            $"{Adapter(device)}: the group is grey at half coverage over a canvas of ½, so the "
+            $"{TexturingDevice.Adapter(device)}: the group is grey at half coverage over a canvas of ½, so the "
             + $"composite is lerp(½, ½·½, ½) = ⅜ — 96. It baked {red}. A premultiplied group hands "
             + "back ¼ instead of ½ and the multiply then reads lerp(½, ½·¼, ½) = 0.3125, which is 80."
         );
@@ -320,7 +320,7 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
     [Theory]
     [MemberData(nameof(Coverages))]
     public void A_filter_inside_a_group_is_applied_in_full_at_every_coverage(float coverage) {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
 
         var stack = Grey(
             new LayerAsset {
@@ -351,11 +351,11 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
 
         var red = BakeRed(device, stack, "baseColor");
 
-        output.WriteLine($"{Adapter(device)}: an inverting filter in a group at coverage {coverage} baked {red}");
+        output.WriteLine($"{TexturingDevice.Adapter(device)}: an inverting filter in a group at coverage {coverage} baked {red}");
 
         Assert.True(
             red is >= 126 and <= 130,
-            $"{Adapter(device)}: the group's child is black and the filter over it inverts, so a filter "
+            $"{TexturingDevice.Adapter(device)}: the group's child is black and the filter over it inverts, so a filter "
             + $"applied in full hands the group white — Multiply's own neutral — and the canvas of ½ "
             + $"survives at 128 whatever the coverage. At {coverage} it baked {red}. A filter "
             + "composited *over* the picture it adjusts is applied 1/(2 − K) of the way, which is 96 at "
@@ -387,16 +387,16 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
     [Theory]
     [MemberData(nameof(Coverages))]
     public void An_identity_filter_inside_a_group_leaves_the_bake_where_it_was(float coverage) {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
 
         var red = BakeRed(device, Filtered(coverage, false), "baseColor");
         var filtered = BakeRed(device, Filtered(coverage, true), "baseColor");
 
-        output.WriteLine($"{Adapter(device)}: coverage {coverage} baked {red} plain and {filtered} filtered");
+        output.WriteLine($"{TexturingDevice.Adapter(device)}: coverage {coverage} baked {red} plain and {filtered} filtered");
 
         Assert.True(
             Math.Abs(red - filtered) <= 2,
-            $"{Adapter(device)}: adding a zero-radius blur — an adjustment that is the identity on "
+            $"{TexturingDevice.Adapter(device)}: adding a zero-radius blur — an adjustment that is the identity on "
             + $"every texel — inside the group moved the bake from {red} to {filtered}. A filter's "
             + "content is the layers beneath it, so compositing it *over* them accumulates the "
             + "coverage it was handed with itself: K becomes K(2 − K), and a group that covers more "
@@ -436,7 +436,7 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
     [Theory]
     [MemberData(nameof(Coverages))]
     public void An_anchor_onto_a_partly_covered_layer_masks_by_its_coverage(float coverage) {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
 
         var stack = Grey(
             new LayerAsset {
@@ -463,11 +463,11 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
         var red = BakeRed(device, stack, "baseColor");
         var expected = (int)Math.Round(255f * 0.5f * (1f - coverage));
 
-        output.WriteLine($"{Adapter(device)}: an anchor onto a layer covering {coverage} baked {red}");
+        output.WriteLine($"{TexturingDevice.Adapter(device)}: an anchor onto a layer covering {coverage} baked {red}");
 
         Assert.True(
             Math.Abs(red - expected) <= 2,
-            $"{Adapter(device)}: the anchored layer is white and covers {coverage}, so a mask that is "
+            $"{TexturingDevice.Adapter(device)}: the anchored layer is white and covers {coverage}, so a mask that is "
             + $"its value times its coverage reveals the black layer by that much and the canvas of ½ "
             + $"comes back at ½(1 − {coverage}) — {expected}. It baked {red}. An anchor read for its "
             + "red alone is a mask of 1 wherever the anchored layer has any colour at all, which is a "
@@ -509,7 +509,7 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
     [Theory]
     [MemberData(nameof(Coverages))]
     public void A_folded_constant_mask_bakes_what_the_unfolded_one_bakes(float coverage) {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
 
         var bare = Grey(Ink(coverage, unfold: false));
         var kept = Grey(Ink(coverage, unfold: true));
@@ -537,20 +537,20 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
         var expected = (int)Math.Round(255f * 0.5f * (1f - coverage));
 
         output.WriteLine(
-            $"{Adapter(device)}: a mask of {coverage} baked {folded} folded and {compiled} compiled, "
+            $"{TexturingDevice.Adapter(device)}: a mask of {coverage} baked {folded} folded and {compiled} compiled, "
             + $"against {expected}"
         );
 
         Assert.True(
             Math.Abs(folded - compiled) <= 1,
-            $"{Adapter(device)}: the same mask of {coverage} baked {folded} when it folded into the "
+            $"{TexturingDevice.Adapter(device)}: the same mask of {coverage} baked {folded} when it folded into the "
             + $"opacity and {compiled} when it compiled to nodes. #789 folds on the grounds that the "
             + "two are the same arithmetic reassociated, so a difference here is that claim being false."
         );
 
         Assert.True(
             Math.Abs(folded - expected) <= 2,
-            $"{Adapter(device)}: a black layer masked to {coverage} over a canvas of ½ is ½(1 − "
+            $"{TexturingDevice.Adapter(device)}: a black layer masked to {coverage} over a canvas of ½ is ½(1 − "
             + $"{coverage}) — {expected} — and it baked {folded}. Two forms agreeing on a wrong number "
             + "is what this second assertion is here to catch."
         );
@@ -651,21 +651,4 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
 
         return picture.Pixels[0];
     }
-
-    static VulkanDevice Open() {
-        if (VulkanDevice.TryCreate(new(), out var device, out var reason)) {
-            return device!;
-        }
-
-        if (Environment.GetEnvironmentVariable("VIXEN_REQUIRE_VULKAN") is "1" or "true" or "TRUE") {
-            Assert.Fail($"VIXEN_REQUIRE_VULKAN is set and no device could be opened: {reason}");
-        }
-
-        Assert.Skip(reason ?? "no Vulkan device, so nothing here can be proved");
-
-        throw new InvalidOperationException("unreachable");
-    }
-
-    static string Adapter(VulkanDevice device) =>
-        $"{device.Adapter.Name} ({device.Adapter.Kind}, {device.Adapter.DriverVersion})";
 }

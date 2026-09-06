@@ -17,15 +17,24 @@ static class TexturingDevice {
     /// <summary>A device, or a loud skip — or, when one was required, a failure.</summary>
     /// <returns>The device.</returns>
     /// <remarks>
-    ///     ⚠ <b>It names the adapter into the running test's output itself, which is doc 48's exit
-    ///     criterion 11 made mechanical on this side too</b>
-    ///     (<a href="https://github.com/Rikarin/Vixen/issues/883">#883</a>). The five device files
-    ///     here named it because each of them remembered to; nothing required the sixth to, and the
-    ///     failure this repository has actually suffered is the one where an instrument stops running
-    ///     and reports success. <c>TextureKernelHarness.Open</c> is the same line one assembly along,
-    ///     and <see cref="TexturingAdapterRollCallTests" /> is what holds this line to it — the two
-    ///     cover different holes, because a file calling <c>VulkanDevice.TryCreate</c> directly goes
-    ///     round this method and only the walk notices.
+    ///     <para>
+    ///         ⚠ <b>It names the adapter into the running test's output itself, which is doc 48's
+    ///         exit criterion 11 made mechanical on this side too</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/883">#883</a>). The device files
+    ///         here named it because each of them remembered to; nothing required the next one to,
+    ///         and the failure this repository has actually suffered is the one where an instrument
+    ///         stops running and reports success. <c>TextureKernelHarness.Open</c> is the same line
+    ///         one assembly along.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is now the only method in the project that calls
+    ///         <c>VulkanDevice.TryCreate</c>, and that is asserted rather than left to habit</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/923">#923</a>). Five files carried a
+    ///         private copy of this method and went round it;
+    ///         <c>DeviceRollCall.Sole</c> is what stops a sixth appearing, because its detector is
+    ///         the creating call rather than the name a file chose for its opener. Keep the call
+    ///         here: moving it anywhere else in this project turns that test red, which is the point.
+    ///     </para>
     /// </remarks>
     public static VulkanDevice Open() {
         if (VulkanDevice.TryCreate(new(), out var device, out var reason)) {
