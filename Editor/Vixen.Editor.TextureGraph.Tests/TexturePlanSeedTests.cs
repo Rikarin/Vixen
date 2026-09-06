@@ -201,6 +201,189 @@ public class TexturePlanSeedTests {
         }
     }
 
+    /// <summary>
+    ///     ⚠ Two sibling instances of one compound, nested inside another, draw two pictures.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/925">#925</a>, and it is the
+    ///         narrowest graph in which the two ends of the walk are not enough.</b> An op inlined out
+    ///         of a compound was named by <c>NodeOrigin.Source</c> — the outermost sub-graph node,
+    ///         which stays outermost however deep the nesting goes — its <c>Inner</c> id in the
+    ///         innermost file, and that file's type path. Two <c>Library/Speck</c> nodes inside one
+    ///         <c>Library/Pair</c> share all three, so both noises were one op's name and drew one
+    ///         picture: a compound built to scatter two different specks scattered the same one twice,
+    ///         in register.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two levels of nesting are load-bearing and one is not.</b> Two <c>Speck</c> nodes
+    ///         side by side in the author's own graph are two different <c>Source</c> ids and were
+    ///         always distinct; it is the level of indirection that collapses them, because
+    ///         <c>Source</c> stops moving as soon as there is a compound above it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Two_sibling_instances_of_one_compound_inside_another_draw_different_seeds() {
+        var (compiler, graph, _) = Nested();
+        var plan = Compiled(compiler, graph);
+
+        var seeds = Seeds(plan, "Noise");
+
+        Assert.Equal(2, seeds.Count);
+    }
+
+    /// <summary>
+    ///     ⚠ And the chain that tells them apart does not move when the author adds a node beside the
+    ///     compound.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The half that says why <c>NodeOrigin.Expansion</c> could not be used for this.</b>
+    ///         The expansion counter distinguishes the two instances perfectly well and is
+    ///         <em>walk-ordered</em>, so naming an op with it would have reintroduced #875 one level
+    ///         in — an insertion anywhere that reorders the walk redraws every noise inside every
+    ///         compound. <c>SubGraphExpansion.Path</c> is a chain of <c>NodeId</c>s, each read out of
+    ///         its own document, and a document never renumbers one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The insertion has to be one that actually moves both numbers, and neither is
+    ///         easy to move by accident</b> — this file's own standing trap, twice over.
+    ///         <c>NodeGraphModel.Ordered</c> seeds its queue in insertion order, so a compound
+    ///         <em>added</em> to a graph is walked behind every compound already ready and the
+    ///         expansion counter does not budge; what moves it is a compound that becomes ready
+    ///         <em>before</em> an existing one, which is why the edit below is spliced in front of the
+    ///         nested compound's own input rather than dropped beside it. And
+    ///         <c>SubGraphs.Flatten</c> numbers inlined nodes from above the author's highest id, so
+    ///         any insertion at all renumbers everything inside every compound. Both are asserted, so
+    ///         that a plan which came out unchanged cannot make the equality vacuous.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_noise_inside_a_nested_compound_keeps_its_seed_when_a_compound_is_spliced_ahead_of_it() {
+        var (compiler, graph, used) = Nested();
+        var before = Compiled(compiler, graph);
+        var inlined = compiler.Inlining.Origins.Keys.Select(id => id.Value).Order().ToArray();
+        var walked = compiler.Inlining.Origins.Values.Select(origin => origin.Expansion).Max();
+
+        // The edit: another compound spliced between the source and the nested one, so that it is
+        // ready before the nested compound and the flattener descends into it first.
+        var spliced = graph.Add("Library/Speck");
+
+        graph.Disconnect(new(used.Id, "In"));
+        graph.Connect(new(spliced.Id, "Out"), new(used.Id, "In"));
+
+        var after = Compiled(compiler, graph);
+        var renumbered = compiler.Inlining.Origins.Keys.Select(id => id.Value).Order().ToArray();
+        var rewalked = compiler.Inlining.Origins.Values.Select(origin => origin.Expansion).Max();
+
+        // The two instruments. The identities the flattener handed the compound's contents moved,
+        // which is #875's mechanism; and the walk-ordered expansion counter moved too, which is why
+        // it is not what an op is named by.
+        Assert.NotEqual(inlined, renumbered);
+        Assert.NotEqual(walked, rewalked);
+
+        var kept = Seeds(before, "Noise");
+        var now = Seeds(after, "Noise");
+
+        // Three distinct noises afterwards — the nested pair and the one spliced in — and the pair's
+        // two are the two they were.
+        Assert.Equal(2, kept.Count);
+        Assert.Equal(3, now.Count);
+        Assert.Subset(now, kept);
+    }
+
+    /// <summary>A compound of two instances of a compound, inside the author's graph.</summary>
+    /// <remarks>
+    ///     <c>Library/Speck</c> is a noise behind a boundary; <c>Library/Pair</c> holds two of them
+    ///     blended together over whatever arrives at its own input; the author's graph holds one
+    ///     <c>Pair</c> fed by a checker. So the plan has two <c>Noise</c> ops that agree about
+    ///     everything except which node inside <c>Pair</c> they came out of — and the <c>Pair</c> node
+    ///     has an input, which is what lets a test splice a third compound in front of it.
+    /// </remarks>
+    static (TextureGraphCompiler Compiler, NodeGraphModel Graph, GraphNode Used) Nested() {
+        NodeTypeRegistry registry = new();
+
+        NodeTypes.Register(registry);
+
+        TextureGraphLibrary library = new();
+
+        NodeGraphModel speck = new() { Name = "Speck" };
+
+        speck.Interface.Add(new("Out", PortDirection.Output, PortKind.Image));
+
+        var noise = speck.Add("Source/Noise");
+        var speckExit = speck.Add(SubGraphs.OutputType);
+
+        speck.Connect(new(noise.Id, "Out"), new(speckExit.Id, "Out"));
+        library.Publish("Library/Speck", speck, [], registry);
+
+        NodeGraphModel pair = new() { Name = "Pair" };
+
+        pair.Interface.Add(new("In", PortDirection.Input, PortKind.Image));
+        pair.Interface.Add(new("Out", PortDirection.Output, PortKind.Image));
+
+        var entry = pair.Add(SubGraphs.InputType);
+        var left = pair.Add("Library/Speck");
+        var right = pair.Add("Library/Speck");
+        var specks = pair.Add("Colour/Blend");
+        var onto = pair.Add("Colour/Blend");
+        var pairExit = pair.Add(SubGraphs.OutputType);
+
+        pair.Connect(new(left.Id, "Out"), new(specks.Id, "Background"));
+        pair.Connect(new(right.Id, "Out"), new(specks.Id, "Foreground"));
+        pair.Connect(new(entry.Id, "In"), new(onto.Id, "Background"));
+        pair.Connect(new(specks.Id, "Out"), new(onto.Id, "Foreground"));
+        pair.Connect(new(onto.Id, "Out"), new(pairExit.Id, "Out"));
+        library.Publish("Library/Pair", pair, [], registry);
+
+        NodeGraphModel graph = new();
+        var checker = graph.Add("Source/Checker");
+        var used = graph.Add("Library/Pair");
+        var output = graph.Add("Output/Output");
+
+        graph.Connect(new(checker.Id, "Out"), new(used.Id, "In"));
+        graph.Connect(new(used.Id, "Out"), new(output.Id, "Input"));
+
+        return (
+            new TextureGraphCompiler(registry) {
+                BaseWidth = Side,
+                BaseHeight = Side,
+                Seed = Seed,
+                SubGraphSource = library
+            },
+            graph,
+            used
+        );
+    }
+
+    /// <summary>The seeds of every op of one kernel, as a set — so a collision is a shorter set.</summary>
+    static HashSet<uint> Seeds(TexturePlan plan, string kernel) {
+        HashSet<uint> seeds = [];
+        var found = 0;
+
+        for (var op = 0; op < plan.Ops.Length; op++) {
+            if (!string.Equals(plan.Ops[op].Kernel, kernel, StringComparison.Ordinal)) {
+                continue;
+            }
+
+            found++;
+            seeds.Add(plan.SeedFor(op));
+        }
+
+        Assert.True(found > 0, $"No '{kernel}' op in the plan, so there is no seed to read.");
+
+        return seeds;
+    }
+
+    /// <summary>One compile of a graph with a library behind it, refusing a diagnostic.</summary>
+    static TexturePlan Compiled(TextureGraphCompiler compiler, NodeGraphModel graph) {
+        var compilation = compiler.Compile(graph);
+
+        Assert.Empty(compilation.Diagnostics);
+
+        return compilation.Value;
+    }
+
     /// <summary>A graph with one noise in it, compiled.</summary>
     static TexturePlan Bare() {
         NodeGraphModel graph = new();
