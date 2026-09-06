@@ -2466,20 +2466,9 @@ sealed partial class EditorApplication : IDisposable {
         return assetPanels.Contains(id);
     }
 
-    /// <summary>Finds and starts the plugins, and says what it found.</summary>
-    /// <param name="directory">The user's data directory, which holds the second plugin folder.</param>
-    /// <returns>The host, kept so that the plugins can be unloaded on the way down.</returns>
+    /// <summary>The extension points a plugin is handed, built once for the host's constructor.</summary>
+    /// <returns>The services, which the host takes and republishes to every plugin it loads.</returns>
     /// <remarks>
-    ///     <para>
-    ///         <b>Two roots, project before user</b>, so a plugin checked into a repository beats
-    ///         the copy the user installed globally and everybody on a team gets the same tools.
-    ///         Neither folder normally exists, which is not an error.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Only the errors are shown.</b> A notification per plugin would put four toasts
-    ///         over the editor on every launch of a project that has plugins and is working; what
-    ///         the user needs to be told is the one that did not start.
-    ///     </para>
     ///     <para>
     ///         ✅ <b>Importers are published now, and the change was the one this remark asked
     ///         for.</b> It used to say there was no registry here to add to, because importers are
@@ -2574,6 +2563,20 @@ sealed partial class EditorApplication : IDisposable {
             // with an extra step.
             .Add(hotReload);
 
+    /// <summary>Finds and starts the plugins, and says what it found.</summary>
+    /// <param name="directory">The user's data directory, which holds the second plugin folder.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Two roots, project before user</b>, so a plugin checked into a repository beats
+    ///         the copy the user installed globally and everybody on a team gets the same tools.
+    ///         Neither folder normally exists, which is not an error.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only the errors are shown.</b> A notification per plugin would put four toasts
+    ///         over the editor on every launch of a project that has plugins and is working; what
+    ///         the user needs to be told is the one that did not start.
+    ///     </para>
+    /// </remarks>
     void StartPlugins(string directory) {
         var report = plugins.Load(
             PluginDiscovery.Scan(
@@ -3091,22 +3094,6 @@ sealed partial class EditorApplication : IDisposable {
         }
     }
 
-    /// <summary>The Scene menu, and what the application adds to the shell's own.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>The menu is described after the commands are registered, not before.</b> A menu
-    ///         entry naming a command nothing has registered is skipped when the bar is built — which
-    ///         is the behaviour that lets the shell name <c>file.save</c> without owning it, and
-    ///         which would silently swallow every line of this menu if the order were the other way
-    ///         round.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Inserted rather than appended.</b> <c>MenuModel.AddMenu</c> puts a menu at the
-    ///         end of the bar, which for the shell's default set is after Help — and a menu bar
-    ///         reading File, Edit, View, Help, Scene is one where the most-used menu in a 3D editor
-    ///         is past the point where people stop looking.
-    ///     </para>
-    /// </remarks>
     /// <summary>Puts a dropdown's id list on a menu, with its rules kept as separators.</summary>
     /// <remarks>
     ///     ⚠ <b>One list, two views.</b> The snap, work-plane and precision popovers on the viewport
@@ -3124,6 +3111,22 @@ sealed partial class EditorApplication : IDisposable {
         }
     }
 
+    /// <summary>The Scene menu, and what the application adds to the shell's own.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The menu is described after the commands are registered, not before.</b> A menu
+    ///         entry naming a command nothing has registered is skipped when the bar is built — which
+    ///         is the behaviour that lets the shell name <c>file.save</c> without owning it, and
+    ///         which would silently swallow every line of this menu if the order were the other way
+    ///         round.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Inserted rather than appended.</b> <c>MenuModel.AddMenu</c> puts a menu at the
+    ///         end of the bar, which for the shell's default set is after Help — and a menu bar
+    ///         reading File, Edit, View, Help, Scene is one where the most-used menu in a 3D editor
+    ///         is past the point where people stop looking.
+    ///     </para>
+    /// </remarks>
     void SceneMenu() {
         // ⚠ First, because this is what puts Entity on the bar and the line below counts to it.
         // Assets, Entity, Play, Build and Tools are doc 20's Part C menus made of this application's
@@ -4141,6 +4144,26 @@ sealed partial class EditorApplication : IDisposable {
         return ContentPipeline.Analyse(workspace, _ => { });
     }
 
+    /// <summary>The registered icons that have a binder, most characteristic first.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Resolved once per rebuild, which is what makes <see cref="GlyphFor" /> cheap.</b> The
+    ///     registry copy, the binder lookup and the ordering are all facts about the *session* rather
+    ///     than about an entity, and doing them per row turned an outliner refresh into a locked
+    ///     allocation and a dictionary walk per entity. Sorted descending here so the first match
+    ///     wins and the loop can stop.
+    /// </remarks>
+    List<(ISceneComponentBinder Binder, IconArt Art)> GlyphSources() {
+        List<(ISceneComponentBinder, IconArt)> found = [];
+
+        foreach (var icon in Extensions.All<TypeIcon>().OrderByDescending(entry => entry.Order)) {
+            if (SceneComponentRegistry.TryGet(icon.Target, out var binder)) {
+                found.Add((binder, icon.Art));
+            }
+        }
+
+        return found;
+    }
+
     /// <summary>The glyph an outliner row draws for what an entity is.</summary>
     /// <remarks>
     ///     <para>
@@ -4169,26 +4192,6 @@ sealed partial class EditorApplication : IDisposable {
     ///         order is the registration sequence — which is whichever assembly happened to load first.
     ///     </para>
     /// </remarks>
-    /// <summary>The registered icons that have a binder, most characteristic first.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Resolved once per rebuild, which is what makes <see cref="GlyphFor" /> cheap.</b> The
-    ///     registry copy, the binder lookup and the ordering are all facts about the *session* rather
-    ///     than about an entity, and doing them per row turned an outliner refresh into a locked
-    ///     allocation and a dictionary walk per entity. Sorted descending here so the first match
-    ///     wins and the loop can stop.
-    /// </remarks>
-    List<(ISceneComponentBinder Binder, IconArt Art)> GlyphSources() {
-        List<(ISceneComponentBinder, IconArt)> found = [];
-
-        foreach (var icon in Extensions.All<TypeIcon>().OrderByDescending(entry => entry.Order)) {
-            if (SceneComponentRegistry.TryGet(icon.Target, out var binder)) {
-                found.Add((binder, icon.Art));
-            }
-        }
-
-        return found;
-    }
-
     IconArt GlyphFor(List<(ISceneComponentBinder Binder, IconArt Art)> icons, Entity entity) {
         foreach (var (binder, art) in icons) {
             if (binder.Has(world, entity)) {
@@ -4556,13 +4559,6 @@ sealed partial class EditorApplication : IDisposable {
         }
     }
 
-    /// <summary>Rescans the project and says what changed.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The issues are what is worth reporting, not the count.</b> A scan that created eleven
-    ///     sidecars, quarantined an orphan and re-GUIDed a duplicate has just modified the working
-    ///     tree, and telling somebody only that there are 340 assets would leave them to find that out
-    ///     from <c>git status</c>.
-    /// </remarks>
     /// <summary>Creates an empty entity under the selection, and selects it.</summary>
     /// <remarks>
     ///     Under the first selected entity rather than at the root, which is what every editor does
@@ -4629,6 +4625,13 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     Entity Under() => scene.Selection.Count > 0 ? scene.Selection[0] : Entity.Null;
 
+    /// <summary>Rescans the project and says what changed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The issues are what is worth reporting, not the count.</b> A scan that created eleven
+    ///     sidecars, quarantined an orphan and re-GUIDed a duplicate has just modified the working
+    ///     tree, and telling somebody only that there are 340 assets would leave them to find that out
+    ///     from <c>git status</c>.
+    /// </remarks>
     void RefreshAssets() {
         if (browser is not { } open) {
             return;

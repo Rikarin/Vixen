@@ -1238,14 +1238,6 @@ sealed partial class EditorApplication {
         context is not null
         && Shell.Modes.Modes.Any(mode => string.Equals(mode.Context, context, StringComparison.Ordinal));
 
-    /// <summary>The toolbar doc 20's A1 describes: five sections rather than one flat strip.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The transform modes are a segmented control and the rest are not.</b> Doc 20's
-    ///     objection to the old strip is precise: Translate, Rotate and Scale drawn as three adjacent
-    ///     buttons say nothing about being one choice. They are the only group here because they are
-    ///     the only set on the bar that is genuinely exclusive — space, snap and grid are three
-    ///     independent toggles and drawing them boxed together would claim otherwise.
-    /// </remarks>
     /// <summary>The window's own strip: what is about the application rather than about a pane.</summary>
     /// <remarks>
     ///     ⚠ <b>The gizmo controls are deliberately <i>not</i> here, and they used to be.</b> This
@@ -1268,11 +1260,12 @@ sealed partial class EditorApplication {
             new ToolbarButton("assets.build"),
             new ToolbarSeparator(),
 
-            // ⚠ Boxed, and for a different reason from the gizmo modes above. Those are one *choice*
-            // and the box says so; the transport is one *control* — a transport bar is a single
-            // object in every editor, every player and every tape machine there has ever been, and
-            // four buttons with gaps between them read as four unrelated verbs that happen to be
-            // adjacent. What still tells them apart is colour, which is why the box does not have to.
+            // ⚠ Boxed, and for a different reason from the gizmo modes on `ViewportChrome`'s strip.
+            // Those are one *choice* and the box says so; the transport is one *control* — a
+            // transport bar is a single object in every editor, every player and every tape machine
+            // there has ever been, and four buttons with gaps between them read as four unrelated
+            // verbs that happen to be adjacent. What still tells them apart is colour, which is why
+            // the box does not have to.
             new ToolbarGroup("play.play", "play.pause", "play.step", "play.stop"),
             new ToolbarSeparator(),
             new ToolbarDropdown(

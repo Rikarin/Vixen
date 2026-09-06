@@ -458,12 +458,6 @@ public class AutomaticMinimumSizeTests {
         return tree.GetWidth(grid);
     }
 
-    /// <summary>A leaf whose content is a fixed width however little room it is offered.</summary>
-    /// <remarks>
-    ///     Standing in for a single unbreakable word, which is the case §4.5 exists for. It answers
-    ///     the same width under every measure mode, so what the tests observe is the floor rather
-    ///     than the measurer being clever.
-    /// </remarks>
     /// <summary>
     ///     A text leaf's block-axis floor is the height it takes at the width it will be given, and
     ///     the box between it and its container declares no width at all.
@@ -667,6 +661,12 @@ public class AutomaticMinimumSizeTests {
         Assert.Equal(tree.GetHeight(text), tree.GetHeight(row), Tolerance);
     }
 
+    /// <summary>A leaf whose content is a fixed width however little room it is offered.</summary>
+    /// <remarks>
+    ///     Standing in for a single unbreakable word, which is the case §4.5 exists for. It answers
+    ///     the same width under every measure mode, so what the tests observe is the floor rather
+    ///     than the measurer being clever.
+    /// </remarks>
     static LayoutSize MeasureFixedContent(in MeasureRequest request) =>
         new((float) (request.Context ?? 0f), 20f);
 

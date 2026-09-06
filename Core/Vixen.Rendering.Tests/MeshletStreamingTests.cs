@@ -495,16 +495,6 @@ public class MeshletStreamingTests : IDisposable {
     }
 
     /// <summary>
-    ///     Waits for the loads this frame released to hand their bytes back, and for nothing else.
-    /// </summary>
-    /// <remarks>
-    ///     Not a delay and not an assumption about one: <see cref="DelayedSource.Advance" /> decides
-    ///     <em>which</em> loads are due, and this waits only for the thread that carries those to run.
-    ///     The comparison is against what the source is still holding, so a load that is meant to be
-    ///     outstanding for two more frames is not waited for — which is the difference between a test
-    ///     that runs in a second and one that spends its timeout on every frame.
-    /// </remarks>
-    /// <summary>
     ///     A page read out of a blob is the page the builder wrote, and reading one reads only it.
     /// </summary>
     /// <remarks>
@@ -612,6 +602,16 @@ public class MeshletStreamingTests : IDisposable {
         }
     }
 
+    /// <summary>
+    ///     Waits for the loads this frame released to hand their bytes back, and for nothing else.
+    /// </summary>
+    /// <remarks>
+    ///     Not a delay and not an assumption about one: <see cref="DelayedSource.Advance" /> decides
+    ///     <em>which</em> loads are due, and this waits only for the thread that carries those to run.
+    ///     The comparison is against what the source is still holding, so a load that is meant to be
+    ///     outstanding for two more frames is not waited for — which is the difference between a test
+    ///     that runs in a second and one that spends its timeout on every frame.
+    /// </remarks>
     static void Handoff(PageResidency residency, DelayedSource source) =>
         SpinWait.SpinUntil(() => residency.Loading <= source.Waiting, 250);
 

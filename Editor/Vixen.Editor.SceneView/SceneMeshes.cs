@@ -14,7 +14,7 @@ using Vixen.Rendering.Materials;
 namespace Vixen.Editor.SceneView;
 
 /// <summary>One run of a scene's entities that share a shape, and are therefore one draw.</summary>
-/// <param name="Kind">Which primitive they are instances of.</param>
+/// <param name="Shape">Which shape they are instances of — a primitive, or a mesh an artist authored.</param>
 /// <param name="First">Where the run starts in <see cref="SceneMeshes.Instances" />.</param>
 /// <param name="Count">How many entities it holds.</param>
 /// <param name="Edges">Whether it draws their wireframe rather than their surfaces.</param>
@@ -468,7 +468,7 @@ public sealed class SceneMeshes {
     }
 
     /// <summary>The geometry of one shape, built once and cached.</summary>
-    /// <param name="kind">Which primitive.</param>
+    /// <param name="shape">Which shape — a primitive, an edited mesh, or a mesh asset.</param>
     /// <returns>Its vertices, normals and triangles, in the shape's own space.</returns>
     /// <remarks>
     ///     ⚠ <b>Public because the device side needs the geometry this collector's batches name.</b>
@@ -508,9 +508,9 @@ public sealed class SceneMeshes {
     public MeshData Shape(PrimitiveKind kind) => Shape(SceneShape.Of(kind))!;
 
     /// <summary>What an entity draws, if this frame can draw it.</summary>
-    /// <param name="world">The world.</param>
+    /// <param name="document">The document the entity belongs to.</param>
     /// <param name="entity">The entity.</param>
-    /// <param name="shape">What it draws.</param>
+    /// <param name="into">Where what it draws is put, one entry per shape and material pair.</param>
     /// <returns>Whether it draws anything this frame.</returns>
     /// <remarks>
     ///     <para>

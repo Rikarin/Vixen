@@ -527,7 +527,6 @@ public class ShadowCascadeTests {
         yield return cascade.Centre + new Vector3(radius * 0.3f, -radius * 0.7f, radius * 0.2f);
     }
 
-    /// <summary>What the shader computes: clip, then normalised device, then a texture coordinate.</summary>
     /// <summary>Where a world point lands in a projection's UV, the way the shader computes it.</summary>
     /// <remarks>
     ///     ⚠ <b><c>Transform.NdcToUv</c> exactly, y negated — and it used not to be.</b> This helper

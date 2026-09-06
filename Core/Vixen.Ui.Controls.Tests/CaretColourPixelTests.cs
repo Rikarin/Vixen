@@ -49,7 +49,7 @@ public class CaretColourPixelTests {
     }
 
     /// <summary>How many pixels of each channel a focused field painted.</summary>
-    /// <param name="Declarations">What to write on the field, beside the fixture's own rules.</param>
+    /// <param name="declarations">What to write on the field, beside the fixture's own rules.</param>
     /// <returns>The count of green pixels, which is the caret and nothing else.</returns>
     static int Caret(string declarations) {
         using var ui = UiTest.Create(240f, 120f);

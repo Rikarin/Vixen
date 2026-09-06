@@ -1,7 +1,13 @@
 # Files holding a doc comment block that describes a member other than the one it is attached to,
 # and that nobody is fixing today.
 #
-# ⚠ This list exists so that the rule can run at all. Two comments landed stapled above the wrong
+# ⚠ This list is empty, and that is the finished state of #879 rather than a file waiting to be
+# deleted. Sixty-four blocks in fifty-one files were wrong the day the rule was written; all
+# sixty-four have been moved onto the member they describe. The list stays because it is where the
+# next one goes if a batch ever needs to land a fix over a staple it did not cause — and because an
+# empty list is the assertion `CheckDocComments` makes about the whole tree.
+#
+# ⚠ The list exists so that the rule can run at all. Two comments landed stapled above the wrong
 # member in one batch (#866) — an agent inserting a new member between an existing comment and the
 # member it documented — and a green build, a green 1 333-test suite, a clean
 # `dotnet format whitespace` and a clean `dotnet format style --severity warn` all passed over both.
@@ -10,10 +16,11 @@
 # the whole tooling profile. So the reader was the only instrument, and a stapled comment is exactly
 # what misleads a reader.
 #
-# Sixty-four blocks in fifty-one files were already wrong the day the rule was written. ⚠ They are not
-# all cosmetic: `Editor/Vixen.Editor.Ui/Commands/KeyChord.cs` carries `MacFormat`' entire block above
-# `MacWords`, so one public formatter is undocumented and the other is described twice — the #866
-# defect, live, in shipped code, found by the rule's first run. #879 is the task to empty this list.
+# ⚠ Emptying it took the gate's own instrument check with it, which is the finding worth carrying.
+# Both callers used to prove the rule still fires by asserting "the list is not empty, therefore this
+# run must have reported something" — a check that becomes vacuously true the moment the list is
+# empty and the tree is clean, which is the day it was needed. Both now run the rule over a stapled
+# fixture instead, so what says the rule fires is the rule firing rather than the tree being dirty.
 #
 # `nuke CheckDocComments` fails when
 #
@@ -23,54 +30,3 @@
 # So this file should only ever shrink, and a commit that grows it is a commit that stapled a comment.
 # `./build.sh CheckDocComments --update-exemptions` rewrites it, and is deliberately a command
 # somebody runs: a gate that wrote its own exemptions would fail on nothing, forever.
-Core/Vixen.App.Hosting/VixenApplication.cs
-Core/Vixen.Audio.Codecs.Tests/CodecTests.cs
-Core/Vixen.Engine.Renderer.Tests/AssetMaterialSourceTests.cs
-Core/Vixen.Engine.Renderer/WorldRenderer.cs
-Core/Vixen.Geometry.Remeshing.Tests/RemeshPipelinePropertyTests.cs
-Core/Vixen.Rendering.PostFx.Tests/BloomTests.cs
-Core/Vixen.Rendering.PostFx/AmbientOcclusionRenderer.cs
-Core/Vixen.Rendering.PostFx/ScreenSpaceEffects.cs
-Core/Vixen.Rendering.Tests/CompositorAssetTests.cs
-Core/Vixen.Rendering.Tests/MeshletStreamingTests.cs
-Core/Vixen.Rendering.Tests/ShadowCascadeTests.cs
-Core/Vixen.Rendering.Tests/VfxGpuDispatchTests.cs
-Core/Vixen.Rendering.Tests/VisibilityResolveTests.cs
-Core/Vixen.Rendering.Water/WaterDebugDraw.cs
-Core/Vixen.Rendering/Features/ForwardLightingRenderFeature.cs
-Core/Vixen.Rendering/GpuVisibilityGroup.cs
-Core/Vixen.Ui.Controls.Advanced.Tests/AccessibleNameLocalisationTests.cs
-Core/Vixen.Ui.Controls.Tests/AccessibleNameLocalisationTests.cs
-Core/Vixen.Ui.Controls.Tests/CaretColourPixelTests.cs
-Core/Vixen.Ui.Layout.Tests/AutomaticMinimumSizeTests.cs
-Core/Vixen.Ui.Layout.Tests/Taffy/TaffyStyleMap.cs
-Core/Vixen.Ui.Renderer/UiRenderer.cs
-Core/Vixen.Ui.Styling.Utilities.Tests/VariantCoverageTests.cs
-Core/Vixen.Ui.Styling.Utilities/UtilityFamilies.cs
-Core/Vixen.Ui.Testing/Visual/SoftwareUiRasterizer.cs
-Core/Vixen.Ui.Text/LineWrapper.cs
-Core/Vixen.Ui/Rendering/UiGeometryBuilder.cs
-Core/Vixen.Ui/UiDocument.cs
-Editor/Vixen.Editor.App.Tests/InspectorPanelTests.cs
-Editor/Vixen.Editor.App/EditorApplication.cs
-Editor/Vixen.Editor.App/EditorParity.cs
-Editor/Vixen.Editor.Assets.Tests/ModelReaderTests.cs
-Editor/Vixen.Editor.Host/EditorHost.cs
-Editor/Vixen.Editor.SceneView/SceneMeshes.cs
-Editor/Vixen.Editor.SceneView/ScenePicker.cs
-Editor/Vixen.Editor.SceneView/SceneProbe.cs
-Editor/Vixen.Editor.SceneView/SceneSerializer.cs
-Editor/Vixen.Editor.SceneView/SceneViewport.cs
-Editor/Vixen.Editor.Ui/Commands/KeyChord.cs
-Platform/Vixen.Graphics.Golden.Tests/SharedUiShaderTests.cs
-Platform/Vixen.Graphics.Golden.Tests/StandardFrameTierImageTests.cs
-Platform/Vixen.Graphics.Golden.Tests/WaterSurfaceSeamDeviceTests.cs
-Raven/Vixen.Raven.Tests/LibraryTreeTests.cs
-Raven/Vixen.Raven/CodeGen/Glsl/GlslEmitter.cs
-Raven/Vixen.Raven/Lowering/Lowerer.Expressions.cs
-Raven/Vixen.Raven/Reflection/ReflectionBuilder.cs
-Samples/13-ThirdPersonShooter/Arena.cs
-Tools/Vixen.Cli.Tests/VixenCommandTests.cs
-Tools/Vixen.DocGen/BaselineAgreement.cs
-Tools/Vixen.Sdk.Tests/VixenSdkTests.cs
-build/Build.cs

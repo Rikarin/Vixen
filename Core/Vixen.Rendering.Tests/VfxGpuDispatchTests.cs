@@ -38,6 +38,15 @@ namespace Vixen.Rendering.Tests;
 public class VfxGpuDispatchTests : IDisposable {
     const int Count = 256;
 
+    /// <summary>
+    ///     ⚠ <b>The recorder is filled at <i>submit</i>, not as the list records.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="NullCommandList" /> buffers its commands and flushes them into the
+    ///     <see cref="CommandRecorder" /> when the queue takes it, which is what makes an abandoned
+    ///     list invisible — so every case here submits, and a test that forgot to would compare a
+    ///     rising counter against an empty stream and read as a broken counter.
+    /// </remarks>
     readonly NullDevice device = new(new() { Record = true });
 
     public void Dispose() {
@@ -248,15 +257,6 @@ public class VfxGpuDispatchTests : IDisposable {
         device.ComputeQueue.Submit([list]);
     }
 
-    /// <summary>
-    ///     ⚠ <b>The recorder is filled at <i>submit</i>, not as the list records.</b>
-    /// </summary>
-    /// <remarks>
-    ///     <see cref="NullCommandList" /> buffers its commands and flushes them into the
-    ///     <see cref="CommandRecorder" /> when the queue takes it, which is what makes an abandoned
-    ///     list invisible — so every case here submits, and a test that forgot to would compare a
-    ///     rising counter against an empty stream and read as a broken counter.
-    /// </remarks>
     /// <summary>A pipeline handle for a recorder to bind.</summary>
     /// <remarks>
     ///     ⚠ <b>A real handle rather than <c>default</c>, because binding a null pipeline throws</b> —

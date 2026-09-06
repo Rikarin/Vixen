@@ -3218,12 +3218,6 @@ public sealed class UiRenderer : IDisposable {
             : new(0, 0, width, height);
     }
 
-    /// <summary>A clip rectangle as a scissor, clamped to the surface.</summary>
-    /// <remarks>
-    ///     ⚠ Clamped rather than trusted. A clip is in document pixels and may legitimately extend
-    ///     past the surface — a panel scrolled half off the edge — and a scissor that does is a
-    ///     validation error rather than a clamp on most drivers.
-    /// </remarks>
     /// <summary>Turns a clip in geometry units into a scissor in framebuffer pixels.</summary>
     /// <param name="clip">The clip, in the same units as the geometry.</param>
     /// <param name="surface">The geometry's extent, in its own units.</param>
@@ -3244,6 +3238,11 @@ public sealed class UiRenderer : IDisposable {
     ///         scaling. A scissor rounded inward on a fractional scale loses a pixel of the very
     ///         edge it was asked to keep, and a UI is full of one-pixel borders sitting exactly on
     ///         a clip boundary.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Clamped rather than trusted. A clip is in document pixels and may legitimately
+    ///         extend past the surface — a panel scrolled half off the edge — and a scissor that
+    ///         does is a validation error rather than a clamp on most drivers.
     ///     </para>
     /// </remarks>
     static ScissorRect Scissor(Rectangle clip, Int2 surface, float scale) {

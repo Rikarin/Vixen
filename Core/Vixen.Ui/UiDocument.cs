@@ -1337,23 +1337,6 @@ public sealed partial class UiDocument : IDisposable {
         }
     }
 
-    /// <summary>Writes each element's resolved style through to the layout store.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>A walk of the tree rather than of a list in creation order</b>, which is what
-    ///         removal forced and what should have been here anyway. The list version was correct
-    ///         only because elements were created parents-first and never removed, so its index order
-    ///         happened to be its depth order — an invariant a removal would quietly have broken,
-    ///         with children resolved against a parent's font size from the previous frame. The
-    ///         property this actually needs is "parents before children", and a descent is that by
-    ///         construction rather than by coincidence.
-    ///     </para>
-    ///     <para>
-    ///         It also deletes two arrays. What each element had applied last time is now on the
-    ///         element, where removing one takes its bookkeeping with it instead of leaving a hole
-    ///         in three parallel lists.
-    ///     </para>
-    /// </remarks>
     /// <summary>The text properties that are inherited computed rather than as written.</summary>
     /// <param name="LineHeight">
     ///     The ancestor's resolved line height in pixels, or NaN when it was unitless or unset.
@@ -1417,6 +1400,23 @@ public sealed partial class UiDocument : IDisposable {
             new(float.NaN, float.NaN, 0f, 0f, FontFeatureSet.None, 0f, float.NaN);
     }
 
+    /// <summary>Writes each element's resolved style through to the layout store.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A walk of the tree rather than of a list in creation order</b>, which is what
+    ///         removal forced and what should have been here anyway. The list version was correct
+    ///         only because elements were created parents-first and never removed, so its index order
+    ///         happened to be its depth order — an invariant a removal would quietly have broken,
+    ///         with children resolved against a parent's font size from the previous frame. The
+    ///         property this actually needs is "parents before children", and a descent is that by
+    ///         construction rather than by coincidence.
+    ///     </para>
+    ///     <para>
+    ///         It also deletes two arrays. What each element had applied last time is now on the
+    ///         element, where removing one takes its bookkeeping with it instead of leaving a hole
+    ///         in three parallel lists.
+    ///     </para>
+    /// </remarks>
     void Apply(
         UiElement element,
         float parentFontSize,

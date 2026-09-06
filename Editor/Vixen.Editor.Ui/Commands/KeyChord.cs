@@ -161,15 +161,6 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
         && face.Supports('⇧')
         && face.Supports('⌘');
 
-    /// <summary>Writes a combination the way macOS has written them since 1984.</summary>
-    /// <param name="key">The key.</param>
-    /// <param name="modifiers">What is held with it.</param>
-    /// <returns>Something like <c>⇧⌘S</c>.</returns>
-    /// <remarks>
-    ///     Glyphs, in the platform's fixed order, with no separators — which is what a user of that
-    ///     machine reads without stopping. Public and pure so it can be checked without replacing a
-    ///     process-wide formatter.
-    /// </remarks>
     /// <summary>The same combination in words, for a face that cannot draw the glyphs.</summary>
     /// <param name="key">The key.</param>
     /// <param name="modifiers">What is held with it.</param>
@@ -202,6 +193,15 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
         return text.Append(ShortcutFormat.Name(key)).ToString();
     }
 
+    /// <summary>Writes a combination the way macOS has written them since 1984.</summary>
+    /// <param name="key">The key.</param>
+    /// <param name="modifiers">What is held with it.</param>
+    /// <returns>Something like <c>⇧⌘S</c>.</returns>
+    /// <remarks>
+    ///     Glyphs, in the platform's fixed order, with no separators — which is what a user of that
+    ///     machine reads without stopping. Public and pure so it can be checked without replacing a
+    ///     process-wide formatter.
+    /// </remarks>
     public static string MacFormat(InputKey key, ModifierKeys modifiers) {
         var text = new StringBuilder();
 

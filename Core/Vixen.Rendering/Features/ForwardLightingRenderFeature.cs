@@ -687,27 +687,6 @@ public sealed class ForwardLightingRenderFeature
     }
 
     /// <summary>
-    ///     Writes which probe lights this object, and how much of it shows.
-    /// </summary>
-    /// <remarks>
-    ///     <para>
-    ///         In this block rather than in one of its own, because the header already had the room:
-    ///         std140 puts the light array on a sixteen-byte boundary, so the count left twelve bytes
-    ///         of padding and two of them are now these. A probe therefore costs a per-object block
-    ///         that is exactly the size it already was.
-    ///     </para>
-    ///     <para>
-    ///         <strong>This is what makes probes per object rather than per group.</strong> The cubes
-    ///         are one binding with a count, bound for the frame; the volumes are an array beside
-    ///         them; and an object picks both with this index. Nothing extra is bound per draw, which
-    ///         is the whole reason it is an index and not a descriptor set.
-    ///     </para>
-    ///     <para>
-    ///         No selector means index zero and weight zero, which is the shader's own default: no
-    ///         probe, ambient from the environment alone.
-    ///     </para>
-    /// </remarks>
-    /// <summary>
     ///     Fills and uploads one record per object slot, when the frame reads them from a buffer.
     /// </summary>
     /// <remarks>
@@ -783,6 +762,27 @@ public sealed class ForwardLightingRenderFeature
         parameters.Set(ParameterKeys.New<int>($"{ShaderName}.objectBase"), RecordBase);
     }
 
+    /// <summary>
+    ///     Writes which probe lights this object, and how much of it shows.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         In this block rather than in one of its own, because the header already had the room:
+    ///         std140 puts the light array on a sixteen-byte boundary, so the count left twelve bytes
+    ///         of padding and two of them are now these. A probe therefore costs a per-object block
+    ///         that is exactly the size it already was.
+    ///     </para>
+    ///     <para>
+    ///         <strong>This is what makes probes per object rather than per group.</strong> The cubes
+    ///         are one binding with a count, bound for the frame; the volumes are an array beside
+    ///         them; and an object picks both with this index. Nothing extra is bound per draw, which
+    ///         is the whole reason it is an index and not a descriptor set.
+    ///     </para>
+    ///     <para>
+    ///         No selector means index zero and weight zero, which is the shader's own default: no
+    ///         probe, ambient from the environment alone.
+    ///     </para>
+    /// </remarks>
     void WriteProbe(Span<byte> block, Vector3 position) {
         if (Probes is not { } selector || selector.Select(position) is not { } chosenProbe) {
             return;

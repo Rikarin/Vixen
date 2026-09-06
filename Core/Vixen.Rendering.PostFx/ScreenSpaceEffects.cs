@@ -306,7 +306,6 @@ public sealed class FogRenderer() : PostEffectRenderer(
     /// <summary>Whether looking toward the sun brightens the fog.</summary>
     public bool SunScattering { get; set; } = true;
 
-    /// <summary>Clip space back to world, for reconstructing where a pixel was.</summary>
     /// <summary>The view the two below are derived from, or null to set them by hand.</summary>
     /// <remarks>
     ///     ⚠ <b>A document has no other way to reach a camera.</b> The matrix and the position are a

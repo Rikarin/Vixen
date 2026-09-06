@@ -4135,7 +4135,6 @@ public static class UtilityFamilies {
     static void Radius(string name, params string[] properties) =>
         Register(new Family(name, ValueKind.Radius, properties));
 
-    /// <summary>Registers a composed family: a colour fragment, a position fragment, and no declaration.</summary>
     /// <summary>A linear mask, swept by <c>--tw-mask-linear-angle</c>.</summary>
     static string Linear => UtilityComposition.MaskImage("linear", UtilityComposition.Reference(UtilityComposition.MaskLinearAngle));
 
@@ -4285,6 +4284,7 @@ public static class UtilityFamilies {
 
 
 
+    /// <summary>Registers a composed family: a colour fragment, a position fragment, and no declaration.</summary>
     static void GradientStop(string name, string colour, string position, params UtilityDeclaration[] alongside) =>
         Register(new Family(
             name,

@@ -104,14 +104,6 @@ public sealed class VisibilityResolveTests {
     }
 
     /// <summary>
-    ///     A material's tile list and its dispatch arguments do not overlap another material's.
-    /// </summary>
-    /// <remarks>
-    ///     Two strides over two shared buffers, computed by the host to bind with and by the shader to
-    ///     write with. An overlap is one material's tiles appearing in another's dispatch, which shades the
-    ///     wrong pixels with the wrong material — a picture, and a plausible one.
-    /// </remarks>
-    /// <summary>
     ///     A frame that overflowed makes the lists larger, and the growth terminates.
     /// </summary>
     /// <remarks>
@@ -153,6 +145,14 @@ public sealed class VisibilityResolveTests {
         Assert.Equal(capacity, GpuVisibilityTiles.NextCapacity(capacity, 0, screen));
     }
 
+    /// <summary>
+    ///     A material's tile list and its dispatch arguments do not overlap another material's.
+    /// </summary>
+    /// <remarks>
+    ///     Two strides over two shared buffers, computed by the host to bind with and by the shader to
+    ///     write with. An overlap is one material's tiles appearing in another's dispatch, which shades the
+    ///     wrong pixels with the wrong material — a picture, and a plausible one.
+    /// </remarks>
     [Fact]
     public void Each_materials_lists_are_its_own() {
         using var device = new NullDevice();

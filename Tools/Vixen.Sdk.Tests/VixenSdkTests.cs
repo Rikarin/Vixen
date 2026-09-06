@@ -319,7 +319,6 @@ public sealed class VixenSdkTests : IDisposable {
     static string HostTarget =>
         OperatingSystem.IsWindows() ? "Windows" : OperatingSystem.IsMacOS() ? "MacOS" : "Linux";
 
-    /// <summary>Writes a game project that imports the SDK the way a consumer of the package would.</summary>
     /// <summary>
     ///     The variant reaches the binary that has to know it. Doc 17's five variants are orthogonal
     ///     to Debug/Release — a Server build differs from a Release one only in having no window — so
@@ -448,6 +447,7 @@ public sealed class VixenSdkTests : IDisposable {
         System.Console.WriteLine($"address={Probe.Addresses.Ui.Hero.Address}");
         """;
 
+    /// <summary>Writes a game project that imports the SDK the way a consumer of the package would.</summary>
     void Project(
         string? group = "UiCore",
         string? properties = null,

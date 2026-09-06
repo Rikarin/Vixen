@@ -310,27 +310,6 @@ public sealed class StandardFrameTierImageTests {
     }
 
     /// <summary>
-    ///     The least two tiers may differ by, as a fraction of the frame.
-    /// </summary>
-    /// <remarks>
-    ///     <para>
-    ///         Two per cent everywhere except <b>High against Epic, which is measured at 0.061% — ten
-    ///         pixels — and is a finding rather than a threshold</b>. Everything Epic adds over High in
-    ///         this frame is either invisible at 128² or gated off by the frame's own knobs: the
-    ///         volumetric grid goes from 64 slices to 128 and the shadow through it is already smooth;
-    ///         bloom goes from five pyramid levels to six, and level six of a 128-pixel frame is two
-    ///         pixels across; depth of field goes from 16 gather samples to 24 of the same radius;
-    ///         FXAA goes from Balanced to Quality, which moves the pixels either side of one edge; and
-    ///         its remaining moves — reflection steps, the probe tile size, the AO scales — belong to
-    ///         the GI and reflection stacks this fixture cannot host.
-    ///     </para>
-    ///     <para>
-    ///         So the pair is held to "differ at all" rather than exempted. Ten pixels is not evidence
-    ///         that Epic is worth its cost; zero would be evidence that the tier stopped resolving,
-    ///         which is the regression this test is for.
-    ///     </para>
-    /// </remarks>
-    /// <summary>
     ///     A frame rendered below native is still a picture of the same scene.
     /// </summary>
     /// <remarks>
@@ -561,6 +540,27 @@ public sealed class StandardFrameTierImageTests {
         );
     }
 
+    /// <summary>
+    ///     The least two tiers may differ by, as a fraction of the frame.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Two per cent everywhere except <b>High against Epic, which is measured at 0.061% — ten
+    ///         pixels — and is a finding rather than a threshold</b>. Everything Epic adds over High in
+    ///         this frame is either invisible at 128² or gated off by the frame's own knobs: the
+    ///         volumetric grid goes from 64 slices to 128 and the shadow through it is already smooth;
+    ///         bloom goes from five pyramid levels to six, and level six of a 128-pixel frame is two
+    ///         pixels across; depth of field goes from 16 gather samples to 24 of the same radius;
+    ///         FXAA goes from Balanced to Quality, which moves the pixels either side of one edge; and
+    ///         its remaining moves — reflection steps, the probe tile size, the AO scales — belong to
+    ///         the GI and reflection stacks this fixture cannot host.
+    ///     </para>
+    ///     <para>
+    ///         So the pair is held to "differ at all" rather than exempted. Ten pixels is not evidence
+    ///         that Epic is worth its cost; zero would be evidence that the tier stopped resolving,
+    ///         which is the regression this test is for.
+    ///     </para>
+    /// </remarks>
     static double Least(QualityTier left, QualityTier right) =>
         (left, right) is (QualityTier.High, QualityTier.Epic) or (QualityTier.Epic, QualityTier.High)
             ? 0d

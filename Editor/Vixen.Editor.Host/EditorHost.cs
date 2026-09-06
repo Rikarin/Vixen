@@ -1242,13 +1242,6 @@ sealed class EditorHost : IDisposable {
         device = null;
     }
 
-    /// <summary>Reads an embedded SPIR-V module.</summary>
-    /// <remarks>
-    ///     ⚠ Found by suffix rather than named outright: the manifest name is the root namespace
-    ///     plus the folder plus the file, so it is
-    ///     <c>Vixen.Editor.App.Shaders.UiVertex.vert.spv</c> rather than anything a reader would
-    ///     guess — and it changes if the assembly is renamed.
-    /// </remarks>
     /// <summary>The terrain's two stages, or default when the modules are not embedded.</summary>
     /// <remarks>
     ///     ⚠ <b>Absent is a viewport with no terrain in it, not a viewport that fails to start.</b>
@@ -1304,6 +1297,13 @@ sealed class EditorHost : IDisposable {
             .GetManifestResourceNames()
             .Any(entry => entry.EndsWith(name, StringComparison.Ordinal));
 
+    /// <summary>Reads an embedded SPIR-V module.</summary>
+    /// <remarks>
+    ///     ⚠ Found by suffix rather than named outright: the manifest name is the root namespace
+    ///     plus the folder plus the file, so it is
+    ///     <c>Vixen.Editor.App.Shaders.UiVertex.vert.spv</c> rather than anything a reader would
+    ///     guess — and it changes if the assembly is renamed.
+    /// </remarks>
     static byte[] Module(string name) {
         var assembly = Assembly.GetExecutingAssembly();
 
