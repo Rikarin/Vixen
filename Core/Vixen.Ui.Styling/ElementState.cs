@@ -153,5 +153,35 @@ public enum ElementState : uint {
     ///         <c>SelectorCompiler.TryRewrite</c> is where both are repaired, on the same scan.
     ///     </para>
     /// </remarks>
-    UserInteracted = 1 << 14
+    UserInteracted = 1 << 14,
+
+    /// <summary>A disclosure, a picker or a popover that is currently showing its contents.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The refusal this bit answers had expired rather than been satisfied.</b>
+    ///         <c>:open</c> was recorded — correctly, when it was written — as a parser problem
+    ///         rather than a missing bit: ExCSS 4.3.2 hands <c>select:open</c> back as one
+    ///         <c>UnknownSelector</c> covering the whole compound, so no pseudo-class code ever ran
+    ///         and a table entry would have been refused at compile time. That is still true of the
+    ///         parser and stopped being a blocker the day <c>:user-valid</c> shipped, because the
+    ///         repair it needed is the same one: <c>SelectorCompiler.TryRewrite</c> already re-reads
+    ///         a selector ExCSS could not parse, and <c>:open</c> rides that scan.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>On the thing that opens and not on what it opened.</b> HTML gives <c>:open</c>
+    ///         to the <c>details</c>, the <c>select</c> and the <c>dialog</c> — the element an author
+    ///         writes a rule for — rather than to the popup, which in this framework is an overlay in
+    ///         a layer of its own and is not a descendant of the control at all. So <c>Expander</c>
+    ///         and <c>SelectBase</c> are the writers, and a rule written against the list would find
+    ///         a subtree the cascade reaches by a different route.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>Expander</c> already wrote a bit for this and it was the wrong one.</b> Its
+    ///         header carries <see cref="Checked" />, which is what makes the chevron turn — but
+    ///         <c>:checked</c> is a control's <i>value</i> and a themer reaching for the open section
+    ///         writes <c>expander:open</c>, not <c>expander-header:checked</c>. Both are set now, on
+    ///         two different elements, and the header's is unchanged.
+    ///     </para>
+    /// </remarks>
+    Open = 1 << 15
 }

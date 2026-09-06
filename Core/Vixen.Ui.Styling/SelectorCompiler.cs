@@ -151,6 +151,22 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
     /// <summary>The same for <c>:user-invalid</c>.</summary>
     const string UserInvalidMarker = "_vixen-user-invalid";
 
+    /// <summary>The same for <c>:open</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The first name in this family that is a prefix of names CSS also spells</b>, so its
+    ///     arm in <see cref="TryRewrite" /> is the only one that has to look at what follows.
+    ///     <c>:popover-open</c> is safe without it — the scan is anchored at the colon and that name
+    ///     starts with a different letter — but <c>:open-something</c> would be rewritten into a
+    ///     marker followed by rubbish, and a rewrite that produces valid CSS meaning the wrong thing
+    ///     is the failure this file is least able to notice.
+    /// </remarks>
+    const string OpenMarker = "_vixen-open";
+
+    /// <summary>Whether a character can continue a CSS identifier, and so ends no name before it.</summary>
+    /// <param name="c">The character.</param>
+    /// <returns>Whether it belongs to the name being read.</returns>
+    static bool IsNameChar(char c) => char.IsLetterOrDigit(c) || c is '-' or '_';
+
     /// <summary>Whether ExCSS will have failed on this text for a reason this class can repair.</summary>
     /// <remarks>
     ///     ⚠ <b>Cheap and deliberately over-eager, because the repair itself is the honest test.</b>
@@ -161,7 +177,8 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
     static bool NeedsRepair(string text) =>
         text.Contains(":where(", StringComparison.OrdinalIgnoreCase)
         || text.Contains(":user-valid", StringComparison.OrdinalIgnoreCase)
-        || text.Contains(":user-invalid", StringComparison.OrdinalIgnoreCase);
+        || text.Contains(":user-invalid", StringComparison.OrdinalIgnoreCase)
+        || text.Contains(":open", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>One comma-separated part of a selector that was written with <c>:where()</c>.</summary>
     /// <param name="Written">What the author wrote, for a diagnostic to quote.</param>
@@ -312,6 +329,20 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
                 found++;
                 rewritten.Append('[').Append(UserValidMarker).Append(']');
                 i += 10;
+                continue;
+            }
+
+            // ⚠ And this one asks what comes next, which the two above do not have to. `:open` is a
+            // prefix rather than a whole name in any selector that spells `:opened` or a vendor
+            // extension, and rewriting the first five characters of one would emit an attribute
+            // marker followed by a fragment — valid CSS, matching the wrong elements, refused by
+            // nothing.
+            if (c == ':'
+                && string.Compare(text, i, ":open", 0, 5, StringComparison.OrdinalIgnoreCase) == 0
+                && (i + 5 >= text.Length || !IsNameChar(text[i + 5]))) {
+                found++;
+                rewritten.Append('[').Append(OpenMarker).Append(']');
+                i += 4;
                 continue;
             }
 
@@ -490,6 +521,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
                         SimpleSelectorKind.State,
                         State: ElementState.Invalid | ElementState.UserInteracted
                     ),
+                    OpenMarker => new SimpleSelector(SimpleSelectorKind.State, State: ElementState.Open),
                     _ => new SimpleSelector(SimpleSelectorKind.Attribute, names.Intern(attribute.Attribute))
                 };
 

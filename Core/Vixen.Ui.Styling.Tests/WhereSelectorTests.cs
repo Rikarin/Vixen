@@ -138,4 +138,41 @@ public class WhereSelectorTests {
         Assert.Empty(fixture.Compiler.Diagnostics);
         Assert.Equal(new Specificity(0, 2, 0), selector.Specificity);
     }
+
+    /// <summary><c>:open</c> rides the same repair, and it is a name the matcher can act on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A third name on this scan, and the first one that is a <i>prefix</i> of other names
+    ///     CSS spells.</b> ExCSS 4.3.2 hands <c>expander:open</c> back as one
+    ///     <c>UnknownSelector</c> covering the whole compound — measured, not assumed — so the
+    ///     variant was recorded for years as needing a parser upgrade, when what it needed was the
+    ///     rewrite <c>:user-valid</c> already had.
+    /// </remarks>
+    [Fact]
+    public void An_open_pseudo_class_compiles_through_the_repair() {
+        var fixture = new StyleFixture();
+        var open = fixture.Tree.CreateElement("expander");
+        fixture.Tree.SetState(open, ElementState.Open);
+        var shut = fixture.Tree.CreateElement("expander");
+
+        Assert.True(fixture.Matches("expander:open", open));
+        Assert.False(fixture.Matches("expander:open", shut));
+        Assert.Empty(fixture.Compiler.Diagnostics);
+
+        // A pseudo-class costs one class, exactly as `:hover` does.
+        Assert.Equal(new Specificity(0, 1, 1), fixture.Compile("expander:open").Specificity);
+    }
+
+    /// <summary>⚠ And a longer name that merely starts with it is left for the parser to refuse.</summary>
+    /// <remarks>
+    ///     <b>The rewrite is five characters wide and the name is not</b>, so a scan that stopped at
+    ///     the length of <c>:open</c> would turn <c>:opened</c> into a marker followed by the letters
+    ///     <c>ed</c> — an attribute selector next to a fragment, which parses, matches the open
+    ///     elements, and says nothing about the word the author wrote. That is the failure mode this
+    ///     file is least able to see, because the result is valid CSS rather than a diagnostic.
+    /// </remarks>
+    [Fact]
+    public void An_open_prefixed_name_is_left_alone() {
+        Assert.Empty(new StyleFixture().Load("expander:opened { color: red }"));
+        Assert.Empty(new StyleFixture().Load("expander:popover-open { color: red }"));
+    }
 }

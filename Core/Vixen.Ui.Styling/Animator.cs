@@ -97,6 +97,7 @@ public sealed class Animator {
     readonly int transitionDuration;
     readonly int transitionDelay;
     readonly int transitionTiming;
+    readonly int transitionBehavior;
 
     /// <summary>Creates an animator.</summary>
     /// <param name="properties">The table property names are interned in.</param>
@@ -129,6 +130,7 @@ public sealed class Animator {
         transitionDuration = properties.Intern("transition-duration");
         transitionDelay = properties.Intern("transition-delay");
         transitionTiming = properties.Intern("transition-timing-function");
+        transitionBehavior = properties.Intern("transition-behavior");
     }
 
     /// <summary>Whether the user has asked for less movement, and everything therefore snaps.</summary>
@@ -247,6 +249,33 @@ public sealed class Animator {
             if (displayed.Kind == StyleValueKind.Unknown
                 || destination.Kind == StyleValueKind.Unknown
                 || displayed == destination) {
+                running.Remove(key);
+
+                return;
+            }
+
+            // ⚠ <b>The line that makes this engine's default CSS's, and its absence was invisible
+            // because the wrong behaviour is a transition rather than a missing one.</b> Transitions
+            // 2 § 3 makes `transition-behavior: normal` the initial value, and `normal` means a
+            // property whose animation type is discrete is *not transitionable*: it takes the new
+            // value at once. This never asked, so `transition: all 1s` over a keyword pair ran for a
+            // second and flipped at 0.5 — `display: none` → `display: flex` spent half a second
+            // invisible where a browser shows the box on the first frame. `StyleValue.Lerp` needed
+            // no change: its 50% flip is already the correct discrete interpolation, and what was
+            // missing was permission to reach it.
+            //
+            // ⚠ <b>⛔ Refused, and written down rather than approximated: `display` and
+            // `content-visibility` under `allow-discrete` flip at 0.5 here where CSS holds the
+            // *visible* end for the whole duration.</b> Transitions 2 § 3 singles those two out so
+            // that an element being hidden stays on screen while the fade beside it runs — the
+            // asymmetry is the point, and it is not expressible in `StyleValue.Lerp`, which is
+            // handed two values and a fraction and is told nothing about which property they belong
+            // to or which of `none` and `flex` is the visible one. Giving it that would put a
+            // property-name argument on every interpolation in the engine to serve two keywords.
+            // The honest partial is that `transition-behavior` decides *whether*, correctly, and the
+            // two-property exception to *when* is not implemented; an author wanting the web's
+            // behaviour writes the fade and the `display` change as two rules today.
+            if (!wanted.AllowDiscrete && !StyleValue.CanInterpolate(displayed, destination)) {
                 running.Remove(key);
 
                 return;
@@ -876,6 +905,13 @@ public sealed class Animator {
                 ? parsed
                 : TimingFunction.Ease;
 
+        // ⚠ One value for every entry, which is the same partial the three readings above carry:
+        // CSS makes each of these a comma-separated list matched positionally against
+        // `transition-property`, and this path takes the first meaning for all of them. The
+        // shorthand path does read them per entry, because it parses each part whole.
+        var allowDiscrete = style.TryGet(transitionBehavior, out var b)
+            && values.NameOf(b).Trim().Equals("allow-discrete", StringComparison.OrdinalIgnoreCase);
+
         var text = values.NameOf(named);
         foreach (var range in TransitionParser.TopLevelSplit(text.AsSpan(), ',')) {
             var name = text.AsSpan()[range].Trim();
@@ -890,7 +926,8 @@ public sealed class Animator {
                         : properties.Intern(name.ToString()),
                     duration,
                     delay,
-                    timing
+                    timing,
+                    allowDiscrete
                 )
             );
         }

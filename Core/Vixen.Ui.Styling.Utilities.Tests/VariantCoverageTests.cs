@@ -154,7 +154,14 @@ public class VariantCoverageTests {
                      // positive would pass against a rewrite that dropped the interaction half, which
                      // is what the extra pair below is for.
                      ("user-valid", ElementState.Valid | ElementState.UserInteracted),
-                     ("user-invalid", ElementState.Invalid | ElementState.UserInteracted)
+                     ("user-invalid", ElementState.Invalid | ElementState.UserInteracted),
+
+                     // ⚠ The same rewrite as the pair above rather than a pseudo-class arm, for the
+                     // same reason and with one difference: `:open` is a *prefix* of names CSS also
+                     // spells, so `SelectorCompiler` looks at what follows it and the two above do
+                     // not. `An_open_prefixed_name_is_left_alone` is where that is held.
+                     // `Vixen.Ui.Controls.Tests.ElementStateBitTests` is the writer's side.
+                     ("open", ElementState.Open)
                  }) {
             Row(variant, on, 0, 0, true);
             Row(variant, ElementState.None, 0, 0, false);

@@ -159,11 +159,18 @@ public sealed partial class Expander : Control {
     void OnExpandedChanged(bool previous, bool current) {
         Header.Chevron.Geometry = current ? ControlIcons.ChevronDown : ControlIcons.ChevronRight;
 
+        // ⚠ <b>A class and a state, and the class is not the state spelled differently.</b> `.open`
+        // is what this control's own sheet has always written and stays; `ElementState.Open` is what
+        // `:open` compiles to, and CSS gives that pseudo-class to the disclosure rather than to the
+        // header — `expander:open` is the rule a themer reaches for, and `:checked` beside it is the
+        // header's chevron and a statement about a control's *value*, which an expander has none of.
         if (current) {
             AddClass("open");
+            State |= ElementState.Open;
             Header.State |= ElementState.Checked;
         } else {
             RemoveClass("open");
+            State &= ~ElementState.Open;
             Header.State &= ~ElementState.Checked;
         }
 
