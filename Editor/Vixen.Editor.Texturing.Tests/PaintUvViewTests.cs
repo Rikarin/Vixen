@@ -295,6 +295,56 @@ public class PaintUvViewTests {
         Assert.Null(fixture.Shell.Commands[TexturingModule.PaintCommand]);
     }
 
+    /// <summary>UV islands are drawn in texels, so a pan and a zoom do not move them off the atlas.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 48 § D13 calls the 2D view "the only way to fix the places the 3D view cannot
+    ///         reach", and it is the islands that make that true</b> — a pane showing an atlas with no
+    ///         outlines on it cannot say which of its texels are surface.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="PaintUvView.ShowIslands" /> has no production caller yet and that is
+    ///         said rather than hidden.</b> A stack names no mesh — <c>LayerStackPreview</c> refuses a
+    ///         mesh-map layer with exactly that sentence — so nothing in this plugin has UV triangles
+    ///         to hand it. The binding that would is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/920">#920</a>, and it is the same
+    ///         thing that turns <c>PaintCoverage.Everywhere</c> into a real coverage map. This test is
+    ///         what stops it being a finished thing nobody has run.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_islands_are_drawn_in_texels_of_the_atlas() {
+        using var fixture = new TexturingFixture();
+        var host = fixture.Shell.Document.Root.Add<UiElement>();
+        // ⚠ In Paint mode, because the ring is not drawn in Select mode and that is deliberate: with
+        // the brush up a drag pans, and a brush cursor over a pane that will not paint is a control
+        // lying about what the next gesture does.
+        PaintUvView view = new(host, new PaintTool { Mode = PaintToolMode.Paint });
+
+        view.Show(0ul, 64, 64, "");
+        fixture.Shell.Document.Update();
+
+        var image = view.Image;
+
+        // One triangle over the top-left quarter of the unit square. At 64 texels that is (0,0),
+        // (32,0), (0,32) — three segments, and every endpoint inside the atlas.
+        view.ShowIslands([new Vector2(0f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 0.5f)]);
+
+        Assert.Equal(3, image.Overlay.Count);
+        Assert.Contains(image.Overlay, segment => segment.To == new Vector2(32f, 0f));
+        Assert.Contains(image.Overlay, segment => segment.To == new Vector2(0f, 32f));
+
+        // ⚠ And the ring is appended after them rather than replacing them: one list holds both, and
+        // a cursor that cleared it would take the islands off on the first pointer move. Called
+        // directly here — that the pointer reaches it at all is
+        // `The_cursor_ring_is_the_brush_radius_at_the_panes_zoom`, through the document's own route.
+        view.ShowCursor(new Vector2(20f, 20f));
+        view.ShowCursor(new Vector2(24f, 24f));
+
+        Assert.True(image.Overlay.Count > 3, "the cursor ring replaced the islands instead of following them");
+        Assert.Contains(image.Overlay, segment => segment.To == new Vector2(32f, 0f));
+    }
+
     // ── The harness ─────────────────────────────────────────────────────────────────────────────
 
     /// <summary>Opens a stack with a paint layer in it, small enough for a test to be quick.</summary>

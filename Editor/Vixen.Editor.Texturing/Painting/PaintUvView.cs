@@ -268,6 +268,8 @@ sealed class PaintUvView {
             );
         }
 
+        // ⚠ The whole list, unlike the cursor's own removal below. New islands are a new mesh, so the
+        // ring that was under the pointer describes a texel of an atlas that no longer exists.
         Image.Overlay.Clear();
 
         for (var triangle = 0; triangle < coordinates.Count; triangle += 3) {
