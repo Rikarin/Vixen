@@ -186,8 +186,19 @@ public class PaintStrokeTests {
 
     /// <summary>A stamp on its own writes only the texels an island covers.</summary>
     /// <remarks>
-    ///     Which is why the gutter is empty afterwards, and why <c>PaintSeamTests</c> is a separate
-    ///     file: everything between the islands arrives from the dilation and from nothing else.
+    ///     <para>
+    ///         Which is why the gutter is empty afterwards, and why <c>PaintSeamTests</c> is a
+    ///         separate file: everything between the islands arrives from the dilation and from
+    ///         nothing else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <em>only</em> is half the claim and it used to be the whole test.</b> An
+    ///         empty gutter and no dilated texels are both exactly what a stamp that painted nothing
+    ///         at all leaves behind — coverage refused everywhere, a radius that came out zero, a
+    ///         brush whose opacity was dropped — so the two assertions could not tell "wrote only the
+    ///         island" from "wrote nothing". The islands either side are read first, and their alpha
+    ///         is what makes the gutter's a statement about where the stamp stopped.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_stamp_paints_only_the_texels_an_island_covers() {
@@ -195,6 +206,11 @@ public class PaintStrokeTests {
         PaintStroke stroke = new(image, Islands(64, 64), Hard(24f), Opaque, gutter: 0);
 
         stroke.MoveTo(new(32f, 32f));
+
+        // The instrument, on both sides of the gutter: a 24-texel hard brush at the centre reaches
+        // well past it, so an island texel left transparent is a stamp that did not happen.
+        Assert.Equal(0xFFu, image.At(29, 32) >> 24);
+        Assert.Equal(0xFFu, image.At(34, 32) >> 24);
 
         for (var y = 0; y < 64; y++) {
             for (var x = 30; x < 34; x++) {

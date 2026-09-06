@@ -707,6 +707,49 @@ public class LayerStackEditingTests {
         Assert.Equal(["bottom", "inner", "child", "g"], LayerStackView.Anchorable(set, "top"));
     }
 
+    /// <summary>⚠ And a group is where composite order and row order actually differ.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/980">#980</a>: the two tests above
+    ///         run on flat stacks, where the two orders are the same thing.</b> So neither could
+    ///         distinguish the post-order walk from any other ordering, and the group handling —
+    ///         which is the only part of <c>Anchorable</c> that is not obvious — was unasserted while
+    ///         its own remark named it as the case that mattered.
+    ///     </para>
+    ///     <para>
+    ///         <b>Four ids over one stack, because the walk is only pinned by the whole set.</b> A
+    ///         group's blend is emitted after its children's, so the group may read them and they may
+    ///         not read it: the first child is offered nothing from inside its own group, the second
+    ///         is offered its sibling and still not the parent, the group is offered both children,
+    ///         and the layer above the group is offered all four. ⚠ A walk that visited a layer
+    ///         before its children — the arrangement a panel's rows suggest — answers the first two
+    ///         differently and the last two identically, which is why the children are the assertion.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Against <c>Anchorable</c> rather than through the pickers</b>, because the panel
+    ///         is what the test above it already drives; what is unasserted here is the walk, and a
+    ///         nested row's <c>Select</c> is found by counting controls, which would make the fixture
+    ///         about the row order this test exists to say is not the answer.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_layer_inside_a_group_anchors_in_composite_order_and_not_row_order() {
+        using var fixture = new TexturingFixture();
+
+        var set = Open(fixture, AnchoredAroundAGroup()).Document.Sets[0];
+
+        // Nothing of its own group: not its sibling, which is composited after it, and not the group
+        // itself, which is composited after both of them.
+        Assert.Equal(["bottom"], LayerStackView.Anchorable(set, "lower"));
+
+        // Its sibling, and still not the group.
+        Assert.Equal(["bottom", "lower"], LayerStackView.Anchorable(set, "upper"));
+
+        // And the group reads what it contains, which is the half a row-order picker gets backwards.
+        Assert.Equal(["bottom", "lower", "upper"], LayerStackView.Anchorable(set, "g"));
+        Assert.Equal(["bottom", "lower", "upper", "g"], LayerStackView.Anchorable(set, "top"));
+    }
+
     /// <summary>⚠ An anchor picker walks the set once, however often its row is refreshed.</summary>
     /// <remarks>
     ///     <para>
@@ -1547,6 +1590,27 @@ public class LayerStackEditingTests {
                 ]
             },
             Fill("top", "Top", 0.8f)
+        );
+
+    /// <summary>A group with a layer under it and a layer over it, and two children inside.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A layer on each side of the group, because a stack that is only a group cannot show
+    ///     the difference.</b> With nothing below it, the first child's honest answer is the empty
+    ///     list — which is also what a walk that had lost the recursion returns, and what the bottom
+    ///     layer of any stack returns. The <c>bottom</c> fill is what makes "nothing of its own
+    ///     group" a statement about the group rather than about the end of the list.
+    /// </remarks>
+    static LayerStackAsset AnchoredAroundAGroup() =>
+        Stack(
+            [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
+            Fill("bottom", "Bottom", 0.25f),
+            new LayerAsset {
+                Id = "g",
+                Name = "Group",
+                Kind = LayerKind.Group,
+                Children = [Fill("lower", "Lower", 0.4f), Fill("upper", "Upper", 0.6f)]
+            },
+            Fill("top", "Top", 0.75f)
         );
 
     static LayerStackAsset Grouped() =>

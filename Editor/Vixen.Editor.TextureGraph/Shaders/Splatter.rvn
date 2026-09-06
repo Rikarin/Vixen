@@ -187,14 +187,22 @@ shader Splatter {
     /// wrong: at `|local.x| = 0.5` the bilinear pair sits either side of the seam between column
     /// `slot` and its neighbour. It is invisible at `patternCount` 1, where the clamp to the image is
     /// the clamp to the column.
+    ///
+    /// ⚠ **And the column's width is a fraction, so only the clamp is integral** —
+    /// [#757](https://github.com/Rikarin/Vixen/issues/757), the defect the texel-space column above
+    /// arrived with. `extent.x / columns` in integers is 21 for a 64-texel atlas of 3 columns, so
+    /// texel 63 was unreachable from every slot: `extent.x mod columns` texels lost, and every column
+    /// past the first read a fraction of a texel out of step with the one an author laid out.
+    /// `TileSampler.rvn` carries the same fix and the same reasoning.
     func Stamp(slot: int, local: float2): float4 {
         val extent = pattern.GetDimensions(0)
         val columns = max(patternCount, 1)
-        val wide = max(extent.x / columns, 1)
-        val first = min(slot, columns - 1) * wide
-        val last = first + wide - 1
+        val span = float(extent.x) / float(columns)
+        val start = float(min(slot, columns - 1)) * span
+        val first = min(int(floor(start)), extent.x - 1)
+        val last = max(first, min(int(ceil(start + span)) - 1, extent.x - 1))
 
-        val px = float(first) + (local.x + 0.5f) * float(wide) - 0.5f
+        val px = start + (local.x + 0.5f) * span - 0.5f
         val py = (local.y + 0.5f) * float(extent.y) - 0.5f
 
         val x0 = int(floor(px))

@@ -256,14 +256,24 @@ shader TileSampler {
     ///
     /// So the column is resolved in **texels** and both taps are clamped into it. The vertical tap is
     /// the image's own, because a column is the full height.
+    ///
+    /// ⚠ **The column's width is a fraction and the clamp is its rounding** —
+    /// [#757](https://github.com/Rikarin/Vixen/issues/757), which arrived *with* the fix above rather
+    /// than before it. `extent.x / columns` in integers is 21 for a 64-texel atlas of 3 columns, so
+    /// the three columns ended at texel 62 and **texel 63 was unreachable from every slot** — one
+    /// lost texel per `extent.x mod columns`, and each column beyond the first read a further
+    /// `columns - 1` fraction of a texel out of step with the one an author laid out. The span is
+    /// therefore a float and only the clamp is integral: `floor` of where the column starts and
+    /// `ceil` of where it ends, which is the pair of texels a fractional boundary lies between.
     func Stamp(slot: int, local: float2): float4 {
         val extent = pattern.GetDimensions(0)
         val columns = max(patternCount, 1)
-        val wide = max(extent.x / columns, 1)
-        val first = min(slot, columns - 1) * wide
-        val last = first + wide - 1
+        val span = float(extent.x) / float(columns)
+        val start = float(min(slot, columns - 1)) * span
+        val first = min(int(floor(start)), extent.x - 1)
+        val last = max(first, min(int(ceil(start + span)) - 1, extent.x - 1))
 
-        val px = float(first) + (local.x + 0.5f) * float(wide) - 0.5f
+        val px = start + (local.x + 0.5f) * span - 0.5f
         val py = (local.y + 0.5f) * float(extent.y) - 0.5f
 
         val x0 = int(floor(px))
