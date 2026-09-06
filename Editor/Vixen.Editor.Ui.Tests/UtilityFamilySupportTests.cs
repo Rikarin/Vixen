@@ -847,7 +847,7 @@ public class UtilityFamilySupportTests {
         { "outline-accent", "outline-color", "#2f6ecd" },
         { "outline-solid", "outline-style", "solid" },
         { "outline-none", "outline-style", "none" },
-        { "outline-hidden", "outline-style", "none" },
+        { "outline-hidden", "outline-style", "hidden" },
         { "outline-offset-2", "outline-offset", "2px" },
         { "outline-offset-0", "outline-offset", "0px" },
 

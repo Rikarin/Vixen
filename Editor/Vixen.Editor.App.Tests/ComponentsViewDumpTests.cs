@@ -248,7 +248,7 @@ public sealed class ComponentsViewDumpTests {
     /// <summary>The state the panel opens in: two foldouts, both open, nothing focused.</summary>
     const string Open =
         """
-        <expander .component .open .size-md .variant-default> IsExpanded=True Label="Primitive Shape"
+        <expander .component .open .size-md .variant-default> State=Open IsExpanded=True Label="Primitive Shape"
         <expander-header .size-md .variant-default> State=Checked Label="Primitive Shape"
         <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
@@ -258,7 +258,7 @@ public sealed class ComponentsViewDumpTests {
         <icon-button .size-sm .variant-subtle> Label="Pick"
         <icon-button .size-sm .variant-subtle> Label="Clear"
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
-        <expander .component .open .size-md .variant-default> IsExpanded=True Label="Light"
+        <expander .component .open .size-md .variant-default> State=Open IsExpanded=True Label="Light"
         <expander-header .size-md .variant-default> State=Checked Label="Light"
         <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
@@ -309,7 +309,7 @@ public sealed class ComponentsViewDumpTests {
         <icon-button .size-sm .variant-subtle> Label="Pick"
         <icon-button .size-sm .variant-subtle> Label="Clear"
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
-        <expander .component .open .size-md .variant-default> IsExpanded=True Label="Light"
+        <expander .component .open .size-md .variant-default> State=Open IsExpanded=True Label="Light"
         <expander-header .size-md .variant-default> State=Checked Label="Light"
         <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
@@ -350,7 +350,7 @@ public sealed class ComponentsViewDumpTests {
         """
         <components .size-md .variant-default> State=FocusWithin
         <component-list> State=FocusWithin
-        <expander .component .open .size-md .variant-default> State=FocusWithin IsExpanded=True Label="Primitive Shape"
+        <expander .component .open .size-md .variant-default> State=FocusWithin, Open IsExpanded=True Label="Primitive Shape"
         <expander-header .size-md .variant-default> State=Focus, Checked, FocusWithin Label="Primitive Shape"
         <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
@@ -360,7 +360,7 @@ public sealed class ComponentsViewDumpTests {
         <icon-button .size-sm .variant-subtle> Label="Pick"
         <icon-button .size-sm .variant-subtle> Label="Clear"
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
-        <expander .component .open .size-md .variant-default> IsExpanded=True Label="Light"
+        <expander .component .open .size-md .variant-default> State=Open IsExpanded=True Label="Light"
         <expander-header .size-md .variant-default> State=Checked Label="Light"
         <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
@@ -401,7 +401,7 @@ public sealed class ComponentsViewDumpTests {
         """
         <components .size-md .variant-default> State=FocusWithin
         <component-list> State=FocusWithin
-        <expander .component .open .size-md .variant-default> State=FocusWithin IsExpanded=True Label="Light"
+        <expander .component .open .size-md .variant-default> State=FocusWithin, Open IsExpanded=True Label="Light"
         <expander-header .size-md .variant-default> State=Focus, Checked, FocusWithin Label="Light"
         <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
@@ -434,7 +434,7 @@ public sealed class ComponentsViewDumpTests {
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
         <numeric-input .size-md .variant-default> State=Valid Value="0.000" Number=0
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
-        <expander .component .open .size-md .variant-default> IsExpanded=True Label="Primitive Shape"
+        <expander .component .open .size-md .variant-default> State=Open IsExpanded=True Label="Primitive Shape"
         <expander-header .size-md .variant-default> State=Checked Label="Primitive Shape"
         <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
         <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
