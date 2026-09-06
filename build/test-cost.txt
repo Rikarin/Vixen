@@ -1,10 +1,16 @@
 # The wall of each test assembly in seconds, longest first, read out of the TRX
-# `Times` of a local Test run. This is a schedule and not a budget: nothing fails
-# because a number here is wrong, the run is merely packed worse. Regenerate with
-# `./build.sh TestOrder --update-test-cost` after a full local Test run.
+# `Times` of a full Test run. Regenerate with
+# `./build.sh TestOrder --update-test-cost`, which reads the TRX that run already
+# wrote and reruns nothing.
 #
 # ⚠ A name here that is no longer a test project in Vixen.slnx fails TestOrder and
-# Test. A test project with no line here is scheduled first, not last.
+# Test. A test project with no line here is scheduled first, not last. And ⚠ a
+# number here that the run disagrees with by more than both
+# 60 s and 1.5× fails Test as well, in the
+# configuration below — these numbers are read as evidence and not only scheduled
+# on, and a stale one argued that the run could not be shortened at all (#863).
+#
+# configuration: Debug
 
 329.5    Vixen.Editor.App.Tests
 239.0    Vixen.Graphics.Golden.Tests

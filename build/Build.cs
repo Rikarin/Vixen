@@ -260,6 +260,13 @@ partial class Build : NukeBuild {
                     + $"written to {TestResultsDirectory}. A run that skips an assembly and exits "
                     + "zero looks exactly like a fast one."
                 );
+
+                // ⚠ And the second half of the same idea: those TRX also say whether the schedule
+                // the run was packed from is still true. Three guards over build/test-cost.txt were
+                // all about a project *name*, so a line whose name was real and whose number was 2x
+                // wrong failed nothing — and that number is read as evidence as well as scheduled
+                // on. See Build.TestOrder.cs (#863).
+                AssertTestCostsStillDescribeTheRun();
             }
         );
 
