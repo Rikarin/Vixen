@@ -236,6 +236,14 @@ Vixen.Ui.Controls.ExpanderHeader -> sealed class
 Vixen.Ui.Controls.ExpanderHeader : Vixen.Ui.Controls.ButtonBase
 Vixen.Ui.Controls.ExpanderHeader.Chevron.get -> Vixen.Ui.Controls.Icon
 Vixen.Ui.Controls.ExpanderHeader.ExpanderHeader() -> void
+Vixen.Ui.Controls.GroupBox -> sealed class
+Vixen.Ui.Controls.GroupBox : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.GroupBox.ClearLabel() -> void
+Vixen.Ui.Controls.GroupBox.Content.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.GroupBox.GroupBox() -> void
+Vixen.Ui.Controls.GroupBox.Label.get -> string?
+Vixen.Ui.Controls.GroupBox.Label.set -> string?
+Vixen.Ui.Controls.GroupBox.Legend.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Icon -> sealed class
 Vixen.Ui.Controls.Icon : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.Icon.Art.get -> Vixen.Ui.Controls.IconArt?
@@ -1054,6 +1062,12 @@ override Vixen.Ui.Controls.Expander.TagName.get -> string
 override Vixen.Ui.Controls.ExpanderHeader.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
 override Vixen.Ui.Controls.ExpanderHeader.OnCreated() -> void
 override Vixen.Ui.Controls.ExpanderHeader.TagName.get -> string
+override Vixen.Ui.Controls.GroupBox.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.GroupBox.ContentHost.get -> Vixen.Ui.UiElement
+override Vixen.Ui.Controls.GroupBox.NativeAccessibleName.get -> string?
+override Vixen.Ui.Controls.GroupBox.NativeRole.get -> Vixen.Ui.AccessibleRole
+override Vixen.Ui.Controls.GroupBox.OnCreated() -> void
+override Vixen.Ui.Controls.GroupBox.TagName.get -> string
 override Vixen.Ui.Controls.Icon.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Icon.OnCreated() -> void
 override Vixen.Ui.Controls.Icon.OnDraw(Vixen.Ui.DrawContext context) -> void
@@ -1359,6 +1373,7 @@ static readonly Vixen.Ui.Controls.Control.SizeProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Control.VariantProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Drawer.SideProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Expander.IsExpandedProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.GroupBox.LabelProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Icon.ArtProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Icon.FillRuleProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Icon.GeometryProperty -> Vixen.Ui.UiPropertyKey

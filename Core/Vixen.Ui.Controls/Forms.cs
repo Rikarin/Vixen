@@ -214,3 +214,109 @@ public sealed partial class LabeledContent : Control {
         }
     }
 }
+
+/// <summary>A titled box round a set of related controls, announced as one group.</summary>
+/// <remarks>
+///     <para>
+///         <b>The other half of doc 49 § 7.1's rank 4, and the half that is a container.</b>
+///         <see cref="LabeledContent" /> is the row; this is what a set of rows is put inside.
+///         <see cref="Card" /> and <see cref="Panel" /> already draw the picture — a bordered box
+///         with a heading in it — and are exempt from the accessibility sweep for saying so: they
+///         are layout, and announcing them would put a group round every four fields. That is the
+///         right decision for a box that happens to have a border and the wrong one for a box whose
+///         whole purpose is to say <i>these belong together</i>.
+///     </para>
+///     <para>
+///         ⚠ <b>The role is the reason this type exists, and the border is not.</b> This is HTML's
+///         <c>&lt;fieldset&gt;</c> with its <c>&lt;legend&gt;</c>: a screen reader entering it says
+///         the legend and then the controls, so somebody who arrives at the third one down is told
+///         what question it answers. A <see cref="Card" /> with a <see cref="TextBlock" /> in its
+///         header draws the same thing and says nothing — those words are read when a reader walks
+///         past them and never again, and a keyboard user who tabbed straight into the group never
+///         walked past them at all.
+///     </para>
+///     <para>
+///         ⚠ <b>The name is written on the group rather than fetched from the legend by a
+///         relation</b>, which is the opposite of what <see cref="LabeledContent" /> does and for a
+///         difference that matters. A row's caption names a control the row does not own, so the
+///         join has to be a relation; a legend is part of this control, and a fieldset's own name is
+///         computed from it. One string, one copy, and no second node carrying the same words.
+///     </para>
+///     <para>
+///         ⚠ <b>An unnamed group is still a group.</b> Reporting <see cref="AccessibleRole.None" />
+///         until somebody sets <see cref="Label" /> would be a role that moves under a property —
+///         nothing could rely on it, and the coverage sweep could not see it either, because it
+///         builds one bare instance of every type and reads the answer once. A group with nothing to
+///         say is a caller reaching for the wrong container, and <see cref="Panel" /> is the right
+///         one.
+///     </para>
+///     <para>
+///         <b>What it deliberately is not.</b> It does not collapse: that is
+///         <see cref="Expander" />, whose header is a button that says what it opens, and a
+///         container with both behaviours would offer two ways to hide the same content. It is also
+///         not the <c>Form</c> or the <c>Section</c> doc 49 ranks beside it — a form is a submission
+///         and a section is a document landmark, and neither of those is a bordered box with a
+///         caption. Both are still owed.
+///     </para>
+/// </remarks>
+public sealed partial class GroupBox : Control {
+    /// <inheritdoc />
+    protected override string TagName => "group-box";
+
+    /// <inheritdoc />
+    /// <remarks>The controls inside it are the stops. A group is a container, not a widget.</remarks>
+    protected override bool AcceptsFocus => false;
+
+    /// <inheritdoc />
+    protected override AccessibleRole NativeRole => AccessibleRole.Group;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     The legend's words, read off the property rather than out of the element, so that a group
+    ///     whose caption is drawn by something else still says what it is.
+    /// </remarks>
+    protected override string? NativeAccessibleName => Label;
+
+    /// <summary>Where the caption is drawn.</summary>
+    public UiElement Legend { get; private set; } = null!;
+
+    /// <summary>Where the controls go.</summary>
+    public UiElement Content { get; private set; } = null!;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <see cref="Content" />, so that a nested tag means what it looks like. The null guard is
+    ///     <see cref="Card.ContentHost" />'s and is load-bearing for the same reason: this is read
+    ///     before <see cref="OnCreated" /> has run.
+    /// </remarks>
+    protected override UiElement ContentHost => Content ?? this;
+
+    /// <summary>What the legend says, or <c>null</c> for a box with no caption.</summary>
+    [UiProperty(Changed = nameof(OnLabelChanged))]
+    public partial string? Label { get; set; }
+
+    /// <inheritdoc />
+    protected override void OnCreated() {
+        base.OnCreated();
+
+        Legend = Part("group-legend");
+        Legend.SetStyle("display", "none");
+
+        Content = Part("group-content");
+    }
+
+    void OnLabelChanged(string? previous, string? current) {
+        Legend.Text = current;
+
+        // ⚠ `display: none` rather than an empty element, for `LabeledContent.Message`'s reason: a
+        // hidden flex item is not an item, so a group with no caption is exactly as tall as its
+        // contents, where one left in the flow takes the column's `gap` and inserts a blank line
+        // above the first control.
+        Legend.SetStyle("display", string.IsNullOrEmpty(current) ? "none" : "flex");
+
+        // The group's own name just moved. `AccessibleName` is computed on read, so this is for the
+        // platform bridge rather than for the getter — it sets the flag the document clears once a
+        // frame.
+        InvalidateAccessibility();
+    }
+}

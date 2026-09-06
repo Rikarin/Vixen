@@ -105,6 +105,21 @@
                 <SecureTextBox Placeholder="Password" bind:Value="@Model.Secret.Value" />
             </LabeledContent>
 
+            <!--
+                ⚠ **A box that is announced, which is where it differs from the `Card` two rows up
+                and from every panel in this file.** Those are layout and are deliberately invisible
+                to a screen reader — a tree that named every bordered box would read this gallery as
+                thirty nested groups. A `GroupBox` is HTML's `<fieldset>`: it reports
+                `AccessibleRole.Group` named by its legend, so somebody who tabs straight into the
+                second field is told which question it answers rather than only hearing the field's
+                own caption. The words are one property and one copy — `Label` is the legend and the
+                announced name together.
+            -->
+            <GroupBox Label="Shadows">
+                <CheckBox Label="Soft edges" />
+                <CheckBox Label="Contact hardening" />
+            </GroupBox>
+
             <SearchBox Placeholder="Filter assets" bind:Value="@Model.Filter.Value" />
             <NumericInput Minimum="0" Maximum="64" bind:Number="@Model.Samples.Value" />
 
