@@ -116,12 +116,22 @@
                 that genuinely wants a fixed step. The arrows are not tab stops: Up and Down already
                 do the same thing in the field they are in.
             -->
+            <!--
+                ⚠ **And the conversion seam, which is a pair rather than a feature.** `Copies` is an
+                `int` and `Number` is a `double`, so `bind:` refuses it — both legs go through the
+                property and an unbox is exact. What the editor writes instead, twenty-six times, is
+                this: the value in as an ordinary attribute (an effect over the signal, so it stays
+                live) and the write-back out through `change:`, where the narrowing is a cast a
+                reader can see. A coercion hidden inside `bind:` would be the same cast with nobody
+                told about it.
+            -->
             <Stepper Minimum="1"
                      Maximum="99"
                      Step="1"
                      RelativeStep="0"
                      Decimals="0"
-                     bind:Number="@Model.Copies.Value" />
+                     Number="@Model.Copies.Value"
+                     change:Number="@(n => Model.Copies.Value = (int) n)" />
 
             <!--
                 ⚠ **An `<Option>` nested here lands in the popover and not in the field**, because a

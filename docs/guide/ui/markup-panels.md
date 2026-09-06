@@ -456,6 +456,20 @@ watch — and the handler is given that property's own type, with no cast.
 Use `bind:X` when the change is an assignment to somewhere, and `change:X` when it has to *run*
 something: a method call, an undo entry, a write that touches two fields.
 
+⚠ **And the pair is where a conversion goes**, which is the answer to the commonest question `bind:`
+raises: `NumericInput.Number` is a `double` and your count is an `int`, and a two-way binding is
+exact both ways, so `bind:Number` refuses it by name. Write the two halves instead:
+
+```xml
+<NumericInput Number="@Model.Copies.Value" change:Number="@(n => Model.Copies.Value = (int) n)" />
+```
+
+The in-leg is an ordinary attribute — an effect over whatever it read, so it stays live exactly as a
+`bind:` would — and the out-leg is the lambda, where the narrowing is a cast somebody can read. That
+is deliberately not something `bind:` does for you: a coercion inside the binding would be the same
+cast with nobody told, and it is lossy in one direction whichever way you write it. It is also the
+shape most real panels end up in anyway, because a real write-back is rarely an assignment.
+
 ⚠ **A value arriving from the model does not fire it.** A change made while effects are draining came
 from a binding, so reporting it would be an undo entry for something the user never did. A change
 made by input, or by the panel's own code, does fire it.

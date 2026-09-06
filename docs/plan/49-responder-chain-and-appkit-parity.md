@@ -521,7 +521,30 @@ against 26 `change:` and 239 `ref`, and **all eight `bind:` attributes are in on
 `Samples/02-HelloUi/Panels/Gallery.vxml`. Two-way binding is nominally present and practically absent.
 (Those three numbers are the audit's, kept as written; the first correction below recounts them.)
 
-Four corrections to the paragraph above, from #663 and `BindReachTests`:
+⚠ **The fifth correction is the one that changes the conclusion: the converter seam this section asks
+for already exists, decomposed, and it is what the editor writes.** `Value="@expr"` in — an ordinary
+parameter, which the emitter writes as an assignment *and* a `Bind`, so it is an effect over whatever
+it read and stays live — and `change:Value="@(v => …)"` out, where the conversion is a lambda. That
+pair is 26 attributes in thirteen files against `bind:`'s 13 in two, and it carries `double`/`int`
+in both directions with the narrowing written where a reader can see it
+(`Core/Vixen.Ui.Controls.Tests/TwoWayTypeTests.The_pair_the_refusal_names_carries_the_conversion_both_ways`).
+
+So the measurement does not say `bind:` is too narrow to be used; it says **a real write-back is
+rarely an assignment**. Every one of the editor's 26 `change:` handlers is an undo entry, a validated
+rename, a row's `WriteGain(column, gain)` or a cast — none of which an lvalue can express, and all of
+which the pair can. What was missing was that nothing said so: `TwoWay`'s refusal now names the pair
+instead of saying "convert either side explicitly", and the sample stops paying for the silence —
+`Samples/02-HelloUi/ShellModel.cs` declared **two** counts as `Signal<double>` with a remark
+explaining that `bind:` is exact, and `Copies` is now the `Signal<int>` it always meant, written with
+the pair. `Samples` stays a `bind:` over a `double` so the gallery shows both shapes side by side.
+
+⚠ **What that leaves owed is smaller than the "Work" line, and is still a decision.** A coercion
+*inside* `bind:` would be the same cast with nobody told — the objection three passes raised, and the
+pair is why it is not needed rather than merely unsafe. `change:` on a component tag remains
+deliberate (`ComponentEmitter.cs:643-648`) and its diagnostic still cannot live in the binder, which
+resolves no types.
+
+Four earlier corrections to the paragraph above, from #663 and `BindReachTests`:
 
 - ⚠ **The measurement has moved twice and the conclusion has hardened.** Recounted over the 83
   committed `.vxml` at this writing: **13 `bind:` attributes in two files** —

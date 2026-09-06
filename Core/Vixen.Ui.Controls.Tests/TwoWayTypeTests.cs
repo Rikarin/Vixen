@@ -55,6 +55,51 @@ public class TwoWayTypeTests {
         Assert.Contains("Single", thrown.Message, StringComparison.Ordinal);
         Assert.Contains("Double", thrown.Message, StringComparison.Ordinal);
         Assert.Contains("Value", thrown.Message, StringComparison.Ordinal);
+
+        // ⚠ And it names the answer, which is the half a refusal usually leaves out. #663 asks for a
+        // converter seam; the seam exists decomposed, so the message spells the pair rather than
+        // saying "convert either side explicitly" and leaving the author to work out where.
+        Assert.Contains("change:Value", thrown.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The pair that message names, run: the same mismatched types bind fine when the
+    ///     conversion is written where a reader can see it.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is what a `.vxml` emits for <c>Value="@expr"</c> beside
+    ///         <c>change:Value="@(v =&gt; …)"</c></b> — an assignment plus a
+    ///         <see cref="BuildContext.Bind(System.Action)" /> for the in-leg
+    ///         (<c>ComponentEmitter.EmitParameter</c>) and a
+    ///         <see cref="BuildContext.Changed{T}" /> for the out-leg — so the shape under test is
+    ///         the generated one and not a hand-rolled approximation of it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both legs, because either alone passes for the other's failure.</b> A model that
+    ///         reaches the control proves nothing about the write-back, and this is the mismatch
+    ///         `bind:` refuses — <c>double</c> control, <c>int</c> model — so if the pair were not a
+    ///         real seam this is where it would show.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_pair_the_refusal_names_carries_the_conversion_both_ways() {
+        using var fixture = new ControlFixture();
+
+        var panel = BuildContext.Build<Converted>(fixture.Document, fixture.Document.Root);
+        fixture.Update();
+
+        // In: the int model reached the double property, and it follows the signal afterwards.
+        Assert.Equal(3d, panel.Input.Number);
+
+        panel.Count.Value = 7;
+        fixture.Update();
+        Assert.Equal(7d, panel.Input.Number);
+
+        // Out: the control's double reached the int model, narrowed by the cast the panel wrote.
+        panel.Input.Number = 11d;
+        fixture.Update();
+        Assert.Equal(11, panel.Count.Value);
     }
 
     /// <summary>
@@ -87,6 +132,27 @@ public class TwoWayTypeTests {
         protected override void Build(BuildContext ctx) {
             var slider = ctx.Child<Slider>(null);
             ctx.TwoWay(slider, "Value", () => value.Value, v => value.Value = v);
+        }
+    }
+
+    /// <summary>The decomposed seam, in the shape <c>ComponentEmitter</c> writes it.</summary>
+    sealed class Converted : Component {
+        /// <summary>The model, counting in whole numbers the way a count does.</summary>
+        public Signal<int> Count { get; } = new(3);
+
+        /// <summary>The control, which deals in <c>double</c>.</summary>
+        public NumericInput Input { get; private set; } = null!;
+
+        protected override void Build(BuildContext ctx) {
+            Input = ctx.Child<NumericInput>(null);
+
+            // The in-leg: the statement makes the value the control is built with, and the effect
+            // is what makes it follow. `int` widens to `double` in ordinary C#.
+            Input.Number = Count.Value;
+            ctx.Bind(() => Input.Number = Count.Value);
+
+            // The out-leg, where the narrowing is written down.
+            ctx.Changed(Input, "Number", () => Input.Number, n => Count.Value = (int)n);
         }
     }
 

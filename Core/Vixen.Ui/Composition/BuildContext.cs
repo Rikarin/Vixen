@@ -1275,6 +1275,17 @@ public sealed class BuildContext {
     ///         something this method can invent.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>And the converter seam #663 asks for already exists, decomposed: it is the pair
+    ///         <c>Number="@expr"</c> in and <c>change:Number="@(v => …)"</c> out</b>, which is what
+    ///         the editor writes twenty-six times and <c>bind:</c> two. So the message names it. The
+    ///         in-leg is an ordinary parameter — an effect over whatever it read, so it stays live —
+    ///         and the out-leg is a lambda, which is where a narrowing cast, an undo entry or a
+    ///         validated rename can be written and *seen*. A coercion inside this method would be
+    ///         the same cast with nobody told. ⚠ It is also why the measurement reads the way it
+    ///         does: a real write-back is rarely an assignment, so the pair is not a workaround for
+    ///         <c>bind:</c> being narrow — it is the shape the work actually takes.
+    ///     </para>
+    ///     <para>
     ///         With no <paramref name="commits" /> the write-back arrives through
     ///         <see cref="UiElement.PropertyChanged" /> rather than through a poll, and is guarded so
     ///         that the assignment this binding just made does not come straight back as a change to
@@ -1316,8 +1327,9 @@ public sealed class BuildContext {
             throw new ArgumentException(
                 $"'{target.Tag}.{name}' is a {key.ValueType.Name} and the bound expression is a "
                 + $"{typeof(T).Name}. A two-way binding goes both ways through the property, and both "
-                + "are exact — bind an expression of the property's own type, or convert either side "
-                + "explicitly.",
+                + $"are exact. Write the pair the conversion can live in: {name}=\"@expr\" for the "
+                + $"value going in, and change:{name}=\"@(v => …)\" for the write-back, where the "
+                + "cast is a cast somebody can read.",
                 nameof(name)
             );
         }
