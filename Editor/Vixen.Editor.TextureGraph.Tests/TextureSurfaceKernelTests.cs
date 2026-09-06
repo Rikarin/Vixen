@@ -195,7 +195,8 @@ public class TextureSurfaceKernelTests {
             members
         );
 
-        // ⚠ `Identity` is the sixth member and it is not a sixth thing an op *does*: it is a name for
+        // ⚠ `Identity` is one of the eight above — third, since the list is ordered — and it is not
+        // an eighth thing an op *does*: it is a name for
         // the op, mixed into `TexturePlan.SeedFor` and read nowhere else — #875. A `uint?` cannot
         // carry code and the evaluator never branches on it.
         Assert.Equal(typeof(uint?), typeof(TextureOp).GetProperty("Identity")!.PropertyType);

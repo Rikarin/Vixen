@@ -338,15 +338,32 @@ public class TextureGraphPanelTests {
         Assert.Equal(compound, view.Trail[1]);
     }
 
-    /// <summary>Inside a published graph the canvas refuses edits, because the model is shared.</summary>
+    /// <summary>Inside a published graph the canvas refuses edits, and the strip says why.</summary>
     /// <remarks>
-    ///     ⚠ <b>One <c>NodeGraphModel</c> serves every graph that contains the node type</b> — the
-    ///     library holds it and the compiler inlines from it — so an edit made here would rewrite a
-    ///     compound for every material in the project, with no undo entry and no file to save it to.
-    ///     For a shipped compound there is no file at all: it is an embedded resource.
+    ///     <para>
+    ///         ⚠ <b>One <c>NodeGraphModel</c> serves every graph that contains the node type</b> — the
+    ///         library holds it and the compiler inlines from it — so an edit made here would rewrite
+    ///         a compound for every material in the project, with no undo entry and no file to save
+    ///         it to. For a shipped compound there is no file at all: it is an embedded resource.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The note is read off the strip rather than off the constant</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/930">#930</a>). This asserted
+    ///         <c>Assert.Contains("Open its own asset", … ? TextureGraphView.ReadOnly : "")</c> — a
+    ///         <c>const</c> against a substring somebody typed out of it, whose only variable was the
+    ///         trail's length. It would have passed with <c>Retrail</c> never adding the note at all,
+    ///         and it matters here more than usual: the same review found that leaving a compound
+    ///         left the author's <em>own</em> graph read-only, a state this note would have been
+    ///         wrong about in the opposite direction.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves, because "the note is on the screen" is satisfied by a note that is
+    ///         always on the screen.</b> The strip is empty while the canvas is showing the author's
+    ///         own graph and carries the note while it is showing somebody else's.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void A_published_graph_is_shown_read_only() {
+    public void A_published_graph_is_shown_read_only_and_the_strip_says_so() {
         using var fixture = new TexturingFixture();
         var (view, canvas) = Opened(fixture);
         var compound = TextureGraph.TextureCompoundLibrary.Shipped[0];
@@ -356,11 +373,72 @@ public class TextureGraphPanelTests {
         Settle(fixture);
 
         Assert.False(canvas.IsReadOnly);
+        Assert.DoesNotContain("Open its own asset", Strip(view), StringComparison.Ordinal);
 
         DoubleClick(fixture, Item(canvas, compound));
 
         Assert.True(canvas.IsReadOnly);
-        Assert.Contains("Open its own asset", view.Trail.Count > 1 ? TextureGraphView.ReadOnly : "", StringComparison.Ordinal);
+
+        // The whole sentence, off the element the author looks at — so a note that stopped being
+        // added, or that was added with somebody else's text, is a failure rather than a pass.
+        Assert.Contains(TextureGraphView.ReadOnly, Strip(view), StringComparison.Ordinal);
+    }
+
+    /// <summary>Every word the trail strip is showing, in order.</summary>
+    /// <param name="view">The panel.</param>
+    /// <returns>The strip's text.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The strip itself, found by tag, and its absence is a failure rather than an empty
+    ///     answer.</b> A helper that returned <c>""</c> for "there is no strip" would make the
+    ///     before-half of every assertion over it true on a panel that never built one, which is the
+    ///     same shape as the constant this replaced. The strip exists from the constructor and is
+    ///     emptied rather than removed, so an author outside a compound gets one with no children.
+    /// </remarks>
+    static string Strip(TextureGraphView view) {
+        List<string> words = [];
+        var strip = All(view.Root, "texture-graph-trail");
+
+        Assert.Single(strip);
+
+        foreach (var child in strip[0].Children) {
+            Walk(child);
+        }
+
+        return string.Join(" ", words);
+
+        void Walk(UiElement element) {
+            if (element is Button { Label: { Length: > 0 } label }) {
+                words.Add(label);
+            } else if (element.Text is { Length: > 0 } text) {
+                words.Add(text);
+            }
+
+            foreach (var child in element.Children) {
+                Walk(child);
+            }
+        }
+    }
+
+    /// <summary>Every element under a root with one tag.</summary>
+    /// <param name="root">Where to start.</param>
+    /// <param name="tag">The tag to match.</param>
+    /// <returns>The matches, outermost first.</returns>
+    static List<UiElement> All(UiElement root, string tag) {
+        List<UiElement> found = [];
+
+        Walk(root);
+
+        return found;
+
+        void Walk(UiElement element) {
+            if (string.Equals(element.Tag, tag, StringComparison.Ordinal)) {
+                found.Add(element);
+            }
+
+            foreach (var child in element.Children) {
+                Walk(child);
+            }
+        }
     }
 
     /// <summary>A refresh while inside a published graph does not throw the author out of it.</summary>

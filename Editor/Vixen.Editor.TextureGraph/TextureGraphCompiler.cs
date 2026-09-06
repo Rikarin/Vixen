@@ -407,12 +407,26 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
 
     /// <summary>Resolves the graph's parameters, and every expression written over them.</summary>
     /// <remarks>
-    ///     ⚠ <b>Before the walk and not during it, because one compilation folds every expression at
-    ///     once.</b> Raven is asked once per <em>graph</em> — one source holding one <c>const val</c>
-    ///     per parameter and one per expression — so a graph of forty expression fields costs one
-    ///     parse and one bind rather than forty, and every expression is bound against the same
-    ///     parameter declarations in the same order. Folding them node by node during the walk would
-    ///     be forty compilations of forty nearly identical files.
+    ///     <para>
+    ///         ⚠ <b>Before the walk and not during it, because one compilation folds a whole scope's
+    ///         expressions at once.</b> Raven is asked once per <em>expansion that holds an
+    ///         expression</em> — one source holding one <c>const val</c> per parameter of that scope
+    ///         and one per expression written in it — so forty expression fields in the author's own
+    ///         graph cost one parse and one bind rather than forty, and every expression in a scope
+    ///         is bound against the same parameter declarations in the same order. Folding them node
+    ///         by node during the walk would be forty compilations of forty nearly identical files.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Once per graph is what this used to say, and re-keying <see cref="Collect" /> on
+    ///         the expansion made it false</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/931">#931</a>). The change is right —
+    ///         an expansion is what makes two instances of one compound two sets of numbers — but the
+    ///         cost it buys is different and this is the sentence somebody quotes when deciding
+    ///         whether expressions are affordable. The bound is the number of compound instances
+    ///         holding an expression, plus one for the author's own graph, and it does not grow with
+    ///         the number of fields: ten instances of a compound with four expression fields each are
+    ///         ten compilations, not forty.
+    ///     </para>
     /// </remarks>
     void Bind(NodeGraphModel graph) {
         foreach (var problem in TextureGraphParameters.Check(declared)) {

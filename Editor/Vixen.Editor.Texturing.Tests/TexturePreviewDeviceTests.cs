@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.NodeGraph;
-using Vixen.Graphics.Vulkan;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
 using Xunit;
@@ -26,25 +25,6 @@ namespace Vixen.Editor.Texturing.Tests;
 ///     </para>
 /// </remarks>
 public class TexturePreviewDeviceTests {
-    /// <summary>A device, or a loud skip — or, when one was required, a failure.</summary>
-    /// <returns>The device.</returns>
-    static VulkanDevice Open() {
-        if (VulkanDevice.TryCreate(new(), out var device, out var reason)) {
-            return device!;
-        }
-
-        if (Environment.GetEnvironmentVariable("VIXEN_REQUIRE_VULKAN") is "1" or "true" or "TRUE") {
-            Assert.Fail($"VIXEN_REQUIRE_VULKAN is set and no device could be opened: {reason}");
-        }
-
-        Assert.Skip(reason ?? "no Vulkan device, so nothing here can be proved");
-
-        throw new InvalidOperationException("unreachable");
-    }
-
-    static string Adapter(VulkanDevice device) =>
-        $"{device.Adapter.Name} ({device.Adapter.Kind}, {device.Adapter.DriverVersion})";
-
     /// <summary>Opening a graph in a host with a device puts the <i>wired graph's</i> texels in the pane.</summary>
     /// <remarks>
     ///     <para>
@@ -72,7 +52,7 @@ public class TexturePreviewDeviceTests {
     /// </remarks>
     [Fact]
     public void Opening_a_graph_evaluates_it_and_the_pane_shows_the_result() {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
         using var fixture = new TexturingFixture(device);
 
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
@@ -115,7 +95,7 @@ public class TexturePreviewDeviceTests {
 
         Assert.True(
             values.SetEquals([(byte)0, (byte)255]),
-            $"the compiled graph on {Adapter(device)} holds {values.Count} distinct reds: "
+            $"the compiled graph on {TexturingDevice.Adapter(device)} holds {values.Count} distinct reds: "
             + string.Join(", ", values.Order())
             + ". A flat 255 is the starter graph's white Uniform, which is what a pane that did not "
             + "compile the wire would show."
@@ -128,7 +108,7 @@ public class TexturePreviewDeviceTests {
         // every assertion above green, because a checker is a checker whatever drew it.
         Assert.True(
             Transitions(picture.Pixels, picture.Width) == (int)WiredCells - 1,
-            $"the top row on {Adapter(device)} changes {Transitions(picture.Pixels, picture.Width)} times. "
+            $"the top row on {TexturingDevice.Adapter(device)} changes {Transitions(picture.Pixels, picture.Width)} times. "
             + $"The wired graph is a {WiredCells}-cell checker, so it should change {(int)WiredCells - 1} "
             + $"times; {(int)Cells - 1} is the fixed base-layer plan this pane used to show instead."
         );
@@ -203,7 +183,7 @@ public class TexturePreviewDeviceTests {
     /// </remarks>
     [Fact]
     public void An_edit_on_the_canvas_redraws_the_pane_without_reopening_it() {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
         using var fixture = new TexturingFixture(device);
 
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
@@ -223,7 +203,7 @@ public class TexturePreviewDeviceTests {
 
         Assert.True(
             fixture.Graphics.Uploads.Count > before,
-            $"{Adapter(device)}: the graph changed and nothing was uploaded, so the pane is still showing "
+            $"{TexturingDevice.Adapter(device)}: the graph changed and nothing was uploaded, so the pane is still showing "
             + "the picture the panel was built with."
         );
 
@@ -255,7 +235,7 @@ public class TexturePreviewDeviceTests {
     /// </remarks>
     [Fact]
     public void A_bitmap_naming_a_missing_asset_is_said_rather_than_thrown() {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
         using var fixture = new TexturingFixture(device);
 
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
@@ -283,7 +263,7 @@ public class TexturePreviewDeviceTests {
 
         Assert.False(
             status.Contains("no graphics device", StringComparison.Ordinal),
-            $"on {Adapter(device)} the pane blamed the device for a missing file: {status}"
+            $"on {TexturingDevice.Adapter(device)} the pane blamed the device for a missing file: {status}"
         );
     }
 
@@ -296,7 +276,7 @@ public class TexturePreviewDeviceTests {
     /// </remarks>
     [Fact]
     public void Re_evaluating_gives_the_previous_picture_back() {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
         using var fixture = new TexturingFixture(device);
 
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
@@ -314,7 +294,7 @@ public class TexturePreviewDeviceTests {
     /// <summary>And unloading the module gives the last one back too.</summary>
     [Fact]
     public void Unloading_gives_the_last_picture_back() {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
         using var fixture = new TexturingFixture(device);
 
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());

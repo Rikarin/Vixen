@@ -3,7 +3,6 @@
 
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Texturing.Painting;
-using Vixen.Graphics.Vulkan;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -41,7 +40,7 @@ public class PaintPreviewDeviceTests {
     /// <summary>The canvas's texels are what the map is painted with.</summary>
     [Fact]
     public void A_paint_layers_canvas_is_read_off_disk_and_baked_into_the_map() {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
         using var fixture = new TexturingFixture(device);
 
         using LentEvaluator evaluators = new();
@@ -69,13 +68,13 @@ public class PaintPreviewDeviceTests {
 
         Assert.True(
             left.R > 200 && left.G < 60,
-            $"{Adapter(device)}: the left half baked to ({left.R}, {left.G}, {left.B}) and the canvas painted "
+            $"{TexturingDevice.Adapter(device)}: the left half baked to ({left.R}, {left.G}, {left.B}) and the canvas painted "
             + "it opaque red. A blank upload and a canvas nobody read both bake the fill here."
         );
 
         Assert.True(
             right.G > 200 && right.R < 60,
-            $"{Adapter(device)}: the right half baked to ({right.R}, {right.G}, {right.B}) and the canvas is "
+            $"{TexturingDevice.Adapter(device)}: the right half baked to ({right.R}, {right.G}, {right.B}) and the canvas is "
             + "transparent there, so the green fill under it is what must show through."
         );
 
@@ -86,7 +85,7 @@ public class PaintPreviewDeviceTests {
 
                 Assert.True(
                     x < Side / 2 ? texel.R > 200 : texel.G > 200,
-                    $"{Adapter(device)}: texel ({x}, {y}) baked to ({texel.R}, {texel.G}, {texel.B}), and the "
+                    $"{TexturingDevice.Adapter(device)}: texel ({x}, {y}) baked to ({texel.R}, {texel.G}, {texel.B}), and the "
                     + $"canvas's edge is at column {Side / 2}."
                 );
             }
@@ -102,7 +101,7 @@ public class PaintPreviewDeviceTests {
     /// </remarks>
     [Fact]
     public void A_named_canvas_that_is_not_there_is_said_rather_than_drawn() {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
         using var fixture = new TexturingFixture(device);
 
         using LentEvaluator evaluators = new();
@@ -126,7 +125,7 @@ public class PaintPreviewDeviceTests {
     /// </remarks>
     [Fact]
     public void A_channel_the_canvas_has_not_been_painted_on_still_bakes() {
-        using var device = Open();
+        using var device = TexturingDevice.Open();
         using var fixture = new TexturingFixture(device);
 
         using LentEvaluator evaluators = new();
@@ -152,7 +151,7 @@ public class PaintPreviewDeviceTests {
 
         Assert.True(
             texel.G > 200,
-            $"{Adapter(device)}: the roughness map baked to ({texel.R}, {texel.G}, {texel.B}) where the fill "
+            $"{TexturingDevice.Adapter(device)}: the roughness map baked to ({texel.R}, {texel.G}, {texel.B}) where the fill "
             + "under an unpainted channel is what must show."
         );
     }
@@ -211,22 +210,4 @@ public class PaintPreviewDeviceTests {
 
         return (picture.Pixels[at], picture.Pixels[at + 1], picture.Pixels[at + 2]);
     }
-
-    /// <summary>A device, or a loud skip — <c>LayerStackPanelDeviceTests</c>' arrangement.</summary>
-    static VulkanDevice Open() {
-        if (VulkanDevice.TryCreate(new(), out var device, out var reason)) {
-            return device!;
-        }
-
-        if (Environment.GetEnvironmentVariable("VIXEN_REQUIRE_VULKAN") is "1" or "true" or "TRUE") {
-            Assert.Fail($"VIXEN_REQUIRE_VULKAN is set and no device could be opened: {reason}");
-        }
-
-        Assert.Skip(reason ?? "no Vulkan device, so nothing here can be proved");
-
-        throw new InvalidOperationException("unreachable");
-    }
-
-    static string Adapter(VulkanDevice device) =>
-        $"{device.Adapter.Name} ({device.Adapter.Kind}, {device.Adapter.DriverVersion})";
 }

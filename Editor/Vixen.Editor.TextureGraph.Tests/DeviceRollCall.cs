@@ -21,11 +21,32 @@ namespace Vixen.Editor.Testing;
 ///         idea.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This is the weaker of the two mechanisms and it is kept because it covers a hole the
-///         stronger one cannot.</b> A harness that names the adapter itself makes an anonymous device
-///         impossible for anything that goes <em>through</em> the harness; a file calling
-///         <c>VulkanDevice.TryCreate</c> directly bypasses it entirely, and this walk is what notices
-///         that the file opened a device without naming one. Both projects now have both halves.
+///         ⚠ <b><see cref="Take" /> is the weaker of the mechanisms and it is kept because it covers
+///         a hole the stronger ones cannot.</b> A harness that names the adapter itself makes an
+///         anonymous device impossible for anything that goes <em>through</em> the harness; a file
+///         that creates a device itself bypasses it entirely, and this walk is what notices that the
+///         file opened a device without naming one. It is weak because its detector is a
+///         <em>naming convention</em> — the name the harness gave its opener — which the author of
+///         the next device file chooses, so a file that calls its own opener something else is
+///         invisible to it. ⚠ It matches prose as readily as code, so a paragraph anywhere in the
+///         directory that quotes the opener's name is a file the walk then expects to name an
+///         adapter. That is not a flaw worth removing — the detector has to be a plain substring
+///         to be one the caller supplies — but it is why <see cref="Creates" /> is declared in
+///         two pieces and why these paragraphs do not spell either call.
+///     </para>
+///     <para>
+///         ⚠ <b><see cref="Sole" /> is the answer to that, and it is the one that makes an anonymous
+///         device impossible rather than merely noticed</b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/923">#923</a>). Its detector is the
+///         backend call that actually produces a device, which no test author can rename, so the
+///         subject set is every file that could open one rather than every file that named its
+///         opener the expected thing. Requiring exactly the harness to match means the eighth device
+///         file cannot get a device except through the harness, and the harness names the adapter.
+///         That is the fourth time in this workstream a rule's subject set has been narrower than
+///         the rule (<a href="https://github.com/Rikarin/Vixen/issues/814">#814</a>,
+///         <a href="https://github.com/Rikarin/Vixen/issues/872">#872</a>,
+///         <a href="https://github.com/Rikarin/Vixen/issues/883">#883</a>), and it is the first time
+///         the answer has been to widen the subject set to something the subject cannot opt out of.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>A walk that reads no files reports every file compliant, which is the failure
@@ -37,6 +58,16 @@ namespace Vixen.Editor.Testing;
 ///     </para>
 /// </remarks>
 static class DeviceRollCall {
+    /// <summary>The backend call that produces a device, which is the one way to get one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Written in two pieces so that this file is not itself a match.</b> The detector is
+    ///     matched against whole file texts including the one that declares it, and a rule that
+    ///     fires on its own declaration is a false positive nobody can remove — the same shape as an
+    ///     exemption list whose first entry excuses the rule from itself. Prose in these files says
+    ///     "creates a device" for the same reason.
+    /// </remarks>
+    public const string Creates = "VulkanDevice" + ".TryCreate(";
+
     /// <summary>What one file looked like to the walk.</summary>
     /// <param name="Name">Its file name.</param>
     /// <param name="Text">Its whole text, which is what both detectors are matched against.</param>
@@ -126,5 +157,49 @@ static class DeviceRollCall {
 
         Assert.All(excused, name => Assert.Contains(opening, source => string.Equals(source.Name, name, StringComparison.Ordinal)));
         Assert.All(anonymous, entry => Assert.True(entry.Reason.Length > 40, entry.File));
+    }
+
+    /// <summary>
+    ///     ⚠ The harness is the only file here that creates a device, so no other file can have one
+    ///     the harness has not named.
+    /// </summary>
+    /// <param name="sources">The project's files, from <see cref="Read" />.</param>
+    /// <param name="harness">The file that is allowed to call <see cref="Creates" />.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The strong half of criterion 11, and the one <see cref="Take" /> cannot be.</b>
+    ///         <c>Take</c> asks whether a file that <em>looks like</em> it opens a device names the
+    ///         adapter; this asks whether any file other than the harness <em>can</em> open one at
+    ///         all. The difference is the eighth device file: it is invisible to <c>Take</c> if its
+    ///         author gives the helper another name, and it cannot be
+    ///         invisible to this, because the only way to get a device is the call this matches.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Its instrument check is the assertion itself rather than a floor beside it.</b>
+    ///         The set is required to be exactly the harness, so the two ways for this to run over
+    ///         nothing — a walk that read no files, and a backend that renamed the call — both leave
+    ///         the harness missing from the set and both fail. There is no arrangement in which it
+    ///         reports success without having looked.
+    ///     </para>
+    /// </remarks>
+    public static void Sole(Source[] sources, string harness) {
+        ArgumentNullException.ThrowIfNull(sources);
+
+        var creating = sources
+            .Where(source => source.Text.Contains(Creates, StringComparison.Ordinal))
+            .Select(source => source.Name)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.True(
+            creating.Length == 1 && string.Equals(creating[0], harness, StringComparison.Ordinal),
+            $"'{Creates}' is expected in '{harness}' and nowhere else here, and it is in "
+            + (creating.Length == 0
+                ? "no file at all — either this walk read nothing, or the backend renamed the call and this "
+                + "roll call is now matching an empty set, which is the silent success it exists to prevent"
+                : $"[{string.Join(", ", creating)}]. A file that creates its own device goes round the harness, "
+                + "so its adapter is named only if that file remembered to — which is the convention the harness "
+                + "replaced. Call the harness instead.")
+        );
     }
 }

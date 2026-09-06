@@ -1083,18 +1083,34 @@ plugin host and the asset write already exist, and every one of them would other
    image — and nothing may ship without one, which is a roll call over the implementations rather
    than a habit.
 5. **Closed forms where they exist.** A Gaussian's impulse response; a distance transform from one lit
-   texel; a levels curve at three points. ⚠ **This criterion named five and three were built, and it
-   was scored "Met" from batch 6 until 2026-09-06** ([#847](https://github.com/Rikarin/Vixen/issues/847)):
-   *AO on a sphere against the analytic hemisphere* and *curvature of a sphere of radius r reading
-   1/r* do not exist, and `git grep -i sphere` over both test projects returns nothing at all. The
-   sentence now names what was built, and the two that were not are **owed rather than dropped** —
-   ⚠ **they are the two that calibrate a *scale*, which is the half the survivors cannot.** A flat
-   input cannot calibrate one: `Curvature_of_a_flat_normal_map_is_a_half` asserts a constant and
-   `Curvature_of_a_linear_normal_ramp_is_constant_and_off_the_half` asserts a sign, so a kernel whose
+   texel; a levels curve at three points; AO on a sphere against the analytic hemisphere; curvature of
+   a sphere of radius *r* reading 1/*r*. **All five exist.**
+   ⚠ **[#847](https://github.com/Rikarin/Vixen/issues/847) said the last two did not, this document
+   was amended down to three on 2026-09-06 on that evidence, and both halves were wrong.**
+   `Ambient_occlusion_on_a_convex_sphere_is_the_open_hemisphere` and
+   `Curvature_of_a_sphere_of_radius_r_reads_one_over_r` — the latter a `[Theory]` at *r* = 1 and
+   *r* = 100, so it asserts the reciprocal scaling and not merely a number — have been in
+   `Core/Vixen.Geometry.Remeshing.Tests/MeshMapTests.cs` since 2026-09-05, before either measurement
+   that missed them.
+   ⚠ **The search was scoped to the two `Vixen.Editor.TextureGraph*` projects, which is the one place
+   these two oracles could not be**, and that is worth more than the correction: a sphere and a radius
+   are properties of a *mesh*, and § D12's bakers are what measure them — this document already said
+   so twice, in D12's table ("the sphere's analytic answer is the test", "a sphere of radius *r* must
+   read 1/*r*") and in M6's budget ("closed-form oracles on a sphere and a plane"). The image kernel
+   `Shaders/Curvature.rvn` takes the divergence of a tangent-space normal *picture* per unit UV and
+   has no world radius at all, so "1/*r*" is not a claim it could satisfy however it were written.
+   This is the same failure as [#814](https://github.com/Rikarin/Vixen/issues/814),
+   [#872](https://github.com/Rikarin/Vixen/issues/872), [#883](https://github.com/Rikarin/Vixen/issues/883)
+   and [#923](https://github.com/Rikarin/Vixen/issues/923) — a subject set narrower than the claim —
+   arriving in an *audit* rather than in a rule.
+   ⚠ **What stays true is the argument, aimed at the right kernel.** The image-space curvature node's
+   own oracles are qualitative — `Curvature_of_a_flat_normal_map_is_a_half` asserts a constant and
+   `Curvature_of_a_linear_normal_ramp_is_constant_and_off_the_half` asserts a sign — so a kernel whose
    output is multiplied by any factor, or which reads its neighbourhood at the wrong radius, passes
-   both. The sphere is the one input whose right answer is a number known in advance, and the
-   hemisphere is the one AO configuration with a closed form. `TextureKernelSabotageTests` proves both
-   kernels are *sensitive to their own source*, which is criterion 4 and a different claim.
+   both. That is a real gap and it is **not** this criterion's: it wants an input whose divergence per
+   unit UV is a number known in advance, which a sphere is not.
+   `TextureKernelSabotageTests` proves the kernel is *sensitive to its own source*, which is criterion
+   4 and a different claim.
 6. **A stack and its explosion are byte-identical.** The one test that proves D1's "one evaluator".
 7. **A re-bake on the same machine is byte-identical**, and a bake on a different adapter is *recorded*
    and not asserted.
@@ -1128,7 +1144,7 @@ that has rotted is a `git grep` away from being caught.
 | 2 | Scale invariance at 1K and 4K | **measured, unenumerated** | `TextureSourceDeviceTests.A_source_kernel_bakes_the_same_picture_at_both_resolutions`, 64 against a downsampled 256 | "Every atomic node" is inferred: nothing enumerates the atomic nodes and requires the next one to have a case. ⚠ And the criterion is false as written for a hard-edged source ([#640](https://github.com/Rikarin/Vixen/issues/640)) |
 | 3 | An assertion per node that would notice its picture changing | **measured** | `TextureNodeLibraryTests`' roll calls over the shipped surface, plus 4's per-implementation sabotage and 5's closed forms | A node whose parameters are right and whose picture is merely ugly — said plainly below, and a golden would have recorded it rather than caught it |
 | 4 | A sabotage per shipped op implementation | **measured** | `TextureKernelSabotageTests` — one case per implementation, the perturbation generated from the kernel's own source | The subject set was one assembly's types and a CPU operation in `Vixen.Editor.Texturing` would have been outside it; cross-checked against the tree's sources since ([#872](https://github.com/Rikarin/Vixen/issues/872)) |
-| 5 | Closed forms where they exist | **measured, and the criterion amended down to what exists** | Gaussian impulse response (`TextureFilterDeviceTests`), distance transform from one lit texel (`TextureAnalysisDeviceTests`), levels curve at three points (`TexturePlanDeviceTests`) | ⚠ The criterion named five; the two curved-surface oracles were never built and it was scored Met anyway from batch 6. Re-measured 2026-09-06 — `git grep -i sphere` over both test projects still returns nothing — and the sentence now names the three that exist, with the two owed and the reason they are the ones that matter written beside it ([#847](https://github.com/Rikarin/Vixen/issues/847)) |
+| 5 | Closed forms where they exist | **measured — all five** | Gaussian impulse response (`TextureFilterDeviceTests`), distance transform from one lit texel (`TextureAnalysisDeviceTests`), levels curve at three points (`TexturePlanDeviceTests`), AO on a sphere against the analytic hemisphere and curvature of a sphere reading 1/*r* at two radii (both `Core/Vixen.Geometry.Remeshing.Tests/MeshMapTests.cs`) | ⚠ [#847](https://github.com/Rikarin/Vixen/issues/847) reported the last two absent and this row said so for a day. Refuted 2026-09-06: they have existed since 2026-09-05, and the `git grep -i sphere` behind both measurements was scoped to `Vixen.Editor.TextureGraph*` — the one place a *mesh* oracle cannot be. What is genuinely unmeasured is a **scale** for the image-space curvature node, whose own two oracles assert a constant and a sign; a sphere is not that input, so it is not this criterion's gap |
 | 6 | A stack and its explosion are byte-identical | **measured, weaker than its wording** | `LayerStackBakeDeviceTests` on a device, `LayerStackExplodeTests` without one | ⚠ `LayerStackDifferential` compares a stack against **its own explosion** — one pipeline twice, so it proves the round trip and the decoration agree and nothing about whether either is right. Two compositing defects lived under it green for a whole batch |
 | 7 | A re-bake on the same machine is byte-identical | **measured** | `MaterialBakeAssetTests.A_re_bake_is_byte_identical`; the cross-adapter half is recorded, not asserted, by `A_re_bake_on_another_adapter_is_not_refused` | — |
 | 8 | Paint latency under 16 ms per stamp | **measured as work, recorded as time** | `PaintCostTests` at 4096² with twelve layers: the stamp's work is asserted equal to its own footprint, the milliseconds are printed, and the one time assertion is an absurd ceiling whose message says it is a hang check | The wall-clock number itself is deliberately not gated |
