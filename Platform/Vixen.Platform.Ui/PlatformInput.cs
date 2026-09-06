@@ -278,6 +278,7 @@ public static class PlatformInput {
                         Y = platformEvent.Position.Y,
                         DeltaX = -platformEvent.Delta.X * wheelLineHeight,
                         DeltaY = -platformEvent.Delta.Y * wheelLineHeight,
+                        Notched = platformEvent.IsNotched,
                         Modifiers = modifiers,
                         Timestamp = when
                     }

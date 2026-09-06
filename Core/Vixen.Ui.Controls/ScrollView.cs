@@ -207,11 +207,21 @@ public sealed partial class ScrollBar : Control {
 
 /// <summary>How a programmatic scroll gets where it is going.</summary>
 /// <remarks>
-///     CSSOM-View's <c>scroll-behavior</c>, and only its two values. It governs scrolls this control
-///     starts — <see cref="ScrollView.ScrollIntoView" />, Page/Home/End — and deliberately not the
-///     wheel or a drag on the bar: a smoothed wheel lags the finger by the whole time constant, which
-///     reads as a dropped frame rather than as an easing, and browsers exempt direct manipulation for
-///     the same reason.
+///     <para>
+///         CSSOM-View's <c>scroll-behavior</c>, and only its two values. It governs scrolls this
+///         control starts — <see cref="ScrollView.ScrollIntoView" />, Page/Home/End — and
+///         deliberately not a drag on the bar or on the content: a smoothed drag lags the finger by
+///         the whole time constant, which reads as a dropped frame rather than as an easing, and
+///         browsers exempt direct manipulation for the same reason.
+///     </para>
+///     <para>
+///         ⚠ <b>It used to say "and not the wheel", and that half was wrong for half of the wheels
+///         — it was written when the two could not be told apart.</b> A trackpad is direct
+///         manipulation and stays exempt; a <see cref="WheelEvent.Notched" /> wheel is a discrete
+///         request for a distance and is exactly what a browser smooths. Which of the two arrived is
+///         now on the event, so <see cref="ScrollView" /> reads it rather than assuming the worse
+///         case for both.
+///     </para>
 /// </remarks>
 public enum ScrollBehavior : byte {
     /// <summary>Jump. The initial value, and what every scroll did before the property was read.</summary>
@@ -1743,7 +1753,8 @@ public sealed partial class ScrollView : Control {
         Scrolled?.Invoke(this);
     }
 
-    /// <summary>Scrolls from a wheel notch or a trackpad scroll, with no fling and no bounce.</summary>
+    /// <summary>Scrolls from a wheel notch or a trackpad scroll, smoothing the first kind only, with
+    /// no fling and no bounce.</summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Measured on macOS 15 (arm64) against the SDL this repository ships — 2.32.70 —
@@ -1779,12 +1790,39 @@ public sealed partial class ScrollView : Control {
     ///         path has no gesture end to spring back from, because it cannot see the phase that
     ///         would tell it where the gesture ended.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Half of that constraint has since been paid off, and only half.</b>
+    ///         <see cref="WheelEvent.Notched" /> now says which of the two <i>devices</i> produced
+    ///         the event, so a behaviour can be given to a mouse wheel and withheld from a trackpad —
+    ///         which is what the smoothing below does. The <i>phase</i> is still missing, and it is
+    ///         the phase and not the device that a bounce needs: nothing on this path says where a
+    ///         gesture ended, so the rubber band stays refused. Momentum is a third thing again,
+    ///         indistinguishable from a finger still on the glass, and a fling on the notched arm
+    ///         would be inventing one rather than continuing one — deliberately not done here, where
+    ///         easing to a destination is the honest form of the same wish.
+    ///     </para>
     /// </remarks>
     void Wheeled(WheelEvent args) {
-        // A hand on the wheel takes the content off any easing still running, and the wheel itself is
-        // never smoothed — see `ScrollBehavior`.
         Began();
-        Settle();
+
+        // ⚠ <b>A notch is the one scroll `scroll-behavior: smooth` was ever about, and until
+        // <see cref="WheelEvent.Notched" /> existed this path could not tell it from the one that
+        // must never be smoothed.</b> A trackpad is direct manipulation the operating system has
+        // already eased, so easing it again lags the fingers by the whole time constant and
+        // compounds two decelerations; a wheel notch is a discrete request for a distance, arriving
+        // at whatever rate the user's fingers turn the wheel, with momentum from nowhere. That is
+        // the distinction #904 measured and the smallest true thing this control can do with it.
+        //
+        // ⚠ The false arm is the unchanged one, and that is not an accident: `Notched` is false for
+        // a continuous device *and* for a backend that could not tell, so every synthesised wheel
+        // and every backend that says nothing keeps the behaviour it had.
+        var smooth = args.Notched && Behaviour() == ScrollBehavior.Smooth;
+
+        // A hand on the wheel takes the content off any easing still running — except the easing
+        // this same wheel started, which the next notch is supposed to extend rather than cancel.
+        if (!smooth) {
+            Settle();
+        }
 
         // ⚠ The tick clock, not `args.Timestamp` — see `SnapIdleSeconds`. Stamped before the scroll
         // rather than after it so that a wheel a fully-scrolled view chains outwards still counts as
@@ -1792,16 +1830,31 @@ public sealed partial class ScrollView : Control {
         // would fire mid-flick at every stop.
         gestureAt = last;
 
-        var top = ScrollTop;
-        var left = ScrollLeft;
+        // ⚠ A smoothed notch adds to where the last one was *going*, not to where the content has
+        // eased to. Adding to the current offset would make every notch after the first travel less
+        // than a notch, so a wheel turned steadily would scroll more slowly the faster it was turned
+        // — which is the failure that makes most implementations of this feel broken.
+        var top = smooth && IsScrolling ? wantedTop : ScrollTop;
+        var left = smooth && IsScrolling ? wantedLeft : ScrollLeft;
 
-        ScrollTop += args.DeltaY;
-        ScrollLeft += args.DeltaX;
+        var wantsTop = Math.Clamp(top + args.DeltaY, 0f, MaximumTop);
+        var wantsLeft = Math.Clamp(left + args.DeltaX, 0f, MaximumLeft);
+
+        if (smooth) {
+            wantedTop = wantsTop;
+            wantedLeft = wantsLeft;
+            IsScrolling = true;
+        } else {
+            ScrollTop = wantsTop;
+            ScrollLeft = wantsLeft;
+        }
 
         // ⚠ Handled if it actually scrolled. A view already at the bottom must let the wheel through
         // to whatever contains it, or a page with a fully-scrolled list in the middle of it becomes a
-        // page that cannot be scrolled past the list.
-        if (!ScrollTop.Equals(top) || !ScrollLeft.Equals(left)) {
+        // page that cannot be scrolled past the list. ⚠ Measured against the destination rather than
+        // against the offset, because the smooth path has not moved the offset yet and a chaining
+        // test that read one would send every smoothed notch to the parent as well.
+        if (!wantsTop.Equals(top) || !wantsLeft.Equals(left)) {
             args.Handled = true;
             return;
         }

@@ -1782,6 +1782,8 @@ Vixen.Ui.WheelEvent.DeltaY.get -> float
 Vixen.Ui.WheelEvent.DeltaY.init -> float
 Vixen.Ui.WheelEvent.Modifiers.get -> Vixen.Ui.ModifierKeys
 Vixen.Ui.WheelEvent.Modifiers.init -> Vixen.Ui.ModifierKeys
+Vixen.Ui.WheelEvent.Notched.get -> bool
+Vixen.Ui.WheelEvent.Notched.init -> bool
 Vixen.Ui.WheelEvent.PointerId.get -> int
 Vixen.Ui.WheelEvent.PointerId.init -> int
 Vixen.Ui.WheelEvent.Timestamp.get -> System.TimeSpan

@@ -578,13 +578,37 @@ public sealed unsafe class DesktopPlatform : IPlatform {
                 // everybody else's.
                 var direction = sdlEvent->Wheel.Direction == (uint)MouseWheelDirection.Flipped ? -1f : 1f;
 
+                var preciseX = sdlEvent->Wheel.PreciseX;
+                var preciseY = sdlEvent->Wheel.PreciseY;
+
+                // ⚠ <b>This is a guess, and it is labelled one because SDL2 cannot be asked.</b>
+                // `SDL_MouseWheelEvent` carries `x`, `y`, `preciseX`, `preciseY`, `direction` and
+                // `which` — no phase and no device class — so a mouse wheel, a finger on a trackpad
+                // and the momentum AppKit keeps sending after the fingers leave arrive here as three
+                // events of the same shape. What does differ is the shape of the number: every
+                // backend SDL has puts a whole count of notches in the precise delta for a wheel
+                // (macOS forwards `NSEvent.deltaY`, which is integral without
+                // `hasPreciseScrollingDeltas`; Windows divides `WM_MOUSEWHEEL` by `WHEEL_DELTA`; X11
+                // synthesises ±1 from buttons 4 and 5) and a fraction for a continuous surface.
+                //
+                // ⚠ So only the `true` arm is a claim. A trackpad that lands on exactly 1.0 is read
+                // as a notch, and the price of that is paid on a behaviour a wheel would have got
+                // anyway rather than on a wrong scroll distance. Zero on an axis says nothing about
+                // the device, so the test is over the axes that actually moved and a wheel event
+                // that moved nothing at all is not called notched.
+                var moved = preciseX != 0f || preciseY != 0f;
+                var notched = moved
+                    && preciseX == MathF.Truncate(preciseX)
+                    && preciseY == MathF.Truncate(preciseY);
+
                 events.Post(
                     PlatformEvent.MouseWheel(
                         sdlEvent->Wheel.WindowID,
                         TimestampOf(sdlEvent->Wheel.Timestamp),
                         new(sdlEvent->Wheel.MouseX, sdlEvent->Wheel.MouseY),
-                        new(sdlEvent->Wheel.PreciseX * direction, sdlEvent->Wheel.PreciseY * direction),
-                        Modifiers
+                        new(preciseX * direction, preciseY * direction),
+                        Modifiers,
+                        notched
                     )
                 );
 
