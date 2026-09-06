@@ -136,9 +136,12 @@ a pointer position into a texel. `TexturingModule` registers it as `texturing.pa
    asked for carries the pan, the zoom and the inverse.
 2. ⚠ **Screen radius to texels is the identity, which is not the obvious reading.**
    `PaintBrush.Radius` is authored in *texels of the atlas*, so a 2D view has nothing to convert on
-   the way in. What it owes is the inverse — `ScreenRadius`, the cursor ring — so the artist can see
-   the stamp that would land. The hit triangle's texel density belongs to the 3D path, where a screen
-   radius really is what the artist is holding.
+   the way in — and, it turns out, nothing on the way out: `ShowCursor` draws the ring in texels and
+   `ImageView`'s pan and zoom put it on the screen at the size of the stamp that would land. The hit
+   triangle's texel density belongs to the 3D path, where a screen radius really is what the artist
+   is holding. ⚠ A `ScreenRadius` property said this in arithmetic and nothing ever called it
+   ([#928](https://github.com/Rikarin/Vixen/issues/928)); it is gone, and the claim now lives beside
+   the ring.
 3. ⚠ **There are no mirrors here, and that is a refusal.** Planar symmetry mirrors a point in
    *object* space and the mirrored point lands on a different triangle in a different island. Only a
    surface holding the mesh can supply one.

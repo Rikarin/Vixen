@@ -256,6 +256,135 @@ public sealed class ThumbnailSurfaceDeviceTests {
         }
     }
 
+    /// <summary>A partial update writes its rectangle and leaves everything outside it alone.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/912">#912</a>'s host half, asserted
+    ///         as a picture.</b> A patch that wrote the whole texture, that landed at the wrong
+    ///         origin, or that read its rows with the texture's stride instead of the rectangle's all
+    ///         produce a live image with the right number of bytes in it. What separates them is which
+    ///         texels moved, so the assertion is on both sides of the rectangle's edge.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The rectangle is off-centre and not square</b>, because an origin swapped for its
+    ///         transpose and a width used as a height are both invisible against a centred square.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the update is submitted on a <em>later</em> frame than the upload</b>, which is
+    ///         the arrangement a paint drag has and the one the barrier out of <c>ShaderRead</c> exists
+    ///         for. Patching in the same frame as the upload would exercise a state transition the
+    ///         editor never makes.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_updated_rectangle_is_the_only_part_of_the_picture_that_moved() {
+        const int X = 5;
+        const int Y = 11;
+        const int Width = 9;
+        const int Height = 20;
+
+        using (var device = Open()) {
+            VulkanDiagnostics.Reset();
+
+            var shaders = Shaders(device);
+            var renderer = new UiRenderer(device, shaders, new RenderOutput([PixelFormat.Bgra8UNorm]));
+
+            using var surface = new ThumbnailSurface(device, renderer);
+
+            var before = Round(device, surface, Gradient());
+
+            // The first number the surface hands out, which `Round` uploaded and then dropped.
+            var image = ThumbnailCache.FirstImage;
+
+            Assert.True(surface.TextureOf(image).IsValid, "the surface has no texture for its first image");
+
+            var patch = new byte[Width * Height * 4];
+
+            for (var at = 0; at + 3 < patch.Length; at += 4) {
+                patch[at + 3] = 255;
+            }
+
+            Assert.True(surface.Update(image, X, Y, Width, Height, patch), "the surface refused the rectangle");
+
+            var texture = surface.TextureOf(image);
+            var readback = device.CreateBuffer(
+                new(Size * Size * 4, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "patch readback")
+            );
+
+            device.BeginFrame();
+
+            Assert.Equal(1, surface.Flush());
+
+            using (var commands = device.BeginCommandList(QueueKind.Graphics, "patch readback")) {
+                commands.Barrier(
+                    new BarrierGroup(
+                        [],
+                        [new TextureBarrier(texture, ResourceState.ShaderRead, ResourceState.CopySource)]
+                    )
+                );
+
+                commands.CopyTextureToBuffer(new TextureRegion(texture), new(Size, Size, 1), readback, 0);
+
+                commands.Barrier(
+                    new BarrierGroup(
+                        [],
+                        [new TextureBarrier(texture, ResourceState.CopySource, ResourceState.ShaderRead)]
+                    )
+                );
+
+                commands.Finish();
+                device.GraphicsQueue.Submit([commands]);
+            }
+
+            device.EndFrame();
+            device.WaitIdle();
+
+            var after = new byte[Size * Size * 4];
+
+            device.Read(readback, 0, after);
+            device.Destroy(readback);
+
+            Assert.True(
+                VulkanDiagnostics.ErrorCount == 0,
+                "the update produced validation errors, so its picture means nothing: "
+                + string.Join(Environment.NewLine, VulkanDiagnostics.Messages)
+            );
+
+            var moved = 0;
+            var strayed = 0;
+            var missed = 0;
+
+            for (var y = 0; y < Size; y++) {
+                for (var x = 0; x < Size; x++) {
+                    var at = ((y * Size) + x) * 4;
+                    var same = after[at] == before[at]
+                        && after[at + 1] == before[at + 1]
+                        && after[at + 2] == before[at + 2];
+                    var inside = x >= X && x < X + Width && y >= Y && y < Y + Height;
+
+                    if (!same) {
+                        moved++;
+                    }
+
+                    if (!inside && !same) {
+                        strayed++;
+                    }
+
+                    // Black over a gradient whose blue is 255 everywhere, so every texel of the
+                    // rectangle has to have changed — a patch that landed one row off would leave
+                    // some of them.
+                    if (inside && (after[at] != 0 || after[at + 1] != 0 || after[at + 2] != 0)) {
+                        missed++;
+                    }
+                }
+            }
+
+            Assert.Equal(0, strayed);
+            Assert.Equal(0, missed);
+            Assert.Equal(Width * Height, moved);
+        }
+    }
+
     /// <summary>An image released before the frame drains takes its queued copy with it.</summary>
     /// <remarks>
     ///     ⚠ <b>An eviction can land in the same <c>Pump</c> that made the image</b>, and

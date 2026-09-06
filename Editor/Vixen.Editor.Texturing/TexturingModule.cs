@@ -189,6 +189,15 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// <summary>What the paint pane is showing, so it can be given back.</summary>
     IEditorImage? painted;
 
+    /// <summary>One dirtied rectangle's own rows, for the partial upload.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Grown and reused rather than allocated per redraw.</b> A redraw is every pointer move
+    ///     of a drag, and the whole point of
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/912">#912</a> is that a move stops costing
+    ///     the atlas — an array per move would put a megabyte of garbage back in its place.
+    /// </remarks>
+    byte[] patch = [];
+
     /// <inheritdoc />
     public void Activate(PluginContext context) {
         ArgumentNullException.ThrowIfNull(context);
@@ -389,18 +398,72 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
     /// <summary>A move, an undo or a redo dirtied a rectangle: put the composite back on the screen.</summary>
     /// <remarks>
-    ///     ⚠ <b>The whole picture is re-uploaded and the rectangle is only what says one is needed.</b>
-    ///     <c>IEditorGraphics.Upload</c> takes a whole image and has no sub-rectangle form, so a
-    ///     pointer move at 4K moves 67 MB whatever the stamp covered — which is the cost
-    ///     <c>PaintComposite.Resolve</c>'s rectangles were bought to avoid, paid one level up.
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/912">#912</a>.
+    ///     <para>
+    ///         ⚠ <b>The rectangle is what is uploaded now, and the whole picture is the fallback</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/912">#912</a>. This used to hand the
+    ///         atlas back on every pointer move because <c>IEditorGraphics</c> had no sub-rectangle
+    ///         form: at 4K a stamp that touched a 96-texel disc moved 67 MB, made a texture and wrote
+    ///         a descriptor set, per frame of the drag. That is exactly the cost
+    ///         <c>PaintComposite.Resolve</c>'s rectangles were bought to avoid, and it was being paid
+    ///         one level up.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The fallback is not decoration.</b> <c>Update</c> refuses an image made before the
+    ///         atlas changed size, and it refuses everything on a host with no surface — and a caller
+    ///         that treated a refusal as done would leave the pane showing the picture from before the
+    ///         stroke, which looks precisely like a brush that does not paint.
+    ///     </para>
     /// </remarks>
     void Redraw(PaintRect rect) {
-        if (paintView?.Live is not { } composite || rect.IsEmpty) {
+        if (paintView?.Live is not { } composite) {
             return;
         }
 
-        Show(composite.Result, "Painting: " + tool.Describe());
+        var image = composite.Result;
+        var clipped = rect.Clip(image.Width, image.Height);
+
+        if (clipped.IsEmpty) {
+            return;
+        }
+
+        if (Patch(image, clipped)) {
+            // Only the sentence, because the picture is the same handle with new texels in it.
+            paintView.Say("Painting: " + tool.Describe());
+
+            return;
+        }
+
+        Show(image, "Painting: " + tool.Describe());
+    }
+
+    /// <summary>Copies one rectangle's rows out of the composite and into the live image.</summary>
+    /// <returns>Whether the host took it.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The extent is checked against the <em>image</em> rather than trusted from the
+    ///     composite.</b> The two disagree for one redraw whenever the atlas resolution changes under
+    ///     an open pane — a stack edited to a different base size — and a patch against the old handle
+    ///     would be refused by the host anyway; checking here is what makes the fallback take over
+    ///     rather than the pane going quietly stale.
+    /// </remarks>
+    bool Patch(PaintImage image, PaintRect rect) {
+        if (graphics is null || painted is not { } live || live.Width != image.Width || live.Height != image.Height) {
+            return false;
+        }
+
+        var stride = rect.Width * PaintImage.BytesPerTexel;
+        var bytes = stride * rect.Height;
+
+        if (patch.Length < bytes) {
+            patch = new byte[bytes];
+        }
+
+        for (var row = 0; row < rect.Height; row++) {
+            var from = (((rect.Y + row) * image.Width) + rect.X) * PaintImage.BytesPerTexel;
+
+            Array.Copy(image.Texels, from, patch, row * stride, stride);
+        }
+
+        return graphics.Update(live, rect.X, rect.Y, rect.Width, rect.Height, patch.AsSpan(0, bytes));
     }
 
     /// <summary>An undo or a redo moved texels, so the canvas goes back to disk and the map redraws.</summary>
