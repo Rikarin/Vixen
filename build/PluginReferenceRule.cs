@@ -28,6 +28,16 @@ namespace Vixen.Build;
 ///         to disagree".
 ///     </para>
 ///     <para>
+///         ⚠ <b>That claim was false about the one part of the rule it most needed to be true
+///         about</b> (<a href="https://github.com/Rikarin/Vixen/issues/872">#872</a>). <see cref="Edges" />,
+///         <see cref="Plugins" />, <see cref="Reaches" /> and <see cref="Vacuity" /> were shared;
+///         <em>the set they run over</em> was written here and copied into the test, exclusions and
+///         all. A ninth top-level directory would have joined the gate and not the test, and the test
+///         would have gone on reporting the gate's answer about a set that was no longer the gate's.
+///         <see cref="Layers" /> and <see cref="ProjectFiles" /> are the subject set, and both callers
+///         take it from here.
+///     </para>
+///     <para>
 ///         <b>Project files, not assemblies, and that is the whole point of the criterion.</b>
 ///         <c>Assembly.GetReferencedAssemblies</c> lists what the compiler emitted a reference for,
 ///         so a <c>ProjectReference</c> nobody has used yet is invisible to it. "References
@@ -52,6 +62,62 @@ static class PluginReferenceRule {
     ///     authors never had to use it — is answered only if the whole closure is clean.
     /// </remarks>
     public const string Application = "Vixen.Editor.App";
+
+    /// <summary>The top-level directories this repository's own projects live in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Here rather than in the gate, because a rule's subject set is the half of it nothing
+    ///     checks and this one was transcribed</b>
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/872">#872</a>). The gate globbed these
+    ///     eight and <c>PluginReferenceRuleTests</c> listed them again with the three exclusions
+    ///     re-implemented beside them — in the file whose own remarks say "two callers of one
+    ///     function, not two transcriptions of one idea", which was true of every part of the rule
+    ///     except the set it runs over. A ninth top-level directory would have joined the gate and not
+    ///     the test, and the test would have gone on reporting the gate's answer.
+    ///     <para>
+    ///         <b>Listed rather than derived, and that is the deliberate half.</b>
+    ///         <c>CheckArchitecture</c> globs directories instead of reading the solution precisely so
+    ///         that it sees the out-of-solution mobile and web projects; deriving this from "every
+    ///         top-level directory holding a <c>.csproj</c>" would take in <c>build/</c>,
+    ///         <c>docs/</c> and <c>Benchmarks/</c>, whose layer is nobody's. One list, two callers.
+    ///     </para>
+    /// </remarks>
+    public static readonly string[] Layers = [
+        "Core",
+        "Gameplay",
+        "Platform",
+        "Editor",
+        "Raven",
+        "Tools",
+        "Live",
+        "Samples"
+    ];
+
+    /// <summary>Every project file the architecture rules are evaluated over.</summary>
+    /// <param name="root">The repository root.</param>
+    /// <returns>Paths with forward slashes, ordered.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The three exclusions are part of the subject set and not tidying.</b> <c>bin/</c> and
+    ///     <c>obj/</c> hold copies of project files that would double every edge — a plugin would
+    ///     appear to reference itself through its own output — and
+    ///     <c>Tools/Vixen.Templates/templates/</c> holds project files that are not this repository's:
+    ///     they are what <c>dotnet new</c> writes into somebody else's directory, they name packages
+    ///     rather than projects, and their layer is whatever the person who scaffolds them decides.
+    ///     Checking them would be this build asserting rules about a project it does not own.
+    /// </remarks>
+    public static List<string> ProjectFiles(string root) {
+        ArgumentNullException.ThrowIfNull(root);
+
+        return Layers
+            .Select(layer => Path.Combine(root, layer))
+            .Where(Directory.Exists)
+            .SelectMany(directory => Directory.GetFiles(directory, "*.csproj", SearchOption.AllDirectories))
+            .Select(path => path.Replace('\\', '/'))
+            .Where(path => !path.Contains("/bin/", StringComparison.Ordinal))
+            .Where(path => !path.Contains("/obj/", StringComparison.Ordinal))
+            .Where(path => !path.Contains("/Vixen.Templates/templates/", StringComparison.Ordinal))
+            .Order(StringComparer.Ordinal)
+            .ToList();
+    }
 
     /// <summary>Every project's direct <c>ProjectReference</c>s, by assembly name.</summary>
     /// <param name="projects">Paths to the project files to read.</param>
