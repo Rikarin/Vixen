@@ -50,4 +50,12 @@
         <ProjectReference Include="..\Vixen.Net.Generators\Vixen.Net.Generators.csproj"
                           ReferenceOutputAssembly="false" />
     </ItemGroup>
+
+    <!--
+        The text-snapshot comparison WireGolden hands its listing to (#843). Linked rather than
+        referenced, for the reason the props file states; the wire corpus keeps its own path and
+        its own rendering, and gives up only the copy of the comparison.
+    -->
+    <Import Project="..\..\Testing\Vixen.Testing.GoldenFile.props" />
+
 </Project>

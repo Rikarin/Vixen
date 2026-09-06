@@ -170,6 +170,51 @@
     <IsAotCompatible>false</IsAotCompatible>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <!--
+      ============================================================================
+      Run through Microsoft.Testing.Platform rather than VSTest (#560).
+
+      A xunit.v3 test assembly is an executable that hosts its own runner — the
+      `OutputType` in every test csproj says so. VSTest ignored that and started
+      two more processes per assembly to talk to it: measured with
+      `ps -ax -o pid,args` during a run, `vstest.console.dll` and `testhost.dll`
+      alongside the executable itself, ~1 s of protocol per assembly across 180 of
+      them. Setting `TestingPlatformDotnetTestSupport` re-points MSBuild's `VSTest`
+      target at `InvokeTestingPlatform`, which launches the assembly directly.
+
+      ⚠ **This needed no package and no csproj edit, which is the opposite of what
+      four audits of #560 concluded.** They costed the migration at 180
+      `PackageReference` additions. `Microsoft.Testing.Platform.MSBuild` 1.9.1 is
+      already in every test project's graph — `xunit.v3` 3.2.2 resolves to
+      `xunit.v3.mtp-v1` → `xunit.v3.core.mtp-v1`, which depends on it and on
+      `Microsoft.Testing.Platform` itself. Only the TRX writer is genuinely new,
+      and one item here reaches all 180 projects.
+
+      ⚠ **And it stays revertible on one line**, which is why
+      `xunit.runner.visualstudio` and `Microsoft.NET.Test.Sdk` are still
+      referenced: setting `TestingPlatformDotnetTestSupport=false` on a single
+      invocation puts that invocation back on VSTest. `Coverage` relies on exactly
+      that (build/Build.Coverage.cs) — its cobertura collector is a VSTest data
+      collector, not something the platform has.
+      ============================================================================
+    -->
+    <!--
+      ⚠ **A VSTest-only switch on the command line takes the whole invocation back to VSTest**, and
+      this line is the difference between the inner loop working and looking like it worked.
+      `dotnet test <project>` with a test-case filter is the command CLAUDE.md hands every reader;
+      that switch sets `VSTestTestCaseFilter`, which the platform does not read, and `MTP0001` is a
+      *warning* rather than an error — so a filtered run silently became the whole assembly and
+      exited green having done far more than it was asked. (Caught here by the warning line on a
+      95-test assembly that had been asked for 8.) The settings-file and data-collector switches are
+      the same shape; `Coverage` depends on the second and asks for this explicitly rather than
+      relying on it. Falling back costs the ~1 s of VSTest protocol on one project, which is exactly
+      the run where a second does not matter. The switch names are spelled around rather than
+      written: XML forbids a double hyphen inside a comment, which is the trap the results-directory
+      note below and `Directory.Build.targets` both record.
+    -->
+    <TestingPlatformDotnetTestSupport Condition="'$(TestingPlatformDotnetTestSupport)' == '' AND ('$(VSTestTestCaseFilter)' != '' OR '$(VSTestSetting)' != '' OR '$(VSTestCollect)' != '')">false</TestingPlatformDotnetTestSupport>
+    <TestingPlatformDotnetTestSupport Condition="'$(TestingPlatformDotnetTestSupport)' == ''">true</TestingPlatformDotnetTestSupport>
+    <UseMicrosoftTestingPlatformRunner Condition="'$(TestingPlatformDotnetTestSupport)' == 'true'">true</UseMicrosoftTestingPlatformRunner>
+    <!--
       Name the TRX after the project that produced it. Left to itself the logger
       names the file after the machine and the second it finished, which for
       eighteen projects finishing inside the same three seconds gives a directory
@@ -179,7 +224,24 @@
 
       This lives here rather than in build/Build.cs because the value depends on
       MSBuildProjectName, which only means anything inside the project being built.
+
+      ⚠ Two spellings of the same requirement, because the two runners take it
+      differently and `MTP0001` downgrades a VSTest property to a *warning* rather
+      than an error when the platform is driving. A `VSTestLogger` left set on the
+      platform path would be one warning line inside a 500-second log and eighteen
+      unattributable files — so it is set only on the path that reads it.
     -->
+    <VSTestLogger Condition="'$(TestingPlatformDotnetTestSupport)' != 'true'">trx%3bLogFileName=$(MSBuildProjectName).trx</VSTestLogger>
+    <TestingPlatformCommandLineArguments Condition="'$(TestingPlatformDotnetTestSupport)' == 'true'">--report-trx --report-trx-filename $(MSBuildProjectName).trx</TestingPlatformCommandLineArguments>
+    <!--
+      ⚠ `VSTestResultsDirectory` is the one VSTest property the platform path still
+      reads, and it is re-routed here rather than honoured: `MTP0001` will name it,
+      and the run still writes where it was told. Without this line a TRX lands in
+      `bin/<config>/<tfm>/TestResults` and `Test`'s own count-the-TRX assertion is
+      what notices — which is the instrument working, not a reason to rely on it.
+    -->
+    <TestingPlatformCommandLineArguments Condition="'$(TestingPlatformDotnetTestSupport)' == 'true' AND '$(VSTestResultsDirectory)' != ''">$(TestingPlatformCommandLineArguments) --results-directory "$(VSTestResultsDirectory)"</TestingPlatformCommandLineArguments>
+
     <VSTestLogger>trx%3bLogFileName=$(MSBuildProjectName).trx</VSTestLogger>
 
     <!--
@@ -228,6 +290,26 @@
     -->
     <RunSettingsFilePath>$(MSBuildThisFileDirectory).runsettings</RunSettingsFilePath>
   </PropertyGroup>
+
+  <!--
+    The TRX writer, for the platform path. VSTest carried a TRX logger in
+    `Microsoft.NET.Test.Sdk`; the platform does not, and every analysis this
+    repository has done of its own test cost — #552, #557, #558, #559, #863's
+    cost table — was possible only because each run leaves a file named after its
+    assembly. `TrxReport.Abstractions` arrives transitively and is not the writer.
+
+    ⚠ Pinned to 1.9.1 and it must stay on 1.x. 2.0.0 is what NuGet resolves by
+    default and it dies before running a test against xunit.v3 3.2.2 —
+    `TypeLoadException: Could not load type ... IDataConsumer from assembly
+    Microsoft.Testing.Platform, Version=2.0.0.0`, because xunit binds the 1.x
+    platform. Directory.Packages.props carries the pin.
+
+    Here rather than in 180 csproj files for the reason `VSTestLogger` is: the one
+    project that forgets is the one whose results go missing, and nothing says so.
+  -->
+  <ItemGroup Condition="($(MSBuildProjectName.EndsWith('.Tests')) OR '$(MSBuildProjectName)' == 'Tests') AND '$(TestingPlatformDotnetTestSupport)' == 'true'">
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+  </ItemGroup>
 
   <!--
     ============================================================================

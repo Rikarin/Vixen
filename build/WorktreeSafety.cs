@@ -49,6 +49,11 @@ static class WorktreeSafety {
     ///     head, because the question would then be answered about a different subject.
     /// </param>
     /// <param name="isClean">Whether that worktree has nothing uncommitted.</param>
+    /// <param name="footprintRead">
+    ///     Whether the walk that produced <paramref name="newestWrite" /> completed. ⚠ A walk that
+    ///     threw has no newest write to report, and "no newest write" is otherwise indistinguishable
+    ///     from "nobody has touched it in weeks" — which is the answer that deletes a checkout.
+    /// </param>
     /// <param name="newestWrite">The newest write anywhere under it, UTC, or <see langword="null" />.</param>
     /// <param name="now">The moment to measure that against, UTC.</param>
     /// <param name="idleMinutes">The recency window; <c>0</c> or less turns the condition off.</param>
@@ -57,6 +62,7 @@ static class WorktreeSafety {
         string head,
         Func<string, bool> isMergedIntoMaster,
         Func<bool> isClean,
+        bool footprintRead,
         DateTime? newestWrite,
         DateTime now,
         int idleMinutes
@@ -82,7 +88,17 @@ static class WorktreeSafety {
 
         // ⚠ Fourth, and the only one about the worker rather than the work: an agent whose runner set
         // no lock is invisible to the other three the moment its branch is merged (#770).
-        if (StillBeingWrittenTo(newestWrite, now, idleMinutes) is { } busy) {
+        if (!footprintRead && idleMinutes > 0) {
+            // ⚠ And the fourth condition's own instrument, which it did not have. `Measure` reports
+            // a null newest write for two different things — a directory it walked and found no
+            // files in, and a directory whose walk threw — and this predicate read both as "idle".
+            // So the day the safety condition cannot run, it used to answer *removable*: the
+            // failure this repository keeps meeting, where an instrument that did not run reports
+            // success. Unreadable is the state in which #770's whole argument applies most, since a
+            // worktree an agent is actively writing to is exactly the one whose files come and go
+            // under the walk.
+            reasons.Add("its files could not be walked, so the idle check could not run");
+        } else if (StillBeingWrittenTo(newestWrite, now, idleMinutes) is { } busy) {
             reasons.Add(busy);
         }
 

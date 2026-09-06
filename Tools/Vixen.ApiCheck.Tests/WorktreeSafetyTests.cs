@@ -79,6 +79,7 @@ public sealed class WorktreeSafetyTests {
                 return true;
             },
             isClean: () => true,
+            footprintRead: true,
             newestWrite: Now.AddHours(-4),
             now: Now,
             idleMinutes: 30
@@ -109,7 +110,7 @@ public sealed class WorktreeSafetyTests {
         );
 
         Assert.Empty(
-            WorktreeSafety.KeepReasons(null, "abc", _ => true, () => true, justMerged, Now, idleMinutes: 0)
+            WorktreeSafety.KeepReasons(null, "abc", _ => true, () => true, true, justMerged, Now, idleMinutes: 0)
         );
     }
 
@@ -138,6 +139,52 @@ public sealed class WorktreeSafetyTests {
         Assert.Equal(4, reasons.Count);
     }
 
+    /// <summary>
+    ///     ⚠ A worktree whose files could not be walked is kept, and it used to be offered up.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>Measure</c> answers <see langword="null" /> for a newest write in two unrelated
+    ///         cases — a directory with no files in it, and a directory whose walk threw
+    ///         <c>IOException</c> or <c>UnauthorizedAccessException</c> partway — and the idle
+    ///         condition read both as "nothing has touched this". So on the day the fourth safety
+    ///         condition could not run, its verdict was <i>removable</i>: an instrument that did not
+    ///         run reporting success, which is the failure this repository has met in a comparator, a
+    ///         parity test and eighteen goldens.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And it is not a hypothetical shape here: a walk of ~100 000 files under a worktree
+    ///         an agent is compiling in is exactly the walk whose entries vanish underneath it, which
+    ///         is #770's case — the live agent with no lock whose branch is already merged.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AWorktreeWhoseFilesCouldNotBeWalkedIsKeptRatherThanCalledIdle() {
+        var unreadable = WorktreeSafety.KeepReasons(
+            locked: null,
+            head: "abc",
+            isMergedIntoMaster: _ => true,
+            isClean: () => true,
+            footprintRead: false,
+            newestWrite: null,
+            now: Now,
+            idleMinutes: 30
+        );
+
+        Assert.Equal(["its files could not be walked, so the idle check could not run"], unreadable);
+
+        // The other half, so the reason is about the failed walk and not about the null: a walk that
+        // completed and found nothing is a real answer, and `--idle-minutes 0` still turns the whole
+        // condition off rather than being overridden by it.
+        Assert.Empty(
+            WorktreeSafety.KeepReasons(null, "abc", _ => true, () => true, true, null, Now, idleMinutes: 30)
+        );
+
+        Assert.Empty(
+            WorktreeSafety.KeepReasons(null, "abc", _ => true, () => true, false, null, Now, idleMinutes: 0)
+        );
+    }
+
     static IReadOnlyList<string> Reasons(string? locked, string head, bool merged, bool clean, DateTime written) =>
-        WorktreeSafety.KeepReasons(locked, head, _ => merged, () => clean, written, Now, idleMinutes: 30);
+        WorktreeSafety.KeepReasons(locked, head, _ => merged, () => clean, true, written, Now, idleMinutes: 30);
 }

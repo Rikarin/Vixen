@@ -30,9 +30,18 @@
   The variable is ignored on Windows and Linux, where it is also unnecessary:
   both resolve the layer library correctly on their own.
 
-  Pass this file to `dotnet test` with its settings switch; the Nuke `Test`
-  target (build/Build.cs) already does. (Spelling the switch out here is not an
-  option: XML forbids a double hyphen inside a comment.)
+  Pass this file to `dotnet test` with its settings switch. (Spelling the switch
+  out here is not an option: XML forbids a double hyphen inside a comment.)
+
+  ⚠ ONE TARGET STILL READS THIS FILE, AND IT USED TO BE FOUR. `Test`,
+  `GoldenImages` and `AffectedTests` run their assemblies through
+  Microsoft.Testing.Platform now (#560), which does not read a run settings file
+  at all — and would have said so in an MTP0001 *warning* rather than an error,
+  leaving validation silently off. They call `Build.ExportLayerLibraryPath`
+  instead, which sets the same variable on the process that starts the test
+  executable; dyld reads it at process start either way. `Coverage` is the one
+  still on VSTest, because its cobertura collector is a VSTest data collector,
+  and it is the reason this file is still here.
 -->
 <RunSettings>
 

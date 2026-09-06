@@ -97,6 +97,15 @@ partial class Build {
                     // name `dotnet test --collect` takes. Cobertura rather than the default
                     // `.coverage`, which is a binary needing a second tool to read.
                     .SetDataCollector("Code Coverage;Format=cobertura")
+                    // ⚠ And the reason this target alone still says VSTest out loud. Every other
+                    // test run here goes through Microsoft.Testing.Platform now (#560), which is
+                    // about a second and two processes per assembly cheaper — but `--collect` and
+                    // `--settings` are VSTest concepts the platform ignores with a *warning*, so a
+                    // coverage run left on that path would have produced a report of nothing and
+                    // said so in green. `Directory.Build.props` leaves the switch overridable for
+                    // exactly this, and `xunit.runner.visualstudio` is still referenced so that the
+                    // old path still exists to be asked for.
+                    .SetProperty("TestingPlatformDotnetTestSupport", false)
                 );
 
                 rows.Add(Measure(project, results));

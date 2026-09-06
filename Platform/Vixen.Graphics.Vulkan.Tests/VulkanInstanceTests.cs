@@ -65,8 +65,9 @@ public sealed class VulkanInstanceTests {
             owned.ValidationEnabled,
             "VK_LAYER_KHRONOS_validation is installed but the instance came up without it, so nothing "
             + "is being validated. On macOS this is the Homebrew layer-manifest problem: the process "
-            + "needs DYLD_LIBRARY_PATH=/opt/homebrew/lib, which .runsettings sets for `dotnet test`. "
-            + "Running the suite without those settings is the usual cause."
+            + "needs DYLD_LIBRARY_PATH=/opt/homebrew/lib, which the build exports onto the process "
+            + "that starts this one (Build.ExportLayerLibraryPath). Running the suite through a bare "
+            + "`dotnet test` rather than through Test, GoldenImages or AffectedTests is the usual cause."
         );
     }
 

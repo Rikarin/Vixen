@@ -776,7 +776,8 @@ jobs:
       # (VulkanLog 2001/2002), so a runner missing the package renders a perfectly good picture with
       # no validation at all behind it — the leg's validation assertion then fails on
       # `ValidationActive` rather than on a count that would have read zero either way. The DYLD
-      # story on macOS is the same shape, which is why .runsettings and `LayerEnvironment` exist.
+      # story on macOS is the same shape, which is why `Build.ExportLayerLibraryPath` (once
+      # .runsettings, until #560 moved the runs off VSTest) and `LayerEnvironment` exist.
       # vulkan-tools is for the summary printed below and nothing else.
       #
       # ⚠ No SDL2, deliberately, unlike the test leg. `--vixen-headless` reaches PlatformHost.Create

@@ -3,15 +3,34 @@
 
 using System.Globalization;
 using System.Text;
-using Xunit;
+using Vixen.Testing;
 
 namespace Vixen.Net.Tests.Wire;
 
 /// <summary>Compares an encoding against the bytes committed for it.</summary>
 /// <remarks>
 ///     <para>
+///         <b>The listing is this file's; the comparison is <see cref="GoldenFile" />'s.</b> What is
+///         domain-shaped here is how a wire case is <i>rendered</i> — hex for bytes, the raw bits for
+///         a float, a name that says which encoder and which input — and that is what makes a
+///         failure read <c>quantize/±1000·16/-0</c> and two byte strings rather than "something
+///         moved". None of it is in the comparison, which was a hand-rolled copy of the one in
+///         <c>Testing/GoldenFile.cs</c> (#843).
+///     </para>
+///     <para>
+///         ⚠ <b>What adopting it buys is three refusals this file did not have</b>, and one of them
+///         is a class of bug these suites are exposed to: a listing that compared <em>nothing</em>
+///         used to pass. A golden that had to be created now fails rather than passes — a snapshot
+///         nobody has read is not evidence — an empty rendering is refused even against an empty
+///         committed golden, and the mismatch arrives as a unified diff with line numbers instead of
+///         <c>Assert.Equal</c>'s sixty-character window around the first differing index. On a file
+///         that is one line per case, that window is the least useful possible answer.
+///     </para>
+///     <para>
 ///         Same shape as Raven's golden tests and honouring the same <c>UPDATE_GOLDEN=1</c>, because
 ///         a repository with two golden conventions has one convention and one trap.
+///         <c>VIXEN_UPDATE_GOLDEN</c> — which <c>build/Build.cs</c> sets from
+///         <c>--update-golden</c> — now works here too, which it did not before.
 ///     </para>
 ///     <para>
 ///         <b>Text rather than a hash, and a line per case.</b> A hash over the whole corpus is one
@@ -68,26 +87,13 @@ static class WireGolden {
 
         /// <summary>Compares what was built against what is committed.</summary>
         /// <param name="name">The fixture's file name, without an extension.</param>
-        public void Matches(string name) {
-            var path = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Wire", "__wire__", name + ".txt");
-            var actual = text.ToString();
-
-            if (Update || !File.Exists(path)) {
-                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                File.WriteAllText(path, actual);
-
-                Assert.Fail($"Golden '{name}.txt' was (re)generated. Read the diff — this is a wire format change — and re-run.");
-            }
-
-            var expected = File.ReadAllText(path).Replace("\r\n", "\n", StringComparison.Ordinal);
-
-            if (!string.Equals(expected, actual, StringComparison.Ordinal)) {
-                File.WriteAllText(path + ".actual", actual);
-            }
-
-            Assert.Equal(expected, actual);
-        }
-
-        static bool Update => Environment.GetEnvironmentVariable("UPDATE_GOLDEN") is "1" or "true";
+        /// <remarks>
+        ///     ⚠ The corpus stays at <c>Wire/__wire__/</c> rather than moving to the
+        ///     <c>__golden__/</c> the plan document once named — <see cref="GoldenFile" /> takes the
+        ///     path from its caller for exactly this reason, and moving several hundred committed
+        ///     files to satisfy a directory name buys nothing a reviewer can see.
+        /// </remarks>
+        public void Matches(string name) =>
+            GoldenFile.Matches(text.ToString(), GoldenFile.InProjectDirectory("Wire", "__wire__", name + ".txt"));
     }
 }
