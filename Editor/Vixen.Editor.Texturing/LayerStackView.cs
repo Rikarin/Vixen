@@ -696,6 +696,11 @@ sealed class LayerStackView : IDisposable {
 
         var set = document.Document.Sets[0];
 
+        // ⚠ Asked once per build rather than once per row, and asked of `LayerStackEdit` rather than
+        // answered here — #893. The compiler refuses the same set on the same rule, and a panel with
+        // its own copy of it is a panel that can offer to move a layer the compiler will not build.
+        var ambiguous = LayerStackEdit.Ambiguous(set);
+
         // ⚠ The selection is recovered from the brush rather than reset, and which of the two is the
         // durable copy is the decision. A panel's factory re-runs whenever the workspace relays out
         // — opening the paint pane does it — so a view that cleared the selection on every build
@@ -704,7 +709,11 @@ sealed class LayerStackView : IDisposable {
         // an id no layer of this stack answers to, which is what opening a second stack looks like:
         // two stacks made from `LayerStackDocument.Starter` have the same layer ids, so the check has
         // to be against this document rather than against a remembered one.
+        // ⚠ And an ambiguous id is not recovered either: the brush would be aimed at whichever of
+        // the layers sharing it the walk reaches first, which is the same wrong answer the rows are
+        // refusing to give.
         if (tool is { LayerId.Length: > 0 }
+            && !ambiguous.Contains(tool.LayerId)
             && LayerStackEdit.Find(document.Document, new(set.Name, tool.LayerId)) is not null) {
             Selected = new LayerPath(set.Name, tool.LayerId);
         } else if (tool is not null) {
@@ -717,12 +726,71 @@ sealed class LayerStackView : IDisposable {
             for (var index = layers.Count - 1; index >= 0; index--) {
                 var layer = layers[index];
 
-                LayerRow(document, set, layer, depth);
-                MaskRows(document, set, layer, depth + 1);
+                if (ambiguous.Contains(layer.Id)) {
+                    AmbiguousRow(layer, depth);
+                } else {
+                    LayerRow(document, set, layer, depth);
+                    MaskRows(document, set, layer, depth + 1);
+                }
+
                 Walk(layer.Children, depth + 1);
             }
         }
     }
+
+    /// <summary>A row for a layer whose id names more than one layer: what it is, and no controls.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/893">#893</a>'s panel half, and
+    ///         the reason the compile refusal was not enough.</b> <c>LayerPath</c> addresses a layer
+    ///         by id and <c>LayerStackEdit</c> resolves it to the <em>first</em> match, so every
+    ///         control on the second such row drives the first: an artist reorders row four and row
+    ///         two moves. <c>LayerStackGraph.Duplicates</c> refuses the stack, but a refusal is a
+    ///         message beside a list of rows that are still drawn and still clicked — the panel
+    ///         builds its rows from the document rather than from a compilation.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Listed and disarmed rather than hidden</b>, which is the same rule a disabled
+    ///         layer's row follows: a row that vanished would leave an artist with a file they cannot
+    ///         see the shape of, and the shape is what they have to fix.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And its mask rows are not drawn at all.</b> Every one of them describes itself
+    ///         through <c>LayerStackEdit.Find</c>, so under an ambiguous id they would render the
+    ///         <em>first</em> such layer's mask under the second one's name — a sentence that is
+    ///         simply false rather than merely uneditable.
+    ///     </para>
+    ///     <para>
+    ///         The text is written once rather than through <c>bindings</c>, because nothing this
+    ///         panel offers can change a layer it refuses to edit; a change made to one from
+    ///         somewhere else arrives on the next rebuild.
+    ///     </para>
+    /// </remarks>
+    void AmbiguousRow(LayerAsset layer, int depth) {
+        var row = rows.Add("layer-stack-row");
+
+        row.SetStyle("display", "flex");
+        row.SetStyle("flex-direction", "row");
+        row.SetStyle("padding-left", (depth * 12).ToString(CultureInfo.InvariantCulture) + "px");
+
+        row.Add("layer-stack-row-name").Text = Line(layer, depth);
+        row.Add("layer-stack-row-refusal").Text = Ambiguity(layer.Id);
+    }
+
+    /// <summary>What a row says in place of its controls when its id names more than one layer.</summary>
+    /// <param name="id">The shared <see cref="LayerAsset.Id" />.</param>
+    /// <returns>The sentence.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Public because it is what a test reads off the tree, and what a person reads is the
+    ///     only evidence that the row was disarmed for a reason.</b> A row with no buttons and no
+    ///     sentence is indistinguishable from a panel that failed to build.
+    /// </remarks>
+    public static string Ambiguity(string id) =>
+        (id.Length > 0
+            ? $"More than one layer has the id '{id}'"
+            : "More than one layer has no id at all")
+        + ", so this row cannot say which of them it is. Every edit here is addressed by id and would "
+        + "move the first of them — give each layer its own 'id' in the file, and the controls come back.";
 
     void LayerRow(LayerStackDocument document, TextureSetAsset set, LayerAsset layer, int depth) {
         LayerPath path = new(set.Name, layer.Id);

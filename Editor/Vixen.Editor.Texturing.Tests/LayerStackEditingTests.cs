@@ -486,6 +486,100 @@ public class LayerStackEditingTests {
         Assert.StartsWith("Top", Texts(panel, "layer-stack-row-name")[0], StringComparison.Ordinal);
     }
 
+    /// <summary>⚠ A row whose id names two layers is listed and carries no controls.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/893">#893</a>'s panel half.</b>
+    ///         <c>LayerStackGraph.Duplicates</c> refuses the stack, and a refusal is a message beside
+    ///         a list of rows that are still drawn and still clicked — the panel builds its rows from
+    ///         the document rather than from a compilation. Against the code before this,
+    ///         <c>Buttons(panel, "layer-stack-move-up")[0].Activate()</c> moved the <em>other</em>
+    ///         layer, because <c>LayerStackEdit</c> resolves an id to the first match.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both rows are still there, which is half the assertion.</b> Refusing by dropping
+    ///         the row would leave an artist with a file whose shape they cannot see, and the shape
+    ///         is the thing they have to fix.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_row_whose_id_names_two_layers_is_listed_without_controls() {
+        using var fixture = new TexturingFixture();
+
+        Open(fixture, Shared());
+
+        var panel = Panel(fixture);
+
+        Assert.Equal(2, Texts(panel, "layer-stack-row-name").Count);
+
+        // Not one button, one tick, one slider or one selector between them: every control on this
+        // row is addressed by the id that names both layers.
+        Assert.Empty(All(panel, "layer-stack-move-up"));
+        Assert.Empty(All(panel, "layer-stack-move-down"));
+        Assert.Empty(All(panel, "layer-stack-enabled"));
+        Assert.Empty(All(panel, "layer-stack-opacity"));
+        Assert.Empty(All(panel, "layer-stack-blend"));
+        Assert.Empty(All(panel, "layer-stack-select"));
+
+        var refusals = Texts(panel, "layer-stack-row-refusal");
+
+        Assert.Equal(2, refusals.Count);
+        Assert.Contains("dup", refusals[0], StringComparison.Ordinal);
+        Assert.Equal(LayerStackView.Ambiguity("dup"), refusals[0]);
+    }
+
+    /// <summary>⚠ And the same panel over a stack with distinct ids is fully editable.</summary>
+    /// <remarks>
+    ///     <b>The half that makes the assertion above a finding rather than a description of a panel
+    ///     that draws no controls at all.</b> Every <c>Assert.Empty</c> above is satisfied by a build
+    ///     in which the rows were never populated, which is what a refusal written one line too high
+    ///     in <c>Build</c> would produce.
+    /// </remarks>
+    [Fact]
+    public void A_stack_with_distinct_ids_keeps_every_control() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Two());
+        var panel = Panel(fixture);
+
+        Assert.Equal(2, Buttons(panel, "layer-stack-move-up").Count);
+        Assert.Empty(Texts(panel, "layer-stack-row-refusal"));
+
+        Buttons(panel, "layer-stack-move-up")[1].Activate();
+
+        Assert.Equal(0.25f, TopColour(document));
+    }
+
+    /// <summary>⚠ The panel disarms exactly the ids the compiler refuses, and no others.</summary>
+    /// <remarks>
+    ///     <b>The two are one rule — <c>LayerStackEdit.Ambiguous</c> — and this is what says so.</b>
+    ///     A panel with its own copy of the rule can drift into either failure: offering to reorder a
+    ///     layer the compiler will not build, or disarming a row of a stack that compiles. The
+    ///     third layer here has an id of its own, so the set contains both answers at once.
+    /// </remarks>
+    [Fact]
+    public void The_disarmed_rows_are_the_ones_the_compiler_refuses() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Shared("solo"));
+        var panel = Panel(fixture);
+
+        var compilation = LayerStackCompiler.Compile(document.Document, document.Document.Sets[0]);
+
+        Assert.Null(compilation.Plan);
+
+        var refused = compilation.Problems
+            .Where(problem => problem.Message.Contains("share the id", StringComparison.Ordinal))
+            .Select(problem => problem.Layer)
+            .ToArray();
+
+        Assert.Equal(["dup"], refused);
+
+        // Three rows, one of which is the layer nothing shares an id with — and it is the only one
+        // with a `Move up` on it.
+        Assert.Equal(3, Texts(panel, "layer-stack-row-name").Count);
+        Assert.Equal(2, Texts(panel, "layer-stack-row-refusal").Count);
+        Assert.Single(Buttons(panel, "layer-stack-move-up"));
+    }
+
     /// <summary>⚠ An edit made in the panel is in the file after a save.</summary>
     /// <remarks>
     ///     <b>The sentence <a href="https://github.com/Rikarin/Vixen/issues/819">#819</a> was written
@@ -599,6 +693,20 @@ public class LayerStackEditingTests {
             Fill("bottom", "Bottom", 0.25f),
             Fill("top", "Top", 0.75f)
         );
+
+    /// <summary>Two layers carrying one id, and optionally a third that carries its own.</summary>
+    /// <param name="third">
+    ///     An id for a layer nothing shares one with, or empty for a stack that is entirely ambiguous.
+    /// </param>
+    static LayerStackAsset Shared(string third = "") {
+        List<LayerAsset> layers = [Fill("dup", "Lower", 0.25f), Fill("dup", "Upper", 0.75f)];
+
+        if (third.Length > 0) {
+            layers.Add(Fill(third, "Solo", 0.5f));
+        }
+
+        return Stack([new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }], [.. layers]);
+    }
 
     static LayerStackAsset Three() =>
         Stack(

@@ -313,11 +313,16 @@ static class LayerStackGraph {
         ///     first, and an artist reordering row four watches row two move.
         /// </remarks>
         void Duplicates() {
-            HashSet<string> ids = new(StringComparer.Ordinal);
+            // ⚠ The rule is `LayerStackEdit.Ambiguous` and not a walk of its own, because the panel
+            // asks the same question about the same set — #893. A refusal here that the rows did not
+            // agree with is a stack the compiler will not build whose layers the panel still offers
+            // to reorder, which is the defect rather than the message about it.
+            var ambiguous = LayerStackEdit.Ambiguous(set);
+            HashSet<string> reported = new(StringComparer.Ordinal);
 
             void Walk(List<LayerAsset> layers) {
                 foreach (var layer in layers) {
-                    if (!ids.Add(layer.Id)) {
+                    if (ambiguous.Contains(layer.Id) && reported.Add(layer.Id)) {
                         problems.Add(LayerStackProblem.Refusal(
                             layer.Id,
                             layer.Id.Length == 0
