@@ -221,6 +221,51 @@ public class AnimationTests {
         Assert.Equal("0.5", fixture.Read(animator.Apply(element, after, 0.5f), "opacity"));
     }
 
+    /// <summary>A <c>@keyframes</c> name is a custom ident, and its case is not the parser's to fold.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The guard on the keyword case fold, and the reason it was written at the intern
+    ///         call site rather than in <see cref="NameTable" />.</b> A "keyword" to
+    ///         <c>StyleValueParser</c> is any identifier it did not recognise, and CSS Values 4
+    ///         § 3.1's case-insensitivity is a rule about <i>keywords</i> only — a custom ident is
+    ///         matched exactly. Folding the table would have made <c>FadeIn</c> and <c>fadein</c> one
+    ///         animation, and folding it in <see cref="NameTable" /> would additionally have made
+    ///         VXML's <c>Button</c> component and the intrinsic <c>button</c> one selector.
+    ///     </para>
+    ///     <para>
+    ///         It holds because a name reaches the animator out of the <i>values</i> table as raw
+    ///         text — <c>animation-name</c>, <c>font-family</c> and a grid area name never touch the
+    ///         keyword intern at all.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_keyframes_name_keeps_the_case_the_author_wrote() {
+        var (animator, element, opacity) = Running("""
+            @keyframes FadeIn { from { opacity: 0 } to { opacity: 1 } }
+            .a { animation: FadeIn 2s linear }
+            """);
+
+        Assert.Equal(1, animator.AnimationCount);
+        Assert.True(animator.TryGetAnimated(element, opacity, 1f, out var half));
+        Assert.Equal(0.5f, half.Number, Tolerance);
+    }
+
+    /// <summary>And the same name in another case names nothing, which is what "not folded" means.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>AnimationCount</c> is the wrong instrument for this and says 1 either way</b>: it
+    ///     counts the names <c>animation-name</c> lists, not the ones that found a <c>@keyframes</c>
+    ///     rule. Asking for the animated value is what tells a resolved name from an unresolved one.
+    /// </remarks>
+    [Fact]
+    public void A_keyframes_name_in_another_case_matches_nothing() {
+        var (animator, element, opacity) = Running("""
+            @keyframes FadeIn { from { opacity: 0 } to { opacity: 1 } }
+            .a { animation: fadein 2s linear }
+            """);
+
+        Assert.False(animator.TryGetAnimated(element, opacity, 1f, out _));
+    }
+
     static (Animator Animator, StyleNodeId Element, int Opacity) Running(string css) {
         var fixture = Fixture(css);
         var element = fixture.Tree.CreateElement("div", classNames: ["a"]);

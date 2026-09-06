@@ -163,7 +163,61 @@ public sealed class StyleValueParser {
             return StyleValue.FromColor(Palette[system]);
         }
 
-        return StyleValue.FromKeyword(keywords.Intern(text.ToString()));
+        return StyleValue.FromKeyword(keywords.Intern(FoldAsciiCase(text)));
+    }
+
+    /// <summary>Lowercases an identifier's ASCII letters, so one keyword is one interned id.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Without this a keyword written in the wrong case was silently unrecognised, in
+    ///         every property, and the frame looked exactly like the declaration had not been
+    ///         written.</b> CSS Values 4 § 3.1 makes a keyword ASCII case-insensitive; the intern
+    ///         table is ordinal, so two spellings were two ids and a reader holding one of them
+    ///         refused the other. <c>box-shadow: 0 0 0 2px currentcolor</c> in a <c>.vcss</c> painted
+    ///         nothing while <c>ring-2</c> — the same keyword in the same position — painted, because
+    ///         ExCSS canonicalises the author's spelling to <c>currentColor</c> and a <c>var()</c>
+    ///         fallback, substituted after parsing, keeps whatever was written. Every fixture in the
+    ///         tree reached the keyword through the <c>var()</c>, so nothing could see it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Folding here rather than in <see cref="NameTable.Intern" /> is the whole
+    ///         decision.</b> The table handed here for keywords is <see cref="StyleEngine.Names" />,
+    ///         which also holds tag and class names — and VXML's rule is that <c>Button</c> is a
+    ///         component and <c>button</c> an intrinsic element, so folding the table would make one
+    ///         selector out of two. Folding the call site touches only identifiers that reached the
+    ///         end of <see cref="ParseOne" />, which is every keyword and no custom ident: an
+    ///         <c>animation-name</c>, a <c>font-family</c> and a grid area name are all read out of
+    ///         the <i>values</i> table as raw text and never arrive here at all.
+    ///     </para>
+    ///     <para>
+    ///         ASCII only, and not <c>ToLowerInvariant</c>, because CSS folds exactly the twenty-six.
+    ///         The common case — an identifier already lowercase — allocates the one string the
+    ///         intern needed anyway, and the result is cached by value id besides.
+    ///     </para>
+    /// </remarks>
+    static string FoldAsciiCase(ReadOnlySpan<char> text) {
+        var first = -1;
+        for (var i = 0; i < text.Length; i++) {
+            if (char.IsAsciiLetterUpper(text[i])) {
+                first = i;
+                break;
+            }
+        }
+
+        if (first < 0) {
+            return text.ToString();
+        }
+
+        var folded = new char[text.Length];
+        text.CopyTo(folded);
+
+        for (var i = first; i < folded.Length; i++) {
+            if (char.IsAsciiLetterUpper(folded[i])) {
+                folded[i] = (char)(folded[i] + 32);
+            }
+        }
+
+        return new(folded);
     }
 
     StyleValue ParseFunction(ReadOnlySpan<char> name, ReadOnlySpan<char> arguments) {

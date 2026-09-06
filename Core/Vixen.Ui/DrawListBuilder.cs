@@ -247,7 +247,6 @@ public sealed class DrawListBuilder {
     readonly int keywordDotted;
     readonly int boxShadow;
     readonly int currentColor;
-    readonly int currentColorSpelt;
     readonly int inset;
     readonly int rtl;
     readonly int forcedColorAdjust;
@@ -504,24 +503,15 @@ public sealed class DrawListBuilder {
         // does not recognise as a colour into the one it was handed for keywords, and the two tables
         // are separate — interning here from the wrong one gives an id that can never compare equal
         // and a `currentcolor` that silently refuses the declaration instead of resolving it.
+        // ⚠ <b>One spelling, and it is lowercase because <c>StyleValueParser</c> now folds an
+        // identifier's ASCII case at the intern rather than storing what the author wrote.</b> This
+        // file used to intern <c>currentColor</c> as well, because ExCSS canonicalises the author's
+        // <c>currentcolor</c> to that while parsing the sheet and the lowercase spelling only ever
+        // arrived through a `var()` fallback — so a hand-written `box-shadow: 0 0 0 2px currentcolor`
+        // refused the whole declaration and painted NOTHING while `ring-2` painted perfectly. The
+        // general fix took the case out of every keyword in every property, so a second id here would
+        // now be one nothing can produce.
         currentColor = keywords.Intern("currentcolor");
-
-        // ⚠ <b>And the same keyword spelt the way ExCSS hands it over, which is the only spelling a
-        // hand-written stylesheet can ever produce.</b> A CSS keyword is ASCII case-insensitive, and
-        // `StyleValueParser` interns the identifier's text verbatim — so the two spellings are two
-        // ids. ExCSS canonicalises the author's `currentcolor` to `currentColor` while parsing, and
-        // the lowercase one only ever arrives through a `var()` fallback, which is substituted after
-        // parsing and therefore keeps whatever `UtilityComposition` wrote. So
-        // `box-shadow: 0 0 0 2px currentcolor` written in a `.vcss` refused the whole declaration and
-        // painted NOTHING, while `ring-2` — the same keyword, arriving inside a `var()` — painted
-        // perfectly. Two spellings of one keyword hid it: every fixture in the tree reaches this
-        // through the composition.
-        //
-        // ⚠ This pins one keyword rather than folding every identifier's case at the intern, which is
-        // the general fix and is not this file's to make: a keyword there is any identifier the parser
-        // did not recognise, custom idents included, and lowercasing those changes what every other
-        // consumer compares. Filed separately.
-        currentColorSpelt = keywords.Intern("currentColor");
 
         // ⚠ The keywords table for `currentcolor`'s reason, and it is the same trap: `inset` is an
         // identifier `StyleValueParser` does not recognise as a colour, so it arrives interned there.
@@ -2258,8 +2248,7 @@ public sealed class DrawListBuilder {
                 // — resolves through this branch. Without it the fallback would have had to be some
                 // concrete colour nobody chose, or `transparent`, which would make `ring-2` cascade
                 // perfectly and paint nothing.
-                case StyleValueKind.Keyword when item.Keyword == currentColor
-                    || item.Keyword == currentColorSpelt:
+                case StyleValueKind.Keyword when item.Keyword == currentColor:
                     shade = document.ForegroundOf(element);
                     continue;
 
@@ -2999,12 +2988,9 @@ public sealed class DrawListBuilder {
                     shade = item.Color;
                     continue;
 
-                // Both spellings, for the reason the constructor gives — and here it is a prediction
-                // rather than a measurement: this text reaches the parser out of a function's
-                // arguments, which ExCSS may or may not canonicalise the way it does a plain value.
-                // Accepting the keyword either way costs a comparison and cannot be wrong.
-                case StyleValueKind.Keyword
-                    when (item.Keyword == currentColor || item.Keyword == currentColorSpelt) && shade is null:
+                // ⚠ One spelling, and it answers whatever ExCSS does to a function's arguments,
+                // because the parser folds an identifier's ASCII case before it interns it.
+                case StyleValueKind.Keyword when item.Keyword == currentColor && shade is null:
                     shade = document.ForegroundOf(element);
                     continue;
 

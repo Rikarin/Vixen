@@ -906,7 +906,9 @@ public class DrawListTests {
     [Theory]
     [InlineData("currentcolor")]
     [InlineData("currentColor")]
+    [InlineData("CURRENTCOLOR")]
     [InlineData("var(--nothing, currentcolor)")]
+    [InlineData("var(--nothing, CurrentColor)")]
     public void A_shadow_in_the_current_colour_paints_however_the_keyword_is_spelt(string colour) {
         using var document = Drawn(
             $$"""
