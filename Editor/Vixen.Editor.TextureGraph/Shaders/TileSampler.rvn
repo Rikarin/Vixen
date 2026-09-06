@@ -281,6 +281,21 @@ shader TileSampler {
     }
 
     /// How much of a texel one instance covers, from whichever channel carries it.
+    ///
+    /// ⚠ **Under `alphaCoverage == 0` the coverage is a *function of the colour* and not a second
+    /// number beside it** — [#950](https://github.com/Rikarin/Vixen/issues/950), and `Splatter.rvn`
+    /// carries the same decision for the same function. It is deliberate: a greyscale stamp has no
+    /// alpha to carry an edge in, so its brightness is the only thing an edge can be written in, and
+    /// the mask threshold, `max`'s running alpha and `blend`'s compositing all read it that way.
+    ///
+    /// The consequence is the one the supersample resolve in `Main` turns on. **With a declared alpha
+    /// the pair is straight** — a colour that means the same thing at every coverage — so a box
+    /// filter over it has to divide the coverage back out (`Σ(c·α) / Σα`), which is #888. **Without
+    /// one the pair is not independent**: the image is already an energy, a half-covered texel of a
+    /// grey stamp *is* a darker texel, and the plain box mean is the anti-aliased answer. Dividing by
+    /// a weight derived from the colour hands back the stamp's full brightness at every non-zero
+    /// coverage — a one-texel dilation with a hard bright rim, which is #888's own defect with the
+    /// sign flipped.
     func Coverage(texel: float4): float {
         if (alphaCoverage != 0) {
             return texel.w
@@ -479,13 +494,23 @@ shader TileSampler {
         // itself. `Σ(cᵢ·αᵢ) / Σαᵢ` for the colour and the plain mean for the coverage is what a
         // straight pair means, and at `samples == 1` it is the identity.
         //
+        // ⚠ **And only where the coverage is a channel of its own, which is what `alphaCoverage`
+        // says** — [#950](https://github.com/Rikarin/Vixen/issues/950). Under `alphaCoverage == 0`
+        // that `α` is `Coverage`'s luminance, so `weighted / sum.w` divides the colour by a function
+        // of itself and returns the stamp's full brightness at *every* non-zero coverage: a hard
+        // bright rim one texel wide, which is the defect above with the sign flipped. There the image
+        // is already an energy and the plain box mean is the anti-aliased answer — `Coverage`'s
+        // remarks carry the decision, because it is that function's model and not this filter's
+        // arithmetic. ⚠ The condition was `accumulation != 1` alone from #888 until #950, so the path
+        // every graph that leaves `Alpha Coverage` alone takes was the one with no test.
+        //
         // ⚠ **`add` keeps the unweighted mean and that is not an oversight.** Its running colour is a
         // *sum* of light and not a colour over a backdrop, so an empty sub-sample contributes a true
         // zero — and the closed form this whole node is read off, that the mean of an accumulated
         // field is `scale²` times the pattern's own mean whatever the grid, is a statement about that
         // unweighted mean. `Accumulate`'s three modes differ here for the reason they differ there:
         // only one of them composites.
-        if (accumulation != 1 && sum.w > 0.000001f) {
+        if (accumulation != 1 && alphaCoverage != 0 && sum.w > 0.000001f) {
             val resolved = weighted / sum.w
 
             target.Store(coord, float4(resolved.x, resolved.y, resolved.z, mean.w))

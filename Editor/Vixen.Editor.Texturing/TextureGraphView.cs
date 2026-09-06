@@ -47,6 +47,24 @@ sealed class TextureGraphView {
     readonly UiElement title;
     readonly UiElement trail;
 
+    /// <summary>Whether the preview has been framed against a box that had a size.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="ImageView.Fit" /> answers false rather than throwing when there is nothing
+    ///     to fit</b> — the frame before the first layout, a collapsed dock, a hidden tab. So the
+    ///     first fit is one that has to be *retried* until it takes, and a view that framed once and
+    ///     never again would show a graph at a zoom of nothing.
+    /// </remarks>
+    bool fitted;
+
+    /// <summary>The document the preview was last framed for.</summary>
+    TextureGraphDocument? framed;
+
+    /// <summary>Its height in texels when that framing was computed.</summary>
+    int framedHeight;
+
+    /// <summary>Its width in texels when that framing was computed.</summary>
+    int framedWidth;
+
     /// <summary>Builds the view into a host element.</summary>
     /// <param name="host">Where it goes. A <c>DockPanel</c>, or anything inside one.</param>
     /// <exception cref="ArgumentNullException"><paramref name="host" /> is null.</exception>
@@ -154,8 +172,17 @@ sealed class TextureGraphView {
     ///     <para>
     ///         ⚠ <b>It fires on every change to the model, including a node being dragged to a new
     ///         position.</b> That is a compile and a dispatch for a move that cannot change a texel,
-    ///         and it is the layers panel's cost profile unchanged — the alternative is a pane that
-    ///         is right about some edits and stale about others, which is worse than slow.
+    ///         and the alternative is a pane that is right about some edits and stale about others,
+    ///         which is worse than slow.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What that cost was <em>not</em> is the layers panel's, and the remark here said it
+    ///         was</b> — <a href="https://github.com/Rikarin/Vixen/issues/957">#957</a>.
+    ///         <c>GraphChanged</c> is raised from <c>NodeGraphView.OnGraphChanged</c> <em>after</em>
+    ///         that method has already reprojected the canvas, so the refresh this triggers used to
+    ///         project a second time and refit the preview — a rebuilt canvas and a discarded zoom on
+    ///         every wire dragged. <see cref="Show" /> now assigns the registry only when the node
+    ///         types changed and frames the preview only when its subject does.
     ///     </para>
     /// </remarks>
     public Action? Edited { get; set; }
@@ -283,14 +310,30 @@ sealed class TextureGraphView {
             }
         }
 
-        Canvas.Registry = document.Registry;
-
+        // ⚠ **Assigned only when the types actually changed, because the setter projects
+        // unconditionally** — [#957](https://github.com/Rikarin/Vixen/issues/957). `Show` runs on
+        // every edit, and an edit has already been projected by the time it gets here:
+        // `NodeGraphView.OnGraphChanged` projects and *then* raises `GraphChanged`, which is what
+        // `Edited` is wired to. `Canvas.Graph`'s setter guards on reference equality and this one
+        // does not, so the second projection an author paid for on every wire they dragged was this
+        // line and not that one. `TextureGraphDocument.Saving` already says as much about the other
+        // end of the same wire — "replacing `Registry` on it would reproject the canvas for nothing".
+        //
         // ⚠ What the *canvas* does with a published node type, which is the half of #803 the
         // document's own wire left dark: `NodeGraphView` uses this only to tell a sub-graph node
         // from an ordinary one, so that double-clicking one raises `SubGraphOpened` with the graph
         // it stands for. Without it a compound is a node that looks atomic and cannot be looked
-        // inside, on a canvas whose registry offers it.
+        // inside, on a canvas whose registry offers it. It is an ordinary property and projects
+        // nothing, so a republish that changed only this — `Adopt` replaces both together, so today
+        // there is none — still has to go through the registry to be drawn.
+        var republishedTypes = !ReferenceEquals(Canvas.Registry, document.Registry)
+            || !ReferenceEquals(Canvas.SubGraphSource, document.SubGraphs);
+
         Canvas.SubGraphSource = document.SubGraphs;
+
+        if (republishedTypes) {
+            Canvas.Registry = document.Registry;
+        }
 
         // ⚠ A republish builds a whole new library, so every graph the trail is holding belongs to
         // the old one. An author who was looking inside a compound while it was saved elsewhere
@@ -320,7 +363,26 @@ sealed class TextureGraphView {
         Preview.Image = picture?.Image?.Image ?? 0;
         Preview.ImageWidth = document.BaseWidth;
         Preview.ImageHeight = document.BaseHeight;
-        Preview.Fit();
+
+        // ⚠ **Framed when the subject changes and not on every refresh** —
+        // [#957](https://github.com/Rikarin/Vixen/issues/957). `Fit` overwrites `Zoom` and `Pan`
+        // outright, and this method runs on every wire an author drags, so fitting here
+        // unconditionally threw away the corner they had zoomed into — every time the picture they
+        // were inspecting was recomputed, which is exactly when they were looking at it. A new
+        // document or a new extent is a different picture and is framed; the same graph recompiled is
+        // the same picture and is left where the author put it.
+        if (fitted && ReferenceEquals(framed, document) && framedWidth == document.BaseWidth
+            && framedHeight == document.BaseHeight) {
+            return;
+        }
+
+        framed = document;
+        framedWidth = document.BaseWidth;
+        framedHeight = document.BaseHeight;
+
+        // ⚠ The answer and not a call: false means there was no box to fit against, and the next
+        // refresh has to try again rather than leave the author at whatever zoom nothing set.
+        fitted = Preview.Fit();
     }
 
     /// <summary>What the status line under the preview says.</summary>

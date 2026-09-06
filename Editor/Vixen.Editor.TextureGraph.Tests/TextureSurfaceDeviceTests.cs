@@ -83,6 +83,52 @@ public class TextureSurfaceDeviceTests(ITestOutputHelper output) {
         return pixels;
     }
 
+    /// <summary>A normal map whose green channel ramps by four a texel down the image, red flat.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="RedRamp" /> turned ninety degrees, and it takes a width and a height</b>
+    ///     rather than a side: the curvature kernel scales the two axes by two different extents, and
+    ///     a square image is the one shape on which that is unobservable — #947.
+    /// </remarks>
+    static byte[] GreenRamp(int width, int height) {
+        var pixels = new byte[width * height * 4];
+
+        for (var y = 0; y < height; y++) {
+            for (var x = 0; x < width; x++) {
+                var at = ((y * width) + x) * 4;
+
+                pixels[at] = 128;
+                pixels[at + 1] = (byte)(y * 4);
+                pixels[at + 2] = 255;
+                pixels[at + 3] = 255;
+            }
+        }
+
+        return pixels;
+    }
+
+    /// <summary>A normal map whose red rises three steps a texel away from the middle column.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Three a texel and not four, so the far column stays inside eight bits</b>: at a side
+    ///     of 64 the apex is 32 texels from the edge, and four a texel would wrap the byte there and
+    ///     put a second, invented kink in the field.
+    /// </remarks>
+    static byte[] Kink(int side) {
+        var pixels = new byte[side * side * 4];
+
+        for (var y = 0; y < side; y++) {
+            for (var x = 0; x < side; x++) {
+                var at = ((y * side) + x) * 4;
+
+                pixels[at] = (byte)(128 + (3 * Math.Abs(x - (side / 2))));
+                pixels[at + 1] = 128;
+                pixels[at + 2] = 255;
+                pixels[at + 3] = 255;
+            }
+        }
+
+        return pixels;
+    }
+
     /// <summary>A normal map whose red channel ramps by four a texel and whose green is flat.</summary>
     static byte[] RedRamp(int side) {
         var pixels = new byte[side * side * 4];
@@ -351,6 +397,109 @@ public class TextureSurfaceDeviceTests(ITestOutputHelper output) {
         }
     }
 
+    /// <summary>
+    ///     ⚠ The green half of the divergence is read, and it is scaled by the image's <em>height</em>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What the two oracles above cannot see</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/947">#947</a>. A flat field has no
+    ///         divergence in either axis, and <see cref="RedRamp" />'s green is constant, so a kernel
+    ///         that dropped <c>(below.y − above.y)</c> altogether passes both of them. This is the
+    ///         same closed form turned ninety degrees: green rising by four eight-bit steps a texel
+    ///         down the image is a divergence of <c>8 × height / 255</c>, which at the default
+    ///         intensity puts the answer the same distance off the half as the red ramp does.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the image is deliberately not square, which is the half that pins the
+    ///         pairing.</b> <c>Main</c> scales the x difference by <c>size.x</c> and the y difference
+    ///         by <c>size.y</c> — "per unit UV" — and on a square image those are the same number, so
+    ///         a kernel that multiplied both by the width would be indistinguishable. At 64 × 32 the
+    ///         two answers are 40 apart: 159 for the height and 191 for the width, which is the number
+    ///         the red ramp above produces and therefore the one a swap would look right as.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Curvature_reads_green_down_the_image_and_scales_it_by_the_height() {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
+        const int Width = 64;
+        const int Height = 32;
+
+        var picture = Sized(device, GreenRamp(Width, Height), Width, Height, TextureSurfaces.Curvature(1, 0));
+
+        for (var y = 2; y < Height - 2; y++) {
+            var value = TextureKernelHarness.At(picture, 17, y, 0);
+
+            Assert.True(
+                value is >= 157 and <= 162,
+                $"green rising four a texel down a {Width} × {Height} image came out {value} at (17, {y}). "
+                + "159 is the divergence scaled by the height; 128 is the y difference dropped, and 191 is it "
+                + $"scaled by the width ({TextureKernelHarness.Adapter(device)})"
+            );
+        }
+    }
+
+    /// <summary>
+    ///     ⚠ Doubling the radius across a symmetric kink halves the curvature, exactly — which is what
+    ///     makes the radius a radius.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The one thing a linear ramp cannot calibrate</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/947">#947</a>, whose leading example is
+    ///         a radius read as a diameter. A central difference over a straight line is
+    ///         <em>exactly</em> radius-invariant: <c>(f(x+r) − f(x−r)) / 2r</c> is the slope for every
+    ///         <c>r</c>, so <see cref="Curvature_of_a_linear_normal_ramp_is_constant_and_off_the_half" />
+    ///         pins the scale and says nothing whatever about the reach. A field with a kink in it is
+    ///         the smallest thing that can.
+    ///     </para>
+    ///     <para>
+    ///         <b>The closed form.</b> Red is <c>128 + 3·|x − 32|</c>, so column 33 sits one texel
+    ///         right of the apex. At radius 1 both taps are on the right arm and the answer is that
+    ///         arm's own slope — 175. At radius 2 the left tap crosses onto the other arm, whose rise
+    ///         is symmetric, so the difference over twice the span is the same six eight-bit steps and
+    ///         the divergence is exactly half — 151. ⚠ The halving is the assertion that survives a
+    ///         change to <c>intensity</c>, and it is the one that cannot be met by reading the
+    ///         neighbourhood at any single wrong radius: a reach of 2 where 1 was asked for makes the
+    ///         first number the second.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Doubling_the_curvature_radius_across_a_kink_halves_the_answer() {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
+        var near = OneOp(device, Kink(Side), TextureSurfaces.Curvature(1, 0));
+        var far = OneOp(device, Kink(Side), TextureSurfaces.Curvature(1, 0, radius: 2f));
+
+        var tight = TextureKernelHarness.At(near, 33, 32, 0);
+        var wide = TextureKernelHarness.At(far, 33, 32, 0);
+
+        output.WriteLine($"radius 1: {tight}; radius 2: {wide}");
+
+        Assert.True(
+            tight is >= 173 and <= 178,
+            $"a radius of one across a kink of three steps a texel came out {tight} and the arm's own slope "
+            + $"is 175 ({TextureKernelHarness.Adapter(device)})"
+        );
+
+        Assert.True(
+            wide is >= 149 and <= 154,
+            $"a radius of two came out {wide}, and 151 is the same rise over twice the span. {tight} would be "
+            + $"a radius that never widened ({TextureKernelHarness.Adapter(device)})"
+        );
+
+        Assert.True(
+            Math.Abs(tight - 128 - (2 * (wide - 128))) <= 3,
+            $"{tight} and {wide} are not two and one of the same divergence, so the reach is not what divides "
+            + $"it ({TextureKernelHarness.Adapter(device)})"
+        );
+    }
+
     // --- Ambient Occlusion ----------------------------------------------------------------------
 
     /// <summary>A plane occludes nothing, which is one everywhere.</summary>
@@ -416,6 +565,36 @@ public class TextureSurfaceDeviceTests(ITestOutputHelper output) {
             var plan = new TexturePlan {
                 BaseWidth = Side,
                 BaseHeight = Side,
+                Images = [new(TextureFormat.Rgba8, External: true), new(TextureFormat.Rgba8)],
+                Ops = [op],
+                Outputs = [1]
+            };
+
+            Assert.Empty(plan.Validate());
+
+            using var evaluator = new TexturePlanEvaluator(device);
+            using var bake = evaluator.Evaluate(plan, new Dictionary<int, TextureHandle> { [0] = texture });
+
+            return bake.Read(1);
+        } finally {
+            device.Destroy(staging);
+            device.Destroy(texture);
+        }
+    }
+
+    /// <summary>Runs one op over an uploaded image of a stated shape, and reads the answer back.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="OneOp" /> with the square taken out</b>, and it exists for one assertion:
+    ///     a kernel that scales two axes by two extents is only testable where the two differ — #947.
+    ///     Everything else in this file is 64², and should stay so.
+    /// </remarks>
+    static Bitmap Sized(VulkanDevice device, byte[] source, int width, int height, TextureOp op) {
+        var (texture, staging) = TextureKernelHarness.Upload(device, source, width, height);
+
+        try {
+            var plan = new TexturePlan {
+                BaseWidth = width,
+                BaseHeight = height,
                 Images = [new(TextureFormat.Rgba8, External: true), new(TextureFormat.Rgba8)],
                 Ops = [op],
                 Outputs = [1]
